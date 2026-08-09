@@ -41,11 +41,15 @@ enum Harness {
         ]
         let configuration = SceneLayerParallax.Configuration(
             enabled: true, amount: 0.1, mouseInfluence: 0.5,
-            orthoSize: SIMD2(1000, 500)
+            orthoSize: SIMD2(1000, 500), cameraPosition: SIMD2(500, 250)
         )
         let disabled = SceneLayerParallax.Configuration(
             enabled: false, amount: 1, mouseInfluence: 1,
-            orthoSize: SIMD2(1000, 500)
+            orthoSize: SIMD2(1000, 500), cameraPosition: SIMD2(500, 250)
+        )
+        let shiftedCamera = SceneLayerParallax.Configuration(
+            enabled: true, amount: 0.1, mouseInfluence: 0,
+            orthoSize: SIMD2(1000, 500), cameraPosition: SIMD2(520, 240)
         )
         let center = SIMD2<Float>(500, 250)
         let depth = SceneLayerParallax.Resolution(sourceLayerID: 99, depth: SIMD2(2, 3))
@@ -87,6 +91,10 @@ enum Harness {
             "position": vector(SceneLayerParallax.offset(
                 resolution: depth, configuration: configuration,
                 layerPosition: center + SIMD2(100, -50), mouseNormalized: .zero
+            )),
+            "cameraPosition": vector(SceneLayerParallax.offset(
+                resolution: depth, configuration: shiftedCamera,
+                layerPosition: center, mouseNormalized: .zero
             )),
             "smoothFirst": vector(smoothFirst),
             "smoothSecond": vector(smoothSecond),
@@ -146,6 +154,7 @@ class SceneLayerParallaxTests(unittest.TestCase):
         self.assertEqual(self.result["axes"], [-50, 37.5])
         self.assertEqual(self.result["xOnly"], [-50, 0])
         self.assertEqual(self.result["position"], [20, -15])
+        self.assertEqual(self.result["cameraPosition"], [-4, 3])
 
     def test_pointer_delay_smoothing(self) -> None:
         self.assertEqual(self.result["smoothFirst"], [0.25, -0.25])

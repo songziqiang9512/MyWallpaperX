@@ -60,6 +60,7 @@
 |---|---:|---|---|
 | `wallpaper32.exe` | 4,303,856 | `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07` | 实际历史运行记录涉及的 32 位 Scene 主程序 |
 | `wallpaper64.exe` | 5,360,112 | `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0` | 64 位 Scene 主程序 |
+| `bin/wallpaperui.exe` | 12,742,640 | `dab38bfc017dd5fd4947a09706d23f27833870d1bbb87485677a3e67d1d55791` | Editor作者范围与Scene options描述器 |
 | `bin/scenescript32.dll` | 22,725,104 | `6995b2f4e83580cfbc8fcc2a9d39c7bee8129b43ea43d8480c63240020398a22` | 32 位 SceneScript module |
 | `bin/scenescript64.dll` | 28,730,352 | `58039ef912fcd51cd833540476e3798268158a06f63003fe94bff1b1cbeaad08` | 64 位 SceneScript module |
 | `bin/resourceutil64.dll` | 1,322,480 | `153cb1e273984b5c7a77b10d62089d50fcde3e187787d839918b59a81c8bfc24` | 通用图像资源工具 |
@@ -363,6 +364,18 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 只保留以下高层结论：两个 component 名称进入同一 particle component dispatcher；各自锚点后都存在对 `input` 的直接引用；两者进入同一套 14-value typed parser；该表首项为 `setcolor`，未知值走独立 sentinel。结合公开页的 snapshot/continuous 行为、stock event-death/event-follow 双预览均省略 `input`、资料库 editor string table 的 14 个 mode 与 revision 4154/4175，足以支持项目建立共用 typed declaration，并把 `setcolor` 作为第一批有界 channel；不足以把任何其他 mode 推入执行。
 
 本次没有恢复或摘录省略 `input` 的官方默认、枚举数值、event 同帧顺序、parent state 生命周期、色彩空间、每帧复制时机、其他 channel 的转换公式或任何可移植 runtime 算法，也没有证明 32 位路径、Windows 数值或像素等价。原始地址、伪代码、函数体、脚本和日志均未入库。项目 `b9e60059` 把省略 `input` 视作 `setcolor` 是 stock omission 与上述高层结构共同约束下的 project-owned bounded inference，不是已确认的官方默认；显式小写 `setcolor` 与省略形态之外全部 fail closed。
+
+### 5.12 Camera Shake evaluator 与 camera composition
+
+2026-08-09 在先读现役Camera/Frame专项表、editor strings、SceneScript声明、合法Workshop/stock corpus与Mirage固定revision后，公开资料仍不足以决定Camera Shake的幅度基准、projection selector、状态模型和parallax顺序。本次只对上表哈希匹配的2.8.42 `wallpaper64.exe`及同包`wallpaperui.exe`做Ghidra 12.1.2 bounded clean-room复核；以下只记录可由项目自有门验证的高层行为，不保存地址、伪代码、函数体或反编译表达式。
+
+- Scene侧作者默认是disabled，speed/amplitude/roughness为`3 / .5 / 1`；editor描述器范围分别为speed`0...5`、amplitude`0...1`、roughness`0...2`。这些是authoring范围，player路径没有证明同点runtime clamp。
+- evaluator直接读取共享scene/world absolute time，不持RNG、seed或逐帧积分状态；同一时间得到同一位移。基础周期在起始时X为正峰、Y/Z为0，roughness只作径向长度整形；roughness 0走保护分支并保留基础向量，不等于关闭。
+- evaluator把同一个位移加到working eye和working center，因此保持视线方向，不改rotation、roll、zoom或FOV。base/default/active/path camera先产生eye/center/up，随后才叠shake。
+- 分支由Scene `general.orthogonalprojection`形成的全局mode位选择，不读取particle/layer flags。orthographic先清零Z、以XY做roughness整形，再乘`amplitude × authored projection height × .01`；true perspective保留XYZ并使用独立scale。正交Scene中即使particle `flags=4`选择下游perspective VP，也不会再求第二套XYZ shake。随包orthographic Scene + flags4 Snow preset只作状态分层互证，不承担shake动态证明。
+- shake写回working eye/center后，parallax算术明确读取刚写回的eye XY并与pointer平滑项组合；shared view同样只由这一shake后working camera构建，不回读base camera。Mirage固定revision在这里读取base camera并采用不同scale/suppression策略，不能作为官方真值。
+
+该证据不足以证明player对越界脚本值的处理、官方pause/seek事件、其他版本/backend、Windows同相位数值/像素或真正perspective Scene在MyWallpaperX已实现。项目只据此建立独立2D orthographic bounded evaluator；实现等级与运行门见[E-CAMERA-SHAKE](runtime-evidence-index.md#e-camera-shake)。临时Ghidra工程没有进入仓库，复核后已精确清理且当前不可恢复。
 
 ## 6. SceneScript 的 module/engine/owner 机制
 

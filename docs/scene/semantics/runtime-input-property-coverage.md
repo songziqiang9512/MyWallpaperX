@@ -2,7 +2,7 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-08-03
+> 最近核对：2026-08-09
 >
 > 本页的 Timeline 与各 bounded consumer 历史基线保留在对应证据包；R3 provider/atomic material program 的现役状态见 [E-MATERIAL-PROGRAM](runtime-evidence-index.md#e-material-program)，精确全局当前状态见 [总覆盖台账](coverage-ledger.md)。
 >
@@ -36,7 +36,7 @@ HostFrameInputs(time, properties, audio, media)
 |---|---|---|---|
 | 宿主单一 frame driver | `L3` | [`SceneDesktopWallpaperHost.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift)、[`test_scene_frame_context.py`](../../../script/tests/test_scene_frame_context.py)、[E-FRAME](runtime-evidence-index.md#e-frame) | 固定 60 Hz Timer；补屏幕刷新率/目标 FPS |
 | 同帧 host/scene/wall time | `L3` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[E-FRAME](runtime-evidence-index.md#e-frame)；同帧发布 raw/simulation/dropped delta 与 discontinuity，pause 冻结 scene time，resume 首帧丢弃 host gap | 真实系统 pause/sleep、seek/history 与跨 consumer discontinuity 合同 |
-| shader/video/particle/parallax 共用 timing | `L3` | [`SceneMetalView.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift)、[E-FRAME](runtime-evidence-index.md#e-frame)；particle/parallax 消费受控 simulation delta，shader/video 保持 raw/absolute time | 其他 simulation consumer、不同 FPS、离线 adapter 与 Windows timing golden |
+| shader/video/particle/parallax/camera shake 共用 timing | `L3` | [`SceneMetalView.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift)、[E-FRAME](runtime-evidence-index.md#e-frame)；particle/parallax smoother消费受控simulation delta，shader/video保持raw/absolute time，Camera Shake直接消费absolute `sceneTime`且同一frame只构造一个camera frame | 其他simulation consumer、不同FPS、离线adapter、官方pause/seek事件策略与Windows timing golden |
 | typed value 六类 | `L2` | `bool/scalar/vector2/vector3/vector4/string`；[`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift) | texture/provider 不属于普通值；新增类型仍需 wire/type/finite 门 |
 | typed target 族 | `L2` | scene/camera/layer/effect/text/particle/script instance 已定义；layer alpha/color、exact stock Local Contrast strength/Opacity alpha、bounded Blend multiply 与 particle CP position/angles 进入 compiler | particle 仅 absolute CP position 有 consumer；其他 effect target 不得直接开放 live，SceneScript 计算值与 direct binding 分开准入 |
 | 固定 source priority | `L3` | authored -> property -> Timeline -> SceneScript；property、受限 Timeline、bounded text Date 与 time-of-day Blend producer 已执行，后者都复用 `.sceneScript` source | generic SceneScript、同 target 多脚本和事件 mutation 尚未接入 |
@@ -64,7 +64,7 @@ B0 live-property 子阶段已从空 snapshot 脚手架合龙到真实 producer/c
 | parallax amount/delay | `L3` | smoother 与 layer transform 消费；[E-PARALLAX](runtime-evidence-index.md#e-parallax) | WE 数值/时序标定 |
 | parallax mouse influence | `L2` | 字段已进入 offset；当前还叠加 layer-to-camera 静态项，`0` 不保证所有 2D layer 完全不动 | 先锁定 `0` 关闭鼠标驱动的官方反例，再校准非零幅度 |
 | per-layer parallax depth / propagation | `L3` | 非零 depth、parent propagation 和阻断；[E-PARALLAX](runtime-evidence-index.md#e-parallax) | effect-local/3D 坐标 golden |
-| camera shake | `L1` | binding 名称可分类，renderer 不消费 | 独立 shake 状态和作者启用门 |
+| camera shake | `L3 bounded` | Scene general作者开关、默认值与amplitude/roughness/speed静态准入进入唯一camera-frame evaluator；当前2D orthographic renderer、particle/pointer/parallax消费同一shake-adjusted camera，User Property经rebuild生效；[E-CAMERA-SHAKE](runtime-evidence-index.md#e-camera-shake) | 真正perspective Scene XYZ、3D camera、live/SceneScript写入、官方pause/seek策略、Windows同相位golden与整景视觉 |
 | bounded 2D camera path origin/zoom | `L3 bounded` | 单一 default path 的 reciprocal Combined `origin` owner + `zoom` child 共用 owner clock，原子进入 image/particle/pointer projection；zoom 只准 `0.01...100`，作者 Bézier control-value convex hull 也必须保持 origin/zoom/near/far 预算 | 多 path selection/lifecycle、generic setter、3D camera 与 Windows golden |
 | 3D camera / perspective runtime control | `L0` | 2D bounded path 不外推 3D Eye/Center/Up/FOV | 3D path identity、queue/lifecycle、typed projection 与运行门 |
 | environment/gravity/wind | `L0` | Scene general 无对应 IR | 与 particle/puppet/3D solver 共用输入 |
@@ -105,6 +105,21 @@ Depth Parallax 是独立 image effect，依赖 depth map，并且官方要求先
 | `depthparallax` declaration identity | `L1` | 通用 effect definition 可保留 file/pass/resource，未形成专用 IR | depth map、可选 mask、depth/perspective/center/quality typed contract |
 | global Camera Parallax dependency | `L1` | Camera 开关和普通 layer depth 可执行，但未与该 effect 建依赖诊断 | global-off、layer-depth-nonzero 和缺 depth map 均 fail closed |
 | depth-map effect runtime | `L0` | 无专用 executor 或 effect-local pointer projection | 基础/24-layer/64-layer profile、X/Y zero、center/perspective 和 author-off pixel gates |
+
+<a id="op-camera-shake"></a>
+### 3.4 Scene Camera Shake 官方客户端合同
+
+Scene Camera Shake 是Scene级全局相机行为，不是对象effect `Shake`。Wallpaper Engine 2.8.42的哈希匹配客户端静态证据给出以下可测试合同；项目只实现其中可证明的2D orthographic子域：
+
+- 作者默认关闭；缺省amplitude/roughness/speed分别为`0.5 / 1 / 3`。同版本editor作者范围为amplitude `0...1`、roughness `0...2`、speed `0...5`；项目用它们做静态准入，不声称player会运行时clamp。
+- evaluator由absolute scene time决定，没有RNG、seed或逐帧积分状态；同一时间输入必须得到同一结果。项目pause通过冻结共享`SceneClock`自然冻结结果，这不等于已经证明官方pause/seek事件政策。
+- amplitude 0是identity；speed 0停在起始相位而不是关闭；roughness 0保留基础周期向量，roughness 1保持基础轨迹，roughness只重塑径向长度。起始相位为X正峰、Y为0，X/Y采用不同固定频率。
+- evaluator给camera eye和center加同一个位移，因此不产生rotation、roll、zoom或FOV变化。base/default/path camera与shake先形成唯一working camera；parallax只读取它的XY并与pointer组合，shared view也只由该shake后状态构建，不得回读pre-shake camera。
+- orthographic Scene先丢弃Z、只对XY做roughness整形，最后以作者`orthogonalprojection.height`缩放；不能改用drawable或canvas最小边。真正perspective Scene使用XYZ分支且不会因某个explicit camera禁用，但该分支当前项目尚未准入。
+- 分支选择来自Scene全局投影类型，不来自particle `flags=4`。因此正交Scene中的perspective particle仍与普通层共享同一个height-scaled XY shake，只在下游选择perspective VP。
+- 当前property wrapper只通过整场rebuild重新解析；没有live snapshot consumer，也没有SceneScript scene-property bridge。
+
+项目正负数值门覆盖author-off、amplitude/speed/roughness的0/1/2边界、absolute-time往返、projection-height缩放、无效投影/范围失败关闭、base/path + shake + parallax顺序，以及正交层和下游perspective particle共用同一camera origin。正式运行见[E-CAMERA-SHAKE](runtime-evidence-index.md#e-camera-shake)。
 
 ## 4. Timeline
 
@@ -268,7 +283,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | text content/point size/color | 267 | direct binding 编译为 typed text target；有效可见层经 per-layer generation 无重建更新，hidden/no-consumer 整 key 重建；[E-DYNAMIC-TEXT](runtime-evidence-index.md#e-dynamic-text) | `L3` | SceneScript/system/media producer与 Windows layout golden |
 | camera binding family | 5 | 字段名可识别；整族没有统一 executor | `L1` | typed compiler 分出可执行与 unsupported |
 | camera parallax actionable subset | 3 | 当前白名单经重建生效；[E-PROPERTY](runtime-evidence-index.md#e-property) | `L3` | live camera target 和无重建门 |
-| camera shake subset | 2 | 可识别但 renderer 不消费 | `L1` | shake state/evaluator 和 author-off |
+| camera shake subset | 2 | 旧target-census中的binding已由2D orthographic bounded consumer执行；四个字段只在有效正交projection时可操作，修改触发rebuild且没有fake live consumer；[E-CAMERA-SHAKE](runtime-evidence-index.md#e-camera-shake) | `L3 bounded` | 重新按同口径统计binding；真正perspective/3D、live/SceneScript与Windows golden |
 | effect visibility family | 129 | target path 可识别；原 20 条白名单加 2 条 exact stock Local Contrast visibility target 可操作 | `L1` | authored effect ID 和完整 compiler |
 | effect visibility actionable subset | 22 | 20 条旧白名单经重建生效；`2902406982` layers `167/177` 的 Local Contrast visibility 始终保留在面板，关闭后仍可重开；[E-PROPERTY](runtime-evidence-index.md#e-property) | `L3` | topology invalidation 和完整条件门 |
 | shader constant family | 122 | UserPropertyBindings census 保留 target path/value；v22 继承 Local Contrast/Opacity strict target | `L1` | typed uniform/pass identity 和完整 compiler |

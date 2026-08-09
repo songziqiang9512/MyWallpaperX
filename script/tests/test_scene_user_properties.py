@@ -57,7 +57,10 @@ enum Harness {
         """#
         let sceneJSON = #"""
         {
-          "general":{"cameraparallax":{"user":"enabled","value":false}},
+          "general":{
+            "cameraparallax":{"user":"enabled","value":false},
+            "camerashake":{"user":"enabled","value":false}
+          },
           "objects":[{
             "id":10,
             "visible":{"user":"enabled","value":false},
@@ -137,6 +140,7 @@ enum Harness {
             "resolvedBindingCount": resolution.resolvedBindingCount,
             "diagnostics": diagnostics,
             "cameraParallax": wrapperValue(resolution.root["general"], key: "cameraparallax"),
+            "cameraShake": wrapperValue(resolution.root["general"], key: "camerashake"),
             "layerVisible": wrapperValue(object, key: "visible"),
             "puppetAnimationVisible": wrapperValue(animationLayer, key: "visible"),
             "text": wrapperValue(object, key: "text"),
@@ -343,13 +347,14 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertEqual(result["officialTextureRuntimeType"], "texture")
         self.assertEqual(result["sceneTextureRuntimeType"], "scenetexture")
         self.assertTrue(result["unknownOverrideIgnored"])
-        self.assertEqual(result["bindingCount"], 14)
+        self.assertEqual(result["bindingCount"], 15)
         self.assertEqual(result["conditionalBindingCount"], 2)
         self.assertEqual(result["unsupportedBindingCount"], 3)
-        self.assertEqual(result["resolvedBindingCount"], 12)
+        self.assertEqual(result["resolvedBindingCount"], 13)
         self.assertEqual(result["particleBindingCount"], 2)
         self.assertEqual(result["puppetAnimationBindingCount"], 1)
         self.assertEqual(result["cameraParallax"], True)
+        self.assertEqual(result["cameraShake"], True)
         self.assertEqual(result["layerVisible"], True)
         self.assertEqual(result["puppetAnimationVisible"], True)
         self.assertEqual(result["text"], "Hello")

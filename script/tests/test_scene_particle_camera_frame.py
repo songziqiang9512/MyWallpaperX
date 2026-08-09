@@ -142,6 +142,11 @@ enum Harness {
             camera: invalidCamera,
             viewportSize: .zero
         )
+        let nonfiniteOriginFrame = SceneParticleCameraFrame(
+            camera: camera,
+            viewportSize: viewport,
+            cameraOrigin: SIMD3(.nan, 4, 5)
+        )
 
         let result: [String: Any] = [
             "coverHalfExtents": vector2(frame.coverHalfExtents),
@@ -151,9 +156,14 @@ enum Harness {
             "dynamicCenterNDC": ndc(
                 dynamicFrame.orthographicViewProjection, dynamicCenter
             ),
+            "dynamicPerspectiveCenterNDC": ndc(
+                dynamicFrame.perspectiveViewProjection, dynamicCenter
+            ),
             "dynamicEdgeNDC": ndc(
                 dynamicFrame.orthographicViewProjection, dynamicEdge
             ),
+            "dynamicCameraOrigin": vector3(dynamicFrame.cameraOrigin),
+            "nonfiniteCameraOrigin": vector3(nonfiniteOriginFrame.cameraOrigin),
             "perspectiveCenterNDC": ndc(frame.perspectiveViewProjection, center),
             "perspectiveEdgeNDC": ndc(frame.perspectiveViewProjection, edge),
             "selectedOrtho": frame.viewProjection(usesPerspective: false)
@@ -309,8 +319,12 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
         )
         for component in self.result["dynamicCenterNDC"][:2]:
             self.assertAlmostEqual(component, 0, places=5)
+        for component in self.result["dynamicPerspectiveCenterNDC"][:2]:
+            self.assertAlmostEqual(component, 0, places=5)
         self.assertAlmostEqual(self.result["dynamicEdgeNDC"][0], 1, places=5)
         self.assertAlmostEqual(self.result["dynamicEdgeNDC"][1], -1, places=5)
+        self.assertEqual(self.result["dynamicCameraOrigin"], [-100, 682, 500])
+        self.assertEqual(self.result["nonfiniteCameraOrigin"], [0, 0, 0])
 
     def test_camera_axes_match_we_global_particle_camera(self) -> None:
         self.assertEqual(self.result["cameraRight"], [1, 0, 0])

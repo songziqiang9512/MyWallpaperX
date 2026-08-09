@@ -1,6 +1,6 @@
 # Scene 资料来源与证据索引
 
-> 核验日期：2026-08-08
+> 核验日期：2026-08-09
 >
 > 网络核验使用系统代理 `http://127.0.0.1:7897`。
 >
@@ -72,7 +72,7 @@ Scene 能力研究按以下顺序取证：先读现役专项表、总覆盖台�
 
 2026-08-09 modern Procedural Noise按既定优先级先核对现役语料，再对官方2.8.42客户端做范围明确的clean-room Ghidra复核，最后只用Mirage作独立交叉验证。官方`wallpaper64.exe` SHA-256为`40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0`（build 23967692；Ghidra 12.1.2）：directive metadata交给JsonCpp reader，允许comments/trailing comma但不允许arbitrary bare identifier key；解析失败时只跳过该metadata record并继续shader。`2906937488` fragment中两条真实坏record都是flat `options`标签缺opening quote但保留closing quote（`{Color":...}` / `{Noise":...}`），并都由同素材vertex的合法严格JSON combo声明覆盖；它们不是隐含Unicode/不可见字节差异，也不是官方支持的裸key语法。故项目不得把非JSON key扩成新语法，也不得因该重复坏record一票否决完整shader。官方运行链为hybrid authored source → custom directive preprocessor → WE HLSL translator → 动态解析`D3DCompile`的SM4/5 frontend；未发现以`range/int` metadata对uniform loop做clamp/unroll的路径，相关metadata在公开Variables合同中是editor字段。合法语料的`u_fractals` loop因此应保持runtime control flow；项目安全准入只可用实际resolved producer证明并限制工作预算，不得改写作者值。Mirage固定revision同样以HLSL frontend编译WE source且未见该loop特判，仅支持上述架构方向，不是官方真值，也未复制GPL实现。program-scope `const`、conditional alpha和compound `mix`的项目有界转换由合法active source及项目正反门界定，不证明官方translator内部优先级、任意metadata容错、任意dynamic loop或Windows数值/像素等价。
 
-### 1.3 Parallax
+### 1.3 Camera 与 Parallax
 
 - Camera Parallax：https://docs.wallpaperengine.io/en/scene/parallax/introduction.html
 - Oversized Image：https://docs.wallpaperengine.io/en/scene/parallax/oversized.html
@@ -80,6 +80,8 @@ Scene 能力研究按以下顺序取证：先读现役专项表、总覆盖台�
 - Depth Parallax effect 页面：https://docs.wallpaperengine.io/en/scene/effects/effect/depthparallax.html
 
 已确认官方合同：scene 显式启用 Camera Parallax；逐层 depth 可按轴限制或以 0 关闭；Depth Parallax 是另一个依赖 depth map 的 effect。
+
+2026-08-09 Scene Camera Shake继续按“文档库 → 必要时Ghidra → 参考实现”的顺序闭合。官方`lib.sceneScript-v2.8.d.ts`与editor strings只证明作者面为enable/speed/amplitude/roughness，公开Designer页不提供完整数学、私有JSON、运行时clamp或camera composition顺序；因此对哈希匹配的`wallpaper64.exe`（5,360,112 bytes，SHA-256`40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0`）和`bin/wallpaperui.exe`（12,742,640 bytes，SHA-256`dab38bfc017dd5fd4947a09706d23f27833870d1bbb87485677a3e67d1d55791`）做Ghidra 12.1.2 bounded clean-room复核。只保留可测试高层合同：作者默认与editor范围、absolute-time确定性且无RNG/积分、eye/center同位移、Scene全局projection选择orthographic/perspective分支、orthographic以作者projection height缩放，以及base/path与shake先形成唯一working camera、parallax读取其XY且shared view也由该状态构建的数据依赖。Mirage固定revision在min-dimension scale、perspective suppression与parallax读取上和官方2.8.42冲突，只能交叉支持“shake属于shared camera frame”的架构方向，不能提供数值真值。没有保存地址、伪代码、函数体或反编译表达式，也没有复制官方/GPL算法；正式维护见[客户端运行时静态取证 §5.12](client-runtime-static-forensics.md#512-camera-shake-evaluator-与-camera-composition)，项目现状见[E-CAMERA-SHAKE](runtime-evidence-index.md#e-camera-shake)。
 
 ### 1.4 Shader
 
@@ -255,6 +257,7 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 - **3D LUT TEX**：历史 2.8.42 审计已记录 LUT header 相对普通 2D TEX 多一个 depth 字段；现役 stock corpus 的 28 个 `assets/materials/lut/*.tex` 进一步共同约束为 format 0、32×32×32、单 mip embedded vertical PNG atlas，`ccsimple.frag` 声明 `sampler3D`。这些现有资料已足够支持 `fdf36e6b` 的有界 reader/uploader，本批没有启动 Ghidra；它们仍不足以定义 LUT sampling、颜色空间、material binding 或 Windows pixel truth。
 - **Shader 与兼容记录**：[Shader source 前置合同](shader-prelude-and-backend-abstraction.md) 记录 source token、format branch 与 uniform census；[zcompat 取证](zcompat-backward-compatibility-forensics.md) 记录 patch record schema。未闭合的注入者、矩阵/NDC/Metal 映射、匹配方向和运行时机继续保持 unknown。
 - **编辑器与版本线索**：[客户端 changelog 取证](client-changelog-forensics.md) 记录内嵌 REV 3943-4401 的版本事实；[编辑器字符串表取证](editor-string-table-forensics.md) 记录 Scene wire 字段对应的官方名称和说明。
+- **Camera Shake**：[官方客户端运行机制静态取证 §5.12](client-runtime-static-forensics.md#512-camera-shake-evaluator-与-camera-composition) 记录2.8.42 bounded evaluator、projection selector与camera composition高层合同；静态证据不升级项目能力，现役实现/运行边界只看[E-CAMERA-SHAKE](runtime-evidence-index.md#e-camera-shake)。
 
 `.codex` 中 2026-07-30 的草稿已经由上述正式文档取代，不是长期维护入口。原始 Ghidra project、地址、伪代码、函数体、字节、一次性脚本与日志不进入仓库。
 

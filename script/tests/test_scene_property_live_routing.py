@@ -139,6 +139,30 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
             self.assertIn(field, consumers)
         self.assertIn(".particle(layerID: layer.id, field: $0)", consumers)
 
+    def test_camera_shake_properties_require_supported_scene_projection(self) -> None:
+        support = method_body(self.service, "private func supportsScenePropertyTarget(")
+        for field in (
+            "camerashake",
+            "camerashakeamplitude",
+            "camerashakeroughness",
+            "camerashakespeed",
+        ):
+            self.assertIn(f'"{field}"', support)
+        camera_case = support[
+            support.index("case let .camera(field):") : support.index(
+                "case let .effectVisibility"
+            )
+        ]
+        self.assertIn("let orthoWidth = renderDescriptor.camera.orthoWidth", camera_case)
+        self.assertIn("let orthoHeight = renderDescriptor.camera.orthoHeight", camera_case)
+        self.assertIn("orthoWidth.isFinite", camera_case)
+        self.assertIn("orthoHeight.isFinite", camera_case)
+        self.assertIn("orthoWidth > 0", camera_case)
+        self.assertIn("orthoHeight > 0", camera_case)
+        self.assertIn("return false", camera_case)
+        consumers = method_body(self.live_consumers, "static func activeLiveConsumerTargets(")
+        self.assertNotIn("cameraShake", consumers)
+
     def test_puppet_animation_visibility_is_live_only_for_bound_layers(self) -> None:
         support = method_body(self.service, "private func supportsScenePropertyTarget(")
         self.assertIn(

@@ -6,6 +6,13 @@ struct SceneRenderDescriptor: Codable {
     // ortho dimensions define the view volume (centered on the camera in
     // view space). clearColor is the scene background (0..1 RGB).
     struct CameraDescriptor: Codable {
+        struct ShakeDescriptor: Codable {
+            let enabled: Bool?
+            let amplitude: Float?
+            let roughness: Float?
+            let speed: Float?
+        }
+
         let eye: [Float]
         let center: [Float]
         let up: [Float]
@@ -19,6 +26,7 @@ struct SceneRenderDescriptor: Codable {
         let parallaxAmount: Float
         let parallaxDelay: Float
         let parallaxMouseInfluence: Float
+        let shake: ShakeDescriptor
     }
 
     let entryPath: String
@@ -279,7 +287,13 @@ struct SceneRenderDescriptorBuilder {
             parallaxEnabled: gen.cameraParallaxEnabled,
             parallaxAmount: gen.cameraParallaxAmount,
             parallaxDelay: gen.cameraParallaxDelay,
-            parallaxMouseInfluence: gen.cameraParallaxMouseInfluence
+            parallaxMouseInfluence: gen.cameraParallaxMouseInfluence,
+            shake: .init(
+                enabled: gen.cameraShake.enabled,
+                amplitude: gen.cameraShake.amplitude,
+                roughness: gen.cameraShake.roughness,
+                speed: gen.cameraShake.speed
+            )
         )
     }
 

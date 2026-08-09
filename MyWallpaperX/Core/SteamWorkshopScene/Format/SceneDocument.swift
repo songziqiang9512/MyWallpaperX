@@ -8,20 +8,6 @@ struct SceneDocument {
         let up: [Float]       // [x, y, z], default [0, 1, 0]
     }
 
-    // general.* — only fields we currently consume.
-    struct GeneralDescriptor: Codable {
-        let orthoWidth: Float?     // general.orthogonalprojection.width
-        let orthoHeight: Float?    // general.orthogonalprojection.height
-        let clearColor: [Float]?   // [r, g, b] in 0..1, from general.clearcolor
-        let clearEnabled: Bool
-        let nearZ: Float?
-        let farZ: Float?
-        let cameraParallaxEnabled: Bool
-        let cameraParallaxAmount: Float
-        let cameraParallaxDelay: Float
-        let cameraParallaxMouseInfluence: Float
-    }
-
     struct SceneEffect: Identifiable {
         struct Pass: Identifiable {
             let id: Int?
@@ -143,29 +129,6 @@ struct SceneDocumentLoader {
         return SceneDocument.CameraDescriptor(eye: eye, center: center, up: up)
     }
 
-    nonisolated private static func parseGeneral(_ root: [String: Any]?) -> SceneDocument.GeneralDescriptor {
-        let ortho = root?["orthogonalprojection"] as? [String: Any]
-        let width = ortho?["width"].flatMap { Self.floatValue($0) }
-        let height = ortho?["height"].flatMap { Self.floatValue($0) }
-        let clearColor = floatVector(root?["clearcolor"])
-        let clearEnabled = (root?["clearenabled"] as? Bool) ?? true
-        let nearZ = root?["nearz"].flatMap { Self.floatValue($0) }
-        let farZ = root?["farz"].flatMap { Self.floatValue($0) }
-        let cameraParallaxEnabled = visibleValue(root?["cameraparallax"]) ?? false
-        return SceneDocument.GeneralDescriptor(
-            orthoWidth: width,
-            orthoHeight: height,
-            clearColor: clearColor,
-            clearEnabled: clearEnabled,
-            nearZ: nearZ,
-            farZ: farZ,
-            cameraParallaxEnabled: cameraParallaxEnabled,
-            cameraParallaxAmount: root?["cameraparallaxamount"].flatMap(Self.floatValue) ?? 0,
-            cameraParallaxDelay: root?["cameraparallaxdelay"].flatMap(Self.floatValue) ?? 0,
-            cameraParallaxMouseInfluence: root?["cameraparallaxmouseinfluence"].flatMap(Self.floatValue) ?? 0
-        )
-    }
-
     nonisolated private static func parseObject(_ root: [String: Any]) -> SceneDocument.SceneObject? {
         guard let id = root["id"] as? Int else { return nil }
         let effects = root["effects"] as? [[String: Any]] ?? []
@@ -247,7 +210,7 @@ struct SceneDocumentLoader {
         )
     }
 
-    nonisolated private static func visibleValue(_ value: Any?) -> Bool? {
+    nonisolated static func visibleValue(_ value: Any?) -> Bool? {
         if let bool = value as? Bool {
             return bool
         }

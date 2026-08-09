@@ -10,6 +10,7 @@ struct SceneParticleCameraFrame: Sendable {
     let cameraRight: SIMD3<Float>
     let cameraUp: SIMD3<Float>
     let cameraForward: SIMD3<Float>
+    let cameraOrigin: SIMD3<Float>
 
     init(
         camera: SceneRenderDescriptor.CameraDescriptor,
@@ -17,10 +18,13 @@ struct SceneParticleCameraFrame: Sendable {
         cameraOrigin: SIMD3<Float> = .zero,
         cameraZoom: Float = 1
     ) {
+        let safeOrigin = cameraOrigin.x.isFinite && cameraOrigin.y.isFinite
+            && cameraOrigin.z.isFinite ? cameraOrigin : .zero
+        self.cameraOrigin = safeOrigin
         orthographicViewProjection = SceneCameraProjection.viewProjection(
             camera: camera,
             viewportSize: viewportSize,
-            cameraOrigin: cameraOrigin,
+            cameraOrigin: safeOrigin,
             cameraZoom: cameraZoom
         )
 
@@ -46,8 +50,6 @@ struct SceneParticleCameraFrame: Sendable {
             zoom: cameraZoom
         )
 
-        let safeOrigin = cameraOrigin.x.isFinite && cameraOrigin.y.isFinite
-            && cameraOrigin.z.isFinite ? cameraOrigin : .zero
         let sceneCenter = SIMD3<Float>(
             orthoWidth * 0.5 + safeOrigin.x,
             orthoHeight * 0.5 + safeOrigin.y,

@@ -328,9 +328,9 @@ Mirage 解析 point/spot/directional light、颜色、radius、intensity、cone�
 - 鼠标按配置 delay 平滑，delay 为 0 时显式避免 NaN；
 - layer 的两轴 parallax depth 可从父节点传播，遇到 disable-propagation 截断；
 - effect-local source 不重复施加 parallax，避免 source 和 final 两次位移；
-- shake 作用于 active camera VP，幅度按 canvas 最小边归一；显式 perspective camera object 可禁用 global shake。
+- Mirage固定revision的shake作用于active camera VP，自身按canvas最小边缩放，并允许显式perspective camera object抑制global shake；这是该参考项目的策略，不是Wallpaper Engine合同。
 
-这些是结构参照，不是官方 shake noise 数学。Mirage 的 shake 函数属于项目自有实现，不能搬入 MyWallpaperX 当作兼容公式。
+官方2.8.42哈希匹配客户端的bounded静态复核与上述两点冲突：orthographic shake以作者projection height为尺度，true perspective使用XYZ displacement，且explicit perspective camera不会关闭全局shake；官方parallax还读取shake后的working camera XY。Mirage只能支持“shake进入shared camera frame”的架构方向，不能用于MyWallpaperX的幅度、维度、projection admission或parallax顺序。其shake函数属于参考项目自有实现，不能搬入MyWallpaperX当作兼容公式。
 
 ## 10. 鼠标输入、SceneScript 事件和 hit-test
 
@@ -458,6 +458,7 @@ Scene 逻辑 canvas 与 drawable 物理像素因此天然分离，不能从 `NSS
 | 中 | `castvolumetrics` 有 schema/light state，未见闭合 volumetric RT graph | 体积光可能缺失 | 静态路径未闭合 |
 | 中 | present 无显式颜色管理/tone map | gamma、广色域、HDR display 可能不一致 | 源码静态确认 |
 | 中 | particle emitter sort 固定 false；dynamic `sortLayer` no-op | 透明粒子或脚本调层顺序可能错误 | 源码静态确认 |
+| 高 | shake按canvas最小边缩放并可被显式perspective camera抑制，与官方2.8.42的projection-height/XYZ及全局enable行为冲突 | 2D振幅随纵横比错误，perspective shake缺失；parallax相对位移也可能不同 | Mirage源码静态确认 + 哈希匹配官方客户端bounded Ghidra交叉 |
 | 低/待证 | TextureKey hash 未计入 minFilter | cache 碰撞或特定实现下错误复用 | 静态确认 hash 字段；后果需检查容器 equality |
 | 低/待证 | reflection 固定 Y=0 平面 | 任意平面反射不支持 | 源码静态确认 |
 | 低/待证 | 单 uniform buffer 承载多 reflected blocks | 多 UBO shader 绑定不完整 | 源码告警明确 |

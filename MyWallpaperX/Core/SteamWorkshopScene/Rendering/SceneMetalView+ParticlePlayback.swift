@@ -8,13 +8,15 @@ extension SceneMetalView {
     func advanceParticles(
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
-        frameContext: SceneFrameContext
+        frameContext: SceneFrameContext,
+        cameraFrame: SceneParticleCameraFrame
     ) -> [SceneParticleDrawBatch] {
         particlePlayback?.advance(
             by: timing.simulationFrameTime,
             dynamicValues: dynamicValues,
             pointerLocalPositions: renderer.particlePointerLocalPositions(
-                frameContext: frameContext
+                frameContext: frameContext,
+                cameraFrame: cameraFrame
             ),
             audioSpectrum: frameContext.audioSpectrum
         ) ?? []

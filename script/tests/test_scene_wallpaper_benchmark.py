@@ -1068,6 +1068,14 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         camera = benchmark.CAMERA_RE.search(
             "camera: projection=cover parallax=false amount=8e-2 delay=0.25 mouseInfluence=-1.0"
         )
+        camera_shake = benchmark.CAMERA_SHAKE_RE.search(
+            "camera shake: status=executable enabled=true amplitude=2.3e-1 "
+            "roughness=1.0 speed=1.25"
+        )
+        invalid_camera_shake = benchmark.CAMERA_SHAKE_RE.search(
+            "camera shake: status=invalid enabled=invalid amplitude=invalid "
+            "roughness=invalid speed=invalid"
+        )
         self.assertEqual(ready.group("images"), "24")
         self.assertEqual(float(ready.group("startup_elapsed_ms")), 1825.25)
         self.assertEqual(
@@ -1094,6 +1102,13 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(float(camera.group("amount")), 0.08)
         self.assertEqual(float(camera.group("delay")), 0.25)
         self.assertEqual(float(camera.group("influence")), -1.0)
+        self.assertEqual(camera_shake.group("status"), "executable")
+        self.assertEqual(camera_shake.group("enabled"), "true")
+        self.assertEqual(float(camera_shake.group("amplitude")), 0.23)
+        self.assertEqual(float(camera_shake.group("roughness")), 1.0)
+        self.assertEqual(float(camera_shake.group("speed")), 1.25)
+        self.assertEqual(invalid_camera_shake.group("status"), "invalid")
+        self.assertEqual(invalid_camera_shake.group("amplitude"), "invalid")
 
     def test_performance_metrics_parse_v7_evidence_and_normalize_surfaces(self) -> None:
         log = (

@@ -2,7 +2,7 @@
 
 > 建立日期：2026-08-03
 >
-> 文档状态：现役执行计划；2026-08-09 已闭合九段 authored Program、Light Shafts 当前正例、stock standalone Blend与三个Simple Audio Bars Program正例，R4 仍未完成。
+> 文档状态：现役执行计划；2026-08-09 已闭合九段 authored Program、Light Shafts 当前正例、bounded orthographic Scene Camera Shake、stock standalone Blend与三个Simple Audio Bars Program正例，R4 仍未完成。
 >
 > 事实边界：本文记录问题假设、迁移顺序、验收门和进度，不是当前能力等级或运行基线的权威入口。能力事实仍以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md)、专项覆盖表和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 为准。
 >
@@ -11,7 +11,7 @@
 ## 0. 快速接手
 
 - **能力与运行事实**：继续从 [`semantics/README.md`](semantics/README.md) 进入专项表，并以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md) 和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 的 R4 partial checkpoint 为准；本文只记录重构路线、剩余迁移和复验门。
-- **Git 断点**：分支 `codex/scene-capability-baseline`；恢复时先核对`git status`、最近提交和本页最末checkpoint。现役提交链已越过统一材质pass方向回归、Tint/Film Grain、authored Program九段链与Light Shafts当前正例；不得从旧`2b2b03df`或历史计划重开已完成波次。
+- **Git 断点**：分支 `codex/scene-capability-baseline`；恢复时先核对`git status`、最近提交和本页最末checkpoint。现役提交链已越过统一材质pass方向回归、Tint/Film Grain、authored Program九段链与Light Shafts当前正例；同批后续又闭合bounded orthographic Scene Camera Shake。不得从旧`2b2b03df`或历史计划重开已完成波次。
 - **架构判断**：新代码已朝“样本声明需求 -> typed capability -> 公共调度/资源 -> 公共执行/合成”收敛，capability 现在直接来自 raw authored graph admission，审计的新链没有按 sample/workshop/path/hash 选择可见算法；effect classification 只在资源加载后投影为 telemetry family，new capability 不再以它作为 admission authority。旧 extent、多个产品 owner 和 legacy route 仍可达，所以产品整体尚未形成唯一能力池，也不能表述为已与官方架构对齐。
 - **阶段边界**：当前停在 R4，不进入 R5。逐帧 CPU 热点、owner matrix/lifecycle、独立 authored-shader 产品 owner 撤权、统一材质 pass 方向回归、Program-compatible Tint/Film Grain、九段authored Program、Light Shafts当前正例、stock standalone Blend，以及Simple Audio Bars ordinary 64-band、无child/dependency composition默认32-band与relocated 16-band + zero-distortion Fisheye正例的owner migration已闭合；三个旧Simple专用profile已有Program正证据后，其专用planner/profile/pipeline/renderer产品owner也已删除。增强版Audio Bars与其他dedicated/legacy/utility/audio owner仍可达；后续从本页最末checkpoint与第9节继续按capability family撤权。可疑语义依次查现役文档、Ghidra官方客户端、参考实现并按需要交叉验证。
 
@@ -548,6 +548,14 @@ sample declaration
 - 真实`3766387484:80#effect#81`只显式写`DIRECTDRAW=1, RENDERING=1`，`RAYMODE`取default0，所以是Linear/Gradient而非旧文档所写Radial/Color。最终源码v48仍让它与layer17九段链同由`resolved-material-graph / program`执行：报告**1/1 PASS**，layers`[17,80]`取得20个terminal success / 20个成功transaction、GPU/compositor/next-frame与零graph diagnostic，executor为`170/170/170/0`，三相截图非黑，before→hover changed ratio`0.503683`。但`BLENDMODE 31`在该direct-draw零base分支与旧值0代数等价；截图中的宽幅暖橙/蓝白光带和整幅运动分布仍不正确，不能把本批写成光效或完整样本视觉修复。头发显得整块移动可能只是其他人物区域、双眼、Water/Shimmer/Depth/Twirl和光线缺失后的相对现象，后续验收必须按作者完整运动系统进行。
 - frontend **41/41**、Program finalizer **8/8**、derivation/pass **1/1、1/1**、capability **6/6**、graph publication **2/2**、color contract **15/15**、preprocessor **3/3**、variant environment **1/1**、Template **5/5**、preparation census **3/3**、code health **856 Swift / 44 locked legacy / 400行**与签名build verify通过。本批不改正式矩阵、不跑fixed13/full45；其他Light Shafts revision/combo/topology、logical target/multi-pass/history/compose、完整画面动态及剩余旧owner仍未闭合，R4-3/R4未完成，R5未准入。
 
+#### 2026-08-09 Scene Camera Shake bounded camera-frame checkpoint
+
+- `3766387484` 的 `general` 明确开启 Camera Shake，但旧解析链只保留 Camera Parallax，四个 shake 字段在 `SceneDocument` 就被丢弃；因此此前即使九段Program与Light Shafts transaction全绿，整个Scene仍缺少作者定义的全场相机运动。该断点解释的是全画面共同运动缺失，不是“头发专项”或任一局部effect的替代修复。
+- 按资料优先级，对哈希匹配的官方2.8.42 `wallpaper64.exe`和同包`wallpaperui.exe`做bounded clean-room Ghidra复核，确认author defaults/editor ranges、absolute scene-time确定性求值、eye/center同位移、orthographic authored-height尺度、真正perspective Scene的独立XYZ分支，以及base/path camera先与shake形成唯一working camera、parallax只读其XY且shared view也由同一状态构建的数据依赖。Mirage固定revision只支持“shake属于共享camera frame”的架构交叉；其min-dimension幅度和perspective suppression与官方证据冲突，未被照搬。仓库没有复制反编译表达、官方payload或GPL实现。
+- 公共链现从`general` typed parse进入descriptor与有界admission，每个surface/frame只生成一个shake-adjusted camera frame，并把同一camera交给scene renderer、particle投影、pointer反投影和parallax。当前只准入有有限正数authored projection width/height的orthographic Scene；真正perspective Scene、畸形/越界参数继续失败关闭。particle `flags=4`只选择下游perspective VP，不会另算一套shake；属性修改当前通过rebuild重新解析，不冒充live target或SceneScript setter。
+- author-on v49 `.codex/scene-camera-shake-3766387484-20260809-v49-positive/report.json`为**1/1 PASS**，报告SHA-256 `c8319a9be8f3a7ef8d9990b253f1f4d117ca29b2ea45c6def9224c572940d9d4`；property override关闭的v50 `.codex/scene-camera-shake-3766387484-20260809-v50-disabled-control/report.json`同为**1/1 PASS**，SHA-256 `ed5812c2ca7db1e9b59c24fee2dd60f88399df9b7b3b4c96815f770f476f49cb`。两次均有20个Program transaction、GPU/compositor/next-frame、零graph diagnostic与非黑截图；这些计数只证明其余chain健康，不是shake调用计数。全图与四象限高梯度配准中，author-on ready→after一致约为`(-4,+1)`像素，而author-off四区均为`(0,0)`，证明新增贡献是全场共同相机平移而非头发mask。
+- Camera Shake、particle camera、parallax、property routing、frame-context、解析与benchmark定向门全部通过；code health为**859 Swift / 44 locked legacy / 400行**，签名build verify为`BUILD SUCCEEDED`。本批未跑fixed13/full45。真正perspective Scene、Windows同相位数值/像素、官方pause/seek策略与`3766387484`其余人物区域、双眼、Water Flow/Shimmer/Depth/Twirl、叶片/粒子、Light Shafts相对幅度和合成仍未闭合；Camera Shake不撤销旧effect owner，也不完成R4或准入R5。
+
 #### 2026-08-09 R4-2 stock standalone Blend Program owner migration
 
 - 先对现役文档和`2067939514`真实graph做只读census：45样本共有40个Blend subject、36个visible subject，至少包含dynamic visibility、media thumbnail、非零blend mode与多段chain等互不等价形态；本批只选择独立layer`342`的exact stock单pass形态。它使用`BLENDMODE=0`、`multiply=1`、slot 1 authored asset与`custombackground` property override，effect visibility静态true；生产准入不读取sample/layer/effect/path/hash。
@@ -594,14 +602,14 @@ sample declaration
 - 现役资料先解释了真实阻塞：Workshop `2193274282/hue_shift`作者source使用`vec4/vec3`混合的built-in `mix`，官方语料本身可运行；Mirage固定revision只作其HLSL frontend会处理WE隐式转换的独立交叉验证。资料已足够约束项目的有界规则，本批没有启动Ghidra，也没有复制参考实现。frontend只对built-in `mix/lerp`的独立浮点向量参数按共同最小宽度缩窄，user-defined/复合/歧义形态继续失败关闭；preprocessor后零引用的非sampler uniform不再进入ABI，实际引用与sampler不放宽。color analyzer只开放保持原alpha的root RGB mix。
 - v1至v4依次保留color contract、finalizer、精确`g_ModelViewProjectionMatrixInverse` dead-uniform与Metal `float4/float3 mix`失败现场。v5首次证明作者Program可以GPU执行；随后删除Audio Hue专用planner、plan、renderer/backend及只服务旧路径的dispatch/mock。probe/compiler/runtime backend `31→30`，hardcoded expected SHA `237→233`，numeric Workshop selector `57→50`；Scene Swift `584→582`、LOC `103404→103271`。
 - 删除后`.codex/scene-audio-hue-program-r4-2-3767460992-20260809-v6/report.json`为**1/1 PASS**：Audio Hue layers 17/20/79/945均为`strict-generic / resolved-material / program`且Program hash一致；resolved `[17,20,79,945,994]`，claimed/encoded/GPU `30/30/30`、failure 0，48个terminal/成功transaction覆盖GPU/compositor/next-frame，graph diagnostic与failed frame为0。报告/临时matrix SHA-256 `e4b4a66923e54ec8a0eb17abbfadff0b9b3f55d9b7c527c3e8bd27e82528a333` / `876d7d28905855e6f959824b618a2861dfb6da899e5d09c43cf225a144b0e376`。frontend **34/34**、expanded focused产品门通过、census **3/3**、code health **856 Swift / 44 locked legacy / 400行**与签名build verify通过；未跑fixed13/full45。
-- 视觉验收明确不通过整景门：ready/after非黑且色相/相位变化明显，但中央仍是`X`占位资源、背景全局强扭曲，眼睛、局部发丝与光照特效都没有达到官方预期。下一项必须按作者顺序继续定位Spin/Procedural Noise/Shake与资源/光效链，不得把本项的Program执行证据写成样本完成。R4-2/R4仍未完成，R5未准入。
+- 视觉验收明确不通过整景门：ready/after非黑且色相/相位变化明显，但中央仍是`X`占位资源、背景全局强扭曲，人物各区域、双眼与光照特效都没有达到作者完整系统的预期。当时后续仍需按作者顺序定位Spin、Procedural Noise、Scene Camera Shake与资源/光效链；其中bounded Scene Camera Shake现已在独立checkpoint闭合，但不能追溯证明本项或其他局部effect正确。R4-2/R4仍未完成，R5未准入。
 
 #### 2026-08-09 R4-2 Spin authored Program与专用owner撤权
 
 - 资料顺序先命中现役官方stock资产：`spin/effect.json`、material、vertex/fragment source已完整描述当前样本的单pass framebuffer输入、作者vertex坐标、`g_Time`、texture resolution、参数和combo。旧planner仅按四组SHA接受`ELLIPTICAL=1 / NOISE=0 / REPEAT=1 / MASK=0`，旧Metal pipeline是固定近似；统一Program已经能完整编译并执行同一作者source，因此没有新增Ghidra或参考实现取证。
 - 第一轮在旧owner仍存在时，layers 17/20/79/945的Spin均转为`admitted-generic / resolved-material / program`，executor claimed/encoded/GPU `50/50/50`、failure 0，48个成功transaction且无graph diagnostic；正式full45旧owner/count/SHA断言如预期不匹配，报告保留作迁移前正证据。随后删除`SceneAuthoredSpinPlanner`、execution plan、`SceneSpinPipeline`、renderer extension、compiler/backend/chain/repository/reporting接线及两个专用测试，unknown Spin只能完整形成Program或失败关闭。probe/compiler/runtime backend `30→29`，hardcoded expected SHA `233→229`，Scene Swift `582→578`、LOC `103271→102664`。
 - 删除后`.codex/scene-spin-program-r4-2-3767460992-20260809-v6-owner-retired/report.json`为**1/1 PASS**：四个Spin和四个Audio Hue stage均保持Program，resolved `[17,20,79,945,994]`，claimed/encoded/GPU `30/30/30`、failure/deferred 0，48个terminal/成功transaction覆盖五层GPU/compositor/next-frame，graph diagnostic/failed outcome/GPU failure为0。报告/临时matrix SHA-256 `3ff94beeb3a69b261b44e26925425f553a0984b1a3ace8a91dd5d245215a07f2` / `0643feb07667a5373f64e4cf9ec14d7d79900fdce7832ee15c7183de6a7007a7`；签名App executable SHA-256 `6e2582eb74663d39c35bc2f7557cc300c215b2d1a723595947b6e25c4d2afc4d`、CDHash `fa6b10ed9bd1cf6d65e610d2d264acdf3dda7b04`、Team `H9QWU9XN8R`，签名前后verified。focused 73用例、code health **852 Swift / 44 locked legacy / 400行**及签名build verify通过；正式matrix未改，未跑fixed13/full45。
-- 视觉仍不通过整景门：ready/after非黑、changed ratio `0.86204`，但角色结构仍被整幅液化，中央是`X`占位资源，眼睛、局部发丝与光照效果仍不正确。Spin owner迁移只排除了“旧Spin近似未被替代”这一项；下一能力按作者顺序检查Procedural Noise，再核对Shake与资源/光效链。R4-2/R4未完成，R5未准入。
+- 视觉仍不通过整景门：ready/after非黑、changed ratio `0.86204`，但角色结构仍被整幅液化，中央是`X`占位资源，人物各区域、双眼、粒子与光照效果仍不正确。Spin owner迁移只排除了“旧Spin近似未被替代”这一项；后续Procedural Noise与bounded Scene Camera Shake已有独立能力证据，但整幅作者系统仍须按Water Flow/Shimmer/Depth/Twirl、叶片/粒子、Light Shafts及相对幅度/合成逐项验收。R4-2/R4仍未完成，R5未准入。
 
 每个波次均以“公共 capability 接管、被替代 owner 同提交撤权、旧 exact/route 双写为零、跨样本或跨 revision 正反例通过”闭合。只增加新 executor 而保留旧默认 fallback 不算迁移。
 
@@ -640,6 +648,7 @@ sample declaration
 23. **R4-2 relocated 16-band Audio Bars Program链正例迁移已闭合，family/R4-2未完成**：`3299228616:151`作者Program现执行stereo上下条与additive/intersect输出，随后在统一链内顺序执行zero-distortion Fisheye；v3 GPU/compositor/next-frame与上下双向局部画面门闭合。非零Fisheye和未知combo/topology继续fail closed；正式matrix未改、未跑fixed13/full45。
 24. **R4-2 Simple Audio Bars专用owner撤权已完成，R4-2未完成**：三个旧专用profile的Program正证据齐备后，Simple专用planner/profile/pipeline/renderer与旧链测试已删除；三样本删除后门3/3通过且旧Simple执行计数为0。增强版Audio Bars和其他音频/dedicated/legacy/utility owner不在本项范围，不能由此进入R5。
 25. **R4 mixed-chain resolved-prefix安全门已闭合**：dedicated-first mixed chain曾产生GPU/transaction全绿但画面全黑，现以公共`mixed-chain-resolved-prefix-required`在claim前拒绝；增强版Audio Bars恢复为独立dedicated leaf，Simple owner仍保持删除。修复后`3767460992`彩色旋涡与动态恢复，失败现场保留。
-26. **R4-2 Workshop Audio Hue专用owner撤权已完成，R4-2未完成**：有界`mix/lerp`分量转换、active-uniform ABI与alpha-preserving RGB mix使四层作者Program实际进入GPU；旧planner/plan/renderer/backend删除。截图仍有中央`X`、全局液化及眼睛/局部头发/光效错误，不冒充整景完成。
-27. **R4-2 Spin专用owner撤权已完成，R4-2未完成**：当前stock单pass四层Spin均由作者Program唯一持有，旧指纹planner、固定Metal近似、backend/renderer与专用测试删除；删除后GPU/compositor/next-frame门通过。其他combo及整景视觉仍未闭合，下一项定位Procedural Noise/Shake与资源/光效链。
-28. **R5 准入门**：最后一个旧产品 owner 已撤权；新旧 exact/route telemetry 不双写；产品源码没有 sample/layer/path/hash 驱动的可见算法选择；跨版本跨样本正反门和 full45 里程碑通过。R5 此后只删除不可达脚手架、合并薄文件、同步权威文档和做最终证据收口；发现行为迁移缺口必须退回 R4。
+26. **R4-2 Workshop Audio Hue专用owner撤权已完成，R4-2未完成**：有界`mix/lerp`分量转换、active-uniform ABI与alpha-preserving RGB mix使四层作者Program实际进入GPU；旧planner/plan/renderer/backend删除。截图仍有中央`X`、全局液化及人物其他区域、双眼、粒子/光效错误，不冒充整景完成。
+27. **R4-2 Spin专用owner撤权已完成，R4-2未完成**：当前stock单pass四层Spin均由作者Program唯一持有，旧指纹planner、固定Metal近似、backend/renderer与专用测试删除；删除后GPU/compositor/next-frame门通过。其他combo及整景视觉仍未闭合；后续Procedural Noise与Scene Camera Shake证据不能替代Water Flow/Shimmer/Depth/Twirl、粒子和光线的像素贡献门。
+28. **Scene Camera Shake bounded checkpoint已闭合，R4未完成**：正交Scene在作者开关、参数与投影均可证明时，每帧只求值一个全局camera frame并供renderer/particle/pointer/parallax共用；v49/v50的on/off全图配准锁定共同平移。真正perspective Scene、live/SceneScript、Windows golden及完整作品视觉仍关闭；该能力不撤销旧effect owner，也不改变R5准入条件。
+29. **R5 准入门**：最后一个旧产品 owner 已撤权；新旧 exact/route telemetry 不双写；产品源码没有 sample/layer/path/hash 驱动的可见算法选择；跨版本跨样本正反门和 full45 里程碑通过。R5 此后只删除不可达脚手架、合并薄文件、同步权威文档和做最终证据收口；发现行为迁移缺口必须退回 R4。

@@ -70,11 +70,13 @@ project 与 scene 的 version 现在分别保留为 missing、合法整数、类
 | 清屏 | `clearenabled`、`clearcolor` | Scene 自己的清屏背景；露灰通常意味着构图或 camera cover 错误，不应靠强制拉伸掩盖 |
 | 相机 | `camera.eye/center/up`、`zoom` | 2D/3D view 基础 |
 | Camera Parallax | `cameraparallax`、`amount`、`delay`、`mouseinfluence` | 只有显式开启才根据鼠标移动相机；逐层 depth 再控制参与量 |
-| Camera Shake | `camerashake` 及 amplitude/speed/roughness | 场景级相机行为，与对象 Shake effect 不同 |
+| Camera Shake | `camerashake` 及 amplitude/speed/roughness | 作者显式开启的场景级相机行为；当前项目只准入有合法 authored projection 的 2D orthographic 子域，与对象 Shake effect 不同 |
 | 后处理 | `bloom`、Bloom/HDR 参数、`hdr` | Scene 全局后处理，不应塞进每个对象的 effect stack |
 | 环境 | ambient/skylight、gravity、wind | 供 lighting、particle、puppet/physics 使用 |
 
 官方 Camera Parallax 规则：场景先显式开启，每个 layer 才出现 parallax depth；某轴为 0 时该轴不移动，两个轴都为 0 时该层不参与。背景需要作者预留 overscan，否则相机移动会露出 clear color。播放器不应擅自放大所有场景来“修复”作者本身的边缘构图，但应正确实现 cover/crop 和作者画布。
+
+官方 2.8.42 的 Scene Camera Shake 由 `general.camerashake` 独立 author gate 控制，并在 base/default/path camera 之后、共享 view 与 Camera Parallax 之前给 camera eye/center 加同一位移。orthographic 分支只产生 XY 位移，幅度以 authored `orthogonalprojection.height` 为基准；真正的 perspective Scene 使用另一套 XYZ 合同。MyWallpaperX 当前只执行可静态证明投影尺寸与参数范围的 orthographic 子域，缺失、畸形或 perspective projection 保持失败关闭；particle 的 perspective flag 只选择后续投影，不另算一套 shake。
 
 ### 3.2 `objects` 是有序绘制输入
 
@@ -327,11 +329,12 @@ R3在这条handoff上建立独立`SceneResolvedMaterialTemplate -> SceneResolved
 | 能力 | 启用来源 | 空间 | 输入 | 正确行为 |
 |---|---|---|---|---|
 | Camera Parallax | scene `cameraparallax` + layer depth | camera/object transform | pointer、amount、delay、mouse influence | 整层按深度移动；depth 0 不移动 |
+| Scene Camera Shake | scene `camerashake` | shared scene camera | absolute scene time、amplitude、roughness、speed、projection | 作者开启时给全场共享 camera eye/center 加同一位移；不替代任何局部 effect |
 | Depth Parallax | explicit `depthparallax` effect | effect-local UV | depth map、pointer/parallax position、可选 mask | 按 depth 重采样；高质量模式有多层 raymarch |
-| Shake | explicit `shake` effect | effect-local UV | flow、time offset、opacity mask、可选 audio | 只在 mask/flow 指定区域变形 |
+| Effect Shake | explicit `shake` effect | effect-local UV | flow、time offset、opacity mask、可选 audio | 只在 mask/flow 指定区域变形 |
 | Swing/Foliage/Water | explicit effect | effect-local UV 或 vertex | region/mask/noise/flow/normal | 服从作者局部区域，不修改对象 transform |
 
-这四类不能合并成一个“鼠标移动/正弦位移”开关。
+这些机制不能合并成一个“鼠标移动/正弦位移”开关。
 
 ## 10. 建议的通用执行顺序
 

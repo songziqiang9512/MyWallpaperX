@@ -14,13 +14,13 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 2. effect 定义有序 pass、render target、输入绑定、复制/合成和 shader variant；
 3. material 与 shader 决定每个 texture slot、combo、uniform 和 render state 的实际含义；
 4. Timeline、SceneScript、用户属性、鼠标、音频和媒体只更新作者绑定的目标；
-5. 不支持的语义应显式降级，不能用整层位移、全局水波或静态占位冒充支持。
+5. 不支持的局部语义应显式降级，不能用整层位移、全局水波或静态占位冒充支持；作者显式启用的 Scene Camera Shake 是独立的全局相机系统，不能与局部 effect 混同。
 
 运行证据使用两层矩阵：`script/scene_wallpaper_sample_matrix.json` 是固定回归 suite，按 digest 锁定 `script/scene_wallpaper_full_sample_matrix.json` 并只保存 13 个成员及其明确 override；加载时无损展开成既有矩阵合同。后者是当前真实 Scene 目录的完整快照门。日常改动按影响面跑定向门；fixed/full 只在 milestone 阶段按明确风险选择。现役结果和聚合缺口只在 [运行证据索引](runtime-evidence-index.md) 维护，专项表只链接该入口，避免重复数字随代码演进失真。
 
 这直接解释了此前的主要错误：
 
-- 头发、山体整块晃动：把局部 UV/flow/mask 变形错做成 layer transform；
+- 头发、山体整块晃动可能来自把局部 UV/flow/mask 变形错做成 layer transform；但单一区域相对显眼也可能是其他作者效果缺失、幅度错误或合成顺序错误，必须按整幅作者动态系统验收，不能只凭“头发在动”锁定根因；
 - 不需要水波或视差的样本也在动：播放器按“具备能力”启用，而不是按作者声明启用；
 - 背景重复、层层叠加：`previous`、scene compose、named target、copy/swap 和历史 RT 被合并成同一种缓冲；
 - 时钟、字体、雨和粒子缺失：把它们当附加装饰，而不是 text/particle/SceneScript 正式运行时对象。
@@ -115,6 +115,7 @@ Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范�
 ### 4.1 能力存在不等于启用
 
 - Camera Parallax 只在 `scene.general.cameraparallax` 解析为 true 时启用；逐层 `parallaxDepth` 缺失或两轴均为零时该层不移动，composition 类型本身不隐含任何视差深度。
+- Scene Camera Shake 只在 `scene.general.camerashake` 最终解析为 true 时启用；作者关闭或 amplitude 为 0 时必须保持 identity，不得因为播放器具备 shake 能力而强开，也不得用对象级 `Shake` effect 代替它。
 - Depth Parallax 是对象显式引用的独立 effect，并需要 depth map；它不是 Camera Parallax 的别名。
 - 水波、摇摆、摆动、模糊、粒子、文字和脚本都必须由对象或属性绑定显式声明。
 - effect 的 optional texture combo 只在对应资源真实绑定时启用。

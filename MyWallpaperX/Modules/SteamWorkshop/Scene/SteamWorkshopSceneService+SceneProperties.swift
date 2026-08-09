@@ -247,11 +247,29 @@ extension SteamWorkshopService {
                 $0.id == layerID && $0.contentKind == "solid"
             }
         case let .camera(field):
-            return [
+            let normalizedField = field.localizedLowercase
+            if [
                 "cameraparallax",
                 "cameraparallaxamount",
                 "cameraparallaxmouseinfluence"
-            ].contains(field.localizedLowercase)
+            ].contains(normalizedField) {
+                return true
+            }
+            guard [
+                "camerashake",
+                "camerashakeamplitude",
+                "camerashakeroughness",
+                "camerashakespeed"
+            ].contains(normalizedField),
+                  let orthoWidth = renderDescriptor.camera.orthoWidth,
+                  let orthoHeight = renderDescriptor.camera.orthoHeight,
+                  orthoWidth.isFinite,
+                  orthoHeight.isFinite,
+                  orthoWidth > 0,
+                  orthoHeight > 0 else {
+                return false
+            }
+            return true
         case let .effectVisibility(_, _, effectPath):
             if Self.isStrictLocalContrastPath(effectPath) {
                 return true

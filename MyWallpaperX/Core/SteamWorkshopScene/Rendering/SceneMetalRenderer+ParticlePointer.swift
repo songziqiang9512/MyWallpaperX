@@ -3,26 +3,14 @@ import simd
 
 extension SceneMetalRenderer {
     func particlePointerLocalPositions(
-        frameContext: SceneFrameContext
+        frameContext: SceneFrameContext,
+        cameraFrame: SceneParticleCameraFrame
     ) -> [Int: SIMD3<Double>] {
         guard frameContext.pointer.isInside else { return [:] }
         let viewportSize = frameContext.screenSize
-        let cameraTransform = frameContext.dynamicValues.cameraTransform()
-        let cameraFrame = SceneParticleCameraFrame(
-            camera: renderDescriptor.camera,
-            viewportSize: viewportSize,
-            cameraOrigin: cameraTransform.origin,
-            cameraZoom: cameraTransform.zoom
-        )
-        let camera = renderDescriptor.camera
-        let configuration = SceneLayerParallax.Configuration(
-            enabled: camera.parallaxEnabled,
-            amount: camera.parallaxAmount,
-            mouseInfluence: camera.parallaxMouseInfluence,
-            orthoSize: SIMD2(
-                camera.orthoWidth ?? Float(viewportSize.width),
-                camera.orthoHeight ?? Float(viewportSize.height)
-            )
+        let configuration = parallaxConfiguration(
+            cameraFrame: cameraFrame,
+            viewportSize: viewportSize
         )
         let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
             descriptor: renderDescriptor, byID: layersByID,

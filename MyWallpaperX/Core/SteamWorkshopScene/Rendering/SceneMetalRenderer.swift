@@ -94,6 +94,7 @@ struct SceneMetalRenderer {
         particlePipeline: SceneParticleMetalPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
+        cameraFrame: SceneParticleCameraFrame,
         encodeSourceUpdates: ((
             MTLCommandBuffer, SceneSourceUpdateTransaction
         ) -> Void)? = nil,
@@ -126,18 +127,10 @@ struct SceneMetalRenderer {
         let viewportSize = frameContext.screenSize
         let time = Float(frameContext.sceneTime)
         let parallaxMouseNormalized = frameContext.cameraParallaxPosition
-        let cameraTransform = frameContext.dynamicValues.cameraTransform()
-        let cameraFrame = SceneParticleCameraFrame(
-            camera: renderDescriptor.camera, viewportSize: viewportSize,
-            cameraOrigin: cameraTransform.origin, cameraZoom: cameraTransform.zoom)
         let camera = renderDescriptor.camera
-        let parallaxConfiguration = SceneLayerParallax.Configuration(
-            enabled: camera.parallaxEnabled, amount: camera.parallaxAmount,
-            mouseInfluence: camera.parallaxMouseInfluence,
-            orthoSize: SIMD2(
-                camera.orthoWidth ?? Float(viewportSize.width),
-                camera.orthoHeight ?? Float(viewportSize.height)
-            )
+        let parallaxConfiguration = parallaxConfiguration(
+            cameraFrame: cameraFrame,
+            viewportSize: viewportSize
         )
         let orderedLayers = renderDescriptor.renderOrderLayerIDs.compactMap { layersByID[$0] }
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)

@@ -18,6 +18,7 @@ nonisolated enum SceneLayerParallax {
         let amount: Float
         let mouseInfluence: Float
         let orthoSize: SIMD2<Float>
+        let cameraPosition: SIMD2<Float>
     }
 
     nonisolated static func resolveAll(
@@ -63,9 +64,8 @@ nonisolated enum SceneLayerParallax {
               configuration.orthoSize.x > 0, configuration.orthoSize.y > 0,
               resolution.depth != .zero else { return .zero }
         let halfSize = configuration.orthoSize * 0.5
-        let cameraPosition = halfSize
         let mouseOffset = -mouseNormalized * halfSize * configuration.mouseInfluence
-        let shift = (layerPosition - cameraPosition + mouseOffset)
+        let shift = (layerPosition - configuration.cameraPosition + mouseOffset)
             * resolution.depth * configuration.amount
         guard shift.x.isFinite, shift.y.isFinite else { return .zero }
         return shift

@@ -220,7 +220,7 @@ python3 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downl
 | Distance Fog | Start、End、Start density、End density、Color |
 | Height Fog | 同上一组共用 start/end/density/color 键族 |
 
-对照 [高级对象覆盖表](advanced-object-coverage.md)：官方 Scene 级 Bloom 是「标准 + Ultra HDR」双模式、共 10 参数的系统；Camera shake 的三参数（Amplitude/Roughness/Speed）与 Camera parallax 的 Amount/Delay 是 [coverage-ledger](coverage-ledger.md) Camera Parallax 行「camera shake/zoom」缺口的确切作者面。Distance/Height 双 Fog 是项目未建模的场景级系统（`ui_editor_properties_fog` 另有逐层 Fog 标签一枚）。
+对照 [高级对象覆盖表](advanced-object-coverage.md)：官方 Scene 级 Bloom 是「标准 + Ultra HDR」双模式、共 10 参数的系统；Camera shake 的三参数（Amplitude/Roughness/Speed）与 Camera parallax 的 Amount/Delay 分属 [coverage-ledger](coverage-ledger.md) 的独立能力行。字符串表只证明作者面，不证明运行 evaluator；现役 bounded Camera Shake 代码与证据见 [运行输入与属性覆盖表](runtime-input-property-coverage.md#op-camera-shake)。Distance/Height 双 Fog 是项目未建模的场景级系统（`ui_editor_properties_fog` 另有逐层 Fog 标签一枚）。
 
 ## 7. 层类型与属性绑定
 

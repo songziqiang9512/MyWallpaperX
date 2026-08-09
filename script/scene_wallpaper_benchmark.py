@@ -561,6 +561,14 @@ CAMERA_RE = re.compile(
     rf"mouseInfluence=(?P<influence>{FLOAT_PATTERN})$",
     re.MULTILINE,
 )
+CAMERA_SHAKE_RE = re.compile(
+    r"^camera shake: status=(?P<status>disabled|executable|invalid) "
+    r"enabled=(?P<enabled>true|false|invalid) "
+    rf"amplitude=(?P<amplitude>(?:{FLOAT_PATTERN}|invalid)) "
+    rf"roughness=(?P<roughness>(?:{FLOAT_PATTERN}|invalid)) "
+    rf"speed=(?P<speed>(?:{FLOAT_PATTERN}|invalid))$",
+    re.MULTILINE,
+)
 SAMPLE_ROOT_DERIVED_FILES = (
     ".mywallpaperx-scene-interpretation.json",
     ".mywallpaperx-scene-preview-log.txt",
@@ -5253,6 +5261,7 @@ def run_sample(
     image_blend_runtime = image_blend_runtime_metrics(preview_text, log_text)
     particle_runtime = particle_runtime_metrics(preview_text)
     camera_match = CAMERA_RE.search(preview_text)
+    camera_shake_match = CAMERA_SHAKE_RE.search(preview_text)
     initial_reason = "before" if hover_pointer is not None else "ready"
     ready_snapshot = result_dir / f"scene-{initial_reason}-window.png"
     hover_snapshot = result_dir / "scene-hover-window.png"
@@ -5339,6 +5348,37 @@ def run_sample(
         actual_parallax = camera_match and camera_match.group("parallax") == "true"
         if actual_parallax != bool(expected_parallax):
             failures.append("camera parallax state mismatch")
+    expected_shake_status = sample.get("expected_camera_shake_status")
+    if expected_shake_status is not None:
+        actual_status = (
+            camera_shake_match.group("status") if camera_shake_match else None
+        )
+        if actual_status != str(expected_shake_status):
+            failures.append("camera shake status mismatch")
+    expected_shake_enabled = sample.get("expected_camera_shake_enabled")
+    if expected_shake_enabled is not None:
+        actual_enabled = (
+            camera_shake_match.group("enabled") == "true"
+            if camera_shake_match
+            and camera_shake_match.group("enabled") != "invalid"
+            else None
+        )
+        if actual_enabled != bool(expected_shake_enabled):
+            failures.append("camera shake enabled state mismatch")
+    for field in ("amplitude", "roughness", "speed"):
+        expected_value = sample.get(f"expected_camera_shake_{field}")
+        if expected_value is None:
+            continue
+        actual_text = camera_shake_match.group(field) if camera_shake_match else None
+        actual_value = (
+            float(actual_text)
+            if actual_text is not None and actual_text != "invalid"
+            else None
+        )
+        if actual_value is None or not math.isclose(
+            actual_value, float(expected_value), rel_tol=0, abs_tol=1e-6
+        ):
+            failures.append(f"camera shake {field} mismatch")
     minimum_parallax_layers = int(sample.get("minimum_authored_parallax_layer_count", 0))
     if runtime_evidence["authored_parallax_layer_count"] < minimum_parallax_layers:
         failures.append("authored parallax layer count below minimum")
@@ -5954,6 +5994,33 @@ def run_sample(
                 else None
             ),
             "camera_parallax_mouse_influence": float(camera_match.group("influence")) if camera_match else None,
+            "camera_shake_status": (
+                camera_shake_match.group("status") if camera_shake_match else None
+            ),
+            "camera_shake_enabled": (
+                camera_shake_match.group("enabled") == "true"
+                if camera_shake_match
+                and camera_shake_match.group("enabled") != "invalid"
+                else None
+            ),
+            "camera_shake_amplitude": (
+                float(camera_shake_match.group("amplitude"))
+                if camera_shake_match
+                and camera_shake_match.group("amplitude") != "invalid"
+                else None
+            ),
+            "camera_shake_roughness": (
+                float(camera_shake_match.group("roughness"))
+                if camera_shake_match
+                and camera_shake_match.group("roughness") != "invalid"
+                else None
+            ),
+            "camera_shake_speed": (
+                float(camera_shake_match.group("speed"))
+                if camera_shake_match
+                and camera_shake_match.group("speed") != "invalid"
+                else None
+            ),
             "offscreen_route_count": preview_text.count("offscreen skeleton"),
             "gaussian_blur_runtime_count": blur_runtime_count,
             "precise_blur_runtime_count": precise_blur_runtime_count,

@@ -124,6 +124,7 @@ class SceneMetalView: NSView {
         }
         report.append("Scene preview texture load report")
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
+        report.append(SceneCameraShake.reportLine(renderer.renderDescriptor.camera))
         report.append("cacheDirectory: \(cacheDirectory.path)")
         report.append(contentsOf: userPropertyTextureLoad.reportLines)
         let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
@@ -333,13 +334,13 @@ class SceneMetalView: NSView {
         let drawableAcquired = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
         let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.simulationFrameTime)
         let frameContext = makeFrameContext(
-            timing: timing,
-            dynamicValues: dynamicValues,
-            parallax: parallaxMouseNormalized,
-            audioSpectrum: audioSpectrum
-        )
+            timing: timing, dynamicValues: dynamicValues,
+            parallax: parallaxMouseNormalized, audioSpectrum: audioSpectrum)
+        let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
         pointerState.previous = pointerState.current
-        let particleBatches = advanceParticles(timing: timing, dynamicValues: dynamicValues, frameContext: frameContext)
+        let particleBatches = advanceParticles(
+            timing: timing, dynamicValues: dynamicValues,
+            frameContext: frameContext, cameraFrame: cameraFrame)
         dynamicTextTextures?.update(from: dynamicValues)
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
         let mediaThumbnailSnapshot = mediaThumbnailCoordinator.update()
@@ -372,6 +373,7 @@ class SceneMetalView: NSView {
             particlePipeline: particlePlayback?.pipeline,
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,
+            cameraFrame: cameraFrame,
             encodeSourceUpdates: { [puppetPlaybackStates, spriteAnimations] commandBuffer, transaction in
                 for animation in spriteAnimations.values {
                     animation.encode(
@@ -394,4 +396,5 @@ class SceneMetalView: NSView {
             to: drawable
         )
     }
+
 }
