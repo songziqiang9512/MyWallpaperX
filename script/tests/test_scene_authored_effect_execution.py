@@ -185,7 +185,6 @@ struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
     enum Profile: Sendable {
         case enhancedSegmented(shape: Int)
-        case simple
     }
 
     let profile: Profile
@@ -239,17 +238,6 @@ enum SceneAuthoredWorkshopShiftHuePlanner {
 }
 
 enum SceneAuthoredWorkshopAudioBarsPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWorkshopAudioBarsExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
         descriptor: SceneRenderDescriptor,
@@ -761,12 +749,6 @@ extension SceneAuthoredWorkshopShiftHuePlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredWorkshopAudioBarsPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopAudioBars }
-}
-extension SceneAuthoredWorkshopSimpleAudioBarsPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
-        .workshopSimpleAudioBars
-    }
 }
 extension SceneAuthoredWorkshopGradientPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopGradientExecutionPlan

@@ -242,9 +242,6 @@ extension SceneAuthoredEffectExecutionPlan {
             return true
         case .fisheyeZeroDistortion:
             return true
-        case .workshopAudioBars(let plan):
-            guard case .simple = plan.profile else { return false }
-            return true
         case .proceduralNoise(let plan):
             return plan.variant == .legacyWorleyColor
                 && plan.dependencySlotIndex == 3

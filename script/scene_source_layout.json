@@ -112,7 +112,7 @@
         "id": "dedicated-probes",
         "description": "Ordered dedicated compiler probes are frozen until their product owner is transferred.",
         "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
-        "baseline_occurrences": 32,
+        "baseline_occurrences": 31,
         "scope_files": [
           "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift"
         ],
@@ -126,7 +126,7 @@
         "pattern": "^    case [A-Za-z][A-Za-z0-9_]*(?:\\s*=|\\s*$)",
         "start_marker": "nonisolated enum SceneEffectStageCompilerBackend",
         "end_marker": "nonisolated struct SceneEffectStageCompilerFailure",
-        "baseline_occurrences": 32,
+        "baseline_occurrences": 31,
         "scope_files": [
           "RenderGraph/SceneEffectStageCompileModel.swift"
         ],
@@ -166,7 +166,7 @@
         "id": "hardcoded-expected-sha",
         "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
-        "baseline_occurrences": 242,
+        "baseline_occurrences": 237,
         "allowed_files": [
           "RenderGraph/SceneAuthoredBlendPlanner.swift",
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
@@ -192,7 +192,6 @@
           "RenderGraph/SceneAuthoredWorkshopGradientPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopShadowPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopShiftHuePlanner.swift",
-          "RenderGraph/SceneAuthoredWorkshopSimpleAudioBarsPlanner+Profile.swift",
           "RenderGraph/SceneAuthoredXRayPlanner.swift",
           "RenderGraph/SceneBlendShaderProfile.swift",
           "RenderGraph/SceneCursorRippleShaderProfile.swift",
@@ -222,7 +221,7 @@
         "id": "numeric-workshop-selector",
         "description": "Numeric Workshop paths are frozen until source profiles become public typed capabilities.",
         "pattern": "workshop/[0-9]+",
-        "baseline_occurrences": 59,
+        "baseline_occurrences": 57,
         "allowed_files": [
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",
@@ -230,7 +229,6 @@
           "RenderGraph/SceneAuthoredWorkshopGradientPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopShadowPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopShiftHuePlanner.swift",
-          "RenderGraph/SceneAuthoredWorkshopSimpleAudioBarsPlanner+Profile.swift",
           "RenderGraph/SceneClippingMaskContract.swift",
           "RenderGraph/SceneDependencyRenderPlan.swift",
           "RenderGraph/SceneProceduralNoiseShaderProfile.swift",

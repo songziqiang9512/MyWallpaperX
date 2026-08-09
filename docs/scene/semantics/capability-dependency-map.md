@@ -2,7 +2,7 @@
 
 > 状态：现役架构入口
 >
-> 最近核对：2026-08-08
+> 最近核对：2026-08-09
 >
 > 本页只维护依赖与完成门；精确当前提交、报告和测试总数统一见 [总覆盖台账](coverage-ledger.md) 与 [运行证据索引](runtime-evidence-index.md)。
 >
@@ -140,7 +140,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 <a id="d9"></a>
 ### D9 Generic 2D execution layer
 
-这一层只消费 `D0-D8` 的统一合同：base layer compositor、共享 material pass executor、effect profile registry、particle geometry/material、text texture generation。R3 已把 production raw graph、provider snapshot、active variant/reflection、uniform/state/color 收敛为可审计的 `SceneResolvedMaterialProgram`；R4 已让 bounded Program 经统一 executor 取得 GPU/compositor/next-frame 证据，并依次迁移 authored-shader、Color Key、ordinary Opacity、Program-compatible Tint、Film Grain stock/no-mask、standalone Blend、ordinary/无child-dependency composition Simple Audio Bars，以及relocated 16-band Audio Bars owner。composition子集还要求每个resolved material实际含active audio host consumer，并通过显式main-target source route在作者层执行点读取此前已绘制的framebuffer；relocated正例在Program后继续按作者顺序执行strict zero-distortion Fisheye leaf。只有active Scroll的utility继续失败关闭，不外推为任意utility/dependency或非零Fisheye。多个 dedicated planner/runtime backend、legacy fallback、utility/dependency 与其他 GPU 入口仍保留作迁移 oracle，必须在 R4 建成全产品唯一 executor 后由 R5 按迁移族在同一提交删除，不能只改名继续可达。R5 清单包括对应 dedicated planner/backend、`fallbackGraph`、`.legacyContract`、旧 root projection/source adapter、重复 telemetry/projection 和只服务旧链的测试；提交前比较 dedicated probes、runtime backends、legacy authority sites、Scene Swift 文件/LOC、`<3 KiB`、`<1 KiB` 六轴。`b541867` 等既有 ordered strict chain 仍只连接 catalog 中每个 stage 均有严格 backend 的链，不能替代 generic material/pass executor，也不能升级官方 Shadow/lighting 或动态 effect variants。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
+这一层只消费 `D0-D8` 的统一合同：base layer compositor、共享 material pass executor、effect profile registry、particle geometry/material、text texture generation。R3 已把 production raw graph、provider snapshot、active variant/reflection、uniform/state/color 收敛为可审计的 `SceneResolvedMaterialProgram`；R4 已让 bounded Program 经统一 executor 取得 GPU/compositor/next-frame 证据，并依次迁移 authored-shader、Color Key、ordinary Opacity、Program-compatible Tint、Film Grain stock/no-mask、standalone Blend、ordinary/无child-dependency composition Simple Audio Bars，以及relocated 16-band Audio Bars owner。composition子集还要求每个resolved material实际含active audio host consumer，并通过显式main-target source route在作者层执行点读取此前已绘制的framebuffer；relocated正例在Program后继续按作者顺序执行strict zero-distortion Fisheye leaf。三个Simple Audio Bars旧专用profile取得Program正证据后，其planner/profile/pipeline/renderer产品owner已删除；未知Simple形态现在只能由完整Program接管或整链失败关闭。增强版Audio Bars仍保留独立runtime backend，不能据backend总数未降误判Simple撤权失败。只有active Scroll的utility继续失败关闭，不外推为任意utility/dependency或非零Fisheye。多个 dedicated planner/runtime backend、legacy fallback、utility/dependency 与其他 GPU 入口仍保留作迁移 oracle，必须在 R4 建成全产品唯一 executor 后由 R5 按迁移族在同一提交删除，不能只改名继续可达。R5 清单包括对应 dedicated planner/backend、`fallbackGraph`、`.legacyContract`、旧 root projection/source adapter、重复 telemetry/projection 和只服务旧链的测试；提交前比较 dedicated probes、runtime backends、legacy authority sites、Scene Swift 文件/LOC、`<3 KiB`、`<1 KiB` 六轴。`b541867` 等既有 ordered strict chain 仍只连接 catalog 中每个 stage 均有严格 backend 的链，不能替代 generic material/pass executor，也不能升级官方 Shadow/lighting 或动态 effect variants。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
 
 <a id="d10"></a>
 ### D10 System runtimes

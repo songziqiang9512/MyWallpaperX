@@ -94,13 +94,10 @@ extension SceneAuthoredEffectChainRenderer {
         case .workshopShiftHue, .workshopAudioHueShift:
             return pipelines.shiftHue == nil ? "shift-hue-pipeline-missing" : nil
         case .workshopAudioBars(let plan):
-            switch plan.profile {
-            case .enhancedSegmented:
+            if case .enhancedSegmented = plan.profile {
                 return pipelines.audioBars == nil ? "audio-bars-pipeline-missing" : nil
-            case .simple:
-                return pipelines.simpleAudioBars == nil
-                    ? "simple-audio-bars-pipeline-missing" : nil
             }
+            return "audio-bars-profile-unsupported"
         case .workshopGradient:
             return pipelines.workshopGradient == nil
                 ? "gradient-pipeline-missing" : nil

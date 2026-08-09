@@ -121,13 +121,6 @@ extension SceneAuthoredWorkshopAudioBarsPlanner: SceneEffectStageGraphCandidateP
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopAudioBars }
 }
 
-extension SceneAuthoredWorkshopSimpleAudioBarsPlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
-        .workshopSimpleAudioBars
-    }
-}
-
 extension SceneAuthoredWorkshopGradientPlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneWorkshopGradientExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopGradient }

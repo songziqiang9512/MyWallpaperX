@@ -108,7 +108,6 @@ struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
     enum Profile: Sendable {
         case enhancedSegmented(shape: Int)
-        case simple
     }
 
     let profile: Profile
@@ -171,28 +170,10 @@ enum SceneAuthoredWorkshopAudioBarsPlanner {
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopAudioBarsExecutionPlan? {
         callCount += 1
-        return graph.effects.first?.definitionPath.lowercased()
-            == "effects/overlap/effect.json" && inputRole == .layerSource
-            ? SceneWorkshopAudioBarsExecutionPlan(profile: .enhancedSegmented(shape: 7))
-            : nil
-    }
-}
-
-enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
-    nonisolated(unsafe) static var callCount = 0
-
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWorkshopAudioBarsExecutionPlan? {
-        callCount += 1
         let path = graph.effects.first?.definitionPath.lowercased()
-        return (path == "effects/simple/effect.json"
-            || path == "effects/overlap/effect.json")
-            && inputRole == .layerSource
-            ? SceneWorkshopAudioBarsExecutionPlan(profile: .simple)
+        return (path == "effects/overlap/effect.json"
+            || path == "effects/simple/effect.json") && inputRole == .layerSource
+            ? SceneWorkshopAudioBarsExecutionPlan(profile: .enhancedSegmented(shape: 7))
             : nil
     }
 }
@@ -703,12 +684,6 @@ extension SceneAuthoredWorkshopShiftHuePlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredWorkshopAudioBarsPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopAudioBars }
-}
-extension SceneAuthoredWorkshopSimpleAudioBarsPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
-        .workshopSimpleAudioBars
-    }
 }
 extension SceneAuthoredWorkshopGradientPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopGradientExecutionPlan
@@ -1432,7 +1407,6 @@ enum Harness {
             in: overlapGraph
         )!
         SceneAuthoredWorkshopAudioBarsPlanner.callCount = 0
-        SceneAuthoredWorkshopSimpleAudioBarsPlanner.callCount = 0
         let overlapCompile = SceneAuthoredEffectChainPlanner.compileStage(.init(
             stageGraph: overlapStageGraph,
             authoredOrdinal: 0,
@@ -1451,7 +1425,6 @@ enum Harness {
             overlapCompilerBackend = backend.rawValue
         }
         let overlapEnhancedCalls = SceneAuthoredWorkshopAudioBarsPlanner.callCount
-        let overlapSimpleCalls = SceneAuthoredWorkshopSimpleAudioBarsPlanner.callCount
 
         let genericGraph = simpleFisheyeGraph(
             fisheyePath: "effects/generic/effect.json"
@@ -1894,7 +1867,6 @@ enum Harness {
                 "invariantAggregateOutcomes": invariantAggregateOutcomes,
                 "overlapCompilerBackend": overlapCompilerBackend,
                 "overlapEnhancedCalls": overlapEnhancedCalls,
-                "overlapSimpleCalls": overlapSimpleCalls,
                 "overlapPrecedingProbeCount": overlapProgram.precedingProbes.count,
                 "overlapPrecedingProbeOutcomes": overlapProgram.precedingProbes.map {
                     probeOutcomeName($0.outcome)
@@ -2405,7 +2377,6 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertTrue(typed["graphInvariantRejected"])
         self.assertEqual(typed["overlapCompilerBackend"], "workshop-audio-bars")
         self.assertEqual(typed["overlapEnhancedCalls"], 1)
-        self.assertEqual(typed["overlapSimpleCalls"], 0)
         self.assertEqual(typed["overlapPrecedingProbeCount"], 6)
         self.assertEqual(
             typed["overlapPrecedingProbeOutcomes"],
@@ -2430,7 +2401,6 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             "color-grading",
             "workshop-shift-hue",
             "workshop-audio-bars",
-            "workshop-simple-audio-bars",
             "workshop-gradient",
             "workshop-audio-hue-shift",
             "workshop-shadow",
@@ -2494,7 +2464,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         )
         self.assertIn(
             "authoredEffectStageCompilerProbeOutcomeCounts: "
-            "not-applicable=31,rejected=1",
+            "not-applicable=30,rejected=1",
             report_lines,
         )
         compiler_failures = next(
@@ -2701,7 +2671,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         ):
             self.assertIn(line, inactive["reportLines"])
 
-    def test_simple_audio_bars_then_strict_fisheye_is_an_ordered_public_chain(self) -> None:
+    def test_audio_bars_then_strict_fisheye_is_an_ordered_public_chain(self) -> None:
         chain = self.result["simpleFisheye"]
         self.assertEqual(chain["stageCount"], 2)
         self.assertEqual(chain["audioBarsCount"], 1)
@@ -2711,7 +2681,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             chain["inputRoles"],
             ["layerSource", "priorEffectOutput"],
         )
-        self.assertTrue(chain["utilityCapture"])
+        self.assertFalse(chain["utilityCapture"])
         self.assertTrue(chain["variantRejected"])
         self.assertIn(
             "authoredEffectGraphFisheyeZeroDistortionCount: 1",

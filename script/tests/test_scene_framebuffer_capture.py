@@ -65,7 +65,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHuePipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHueRenderer.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneWorkshopSimpleAudioBarsPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopGradientPipeline.swift",
     SOURCE_ROOT / "Effects/SceneSpinPipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
@@ -120,7 +119,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Opacity.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AudioBars.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SimpleAudioBars.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AudioHueShift.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopGradient.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ColorGrading.swift",
@@ -552,51 +550,16 @@ struct SceneWorkshopShiftHueExecutionPlan: Sendable {
 }
 
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
-    struct SimpleParameters: Sendable {
-        enum Profile: Equatable, Sendable {
-            case bottomReplace32ClipLow
-            case bottomReplace64ClipHigh
-            case stereoUpDown16IntersectAdd
-
-            var resolution: Int {
-                switch self {
-                case .bottomReplace32ClipLow: 32
-                case .bottomReplace64ClipHigh: 64
-                case .stereoUpDown16IntersectAdd: 16
-                }
-            }
-
-            var clipsLow: Bool { self == .bottomReplace32ClipLow }
-            var clipsHigh: Bool { self == .bottomReplace64ClipHigh }
-            var usesStereoUpDown: Bool { self == .stereoUpDown16IntersectAdd }
-        }
-
-        let profile: Profile
-        let barCount: Int
-        let barSpacing: Float
-        let lowerBound: Float
-        let upperBound: Float
-        let opacity: Float
-        let antiAliasSmoothing: SIMD2<Float>
-    }
-
     enum Profile: Sendable {
         case enhancedSegmented(shape: Int)
-        case simple(SimpleParameters)
     }
 
     let profile: Profile
 
     var shape: Int {
-        guard case .enhancedSegmented(let shape) = profile else { return 0 }
-        return shape
-    }
-
-    func resolvedSimpleParameters(
-        in snapshot: SceneDynamicSnapshot
-    ) -> (parameters: SimpleParameters, color: SIMD3<Float>, opacity: Float)? {
-        guard case .simple(let parameters) = profile else { return nil }
-        return (parameters, SIMD3(repeating: 1), parameters.opacity)
+        switch profile {
+        case .enhancedSegmented(let shape): shape
+        }
     }
 }
 

@@ -93,11 +93,6 @@ extension SceneAuthoredEffectChainPlanner {
                     stage(.workshopAudioBars($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.workshopSimpleAudioBars, {
-                SceneAuthoredWorkshopSimpleAudioBarsPlanner.compile(input).mapAccepted {
-                    stage(.workshopAudioBars($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.workshopGradient, {
                 SceneAuthoredWorkshopGradientPlanner.compile(input).mapAccepted {
                     stage(.workshopGradient($0), stageGraph: stageGraph, inputRole: inputRole)

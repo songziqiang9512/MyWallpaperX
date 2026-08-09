@@ -101,9 +101,6 @@ nonisolated struct SceneEffectStageProgram {
         case (.workshopAudioBars, .workshopAudioBars(let plan)):
             if case .enhancedSegmented = plan.profile { return true }
             return false
-        case (.workshopSimpleAudioBars, .workshopAudioBars(let plan)):
-            if case .simple = plan.profile { return true }
-            return false
         default:
             return false
         }

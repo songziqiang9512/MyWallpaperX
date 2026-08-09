@@ -31,11 +31,8 @@ SPECIALIZED_STAGE_SOURCE = (
 WORKSHOP_STAGE_SOURCE = (
     SCENE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopStage.swift"
 )
-SIMPLE_AUDIO_BARS_SOURCE = (
-    SCENE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SimpleAudioBars.swift"
-)
-SIMPLE_AUDIO_BARS_PIPELINE_SOURCE = (
-    SCENE_ROOT / "Effects/SceneWorkshopSimpleAudioBarsPipeline.swift"
+WORKSHOP_AUDIO_BARS_PIPELINE_SOURCE = (
+    SCENE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift"
 )
 COMPOSITOR_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
 LEGACY_AUTHORED_COMPOSITOR_SOURCE = (
@@ -176,16 +173,18 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
             "chain 与 standalone 路径都必须收到同一帧频谱",
         )
 
-    def test_spectrum_reaches_both_workshop_audio_bars_profiles(self) -> None:
+    def test_spectrum_reaches_remaining_dedicated_workshop_audio_bars(self) -> None:
         workshop_stage = WORKSHOP_STAGE_SOURCE.read_text(encoding="utf-8")
-        simple_audio_bars = SIMPLE_AUDIO_BARS_SOURCE.read_text(encoding="utf-8")
-        simple_pipeline = SIMPLE_AUDIO_BARS_PIPELINE_SOURCE.read_text(encoding="utf-8")
-        self.assertGreaterEqual(workshop_stage.count("spectrum: audioSpectrum"), 2)
-        self.assertIn("spectrum: spectrum", simple_audio_bars)
-        self.assertIn("spectrum.left32", simple_pipeline)
-        self.assertIn("spectrum.right32", simple_pipeline)
-        self.assertIn("spectrum.left64", simple_pipeline)
-        self.assertIn("spectrum.right64", simple_pipeline)
+        audio_bars_pipeline = WORKSHOP_AUDIO_BARS_PIPELINE_SOURCE.read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(
+            workshop_stage.count("spectrum: audioSpectrum"),
+            2,
+            "enhanced Audio Bars and Audio Hue Shift remain dedicated consumers",
+        )
+        self.assertIn("spectrum.left64", audio_bars_pipeline)
+        self.assertIn("spectrum.right64", audio_bars_pipeline)
 
 
 class SceneShakeAudioContractTests(unittest.TestCase):

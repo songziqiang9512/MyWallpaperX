@@ -9,9 +9,6 @@ struct SceneAuthoredEffectPipelineSet {
     var colorGrading: SceneColorGradingPipeline? { repository.colorGrading() }
     var shiftHue: SceneWorkshopShiftHuePipeline? { repository.shiftHue() }
     var audioBars: SceneWorkshopAudioBarsPipeline? { repository.audioBars() }
-    var simpleAudioBars: SceneWorkshopSimpleAudioBarsPipeline? {
-        repository.simpleAudioBars()
-    }
     var workshopGradient: SceneWorkshopGradientPipeline? {
         repository.workshopGradient()
     }

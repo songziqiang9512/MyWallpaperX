@@ -136,10 +136,10 @@ class SceneUtilityLayerTests(unittest.TestCase):
             backend,
             "exact named clipping and static/direct opacity must admit utility capture",
         )
-        self.assertIn(
+        self.assertNotIn(
             "case .simple = plan.profile",
             backend,
-            "the existing Simple Audio Bars utility contract must stay exact",
+            "migrated Simple Audio Bars must not keep a dedicated utility owner",
         )
         self.assertIn("default:", backend)
         self.assertIn("return false", backend)
