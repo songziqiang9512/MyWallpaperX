@@ -265,10 +265,6 @@ AUTHORED_EFFECT_GRAPH_WORKSHOP_SHADOW_COUNT_RE = re.compile(
     r"^authoredEffectGraphWorkshopShadowCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_GRAPH_SPIN_COUNT_RE = re.compile(
-    r"^authoredEffectGraphSpinCount: (?P<count>\d+)$",
-    re.MULTILINE,
-)
 AUTHORED_EFFECT_GRAPH_PROCEDURAL_NOISE_COUNT_RE = re.compile(
     r"^authoredEffectGraphProceduralNoiseCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -2664,11 +2660,6 @@ def authored_effect_graph_workshop_shadow_count(preview_text: str) -> int | None
     return int(match.group("count")) if match is not None else None
 
 
-def authored_effect_graph_spin_count(preview_text: str) -> int | None:
-    match = AUTHORED_EFFECT_GRAPH_SPIN_COUNT_RE.search(preview_text)
-    return int(match.group("count")) if match is not None else None
-
-
 def authored_effect_graph_procedural_noise_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_PROCEDURAL_NOISE_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -4646,7 +4637,6 @@ def authored_effect_graph_failures(
     local_contrast_count: int | None,
     chain_metrics: dict[str, int | None] | None = None,
     workshop_shadow_count: int | None = None,
-    spin_count: int | None = None,
     procedural_noise_count: int | None = None,
     film_grain_count: int | None = None,
     light_shafts_count: int | None = None,
@@ -4707,7 +4697,6 @@ def authored_effect_graph_failures(
         "fisheye_zero_distortion_count": fisheye_zero_distortion_count,
         "opacity_layer_ids": opacity_layer_ids,
         "workshop_shadow_count": workshop_shadow_count,
-        "spin_count": spin_count,
         "procedural_noise_count": procedural_noise_count,
         "film_grain_count": film_grain_count,
         "light_shafts_count": light_shafts_count,
@@ -5169,7 +5158,6 @@ def run_sample(
     authored_effect_graph_workshop_shadow = authored_effect_graph_workshop_shadow_count(
         preview_text
     )
-    authored_effect_graph_spin = authored_effect_graph_spin_count(preview_text)
     authored_effect_graph_procedural_noise = (
         authored_effect_graph_procedural_noise_count(preview_text)
     )
@@ -5403,7 +5391,6 @@ def run_sample(
         authored_effect_graph_local_contrast,
         authored_effect_graph_chain,
         workshop_shadow_count=authored_effect_graph_workshop_shadow,
-        spin_count=authored_effect_graph_spin,
         procedural_noise_count=authored_effect_graph_procedural_noise,
         film_grain_count=authored_effect_graph_film_grain,
         light_shafts_count=authored_effect_graph_light_shafts,
@@ -5930,7 +5917,6 @@ def run_sample(
             "authored_effect_graph_workshop_audio_hue_shift_count": authored_effect_graph_workshop_audio_hue_shift,
             "authored_effect_graph_opacity_layer_ids": authored_effect_graph_opacity_layers,
             "authored_effect_graph_workshop_shadow_count": authored_effect_graph_workshop_shadow,
-            "authored_effect_graph_spin_count": authored_effect_graph_spin,
             "authored_effect_graph_procedural_noise_count": authored_effect_graph_procedural_noise,
             "authored_effect_graph_film_grain_count": authored_effect_graph_film_grain,
             "authored_effect_graph_light_shafts_count": authored_effect_graph_light_shafts,

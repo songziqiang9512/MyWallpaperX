@@ -1853,31 +1853,6 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
 
-    def test_authored_spin_count_is_an_exact_gate(self) -> None:
-        preview = "authoredEffectGraphSpinCount: 1\n"
-        count = benchmark.authored_effect_graph_spin_count(preview)
-        self.assertEqual(count, 1)
-        self.assertEqual(
-            benchmark.authored_effect_graph_failures(
-                {"expected_authored_effect_graph_spin_count": 1},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
-                [],
-                None,
-                spin_count=count,
-            ),
-            [],
-        )
-        self.assertIn(
-            "authored effect graph Spin count mismatch",
-            benchmark.authored_effect_graph_failures(
-                {"expected_authored_effect_graph_spin_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
-                [],
-                None,
-                spin_count=count,
-            ),
-        )
-
     def test_authored_procedural_noise_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphProceduralNoiseCount: 3\n"
         count = benchmark.authored_effect_graph_procedural_noise_count(preview)
@@ -2424,7 +2399,6 @@ utility layer 763: skippedHidden kind=composition
         runtime["runtime_evidence"] = evidence
         expected_counts = {
             "authored_effect_graph_color_key_count": 1,
-            "authored_effect_graph_spin_count": 2,
             "authored_effect_graph_procedural_noise_count": 3,
             "authored_effect_graph_film_grain_count": 4,
             "authored_effect_graph_light_shafts_count": 5,

@@ -331,11 +331,6 @@ AUTHORED_EFFECT_RUNTIME_EXPECTATIONS = (
         "authored effect graph Workshop Shadow count mismatch",
     ),
     RuntimeExpectation(
-        "expected_authored_effect_graph_spin_count",
-        "spin_count",
-        "authored effect graph Spin count mismatch",
-    ),
-    RuntimeExpectation(
         "expected_authored_effect_graph_procedural_noise_count",
         "procedural_noise_count",
         "authored effect graph Procedural Noise count mismatch",
