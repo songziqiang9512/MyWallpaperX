@@ -112,7 +112,7 @@
         "id": "dedicated-probes",
         "description": "Ordered dedicated compiler probes are frozen until their product owner is transferred.",
         "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
-        "baseline_occurrences": 30,
+        "baseline_occurrences": 29,
         "scope_files": [
           "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift"
         ],
@@ -126,7 +126,7 @@
         "pattern": "^    case [A-Za-z][A-Za-z0-9_]*(?:\\s*=|\\s*$)",
         "start_marker": "nonisolated enum SceneEffectStageCompilerBackend",
         "end_marker": "nonisolated struct SceneEffectStageCompilerFailure",
-        "baseline_occurrences": 30,
+        "baseline_occurrences": 29,
         "scope_files": [
           "RenderGraph/SceneEffectStageCompileModel.swift"
         ],
@@ -140,7 +140,7 @@
         "pattern": "^        case [A-Za-z][A-Za-z0-9_]*\\(",
         "start_marker": "extension SceneAuthoredEffectExecutionPlan {",
         "end_marker": "    var gaussianBlur:",
-        "baseline_occurrences": 30,
+        "baseline_occurrences": 29,
         "scope_files": [
           "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
         ],
@@ -166,7 +166,7 @@
         "id": "hardcoded-expected-sha",
         "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
-        "baseline_occurrences": 233,
+        "baseline_occurrences": 229,
         "allowed_files": [
           "RenderGraph/SceneAuthoredBlendPlanner.swift",
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
@@ -183,7 +183,6 @@
           "RenderGraph/SceneAuthoredPulsePlanner.swift",
           "RenderGraph/SceneAuthoredShakePlanner.swift",
           "RenderGraph/SceneAuthoredShinePlanner.swift",
-          "RenderGraph/SceneAuthoredSpinPlanner.swift",
           "RenderGraph/SceneAuthoredTransformPlanner.swift",
           "RenderGraph/SceneAuthoredWaterFlowPlanner.swift",
           "RenderGraph/SceneAuthoredWaterRipplePlanner.swift",

@@ -310,7 +310,6 @@ extension SceneAuthoredEffectExecutionPlan.Backend {
         case .workshopAudioBars: "workshop-audio-bars"
         case .workshopGradient: "workshop-gradient"
         case .workshopShadow: "workshop-shadow"
-        case .spin: "spin"
         case .proceduralNoise: "procedural-noise"
         case .filmGrain: "film-grain"
         case .lightShafts: "light-shafts"

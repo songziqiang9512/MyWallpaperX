@@ -2594,6 +2594,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         ):
             self.assertNotIn(backend_name, leaf_body)
             self.assertIn(backend_name, yield_body)
+        self.assertNotIn(".spin", source)
         self.assertIn(".workshopAudioBars", leaf_body)
         self.assertNotIn(".workshopAudioBars", yield_body)
         self.assertIn(".fisheyeZeroDistortion", leaf_body)

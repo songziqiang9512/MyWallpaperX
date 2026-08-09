@@ -103,11 +103,6 @@ extension SceneAuthoredEffectChainPlanner {
                     stage(.workshopShadow($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.spin, {
-                SceneAuthoredSpinPlanner.compile(input).mapAccepted {
-                    stage(.spin($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.proceduralNoise, {
                 SceneAuthoredProceduralNoisePlanner.compile(input).mapAccepted {
                     stage(.proceduralNoise($0), stageGraph: stageGraph, inputRole: inputRole)

@@ -106,7 +106,6 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphWorkshopAudioBarsCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopAudioBarsCount })",
             "authoredEffectGraphWorkshopGradientCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopGradientCount })",
             "authoredEffectGraphWorkshopShadowCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopShadowCount })",
-            "authoredEffectGraphSpinCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.spinCount })",
             "authoredEffectGraphProceduralNoiseCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.proceduralNoiseCount })",
             "authoredEffectGraphFilmGrainCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.filmGrainCount })",
             "authoredEffectGraphLightShaftsCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.lightShaftsCount })",

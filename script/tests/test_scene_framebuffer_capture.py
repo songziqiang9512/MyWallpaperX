@@ -66,7 +66,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHueRenderer.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopGradientPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneSpinPipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline+Support.swift",
     SOURCE_ROOT / "Effects/SceneFilmGrainPipeline.swift",
@@ -104,7 +103,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer+Capture.swift",
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
-    SOURCE_ROOT / "RenderGraph/SceneSpinExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneFilmGrainExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
@@ -123,7 +121,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ColorGrading.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ShiftHue.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Spin.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ProceduralNoise.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+FilmGrain.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ClippingMask.swift",
@@ -680,7 +677,6 @@ struct SceneLightShaftsEffectTextures {
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
-        case spin(SceneSpinExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case filmGrain(SceneFilmGrainExecutionPlan)
         case lightShafts(SceneLightShaftsExecutionPlan)
@@ -705,7 +701,7 @@ struct SceneLightShaftsEffectTextures {
         var supportsUnifiedPairLeaf: Bool {
             switch self {
             case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
-                 .workshopShadow, .spin,
+                 .workshopShadow,
                  .proceduralNoise, .filmGrain, .shake:
                 return true
             default:
@@ -724,7 +720,6 @@ struct SceneLightShaftsEffectTextures {
             case .workshopAudioBars: "workshop-audio-bars"
             case .workshopGradient: "workshop-gradient"
             case .workshopShadow: "workshop-shadow"
-            case .spin: "spin"
             case .proceduralNoise: "procedural-noise"
             case .filmGrain: "film-grain"
             case .lightShafts: "light-shafts"

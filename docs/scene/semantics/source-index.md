@@ -68,6 +68,8 @@ Scene 能力研究按以下顺序取证：先读现役专项表、总覆盖台�
 
 2026-08-09 Audio Hue Program迁移沿用同一证据顺序：合法作者source包含`mix(albedo, newAlbedo, mask)`，其中前两项分别为`vec4/vec3`，官方客户端可运行该项目；现役资料已证明WE shader是混合GLSL/HLSL方言，Mirage固定revision又独立采用glslang HLSL frontend处理这类隐式转换。两项现有证据足以界定“built-in `mix/lerp`独立浮点向量参数按共同最小宽度显式缩窄”的项目有界规则，因此没有新增Ghidra复核，也没有复制参考项目的GPL代码或算法表达。user-defined函数、复合实参、未知weight宽度及其他隐式转换仍失败关闭；该结论不证明官方translator的通用转换优先级、Audio Hue数值公式或Windows像素等价。
 
+2026-08-09 Spin owner迁移继续先查现役资料库：合法官方stock `assets/effects/spin/effect.json`、`materials/effects/spin.json`、`spin.vert`与`spin.frag`已完整给出当前单pass、framebuffer slot、作者vertex坐标、`g_Time`/texture resolution、中心/轴/速度/角度/尺寸/幂及`ELLIPTICAL/NOISE/REPEAT/MASK` combo合同。现役旧planner恰好只接受当前`ELLIPTICAL=1 / NOISE=0 / REPEAT=1 / MASK=0`固定形态，项目Metal pipeline则是近似实现；统一Program已经以真实作者source取得GPU证据，故资料足以支持删除旧owner，无需新增Ghidra，也无需借用参考项目。该结论不开放其他combo、mask/noise、任意revision或Windows数值/像素等价。
+
 ### 1.3 Parallax
 
 - Camera Parallax：https://docs.wallpaperengine.io/en/scene/parallax/introduction.html

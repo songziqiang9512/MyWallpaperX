@@ -103,8 +103,6 @@ extension SceneAuthoredEffectChainRenderer {
                 ? "gradient-pipeline-missing" : nil
         case .workshopShadow:
             return pipelines.workshopShadow == nil ? "shadow-pipeline-missing" : nil
-        case .spin:
-            return pipelines.spin == nil ? "spin-pipeline-missing" : nil
         case .proceduralNoise(let plan):
             let dependencyReady = plan.dependencySlotIndex.map {
                 $0 == 3 && inputs.dependencyEffect?.slotIndex == $0

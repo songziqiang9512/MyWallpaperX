@@ -191,7 +191,6 @@ struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 struct SceneWorkshopGradientExecutionPlan: Sendable {}
-struct SceneSpinExecutionPlan: Sendable {}
 struct SceneProceduralNoiseExecutionPlan: Sendable {
     enum Variant: Sendable {
         case legacyWorleyColor
@@ -265,17 +264,6 @@ enum SceneAuthoredWorkshopShadowPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopShadowExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredSpinPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneSpinExecutionPlan? {
         nil
     }
 }
@@ -745,10 +733,6 @@ extension SceneAuthoredWorkshopGradientPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredWorkshopShadowPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopShadowExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopShadow }
-}
-extension SceneAuthoredSpinPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneSpinExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .spin }
 }
 extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
@@ -1536,7 +1520,6 @@ enum Harness {
             case .workshopAudioBars: backend = "workshopAudioBars"
             case .workshopGradient: backend = "workshopGradient"
             case .workshopShadow: backend = "workshopShadow"
-            case .spin: backend = "spin"
             case .proceduralNoise: backend = "proceduralNoise"
             case .filmGrain: backend = "filmGrain"
             case .lightShafts: backend = "lightShafts"
@@ -1988,6 +1971,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         for backend_name in (".waterFlow", ".foliageSway", ".depthParallax"):
             self.assertNotIn(backend_name, leaf_body)
             self.assertIn(backend_name, yield_body)
+        self.assertNotIn(".spin", backend)
         self.assertIn(".workshopAudioBars", leaf_body)
         self.assertNotIn(".workshopAudioBars", yield_body)
         self.assertIn(".lightShafts", yield_body)

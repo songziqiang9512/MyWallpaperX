@@ -205,20 +205,6 @@ enum SceneAuthoredEffectChainRenderer {
                 workshopShadowPipeline: workshopShadowPipeline,
                 commandBuffer: commandBuffer
             )
-        case .spin(let spin):
-            guard let spinPipeline = pipelines.spin else { return nil }
-            return renderSpin(
-                spin,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                auxMask: auxMask,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                spinPipeline: spinPipeline,
-                time: time,
-                commandBuffer: commandBuffer
-            )
         case .proceduralNoise(let noise):
             guard let noisePipeline = pipelines.proceduralNoise else { return nil }
             return renderProceduralNoise(

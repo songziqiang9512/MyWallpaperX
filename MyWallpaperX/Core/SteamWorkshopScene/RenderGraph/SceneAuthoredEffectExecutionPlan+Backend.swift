@@ -11,7 +11,6 @@ extension SceneAuthoredEffectExecutionPlan {
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
-        case spin(SceneSpinExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case filmGrain(SceneFilmGrainExecutionPlan)
         case lightShafts(SceneLightShaftsExecutionPlan)
@@ -36,7 +35,7 @@ extension SceneAuthoredEffectExecutionPlan {
         var supportsUnifiedPairLeaf: Bool {
             switch self {
             case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
-                 .workshopShadow, .spin,
+                 .workshopShadow,
                  .proceduralNoise, .shake, .fisheyeZeroDistortion:
                 return true
             default:
@@ -100,11 +99,6 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var workshopShadow: SceneWorkshopShadowExecutionPlan? {
         guard case .workshopShadow(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var spin: SceneSpinExecutionPlan? {
-        guard case .spin(let plan) = backend else { return nil }
         return plan
     }
 

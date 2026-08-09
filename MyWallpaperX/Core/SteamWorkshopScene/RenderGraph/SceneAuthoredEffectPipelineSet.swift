@@ -13,7 +13,6 @@ struct SceneAuthoredEffectPipelineSet {
         repository.workshopGradient()
     }
     var workshopShadow: SceneWorkshopShadowPipeline? { repository.workshopShadow() }
-    var spin: SceneSpinPipeline? { repository.spin() }
     var proceduralNoise: SceneProceduralNoisePipeline? { repository.proceduralNoise() }
     var filmGrain: SceneFilmGrainPipeline? { repository.filmGrain() }
     var shake: SceneShakePipeline? { repository.shake() }

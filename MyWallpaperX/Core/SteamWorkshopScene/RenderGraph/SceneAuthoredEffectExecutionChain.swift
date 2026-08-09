@@ -64,10 +64,6 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         executionStages.filter { $0.workshopShadow != nil }.count
     }
 
-    var spinCount: Int {
-        executionStages.filter { $0.spin != nil }.count
-    }
-
     var proceduralNoiseCount: Int {
         executionStages.filter { $0.proceduralNoise != nil }.count
     }
