@@ -320,11 +320,11 @@ Ghidra 选择性静态路径确认，2.8.42 运行时为每个内部纹理槽建
 | `options` | 78 | 枚举值字典 |
 | `require` | 25 | 对其他 combo 取值的依赖条件 |
 
-`type` 缺 63 条、`default` 缺 15 条、`material` 缺 13 条——三者都不能当必填。只有 `combo` + `default` 的形态是「有 variant，不暴露给作者 UI」。
+`type` 缺 63 条、`default` 缺 15 条、`material` 缺 13 条——三者都不是source格式层的全局必填字段。只有 `combo` + `default` 的形态是「有 variant，不暴露给作者 UI」。这不表示player可在material和active声明都缺值时猜`0`：项目允许material显式值满足无default声明；若本次编译确实需要fallback而任一同名active声明缺default，则失败关闭。
 
 `options` 字典的键既可以是本地化 key（`ui_editor_properties_gradient` 9 次为最高频），也可以是英文字面量（`{"Center":0,"Post":1,"Pre":2}`）。不能假设一律需要查本地化表。
 
-### 8.3 `require` 是 combo 之间的依赖条件
+### 8.3 `require` 表达作者/editor中的 combo 关系
 
 25 条 `[COMBO]` 带 `require`，形态为 `{"<其他 COMBO 名>": <取值>}`：
 
@@ -336,9 +336,7 @@ Ghidra 选择性静态路径确认，2.8.42 运行时为每个内部纹理槽建
 | `{"TRANSFORMUV":1}` | 2 |
 | `{"RAYMODE":2}` | 1 |
 
-即 combo 空间不是自由笛卡尔积：`RIMLIGHTING` 只在 `LIGHTING == 1` 时有意义。variant 矩阵生成器必须读 `require` 并剪掉非法组合，否则会编译出官方不会产生的 variant，也会把 variant 数量放大到无意义的规模。
-
-字段名支持「依赖门」解释，但官方在依赖不满足时是隐藏该属性、强制默认值还是跳过编译，无静态证据（等级 C）。
+这些字段描述authoring侧的属性关系，例如`RIMLIGHTING`只在`LIGHTING == 1`时对作者有意义；但不能由字段名直接推出player会删除声明或跳过variant。对2.8.42 64位normal material-pass链的clean-room静态复核确认，player汇集active `[COMBO]`声明后，material显式值优先，缺值则把annotation `default`写入compile map，再统一发出`#define`。同一路径没有读取JSON `require/requireany`来剪枝声明或default。因此项目保真保存该metadata作为authoring/editor关系，却不声称已恢复editor消费链，也不让它改变player compile-map definedness；资源sampler/format的require是另一条项目typed合同，仍按bounded fixed point求值。
 
 ### 8.4 `[COMBO]` 与 uniform 标注是两类注解
 
@@ -379,9 +377,9 @@ shaders/chroma4.frag:2   // [PASS] shadow shadowcaster
 
 ### 8.6 Shader frontend 注解是运行输入
 
-Ghidra 静态执行路径确认，客户端 frontend 会识别多位数字的 `g_TextureN`、`uniform` inline metadata，以及 `[COMBO]`、`[PASS]`。inline metadata 至少包含 `material`、`default`、`components` 和 `formatcombo` 族。
+Ghidra 静态执行路径确认，客户端 frontend 会识别多位数字的 `g_TextureN`、`uniform` inline metadata，以及 `[COMBO]`、`[PASS]`。inline metadata 至少包含 `material`、`default`、`components` 和 `formatcombo` 族。对2.8.42 normal material-pass链的后续单点复核又闭合了当前default/override优先级：compile map已有material显式值时保留，缺少时读取active声明的`default`；两者随后进入同一define emitter、WE HLSL translator和动态加载的`D3DCompile`。相同最终宏值应共享编译variant identity，provenance仍可单独保存。
 
-这把上述注解从“随包 source 中存在”推进为“运行时 frontend 会读取”；它仍不能推出完整预处理展开、default/override 精确优先级、backend translation 或未公开 slot 的作者可用性。
+这把上述注解从“随包 source 中存在”推进为“运行时 frontend 会读取”；它仍不能推出其他客户端版本/backend、editor UI状态、完整预处理错误恢复、未公开slot的作者可用性或官方私有translator算法。项目对缺失所需default、冲突或畸形default采用额外的失败关闭边界。
 
 ## 9. 对 MyWallpaperX 的规格与验收门
 
@@ -395,7 +393,7 @@ Ghidra 静态执行路径确认，客户端 frontend 会识别多位数字的 `g
 | 法线解压 | §4.2 三分支，`0.965` 偏移 | 同一法线贴图分别以 BC7 与 RGBA8888 编码，解压结果一致 |
 | 灰度 | §5 两套权重分别实现 | 纯红输入下 `greyscale` 得 0.11、`Desaturate` 得 0.30 |
 | PBR | 保留 helper 身份与参数 | 参数 sweep 与 Windows 像素 golden 定义已支持子集 |
-| combo 注解 | 只承认精确 `[COMBO]`；除 `combo` 外全部键可缺席；`require` 参与 variant 剪枝 | §8.1 三种变体拼写产出诊断而非静默忽略；`require` 不满足的组合不进 variant 矩阵 |
+| combo 注解 | 只承认精确 `[COMBO]`；material显式值优先，缺值时由当前active声明的有效且一致`default`补入统一macro environment；`require/requireany`保真为editor关系metadata，不改变player compile-map definedness | §8.1 三种变体拼写产出诊断而非静默忽略；显式值与同值default产生相同variant/prepared identity，缺失所需default、同名冲突或畸形default失败关闭；sampler/format资源require另走bounded fixed point |
 | uniform 标注 | 与 combo 分成两条通道，`type` 值域不共用 | `type == "color"` 不生成 variant；`type == "imageblending"` 不生成颜色控件 |
 | `[PASS]` 注解 | shader 头部声明的附加 pass 进入依赖收集与 pass 枚举 | fur/foliage/chroma 的 shadow pass 被枚举到，而非只扫 JSON |
 | sampler parser | 支持多位数字索引，同时对 authored contract 执行 0...7 边界 | `g_Texture7` 正门、`g_Texture8/9` 保留/失败关闭门、超范围负门 |

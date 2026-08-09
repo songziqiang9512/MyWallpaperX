@@ -220,6 +220,10 @@ definition function 与逐帧 graph command 也是两条不同路径。parser �
 
 shader frontend 的 R4 单点复核确认 `// [PASS]` 是 shader source metadata，不是 effect JSON pass、material ordinal 或 copy/swap/function command。2.8.42 可验证的 token 只有 `shadow`，解析结果与已编译 vertex/fragment shader metadata 一起缓存，并与独立的 3D shadow-caster 材质路径对应；有限调用邻域没有把二者闭合成可移植的通用 schedule。官方公开 [Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 只定义 `[COMBO]`，没有公开 `[PASS]` 的通用作者合同；静态证据也没有证明任意 token 或 2D effect schedule。因此项目可保真携带已声明 pass metadata，但 2D 通用 material executor 遇到 active `[PASS]` 必须 fail closed，不能把它解释成第二次普通 draw。
 
+2026-08-09 又对同一 2.8.42 64 位主程序的 normal material-pass combo 编译链做了单点复核。高层可恢复顺序为：material pass汇集当前active shader声明和material显式combo → 对每个声明查询compile map → 已有显式值时保留 → 缺少时读取该声明的`default`并插入同一map → 统一define emitter生成宏 → WE HLSL translator → 动态解析的`D3DCompile`。因此annotation default不是只供editor展示的孤立字段，而是player实际编译输入；material显式值与相同default会得到相同最终宏值。反向检查中，JSON `require`没有被该声明/default binder读取，也没有参与normal pass compile-map剪枝；精确的`#require`字符串属于另一条preprocessor directive路径，不能与JSON成员混同。这个负面结论由已定位parser/binder和全可执行文件精确字符串交叉支持，但仍只覆盖当前版本的normal DirectX player链，不能外推editor、其他backend或所有版本。
+
+这项证据要求项目把“material显式值”和“active shader annotation default”保留为不同provenance，却在进入preprocessor前合成一个最终macro environment；`#if`、`#ifdef`、`defined(...)`、普通source展开、variant digest与Program cache必须观察同一值。项目额外采用失败关闭边界：同名active声明的default冲突、畸形default，或material和所有active声明都不能提供所需值时拒绝，不复制客户端可能存在的宽松错误恢复。sampler readiness/format metadata的资源require属于项目另一套typed fixed point，不由本结论移除。
+
 这些结果证明项目必须保留 typed command、FBO allocation policy 和 mutable logical-resource mapping，不能把 swap 实现为像素 blit，也不能让 command 消耗 material ordinal。静态路径仍未给出 copy 的 exact D3D primitive、颜色/采样转换、同资源 copy 结果、device-loss 后 history 可见结果或 clear 的像素解释。
 
 ### 5.2 32/64 位主程序交叉结果

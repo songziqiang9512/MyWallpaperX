@@ -66,7 +66,8 @@ nonisolated extension SceneShaderVariantResolver {
         _ schemas: [Schema],
         providerNames: Set<String>
     ) throws {
-        for name in Set(schemas.flatMap { $0.requirements.keys }).sorted() {
+        for name in Set(schemas.filter(\.hasRuntimeRequirements)
+            .flatMap { $0.requirements.keys }).sorted() {
             guard let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) else {
                 continue
             }

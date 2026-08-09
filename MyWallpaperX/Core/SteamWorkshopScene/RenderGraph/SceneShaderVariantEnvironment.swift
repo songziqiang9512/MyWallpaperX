@@ -167,7 +167,7 @@ nonisolated struct SceneShaderVariantFailure: Error, Codable, Equatable, Sendabl
 }
 
 nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
-    static let frontendSchemaVersion = 11
+    static let frontendSchemaVersion = 12
 
     let sourceDialect: SceneShaderSourceDialect
     let backend: SceneShaderBackendIdentity
@@ -253,21 +253,6 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
         for (name, definition) in selectedMacroDefinitions() {
             guard case let .defined(value) = definition else { continue }
             result[name] = value
-        }
-        return result
-    }
-
-    /// Authored combo identifiers use C-preprocessor zero semantics when a
-    /// declared option is inactive. Keep them undefined for `defined`/`#ifdef`
-    /// evaluation, but materialize zero when the same declared identifier is
-    /// referenced by active shader code.
-    func codeMacroTable(
-        sourceMacros: [String: SceneShaderMacroValue]
-    ) -> [String: SceneShaderMacroValue] {
-        var result = sourceMacros
-        for resolution in comboResolutions where resolution.schemaDeclared {
-            guard case .undefined = resolution.binding.definition else { continue }
-            result[resolution.binding.name] = .integer(0)
         }
         return result
     }

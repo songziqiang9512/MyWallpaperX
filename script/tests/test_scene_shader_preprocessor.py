@@ -1218,8 +1218,8 @@ private func runVariantAndDigestFixtures(at base: URL) throws -> [String] {
         "Explicit zero was not preserved as a defined macro."
     )
     try expect(
-        disabledDefinitions["DEPENDENT"] == "undefined",
-        "Unsatisfied requirement did not leave its combo undefined."
+        disabledDefinitions["DEPENDENT"] == "integer:2",
+        "Editor-only requirement pruned a declared combo default."
     )
     switch SceneShaderVariantResolver.resolve(
         stage: .fragment,
@@ -1253,8 +1253,8 @@ private func runVariantAndDigestFixtures(at base: URL) throws -> [String] {
         "Case-distinct authored combo names collapsed."
     )
     try expect(
-        disabledDefinitions["BASE"] != disabledDefinitions["DEPENDENT"],
-        "Undefined and explicit zero macro states collapsed together."
+        definitionDescriptions(notReady)["HAS_TEXTURE"] != disabledDefinitions["BASE"],
+        "An unready resource macro and an explicit integer zero collapsed together."
     )
     checks.append("macro_identity")
 
@@ -1267,6 +1267,9 @@ private func runVariantAndDigestFixtures(at base: URL) throws -> [String] {
         #endif
         #ifdef BLENDMODE
         int incorrectlyDefined = 1;
+        #endif
+        #if defined(BLENDMODE)
+        int explicitlyDefined = 1;
         #endif
         // [COMBO] {"combo":"BLENDMODE","default":31,"require":{"DIRECTDRAW":0}}
         """
@@ -1294,16 +1297,60 @@ private func runVariantAndDigestFixtures(at base: URL) throws -> [String] {
         environment: inactiveComboEnvironment
     )
     try expect(
-        definitionDescriptions(inactiveComboEnvironment)["BLENDMODE"] == "undefined",
-        "Inactive authored combo lost its undefined variant identity."
+        definitionDescriptions(inactiveComboEnvironment)["BLENDMODE"] == "integer:31",
+        "Missing declared combo did not enter the compile map with its default."
+    )
+    let defaultResolution = inactiveComboEnvironment.comboResolutions.first {
+        $0.binding.name == "BLENDMODE"
+    }
+    try expect(
+        inactiveComboEnvironment.initialMacroTable()["BLENDMODE"] == .integer(31)
+            && defaultResolution?.provenance == .annotationDefault
+            && defaultResolution?.schemaDeclared == true,
+        "Default-filled combo lost its macro value, provenance or schema identity."
     )
     try expect(
-        inactivePrepared.source.contains("int selectedMode = 0;")
-            && inactivePrepared.source.contains("int conditionalMode = 0;")
-            && !inactivePrepared.source.contains("incorrectlyDefined"),
-        "Inactive authored combo did not use bounded code-only zero semantics."
+        inactivePrepared.source.contains("int selectedMode = 31;")
+            && inactivePrepared.source.contains("int conditionalMode = 1;")
+            && inactivePrepared.source.contains("int incorrectlyDefined = 1;")
+            && inactivePrepared.source.contains("int explicitlyDefined = 1;"),
+        "Default-filled authored combo was not defined consistently in source."
     )
-    checks.append("undefined_combo_code_zero")
+    let explicitDefaultEnvironment = try resolvedVariant(
+        stages: [inactiveComboStage],
+        explicit: ["DIRECTDRAW": 1, "BLENDMODE": 31]
+    )
+    try expect(
+        explicitDefaultEnvironment.variantSHA256
+            == inactiveComboEnvironment.variantSHA256,
+        "Equivalent explicit/default compile maps produced different variant identities."
+    )
+    let explicitPrepared = try prepared(
+        rootPath: "shaders/variants/main.frag",
+        graph: graph(
+            "shaders/variants/main.frag",
+            view: resourceView(loose: inactiveComboRoot)
+        ),
+        environment: explicitDefaultEnvironment
+    )
+    try expect(
+        explicitPrepared.preparedSHA256 == inactivePrepared.preparedSHA256,
+        "Equivalent explicit/default compile maps produced different prepared identities."
+    )
+    let zeroDefaultSource = inactiveComboSource.replacingOccurrences(
+        of: "\"default\":31",
+        with: "\"default\":0"
+    )
+    let zeroDefaultEnvironment = try resolvedVariant(
+        stages: [makeStage(zeroDefaultSource)],
+        explicit: ["DIRECTDRAW": 1]
+    )
+    try expect(
+        zeroDefaultEnvironment.variantSHA256
+            != inactiveComboEnvironment.variantSHA256,
+        "Distinct default-filled compile maps shared one variant identity."
+    )
+    checks.append("declared_combo_default_fill")
 
     let originalRoot = base.appendingPathComponent("digest_original", isDirectory: true)
     let changedRoot = base.appendingPathComponent("digest_changed", isDirectory: true)
@@ -1514,7 +1561,7 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
             [
                 "variant_resolution",
                 "macro_identity",
-                "undefined_combo_code_zero",
+                "declared_combo_default_fill",
                 "digest_isolation",
             ],
         )

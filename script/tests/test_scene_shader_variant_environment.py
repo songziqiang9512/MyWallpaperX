@@ -733,7 +733,15 @@ private func runExactIntegerFixtures() throws -> [String] {
         roundedFractionFailure.code == .invalidAnnotation,
         "An unsafe fractional annotation rounded into an integer variant."
     )
-    return ["exact_int64_annotations"]
+    let explicitRoundedFractionFailure = try failure(variant(
+        roundedFraction,
+        explicit: ["FRACTION": 1]
+    ))
+    try expect(
+        explicitRoundedFractionFailure.code == .invalidAnnotation,
+        "An explicit value hid a malformed annotation default."
+    )
+    return ["exact_int64_annotations", "explicit_malformed_default"]
 }
 
 private func runRequirementProviderFixtures() throws -> [String] {
@@ -745,10 +753,12 @@ private func runRequirementProviderFixtures() throws -> [String] {
         let dependent = makeStage(
             "uniform float u_Dep\(index); // [COMBO] {\"combo\":\"DEPENDENT_\(index)\",\"default\":1,\"require\":{\"\(name)\":0}}"
         )
-        let rejected = try failure(variant(dependent))
+        let environment = try resolved(variant(dependent))
+        let resolution = try resolution(environment, "DEPENDENT_\(index)")
         try expect(
-            rejected.code == .invalidEnvironment && rejected.combo == name,
-            "Missing host requirement \(name) was treated as ordinary zero."
+            resolution.binding.definition == .defined(.integer(1))
+                && resolution.provenance == .annotationDefault,
+            "Editor-only requirement \(name) pruned a player combo default."
         )
     }
 
@@ -836,20 +846,44 @@ private func runRequirementProviderFixtures() throws -> [String] {
     let ordinary = makeStage(
         "uniform float u_Dependent; // [COMBO] {\"combo\":\"DEPENDENT\",\"default\":2,\"require\":{\"ordinary_missing\":0}}"
     )
-    let ordinaryFailure = try failure(variant(ordinary))
+    let ordinaryEnvironment = try resolved(variant(ordinary))
+    let ordinaryResolution = try resolution(ordinaryEnvironment, "DEPENDENT")
     try expect(
-        ordinaryFailure.code == .unresolvedRequirement,
-        "Missing requirement provider was collapsed into a declared zero value."
+        ordinaryResolution.binding.definition == .defined(.integer(2)),
+        "Missing editor-only requirement provider pruned a player combo default."
     )
 
     let multipleMissing = makeStage(
         "uniform float u_Dependent; // [COMBO] {\"combo\":\"DEPENDENT\",\"default\":1,\"require\":{\"ZETA\":0,\"ALPHA\":0}}"
     )
-    let orderedMissing = try failure(variant(multipleMissing))
+    let orderedMissing = try resolved(variant(multipleMissing))
+    let orderedMissingResolution = try resolution(orderedMissing, "DEPENDENT")
     try expect(
-        orderedMissing.code == .unresolvedRequirement
-            && orderedMissing.combo == "ALPHA",
-        "Multiple missing combo providers did not produce a deterministic first diagnostic."
+        orderedMissingResolution.binding.definition == .defined(.integer(1)),
+        "Multiple editor-only requirements changed the player compile map."
+    )
+
+    let samplerHostRequirement = makeStage(
+        "uniform sampler2D g_Texture2; // {\"combo\":\"MASK\",\"require\":{\"VERSION\":0}}"
+    )
+    let samplerHostFailure = try failure(variant(
+        samplerHostRequirement,
+        readiness: [2: true]
+    ))
+    try expect(
+        samplerHostFailure.code == .invalidEnvironment,
+        "Unverified host requirement entered runtime sampler selection."
+    )
+    let samplerMissingRequirement = makeStage(
+        "uniform sampler2D g_Texture2; // {\"combo\":\"MASK\",\"require\":{\"MISSING\":1}}"
+    )
+    let samplerMissingFailure = try failure(variant(
+        samplerMissingRequirement,
+        readiness: [2: true]
+    ))
+    try expect(
+        samplerMissingFailure.code == .unresolvedRequirement,
+        "Missing runtime sampler requirement did not fail closed."
     )
 
     let declaredUndefined = makeStage(
@@ -858,24 +892,40 @@ private func runRequirementProviderFixtures() throws -> [String] {
         uniform float u_Dependent; // [COMBO] {"combo":"DEPENDENT","default":2,"require":{"BASE":0}}
         """
     )
-    let declaredEnvironment = try resolved(variant(declaredUndefined))
-    let declaredResolution = try resolution(declaredEnvironment, "DEPENDENT")
+    let declaredFailure = try failure(variant(declaredUndefined))
     try expect(
-        declaredResolution.binding.definition == .defined(.integer(2)),
-        "Declared undefined combo no longer remains distinct from a missing provider."
+        declaredFailure.code == .missingDefault && declaredFailure.combo == "BASE",
+        "A combo with neither material value nor annotation default did not fail closed."
+    )
+    let explicitWithoutDefault = try resolved(variant(
+        declaredUndefined,
+        explicit: ["BASE": 0]
+    ))
+    let explicitWithoutDefaultResolution = try resolution(
+        explicitWithoutDefault,
+        "BASE"
+    )
+    try expect(
+        explicitWithoutDefaultResolution.provenance == .explicitResolvedMaterial,
+        "An explicit material value did not satisfy a combo with no fallback default."
     )
 
     let explicitProvider = makeStage(
-        "uniform float u_Direct; // [COMBO] {\"combo\":\"DIRECT\",\"default\":1,\"require\":{\"DIRECTDRAW\":0}}"
+        """
+        uniform float u_Enable; // [COMBO] {"combo":"ENABLE","default":0}
+        uniform sampler2D g_Texture2; // {"combo":"MASK","require":{"ENABLE":1}}
+        """
     )
     let explicitEnvironment = try resolved(variant(
         explicitProvider,
-        explicit: ["DIRECTDRAW": 0]
+        explicit: ["ENABLE": 1],
+        readiness: [2: true]
     ))
-    let explicitResolution = try resolution(explicitEnvironment, "DIRECT")
+    let explicitResolution = try resolution(explicitEnvironment, "MASK")
     try expect(
-        explicitResolution.binding.definition == .defined(.integer(1)),
-        "Resolved material combo was not available as a requirement provider."
+        explicitResolution.binding.definition == .defined(.integer(1))
+            && explicitResolution.provenance == .textureReadiness,
+        "Resolved material combo was not available to a runtime resource requirement."
     )
 
     let mutuallyExclusiveOptions = makeStage(
@@ -885,25 +935,43 @@ private func runRequirementProviderFixtures() throws -> [String] {
         uniform float u_Second; // [COMBO] {"combo":"MODE","default":2,"options":[2],"require":{"SELECT":2}}
         """
     )
-    let selectedFirst = try resolved(variant(
+    let selectedFirst = try failure(variant(
         mutuallyExclusiveOptions,
         explicit: ["SELECT": 1]
     ))
-    let selectedMode = try resolution(selectedFirst, "MODE")
     try expect(
-        selectedMode.binding.definition == .defined(.integer(1)),
-        "Inactive requirement options rejected the active combo value."
+        selectedFirst.code == .conflictingDefault,
+        "Conflicting duplicate combo defaults used editor requirements as runtime ordering."
+    )
+    let explicitConflict = try failure(variant(
+        mutuallyExclusiveOptions,
+        explicit: ["SELECT": 1, "MODE": 1]
+    ))
+    try expect(
+        explicitConflict.code == .conflictingDefault,
+        "An explicit combo value hid conflicting annotation defaults."
+    )
+    let incompleteDuplicate = makeStage(
+        """
+        uniform float u_First; // [COMBO] {"combo":"MODE","default":1}
+        uniform float u_Second; // [COMBO] {"combo":"MODE"}
+        """
+    )
+    let incompleteFailure = try failure(variant(incompleteDuplicate))
+    try expect(
+        incompleteFailure.code == .missingDefault,
+        "One duplicate annotation supplied a fallback for another missing default."
     )
 
     let readinessProvider = makeStage(
         """
-        uniform sampler2D g_Texture2; // {"combo":"MASK"}
-        uniform float u_Masked; // [COMBO] {"combo":"MASKED","default":1,"require":{"MASK":1}}
+        uniform sampler2D g_Texture1; // {"combo":"MASK"}
+        uniform sampler2D g_Texture2; // {"combo":"MASKED","require":{"MASK":1}}
         """
     )
     let readinessEnvironment = try resolved(variant(
         readinessProvider,
-        readiness: [2: true]
+        readiness: [1: true, 2: true]
     ))
     let readinessResolution = try resolution(readinessEnvironment, "MASKED")
     try expect(
@@ -923,9 +991,9 @@ private func runRequirementProviderFixtures() throws -> [String] {
     ))
     let negativeResolution = try resolution(negativeEnvironment, "DEPENDENT")
     try expect(
-        negativeResolution.binding.definition == .undefined
-            && negativeResolution.provenance == .requirementInactive,
-        "A conditional default remained latched after its negative requirement became false."
+        negativeResolution.binding.definition == .defined(.integer(1))
+            && negativeResolution.provenance == .annotationDefault,
+        "An editor-only negative requirement pruned a player combo default."
     )
 
     let staleReadiness = makeStage(
@@ -956,10 +1024,13 @@ private func runRequirementProviderFixtures() throws -> [String] {
         uniform float u_Second; // [COMBO] {"combo":"SECOND","default":1,"require":{"FIRST":0}}
         """
     )
-    let cyclicFailure = try failure(variant(cyclicRequirements))
+    let cyclicEnvironment = try resolved(variant(cyclicRequirements))
+    let firstCyclicResolution = try resolution(cyclicEnvironment, "FIRST")
+    let secondCyclicResolution = try resolution(cyclicEnvironment, "SECOND")
     try expect(
-        cyclicFailure.code == .resolutionDidNotConverge,
-        "A cyclic combo requirement selected an iteration-order-dependent variant."
+        firstCyclicResolution.binding.definition == .defined(.integer(1))
+            && secondCyclicResolution.binding.definition == .defined(.integer(1)),
+        "Editor-only cyclic requirements changed the player compile map."
     )
 
     let requireAny = makeStage(
@@ -968,10 +1039,11 @@ private func runRequirementProviderFixtures() throws -> [String] {
         uniform float u_Dependent; // [COMBO] {"combo":"DEPENDENT","default":1,"require":{"BASE":1,"VERSION":0},"requireany":true}
         """
     )
-    let requireAnyFailure = try failure(variant(requireAny))
+    let requireAnyEnvironment = try resolved(variant(requireAny))
+    let requireAnyResolution = try resolution(requireAnyEnvironment, "DEPENDENT")
     try expect(
-        requireAnyFailure.code == .invalidEnvironment,
-        "requireany bypassed an unresolved host requirement."
+        requireAnyResolution.binding.definition == .defined(.integer(1)),
+        "Editor-only requireany changed the player compile map."
     )
 
     let invalidRequireAny = makeStage(
@@ -983,13 +1055,15 @@ private func runRequirementProviderFixtures() throws -> [String] {
         "Non-boolean requireany annotation was accepted."
     )
     return [
-        "host_requirements", "typed_requirement", "ordinary_requirement",
+        "editor_requirements_ignored", "typed_requirement", "ordinary_requirement",
         "typed_texture_format", "unknown_texture_format_fail_closed",
         "combined_readiness_format",
-        "deterministic_requirement_failure",
-        "explicit_requirement_provider", "readiness_requirement_provider",
-        "negative_requirement_pruning", "stale_readiness_pruning",
-        "cyclic_requirement_rejection", "requireany_type",
+        "runtime_requirement_fail_closed",
+        "missing_default_fail_closed", "explicit_without_default",
+        "explicit_requirement_provider", "conflicting_default_with_explicit",
+        "duplicate_missing_default", "readiness_requirement_provider",
+        "negative_requirement_default_fill", "stale_readiness_pruning",
+        "cyclic_editor_requirement_default_fill", "requireany_type",
     ]
 }
 
@@ -1105,18 +1179,23 @@ class SceneShaderVariantEnvironmentTests(unittest.TestCase):
                 "typed_schema_origins",
                 "disabled_combo_diagnostic",
                 "exact_int64_annotations",
-                "host_requirements",
+                "explicit_malformed_default",
+                "editor_requirements_ignored",
                 "typed_requirement",
                 "ordinary_requirement",
                 "typed_texture_format",
                 "unknown_texture_format_fail_closed",
                 "combined_readiness_format",
-                "deterministic_requirement_failure",
+                "runtime_requirement_fail_closed",
+                "missing_default_fail_closed",
+                "explicit_without_default",
                 "explicit_requirement_provider",
+                "conflicting_default_with_explicit",
+                "duplicate_missing_default",
                 "readiness_requirement_provider",
-                "negative_requirement_pruning",
+                "negative_requirement_default_fill",
                 "stale_readiness_pruning",
-                "cyclic_requirement_rejection",
+                "cyclic_editor_requirement_default_fill",
                 "requireany_type",
                 "active_include_diagnostic",
                 "inactive_include_safe",

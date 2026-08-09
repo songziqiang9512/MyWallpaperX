@@ -7,6 +7,7 @@ nonisolated enum SceneShaderVariantResolver {
     enum FailureCode: String, Codable, Equatable, Sendable {
         case invalidAnnotation = "invalid-annotation"
         case disabledComboAnnotation = "disabled-combo-annotation"
+        case missingDefault = "missing-default"
         case conflictingDefault = "conflicting-default"
         case invalidOption = "invalid-option"
         case invalidEnvironment = "invalid-environment"
@@ -93,8 +94,8 @@ nonisolated enum SceneShaderVariantResolver {
                 schemas,
                 providerNames: providerNames
             )
-            try applyDefaults(
-                schemas.filter { $0.requirements.isEmpty && $0.samplerSlot == nil },
+            try resolveAuthoredCombos(
+                schemas.filter(\.isAuthoredComboMarker),
                 explicit: explicit,
                 definitions: &baseDefinitions,
                 provenance: &baseProvenance
@@ -130,19 +131,6 @@ nonisolated enum SceneShaderVariantResolver {
                     provenance: &next.provenance,
                     validatedSlots: &next.validatedSlots
                 )
-                try applyDefaults(
-                    schemas.filter {
-                        !$0.requirements.isEmpty && $0.samplerSlot == nil
-                            && requirementsSatisfied(
-                                $0,
-                                definitions: state.definitions,
-                                schemaProviders: providerNames
-                            )
-                    },
-                    explicit: explicit,
-                    definitions: &next.definitions,
-                    provenance: &next.provenance
-                )
                 if next == state {
                     state = next
                     converged = true
@@ -166,7 +154,9 @@ nonisolated enum SceneShaderVariantResolver {
                 )
             }
             var finalProvenance = state.provenance
-            for combo in Set(schemas.filter { !$0.requirements.isEmpty }.map(\.combo)).sorted()
+            for combo in Set(schemas.filter {
+                $0.hasRuntimeRequirements && !$0.requirements.isEmpty
+            }.map(\.combo)).sorted()
             where explicit[combo] == nil && state.definitions[combo] == .undefined {
                 let hasActiveSchema = schemas.contains {
                     $0.combo == combo && requirementsSatisfied(
@@ -181,8 +171,7 @@ nonisolated enum SceneShaderVariantResolver {
             }
             try validateOptions(
                 schemas,
-                definitions: state.definitions,
-                schemaProviders: providerNames
+                definitions: state.definitions
             )
             let resolutions = state.definitions.keys.sorted().map { name in
                 SceneShaderComboResolution(
@@ -211,37 +200,35 @@ nonisolated enum SceneShaderVariantResolver {
         }
     }
 
-    private static func applyDefaults(
+    private static func resolveAuthoredCombos(
         _ schemas: [Schema],
         explicit: [String: Int64],
         definitions: inout [String: SceneShaderMacroDefinition],
         provenance: inout [String: SceneShaderComboProvenance]
     ) throws {
-        for schema in schemas {
-            guard explicit[schema.combo] == nil,
-                  let value = schema.defaultValue else { continue }
-            let next = SceneShaderMacroDefinition.defined(.integer(value))
-            if let existing = definitions[schema.combo],
-               existing != .undefined,
-               existing != next {
+        let grouped = Dictionary(grouping: schemas, by: \.combo)
+        for combo in grouped.keys.sorted() {
+            guard let comboSchemas = grouped[combo] else { continue }
+            let defaults = comboSchemas.compactMap(\.defaultValue)
+            let uniqueDefaults = Set(defaults)
+            guard uniqueDefaults.count <= 1 else {
                 throw Failure(
                     code: .conflictingDefault,
-                    combo: schema.combo,
+                    combo: combo,
                     message: "Shader combo annotations declare conflicting defaults."
                 )
             }
-            if definitions[schema.combo] == .undefined,
-               provenance[schema.combo] == .textureReadiness {
+            if explicit[combo] != nil { continue }
+            guard defaults.count == comboSchemas.count,
+                  let value = uniqueDefaults.first else {
                 throw Failure(
-                    code: .conflictingTextureReadiness,
-                    combo: schema.combo,
-                    message: "Shader annotation default conflicts with texture readiness."
+                    code: .missingDefault,
+                    combo: combo,
+                    message: "Shader combo requires an annotation default when the material has no explicit value."
                 )
             }
-            definitions[schema.combo] = next
-            if provenance[schema.combo] != .textureReadiness {
-                provenance[schema.combo] = .annotationDefault
-            }
+            definitions[combo] = .defined(.integer(value))
+            provenance[combo] = .annotationDefault
         }
     }
 
@@ -311,16 +298,10 @@ nonisolated enum SceneShaderVariantResolver {
 
     private static func validateOptions(
         _ schemas: [Schema],
-        definitions: [String: SceneShaderMacroDefinition],
-        schemaProviders: Set<String>
+        definitions: [String: SceneShaderMacroDefinition]
     ) throws {
         for schema in schemas {
-            guard requirementsSatisfied(
-                      schema,
-                      definitions: definitions,
-                      schemaProviders: schemaProviders
-                  ),
-                  let options = schema.options,
+            guard let options = schema.options,
                   case .defined(.integer(let value)) = definitions[schema.combo],
                   !options.contains(value) else { continue }
             throw Failure(
@@ -336,7 +317,8 @@ nonisolated enum SceneShaderVariantResolver {
         definitions: [String: SceneShaderMacroDefinition],
         schemaProviders: Set<String>
     ) -> Bool {
-        guard !schema.requirements.isEmpty else { return true }
+        guard schema.hasRuntimeRequirements,
+              !schema.requirements.isEmpty else { return true }
         let matches = schema.requirements.map { name, expected in
             if let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
                 if requirement == .backendLanguage || requirement == .platform {
@@ -354,7 +336,8 @@ nonisolated enum SceneShaderVariantResolver {
         _ schemas: [Schema],
         providerNames: Set<String>
     ) throws {
-        for name in Set(schemas.flatMap { $0.requirements.keys }).sorted() {
+        for name in Set(schemas.filter(\.hasRuntimeRequirements)
+            .flatMap { $0.requirements.keys }).sorted() {
             guard SceneShaderVariantEnvironment.unresolvedRequirement(for: name) == nil else {
                 continue
             }

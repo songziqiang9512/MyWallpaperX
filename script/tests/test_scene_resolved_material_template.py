@@ -617,6 +617,16 @@ enum Harness {
                 line: nil
             )])
         ))
+        let annotationDefaultTemplate = template(compile(
+            material(),
+            contract: contract(
+                "effects/test",
+                fragmentSourceOverride: """
+                // [COMBO] {"combo":"SHADER_DEFAULT","default":31}
+                void main() { gl_FragColor = vec4(1.0); }
+                """
+            )
+        ))
 
         let bounded = SceneResolvedMaterialFailure(
             phase: .uniform,
@@ -658,6 +668,8 @@ enum Harness {
                 && chainedTemplate?.graphRole.bindings
                     == [.init(slot: 1, texture: .effectOutput)],
             "combosDeterministic": projected?.combos.map(\.name) == ["A_COMBO", "Z_COMBO"],
+            "annotationDefaultStaysOutOfTemplate": annotationDefaultTemplate?.combos
+                .map(\.name) == ["A_COMBO", "Z_COMBO"],
             "stateParsedOnly": template(compile(material(blending: "additive")))?
                 .renderState.blending == .additive,
             "unknownFailsClosed": failure(compile(material(slots: unknownSlots)))?.code
@@ -849,6 +861,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "typedGraphRole",
             "priorEffectOutputIsTypedIngress",
             "combosDeterministic",
+            "annotationDefaultStaysOutOfTemplate",
             "stateParsedOnly",
         ])
 

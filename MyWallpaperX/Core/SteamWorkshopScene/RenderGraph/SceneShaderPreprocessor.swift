@@ -248,7 +248,7 @@ extension SceneShaderPreprocessor {
             do {
                 return try SceneShaderLexicalExpander.expand(
                     line,
-                    objectMacros: environment.codeMacroTable(sourceMacros: macros),
+                    objectMacros: macros,
                     functionMacros: functionMacros,
                     limits: limits
                 ) { name in
