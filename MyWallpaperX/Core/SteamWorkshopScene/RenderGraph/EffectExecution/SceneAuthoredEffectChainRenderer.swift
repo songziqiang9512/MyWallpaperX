@@ -176,8 +176,7 @@ enum SceneAuthoredEffectChainRenderer {
                 sourcePipeline: pipeline, pipelines: pipelines,
                 commandBuffer: commandBuffer
             )
-        case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
-             .workshopAudioHueShift:
+        case .workshopShiftHue, .workshopAudioBars, .workshopGradient:
             return renderWorkshopStage(
                 stage,
                 sourceTexture: sourceTexture,

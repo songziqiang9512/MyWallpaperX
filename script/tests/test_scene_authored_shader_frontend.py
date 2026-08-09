@@ -30,6 +30,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBuiltInVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFunctionSemantics.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
@@ -373,6 +374,44 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(function_argument["diagnosticCodes"], [])
         self.assertIn("(mwxInput.v_Coordinates).xy", compact_function_source)
         self.assertIsNone(function_argument.get("metalError"))
+
+    def test_builtin_mix_narrows_proven_float_vector_arguments(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            varying vec2 v_TexCoord;
+            void main() {
+                vec4 albedo = texSample2D(g_Texture0, v_TexCoord);
+                vec3 shifted = vec3(0.25);
+                float mask = 0.5;
+                albedo.rgb = mix(albedo, shifted, mask);
+                gl_FragColor = albedo;
+            }
+            """,
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIn("mix((albedo).xyz,shifted,mask)", compact_source)
+        self.assertIsNone(output.get("metalError"))
+
+        custom = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            varying vec2 v_TexCoord;
+            vec3 mix(vec4 base, vec3 shifted, float mask) { return shifted; }
+            void main() {
+                vec4 albedo = texSample2D(g_Texture0, v_TexCoord);
+                vec3 shifted = vec3(0.25);
+                float mask = 0.5;
+                albedo.rgb = mix(albedo, shifted, mask);
+                gl_FragColor = albedo;
+            }
+            """,
+            metal=False,
+        )
+        self.assertNotIn("(albedo).xyz", custom["metalSource"].replace(" ", ""))
 
     def test_mat3_inverse_and_inout_parameters_translate_to_metal(self):
         output = self.compile(
@@ -1220,6 +1259,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         output = self.compile(
             """
             uniform mat4 g_ModelViewProjectionMatrix;
+            uniform mat4 g_ModelViewProjectionMatrixInverse;
             uniform vec4 g_Texture1Resolution;
             attribute vec3 a_Position;
             attribute vec2 a_TexCoord;
@@ -1236,6 +1276,8 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             """,
         )
         self.assertEqual(output["diagnosticCodes"], [])
+        self.assertNotIn("g_ModelViewProjectionMatrixInverse", output["uniformNames"])
+        self.assertNotIn("g_ModelViewProjectionMatrixInverse", output["metalSource"])
         self.assertNotIn("g_Texture1Resolution", output["metalSource"])
         self.assertIsNone(output.get("metalError"))
 
@@ -1331,7 +1373,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             metal=False,
         )
         self.assertEqual(conflicting_shape["diagnosticCodes"], [])
-        self.assertIn("mwxV_g_AudioSpectrum16Left", conflicting_shape["uniformNames"])
+        self.assertNotIn("mwxV_g_AudioSpectrum16Left", conflicting_shape["uniformNames"])
         self.assertIn("mwxF_g_AudioSpectrum16Left", conflicting_shape["uniformNames"])
 
     def test_cross_stage_uniform_names_keep_stage_local_bindings(self):

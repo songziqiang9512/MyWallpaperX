@@ -10,6 +10,7 @@ nonisolated enum SceneAuthoredShaderOpaqueInputAlphaAnalyzer {
     ) -> Int? {
         let tokens = fragment.tokens
         guard outputUses.count == 1,
+              fragment.functions.allSatisfy({ !["mix", "lerp"].contains($0.name) }),
               let output = outputUses.first,
               output + 1 < tokens.count,
               tokens[output + 1].text == "=",
@@ -128,8 +129,84 @@ nonisolated enum SceneAuthoredShaderOpaqueInputAlphaAnalyzer {
             let isAliasInitializer = use >= 3
                 && tokens[use - 1].text == "="
                 && ["vec4", "float4"].contains(tokens[use - 3].text)
-            guard isAliasInitializer else { return false }
+            guard isAliasInitializer || isPureMixRead(
+                at: use,
+                after: definition,
+                before: boundary,
+                tokens: tokens
+            ) else { return false }
         }
         return true
+    }
+
+    /// A source color may be passed by value to the built-in `mix`/`lerp`.
+    /// This remains an alpha-preserving read when a narrower RGB destination
+    /// causes the frontend to insert a bounded vector shrink. User-defined
+    /// helpers and compound arguments stay closed.
+    private static func isPureMixRead(
+        at use: Int,
+        after lowerBound: Int,
+        before upperBound: Int,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> Bool {
+        guard use > lowerBound, use + 1 < upperBound else { return false }
+        var depth = 0
+        var opening: Int?
+        for index in stride(from: use - 1, through: lowerBound + 1, by: -1) {
+            switch tokens[index].text {
+            case ")", "]": depth += 1
+            case "(", "[":
+                if depth == 0 {
+                    opening = index
+                    break
+                }
+                depth -= 1
+            default: break
+            }
+        }
+        guard let opening, opening > lowerBound,
+              ["mix", "lerp"].contains(tokens[opening - 1].text),
+              let closing = matchingClose(
+                  for: opening,
+                  before: upperBound,
+                  tokens: tokens
+              ) else { return false }
+
+        var arguments: [Range<Int>] = []
+        var argumentStart = opening + 1
+        depth = 0
+        for index in (opening + 1)..<closing {
+            switch tokens[index].text {
+            case "(", "[": depth += 1
+            case ")", "]": depth -= 1
+            case "," where depth == 0:
+                arguments.append(argumentStart..<index)
+                argumentStart = index + 1
+            default: break
+            }
+            guard depth >= 0 else { return false }
+        }
+        arguments.append(argumentStart..<closing)
+        return arguments.count == 3
+            && arguments.prefix(2).contains(where: { $0 == use..<(use + 1) })
+    }
+
+    private static func matchingClose(
+        for opening: Int,
+        before upperBound: Int,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> Int? {
+        var depth = 0
+        for index in opening..<upperBound {
+            switch tokens[index].text {
+            case "(": depth += 1
+            case ")":
+                depth -= 1
+                if depth == 0 { return index }
+            default: break
+            }
+            guard depth >= 0 else { return nil }
+        }
+        return nil
     }
 }

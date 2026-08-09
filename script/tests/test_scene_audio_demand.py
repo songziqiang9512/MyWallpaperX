@@ -66,7 +66,6 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         source = DEMAND_SOURCE.read_text(encoding="utf-8")
         self.assertIn("$0.shake?.audio != nil", source)
         self.assertIn("$0.workshopAudioBars != nil", source)
-        self.assertIn("$0.workshopAudioHueShift != nil", source)
         self.assertIn("sceneScriptAudioBarsProgram.hasAudioConsumer", source)
         self.assertIn(
             "resolvedMaterialExecutionCapabilities.hasAudioSpectrumConsumer",
@@ -180,8 +179,8 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         )
         self.assertEqual(
             workshop_stage.count("spectrum: audioSpectrum"),
-            2,
-            "enhanced Audio Bars and Audio Hue Shift remain dedicated consumers",
+            1,
+            "only enhanced Audio Bars remains a dedicated Workshop consumer",
         )
         self.assertIn("spectrum.left64", audio_bars_pipeline)
         self.assertIn("spectrum.right64", audio_bars_pipeline)

@@ -27,6 +27,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBuiltInVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFunctionSemantics.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
@@ -245,6 +246,20 @@ enum Harness {
                 "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
                 "vec4 color = sampled; color.rgb = vec3(0.25); " +
                 "gl_FragColor = saturate(color);"
+            ),
+            "alphaPreservingRGBMix": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec3 shifted = vec3(0.25); float mask = " +
+                "texSample2D(g_Texture1, v_TexCoord).r; " +
+                "color.rgb = mix(color, shifted, mask); " +
+                "gl_FragColor = color;"
+            ),
+            "alphaPreservingRGBMixMetal": metal(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec3 shifted = vec3(0.25); float mask = " +
+                "texSample2D(g_Texture1, v_TexCoord).r; " +
+                "color.rgb = mix(color, shifted, mask); " +
+                "gl_FragColor = color;"
             ),
             "alphaPreservingMetal": metal(
                 "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
@@ -515,6 +530,15 @@ class SceneShaderColorContractTests(unittest.TestCase):
             self.result["opaqueInputRGBTransform"], "straight-preserving-slot:0"
         )
         source = self.result["alphaPreservingMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+
+    def test_rgb_mix_read_preserves_source_alpha(self) -> None:
+        self.assertEqual(
+            self.result["alphaPreservingRGBMix"],
+            "straight-preserving-slot:0",
+        )
+        source = self.result["alphaPreservingRGBMixMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertIn("return mwxPremultiply(mwxFragColor);", source)
 

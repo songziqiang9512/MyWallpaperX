@@ -191,7 +191,6 @@ struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 struct SceneWorkshopGradientExecutionPlan: Sendable {}
-struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {}
 struct SceneSpinExecutionPlan: Sendable {}
 struct SceneProceduralNoiseExecutionPlan: Sendable {
     enum Variant: Sendable {
@@ -255,17 +254,6 @@ enum SceneAuthoredWorkshopGradientPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopGradientExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredWorkshopAudioHueShiftPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWorkshopAudioHueShiftExecutionPlan? {
         nil
     }
 }
@@ -753,12 +741,6 @@ extension SceneAuthoredWorkshopAudioBarsPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredWorkshopGradientPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopGradientExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopGradient }
-}
-extension SceneAuthoredWorkshopAudioHueShiftPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWorkshopAudioHueShiftExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
-        .workshopAudioHueShift
-    }
 }
 extension SceneAuthoredWorkshopShadowPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopShadowExecutionPlan
@@ -1553,7 +1535,6 @@ enum Harness {
             case .workshopShiftHue: backend = "workshopShiftHue"
             case .workshopAudioBars: backend = "workshopAudioBars"
             case .workshopGradient: backend = "workshopGradient"
-            case .workshopAudioHueShift: backend = "workshopAudioHueShift"
             case .workshopShadow: backend = "workshopShadow"
             case .spin: backend = "spin"
             case .proceduralNoise: backend = "proceduralNoise"

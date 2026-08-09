@@ -2251,6 +2251,18 @@ private enum Harness {
                     == "graph-structure-rejected"
                     && Executor.Failure.materialPassEncoderRejected.rawValue
                         == "material-pass-encoder-rejected",
+            "finalizerFailureIncludesBoundedSanitizedField":
+                Executor.Failure.materialFinalizerRejected(
+                    nodeIndex: 3,
+                    materialOrdinal: 2,
+                    failure: .init(
+                        phase: .uniform,
+                        code: .uniformBindingInvalid,
+                        details: ["g_Test[0] bad/field"]
+                    )
+                ).rawValue
+                    == "node-3-material-2-finalizer-uniform-"
+                        + "uniformBindingInvalid-detail-g_Test_0__bad_field",
             "missingTemplateRejected": missingCapabilities.claim(ordinaryChain) == nil,
             "nonOverwriteRejectedBeforeFrame": nonOverwriteCapabilities.claim(
                 ordinaryChain

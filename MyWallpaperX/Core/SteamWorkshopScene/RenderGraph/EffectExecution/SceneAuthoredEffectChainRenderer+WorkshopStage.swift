@@ -58,20 +58,6 @@ extension SceneAuthoredEffectChainRenderer {
                 gradientPipeline: gradientPipeline,
                 commandBuffer: commandBuffer
             )
-        case .workshopAudioHueShift(let hueShift):
-            guard let hueShiftPipeline = pipelines.shiftHue else { return nil }
-            return renderWorkshopAudioHueShift(
-                hueShift,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                auxMask: auxMask,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                hueShiftPipeline: hueShiftPipeline,
-                spectrum: audioSpectrum,
-                commandBuffer: commandBuffer
-            )
         default:
             return nil
         }

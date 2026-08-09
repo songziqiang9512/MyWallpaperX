@@ -88,6 +88,7 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderSyntax.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderBuiltInVectorConversion.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderVectorConversion.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderFunctionSemantics.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",

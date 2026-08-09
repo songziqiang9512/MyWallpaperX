@@ -50,6 +50,7 @@ final class SceneResolvedMaterialGraphExecutor {
             case let .materialFinalizerRejected(nodeIndex, ordinal, failure):
                 "node-\(nodeIndex)-material-\(ordinal)-finalizer-"
                     + "\(failure.phase.rawValue)-\(failure.code.rawValue)"
+                    + Self.detailSuffix(failure.boundedDetails.first)
             case .materialPassEncoderRejected: "material-pass-encoder-rejected"
             case let .materialPassPreparationRejected(
                 stageIndex, nodeIndex, ordinal, programKey, failure
@@ -64,6 +65,19 @@ final class SceneResolvedMaterialGraphExecutor {
             case .contentGenerationOverflow: "content-generation-overflow"
             case .stalePreparation: "stale-preparation"
             }
+        }
+
+        private static func detailSuffix(_ value: String?) -> String {
+            guard let value, !value.isEmpty else { return "" }
+            let characters = value.utf8.prefix(64).map { byte -> Character in
+                switch byte {
+                case 45, 46, 48 ... 57, 65 ... 90, 95, 97 ... 122:
+                    Character(UnicodeScalar(byte))
+                default:
+                    "_"
+                }
+            }
+            return "-detail-" + String(characters)
         }
     }
 

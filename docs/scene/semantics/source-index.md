@@ -66,6 +66,8 @@ Scene 能力研究按以下顺序取证：先读现役专项表、总覆盖台�
 
 2026-08-09 继续按“现役资料库 → 必要时Ghidra → 参考实现”的顺序复核Light Shafts authored Program阻塞：仓内合法官方stock source本身同时使用`mat3 inverse(...)`、`inout vec3`、`#elif`及`[COMBO] BLENDMODE default=31 require DIRECTDRAW=0`，而`DIRECTDRAW=1`分支仍在普通active code中读取`BLENDMODE`。这证明这些混合GLSL/HLSL表达式是播放器必须处理的真实输入，但不公开官方translator算法。Mirage固定revision只用于独立交叉确认其`MaterialShaderCompiler`经glslang HLSL frontend处理WE隐式转换；不得复制GPL实现、shader、payload、纹理或算法表达。现有两类证据已足够约束项目侧的有界typed语义，因此本轮没有新增Ghidra取证：只开放`mat3 inverse`、simple value-type `inout`、首命中`#elif`与schema-declared requirement-inactive combo的ordinary-code zero，同时保持variant identity/definedness及所有未知形态fail closed。该结论不证明官方内部转换顺序、任意HLSL/GLSL兼容、Light Shafts私有数学或Windows像素等价。
 
+2026-08-09 Audio Hue Program迁移沿用同一证据顺序：合法作者source包含`mix(albedo, newAlbedo, mask)`，其中前两项分别为`vec4/vec3`，官方客户端可运行该项目；现役资料已证明WE shader是混合GLSL/HLSL方言，Mirage固定revision又独立采用glslang HLSL frontend处理这类隐式转换。两项现有证据足以界定“built-in `mix/lerp`独立浮点向量参数按共同最小宽度显式缩窄”的项目有界规则，因此没有新增Ghidra复核，也没有复制参考项目的GPL代码或算法表达。user-defined函数、复合实参、未知weight宽度及其他隐式转换仍失败关闭；该结论不证明官方translator的通用转换优先级、Audio Hue数值公式或Windows像素等价。
+
 ### 1.3 Parallax
 
 - Camera Parallax：https://docs.wallpaperengine.io/en/scene/parallax/introduction.html

@@ -203,8 +203,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 let identity = "\(unit.stage.rawValue):\(declaration.name)"
                 if seenUniforms.insert(identity).inserted,
                    !deadBindings.omittedUniformNames.contains(declaration.name),
-                   declarationIsReferenced(declaration.name, in: unit)
-                       || !isTextureResolutionUniformName(declaration.name) {
+                   declarationIsReferenced(declaration.name, in: unit) {
                     let fieldName = uniformStages[declaration.name]?.count == 1
                         ? declaration.name
                         : "mwx\(unit.stage == .vertex ? "V" : "F")_\(declaration.name)"
@@ -279,16 +278,6 @@ nonisolated enum SceneAuthoredShaderFrontend {
             return nil
         }
         return slot
-    }
-
-    private static func isTextureResolutionUniformName(_ name: String) -> Bool {
-        guard name.hasPrefix("g_Texture"), name.hasSuffix("Resolution") else {
-            return false
-        }
-        let start = name.index(name.startIndex, offsetBy: "g_Texture".count)
-        let end = name.index(name.endIndex, offsetBy: -"Resolution".count)
-        return start < end
-            && Int(name[start ..< end]).map { (0 ... 7).contains($0) } == true
     }
 
     private static func makeUniformLayout(

@@ -98,11 +98,6 @@ extension SceneAuthoredEffectChainPlanner {
                     stage(.workshopGradient($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.workshopAudioHueShift, {
-                SceneAuthoredWorkshopAudioHueShiftPlanner.compile(input).mapAccepted {
-                    stage(.workshopAudioHueShift($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.workshopShadow, {
                 SceneAuthoredWorkshopShadowPlanner.compile(input).mapAccepted {
                     stage(.workshopShadow($0), stageGraph: stageGraph, inputRole: inputRole)

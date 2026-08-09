@@ -119,7 +119,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Opacity.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AudioBars.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AudioHueShift.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopGradient.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ColorGrading.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Pulse.swift",
@@ -568,10 +567,6 @@ struct SceneWorkshopGradientExecutionPlan: Sendable {
     let renderGraph: SceneAuthoredEffectRenderPlan
 }
 
-struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {
-    let audio: SceneAudioResponse.Parameters
-}
-
 struct SceneAuthoredShaderFrameInputs: Sendable {}
 
 // 与 SceneOpacityEffectTextureLoader.swift 里的同名结构保持一致的替身：那个文件还依赖
@@ -684,7 +679,6 @@ struct SceneLightShaftsEffectTextures {
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
-        case workshopAudioHueShift(SceneWorkshopAudioHueShiftExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case spin(SceneSpinExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
@@ -711,7 +705,7 @@ struct SceneLightShaftsEffectTextures {
         var supportsUnifiedPairLeaf: Bool {
             switch self {
             case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
-                 .workshopAudioHueShift, .workshopShadow, .spin,
+                 .workshopShadow, .spin,
                  .proceduralNoise, .filmGrain, .shake:
                 return true
             default:
@@ -729,7 +723,6 @@ struct SceneLightShaftsEffectTextures {
             case .workshopShiftHue: "workshop-shift-hue"
             case .workshopAudioBars: "workshop-audio-bars"
             case .workshopGradient: "workshop-gradient"
-            case .workshopAudioHueShift: "workshop-audio-hue-shift"
             case .workshopShadow: "workshop-shadow"
             case .spin: "spin"
             case .proceduralNoise: "procedural-noise"

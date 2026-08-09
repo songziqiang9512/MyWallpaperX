@@ -31,6 +31,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBuiltInVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFunctionSemantics.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
@@ -139,6 +140,7 @@ private func fragment(
     uniform sampler2D g_Texture3;
     uniform float \(uniformName);
     void main() {
+        float uniformProbe = \(uniformName);
         \(output)
     }
     """

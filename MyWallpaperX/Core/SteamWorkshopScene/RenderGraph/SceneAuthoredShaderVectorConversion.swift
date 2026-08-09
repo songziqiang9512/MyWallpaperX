@@ -68,6 +68,11 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         in tokens: [SceneAuthoredShaderToken],
         unit: SceneAuthoredShaderSyntaxUnit
     ) -> String? {
+        if let suffix = SceneAuthoredShaderBuiltInVectorConversion.suffix(
+            forIdentifierAt: index,
+            in: tokens,
+            unit: unit
+        ) { return suffix }
         guard tokens.indices.contains(index),
               tokens[index].kind == .identifier,
               let opening = enclosingCallOpening(for: index, in: tokens),

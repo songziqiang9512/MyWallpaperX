@@ -44,6 +44,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBuiltInVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFunctionSemantics.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
@@ -199,6 +200,8 @@ private func vertexSource(
     \(stageLocalUniform)
     void main() {
         \(stageLocalProbe)
+        mat4 forwardProjectionProbe = g_EffectTextureProjectionMatrix;
+        vec2 parallaxProbe = g_ParallaxPosition;
         v_TexCoord.xy = a_TexCoord;
         \(maskCoordinates)
         gl_Position = mul(
@@ -295,6 +298,8 @@ private func fragmentSource(
     void main() {
         \(stageLocalProbe)
         \(audioProbe)
+        vec3 tintProbe = u_Tint;
+        float timeProbe = g_Time;
         \(output)
     }
     """

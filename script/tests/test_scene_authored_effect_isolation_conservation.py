@@ -145,7 +145,6 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
     var workshopShiftHue: HarnessMarkerPlan? { nil }
     var workshopAudioBars: HarnessMarkerPlan? { nil }
     var workshopGradient: HarnessMarkerPlan? { nil }
-    var workshopAudioHueShift: HarnessMarkerPlan? { nil }
     var workshopShadow: HarnessMarkerPlan? { nil }
     var spin: HarnessMarkerPlan? { nil }
     var proceduralNoise: HarnessMarkerPlan? { nil }

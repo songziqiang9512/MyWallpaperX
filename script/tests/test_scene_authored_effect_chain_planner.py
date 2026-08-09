@@ -114,7 +114,6 @@ struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 struct SceneWorkshopGradientExecutionPlan: Sendable {}
-struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {}
 struct SceneSpinExecutionPlan: Sendable {}
 struct SceneProceduralNoiseExecutionPlan: Sendable {
     enum Variant: Sendable {
@@ -185,17 +184,6 @@ enum SceneAuthoredWorkshopGradientPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopGradientExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredWorkshopAudioHueShiftPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWorkshopAudioHueShiftExecutionPlan? {
         nil
     }
 }
@@ -688,12 +676,6 @@ extension SceneAuthoredWorkshopAudioBarsPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredWorkshopGradientPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopGradientExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopGradient }
-}
-extension SceneAuthoredWorkshopAudioHueShiftPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWorkshopAudioHueShiftExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
-        .workshopAudioHueShift
-    }
 }
 extension SceneAuthoredWorkshopShadowPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopShadowExecutionPlan
@@ -2339,7 +2321,6 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             "authoredEffectGraphLocalContrastCount: 0",
             "authoredEffectGraphWorkshopAudioBarsCount: 0",
             "authoredEffectGraphWorkshopGradientCount: 0",
-            "authoredEffectGraphWorkshopAudioHueShiftCount: 0",
             "authoredEffectGraphWorkshopShadowCount: 0",
             "authoredEffectGraphSpinCount: 0",
             "authoredEffectGraphProceduralNoiseCount: 0",
@@ -2402,7 +2383,6 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             "workshop-shift-hue",
             "workshop-audio-bars",
             "workshop-gradient",
-            "workshop-audio-hue-shift",
             "workshop-shadow",
             "spin",
             "procedural-noise",
@@ -2464,7 +2444,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         )
         self.assertIn(
             "authoredEffectStageCompilerProbeOutcomeCounts: "
-            "not-applicable=30,rejected=1",
+            "not-applicable=29,rejected=1",
             report_lines,
         )
         compiler_failures = next(

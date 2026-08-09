@@ -31,6 +31,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBuiltInVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFunctionSemantics.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
@@ -133,6 +134,7 @@ varying vec2 v_TexCoord;
 uniform sampler2D g_Texture0;
 uniform float g_Gain;
 void main() {
+    float uniformProbe = g_Gain;
     gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
 }
 """

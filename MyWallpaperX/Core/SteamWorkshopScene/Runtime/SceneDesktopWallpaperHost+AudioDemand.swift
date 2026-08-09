@@ -45,7 +45,6 @@ extension SceneDesktopWallpaperHost {
                 $0.shake?.audio != nil
                     || $0.pulse?.audio != nil
                     || $0.workshopAudioBars != nil
-                    || $0.workshopAudioHueShift != nil
             }
         }
     }
