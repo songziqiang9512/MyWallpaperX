@@ -114,7 +114,15 @@ struct SceneAssetTextureIdentity: Hashable {
     var reportToken: String { "\(path.value):\(purpose.rawValue)" }
 }
 enum SceneFrameTextureIdentity: Equatable { case asset(SceneAssetTextureIdentity) }
-struct SceneTextureCandidate { let purpose: SceneTextureLoadPurpose; let complete: Bool }
+enum SceneShaderTextureFormat: UInt32 {
+    case rgba8888 = 0
+    var macroValue: Int { Int(rawValue) }
+}
+struct SceneTextureCandidate {
+    let purpose: SceneTextureLoadPurpose
+    let complete: Bool
+    let authoredFormat: SceneShaderTextureFormat?
+}
 struct SceneTextureProviderPublication {
     let requestIdentity: SceneFrameTextureIdentity
     let candidate: SceneTextureCandidate
@@ -145,7 +153,8 @@ final class SceneTextureLoader {
         if url.lastPathComponent == "bad" { return .failed(1) }
         return .loaded(.init(
             purpose: purpose,
-            complete: url.lastPathComponent != "incomplete"
+            complete: url.lastPathComponent != "incomplete",
+            authoredFormat: .rgba8888
         ))
     }
 }
@@ -196,6 +205,9 @@ enum Harness {
             "incomplete": disposition(incomplete),
             "stateCount": catalog.states.count,
             "report": catalog.reportLines.joined(separator: "\n"),
+            "goodMaskFormat": catalog.launchFormatFacts[goodMask.reportToken] ?? -999,
+            "missingFormat": catalog.launchFormatFacts[missing.reportToken] ?? -999,
+            "badFormat": catalog.launchFormatFacts[bad.reportToken] ?? -999,
         ]
         let data = try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -505,6 +517,12 @@ enum SceneResolvedMaterialExecutionCapabilityAdmission {
     static let maximumEffectsPerLayer = 512
     static let maximumNodesPerLayer = 65_536
 }
+struct SceneResolvedMaterialAdmittedLayer {
+    enum SourceRoute {
+        case capturedLayerTexture
+        case transparentDirectDraw
+    }
+}
 struct SceneAuthoredEffectExecutionPlan {}
 final class SceneResolvedMaterialExecutionCapabilityCatalog {
     struct Token: Hashable { let value: Int }
@@ -536,6 +554,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let admittedProducts: [AdmittedProduct]
         let stages: [StageCapability]
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
+        let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         var effectSubjectsAreConserved: Bool {
             let expected = admittedProducts.flatMap { $0.graph.effects.map(\.key) }
             return !expected.isEmpty && Set(expected).count == expected.count
@@ -737,8 +756,8 @@ final class SceneResolvedMaterialGraphExecutor {
         leases: [SceneGraphRenderTargetLease],
         historyRehydrateCopiesByEffect: [Graph.EffectKey: [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy]],
         frame: SceneResolvedMaterialFrameSnapshot,
-        sourceTexture: MTLTexture,
-        sourceUniforms: SceneLayerFragmentUniforms,
+        sourceTexture: MTLTexture?,
+        sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
         dedicatedInputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
         commandBuffer: MTLCommandBuffer,
@@ -1144,7 +1163,8 @@ private func makeCapabilities(
                 key: key,
                 family: "resolved-material"
             ))],
-            fullFrameExtentPolicy: .standard
+            fullFrameExtentPolicy: .standard,
+            sourceRoute: .capturedLayerTexture
         )
     }
     return .init(
@@ -2851,6 +2871,9 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             self.assertEqual(result["bad"], "unavailable")
             self.assertEqual(result["incomplete"], "unavailable")
             self.assertEqual(result["stateCount"], 5)
+            self.assertEqual(result["goodMaskFormat"], 0)
+            self.assertEqual(result["missingFormat"], -1)
+            self.assertEqual(result["badFormat"], -2)
             self.assertIn("ready=2 absent=1", result["report"])
             self.assertIn("unavailable=2", result["report"])
 

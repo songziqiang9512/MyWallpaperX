@@ -68,7 +68,27 @@ struct SceneMaterialAssetTextureCatalog {
         ]
     }
 
-    private static func less(
+    /// Ready values are the official 0...12 format enum. -1 is proven absent;
+    /// -2 is present but not safely attributable to an authored TEX format.
+    var launchFormatFacts: [String: Int] {
+        Dictionary(uniqueKeysWithValues: states.map { identity, state in
+            let value: Int
+            switch state {
+            case let .ready(publication):
+                guard let format = publication.candidate.authoredFormat else {
+                    return (identity.reportToken, -2)
+                }
+                value = format.macroValue
+            case .absent:
+                value = -1
+            case .pending, .unavailable:
+                value = -2
+            }
+            return (identity.reportToken, value)
+        })
+    }
+
+    private nonisolated static func less(
         _ lhs: SceneAssetTextureIdentity,
         _ rhs: SceneAssetTextureIdentity
     ) -> Bool {

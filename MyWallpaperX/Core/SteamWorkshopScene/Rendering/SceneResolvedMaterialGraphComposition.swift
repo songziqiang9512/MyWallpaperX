@@ -1,4 +1,5 @@
 import Metal
+import simd
 
 struct SceneResolvedMaterialFrameTargetPlan {
     let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
@@ -37,14 +38,34 @@ enum SceneResolvedMaterialGraphComposition {
         executionTrace: SceneEffectExecutionFrameTrace?,
         executionOrigin: SceneEffectExecutionOrigin
     ) -> Result {
-        guard let framePlan = request.resolvedMaterialFrameTargetPlan,
+        executeClaimed(
+            runtime: runtime,
+            claim: claim,
+            framePlan: request.resolvedMaterialFrameTargetPlan,
+            layerID: request.layer.id,
+            mainPass: mainPass,
+            executionTrace: executionTrace,
+            executionOrigin: executionOrigin
+        )
+    }
+
+    static func executeClaimed(
+        runtime: SceneResolvedMaterialRuntimeBridge,
+        claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution,
+        framePlan: SceneResolvedMaterialFrameTargetPlan?,
+        layerID: Int,
+        mainPass: SceneMainPassEncoder,
+        executionTrace: SceneEffectExecutionFrameTrace?,
+        executionOrigin: SceneEffectExecutionOrigin
+    ) -> Result {
+        guard let framePlan,
               framePlan.token == claim.token,
               framePlan.allocation.chainPlan.key.layerID == claim.layerID else {
             runtime.recordClaimedFailure(
                 reasonCode: "frame-target-plan-consumption-failed"
             )
             executionTrace?.recordRouteOperation(
-                layerID: request.layer.id,
+                layerID: layerID,
                 origin: executionOrigin,
                 operation: "r4-graph-target-allocation",
                 outcome: .failed(reasonCode: "frame-plan-unavailable")
@@ -76,7 +97,7 @@ enum SceneResolvedMaterialGraphComposition {
             return .encoded(texture: texture, ticket: ticket)
         case let .failed(reasonCode):
             executionTrace?.recordRouteOperation(
-                layerID: request.layer.id,
+                layerID: layerID,
                 origin: executionOrigin,
                 operation: "r4-unified-graph-executor",
                 outcome: .failed(reasonCode: reasonCode)
@@ -146,6 +167,84 @@ enum SceneResolvedMaterialClaimRoute {
 }
 
 extension SceneImageLayerCompositor {
+    func drawResolvedDirectDrawQuad(
+        layer: SceneRenderDescriptor.Layer,
+        modelViewProjection: simd_float4x4,
+        alpha: Float,
+        framePlan: SceneResolvedMaterialFrameTargetPlan,
+        pipeline: SceneImageLayerPipeline,
+        mainPass: SceneMainPassEncoder,
+        executionTrace: SceneEffectExecutionFrameTrace?
+    ) -> Bool {
+        guard layer.contentKind == "quad",
+              (layer.colorBlendMode ?? 0) == 0,
+              let resolvedMaterialRuntime else {
+            return false
+        }
+        let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
+        switch resolvedMaterialRuntime.claim(layerID: layer.id) {
+        case .notMigrated:
+            return false
+        case let .rejected(reasonCode):
+            resolvedMaterialRuntime.recordClaimedFailure(reasonCode: reasonCode)
+            return false
+        case let .claimed(value):
+            claim = value
+        }
+        guard claim.sourceRoute == .transparentDirectDraw,
+              framePlan.token == claim.token else {
+            resolvedMaterialRuntime.recordClaimedFailure(
+                reasonCode: "direct-draw-claim-route-invalid"
+            )
+            return false
+        }
+        let executed = executeResolvedMaterialClaim(
+            runtime: resolvedMaterialRuntime,
+            claim: claim,
+            framePlan: framePlan,
+            layerID: layer.id,
+            mainPass: mainPass,
+            executionTrace: executionTrace,
+            executionOrigin: .quad
+        )
+        let texture: MTLTexture
+        let ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket
+        switch executed {
+        case let .encoded(value, executionTicket):
+            texture = value
+            ticket = executionTicket
+        case .failed:
+            return false
+        }
+        let uniforms = makeFragmentUniforms(
+            values: .init(time: 0, alpha: alpha, cursorUV: .zero),
+            effectInputs: .neutral,
+            textureFrame: .identity,
+            tint: SIMD3<Float>(repeating: 1),
+            foliageMaskUVScale: SIMD2<Float>(repeating: 1),
+            dependencyBlendMode: nil
+        )
+        let composited = SceneImageLayerMainPassRenderer.draw(
+            texture: texture,
+            masks: .empty,
+            mvp: modelViewProjection,
+            uniforms: uniforms,
+            dependencyTexture: nil,
+            layer: layer,
+            pipeline: pipeline,
+            colorBlendPipeline: nil,
+            mainPass: mainPass
+        )
+        return consumeResolvedMaterialComposite(
+            ticket,
+            texture: texture,
+            consumed: composited,
+            layerID: layer.id,
+            executionTrace: executionTrace,
+            executionOrigin: .quad
+        ) && composited
+    }
+
     func prepareResolvedMaterialFrame(
         _ requests: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest],
         pool: SceneOffscreenTexturePool?,

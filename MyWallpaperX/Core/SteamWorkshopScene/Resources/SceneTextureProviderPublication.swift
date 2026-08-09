@@ -3,7 +3,7 @@ import Metal
 
 /// One provider publication atom. The logical request is exact; all physical
 /// resource facts stay on the canonical candidate for one content generation.
-struct SceneTextureProviderPublication {
+nonisolated struct SceneTextureProviderPublication {
     let requestIdentity: SceneFrameTextureIdentity
     let candidate: SceneTextureCandidate
     let contentGeneration: UInt64
@@ -49,6 +49,7 @@ struct SceneTextureProviderPublication {
             && candidate.uvTransform == other.candidate.uvTransform
             && candidate.sampling == other.candidate.sampling
             && candidate.sampling.rawFlags == other.candidate.sampling.rawFlags
+            && candidate.authoredFormat == other.candidate.authoredFormat
     }
 
     var lifecycleIdentity: SceneTextureProviderLifecycleIdentity {
@@ -74,7 +75,7 @@ struct SceneTextureProviderPublication {
     }
 }
 
-enum SceneTextureProviderLifecycleIdentity: Hashable {
+nonisolated enum SceneTextureProviderLifecycleIdentity: Hashable {
     case versionedResource(
         identity: SceneTextureResourceIdentity,
         generation: SceneTextureResourceGeneration
@@ -84,14 +85,14 @@ enum SceneTextureProviderLifecycleIdentity: Hashable {
 
 /// One declared provider state for the current immutable snapshot. A missing
 /// identity is therefore distinguishable from an explicitly unready source.
-enum SceneTextureProviderState {
+nonisolated enum SceneTextureProviderState {
     case ready(SceneTextureProviderPublication)
     case absent
     case pending
     case unavailable
 }
 
-struct SceneFrameTextureResource {
+nonisolated struct SceneFrameTextureResource {
     let publication: SceneTextureProviderPublication
     let resourceGeneration: UInt64
 
@@ -146,7 +147,7 @@ struct SceneFrameTextureResource {
     }
 }
 
-enum SceneFrameTextureIncompleteResource {
+nonisolated enum SceneFrameTextureIncompleteResource {
     case bare(texture: MTLTexture, resourceGeneration: UInt64)
     case publication(
         SceneTextureProviderPublication,
@@ -154,7 +155,7 @@ enum SceneFrameTextureIncompleteResource {
     )
 }
 
-enum SceneFrameTextureLookupStatus {
+nonisolated enum SceneFrameTextureLookupStatus {
     case ready(SceneFrameTextureResource)
     case incomplete(SceneFrameTextureIncompleteResource)
     case absent
@@ -162,7 +163,7 @@ enum SceneFrameTextureLookupStatus {
     case unavailable
 }
 
-struct SceneFrameTextureRegistrySnapshot {
+nonisolated struct SceneFrameTextureRegistrySnapshot {
     let frameEpoch: UInt64
     let frameIndex: UInt64
     let entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]
@@ -202,7 +203,7 @@ struct SceneFrameTextureRegistrySnapshot {
     }
 }
 
-private extension SceneAuthoredEffectRenderPlan.TextureIdentity {
+private nonisolated extension SceneAuthoredEffectRenderPlan.TextureIdentity {
     var isValidGraphPublicationIdentity: Bool {
         switch kind {
         case .layerSource:

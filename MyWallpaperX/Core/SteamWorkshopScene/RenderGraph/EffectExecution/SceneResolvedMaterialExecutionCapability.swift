@@ -105,6 +105,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let materials: [MaterialKey: MaterialCapability]
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+        let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
 
         fileprivate let capabilityID = UUID()
 
@@ -120,6 +121,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             self.materials = materials
             fullFrameExtentPolicy = .standard
             dependencyOwnership = admitted.dependencyOwnership
+            sourceRoute = admitted.sourceRoute
         }
 
         func material(for node: Graph.Node) -> MaterialCapability? {
@@ -151,6 +153,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         ],
         materialCatalog: SceneResolvedMaterialRuntimeCatalog,
         dynamicProducers: DynamicProducerCatalog = .empty,
+        assetFormatFacts: [String: Int] = [:],
         dedicatedStageFamilies: [Graph.EffectKey: String] = [:],
         dedicatedLeafKeys: Set<Graph.EffectKey> = [],
         maximumVariantsPerMaterial: Int = 16
@@ -170,6 +173,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     materialCatalog: materialCatalog,
                     demandIssueKeys: demandIssues,
                     dynamicProducers: dynamicProducers,
+                    assetFormatFacts: assetFormatFacts,
                     dedicatedStagePrograms: candidate.dedicatedStagePrograms,
                     dedicatedStageFamilies: dedicatedStageFamilies,
                     dedicatedLeafKeys: dedicatedLeafKeys,

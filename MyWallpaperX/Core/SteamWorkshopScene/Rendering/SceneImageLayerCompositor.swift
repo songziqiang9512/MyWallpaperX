@@ -127,10 +127,11 @@ struct SceneImageLayerCompositor {
             var graphExecutionTicket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket?
             if let claim = resolvedMaterialClaim,
                let resolvedMaterialRuntime {
-                switch SceneResolvedMaterialGraphComposition.executeClaimed(
+                switch executeResolvedMaterialClaim(
                     runtime: resolvedMaterialRuntime,
                     claim: claim,
-                    request: request,
+                    framePlan: request.resolvedMaterialFrameTargetPlan,
+                    layerID: request.layer.id,
                     mainPass: mainPass,
                     executionTrace: executionTrace,
                     executionOrigin: executionOrigin
@@ -357,5 +358,25 @@ struct SceneImageLayerCompositor {
             )
         }
         return rendered
+    }
+
+    func executeResolvedMaterialClaim(
+        runtime: SceneResolvedMaterialRuntimeBridge,
+        claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution,
+        framePlan: SceneResolvedMaterialFrameTargetPlan?,
+        layerID: Int,
+        mainPass: SceneMainPassEncoder,
+        executionTrace: SceneEffectExecutionFrameTrace?,
+        executionOrigin: SceneEffectExecutionOrigin
+    ) -> SceneResolvedMaterialGraphComposition.Result {
+        SceneResolvedMaterialGraphComposition.executeClaimed(
+            runtime: runtime,
+            claim: claim,
+            framePlan: framePlan,
+            layerID: layerID,
+            mainPass: mainPass,
+            executionTrace: executionTrace,
+            executionOrigin: executionOrigin
+        )
     }
 }

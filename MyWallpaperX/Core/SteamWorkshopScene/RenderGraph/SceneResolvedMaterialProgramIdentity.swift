@@ -25,6 +25,7 @@ extension SceneResolvedMaterialProgram {
             case independentAlphaSignal(Int)
             case independentAlphaSignalPreserving(Int)
             case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)
+            case premultipliedAlpha
             case opaque
         }
 
@@ -113,6 +114,7 @@ extension SceneResolvedMaterialProgram {
         let uvBitPatterns: [UInt32]
         let sampling: SceneTextureSampling
         let samplingRawFlags: UInt32?
+        let authoredFormat: SceneShaderTextureFormat?
         let pixelFormatRawValue: UInt
         let mipLevelCount: Int
         let deviceRegistryID: UInt64
@@ -183,6 +185,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
                 signalSlot: signalSlot,
                 colorSlot: colorSlot
             )
+        case .premultipliedAlpha: transfer = .premultipliedAlpha
         case .opaque: transfer = .opaque
         case .unresolved:
             preconditionFailure("Unresolved color transfer passed derivation guard.")
@@ -253,47 +256,6 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         case .color(.resolved(.independentAlphaSignal)):
             return .independentAlphaSignal
         }
-    }
-
-    static func exactTexture(
-        _ slot: Program.TextureSlot
-    ) -> Program.ExactTextureIdentity {
-        let resource = slot.resource
-        let publication = resource.publication
-        let candidate = publication.candidate
-        let transform = candidate.uvTransform
-        return .init(
-            reference: slot.reference,
-            registryIdentity: slot.registryIdentity,
-            resourceIdentity: candidate.identity,
-            resourceGeneration: candidate.generation,
-            contentGeneration: publication.contentGeneration,
-            registryResourceGeneration: resource.resourceGeneration,
-            purpose: candidate.purpose,
-            content: candidate.content,
-            physicalExtent: [
-                Int(candidate.physicalSize.width),
-                Int(candidate.physicalSize.height),
-            ],
-            mappedExtent: [
-                Int(candidate.mappedSize.width),
-                Int(candidate.mappedSize.height),
-            ],
-            uvBitPatterns: [
-                transform.origin.x.bitPattern,
-                transform.origin.y.bitPattern,
-                transform.xAxis.x.bitPattern,
-                transform.xAxis.y.bitPattern,
-                transform.yAxis.x.bitPattern,
-                transform.yAxis.y.bitPattern,
-            ],
-            sampling: candidate.sampling,
-            samplingRawFlags: candidate.sampling.rawFlags,
-            pixelFormatRawValue: candidate.texture.pixelFormat.rawValue,
-            mipLevelCount: candidate.texture.mipmapLevelCount,
-            deviceRegistryID: candidate.texture.device.registryID,
-            textureObjectIdentifier: ObjectIdentifier(candidate.texture)
-        )
     }
 
     static func color(

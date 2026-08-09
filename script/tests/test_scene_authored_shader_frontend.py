@@ -31,13 +31,16 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFunctionSemantics.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
 ]
 
@@ -216,6 +219,68 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(function_argument["diagnosticCodes"], [])
         self.assertIn("(mwxInput.v_Coordinates).xy", compact_function_source)
         self.assertIsNone(function_argument.get("metalError"))
+
+    def test_mat3_inverse_and_inout_parameters_translate_to_metal(self):
+        output = self.compile(
+            """
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec2 v_TexCoord;
+            mat3 squareToQuad(vec2 point0, vec2 point1, vec2 point2, vec2 point3) {
+                return mat3(
+                    vec3(1.0, 0.0, 0.0),
+                    vec3(0.0, 1.0, 0.0),
+                    vec3(0.0, 0.0, 1.0)
+                );
+            }
+            void main() {
+                mat3 transform = inverse(squareToQuad(
+                    vec2(0.0), vec2(1.0, 0.0), vec2(1.0), vec2(0.0, 1.0)
+                ));
+                v_TexCoord = mul(vec3(a_TexCoord, 1.0), transform).xy;
+                gl_Position = vec4(a_Position, 1.0);
+            }
+            """,
+            """
+            varying vec2 v_TexCoord;
+            void accumulate(const vec3 delta, inout vec3 result) {
+                result += delta;
+            }
+            void main() {
+                vec3 result = vec3(v_TexCoord, 0.0);
+                accumulate(vec3(0.0, 0.0, 1.0), result);
+                gl_FragColor = vec4(result, 1.0);
+            }
+            """,
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIn("mwxInverseFloat3x3", output["metalSource"])
+        self.assertIn("threadfloat3&result", compact_source)
+        self.assertIsNone(output.get("metalError"))
+
+        unsupported_inverse = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec2 v_TexCoord;
+            void main() {
+                mat4 value = mat4(1.0);
+                gl_FragColor = inverse(value)[0];
+            }
+            """,
+            metal=False,
+        )
+        malformed_inout = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec2 v_TexCoord;
+            void mutate(inout vec3 values[2]) { values[0] += vec3(1.0); }
+            void main() { gl_FragColor = vec4(v_TexCoord, 0.0, 1.0); }
+            """,
+            metal=False,
+        )
+        self.assertEqual(unsupported_inverse["diagnosticCodes"], ["unsupportedDeclaration"])
+        self.assertEqual(malformed_inout["diagnosticCodes"], ["unsupportedDeclaration"])
 
         texture_result = self.compile(
             VERTEX_SOURCE,

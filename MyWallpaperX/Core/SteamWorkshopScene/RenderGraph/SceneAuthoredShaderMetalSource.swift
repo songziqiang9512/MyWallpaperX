@@ -1,6 +1,16 @@
 import Foundation
 
 nonisolated enum SceneAuthoredShaderMetalSource {
+    static let float3x3InverseHelper = """
+        inline float3x3 mwxInverseFloat3x3(float3x3 value) {
+            float3 cofactor0 = cross(value[1], value[2]);
+            float3 cofactor1 = cross(value[2], value[0]);
+            float3 cofactor2 = cross(value[0], value[1]);
+            float determinant = dot(value[0], cofactor0);
+            return transpose(float3x3(cofactor0, cofactor1, cofactor2)) / determinant;
+        }
+        """
+
     static func mergedDefines(
         _ first: [String: String],
         _ second: [String: String]

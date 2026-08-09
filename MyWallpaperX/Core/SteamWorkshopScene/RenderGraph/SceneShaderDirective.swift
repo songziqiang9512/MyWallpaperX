@@ -7,6 +7,7 @@ nonisolated enum SceneShaderDirective {
     case include(String)
     case ifExpression(String)
     case ifdef(String, inverted: Bool)
+    case elifExpression(String)
     case elseDirective
     case endif
     case unsupported(String)
@@ -43,7 +44,9 @@ nonisolated enum SceneShaderDirective {
         case "endif": return operand.isEmpty
             ? .endif
             : .malformed("Shader #endif has operands.")
-        case "elif": return .unsupported("elif")
+        case "elif": return operand.isEmpty
+            ? .malformed("Shader #elif has no expression.")
+            : .elifExpression(operand)
         default: return .unknown(String(name))
         }
     }
@@ -113,7 +116,8 @@ nonisolated enum SceneShaderDirective {
         closingParentActive: Bool?
     ) -> Bool {
         switch self {
-        case .elseDirective, .endif: closingParentActive ?? currentActive
+        case .elifExpression, .elseDirective, .endif:
+            closingParentActive ?? currentActive
         default: currentActive
         }
     }
@@ -180,6 +184,7 @@ extension SceneShaderPreprocessor {
         case rejectedInclude = "rejected-include", includeCycle = "include-cycle"
         case budgetExceeded = "budget-exceeded", unmatchedElse = "unmatched-else"
         case duplicateElse = "duplicate-else", unmatchedEndif = "unmatched-endif"
+        case unmatchedElif = "unmatched-elif", elifAfterElse = "elif-after-else"
         case unterminatedConditional = "unterminated-conditional"
         case unterminatedBlockComment = "unterminated-block-comment"
         case unsupportedAnnotationPlacement = "unsupported-annotation-placement"

@@ -46,7 +46,7 @@ extension SceneShaderPreprocessor.State {
                 } else {
                     return []
                 }
-            case .elseDirective:
+            case .elifExpression, .elseDirective:
                 guard depth > 0, pendingCandidate == nil else { return [] }
                 justClosedTopLevel = false
             default:
@@ -134,7 +134,8 @@ extension SceneShaderPreprocessor.State {
             if parent,
                macros[name] == nil, functionMacros[name] == nil,
                selectedDefinitions[name] == nil,
-               let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
+               let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name),
+               !SceneShaderVariantEnvironment.permitsUndefinedZeroInCondition(name) {
                 throw unresolvedEnvironment(name, requirement, node.virtualPath, line)
             }
             let result = parent && (macros[name] != nil || functionMacros[name] != nil)
@@ -145,6 +146,30 @@ extension SceneShaderPreprocessor.State {
                 isActive: parent && selected,
                 sawElse: false
             ))
+        case let .elifExpression(expression):
+            guard conditions.count > floor else {
+                throw failure(
+                    .unmatchedElif,
+                    "Shader #elif has no matching conditional.",
+                    node.virtualPath,
+                    line
+                )
+            }
+            guard !conditions[conditions.count - 1].sawElse else {
+                throw failure(
+                    .elifAfterElse,
+                    "Shader #elif cannot follow #else.",
+                    node.virtualPath,
+                    line
+                )
+            }
+            let parent = conditions[conditions.count - 1].parentActive
+            let priorMatched = conditions[conditions.count - 1].branchWasTrue
+            let result = parent && !priorMatched
+                ? try evaluate(expression, path: node.virtualPath, line: line)
+                : false
+            conditions[conditions.count - 1].isActive = parent && !priorMatched && result
+            conditions[conditions.count - 1].branchWasTrue = priorMatched || result
         case .elseDirective:
             guard conditions.count > floor else {
                 throw failure(.unmatchedElse, "Shader #else has no matching conditional.", node.virtualPath, line)

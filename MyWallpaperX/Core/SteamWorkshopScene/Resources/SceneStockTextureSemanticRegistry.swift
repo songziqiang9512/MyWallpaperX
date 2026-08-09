@@ -7,6 +7,7 @@ nonisolated enum SceneStockTextureSemanticRegistry {
         switch path.value {
         case "effects/waterflowphase": .phase
         case "gradient/gradient_ferro_fluid": .preservedChannels
+        case "gradient/gradient_iridescent": .preservedChannels
         case "util/clouds_256": .noise
         case "util/noise": .noise
         default: nil

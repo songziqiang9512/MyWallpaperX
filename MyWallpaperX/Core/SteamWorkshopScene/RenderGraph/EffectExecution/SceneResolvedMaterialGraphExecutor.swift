@@ -140,8 +140,8 @@ final class SceneResolvedMaterialGraphExecutor {
             Graph.EffectKey: [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy]
         ],
         frame: SceneResolvedMaterialFrameSnapshot,
-        sourceTexture: MTLTexture,
-        sourceUniforms: SceneLayerFragmentUniforms,
+        sourceTexture: MTLTexture?,
+        sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
         dedicatedInputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
         commandBuffer: MTLCommandBuffer,
@@ -160,15 +160,29 @@ final class SceneResolvedMaterialGraphExecutor {
               let firstLease = leases.first else {
             return .failure(.invalidClaim)
         }
-        guard let capture = resourceEncoder?.prepareSourceCapture(
-            source: sourceTexture,
-            target: pairTexture(
-                lease: firstLease,
-                member: capability.pairPlan.baseCaptureMember
-            ),
-            uniforms: sourceUniforms,
-            pipeline: sourcePipeline
-        ) else { return .failure(.captureRejected) }
+        let baseTarget = pairTexture(
+            lease: firstLease,
+            member: capability.pairPlan.baseCaptureMember
+        )
+        let baseCommand: SceneGraphResourcePassEncoder.PreparedCommand
+        switch capability.sourceRoute {
+        case .capturedLayerTexture:
+            guard let sourceTexture, let sourceUniforms,
+                  let capture = resourceEncoder?.prepareSourceCapture(
+                      source: sourceTexture,
+                      target: baseTarget,
+                      uniforms: sourceUniforms,
+                      pipeline: sourcePipeline
+                  ) else { return .failure(.captureRejected) }
+            baseCommand = capture
+        case .transparentDirectDraw:
+            guard sourceTexture == nil, sourceUniforms == nil,
+                  let initialization = resourceEncoder?.prepareInitialization(
+                      target: baseTarget,
+                      clear: .init(red: 0, green: 0, blue: 0, alpha: 0)
+                  ) else { return .failure(.captureRejected) }
+            baseCommand = initialization
+        }
         guard let captureGeneration = nextPairGeneration(),
               let base = pairResource(
                   lease: firstLease,
@@ -178,7 +192,7 @@ final class SceneResolvedMaterialGraphExecutor {
                   representation: .premultipliedAlpha
               ) else { return .failure(.contentGenerationOverflow) }
 
-        var commands: [Command] = [.resource(capture)]
+        var commands: [Command] = [.resource(baseCommand)]
         var pair = PairAtom(
             member: capability.pairPlan.baseCaptureMember,
             resource: base,

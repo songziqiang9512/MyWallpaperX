@@ -3,10 +3,16 @@ import Foundation
 extension SceneResolvedMaterialShaderSchema {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
+    private struct ReachabilityVariantKey: Hashable {
+        let readinessMask: UInt8
+        let textureFormats: [SceneShaderTextureFormat?]
+    }
+
     /// Resolves combo-default conditional declarations before texture
     /// readiness starts the normal fixed-point iteration.
     nonisolated static func bootstrapSamplers(
-        _ template: Template
+        _ template: Template,
+        textureFormats: [Int: SceneShaderTextureFormat] = [:]
     ) throws -> [Int: Sampler] {
         let readiness = Dictionary(uniqueKeysWithValues: (0 ..< 8).map {
             ($0, false)
@@ -14,7 +20,8 @@ extension SceneResolvedMaterialShaderSchema {
         switch SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: template.shaderContract,
             combos: template.comboValues,
-            textureReadiness: readiness
+            textureReadiness: readiness,
+            textureFormats: textureFormats
         ) {
         case let .accepted(prepared):
             return try activeSamplers(prepared)
@@ -28,11 +35,24 @@ extension SceneResolvedMaterialShaderSchema {
     /// variant selection still resolves one exact immutable Program.
     nonisolated static func reachableSamplers(
         _ template: Template,
-        implicitFramebufferIdentity: Graph.TextureIdentity?
+        implicitFramebufferIdentity: Graph.TextureIdentity?,
+        textureFormatProfiles: [[Int: SceneShaderTextureFormat]]? = nil
     ) throws -> [Int: Set<Sampler>] {
-        var cache: [UInt8: [Int: Sampler]] = [:]
-        func samplers(for mask: UInt8) throws -> [Int: Sampler] {
-            if let cached = cache[mask] { return cached }
+        let profiles = try textureFormatProfiles
+            ?? SceneResolvedMaterialTextureResolver
+                .exhaustiveLaunchTextureFormatProfiles(template: template)
+        guard !profiles.isEmpty else { throw Issue.sampler("texture-format-envelope") }
+        var cache: [ReachabilityVariantKey: [Int: Sampler]] = [:]
+        func samplers(
+            for mask: UInt8,
+            textureFormats: [Int: SceneShaderTextureFormat]
+        ) throws -> [Int: Sampler] {
+            let formatSlots = (0 ..< 8).map { textureFormats[$0] }
+            let key = ReachabilityVariantKey(
+                readinessMask: mask,
+                textureFormats: formatSlots
+            )
+            if let cached = cache[key] { return cached }
             let readiness = Dictionary(uniqueKeysWithValues: (0 ..< 8).map {
                 ($0, mask & (UInt8(1) << UInt8($0)) != 0)
             })
@@ -40,7 +60,8 @@ extension SceneResolvedMaterialShaderSchema {
             switch SceneAuthoredShaderPreparation.prepareShaderStages(
                 contract: template.shaderContract,
                 combos: template.comboValues,
-                textureReadiness: readiness
+                textureReadiness: readiness,
+                textureFormats: textureFormats
             ) {
             case let .accepted(value): prepared = value
             case let .rejected(failure):
@@ -52,7 +73,7 @@ extension SceneResolvedMaterialShaderSchema {
                 throw Issue.sampler("reachable-variant:not-applicable")
             }
             let result = try activeSamplers(prepared)
-            cache[mask] = result
+            cache[key] = result
             return result
         }
 
@@ -73,9 +94,18 @@ extension SceneResolvedMaterialShaderSchema {
                 guard seen.insert(mask).inserted else {
                     throw Issue.sampler("readiness-cycle")
                 }
-                active = try samplers(for: mask)
-                for (slot, sampler) in active {
-                    reachable[slot, default: []].insert(sampler)
+                let variants = try profiles.map {
+                    try samplers(for: mask, textureFormats: $0)
+                }
+                guard let representative = variants.first,
+                      variants.dropFirst().allSatisfy({ $0 == representative }) else {
+                    throw Issue.sampler("texture-format-schema-divergence")
+                }
+                active = representative
+                for variant in variants {
+                    for (slot, sampler) in variant {
+                        reachable[slot, default: []].insert(sampler)
+                    }
                 }
                 let next = try readinessMask(
                     template,

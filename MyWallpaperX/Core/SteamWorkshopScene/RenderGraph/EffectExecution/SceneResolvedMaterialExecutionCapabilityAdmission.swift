@@ -3,10 +3,16 @@ import Foundation
 nonisolated struct SceneResolvedMaterialAdmittedLayer {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
+    enum SourceRoute: Equatable {
+        case capturedLayerTexture
+        case transparentDirectDraw
+    }
+
     let layerID: Int
     let products: [SceneGraphAdmissionProduct]
     let pairPlan: SceneLayerFullFramePairPlan
     let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+    let sourceRoute: SourceRoute
 }
 
 /// Raw-graph conservation and condition/function admission for one launch.
@@ -85,15 +91,19 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                         $0.consumerLayerID == layerID
                     }
                 )
-            if let reason = executionRouteRejection(
+            let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
+            switch executionSourceRoute(
                 layer,
                 visibleLayerIDs: visibleLayerIDs,
                 dependencyOwnership: dependencyOwnership,
                 specializedLayerIDs: specializedLayerIDs
             ) {
+            case let .success(route):
+                sourceRoute = route
+            case let .failure(reason):
                 return .init(
                     layerID: layerID,
-                    result: .failure(failure(reason))
+                    result: .failure(reason)
                 )
             }
             guard !dynamicLayerIDs.contains(layerID) else {
@@ -126,35 +136,40 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     layer: layer,
                     activeEffects: activeEffects,
                     descriptor: descriptor,
-                    dependencyOwnership: dependencyOwnership
+                    dependencyOwnership: dependencyOwnership,
+                    sourceRoute: sourceRoute
                 ),
                 dedicatedStagePrograms: dedicatedGroups[layerID] ?? []
             )
         }
     }
 
-    private static func executionRouteRejection(
+    private static func executionSourceRoute(
         _ layer: SceneRenderDescriptor.Layer,
         visibleLayerIDs: Set<Int>,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership?,
         specializedLayerIDs: Set<Int>
-    ) -> String? {
+    ) -> Result<SceneResolvedMaterialAdmittedLayer.SourceRoute, Failure> {
         guard visibleLayerIDs.contains(layer.id) else {
-            return "execution-route-layer-hidden"
-        }
-        guard ["image", "solid", "text"].contains(layer.contentKind) else {
-            return "execution-route-content-kind"
+            return .failure(failure("execution-route-layer-hidden"))
         }
         guard case .none = layer.utilityLayer else {
-            return "execution-route-utility-owner"
+            return .failure(failure("execution-route-utility-owner"))
         }
         guard dependencyOwnership != nil else {
-            return "execution-route-dependency-owner"
+            return .failure(failure("execution-route-dependency-owner"))
         }
         guard !specializedLayerIDs.contains(layer.id) else {
-            return "execution-route-specialized-owner"
+            return .failure(failure("execution-route-specialized-owner"))
         }
-        return nil
+        switch layer.contentKind {
+        case "image", "solid", "text":
+            return .success(.capturedLayerTexture)
+        case "quad":
+            return .success(.transparentDirectDraw)
+        default:
+            return .failure(failure("execution-route-content-kind"))
+        }
     }
 
     private static func compileLayer(
@@ -162,7 +177,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         layer: SceneRenderDescriptor.Layer,
         activeEffects: [(offset: Int, element: SceneRenderDescriptor.EffectDescriptor)],
         descriptor: SceneRenderDescriptor,
-        dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
     ) -> Result<SceneResolvedMaterialAdmittedLayer, Failure> {
         do {
             guard graph.effects.count <= maximumEffectsPerLayer,
@@ -221,7 +237,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 layerID: graph.layerID,
                 products: products,
                 pairPlan: pair,
-                dependencyOwnership: dependencyOwnership
+                dependencyOwnership: dependencyOwnership,
+                sourceRoute: sourceRoute
             ))
         } catch let rejection as Failure {
             return .failure(rejection)

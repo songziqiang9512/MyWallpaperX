@@ -14,6 +14,9 @@ nonisolated enum SceneShaderVariantResolver {
         case conflictingTextureReadiness = "conflicting-texture-readiness"
         case explicitTextureReadinessConflict = "explicit-texture-readiness-conflict"
         case textureReadinessUnavailable = "texture-readiness-unavailable"
+        case conflictingTextureFormat = "conflicting-texture-format"
+        case explicitTextureFormatConflict = "explicit-texture-format-conflict"
+        case textureFormatUnavailable = "texture-format-unavailable"
         case resolutionDidNotConverge = "resolution-did-not-converge"
     }
 
@@ -27,13 +30,15 @@ nonisolated enum SceneShaderVariantResolver {
         stage: SceneShaderContract.StageKind,
         stages: [SceneShaderContract.Stage],
         explicitCombos: [String: Int],
-        textureReadiness: [Int: Bool] = [:]
+        textureReadiness: [Int: Bool] = [:],
+        textureFormats: [Int: SceneShaderTextureFormat] = [:]
     ) -> Result<SceneShaderVariantEnvironment, Failure> {
         resolve(
             stage: stage,
             schemaSources: stages.map(SceneShaderVariantSchemaSource.init),
             explicitCombos: explicitCombos,
-            textureReadiness: textureReadiness
+            textureReadiness: textureReadiness,
+            textureFormats: textureFormats
         )
     }
 
@@ -41,7 +46,8 @@ nonisolated enum SceneShaderVariantResolver {
         stage: SceneShaderContract.StageKind,
         schemaSources: [SceneShaderVariantSchemaSource],
         explicitCombos: [String: Int],
-        textureReadiness: [Int: Bool] = [:]
+        textureReadiness: [Int: Bool] = [:],
+        textureFormats: [Int: SceneShaderTextureFormat] = [:]
     ) -> Result<SceneShaderVariantEnvironment, Failure> {
         let schemas: [Schema]
         do {
@@ -83,7 +89,10 @@ nonisolated enum SceneShaderVariantResolver {
                 schemas,
                 providerNames: providerNames
             )
-            try validateHostRequirements(schemas)
+            try validateHostRequirements(
+                schemas,
+                providerNames: providerNames
+            )
             try applyDefaults(
                 schemas.filter { $0.requirements.isEmpty && $0.samplerSlot == nil },
                 explicit: explicit,
@@ -105,6 +114,16 @@ nonisolated enum SceneShaderVariantResolver {
                     schemas,
                     explicit: explicit,
                     textureReadiness: textureReadiness,
+                    schemaProviders: providerNames,
+                    requirementDefinitions: state.definitions,
+                    definitions: &next.definitions,
+                    provenance: &next.provenance,
+                    validatedSlots: &next.validatedSlots
+                )
+                try applyTextureFormats(
+                    schemas,
+                    explicit: explicit,
+                    textureFormats: textureFormats,
                     schemaProviders: providerNames,
                     requirementDefinitions: state.definitions,
                     definitions: &next.definitions,
@@ -312,7 +331,7 @@ nonisolated enum SceneShaderVariantResolver {
         }
     }
 
-    private static func requirementsSatisfied(
+    static func requirementsSatisfied(
         _ schema: Schema,
         definitions: [String: SceneShaderMacroDefinition],
         schemaProviders: Set<String>
@@ -329,21 +348,6 @@ nonisolated enum SceneShaderVariantResolver {
             return value(definitions[name]) == expected
         }
         return schema.requireAny ? matches.contains(true) : matches.allSatisfy { $0 }
-    }
-
-    private static func validateHostRequirements(
-        _ schemas: [Schema]
-    ) throws {
-        for name in Set(schemas.flatMap { $0.requirements.keys }).sorted() {
-            guard let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) else {
-                continue
-            }
-            throw Failure(
-                code: .invalidEnvironment,
-                combo: name,
-                message: "Shader requirement '\(name)' has no trusted \(requirement.rawValue) provider."
-            )
-        }
     }
 
     private static func validateRequirementProviders(

@@ -152,6 +152,15 @@ extension SceneDesktopWallpaperHost {
             admissionCandidates: resolvedMaterialAdmissionCandidates,
             shaderContracts: runtimeInput.shaderContracts
         )
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw SceneDesktopWallpaperHostLaunchError.noSurface
+        }
+        let materialAssetCatalog = SceneMaterialAssetTextureCatalog(
+            demands: resolvedMaterialCatalog.assetDemands,
+            resourceView: model.diagnostics.resourceView,
+            descriptor: runtimeInput.renderDescriptor,
+            device: device
+        )
         let resolvedMaterialExecutionCapabilities =
             SceneResolvedMaterialExecutionCapabilityCatalog(
                 admissionCandidates: resolvedMaterialAdmissionCandidates,
@@ -168,6 +177,7 @@ extension SceneDesktopWallpaperHost {
                     timelineTargets: Set(timelineProgram.bindings.map(\.target)),
                     sceneScriptTargets: []
                 ),
+                assetFormatFacts: materialAssetCatalog.launchFormatFacts,
                 dedicatedStageFamilies: dedicatedStageFamilies,
                 dedicatedLeafKeys: dedicatedLeafKeys
             )
@@ -195,15 +205,6 @@ extension SceneDesktopWallpaperHost {
             descriptor: runtimeInput.renderDescriptor,
             shaderContracts: runtimeInput.shaderContracts,
             currentProgram: currentMediaThumbnailBindings
-        )
-        guard let device = MTLCreateSystemDefaultDevice() else {
-            throw SceneDesktopWallpaperHostLaunchError.noSurface
-        }
-        let materialAssetCatalog = SceneMaterialAssetTextureCatalog(
-            demands: resolvedMaterialCatalog.assetDemands,
-            resourceView: model.diagnostics.resourceView,
-            descriptor: runtimeInput.renderDescriptor,
-            device: device
         )
         try activate(SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,

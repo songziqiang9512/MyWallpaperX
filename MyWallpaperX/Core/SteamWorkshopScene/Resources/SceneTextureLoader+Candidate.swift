@@ -122,7 +122,10 @@ extension SceneTextureLoader {
                 yAxis: SIMD2(0, uvScale.y)
             ),
             sampling: container.map { SceneTextureSampling(texFlags: $0.flags) }
-                ?? .directImageFallback
+                ?? .directImageFallback,
+            authoredFormat: container.flatMap {
+                SceneShaderTextureFormat(rawValue: $0.format)
+            }
         ))
     }
 

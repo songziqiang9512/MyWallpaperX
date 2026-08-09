@@ -17,10 +17,13 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment+HostFacts.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderDirective.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderMacroExpansion.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+TextureFormat.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+Schema.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+SchemaSeed.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+DisabledCombo.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor+Directive.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor.swift",
@@ -168,13 +171,15 @@ private func makeStage(_ source: String) -> SceneShaderContract.Stage {
 private func variant(
     _ stage: SceneShaderContract.Stage,
     explicit: [String: Int] = [:],
-    readiness: [Int: Bool] = [:]
+    readiness: [Int: Bool] = [:],
+    formats: [Int: SceneShaderTextureFormat] = [:]
 ) -> Result<SceneShaderVariantEnvironment, SceneShaderVariantResolver.Failure> {
     SceneShaderVariantResolver.resolve(
         stage: .fragment,
         stages: [stage],
         explicitCombos: explicit,
-        textureReadiness: readiness
+        textureReadiness: readiness,
+        textureFormats: formats
     )
 }
 
@@ -326,8 +331,32 @@ private func runEnvironmentRequirementFixtures() throws -> [String] {
         environment: plain,
         code: .unresolvedEnvironmentDefine
     )
-    try expectFailure(
+    switch preprocess(
         "#if TEX0FORMAT == 0\nACTIVE\n#endif",
+        environment: plain
+    ) {
+    case let .success(prepared):
+        try expect(
+            prepared.source == "ACTIVE",
+            "An absent texture-format macro was not zero in #if."
+        )
+    case let .failure(failure):
+        throw HarnessFailure(description: "Absent texture format failed: \(failure).")
+    }
+    switch preprocess(
+        "#ifdef TEX0FORMAT\nBAD\n#else\nABSENT\n#endif",
+        environment: plain
+    ) {
+    case let .success(prepared):
+        try expect(
+            prepared.source == "ABSENT",
+            "An absent texture-format macro became defined."
+        )
+    case let .failure(failure):
+        throw HarnessFailure(description: "Texture #ifdef failed: \(failure).")
+    }
+    try expectFailure(
+        "float format = TEX0FORMAT;",
         environment: plain,
         code: .unresolvedEnvironmentDefine
     )
@@ -735,6 +764,48 @@ private func runRequirementProviderFixtures() throws -> [String] {
         "Authored VERSION/format schemas were mistaken for verified host facts."
     )
 
+    let formatStage = makeStage(
+        "uniform sampler2D g_Texture2; // {\"formatcombo\":true}"
+    )
+    let formatEnvironment = try resolved(variant(
+        formatStage,
+        formats: [2: .r8]
+    ))
+    let formatResolution = formatEnvironment.comboResolutions.first {
+        $0.binding.name == "TEX2FORMAT"
+    }
+    try expect(
+        formatResolution?.binding.definition == .defined(.integer(9))
+            && formatResolution?.provenance == .textureFormat
+            && formatResolution?.validatedTextureSlots == [2],
+        "Verified authored TEX format did not become a typed host macro."
+    )
+    let missingFormat = try failure(variant(formatStage))
+    try expect(
+        missingFormat.code == .textureFormatUnavailable
+            && missingFormat.combo == "TEX2FORMAT",
+        "Unknown authored TEX format did not fail closed."
+    )
+    let combinedFormat = makeStage(
+        "uniform sampler2D g_Texture1; // {\"combo\":\"NORMALMAP\",\"formatcombo\":true}"
+    )
+    let combinedEnvironment = try resolved(variant(
+        combinedFormat,
+        readiness: [1: true],
+        formats: [1: .rg88]
+    ))
+    try expect(
+        combinedEnvironment.comboResolutions.contains {
+            $0.binding.name == "NORMALMAP"
+                && $0.provenance == .textureReadiness
+        } && combinedEnvironment.comboResolutions.contains {
+            $0.binding.name == "TEX1FORMAT"
+                && $0.binding.definition == .defined(.integer(8))
+                && $0.provenance == .textureFormat
+        },
+        "Sampler readiness and formatcombo metadata did not remain independent."
+    )
+
     let unmarked = makeStage(
         """
         uniform float u_Version; // {"combo":"VERSION","default":0}
@@ -912,6 +983,8 @@ private func runRequirementProviderFixtures() throws -> [String] {
     )
     return [
         "host_requirements", "typed_requirement", "ordinary_requirement",
+        "typed_texture_format", "unknown_texture_format_fail_closed",
+        "combined_readiness_format",
         "deterministic_requirement_failure",
         "explicit_requirement_provider", "readiness_requirement_provider",
         "negative_requirement_pruning", "stale_readiness_pruning",
@@ -1034,6 +1107,9 @@ class SceneShaderVariantEnvironmentTests(unittest.TestCase):
                 "host_requirements",
                 "typed_requirement",
                 "ordinary_requirement",
+                "typed_texture_format",
+                "unknown_texture_format_fail_closed",
+                "combined_readiness_format",
                 "deterministic_requirement_failure",
                 "explicit_requirement_provider",
                 "readiness_requirement_provider",

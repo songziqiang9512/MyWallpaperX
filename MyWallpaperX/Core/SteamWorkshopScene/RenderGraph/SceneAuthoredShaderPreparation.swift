@@ -38,7 +38,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
     nonisolated static func prepareShaderStages(
         contract: SceneShaderContract,
         combos: [String: Int],
-        textureReadiness: [Int: Bool] = [:]
+        textureReadiness: [Int: Bool] = [:],
+        textureFormats: [Int: SceneShaderTextureFormat] = [:]
     ) -> SceneAuthoredShaderPreparationResult<SceneShaderPreparedProgram> {
         let graph: SceneShaderSourceGraph
         if let loadedGraph = contract.sourceGraph {
@@ -75,7 +76,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
             graph: graph,
             initialSources: schemaSources,
             combos: combos,
-            textureReadiness: textureReadiness
+            textureReadiness: textureReadiness,
+            textureFormats: textureFormats
         )
         let baseline: StablePreparation
         switch baselineResult {
@@ -98,7 +100,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 graph: graph,
                 initialSources: probeSeed,
                 combos: combos,
-                textureReadiness: textureReadiness
+                textureReadiness: textureReadiness,
+                textureFormats: textureFormats
             ), alternate.signature != baseline.signature {
                 return unstableVariantFailure("active-schema-ambiguous")
             }
@@ -111,7 +114,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
         graph: SceneShaderSourceGraph,
         initialSources: [SceneShaderVariantSchemaSource],
         combos: [String: Int],
-        textureReadiness: [Int: Bool]
+        textureReadiness: [Int: Bool],
+        textureFormats: [Int: SceneShaderTextureFormat]
     ) -> SceneAuthoredShaderPreparationResult<StablePreparation> {
         var schemaSources = initialSources
         var previousSignature: String?
@@ -122,7 +126,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 graph: graph,
                 schemaSources: schemaSources,
                 combos: combos,
-                textureReadiness: textureReadiness
+                textureReadiness: textureReadiness,
+                textureFormats: textureFormats
             )
             guard case let .accepted(pair) = result else {
                 switch result {
@@ -156,7 +161,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
         graph: SceneShaderSourceGraph,
         schemaSources: [SceneShaderVariantSchemaSource],
         combos: [String: Int],
-        textureReadiness: [Int: Bool]
+        textureReadiness: [Int: Bool],
+        textureFormats: [Int: SceneShaderTextureFormat]
     ) -> SceneAuthoredShaderPreparationResult<PreparedPair> {
         let vertex = prepare(
             .vertex,
@@ -164,7 +170,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
             graph: graph,
             schemaSources: schemaSources,
             combos: combos,
-            textureReadiness: textureReadiness
+            textureReadiness: textureReadiness,
+            textureFormats: textureFormats
         )
         let fragment = prepare(
             .fragment,
@@ -172,7 +179,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
             graph: graph,
             schemaSources: schemaSources,
             combos: combos,
-            textureReadiness: textureReadiness
+            textureReadiness: textureReadiness,
+            textureFormats: textureFormats
         )
         switch (vertex, fragment) {
         case let (.accepted(vertex), .accepted(fragment)):
@@ -281,6 +289,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
                         reasons.insert("prepared-directive")
                     }
                 case .defineFunction, .undef, .include, .ifExpression, .ifdef,
+                     .elifExpression,
                      .elseDirective, .endif, .unsupported, .unknown,
                      .unsupportedFunctionMacro, .malformed:
                     reasons.insert("prepared-directive")
@@ -296,7 +305,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
         graph: SceneShaderSourceGraph,
         schemaSources: [SceneShaderVariantSchemaSource],
         combos: [String: Int],
-        textureReadiness: [Int: Bool]
+        textureReadiness: [Int: Bool],
+        textureFormats: [Int: SceneShaderTextureFormat]
     ) -> SceneAuthoredShaderPreparationResult<SceneShaderPreparedSource> {
         guard let stage = contract.stages.first(where: { $0.kind == kind }) else {
             return .rejected(failure(
@@ -308,7 +318,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
             stage: kind,
             schemaSources: schemaSources,
             explicitCombos: combos,
-            textureReadiness: textureReadiness
+            textureReadiness: textureReadiness,
+            textureFormats: textureFormats
         )
         let environment: SceneShaderVariantEnvironment
         switch variantResult {
@@ -352,7 +363,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
              .malformedDirective:
             code = .shaderDirectiveUnsupported
         case .invalidExpression, .unmatchedElse, .duplicateElse,
-             .unmatchedEndif, .unterminatedConditional:
+             .unmatchedEndif, .unmatchedElif, .elifAfterElse,
+             .unterminatedConditional:
             code = .shaderConditionInvalid
         case .budgetExceeded: code = .shaderPreprocessorBudgetExceeded
         case .conflictingMacro, .unresolvedEnvironmentDefine:
@@ -364,7 +376,14 @@ nonisolated enum SceneAuthoredShaderPreparation {
         return Self.failure(
             phase: .shaderPreprocessor,
             code: code,
-            details: failure.diagnostics.map { $0.code.rawValue }
+            details: failure.diagnostics.flatMap { diagnostic in
+                [
+                    diagnostic.code.rawValue,
+                    diagnostic.relativePath,
+                    diagnostic.line.map(String.init) ?? "<none>",
+                    diagnostic.message,
+                ]
+            }
         )
     }
 

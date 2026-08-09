@@ -243,7 +243,7 @@ extension SceneShaderPreprocessor {
             do {
                 return try SceneShaderLexicalExpander.expand(
                     line,
-                    objectMacros: macros,
+                    objectMacros: environment.codeMacroTable(sourceMacros: macros),
                     functionMacros: functionMacros,
                     limits: limits
                 ) { name in
@@ -287,6 +287,10 @@ extension SceneShaderPreprocessor {
                         && functionMacros[name] == nil
                         && selectedDefinitions[name] == nil {
                     if let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
+                        if SceneShaderVariantEnvironment
+                            .permitsUndefinedZeroInCondition(name) {
+                            continue
+                        }
                         throw unresolvedEnvironment(name, requirement, path, line)
                     }
                 }

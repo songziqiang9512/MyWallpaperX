@@ -17,6 +17,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let admittedGraphs: [Graph]
         let pairPlan: SceneLayerFullFramePairPlan
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
+        let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
 
         fileprivate init(
@@ -24,12 +25,14 @@ final class SceneResolvedMaterialRuntimeBridge {
             admittedGraphs: [Graph],
             pairPlan: SceneLayerFullFramePairPlan,
             fullFrameExtentPolicy: SceneFullFrameExtentPolicy,
+            sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
             token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
         ) {
             self.layerID = layerID
             self.admittedGraphs = admittedGraphs
             self.pairPlan = pairPlan
             self.fullFrameExtentPolicy = fullFrameExtentPolicy
+            self.sourceRoute = sourceRoute
             self.token = token
         }
     }
@@ -58,8 +61,8 @@ final class SceneResolvedMaterialRuntimeBridge {
     struct FramePreparationRequest {
         let claim: ClaimedExecution
         let targetPlan: SceneResolvedMaterialFrameTargetPlan
-        let sourceTexture: MTLTexture
-        let sourceUniforms: SceneLayerFragmentUniforms
+        let sourceTexture: MTLTexture?
+        let sourceUniforms: SceneLayerFragmentUniforms?
         let sourcePipeline: SceneImageLayerPipeline
         let dedicatedInputs: DedicatedFrameInputs
     }
@@ -332,6 +335,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             admittedGraphs: capability.admittedProducts.map(\.graph),
             pairPlan: capability.pairPlan,
             fullFrameExtentPolicy: capability.fullFrameExtentPolicy,
+            sourceRoute: capability.sourceRoute,
             token: claim.token
         )
         guard recordsClaim else { return .claimed(execution) }

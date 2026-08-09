@@ -1,6 +1,10 @@
 import Foundation
 
 nonisolated extension SceneResolvedMaterialTextureResolver {
+    private enum TextureFormatLaunchIssue: Error {
+        case invalidSchema
+    }
+
     struct LaunchReadinessProjection {
         let requiredMask: UInt8
         let optionalMask: UInt8
@@ -99,6 +103,180 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             return .failure(error)
         } catch {
             return .failure(launchFailure(.identityInvariant, phase: .invariant))
+        }
+    }
+
+    static func launchTextureFormatSlots(
+        template: Template
+    ) throws -> Set<Int> {
+        guard let graph = template.shaderContract.sourceGraph else {
+            throw TextureFormatLaunchIssue.invalidSchema
+        }
+        var result = Set<Int>()
+        for node in graph.nodes {
+            let parsed = SceneShaderContractSourceParser().parse(
+                node.source,
+                stageRelativePath: node.virtualPath
+            )
+            let declarations = Dictionary(grouping: parsed.declarations, by: \.line)
+            for annotation in parsed.annotations {
+                guard case let .object(object) = annotation.variantValue,
+                      let raw = object["formatcombo"] else { continue }
+                guard let enabled = raw.boolValue else {
+                    throw TextureFormatLaunchIssue.invalidSchema
+                }
+                guard enabled else { continue }
+                let slots = declarations[annotation.line, default: []].compactMap {
+                    declaration -> Int? in
+                    guard declaration.kind == .uniform,
+                          declaration.type.caseInsensitiveCompare("sampler2D")
+                              == .orderedSame,
+                          declaration.name.hasPrefix("g_Texture"),
+                          let slot = Int(declaration.name.dropFirst(
+                              "g_Texture".count
+                          )),
+                          (0 ..< 8).contains(slot) else { return nil }
+                    return slot
+                }
+                guard slots.count == 1, let slot = slots.first else {
+                    throw TextureFormatLaunchIssue.invalidSchema
+                }
+                result.insert(slot)
+            }
+        }
+        return result
+    }
+
+    static func launchTextureFormatProfiles(
+        template: Template,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        readinessMask: UInt8,
+        formatSlots: Set<Int>,
+        assetFormatFacts: [String: Int]
+    ) -> Result<[[SceneShaderTextureFormat?]], Failure> {
+        guard template.textureSlots.count == 8,
+              formatSlots.allSatisfy((0 ..< 8).contains) else {
+            return .failure(launchFailure(
+                .activeSamplerSchemaInvalid,
+                phase: .preparation
+            ))
+        }
+        var profiles = [Array<SceneShaderTextureFormat?>(
+            repeating: nil,
+            count: 8
+        )]
+        for slot in formatSlots.sorted() {
+            let isReady = readinessMask & (UInt8(1) << UInt8(slot)) != 0
+            let options: [SceneShaderTextureFormat?]
+            if !isReady {
+                options = [nil]
+            } else {
+                var possible = Set<SceneShaderTextureFormat?>()
+                let sampler = samplers[slot]
+                if let textureSlot = template.textureSlots[slot] {
+                    for candidate in textureSlot.candidates {
+                        possible.formUnion(formats(
+                            for: candidate.reference,
+                            sampler: sampler,
+                            assetFormatFacts: assetFormatFacts
+                        ))
+                    }
+                }
+                if let sampler {
+                    switch sampler.defaultTexture {
+                    case let .asset(path):
+                        possible.formUnion(formats(
+                            for: .asset(path),
+                            sampler: sampler,
+                            assetFormatFacts: assetFormatFacts
+                        ))
+                    case .internalTarget:
+                        possible.insert(nil)
+                    case nil:
+                        break
+                    }
+                    if sampler.materialKey?.caseInsensitiveCompare("framebuffer")
+                            == .orderedSame {
+                        possible.insert(nil)
+                    }
+                }
+                if possible.isEmpty { possible.insert(nil) }
+                options = possible.sorted(by: less)
+            }
+            var expanded: [[SceneShaderTextureFormat?]] = []
+            for profile in profiles {
+                for option in options {
+                    var next = profile
+                    next[slot] = option
+                    expanded.append(next)
+                    guard expanded.count <= 256 else {
+                        return .failure(launchFailure(
+                            .shaderPreparationFailed,
+                            phase: .preparation
+                        ))
+                    }
+                }
+            }
+            profiles = expanded
+        }
+        return .success(profiles)
+    }
+
+    static func exhaustiveLaunchTextureFormatProfiles(
+        template: Template,
+        maximumProfileCount: Int = 256
+    ) throws -> [[Int: SceneShaderTextureFormat]] {
+        guard (1 ... 256).contains(maximumProfileCount) else {
+            throw TextureFormatLaunchIssue.invalidSchema
+        }
+        let slots = try launchTextureFormatSlots(template: template).sorted()
+        var profiles: [[Int: SceneShaderTextureFormat]] = [[:]]
+        for slot in slots {
+            var expanded: [[Int: SceneShaderTextureFormat]] = []
+            for profile in profiles {
+                for format in SceneShaderTextureFormat.allCases {
+                    var next = profile
+                    next[slot] = format
+                    expanded.append(next)
+                    guard expanded.count <= maximumProfileCount else {
+                        throw TextureFormatLaunchIssue.invalidSchema
+                    }
+                }
+            }
+            profiles = expanded
+        }
+        return profiles
+    }
+
+    private static func formats(
+        for reference: Template.TextureReference,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler?,
+        assetFormatFacts: [String: Int]
+    ) -> Set<SceneShaderTextureFormat?> {
+        guard case let .asset(path) = reference,
+              let sampler,
+              let purpose = sampler.purpose(for: reference) else { return [nil] }
+        let identity = SceneAssetTextureIdentity(path: path, purpose: purpose)
+        guard let value = assetFormatFacts[identity.reportToken] else {
+            return [nil]
+        }
+        if value == -1 { return [] }
+        guard let rawValue = UInt32(exactly: value),
+              let format = SceneShaderTextureFormat(rawValue: rawValue) else {
+            return [nil]
+        }
+        return [format]
+    }
+
+    private static func less(
+        _ lhs: SceneShaderTextureFormat?,
+        _ rhs: SceneShaderTextureFormat?
+    ) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil): false
+        case (nil, _): true
+        case (_, nil): false
+        case let (lhs?, rhs?): lhs.rawValue < rhs.rawValue
         }
     }
 

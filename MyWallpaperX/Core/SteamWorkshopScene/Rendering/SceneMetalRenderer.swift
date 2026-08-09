@@ -312,36 +312,19 @@ struct SceneMetalRenderer {
             case "composition", "project", "fullscreen":
                 break
             case "quad":
-                guard let plan = authoredEffectChain(for: layer.id)?.singleStage?.lightShafts,
-                      let resources = effectTextures.lightShaftsEffects[plan.effectKey.descriptorID],
-                      let pipeline = pipelineRepository.lightShafts(),
-                      let model = lightShaftsModelMatrix(
-                          for: layer, worldFramesByLayerID: frameWorldFrames,
-                          parallaxMouseNormalized: parallaxMouseNormalized,
-                          configuration: parallaxConfiguration
-                      ) else {
-                    continue
+                if !drawQuadLayer(
+                    layer: layer,
+                    resolvedFramePlan: resolvedMaterialFrameTargetPlans[layer.id],
+                    imagePipeline: imagePipeline, effectTextures: effectTextures,
+                    frameContext: frameContext, worldFramesByLayerID: frameWorldFrames,
+                    cameraFrame: cameraFrame, parallaxConfiguration: parallaxConfiguration,
+                    time: time, mainPass: mainPass, commandBuffer: commandBuffer,
+                    executionTrace: effectExecutionTrace,
+                    makeLightShaftsPipeline: { pipelineRepository.lightShafts() }
+                ) {
+                    stopsAfterClaimedFailure = true
+                    break frameLayers
                 }
-                let encoded = SceneLightShaftsLayerRenderer.draw(
-                    plan: plan,
-                    resources: resources,
-                    model: model,
-                    viewProjection: cameraFrame.orthographicViewProjection,
-                    time: time,
-                    alpha: SceneDynamicLayerValues.alpha(
-                        layerID: layer.id,
-                        authoredValue: layer.alpha,
-                        snapshot: frameContext.dynamicValues
-                    ),
-                    pipeline: pipeline,
-                    mainPass: mainPass,
-                    executionTrace: effectExecutionTrace
-                )
-                authoredEffectTelemetry.record(
-                    layerID: layer.id,
-                    encoded: encoded,
-                    on: commandBuffer
-                )
             case "spotLight":
                 spotLightRuntime.render(
                     layerID: layer.id, worldFrame: frameWorldFrames[layer.id],

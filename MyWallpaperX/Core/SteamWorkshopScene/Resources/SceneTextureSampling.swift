@@ -1,5 +1,28 @@
 import Metal
 
+/// Authored Wallpaper Engine texture-format value preserved from a TEX
+/// container. This is intentionally separate from a decoded GPU pixel format:
+/// decoding may change physical representation while shader variants still
+/// branch on the source container format.
+nonisolated enum SceneShaderTextureFormat: UInt32, Codable, CaseIterable,
+    Hashable, Sendable {
+    case rgba8888 = 0
+    case rgb888 = 1
+    case rgb565 = 2
+    case etc1 = 3
+    case dxt5 = 4
+    case etc2 = 5
+    case dxt3 = 6
+    case dxt1 = 7
+    case rg88 = 8
+    case r8 = 9
+    case rg1616f = 10
+    case r16f = 11
+    case bc7 = 12
+
+    var macroValue: Int { Int(rawValue) }
+}
+
 /// Alpha representation carried by texture publications and authored shader
 /// boundaries. Storage format alone never determines this value.
 nonisolated enum SceneShaderColorRepresentation: String, Codable, Hashable, Sendable {

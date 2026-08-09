@@ -6,7 +6,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
     }
 
-    private struct Context {
+    struct Context {
         let unit: SceneAuthoredShaderSyntaxUnit
         let functionNames: Set<String>
         let uniformNames: [String: String]
@@ -104,6 +104,9 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 defines: defines,
                 colorTransfer: colorTransfer
             ),
+            [vertex, fragment].contains(where: {
+                SceneAuthoredShaderFunctionSemantics.usesFloat3x3Inverse($0)
+            }) ? SceneAuthoredShaderMetalSource.float3x3InverseHelper : "",
             SceneAuthoredShaderMetalSource.uniformStruct(layout: uniformLayout),
             SceneAuthoredShaderMetalSource.stageStructs(varyings: varyings),
             vertexCode,
@@ -164,7 +167,9 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 textures: textures,
                 insertsContextIntoCalls: false,
                 constantArrayParameterNames:
-                    context.unit.constantParameterArraysByFunctionIndex[functionIndex] ?? []
+                    context.unit.constantParameterArraysByFunctionIndex[functionIndex] ?? [],
+                mutableParameterNames: SceneAuthoredShaderFunctionSemantics
+                    .mutableParameterNames(for: function, unit: context.unit)
             )
             let emittedBody = emitTokens(
                 body,
@@ -218,7 +223,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         context: Context,
         textures: [SceneAuthoredShaderProgram.TextureBinding],
         insertsContextIntoCalls: Bool,
-        constantArrayParameterNames: Set<String> = []
+        constantArrayParameterNames: Set<String> = [],
+        mutableParameterNames: Set<String> = []
     ) -> TokenEmission {
         var output: [String] = []
         var diagnostics: [SceneAuthoredShaderFrontendDiagnostic] = []
@@ -280,7 +286,10 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 && context.functionNames.contains(token.text)
                 && index + 1 < tokens.count
                 && tokens[index + 1].text == "("
-            let translated = translatedToken(token, context: context)
+            let rawTranslated = translatedToken(token, context: context)
+            let translated = mutableParameterNames.contains(token.text)
+                ? "&\(rawTranslated)"
+                : rawTranslated
             if let suffix = SceneAuthoredShaderVectorConversion.suffix(
                 forIdentifierAt: index,
                 in: tokens,
@@ -305,39 +314,6 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             }
         }
         return TokenEmission(source: output.joined(separator: " "), diagnostics: diagnostics)
-    }
-
-    private static func translatedToken(
-        _ token: SceneAuthoredShaderToken,
-        context: Context
-    ) -> String {
-        if token.text == "in" { return "" }
-        if let maximum = context.unit.boundedLoopUniformReferences[token],
-           let field = context.uniformNames[token.text] {
-            return "clamp(mwxUniforms.\(field), 0.0, \(maximum).0)"
-        }
-        if let field = context.uniformNames[token.text] { return "mwxUniforms.\(field)" }
-        if context.varyingNames.contains(token.text) {
-            return context.unit.stage == .vertex
-                ? "mwxOutput.\(token.text)"
-                : "mwxInput.\(token.text)"
-        }
-        if context.attributeNames.contains(token.text) { return "mwxAttributes.\(token.text)" }
-        if token.text == "gl_Position" { return "mwxOutput.position" }
-        if token.text == "gl_FragColor" { return "mwxFragColor" }
-        if context.functionNames.contains(token.text) {
-            return SceneAuthoredShaderMetalSource.functionPrefix(context.unit.stage) + token.text
-        }
-        if let texture = context.texturesByName[token.text] {
-            return "mwxTexture\(texture.slot)"
-        }
-        return translatedIdentifier(token.text)
-    }
-
-    private static func translatedIdentifier(_ value: String) -> String {
-        if let type = SceneAuthoredShaderValueType(authoredName: value) { return type.metalName }
-        if value == "mod" { return "fmod" }
-        return value
     }
 
     private struct SampleEmission {

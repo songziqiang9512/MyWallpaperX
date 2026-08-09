@@ -235,6 +235,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let admittedGraphs: [SceneAuthoredEffectRenderPlan]
         let pairPlan: SceneLayerFullFramePairPlan
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
+        let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
     }
 
     enum ClaimResult {
@@ -393,6 +394,13 @@ final class SceneResolvedMaterialRuntimeBridge {
         graph: SceneAuthoredEffectRenderPlan,
         targets: SceneGraphRenderTargetTable
     ) {}
+}
+
+struct SceneResolvedMaterialAdmittedLayer {
+    enum SourceRoute: Equatable {
+        case capturedLayerTexture
+        case transparentDirectDraw
+    }
 }
 
 enum SceneMediaThumbnailTransitionTexture {
@@ -4551,7 +4559,8 @@ enum Harness {
             layerID: graph.layerID,
             admittedGraphs: [graph],
             pairPlan: pairPlan,
-            fullFrameExtentPolicy: .standard
+            fullFrameExtentPolicy: .standard,
+            sourceRoute: .capturedLayerTexture
         )
         let layer = SceneRenderDescriptor.Layer(
             contentKind: "image",
@@ -5910,11 +5919,15 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             SOURCE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
         self.assertIn(
-            "guard let texture = imageTextures[layer.id] else {\n"
-            "                return .deferred\n"
-            "            }",
+            "case .capturedLayerTexture:\n"
+            "                guard let texture = imageTextures[layer.id] else {\n"
+            "                    return .deferred\n"
+            "                }",
             source,
         )
+        self.assertIn("case .transparentDirectDraw:", source)
+        self.assertIn("sourceTexture = nil", source)
+        self.assertIn("sourceUniforms = nil", source)
         self.assertNotIn("frame-source-texture-unavailable", source)
 
     def test_legacy_authored_commit_is_owned_by_the_frame_transaction(self) -> None:

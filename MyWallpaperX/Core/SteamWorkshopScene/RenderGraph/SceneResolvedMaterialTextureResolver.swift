@@ -185,12 +185,30 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
     ) throws -> UInt8 {
+        try variantKey(
+            input,
+            samplers: samplers,
+            reachableSamplers: reachableSamplers,
+            formatSlots: []
+        ).readinessMask
+    }
+
+    static func variantKey(
+        _ input: SceneResolvedMaterialFinalizationInput,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
+        formatSlots: Set<Int>
+    ) throws -> SceneResolvedMaterialVariantKey {
+        guard formatSlots.allSatisfy((0 ..< 8).contains) else {
+            throw failure(.identityInvariant, phase: .invariant)
+        }
         let selections = try textureSelections(
             input,
             samplers: samplers,
             reachableSamplers: reachableSamplers
         )
         var mask: UInt8 = 0
+        var formats = Array<SceneShaderTextureFormat?>(repeating: nil, count: 8)
         for (slot, selection) in selections.enumerated() {
             switch selection {
             case .absent: break
@@ -200,16 +218,24 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                 guard let purpose else {
                     throw failure(.texturePurposeUnproven, slot: slot)
                 }
-                _ = try readyResource(
+                let resolved = try readyResource(
                     input,
                     reference: reference,
                     purpose: purpose,
                     slot: slot
                 )
                 mask |= UInt8(1) << UInt8(slot)
+                if formatSlots.contains(slot) {
+                    formats[slot] = resolved.resource.publication.candidate
+                        .authoredFormat
+                }
             }
         }
-        return mask
+        guard let key = SceneResolvedMaterialVariantKey(
+            readinessMask: mask,
+            textureFormats: formats
+        ) else { throw failure(.identityInvariant, phase: .invariant) }
+        return key
     }
 
     private static func textureSlots(

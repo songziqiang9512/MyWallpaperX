@@ -49,6 +49,13 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlphaPreserving(textureSlot: slot)
         }
+        if SceneAuthoredShaderPremultipliedOutputAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return .premultipliedAlpha
+        }
         guard outputUses.count == 1,
               let assignment = outputUses.first,
               assignment + 1 < tokens.count,

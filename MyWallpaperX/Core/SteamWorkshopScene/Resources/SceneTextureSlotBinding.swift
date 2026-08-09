@@ -8,7 +8,7 @@ import simd
 /// The binding itself preserves full UV metadata. Bounded consumers may apply
 /// a stricter admission rule (for example, axis-aligned mapped UV only) before
 /// splitting it into Metal arguments.
-struct SceneTextureSlotBinding {
+nonisolated struct SceneTextureSlotBinding {
     static let authoredSlotRange = 0..<8
 
     let slotIndex: Int

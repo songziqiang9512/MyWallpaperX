@@ -132,6 +132,7 @@ nonisolated enum SceneShaderComboProvenance: String, Codable, Equatable, Sendabl
     case explicitResolvedMaterial = "explicit-resolved-material"
     case annotationDefault = "annotation-default"
     case textureReadiness = "texture-readiness"
+    case textureFormat = "texture-format"
     case requirementInactive = "requirement-inactive"
     case annotationUndefined = "annotation-undefined"
 }
@@ -166,7 +167,7 @@ nonisolated struct SceneShaderVariantFailure: Error, Codable, Equatable, Sendabl
 }
 
 nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
-    static let frontendSchemaVersion = 5
+    static let frontendSchemaVersion = 10
 
     let sourceDialect: SceneShaderSourceDialect
     let backend: SceneShaderBackendIdentity
@@ -223,7 +224,8 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
         let normalizedResolutions = try Self.normalized(comboResolutions)
         let bindings = normalizedResolutions.map(\.binding)
         if let unsupported = normalizedResolutions.first(where: {
-            Self.unresolvedRequirement(for: $0.binding.name) != nil
+            !Self.hasVerifiedHostResolution($0)
+                && Self.unresolvedRequirement(for: $0.binding.name) != nil
         }) {
             throw SceneShaderVariantFailure(
                 code: .unsupportedEnvironmentDefine,
@@ -255,6 +257,21 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
         return result
     }
 
+    /// Authored combo identifiers use C-preprocessor zero semantics when a
+    /// declared option is inactive. Keep them undefined for `defined`/`#ifdef`
+    /// evaluation, but materialize zero when the same declared identifier is
+    /// referenced by active shader code.
+    func codeMacroTable(
+        sourceMacros: [String: SceneShaderMacroValue]
+    ) -> [String: SceneShaderMacroValue] {
+        var result = sourceMacros
+        for resolution in comboResolutions where resolution.schemaDeclared {
+            guard case .undefined = resolution.binding.definition else { continue }
+            result[resolution.binding.name] = .integer(0)
+        }
+        return result
+    }
+
     func selectedMacroDefinitions() -> [String: SceneShaderMacroDefinition] {
         var result = Dictionary(uniqueKeysWithValues: (environmentDefines + combos).map {
             ($0.name, $0.definition)
@@ -263,34 +280,6 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
             result[name] = .undefined
         }
         return result
-    }
-
-    static func unresolvedRequirement(
-        for identifier: String
-    ) -> SceneShaderEnvironmentRequirement? {
-        if ["GLSL", "HLSL", "HLSL_SM30", "HLSL_SM40", "HLSL_GS40"]
-            .contains(identifier) {
-            return .backendLanguage
-        }
-        if identifier == "VERSION" || identifier == "SHADERVERSION" {
-            return .clientVersion
-        }
-        if identifier.hasPrefix("PLATFORM_") { return .platform }
-        if identifier == "THICKFORMAT"
-            || identifier.range(
-                of: #"^TEX[0-9]+FORMAT$"#,
-                options: .regularExpression
-            ) != nil {
-            return .textureFormat
-        }
-        return nil
-    }
-
-    private static func isHostOwned(_ identifier: String) -> Bool {
-        guard let requirement = unresolvedRequirement(for: identifier) else {
-            return false
-        }
-        return requirement == .backendLanguage || requirement == .platform
     }
 
     private static func normalized(

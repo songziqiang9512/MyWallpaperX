@@ -78,6 +78,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
         fragment: SceneAuthoredShaderSyntaxUnit
     ) -> Validation {
         var diagnostics: [SceneAuthoredShaderFrontendDiagnostic] = []
+        diagnostics += SceneAuthoredShaderFunctionSemantics.diagnostics(for: vertex)
+        diagnostics += SceneAuthoredShaderFunctionSemantics.diagnostics(for: fragment)
         let deadBindings = SceneAuthoredShaderDeadBindingAnalyzer.analyze(
             vertex: vertex,
             fragment: fragment

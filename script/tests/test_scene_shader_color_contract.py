@@ -28,13 +28,16 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFunctionSemantics.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
 ]
 
@@ -48,8 +51,13 @@ private func fragment(_ body: String) -> String {
     uniform sampler2D g_Texture0;
     uniform sampler2D g_Texture1;
     uniform float g_ScalarWeight;
-    vec3 ApplyBlending(int mode, vec3 base, vec3 blend, float opacity) {
-        return mix(base, blend, opacity);
+    vec3 ApplyBlending(
+        const int mode,
+        in vec3 base,
+        in vec3 blend,
+        in float opacity
+    ) {
+        return mix(base, (blend), opacity);
     }
     void main() {
         \(body)
@@ -87,6 +95,7 @@ private func transfer(_ body: String) -> String {
         return "signal-preserving-slot:\(slot)"
     case .independentAlphaSignalCompositing(let signal, let color):
         return "signal-composite:\(signal):\(color)"
+    case .premultipliedAlpha: return "premultiplied-alpha"
     }
 }
 
@@ -234,6 +243,37 @@ enum Harness {
                 "vec4 color = texSample2D(g_Texture1, v_TexCoord); " +
                 "color.rgb = ApplyBlending(9, color.rgb, rays.rgb, rays.a); " +
                 "color.a += rays.a; gl_FragColor = color;"
+            ),
+            "premultipliedAdditive": transfer(
+                "float weight = 0.5; vec3 tint = vec3(0.8); " +
+                "vec4 color = CAST4(0.0); " +
+                "color.rgb = ApplyBlending(31, color.rgb, tint, weight); " +
+                "color.a = max(color.a, weight); gl_FragColor = color;"
+            ),
+            "premultipliedWrongBase": transfer(
+                "float weight = 0.5; vec3 tint = vec3(0.8); " +
+                "vec4 color = vec4(0.0); " +
+                "color.rgb = ApplyBlending(0, tint, color.rgb, weight); " +
+                "color.a = max(color.a, weight); gl_FragColor = color;"
+            ),
+            "premultipliedDifferentWeight": transfer(
+                "float weight = 0.5; vec3 tint = vec3(0.8); " +
+                "vec4 color = vec4(0.0); " +
+                "color.rgb = ApplyBlending(31, color.rgb, tint, weight); " +
+                "color.a = max(color.a, 0.25); gl_FragColor = color;"
+            ),
+            "premultipliedNonzeroBase": transfer(
+                "float weight = 0.5; vec3 tint = vec3(0.8); " +
+                "vec4 color = vec4(0.1); " +
+                "color.rgb = ApplyBlending(31, color.rgb, tint, weight); " +
+                "color.a = max(color.a, weight); gl_FragColor = color;"
+            ),
+            "premultipliedExtraWrite": transfer(
+                "float weight = 0.5; vec3 tint = vec3(0.8); " +
+                "vec4 color = vec4(0.0); " +
+                "color.rgb = ApplyBlending(31, color.rgb, tint, weight); " +
+                "color.rgb *= 0.5; color.a = max(color.a, weight); " +
+                "gl_FragColor = color;"
             ),
             "invalidIndependentSignal": transfer(
                 "vec4 sample = texSample2D(g_Texture0, v_TexCoord); " +
@@ -458,6 +498,18 @@ class SceneShaderColorContractTests(unittest.TestCase):
         composite = self.result["independentCompositeMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture1.sample", composite)
         self.assertIn("return mwxPremultiply(mwxFragColor);", composite)
+
+    def test_zero_base_additive_output_proves_only_exact_premultiplied_flow(self) -> None:
+        self.assertEqual(
+            self.result["premultipliedAdditive"], "premultiplied-alpha"
+        )
+        for key in (
+            "premultipliedWrongBase",
+            "premultipliedDifferentWeight",
+            "premultipliedNonzeroBase",
+            "premultipliedExtraWrite",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
 
     def test_straight_alpha_boundary_is_emitted_only_for_proven_programs(self) -> None:
         source = self.result["straightMetal"]

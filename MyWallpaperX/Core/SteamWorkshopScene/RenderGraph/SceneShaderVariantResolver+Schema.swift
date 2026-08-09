@@ -22,195 +22,13 @@ nonisolated struct SceneShaderVariantSchemaSource: Codable, Equatable, Sendable 
     }
 }
 
-/// Conservative bootstrap for the active-schema fixed point. Only metadata
-/// outside conditional regions, plus metadata from unconditional includes, may
-/// influence the first variant. Conditional metadata is discovered by the
-/// normal preprocess/resolve iterations after its provider facts are known.
-nonisolated enum SceneShaderVariantSchemaSeed {
-    static func unconditional(
-        contract: SceneShaderContract,
-        graph: SceneShaderSourceGraph
-    ) -> [SceneShaderVariantSchemaSource] {
-        var collector = Collector(graph: graph)
-        for stage in contract.stages {
-            collector.collect(stage.relativePath)
-        }
-        return collector.sources
-    }
-
-    static func ambiguityProbeSeeds(
-        baseSources: [SceneShaderVariantSchemaSource],
-        graph: SceneShaderSourceGraph,
-        limit: Int
-    ) -> [[SceneShaderVariantSchemaSource]]? {
-        let baseIdentities = Set(baseSources.flatMap { source in
-            source.annotations.map {
-                SceneShaderMetadataIdentity.annotation($0, path: source.relativePath)
-            }
-        })
-        guard let candidates = allCandidates(
-            in: graph,
-            excluding: baseIdentities,
-            limit: limit
-        ) else { return nil }
-        let probeCount = (1 << candidates.count) - 1
-        let graphBytes = graph.nodes.reduce(0) { $0 + $1.byteCount }
-        guard graphBytes == 0
-                || probeCount <= 256 * 1_024 * 1_024 / 16 / graphBytes else { return nil }
-        return (1 ..< probeCount + 1).map { mask in
-            candidates.enumerated().reduce(baseSources) { sources, item in
-                guard mask & (1 << item.offset) != 0 else { return sources }
-                return merging(item.element, into: sources)
-            }
-        }
-    }
-
-    private static func allCandidates(
-        in graph: SceneShaderSourceGraph,
-        excluding baseIdentities: Set<String>,
-        limit: Int
-    ) -> [SceneShaderVariantSchemaSource]? {
-        var result: [SceneShaderVariantSchemaSource] = []
-        for node in graph.nodes.sorted(by: { $0.virtualPath < $1.virtualPath }) {
-            let parsed = SceneShaderContractSourceParser().parse(
-                node.source,
-                stageRelativePath: node.virtualPath
-            )
-            let declarationsByLine = Dictionary(grouping: parsed.declarations, by: \.line)
-            for annotation in parsed.annotations {
-                let identity = SceneShaderMetadataIdentity.annotation(
-                    annotation,
-                    path: node.virtualPath
-                )
-                guard !baseIdentities.contains(identity) else { continue }
-                let source = SceneShaderVariantSchemaSource(
-                    relativePath: node.virtualPath,
-                    annotations: [annotation],
-                    declarations: declarationsByLine[annotation.line] ?? []
-                )
-                guard let schemas = try? SceneShaderVariantResolver.schemas(in: source),
-                      !schemas.isEmpty else { continue }
-                result.append(source)
-                guard result.count <= limit else { return nil }
-            }
-        }
-        return result
-    }
-
-    private static func merging(
-        _ candidate: SceneShaderVariantSchemaSource,
-        into sources: [SceneShaderVariantSchemaSource]
-    ) -> [SceneShaderVariantSchemaSource] {
-        var result = sources
-        if let index = result.firstIndex(where: {
-            $0.relativePath == candidate.relativePath
-        }) {
-            let existing = result[index]
-            result[index] = .init(
-                relativePath: existing.relativePath,
-                annotations: existing.annotations + candidate.annotations.filter {
-                    !existing.annotations.contains($0)
-                },
-                declarations: existing.declarations + candidate.declarations.filter {
-                    !existing.declarations.contains($0)
-                }
-            )
-        } else {
-            result.append(candidate)
-        }
-        return result.sorted { $0.relativePath < $1.relativePath }
-    }
-
-    private struct Collector {
-        let graph: SceneShaderSourceGraph
-        var visited: Set<String> = []
-        var annotations: [String: [SceneShaderContract.Annotation]] = [:]
-        var declarations: [String: [SceneShaderContract.Declaration]] = [:]
-
-        var sources: [SceneShaderVariantSchemaSource] {
-            Set(annotations.keys).union(declarations.keys).sorted().map { path in
-                .init(
-                    relativePath: path,
-                    annotations: annotations[path] ?? [],
-                    declarations: declarations[path] ?? []
-                )
-            }
-        }
-
-        mutating func collect(_ path: String) {
-            guard visited.insert(path.lowercased()).inserted,
-                  let node = graph.node(at: path) else { return }
-            let parsed = SceneShaderContractSourceParser().parse(
-                node.source,
-                stageRelativePath: node.virtualPath
-            )
-            let annotationsByLine = Dictionary(grouping: parsed.annotations, by: \.line)
-            let declarationsByLine = Dictionary(grouping: parsed.declarations, by: \.line)
-            var localAnnotations: [SceneShaderContract.Annotation] = []
-            var localDeclarations: [SceneShaderContract.Declaration] = []
-            var includes: [(line: Int, path: String)] = []
-            var conditionalElse: [Bool] = []
-            var inBlockComment = false
-            let lines = node.source.split(
-                omittingEmptySubsequences: false,
-                whereSeparator: { $0.isNewline }
-            )
-
-            for (offset, substring) in lines.enumerated() {
-                let line = offset + 1
-                let lexical = SceneShaderLexicalScanner.scan(
-                    String(substring),
-                    inBlockComment: &inBlockComment
-                )
-                if let directive = SceneShaderDirective.parse(lexical.code) {
-                    switch directive {
-                    case .ifExpression, .ifdef:
-                        conditionalElse.append(false)
-                    case .elseDirective:
-                        guard !conditionalElse.isEmpty,
-                              conditionalElse[conditionalElse.count - 1] == false else { return }
-                        conditionalElse[conditionalElse.count - 1] = true
-                    case .endif:
-                        guard !conditionalElse.isEmpty else { return }
-                        conditionalElse.removeLast()
-                    case .include(let includePath) where conditionalElse.isEmpty:
-                        includes.append((line, includePath))
-                    case .define, .defineFunction, .undef, .include:
-                        break
-                    case .unsupported, .unknown, .unsupportedFunctionMacro, .malformed:
-                        return
-                    }
-                    continue
-                }
-                if lexical.code.trimmingCharacters(in: .whitespaces).hasPrefix("#") {
-                    return
-                }
-                guard conditionalElse.isEmpty else { continue }
-                localAnnotations.append(contentsOf: annotationsByLine[line] ?? [])
-                localDeclarations.append(contentsOf: declarationsByLine[line] ?? [])
-            }
-            guard !inBlockComment, conditionalElse.isEmpty else { return }
-            annotations[node.virtualPath] = localAnnotations
-            declarations[node.virtualPath] = localDeclarations
-            for include in includes {
-                guard let edge = graph.edge(
-                          parentVirtualPath: node.virtualPath,
-                          line: include.line
-                      ),
-                      edge.request == include.path,
-                      case let .resolved(childPath) = edge.outcome else { continue }
-                collect(childPath)
-            }
-        }
-    }
-}
-
 extension SceneShaderVariantResolver {
     nonisolated struct Schema: Equatable {
         nonisolated enum Origin: Equatable {
             case authoredCombo
             case disabledCombo
             case textureReadiness(slot: Int)
+            case textureFormat(slot: Int)
         }
 
         let combo: String
@@ -225,6 +43,11 @@ extension SceneShaderVariantResolver {
             return slot
         }
 
+        var textureFormatSlot: Int? {
+            guard case let .textureFormat(slot) = origin else { return nil }
+            return slot
+        }
+
         var isAuthoredComboMarker: Bool {
             origin == .authoredCombo || origin == .disabledCombo
         }
@@ -236,7 +59,7 @@ extension SceneShaderVariantResolver {
         in source: SceneShaderVariantSchemaSource
     ) throws -> [Schema] {
         let declarations = Dictionary(grouping: source.declarations, by: \.line)
-        return try source.annotations.compactMap { annotation in
+        return try source.annotations.flatMap { annotation -> [Schema] in
             let markerRequiresCombo = annotation.marker != nil
                 && annotation.marker != "[PASS]"
             guard case .object(let object) = annotation.variantValue else {
@@ -247,39 +70,14 @@ extension SceneShaderVariantResolver {
                         message: "Shader combo marker requires an object payload."
                     )
                 }
-                return nil
-            }
-            guard let comboValue = object["combo"] else {
-                if markerRequiresCombo {
-                    throw Failure(
-                        code: .invalidAnnotation,
-                        combo: nil,
-                        message: "Shader combo marker requires a combo identifier."
-                    )
-                }
-                return nil
-            }
-            guard let combo = comboValue.stringValue,
-                  !combo.isEmpty else {
-                throw Failure(
-                    code: .invalidAnnotation,
-                    combo: comboValue.stringValue,
-                    message: "Shader combo annotation has no valid identifier."
-                )
-            }
-            if let disabled = try disabledComboSchema(
-                annotation: annotation,
-                object: object,
-                combo: combo
-            ) {
-                return disabled
+                return []
             }
             let requireAny: Bool
             if let rawRequireAny = object["requireany"] {
                 guard let value = rawRequireAny.boolValue else {
                     throw Failure(
                         code: .invalidAnnotation,
-                        combo: combo,
+                        combo: object["combo"]?.stringValue,
                         message: "Shader combo requireany must be a boolean."
                     )
                 }
@@ -287,19 +85,80 @@ extension SceneShaderVariantResolver {
             } else {
                 requireAny = false
             }
-            let requirements = try requirements(object["require"], combo: combo)
+            let rawCombo = object["combo"]
+            let combo: String?
+            if let rawCombo {
+                guard let value = rawCombo.stringValue, !value.isEmpty else {
+                    throw Failure(
+                        code: .invalidAnnotation,
+                        combo: rawCombo.stringValue,
+                        message: "Shader combo annotation has no valid identifier."
+                    )
+                }
+                combo = value
+            } else {
+                combo = nil
+            }
+            if markerRequiresCombo, combo == nil {
+                throw Failure(
+                    code: .invalidAnnotation,
+                    combo: nil,
+                    message: "Shader combo marker requires a combo identifier."
+                )
+            }
+            let requirementOwner = combo ?? "<texture-format>"
+            let requirements = try requirements(
+                object["require"],
+                combo: requirementOwner
+            )
+            if let combo,
+               let disabled = try disabledComboSchema(
+                   annotation: annotation,
+                   object: object,
+                   combo: combo
+               ) {
+                return [disabled]
+            }
             if annotation.marker == "[COMBO]" {
-                return Schema(
+                guard let combo else {
+                    throw Failure(
+                        code: .invalidAnnotation,
+                        combo: nil,
+                        message: "Shader combo marker requires a combo identifier."
+                    )
+                }
+                return [Schema(
                     combo: combo,
                     defaultValue: try integer(object["default"], combo: combo),
                     options: try options(object["options"], combo: combo),
                     requirements: requirements,
                     requireAny: requireAny,
                     origin: .authoredCombo
+                )]
+            }
+            guard annotation.marker == nil else {
+                throw Failure(
+                    code: .invalidAnnotation,
+                    combo: combo,
+                    message: "Unsupported shader combo marker."
                 )
             }
-            guard annotation.marker == nil,
-                  let slot = declarations[annotation.line]?
+            let rawFormatCombo = object["formatcombo"]
+            let hasFormatCombo: Bool
+            if let rawFormatCombo {
+                guard let value = rawFormatCombo.boolValue else {
+                    throw Failure(
+                        code: .invalidAnnotation,
+                        combo: combo,
+                        message: "Shader texture formatcombo must be a boolean."
+                    )
+                }
+                hasFormatCombo = value
+            } else {
+                hasFormatCombo = false
+            }
+            guard combo != nil || hasFormatCombo else { return [] }
+            guard let slot = declarations[annotation.line]?
                     .compactMap(samplerSlot).first else {
                 throw Failure(
                     code: .invalidAnnotation,
@@ -307,14 +166,28 @@ extension SceneShaderVariantResolver {
                     message: "Unmarked shader combo metadata must belong to a texture sampler."
                 )
             }
-            return Schema(
-                combo: combo,
-                defaultValue: nil,
-                options: nil,
-                requirements: requirements,
-                requireAny: requireAny,
-                origin: .textureReadiness(slot: slot)
-            )
+            var result: [Schema] = []
+            if let combo {
+                result.append(Schema(
+                    combo: combo,
+                    defaultValue: nil,
+                    options: nil,
+                    requirements: requirements,
+                    requireAny: requireAny,
+                    origin: .textureReadiness(slot: slot)
+                ))
+            }
+            if hasFormatCombo {
+                result.append(Schema(
+                    combo: "TEX\(slot)FORMAT",
+                    defaultValue: nil,
+                    options: nil,
+                    requirements: requirements,
+                    requireAny: requireAny,
+                    origin: .textureFormat(slot: slot)
+                ))
+            }
+            return result
         }
     }
 

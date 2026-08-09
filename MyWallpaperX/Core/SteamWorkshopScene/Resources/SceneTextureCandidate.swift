@@ -140,7 +140,7 @@ nonisolated enum SceneTextureContent: Hashable, Sendable {
 /// validate the expected purpose and UV shape before splitting the binding into
 /// Metal arguments, so generation, sampler, and mapped extent cannot drift
 /// independently from the texture.
-struct SceneTextureCandidate {
+nonisolated struct SceneTextureCandidate {
     let texture: MTLTexture
     let identity: SceneTextureResourceIdentity
     let generation: SceneTextureResourceGeneration
@@ -150,6 +150,31 @@ struct SceneTextureCandidate {
     let mappedSize: CGSize
     let uvTransform: SceneTextureUVTransform
     let sampling: SceneTextureSampling
+    let authoredFormat: SceneShaderTextureFormat?
+
+    init(
+        texture: MTLTexture,
+        identity: SceneTextureResourceIdentity,
+        generation: SceneTextureResourceGeneration,
+        purpose: SceneTextureLoadPurpose,
+        content: SceneTextureContent,
+        physicalSize: CGSize,
+        mappedSize: CGSize,
+        uvTransform: SceneTextureUVTransform,
+        sampling: SceneTextureSampling,
+        authoredFormat: SceneShaderTextureFormat? = nil
+    ) {
+        self.texture = texture
+        self.identity = identity
+        self.generation = generation
+        self.purpose = purpose
+        self.content = content
+        self.physicalSize = physicalSize
+        self.mappedSize = mappedSize
+        self.uvTransform = uvTransform
+        self.sampling = sampling
+        self.authoredFormat = authoredFormat
+    }
 
     var pixelFormat: MTLPixelFormat { texture.pixelFormat }
 
@@ -193,6 +218,7 @@ struct SceneTextureCandidate {
             + " uvScale=\(scale.x),\(scale.y)"
             + " sampling=\(sampling.filter.rawValue)/\(sampling.addressMode.rawValue)"
             + " pixelFormat=\(pixelFormat.rawValue)"
+            + " authoredFormat=\(authoredFormat.map { String($0.rawValue) } ?? "none")"
     }
 
     private func valid(_ size: CGSize) -> Bool {
@@ -214,7 +240,7 @@ struct SceneTextureCandidate {
     }
 }
 
-private extension SceneTextureContent {
+private nonisolated extension SceneTextureContent {
     var diagnosticName: String {
         switch self {
         case .color(.unresolved):
@@ -227,7 +253,7 @@ private extension SceneTextureContent {
     }
 }
 
-extension SceneTextureLoadPurpose {
+nonisolated extension SceneTextureLoadPurpose {
     init?(reportToken: String) {
         switch reportToken {
         case "premultiplied-color": self = .premultipliedColor
@@ -261,7 +287,7 @@ extension SceneTextureLoadPurpose {
 
 }
 
-private extension SceneTextureLoadPurpose {
+private nonisolated extension SceneTextureLoadPurpose {
     var diagnosticName: String {
         switch self {
         case .premultipliedColor: "premultipliedColor"

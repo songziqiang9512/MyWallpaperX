@@ -1,8 +1,25 @@
 import Foundation
 
+nonisolated struct SceneResolvedMaterialVariantKey: Hashable {
+    let readinessMask: UInt8
+    let textureFormats: [SceneShaderTextureFormat?]
+
+    init?(readinessMask: UInt8, textureFormats: [SceneShaderTextureFormat?]) {
+        guard textureFormats.count == 8 else { return nil }
+        self.readinessMask = readinessMask
+        self.textureFormats = textureFormats
+    }
+
+    var resolvedTextureFormats: [Int: SceneShaderTextureFormat] {
+        Dictionary(uniqueKeysWithValues: textureFormats.enumerated().compactMap {
+            index, format in format.map { (index, $0) }
+        })
+    }
+}
+
 /// Strictly bounded per-material cache. Failed variants consume a slot too, so
 /// malformed authored data cannot turn every frame into another compiler run.
-final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
+nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     typealias Failure = SceneResolvedMaterialFailure
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
@@ -27,16 +44,15 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
 
     private let template: Template
     private let seedSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+    private let textureFormatSlots: Set<Int>
+    private let assetFormatFacts: [String: Int]
     private let maximumVariantCount: Int
     private static let maximumReadinessPasses = 8
     private let lock = NSLock()
-    private var entries: [UInt8: Entry] = [:]
+    private var entries: [SceneResolvedMaterialVariantKey: Entry] = [:]
     private var shaderPreparations = 0
     private var frontendCompilations = 0
     private var capacityRejections = 0
-    private var cachedBootstrapSamplers: [
-        Int: SceneResolvedMaterialShaderSchema.Sampler
-    ]?
     private var cachedReachableSamplers: [
         Int: Set<SceneResolvedMaterialShaderSchema.Sampler>
     ]?
@@ -45,15 +61,20 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
 
     init?(
         template: Template,
-        maximumVariantCount: Int
+        maximumVariantCount: Int,
+        assetFormatFacts: [String: Int] = [:]
     ) {
         guard (1 ... 256).contains(maximumVariantCount),
               let seed = try? SceneResolvedMaterialShaderSchema
-                  .unconditionalSamplers(template) else {
+                  .unconditionalSamplers(template),
+              let formatSlots = try? SceneResolvedMaterialTextureResolver
+                  .launchTextureFormatSlots(template: template) else {
             return nil
         }
         self.template = template
         seedSamplers = seed
+        textureFormatSlots = formatSlots
+        self.assetFormatFacts = assetFormatFacts
         self.maximumVariantCount = maximumVariantCount
     }
 
@@ -66,6 +87,39 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             frontendCompilationCount: frontendCompilations,
             capacityRejectionCount: capacityRejections
         )
+    }
+
+    /// A source-less object route is executable only when the authored
+    /// variant explicitly selects DIRECTDRAW and the complete launch envelope
+    /// proves that no active sampler can consume the graph input.
+    var supportsTransparentDirectDraw: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard template.comboValues["DIRECTDRAW"] == 1,
+              template.graphRole.bindings.isEmpty,
+              hasCachedReachability,
+              let reachable = cachedReachableSamplers,
+              reachable[0] == nil else {
+            return false
+        }
+        for (slot, samplers) in reachable {
+            guard (0 ..< template.textureSlots.count).contains(slot) else {
+                return false
+            }
+            if samplers.contains(where: {
+                $0.materialKey?.caseInsensitiveCompare("framebuffer")
+                    == .orderedSame
+            }) {
+                return false
+            }
+            if template.textureSlots[slot]?.candidates.contains(where: {
+                if case .graph = $0.reference { return true }
+                return false
+            }) == true {
+                return false
+            }
+        }
+        return true
     }
 
     /// Compiles the fixed point for every bounded absent/ready profile before
@@ -106,23 +160,62 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         details: ["texture-schema-cycle"]
                     )))
                 }
-                guard entries[mask] != nil
-                        || entries.count < maximumVariantCount else {
-                    capacityRejections += 1
-                    return .failure(.capacity)
+                let profiles: [[SceneShaderTextureFormat?]]
+                switch SceneResolvedMaterialTextureResolver
+                    .launchTextureFormatProfiles(
+                        template: template,
+                        samplers: samplers,
+                        readinessMask: mask,
+                        formatSlots: textureFormatSlots,
+                        assetFormatFacts: assetFormatFacts
+                    ) {
+                case let .success(value): profiles = value
+                case let .failure(failure):
+                    return .failure(.material(failure))
                 }
-                let variant: Variant
-                do { variant = try entry(for: mask) }
-                catch let failure as Failure {
+                var variants: [Variant] = []
+                do {
+                    for profile in profiles {
+                        guard let key = SceneResolvedMaterialVariantKey(
+                            readinessMask: mask,
+                            textureFormats: profile
+                        ) else {
+                            throw Self.failure(
+                                .identityInvariant,
+                                phase: .invariant
+                            )
+                        }
+                        guard entries[key] != nil
+                                || entries.count < maximumVariantCount else {
+                            capacityRejections += 1
+                            return .failure(.capacity)
+                        }
+                        variants.append(try entry(for: key))
+                    }
+                } catch let failure as Failure {
                     return .failure(.material(failure))
                 } catch {
                     return .failure(.material(Self.failure(
                         .identityInvariant, phase: .invariant
                     )))
                 }
+                guard let variant = variants.first,
+                      variants.dropFirst().allSatisfy({
+                          $0.activeSamplers == variant.activeSamplers
+                              && $0.frontendProgram.textureBindings
+                                  == variant.frontendProgram.textureBindings
+                      }) else {
+                    return .failure(.material(Self.failure(
+                        .activeSamplerSchemaInvalid,
+                        phase: .preparation,
+                        details: ["texture-format-schema-divergence"]
+                    )))
+                }
                 reached.insert(mask)
-                for (slot, sampler) in variant.activeSamplers {
-                    reachableSamplers[slot, default: []].insert(sampler)
+                for compiled in variants {
+                    for (slot, sampler) in compiled.activeSamplers {
+                        reachableSamplers[slot, default: []].insert(sampler)
+                    }
                 }
                 let nextProjection: SceneResolvedMaterialTextureResolver
                     .LaunchReadinessProjection
@@ -138,9 +231,12 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 }
                 let next = nextProjection.mask(optionalAvailability: availability)
                 if next == mask {
-                    guard let invalid = variant.frontendProgram.textureBindings
+                    guard let invalid = variants.lazy
+                        .flatMap(\.frontendProgram.textureBindings)
                         .first(where: { mask & (1 << UInt8($0.slot)) == 0 }) else {
-                        if variant.frontendProgram.colorTransfer == .unresolved {
+                        if variants.contains(where: {
+                            $0.frontendProgram.colorTransfer == .unresolved
+                        }) {
                             return .failure(.material(Self.failure(
                                 .colorContractUnproven, phase: .color)))
                         }
@@ -160,13 +256,6 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     details: ["texture-schema-budget"]
                 )))
             }
-        }
-        do { _ = try bootstrapSamplersLocked() }
-        catch let failure as Failure { return .failure(.material(failure)) }
-        catch {
-            return .failure(.material(Self.failure(
-                .identityInvariant, phase: .invariant
-            )))
         }
         cachedReachableSamplers = reachableSamplers
         cachedReachabilityIdentity = implicitFramebufferIdentity
@@ -195,14 +284,16 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             let reachableSamplers = try reachableSamplersLocked(
                 implicitFramebufferIdentity: input.implicitFramebufferIdentity
             )
-            var activeSamplers = try bootstrapSamplersLocked()
+            var activeSamplers = seedSamplers
             var seen: Set<UInt8> = []
             for _ in 0 ..< Self.maximumReadinessPasses {
-                let mask = try SceneResolvedMaterialTextureResolver.readinessMask(
+                let key = try SceneResolvedMaterialTextureResolver.variantKey(
                     input,
                     samplers: activeSamplers,
-                    reachableSamplers: reachableSamplers
+                    reachableSamplers: reachableSamplers,
+                    formatSlots: textureFormatSlots
                 )
+                let mask = key.readinessMask
                 guard seen.insert(mask).inserted else {
                     throw Self.failure(
                         .shaderPreparationFailed,
@@ -210,13 +301,14 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         details: ["texture-schema-cycle"]
                     )
                 }
-                let variant = try entry(for: mask)
-                let next = try SceneResolvedMaterialTextureResolver.readinessMask(
+                let variant = try entry(for: key)
+                let next = try SceneResolvedMaterialTextureResolver.variantKey(
                     input,
                     samplers: variant.activeSamplers,
-                    reachableSamplers: reachableSamplers
+                    reachableSamplers: reachableSamplers,
+                    formatSlots: textureFormatSlots
                 )
-                if next == mask {
+                if next == key {
                     return .success(.init(
                         variant: variant,
                         reachableSamplers: reachableSamplers
@@ -264,27 +356,10 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         }
     }
 
-    private func bootstrapSamplersLocked() throws -> [
-        Int: SceneResolvedMaterialShaderSchema.Sampler
-    ] {
-        if let cachedBootstrapSamplers { return cachedBootstrapSamplers }
-        do {
-            let value = try SceneResolvedMaterialShaderSchema.bootstrapSamplers(template)
-            cachedBootstrapSamplers = value
-            return value
-        } catch {
-            throw Self.failure(
-                .activeSamplerSchemaInvalid,
-                phase: .preparation,
-                details: ["bootstrap-variant"]
-            )
-        }
-    }
-
     private func entry(
-        for mask: UInt8
+        for key: SceneResolvedMaterialVariantKey
     ) throws -> Variant {
-        if let entry = entries[mask] {
+        if let entry = entries[key] {
             switch entry {
             case let .ready(variant): return variant
             case let .failed(failure): throw failure
@@ -302,13 +377,13 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         do {
             let variant = try Self.compile(
                 template: template,
-                readinessMask: mask,
+                variantKey: key,
                 onFrontendCompilation: { frontendCompilations += 1 }
             )
-            entries[mask] = .ready(variant)
+            entries[key] = .ready(variant)
             return variant
         } catch let failure as Failure {
-            entries[mask] = .failed(failure)
+            entries[key] = .failed(failure)
             throw failure
         }
     }

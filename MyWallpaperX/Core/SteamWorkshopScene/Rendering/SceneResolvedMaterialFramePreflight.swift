@@ -110,11 +110,19 @@ extension SceneMetalRenderer {
             case let .claimed(value):
                 claim = value
             }
-            guard let texture = imageTextures[layer.id] else {
-                return .deferred
-            }
             let desiredSize: CGSize
-            if layer.contentKind == "solid" {
+            switch claim.sourceRoute {
+            case .capturedLayerTexture:
+                guard let texture = imageTextures[layer.id] else {
+                    return .deferred
+                }
+                if layer.contentKind != "solid" {
+                    desiredSize = CGSize(
+                        width: texture.width,
+                        height: texture.height
+                    )
+                    break
+                }
                 let model = imageModelMatrix(
                     for: layer,
                     worldFramesByLayerID: worldFramesByLayerID,
@@ -133,8 +141,24 @@ extension SceneMetalRenderer {
                     )
                 }
                 desiredSize = projectedSize
-            } else {
-                desiredSize = CGSize(width: texture.width, height: texture.height)
+            case .transparentDirectDraw:
+                guard layer.contentKind == "quad",
+                      let model = lightShaftsModelMatrix(
+                          for: layer,
+                          worldFramesByLayerID: worldFramesByLayerID,
+                          parallaxMouseNormalized:
+                              frameContext.cameraParallaxPosition,
+                          configuration: parallaxConfiguration
+                      ), let projectedSize =
+                        SceneCaptureGeometryResolver.projectedPixelSize(
+                            layerMVP: cameraFrame.orthographicViewProjection * model,
+                            viewportSize: viewportSize
+                        ) else {
+                    return .rejected(
+                        reasonCode: "direct-draw-offscreen-size-unavailable"
+                    )
+                }
+                desiredSize = projectedSize
             }
             requests.append(.init(
                 claim: claim,
@@ -168,26 +192,46 @@ extension SceneMetalRenderer {
         parallaxConfiguration: SceneLayerParallax.Configuration
     ) -> [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]? {
         guard !plans.isEmpty else { return [] }
-        guard let imagePipeline, let offscreenTexturePool else { return nil }
+        guard let imagePipeline, offscreenTexturePool != nil else { return nil }
         let time = Float(frameContext.sceneTime)
         var result: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest] = []
         for layerID in renderDescriptor.renderOrderLayerIDs {
             guard let plan = plans[layerID] else { continue }
-            guard let layer = layersByID[layerID],
-                  let texture = imageTextures[layerID] else { return nil }
+            guard let layer = layersByID[layerID] else { return nil }
             let route = imageCompositor.preflightResolvedMaterialClaim(
                 layerID: layerID
             )
             guard case let .claimed(claim) = route,
                   claim.token == plan.token else { return nil }
-            let model = imageModelMatrix(
-                for: layer,
-                worldFramesByLayerID: worldFramesByLayerID,
-                renderSizeOverride: dynamicTextRenderSizes[layerID],
-                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                configuration: parallaxConfiguration,
-                visibleHalfExtents: cameraFrame.coverHalfExtents
-            )
+            let model: simd_float4x4
+            let sourceTexture: MTLTexture?
+            var sourceUniforms: SceneLayerFragmentUniforms?
+            switch claim.sourceRoute {
+            case .capturedLayerTexture:
+                guard let texture = imageTextures[layerID] else { return nil }
+                model = imageModelMatrix(
+                    for: layer,
+                    worldFramesByLayerID: worldFramesByLayerID,
+                    renderSizeOverride: dynamicTextRenderSizes[layerID],
+                    parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                    configuration: parallaxConfiguration,
+                    visibleHalfExtents: cameraFrame.coverHalfExtents
+                )
+                sourceTexture = texture
+                sourceUniforms = nil
+            case .transparentDirectDraw:
+                guard layer.contentKind == "quad",
+                      let directDrawModel = lightShaftsModelMatrix(
+                          for: layer,
+                          worldFramesByLayerID: worldFramesByLayerID,
+                          parallaxMouseNormalized:
+                              frameContext.cameraParallaxPosition,
+                          configuration: parallaxConfiguration
+                      ) else { return nil }
+                model = directDrawModel
+                sourceTexture = nil
+                sourceUniforms = nil
+            }
             let mvp = cameraFrame.orthographicViewProjection * model
             guard let effectTextureProjectionMatrixInverse =
                     SceneLayerCursorGeometry.inverseModelViewProjection(mvp) else {
@@ -202,64 +246,60 @@ extension SceneMetalRenderer {
                 modelViewProjection: mvp
             )
             let masks = effectMasks(for: layerID, in: effectTextures)
-            let request = SceneImageLayerDrawRequest(
-                layer: layer,
-                texture: texture,
-                baseTextureCandidate: imageTextures.candidate(
-                    for: layerID, matching: texture
-                ),
-                masks: masks,
-                textureFrame: spriteAnimations[layerID]?.transform(
-                    at: time, wallDate: frameContext.wallDate
-                ) ?? .identity,
-                mvp: mvp,
-                uniforms: .init(
-                    time: time,
-                    alpha: SceneDynamicLayerValues.alpha(
-                        layerID: layerID,
-                        authoredValue: layer.alpha,
-                        snapshot: frameContext.dynamicValues
+            if claim.sourceRoute == .capturedLayerTexture {
+                guard let texture = sourceTexture else { return nil }
+                let request = SceneImageLayerDrawRequest(
+                    layer: layer,
+                    texture: texture,
+                    baseTextureCandidate: imageTextures.candidate(
+                        for: layerID, matching: texture
                     ),
-                    cursorUV: cursor ?? .zero,
-                    previousCursorUV: previousCursor ?? cursor ?? .zero,
-                    cursorIsInside: frameContext.pointer.isInside && cursor != nil,
-                    previousCursorIsInside:
-                        frameContext.pointer.isInside && previousCursor != nil,
-                    primaryButtonIsDown:
-                        frameContext.pointer.isPrimaryButtonDown,
-                    frameTime: Float(frameContext.frameTime),
-                    tint: SceneDynamicLayerValues.color(
-                        layerID: layerID,
-                        authoredValue: layer.colorRGB,
-                        snapshot: frameContext.dynamicValues
-                    )
-                ),
-                offscreenTexturePool: offscreenTexturePool,
-                resolvedMaterialFrameTargetPlan: plan,
-                offscreenSize: layer.contentKind == "solid"
-                    ? SceneCaptureGeometryResolver.projectedPixelSize(
-                        layerMVP: mvp,
-                        viewportSize: frameContext.screenSize
-                    ) : nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false,
-                authoredEffectChain: nil,
-                dynamicValues: frameContext.dynamicValues,
-                audioSpectrum: frameContext.audioSpectrum,
-                authoredShaderFrameInputs: .init(frameContext: frameContext)
-            )
-            guard let sourceUniforms = imageCompositor.sourceFragmentUniforms(
-                for: request,
-                effectInputs: .neutral,
-                routesOffscreen: true
-            ) else { return nil }
+                    masks: masks,
+                    textureFrame: spriteAnimations[layerID]?.transform(
+                        at: time, wallDate: frameContext.wallDate
+                    ) ?? .identity,
+                    mvp: mvp,
+                    uniforms: .init(
+                        time: time,
+                        alpha: SceneDynamicLayerValues.alpha(
+                            layerID: layerID,
+                            authoredValue: layer.alpha,
+                            snapshot: frameContext.dynamicValues
+                        ),
+                        cursorUV: cursor ?? .zero,
+                        previousCursorUV: previousCursor ?? cursor ?? .zero,
+                        cursorIsInside:
+                            frameContext.pointer.isInside && cursor != nil,
+                        previousCursorIsInside:
+                            frameContext.pointer.isInside && previousCursor != nil,
+                        primaryButtonIsDown:
+                            frameContext.pointer.isPrimaryButtonDown,
+                        frameTime: Float(frameContext.frameTime),
+                        tint: SceneDynamicLayerValues.color(
+                            layerID: layerID,
+                            authoredValue: layer.colorRGB,
+                            snapshot: frameContext.dynamicValues
+                        )
+                    ),
+                    offscreenTexturePool: nil,
+                    offscreenSize: nil,
+                    requiresSourceCopy: false,
+                    finalCompositeAlpha: nil,
+                    dependencyEffect: nil,
+                    authoredEffectPlan: nil,
+                    blocksLegacyGaussianBlur: false
+                )
+                guard let uniforms = imageCompositor.sourceFragmentUniforms(
+                    for: request,
+                    effectInputs: .neutral,
+                    routesOffscreen: true
+                ) else { return nil }
+                sourceUniforms = uniforms
+            }
             result.append(.init(
                 claim: claim,
                 targetPlan: plan,
-                sourceTexture: texture,
+                sourceTexture: sourceTexture,
                 sourceUniforms: sourceUniforms,
                 sourcePipeline: imagePipeline,
                 dedicatedInputs: .init(

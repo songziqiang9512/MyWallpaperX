@@ -21,10 +21,13 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneShaderMacroExpansion.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment+HostFacts.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor+Directive.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+TextureFormat.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+Schema.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+SchemaSeed.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+DisabledCombo.swift",
     SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
     SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
@@ -557,6 +560,15 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         #if UNKNOWN == 0
         UNKNOWN_IS_ZERO
         #endif
+        #if 0
+        BAD_ELIF_FIRST
+        #elif 2 > 1
+        ACTIVE_ELIF
+        #elif VERSION >= 2
+        BAD_ELIF_SHORT_CIRCUIT
+        #else
+        BAD_ELIF_ELSE
+        #endif
         """,
         to: looseRoot,
         "shaders/logic/main.frag"
@@ -586,14 +598,17 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     )
     for expected in [
         "ACTIVE_INCLUDE", "DEEP_INCLUDE", "FALLBACK_INCLUDE",
-        "ACTIVE_IFDEF", "ACTIVE_IFNDEF", "UNKNOWN_IS_ZERO",
+        "ACTIVE_IFDEF", "ACTIVE_IFNDEF", "UNKNOWN_IS_ZERO", "ACTIVE_ELIF",
     ] {
         try expect(
             conditionalPrepared.source.contains(expected),
             "Conditional output omitted \(expected)."
         )
     }
-    for rejected in ["BAD_OUTER", "BAD_IFDEF", "BAD_IFNDEF"] {
+    for rejected in [
+        "BAD_OUTER", "BAD_IFDEF", "BAD_IFNDEF", "BAD_ELIF_FIRST",
+        "BAD_ELIF_SHORT_CIRCUIT", "BAD_ELIF_ELSE",
+    ] {
         try expect(
             !conditionalPrepared.source.contains(rejected),
             "Inactive conditional output retained \(rejected)."
@@ -681,7 +696,9 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     checks.append("redundant_top_level_endif")
 
     let failureSources: [(String, String, SceneShaderPreprocessor.DiagnosticCode)] = [
-        ("elif", "#if 0\n#elif 1\nVALUE\n#endif", .unsupportedDirective),
+        ("unmatched_elif", "#elif 1\nVALUE", .unmatchedElif),
+        ("elif_after_else", "#if 0\n#else\n#elif 1\nVALUE\n#endif", .elifAfterElse),
+        ("empty_elif", "#if 0\n#elif\nVALUE\n#endif", .malformedDirective),
         ("function_variadic", "#define F(...) 1\nVALUE", .functionLikeMacro),
         ("function_paste", "#define F(x) x ## x\nVALUE", .functionLikeMacro),
         ("function_stringize", "#define F(x) #x\nVALUE", .functionLikeMacro),
@@ -1130,6 +1147,53 @@ private func runVariantAndDigestFixtures(at base: URL) throws -> [String] {
     )
     checks.append("macro_identity")
 
+    let inactiveComboSource = """
+        int selectedMode = BLENDMODE;
+        #if BLENDMODE
+        int conditionalMode = 1;
+        #else
+        int conditionalMode = 0;
+        #endif
+        #ifdef BLENDMODE
+        int incorrectlyDefined = 1;
+        #endif
+        // [COMBO] {"combo":"BLENDMODE","default":31,"require":{"DIRECTDRAW":0}}
+        """
+    let inactiveComboStage = makeStage(inactiveComboSource)
+    let inactiveComboEnvironment = try resolvedVariant(
+        stages: [inactiveComboStage],
+        explicit: ["DIRECTDRAW": 1]
+    )
+    let inactiveComboRoot = base.appendingPathComponent(
+        "inactive_combo",
+        isDirectory: true
+    )
+    try createRoot(inactiveComboRoot)
+    try write(
+        inactiveComboSource,
+        to: inactiveComboRoot,
+        "shaders/variants/main.frag"
+    )
+    let inactivePrepared = try prepared(
+        rootPath: "shaders/variants/main.frag",
+        graph: graph(
+            "shaders/variants/main.frag",
+            view: resourceView(loose: inactiveComboRoot)
+        ),
+        environment: inactiveComboEnvironment
+    )
+    try expect(
+        definitionDescriptions(inactiveComboEnvironment)["BLENDMODE"] == "undefined",
+        "Inactive authored combo lost its undefined variant identity."
+    )
+    try expect(
+        inactivePrepared.source.contains("int selectedMode = 0;")
+            && inactivePrepared.source.contains("int conditionalMode = 0;")
+            && !inactivePrepared.source.contains("incorrectlyDefined"),
+        "Inactive authored combo did not use bounded code-only zero semantics."
+    )
+    checks.append("undefined_combo_code_zero")
+
     let originalRoot = base.appendingPathComponent("digest_original", isDirectory: true)
     let changedRoot = base.appendingPathComponent("digest_changed", isDirectory: true)
     try createRoot(originalRoot)
@@ -1335,7 +1399,12 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
     def test_variant_resolution_and_digest_isolation(self):
         self.assertEqual(
             self.run_mode("variant-digests"),
-            ["variant_resolution", "macro_identity", "digest_isolation"],
+            [
+                "variant_resolution",
+                "macro_identity",
+                "undefined_combo_code_zero",
+                "digest_isolation",
+            ],
         )
 
 

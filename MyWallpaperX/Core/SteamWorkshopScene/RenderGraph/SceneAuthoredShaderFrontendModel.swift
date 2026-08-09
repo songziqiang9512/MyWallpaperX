@@ -172,6 +172,7 @@ nonisolated enum SceneShaderColorTransfer: Equatable, Hashable, Sendable {
     case independentAlphaSignal(textureSlot: Int)
     case independentAlphaSignalPreserving(textureSlot: Int)
     case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)
+    case premultipliedAlpha
     case opaque
     case unresolved
 }

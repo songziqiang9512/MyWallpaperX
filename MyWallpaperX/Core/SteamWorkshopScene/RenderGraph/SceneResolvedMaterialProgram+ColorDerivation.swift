@@ -30,7 +30,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             }
         }
         let framebufferInput: SceneShaderColorRepresentation
-        if transfer == .opaque, graphRepresentations.isEmpty {
+        if (transfer == .opaque || transfer == .premultipliedAlpha),
+           graphRepresentations.isEmpty {
             // An opaque procedural pass can declare an authored framebuffer
             // sampler that the prepared variant never reads. Use one stable
             // identity value without claiming or requiring a sampled input.
@@ -60,6 +61,14 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             return nil
         case .opaque:
             fragmentOutput = .opaque
+        case .premultipliedAlpha:
+            guard textureSlots.compactMap({ $0 }).allSatisfy({ slot in
+                if case .data = slot.resource.publication.candidate.content {
+                    return true
+                }
+                return false
+            }) else { return nil }
+            fragmentOutput = .premultipliedAlpha
         case let .passthrough(slot):
             guard (0 ..< textureSlots.count).contains(slot),
                   let texture = textureSlots[slot] else {

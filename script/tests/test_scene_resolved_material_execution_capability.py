@@ -394,9 +394,11 @@ final class SceneResolvedMaterialVariantCache {
 
     init?(
         template: SceneResolvedMaterialTemplate,
-        maximumVariantCount: Int
+        maximumVariantCount: Int,
+        assetFormatFacts: [String: Int] = [:]
     ) {
         _ = template
+        _ = assetFormatFacts
         guard (1 ... 256).contains(maximumVariantCount) else { return nil }
     }
 
@@ -406,6 +408,8 @@ final class SceneResolvedMaterialVariantCache {
         _ = implicitFramebufferIdentity
         return .success([1])
     }
+
+    var supportsTransparentDirectDraw: Bool { true }
 }
 '''
 
@@ -1710,10 +1714,16 @@ struct SceneGraphAdmissionProduct {
 struct SceneLayerFullFramePairPlan {}
 
 struct SceneResolvedMaterialAdmittedLayer {
+    enum SourceRoute: Equatable {
+        case capturedLayerTexture
+        case transparentDirectDraw
+    }
+
     let layerID: Int
     let products: [SceneGraphAdmissionProduct]
     let pairPlan: SceneLayerFullFramePairPlan
     let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+    let sourceRoute: SourceRoute
 }
 
 enum SceneResolvedMaterialExecutionCapabilityAdmission {
@@ -1785,7 +1795,8 @@ private func fragmentSource(
     colorUnproven: Bool = false,
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
-    maskedAlpha: Bool = false
+    maskedAlpha: Bool = false,
+    transparentDirectDraw: Bool = false
 ) -> String {
     let comboAnnotation = comboMetadata.map { "// \($0)" } ?? ""
     let varyingType = frontendInvalid ? "vec3" : "vec2"
@@ -1798,7 +1809,15 @@ private func fragmentSource(
         ? "#if EXTRA\n\(rawSecondDeclaration)\n#endif"
         : rawSecondDeclaration
     let output: String
-    if maskedAlpha {
+    if transparentDirectDraw {
+        output = """
+        #if DIRECTDRAW
+        gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0);
+        #else
+        gl_FragColor = texSample2D(\(firstName), v_TexCoord);
+        #endif
+        """
+    } else if maskedAlpha {
         output = "vec4 color = texSample2D(\(firstName), v_TexCoord);"
             + " float mask = texSample2D(g_Texture1, v_TexCoord).r;"
             + " color.a *= mask * 0.5; gl_FragColor = color;"
@@ -1846,7 +1865,8 @@ private func contract(
     colorUnproven: Bool = false,
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
-    maskedAlpha: Bool = false
+    maskedAlpha: Bool = false,
+    transparentDirectDraw: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -1877,7 +1897,8 @@ private func contract(
         colorUnproven: colorUnproven,
         samplesSecond: samplesSecond,
         observesSecond: observesSecond,
-        maskedAlpha: maskedAlpha
+        maskedAlpha: maskedAlpha,
+        transparentDirectDraw: transparentDirectDraw
     )
     let stages = [
         stage(.vertex, path: "\(revision)/root.vert", source: vertexSource),
@@ -2040,19 +2061,22 @@ private func slots(
 private func catalog(
     graph: Graph,
     template: Template,
-    maximumVariants: Int = 16
+    maximumVariants: Int = 16,
+    sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture
 ) -> Catalog {
     catalog(
         graph: graph,
         templates: [graph.nodes[0].nodeIndex: template],
-        maximumVariants: maximumVariants
+        maximumVariants: maximumVariants,
+        sourceRoute: sourceRoute
     )
 }
 
 private func catalog(
     graph: Graph,
     templates: [Int: Template],
-    maximumVariants: Int = 16
+    maximumVariants: Int = 16,
+    sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture
 ) -> Catalog {
     let entries = Dictionary(uniqueKeysWithValues: templates.map { nodeIndex, template in
         (
@@ -2067,7 +2091,8 @@ private func catalog(
         layerID: layerID,
         products: [.init(graph: graph)],
         pairPlan: .init(),
-        dependencyOwnership: .none
+        dependencyOwnership: .none,
+        sourceRoute: sourceRoute
     )
     return .init(
         admissionCandidates: [.init(
@@ -2281,6 +2306,29 @@ private enum EnvelopeHarness {
                 ))
             )
         )
+        let directDrawPositive = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "direct-draw-positive",
+                    transparentDirectDraw: true
+                ),
+                slots: slots(),
+                combos: [.init(name: "DIRECTDRAW", value: 1)]
+            ),
+            sourceRoute: .transparentDirectDraw
+        )
+        let directDrawSourceDependent = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract("direct-draw-source-dependent"),
+                slots: slots(primary: graphCandidate()),
+                combos: [.init(name: "DIRECTDRAW", value: 1)]
+            ),
+            sourceRoute: .transparentDirectDraw
+        )
         let capacityOnePositive = catalog(
             graph: boundGraph,
             template: materialTemplate(
@@ -2379,6 +2427,18 @@ private enum EnvelopeHarness {
                 providerPositive,
                 graph: unboundGraph
             ),
+            "directDrawPositiveClaim": directDrawPositive.claim(
+                layerID: layerID
+            ) != nil,
+            "directDrawPositiveFailure": rejection(directDrawPositive),
+            "directDrawPositiveCounters": counters(
+                directDrawPositive,
+                graph: unboundGraph
+            ),
+            "directDrawSourceDependentClaim": directDrawSourceDependent.claim(
+                layerID: layerID
+            ) != nil,
+            "directDrawSourceDependent": rejection(directDrawSourceDependent),
             "capacityOneClaim": capacityOnePositive.claim(layerID: layerID) != nil,
             "capacityOneCounters": counters(
                 capacityOnePositive,
@@ -2441,12 +2501,13 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         reachability = SHADER_REACHABILITY_SOURCE.read_text(encoding="utf-8")
         resolve_start = variant_cache.index("    func resolve(")
         resolve_end = variant_cache.index(
-            "    private func bootstrapSamplersLocked(", resolve_start
+            "    private func reachableSamplersLocked(", resolve_start
         )
         resolve_body = variant_cache[resolve_start:resolve_end]
 
-        self.assertIn("var activeSamplers = try bootstrapSamplersLocked()", resolve_body)
-        self.assertIn("private var cachedBootstrapSamplers:", variant_cache)
+        self.assertIn("var activeSamplers = seedSamplers", resolve_body)
+        self.assertIn(".variantKey(", resolve_body)
+        self.assertNotIn("cachedBootstrapSamplers", variant_cache)
         self.assertNotIn("prepareShaderStages", resolve_body)
         self.assertNotIn(".bootstrapSamplers(", resolve_body)
         self.assertIn("static func bootstrapSamplers(", reachability)
@@ -2511,7 +2572,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertNotIn("executionEvidenceSubjects:", launch)
         for contract in (
             "SceneLayerVisibility.visibleLayerIDs(in: descriptor)",
-            '["image", "solid", "text"].contains(layer.contentKind)',
+            'case "image", "solid", "text":',
+            'case "quad":',
+            ".transparentDirectDraw",
             "case .none = layer.utilityLayer",
             "SceneResolvedMaterialDependencyOwnershipCompiler",
             "dependencyOwnership != nil",
@@ -2715,6 +2778,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
                 "SceneResolvedMaterialTextureResolver.swift",
                 "SceneAuthoredShaderColorTransferAnalyzer.swift",
+                "SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
                 "SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
@@ -2843,6 +2907,17 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertEqual(
             payload["providerPositiveCounters"],
             {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+        )
+        self.assertTrue(payload["directDrawPositiveClaim"], payload)
+        self.assertEqual(payload["directDrawPositiveFailure"], "")
+        self.assertEqual(
+            payload["directDrawPositiveCounters"],
+            {"cached": 2, "prepared": 2, "frontend": 2, "capacity": 0},
+        )
+        self.assertFalse(payload["directDrawSourceDependentClaim"])
+        self.assertIn(
+            "direct-draw-source-dependent",
+            payload["directDrawSourceDependent"],
         )
         self.assertTrue(payload["capacityOneClaim"])
         self.assertEqual(

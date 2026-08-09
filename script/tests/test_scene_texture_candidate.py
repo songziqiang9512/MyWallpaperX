@@ -796,6 +796,7 @@ enum Harness {
                 first.sampling.addressMode.rawValue,
             ],
             "firstPixelFormat": first.pixelFormat.rawValue,
+            "firstAuthoredFormat": first.authoredFormat?.rawValue ?? UInt32.max,
             "sameCandidateTexture": first.texture === repeated.texture,
             "sameCandidateGeneration": first.generation == repeated.generation,
             "sameResourceIdentityAcrossPurpose": first.identity == flow.identity,
@@ -1061,7 +1062,8 @@ enum Harness {
             physicalSize: physicalSize ?? source.physicalSize,
             mappedSize: mappedSize ?? source.mappedSize,
             uvTransform: uvTransform ?? source.uvTransform,
-            sampling: sampling ?? source.sampling
+            sampling: sampling ?? source.sampling,
+            authoredFormat: source.authoredFormat
         )
     }
 
@@ -1559,6 +1561,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "firstMapped": [4, 4],
                 "firstPhysical": [8, 4],
                 "firstPixelFormat": 10,
+                "firstAuthoredFormat": 9,
                 "firstSampling": ["nearest", "clampToEdge"],
                 "firstScale": [0.5, 1],
                 "generationChangedAfterRewrite": True,

@@ -7,6 +7,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     typealias Uniform = SceneResolvedMaterialShaderSchema.Uniform
 
     let readinessMask: UInt8
+    let textureFormats: [SceneShaderTextureFormat?]
     let preparedShader: SceneShaderPreparedProgram
     let frontendProgram: SceneAuthoredShaderProgram
     let activeSamplers: [Int: Sampler]
@@ -14,12 +15,14 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
 
     fileprivate init(
         readinessMask: UInt8,
+        textureFormats: [SceneShaderTextureFormat?],
         preparedShader: SceneShaderPreparedProgram,
         frontendProgram: SceneAuthoredShaderProgram,
         activeSamplers: [Int: Sampler],
         activeUniforms: [String: Uniform]
     ) {
         self.readinessMask = readinessMask
+        self.textureFormats = textureFormats
         self.preparedShader = preparedShader
         self.frontendProgram = frontendProgram
         self.activeSamplers = activeSamplers
@@ -27,12 +30,13 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     }
 }
 
-extension SceneResolvedMaterialVariantCache {
+nonisolated extension SceneResolvedMaterialVariantCache {
     static func compile(
         template: Template,
-        readinessMask: UInt8,
+        variantKey: SceneResolvedMaterialVariantKey,
         onFrontendCompilation: () -> Void
     ) throws -> Variant {
+        let readinessMask = variantKey.readinessMask
         let readiness = Dictionary(uniqueKeysWithValues: (0 ..< 8).map {
             ($0, readinessMask & (1 << UInt8($0)) != 0)
         })
@@ -40,7 +44,8 @@ extension SceneResolvedMaterialVariantCache {
         switch SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: template.shaderContract,
             combos: template.comboValues,
-            textureReadiness: readiness
+            textureReadiness: readiness,
+            textureFormats: variantKey.resolvedTextureFormats
         ) {
         case let .accepted(value): prepared = value
         case let .rejected(rejection):
@@ -105,6 +110,7 @@ extension SceneResolvedMaterialVariantCache {
         }
         return .init(
             readinessMask: readinessMask,
+            textureFormats: variantKey.textureFormats,
             preparedShader: prepared,
             frontendProgram: frontend,
             activeSamplers: samplers,

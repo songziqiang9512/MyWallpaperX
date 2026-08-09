@@ -11,6 +11,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         materialCatalog: SceneResolvedMaterialRuntimeCatalog,
         demandIssueKeys: Set<MaterialKey>,
         dynamicProducers: DynamicProducerCatalog,
+        assetFormatFacts: [String: Int],
         dedicatedStagePrograms: [SceneEffectStageProgram],
         dedicatedStageFamilies: [Graph.EffectKey: String],
         dedicatedLeafKeys: Set<Graph.EffectKey>,
@@ -56,7 +57,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 materialCatalog: materialCatalog,
                 demandIssueKeys: demandIssueKeys,
                 dynamicProducers: dynamicProducers,
+                assetFormatFacts: assetFormatFacts,
                 existingKeys: Set(allMaterials.keys),
+                sourceRoute: admitted.sourceRoute,
                 maximumVariantsPerMaterial: maximumVariantsPerMaterial
             ) {
             case .failure(let failure):
@@ -81,7 +84,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         materialCatalog: SceneResolvedMaterialRuntimeCatalog,
         demandIssueKeys: Set<MaterialKey>,
         dynamicProducers: DynamicProducerCatalog,
+        assetFormatFacts: [String: Int],
         existingKeys: Set<MaterialKey>,
+        sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
         maximumVariantsPerMaterial: Int
     ) -> Result<[MaterialKey: MaterialCapability], Rejection> {
         guard let effect = product.graph.effects.first else {
@@ -104,7 +109,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             guard let variants = SceneResolvedMaterialVariantCache(
                 template: template,
-                maximumVariantCount: maximumVariantsPerMaterial
+                maximumVariantCount: maximumVariantsPerMaterial,
+                assetFormatFacts: assetFormatFacts
             ) else {
                 return .failure(rejection("material-variant-envelope-sampler-schema"))
             }
@@ -116,6 +122,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return .failure(rejection(
                     "material-variant-envelope-\(failure.kind.rawValue)"
                 ))
+            }
+            if sourceRoute == .transparentDirectDraw,
+               !variants.supportsTransparentDirectDraw {
+                return .failure(rejection("direct-draw-source-dependent"))
             }
             guard dynamicUniformsAreExecutable(
                 template,
