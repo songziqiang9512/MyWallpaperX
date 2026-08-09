@@ -7,7 +7,9 @@ extension SceneDesktopWallpaperHost {
     ) -> Set<SceneDynamicTarget> {
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: descriptor,
-            authoredEffectCatalog: authoredEffectCatalog
+            authoredEffectCatalog: authoredEffectCatalog,
+            resolvedMaterialLayerIDs:
+                resolvedMaterialExecutionCapabilities.executionLayerIDs
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         var effectTargets = authoredEffectCatalog.liveConsumerTargets

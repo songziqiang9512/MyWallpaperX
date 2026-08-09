@@ -27,22 +27,26 @@ struct SceneUtilityLayerRuntimePlan {
 enum SceneUtilityLayerRuntimePlanner {
     static func plans(
         in descriptor: SceneRenderDescriptor,
-        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
+        resolvedMaterialLayerIDs: Set<Int> = []
     ) -> [Int: SceneUtilityLayerRuntimePlan] {
         plans(
             in: descriptor,
             authoredEffectCatalog: authoredEffectCatalog,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs(
                 in: descriptor,
-                authoredEffectCatalog: authoredEffectCatalog
-            )
+                authoredEffectCatalog: authoredEffectCatalog,
+                resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
+            ),
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
         )
     }
 
     static func plans(
         in descriptor: SceneRenderDescriptor,
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
-        executableUtilityConsumerLayerIDs: Set<Int>
+        executableUtilityConsumerLayerIDs: Set<Int>,
+        resolvedMaterialLayerIDs: Set<Int> = []
     ) -> [Int: SceneUtilityLayerRuntimePlan] {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let dependencyPlan = SceneDependencyRenderPlan(
@@ -65,7 +69,8 @@ enum SceneUtilityLayerRuntimePlanner {
                    dependencyPlan.bindingsByConsumerLayerID[layer.id] != nil,
                    supportsCompleteAuthoredCapture(
                        layer: layer,
-                       catalog: authoredEffectCatalog
+                       catalog: authoredEffectCatalog,
+                       resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
                    ) {
                     disposition = .capture
                 } else {
@@ -89,7 +94,8 @@ enum SceneUtilityLayerRuntimePlanner {
                 }
             } else if supportsCompleteAuthoredCapture(
                 layer: layer,
-                catalog: authoredEffectCatalog
+                catalog: authoredEffectCatalog,
+                resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
             ) {
                 disposition = .capture
             } else if visibleEffects(in: layer).allSatisfy(SceneEffectRuntimeSupport.supportsUtilityCapture)
@@ -116,7 +122,8 @@ enum SceneUtilityLayerRuntimePlanner {
 
     static func executableUtilityConsumerLayerIDs(
         in descriptor: SceneRenderDescriptor,
-        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
+        resolvedMaterialLayerIDs: Set<Int> = []
     ) -> Set<Int> {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         return Set(descriptor.layers.compactMap { layer in
@@ -127,7 +134,8 @@ enum SceneUtilityLayerRuntimePlanner {
                   layer.dependencyLayerIDs.count == 1,
                   supportsCompleteAuthoredCapture(
                       layer: layer,
-                      catalog: authoredEffectCatalog
+                      catalog: authoredEffectCatalog,
+                      resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
                   ) else {
                 return nil
             }
@@ -137,16 +145,19 @@ enum SceneUtilityLayerRuntimePlanner {
 
     static func reportLines(
         descriptor: SceneRenderDescriptor,
-        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
+        resolvedMaterialLayerIDs: Set<Int> = []
     ) -> [String] {
         let executableUtilityConsumerLayerIDs = executableUtilityConsumerLayerIDs(
             in: descriptor,
-            authoredEffectCatalog: authoredEffectCatalog
+            authoredEffectCatalog: authoredEffectCatalog,
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
         )
         let plans = plans(
             in: descriptor,
             authoredEffectCatalog: authoredEffectCatalog,
-            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
         )
         let ordered = descriptor.layers.compactMap { plans[$0.id] }
         let dependencyEdges = descriptor.layers.flatMap(\.dependencyLayerIDs).count
@@ -212,10 +223,15 @@ enum SceneUtilityLayerRuntimePlanner {
 
     private static func supportsCompleteAuthoredCapture(
         layer: SceneRenderDescriptor.Layer,
-        catalog: SceneAuthoredEffectExecutionCatalog
+        catalog: SceneAuthoredEffectExecutionCatalog,
+        resolvedMaterialLayerIDs: Set<Int>
     ) -> Bool {
         let visible = visibleEffects(in: layer)
-        guard !visible.isEmpty,
+        guard !visible.isEmpty else { return false }
+        if resolvedMaterialLayerIDs.contains(layer.id) {
+            return true
+        }
+        guard
               let chain = catalog.chainsByLayerID[layer.id],
               catalog.xRayPrefixOmittedEffectPathsByLayerID[layer.id] == nil,
               chain.executionStages.count == visible.count,
@@ -228,7 +244,8 @@ enum SceneUtilityLayerRuntimePlanner {
 
 extension SceneRenderDescriptor {
     func requiresReadableFramebuffer(
-        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
+        resolvedMaterialLayerIDs: Set<Int> = []
     ) -> Bool {
         if materialPasses.contains(where: { $0.combos["REFRACT"] == 1 }) {
             return true
@@ -236,12 +253,14 @@ extension SceneRenderDescriptor {
         let executableUtilityConsumerLayerIDs = SceneUtilityLayerRuntimePlanner
             .executableUtilityConsumerLayerIDs(
                 in: self,
-                authoredEffectCatalog: authoredEffectCatalog
+                authoredEffectCatalog: authoredEffectCatalog,
+                resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
             )
         if SceneUtilityLayerRuntimePlanner.plans(
             in: self,
             authoredEffectCatalog: authoredEffectCatalog,
-            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
         ).values.contains(where: { $0.shouldCapture }) {
             return true
         }

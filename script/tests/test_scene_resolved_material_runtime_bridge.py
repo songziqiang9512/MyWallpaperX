@@ -520,6 +520,7 @@ enum SceneResolvedMaterialExecutionCapabilityAdmission {
 struct SceneResolvedMaterialAdmittedLayer {
     enum SourceRoute {
         case capturedLayerTexture
+        case capturedMainTargetTexture
         case transparentDirectDraw
     }
 }
@@ -589,6 +590,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             )
         }
     }
+    var executionLayerIDs: Set<Int> { Set(capabilitiesByLayerID.keys) }
 }
 
 struct SceneGraphRenderTargetChainPlan {

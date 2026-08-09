@@ -5,6 +5,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
 
     enum SourceRoute: Equatable {
         case capturedLayerTexture
+        case capturedMainTargetTexture
         case transparentDirectDraw
     }
 
@@ -153,14 +154,26 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         guard visibleLayerIDs.contains(layer.id) else {
             return .failure(failure("execution-route-layer-hidden"))
         }
-        guard case .none = layer.utilityLayer else {
-            return .failure(failure("execution-route-utility-owner"))
-        }
-        guard dependencyOwnership != nil else {
+        guard let dependencyOwnership else {
             return .failure(failure("execution-route-dependency-owner"))
         }
         guard !specializedLayerIDs.contains(layer.id) else {
             return .failure(failure("execution-route-specialized-owner"))
+        }
+        if let utility = layer.utilityLayer {
+            let kindMatchesContent = switch (layer.contentKind, utility.kind) {
+            case ("composition", .composition), ("project", .project),
+                 ("fullscreen", .fullscreen):
+                true
+            default:
+                false
+            }
+            guard kindMatchesContent,
+                  layer.childLayerIDs.isEmpty,
+                  case .none = dependencyOwnership else {
+                return .failure(failure("execution-route-utility-shape"))
+            }
+            return .success(.capturedMainTargetTexture)
         }
         switch layer.contentKind {
         case "image", "solid", "text":

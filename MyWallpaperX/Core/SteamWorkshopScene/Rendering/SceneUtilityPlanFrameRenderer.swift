@@ -23,6 +23,9 @@ enum SceneUtilityPlanFrameRenderer {
         commandBuffer: MTLCommandBuffer,
         frameTransaction: SceneSourceUpdateTransaction,
         effectExecutionTrace: SceneEffectExecutionFrameTrace,
+        resolvedMaterialFrameTargetPlans: [
+            Int: SceneResolvedMaterialFrameTargetPlan
+        ] = [:],
         legacyAuthoredFrameTables: [Int: SceneOffscreenTexturePool.LegacyAuthoredFrameTables] = [:]
     ) {
         for plan in plans {
@@ -82,6 +85,8 @@ enum SceneUtilityPlanFrameRenderer {
                     offscreenTexturePool: offscreenTexturePool,
                     mainPass: mainPass,
                     frameTransaction: frameTransaction,
+                    resolvedMaterialFrameTargetPlan:
+                        resolvedMaterialFrameTargetPlans[layer.id],
                     executionTrace: effectExecutionTrace,
                     onLegacyAuthoredRouteSelected: {
                         selectedLegacyAuthoredRoute = true

@@ -13,6 +13,7 @@ struct SceneMetalRenderer {
     let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
     let layersByID: [Int: SceneRenderDescriptor.Layer]
     let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
+    let utilityCaptureLayerIDs: Set<Int>
     let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     let sceneScriptAudioBarsPlansByLayerID: [Int: SceneScriptAudioBarsPlan]
     let spotLightRuntime: SceneSpotLightRuntime
@@ -46,8 +47,13 @@ struct SceneMetalRenderer {
         self.authoredEffectCatalog = authoredEffectCatalog
         self.sceneScriptAudioBarsPlansByLayerID = Dictionary(uniqueKeysWithValues: sceneScriptAudioBarsProgram.plans.map { ($0.layerID, $0) })
         self.spotLightRuntime = SceneSpotLightRuntime(descriptor: renderDescriptor, pipeline: pipelineRepository.spotLight())
+        let resolvedMaterialLayerIDs = resolvedMaterialRuntime?.executionLayerIDs ?? []
         let executableUtilityConsumerLayerIDs = SceneUtilityLayerRuntimePlanner
-            .executableUtilityConsumerLayerIDs(in: renderDescriptor, authoredEffectCatalog: authoredEffectCatalog)
+            .executableUtilityConsumerLayerIDs(
+                in: renderDescriptor,
+                authoredEffectCatalog: authoredEffectCatalog,
+                resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
+            )
         self.dependencyRuntime = SceneDependencyFrameRuntime(
             descriptor: renderDescriptor,
             visibleLayerIDs: visibleLayerIDs,
@@ -59,12 +65,14 @@ struct SceneMetalRenderer {
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: renderDescriptor,
             authoredEffectCatalog: authoredEffectCatalog,
-            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
         )
         self.utilityPlansByTriggerLayerID = Dictionary(
             grouping: utilityPlans.values.filter(\.shouldCapture),
             by: \.triggerLayerID
         )
+        self.utilityCaptureLayerIDs = Set(utilityPlans.values.filter(\.shouldCapture).map(\.layerID))
         self.worldFramesByLayerID = SceneLayerWorldFrameResolver.compute(
             descriptor: renderDescriptor, byID: byID
         )
@@ -147,6 +155,7 @@ struct SceneMetalRenderer {
             worldFramesByLayerID: frameWorldFrames,
             cameraFrame: cameraFrame,
             parallaxConfiguration: parallaxConfiguration,
+            mainTarget: drawable.texture,
             commandBuffer: commandBuffer
         ) else { return }
         guard let legacyAuthoredFrameTables = Self.prepareAndRegisterLegacyAuthoredBatch(
@@ -173,6 +182,8 @@ struct SceneMetalRenderer {
                     time: time, mainPass: mainPass, commandBuffer: commandBuffer,
                     frameTransaction: sourceUpdateTransaction,
                     effectExecutionTrace: effectExecutionTrace,
+                    resolvedMaterialFrameTargetPlans:
+                        resolvedMaterialFrameTargetPlans,
                     legacyAuthoredFrameTables: legacyAuthoredFrameTables) }
             }
             if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {

@@ -19,6 +19,7 @@ extension SceneMetalRenderer {
         worldFramesByLayerID: [Int: simd_float4x4],
         cameraFrame: SceneParticleCameraFrame,
         parallaxConfiguration: SceneLayerParallax.Configuration,
+        mainTarget: MTLTexture,
         commandBuffer: MTLCommandBuffer
     ) -> [Int: SceneResolvedMaterialFrameTargetPlan]? {
         switch preflightResolvedMaterialFrameTargets(
@@ -47,7 +48,8 @@ extension SceneMetalRenderer {
                 frameContext: frameContext,
                 worldFramesByLayerID: worldFramesByLayerID,
                 cameraFrame: cameraFrame,
-                parallaxConfiguration: parallaxConfiguration
+                parallaxConfiguration: parallaxConfiguration,
+                mainTarget: mainTarget
             ) else {
                 imageCompositor.recordResolvedMaterialFramePreflightFailure(
                     "frame-preparation-request-invalid"
@@ -141,6 +143,31 @@ extension SceneMetalRenderer {
                     )
                 }
                 desiredSize = projectedSize
+            case .capturedMainTargetTexture:
+                guard let utility = layer.utilityLayer,
+                      layer.contentKind == utility.kind.rawValue,
+                      layer.childLayerIDs.isEmpty else {
+                    return .rejected(
+                        reasonCode: "utility-source-shape-invalid"
+                    )
+                }
+                let model = imageModelMatrix(
+                    for: layer,
+                    worldFramesByLayerID: worldFramesByLayerID,
+                    parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                    configuration: parallaxConfiguration,
+                    visibleHalfExtents: cameraFrame.coverHalfExtents
+                )
+                guard let geometry = SceneCaptureGeometryResolver.resolve(
+                    kind: utility.kind,
+                    layerMVP: cameraFrame.orthographicViewProjection * model,
+                    viewportSize: viewportSize
+                ) else {
+                    return .rejected(
+                        reasonCode: "utility-offscreen-size-unavailable"
+                    )
+                }
+                desiredSize = geometry.pixelSize
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
                       let model = lightShaftsModelMatrix(
@@ -189,7 +216,8 @@ extension SceneMetalRenderer {
         frameContext: SceneFrameContext,
         worldFramesByLayerID: [Int: simd_float4x4],
         cameraFrame: SceneParticleCameraFrame,
-        parallaxConfiguration: SceneLayerParallax.Configuration
+        parallaxConfiguration: SceneLayerParallax.Configuration,
+        mainTarget: MTLTexture
     ) -> [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]? {
         guard !plans.isEmpty else { return [] }
         guard let imagePipeline, offscreenTexturePool != nil else { return nil }
@@ -203,13 +231,16 @@ extension SceneMetalRenderer {
             )
             guard case let .claimed(claim) = route,
                   claim.token == plan.token else { return nil }
-            let model: simd_float4x4
+            let sourceMVP: simd_float4x4
+            let outputMVP: simd_float4x4
             let sourceTexture: MTLTexture?
-            var sourceUniforms: SceneLayerFragmentUniforms?
+            let textureFrame: SceneTextureUVTransform
+            let capturesMainTarget: Bool
+            var sourceUniforms: SceneLayerFragmentUniforms? = nil
             switch claim.sourceRoute {
             case .capturedLayerTexture:
                 guard let texture = imageTextures[layerID] else { return nil }
-                model = imageModelMatrix(
+                let model = imageModelMatrix(
                     for: layer,
                     worldFramesByLayerID: worldFramesByLayerID,
                     renderSizeOverride: dynamicTextRenderSizes[layerID],
@@ -217,8 +248,34 @@ extension SceneMetalRenderer {
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents
                 )
+                sourceMVP = cameraFrame.orthographicViewProjection * model
+                outputMVP = sourceMVP
                 sourceTexture = texture
-                sourceUniforms = nil
+                textureFrame = spriteAnimations[layerID]?.transform(
+                    at: time, wallDate: frameContext.wallDate
+                ) ?? .identity
+                capturesMainTarget = false
+            case .capturedMainTargetTexture:
+                guard let utility = layer.utilityLayer,
+                      layer.contentKind == utility.kind.rawValue,
+                      layer.childLayerIDs.isEmpty else { return nil }
+                let model = imageModelMatrix(
+                    for: layer,
+                    worldFramesByLayerID: worldFramesByLayerID,
+                    parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                    configuration: parallaxConfiguration,
+                    visibleHalfExtents: cameraFrame.coverHalfExtents
+                )
+                sourceMVP = cameraFrame.orthographicViewProjection * model
+                guard let geometry = SceneCaptureGeometryResolver.resolve(
+                    kind: utility.kind,
+                    layerMVP: sourceMVP,
+                    viewportSize: frameContext.screenSize
+                ) else { return nil }
+                outputMVP = geometry.outputMVP
+                sourceTexture = mainTarget
+                textureFrame = geometry.sourceUV
+                capturesMainTarget = true
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
                       let directDrawModel = lightShaftsModelMatrix(
@@ -228,40 +285,37 @@ extension SceneMetalRenderer {
                               frameContext.cameraParallaxPosition,
                           configuration: parallaxConfiguration
                       ) else { return nil }
-                model = directDrawModel
+                sourceMVP = cameraFrame.orthographicViewProjection * directDrawModel
+                outputMVP = sourceMVP
                 sourceTexture = nil
-                sourceUniforms = nil
+                textureFrame = .identity
+                capturesMainTarget = false
             }
-            let mvp = cameraFrame.orthographicViewProjection * model
             guard let effectTextureProjectionMatrixInverse =
-                    SceneLayerCursorGeometry.inverseModelViewProjection(mvp) else {
+                    SceneLayerCursorGeometry.inverseModelViewProjection(outputMVP) else {
                 return nil
             }
             let cursor = SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: frameContext.pointer.current,
-                modelViewProjection: mvp
+                modelViewProjection: sourceMVP
             )
             let previousCursor = SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: frameContext.pointer.previous,
-                modelViewProjection: mvp
+                modelViewProjection: sourceMVP
             )
             let masks = effectMasks(for: layerID, in: effectTextures)
-            if claim.sourceRoute == .capturedLayerTexture {
-                guard let texture = sourceTexture else { return nil }
+            if let texture = sourceTexture {
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: texture,
-                    baseTextureCandidate: imageTextures.candidate(
-                        for: layerID, matching: texture
-                    ),
+                    baseTextureCandidate: capturesMainTarget ? nil
+                        : imageTextures.candidate(for: layerID, matching: texture),
                     masks: masks,
-                    textureFrame: spriteAnimations[layerID]?.transform(
-                        at: time, wallDate: frameContext.wallDate
-                    ) ?? .identity,
-                    mvp: mvp,
+                    textureFrame: textureFrame,
+                    mvp: outputMVP,
                     uniforms: .init(
                         time: time,
-                        alpha: SceneDynamicLayerValues.alpha(
+                        alpha: capturesMainTarget ? 1 : SceneDynamicLayerValues.alpha(
                             layerID: layerID,
                             authoredValue: layer.alpha,
                             snapshot: frameContext.dynamicValues
@@ -275,7 +329,8 @@ extension SceneMetalRenderer {
                         primaryButtonIsDown:
                             frameContext.pointer.isPrimaryButtonDown,
                         frameTime: Float(frameContext.frameTime),
-                        tint: SceneDynamicLayerValues.color(
+                        tint: capturesMainTarget ? SIMD3(repeating: 1)
+                            : SceneDynamicLayerValues.color(
                             layerID: layerID,
                             authoredValue: layer.colorRGB,
                             snapshot: frameContext.dynamicValues

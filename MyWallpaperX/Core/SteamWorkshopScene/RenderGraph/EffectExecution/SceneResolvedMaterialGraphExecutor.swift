@@ -166,7 +166,7 @@ final class SceneResolvedMaterialGraphExecutor {
         )
         let baseCommand: SceneGraphResourcePassEncoder.PreparedCommand
         switch capability.sourceRoute {
-        case .capturedLayerTexture:
+        case .capturedLayerTexture, .capturedMainTargetTexture:
             guard let sourceTexture, let sourceUniforms,
                   let capture = resourceEncoder?.prepareSourceCapture(
                       source: sourceTexture,

@@ -126,6 +126,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         capabilities.runtimeDispositionOwnerships.flatMap(\.subjects)
     }
 
+    var executionLayerIDs: Set<Int> {
+        capabilities.executionLayerIDs
+    }
+
     func userPropertyDemands(
         including declaredPropertyKeys: [String]
     ) -> Set<SceneUserPropertyTextureIdentity> {

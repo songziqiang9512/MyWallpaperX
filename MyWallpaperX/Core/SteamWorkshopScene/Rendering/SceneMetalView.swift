@@ -60,7 +60,8 @@ class SceneMetalView: NSView {
         layer.device = renderer.device
         layer.pixelFormat = .bgra8Unorm
         layer.framebufferOnly = !renderDescriptor.requiresReadableFramebuffer(
-            authoredEffectCatalog: authoredEffectCatalog
+            authoredEffectCatalog: authoredEffectCatalog,
+            resolvedMaterialLayerIDs: resolvedMaterialRuntime.executionLayerIDs
         )
 #if DEBUG
         debugFrameCapture.configure(layer)
@@ -255,13 +256,9 @@ class SceneMetalView: NSView {
                 ))
             }
         }
-        let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
-            in: renderer.renderDescriptor,
-            authoredEffectCatalog: renderer.authoredEffectCatalog
-        )
         let effectOnlyLayers = renderer.renderDescriptor.layers.filter { layer in
             let chain = renderer.authoredEffectChain(for: layer.id)
-            return (utilityPlans[layer.id]?.shouldCapture == true && chain != nil)
+            return renderer.utilityCaptureLayerIDs.contains(layer.id)
                 || (layer.contentKind == "quad" && (chain?.lightShaftsCount ?? 0) > 0)
         }
         for layer in effectOnlyLayers {

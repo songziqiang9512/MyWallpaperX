@@ -27,6 +27,12 @@ METAL_RENDERER_MASKS_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectMasks.swift"
 )
 METAL_VIEW_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalView.swift"
+FRAME_PREFLIGHT_SOURCE = (
+    SOURCE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+)
+EFFECT_EXECUTION_SOURCE = (
+    SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
+)
 BACKEND_SOURCE = SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
 FOLIAGE_PLANNER_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredFoliageSwayPlanner.swift"
@@ -160,9 +166,9 @@ class SceneUtilityLayerTests(unittest.TestCase):
             + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
         metal_renderer_masks = METAL_RENDERER_MASKS_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            "utilityPlans[layer.id]?.shouldCapture == true && chain != nil",
+            "renderer.utilityCaptureLayerIDs.contains(layer.id)",
             metal_view,
-            "utility resources require both a planned capture and an executable chain",
+            "a unified utility owner must still load its effect resources",
         )
         self.assertIn(
             ").authoredEffectResourcesOnly",
@@ -182,6 +188,31 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("audioSpectrum: SceneAudioSpectrumSnapshot", utility_renderer)
         self.assertIn("audioSpectrum: audioSpectrum", utility_renderer)
         self.assertIn("audioSpectrum: frameContext.audioSpectrum", metal_renderer)
+
+    def test_resolved_utility_uses_the_current_main_target_and_frame_plan(self) -> None:
+        runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
+        preflight = FRAME_PREFLIGHT_SOURCE.read_text(encoding="utf-8")
+        effect_execution = EFFECT_EXECUTION_SOURCE.read_text(encoding="utf-8")
+        frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
+        utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn("resolvedMaterialLayerIDs.contains(layer.id)", runtime_plan)
+        self.assertIn("case .capturedMainTargetTexture:", preflight)
+        self.assertIn("sourceTexture = mainTarget", preflight)
+        self.assertIn("textureFrame = geometry.sourceUV", preflight)
+        self.assertIn("outputMVP = geometry.outputMVP", preflight)
+        self.assertIn(
+            "resolvedMaterialFrameTargetPlans: [",
+            effect_execution + frame_renderer,
+        )
+        self.assertIn(
+            "resolvedMaterialFrameTargetPlans[layer.id]",
+            frame_renderer,
+        )
+        self.assertIn(
+            "resolvedMaterialFrameTargetPlan:",
+            utility_renderer,
+        )
 
     def test_utility_authored_telemetry_follows_compositor_route_selection(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
@@ -260,8 +291,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("dependencyEffect: dependencyEffect", utility_renderer)
         self.assertIn("dependencyRuntime.effectInput(", metal_renderer)
         self.assertIn(
-            ".executableUtilityConsumerLayerIDs("
-            "in: renderDescriptor, authoredEffectCatalog: authoredEffectCatalog)",
+            "resolvedMaterialLayerIDs: resolvedMaterialLayerIDs",
             metal_renderer,
         )
         self.assertIn(

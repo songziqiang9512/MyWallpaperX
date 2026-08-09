@@ -24,6 +24,7 @@ enum SceneUtilityLayerRenderer {
         offscreenTexturePool: SceneOffscreenTexturePool,
         mainPass: SceneMainPassEncoder,
         frameTransaction: SceneSourceUpdateTransaction,
+        resolvedMaterialFrameTargetPlan: SceneResolvedMaterialFrameTargetPlan? = nil,
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
         onLegacyAuthoredRouteSelected: (() -> Void)? = nil,
         legacyAuthoredFrameTables: SceneOffscreenTexturePool.LegacyAuthoredFrameTables? = nil
@@ -56,6 +57,8 @@ enum SceneUtilityLayerRenderer {
                         cursorIsInside: pointerIsInside
                     ),
                     offscreenTexturePool: offscreenTexturePool,
+                    resolvedMaterialFrameTargetPlan:
+                        resolvedMaterialFrameTargetPlan,
                     offscreenSize: geometry.pixelSize,
                     requiresSourceCopy: true,
                     finalCompositeAlpha: finalCompositeAlpha,

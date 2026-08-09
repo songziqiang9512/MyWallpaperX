@@ -70,6 +70,11 @@ struct SceneEffectDefinition {
     let functions: SceneJSONValue?
 }
 
+struct SceneUtilityLayer {
+    enum Kind { case composition, project, fullscreen }
+    let kind: Kind
+}
+
 struct SceneRenderDescriptor {
     struct PassDescriptor {
         let passIndex: Int
@@ -87,7 +92,8 @@ struct SceneRenderDescriptor {
         let id: Int
         let effects: [EffectDescriptor]
         let contentKind: String = "image"
-        let utilityLayer: Any? = nil
+        let utilityLayer: SceneUtilityLayer? = nil
+        let childLayerIDs: [Int] = []
         let dependencyLayerIDs: [Int] = []
         let authoredDependencies: [String] = []
     }

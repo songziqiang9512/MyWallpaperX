@@ -25,6 +25,10 @@ CAPABILITY_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
 )
+CAPABILITY_STAGES_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
+)
 VARIANT_CACHE_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant.swift"
@@ -107,6 +111,11 @@ struct SceneEffectStageProgram {
     let executionPlan: SceneAuthoredEffectExecutionPlan
 }
 
+struct SceneUtilityLayer {
+    enum Kind: String { case composition, project, fullscreen }
+    let kind: Kind
+}
+
 struct SceneRenderDescriptor {
     struct PassDescriptor {
         let passIndex: Int
@@ -124,7 +133,8 @@ struct SceneRenderDescriptor {
         let id: Int
         let effects: [EffectDescriptor]
         var contentKind = "image"
-        var utilityLayer: String? = nil
+        var utilityLayer: SceneUtilityLayer? = nil
+        var childLayerIDs: [Int] = []
         var dependencyLayerIDs: [Int] = []
         var authoredDependencies: [Int] = []
         var parentID: Int? = nil
@@ -202,6 +212,7 @@ struct SceneAuthoredEffectExecutionPlan {
     let cursorRipple: SceneCursorRippleExecutionPlan?
     let opacity: SceneOpacityExecutionPlan?
     var yieldsToResolvedMaterialProgram = false
+    var supportsUtilityCapture = true
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
@@ -392,14 +403,18 @@ final class SceneResolvedMaterialVariantCache {
         }
     }
 
+    private let audioSpectrumConsumer: Bool
+
     init?(
         template: SceneResolvedMaterialTemplate,
         maximumVariantCount: Int,
         assetFormatFacts: [String: Int] = [:]
     ) {
-        _ = template
         _ = assetFormatFacts
         guard (1 ... 256).contains(maximumVariantCount) else { return nil }
+        audioSpectrumConsumer = template.uniformDeclarations.contains {
+            $0.name.hasPrefix("g_AudioSpectrum")
+        }
     }
 
     func precompileLaunchEnvelope(
@@ -410,7 +425,7 @@ final class SceneResolvedMaterialVariantCache {
     }
 
     var supportsTransparentDirectDraw: Bool { true }
-    var hasAudioSpectrumConsumer: Bool { false }
+    var hasAudioSpectrumConsumer: Bool { audioSpectrumConsumer }
 }
 '''
 
@@ -827,6 +842,7 @@ private func descriptor(
     withFunctions: Bool = false,
     contentKind: String = "image",
     utilityLayer: String? = nil,
+    childLayerIDs: [Int] = [],
     dependencyLayerIDs: [Int] = [],
     authoredDependencies: [Int] = [],
     parentVisible: Bool? = nil,
@@ -884,7 +900,9 @@ private func descriptor(
                 ),
             ],
             contentKind: contentKind,
-            utilityLayer: utilityLayer,
+            utilityLayer: utilityLayer.flatMap(SceneUtilityLayer.Kind.init)
+                .map(SceneUtilityLayer.init),
+            childLayerIDs: childLayerIDs,
             dependencyLayerIDs: dependencyLayerIDs,
             authoredDependencies: authoredDependencies,
             parentID: parentID,
@@ -1150,6 +1168,37 @@ private enum Harness {
             graphs: [raw],
             materials: materialCatalog(graph: raw, omitNode: 1),
             admissionCandidates: specializedCandidates
+        )
+        let utilityCatalog = catalog(
+            descriptor: descriptor(
+                contentKind: "composition",
+                utilityLayer: "composition"
+            ),
+            graphs: [raw],
+            materials: materialCatalog(
+                graph: raw,
+                omitNode: 1,
+                uniformsByNode: Dictionary(
+                    uniqueKeysWithValues: [0, 2, 3, 4].map { index in
+                        (index, [
+                            .init(
+                                name: "g_AudioSpectrum16Left",
+                                value: .staticExact
+                            ),
+                        ])
+                    }
+                )
+            )
+        )
+        let utilityRoute = utilityCatalog.claim(layerID: layerID)
+            .flatMap { utilityCatalog.resolve($0.token)?.sourceRoute }
+        let nonAudioUtilityCatalog = catalog(
+            descriptor: descriptor(
+                contentKind: "composition",
+                utilityLayer: "composition"
+            ),
+            graphs: [raw],
+            materials: materialCatalog(graph: raw, omitNode: 1)
         )
         let omitted = rawGraph(omitSecond: true)
         let omittedCatalog = catalog(
@@ -1583,10 +1632,24 @@ private enum Harness {
                     raw: raw,
                     reason: "execution-route-content-kind"
                 ),
-                "utilityOwner": admissionRejects(
+                "utilityCapture": utilityRoute == .capturedMainTargetTexture,
+                "utilityNonAudioRejected": reportHas(
+                    nonAudioUtilityCatalog,
+                    "utility-source-program-unsupported"
+                ) && nonAudioUtilityCatalog.claim(layerID: layerID) == nil,
+                "utilityKindMismatch": admissionRejects(
                     descriptor(utilityLayer: "composition"),
                     raw: raw,
-                    reason: "execution-route-utility-owner"
+                    reason: "execution-route-utility-shape"
+                ),
+                "utilityChildren": admissionRejects(
+                    descriptor(
+                        contentKind: "composition",
+                        utilityLayer: "composition",
+                        childLayerIDs: [42]
+                    ),
+                    raw: raw,
+                    reason: "execution-route-utility-shape"
                 ),
                 "legacyDependency": admissionRejects(
                     descriptor(dependencyLayerIDs: [42]),
@@ -1692,6 +1755,7 @@ struct SceneAuthoredEffectExecutionPlan {
     let logicalRenderTargetCount: Int
     let opacity: SceneOpacityExecutionPlan?
     var yieldsToResolvedMaterialProgram = false
+    var supportsUtilityCapture = true
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
@@ -1717,6 +1781,7 @@ struct SceneLayerFullFramePairPlan {}
 struct SceneResolvedMaterialAdmittedLayer {
     enum SourceRoute: Equatable {
         case capturedLayerTexture
+        case capturedMainTargetTexture
         case transparentDirectDraw
     }
 
@@ -2548,7 +2613,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
         runtime_catalog = RUNTIME_CATALOG_SOURCE.read_text(encoding="utf-8")
         admission = ADMISSION_SOURCE.read_text(encoding="utf-8")
-        capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
+        capability = CAPABILITY_SOURCE.read_text(encoding="utf-8") \
+            + CAPABILITY_STAGES_SOURCE.read_text(encoding="utf-8")
         dependency_ownership = DEPENDENCY_OWNERSHIP_SOURCE.read_text(
             encoding="utf-8"
         )
@@ -2605,12 +2671,22 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             'case "image", "solid", "text":',
             'case "quad":',
             ".transparentDirectDraw",
-            "case .none = layer.utilityLayer",
+            "if let utility = layer.utilityLayer",
+            ".capturedMainTargetTexture",
+            "layer.childLayerIDs.isEmpty",
             "SceneResolvedMaterialDependencyOwnershipCompiler",
-            "dependencyOwnership != nil",
+            "guard let dependencyOwnership else",
             "specializedLayerIDs.contains(layer.id)",
         ):
             self.assertIn(contract, admission)
+        self.assertIn(
+            "sourceRoute == .capturedMainTargetTexture",
+            capability,
+        )
+        self.assertIn(
+            "variants.hasAudioSpectrumConsumer",
+            capability,
+        )
         for contract in (
             "layer.dependencyLayerIDs == [layer.id]",
             "layer.authoredDependencies.isEmpty",
@@ -2781,7 +2857,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "routeUnavailable": True,
                 "hiddenParent": True,
                 "unsupportedContent": True,
-                "utilityOwner": True,
+                "utilityCapture": True,
+                "utilityNonAudioRejected": True,
+                "utilityKindMismatch": True,
+                "utilityChildren": True,
                 "legacyDependency": True,
                 "authoredDependency": True,
                 "namedReference": True,

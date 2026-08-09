@@ -37,6 +37,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 guard program.effectKey == effect.key,
                       program.stageGraph.effects.first?.key == effect.key,
                       program.executionPlan.logicalRenderTargetCount == 0,
+                      admitted.sourceRoute != .capturedMainTargetTexture
+                        || program.executionPlan.supportsUtilityCapture,
                       product.graph.renderTargets.isEmpty else {
                     return .failure(rejection("dedicated-leaf-unsupported"))
                 }
@@ -126,6 +128,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             if sourceRoute == .transparentDirectDraw,
                !variants.supportsTransparentDirectDraw {
                 return .failure(rejection("direct-draw-source-dependent"))
+            }
+            if sourceRoute == .capturedMainTargetTexture,
+               !variants.hasAudioSpectrumConsumer {
+                return .failure(rejection("utility-source-program-unsupported"))
             }
             guard dynamicUniformsAreExecutable(
                 template,

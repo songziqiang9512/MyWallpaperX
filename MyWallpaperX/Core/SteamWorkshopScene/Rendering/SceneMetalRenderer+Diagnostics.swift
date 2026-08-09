@@ -4,7 +4,9 @@ extension SceneMetalRenderer {
     ) -> [String] {
         let utilityLines = SceneUtilityLayerRuntimePlanner.reportLines(
             descriptor: renderDescriptor,
-            authoredEffectCatalog: authoredEffectCatalog
+            authoredEffectCatalog: authoredEffectCatalog,
+            resolvedMaterialLayerIDs:
+                imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
         )
         let candidateCount = renderDescriptor.layers.filter {
             $0.contentKind == "spotLight"
@@ -52,6 +54,10 @@ extension SceneMetalRenderer {
         imageCompositor.resolvedMaterialRuntime?.dedicatedEffectStages(
             for: layerID
         ) ?? []
+    }
+
+    var resolvedMaterialExecutionLayerIDs: Set<Int> {
+        imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
     }
 
     func effectTextureStages(

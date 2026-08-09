@@ -399,6 +399,7 @@ final class SceneResolvedMaterialRuntimeBridge {
 struct SceneResolvedMaterialAdmittedLayer {
     enum SourceRoute: Equatable {
         case capturedLayerTexture
+        case capturedMainTargetTexture
         case transparentDirectDraw
     }
 }
@@ -5927,7 +5928,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         )
         self.assertIn("case .transparentDirectDraw:", source)
         self.assertIn("sourceTexture = nil", source)
-        self.assertIn("sourceUniforms = nil", source)
+        self.assertIn(
+            "var sourceUniforms: SceneLayerFragmentUniforms? = nil",
+            source,
+        )
+        self.assertIn("case .capturedMainTargetTexture:", source)
+        self.assertIn("sourceTexture = mainTarget", source)
         self.assertNotIn("frame-source-texture-unavailable", source)
 
     def test_legacy_authored_commit_is_owned_by_the_frame_transaction(self) -> None:

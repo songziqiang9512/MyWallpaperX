@@ -251,6 +251,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
+    var executionLayerIDs: Set<Int> {
+        Set(capabilitiesByLayerID.keys)
+    }
+
     /// Dynamic uniforms owned by an admitted resolved chain remain live
     /// property consumers after their legacy execution plans yield ownership.
     var liveConsumerTargets: Set<SceneDynamicTarget> {
