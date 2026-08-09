@@ -275,6 +275,21 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
+    /// A resolved Program may replace the dedicated audio stage entirely, so
+    /// launch-time capture demand must survive owner migration.
+    var hasAudioSpectrumConsumer: Bool {
+        capabilitiesByLayerID.values.contains { capability in
+            capability.stages.contains { stage in
+                guard case .resolved(_, let materials) = stage else {
+                    return false
+                }
+                return materials.values.contains {
+                    $0.variants.hasAudioSpectrumConsumer
+                }
+            }
+        }
+    }
+
     var reportLines: [String] {
         var result = [
             "resolved material execution capabilities: schema=r4-layer-capability-v2"

@@ -18,7 +18,11 @@ extension DebugScenePlaybackRunner {
             let rightValue: Float = loud ? 0.5 : 0.2
             SceneAudioSpectrumInbox.shared.publish(
                 left: Array(repeating: leftValue, count: 16),
-                right: Array(repeating: rightValue, count: 16)
+                right: Array(repeating: rightValue, count: 16),
+                left32: Array(repeating: leftValue, count: 32),
+                right32: Array(repeating: rightValue, count: 32),
+                left64: Array(repeating: leftValue, count: 64),
+                right64: Array(repeating: rightValue, count: 64)
             )
             NSLog(
                 "MWX DEBUG SCENE AUDIO: frame=%d left=%.3f right=%.3f",

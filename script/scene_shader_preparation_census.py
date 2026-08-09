@@ -98,6 +98,7 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderFrontend.swift",

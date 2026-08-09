@@ -12,6 +12,8 @@ extension SceneDesktopWallpaperHost {
     ) {
         SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
             in: context.authoredEffectCatalog,
+            resolvedMaterialExecutionCapabilities:
+                context.resolvedMaterialExecutionCapabilities,
             sceneScriptAudioBarsProgram: context.sceneScriptAudioBarsProgram,
             hasParticleAudioConsumer: hasParticleAudioConsumer
         ))
@@ -28,13 +30,16 @@ extension SceneDesktopWallpaperHost {
     /// 严格准入的 Workshop Audio Bars、受限 SceneScript Audio Bars，以及
     /// surface 资源装载后确认可执行的 bounded particle audio plan；
     /// 新增 consumer 时必须同批扩充这里，否则采集不会启动。
-    nonisolated static func requiresAudioSpectrum(
+    static func requiresAudioSpectrum(
         in catalog: SceneAuthoredEffectExecutionCatalog,
+        resolvedMaterialExecutionCapabilities:
+            SceneResolvedMaterialExecutionCapabilityCatalog,
         sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram = .empty,
         hasParticleAudioConsumer: Bool = false
     ) -> Bool {
         hasParticleAudioConsumer
             || sceneScriptAudioBarsProgram.hasAudioConsumer
+            || resolvedMaterialExecutionCapabilities.hasAudioSpectrumConsumer
             || catalog.chainsByLayerID.values.contains { chain in
             chain.executionStages.contains {
                 $0.shake?.audio != nil

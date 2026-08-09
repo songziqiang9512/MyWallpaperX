@@ -71,6 +71,10 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         self.assertIn("$0.workshopAudioBars != nil", source)
         self.assertIn("$0.workshopAudioHueShift != nil", source)
         self.assertIn("sceneScriptAudioBarsProgram.hasAudioConsumer", source)
+        self.assertIn(
+            "resolvedMaterialExecutionCapabilities.hasAudioSpectrumConsumer",
+            source,
+        )
         self.assertIn("hasParticleAudioConsumer", source)
         self.assertIn(
             "plans.contains(where: \\.hasAudioConsumer)",
@@ -94,6 +98,10 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         )
         rebuild_index = activate.index("guard rebuildSurfaces(")
         self.assertIn("in: context.authoredEffectCatalog", activate[demand_index:])
+        self.assertIn(
+            "resolvedMaterialExecutionCapabilities:",
+            activate[demand_index:],
+        )
         self.assertIn(
             "sceneScriptAudioBarsProgram: context.sceneScriptAudioBarsProgram",
             activate[demand_index:],

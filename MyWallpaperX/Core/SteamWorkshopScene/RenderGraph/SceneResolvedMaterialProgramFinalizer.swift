@@ -79,7 +79,8 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
     let modelViewProjection: simd_float4x4
     let effectTextureProjectionMatrixInverse: simd_float4x4
     /// Current full-frame graph input for shader samplers that explicitly
-    /// declare `material: "framebuffer"` without an authored texture binding.
+    /// declare a `framebuffer` or `previous` material alias without an authored
+    /// texture binding.
     let implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?
 
     var textureSnapshot: SceneFrameTextureRegistrySnapshot {
@@ -222,7 +223,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             ) == nil else { return nil }
         }
         for slot in slots.compactMap({ $0 }) {
-            guard slot.diagnosticSelectionProvenance == .implicitFramebuffer else {
+            guard slot.diagnosticSelectionProvenance == .implicitFramebuffer
+                    || slot.diagnosticSelectionProvenance == .materialGraphInputAlias else {
                 continue
             }
             guard case let .graph(identity) = slot.reference,

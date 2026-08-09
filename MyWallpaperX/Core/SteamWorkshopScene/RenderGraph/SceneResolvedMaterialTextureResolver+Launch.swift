@@ -64,7 +64,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     case nil:
                         break
                     }
-                    if sampler.materialKey?.caseInsensitiveCompare("framebuffer") == .orderedSame,
+                    if sampler.usesGraphInputMaterialAlias,
                        let identity = implicitFramebufferIdentity {
                         guard identity.kind == .layerSource
                                 || identity.kind == .effectOutput,
@@ -195,8 +195,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     case nil:
                         break
                     }
-                    if sampler.materialKey?.caseInsensitiveCompare("framebuffer")
-                            == .orderedSame {
+                    if sampler.usesGraphInputMaterialAlias {
                         possible.insert(nil)
                     }
                 }

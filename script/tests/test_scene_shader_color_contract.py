@@ -36,6 +36,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
@@ -134,6 +135,39 @@ enum Harness {
                 "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
                 "float mask = 0.5; " +
                 "gl_FragColor = vec4(color.rgb, color.a * mask);"
+            ),
+            "straightBlendReplacement": transfer(
+                "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "finalColor = ApplyBlending(0, mix(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = weight; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "straightBlendDifferentAlpha": transfer(
+                "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "finalColor = ApplyBlending(0, mix(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = weight * 0.5; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "straightBlendExtraSample": transfer(
+                "float weight = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "vec3 finalColor = vec3(0.8); " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "finalColor = ApplyBlending(0, mix(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = weight; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "straightBlendMetal": metal(
+                "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "finalColor = ApplyBlending(0, mix(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = weight; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
             ),
             "closedControlFlowStraightAlpha": transfer(
                 "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
@@ -441,6 +475,9 @@ class SceneShaderColorContractTests(unittest.TestCase):
     def test_straight_alpha_boundary_is_proven_from_a_single_source(self) -> None:
         self.assertEqual(self.result["straightAlpha"], "straight-slot:0")
         self.assertEqual(
+            self.result["straightBlendReplacement"], "straight-slot:0"
+        )
+        self.assertEqual(
             self.result["closedControlFlowStraightAlpha"], "straight-slot:0"
         )
         self.assertEqual(self.result["localAlpha"], "straight-slot:0")
@@ -448,6 +485,9 @@ class SceneShaderColorContractTests(unittest.TestCase):
         self.assertEqual(
             self.result["mutatedSampledMaskAlpha"], "straight-slot:0"
         )
+        source = self.result["straightBlendMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
 
     def test_same_slot_scalar_mix_preserves_one_color_source(self) -> None:
         self.assertEqual(self.result["sameSlotScalarMix"], "slot:0")
@@ -530,6 +570,8 @@ class SceneShaderColorContractTests(unittest.TestCase):
             "arithmetic",
             "modifiedStraightLocal",
             "straightRGBMath",
+            "straightBlendDifferentAlpha",
+            "straightBlendExtraSample",
             "mixedSampleAlpha",
             "sampledMaskAlpha",
             "conditionalLocalAlpha",

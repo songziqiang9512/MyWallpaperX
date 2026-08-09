@@ -74,6 +74,8 @@ final class SceneDesktopWallpaperHost {
         launchContext = context
         SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
             in: context.authoredEffectCatalog,
+            resolvedMaterialExecutionCapabilities:
+                context.resolvedMaterialExecutionCapabilities,
             sceneScriptAudioBarsProgram: context.sceneScriptAudioBarsProgram
         ))
         guard rebuildSurfaces(

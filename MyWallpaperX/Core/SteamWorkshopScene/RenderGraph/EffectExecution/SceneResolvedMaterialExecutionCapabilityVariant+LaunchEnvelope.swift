@@ -1,6 +1,30 @@
 import Foundation
 
+nonisolated struct SceneResolvedMaterialVariantKey: Hashable {
+    let readinessMask: UInt8
+    let textureFormats: [SceneShaderTextureFormat?]
+
+    init?(readinessMask: UInt8, textureFormats: [SceneShaderTextureFormat?]) {
+        guard textureFormats.count == 8 else { return nil }
+        self.readinessMask = readinessMask
+        self.textureFormats = textureFormats
+    }
+
+    var resolvedTextureFormats: [Int: SceneShaderTextureFormat] {
+        Dictionary(uniqueKeysWithValues: textureFormats.enumerated().compactMap {
+            index, format in format.map { (index, $0) }
+        })
+    }
+}
+
 extension SceneResolvedMaterialVariantCache {
+    struct Counters: Equatable {
+        let cachedVariantCount: Int
+        let shaderPreparationCount: Int
+        let frontendCompilationCount: Int
+        let capacityRejectionCount: Int
+    }
+
     enum LaunchEnvelopeFailure: Error {
         enum Kind: String {
             case capacity
@@ -34,4 +58,5 @@ extension SceneResolvedMaterialVariantCache {
             }
         }
     }
+
 }

@@ -259,6 +259,10 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
         self.assertIn("SceneAudioSpectrumInbox.shared.publish", source)
         self.assertIn("leftValue", source)
         self.assertIn("rightValue", source)
+        self.assertIn("left32: Array(repeating: leftValue, count: 32)", source)
+        self.assertIn("right32: Array(repeating: rightValue, count: 32)", source)
+        self.assertIn("left64: Array(repeating: leftValue, count: 64)", source)
+        self.assertIn("right64: Array(repeating: rightValue, count: 64)", source)
         self.assertIn("frame.isMultiple(of: 2)", source)
         self.assertIn(
             '--mwx-debug-scene-audio-spectrum-fixture',

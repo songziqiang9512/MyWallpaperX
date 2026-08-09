@@ -243,6 +243,7 @@ nonisolated struct SceneResolvedMaterialProgram {
         case authored(SceneResolvedMaterialNode.TextureProvenance)
         case shaderDefault
         case implicitFramebuffer
+        case materialGraphInputAlias
     }
 
     enum UniformSourceSchema: Hashable {

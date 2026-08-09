@@ -53,6 +53,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
@@ -1084,6 +1085,15 @@ private enum Harness {
             includePrimaryCandidate: false,
             implicitFramebufferIdentity: graphTexture()
         )
+        let previousAliasProgram = finalize(
+            shader: contract(
+                revision: "material-previous",
+                samplerMetadata: #"{"material":"previous"}"#
+            ),
+            device: device,
+            includePrimaryCandidate: false,
+            implicitFramebufferIdentity: graphTexture()
+        )
         let explicitFramebufferProgram = finalize(
             shader: contract(
                 revision: "explicit-before-implicit",
@@ -1098,6 +1108,13 @@ private enum Harness {
                   case let .graph(identity) = slot.reference else { return false }
             return identity == graphTexture()
                 && slot.diagnosticSelectionProvenance == .implicitFramebuffer
+        }()
+        let previousAliasTyped: Bool = {
+            guard case let .success(program) = previousAliasProgram,
+                  let slot = program.textureSlots[0],
+                  case let .graph(identity) = slot.reference else { return false }
+            return identity == graphTexture()
+                && slot.diagnosticSelectionProvenance == .materialGraphInputAlias
         }()
         let stockNoisePath = SceneVFSAssetPath("util/noise")!
         let stockNoiseIdentity = SceneAssetTextureIdentity(
@@ -1685,6 +1702,14 @@ private enum Harness {
                 device: device,
                 includePrimaryCandidate: false
             )),
+            "previousWithoutIdentity": failureToken(finalize(
+                shader: contract(
+                    revision: "previous-without-identity",
+                    samplerMetadata: #"{"material":"previous"}"#
+                ),
+                device: device,
+                includePrimaryCandidate: false
+            )),
             "regularGraphSampler": failureToken(finalize(
                 shader: contract(revision: "regular-graph-sampler"),
                 device: device
@@ -1884,6 +1909,7 @@ private enum Harness {
                 "optionalMaskWithResourceAccepted":
                     optionalMaskWithResourceAccepted,
                 "implicitFramebufferTyped": implicitFramebufferTyped,
+                "previousMaterialAliasTyped": previousAliasTyped,
                 "stockDefaultProgramPreservesSnapshotAtoms":
                     stockDefaultProgramPreservesSnapshotAtoms,
                 "implicitFramebufferMaterialKeyCaseInsensitive":
@@ -2082,6 +2108,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         expected = {
             "nonFramebufferDoesNotInject": "texture/textureBindingInvalid",
             "framebufferWithoutIdentity": "texture/textureBindingInvalid",
+            "previousWithoutIdentity": "texture/textureBindingInvalid",
             "regularGraphSampler": "success",
             "customPurposeIgnored": "success",
             "unknownMode": "texture/activeSamplerSchemaInvalid",

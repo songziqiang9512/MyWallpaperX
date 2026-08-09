@@ -161,8 +161,7 @@ extension SceneResolvedMaterialShaderSchema {
                 case .internalTarget: throw Issue.sampler(sampler.name)
                 case nil: break
                 }
-                if sampler.materialKey?.caseInsensitiveCompare("framebuffer")
-                        == .orderedSame,
+                if sampler.usesGraphInputMaterialAlias,
                    implicitFramebufferIdentity != nil {
                     required |= bit
                 }

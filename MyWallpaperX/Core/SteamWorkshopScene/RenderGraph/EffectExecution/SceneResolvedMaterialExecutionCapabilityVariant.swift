@@ -1,22 +1,5 @@
 import Foundation
 
-nonisolated struct SceneResolvedMaterialVariantKey: Hashable {
-    let readinessMask: UInt8
-    let textureFormats: [SceneShaderTextureFormat?]
-
-    init?(readinessMask: UInt8, textureFormats: [SceneShaderTextureFormat?]) {
-        guard textureFormats.count == 8 else { return nil }
-        self.readinessMask = readinessMask
-        self.textureFormats = textureFormats
-    }
-
-    var resolvedTextureFormats: [Int: SceneShaderTextureFormat] {
-        Dictionary(uniqueKeysWithValues: textureFormats.enumerated().compactMap {
-            index, format in format.map { (index, $0) }
-        })
-    }
-}
-
 /// Strictly bounded per-material cache. Failed variants consume a slot too, so
 /// malformed authored data cannot turn every frame into another compiler run.
 nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
@@ -33,13 +16,6 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     private enum Entry {
         case ready(Variant)
         case failed(Failure)
-    }
-
-    struct Counters: Equatable {
-        let cachedVariantCount: Int
-        let shaderPreparationCount: Int
-        let frontendCompilationCount: Int
-        let capacityRejectionCount: Int
     }
 
     private let template: Template
@@ -87,6 +63,31 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             frontendCompilationCount: frontendCompilations,
             capacityRejectionCount: capacityRejections
         )
+    }
+
+    /// Launch-envelope compilation is the authority for host audio demand.
+    /// Raw source declarations are insufficient because inactive variants and
+    /// rejected array shapes must not keep system audio capture alive.
+    var hasAudioSpectrumConsumer: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return entries.values.contains { entry in
+            guard case .ready(let variant) = entry else { return false }
+            let activeTextureSlots = Set(
+                variant.frontendProgram.textureBindings.map(\.slot)
+            )
+            return variant.frontendProgram.uniformLayout.fields.contains { field in
+                switch SceneResolvedMaterialUniformEncoder.hostUniform(
+                    field,
+                    activeTextureSlots: activeTextureSlots
+                ) {
+                case .audioSpectrumLeft, .audioSpectrumRight:
+                    return true
+                default:
+                    return false
+                }
+            }
+        }
     }
 
     /// A source-less object route is executable only when the authored

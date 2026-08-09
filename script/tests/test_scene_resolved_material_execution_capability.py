@@ -410,6 +410,7 @@ final class SceneResolvedMaterialVariantCache {
     }
 
     var supportsTransparentDirectDraw: Bool { true }
+    var hasAudioSpectrumConsumer: Bool { false }
 }
 '''
 
@@ -1796,7 +1797,8 @@ private func fragmentSource(
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
     maskedAlpha: Bool = false,
-    transparentDirectDraw: Bool = false
+    transparentDirectDraw: Bool = false,
+    audioDirectDraw: Bool = false
 ) -> String {
     let comboAnnotation = comboMetadata.map { "// \($0)" } ?? ""
     let varyingType = frontendInvalid ? "vec3" : "vec2"
@@ -1809,7 +1811,12 @@ private func fragmentSource(
         ? "#if EXTRA\n\(rawSecondDeclaration)\n#endif"
         : rawSecondDeclaration
     let output: String
-    if transparentDirectDraw {
+    if audioDirectDraw {
+        output = """
+        float amplitude = g_AudioSpectrum16Left[0];
+        gl_FragColor = vec4(amplitude, amplitude, amplitude, 1.0);
+        """
+    } else if transparentDirectDraw {
         output = """
         #if DIRECTDRAW
         gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0);
@@ -1847,6 +1854,7 @@ private func fragmentSource(
     \(comboAnnotation)
     varying \(varyingType) v_TexCoord;
     uniform sampler2D \(firstName);\(firstAnnotation)
+    \(audioDirectDraw ? "uniform float g_AudioSpectrum16Left[16];" : "")
     \(secondDeclaration)
     void main() {
         \(output)
@@ -1866,7 +1874,8 @@ private func contract(
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
     maskedAlpha: Bool = false,
-    transparentDirectDraw: Bool = false
+    transparentDirectDraw: Bool = false,
+    audioDirectDraw: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -1898,7 +1907,8 @@ private func contract(
         samplesSecond: samplesSecond,
         observesSecond: observesSecond,
         maskedAlpha: maskedAlpha,
-        transparentDirectDraw: transparentDirectDraw
+        transparentDirectDraw: transparentDirectDraw,
+        audioDirectDraw: audioDirectDraw
     )
     let stages = [
         stage(.vertex, path: "\(revision)/root.vert", source: vertexSource),
@@ -2319,6 +2329,19 @@ private enum EnvelopeHarness {
             ),
             sourceRoute: .transparentDirectDraw
         )
+        let audioDirectDrawPositive = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "audio-direct-draw-positive",
+                    audioDirectDraw: true
+                ),
+                slots: slots(),
+                combos: [.init(name: "DIRECTDRAW", value: 1)]
+            ),
+            sourceRoute: .transparentDirectDraw
+        )
         let directDrawSourceDependent = catalog(
             graph: boundGraph,
             template: materialTemplate(
@@ -2435,6 +2458,11 @@ private enum EnvelopeHarness {
                 directDrawPositive,
                 graph: unboundGraph
             ),
+            "audioDirectDrawClaim": audioDirectDrawPositive.claim(
+                layerID: layerID
+            ) != nil,
+            "audioSpectrumConsumer":
+                audioDirectDrawPositive.hasAudioSpectrumConsumer,
             "directDrawSourceDependentClaim": directDrawSourceDependent.claim(
                 layerID: layerID
             ) != nil,
@@ -2490,6 +2518,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             ".waterFlow",
             ".foliageSway",
             ".depthParallax",
+            ".workshopAudioBars",
         ):
             self.assertNotIn(backend_name, leaf_body)
             self.assertIn(backend_name, yield_body)
@@ -2783,6 +2812,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
                 "SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+                "SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
                 "SceneAuthoredShaderFrontend.swift",
                 "SceneAuthoredShaderPreparation.swift",
                 "SceneAuthoredShaderPreparation+Support.swift",
@@ -2915,6 +2945,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             payload["directDrawPositiveCounters"],
             {"cached": 2, "prepared": 2, "frontend": 2, "capacity": 0},
         )
+        self.assertTrue(payload["audioDirectDrawClaim"], payload)
+        self.assertTrue(payload["audioSpectrumConsumer"], payload)
         self.assertFalse(payload["directDrawSourceDependentClaim"])
         self.assertIn(
             "direct-draw-source-dependent",

@@ -113,8 +113,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         }
         for (slot, sampler) in samplers {
             guard case .absent = result[slot],
-                  sampler.materialKey?.caseInsensitiveCompare("framebuffer")
-                    == .orderedSame,
+                  sampler.usesGraphInputMaterialAlias,
                   let identity = input.implicitFramebufferIdentity else {
                 continue
             }
@@ -127,7 +126,9 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             if let selection = try referenceSelection(
                 reference,
                 purpose: sampler.purpose(for: reference),
-                provenance: .implicitFramebuffer,
+                provenance: sampler.materialKey?.caseInsensitiveCompare(
+                    "previous"
+                ) == .orderedSame ? .materialGraphInputAlias : .implicitFramebuffer,
                 input: input
             ) {
                 result[slot] = selection

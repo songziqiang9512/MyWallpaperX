@@ -59,6 +59,13 @@ extension SceneResolvedMaterialShaderSchema {
 }
 
 extension SceneResolvedMaterialShaderSchema.Sampler {
+    nonisolated var usesGraphInputMaterialAlias: Bool {
+        switch materialKey?.lowercased() {
+        case "framebuffer", "previous": true
+        default: false
+        }
+    }
+
     nonisolated func purpose(
         for reference: SceneResolvedMaterialTemplate.TextureReference
     ) -> SceneTextureLoadPurpose? {
