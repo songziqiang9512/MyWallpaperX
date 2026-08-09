@@ -75,6 +75,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
         }
 
+        guard let firstStage = stages.first,
+              case .resolved = firstStage else {
+            return .failure(rejection("mixed-chain-resolved-prefix-required"))
+        }
         guard stages.count == admitted.products.count,
               stages.contains(where: { if case .resolved = $0 { true } else { false } })
         else { return .failure(rejection("resolved-stage-empty")) }

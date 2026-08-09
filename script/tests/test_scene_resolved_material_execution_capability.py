@@ -1570,8 +1570,16 @@ private enum Harness {
                     "dynamic-uniform-unavailable"
                 ),
                 "dedicatedBeforeResolved":
-                    dedicatedBeforeResolvedCatalog.claim(layerID: layerID) != nil,
-                "alternatingMixedOrder": alternatingCapability != nil,
+                    dedicatedBeforeResolvedCatalog.claim(layerID: layerID) == nil
+                    && reportHas(
+                        dedicatedBeforeResolvedCatalog,
+                        "mixed-chain-resolved-prefix-required"
+                    ),
+                "alternatingMixedOrder": alternatingCapability == nil
+                    && reportHas(
+                        alternatingCatalog,
+                        "mixed-chain-resolved-prefix-required"
+                    ),
                 "alternatingMixedOrderContract": alternatingCapability.map { capability in
                     let keys = capability.stages.compactMap(\.subject).map(\.key)
                     let families = capability.stages.compactMap(\.subject).map(\.family)
@@ -1593,7 +1601,7 @@ private enum Harness {
                         && capability.pairPlan.terminalOutputIdentity
                             == output(fourthKey)
                         && capability.pairPlan.terminalMember == .zero
-                } ?? false,
+                } ?? true,
                 "resolvedBeforeDedicated":
                     resolvedBeforeDedicatedCatalog.claim(layerID: layerID) != nil,
                 "emptyDedicatedLeafAllowlist":
@@ -2583,10 +2591,11 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             ".waterFlow",
             ".foliageSway",
             ".depthParallax",
-            ".workshopAudioBars",
         ):
             self.assertNotIn(backend_name, leaf_body)
             self.assertIn(backend_name, yield_body)
+        self.assertIn(".workshopAudioBars", leaf_body)
+        self.assertNotIn(".workshopAudioBars", yield_body)
         self.assertIn(".fisheyeZeroDistortion", leaf_body)
         self.assertIn("case filmGrain(SceneFilmGrainExecutionPlan)", source)
 

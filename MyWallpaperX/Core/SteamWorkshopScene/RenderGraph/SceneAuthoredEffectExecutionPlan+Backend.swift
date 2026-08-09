@@ -36,7 +36,7 @@ extension SceneAuthoredEffectExecutionPlan {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .workshopShiftHue, .workshopGradient,
+            case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                  .workshopAudioHueShift, .workshopShadow, .spin,
                  .proceduralNoise, .shake, .fisheyeZeroDistortion:
                 return true
@@ -52,7 +52,7 @@ extension SceneAuthoredEffectExecutionPlan {
     nonisolated var yieldsToResolvedMaterialProgram: Bool {
         switch backend {
         case .opacity, .blend, .tint, .filmGrain, .lightShafts, .waterFlow,
-             .foliageSway, .depthParallax, .workshopAudioBars:
+             .foliageSway, .depthParallax:
             return true
         default:
             return false

@@ -2007,6 +2007,8 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         for backend_name in (".waterFlow", ".foliageSway", ".depthParallax"):
             self.assertNotIn(backend_name, leaf_body)
             self.assertIn(backend_name, yield_body)
+        self.assertIn(".workshopAudioBars", leaf_body)
+        self.assertNotIn(".workshopAudioBars", yield_body)
         self.assertIn(".lightShafts", yield_body)
         self.assertIn("case .waterFlow(let plan):", topology)
         self.assertIn("inputs.masks.waterFlowEffects[", topology)
