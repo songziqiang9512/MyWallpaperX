@@ -2484,6 +2484,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         yield_body = source[yield_start:yield_end]
 
         for backend_name in (
+            ".blend",
             ".filmGrain",
             ".lightShafts",
             ".waterFlow",

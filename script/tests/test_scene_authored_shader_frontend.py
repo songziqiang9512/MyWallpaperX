@@ -201,6 +201,40 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertIsNone(output.get("metalError"))
 
+    def test_two_texture_rgb_blend_preserves_source_alpha_in_program(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            uniform sampler2D g_Texture1;
+            uniform float g_Multiply;
+            varying vec2 v_TexCoord;
+            vec3 fixtureBlend(
+                const int mode,
+                in vec3 base,
+                in vec3 overlay,
+                in float weight
+            ) {
+                if (mode == 0) {
+                    return mix(base, overlay, weight);
+                }
+                return base;
+            }
+            void main() {
+                vec4 base = texSample2D(g_Texture0, v_TexCoord);
+                vec4 overlay = texSample2D(g_Texture1, v_TexCoord);
+                float weight = g_Multiply * overlay.a;
+                base.rgb = fixtureBlend(0, base.rgb, overlay.rgb, weight);
+                gl_FragColor = base;
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["textureSlots"], [0, 1])
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", output["metalSource"])
+        self.assertIn("return mwxPremultiply(mwxFragColor);", output["metalSource"])
+        self.assertIsNone(output.get("metalError"))
+
     def test_float_vector_narrowing_matches_cross_backend_authored_forms(self):
         function_argument = self.compile(
             VEC4_COORDINATE_VERTEX_SOURCE,
