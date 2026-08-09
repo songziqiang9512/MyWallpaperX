@@ -151,7 +151,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             globalIndices.map { context.unit.tokens[$0] },
             context: context,
             textures: textures,
-            insertsContextIntoCalls: false
+            insertsContextIntoCalls: false,
+            programScope: true
         ).source
         var functions: [String] = []
         for (functionIndex, function) in context.unit.functions.enumerated() {
@@ -224,7 +225,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         textures: [SceneAuthoredShaderProgram.TextureBinding],
         insertsContextIntoCalls: Bool,
         constantArrayParameterNames: Set<String> = [],
-        mutableParameterNames: Set<String> = []
+        mutableParameterNames: Set<String> = [],
+        programScope: Bool = false
     ) -> TokenEmission {
         var output: [String] = []
         var diagnostics: [SceneAuthoredShaderFrontendDiagnostic] = []
@@ -238,6 +240,11 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             }
             if let suffixes = narrowingBoundaries.ends[index] {
                 output.append(suffixes.map { ").\($0)" }.joined())
+            }
+            if programScope, token.text == "const" {
+                output.append("constant")
+                index += 1
+                continue
             }
             if let reference = SceneAuthoredShaderVaryingArrayEmitter.reference(
                 tokens: tokens,

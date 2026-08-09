@@ -90,6 +90,10 @@ ENVELOPE_SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
 ]
+CATALOG_DEMAND_SWIFT_SOURCES = [
+    *PROGRAM_FINALIZER_FIXTURE["SWIFT_SOURCES"],
+    RUNTIME_CATALOG_SOURCE,
+]
 
 
 SUPPORT = r'''
@@ -2572,6 +2576,369 @@ private enum EnvelopeHarness {
 '''
 
 
+CATALOG_DEMAND_SUPPORT = PROGRAM_FINALIZER_FIXTURE["SUPPORT"] + r'''
+
+nonisolated struct SceneRenderDescriptor {}
+
+nonisolated struct SceneAuthoredMaterialResolution {
+    let node: SceneResolvedMaterialNode?
+    let issues: [String]
+}
+
+nonisolated enum SceneAuthoredMaterialResolver {
+    static func resolve(
+        node: SceneAuthoredEffectRenderPlan.Node,
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor
+    ) -> SceneAuthoredMaterialResolution {
+        _ = node
+        _ = graph
+        _ = descriptor
+        return .init(node: .init(), issues: [])
+    }
+}
+
+nonisolated extension SceneResolvedMaterialNode {
+    var shaderPath: String { "fixture/catalog-demand" }
+}
+
+nonisolated enum SceneResolvedMaterialTemplateCompiler {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+    typealias Template = SceneResolvedMaterialTemplate
+
+    static func compile(
+        material: SceneResolvedMaterialNode,
+        graph: Graph,
+        shaderContract: SceneShaderContract
+    ) -> Result<Template, SceneResolvedMaterialFailure> {
+        _ = material
+        guard let node = graph.nodes.first,
+              let effect = graph.effects.first,
+              let state = SceneMaterialRenderState.compile(
+                  blending: "normal",
+                  depthTest: "disabled",
+                  depthWrite: "disabled",
+                  cullMode: "nocull",
+                  alphaWriting: nil
+              ) else {
+            return .failure(.init(
+                phase: .invariant,
+                code: .identityInvariant
+            ))
+        }
+        var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+        slots[0] = .init(index: 0, candidates: [
+            .init(
+                reference: .graph(effect.input),
+                provenance: .explicitBinding
+            ),
+        ])
+        guard let template = Template.validated(
+            textureSlots: slots,
+            combos: [.init(name: "MODE", value: 2)],
+            uniformDeclarations: [],
+            renderState: state,
+            graphRole: .init(
+                effectInput: .layerSource,
+                effectOutput: .effectOutput,
+                nodeTarget: .effectOutput,
+                bindings: [.init(slot: 0, texture: .layerSource)]
+            ),
+            shaderContract: shaderContract,
+            diagnosticProvenance: .init(
+                nodeIndex: node.nodeIndex,
+                authoredShaderPath: shaderContract.identity,
+                contractIdentity: shaderContract.identity,
+                contractCanonicalSHA256: shaderContract.canonicalSHA256,
+                textureSources: [],
+                uniformSources: []
+            )
+        ) else {
+            return .failure(.init(
+                phase: .invariant,
+                code: .identityInvariant
+            ))
+        }
+        return .success(template)
+    }
+}
+
+nonisolated struct SceneResolvedMaterialAdmissionProduct {
+    let graph: SceneAuthoredEffectRenderPlan
+}
+
+nonisolated struct SceneResolvedMaterialAdmittedLayer {
+    let products: [SceneResolvedMaterialAdmissionProduct]
+}
+
+nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
+    struct Candidate {
+        let result: Result<
+            SceneResolvedMaterialAdmittedLayer,
+            SceneResolvedMaterialFailure
+        >
+    }
+}
+'''
+
+
+CATALOG_DEMAND_HARNESS = r'''
+import Foundation
+
+private typealias Graph = SceneAuthoredEffectRenderPlan
+private typealias Template = SceneResolvedMaterialTemplate
+
+private let layerID = 982
+private let effectKey = Graph.EffectKey(
+    layerID: layerID,
+    effectIndex: 0,
+    descriptorID: "catalog-demand"
+)
+
+private func source() -> Graph.TextureIdentity {
+    .init(kind: .layerSource, layerID: layerID, effect: nil, name: nil)
+}
+
+private func output() -> Graph.TextureIdentity {
+    .init(
+        kind: .effectOutput,
+        layerID: layerID,
+        effect: effectKey,
+        name: nil
+    )
+}
+
+private func graph() -> Graph {
+    let node = Graph.Node(
+        nodeIndex: 0,
+        effect: effectKey,
+        definitionPassIndex: 0,
+        materialOrdinal: 0,
+        instancePassIndex: 0,
+        kind: .material,
+        materialPath: "materials/catalog-demand.json",
+        materialPassID: "catalog-demand",
+        target: output(),
+        bindings: [.init(
+            slot: 0,
+            authoredName: "previous",
+            texture: source(),
+            conditions: nil
+        )],
+        commandSource: nil,
+        commandTarget: nil,
+        compose: nil,
+        conditions: nil
+    )
+    return .init(
+        layerID: layerID,
+        effects: [.init(
+            key: effectKey,
+            definitionPath: "effects/catalog-demand/effect.json",
+            input: source(),
+            output: output(),
+            nodeIndices: [node.nodeIndex]
+        )],
+        renderTargets: [],
+        nodes: [node],
+        finalOutput: output(),
+        blockers: []
+    )
+}
+
+private let vertexSource = """
+attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec2 v_TexCoord;
+void main() {
+    v_TexCoord = a_TexCoord;
+    gl_Position = vec4(a_Position, 1.0);
+}
+"""
+
+private func fragmentSource(defaultPath: String) -> String {
+    """
+    // [COMBO] {"combo":"MODE","default":1,"options":{"Gradient":1,"RGB":2}}
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0; // {"material":"framebuffer"}
+    uniform sampler2D g_Texture2; // {"default":"\(defaultPath)","require":{"MODE":1}}
+    void main() {
+    #if MODE == 1
+        gl_FragColor = texSample2D(g_Texture2, v_TexCoord);
+    #else
+        gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+    #endif
+    }
+    """
+}
+
+private func contract(defaultPath: String) -> SceneShaderContract {
+    func stage(
+        _ kind: SceneShaderContract.StageKind,
+        path: String,
+        source: String
+    ) -> SceneShaderContract.Stage {
+        let parsed = SceneShaderContractSourceParser().parse(
+            source,
+            stageRelativePath: path
+        )
+        return .init(
+            kind: kind,
+            relativePath: path,
+            source: source,
+            rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)),
+            includes: parsed.includes,
+            annotations: parsed.annotations,
+            declarations: parsed.declarations
+        )
+    }
+    let stages = [
+        stage(.vertex, path: "catalog/root.vert", source: vertexSource),
+        stage(
+            .fragment,
+            path: "catalog/root.frag",
+            source: fragmentSource(defaultPath: defaultPath)
+        ),
+    ]
+    return .init(
+        identity: "fixture/catalog-demand",
+        sourceKind: .authoredSource,
+        stages: stages,
+        diagnostics: [],
+        canonicalSHA256: "fixture-catalog-demand-\(defaultPath)",
+        sourceGraph: .init(
+            roots: [
+                .init(label: "vertex", virtualPath: "catalog/root.vert"),
+                .init(label: "fragment", virtualPath: "catalog/root.frag"),
+            ],
+            nodes: stages.map {
+                .init(
+                    virtualPath: $0.relativePath,
+                    provenance: .package,
+                    source: $0.source,
+                    rawSHA256: $0.rawSHA256,
+                    byteCount: $0.source.utf8.count
+                )
+            },
+            edges: [],
+            diagnostics: [],
+            dependencySHA256: "fixture-catalog-demand-dependency-\(defaultPath)"
+        )
+    )
+}
+
+private func catalog(
+    graph: Graph,
+    contract: SceneShaderContract
+) -> SceneResolvedMaterialRuntimeCatalog {
+    .init(
+        descriptor: .init(),
+        admissionCandidates: [.init(result: .success(.init(
+            products: [.init(graph: graph)]
+        )))],
+        shaderContracts: [contract]
+    )
+}
+
+private func template(
+    catalog: SceneResolvedMaterialRuntimeCatalog,
+    graph: Graph
+) -> Template {
+    guard case let .template(template)? = catalog.entry(for: graph.nodes[0]) else {
+        fatalError("catalog did not compile fixture template")
+    }
+    return template
+}
+
+private func hasPurposeIssue(
+    _ catalog: SceneResolvedMaterialRuntimeCatalog,
+    path: SceneVFSAssetPath
+) -> Bool {
+    catalog.resourceDemandIssues.contains { issue in
+        guard issue.slot == 2,
+              issue.code == .purposeUnproven,
+              case let .asset(issuePath) = issue.reference else { return false }
+        return issuePath == path
+    }
+}
+
+@main
+private enum Main {
+    static func main() throws {
+        let fixtureGraph = graph()
+
+        let positivePath = SceneVFSAssetPath("gradient/gradient_fire")!
+        let positiveCatalog = catalog(
+            graph: fixtureGraph,
+            contract: contract(defaultPath: positivePath.value)
+        )
+        let positiveTemplate = template(
+            catalog: positiveCatalog,
+            graph: fixtureGraph
+        )
+        let positiveSeed = try SceneResolvedMaterialShaderSchema
+            .unconditionalSamplers(positiveTemplate)
+        let positiveReachable = try SceneResolvedMaterialShaderSchema
+            .reachableSamplers(
+                positiveTemplate,
+                implicitFramebufferIdentity: source()
+            )
+        let positiveReference = Template.TextureReference.asset(positivePath)
+        let typedIdentity = SceneAssetTextureIdentity(
+            path: positivePath,
+            purpose: .preservedChannels
+        )
+
+        let unknownPath = SceneVFSAssetPath(
+            "fixtures/catalog-demand-unproven"
+        )!
+        let negativeCatalog = catalog(
+            graph: fixtureGraph,
+            contract: contract(defaultPath: unknownPath.value)
+        )
+        let negativeTemplate = template(
+            catalog: negativeCatalog,
+            graph: fixtureGraph
+        )
+        let negativeSeed = try SceneResolvedMaterialShaderSchema
+            .unconditionalSamplers(negativeTemplate)
+        let negativeReachable = try SceneResolvedMaterialShaderSchema
+            .reachableSamplers(
+                negativeTemplate,
+                implicitFramebufferIdentity: source()
+            )
+
+        let result: [String: Any] = [
+            "positive": [
+                "unconditionalSeedHasSlot2": positiveSeed[2] != nil,
+                "reachableHasSlot2": !(positiveReachable[2]?.isEmpty ?? true),
+                "purpose": positiveSeed[2]?
+                    .purpose(for: positiveReference)?.reportToken ?? "unproven",
+                "hasTypedDemand": positiveCatalog.assetDemands.contains(
+                    typedIdentity
+                ),
+                "issueCount": positiveCatalog.resourceDemandIssues.count,
+            ],
+            "negative": [
+                "unconditionalSeedHasSlot2": negativeSeed[2] != nil,
+                "reachableHasSlot2": !(negativeReachable[2]?.isEmpty ?? true),
+                "demandCount": negativeCatalog.assetDemands.count,
+                "hasPurposeIssue": hasPurposeIssue(
+                    negativeCatalog,
+                    path: unknownPath
+                ),
+            ],
+        ]
+        let data = try JSONSerialization.data(
+            withJSONObject: result,
+            options: [.sortedKeys]
+        )
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+
+
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
     def test_authored_material_families_prefer_program_and_keep_fallback(self) -> None:
@@ -2587,6 +2954,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         for backend_name in (
             ".blend",
             ".filmGrain",
+            ".proceduralNoise",
             ".lightShafts",
             ".waterFlow",
             ".foliageSway",
@@ -2884,6 +3252,74 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             },
         )
 
+    def test_catalog_preloads_unconditional_seed_defaults_without_promoting_reachability(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-resolved-material-catalog-demand-"
+        ) as directory:
+            root = Path(directory)
+            support = root / "Support.swift"
+            harness = root / "CatalogDemandHarness.swift"
+            binary = root / "resolved-material-catalog-demand-test"
+            support.write_text(CATALOG_DEMAND_SUPPORT, encoding="utf-8")
+            harness.write_text(CATALOG_DEMAND_HARNESS, encoding="utf-8")
+            environment = os.environ.copy()
+            environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
+            environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+            compilation = subprocess.run(
+                [
+                    "xcrun",
+                    "--sdk",
+                    "macosx",
+                    "swiftc",
+                    "-parse-as-library",
+                    str(support),
+                    *(str(path) for path in CATALOG_DEMAND_SWIFT_SOURCES),
+                    str(harness),
+                    "-module-cache-path",
+                    str(root / "module-cache"),
+                    "-o",
+                    str(binary),
+                ],
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            completed = subprocess.run(
+                [str(binary)],
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+
+        payload = json.loads(completed.stdout)
+        self.assertEqual(
+            payload["positive"],
+            {
+                "unconditionalSeedHasSlot2": True,
+                "reachableHasSlot2": False,
+                "purpose": "preserved-channels",
+                "hasTypedDemand": True,
+                "issueCount": 0,
+            },
+            payload,
+        )
+        self.assertEqual(
+            payload["negative"],
+            {
+                "unconditionalSeedHasSlot2": True,
+                "reachableHasSlot2": False,
+                "demandCount": 0,
+                "hasPurposeIssue": True,
+            },
+            payload,
+        )
+
     def test_launch_precompiles_the_static_texture_readiness_envelope(
         self,
     ) -> None:
@@ -2898,6 +3334,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
                 "SceneResolvedMaterialTextureResolver.swift",
                 "SceneAuthoredShaderColorTransferAnalyzer.swift",
+                "SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
                 "SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
@@ -2907,6 +3344,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneAuthoredShaderPreparation.swift",
                 "SceneAuthoredShaderPreparation+Support.swift",
                 "SceneShaderContract.swift",
+                "SceneShaderMalformedMetadataAdmission.swift",
                 "SceneShaderPreprocessor.swift",
             }.issubset(source_names)
         )

@@ -56,13 +56,18 @@ nonisolated enum SceneAuthoredShaderLexer {
         var defines: [String: String] = [:]
         var diagnostics: [SceneAuthoredShaderFrontendDiagnostic] = []
         var body: [String] = []
+        var inBlockComment = false
         let lines = source.split(
             separator: "\n",
             omittingEmptySubsequences: false
         )
         for (offset, rawLine) in lines.enumerated() {
             let line = String(rawLine)
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let lexical = SceneShaderLexicalScanner.scan(
+                line,
+                inBlockComment: &inBlockComment
+            )
+            let trimmed = lexical.code.trimmingCharacters(in: .whitespaces)
             guard trimmed.hasPrefix("#") else {
                 body.append(line)
                 continue

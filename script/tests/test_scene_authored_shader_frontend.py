@@ -25,6 +25,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLexer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBoundedLoopAdmission.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderRuntimeLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
@@ -37,6 +38,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
@@ -72,13 +74,37 @@ private struct AuthoredShaderFrontendHarness {
             contentsOfFile: CommandLine.arguments[2],
             encoding: .utf8
         )
+        var vertexLoopBounds: [String: Int] = [:]
+        var fragmentLoopBounds: [String: Int] = [:]
+        for argument in CommandLine.arguments.dropFirst(3) {
+            let prefixes = [
+                ("--vertex-loop-bound=", true),
+                ("--fragment-loop-bound=", false),
+            ]
+            for (prefix, isVertex) in prefixes where argument.hasPrefix(prefix) {
+                let payload = argument.dropFirst(prefix.count).split(
+                    separator: "=",
+                    maxSplits: 1
+                )
+                guard payload.count == 2, let maximum = Int(payload[1]) else { continue }
+                if isVertex {
+                    vertexLoopBounds[String(payload[0])] = maximum
+                } else {
+                    fragmentLoopBounds[String(payload[0])] = maximum
+                }
+            }
+        }
         let output = SceneAuthoredShaderFrontend.compile(
             vertexSource: vertexSource,
-            fragmentSource: fragmentSource
+            fragmentSource: fragmentSource,
+            runtimeLoopBounds: .init(
+                vertex: vertexLoopBounds,
+                fragment: fragmentLoopBounds
+            )
         )
         var metalError: String?
         if let program = output.program,
-           CommandLine.arguments.dropFirst(3).first != "--skip-metal" {
+           !CommandLine.arguments.dropFirst(3).contains("--skip-metal") {
             do {
                 guard let device = MTLCreateSystemDefaultDevice() else {
                     throw NSError(
@@ -167,7 +193,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.build_directory.cleanup()
 
-    def compile(self, vertex_source, fragment_source, *, metal=True):
+    def compile(self, vertex_source, fragment_source, *, metal=True, loop_bounds=None):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             vertex = root / "fixture.vert"
@@ -175,6 +201,9 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             vertex.write_text(textwrap.dedent(vertex_source), encoding="utf-8")
             fragment.write_text(textwrap.dedent(fragment_source), encoding="utf-8")
             command = [str(self.binary), str(vertex), str(fragment)]
+            for stage, bounds in sorted((loop_bounds or {}).items()):
+                for name, maximum in sorted(bounds.items()):
+                    command.append(f"--{stage}-loop-bound={name}={maximum}")
             if not metal:
                 command.append("--skip-metal")
             completed = subprocess.run(
@@ -202,6 +231,34 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         )
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertIsNone(output.get("metalError"))
+
+    def test_directive_extraction_ignores_commented_defines(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            /*#define HASH_SCALE1 0.1031
+            #define HASH_SCALE3 vec3(0.1031, 0.1030, 0.0973)
+            #define HASH_SCALE4 vec4(0.1031, 0.1030, 0.0973, 0.1099)*/
+            // #define LINE_COMMENTED vec3(1.0)
+            #define ACTIVE_SCALE 2
+            varying vec2 v_TexCoord;
+            void main() {
+                gl_FragColor = vec4(v_TexCoord, float(ACTIVE_SCALE), 1.0);
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIsNone(output.get("metalError"))
+
+        active_nonnumeric = self.compile(
+            VERTEX_SOURCE,
+            """
+            #define ACTIVE_HASH vec3(1.0)
+            void main() { gl_FragColor = vec4(1.0); }
+            """,
+            metal=False,
+        )
+        self.assertEqual(active_nonnumeric["diagnosticCodes"], ["malformedDefine"])
 
     def test_two_texture_rgb_blend_preserves_source_alpha_in_program(self):
         output = self.compile(
@@ -412,6 +469,78 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             metal=False,
         )
         self.assertNotIn("(albedo).xyz", custom["metalSource"].replace(" ", ""))
+
+    def test_compound_mix_and_program_scope_const_use_bounded_metal_conversions(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            uniform vec3 g_ColorLow;
+            uniform vec3 g_ColorHigh;
+            varying vec2 v_TexCoord;
+            const vec2 sub = vec2(1.0, 0.0);
+            void main() {
+                const float localOffset = 0.0;
+                vec4 color = texSample2D(
+                    g_Texture0,
+                    v_TexCoord + sub.yy + localOffset
+                );
+                float border = 0.5;
+                color.rgb = mix(
+                    g_ColorLow,
+                    color * (g_ColorHigh - g_ColorLow) + g_ColorLow,
+                    border
+                );
+                gl_FragColor = color;
+            }
+            """,
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIn("constantfloat2sub=float2(1.0,0.0);", compact_source)
+        self.assertIn("constfloatlocalOffset=0.0;", compact_source)
+        self.assertIn("(color).xyz*(mwxUniforms.g_ColorHigh", compact_source)
+        self.assertIsNone(output.get("metalError"))
+
+        runtime_global = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform float g_RuntimeValue;
+            const float invalidGlobal = g_RuntimeValue;
+            void main() { gl_FragColor = vec4(1.0); }
+            """,
+            metal=False,
+        )
+        self.assertEqual(
+            runtime_global["diagnosticCodes"],
+            ["unsupportedDeclaration"],
+        )
+
+    def test_compound_mix_does_not_guess_unproven_additive_or_function_forms(self):
+        fixtures = [
+            "color + expanded",
+            "(color + expanded) * (g_ColorHigh - g_ColorLow)",
+            "normalize(color) * (g_ColorHigh - g_ColorLow)",
+        ]
+        for expression in fixtures:
+            with self.subTest(expression=expression):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    f"""
+                    uniform vec3 g_ColorLow;
+                    uniform vec3 g_ColorHigh;
+                    varying vec2 v_TexCoord;
+                    void main() {{
+                        vec4 color = vec4(v_TexCoord, 0.0, 1.0);
+                        vec4 expanded = vec4(0.5);
+                        color.rgb = mix(g_ColorLow, {expression}, 0.5);
+                        gl_FragColor = color;
+                    }}
+                    """,
+                )
+                compact_source = output["metalSource"].replace(" ", "")
+                self.assertNotIn("normalize((color).xyz)", compact_source)
+                self.assertIsNotNone(output.get("metalError"))
 
     def test_mat3_inverse_and_inout_parameters_translate_to_metal(self):
         output = self.compile(
@@ -772,6 +901,128 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         )
         self.assertEqual(dynamic["diagnosticCodes"], ["dynamicLoop"])
         self.assertEqual(unbounded["diagnosticCodes"], ["unsupportedControlFlow"])
+
+    def test_proven_runtime_uniform_loop_bound_compiles_without_clamp(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform float u_fractals;
+            varying vec2 v_TexCoord;
+            void main() {
+                float value = 0.0;
+                for (int index = 0; index < int(u_fractals); index++) {
+                    value += v_TexCoord.x;
+                }
+                for (int octave = 1; octave <= int(u_fractals); ++octave) {
+                    value += float(octave);
+                }
+                gl_FragColor = vec4(value);
+            }
+            """,
+            loop_bounds={"fragment": {"u_fractals": 5}},
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["staticLoopWork"], 10)
+        self.assertIn("int(mwxUniforms.u_fractals)", compact_source)
+        self.assertNotIn("clamp(mwxUniforms.u_fractals", compact_source)
+        self.assertIsNone(output.get("metalError"))
+
+    def test_signed_static_loop_literals_compile_with_bounded_runtime_loop(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform float u_fractals;
+            varying vec2 v_TexCoord;
+            void main() {
+                float value = 0.0;
+                for (int y = -1; y <= 1; y++) {
+                    for (int x = -1; x <= 1; x++) {
+                        value += float(x + y);
+                    }
+                }
+                for (int octave = 1; octave <= int(u_fractals); ++octave) {
+                    value += float(octave);
+                }
+                gl_FragColor = vec4(value + v_TexCoord.x);
+            }
+            """,
+            loop_bounds={"fragment": {"u_fractals": 5}},
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["staticLoopWork"], 17)
+        self.assertIsNone(output.get("metalError"))
+
+    def test_signed_int_loop_literals_stay_bounded_and_fail_closed(self):
+        fixtures = [
+            "for (int index = -256; index <= 0; index++) {}",
+            "for (int index = -(1); index <= 1; index++) {}",
+            "for (int index = -2147483649; index <= 1; index++) {}",
+            "for (int index = 0; index <= -1; index++) {}",
+            "for (int index = 1; index >= -1; index--) {}",
+            "for (int index = 0; index < 1; index += 9223372036854775807) {}",
+            "for (int index = 0; index < 1; index += 9223372036854775807.0) {}",
+        ]
+        for loop in fixtures:
+            with self.subTest(loop=loop):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    f"""
+                    void main() {{
+                        {loop}
+                        gl_FragColor = vec4(1.0);
+                    }}
+                    """,
+                    metal=False,
+                )
+                self.assertEqual(output["diagnosticCodes"], ["dynamicLoop"])
+
+    def test_runtime_uniform_loop_bound_proof_stays_narrow_and_fail_closed(self):
+        fragment_source = """
+            uniform float u_fractals;
+            void main() {
+                float value = 0.0;
+                for (int index = 0; index < int(u_fractals); index++) {
+                    value += 1.0;
+                }
+                gl_FragColor = vec4(value);
+            }
+        """
+        fixtures = [
+            ({}, fragment_source),
+            ({"vertex": {"u_fractals": 5}}, fragment_source),
+            ({"fragment": {"u_fractals": 257}}, fragment_source),
+            (
+                {"fragment": {"u_fractals": 5}},
+                fragment_source.replace(
+                    "value += 1.0;",
+                    "u_fractals = 1.0; value += 1.0;",
+                ),
+            ),
+            (
+                {"fragment": {"u_fractals": 5}},
+                fragment_source.replace(
+                    "value += 1.0;",
+                    "float samples[5]; value += samples[index];",
+                ),
+            ),
+            (
+                {"fragment": {"u_fractals": 5}},
+                fragment_source.replace(
+                    "int index = 0;",
+                    "int index = -1;",
+                ),
+            ),
+        ]
+        for loop_bounds, source in fixtures:
+            with self.subTest(loop_bounds=loop_bounds, source=source):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    source,
+                    metal=False,
+                    loop_bounds=loop_bounds,
+                )
+                self.assertEqual(output["diagnosticCodes"], ["dynamicLoop"])
 
     def test_function_root_const_int_loop_bound_compiles_to_metal(self):
         output = self.compile(

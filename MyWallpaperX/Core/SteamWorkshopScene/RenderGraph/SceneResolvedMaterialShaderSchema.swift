@@ -52,11 +52,13 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
     }
 
     static func activeSamplers(
-        _ prepared: SceneShaderPreparedProgram
+        _ prepared: SceneShaderPreparedProgram,
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
     ) throws -> [Int: Sampler] {
         guard let activeNames = SceneAuthoredShaderDeadBindingAnalyzer.activeSamplerNames(
             vertexSource: prepared.vertex.source,
-            fragmentSource: prepared.fragment.source
+            fragmentSource: prepared.fragment.source,
+            runtimeLoopBounds: runtimeLoopBounds
         ) else { throw Issue.sampler("prepared-frontend") }
         return try samplerSchemas(records(prepared).filter {
             $0.declaration.kind != .uniform

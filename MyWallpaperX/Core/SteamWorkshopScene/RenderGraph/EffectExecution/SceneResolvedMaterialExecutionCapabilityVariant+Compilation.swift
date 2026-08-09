@@ -59,9 +59,14 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             throw failure(.identityInvariant, phase: .invariant)
         }
         onFrontendCompilation()
+        let runtimeLoopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
+            template: template,
+            prepared: prepared
+        )
         let frontendOutput = SceneAuthoredShaderFrontend.compile(
             vertexSource: prepared.vertex.source,
-            fragmentSource: prepared.fragment.source
+            fragmentSource: prepared.fragment.source,
+            runtimeLoopBounds: runtimeLoopBounds
         )
         guard frontendOutput.diagnostics.isEmpty,
               let frontend = frontendOutput.program,
@@ -78,7 +83,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         }
         let samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
         do {
-            samplers = try SceneResolvedMaterialShaderSchema.activeSamplers(prepared)
+            samplers = try SceneResolvedMaterialShaderSchema.activeSamplers(
+                prepared,
+                runtimeLoopBounds: runtimeLoopBounds
+            )
         } catch {
             throw failure(.activeSamplerSchemaInvalid)
         }

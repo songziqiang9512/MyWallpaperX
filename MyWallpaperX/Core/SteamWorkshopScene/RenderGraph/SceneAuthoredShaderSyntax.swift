@@ -47,7 +47,8 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
 
     static func analyze(
         lexerOutput: SceneAuthoredShaderLexer.Output,
-        stage: SceneShaderContract.StageKind
+        stage: SceneShaderContract.StageKind,
+        provenRuntimeLoopBounds: [String: Int] = [:]
     ) -> Output {
         guard lexerOutput.diagnostics.isEmpty else {
             return Output(unit: nil, diagnostics: lexerOutput.diagnostics)
@@ -144,6 +145,7 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
             tokens: tokens,
             defines: lexerOutput.defines,
             declarations: declarations,
+            provenRuntimeLoopBounds: provenRuntimeLoopBounds,
             stage: stage
         )
         guard loopResult.diagnostics.isEmpty else {

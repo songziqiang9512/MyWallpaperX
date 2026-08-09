@@ -23,6 +23,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         tokens: [SceneAuthoredShaderToken],
         defines: [String: String],
         declarations: [SceneAuthoredShaderSyntaxUnit.Declaration],
+        provenRuntimeLoopBounds: [String: Int],
         stage: SceneShaderContract.StageKind
     ) -> Output {
         let indicesByName = Dictionary(grouping: functions.indices) {
@@ -40,6 +41,8 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                     in: functions[index].parameterRange,
                     tokens: tokens
                 ),
+                parameterRange: functions[index].parameterRange,
+                provenRuntimeLoopBounds: provenRuntimeLoopBounds,
                 functionIndicesByName: indicesByName,
                 multiplier: 1,
                 stage: stage
@@ -124,6 +127,8 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         defines: [String: String],
         declarations: [SceneAuthoredShaderSyntaxUnit.Declaration],
         parameterArrays: [String: Int],
+        parameterRange: Range<Int>,
+        provenRuntimeLoopBounds: [String: Int],
         functionIndicesByName: [String: [Int]],
         multiplier: Int,
         stage: SceneShaderContract.StageKind
@@ -156,7 +161,9 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                       tokens: tokens,
                       defines: defines,
                       declarations: declarations,
-                      parameterArrays: parameterArrays
+                      parameterArrays: parameterArrays,
+                      parameterRange: parameterRange,
+                      provenRuntimeLoopBounds: provenRuntimeLoopBounds
                   ),
                   loop.iterations <= maximumLoopIterations,
                   SceneAuthoredShaderBoundedLoopAdmission.mergeBounds(
@@ -185,6 +192,8 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                 defines: defines,
                 declarations: declarations,
                 parameterArrays: parameterArrays,
+                parameterRange: parameterRange,
+                provenRuntimeLoopBounds: provenRuntimeLoopBounds,
                 functionIndicesByName: functionIndicesByName,
                 multiplier: weightedIterations,
                 stage: stage
@@ -265,7 +274,9 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         tokens: [SceneAuthoredShaderToken],
         defines: [String: String],
         declarations: [SceneAuthoredShaderSyntaxUnit.Declaration],
-        parameterArrays: [String: Int]
+        parameterArrays: [String: Int],
+        parameterRange: Range<Int>,
+        provenRuntimeLoopBounds: [String: Int]
     ) -> SceneAuthoredShaderBoundedLoopAdmission.Result? {
         if let iterations = SceneAuthoredShaderStaticLoopAdmission.iterations(
             header: header,
@@ -293,12 +304,26 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                 constantParameterArrays: []
             )
         }
-        return SceneAuthoredShaderBoundedLoopAdmission.compile(
+        if let bounded = SceneAuthoredShaderBoundedLoopAdmission.compile(
             header: header,
             body: body,
             tokens: tokens,
             declarations: declarations,
             parameterArrays: parameterArrays
+        ) { return bounded }
+        guard let iterations = SceneAuthoredShaderRuntimeLoopAdmission.iterations(
+            header: header,
+            body: body,
+            functionBody: functionBody,
+            parameterRange: parameterRange,
+            tokens: tokens,
+            declarations: declarations,
+            provenBounds: provenRuntimeLoopBounds
+        ) else { return nil }
+        return .init(
+            iterations: iterations,
+            boundedUniformReferences: [:],
+            constantParameterArrays: []
         )
     }
 

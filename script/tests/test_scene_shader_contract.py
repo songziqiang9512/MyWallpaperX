@@ -52,6 +52,8 @@ private struct ShaderContractHarness {
             "effects/missing",
             "effects/fragonly",
             "effects/malformed",
+            "effects/stageskip",
+            "effects/malformedforms",
             "effects/invalid",
             "effects/unreadable",
             "effects/symlink",
@@ -225,6 +227,25 @@ class SceneShaderContractTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (effects / "malformed.frag").write_text("void main() {}\n", encoding="utf-8")
+            (effects / "stageskip.vert").write_text(
+                '// [COMBO] {"combo":"CATEGORY","type":"options","default":0,'
+                '"options":{"Color":0,"UV":1}}\nvoid main() {}\n',
+                encoding="utf-8",
+            )
+            (effects / "stageskip.frag").write_text(
+                '// [COMBO] {"combo":"CATEGORY","type":"options","default":0,'
+                '"options":{Color:0,"UV":1}}\nvoid main() {}\n',
+                encoding="utf-8",
+            )
+            (effects / "malformedforms.vert").write_text(
+                '// [COMBO] {"value":broken}\n'
+                '// [COMBO] {hyphen-key:1}\n'
+                '// [COMBO] {"range":[0,01]}\n',
+                encoding="utf-8",
+            )
+            (effects / "malformedforms.frag").write_text(
+                "void main() {}\n", encoding="utf-8"
+            )
             (effects / "invalid.vert").write_bytes(b"\xff\xfeinvalid")
             (effects / "invalid.frag").write_text("void main() {}\n", encoding="utf-8")
             (effects / "unreadable.vert").mkdir()
@@ -400,6 +421,20 @@ class SceneShaderContractTests(unittest.TestCase):
         malformed = by_identity["effects/malformed"]
         self.assertIn("malformedAnnotation", self._diagnostic_codes(malformed))
         self.assertEqual(malformed["stages"][0]["annotations"], [])
+        stageskip = by_identity["effects/stageskip"]
+        self.assertEqual(
+            self._diagnostic_codes(stageskip),
+            ["malformedAnnotation"],
+        )
+        self.assertEqual(len(stageskip["stages"][0]["annotations"]), 1)
+        self.assertEqual(stageskip["stages"][1]["annotations"], [])
+        self.assertIn('"options":{Color:0', stageskip["stages"][1]["source"])
+        malformedforms = by_identity["effects/malformedforms"]
+        self.assertEqual(
+            self._diagnostic_codes(malformedforms),
+            ["malformedAnnotation", "malformedAnnotation", "malformedAnnotation"],
+        )
+        self.assertEqual(malformedforms["stages"][0]["annotations"], [])
         self.assertIn("invalidUTF8", self._diagnostic_codes(by_identity["effects/invalid"]))
         self.assertIn("unreadableSource", self._diagnostic_codes(by_identity["effects/unreadable"]))
         self.assertIn("symlinkEscape", self._diagnostic_codes(by_identity["effects/symlink"]))

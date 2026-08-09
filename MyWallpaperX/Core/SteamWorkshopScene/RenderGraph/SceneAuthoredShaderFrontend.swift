@@ -11,10 +11,19 @@ nonisolated enum SceneAuthoredShaderFrontend {
 
     static func compile(
         vertexSource: String,
-        fragmentSource: String
+        fragmentSource: String,
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
     ) -> SceneAuthoredShaderFrontendOutput {
-        let vertex = analyze(source: vertexSource, stage: .vertex)
-        let fragment = analyze(source: fragmentSource, stage: .fragment)
+        let vertex = analyze(
+            source: vertexSource,
+            stage: .vertex,
+            provenRuntimeLoopBounds: runtimeLoopBounds.vertex
+        )
+        let fragment = analyze(
+            source: fragmentSource,
+            stage: .fragment,
+            provenRuntimeLoopBounds: runtimeLoopBounds.fragment
+        )
         let syntaxDiagnostics = vertex.diagnostics + fragment.diagnostics
         guard let vertexUnit = vertex.unit,
               let fragmentUnit = fragment.unit,
@@ -65,11 +74,13 @@ nonisolated enum SceneAuthoredShaderFrontend {
 
     private static func analyze(
         source: String,
-        stage: SceneShaderContract.StageKind
+        stage: SceneShaderContract.StageKind,
+        provenRuntimeLoopBounds: [String: Int]
     ) -> SceneAuthoredShaderSyntaxAnalyzer.Output {
         SceneAuthoredShaderSyntaxAnalyzer.analyze(
             lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage),
-            stage: stage
+            stage: stage,
+            provenRuntimeLoopBounds: provenRuntimeLoopBounds
         )
     }
 

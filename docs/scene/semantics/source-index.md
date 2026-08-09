@@ -70,6 +70,8 @@ Scene 能力研究按以下顺序取证：先读现役专项表、总覆盖台�
 
 2026-08-09 Spin owner迁移继续先查现役资料库：合法官方stock `assets/effects/spin/effect.json`、`materials/effects/spin.json`、`spin.vert`与`spin.frag`已完整给出当前单pass、framebuffer slot、作者vertex坐标、`g_Time`/texture resolution、中心/轴/速度/角度/尺寸/幂及`ELLIPTICAL/NOISE/REPEAT/MASK` combo合同。现役旧planner恰好只接受当前`ELLIPTICAL=1 / NOISE=0 / REPEAT=1 / MASK=0`固定形态，项目Metal pipeline则是近似实现；统一Program已经以真实作者source取得GPU证据，故资料足以支持删除旧owner，无需新增Ghidra，也无需借用参考项目。该结论不开放其他combo、mask/noise、任意revision或Windows数值/像素等价。
 
+2026-08-09 modern Procedural Noise按既定优先级先核对现役语料，再对官方2.8.42客户端做范围明确的clean-room Ghidra复核，最后只用Mirage作独立交叉验证。官方`wallpaper64.exe` SHA-256为`40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0`（build 23967692；Ghidra 12.1.2）：directive metadata交给JsonCpp reader，允许comments/trailing comma但不允许arbitrary bare identifier key；解析失败时只跳过该metadata record并继续shader。`2906937488` fragment中两条真实坏record都是flat `options`标签缺opening quote但保留closing quote（`{Color":...}` / `{Noise":...}`），并都由同素材vertex的合法严格JSON combo声明覆盖；它们不是隐含Unicode/不可见字节差异，也不是官方支持的裸key语法。故项目不得把非JSON key扩成新语法，也不得因该重复坏record一票否决完整shader。官方运行链为hybrid authored source → custom directive preprocessor → WE HLSL translator → 动态解析`D3DCompile`的SM4/5 frontend；未发现以`range/int` metadata对uniform loop做clamp/unroll的路径，相关metadata在公开Variables合同中是editor字段。合法语料的`u_fractals` loop因此应保持runtime control flow；项目安全准入只可用实际resolved producer证明并限制工作预算，不得改写作者值。Mirage固定revision同样以HLSL frontend编译WE source且未见该loop特判，仅支持上述架构方向，不是官方真值，也未复制GPL实现。program-scope `const`、conditional alpha和compound `mix`的项目有界转换由合法active source及项目正反门界定，不证明官方translator内部优先级、任意metadata容错、任意dynamic loop或Windows数值/像素等价。
+
 ### 1.3 Parallax
 
 - Camera Parallax：https://docs.wallpaperengine.io/en/scene/parallax/introduction.html

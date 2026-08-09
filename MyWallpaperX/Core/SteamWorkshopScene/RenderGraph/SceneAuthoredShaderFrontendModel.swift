@@ -33,6 +33,23 @@ nonisolated struct SceneAuthoredShaderFrontendDiagnostic: Equatable {
     let column: Int?
 }
 
+/// Upper bounds proven from the resolved runtime producer domain. These facts
+/// admit bounded control flow only; the Metal emitter never rewrites or clamps
+/// the authored uniform from this projection.
+nonisolated struct SceneAuthoredShaderRuntimeLoopBounds: Sendable {
+    let vertex: [String: Int]
+    let fragment: [String: Int]
+
+    static let none = Self(vertex: [:], fragment: [:])
+
+    func values(for stage: SceneShaderContract.StageKind) -> [String: Int] {
+        switch stage {
+        case .vertex: vertex
+        case .fragment: fragment
+        }
+    }
+}
+
 nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable, Hashable, Sendable {
     case bool
     case int

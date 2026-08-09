@@ -85,7 +85,12 @@ extension SceneShaderPreprocessor {
                 node.source,
                 stageRelativePath: node.virtualPath
             )
-            let diagnosticsByLine = Dictionary(grouping: parsed.diagnostics, by: \.line)
+            let diagnosticsByLine = Dictionary(
+                grouping: parsed.diagnostics.filter {
+                    !SceneShaderMalformedMetadataAdmission.canSkip($0, in: graph)
+                },
+                by: \.line
+            )
             if let diagnostics = diagnosticsByLine[nil] {
                 throw sourceFailure(diagnostics, fallbackPath: node.virtualPath)
             }

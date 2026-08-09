@@ -56,10 +56,13 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         unit: SceneAuthoredShaderSyntaxUnit
     ) -> (starts: [Int: Int], ends: [Int: [String]]) {
         let values = conversions(in: tokens, unit: unit)
-        let starts = Dictionary(grouping: values, by: { $0.range.lowerBound })
+        var starts = Dictionary(grouping: values, by: { $0.range.lowerBound })
             .mapValues(\.count)
-        let ends = Dictionary(grouping: values, by: { $0.range.upperBound })
+        var ends = Dictionary(grouping: values, by: { $0.range.upperBound })
             .mapValues { $0.sorted { $0.range.count < $1.range.count }.map(\.suffix) }
+        SceneAuthoredShaderBuiltInVectorConversion.addCompoundMixBoundaries(
+            starts: &starts, ends: &ends, tokens: tokens, unit: unit
+        )
         return (starts, ends)
     }
 

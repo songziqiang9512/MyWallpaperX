@@ -24,7 +24,13 @@ extension SceneResolvedMaterialShaderSchema {
             textureFormats: textureFormats
         ) {
         case let .accepted(prepared):
-            return try activeSamplers(prepared)
+            return try activeSamplers(
+                prepared,
+                runtimeLoopBounds: SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
+                    template: template,
+                    prepared: prepared
+                )
+            )
         case .rejected, .notApplicable:
             throw Issue.sampler("bootstrap-variant")
         }
@@ -72,7 +78,13 @@ extension SceneResolvedMaterialShaderSchema {
             case .notApplicable:
                 throw Issue.sampler("reachable-variant:not-applicable")
             }
-            let result = try activeSamplers(prepared)
+            let result = try activeSamplers(
+                prepared,
+                runtimeLoopBounds: SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
+                    template: template,
+                    prepared: prepared
+                )
+            )
             cache[key] = result
             return result
         }

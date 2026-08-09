@@ -10,6 +10,8 @@
 
 ## 1. 口径
 
+> 最新 R4-2 modern Procedural Noise Program checkpoint：`workshop/2906937488/effects/procedural_noise` 的四个当前active subject现由统一Program进入GPU。公共链只跳过两条声明外、注释独占行的畸形`[COMBO]` record：真实形态是flat `options`标签缺opening quote但保留closing quote，每条都必须有词法无条件的合法root-stage counterpart，combo identity相同，且除唯一坏的顶层`options`外所有顶层字段完全相同；declaration-attached、nested伪装、conditional/conflicting/missing counterpart或identity不确定形态继续拒绝。comment中的伪directive不参与schema；uniform-bound loop只能由同stage唯一`staticExact` producer证明并受256次/4096嵌套预算约束，metadata `range/int`不作为运行时clamp或展开依据；signed static initializer、conditional alpha-preserving join、program-scope `constant`、有界compound `mix/lerp`浮点向量缩窄，以及unconditional fixed-point seed的typed资源预载都保持通用且失败关闭。`.codex/scene-procedural-noise-program-r4-2-3767460992-20260809-v14-top-level-options-proof/report.json`因正式full45 entry仍断言旧owner/count/hash而整体**FAIL**，但现场四个Procedural Noise subject均为`admitted-generic / resolved-material / program / encoded-output`，resolved `[17,20,79,945,994]`，executor claimed/encoded/GPU `90/90/90`、failure/deferred 0，48次成功transaction覆盖terminal/compositor/next-frame，graph diagnostic/GPU failure/failed frame均为0，截图非黑且changed ratio `0.91154`。中央仍是`X`占位，画面不代表视觉等价；legacy `2924967132`的backward-dependency近似继续是独立边界。本批未改正式矩阵，未运行fixed13/full45 suite；R4-2/R4仍未完成，R5未准入。精确证据见 [E-R4-2-PROCEDURAL-NOISE-PROGRAM](runtime-evidence-index.md#e-r4-2-procedural-noise-program)。
+
 | 等级 | 含义 | 允许的结论 |
 |---|---|---|
 | `L0 absent` | 当前 Scene 管线没有结构或运行入口 | 未实现 |

@@ -22,6 +22,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLexer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBoundedLoopAdmission.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderRuntimeLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
@@ -34,6 +35,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
@@ -60,6 +62,14 @@ private func fragment(_ body: String) -> String {
         in float opacity
     ) {
         return mix(base, (blend), opacity);
+    }
+    float PreserveAlpha(float base, float changed, float opacity) {
+        float preserved = base;
+        return mix(base, preserved, opacity);
+    }
+    float ReplaceAlpha(float base, float changed, float opacity) {
+        float replacement = changed;
+        return mix(base, replacement, opacity);
     }
     void main() {
         \(body)
@@ -131,6 +141,67 @@ enum Harness {
                 "float scale = 1.0; " +
                 "if (v_TexCoord.x > 0.5) { scale = 0.5; } " +
                 "gl_FragColor = texSample2D(g_Texture1, v_TexCoord);"
+            ),
+            "conditionalAlphaPreserving": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
+                "changed.rgb = mix(source.rgb, changed.rgb, g_ScalarWeight); " +
+                "changed.a = PreserveAlpha(source.a, changed.a, g_ScalarWeight); " +
+                "gl_FragColor = changed; } else gl_FragColor = source;"
+            ),
+            "conditionalGeneratedRGB": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = vec4(0.25); changed.rgb = vec3(0.75); " +
+                "changed.a = PreserveAlpha(source.a, changed.a, g_ScalarWeight); " +
+                "gl_FragColor = changed; } else { gl_FragColor = source; }"
+            ),
+            "conditionalAlphaPreservingMetal": metal(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
+                "changed.rgb = mix(source.rgb, changed.rgb, g_ScalarWeight); " +
+                "changed.a = PreserveAlpha(source.a, changed.a, g_ScalarWeight); " +
+                "gl_FragColor = changed; } else gl_FragColor = source;"
+            ),
+            "conditionalDifferentSlot": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture1, v_TexCoord); " +
+                "changed.a = PreserveAlpha(source.a, changed.a, g_ScalarWeight); " +
+                "gl_FragColor = changed; } else gl_FragColor = source;"
+            ),
+            "conditionalNonIdentityAlpha": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
+                "changed.a = ReplaceAlpha(source.a, changed.a, g_ScalarWeight); " +
+                "gl_FragColor = changed; } else gl_FragColor = source;"
+            ),
+            "conditionalAlphaRewrittenAfterJoin": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
+                "changed.a = PreserveAlpha(source.a, changed.a, g_ScalarWeight); " +
+                "changed.a *= 0.5; gl_FragColor = changed; " +
+                "} else gl_FragColor = source;"
+            ),
+            "conditionalGuardedAlphaJoin": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
+                "if (source.r > 0.0) changed.a = " +
+                "PreserveAlpha(source.a, changed.a, g_ScalarWeight); " +
+                "gl_FragColor = changed; } else gl_FragColor = source;"
+            ),
+            "conditionalTrailingStatement": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
+                "changed.a = PreserveAlpha(source.a, changed.a, g_ScalarWeight); " +
+                "gl_FragColor = changed; } else gl_FragColor = source; " +
+                "g_ScalarWeight;"
             ),
             "straightAlpha": transfer(
                 "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
@@ -486,6 +557,25 @@ class SceneShaderColorContractTests(unittest.TestCase):
     def test_closed_control_flow_does_not_hide_root_output(self) -> None:
         self.assertEqual(self.result["closedControlFlowOpaque"], "opaque")
         self.assertEqual(self.result["closedConditionalPassthrough"], "slot:1")
+
+    def test_exhaustive_branch_preserves_one_sampled_alpha(self) -> None:
+        for key in ("conditionalAlphaPreserving", "conditionalGeneratedRGB"):
+            self.assertEqual(
+                self.result[key], "straight-preserving-slot:0", key
+            )
+        source = self.result["conditionalAlphaPreservingMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+
+    def test_conditional_alpha_join_remains_fail_closed(self) -> None:
+        for key in (
+            "conditionalDifferentSlot",
+            "conditionalNonIdentityAlpha",
+            "conditionalAlphaRewrittenAfterJoin",
+            "conditionalGuardedAlphaJoin",
+            "conditionalTrailingStatement",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
 
     def test_straight_alpha_boundary_is_proven_from_a_single_source(self) -> None:
         self.assertEqual(self.result["straightAlpha"], "straight-slot:0")

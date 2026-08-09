@@ -114,7 +114,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
               authored == identity
         else { throw Failure(phase: .shaderContract, code: .shaderIdentityMismatch) }
         guard contract.sourceKind == .authoredSource,
-              contract.diagnostics.isEmpty,
+              SceneShaderMalformedMetadataAdmission.allowsDiagnostics(in: contract),
               contract.stages.count == 2,
               Set(contract.stages.map(\.kind)) == Set([.vertex, .fragment])
         else { throw Failure(phase: .shaderContract, code: .shaderContractInvalid) }

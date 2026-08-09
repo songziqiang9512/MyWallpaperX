@@ -13,9 +13,11 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
 
         var initialization = Array(tokens[parts[0]].map(\.text))
         if initialization.first == "int" { initialization.removeFirst() }
-        guard initialization.count == 3,
+        guard (3 ... 4).contains(initialization.count),
               initialization[1] == "=",
-              let start = integer(initialization[2], defines: defines) else {
+              let start = SceneAuthoredShaderLoopIntegerLiteral.value(
+                  Array(initialization.dropFirst(2)), defines: defines
+              ) else {
             return nil
         }
         let variable = initialization[0]
@@ -24,7 +26,7 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
               condition[0] == variable,
               ["<", "<="].contains(condition[1]),
               let end = bound(
-                  condition[2],
+                  [condition[2]],
                   functionBody: functionBody,
                   before: loopIndex,
                   tokens: tokens,
@@ -34,13 +36,11 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
         }
         guard let step = incrementStep(
             Array(tokens[parts[2]].map(\.text)),
-            variable: variable,
-            defines: defines
-        ) else {
-            return nil
-        }
-        let distance = end - start + (condition[1] == "<=" ? 1 : 0)
-        return distance <= 0 ? 0 : (distance + step - 1) / step
+            variable: variable, defines: defines
+        ) else { return nil }
+        return SceneAuthoredShaderLoopIterationCount.value(
+            start: start, end: end, inclusive: condition[1] == "<=", step: step
+        )
     }
 
     static func earlyExitIterations(
@@ -75,13 +75,11 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
             tokens: tokens
         ), let step = incrementStep(
             Array(tokens[parts[2]].map(\.text)),
-            variable: variable,
-            defines: defines
-        ) else {
-            return nil
-        }
-        let distance = condition.end - start + (condition.inclusive ? 1 : 0)
-        return distance <= 0 ? 0 : (distance + step - 1) / step
+            variable: variable, defines: defines
+        ) else { return nil }
+        return SceneAuthoredShaderLoopIterationCount.value(
+            start: start, end: condition.end, inclusive: condition.inclusive, step: step
+        )
     }
 
     private struct BoundedCondition {
@@ -143,15 +141,18 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
     }
 
     private static func bound(
-        _ token: String,
+        _ expression: [String],
         functionBody: Range<Int>,
         before loopIndex: Int,
         tokens: [SceneAuthoredShaderToken],
         defines: [String: String]
     ) -> Int? {
-        if let value = integer(token, defines: defines) { return value }
+        if let value = SceneAuthoredShaderLoopIntegerLiteral.value(
+            expression, defines: defines
+        ) { return value }
+        guard expression.count == 1 else { return nil }
         return rootConstant(
-            named: token,
+            named: expression[0],
             functionBody: functionBody,
             before: loopIndex,
             tokens: tokens,
@@ -350,6 +351,7 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
               increment[0] == variable,
               increment[1] == "+=",
               let value = integerValue(increment[2], defines: defines),
+              Int32(exactly: value) != nil,
               value > 0 else {
             return nil
         }
@@ -361,16 +363,14 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
         if let integer = Int(value) { return integer }
         guard let floating = Double(value),
               floating.isFinite,
-              floating.rounded(.towardZero) == floating,
-              floating >= Double(Int.min),
-              floating <= Double(Int.max) else {
+              floating.rounded(.towardZero) == floating else {
             return nil
         }
-        return Int(floating)
+        return Int(exactly: floating)
     }
 
     private static func integer(_ token: String, defines: [String: String]) -> Int? {
-        Int(defines[token] ?? token)
+        SceneAuthoredShaderLoopIntegerLiteral.value([token], defines: defines)
     }
 
     private static func split(

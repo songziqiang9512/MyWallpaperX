@@ -36,7 +36,7 @@ extension SceneAuthoredEffectExecutionPlan {
             switch self {
             case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                  .workshopShadow,
-                 .proceduralNoise, .shake, .fisheyeZeroDistortion:
+                 .shake, .fisheyeZeroDistortion:
                 return true
             default:
                 return false
@@ -49,7 +49,8 @@ extension SceneAuthoredEffectExecutionPlan {
     /// compile the authored stage.
     nonisolated var yieldsToResolvedMaterialProgram: Bool {
         switch backend {
-        case .opacity, .blend, .tint, .filmGrain, .lightShafts, .waterFlow,
+        case .opacity, .blend, .tint, .proceduralNoise, .filmGrain,
+             .lightShafts, .waterFlow,
              .foliageSway, .depthParallax:
             return true
         default:

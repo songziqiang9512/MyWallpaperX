@@ -278,8 +278,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         do {
             guard input.template.diagnosticProvenance.contractCanonicalSHA256
                     == template.diagnosticProvenance.contractCanonicalSHA256,
-                  input.template.diagnosticProvenance.nodeIndex
-                    == template.diagnosticProvenance.nodeIndex else {
+                  input.template.diagnosticProvenance.nodeIndex == template.diagnosticProvenance.nodeIndex,
+                  input.template.uniformDeclarations == template.uniformDeclarations else {
                 throw Self.failure(.identityInvariant, phase: .invariant)
             }
             let reachableSamplers = try reachableSamplersLocked(

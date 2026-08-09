@@ -22,6 +22,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderMalformedMetadataAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment+HostFacts.swift",
@@ -39,6 +40,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLexer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBoundedLoopAdmission.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderRuntimeLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
@@ -51,6 +53,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
@@ -81,6 +84,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+ColorDerivation.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialUniformEncoder.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema+Reachability.swift",
     SCENE_ROOT
@@ -222,7 +226,9 @@ private func fragmentSource(
     audioSpectrum: Bool = false,
     maskedAlpha: Bool = false,
     optionalMask: Bool = false,
-    stageLocalUniforms: Bool = false
+    stageLocalUniforms: Bool = false,
+    runtimeLoop: Bool = false,
+    runtimeLoopEditorHints: Bool = false
 ) -> String {
     let annotation = samplerMetadata.map { " // \($0)" } ?? ""
     let uniformAnnotation = uniformMetadata.map { " // \($0)" } ?? ""
@@ -285,6 +291,24 @@ private func fragmentSource(
         ? #"uniform float g_Gain; // {"material":"fragmentGain","default":3}"#
         : ""
     let stageLocalProbe = stageLocalUniforms ? "float fragmentProbe = g_Gain;" : ""
+    let runtimeLoopMetadata = runtimeLoopEditorHints
+        ? #"{"material":"Fractals","int":true,"default":5,"range":[1,10]}"#
+        : #"{"material":"Fractals"}"#
+    let runtimeLoopUniform = runtimeLoop
+        ? "uniform float u_fractals; // \(runtimeLoopMetadata)" : ""
+    let runtimeLoopProbe = runtimeLoop
+        ? """
+        float runtimeProbe = 0.0;
+        for (int y = -1; y <= 1; y++) {
+            for (int x = -1; x <= 1; x++) {
+                runtimeProbe += float(x + y);
+            }
+        }
+        for (int octave = 1; octave <= int(u_fractals); octave++) {
+            runtimeProbe += float(octave);
+        }
+        """
+        : ""
     return """
     varying \(optionalMask ? "vec4" : "vec2") v_TexCoord;
     \(combo)
@@ -295,8 +319,10 @@ private func fragmentSource(
     \(alphaUniform)
     uniform float g_Time; // {"default":99}
     \(stageLocalUniform)
+    \(runtimeLoopUniform)
     void main() {
         \(stageLocalProbe)
+        \(runtimeLoopProbe)
         \(audioProbe)
         vec3 tintProbe = u_Tint;
         float timeProbe = g_Time;
@@ -317,7 +343,9 @@ private func contract(
     maskedAlpha: Bool = false,
     optionalMask: Bool = false,
     deadMaskCoordinates: Bool = false,
-    stageLocalUniforms: Bool = false
+    stageLocalUniforms: Bool = false,
+    runtimeLoop: Bool = false,
+    runtimeLoopEditorHints: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -360,7 +388,9 @@ private func contract(
                 audioSpectrum: audioSpectrum,
                 maskedAlpha: maskedAlpha,
                 optionalMask: optionalMask,
-                stageLocalUniforms: stageLocalUniforms
+                stageLocalUniforms: stageLocalUniforms,
+                runtimeLoop: runtimeLoop,
+                runtimeLoopEditorHints: runtimeLoopEditorHints
             )
         ),
     ]
@@ -468,6 +498,24 @@ private func dynamicAlphaDeclaration(
             valueContributors: valueContributors,
             controlAttachments: [],
             authoredFallback: staticValue([1]),
+            authoredBindingKeys: ["value"]
+        ))
+    )
+}
+
+private func dynamicScalarDeclaration(_ name: String) -> Template.UniformDeclaration {
+    .init(
+        name: name,
+        value: .dynamic(.init(
+            target: .effectConstant(
+                layerID: fixtureLayerID,
+                effectIndex: 0,
+                passIndex: 0,
+                name: name
+            ),
+            valueContributors: [.timeline],
+            controlAttachments: [],
+            authoredFallback: staticValue([5]),
             authoredBindingKeys: ["value"]
         ))
     )
@@ -821,6 +869,39 @@ private func finalize(
     }
 }
 
+private func crossTemplateRuntimeLoopCacheToken(_ device: MTLDevice) -> String {
+    let shader = contract(revision: "runtime-loop-cache-identity", runtimeLoop: true)
+    let admitted = template(
+        shader,
+        uniformDeclarations: [staticDeclaration("Fractals", components: [5])]
+    )
+    let mismatched = template(
+        shader,
+        uniformDeclarations: [staticDeclaration("Fractals", components: [257])]
+    )
+    guard let cache = SceneResolvedMaterialVariantCache(
+        template: admitted,
+        maximumVariantCount: 8
+    ), case let .success(frame) = SceneResolvedMaterialFrameSnapshot.validated(
+        textureSnapshot: snapshot(device, kind: .ready, frameIndex: 1),
+        dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
+        frameInputs: frameInputs(frameIndex: 1)
+    ) else { return "setup-failed" }
+    let input = frame.finalizationInput(
+        template: mismatched,
+        renderSize: CGSize(width: 640, height: 360),
+        modelViewProjection: matrix_identity_float4x4,
+        effectTextureProjectionMatrixInverse: effectProjectionInverse,
+        implicitFramebufferIdentity: nil
+    )
+    return failureToken(
+        SceneResolvedMaterialProgramFinalizer.finalize(
+            input,
+            variantCache: cache
+        )
+    )
+}
+
 private func failureToken(
     _ result: Result<Program, SceneResolvedMaterialFailure>
 ) -> String {
@@ -1070,6 +1151,30 @@ private enum Harness {
                 && fragment.stage == .fragment
                 && float(program.uniformBytes, at: vertex.offset) == 2
                 && float(program.uniformBytes, at: fragment.offset) == 3
+        }()
+        let runtimeLoopProgram = finalize(
+            shader: contract(
+                revision: "runtime-loop-static-producer",
+                runtimeLoop: true
+            ),
+            device: device,
+            uniformDeclarations: [
+                staticDeclaration("Fractals", components: [5]),
+            ]
+        )
+        let runtimeLoopStaticProducerAccepted: Bool = {
+            guard case let .success(program) = runtimeLoopProgram,
+                  let field = program.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "u_fractals" }
+                  ) else { return false }
+            let compactSource = program.frontendProgram.metalSource.replacingOccurrences(
+                of: " ",
+                with: ""
+            )
+            return program.frontendProgram.staticLoopWork == 17
+                && float(program.uniformBytes, at: field.offset) == 5
+                && compactSource.contains("int(mwxUniforms.u_fractals)")
+                && !compactSource.contains("clamp(mwxUniforms.u_fractals")
         }()
 
         let implicitFramebufferProgram = finalize(
@@ -1799,6 +1904,34 @@ private enum Harness {
                     .userProperty("first"), .userProperty("second"),
                 ])]
             )),
+            "runtimeLoopMetadataOnly": failureToken(finalize(
+                shader: contract(
+                    revision: "runtime-loop-metadata-only",
+                    runtimeLoop: true,
+                    runtimeLoopEditorHints: true
+                ),
+                device: device
+            )),
+            "runtimeLoopDynamicProducer": failureToken(finalize(
+                shader: contract(
+                    revision: "runtime-loop-dynamic-producer",
+                    runtimeLoop: true
+                ),
+                device: device,
+                uniformDeclarations: [dynamicScalarDeclaration("Fractals")]
+            )),
+            "runtimeLoopOverBudget": failureToken(finalize(
+                shader: contract(
+                    revision: "runtime-loop-over-budget",
+                    runtimeLoop: true
+                ),
+                device: device,
+                uniformDeclarations: [
+                    staticDeclaration("Fractals", components: [257]),
+                ]
+            )),
+            "runtimeLoopCrossTemplateCache":
+                crossTemplateRuntimeLoopCacheToken(device),
             "multipleCandidates": failureToken(finalize(
                 shader: contract(revision: "multiple-candidates"),
                 device: device,
@@ -1928,6 +2061,8 @@ private enum Harness {
                     && !programA.preparedShader.fragment.dependencies.isEmpty,
                 "frontendObserved": programA.frontendProgram.textureBindings.map(\.slot) == [0],
                 "audioSpectrumArraysEncoded": audioSpectrumEncoded,
+                "runtimeLoopStaticProducerAccepted":
+                    runtimeLoopStaticProducerAccepted,
             ],
             "identity": [
                 "semanticStable": programA.semanticIdentity == programB.semanticIdentity,
@@ -1971,6 +2106,16 @@ private enum Harness {
                     nil,
                     assetReference: true,
                     assetPath: "gradient/gradient_iridescent"
+                ),
+                "registeredStockFireGradient": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "gradient/gradient_fire"
+                ),
+                "registeredStockFireGradientConflict": samplerPurposeToken(
+                    #"{"mode":"opacitymask"}"#,
+                    assetReference: true,
+                    assetPath: "gradient/gradient_fire"
                 ),
                 "unregisteredGradient": samplerPurposeToken(
                     nil,
@@ -2158,6 +2303,8 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "registeredStockWaterFlowPhase": "phase",
                 "registeredStockShimmerGradient": "preserved-channels",
                 "registeredStockLightShaftsGradient": "preserved-channels",
+                "registeredStockFireGradient": "preserved-channels",
+                "registeredStockFireGradientConflict": "unproven",
                 "unregisteredGradient": "unproven",
                 "registeredStockCloudNoise": "noise",
                 "registeredStockPurposeConflict": "unproven",
@@ -2217,6 +2364,10 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "authoredDynamicFallback": "success",
             "dynamicSourceMismatch": "uniform/uniformBindingInvalid",
             "multipleValueContributors": "uniform/uniformContributorPolicyUnproven",
+            "runtimeLoopMetadataOnly": "preparation/activeSamplerSchemaInvalid",
+            "runtimeLoopDynamicProducer": "preparation/activeSamplerSchemaInvalid",
+            "runtimeLoopOverBudget": "preparation/activeSamplerSchemaInvalid",
+            "runtimeLoopCrossTemplateCache": "invariant/identityInvariant",
         }
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},

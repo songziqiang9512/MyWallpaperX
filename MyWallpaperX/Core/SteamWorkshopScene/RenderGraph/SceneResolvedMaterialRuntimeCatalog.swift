@@ -197,12 +197,20 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         systemDemands: inout Set<SystemProviderDemand>,
         issues: inout Set<ResourceDemandIssue>
     ) {
-        let samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+        var samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
         do {
             samplers = try SceneResolvedMaterialShaderSchema.reachableSamplers(
                 template,
                 implicitFramebufferIdentity: implicitFramebufferIdentity
             )
+            // The readiness fixed point consults the unconditional seed before
+            // it reaches an active prepared variant. Its typed defaults must
+            // be present in the launch snapshot even when the stable variant
+            // later removes that sampler.
+            for (slot, sampler) in try SceneResolvedMaterialShaderSchema
+                .unconditionalSamplers(template) {
+                samplers[slot, default: []].insert(sampler)
+            }
         } catch {
 #if DEBUG
             print(

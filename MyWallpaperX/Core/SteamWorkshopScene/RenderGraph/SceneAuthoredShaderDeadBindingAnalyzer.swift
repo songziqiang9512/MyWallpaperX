@@ -80,21 +80,24 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
 
     static func activeSamplerNames(
         vertexSource: String,
-        fragmentSource: String
+        fragmentSource: String,
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
     ) -> Set<String>? {
         let vertex = SceneAuthoredShaderSyntaxAnalyzer.analyze(
             lexerOutput: SceneAuthoredShaderLexer.lex(
                 source: vertexSource,
                 stage: .vertex
             ),
-            stage: .vertex
+            stage: .vertex,
+            provenRuntimeLoopBounds: runtimeLoopBounds.vertex
         )
         let fragment = SceneAuthoredShaderSyntaxAnalyzer.analyze(
             lexerOutput: SceneAuthoredShaderLexer.lex(
                 source: fragmentSource,
                 stage: .fragment
             ),
-            stage: .fragment
+            stage: .fragment,
+            provenRuntimeLoopBounds: runtimeLoopBounds.fragment
         )
         guard vertex.diagnostics.isEmpty,
               fragment.diagnostics.isEmpty,

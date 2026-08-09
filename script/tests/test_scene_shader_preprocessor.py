@@ -16,6 +16,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneResourceIndex.swift",
     SCENE_ROOT / "Resources/SceneResourceView.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderMalformedMetadataAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderDirective.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderMacroExpansion.swift",
@@ -889,6 +890,116 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     )
 
     try write(
+        """
+        // [COMBO] {"material":"Category","combo":"CATEGORY","type":"options","default":0,"options":{"Color":0,"UV":1}}
+        // [COMBO] {"material":"Perspective","combo":"PERSPECTIVE","type":"options","default":1,"options":{"Noise":1},"require":{"SWITCH":1}}
+        // [COMBO] {"material":"Category","combo":"CATEGORY","type":"options","default":0,"options":{Color":0,"UV":1}}
+        // [COMBO] {"material":"Perspective","combo":"PERSPECTIVE","type":"options","default":1,"options":{Noise":1},"require":{"SWITCH":1}}
+        SAFE
+        """.replacingOccurrences(of: "\n", with: "\r\n"),
+        to: looseRoot,
+        "shaders/metadata/malformed_annotation.frag"
+    )
+    view = resourceView(loose: looseRoot)
+    let skippedMalformedAnnotation = try prepared(
+        rootPath: "shaders/metadata/malformed_annotation.frag",
+        graph: graph("shaders/metadata/malformed_annotation.frag", view: view),
+        environment: environment()
+    )
+    try expect(
+        skippedMalformedAnnotation.activeAnnotations.compactMap {
+            comboName($0.annotation)
+        } == ["CATEGORY", "PERSPECTIVE"]
+            && skippedMalformedAnnotation.source.contains("{Color\":0")
+            && skippedMalformedAnnotation.source.contains("{Noise\":1"),
+        "A duplicated comment-only malformed combo was structured or rejected."
+    )
+    try write(
+        "// [COMBO] {\"combo\":\"MISSING\",\"options\":{Broken:0}}\nSAFE",
+        to: looseRoot,
+        "shaders/metadata/malformed_without_duplicate.frag"
+    )
+    try write(
+        """
+        // [COMBO] {"combo":"CATEGORY","default":0}
+        uniform sampler2D g_Texture0; // {"default": }
+        void main() {}
+        """,
+        to: looseRoot,
+        "shaders/metadata/malformed_sampler.frag"
+    )
+    try write(
+        """
+        // [COMBO] {"combo":"CATEGORY","type":"options","default":0,"options":{"Color":0}}
+        // [COMBO] {"combo":"CATEGORY","type":"options","default":1,"options":{Color:0}}
+        SAFE
+        """,
+        to: looseRoot,
+        "shaders/metadata/malformed_conflict.frag"
+    )
+    try write(
+        """
+        #if 0
+        // [COMBO] {"combo":"CATEGORY","type":"options","default":0,"options":{"Color":0}}
+        #endif
+        // [COMBO] {"combo":"CATEGORY","type":"options","default":0,"options":{Color:0}}
+        SAFE
+        """,
+        to: looseRoot,
+        "shaders/metadata/malformed_conditional_duplicate.frag"
+    )
+    try write(
+        """
+        // [COMBO] {"combo":"NESTED","wrapper":{"options":null},"options":{"Safe":0}}
+        // [COMBO] {"combo":"NESTED","wrapper":{"options":{Broken":0}},"options":null}
+        SAFE
+        """,
+        to: looseRoot,
+        "shaders/metadata/malformed_nested_options.frag"
+    )
+    view = resourceView(loose: looseRoot)
+    try expectFailure(
+        rootPath: "shaders/metadata/malformed_without_duplicate.frag",
+        graph: graph(
+            "shaders/metadata/malformed_without_duplicate.frag",
+            view: view
+        ),
+        environment: environment(),
+        code: .malformedSourceAnnotation
+    )
+    try expectFailure(
+        rootPath: "shaders/metadata/malformed_sampler.frag",
+        graph: graph("shaders/metadata/malformed_sampler.frag", view: view),
+        environment: environment(),
+        code: .malformedSourceAnnotation
+    )
+    try expectFailure(
+        rootPath: "shaders/metadata/malformed_conflict.frag",
+        graph: graph("shaders/metadata/malformed_conflict.frag", view: view),
+        environment: environment(),
+        code: .malformedSourceAnnotation
+    )
+    try expectFailure(
+        rootPath: "shaders/metadata/malformed_conditional_duplicate.frag",
+        graph: graph(
+            "shaders/metadata/malformed_conditional_duplicate.frag",
+            view: view
+        ),
+        environment: environment(),
+        code: .malformedSourceAnnotation
+    )
+    try expectFailure(
+        rootPath: "shaders/metadata/malformed_nested_options.frag",
+        graph: graph(
+            "shaders/metadata/malformed_nested_options.frag",
+            view: view
+        ),
+        environment: environment(),
+        code: .malformedSourceAnnotation
+    )
+    checks.append("malformed_annotation_skip")
+
+    try write(
         "#if 1\n#include \"open.inc\"\n#endif\nSAFE_PARENT",
         to: looseRoot,
         "shaders/comments/include_root.frag"
@@ -1389,6 +1500,7 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
                 "missing_cycle",
                 "floating_macro",
                 "token_lexing",
+                "malformed_annotation_skip",
                 "comment_boundaries",
                 "expression_precedence",
                 "preprocessor_budget",

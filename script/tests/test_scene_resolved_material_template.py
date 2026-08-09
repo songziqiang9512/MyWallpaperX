@@ -20,6 +20,7 @@ TEXTURE_CANDIDATE_SOURCE = SCENE_ROOT / "Resources/SceneTextureCandidate.swift"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderMalformedMetadataAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
@@ -189,9 +190,29 @@ private func graph(
     )
 }
 
-private func contract(_ identity: String, hasGraph: Bool = true) -> SceneShaderContract {
-    let vertexSource = "void main() { gl_Position = vec4(0.0); }"
-    let fragmentSource = "void main() { gl_FragColor = vec4(1.0); }"
+private func contract(
+    _ identity: String,
+    hasGraph: Bool = true,
+    diagnostics: [SceneShaderContract.Diagnostic] = [],
+    recoverableMalformedCombo: Bool = false,
+    fragmentSourceOverride: String? = nil
+) -> SceneShaderContract {
+    let vertexSource = recoverableMalformedCombo
+        ? "// [COMBO] {\"material\":\"Category\",\"combo\":\"CATEGORY\",\"type\":\"options\",\"default\":0,\"options\":{\"Color\":0}}\n"
+            + "void main() { gl_Position = vec4(0.0); }"
+        : "void main() { gl_Position = vec4(0.0); }"
+    let fragmentSource = fragmentSourceOverride ?? (recoverableMalformedCombo
+        ? "// [COMBO] {\"material\":\"Category\",\"combo\":\"CATEGORY\",\"type\":\"options\",\"default\":0,\"options\":{Color\":0}}\r\n"
+            + "void main() { gl_FragColor = vec4(1.0); }"
+        : "void main() { gl_FragColor = vec4(1.0); }")
+    let vertexParsed = SceneShaderContractSourceParser().parse(
+        vertexSource,
+        stageRelativePath: "root.vert"
+    )
+    let fragmentParsed = SceneShaderContractSourceParser().parse(
+        fragmentSource,
+        stageRelativePath: "root.frag"
+    )
     let stages = [
         SceneShaderContract.Stage(
             kind: .vertex,
@@ -199,8 +220,8 @@ private func contract(_ identity: String, hasGraph: Bool = true) -> SceneShaderC
             source: vertexSource,
             rawSHA256: "vertex-content",
             includes: [],
-            annotations: [],
-            declarations: []
+            annotations: vertexParsed.annotations,
+            declarations: vertexParsed.declarations
         ),
         SceneShaderContract.Stage(
             kind: .fragment,
@@ -208,8 +229,8 @@ private func contract(_ identity: String, hasGraph: Bool = true) -> SceneShaderC
             source: fragmentSource,
             rawSHA256: "fragment-content",
             includes: [],
-            annotations: [],
-            declarations: []
+            annotations: fragmentParsed.annotations,
+            declarations: fragmentParsed.declarations
         ),
     ]
     let sourceGraph = SceneShaderSourceGraph(
@@ -241,7 +262,7 @@ private func contract(_ identity: String, hasGraph: Bool = true) -> SceneShaderC
         identity: identity,
         sourceKind: .authoredSource,
         stages: stages,
-        diagnostics: [],
+        diagnostics: diagnostics,
         canonicalSHA256: "diagnostic:\(identity)",
         sourceGraph: hasGraph ? sourceGraph : nil
     )
@@ -563,6 +584,39 @@ enum Harness {
                 contract: contract("effects/a")
             ))?.code == .shaderIdentityMismatch
         }
+        let skippedMalformedMetadata = template(compile(
+            material(),
+            contract: contract("effects/test", diagnostics: [.init(
+                code: .malformedAnnotation,
+                message: "fixture malformed metadata",
+                relativePath: "root.frag",
+                line: 1
+            )], recoverableMalformedCombo: true)
+        ))
+        let unsafeMalformedSampler = failure(compile(
+            material(),
+            contract: contract(
+                "effects/test",
+                diagnostics: [.init(
+                    code: .malformedAnnotation,
+                    message: "fixture malformed sampler metadata",
+                    relativePath: "root.frag",
+                    line: 1
+                )],
+                recoverableMalformedCombo: true,
+                fragmentSourceOverride:
+                    "uniform sampler2D g_Texture0; // {\"default\": }"
+            )
+        ))
+        let fatalShaderDiagnostic = failure(compile(
+            material(),
+            contract: contract("effects/test", diagnostics: [.init(
+                code: .unterminatedBlockComment,
+                message: "fixture fatal source diagnostic",
+                relativePath: "root.frag",
+                line: nil
+            )])
+        ))
 
         let bounded = SceneResolvedMaterialFailure(
             phase: .uniform,
@@ -690,6 +744,12 @@ enum Harness {
             "sourceGraphRequired": failure(compile(
                 material(), contract: contract("effects/test", hasGraph: false)
             ))?.code == .shaderSourceGraphMissing,
+            "malformedMetadataSkippedButPreserved": skippedMalformedMetadata?
+                .shaderContract.diagnostics.map(\.code) == [.malformedAnnotation],
+            "malformedSamplerMetadataRejected": unsafeMalformedSampler?.code
+                == .shaderContractInvalid,
+            "otherShaderDiagnosticsRejected": fatalShaderDiagnostic?.code
+                == .shaderContractInvalid,
             "failureDetailsBounded": bounded.boundedDetails.count == 8
                 && bounded.boundedDetails.allSatisfy { $0.count <= 160 },
             "finalizerFailuresStable": stableCodes.map(\.rawValue) == [
@@ -820,6 +880,9 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "shaderNormalizationMatchesLoader",
             "shaderEscapesRejected",
             "sourceGraphRequired",
+            "malformedMetadataSkippedButPreserved",
+            "malformedSamplerMetadataRejected",
+            "otherShaderDiagnosticsRejected",
         ])
 
     def test_failures_are_bounded_and_finalizer_codes_are_stable(self) -> None:
