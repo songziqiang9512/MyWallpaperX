@@ -6,7 +6,7 @@ import Foundation
 enum SceneResolvedMaterialGraphObservationBuilder {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias State = SceneGraphExecutionState
-    typealias Prepared = SceneResolvedMaterialGraphExecutor.PreparedTransition
+    typealias Prepared = SceneResolvedMaterialGraphExecutor.PreparedStage
 
     enum Failure: Error {
         case invalidGraph

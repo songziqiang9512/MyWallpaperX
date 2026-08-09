@@ -282,10 +282,10 @@ extension SceneResolvedMaterialGraphExecutor {
     }
 
     func historyTokens(
-        _ transitions: [PreparedTransition]
+        _ stages: [PreparedStage]
     ) -> [Graph.EffectKey: Set<State.PhysicalToken>]? {
         var result: [Graph.EffectKey: Set<State.PhysicalToken>] = [:]
-        for value in transitions {
+        for value in stages {
             let identities = value.transition.nextState.historyClosureIdentities
             guard Set(value.persistentResources.keys) == identities else {
                 return nil
@@ -327,5 +327,49 @@ extension SceneResolvedMaterialGraphExecutor {
         simd_float4x4(diagonal: SIMD4(
             2 / Float(target.width), 2 / Float(target.height), 1, 1
         ))
+    }
+}
+
+extension SceneResolvedMaterialGraphExecutor.Failure {
+    var rawValue: String {
+        switch self {
+        case .invalidClaim: "invalid-claim"
+        case .invalidFrame: "invalid-frame"
+        case .invalidLease: "invalid-lease"
+        case .stateRejected: "state-rejected"
+        case .historyRejected: "history-rejected"
+        case .graphPublicationRejected: "graph-publication-rejected"
+        case .graphStructureRejected: "graph-structure-rejected"
+        case let .materialFinalizerRejected(nodeIndex, ordinal, failure):
+            "node-\(nodeIndex)-material-\(ordinal)-finalizer-"
+                + "\(failure.phase.rawValue)-\(failure.code.rawValue)"
+                + Self.detailSuffix(failure.boundedDetails.first)
+        case .materialPassEncoderRejected: "material-pass-encoder-rejected"
+        case let .materialPassPreparationRejected(
+            stageIndex, nodeIndex, ordinal, programKey, failure
+        ):
+            "stage-\(stageIndex)-node-\(nodeIndex)-material-\(ordinal)-"
+                + "program-\(programKey.prefix(12))-pass-\(failure.code)-rejected"
+        case .dedicatedLeafRejected(let reason):
+            "dedicated-leaf-rejected-\(reason)"
+        case .resourceCommandRejected: "resource-command-rejected"
+        case .captureRejected: "capture-rejected"
+        case .encodeRejected: "encode-rejected"
+        case .contentGenerationOverflow: "content-generation-overflow"
+        case .stalePreparation: "stale-preparation"
+        }
+    }
+
+    private static func detailSuffix(_ value: String?) -> String {
+        guard let value, !value.isEmpty else { return "" }
+        let characters = value.utf8.prefix(64).map { byte -> Character in
+            switch byte {
+            case 45, 46, 48 ... 57, 65 ... 90, 95, 97 ... 122:
+                Character(UnicodeScalar(byte))
+            default:
+                "_"
+            }
+        }
+        return "-detail-" + String(characters)
     }
 }

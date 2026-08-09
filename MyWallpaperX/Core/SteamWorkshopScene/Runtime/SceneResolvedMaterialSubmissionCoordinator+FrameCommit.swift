@@ -19,18 +19,18 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         var transitionCount = 0
         var nodeCount = 0
         for chain in chains {
-            let transitions = chain.transitions
-            guard !transitions.isEmpty,
-                  transitions.count <= Self.maximumTransitionsPerTransaction
+            let stages = chain.stages
+            guard !stages.isEmpty,
+                  stages.count <= Self.maximumTransitionsPerTransaction
             else { return false }
             let (nextTransitions, transitionOverflow) = transitionCount
-                .addingReportingOverflow(transitions.count)
+                .addingReportingOverflow(stages.count)
             guard !transitionOverflow,
                   nextTransitions <= Self.maximumTransitionsPerSubmission else {
                 return false
             }
             transitionCount = nextTransitions
-            for value in transitions {
+            for value in stages {
                 let (nextNodes, nodeOverflow) = nodeCount
                     .addingReportingOverflow(value.graph.nodes.count)
                 guard !nodeOverflow,
@@ -60,15 +60,15 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         prepared: SceneResolvedMaterialGraphExecutor.PreparedChain,
         blueprint: CandidateBlueprint
     ) -> Bool {
-        let effects = Set(prepared.transitions.map(\.effect))
-        let generations = Set(prepared.transitions.map {
+        let effects = Set(prepared.stages.map(\.effect))
+        let generations = Set(prepared.stages.map {
             $0.transition.transaction.allocationGeneration
         })
         guard !effects.isEmpty,
-              effects.count == prepared.transitions.count,
+              effects.count == prepared.stages.count,
               generations.count == 1,
               let generation = generations.first,
-              targets.leases.count == prepared.transitions.count,
+              targets.leases.count == prepared.stages.count,
               targets.leases.allSatisfy({ $0.generation == generation }),
               Set(blueprint.states.keys) == effects,
               Set(blueprint.resources.keys) == effects,
@@ -76,7 +76,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               Set(prepared.historyTokensByEffect.keys).isSubset(of: effects),
               prepared.historyTokensByEffect.values.allSatisfy({ !$0.isEmpty })
         else { return false }
-        return prepared.transitions.allSatisfy { value in
+        return prepared.stages.allSatisfy { value in
             guard let state = blueprint.states[value.effect],
                   let resources = blueprint.resources[value.effect],
                   state.allocationGeneration == generation else { return false }
@@ -95,7 +95,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         prepared: SceneResolvedMaterialGraphExecutor.PreparedChain
     ) -> [Graph.EffectKey: Tail]? {
         var tails = base
-        for value in prepared.transitions {
+        for value in prepared.stages {
             guard let state = blueprint.states[value.effect],
                   let resources = blueprint.resources[value.effect],
                   let mapping = blueprint.mappingGenerations[value.effect]
@@ -121,7 +121,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         prepared: SceneResolvedMaterialGraphExecutor.PreparedChain
     ) -> [Graph.EffectKey: Tail] {
         var tails = base
-        for value in prepared.transitions {
+        for value in prepared.stages {
             guard let state = blueprint.states[value.effect],
                   let resources = blueprint.resources[value.effect],
                   let mapping = blueprint.mappingGenerations[value.effect]

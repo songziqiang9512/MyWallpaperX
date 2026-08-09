@@ -257,7 +257,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                   let blueprint = ledger.blueprint,
                   ledger.phase == .composited else { return nil }
             var observations: [SceneGraphExecutionObservation] = []
-            for value in ledger.prepared.transitions {
+            for value in ledger.prepared.stages {
                 guard let mappingGeneration = blueprint
                     .mappingGenerations[value.effect] else { return nil }
                 do {
@@ -269,8 +269,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                             executionEpoch: ledger.epoch,
                             mappingGeneration: mappingGeneration,
                             resetReason: blueprint.resetReasons[value.effect],
-                            terminalEffect: ledger.prepared.transitions[
-                                ledger.prepared.transitions.count - 1
+                            terminalEffect: ledger.prepared.stages[
+                                ledger.prepared.stages.count - 1
                             ].effect,
                             outcome: .succeeded,
                             gpu: .completed
@@ -289,7 +289,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         gpu: SceneGraphExecutionGPUCompletionStatus?
     ) -> Emission {
         var emission = Emission()
-        for value in ledger.prepared.transitions {
+        for value in ledger.prepared.stages {
             let base = ledger.committedBaseTails[value.effect]
             do {
                 emission.observations.append(try
@@ -301,8 +301,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                         mappingGeneration: base?.mappingGeneration ?? 0,
                         resetReason: nil,
                         committedBaseState: base?.state,
-                        terminalEffect: ledger.prepared.transitions[
-                            ledger.prepared.transitions.count - 1
+                        terminalEffect: ledger.prepared.stages[
+                            ledger.prepared.stages.count - 1
                         ].effect,
                         outcome: .failed(reasonCode: reasonCode),
                         gpu: gpu
@@ -321,7 +321,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         for prepared: SceneResolvedMaterialGraphExecutor.PreparedChain,
         startingAt base: [Graph.EffectKey: Tail]
     ) -> CandidateBlueprint? {
-        guard let terminal = prepared.transitions.last?.effectOutputResource,
+        guard let terminal = prepared.stages.last?.effectOutputResource,
               terminal.resourceGeneration == prepared.finalResource.resourceGeneration,
               terminal.publication.isSameAtom(as: prepared.finalResource.publication),
               prepared.finalResource.publication.texture === prepared.finalTexture else {
@@ -334,7 +334,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         ] = [:]
         var mappings: [Graph.EffectKey: UInt64] = [:]
         var resets: [Graph.EffectKey: SceneGraphExecutionResetReason] = [:]
-        for value in prepared.transitions {
+        for value in prepared.stages {
             let previous = current[value.effect]
             guard transitionResourcesAreValid(value),
                   let generation = mappingGenerationLocked(

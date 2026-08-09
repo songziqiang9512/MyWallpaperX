@@ -342,6 +342,21 @@ private let effect = Graph.EffectKey(
     effectIndex: 0,
     descriptorID: "executor-fixture"
 )
+private let chainedFirstEffect = Graph.EffectKey(
+    layerID: layerID,
+    effectIndex: 0,
+    descriptorID: "pixel-chain-first"
+)
+private let chainedSecondEffect = Graph.EffectKey(
+    layerID: layerID,
+    effectIndex: 1,
+    descriptorID: "pixel-chain-second"
+)
+private let chainedThirdEffect = Graph.EffectKey(
+    layerID: layerID,
+    effectIndex: 2,
+    descriptorID: "pixel-chain-third"
+)
 private let input = Graph.TextureIdentity(
     kind: .layerSource,
     layerID: layerID,
@@ -352,6 +367,24 @@ private let output = Graph.TextureIdentity(
     kind: .effectOutput,
     layerID: layerID,
     effect: effect,
+    name: nil
+)
+private let chainedFirstOutput = Graph.TextureIdentity(
+    kind: .effectOutput,
+    layerID: layerID,
+    effect: chainedFirstEffect,
+    name: nil
+)
+private let chainedSecondOutput = Graph.TextureIdentity(
+    kind: .effectOutput,
+    layerID: layerID,
+    effect: chainedSecondEffect,
+    name: nil
+)
+private let chainedFinalOutput = Graph.TextureIdentity(
+    kind: .effectOutput,
+    layerID: layerID,
+    effect: chainedThirdEffect,
     name: nil
 )
 private let first = Graph.TextureIdentity(
@@ -381,7 +414,8 @@ void main() {
 private func fragmentSource(
     pass: Bool,
     internalDefault: Bool = false,
-    frontendInvalid: Bool = false
+    frontendInvalid: Bool = false,
+    pixelTransform: Int? = nil
 ) -> String {
     let annotation = pass ? "// [PASS] shadow shadowcasterdemo\n" : ""
     let sampler = internalDefault
@@ -390,9 +424,17 @@ private func fragmentSource(
     let varying = frontendInvalid
         ? "varying vec3 v_TexCoord;"
         : "varying vec2 v_TexCoord;"
-    let expression = frontendInvalid
-        ? "gl_FragColor = texSample2D(g_Texture0, v_TexCoord.xy);"
-        : "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
+    let expression = if pixelTransform != nil {
+        """
+        vec4 color = texSample2D(g_Texture0, v_TexCoord);
+        color.rgb = color.rgb.gbr;
+        gl_FragColor = color;
+        """
+    } else if frontendInvalid {
+        "gl_FragColor = texSample2D(g_Texture0, v_TexCoord.xy);"
+    } else {
+        "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
+    }
     return annotation + """
     \(varying)
     \(sampler)
@@ -420,17 +462,18 @@ private func material(
     target: Graph.TextureIdentity,
     read: Graph.TextureIdentity,
     compose: SceneJSONValue? = nil,
-    conditions: SceneJSONValue? = nil
+    conditions: SceneJSONValue? = nil,
+    owner: Graph.EffectKey = effect
 ) -> Graph.Node {
     .init(
         nodeIndex: nodeIndex,
-        effect: effect,
+        effect: owner,
         definitionPassIndex: nodeIndex,
         materialOrdinal: ordinal,
         instancePassIndex: ordinal,
         kind: .material,
-        materialPath: "materials/executor.json",
-        materialPassID: "executor#\(ordinal)",
+        materialPath: "materials/executor-\(owner.effectIndex).json",
+        materialPassID: "executor-\(owner.effectIndex)#\(ordinal)",
         target: target,
         bindings: [binding(read)],
         commandSource: nil,
@@ -527,12 +570,71 @@ private func graph(
     )
 }
 
-private func executionPlan(for graph: Graph) -> SceneAuthoredEffectExecutionPlan {
+private func chainedGraph() -> Graph {
+    let nodes = [
+        material(
+            0,
+            ordinal: 0,
+            target: chainedFirstOutput,
+            read: input,
+            owner: chainedFirstEffect
+        ),
+        material(
+            1,
+            ordinal: 0,
+            target: chainedSecondOutput,
+            read: chainedFirstOutput,
+            owner: chainedSecondEffect
+        ),
+        material(
+            2,
+            ordinal: 0,
+            target: chainedFinalOutput,
+            read: chainedSecondOutput,
+            owner: chainedThirdEffect
+        ),
+    ]
+    return .init(
+        layerID: layerID,
+        effects: [
+            .init(
+                key: chainedFirstEffect,
+                definitionPath: "effects/pixel-chain-first/effect.json",
+                input: input,
+                output: chainedFirstOutput,
+                nodeIndices: [0]
+            ),
+            .init(
+                key: chainedSecondEffect,
+                definitionPath: "effects/pixel-chain-second/effect.json",
+                input: chainedFirstOutput,
+                output: chainedSecondOutput,
+                nodeIndices: [1]
+            ),
+            .init(
+                key: chainedThirdEffect,
+                definitionPath: "effects/pixel-chain-third/effect.json",
+                input: chainedSecondOutput,
+                output: chainedFinalOutput,
+                nodeIndices: [2]
+            ),
+        ],
+        renderTargets: [],
+        nodes: nodes,
+        finalOutput: chainedFinalOutput,
+        blockers: []
+    )
+}
+
+private func executionPlan(
+    for graph: Graph,
+    inputRole: SceneAuthoredEffectInputRole = .layerSource
+) -> SceneAuthoredEffectExecutionPlan {
     .init(
         layerID: graph.layerID,
         materialNodeCount: graph.nodes.filter { $0.kind == .material }.count,
         logicalRenderTargetCount: graph.renderTargets.count,
-        inputRole: .layerSource,
+        inputRole: inputRole,
         cursorRipple: nil
     )
 }
@@ -548,6 +650,33 @@ private func chain(_ graph: Graph) -> SceneAuthoredEffectExecutionChain {
             stageGraph: graph,
             executionPlan: execution
         )]
+    )
+}
+
+private func chainedExecutionChain(_ graph: Graph) -> SceneAuthoredEffectExecutionChain {
+    precondition(graph.renderTargets.isEmpty && graph.effects.count == 3)
+    let stages = graph.effects.enumerated().map { index, effect in
+        let stageGraph = Graph(
+            layerID: graph.layerID,
+            effects: [effect],
+            renderTargets: [],
+            nodes: graph.nodes.filter { $0.effect == effect.key },
+            finalOutput: effect.output,
+            blockers: []
+        )
+        let inputRole: SceneAuthoredEffectInputRole = index == 0
+            ? .layerSource : .priorEffectOutput
+        return SceneEffectStageProgram(
+            effectKey: effect.key,
+            inputRole: inputRole,
+            stageGraph: stageGraph,
+            executionPlan: executionPlan(for: stageGraph, inputRole: inputRole)
+        )
+    }
+    return .init(
+        layerID: graph.layerID,
+        renderGraph: graph,
+        stagePrograms: stages
     )
 }
 
@@ -567,6 +696,7 @@ private func shaderContract(
     pass: Bool,
     internalDefault: Bool = false,
     frontendInvalid: Bool = false,
+    pixelTransform: Int? = nil,
     implicitFramebuffer: Bool = false,
     implicitFramebufferAnnotation: Bool = true
 ) -> SceneShaderContract {
@@ -606,7 +736,8 @@ private func shaderContract(
     """ ) : fragmentSource(
         pass: pass,
         internalDefault: internalDefault,
-        frontendInvalid: frontendInvalid
+        frontendInvalid: frontendInvalid,
+        pixelTransform: pixelTransform
     )
     let stages = [
         stage(.vertex, path: "\(prefix).vert", source: vertexSource),
@@ -697,11 +828,21 @@ private func template(
           let slot = inputBinding.slot else {
         fatalError("material fixture is incomplete")
     }
+    let pixelTransform: Int? = if node.effect == chainedFirstEffect {
+        1
+    } else if node.effect == chainedSecondEffect {
+        2
+    } else if node.effect == chainedThirdEffect {
+        3
+    } else {
+        nil
+    }
     let contract = shaderContract(
         nodeIndex: node.nodeIndex,
         pass: pass,
         internalDefault: internalDefault,
-        frontendInvalid: frontendInvalid
+        frontendInvalid: frontendInvalid,
+        pixelTransform: pixelTransform
     )
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     slots[slot] = .init(index: slot, candidates: [
@@ -710,6 +851,14 @@ private func template(
             provenance: .explicitBinding
         ),
     ])
+    let effectInput: Template.GraphTextureRole
+    if node.effect == chainedSecondEffect {
+        effectInput = role(chainedFirstOutput)
+    } else if node.effect == chainedThirdEffect {
+        effectInput = role(chainedSecondOutput)
+    } else {
+        effectInput = role(input)
+    }
     return Template.validated(
         textureSlots: slots,
         combos: [],
@@ -722,7 +871,7 @@ private func template(
             alphaWriting: nil
         )!,
         graphRole: .init(
-            effectInput: role(input),
+            effectInput: effectInput,
             effectOutput: role(output),
             nodeTarget: role(target),
             bindings: [.init(slot: slot, texture: role(inputBinding.texture))]
@@ -828,6 +977,76 @@ private func makeLease(
     case let .success(value): return value
     case let .failure(failure): fatalError("lease failed: \(failure.rawValue)")
     }
+}
+
+private func makeChainedLeases(
+    _ capability: Capabilities.ChainCapability,
+    device: MTLDevice,
+    generation: UInt64 = 17
+) -> [SceneGraphRenderTargetLease]? {
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .bgra8Unorm,
+        width: extent.width,
+        height: extent.height,
+        mipmapped: false
+    )
+    descriptor.storageMode = .private
+    descriptor.usage = [.renderTarget, .shaderRead]
+    guard let zero = device.makeTexture(descriptor: descriptor),
+          let one = device.makeTexture(descriptor: descriptor) else { return nil }
+    let zeroToken = Executor.State.PhysicalToken(rawValue: "pixel-chain-zero")
+    let oneToken = Executor.State.PhysicalToken(rawValue: "pixel-chain-one")
+    func texture(_ member: SceneLayerFullFramePairPlan.Member) -> MTLTexture {
+        member == .zero ? zero : one
+    }
+    var leases: [SceneGraphRenderTargetLease] = []
+    for index in capability.admittedProducts.indices {
+        let graph = capability.admittedProducts[index].graph
+        let role: SceneAuthoredEffectInputRole = index == 0
+            ? .layerSource : .priorEffectOutput
+        let plan: Plan
+        switch Plan.make(
+            graph: graph,
+            inputRole: role,
+            inputWidth: extent.width,
+            inputHeight: extent.height
+        ) {
+        case let .success(value): plan = value
+        case .failure: return nil
+        }
+        let step = capability.pairPlan.effects[index]
+        let mapped: SceneGraphRenderTargetTable
+        switch SceneGraphRenderTargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: [
+                plan.input: texture(step.inputMember),
+                plan.output: texture(step.outputMember),
+            ],
+            fullFramePair: .init(first: zero, second: one),
+            expectsInputOutputAlias: step.inputMember == step.outputMember
+        ) {
+        case let .success(value): mapped = value
+        case .failure: return nil
+        }
+        let lease: SceneGraphRenderTargetLease
+        switch SceneGraphRenderTargetLease.make(
+            table: mapped,
+            generation: generation,
+            tokenForTexture: { object in
+                object === zero ? zeroToken : oneToken
+            },
+            fullFramePairGeneration: generation,
+            tokenForPairTexture: { object in
+                object === zero ? zeroToken : oneToken
+            }
+        ) {
+        case let .success(value): lease = value
+        case .failure: return nil
+        }
+        leases.append(lease)
+    }
+    return leases
 }
 
 private func manualPlan(
@@ -1084,7 +1303,7 @@ private func historyGraph(fixedSize: Bool) -> Graph {
 }
 
 private func historyCopies(
-    transition: Executor.PreparedTransition,
+    transition: Executor.PreparedStage,
     sourceLease: SceneGraphRenderTargetLease,
     targetLease: SceneGraphRenderTargetLease
 ) -> [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy]? {
@@ -1184,7 +1403,7 @@ private func runHistoryScenario(
     )
     guard case let .success(firstPrepared) = firstPreparation,
           executor.encode(firstPrepared, commandBuffer: firstBuffer),
-          let transition = firstPrepared.transitions.first else {
+          let transition = firstPrepared.stages.first else {
         return .init()
     }
     firstBuffer.commit()
@@ -1322,7 +1541,7 @@ private func runHistoryScenario(
     }
 
     guard case let .success(accepted) = acceptedPreparation,
-          let acceptedTransition = accepted.transitions.first else {
+          let acceptedTransition = accepted.stages.first else {
         return result
     }
     result.mappingBehavior = preservesPermutation(
@@ -1372,7 +1591,7 @@ private func variantFailureCode(
 private func intentKinds(
     _ chain: Executor.PreparedChain
 ) -> [String] {
-    chain.transitions.flatMap { value in
+    chain.stages.flatMap { value in
         value.transition.transaction.intents.map { intent in
             switch intent {
             case .initialize: "initialize"
@@ -1391,12 +1610,15 @@ private func capabilities(
     let graph = chain.renderGraph
     let materialNodes = graph.nodes.filter { $0.kind == .material }
         .sorted { ($0.materialOrdinal ?? -1) < ($1.materialOrdinal ?? -1) }
-    let instancePasses = materialNodes.map {
-        SceneRenderDescriptor.PassDescriptor(
-            passIndex: $0.instancePassIndex!,
-            combos: [:]
-        )
-    }
+    let instancePasses = Dictionary(grouping: materialNodes, by: \.effect)
+        .mapValues { nodes in
+            nodes.map {
+                SceneRenderDescriptor.PassDescriptor(
+                    passIndex: $0.instancePassIndex!,
+                    combos: [:]
+                )
+            }
+        }
     let materialPasses = materialNodes.map {
         SceneRenderDescriptor.MaterialPassDescriptor(
             id: $0.materialPassID!,
@@ -1412,7 +1634,7 @@ private func capabilities(
                     id: $0.key.descriptorID,
                     file: $0.definitionPath,
                     visible: true,
-                    passes: instancePasses
+                    passes: instancePasses[$0.key] ?? []
                 )
             }
         )],
@@ -1451,6 +1673,112 @@ private enum Harness {
         }
         let source = makeSource(device)
         let sourcePipeline = makeSourcePipeline(device)
+
+        let pixelGraph = chainedGraph()
+        let pixelChain = chainedExecutionChain(pixelGraph)
+        let pixelCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(for: pixelGraph)
+        )
+        var chainedStagesPrepared = false
+        var chainedStagesEncoded = false
+        var chainedStagesGPUCompleted = false
+        var chainedStagePixelsPreserved = false
+        var pixelChainFailure = "setup"
+        let pixelClaim = pixelCapabilities.claim(pixelChain)
+        let pixelCapability = pixelClaim.flatMap {
+            pixelCapabilities.resolve($0.token, for: pixelChain)
+        }
+        let pixelLeases = pixelCapability.flatMap {
+            makeChainedLeases($0, device: device)
+        }
+        if let claim = pixelClaim,
+           let leases = pixelLeases,
+           let executor = Executor(device: device, capabilities: pixelCapabilities),
+           let command = queue.makeCommandBuffer() {
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(1),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 1,
+                resetGeneration: 1
+            )
+            pixelChainFailure = failureCode(preparation)
+            if case let .success(prepared) = preparation,
+               prepared.stages.count == 3,
+               prepared.stages.map(\.effect) == [
+                    chainedFirstEffect,
+                    chainedSecondEffect,
+                    chainedThirdEffect,
+               ],
+               prepared.stages[1].pairStep.inputIdentity
+                    == prepared.stages[0].pairStep.outputIdentity,
+               prepared.stages[2].pairStep.inputIdentity
+                    == prepared.stages[1].pairStep.outputIdentity,
+               prepared.stages[0].effectOutputResource.publication.texture
+                    === executor.pairTexture(
+                        lease: leases[1],
+                        member: prepared.stages[1].pairStep.inputMember
+                    ),
+               prepared.stages[1].effectOutputResource.publication.texture
+                    === executor.pairTexture(
+                        lease: leases[2],
+                        member: prepared.stages[2].pairStep.inputMember
+                    ),
+               prepared.stages[0].effectOutputResource.publication.texture
+                    === prepared.stages[2]
+                        .effectOutputResource.publication.texture {
+                chainedStagesPrepared = true
+                var observedStageIndices: [Int] = []
+                var stageReadbacks: [Readback] = []
+                chainedStagesEncoded = executor.encode(
+                    prepared,
+                    commandBuffer: command,
+                    stageBoundaryObserver: { stageIndex, transition, buffer in
+                        guard let readback = appendReadback(
+                            transition.effectOutputResource.publication.texture,
+                            commandBuffer: buffer
+                        ) else { return false }
+                        observedStageIndices.append(stageIndex)
+                        stageReadbacks.append(readback)
+                        return true
+                    }
+                )
+                if chainedStagesEncoded,
+                   let finalRead = appendReadback(
+                        prepared.finalTexture,
+                        commandBuffer: command
+                   ) {
+                    command.commit()
+                    command.waitUntilCompleted()
+                    chainedStagesGPUCompleted = command.status == .completed
+                        && command.error == nil
+                    let expectedPixels: [[UInt8]] = [
+                        [255, 0, 0, 255],
+                        [0, 255, 0, 255],
+                        [0, 0, 255, 255],
+                    ]
+                    chainedStagePixelsPreserved = observedStageIndices
+                        == [0, 1, 2] && stageReadbacks.count == 3
+                        && zip(stageReadbacks, expectedPixels).allSatisfy {
+                            matches($0.firstPixel, $1)
+                                && matches($0.lastPixel, $1)
+                        }
+                        && matches(finalRead.firstPixel, expectedPixels[2])
+                        && matches(finalRead.lastPixel, expectedPixels[2])
+                }
+            }
+        } else if pixelCapability != nil && pixelLeases == nil {
+            pixelChainFailure = "leases"
+        }
 
         let ordinaryGraph = graph(
             targets: [rawTarget(first)],
@@ -1802,9 +2130,9 @@ private enum Harness {
                 value,
                 commandBuffer: composeBuffer
             )
-                && value.transitions[0].pairStep.composeTransitionCount == 1
-                && value.transitions[0].pairStep.inputMember == .zero
-                && value.transitions[0].pairStep.outputMember == .zero
+                && value.stages[0].pairStep.composeTransitionCount == 1
+                && value.stages[0].pairStep.inputMember == .zero
+                && value.stages[0].pairStep.outputMember == .zero
                 && value.finalTexture
                     === admittedComposeLease.table.fullFramePair.first
         } else {
@@ -1818,7 +2146,7 @@ private enum Harness {
         guard let secondFrameBuffer = queue.makeCommandBuffer() else {
             fatalError("second frame buffer unavailable")
         }
-        let firstTransition = prepared.transitions[0]
+        let firstTransition = prepared.stages[0]
         let secondFrame = ordinaryExecutor.prepare(
             token: ordinaryClaim.token,
             leases: [ordinaryLease],
@@ -1841,8 +2169,8 @@ private enum Harness {
             template: cacheTemplate,
             maximumVariantCount: 1
         )!
-        var readyResources = prepared.transitions[0].frameResources
-        readyResources[input] = prepared.transitions[0].effectOutputResource
+        var readyResources = prepared.stages[0].frameResources
+        readyResources[input] = prepared.stages[0].effectOutputResource
             .rewrappedForGraphIdentity(input)!
         let readyVariantFrame = frame(3).overlayingGraphResources(readyResources)!
         let readyVariant = boundedCache.resolve(
@@ -2013,7 +2341,7 @@ private enum Harness {
         var freshCopyPreparedAndEncoded = false
         var freshCopyPublicationMatches = false
         if case let .success(value) = freshCopyPreparation,
-           let transition = value.transitions.first,
+           let transition = value.stages.first,
            let mapped = transition.transition.transaction.mappingAfter[second],
            let published = transition.frameResources[second],
            let targetTexture = freshCopyLease.texture(for: second) {
@@ -2180,7 +2508,7 @@ private enum Harness {
         switch mixedPreparation {
         case let .success(value):
             mixedKinds = intentKinds(value)
-            let transition = value.transitions[0]
+            let transition = value.stages[0]
             mixedPublicationChain = transition.programCacheKeys.count == 3
                 && transition.frameResources[first] != nil
                 && transition.frameResources[second] != nil
@@ -2289,14 +2617,19 @@ private enum Harness {
                     == Executor.Failure.captureRejected.rawValue,
             "staticClaimRejectionHasNoPartialWrite":
                 staticClaimRejectionHasNoPartialWrite,
-            "twoMaterialPublicationFinalized": prepared.transitions.count == 1
-                && prepared.transitions[0].programCacheKeys.count == 2
-                && prepared.transitions[0].frameResources[first] != nil
-                && prepared.transitions[0].effectOutputResource.publication
+            "twoMaterialPublicationFinalized": prepared.stages.count == 1
+                && prepared.stages[0].programCacheKeys.count == 2
+                && prepared.stages[0].frameResources[first] != nil
+                && prepared.stages[0].effectOutputResource.publication
                     .requestIdentity == .graph(output),
             "encodedOutputReadable": encodedOutputReadable,
             "sourceCaptureRendersAcrossFullTarget":
                 sourceCaptureCoversFullTarget,
+            "orderedStagesPreparedTogether": chainedStagesPrepared,
+            "orderedStagesEncodedTogether": chainedStagesEncoded,
+            "orderedStagesGPUCompleted": chainedStagesGPUCompleted,
+            "orderedStagesPreservePriorPixelContribution":
+                chainedStagePixelsPreserved,
             "ordinaryComposeRotatesWithinEffectAndReturnsTerminalZero":
                 failureCode(composePreparation) == "success" && composeEncoded,
             "secondFramePreviousStateAndResourcesPrepared": failureCode(secondFrame)
@@ -2374,6 +2707,9 @@ private enum Harness {
             "mixedKinds": mixedKinds,
             "encodedPixel": encodedRead.firstPixel,
             "encodedLastPixel": encodedRead.lastPixel,
+            "pixelChainCanClaim": pixelCapabilities.claim(pixelChain) != nil,
+            "pixelChainReport": pixelCapabilities.reportLines,
+            "pixelChainFailure": pixelChainFailure,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -2388,15 +2724,6 @@ private enum Harness {
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
     def test_production_executor_preflights_and_executes_atomic_graph(self) -> None:
-        preparation = (
-            SCENE_ROOT
-            / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn(
-            '"dedicated:\\(SceneShaderStableDigest.hash(program.stageGraph))"',
-            preparation,
-        )
-        self.assertIn("programKeys.append(", preparation)
         with tempfile.TemporaryDirectory(
             prefix="mwx-resolved-material-graph-executor-"
         ) as directory:

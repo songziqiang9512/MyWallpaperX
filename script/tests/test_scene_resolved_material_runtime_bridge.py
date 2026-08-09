@@ -729,7 +729,7 @@ final class SceneResolvedMaterialGraphExecutor {
     enum Failure: String, Error {
         case unavailable = "fixture-preflight-unavailable"
     }
-    struct PreparedTransition {
+    struct PreparedStage {
         let effect: Graph.EffectKey
         let graph: Graph
         let pairStep: SceneLayerFullFramePairPlan.EffectStep
@@ -740,7 +740,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let programCacheKeys: [String]
     }
     struct PreparedChain {
-        let transitions: [PreparedTransition]
+        let stages: [PreparedStage]
         let finalResource: SceneFrameTextureResource
         let finalTexture: MTLTexture
         let historyTokensByEffect: [Graph.EffectKey: Set<State.PhysicalToken>]
@@ -892,7 +892,7 @@ private func makePrepared(
 ) -> SceneResolvedMaterialGraphExecutor.PreparedChain {
     let final = texture ?? makeTexture(device, "final")
     return .init(
-        transitions: [],
+        stages: [],
         finalResource: makeResource(texture: final, token: "final", generation: 1),
         finalTexture: final,
         historyTokensByEffect: [:]
@@ -901,7 +901,7 @@ private func makePrepared(
 
 private func makeObservationTransition(
     device: MTLDevice
-) -> SceneResolvedMaterialGraphExecutor.PreparedTransition {
+) -> SceneResolvedMaterialGraphExecutor.PreparedStage {
     let resource = SceneFrameTextureResource(
         publication: .init(
             requestIdentity: .graph(observationOutputIdentity),
@@ -975,7 +975,7 @@ private func makeObservedPrepared(
 ) -> SceneResolvedMaterialGraphExecutor.PreparedChain {
     let transition = makeObservationTransition(device: device)
     return .init(
-        transitions: [transition],
+        stages: [transition],
         finalResource: transition.effectOutputResource,
         finalTexture: transition.effectOutputResource.publication.texture,
         historyTokensByEffect: [:]
@@ -1031,7 +1031,7 @@ private func makeAtomicPrepared(
         effectGeneration: 1,
         resetGeneration: 1
     )
-    let transition = SceneResolvedMaterialGraphExecutor.PreparedTransition(
+    let transition = SceneResolvedMaterialGraphExecutor.PreparedStage(
         effect: key,
         graph: graph,
         pairStep: .init(
@@ -1053,7 +1053,7 @@ private func makeAtomicPrepared(
         programCacheKeys: ["atomic-program-\(layerID)"]
     )
     return .init(
-        transitions: [transition],
+        stages: [transition],
         finalResource: resource,
         finalTexture: texture,
         historyTokensByEffect: [:]

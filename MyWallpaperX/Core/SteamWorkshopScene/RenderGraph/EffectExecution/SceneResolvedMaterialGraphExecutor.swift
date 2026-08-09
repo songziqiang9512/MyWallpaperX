@@ -37,51 +37,9 @@ final class SceneResolvedMaterialGraphExecutor {
         case encodeRejected
         case contentGenerationOverflow
         case stalePreparation
-
-        var rawValue: String {
-            switch self {
-            case .invalidClaim: "invalid-claim"
-            case .invalidFrame: "invalid-frame"
-            case .invalidLease: "invalid-lease"
-            case .stateRejected: "state-rejected"
-            case .historyRejected: "history-rejected"
-            case .graphPublicationRejected: "graph-publication-rejected"
-            case .graphStructureRejected: "graph-structure-rejected"
-            case let .materialFinalizerRejected(nodeIndex, ordinal, failure):
-                "node-\(nodeIndex)-material-\(ordinal)-finalizer-"
-                    + "\(failure.phase.rawValue)-\(failure.code.rawValue)"
-                    + Self.detailSuffix(failure.boundedDetails.first)
-            case .materialPassEncoderRejected: "material-pass-encoder-rejected"
-            case let .materialPassPreparationRejected(
-                stageIndex, nodeIndex, ordinal, programKey, failure
-            ):
-                "stage-\(stageIndex)-node-\(nodeIndex)-material-\(ordinal)-"
-                    + "program-\(programKey.prefix(12))-pass-\(failure.code)-rejected"
-            case .dedicatedLeafRejected(let reason):
-                "dedicated-leaf-rejected-\(reason)"
-            case .resourceCommandRejected: "resource-command-rejected"
-            case .captureRejected: "capture-rejected"
-            case .encodeRejected: "encode-rejected"
-            case .contentGenerationOverflow: "content-generation-overflow"
-            case .stalePreparation: "stale-preparation"
-            }
-        }
-
-        private static func detailSuffix(_ value: String?) -> String {
-            guard let value, !value.isEmpty else { return "" }
-            let characters = value.utf8.prefix(64).map { byte -> Character in
-                switch byte {
-                case 45, 46, 48 ... 57, 65 ... 90, 95, 97 ... 122:
-                    Character(UnicodeScalar(byte))
-                default:
-                    "_"
-                }
-            }
-            return "-detail-" + String(characters)
-        }
     }
 
-    struct PreparedTransition {
+    struct PreparedStage {
         let effect: Graph.EffectKey
         let graph: Graph
         let pairStep: Pair.EffectStep
@@ -92,10 +50,12 @@ final class SceneResolvedMaterialGraphExecutor {
         /// History-only publications allowed to survive in a committed tail.
         let persistentResources: [Graph.TextureIdentity: SceneFrameTextureResource]
         let effectOutputResource: SceneFrameTextureResource
+
+        fileprivate let commands: [Command]
     }
 
     struct PreparedChain {
-        let transitions: [PreparedTransition]
+        let stages: [PreparedStage]
         let finalTexture: MTLTexture
         let finalResource: SceneFrameTextureResource
         let historyTokensByEffect: [Graph.EffectKey: Set<State.PhysicalToken>]
@@ -103,7 +63,7 @@ final class SceneResolvedMaterialGraphExecutor {
         fileprivate let ownerToken: UUID
         fileprivate let resetGeneration: UInt64
         fileprivate let queueIdentity: ObjectIdentifier
-        fileprivate let commands: [Command]
+        fileprivate let sourceCommand: Command
     }
 
     struct PairAtom {
@@ -125,6 +85,10 @@ final class SceneResolvedMaterialGraphExecutor {
         case material(SceneResolvedMaterialPassEncoder.PreparedPass)
         case dedicated(SceneAuthoredEffectChainRenderer.PreparedStage)
     }
+
+    typealias StageBoundaryObserver = (
+        Int, PreparedStage, MTLCommandBuffer
+    ) -> Bool
 
     let device: MTLDevice
     let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
@@ -206,7 +170,7 @@ final class SceneResolvedMaterialGraphExecutor {
                   representation: .premultipliedAlpha
               ) else { return .failure(.contentGenerationOverflow) }
 
-        var commands: [Command] = [.resource(baseCommand)]
+        let sourceCommand = Command.resource(baseCommand)
         var pair = PairAtom(
             member: capability.pairPlan.baseCaptureMember,
             resource: base,
@@ -215,9 +179,10 @@ final class SceneResolvedMaterialGraphExecutor {
         var publications = [
             capability.pairPlan.baseCaptureIdentity: base,
         ]
-        var transitions: [PreparedTransition] = []
+        var stages: [PreparedStage] = []
 
         for index in capability.stages.indices {
+            var stageCommands: [Command] = []
             let stageCapability = capability.stages[index]
             let product = stageCapability.product
             let graph = product.graph
@@ -269,7 +234,7 @@ final class SceneResolvedMaterialGraphExecutor {
                       lease: lease,
                       publications: &publications
                   ) else { return .failure(.stateRejected) }
-            commands.append(contentsOf: history.commands.map(Command.resource))
+            stageCommands.append(contentsOf: history.commands.map(Command.resource))
 
             var programKeys: [String] = []
             if let failure = prepare(
@@ -286,12 +251,13 @@ final class SceneResolvedMaterialGraphExecutor {
                 dedicatedInputs: dedicatedInputs,
                 pair: &pair,
                 publications: &publications,
-                commands: &commands,
+                commands: &stageCommands,
                 programKeys: &programKeys
             ) {
                 return .failure(failure)
             }
-            guard pair.member == pairStep.outputMember,
+            guard !stageCommands.isEmpty,
+                  pair.member == pairStep.outputMember,
                   let final = publications[pairStep.outputIdentity],
                   final.publication.texture === pair.resource.publication.texture,
                   final.resourceGeneration == pair.resource.resourceGeneration,
@@ -303,7 +269,7 @@ final class SceneResolvedMaterialGraphExecutor {
                       matching: transition.nextState.logicalMapping,
                       from: publications
                   ) else { return .failure(.graphPublicationRejected) }
-            transitions.append(.init(
+            stages.append(.init(
                 effect: effect,
                 graph: graph,
                 pairStep: pairStep,
@@ -311,7 +277,8 @@ final class SceneResolvedMaterialGraphExecutor {
                 programCacheKeys: programKeys,
                 frameResources: frameResources,
                 persistentResources: persistentResources,
-                effectOutputResource: final
+                effectOutputResource: final,
+                commands: stageCommands
             ))
         }
 
@@ -319,49 +286,86 @@ final class SceneResolvedMaterialGraphExecutor {
               pair.member == Pair.fixedTerminalMember,
               pair.representation == .opaque
                 || pair.representation == .premultipliedAlpha,
-              let terminal = transitions.last?.effectOutputResource,
+              let terminal = stages.last?.effectOutputResource,
               terminal.publication.requestIdentity
                 == .graph(capability.pairPlan.terminalOutputIdentity),
               terminal.publication.texture === pair.resource.publication.texture,
               let queueIdentity,
-              let historyTokens = historyTokens(transitions) else {
+              let historyTokens = historyTokens(stages) else {
             return .failure(.graphPublicationRejected)
         }
         return .success(.init(
-            transitions: transitions,
+            stages: stages,
             finalTexture: terminal.publication.texture,
             finalResource: terminal,
             historyTokensByEffect: historyTokens,
             ownerToken: ownerToken,
             resetGeneration: self.resetGeneration,
             queueIdentity: queueIdentity,
-            commands: commands
+            sourceCommand: sourceCommand
         ))
     }
 
     /// `true` means every preflighted command was appended. Commit still waits
     /// for final compositor conservation and GPU completion.
     func encode(_ chain: PreparedChain, commandBuffer: MTLCommandBuffer) -> Bool {
+        encodePreparedStages(chain, commandBuffer: commandBuffer, observer: nil)
+    }
+
+    #if SCENE_GRAPH_TESTING
+    func encode(
+        _ chain: PreparedChain,
+        commandBuffer: MTLCommandBuffer,
+        stageBoundaryObserver: @escaping StageBoundaryObserver
+    ) -> Bool {
+        encodePreparedStages(
+            chain,
+            commandBuffer: commandBuffer,
+            observer: stageBoundaryObserver
+        )
+    }
+    #endif
+
+    private func encodePreparedStages(
+        _ chain: PreparedChain,
+        commandBuffer: MTLCommandBuffer,
+        observer: StageBoundaryObserver?
+    ) -> Bool {
         guard chain.ownerToken == ownerToken,
               chain.resetGeneration == resetGeneration,
               chain.queueIdentity == ObjectIdentifier(commandBuffer.commandQueue),
               commandBuffer.status == .notEnqueued else { return false }
-        for command in chain.commands {
-            let encoded: Bool
-            switch command {
-            case let .resource(value):
-                encoded = resourceEncoder?.encode(value, commandBuffer: commandBuffer) == true
-            case let .material(value):
-                encoded = materialEncoder.encode(value, commandBuffer: commandBuffer)
-            case let .dedicated(value):
-                encoded = SceneAuthoredEffectChainRenderer.encodePreparedStage(
-                    value,
-                    commandBuffer: commandBuffer
-                )
+        guard encode(chain.sourceCommand, commandBuffer: commandBuffer) else {
+            return false
+        }
+        for (stageIndex, stage) in chain.stages.enumerated() {
+            for command in stage.commands {
+                guard encode(command, commandBuffer: commandBuffer) else {
+                    return false
+                }
             }
-            guard encoded else { return false }
+            guard observer?(
+                stageIndex, stage, commandBuffer
+            ) != false else { return false }
         }
         return true
+    }
+
+    private func encode(
+        _ command: Command,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bool {
+        switch command {
+        case let .resource(value):
+            resourceEncoder?.encode(value, commandBuffer: commandBuffer) == true
+        case let .material(value):
+            materialEncoder.encode(value, commandBuffer: commandBuffer)
+        case let .dedicated(value):
+            SceneAuthoredEffectChainRenderer.encodePreparedStage(
+                value,
+                commandBuffer: commandBuffer
+            )
+        }
     }
 
     @discardableResult

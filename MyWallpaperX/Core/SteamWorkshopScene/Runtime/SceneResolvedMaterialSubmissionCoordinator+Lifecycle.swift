@@ -179,11 +179,11 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         preparedTargets: ScenePreparedPersistentGraphTargets,
         prepared: SceneResolvedMaterialGraphExecutor.PreparedChain
     ) -> Bool {
-        let effects = Set(prepared.transitions.map(\.effect))
-        let generations = Set(prepared.transitions.map {
+        let effects = Set(prepared.stages.map(\.effect))
+        let generations = Set(prepared.stages.map {
             $0.transition.transaction.allocationGeneration
         })
-        guard effects.count == prepared.transitions.count,
+        guard effects.count == prepared.stages.count,
               generations.count == 1,
               let generation = generations.first,
               leasesHaveSameAtoms(commit.leases, preparedTargets.leases),
@@ -260,7 +260,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     }
 
     func transitionResourcesAreValid(
-        _ value: SceneResolvedMaterialGraphExecutor.PreparedTransition
+        _ value: SceneResolvedMaterialGraphExecutor.PreparedStage
     ) -> Bool {
         let transaction = value.transition.transaction
         let next = value.transition.nextState
