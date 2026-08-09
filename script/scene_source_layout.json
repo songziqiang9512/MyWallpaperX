@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "source_root": "MyWallpaperX/Core/SteamWorkshopScene",
   "top_level_directories": [
     "Effects",
@@ -33,30 +33,41 @@
     "Misc"
   ],
   "render_chain_authority_ratchet": {
+    "completion_state": {
+      "r4": "partial",
+      "r5": "not_started"
+    },
     "rules": [
       {
         "id": "canonical-compositor-entry",
+        "role": "required",
         "description": "The compositor is the only product entry into the resolved-material graph executor.",
         "pattern": "SceneResolvedMaterialGraphComposition\\.executeClaimed\\(",
         "baseline_occurrences": 1,
+        "completion_target_occurrences": 1,
         "allowed_files": [
           "Rendering/SceneImageLayerCompositor.swift"
         ]
       },
       {
         "id": "canonical-runtime-entry",
+        "role": "required",
         "description": "The composition helper is the only runtime call into the claimed submission coordinator.",
         "pattern": "runtime\\.executeClaimed\\(",
         "baseline_occurrences": 1,
+        "completion_target_occurrences": 1,
         "allowed_files": [
           "Rendering/SceneResolvedMaterialGraphComposition.swift"
         ]
       },
       {
         "id": "legacy-product-authority",
+        "role": "retirement",
         "description": "Legacy planner calls still reachable from product planning are frozen until each family migrates.",
         "pattern": "SceneEffectRuntimePlanner\\.(?:legacyPlanningDecision|plan|runtimeSummary|offscreenPassCount)\\(",
         "baseline_occurrences": 4,
+        "completion_phase": "r4",
+        "completion_target_occurrences": 0,
         "scope_files": [
           "Rendering/SceneImageLayerCompositor.swift",
           "Rendering/SceneUtilityLayerRuntimePlan.swift",
@@ -70,9 +81,12 @@
       },
       {
         "id": "legacy-observation-authority",
+        "role": "retirement",
         "description": "Diagnostics and static disposition may observe the legacy planner but cannot grow new references.",
         "pattern": "SceneEffectRuntimePlanner\\.(?:legacyPlanningDecision|plan|runtimeSummary|offscreenPassCount)\\(",
         "baseline_occurrences": 3,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
         "scope_files": [
           "Rendering/SceneMetalRenderer+Diagnostics.swift",
           "Runtime/SceneEffectRuntimeDispositionCatalog.swift"
@@ -84,9 +98,12 @@
       },
       {
         "id": "legacy-authority-total",
+        "role": "retirement",
         "description": "All external legacy planner references are frozen so a new product or observation owner cannot appear in another file.",
         "pattern": "SceneEffectRuntimePlanner\\.(?:legacyPlanningDecision|plan|runtimeSummary|offscreenPassCount)\\(",
         "baseline_occurrences": 7,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
         "allowed_files": [
           "Rendering/SceneImageLayerCompositor.swift",
           "Rendering/SceneMetalRenderer+Diagnostics.swift",
@@ -97,6 +114,7 @@
       },
       {
         "id": "main-pass-writers",
+        "role": "inventory",
         "description": "Direct main-pass encoder writers remain explicit while object and utility paths migrate to the frame scheduler.",
         "pattern": "(?:\\bmainPass|\\bframe\\.mainPass)\\.encoder\\(\\)",
         "baseline_occurrences": 7,
@@ -110,6 +128,7 @@
       },
       {
         "id": "dedicated-probes",
+        "role": "inventory",
         "description": "Ordered dedicated compiler probes are frozen until their product owner is transferred.",
         "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
         "baseline_occurrences": 29,
@@ -122,6 +141,7 @@
       },
       {
         "id": "compiler-identities",
+        "role": "inventory",
         "description": "Compiler identity enum cases are a ratcheted inventory, not an extensible fallback list.",
         "pattern": "^    case [A-Za-z][A-Za-z0-9_]*(?:\\s*=|\\s*$)",
         "start_marker": "nonisolated enum SceneEffectStageCompilerBackend",
@@ -136,6 +156,7 @@
       },
       {
         "id": "runtime-backends",
+        "role": "inventory",
         "description": "Dedicated runtime backend cases are frozen until their execution owner is removed.",
         "pattern": "^        case [A-Za-z][A-Za-z0-9_]*\\(",
         "start_marker": "extension SceneAuthoredEffectExecutionPlan {",
@@ -150,11 +171,14 @@
       },
       {
         "id": "legacy-recovery-kinds",
+        "role": "retirement",
         "description": "The four existing recovery kinds are frozen until each omission path is absorbed by the graph scheduler.",
         "pattern": "^        case (?:terminalIrisInlineSuffix|xRayPrefix|isolatedCursorRipple|isolatedShine)$",
         "start_marker": "enum LegacyRecoveryKind: Equatable {",
         "end_marker": "    enum ExecutionRoute {",
         "baseline_occurrences": 4,
+        "completion_phase": "r4",
+        "completion_target_occurrences": 0,
         "scope_files": [
           "RenderGraph/SceneAuthoredEffectExecutionChain+Route.swift"
         ],
@@ -164,6 +188,7 @@
       },
       {
         "id": "hardcoded-expected-sha",
+        "role": "inventory",
         "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
         "baseline_occurrences": 229,
@@ -217,6 +242,7 @@
       },
       {
         "id": "numeric-workshop-selector",
+        "role": "inventory",
         "description": "Numeric Workshop paths are frozen until source profiles become public typed capabilities.",
         "pattern": "workshop/[0-9]+",
         "baseline_occurrences": 50,
@@ -234,13 +260,221 @@
       },
       {
         "id": "named-workshop-selector",
-        "description": "Named Workshop source profiles are frozen until they are replaced by generic source contracts.",
+        "role": "retirement",
+        "description": "Named Workshop runtime profile dispatch is frozen until generic source contracts replace it.",
         "pattern": "workshop[0-9]+",
         "baseline_occurrences": 30,
+        "completion_phase": "r4",
+        "completion_target_occurrences": 0,
         "allowed_files": [
           "Text/SceneTextScriptCompiler.swift",
           "Text/SceneTextScriptProgram.swift",
           "Text/SceneTextScriptRuntime.swift"
+        ]
+      },
+      {
+        "id": "legacy-authored-chain-product-dispatch",
+        "role": "retirement",
+        "description": "The product compositor must stop invoking the legacy authored whole-chain renderer before R4 completes.",
+        "pattern": "renderedTexture\\s*=\\s*renderLegacyAuthoredChain\\(",
+        "baseline_occurrences": 1,
+        "completion_phase": "r4",
+        "completion_target_occurrences": 0,
+        "scope_files": [
+          "Rendering/SceneImageLayerCompositor.swift"
+        ],
+        "allowed_files": [
+          "Rendering/SceneImageLayerCompositor.swift"
+        ]
+      },
+      {
+        "id": "resolved-program-legacy-yield-dispatch",
+        "role": "retirement",
+        "description": "Resolved capability admission must stop consulting a legacy backend yield decision before R4 completes.",
+        "pattern": "!program\\.executionPlan\\.yieldsToResolvedMaterialProgram",
+        "baseline_occurrences": 1,
+        "completion_phase": "r4",
+        "completion_target_occurrences": 0,
+        "scope_files": [
+          "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
+        ],
+        "allowed_files": [
+          "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
+        ]
+      },
+      {
+        "id": "legacy-light-shafts-main-pass-fallback",
+        "role": "retirement",
+        "description": "A quad without a resolved claim must not recover a Light Shafts plan and write the main pass after R4 completes.",
+        "pattern": "authoredEffectChain\\(for:\\s*layer\\.id\\)\\?\\.singleStage\\?\\.lightShafts",
+        "baseline_occurrences": 1,
+        "completion_phase": "r4",
+        "completion_target_occurrences": 0,
+        "scope_files": [
+          "Rendering/SceneLightShaftsLayerRenderer.swift"
+        ],
+        "allowed_files": [
+          "Rendering/SceneLightShaftsLayerRenderer.swift"
+        ]
+      },
+      {
+        "id": "legacy-script-source-profile-selector",
+        "role": "retirement",
+        "description": "Source and asset digests that choose fixed script behavior must be replaced by bounded typed interpreters before R4 completes.",
+        "pattern": "(?:switch\\s+(?:sourceSHA256|sha256)|profile\\([^\\n]*sourceSHA256|(?:rawSHA256|materialRawSHA256|canonicalSHA256|sourceSHA256)\\s*==\\s*[A-Za-z][A-Za-z0-9_]*SHA256)",
+        "baseline_occurrences": 13,
+        "completion_phase": "r4",
+        "completion_target_occurrences": 0,
+        "scope_files": [
+          "Runtime/SceneMediaThumbnailTransitionCompiler.swift",
+          "Runtime/SceneScriptAudioBarsCompiler.swift",
+          "Runtime/SceneTextureAnimationScriptCompiler.swift",
+          "Text/SceneTextScriptCompiler.swift"
+        ],
+        "allowed_files": [
+          "Runtime/SceneMediaThumbnailTransitionCompiler.swift",
+          "Runtime/SceneScriptAudioBarsCompiler.swift",
+          "Runtime/SceneTextureAnimationScriptCompiler.swift",
+          "Text/SceneTextScriptCompiler.swift"
+        ]
+      },
+      {
+        "id": "numeric-workshop-runtime-dispatch",
+        "role": "retirement",
+        "description": "SceneScript Audio Bars must stop choosing a fixed runtime profile from numeric Workshop asset paths before R4 completes.",
+        "pattern": "workshop/[0-9]+",
+        "baseline_occurrences": 10,
+        "completion_phase": "r4",
+        "completion_target_occurrences": 0,
+        "scope_files": [
+          "Runtime/SceneScriptAudioBarsCompiler.swift"
+        ],
+        "allowed_files": [
+          "Runtime/SceneScriptAudioBarsCompiler.swift"
+        ]
+      },
+      {
+        "id": "legacy-authored-chain-surface",
+        "role": "retirement",
+        "description": "R5 removes the legacy whole-chain compositor helper after its R4 product call is gone.",
+        "pattern": "renderLegacyAuthoredChain\\(",
+        "baseline_occurrences": 2,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "scope_files": [
+          "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift",
+          "Rendering/SceneImageLayerCompositor.swift"
+        ],
+        "allowed_files": [
+          "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift",
+          "Rendering/SceneImageLayerCompositor.swift"
+        ]
+      },
+      {
+        "id": "legacy-authored-chain-render-call",
+        "role": "retirement",
+        "description": "R5 removes the old whole-chain renderer call surface after GraphExecutor is the only product scheduler.",
+        "pattern": "SceneAuthoredEffectChainRenderer\\.render\\(",
+        "baseline_occurrences": 1,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "scope_files": [
+          "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
+        ],
+        "allowed_files": [
+          "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
+        ]
+      },
+      {
+        "id": "legacy-shader-fallback-graph",
+        "role": "retirement",
+        "description": "R5 removes the legacy shader fallback graph definition and call after full graph preparation owns the path.",
+        "pattern": "fallbackGraph\\(",
+        "baseline_occurrences": 2,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "scope_files": [
+          "RenderGraph/SceneAuthoredShaderPreparation+Support.swift",
+          "RenderGraph/SceneAuthoredShaderPreparation.swift"
+        ],
+        "allowed_files": [
+          "RenderGraph/SceneAuthoredShaderPreparation+Support.swift",
+          "RenderGraph/SceneAuthoredShaderPreparation.swift"
+        ]
+      },
+      {
+        "id": "legacy-shader-contract-provenance",
+        "role": "retirement",
+        "description": "R5 removes legacyContract provenance after the fallback graph is unreachable.",
+        "pattern": "\\.legacyContract",
+        "baseline_occurrences": 2,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "scope_files": [
+          "RenderGraph/SceneAuthoredShaderPreparation+Support.swift"
+        ],
+        "allowed_files": [
+          "RenderGraph/SceneAuthoredShaderPreparation+Support.swift"
+        ]
+      },
+      {
+        "id": "legacy-authored-effect-telemetry",
+        "role": "retirement",
+        "description": "R5 removes the old authored-effect telemetry owner after all legacy product routes are gone.",
+        "pattern": "authoredEffectTelemetry",
+        "baseline_occurrences": 7,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "allowed_files": [
+          "Rendering/SceneLightShaftsLayerRenderer.swift",
+          "Rendering/SceneMetalRenderer+EffectExecution.swift",
+          "Rendering/SceneMetalRenderer.swift",
+          "Rendering/SceneUtilityPlanFrameRenderer.swift"
+        ]
+      },
+      {
+        "id": "standalone-authored-render-call",
+        "role": "retirement",
+        "description": "R5 removes the unreachable standalone authored renderer call surface.",
+        "pattern": "SceneStandaloneAuthoredEffectRenderer\\.render\\(",
+        "baseline_occurrences": 1,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "scope_files": [
+          "Rendering/SceneImageLayerCompositor.swift"
+        ],
+        "allowed_files": [
+          "Rendering/SceneImageLayerCompositor.swift"
+        ]
+      },
+      {
+        "id": "legacy-authored-stage-frame-plan",
+        "role": "retirement",
+        "description": "R5 removes the unreachable single-stage legacy frame-plan surface.",
+        "pattern": "legacyAuthoredStageFramePlan\\(",
+        "baseline_occurrences": 1,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "scope_files": [
+          "RenderGraph/SceneOffscreenTexturePool+LegacyChain.swift"
+        ],
+        "allowed_files": [
+          "RenderGraph/SceneOffscreenTexturePool+LegacyChain.swift"
+        ]
+      },
+      {
+        "id": "legacy-authored-frame-batch-surface",
+        "role": "retirement",
+        "description": "R5 removes the old authored-chain frame-batch allocation and registration surface.",
+        "pattern": "(?:prepareAndRegisterLegacyAuthoredBatch|prepareLegacyAuthoredFrameBatch|legacyAuthoredChainFramePlan)\\(",
+        "baseline_occurrences": 9,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "allowed_files": [
+          "RenderGraph/SceneOffscreenTexturePool+LegacyBatchResult.swift",
+          "RenderGraph/SceneOffscreenTexturePool+LegacyChain.swift",
+          "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift",
+          "Rendering/SceneMetalRenderer.swift"
         ]
       }
     ]

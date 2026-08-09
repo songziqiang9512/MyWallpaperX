@@ -178,6 +178,48 @@ def render_chain_authority_violations(
     return violations
 
 
+def render_chain_completion_violations(
+    source_root: Path,
+    layout: dict[str, object],
+) -> list[str]:
+    contract = layout["render_chain_authority_ratchet"]
+    assert isinstance(contract, dict)
+    rules = contract["rules"]
+    states = contract["completion_state"]
+    assert isinstance(rules, list)
+    assert isinstance(states, dict)
+
+    violations = render_chain_authority_violations(source_root, rules)
+    r4_state = str(states.get("r4"))
+    r5_state = str(states.get("r5"))
+    if r5_state in {"partial", "complete"} and r4_state != "complete":
+        violations.append("r5: cannot start before r4 is complete")
+
+    completed_phases: set[str] = set()
+    if r4_state == "complete":
+        completed_phases.add("r4")
+    if r5_state == "complete":
+        completed_phases.update({"r4", "r5"})
+    for rule in rules:
+        if rule.get("role") != "retirement":
+            continue
+        phase = str(rule["completion_phase"])
+        if phase not in completed_phases:
+            continue
+        baseline = int(rule["baseline_occurrences"])
+        target = int(rule["completion_target_occurrences"])
+        if baseline != target:
+            violations.append(
+                f"{rule['id']}: {phase} completion requires {target} "
+                f"occurrences, found {baseline}"
+            )
+        if target == 0 and rule["allowed_files"]:
+            violations.append(
+                f"{rule['id']}: completed zero target must have no allowed files"
+            )
+    return violations
+
+
 def committed_scene_layout() -> dict[str, object] | None:
     result = subprocess.run(
         ["git", "show", "HEAD:script/scene_source_layout.json"],
@@ -197,7 +239,7 @@ def committed_scene_layout() -> dict[str, object] | None:
 class SceneSemanticsCoverageTests(unittest.TestCase):
     def test_scene_sources_follow_the_documented_directory_layout(self) -> None:
         layout = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))
-        self.assertEqual(layout["schema_version"], 2)
+        self.assertEqual(layout["schema_version"], 3)
         self.assertEqual(
             REPOSITORY_ROOT / layout["source_root"],
             SCENE_SOURCE_ROOT,
@@ -289,18 +331,45 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
     def test_render_chain_authority_matches_the_ratcheted_inventory(self) -> None:
         layout = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))
-        rules = layout["render_chain_authority_ratchet"]["rules"]
+        contract = layout["render_chain_authority_ratchet"]
+        states = contract["completion_state"]
+        self.assertEqual(set(states), {"r4", "r5"})
+        self.assertIn(states["r4"], {"partial", "complete"})
+        self.assertIn(states["r5"], {"not_started", "partial", "complete"})
+        rules = contract["rules"]
         ids = [rule["id"] for rule in rules]
         self.assertEqual(len(ids), len(set(ids)))
         for rule in rules:
+            self.assertIn(rule["role"], {"required", "inventory", "retirement"})
             self.assertEqual(rule["allowed_files"], sorted(rule["allowed_files"]))
             if "scope_files" in rule:
                 self.assertEqual(rule["scope_files"], sorted(rule["scope_files"]))
+            if rule["role"] == "required":
+                self.assertNotIn("completion_phase", rule)
+                self.assertEqual(
+                    rule["completion_target_occurrences"],
+                    rule["baseline_occurrences"],
+                )
+            elif rule["role"] == "inventory":
+                self.assertNotIn("completion_phase", rule)
+                self.assertNotIn("completion_target_occurrences", rule)
+            else:
+                self.assertIn(rule["completion_phase"], {"r4", "r5"})
+                self.assertEqual(rule["completion_target_occurrences"], 0)
         violations = render_chain_authority_violations(SCENE_SOURCE_ROOT, rules)
         self.assertEqual(
             violations,
             [],
             "Render-chain authority ratchet violations:\n" + "\n".join(violations),
+        )
+
+    def test_render_chain_declared_completion_state_meets_targets(self) -> None:
+        layout = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))
+        violations = render_chain_completion_violations(SCENE_SOURCE_ROOT, layout)
+        self.assertEqual(
+            violations,
+            [],
+            "Render-chain completion violations:\n" + "\n".join(violations),
         )
 
     def test_render_chain_ratchet_cannot_rise_above_committed_baseline(self) -> None:
@@ -318,6 +387,20 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             ]["rules"]
         }
         violations: list[str] = []
+        old_contract = committed["render_chain_authority_ratchet"]
+        new_contract = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))[
+            "render_chain_authority_ratchet"
+        ]
+        old_states = old_contract.get("completion_state")
+        if old_states is not None:
+            new_states = new_contract["completion_state"]
+            state_orders = {
+                "r4": {"partial": 0, "complete": 1},
+                "r5": {"not_started": 0, "partial": 1, "complete": 2},
+            }
+            for phase, order in state_orders.items():
+                if order[new_states[phase]] < order[old_states[phase]]:
+                    violations.append(f"{phase}: completion state regressed")
         for rule_id, old_rule in previous.items():
             new_rule = current.get(rule_id)
             if new_rule is None:
@@ -331,6 +414,20 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 old_rule.get("scope_files", [])
             ):
                 violations.append(f"{rule_id}: scope file set increased")
+            old_role = old_rule.get("role")
+            if old_role == "required" and new_rule.get("role") != "required":
+                violations.append(f"{rule_id}: required rule was weakened")
+            if old_role == "retirement" and new_rule.get("role") != "retirement":
+                violations.append(f"{rule_id}: retirement rule was weakened")
+            if old_rule.get("completion_phase") is not None:
+                if new_rule.get("completion_phase") != old_rule["completion_phase"]:
+                    violations.append(f"{rule_id}: completion phase changed")
+                if new_rule.get("completion_target_occurrences") is None:
+                    violations.append(f"{rule_id}: completion target was removed")
+                elif int(new_rule["completion_target_occurrences"]) > int(
+                    old_rule["completion_target_occurrences"]
+                ):
+                    violations.append(f"{rule_id}: completion target increased")
         self.assertEqual(violations, [])
 
     def test_render_chain_ratchet_rejects_new_owner_recovery_and_selector(self) -> None:
@@ -383,6 +480,55 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             self.assertTrue(any(value.startswith("owner:") for value in violations))
             self.assertTrue(any(value.startswith("recovery:") for value in violations))
             self.assertTrue(any(value.startswith("selector:") for value in violations))
+
+    def test_render_chain_completion_distinguishes_inventory_from_retirement(self) -> None:
+        rules = [
+            {
+                "id": "inventory",
+                "role": "inventory",
+                "pattern": r"INVENTORY\(",
+                "baseline_occurrences": 1,
+                "allowed_files": ["Inventory.swift"],
+            },
+            {
+                "id": "retirement",
+                "role": "retirement",
+                "pattern": r"OWNER\(",
+                "baseline_occurrences": 1,
+                "completion_phase": "r4",
+                "completion_target_occurrences": 0,
+                "allowed_files": ["Owner.swift"],
+            },
+        ]
+        layout = {
+            "render_chain_authority_ratchet": {
+                "completion_state": {"r4": "partial", "r5": "not_started"},
+                "rules": rules,
+            }
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Inventory.swift").write_text("INVENTORY()\n", encoding="utf-8")
+            (root / "Owner.swift").write_text("OWNER()\n", encoding="utf-8")
+            self.assertEqual(render_chain_completion_violations(root, layout), [])
+
+            layout["render_chain_authority_ratchet"]["completion_state"]["r4"] = (
+                "complete"
+            )
+            violations = render_chain_completion_violations(root, layout)
+            self.assertTrue(any(value.startswith("retirement:") for value in violations))
+
+            (root / "Owner.swift").write_text("// retired\n", encoding="utf-8")
+            rules[1]["baseline_occurrences"] = 0
+            rules[1]["allowed_files"] = []
+            self.assertEqual(render_chain_completion_violations(root, layout), [])
+
+            layout["render_chain_authority_ratchet"]["completion_state"] = {
+                "r4": "partial",
+                "r5": "complete",
+            }
+            violations = render_chain_completion_violations(root, layout)
+            self.assertIn("r5: cannot start before r4 is complete", violations)
 
     def test_relative_markdown_links_in_semantics_directory_exist(self) -> None:
         missing: list[str] = []
