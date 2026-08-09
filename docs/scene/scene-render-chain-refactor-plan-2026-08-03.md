@@ -13,7 +13,7 @@
 - **能力与运行事实**：继续从 [`semantics/README.md`](semantics/README.md) 进入专项表，并以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md) 和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 的 R4 partial checkpoint 为准；本文只记录重构路线、剩余迁移和复验门。
 - **Git 断点**：分支 `codex/scene-capability-baseline`；恢复时先核对`git status`、最近提交和本页最末checkpoint。现役提交链已越过统一材质pass方向回归、Tint/Film Grain、authored Program九段链与Light Shafts当前正例；不得从旧`2b2b03df`或历史计划重开已完成波次。
 - **架构判断**：新代码已朝“样本声明需求 -> typed capability -> 公共调度/资源 -> 公共执行/合成”收敛，capability 现在直接来自 raw authored graph admission，审计的新链没有按 sample/workshop/path/hash 选择可见算法；effect classification 只在资源加载后投影为 telemetry family，new capability 不再以它作为 admission authority。旧 extent、多个产品 owner 和 legacy route 仍可达，所以产品整体尚未形成唯一能力池，也不能表述为已与官方架构对齐。
-- **阶段边界**：当前停在 R4，不进入 R5。逐帧 CPU 热点、owner matrix/lifecycle、独立 authored-shader 产品 owner 撤权、统一材质 pass 方向回归、Program-compatible Tint/Film Grain、九段authored Program、Light Shafts当前正例和stock standalone Blend owner migration已闭合；后续从本页最末checkpoint与第9节继续按capability family撤销仍可达的dedicated/legacy/utility/audio产品owner。可疑语义依次查现役文档、Ghidra官方客户端、参考实现并按需要交叉验证。
+- **阶段边界**：当前停在 R4，不进入 R5。逐帧 CPU 热点、owner matrix/lifecycle、独立 authored-shader 产品 owner 撤权、统一材质 pass 方向回归、Program-compatible Tint/Film Grain、九段authored Program、Light Shafts当前正例、stock standalone Blend与Simple Audio Bars当前64-band正例的owner migration已闭合；后续从本页最末checkpoint与第9节继续按capability family撤销仍可达的dedicated/legacy/utility/audio产品owner。可疑语义依次查现役文档、Ghidra官方客户端、参考实现并按需要交叉验证。
 
 ## 1. 重构目标
 
@@ -555,6 +555,12 @@ sample declaration
 - focused frontend **28/28**、capability **5/5**、Program finalizer **8/8**、pass/executor **1/1、1/1**、color **12/12**、Blend planner/loader **1/1、5/5**、最终checkpoint **26 modules ALL OK**，code health **861 Swift / 44 locked legacy / 400行**，签名`script/build_and_run.sh verify`为`BUILD SUCCEEDED`。定向v3对`2067939514`为**1/1 PASS**：layer`342` accepted，executor claimed/encoded/GPU `100/100/100`、failure 0，两次terminal success和两次成功transaction均被compositor/next-frame消费，graph diagnostic/GPU failure/failed frame为0，ready/after非黑且只见局部星点变化，没有全图翻转、黑帧或主体方向回退。
 - v2按现役正式单样本matrix运行，因本次owner/count迁移与该样本既有particle ratchet而非PASS，保留为失败现场；v3只用临时定向matrix移除无关particle ratchet，正式fixed/full matrix未改，本批未跑fixed13/full45。报告与App身份见[E-EFFECT-BLEND-TRANSFORM](semantics/runtime-evidence-index.md#e-effect-blend-transform)。Transform候选因dynamic effect visibility、SceneScript audio scale及前置Blend/Precise Blur依赖暂不迁移；直接只换owner会重现“结构通过但画面不变”。其他Blend形态、Transform family、R4-2/R4仍未完成，R5未准入。
 
+#### 2026-08-09 R4-2 Simple Audio Bars Program owner migration
+
+- 提交`f009cdb9`把公共`material:"previous"`收窄为仅限当前effect input的typed graph-input alias，并增加单sample、normal blend、weight/alpha一致的straight-output静态证明；只有完整Program成功时`.workshopAudioBars`才让出owner。resolved Program variant的实际audio host uniform继续驱动采集需求，避免owner迁移后关闭输入。debug benchmark fixture也改为同帧发布16/32/64左右数组，旧16档重载导致64档全零的结构性假通过已由v4黑面板现场确认。
+- `3122339805:64#effect#66`的`RESOLUTION=64 / SHAPE=bottom / TRANSPARENCY=replace / BLENDMODE=normal`现为`admitted-generic / resolved-material / program / strict-generic`。`.codex/scene-audio-program-r4-2-3122339805-20260809-v6/report.json`为**1/1 PASS**：claimed/encoded/GPU`12/12/12`、failure 0，首帧与next-frame transaction均由compositor消费且GPU completed，failed frame/drawable miss为0；错相局部截图肉眼确认66根紫色bottom条从低幅短柱增长为高幅长柱。v1-v5保留texture/color、旧matrix ratchet、64档零输入及同相位不足现场。
+- 受影响自动门**105/105**、semantics **5/5**、code health **862 Swift / 44 locked legacy / 400行**与签名build verify通过；正式matrix未改，未跑fixed13/full45。composition`2938612768:563`、relocated 16-band profile与其他shape/transparency/blend/AA/topology仍保留bounded fallback或fail closed；这只闭合当前Audio Bars Program子集，R4-2/R4仍未完成，R5未准入。
+
 每个波次均以“公共 capability 接管、被替代 owner 同提交撤权、旧 exact/route 双写为零、跨样本或跨 revision 正反例通过”闭合。只增加新 executor 而保留旧默认 fallback 不算迁移。
 
 1. **R4-0 权限冻结门（已完成）**：canonical executor 调用点、legacy authority、main-pass writer、dedicated probe/compiler/backend、recovery、硬编码 expected SHA 与 Workshop selector 已进入现有 layout/semantics 机器门；后续提交只能降低对应 occurrence/file/scope。未迁移的权限仍是 R4 工作，不得把冻结表述为撤权。
@@ -587,4 +593,5 @@ sample declaration
 18. **R4-3 authored Program 九段链 checkpoint 已闭合，R4-3 未完成**：`3766387484:17` 的九段单pass authored chain已由统一Program/executor实际执行；HLSL分量缩窄、stage-qualified uniform ABI、effect matrix/pointer/parallax与Camera Parallax开关取得正反、GPU、compositor、next-frame和双眼方向证据。
 19. **R4-3 Light Shafts当前正例迁移已闭合，family/R4-3未完成**：`3766387484:80`已从dedicated direct-draw转入authored Program；`mat3 inverse`、simple `inout`、有界`#elif`与inactive authored combo code-zero均有正反门，最终源码v42为PASS并保留视觉证据。其他revision/combo/topology、logical target/multi-pass/history/compose与剩余旧owner继续关闭；未跑fixed13/full45，不能进入R5。
 20. **R4-2 stock standalone Blend Program owner migration已闭合，Blend family/R4-2未完成**：`2067939514:342`的完整Program现由统一executor唯一持有，GPU/compositor/next-frame与非黑定向证据闭合；其他Blend shape继续fallback/fail closed。Transform因dynamic visibility、SceneScript audio scale与前置chain依赖暂停，不以identity copy冒充动态效果。
-21. **R5 准入门**：最后一个旧产品 owner 已撤权；新旧 exact/route telemetry 不双写；产品源码没有 sample/layer/path/hash 驱动的可见算法选择；跨版本跨样本正反门和 full45 里程碑通过。R5 此后只删除不可达脚手架、合并薄文件、同步权威文档和做最终证据收口；发现行为迁移缺口必须退回 R4。
+21. **R4-2 Simple Audio Bars当前64-band Program正例迁移已闭合，family/R4-2未完成**：`3122339805:64`已由统一Program/executor唯一持有并取得64档非零输入下的可见柱高变化；composition/relocated与其他combo/topology继续由bounded fallback持有。正式matrix未改、未跑fixed13/full45，不能由该正例外推整个Audio Bars family或进入R5。
+22. **R5 准入门**：最后一个旧产品 owner 已撤权；新旧 exact/route telemetry 不双写；产品源码没有 sample/layer/path/hash 驱动的可见算法选择；跨版本跨样本正反门和 full45 里程碑通过。R5 此后只删除不可达脚手架、合并薄文件、同步权威文档和做最终证据收口；发现行为迁移缺口必须退回 R4。
