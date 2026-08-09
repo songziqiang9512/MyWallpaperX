@@ -282,6 +282,20 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 ))
                 break
             }
+            if let moduloTarget = SceneAuthoredShaderVectorConversion
+                .floatingModuloTarget(
+                    at: index,
+                    in: tokens,
+                    unit: context.unit
+                ), let left = output.popLast() {
+                let right = translatedToken(tokens[index + 1], context: context)
+                let modulo = "fmod(float(\(left)), float(\(right)))"
+                output.append(moduloTarget == .float
+                    ? modulo
+                    : "\(moduloTarget.metalName)(\(modulo))")
+                index += 2
+                continue
+            }
             let isUserCall = insertsContextIntoCalls
                 && context.functionNames.contains(token.text)
                 && index + 1 < tokens.count

@@ -2587,6 +2587,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         ):
             self.assertNotIn(backend_name, leaf_body)
             self.assertIn(backend_name, yield_body)
+        self.assertIn(".fisheyeZeroDistortion", leaf_body)
         self.assertIn("case filmGrain(SceneFilmGrainExecutionPlan)", source)
 
     def test_runtime_variant_resolution_starts_from_launch_envelope_seed(

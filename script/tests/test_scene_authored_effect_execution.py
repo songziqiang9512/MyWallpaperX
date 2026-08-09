@@ -2037,6 +2037,9 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertIn("case .depthParallax(let plan):", topology)
         self.assertIn("inputs.masks.depthParallaxEffects[", topology)
         self.assertIn('"depth-parallax-resource-missing"', topology)
+        self.assertIn(".fisheyeZeroDistortion", leaf_body)
+        self.assertIn("case .fisheyeZeroDistortion:", topology)
+        self.assertIn('"fisheye-pipeline-missing"', topology)
 
         water_flow = CHAIN_WATER_FLOW_SOURCE.read_text(encoding="utf-8")
         depth = CHAIN_DEPTH_PARALLAX_SOURCE.read_text(encoding="utf-8")

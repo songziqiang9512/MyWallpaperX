@@ -38,7 +38,7 @@ extension SceneAuthoredEffectExecutionPlan {
             switch self {
             case .workshopShiftHue, .workshopGradient,
                  .workshopAudioHueShift, .workshopShadow, .spin,
-                 .proceduralNoise, .shake:
+                 .proceduralNoise, .shake, .fisheyeZeroDistortion:
                 return true
             default:
                 return false

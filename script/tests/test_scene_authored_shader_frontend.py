@@ -236,6 +236,125 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertIn("return mwxPremultiply(mwxFragColor);", output["metalSource"])
         self.assertIsNone(output.get("metalError"))
 
+    def test_additive_intersect_output_has_bounded_straight_alpha_boundary(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            uniform vec3 g_Color;
+            uniform float g_Coverage;
+            uniform float g_Opacity;
+            varying vec2 v_TexCoord;
+            vec3 BlendNormal(vec3 base, vec3 blend) { return blend; }
+            vec3 ApplyBlending(
+                const int mode,
+                in vec3 base,
+                in vec3 blend,
+                in float weight
+            ) {
+                return base + blend * weight;
+                return mix(base, BlendNormal(base, blend), weight);
+            }
+            void main() {
+                vec3 finalColor = g_Color;
+                vec4 scene = texSample2D(g_Texture0, v_TexCoord);
+                finalColor = ApplyBlending(
+                    31,
+                    mix(finalColor.rgb, scene.rgb, scene.a),
+                    finalColor.rgb,
+                    g_Coverage * g_Opacity
+                );
+                float alpha = scene.a * g_Coverage * g_Opacity;
+                gl_FragColor = vec4(finalColor, alpha);
+            }
+            """,
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", output["metalSource"])
+        self.assertIn("returnmwxPremultiply(mwxFragColor);", compact_source)
+        self.assertIn("returnfloat4(color.rgb*alpha,alpha);", compact_source)
+        self.assertIsNone(output.get("metalError"))
+
+    def test_additive_output_rejects_unproven_alpha_relationships(self):
+        fixtures = [
+            "float alpha = g_Coverage * g_Opacity;",
+            "float alpha = scene.a * g_Coverage;",
+            "float alpha = scene.a * g_Opacity * g_Coverage;",
+        ]
+        for alpha_statement in fixtures:
+            with self.subTest(alpha_statement=alpha_statement):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    f"""
+                    uniform sampler2D g_Texture0;
+                    uniform vec3 g_Color;
+                    uniform float g_Coverage;
+                    uniform float g_Opacity;
+                    varying vec2 v_TexCoord;
+                    vec3 BlendNormal(vec3 base, vec3 blend) {{ return blend; }}
+                    vec3 ApplyBlending(
+                        const int mode,
+                        in vec3 base,
+                        in vec3 blend,
+                        in float weight
+                    ) {{
+                        return base + blend * weight;
+                        return mix(base, BlendNormal(base, blend), weight);
+                    }}
+                    void main() {{
+                        vec3 finalColor = g_Color;
+                        vec4 scene = texSample2D(g_Texture0, v_TexCoord);
+                        finalColor = ApplyBlending(
+                            31,
+                            mix(finalColor.rgb, scene.rgb, scene.a),
+                            finalColor.rgb,
+                            g_Coverage * g_Opacity
+                        );
+                        {alpha_statement}
+                        gl_FragColor = vec4(finalColor, alpha);
+                    }}
+                    """,
+                    metal=False,
+                )
+                self.assertEqual(output["diagnosticCodes"], [])
+                self.assertNotIn("mwxPremultiply", output["metalSource"])
+
+    def test_additive_output_rejects_non_root_additive_helper(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            uniform vec3 g_Color;
+            uniform float g_Coverage;
+            varying vec2 v_TexCoord;
+            vec3 ApplyBlending(
+                const int mode,
+                in vec3 base,
+                in vec3 blend,
+                in float weight
+            ) {
+                if (mode == 31) { return base + blend * weight; }
+                return base;
+            }
+            void main() {
+                vec3 finalColor = g_Color;
+                vec4 scene = texSample2D(g_Texture0, v_TexCoord);
+                finalColor = ApplyBlending(
+                    31,
+                    mix(finalColor.rgb, scene.rgb, scene.a),
+                    finalColor.rgb,
+                    g_Coverage
+                );
+                float alpha = scene.a * g_Coverage;
+                gl_FragColor = vec4(finalColor, alpha);
+            }
+            """,
+            metal=False,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertNotIn("mwxPremultiply", output["metalSource"])
+
     def test_float_vector_narrowing_matches_cross_backend_authored_forms(self):
         function_argument = self.compile(
             VEC4_COORDINATE_VERTEX_SOURCE,
@@ -381,6 +500,52 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertIn("((expanded).xyz/", compact_staged_source)
         self.assertIn("mwxUniforms.g_Coordinates*0.5).xy;", compact_staged_source)
         self.assertIsNone(staged_result.get("metalError"))
+
+    def test_float_modulo_assignment_uses_bounded_hlsl_scalar_conversion(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec2 v_TexCoord;
+            void main() {
+                float frequency = floor(v_TexCoord.x * 16.0);
+                uint first = frequency % 16;
+                uint second = (first + 1) % 16;
+                gl_FragColor = vec4(float(first), float(second), 0.0, 1.0);
+            }
+            """,
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIn("uint(fmod(float(frequency),float(16)))", compact_source)
+        self.assertIn("(first+1)%16", compact_source)
+        self.assertIsNone(output.get("metalError"))
+
+    def test_float_modulo_does_not_guess_compound_or_vector_forms(self):
+        fixtures = [
+            (
+                "float value = (v_TexCoord.x + 1.0) % 16;",
+                "vec4(value, 0.0, 0.0, 1.0)",
+            ),
+            (
+                "vec2 value = v_TexCoord % 1.0;",
+                "vec4(value, 0.0, 1.0)",
+            ),
+        ]
+        for statement, output_value in fixtures:
+            with self.subTest(statement=statement):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    f"""
+                    varying vec2 v_TexCoord;
+                    void main() {{
+                        {statement}
+                        gl_FragColor = {output_value};
+                    }}
+                    """,
+                )
+                self.assertEqual(output["diagnosticCodes"], [])
+                self.assertIsNotNone(output.get("metalError"))
+                self.assertIn("binary expression", output["metalError"])
 
     def test_float_vector_narrowing_does_not_guess_unsupported_conversions(self):
         fixtures = [

@@ -187,7 +187,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
 
         float4 mwxPremultiply(float4 color) {
             const float alpha = saturate(color.a);
-            return float4(saturate(color.rgb) * alpha, alpha);
+            return float4(color.rgb * alpha, alpha);
         }
         """
     }

@@ -8,6 +8,11 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
 
+    private enum BlendHelper {
+        case normal
+        case additive
+    }
+
     static func analyze(
         outputUses: [Int],
         fragment: Unit,
@@ -49,22 +54,38 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
               member(baseArguments[2], name: sample, component: "a") else {
             return nil
         }
-        guard let alphaExpression = SceneAuthoredShaderColorTransferAnalyzer
+        guard let helper = blendHelper(fragment),
+              let alphaExpression = SceneAuthoredShaderColorTransferAnalyzer
                 .assignmentExpression(
                     after: alphaDefinition, in: tokens, body: main.bodyRange
-                ), texts(alphaExpression) == texts(blendArguments[3]),
-              !alphaExpression.contains(where: { $0.text == sample }),
+                ),
               let slot = uniqueSampleSlot(
                 sample, before: output, tokens: tokens, body: main.bodyRange
-              ), normalBlendHelper(fragment) else {
+              ) else {
             return nil
+        }
+        let alphaSampleUse: Int?
+        switch helper {
+        case .normal:
+            guard texts(alphaExpression) == texts(blendArguments[3]),
+                  !alphaExpression.contains(where: { $0.text == sample }) else {
+                return nil
+            }
+            alphaSampleUse = nil
+        case .additive:
+            guard let use = intersectAlphaSampleUse(
+                alphaExpression,
+                sample: sample,
+                weight: blendArguments[3]
+            ) else { return nil }
+            alphaSampleUse = use
         }
         guard exactUses(
                 sample,
                 expected: [
                     baseArguments[1].startIndex,
                     baseArguments[2].startIndex,
-                ],
+                ] + [alphaSampleUse].compactMap { $0 },
                 afterDefinitionBefore: output,
                 tokens: tokens,
                 body: main.bodyRange
@@ -83,9 +104,9 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
         return slot
     }
 
-    private static func normalBlendHelper(_ fragment: Unit) -> Bool {
+    private static func blendHelper(_ fragment: Unit) -> BlendHelper? {
         let matches = fragment.functions.filter { $0.name == "ApplyBlending" }
-        guard matches.count == 1, let function = matches.first else { return false }
+        guard matches.count == 1, let function = matches.first else { return nil }
         let tokens = fragment.tokens
         let parameters = split(tokens[function.parameterRange])
         let names = parameters.compactMap {
@@ -96,20 +117,38 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
               tokens[function.bodyRange.lowerBound].text == "{",
               tokens[function.bodyRange.lowerBound + 1].text == "return",
               tokens[function.bodyRange.upperBound - 1].text == "}" else {
-            return false
+            return nil
         }
         let start = function.bodyRange.lowerBound + 2
         guard let semicolon = (start..<function.bodyRange.upperBound).first(
             where: { tokens[$0].text == ";" }
-        ), semicolon == function.bodyRange.upperBound - 2,
-              let arguments = callArguments(
+        ) else { return nil }
+        let firstExpression = tokens[start..<semicolon]
+        if semicolon == function.bodyRange.upperBound - 2,
+           let arguments = callArguments(
                 tokens[start..<semicolon], function: ["mix", "lerp"], count: 3
-              ), identifier(arguments[0]) == names[1],
-              identifier(strippingParentheses(arguments[1])) == names[2],
-              identifier(arguments[2]) == names[3] else {
-            return false
+           ), identifier(arguments[0]) == names[1],
+           identifier(strippingParentheses(arguments[1])) == names[2],
+           identifier(arguments[2]) == names[3] {
+            return .normal
         }
-        return true
+        guard texts(firstExpression) == [
+            names[1], "+", names[2], "*", names[3],
+        ] else { return nil }
+        return .additive
+    }
+
+    private static func intersectAlphaSampleUse(
+        _ expression: ArraySlice<Token>,
+        sample: String,
+        weight: ArraySlice<Token>
+    ) -> Int? {
+        guard expression.count == weight.count + 4,
+              texts(expression.prefix(4)) == [sample, ".", "a", "*"],
+              texts(expression.dropFirst(4)) == texts(weight) else {
+            return nil
+        }
+        return expression.startIndex
     }
 
     private static func uniqueSampleSlot(

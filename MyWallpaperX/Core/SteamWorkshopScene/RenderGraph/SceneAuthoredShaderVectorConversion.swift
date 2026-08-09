@@ -121,6 +121,61 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         return narrowingSuffix(from: .float4, to: target)
     }
 
+    static func floatingModuloTarget(
+        at index: Int,
+        in tokens: [SceneAuthoredShaderToken],
+        unit: SceneAuthoredShaderSyntaxUnit
+    ) -> SceneAuthoredShaderValueType? {
+        guard tokens.indices.contains(index),
+              tokens[index].text == "%",
+              index >= 4,
+              index + 2 < tokens.count,
+              tokens[index - 2].text == "=",
+              tokens[index - 3].kind == .identifier,
+              tokens[index - 1].kind == .identifier,
+              tokens[index + 2].text == ";",
+              let target = SceneAuthoredShaderValueType(
+                  authoredName: tokens[index - 4].text
+              ), [.float, .int, .uint].contains(target),
+              let left = declaredType(
+                  of: tokens[index - 1].text,
+                  before: index,
+                  tokens: tokens,
+                  unit: unit
+              ), [.float, .int, .uint].contains(left),
+              let right = scalarType(
+                  at: index + 1,
+                  before: index,
+                  tokens: tokens,
+                  unit: unit
+              ), [.float, .int, .uint].contains(right),
+              left == .float || right == .float else {
+            return nil
+        }
+        return target
+    }
+
+    private static func scalarType(
+        at index: Int,
+        before limit: Int,
+        tokens: [SceneAuthoredShaderToken],
+        unit: SceneAuthoredShaderSyntaxUnit
+    ) -> SceneAuthoredShaderValueType? {
+        let token = tokens[index]
+        if token.kind == .identifier {
+            return declaredType(
+                of: token.text,
+                before: limit,
+                tokens: tokens,
+                unit: unit
+            )
+        }
+        guard token.kind == .number else { return nil }
+        return token.text.contains(".")
+            || token.text.contains("e")
+            || token.text.contains("E") ? .float : .int
+    }
+
     private static func multiplicativeOperands(
         _ expression: ArraySlice<SceneAuthoredShaderToken>,
         before limit: Int,

@@ -152,6 +152,9 @@ extension SceneAuthoredEffectChainRenderer {
                 return "shake-resource-missing"
             }
             return pipelines.shake == nil ? "shake-pipeline-missing" : nil
+        case .fisheyeZeroDistortion:
+            return pipelines.fisheyeZeroDistortion == nil
+                ? "fisheye-pipeline-missing" : nil
         default:
             return "backend-unhandled"
         }
