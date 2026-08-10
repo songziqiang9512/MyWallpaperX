@@ -129,6 +129,7 @@ enum SceneResolvedMaterialGraphComposition {
                       extentPolicy: request.fullFrameExtentPolicy,
                       requestedWidth: request.requestedWidth,
                       requestedHeight: request.requestedHeight,
+                      sharesFullFramePairWhenHistoryFree: true,
                       orderingContext: orderingContext
                   ), allocation.chainPlan.key.layerID == request.claim.layerID,
                   byLayerID.updateValue(.init(

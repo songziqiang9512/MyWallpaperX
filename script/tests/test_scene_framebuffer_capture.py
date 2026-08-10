@@ -33,6 +33,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+LegacyBatch.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+Batch.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureFramePreflight.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool+PersistentGraphTargets.swift",
     SOURCE_ROOT / "RenderGraph/ScenePersistentGraphTargetAllocator.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphNodeScheduler.swift",
@@ -946,13 +947,17 @@ struct SceneWaterWavesExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
 
-struct SceneWaterWavesEffectTextures {}
+struct SceneWaterWavesEffectTextures {
+    func matches(_ plan: SceneWaterWavesExecutionPlan) -> Bool { true }
+}
 
 struct SceneWaterCausticsExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
 
-struct SceneWaterCausticsEffectTextures {}
+struct SceneWaterCausticsEffectTextures {
+    func matches(_ plan: SceneWaterCausticsExecutionPlan) -> Bool { true }
+}
 
 struct SceneWaterCausticsPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
@@ -1094,6 +1099,7 @@ struct SceneWaterRippleEffectTextures {
     let normal: MTLTexture?
 
     func matches(_ plan: SceneWaterRippleExecutionPlan) -> Bool { true }
+    func resolvedArguments(for plan: SceneWaterRippleExecutionPlan) -> Bool? { true }
 }
 
 enum SceneWaterRippleRenderer {
@@ -4733,7 +4739,7 @@ enum Harness {
         case .ready, .deferred: allocationFailureReason = nil
         }
         let allocationFailureStayedClosed =
-            allocationFailureReason == "frame-target-plan-rejected"
+            allocationFailureReason == "frame-target-byte-budget-exceeded"
         allocationPass.finishEnsuringClear()
         allocationBuffer.commit()
         allocationBuffer.waitUntilCompleted()
@@ -6488,7 +6494,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertTrue(evidence["allocationFailureStayedClosed"], evidence)
         self.assertEqual(
             evidence["allocationFailureReason"],
-            "frame-target-plan-rejected",
+            "frame-target-byte-budget-exceeded",
             evidence,
         )
         self.assertEqual(evidence["allocationFailureExecuteCalls"], 0, evidence)

@@ -168,7 +168,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             case let .failure(failure):
                 rejected[failure.code, default: 0] += 1
             case let .success(admitted):
-                switch Self.compileStages(
+                switch Self.compileProgramFirstStages(
                     admitted,
                     materialCatalog: materialCatalog,
                     demandIssueKeys: demandIssues,

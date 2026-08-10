@@ -48,7 +48,7 @@ TARGET_BATCH = (
     SCENE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+Batch.swift"
 )
 TARGET_PREFLIGHT = (
-    SCENE_ROOT / "RenderGraph/SceneOffscreenTextureFramePreflight.swift"
+    SCENE_ROOT / "RenderGraph/SceneOffscreenTexturePool+PersistentGraphTargets.swift"
 )
 OFFSCREEN_RESOLUTION_POLICY = (
     SCENE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift"

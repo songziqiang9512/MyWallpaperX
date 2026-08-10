@@ -1929,7 +1929,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         topology = CHAIN_TOPOLOGY_SOURCE.read_text(encoding="utf-8")
 
         for backend_name in (".waterFlow", ".foliageSway", ".depthParallax"):
-            self.assertNotIn(backend_name, leaf_body)
+            self.assertIn(backend_name, leaf_body)
             self.assertIn(backend_name, yield_body)
         self.assertNotIn(".spin", backend)
         self.assertIn(".workshopAudioBars", leaf_body)
@@ -1949,6 +1949,10 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertIn(".fisheyeZeroDistortion", leaf_body)
         self.assertIn("case .fisheyeZeroDistortion:", topology)
         self.assertIn('"fisheye-pipeline-missing"', topology)
+        for backend_name in (".waterWaves", ".waterCaustics", ".waterRipple", ".pulse"):
+            self.assertIn(backend_name, leaf_body)
+        self.assertNotIn(".proceduralNoise", leaf_body)
+        self.assertNotIn(".xRay", leaf_body)
 
         water_flow = CHAIN_WATER_FLOW_SOURCE.read_text(encoding="utf-8")
         depth = CHAIN_DEPTH_PARALLAX_SOURCE.read_text(encoding="utf-8")

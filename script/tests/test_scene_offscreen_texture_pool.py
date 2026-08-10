@@ -36,6 +36,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+LegacyBatch.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+Batch.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureFramePreflight.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool+PersistentGraphTargets.swift",
     SOURCE_ROOT / "RenderGraph/ScenePersistentGraphTargetAllocator.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
@@ -3094,6 +3095,89 @@ enum Harness {
             && batchPool.allocationCache.revision != batchRevisionBeforeCommit
         batchCommits.forEach { $0.releaseAll() }
 
+        let sharedResolvedPool = SceneOffscreenTexturePool(
+            device: device, maxDimension: 64, residentByteBudget: 8_192
+        )
+        let sharedResolvedBuffer = device.makeCommandQueue()!.makeCommandBuffer()!
+        let sharedResolvedContext = SceneGraphCommandQueueOrderingContext(
+            commandBuffer: sharedResolvedBuffer
+        )
+        guard let sharedResolvedPlanA = sharedResolvedPool
+            .framePlanForPersistentGraphTargets(
+                admittedGraphs: admittedGraphs([staleA]),
+                pairPlan: pairPlan([staleA]),
+                requestedWidth: 8,
+                requestedHeight: 8,
+                sharesFullFramePairWhenHistoryFree: true,
+                orderingContext: sharedResolvedContext
+            ), let sharedResolvedPlanB = sharedResolvedPool
+            .framePlanForPersistentGraphTargets(
+                admittedGraphs: admittedGraphs([staleB]),
+                pairPlan: pairPlan([staleB]),
+                requestedWidth: 8,
+                requestedHeight: 8,
+                sharesFullFramePairWhenHistoryFree: true,
+                orderingContext: sharedResolvedContext
+            ), sharedResolvedPool.preflightPersistentGraphTargets([
+                sharedResolvedPlanA, sharedResolvedPlanB,
+            ]) == .ready,
+              sharedResolvedPool.residentAllocationCount == 0,
+              let sharedResolvedPrepared = sharedResolvedPool
+                .preparePersistentGraphTargets(framePlans: [
+                    sharedResolvedPlanA, sharedResolvedPlanB,
+                ]) else { fatalError("resolved shared pair fixture failed") }
+        let batchPlansShareOneHistoryFreePair =
+            sharedResolvedPlanA.chainPlan.pairStorage == .shared
+                && sharedResolvedPlanB.chainPlan.pairStorage == .shared
+                && sharedResolvedPrepared.allSatisfy {
+                    $0.leases.first?.fullFramePairGeneration
+                        == sharedResolvedPrepared.first?.leases.first?
+                            .fullFramePairGeneration
+                }
+        let sharedResolvedPublicationsUseChainGeneration =
+            sharedResolvedPrepared.allSatisfy { prepared in
+                guard let lease = prepared.leases.first else { return false }
+                switch lease.fullFrameResource(
+                    for: lease.table.plan.output,
+                    member: .zero,
+                    contentGeneration: 1,
+                    fragmentColorRepresentation: .resolved(.premultipliedAlpha)
+                ) {
+                case .success(let resource):
+                    guard case let .provider(.graph(generation, _)) =
+                        resource.publication.candidate.identity else {
+                        return false
+                    }
+                    return generation == lease.generation
+                        && generation != lease.fullFramePairGeneration
+                case .failure:
+                    return false
+                }
+            }
+        let batchPrepareOnlyPublishesSharedPair =
+            sharedResolvedPool.residentAllocationCount == 1
+                && sharedResolvedPool.residentTextureCount == 2
+
+        let rejectedSharedResolvedPool = SceneOffscreenTexturePool(
+            device: device, maxDimension: 64, residentByteBudget: 511
+        )
+        let rejectedSharedBuffer = device.makeCommandQueue()!.makeCommandBuffer()!
+        guard let rejectedSharedPlan = rejectedSharedResolvedPool
+            .framePlanForPersistentGraphTargets(
+                admittedGraphs: admittedGraphs([staleA]),
+                pairPlan: pairPlan([staleA]),
+                requestedWidth: 8,
+                requestedHeight: 8,
+                sharesFullFramePairWhenHistoryFree: true,
+                orderingContext: .init(commandBuffer: rejectedSharedBuffer)
+            ) else { fatalError("resolved shared rejection fixture failed") }
+        let sharedPairBudgetRejectsBeforeAllocation =
+            rejectedSharedResolvedPool.preflightPersistentGraphTargets([
+                rejectedSharedPlan,
+            ]) == .rejected(reasonCode: "frame-target-byte-budget-exceeded")
+                && rejectedSharedResolvedPool.residentAllocationCount == 0
+                && rejectedSharedResolvedPool.residentTextureCount == 0
+
         let failingBatchPool = SceneOffscreenTexturePool(
             device: device, maxDimension: 64, residentByteBudget: 8_192
         )
@@ -3435,6 +3519,14 @@ enum Harness {
             "differentQueueSharedPairRejected": differentQueueSharedPairRejected,
             "sharedPairOrderedReuseAndReleaseStable":
                 sharedPairOrderedReuseAndReleaseStable,
+            "batchPlansShareOneHistoryFreePair":
+                batchPlansShareOneHistoryFreePair,
+            "sharedResolvedPublicationsUseChainGeneration":
+                sharedResolvedPublicationsUseChainGeneration,
+            "batchPrepareOnlyPublishesSharedPair":
+                batchPrepareOnlyPublishesSharedPair,
+            "sharedPairBudgetRejectsBeforeAllocation":
+                sharedPairBudgetRejectsBeforeAllocation,
             "legacyBatchColdCommitExact": legacyBatchColdCommitExact,
             "legacyBatchPairIsolation": legacyBatchPairIsolation,
             "legacyBatchOwnedHistoryPinned": legacyBatchOwnedHistoryPinned,
@@ -3756,6 +3848,14 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
             self.result["legacyBatchUnrelatedReleaseRevalidatesCommit"]
         )
         self.assertTrue(self.result["legacyBatchWrongBufferRejected"])
+
+    def test_resolved_batch_shares_history_free_full_frame_pair(self) -> None:
+        self.assertTrue(self.result["batchPlansShareOneHistoryFreePair"])
+        self.assertTrue(
+            self.result["sharedResolvedPublicationsUseChainGeneration"]
+        )
+        self.assertTrue(self.result["batchPrepareOnlyPublishesSharedPair"])
+        self.assertTrue(self.result["sharedPairBudgetRejectsBeforeAllocation"])
 
     def test_legacy_multi_stage_chains_use_one_chain_wide_pair(self) -> None:
         self.assertEqual(self.result["directEightChainAllocationCount"], 1)

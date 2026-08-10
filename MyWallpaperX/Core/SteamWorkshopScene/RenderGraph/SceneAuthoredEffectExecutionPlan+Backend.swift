@@ -34,9 +34,12 @@ extension SceneAuthoredEffectExecutionPlan {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
-                 .workshopShadow,
-                 .shake, .fisheyeZeroDistortion:
+            case .opacity, .colorGrading,
+                 .workshopShiftHue, .workshopAudioBars, .workshopGradient,
+                 .workshopShadow, .filmGrain, .shake, .waterFlow,
+                 .waterWaves, .waterCaustics, .foliageSway, .waterRipple,
+                 .depthParallax, .blend, .tint, .transform,
+                 .fisheyeZeroDistortion, .pulse:
                 return true
             default:
                 return false

@@ -91,6 +91,21 @@ extension SceneAuthoredEffectChainRenderer {
     ) -> String? {
         let pipelines = inputs.pipelines
         switch stage.backend {
+        case .opacity(let plan):
+            guard pipelines.opacity != nil,
+                  stage.opacityAlpha(in: inputs.dynamicValues) != nil else {
+                return "opacity-input-unavailable"
+            }
+            guard plan.maskTexturePath != nil else { return nil }
+            guard let resources = inputs.masks.opacityEffects[
+                plan.effectKey.descriptorID
+            ], resources.matches(plan), resources.mask != nil else {
+                return "opacity-resource-missing"
+            }
+            return nil
+        case .colorGrading:
+            return pipelines.colorGrading == nil
+                ? "color-grading-pipeline-missing" : nil
         case .workshopShiftHue:
             return pipelines.shiftHue == nil ? "shift-hue-pipeline-missing" : nil
         case .workshopAudioBars(let plan):
@@ -126,6 +141,21 @@ extension SceneAuthoredEffectChainRenderer {
                 return "water-flow-resource-missing"
             }
             return pipelines.waterFlow == nil ? "water-flow-pipeline-missing" : nil
+        case .waterWaves(let plan):
+            guard let resources = inputs.masks.waterWavesEffects[
+                plan.effectKey.descriptorID
+            ], resources.matches(plan) else {
+                return "water-waves-resource-missing"
+            }
+            return pipelines.waterWaves == nil ? "water-waves-pipeline-missing" : nil
+        case .waterCaustics(let plan):
+            guard let resources = inputs.masks.waterCausticsEffects[
+                plan.effectKey.descriptorID
+            ], resources.matches(plan) else {
+                return "water-caustics-resource-missing"
+            }
+            return pipelines.waterCaustics == nil
+                ? "water-caustics-pipeline-missing" : nil
         case .foliageSway(let plan):
             guard let resources = inputs.masks.foliageSwayEffects[
                 plan.effectKey.descriptorID
@@ -134,6 +164,14 @@ extension SceneAuthoredEffectChainRenderer {
             }
             return pipelines.foliageSway == nil
                 ? "foliage-sway-pipeline-missing" : nil
+        case .waterRipple(let plan):
+            guard let resources = inputs.masks.waterRippleEffects[
+                plan.effectKey.descriptorID
+            ], resources.resolvedArguments(for: plan) != nil else {
+                return "water-ripple-resource-missing"
+            }
+            return pipelines.waterRipple == nil
+                ? "water-ripple-pipeline-missing" : nil
         case .depthParallax(let plan):
             guard let resources = inputs.masks.depthParallaxEffects[
                 plan.effectKey.descriptorID
@@ -142,6 +180,22 @@ extension SceneAuthoredEffectChainRenderer {
             }
             return pipelines.depthParallax == nil
                 ? "depth-parallax-pipeline-missing" : nil
+        case .blend(let plan):
+            guard let resources = inputs.masks.blendEffects[
+                plan.effectKey.descriptorID
+            ], resources.resolvedArguments(for: plan) != nil else {
+                return "blend-resource-missing"
+            }
+            return pipelines.blend == nil ? "blend-pipeline-missing" : nil
+        case .tint(let plan):
+            guard let resources = inputs.masks.tintEffects[
+                plan.effectKey.descriptorID
+            ], resources.matches(plan) else {
+                return "tint-resource-missing"
+            }
+            return pipelines.tint == nil ? "tint-pipeline-missing" : nil
+        case .transform:
+            return nil
         case .shake(let plan):
             guard inputs.masks.shakeEffects[plan.effectKey.descriptorID] != nil else {
                 return "shake-resource-missing"
@@ -150,6 +204,15 @@ extension SceneAuthoredEffectChainRenderer {
         case .fisheyeZeroDistortion:
             return pipelines.fisheyeZeroDistortion == nil
                 ? "fisheye-pipeline-missing" : nil
+        case .pulse(let plan):
+            guard let resources = inputs.masks.pulseEffects[
+                plan.effectKey.descriptorID
+            ], resources.matches(plan) else {
+                return "pulse-resource-missing"
+            }
+            let bounds = plan.resolvedComponents(.bounds, in: inputs.dynamicValues)
+            guard bounds.x < bounds.y else { return "pulse-bounds-invalid" }
+            return pipelines.pulse == nil ? "pulse-pipeline-missing" : nil
         default:
             return "backend-unhandled"
         }

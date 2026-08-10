@@ -150,7 +150,7 @@ extension SceneGraphRenderTargetLease {
         return publishedResource(
             logicalIdentity: logicalIdentity,
             token: token,
-            allocationGeneration: fullFramePairGeneration,
+            allocationGeneration: generation,
             descriptor: descriptor,
             contentGeneration: contentGeneration,
             fragmentColorRepresentation: fragmentColorRepresentation,

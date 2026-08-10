@@ -29,6 +29,10 @@ CAPABILITY_STAGES_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
 )
+CAPABILITY_PROGRAM_FIRST_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+)
 VARIANT_CACHE_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant.swift"
@@ -65,6 +69,7 @@ SWIFT_SOURCES = [
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
+    CAPABILITY_PROGRAM_FIRST_SOURCE,
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
     SCENE_ROOT
@@ -85,6 +90,7 @@ ENVELOPE_SWIFT_SOURCES = [
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
+    CAPABILITY_PROGRAM_FIRST_SOURCE,
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
     SCENE_ROOT
@@ -1204,6 +1210,34 @@ private enum Harness {
             graphs: [raw],
             materials: materialCatalog(graph: raw, omitNode: 1)
         )
+        let utilityPairGraph = pairOnlyGraph()
+        let utilityPairDescriptor = descriptor(
+            contentKind: "composition",
+            utilityLayer: "composition"
+        )
+        let utilityAdapterCandidates =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: utilityPairDescriptor,
+                authoredPlans: [utilityPairGraph],
+                dedicatedStagePrograms: [dedicatedProgram(
+                    graph: utilityPairGraph,
+                    effectIndex: 1,
+                    inputRole: .priorEffectOutput,
+                    opacity: true
+                )]
+            )
+        let utilityAdapterCatalog = Catalog(
+            admissionCandidates: utilityAdapterCandidates,
+            materialCatalog: materialCatalog(
+                graph: utilityPairGraph,
+                omitNode: 1,
+                uniformsByNode: [0: [
+                    .init(name: "g_AudioSpectrum16Left", value: .staticExact),
+                ]]
+            ),
+            dedicatedStageFamilies: [secondKey: "opacity"],
+            dedicatedLeafKeys: [secondKey]
+        )
         let omitted = rawGraph(omitSecond: true)
         let omittedCatalog = catalog(
             descriptor: desc,
@@ -1573,17 +1607,9 @@ private enum Harness {
                     unverifiedSceneScriptCatalog,
                     "dynamic-uniform-unavailable"
                 ),
-                "dedicatedBeforeResolved":
-                    dedicatedBeforeResolvedCatalog.claim(layerID: layerID) == nil
-                    && reportHas(
-                        dedicatedBeforeResolvedCatalog,
-                        "mixed-chain-resolved-prefix-required"
-                    ),
-                "alternatingMixedOrder": alternatingCapability == nil
-                    && reportHas(
-                        alternatingCatalog,
-                        "mixed-chain-resolved-prefix-required"
-                    ),
+                "dedicatedBeforeResolvedAccepted":
+                    dedicatedBeforeResolvedCatalog.claim(layerID: layerID) != nil,
+                "alternatingMixedOrderAccepted": alternatingCapability != nil,
                 "alternatingMixedOrderContract": alternatingCapability.map { capability in
                     let keys = capability.stages.compactMap(\.subject).map(\.key)
                     let families = capability.stages.compactMap(\.subject).map(\.family)
@@ -1649,6 +1675,10 @@ private enum Harness {
                     nonAudioUtilityCatalog,
                     "utility-source-program-unsupported"
                 ) && nonAudioUtilityCatalog.claim(layerID: layerID) == nil,
+                "utilityAdapterRejected": reportHas(
+                    utilityAdapterCatalog,
+                    "dedicated-leaf-unsupported"
+                ) && utilityAdapterCatalog.claim(layerID: layerID) == nil,
                 "utilityKindMismatch": admissionRejects(
                     descriptor(utilityLayer: "composition"),
                     raw: raw,
@@ -2941,7 +2971,7 @@ private enum Main {
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
-    def test_authored_material_families_prefer_program_and_keep_fallback(self) -> None:
+    def test_authored_material_families_use_program_first_pair_adapters(self) -> None:
         source = EFFECT_BACKEND_SOURCE.read_text(encoding="utf-8")
         leaf_start = source.index("        var supportsUnifiedPairLeaf: Bool")
         yield_start = source.index(
@@ -2952,21 +2982,32 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         yield_body = source[yield_start:yield_end]
 
         for backend_name in (
-            ".blend",
-            ".filmGrain",
-            ".proceduralNoise",
-            ".lightShafts",
-            ".waterFlow",
-            ".foliageSway",
+            ".blend", ".filmGrain", ".waterFlow", ".waterWaves",
+            ".waterCaustics", ".foliageSway", ".waterRipple",
+            ".depthParallax", ".pulse",
+        ):
+            self.assertIn(backend_name, leaf_body)
+        for backend_name in (
+            ".blend", ".filmGrain", ".waterFlow", ".foliageSway",
             ".depthParallax",
         ):
-            self.assertNotIn(backend_name, leaf_body)
             self.assertIn(backend_name, yield_body)
+        for backend_name in (".proceduralNoise", ".lightShafts", ".xRay"):
+            self.assertNotIn(backend_name, leaf_body)
         self.assertNotIn(".spin", source)
         self.assertIn(".workshopAudioBars", leaf_body)
         self.assertNotIn(".workshopAudioBars", yield_body)
         self.assertIn(".fisheyeZeroDistortion", leaf_body)
         self.assertIn("case filmGrain(SceneFilmGrainExecutionPlan)", source)
+
+        capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("Self.compileProgramFirstStages(", capability)
+        program_first = CAPABILITY_PROGRAM_FIRST_SOURCE.read_text(encoding="utf-8")
+        self.assertLess(
+            program_first.index("let programResult = compileStages("),
+            program_first.index("case let .failure(programFailure):"),
+        )
+        self.assertIn("dedicatedLeafKeys.contains(effect.key)", program_first)
 
     def test_runtime_variant_resolution_starts_from_launch_envelope_seed(
         self,
@@ -3224,8 +3265,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "multipleProducer": True,
                 "missingProducer": True,
                 "unverifiedSceneScript": True,
-                "dedicatedBeforeResolved": True,
-                "alternatingMixedOrder": True,
+                "dedicatedBeforeResolvedAccepted": True,
+                "alternatingMixedOrderAccepted": True,
                 "alternatingMixedOrderContract": True,
                 "resolvedBeforeDedicated": True,
                 "emptyDedicatedLeafAllowlist": True,
@@ -3238,6 +3279,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "unsupportedContent": True,
                 "utilityCapture": True,
                 "utilityNonAudioRejected": True,
+                "utilityAdapterRejected": True,
                 "utilityKindMismatch": True,
                 "utilityChildren": True,
                 "legacyDependency": True,
