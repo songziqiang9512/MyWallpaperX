@@ -4,21 +4,19 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
     let layerID: Int
     let renderGraph: SceneAuthoredEffectRenderPlan
     let stagePrograms: [SceneEffectStageProgram]
-    let legacyRecoveryStages: [SceneAuthoredEffectExecutionPlan]
-    let executionRoute: ExecutionRoute
-    let irisInlineSuffix: SceneIrisInlineSuffixPlan?
-    let isolatedCursorRippleOmittedEffectPaths: [String]
-    let isolatedShineOmittedEffectPaths: [String]
+
+    private init(
+        layerID: Int,
+        renderGraph: SceneAuthoredEffectRenderPlan,
+        stagePrograms: [SceneEffectStageProgram]
+    ) {
+        self.layerID = layerID
+        self.renderGraph = renderGraph
+        self.stagePrograms = stagePrograms
+    }
 
     var executionStages: [SceneAuthoredEffectExecutionPlan] {
-        switch executionRoute {
-        case .completePrograms:
-            stagePrograms.map(\.executionPlan)
-        case .legacyRecovery:
-            legacyRecoveryStages.isEmpty
-                ? stagePrograms.map(\.executionPlan)
-                : legacyRecoveryStages
-        }
+        stagePrograms.map(\.executionPlan)
     }
 
     var singleStage: SceneAuthoredEffectExecutionPlan? {
@@ -96,10 +94,6 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         executionStages.filter { $0.cursorRipple != nil }.count
     }
 
-    var isolatedCursorRippleCount: Int {
-        isolatedCursorRippleOmittedEffectPaths.isEmpty ? 0 : cursorRippleCount
-    }
-
     var foliageSwayCount: Int {
         executionStages.filter { $0.foliageSway != nil }.count
     }
@@ -110,10 +104,6 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
 
     var depthParallaxCount: Int {
         executionStages.filter { $0.depthParallax != nil }.count
-    }
-
-    var irisInlineSuffixCount: Int {
-        irisInlineSuffix == nil ? 0 : 1
     }
 
     var xRayCount: Int {
@@ -152,16 +142,87 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         executionStages.filter { $0.shine != nil }.count
     }
 
-    var isolatedShineCount: Int {
-        isolatedShineOmittedEffectPaths.isEmpty ? 0 : shineCount
-    }
-
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(executionStages.flatMap(\.liveConsumerTargets))
     }
 
     var executedUserPropertyKeys: Set<String> {
         Set(executionStages.flatMap { $0.blend?.executedUserPropertyKeys ?? [] })
+    }
+}
+
+nonisolated extension SceneAuthoredEffectExecutionChain {
+    static func complete(
+        layerID: Int,
+        renderGraph: SceneAuthoredEffectRenderPlan,
+        stagePrograms: [SceneEffectStageProgram]
+    ) -> Self? {
+        guard firstProgramConservationViolation(
+            stagePrograms,
+            layerID: layerID,
+            renderGraph: renderGraph
+        ) == nil else {
+            return nil
+        }
+        return Self(
+            layerID: layerID,
+            renderGraph: renderGraph,
+            stagePrograms: stagePrograms
+        )
+    }
+
+    static func firstProgramConservationViolation(
+        _ programs: [SceneEffectStageProgram],
+        layerID: Int,
+        renderGraph: SceneAuthoredEffectRenderPlan
+    ) -> (
+        ordinal: Int?,
+        effectKey: SceneAuthoredEffectRenderPlan.EffectKey?,
+        definitionPath: String?
+    )? {
+        guard renderGraph.layerID == layerID, !programs.isEmpty else {
+            return (
+                programs.first?.authoredOrdinal,
+                programs.first?.effectKey ?? renderGraph.effects.first?.key,
+                programs.first?.definitionPath
+                    ?? renderGraph.effects.first?.definitionPath
+            )
+        }
+        let sharedCount = min(programs.count, renderGraph.effects.count)
+        for ordinal in 0..<sharedCount {
+            let program = programs[ordinal]
+            let effect = renderGraph.effects[ordinal]
+            let expectedInputRole: SceneAuthoredEffectInputRole = ordinal == 0
+                ? .layerSource
+                : .priorEffectOutput
+            guard program.authoredOrdinal == ordinal,
+                  program.effectKey == effect.key,
+                  program.definitionPath == effect.definitionPath,
+                  program.inputRole == expectedInputRole,
+                  let expectedGraph = SceneAuthoredEffectChainPlanner.stageGraph(
+                      effect: effect,
+                      in: renderGraph
+                  ),
+                  SceneEffectStageProgram.graphsMatch(
+                      program.stageGraph,
+                      expectedGraph
+                  ) else {
+                return (ordinal, program.effectKey, program.definitionPath)
+            }
+        }
+        guard programs.count == renderGraph.effects.count else {
+            let ordinal = sharedCount
+            return (
+                ordinal,
+                programs.indices.contains(ordinal)
+                    ? programs[ordinal].effectKey
+                    : renderGraph.effects[ordinal].key,
+                programs.indices.contains(ordinal)
+                    ? programs[ordinal].definitionPath
+                    : renderGraph.effects[ordinal].definitionPath
+            )
+        }
+        return nil
     }
 }
 

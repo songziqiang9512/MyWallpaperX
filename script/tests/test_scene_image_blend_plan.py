@@ -12,6 +12,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+PLAN_SOURCE = SOURCE_ROOT / "Rendering/SceneImageBlendRenderPlan.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
@@ -24,7 +25,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureSlotBinding.swift",
     SOURCE_ROOT / "Resources/SceneTextureProviderPublication.swift",
     SOURCE_ROOT / "Resources/SceneFrameTextureRegistry.swift",
-    SOURCE_ROOT / "Rendering/SceneImageBlendRenderPlan.swift",
+    PLAN_SOURCE,
 ]
 
 HARNESS_SOURCE = r'''
@@ -108,6 +109,10 @@ enum Harness {
         let unsupportedScript = image(19, dependencies: [100], effects: [
             blend(provider: 100, scriptedAlpha: true),
         ])
+        let ambiguous = image(22, dependencies: [100], effects: [
+            blend(provider: 100),
+            blend(provider: 100),
+        ])
         let nonNeutralConstants = image(17, dependencies: [100], effects: [
             blend(provider: 100, omitAlpha: true, neutralTransformConstants: true,
                   blendScale: 0.5),
@@ -115,18 +120,22 @@ enum Harness {
         let layers = [valid, mismatch, effectful, boundValue, transformed, secondary,
                       defaulted, nonNeutralConstants, propertyFallback,
                       unsupportedScript, secondPropertyFallback, unplannedProperty,
-                      provider, effectfulProvider]
+                      ambiguous, provider, effectfulProvider]
+        let descriptor = SceneRenderDescriptor(
+            layers: layers,
+            texturePropertyKeys: [
+                "newproperty25",
+                "newproperty26",
+                "declared-but-unplanned",
+                "declared-and-unused",
+            ]
+        )
+        let visibleLayerIDs = Set(layers.compactMap {
+            $0.visible == false ? nil : $0.id
+        })
         let plan = SceneImageBlendRenderPlan(
-            descriptor: .init(
-                layers: layers,
-                texturePropertyKeys: [
-                    "newproperty25",
-                    "newproperty26",
-                    "declared-but-unplanned",
-                    "declared-and-unused",
-                ]
-            ),
-            visibleLayerIDs: Set(layers.compactMap { $0.visible == false ? nil : $0.id })
+            descriptor: descriptor,
+            visibleLayerIDs: visibleLayerIDs
         )
         let operation = plan.operationsByConsumerLayerID[10]
         let result: [String: Any] = [
@@ -142,6 +151,7 @@ enum Harness {
             "propertyUsesInitialAlpha": plan.operationsByConsumerLayerID[18]?
                 .usesAuthoredInitialAlpha ?? false,
             "executedUserPropertyKeys": plan.executedUserPropertyKeys.sorted(),
+            "ambiguousPlanned": plan.operationsByConsumerLayerID[22] != nil,
             "report": plan.reportLines(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -285,7 +295,13 @@ class SceneImageBlendPlanTests(unittest.TestCase):
     def test_media_bound_and_unsupported_operations_do_not_enter_static_plan(self) -> None:
         self.assertEqual(len(self.result["report"]), 5)
         self.assertIn("imageBlendPlannedCount: 4", self.result["report"])
+        self.assertFalse(self.result["ambiguousPlanned"])
 
+    def test_plan_is_independent_from_authored_graph_fallback_suppression(
+        self,
+    ) -> None:
+        source = PLAN_SOURCE.read_text(encoding="utf-8")
+        self.assertNotIn("suppressedConsumerLayerIDs", source)
 
 if __name__ == "__main__":
     unittest.main()

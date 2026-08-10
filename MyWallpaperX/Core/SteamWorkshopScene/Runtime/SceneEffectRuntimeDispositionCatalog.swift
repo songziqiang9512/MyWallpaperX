@@ -107,6 +107,25 @@ struct SceneEffectRuntimeDispositionCatalog {
                 ))
                 continue
             }
+            if let rejection = authoredCatalog
+                .chainAdmissionsByLayerID[layer.id]?.rejection {
+                let rejected = admissions.map { admission in
+                    admission.activity == .active
+                        ? Self.rejectedDisposition(
+                            admission,
+                            reason: "authored-chain-\(rejection.code.rawValue)"
+                        )
+                        : Self.inactiveDisposition(admission)
+                }
+                records.append(contentsOf: rejected)
+                groups.append(Self.routeGroup(
+                    layerID: layer.id,
+                    kind: .direct,
+                    dispositions: rejected,
+                    reason: "authored-chain-rejected"
+                ))
+                continue
+            }
             let legacy = SceneEffectRuntimePlanner.legacyPlanningDecision(
                 for: layer,
                 resources: resourcesByLayerID[layer.id] ?? .none,
@@ -304,6 +323,21 @@ struct SceneEffectRuntimeDispositionCatalog {
                 ? admission.key.layerID
                 : nil,
             routeRole: admission.activity == .active ? .member : .none,
+            reasonCode: reason
+        )
+    }
+    private nonisolated static func rejectedDisposition(
+        _ admission: Admission,
+        reason: String
+    ) -> Disposition {
+        Disposition(
+            key: admission.key,
+            definitionPath: admission.definitionPath,
+            kind: .unsupported,
+            attribution: .none,
+            family: nil,
+            routeGroupID: admission.key.layerID,
+            routeRole: .member,
             reasonCode: reason
         )
     }

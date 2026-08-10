@@ -15,6 +15,9 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 CHAIN_ADMISSION_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainAdmission.swift"
 )
+CHAIN_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift"
+)
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
@@ -30,11 +33,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageGraphAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain+Route.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectStageCompiler.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageRebase.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionCatalog+ResolvedMaterial.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectStageProgram.swift",
@@ -288,9 +288,6 @@ struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
 }
-struct SceneIrisInlineSuffixPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
 
 enum SceneAuthoredCursorRipplePlanner {
     static func plan(
@@ -299,35 +296,24 @@ enum SceneAuthoredCursorRipplePlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneCursorRippleExecutionPlan? {
-        nil
-    }
-}
-
-extension SceneAuthoredEffectChainPlanner {
-    static func irisInlineSuffix(
-        plannedPrograms: [SceneEffectStageProgram],
-        unsupportedOrdinal: Int,
-        graph: Graph,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
-    ) -> SceneAuthoredEffectExecutionChain? {
-        nil
-    }
-
-    static func isolatedCursorRippleChain(
-        graph: Graph,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
-    ) -> SceneAuthoredEffectExecutionChain? {
-        nil
-    }
-
-    static func isolatedShineChain(
-        graph: Graph,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
-    ) -> SceneAuthoredEffectExecutionChain? {
-        nil
+        guard graph.effects.count == 1,
+              let effect = graph.effects.first,
+              effect.key.effectIndex == 0,
+              effect.definitionPath.localizedLowercase.contains("cursorripple"),
+              descriptor.layers.contains(where: { layer in
+                  layer.id == graph.layerID
+                      && layer.effects.contains(where: {
+                          $0.id == effect.key.descriptorID
+                              && $0.file == effect.definitionPath
+                      })
+              }) else {
+            return nil
+        }
+        return SceneCursorRippleExecutionPlan(
+            layerID: graph.layerID,
+            effectKey: effect.key,
+            renderGraph: graph
+        )
     }
 }
 
@@ -512,7 +498,31 @@ enum SceneAuthoredShinePlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneShineExecutionPlan? {
-        nil
+        guard graph.blockers.isEmpty,
+              graph.effects.count == 1,
+              graph.nodes.count == 5,
+              graph.renderTargets.count == 2,
+              inputRole == .layerSource,
+              let effect = graph.effects.first,
+              effect.definitionPath == "effects/shine/effect.json",
+              effect.nodeIndices == graph.nodes.map(\.nodeIndex),
+              graph.finalOutput == effect.output,
+              descriptor.layers.contains(where: { layer in
+                  layer.id == graph.layerID
+                      && layer.effects.contains(where: {
+                          $0.id == effect.key.descriptorID
+                              && $0.file == effect.definitionPath
+                      })
+              }) else {
+            return nil
+        }
+        return SceneShineExecutionPlan(
+            layerID: graph.layerID,
+            effectKey: effect.key,
+            renderGraph: graph,
+            firstHalfTarget: graph.renderTargets[0].texture,
+            secondHalfTarget: graph.renderTargets[1].texture
+        )
     }
 }
 
@@ -706,6 +716,14 @@ extension SceneAuthoredWaterCausticsPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredCursorRipplePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneCursorRippleExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .cursorRipple }
+
+    nonisolated static func isCandidate(
+        _ input: SceneEffectStageCompileInput
+    ) -> Bool {
+        input.stageGraph.effects.contains {
+            $0.definitionPath.localizedLowercase.contains("cursorripple")
+        }
+    }
 }
 extension SceneAuthoredFoliageSwayPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneFoliageSwayExecutionPlan
@@ -756,6 +774,14 @@ extension SceneAuthoredGodraysPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredShinePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneShineExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .shine }
+
+    nonisolated static func isCandidate(
+        _ input: SceneEffectStageCompileInput
+    ) -> Bool {
+        input.stageGraph.effects.contains {
+            $0.definitionPath == "effects/shine/effect.json"
+        }
+    }
 }
 
 enum SceneLayerVisibility {
@@ -794,7 +820,8 @@ enum Harness {
         index: Int,
         visible: Bool? = true,
         kernel: Int = 0,
-        verticalCombos: [String: Int] = ["VERTICAL": 1, "ENABLEMASK": 1]
+        verticalCombos: [String: Int] = ["VERTICAL": 1, "ENABLEMASK": 1],
+        definitionPath: String = "effects/workshop/blurprecise/effect.json"
     ) -> SceneRenderDescriptor.EffectDescriptor {
         let scale = SceneDocument.ShaderValue(components: [0.75, 0.75])
         let horizontalCombos = kernel == 0 ? [:] : ["KERNEL": kernel]
@@ -804,7 +831,7 @@ enum Harness {
         }
         return .init(
             id: "42#effect#\(index)",
-            file: "effects/workshop/blurprecise/effect.json",
+            file: definitionPath,
             visible: visible,
             passes: [
                 .init(
@@ -858,7 +885,9 @@ enum Harness {
     static func descriptor(
         visible: Bool = true,
         unsupportedSecond: Bool = false,
-        contentKind: String = "text"
+        contentKind: String = "text",
+        firstDefinitionPath: String = "effects/workshop/blurprecise/effect.json",
+        secondDefinitionPath: String = "effects/workshop/blurprecise/effect.json"
     ) -> SceneRenderDescriptor {
         let secondCombos = unsupportedSecond
             ? ["VERTICAL": 2, "ENABLEMASK": 1]
@@ -871,11 +900,38 @@ enum Harness {
                     visible: visible,
                     contentKind: contentKind,
                     effects: [
-                        effectDescriptor(index: 0),
-                        effectDescriptor(index: 1, kernel: 1, verticalCombos: secondCombos),
+                        effectDescriptor(
+                            index: 0,
+                            definitionPath: firstDefinitionPath
+                        ),
+                        effectDescriptor(
+                            index: 1,
+                            kernel: 1,
+                            verticalCombos: secondCombos,
+                            definitionPath: secondDefinitionPath
+                        ),
                     ]
                 ),
             ],
+            materialPasses: materials()
+        )
+    }
+
+    static func singleEffectDescriptor(
+        definitionPath: String,
+        contentKind: String = "text"
+    ) -> SceneRenderDescriptor {
+        SceneRenderDescriptor(
+            layers: [.init(
+                id: layerID,
+                parentID: nil,
+                visible: true,
+                contentKind: contentKind,
+                effects: [effectDescriptor(
+                    index: 0,
+                    definitionPath: definitionPath
+                )]
+            )],
             materialPasses: materials()
         )
     }
@@ -1031,6 +1087,75 @@ enum Harness {
             nodes: nodes,
             finalOutput: secondOutput,
             blockers: blockers
+        )
+    }
+
+    static func singleStageGraph(definitionPath: String) -> Graph {
+        let graph = simpleFisheyeGraph(audioBarsPath: definitionPath)
+        guard let stageGraph = SceneAuthoredEffectChainPlanner.stageGraph(
+            effect: graph.effects[0],
+            in: graph
+        ) else {
+            fatalError("single stage graph unavailable")
+        }
+        return stageGraph
+    }
+
+    static func completeShineGraph() -> Graph {
+        let key = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "42#effect#0"
+        )
+        let source = texture(.layerSource)
+        let output = texture(.effectOutput, effect: key)
+        let firstHalf = texture(.framebuffer, effect: key, name: "shine-half-1")
+        let secondHalf = texture(.framebuffer, effect: key, name: "shine-half-2")
+        let targets = [firstHalf, secondHalf]
+
+        let nodes = (0 ..< 5).map { index in
+            Graph.Node(
+                nodeIndex: index,
+                effect: key,
+                definitionPassIndex: index,
+                materialOrdinal: index,
+                instancePassIndex: index,
+                kind: .material,
+                materialPath: "materials/shine-\(index).json",
+                materialPassID: "materials/shine-\(index).json#0",
+                target: index == 4 ? output : targets[index % 2],
+                bindings: [],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            )
+        }
+        let effect = Graph.Effect(
+            key: key,
+            definitionPath: "effects/shine/effect.json",
+            input: source,
+            output: output,
+            nodeIndices: nodes.map(\.nodeIndex)
+        )
+        let renderTargets = targets.map {
+            Graph.RenderTarget(
+                texture: $0,
+                extent: .init(kind: .scale, first: 2, second: nil),
+                format: "rgba_backbuffer",
+                declaredUnique: false,
+                clear: nil,
+                uvs: nil,
+                conditions: nil
+            )
+        }
+        return Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: renderTargets,
+            nodes: nodes,
+            finalOutput: output,
+            blockers: []
         )
     }
 
@@ -1192,11 +1317,40 @@ enum Harness {
             "singleStageLayers": catalog.plansByLayerID.keys.sorted(),
             "hidden": catalog.hiddenEligibleLayerIDs,
             "legacyBlocked": catalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
-            "xRayPrefixes": catalog.xRayPrefixOmittedEffectPathsByLayerID
-                .sorted(by: { $0.key < $1.key })
-                .map { "\($0.key)=\($0.value.joined(separator: ","))" },
+            "suppressedLegacyFallback": catalog
+                .legacyEffectFallbackSuppressedLayerIDs.sorted(),
+            "resolvedMaterialExecution": catalog
+                .resolvedMaterialExecutionLayerIDs.sorted(),
+            "legacyRuntimeExcluded": catalog
+                .legacyEffectRuntimeExcludedLayerIDs.sorted(),
+            "chainRejectionCode": catalog.chainAdmissionsByLayerID[layerID]?
+                .rejection?.code.rawValue ?? "-",
             "admissions": admissionState(catalog.stageAdmissions),
             "reportLines": catalog.reportLines,
+        ]
+    }
+
+    static func completeDedicatedCatalogState(
+        descriptor: SceneRenderDescriptor,
+        graph: Graph
+    ) -> [String: Any] {
+        let catalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: descriptor,
+            authoredPlans: [graph]
+        )
+        let chain = catalog.chainsByLayerID[layerID]
+        return [
+            "chainLayers": catalog.chainsByLayerID.keys.sorted(),
+            "singleStageLayers": catalog.plansByLayerID.keys.sorted(),
+            "stageCount": chain?.executionStages.count ?? 0,
+            "backends": chain?.executionStages.map(\.backend.stableName) ?? [],
+            "suppressedLegacyFallback": catalog
+                .legacyEffectFallbackSuppressedLayerIDs.sorted(),
+            "resolvedMaterialExecution": catalog
+                .resolvedMaterialExecutionLayerIDs.sorted(),
+            "legacyRuntimeExcluded": catalog
+                .legacyEffectRuntimeExcludedLayerIDs.sorted(),
+            "admissions": admissionState(catalog.stageAdmissions),
         ]
     }
 
@@ -1564,171 +1718,6 @@ enum Harness {
             resolvedMaterialSubjects: Array(resolvedSubjects.prefix(1))
         )
         let firstOutput = validGraph.effects[0].output
-        let firstKey = validGraph.effects[0].key
-        let secondKey = validGraph.effects[1].key
-        func admissionVariant(
-            chain: SceneAuthoredEffectExecutionChain,
-            coverage: SceneAuthoredEffectChainAdmission.Coverage
-        ) -> [[String: Any]] {
-            return admissionState(SceneAuthoredEffectStageAdmissionBuilder.make(
-                layer: validDescriptor.layers[0],
-                graphCandidates: [validGraph],
-                chainAdmission: .accepted(chain: chain, coverage: coverage),
-                layerIsVisible: true
-            ))
-        }
-        func routeName(
-            _ route: SceneAuthoredEffectExecutionChain.ExecutionRoute
-        ) -> String {
-            switch route {
-            case .completePrograms:
-                "complete-programs"
-            case .legacyRecovery(.terminalIrisInlineSuffix):
-                "legacy-terminal-iris-inline-suffix"
-            case .legacyRecovery(.xRayPrefix):
-                "legacy-xray-prefix"
-            case .legacyRecovery(.isolatedCursorRipple):
-                "legacy-isolated-cursor-ripple"
-            case .legacyRecovery(.isolatedShine):
-                "legacy-isolated-shine"
-            }
-        }
-        let irisVariantChain = SceneAuthoredEffectExecutionChain.legacyRecovery(
-            layerID: layerID,
-            authoredRenderGraph: validGraph,
-            renderGraph: chain.stagePrograms[0].stageGraph,
-            stagePrograms: [chain.stagePrograms[0]],
-            kind: .terminalIrisInlineSuffix,
-            irisInlineSuffix: .init(effectKey: secondKey)
-        )!
-        let xRayStage = SceneAuthoredEffectExecutionPlan(
-            layerID: layerID,
-            renderGraph: chain.stagePrograms[0].stageGraph,
-            backend: .xRay(SceneXRayExecutionPlan()),
-            materialNodeCount: chain.stagePrograms[0].stageGraph.nodes.count,
-            logicalRenderTargetCount:
-                chain.stagePrograms[0].stageGraph.renderTargets.count,
-            inputRole: .layerSource
-        )
-        let xRayProgram = SceneEffectStageProgram(
-            input: firstInput,
-            compilerBackend: .xRay,
-            executionPlan: xRayStage
-        )!
-        let prefixVariantChain = SceneAuthoredEffectExecutionChain.legacyRecovery(
-            layerID: layerID,
-            authoredRenderGraph: validGraph,
-            renderGraph: xRayProgram.stageGraph,
-            stagePrograms: [xRayProgram],
-            kind: .xRayPrefix
-        )!
-        let isolationOuterGraph = chainGraph(extraTarget: true)
-        let isolationAuthoredEffect = isolationOuterGraph.effects[1]
-        let isolationAuthoredStage = SceneAuthoredEffectChainPlanner.stageGraph(
-            effect: isolationAuthoredEffect,
-            in: isolationOuterGraph
-        )!
-        let isolationGraph = SceneAuthoredEffectChainPlanner
-            .rebaseStageToLayerSource(isolationAuthoredStage)!
-        let isolationTargets = isolationGraph.renderTargets.map(\.texture)
-
-        func graphVariant(
-            _ graph: Graph,
-            effects: [Graph.Effect]? = nil,
-            renderTargets: [Graph.RenderTarget]? = nil,
-            nodes: [Graph.Node]? = nil
-        ) -> Graph {
-            Graph(
-                layerID: graph.layerID,
-                effects: effects ?? graph.effects,
-                renderTargets: renderTargets ?? graph.renderTargets,
-                nodes: nodes ?? graph.nodes,
-                finalOutput: graph.finalOutput,
-                blockers: graph.blockers
-            )
-        }
-
-        func manualShineChain(
-            executionGraph: Graph,
-            embeddedKey: Graph.EffectKey? = nil,
-            embeddedGraph: Graph? = nil,
-            halfTargets: [Graph.TextureIdentity]? = nil,
-            materialNodeCount: Int? = nil,
-            logicalRenderTargetCount: Int? = nil,
-            usesLegacyComposeNormalization: Bool = false
-        ) -> SceneAuthoredEffectExecutionChain? {
-            let targets = halfTargets ?? executionGraph.renderTargets.map(\.texture)
-            guard targets.count == 2,
-                  let effectKey = executionGraph.effects.first?.key else {
-                return nil
-            }
-            let shine = SceneShineExecutionPlan(
-                layerID: layerID,
-                effectKey: embeddedKey ?? effectKey,
-                renderGraph: embeddedGraph ?? executionGraph,
-                firstHalfTarget: targets[0],
-                secondHalfTarget: targets[1]
-            )
-            let stage = SceneAuthoredEffectExecutionPlan(
-                layerID: layerID,
-                renderGraph: executionGraph,
-                backend: .shine(shine),
-                materialNodeCount: materialNodeCount
-                    ?? executionGraph.nodes.count,
-                logicalRenderTargetCount: logicalRenderTargetCount
-                    ?? executionGraph.renderTargets.count,
-                inputRole: .layerSource,
-                usesLegacyComposeNormalization: usesLegacyComposeNormalization
-            )
-            return SceneAuthoredEffectExecutionChain.legacyRecovery(
-                layerID: layerID,
-                authoredRenderGraph: isolationOuterGraph,
-                renderGraph: executionGraph,
-                legacyRecoveryStages: [stage],
-                kind: .isolatedShine,
-                omittedEffectPaths: [
-                    isolationOuterGraph.effects[0].definitionPath,
-                ]
-            )
-        }
-
-        let isolationVariantChain = manualShineChain(
-            executionGraph: isolationGraph
-        )!
-        let isolationStage = isolationVariantChain.legacyRecoveryStages[0]
-        let wrongPathEffect = Graph.Effect(
-            key: isolationGraph.effects[0].key,
-            definitionPath: "effects/wrong/effect.json",
-            input: isolationGraph.effects[0].input,
-            output: isolationGraph.effects[0].output,
-            nodeIndices: isolationGraph.effects[0].nodeIndices
-        )
-        let wrongPathGraph = graphVariant(
-            isolationGraph,
-            effects: [wrongPathEffect]
-        )
-        let wrongNodeGraph = graphVariant(
-            isolationGraph,
-            nodes: Array(isolationGraph.nodes.dropLast())
-        )
-        var wrongTargets = isolationGraph.renderTargets
-        wrongTargets[0] = Graph.RenderTarget(
-            texture: texture(
-                .framebuffer,
-                effect: isolationGraph.effects[0].key,
-                name: "wrong-target"
-            ),
-            extent: wrongTargets[0].extent,
-            format: wrongTargets[0].format,
-            declaredUnique: wrongTargets[0].declaredUnique,
-            clear: wrongTargets[0].clear,
-            uvs: wrongTargets[0].uvs,
-            conditions: wrongTargets[0].conditions
-        )
-        let wrongTargetGraph = graphVariant(
-            isolationGraph,
-            renderTargets: wrongTargets
-        )
 
         let unsupportedDescriptor = descriptor(unsupportedSecond: true)
         let threeStageGraph = threeStageChainGraph()
@@ -1750,16 +1739,111 @@ enum Harness {
         let mixedGraph = chainGraph(
             secondDefinitionPath: "effects/water/effect.json"
         )
-        let xRayPrefixCatalog = catalogState(
-            descriptor: descriptor(
-                unsupportedSecond: true,
-                contentKind: "composition"
-            ),
-            graphs: [chainGraph(
-                firstDefinitionPath: "effects/xray/effect.json",
-                secondDefinitionPath: "effects/unknown/effect.json"
+        let terminalIrisRecoveryGraph = chainGraph(
+            secondDefinitionPath: "effects/iris/effect.json"
+        )
+        let xRayPrefixRecoveryGraph = chainGraph(
+            firstDefinitionPath: "effects/xray/effect.json",
+            secondDefinitionPath: "effects/unknown/effect.json"
+        )
+        let cursorRippleRecoveryGraph = chainGraph(
+            secondDefinitionPath: "effects/cursorripple/effect.json"
+        )
+        let shineRecoveryGraph = chainGraph(
+            secondDefinitionPath: "effects/shine/effect.json"
+        )
+        let terminalIrisRecoveryDescriptor = descriptor(
+            unsupportedSecond: true,
+            secondDefinitionPath: "effects/iris/effect.json"
+        )
+        let xRayPrefixRecoveryDescriptor = descriptor(
+            unsupportedSecond: true,
+            firstDefinitionPath: "effects/xray/effect.json",
+            secondDefinitionPath: "effects/unknown/effect.json"
+        )
+        let cursorRippleRecoveryDescriptor = descriptor(
+            unsupportedSecond: true,
+            secondDefinitionPath: "effects/cursorripple/effect.json"
+        )
+        let shineRecoveryDescriptor = descriptor(
+            unsupportedSecond: true,
+            secondDefinitionPath: "effects/shine/effect.json"
+        )
+        let cursorCompleteBase = chainGraph(
+            firstDefinitionPath: "effects/cursorripple/effect.json"
+        )
+        guard let cursorCompleteGraph = SceneAuthoredEffectChainPlanner.stageGraph(
+            effect: cursorCompleteBase.effects[0],
+            in: cursorCompleteBase
+        ) else {
+            fatalError("cursor stage graph unavailable")
+        }
+        let cursorCompleteDescriptor = SceneRenderDescriptor(
+            layers: [.init(
+                id: layerID,
+                parentID: nil,
+                visible: true,
+                contentKind: "text",
+                effects: [effectDescriptor(
+                    index: 0,
+                    kernel: 1,
+                    verticalCombos: ["VERTICAL": 2, "ENABLEMASK": 1],
+                    definitionPath: "effects/cursorripple/effect.json"
+                )]
+            )],
+            materialPasses: materials()
+        )
+        let cursorCompleteCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: cursorCompleteDescriptor,
+            authoredPlans: [cursorCompleteGraph]
+        )
+        let completeCursorRipple: [String: Any] = [
+            "chainLayers": cursorCompleteCatalog.chainsByLayerID.keys.sorted(),
+            "singleStageLayers": cursorCompleteCatalog.plansByLayerID.keys.sorted(),
+            "stageCount": cursorCompleteCatalog.chainsByLayerID[layerID]?
+                .executionStages.count ?? 0,
+            "cursorCount": cursorCompleteCatalog.chainsByLayerID[layerID]?
+                .cursorRippleCount ?? 0,
+            "backend": cursorCompleteCatalog.chainsByLayerID[layerID]?
+                .executionStages.first?.backend.stableName ?? "-",
+            "resolvedMaterialExecution": cursorCompleteCatalog
+                .resolvedMaterialExecutionLayerIDs.sorted(),
+            "legacyRuntimeExcluded": cursorCompleteCatalog
+                .legacyEffectRuntimeExcludedLayerIDs.sorted(),
+        ]
+        let xRayPath = "effects/xray/effect.json"
+        let completeXRay = completeDedicatedCatalogState(
+            descriptor: singleEffectDescriptor(definitionPath: xRayPath),
+            graph: singleStageGraph(definitionPath: xRayPath)
+        )
+        let shinePath = "effects/shine/effect.json"
+        let completeShine = completeDedicatedCatalogState(
+            descriptor: singleEffectDescriptor(definitionPath: shinePath),
+            graph: completeShineGraph()
+        )
+        let irisPath = "effects/iris/effect.json"
+        let irisGraph = singleStageGraph(definitionPath: irisPath)
+        let irisCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: singleEffectDescriptor(definitionPath: irisPath),
+            authoredPlans: [irisGraph],
+            resolvedMaterialSubjects: [SceneEffectExactRuntimeSubject(
+                key: irisGraph.effects[0].key,
+                family: "resolved-material"
             )]
         )
+        let completeResolvedIris: [String: Any] = [
+            "chainLayers": irisCatalog.chainsByLayerID.keys.sorted(),
+            "singleStageLayers": irisCatalog.plansByLayerID.keys.sorted(),
+            "acceptedSubjectKeys": irisCatalog.unifiedExecutionStageKeys
+                .map(\.effectIndex).sorted(),
+            "suppressedLegacyFallback": irisCatalog
+                .legacyEffectFallbackSuppressedLayerIDs.sorted(),
+            "resolvedMaterialExecution": irisCatalog
+                .resolvedMaterialExecutionLayerIDs.sorted(),
+            "legacyRuntimeExcluded": irisCatalog
+                .legacyEffectRuntimeExcludedLayerIDs.sorted(),
+            "admissions": admissionState(irisCatalog.stageAdmissions),
+        ]
         let failureCatalogs: [String: [String: Any]] = [
             "unsupportedSecond": catalogState(
                 descriptor: unsupportedDescriptor,
@@ -1876,7 +1960,6 @@ enum Harness {
                     ).rejection?.stageCompileFailure == nil,
             ],
             "programChain": [
-                "route": routeName(chain.executionRoute),
                 "programCount": chain.stagePrograms.count,
                 "authoredOrdinals": chain.stagePrograms.map(\.authoredOrdinal),
                 "effectOrder": chain.stagePrograms.map {
@@ -1902,87 +1985,15 @@ enum Harness {
                         && program.executionPlan.renderGraph.effects.map(\.key)
                             == stage.renderGraph.effects.map(\.key)
                 },
-                "irisRoute": routeName(irisVariantChain.executionRoute),
-                "prefixRoute": routeName(prefixVariantChain.executionRoute),
-                "isolationRoute": routeName(isolationVariantChain.executionRoute),
-                "irisProgramCount": irisVariantChain.stagePrograms.count,
-                "prefixProgramCount": prefixVariantChain.stagePrograms.count,
-                "isolationProgramCount": isolationVariantChain.stagePrograms.count,
-                "isolationLegacyStageCount":
-                    isolationVariantChain.legacyRecoveryStages.count,
-                "programRecoveryCannotUseManualKind":
-                    SceneAuthoredEffectExecutionChain.legacyRecovery(
-                        layerID: layerID,
-                        authoredRenderGraph: validGraph,
-                        renderGraph: chain.stagePrograms[0].stageGraph,
-                        stagePrograms: [chain.stagePrograms[0]],
-                        kind: .isolatedShine
-                    ) == nil,
-                "manualRecoveryCannotUseProgramKind":
-                    SceneAuthoredEffectExecutionChain.legacyRecovery(
-                        layerID: layerID,
-                        authoredRenderGraph: isolationOuterGraph,
-                        renderGraph: isolationGraph,
-                        legacyRecoveryStages: [isolationStage],
-                        kind: .xRayPrefix,
-                        omittedEffectPaths: []
-                    ) == nil,
                 "reorderedCompleteProgramsRejected":
                     SceneAuthoredEffectExecutionChain.complete(
                         layerID: layerID,
                         renderGraph: validGraph,
                         stagePrograms: Array(chain.stagePrograms.reversed())
                     ) == nil,
-                "nonPrefixRecoveryRejected":
-                    SceneAuthoredEffectExecutionChain.legacyRecovery(
-                        layerID: layerID,
-                        authoredRenderGraph: validGraph,
-                        renderGraph: chain.stagePrograms[1].stageGraph,
-                        stagePrograms: [chain.stagePrograms[1]],
-                        kind: .xRayPrefix
-                    ) == nil,
                 "conservationRejectionCode":
                     SceneAuthoredEffectChainRejection.Code
                         .stageProgramConservationViolation.rawValue,
-            ],
-            "manualRecovery": [
-                "valid": manualShineChain(
-                    executionGraph: isolationGraph
-                ) != nil,
-                "sameKeyWrongPathRejected": manualShineChain(
-                    executionGraph: wrongPathGraph
-                ) == nil,
-                "sameKeyWrongNodeRejected": manualShineChain(
-                    executionGraph: wrongNodeGraph
-                ) == nil,
-                "sameKeyWrongTargetRejected": manualShineChain(
-                    executionGraph: wrongTargetGraph
-                ) == nil,
-                "embeddedWrongKeyRejected": manualShineChain(
-                    executionGraph: isolationGraph,
-                    embeddedKey: firstKey
-                ) == nil,
-                "embeddedWrongGraphRejected": manualShineChain(
-                    executionGraph: isolationGraph,
-                    embeddedGraph: wrongPathGraph
-                ) == nil,
-                "shineRenderTargetsRejected": manualShineChain(
-                    executionGraph: isolationGraph,
-                    halfTargets: [isolationTargets[0], isolationTargets[0]]
-                ) == nil,
-                "materialCountRejected": manualShineChain(
-                    executionGraph: isolationGraph,
-                    materialNodeCount: isolationGraph.nodes.count + 1
-                ) == nil,
-                "logicalTargetCountRejected": manualShineChain(
-                    executionGraph: isolationGraph,
-                    logicalRenderTargetCount:
-                        isolationGraph.renderTargets.count + 1
-                ) == nil,
-                "legacyComposeRejected": manualShineChain(
-                    executionGraph: isolationGraph,
-                    usesLegacyComposeNormalization: true
-                ) == nil,
             ],
             "success": [
                 "effectOrder": chain.executionStages.map {
@@ -2057,6 +2068,12 @@ enum Harness {
                 "chainLayers": catalog.chainsByLayerID.keys.sorted(),
                 "singleStageLayers": catalog.plansByLayerID.keys.sorted(),
                 "legacyBlocked": catalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
+                "suppressedLegacyFallback": catalog
+                    .legacyEffectFallbackSuppressedLayerIDs.sorted(),
+                "resolvedMaterialExecution": catalog
+                    .resolvedMaterialExecutionLayerIDs.sorted(),
+                "legacyRuntimeExcluded": catalog
+                    .legacyEffectRuntimeExcludedLayerIDs.sorted(),
                 "liveTargetCount": catalog.liveConsumerTargets.count,
                 "executedPropertyKeys": catalog.executedUserPropertyKeys.sorted(),
                 "admissions": admissionState(catalog.stageAdmissions),
@@ -2069,6 +2086,12 @@ enum Harness {
                 }.sorted(),
                 "legacyBlocked": resolvedCatalog
                     .legacyGaussianBlurBlockedLayerIDs.sorted(),
+                "suppressedLegacyFallback": resolvedCatalog
+                    .legacyEffectFallbackSuppressedLayerIDs.sorted(),
+                "resolvedMaterialExecution": resolvedCatalog
+                    .resolvedMaterialExecutionLayerIDs.sorted(),
+                "legacyRuntimeExcluded": resolvedCatalog
+                    .legacyEffectRuntimeExcludedLayerIDs.sorted(),
                 "admissions": admissionState(resolvedCatalog.stageAdmissions),
                 "strictConserved": resolvedCatalog.reportLines.contains(
                     "authoredEffectStageStrictIdentityConserved: true"
@@ -2077,6 +2100,10 @@ enum Harness {
                     .chainsByLayerID.keys.sorted(),
                 "partialResolvedKeys": partialResolvedCatalog
                     .unifiedExecutionStageKeys.map { $0.effectIndex }.sorted(),
+                "partialResolvedMaterialExecution": partialResolvedCatalog
+                    .resolvedMaterialExecutionLayerIDs.sorted(),
+                "partialLegacyRuntimeExcluded": partialResolvedCatalog
+                    .legacyEffectRuntimeExcludedLayerIDs.sorted(),
             ],
             "directRejections": [
                 "unsupportedSecond": rejected(
@@ -2130,33 +2157,69 @@ enum Harness {
                     descriptor: unsupportedDescriptor
                 ),
             ],
-            "admissionVariants": [
-                "iris": admissionVariant(
-                    chain: irisVariantChain,
-                    coverage: .terminalIrisInlineSuffix(effect: secondKey)
+            "partialRecoveryRejectionCodes": [
+                "terminalIris": rejectionCode(
+                    graph: terminalIrisRecoveryGraph,
+                    descriptor: terminalIrisRecoveryDescriptor
                 ),
-                "prefix": admissionVariant(
-                    chain: prefixVariantChain,
-                    coverage: .xRayPrefix(omitted: [secondKey])
+                "xRayPrefix": rejectionCode(
+                    graph: xRayPrefixRecoveryGraph,
+                    descriptor: xRayPrefixRecoveryDescriptor
                 ),
-                "isolation": admissionVariant(
-                    chain: isolationVariantChain,
-                    coverage: .isolatedShine(
-                        executed: secondKey,
-                        omitted: [firstKey]
-                    )
+                "isolatedCursorRipple": rejectionCode(
+                    graph: cursorRippleRecoveryGraph,
+                    descriptor: cursorRippleRecoveryDescriptor
+                ),
+                "isolatedShine": rejectionCode(
+                    graph: shineRecoveryGraph,
+                    descriptor: shineRecoveryDescriptor
                 ),
             ],
-            "xRayPrefixCatalog": xRayPrefixCatalog,
+            "partialRecoveryCatalogs": [
+                "terminalIris": catalogState(
+                    descriptor: terminalIrisRecoveryDescriptor,
+                    graphs: [terminalIrisRecoveryGraph]
+                ),
+                "xRayPrefix": catalogState(
+                    descriptor: xRayPrefixRecoveryDescriptor,
+                    graphs: [xRayPrefixRecoveryGraph]
+                ),
+                "isolatedCursorRipple": catalogState(
+                    descriptor: cursorRippleRecoveryDescriptor,
+                    graphs: [cursorRippleRecoveryGraph]
+                ),
+                "isolatedShine": catalogState(
+                    descriptor: shineRecoveryDescriptor,
+                    graphs: [shineRecoveryGraph]
+                ),
+            ],
+            "completeCursorRipple": completeCursorRipple,
+            "completeControls": [
+                "xRay": completeXRay,
+                "shine": completeShine,
+                "resolvedIris": completeResolvedIris,
+            ],
             "failureCatalogs": failureCatalogs,
             "hidden": [
                 "chainLayers": hiddenCatalog.chainsByLayerID.keys.sorted(),
                 "singleStageLayers": hiddenCatalog.plansByLayerID.keys.sorted(),
                 "eligible": hiddenCatalog.hiddenEligibleLayerIDs,
                 "legacyBlocked": hiddenCatalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
+                "suppressedLegacyFallback": hiddenCatalog
+                    .legacyEffectFallbackSuppressedLayerIDs.sorted(),
+                "resolvedMaterialExecution": hiddenCatalog
+                    .resolvedMaterialExecutionLayerIDs.sorted(),
+                "legacyRuntimeExcluded": hiddenCatalog
+                    .legacyEffectRuntimeExcludedLayerIDs.sorted(),
                 "admissions": admissionState(hiddenCatalog.stageAdmissions),
             ],
             "inactive": [
+                "suppressedLegacyFallback": inactiveCatalog
+                    .legacyEffectFallbackSuppressedLayerIDs.sorted(),
+                "resolvedMaterialExecution": inactiveCatalog
+                    .resolvedMaterialExecutionLayerIDs.sorted(),
+                "legacyRuntimeExcluded": inactiveCatalog
+                    .legacyEffectRuntimeExcludedLayerIDs.sorted(),
                 "admissions": admissionState(inactiveCatalog.stageAdmissions),
                 "reportLines": inactiveCatalog.reportLines,
             ],
@@ -2254,6 +2317,9 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(catalog["chainLayers"], [42])
         self.assertEqual(catalog["singleStageLayers"], [])
         self.assertEqual(catalog["legacyBlocked"], [])
+        self.assertEqual(catalog["suppressedLegacyFallback"], [])
+        self.assertEqual(catalog["resolvedMaterialExecution"], [])
+        self.assertEqual(catalog["legacyRuntimeExcluded"], [42])
         self.assertEqual(catalog["liveTargetCount"], 0)
         self.assertEqual(catalog["executedPropertyKeys"], [])
         self.assertEqual(
@@ -2317,6 +2383,9 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(catalog["chainLayers"], [])
         self.assertEqual(catalog["resolvedKeys"], [0, 1])
         self.assertEqual(catalog["legacyBlocked"], [])
+        self.assertEqual(catalog["suppressedLegacyFallback"], [])
+        self.assertEqual(catalog["resolvedMaterialExecution"], [42])
+        self.assertEqual(catalog["legacyRuntimeExcluded"], [42])
         self.assertTrue(catalog["strictConserved"])
         self.assertEqual(
             [record["strict"] for record in catalog["admissions"]],
@@ -2332,6 +2401,8 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         )
         self.assertEqual(catalog["partialChainLayers"], [42])
         self.assertEqual(catalog["partialResolvedKeys"], [])
+        self.assertEqual(catalog["partialResolvedMaterialExecution"], [])
+        self.assertEqual(catalog["partialLegacyRuntimeExcluded"], [42])
 
     def test_typed_stage_compilation_preserves_projection_and_failure_order(self) -> None:
         typed = self.result["typedCompilation"]
@@ -2440,7 +2511,6 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
 
     def test_stage_programs_are_the_complete_chain_authority(self) -> None:
         chain = self.result["programChain"]
-        self.assertEqual(chain["route"], "complete-programs")
         self.assertEqual(chain["programCount"], 2)
         self.assertEqual(chain["authoredOrdinals"], [0, 1])
         self.assertEqual(chain["effectOrder"], [0, 1])
@@ -2459,34 +2529,99 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         )
         self.assertTrue(chain["projectionConserved"])
 
-    def test_recovery_routes_remain_explicit_legacy_routes(self) -> None:
-        chain = self.result["programChain"]
+    def test_partial_recovery_candidates_are_fail_closed(self) -> None:
         self.assertEqual(
-            chain["irisRoute"],
-            "legacy-terminal-iris-inline-suffix",
+            self.result["partialRecoveryRejectionCodes"],
+            {
+                "isolatedCursorRipple": "unsupported-stage",
+                "isolatedShine": "unsupported-stage",
+                "terminalIris": "unsupported-stage",
+                "xRayPrefix": "unsupported-stage",
+            },
         )
-        self.assertEqual(chain["prefixRoute"], "legacy-xray-prefix")
-        self.assertEqual(chain["isolationRoute"], "legacy-isolated-shine")
-        self.assertEqual(chain["irisProgramCount"], 1)
-        self.assertEqual(chain["prefixProgramCount"], 1)
-        self.assertEqual(chain["isolationProgramCount"], 0)
-        self.assertEqual(chain["isolationLegacyStageCount"], 1)
-        self.assertTrue(chain["programRecoveryCannotUseManualKind"])
-        self.assertTrue(chain["manualRecoveryCannotUseProgramKind"])
+        for name, catalog in self.result["partialRecoveryCatalogs"].items():
+            self.assertEqual(catalog["chainLayers"], [], name)
+            self.assertEqual(catalog["singleStageLayers"], [], name)
+            self.assertEqual(catalog["hidden"], [], name)
+            self.assertEqual(catalog["legacyBlocked"], [42], name)
+            self.assertEqual(catalog["suppressedLegacyFallback"], [42], name)
+            self.assertEqual(catalog["resolvedMaterialExecution"], [], name)
+            self.assertEqual(catalog["legacyRuntimeExcluded"], [42], name)
+            self.assertEqual(
+                [item["reason"] for item in catalog["admissions"]],
+                ["discarded-strict-prefix", "unsupported-stage"],
+                name,
+            )
+
+        planner = CHAIN_ADMISSION_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("code: .unsupportedStage", planner)
+        for removed_owner in (
+            "recoveredAdmission",
+            "legacyRecovery",
+            "irisInlineSuffix",
+            "isolatedCursorRippleChain",
+            "isolatedShineChain",
+            "xRayPrefix",
+        ):
+            self.assertNotIn(removed_owner, planner)
+
+    def test_complete_program_conservation_remains_strict(self) -> None:
+        chain = self.result["programChain"]
         self.assertTrue(chain["reorderedCompleteProgramsRejected"])
-        self.assertTrue(chain["nonPrefixRecoveryRejected"])
         self.assertEqual(
             chain["conservationRejectionCode"],
             "stage-program-conservation-violation",
         )
+        source = CHAIN_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("private init(", source)
 
-    def test_manual_recovery_conserves_rebased_graph_and_embedded_plan(self) -> None:
-        recovery = self.result["manualRecovery"]
-        self.assertTrue(recovery["valid"])
-        self.assertTrue(
-            all(value for name, value in recovery.items() if name != "valid"),
-            recovery,
-        )
+    def test_complete_cursor_ripple_chain_remains_admitted(self) -> None:
+        cursor = self.result["completeCursorRipple"]
+        self.assertEqual(cursor["chainLayers"], [42])
+        self.assertEqual(cursor["singleStageLayers"], [42])
+        self.assertEqual(cursor["stageCount"], 1)
+        self.assertEqual(cursor["cursorCount"], 1)
+        self.assertEqual(cursor["backend"], "cursor-ripple")
+        self.assertEqual(cursor["resolvedMaterialExecution"], [])
+        self.assertEqual(cursor["legacyRuntimeExcluded"], [42])
+
+    def test_complete_xray_shine_and_resolved_iris_remain_admitted(self) -> None:
+        controls = self.result["completeControls"]
+        for name, backend in (("xRay", "x-ray"), ("shine", "shine")):
+            control = controls[name]
+            self.assertEqual(control["chainLayers"], [42], name)
+            self.assertEqual(control["singleStageLayers"], [42], name)
+            self.assertEqual(control["stageCount"], 1, name)
+            self.assertEqual(control["backends"], [backend], name)
+            self.assertEqual(control["suppressedLegacyFallback"], [], name)
+            self.assertEqual(control["resolvedMaterialExecution"], [], name)
+            self.assertEqual(control["legacyRuntimeExcluded"], [42], name)
+            self.assertEqual(len(control["admissions"]), 1, name)
+            admission = control["admissions"][0]
+            self.assertEqual(admission["activity"], "active", name)
+            self.assertEqual(admission["effect"], 0, name)
+            self.assertEqual(admission["strict"], "admitted-dedicated", name)
+            self.assertEqual(admission["coverage"], "complete", name)
+            self.assertEqual(admission["backend"], backend, name)
+            self.assertEqual(admission["profile"], "-", name)
+            self.assertEqual(admission["reason"], "-", name)
+
+        iris = controls["resolvedIris"]
+        self.assertEqual(iris["chainLayers"], [])
+        self.assertEqual(iris["singleStageLayers"], [])
+        self.assertEqual(iris["acceptedSubjectKeys"], [0])
+        self.assertEqual(iris["suppressedLegacyFallback"], [])
+        self.assertEqual(iris["resolvedMaterialExecution"], [42])
+        self.assertEqual(iris["legacyRuntimeExcluded"], [42])
+        self.assertEqual(len(iris["admissions"]), 1)
+        admission = iris["admissions"][0]
+        self.assertEqual(admission["activity"], "active")
+        self.assertEqual(admission["effect"], 0)
+        self.assertEqual(admission["strict"], "admitted-generic")
+        self.assertEqual(admission["coverage"], "complete")
+        self.assertEqual(admission["backend"], "resolved-material")
+        self.assertEqual(admission["profile"], "program")
+        self.assertEqual(admission["reason"], "-")
 
     def test_complete_program_failure_uses_non_recovery_rejection(self) -> None:
         planner = CHAIN_ADMISSION_SOURCE.read_text(encoding="utf-8")
@@ -2525,6 +2660,9 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             self.assertEqual(catalog["singleStageLayers"], [], name)
             self.assertEqual(catalog["hidden"], [], name)
             self.assertEqual(catalog["legacyBlocked"], [42], name)
+            self.assertEqual(catalog["suppressedLegacyFallback"], [42], name)
+            self.assertEqual(catalog["resolvedMaterialExecution"], [], name)
+            self.assertEqual(catalog["legacyRuntimeExcluded"], [42], name)
             expected_coverages = {
                 "multipleCandidates": ["rejected-ambiguous-graph"] * 2,
                 "mixedUnsupported": [
@@ -2547,6 +2685,14 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
                 name,
             )
 
+        duplicate = self.result["failureCatalogs"]["multipleCandidates"]
+        self.assertEqual(duplicate["suppressedLegacyFallback"], [42])
+        self.assertEqual(duplicate["chainRejectionCode"], "duplicate-graph")
+        self.assertEqual(
+            [item["reason"] for item in duplicate["admissions"]],
+            ["duplicate-graph", "duplicate-graph"],
+        )
+
         self.assertEqual(
             self.result["directRejectionCodes"],
             {
@@ -2567,43 +2713,15 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             ["discarded-strict-prefix", "discontinuous-effect-input"],
         )
 
-    def test_partial_chain_coverage_is_explicit(self) -> None:
-        variants = self.result["admissionVariants"]
-        self.assertEqual(
-            [(item["strict"], item["coverage"], item["reason"])
-             for item in variants["iris"]],
-            [
-                ("admitted-dedicated", "terminal-inline-prefix", "-"),
-                ("not-admitted", "terminal-inline-suffix", "terminal-inline-suffix"),
-            ],
-        )
-        self.assertEqual(
-            [(item["strict"], item["coverage"], item["reason"])
-             for item in variants["prefix"]],
-            [
-                ("admitted-dedicated", "prefix-accepted", "-"),
-                ("not-admitted", "prefix-omitted", "prefix-omitted"),
-            ],
-        )
-        self.assertEqual(
-            [(item["strict"], item["coverage"], item["reason"])
-             for item in variants["isolation"]],
-            [
-                ("not-admitted", "isolated-omitted", "isolated-omitted"),
-                ("admitted-dedicated", "isolated-accepted", "-"),
-            ],
-        )
-        self.assertEqual(
-            self.result["xRayPrefixCatalog"]["xRayPrefixes"],
-            ["42=effects/unknown/effect.json"],
-        )
-
     def test_hidden_complete_chain_is_not_runtime_eligible(self) -> None:
         hidden = self.result["hidden"]
         self.assertEqual(hidden["chainLayers"], [])
         self.assertEqual(hidden["singleStageLayers"], [])
         self.assertEqual(hidden["eligible"], [42])
         self.assertEqual(hidden["legacyBlocked"], [])
+        self.assertEqual(hidden["suppressedLegacyFallback"], [])
+        self.assertEqual(hidden["resolvedMaterialExecution"], [])
+        self.assertEqual(hidden["legacyRuntimeExcluded"], [])
         self.assertEqual(
             [(item["activity"], item["strict"], item["coverage"])
              for item in hidden["admissions"]],
@@ -2612,6 +2730,9 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
 
     def test_author_disabled_and_missing_graph_are_separate_axes(self) -> None:
         inactive = self.result["inactive"]
+        self.assertEqual(inactive["suppressedLegacyFallback"], [])
+        self.assertEqual(inactive["resolvedMaterialExecution"], [])
+        self.assertEqual(inactive["legacyRuntimeExcluded"], [])
         self.assertEqual(
             [(item["activity"], item["strict"], item["coverage"])
              for item in inactive["admissions"]],

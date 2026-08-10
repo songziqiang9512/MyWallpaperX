@@ -77,7 +77,10 @@ def mapped_tests(
     groups: set[str] = set()
     for path in paths:
         if path.startswith("script/tests/test_") and path.endswith(".py"):
-            modules.add(Path(path).stem)
+            # Deleted tests still appear in a diff, but cannot be passed to the
+            # executable test runner as module names.
+            if (ROOT / path).is_file():
+                modules.add(Path(path).stem)
         elif path.startswith("script/") and path.endswith(".py"):
             counterpart = ROOT / "script/tests" / f"test_{Path(path).name}"
             if counterpart.is_file():

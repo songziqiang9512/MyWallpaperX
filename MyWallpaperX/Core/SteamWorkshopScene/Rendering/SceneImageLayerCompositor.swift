@@ -36,8 +36,9 @@ struct SceneImageLayerCompositor {
         let resolvedMaterialRoute = resolvedMaterialClaim(for: request)
         guard !resolvedMaterialRoute.isRejected else { return false }
         let resolvedMaterialClaim = resolvedMaterialRoute.execution
+        let dependencyEffect = request.dependencyEffect
 
-        guard (request.dependencyEffect.map {
+        guard (dependencyEffect.map {
             ($0.slotIndex == 1 && ($0.blendMode == 0 || $0.blendMode == 5))
                 || ($0.slotIndex == 3 && $0.blendMode == 0)
         } ?? true) else {
@@ -58,7 +59,7 @@ struct SceneImageLayerCompositor {
         let auxMask = masks.iris ?? masks.opacity
         let runtimeAuthoredPlan = request.authoredEffectPlan ?? request.authoredEffectChain?.singleStage
         let usesAuthoredExecution = resolvedMaterialClaim != nil || request.authoredEffectPlan != nil
-            || request.authoredEffectChain != nil
+            || request.authoredEffectChain != nil || request.suppressesLegacyEffectFallback
         let legacyDecision = usesAuthoredExecution ? nil
             : SceneEffectRuntimePlanner.legacyPlanningDecision(
                 for: request.layer,
@@ -72,7 +73,7 @@ struct SceneImageLayerCompositor {
                 blocksLegacyGaussianBlur: request.blocksLegacyGaussianBlur
             )
         let effectPlan: SceneEffectRuntimePlan
-        if resolvedMaterialClaim != nil {
+        if resolvedMaterialClaim != nil || request.suppressesLegacyEffectFallback {
             effectPlan = .neutral
         } else {
             effectPlan = legacyDecision?.runtimePlan ?? SceneEffectRuntimePlanner.plan(
@@ -101,6 +102,7 @@ struct SceneImageLayerCompositor {
             || request.requiresSourceCopy
             || resolvedMaterialClaim != nil
             || request.authoredEffectChain != nil
+            || request.suppressesLegacyEffectFallback
             || layerColorBlendMode > 0
         guard !routesOffscreen
             || request.layer.contentKind != "solid"
@@ -108,9 +110,11 @@ struct SceneImageLayerCompositor {
             return rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "solid-offscreen-size-unavailable")
         }
-        let chainConsumesDependency = request.authoredEffectChain != nil && request.dependencyEffect != nil
+        let chainConsumesDependency = request.authoredEffectChain != nil
+            && dependencyEffect != nil
 
-        let sourceEffectInputs = request.authoredEffectChain == nil && resolvedMaterialClaim == nil
+        let sourceEffectInputs = request.authoredEffectChain == nil
+            && resolvedMaterialClaim == nil && !request.suppressesLegacyEffectFallback
             ? effectPlan.inputs
             : .neutral
         guard let directUniforms = sourceFragmentUniforms(
@@ -184,6 +188,24 @@ struct SceneImageLayerCompositor {
                         executionOrigin: executionOrigin
                     )
                 }
+            } else if request.suppressesLegacyEffectFallback {
+                let dimensions = legacyOffscreenDimensions(for: request)
+                guard let textures = pool.textures(
+                    width: dimensions.width,
+                    height: dimensions.height
+                ) else { return false }
+                renderedTexture = mainPass.encodeOffscreen { commandBuffer in
+                    SceneOffscreenEffectRenderer.captureSource(
+                        sourceTexture: request.texture,
+                        waterMaskTexture: nil,
+                        foliageMaskTexture: nil,
+                        auxMaskTexture: nil,
+                        target: textures.primary,
+                        sourceUniforms: directUniforms,
+                        pipeline: pipeline,
+                        commandBuffer: commandBuffer
+                    ) ? textures.primary : nil
+                }
             } else {
                 let dimensions = legacyOffscreenDimensions(for: request)
                 guard let textures = pool.textures(
@@ -242,15 +264,13 @@ struct SceneImageLayerCompositor {
                     || resolvedMaterialClaim != nil
                     || request.authoredEffectPlan != nil
                     || request.authoredEffectChain != nil
+                    || request.suppressesLegacyEffectFallback
                     ? nil
                     : request.texture
             ) else {
                 return rejectResolvedMaterialClaim(resolvedMaterialClaim,
                     reasonCode: "final-offscreen-texture-unavailable")
             }
-            let irisSuffix = resolvedMaterialClaim == nil
-                ? request.authoredEffectChain?.irisInlineSuffix
-                : nil
             let finalValues = SceneImageLayerUniformValues(
                 time: request.uniforms.time,
                 alpha: request.finalCompositeAlpha ?? 1,
@@ -258,22 +278,22 @@ struct SceneImageLayerCompositor {
             )
             let finalUniforms = makeFragmentUniforms(
                 values: finalValues,
-                effectInputs: irisSuffix?.inputs ?? .neutral,
+                effectInputs: .neutral,
                 textureFrame: .identity,
                 tint: SIMD3(repeating: 1),
                 foliageMaskUVScale: SIMD2(repeating: 1),
                 dependencyBlendMode: chainConsumesDependency
                     ? nil
-                    : request.dependencyEffect?.blendMode
+                    : dependencyEffect?.blendMode
             )
             let composited = SceneImageLayerMainPassRenderer.draw(
                 texture: finalTexture,
-                masks: irisSuffix == nil ? .empty : masks,
+                masks: .empty,
                 mvp: request.mvp,
                 uniforms: finalUniforms,
                 dependencyTexture: chainConsumesDependency
                     ? nil
-                    : request.dependencyEffect?.texture,
+                    : dependencyEffect?.texture,
                 layer: request.layer,
                 pipeline: pipeline,
                 colorBlendPipeline: colorBlendPipeline,
@@ -289,21 +309,7 @@ struct SceneImageLayerCompositor {
                     executionOrigin: executionOrigin
                 ) else { return false }
             }
-            if let irisSuffix {
-                executionTrace?.recordExact(
-                    identity: SceneEffectExecutionIdentity(
-                        layerID: irisSuffix.effectKey.layerID,
-                        effectIndex: irisSuffix.effectKey.effectIndex,
-                        descriptorID: irisSuffix.effectKey.descriptorID
-                    ),
-                    origin: executionOrigin,
-                    family: "iris-inline",
-                    backend: "iris-inline",
-                    outcome: composited
-                        ? .encodedOutput
-                        : .failed(reasonCode: "main-pass-returned-false")
-                )
-            } else if !composited, request.authoredEffectChain != nil {
+            if !composited, request.authoredEffectChain != nil {
                 executionTrace?.recordRouteOperation(
                     layerID: request.layer.id,
                     origin: executionOrigin,
@@ -324,7 +330,8 @@ struct SceneImageLayerCompositor {
             || resolvedMaterialClaim != nil
             || request.authoredEffectPlan != nil
             || request.authoredEffectChain != nil
-            || (routesOffscreen && request.dependencyEffect != nil) {
+            || request.suppressesLegacyEffectFallback
+            || (routesOffscreen && dependencyEffect != nil) {
             return rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "offscreen-pool-unavailable")
         }
@@ -333,7 +340,7 @@ struct SceneImageLayerCompositor {
             masks: masks,
             mvp: request.mvp,
             uniforms: directUniforms,
-            dependencyTexture: request.dependencyEffect?.texture,
+            dependencyTexture: dependencyEffect?.texture,
             layer: request.layer,
             pipeline: pipeline,
             colorBlendPipeline: colorBlendPipeline,

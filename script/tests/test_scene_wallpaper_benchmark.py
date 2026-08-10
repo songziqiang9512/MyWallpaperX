@@ -62,14 +62,14 @@ def runtime_evidence(runtime_input: dict[str, object]) -> dict[str, object]:
 def effect_runtime_disposition_preview() -> str:
     coverage = (
         "inactive=1,complete=2,terminal-inline-prefix=0,"
-        "terminal-inline-suffix=1,isolated-accepted=0,isolated-omitted=0,"
+        "terminal-inline-suffix=0,isolated-accepted=0,isolated-omitted=0,"
         "prefix-accepted=0,prefix-omitted=0,rejected-missing-graph=0,"
-        "rejected-ambiguous-graph=0,rejected-chain=8,"
+        "rejected-ambiguous-graph=0,rejected-chain=9,"
         "rejected-graph-mismatch=0,rejected-invariant=0"
     )
     kind_counts = (
         "inactive=1,strict-dedicated=1,strict-generic=1,"
-        "strict-inline-suffix=1,omitted-by-strict-chain=1,"
+        "strict-inline-suffix=0,omitted-by-strict-chain=2,"
         "legacy-exact-inline=1,legacy-exact-offscreen=1,"
         "legacy-structural-member=0,"
         "legacy-coalesced-inline=1,legacy-coalesced-offscreen=0,"
@@ -92,7 +92,7 @@ def effect_runtime_disposition_preview() -> str:
         "authoredEffectStageAdmission: layer=1 effect=0 descriptor=1%23effect%230 activity=author-disabled strict=inactive coverage=inactive backend=- profile=- reason=- path=effects/disabled/effect.json",
         "authoredEffectStageAdmission: layer=2 effect=0 descriptor=2%23effect%230 activity=active strict=admitted-dedicated coverage=complete backend=opacity profile=- reason=- path=effects/opacity/effect.json",
         "authoredEffectStageAdmission: layer=2 effect=1 descriptor=2%23effect%231 activity=active strict=admitted-generic coverage=complete backend=resolved-material profile=program reason=- path=effects/generic/effect.json",
-        "authoredEffectStageAdmission: layer=2 effect=2 descriptor=2%23effect%232 activity=active strict=not-admitted coverage=terminal-inline-suffix backend=- profile=- reason=terminal-inline-suffix path=effects/iris/effect.json",
+        "authoredEffectStageAdmission: layer=2 effect=2 descriptor=2%23effect%232 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/iris/effect.json",
         "authoredEffectStageAdmission: layer=2 effect=3 descriptor=2%23effect%233 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/omitted/effect.json",
         "authoredEffectStageAdmission: layer=3 effect=0 descriptor=3%23effect%230 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/chromatic/effect.json",
         "authoredEffectStageAdmission: layer=3 effect=1 descriptor=3%23effect%231 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/chromatic/effect.json",
@@ -106,14 +106,14 @@ def effect_runtime_disposition_preview() -> str:
         "effectStageRuntimeDispositionCount: 12",
         f"effectStageRuntimeDispositionKindCounts: {kind_counts}",
         "effectStageRuntimeDispositionAttributionCounts: exact-key=8,layer-aggregate=2,none=2",
-        "effectStageRuntimeDispositionRoleCounts: owner=5,aggregate-contributor=1,member=5,none=1",
+        "effectStageRuntimeDispositionRoleCounts: owner=4,aggregate-contributor=1,member=6,none=1",
         "effectStaticRouteGroupCount: 7",
         "effectStaticRouteGroupKindCounts: inactive=1,direct=2,authored=1,legacy-offscreen=1,offscreen-passthrough=1,composite-refused=1",
         "effectStageRuntimeDescriptorIdentityConserved: true",
         "effectStageRuntimeGroupIdentityConserved: true",
         "effectStageRuntimeStrictIdentityConserved: true",
         "effectStaticRouteGroup: layer=1 scope=effect-induced-static kind=inactive effects=0 owners=0 aggregate=0 reason=no-active-effect",
-        "effectStaticRouteGroup: layer=2 scope=effect-induced-static kind=authored effects=4 owners=3 aggregate=0 reason=-",
+        "effectStaticRouteGroup: layer=2 scope=effect-induced-static kind=authored effects=4 owners=2 aggregate=0 reason=-",
         "effectStaticRouteGroup: layer=3 scope=effect-induced-static kind=direct effects=2 owners=1 aggregate=1 reason=-",
         "effectStaticRouteGroup: layer=4 scope=effect-induced-static kind=offscreen-passthrough effects=1 owners=0 aggregate=0 reason=no-implemented-offscreen-stage",
         "effectStaticRouteGroup: layer=5 scope=effect-induced-static kind=legacy-offscreen effects=2 owners=1 aggregate=0 reason=-",
@@ -122,7 +122,7 @@ def effect_runtime_disposition_preview() -> str:
         "effectStageRuntimeDisposition: layer=1 effect=0 descriptor=1%23effect%230 kind=inactive attribution=none family=- group=- role=none reason=author-disabled path=effects/disabled/effect.json",
         "effectStageRuntimeDisposition: layer=2 effect=0 descriptor=2%23effect%230 kind=strict-dedicated attribution=exact-key family=opacity group=2 role=owner reason=- path=effects/opacity/effect.json",
         "effectStageRuntimeDisposition: layer=2 effect=1 descriptor=2%23effect%231 kind=strict-generic attribution=exact-key family=resolved-material group=2 role=owner reason=resolved-material-capability-owner path=effects/generic/effect.json",
-        "effectStageRuntimeDisposition: layer=2 effect=2 descriptor=2%23effect%232 kind=strict-inline-suffix attribution=exact-key family=iris-inline group=2 role=owner reason=terminal-inline-suffix path=effects/iris/effect.json",
+        "effectStageRuntimeDisposition: layer=2 effect=2 descriptor=2%23effect%232 kind=omitted-by-strict-chain attribution=exact-key family=- group=2 role=member reason=unsupported-stage path=effects/iris/effect.json",
         "effectStageRuntimeDisposition: layer=2 effect=3 descriptor=2%23effect%233 kind=omitted-by-strict-chain attribution=exact-key family=- group=2 role=member reason=unsupported-stage path=effects/omitted/effect.json",
         "effectStageRuntimeDisposition: layer=3 effect=0 descriptor=3%23effect%230 kind=legacy-exact-inline attribution=exact-key family=chromatic-aberration group=3 role=owner reason=- path=effects/chromatic/effect.json",
         "effectStageRuntimeDisposition: layer=3 effect=1 descriptor=3%23effect%231 kind=legacy-coalesced-inline attribution=layer-aggregate family=chromatic-aberration group=3 role=aggregate-contributor reason=multiple-instances-coalesced-to-one-flag path=effects/chromatic/effect.json",
@@ -2036,36 +2036,32 @@ utility layer 763: skippedHidden kind=composition
     def test_authored_cursor_ripple_count_is_an_exact_gate(self) -> None:
         preview = (
             "authoredEffectGraphCursorRippleCount: 3\n"
-            "authoredEffectGraphCursorRippleIsolatedCount: 2\n"
-            "authoredEffectGraphCursorRippleOmittedEffects: "
-            "layer=1,omitted=effects/blend/effect.json;"
-            "layer=2,omitted=effects/reflection/effect.json\n"
+            "authoredEffectGraphCursorRippleIsolatedCount: 0\n"
+            "authoredEffectGraphCursorRippleOmittedEffects: \n"
         )
         count = benchmark.authored_effect_graph_cursor_ripple_count(preview)
         self.assertEqual(count, 3)
         self.assertEqual(
             benchmark.authored_effect_graph_cursor_ripple_isolated_count(preview),
-            2,
+            0,
         )
         self.assertEqual(
             benchmark.authored_effect_graph_cursor_ripple_omitted_effects(preview),
-            [
-                "layer=1,omitted=effects/blend/effect.json",
-                "layer=2,omitted=effects/reflection/effect.json",
-            ],
+            [],
         )
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
-                {"expected_authored_effect_graph_cursor_ripple_count": 3},
+                {
+                    "expected_authored_effect_graph_cursor_ripple_count": 3,
+                    "expected_authored_effect_graph_cursor_ripple_isolated_count": 0,
+                    "expected_authored_effect_graph_cursor_ripple_omitted_effects": [],
+                },
                 {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 cursor_ripple_count=count,
-                cursor_ripple_isolated_count=2,
-                cursor_ripple_omitted_effects=[
-                    "layer=1,omitted=effects/blend/effect.json",
-                    "layer=2,omitted=effects/reflection/effect.json",
-                ],
+                cursor_ripple_isolated_count=0,
+                cursor_ripple_omitted_effects=[],
             ),
             [],
         )
@@ -2082,13 +2078,11 @@ utility layer 763: skippedHidden kind=composition
         self.assertIn(
             "isolated Cursor Ripple count mismatch",
             benchmark.authored_effect_graph_failures(
-                {
-                    "expected_authored_effect_graph_cursor_ripple_isolated_count": 1
-                },
+                {"expected_authored_effect_graph_cursor_ripple_isolated_count": 1},
                 {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
-                cursor_ripple_isolated_count=2,
+                cursor_ripple_isolated_count=0,
             )[0],
         )
         self.assertIn(
@@ -2116,80 +2110,76 @@ utility layer 763: skippedHidden kind=composition
     def test_authored_shine_count_is_an_exact_gate(self) -> None:
         preview = (
             "authoredEffectGraphShineCount: 4\n"
-            "authoredEffectGraphShineIsolatedCount: 1\n"
-            "authoredEffectGraphShineOmittedEffects: "
-            "layer=59,omitted=effects/shake/effect.json;"
-            "layer=59,omitted=effects/shine/effect.json\n"
+            "authoredEffectGraphShineIsolatedCount: 0\n"
+            "authoredEffectGraphShineOmittedEffects: \n"
         )
-        omissions = [
-            "layer=59,omitted=effects/shake/effect.json",
-            "layer=59,omitted=effects/shine/effect.json",
-        ]
         self.assertEqual(benchmark.authored_effect_graph_shine_count(preview), 4)
         self.assertEqual(
-            benchmark.authored_effect_graph_shine_isolated_count(preview), 1
+            benchmark.authored_effect_graph_shine_isolated_count(preview), 0
         )
         self.assertEqual(
-            benchmark.authored_effect_graph_shine_omitted_effects(preview),
-            omissions,
+            benchmark.authored_effect_graph_shine_omitted_effects(preview), [],
         )
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {
                     "expected_authored_effect_graph_shine_count": 4,
-                    "expected_authored_effect_graph_shine_isolated_count": 1,
-                    "expected_authored_effect_graph_shine_omitted_effects": omissions,
+                    "expected_authored_effect_graph_shine_isolated_count": 0,
+                    "expected_authored_effect_graph_shine_omitted_effects": [],
                 },
                 {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 shine_count=4,
-                shine_isolated_count=1,
-                shine_omitted_effects=omissions,
+                shine_isolated_count=0,
+                shine_omitted_effects=[],
             ),
             [],
         )
-        for sample, arguments, message in (
-            (
+        self.assertIn(
+            "Shine count mismatch",
+            benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_shine_count": 0},
-                {"shine_count": 4},
-                "Shine count mismatch",
-            ),
-            (
-                {"expected_authored_effect_graph_shine_isolated_count": 0},
-                {"shine_isolated_count": 1},
-                "isolated Shine count mismatch",
-            ),
-            (
-                {"expected_authored_effect_graph_shine_omitted_effects": []},
-                {"shine_omitted_effects": omissions},
-                "Shine omissions mismatch",
-            ),
-        ):
-            self.assertIn(
-                message,
-                benchmark.authored_effect_graph_failures(
-                    sample,
-                    {"succeeded_layer_ids": [], "failed_layer_ids": []},
-                    [],
-                    None,
-                    **arguments,
-                )[0],
-            )
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                shine_count=4,
+            )[0],
+        )
+        self.assertIn(
+            "isolated Shine count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_shine_isolated_count": 1},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                shine_isolated_count=0,
+            )[0],
+        )
+        self.assertIn(
+            "Shine omissions mismatch",
+            benchmark.authored_effect_graph_failures(
+                {
+                    "expected_authored_effect_graph_shine_omitted_effects": [
+                        "layer=59,omitted=effects/shake/effect.json"
+                    ]
+                },
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                shine_omitted_effects=[],
+            )[0],
+        )
         self.assertIsNone(benchmark.authored_effect_graph_shine_count(""))
-        self.assertIsNone(
-            benchmark.authored_effect_graph_shine_isolated_count("")
-        )
-        self.assertIsNone(
-            benchmark.authored_effect_graph_shine_omitted_effects("")
-        )
+        self.assertIsNone(benchmark.authored_effect_graph_shine_isolated_count(""))
+        self.assertIsNone(benchmark.authored_effect_graph_shine_omitted_effects(""))
 
     def test_interactive_effect_counts_are_exact_gates(self) -> None:
         preview = (
             "authoredEffectGraphFoliageSwayCount: 3\n"
             "authoredEffectGraphWaterRippleCount: 2\n"
             "authoredEffectGraphDepthParallaxCount: 4\n"
-            "authoredEffectGraphIrisInlineSuffixCount: 1\n"
+            "authoredEffectGraphIrisInlineSuffixCount: 0\n"
         )
         self.assertEqual(
             benchmark.authored_effect_graph_foliage_sway_count(preview), 3
@@ -2201,7 +2191,7 @@ utility layer 763: skippedHidden kind=composition
             benchmark.authored_effect_graph_depth_parallax_count(preview), 4
         )
         self.assertEqual(
-            benchmark.authored_effect_graph_iris_inline_suffix_count(preview), 1
+            benchmark.authored_effect_graph_iris_inline_suffix_count(preview), 0
         )
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
@@ -2209,7 +2199,7 @@ utility layer 763: skippedHidden kind=composition
                     "expected_authored_effect_graph_foliage_sway_count": 3,
                     "expected_authored_effect_graph_water_ripple_count": 2,
                     "expected_authored_effect_graph_depth_parallax_count": 4,
-                    "expected_authored_effect_graph_iris_inline_suffix_count": 1,
+                    "expected_authored_effect_graph_iris_inline_suffix_count": 0,
                 },
                 {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
@@ -2217,7 +2207,7 @@ utility layer 763: skippedHidden kind=composition
                 foliage_sway_count=3,
                 water_ripple_count=2,
                 depth_parallax_count=4,
-                iris_inline_suffix_count=1,
+                iris_inline_suffix_count=0,
             ),
             [],
         )
@@ -2226,7 +2216,7 @@ utility layer 763: skippedHidden kind=composition
                 "expected_authored_effect_graph_foliage_sway_count": 0,
                 "expected_authored_effect_graph_water_ripple_count": 0,
                 "expected_authored_effect_graph_depth_parallax_count": 0,
-                "expected_authored_effect_graph_iris_inline_suffix_count": 0,
+                "expected_authored_effect_graph_iris_inline_suffix_count": 1,
             },
             {"succeeded_layer_ids": [], "failed_layer_ids": []},
             [],
@@ -2234,7 +2224,7 @@ utility layer 763: skippedHidden kind=composition
             foliage_sway_count=3,
             water_ripple_count=2,
             depth_parallax_count=4,
-            iris_inline_suffix_count=1,
+            iris_inline_suffix_count=0,
         )
         self.assertIn("authored effect graph Foliage Sway count mismatch", failures)
         self.assertIn("authored effect graph Water Ripple count mismatch", failures)
@@ -2413,7 +2403,7 @@ utility layer 763: skippedHidden kind=composition
             ],
             "authored_effect_graph_authored_shader_count": 11,
             "authored_effect_graph_scroll_count": 12,
-            "authored_effect_graph_iris_inline_suffix_count": 1,
+            "authored_effect_graph_iris_inline_suffix_count": 0,
         }
         runtime.update(expected_counts)
         sample = matrix_generator.matrix_sample(
@@ -3187,11 +3177,12 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(records_by_kind["inactive"]["group_id"], None)
         self.assertEqual(records_by_kind["strict-dedicated"]["role"], "owner")
         self.assertEqual(records_by_kind["strict-generic"]["role"], "owner")
-        self.assertEqual(records_by_kind["strict-inline-suffix"]["role"], "owner")
-        self.assertEqual(
-            records_by_kind["omitted-by-strict-chain"]["role"],
-            "member",
-        )
+        omissions = [
+            record for record in metrics["records"]
+            if record["kind"] == "omitted-by-strict-chain"
+        ]
+        self.assertEqual(len(omissions), 2)
+        self.assertTrue(all(record["role"] == "member" for record in omissions))
         self.assertEqual(
             records_by_kind["legacy-coalesced-inline"]["attribution"],
             "layer-aggregate",
@@ -3200,6 +3191,20 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(records_by_kind["legacy-shadowed"]["role"], "member")
         self.assertEqual(records_by_kind["composite-refused"]["role"], "member")
         self.assertIn("unsupported", records_by_kind)
+
+        rejected_without_runtime_family = preview.replace(
+            "kind=unsupported attribution=none family=unknown group=7 role=member reason=no-legacy-visual-route",
+            "kind=unsupported attribution=none family=- group=7 role=member reason=authored-chain-unsupported-stage",
+        )
+        rejected_without_runtime_family_metrics = (
+            benchmark.effect_runtime_disposition_metrics(
+                rejected_without_runtime_family
+            )
+        )
+        self.assertEqual(
+            rejected_without_runtime_family_metrics["validation_failures"],
+            [],
+        )
 
         migrated_preview = preview.replace(
             "strict-dedicated=1,strict-generic=1",
@@ -3211,8 +3216,8 @@ utility layer 763: skippedHidden kind=composition
             "exact-key=8,layer-aggregate=2,none=2",
             "exact-key=9,layer-aggregate=2,none=1",
         ).replace(
+            "owner=4,aggregate-contributor=1,member=6,none=1",
             "owner=5,aggregate-contributor=1,member=5,none=1",
-            "owner=6,aggregate-contributor=1,member=4,none=1",
         ).replace(
             "inactive=1,direct=2,authored=1",
             "inactive=1,direct=1,authored=2",
@@ -3260,8 +3265,8 @@ utility layer 763: skippedHidden kind=composition
             "exact-key=8,layer-aggregate=2,none=2",
             "exact-key=7,layer-aggregate=3,none=2",
         ).replace(
-            "owner=5,aggregate-contributor=1,member=5,none=1",
-            "owner=4,aggregate-contributor=2,member=5,none=1",
+            "owner=4,aggregate-contributor=1,member=6,none=1",
+            "owner=3,aggregate-contributor=2,member=6,none=1",
         ).replace(
             "layer=5 scope=effect-induced-static kind=legacy-offscreen effects=2 owners=1 aggregate=0",
             "layer=5 scope=effect-induced-static kind=legacy-offscreen effects=2 owners=0 aggregate=1",
@@ -3293,8 +3298,8 @@ utility layer 763: skippedHidden kind=composition
             "route-only-member=1,composite-refused=1",
             "route-only-member=0,composite-refused=1",
         ).replace(
+            "owner=4,aggregate-contributor=1,member=6,none=1",
             "owner=5,aggregate-contributor=1,member=5,none=1",
-            "owner=6,aggregate-contributor=1,member=4,none=1",
         ).replace(
             "layer=4 scope=effect-induced-static kind=offscreen-passthrough effects=1 owners=0 aggregate=0",
             "layer=4 scope=effect-induced-static kind=offscreen-passthrough effects=1 owners=1 aggregate=0",
@@ -3378,10 +3383,10 @@ utility layer 763: skippedHidden kind=composition
                 ),
                 "effect runtime disposition state group invalid",
             ),
-            "strict-omission-became-legacy": (
+            "rejected-chain-became-legacy": (
                 preview.replace(
-                    "kind=omitted-by-strict-chain attribution=exact-key family=- group=2 role=member",
-                    "kind=legacy-exact-inline attribution=exact-key family=omitted group=2 role=owner",
+                    "layer=2 effect=2 descriptor=2%23effect%232 kind=omitted-by-strict-chain attribution=exact-key family=- group=2 role=member reason=unsupported-stage",
+                    "layer=2 effect=2 descriptor=2%23effect%232 kind=legacy-exact-inline attribution=exact-key family=omitted group=2 role=owner reason=-",
                 ),
                 "effect runtime disposition conflicts with admission",
             ),
@@ -3575,10 +3580,10 @@ utility layer 763: skippedHidden kind=composition
             ],
             1,
         )
-        self.assertEqual(metrics["eligible_exact_effect_count"], 5)
+        self.assertEqual(metrics["eligible_exact_effect_count"], 4)
         self.assertEqual(metrics["observed_eligible_exact_effect_count"], 1)
-        self.assertEqual(metrics["eligible_exact_gap_count"], 4)
-        self.assertEqual(len(metrics["unobserved_eligible_exact_effects"]), 4)
+        self.assertEqual(metrics["eligible_exact_gap_count"], 3)
+        self.assertEqual(len(metrics["unobserved_eligible_exact_effects"]), 3)
         self.assertEqual(metrics["eligible_aggregate_subject_count"], 1)
         self.assertEqual(
             metrics["observed_eligible_aggregate_subject_count"], 1
@@ -4075,8 +4080,8 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
         self.assertFalse(static_only["has_evidence"])
-        self.assertEqual(static_only["eligible_exact_effect_count"], 5)
-        self.assertEqual(static_only["eligible_exact_gap_count"], 5)
+        self.assertEqual(static_only["eligible_exact_effect_count"], 4)
+        self.assertEqual(static_only["eligible_exact_gap_count"], 4)
         self.assertEqual(static_only["eligible_aggregate_subject_count"], 1)
         self.assertEqual(static_only["eligible_aggregate_gap_count"], 1)
         old_argv = sys.argv

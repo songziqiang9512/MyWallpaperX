@@ -195,6 +195,7 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
             "actionableKeys.formUnion(authoredEffectCatalog.executedUserPropertyKeys)",
             context,
         )
+        self.assertNotIn("legacyEffectFallbackSuppressedLayerIDs", context)
         self.assertIn("actionableKeys.formUnion(blendPlan.executedUserPropertyKeys)", context)
 
     def test_resolved_material_property_targets_remain_live_after_owner_transfer(self) -> None:

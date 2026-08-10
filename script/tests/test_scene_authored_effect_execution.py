@@ -24,11 +24,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageGraphAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain+Route.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectStageCompiler.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageRebase.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionCatalog+ResolvedMaterial.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectStageProgram.swift",
@@ -68,12 +65,6 @@ CHAIN_WATER_FLOW_SOURCE = (
 CHAIN_DEPTH_PARALLAX_SOURCE = (
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+DepthParallax.swift"
-)
-IRIS_SUFFIX_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectIrisInlineSuffix.swift"
-)
-IRIS_SUFFIX_PLANNER_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredIrisInlineSuffixPlanner.swift"
 )
 COMPOSITOR_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
 DRAW_REQUEST_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift"
@@ -360,9 +351,6 @@ struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
 }
-struct SceneIrisInlineSuffixPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
 
 enum SceneAuthoredCursorRipplePlanner {
     static func plan(
@@ -371,34 +359,6 @@ enum SceneAuthoredCursorRipplePlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneCursorRippleExecutionPlan? {
-        nil
-    }
-}
-
-extension SceneAuthoredEffectChainPlanner {
-    static func irisInlineSuffix(
-        plannedPrograms: [SceneEffectStageProgram],
-        unsupportedOrdinal: Int,
-        graph: Graph,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
-    ) -> SceneAuthoredEffectExecutionChain? {
-        nil
-    }
-
-    static func isolatedCursorRippleChain(
-        graph: Graph,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
-    ) -> SceneAuthoredEffectExecutionChain? {
-        nil
-    }
-
-    static func isolatedShineChain(
-        graph: Graph,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
-    ) -> SceneAuthoredEffectExecutionChain? {
         nil
     }
 }
@@ -2239,31 +2199,31 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         ):
             self.assertIn(marker, loader)
 
-    def test_iris_inline_suffix_is_terminal_strict_and_keeps_exact_prefix(self) -> None:
-        suffix = IRIS_SUFFIX_SOURCE.read_text(encoding="utf-8")
-        planner = IRIS_SUFFIX_PLANNER_SOURCE.read_text(encoding="utf-8")
+    def test_partial_recovery_helpers_and_iris_composite_path_are_absent(self) -> None:
+        planner = CHAIN_PLANNER_SOURCE.read_text(encoding="utf-8")
         compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
 
+        self.assertIn("code: .unsupportedStage", planner)
         for marker in (
-            "!plannedPrograms.isEmpty",
-            "unsupportedOrdinal == graph.effects.count - 1",
-            "plannedPrograms.count == unsupportedOrdinal",
-            "inputRole: .priorEffectOutput",
-            "kind: .terminalIrisInlineSuffix",
-            "irisInlineSuffix: suffix",
+            "recoveredAdmission",
+            "legacyRecovery",
+            "irisInlineSuffix",
+            "isolatedCursorRippleChain",
+            "isolatedShineChain",
+            "xRayPrefix",
         ):
-            self.assertIn(marker, suffix)
-        for marker in (
-            "graph.blockers.isEmpty",
-            "graph.effects.count == 1",
-            "graph.nodes.count == 1",
-            "graph.renderTargets.isEmpty",
-            'definition.replacementKey == "iris"',
-            "SceneIrisShaderProfile.resolve(shaderContracts)",
+            self.assertNotIn(marker, planner)
+        self.assertNotIn("irisSuffix", compositor)
+        for relative in (
+            "RenderGraph/SceneAuthoredEffectIrisInlineSuffix.swift",
+            "RenderGraph/SceneAuthoredIrisInlineSuffixPlanner.swift",
+            "RenderGraph/SceneIrisInlineSuffixPlan.swift",
+            "RenderGraph/SceneAuthoredEffectCursorRippleIsolation.swift",
+            "RenderGraph/SceneAuthoredEffectShineIsolation.swift",
+            "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
+            "RenderGraph/SceneAuthoredEffectStageRebase.swift",
         ):
-            self.assertIn(marker, planner)
-        self.assertIn("irisSuffix?.inputs ?? .neutral", compositor)
-        self.assertIn("irisSuffix == nil ? .empty : masks", compositor)
+            self.assertFalse((SOURCE_ROOT / relative).exists(), relative)
 
 
 if __name__ == "__main__":

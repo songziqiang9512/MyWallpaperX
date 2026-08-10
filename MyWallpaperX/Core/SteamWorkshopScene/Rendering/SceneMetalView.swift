@@ -131,10 +131,6 @@ class SceneMetalView: NSView {
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
         report.append(contentsOf: mediaThumbnailCoordinator.program.reportLines())
-        report.append(contentsOf: SceneImageBlendRenderPlan(
-            descriptor: renderer.renderDescriptor, visibleLayerIDs:
-                SceneLayerVisibility.visibleLayerIDs(in: renderer.renderDescriptor)
-        ).reportLines())
         for layer in imageLayers {
             let name = layer.name ?? "(unnamed)"
             let placementSummary = renderer.debugPlacementSummary(for: layer)
@@ -238,7 +234,9 @@ class SceneMetalView: NSView {
                 ) {
                     message += "; \(effectSummary)"
                 }
-                if let inlineSummary = SceneInlineEffectRuntime.summary(
+                if !renderer.authoredEffectCatalog
+                    .legacyEffectRuntimeExcludedLayerIDs.contains(layer.id),
+                   let inlineSummary = SceneInlineEffectRuntime.summary(
                     for: layer,
                     hasWaterMask: effectTextures.waterMask != nil,
                     handlesWaterWaves: (renderer.authoredEffectChain(for: layer.id)?
@@ -275,7 +273,9 @@ class SceneMetalView: NSView {
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,
             device: metalDevice,
-            effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }
+            effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) },
+            legacyEffectRuntimeExcludedLayerIDs: renderer.authoredEffectCatalog
+                .legacyEffectRuntimeExcludedLayerIDs
         )
         imageTextures.merge(textLoad.textures)
         // CoreText text layers also load per-effect textures before authored-chain execution.

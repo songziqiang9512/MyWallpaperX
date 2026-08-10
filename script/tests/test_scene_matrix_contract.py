@@ -50,6 +50,7 @@ def synthetic_result(sample_id: str = "fixture") -> dict[str, object]:
             "package_sha256": "d" * 64,
         },
         "passed": True,
+        "failures": [],
         "runtime": runtime,
     }
 
@@ -335,6 +336,22 @@ def route_demand_runtime_disposition_evidence(
     return evidence
 
 
+def rejected_chain_runtime_disposition_evidence() -> dict[str, object]:
+    evidence = route_demand_runtime_disposition_evidence("direct")
+    evidence["groups"][0]["reason"] = "authored-chain-rejected"
+    evidence["records"][0]["reason"] = "authored-chain-unsupported-stage"
+    evidence["canonical_sha256"] = hashlib.sha256(json.dumps(
+        {
+            "groups": evidence["groups"],
+            "records": evidence["records"],
+        },
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
+    return evidence
+
+
 def inactive_runtime_disposition_evidence() -> dict[str, object]:
     evidence = empty_runtime_disposition_evidence()
     record = {
@@ -421,6 +438,61 @@ def effect_execution_evidence(
         "canonical_sha256": "frame-dependent-and-not-registered",
         "validation_failures": [],
     }
+
+
+def r4_owner_authority_result(
+    sample_id: str = "fixture",
+    *,
+    has_effect_execution_demand: bool = True,
+) -> dict[str, object]:
+    result = synthetic_result(sample_id)
+    runtime = result["runtime"]
+    runtime.update({
+        "authored_effect_graph_succeeded_layer_ids": (
+            [1] if has_effect_execution_demand else []
+        ),
+        "authored_effect_graph_failed_layer_ids": [],
+        "authored_effect_graph_legacy_blur_blocked_layer_ids": [],
+        "authored_effect_graph_chain_count": (
+            1 if has_effect_execution_demand else 0
+        ),
+        "authored_effect_graph_stage_count": (
+            1 if has_effect_execution_demand else 0
+        ),
+        "authored_effect_stage_admission": stage_admission_evidence(),
+        "effect_runtime_disposition": (
+            runtime_disposition_evidence()
+            if has_effect_execution_demand
+            else empty_runtime_disposition_evidence()
+        ),
+        "utility_capture_planned": 1,
+        "utility_capture_succeeded_layer_ids": [7],
+        "utility_capture_failed_layer_ids": [],
+        "utility_named_target_planned": 1,
+        "named_target_capture_succeeded_layer_ids": [8],
+        "named_target_capture_failed_layer_ids": [],
+        "utility_named_binding_planned": 1,
+        "utility_named_consumers": 2,
+        "utility_named_target_gaps": 3,
+        "named_target_binding_succeeded_layer_ids": [9],
+        "named_target_binding_failed_layer_ids": [],
+        "image_blend_planned": 1,
+        "image_blend_succeeded_layer_ids": [10],
+        "image_blend_failed_layer_ids": [],
+        "resolved_material_graph_execution": resolved_material_graph_runtime([1]),
+    })
+    if has_effect_execution_demand:
+        runtime["effect_execution"] = effect_execution_evidence()
+    for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS:
+        if expectation.comparison == "integer":
+            runtime[expectation.report_metric] = 0
+        else:
+            runtime[expectation.report_metric] = []
+    if has_effect_execution_demand:
+        runtime["authored_effect_graph_opacity_count"] = 1
+        runtime["authored_effect_graph_opacity_layer_ids"] = [1]
+        runtime["authored_effect_graph_pulse_count"] = 7
+    return result
 
 
 def benchmark_report(
@@ -625,6 +697,59 @@ class SceneMatrixContractTests(unittest.TestCase):
         self.assertEqual(aggregate.eligible_exact_effect_count, 0)
         self.assertEqual(aggregate.eligible_aggregate_subject_count, 1)
         self.assertEqual(aggregate.route_group_count, 1)
+
+        rejected = rejected_chain_runtime_disposition_evidence()
+        rejected_demand = effect_execution_static_demand(rejected)
+        self.assertTrue(rejected_demand.static_is_valid)
+        self.assertEqual(rejected_demand.eligible_exact_effect_count, 0)
+        self.assertEqual(rejected_demand.eligible_aggregate_subject_count, 0)
+        self.assertEqual(rejected_demand.route_group_count, 0)
+        self.assertFalse(rejected_demand.requires_evidence)
+
+        rejected_group_fail_closed_cases = {
+            "boolean layer": lambda value: value["groups"][0].update({
+                "layer_id": True,
+            }),
+            "negative layer": lambda value: value["groups"][0].update({
+                "layer_id": -1,
+            }),
+            "wrong reason": lambda value: value["groups"][0].update({
+                "reason": "unsupported-stage",
+            }),
+            "missing owner count": lambda value: value["groups"][0].pop(
+                "owner_count"
+            ),
+            "boolean owner count": lambda value: value["groups"][0].update({
+                "owner_count": False,
+            }),
+            "nonzero owner count": lambda value: value["groups"][0].update({
+                "owner_count": 1,
+            }),
+            "missing aggregate count": lambda value: value["groups"][0].pop(
+                "aggregate_contributor_count"
+            ),
+            "boolean aggregate count": lambda value: value["groups"][0].update({
+                "aggregate_contributor_count": False,
+            }),
+            "nonzero aggregate count": lambda value: value["groups"][0].update({
+                "aggregate_contributor_count": 1,
+            }),
+            "same-layer route member": lambda value: value["records"][0].update({
+                "kind": "route-only-member",
+            }),
+            "unlocated route member": lambda value: value["records"][0].update({
+                "kind": "route-only-member",
+                "layer_id": None,
+            }),
+        }
+        for label, mutate in rejected_group_fail_closed_cases.items():
+            with self.subTest(rejected_group=label):
+                candidate = rejected_chain_runtime_disposition_evidence()
+                mutate(candidate)
+                candidate_demand = effect_execution_static_demand(candidate)
+                self.assertTrue(candidate_demand.static_is_valid)
+                self.assertEqual(candidate_demand.route_group_count, 1)
+                self.assertTrue(candidate_demand.requires_evidence)
 
         self.assertEqual(EFFECT_EXECUTION_EXACT_KINDS, frozenset({
             "strict-dedicated",
@@ -929,6 +1054,192 @@ class SceneMatrixContractTests(unittest.TestCase):
             stripped["samples"][0].pop(key)
         self.assertEqual(stripped, old_matrix)
 
+    def test_r4_owner_authority_scope_refreshes_only_whitelist_from_failed_report(
+        self,
+    ) -> None:
+        result = r4_owner_authority_result()
+        result["passed"] = False
+        result["failures"] = ["particle candidate count mismatch"]
+        result["runtime"]["authored_effect_graph_color_key_count"] = None
+        old_sample = {
+            "id": "fixture",
+            "project_sha256": "c" * 64,
+            "package_sha256": "d" * 64,
+            "expected_particle_candidates": 91,
+            "expected_camera_parallax": 7,
+            "expected_utility_candidates": 12,
+            "expected_utility_dependency_edges": 13,
+            "expected_utility_named_consumers": 14,
+            "expected_utility_named_target_gaps": 15,
+            "expected_authored_effect_graph_color_key_count": 7,
+            "expected_authored_effect_graph_cursor_ripple_count": 9,
+            "expected_authored_effect_graph_cursor_ripple_isolated_count": 9,
+            "expected_authored_effect_graph_cursor_ripple_omitted_effects": [
+                "stale recovery"
+            ],
+        }
+        old_matrix = {
+            "schema_version": 1,
+            "name": "fixture-matrix",
+            "samples": [old_sample],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            matrix_path = Path(temporary) / "matrix.json"
+            matrix_path.write_text(json.dumps(old_matrix))
+            report = benchmark_report(old_matrix, matrix_path, [result])
+            refreshed = matrix_generator.scoped_r4_owner_authority_matrix(
+                report,
+                old_matrix,
+                matrix_path,
+            )
+
+        expected_values = matrix_generator.authored_effect_graph_runtime_values(
+            result,
+            old_sample,
+            excluded_expectation_keys=matrix_generator
+                .R4_OWNER_AUTHORITY_PRESERVED_EXPECTATION_KEYS,
+        )
+        expected_values.update(matrix_generator.effect_stage_admission_values(result))
+        expected_values.update(
+            matrix_generator.effect_runtime_disposition_values(result)
+        )
+        expected_values.update(
+            matrix_generator.effect_execution_values(result, old_sample)
+        )
+        expected_values.update(
+            matrix_generator.owner_authority_plan_execution_values(result)
+        )
+        expected_values.update(
+            matrix_generator.resolved_material_graph_execution_values(
+                result,
+                old_sample,
+                require_evidence=True,
+            )
+        )
+        refreshed_sample = refreshed["samples"][0]
+        changed_keys = {
+            key
+            for key in set(old_sample) | set(refreshed_sample)
+            if old_sample.get(key, object()) != refreshed_sample.get(key, object())
+        }
+        self.assertEqual(changed_keys, set(expected_values))
+        self.assertTrue(
+            changed_keys.issubset(
+                matrix_generator.R4_OWNER_AUTHORITY_EXPECTATION_KEYS
+            )
+        )
+        self.assertEqual(
+            {key: refreshed_sample[key] for key in expected_values},
+            expected_values,
+        )
+        for key in (
+            "expected_particle_candidates",
+            "expected_camera_parallax",
+            "expected_utility_candidates",
+            "expected_utility_dependency_edges",
+            "expected_authored_effect_graph_color_key_count",
+        ):
+            self.assertEqual(refreshed_sample[key], old_sample[key])
+        self.assertNotIn(
+            "expected_authored_effect_graph_pulse_count",
+            refreshed_sample,
+        )
+
+    def test_r4_owner_authority_scope_removes_stale_execution_without_demand(
+        self,
+    ) -> None:
+        result = r4_owner_authority_result(
+            has_effect_execution_demand=False,
+        )
+        result["passed"] = False
+        result["failures"] = ["effect execution evidence missing"]
+        execution_keys = {
+            expectation.matrix_key
+            for expectation in EFFECT_EXECUTION_EXPECTATIONS
+        }
+        old_matrix = {
+            "schema_version": 1,
+            "name": "fixture-matrix",
+            "samples": [{
+                "id": "fixture",
+                "project_sha256": "c" * 64,
+                "package_sha256": "d" * 64,
+                "expected_particle_candidates": 9,
+                **{key: 99 for key in execution_keys},
+            }],
+        }
+        old_matrix["samples"][0]["expected_effect_execution_schema"] = 1
+        with tempfile.TemporaryDirectory() as temporary:
+            matrix_path = Path(temporary) / "matrix.json"
+            matrix_path.write_text(json.dumps(old_matrix))
+            report = benchmark_report(old_matrix, matrix_path, [result])
+            refreshed = matrix_generator.scoped_r4_owner_authority_matrix(
+                report,
+                old_matrix,
+                matrix_path,
+            )
+
+        self.assertFalse(execution_keys.intersection(refreshed["samples"][0]))
+        self.assertEqual(
+            refreshed["samples"][0]["expected_particle_candidates"],
+            9,
+        )
+
+    def test_r4_owner_authority_scope_rejects_bad_telemetry_atomically(
+        self,
+    ) -> None:
+        cases = {
+            "authored_effect_graph_chain_count is invalid": lambda result: result[
+                "runtime"
+            ].pop("authored_effect_graph_chain_count"),
+            "image_blend_succeeded_layer_ids is invalid": lambda result: result[
+                "runtime"
+            ].update({"image_blend_succeeded_layer_ids": [True]}),
+            "utility capture execution failed": lambda result: result[
+                "runtime"
+            ].update({"utility_capture_failed_layer_ids": [7]}),
+            "owner authority telemetry failed": lambda result: result[
+                "failures"
+            ].append("utility layer runtime evidence missing"),
+            "resolved material graph evidence missing": lambda result: result[
+                "runtime"
+            ].pop("resolved_material_graph_execution"),
+        }
+        for message, mutate in cases.items():
+            with self.subTest(message=message):
+                first = r4_owner_authority_result("a")
+                second = r4_owner_authority_result("b")
+                mutate(second)
+                old_matrix = {
+                    "schema_version": 1,
+                    "name": "fixture-matrix",
+                    "samples": [
+                        {
+                            "id": sample_id,
+                            "project_sha256": "c" * 64,
+                            "package_sha256": "d" * 64,
+                            "expected_particle_candidates": 9,
+                        }
+                        for sample_id in ("a", "b")
+                    ],
+                }
+                original = copy.deepcopy(old_matrix)
+                with tempfile.TemporaryDirectory() as temporary:
+                    matrix_path = Path(temporary) / "matrix.json"
+                    matrix_path.write_text(json.dumps(old_matrix))
+                    report = benchmark_report(
+                        old_matrix,
+                        matrix_path,
+                        [first, second],
+                    )
+                    with self.assertRaisesRegex(ValueError, message):
+                        matrix_generator.scoped_r4_owner_authority_matrix(
+                            report,
+                            old_matrix,
+                            matrix_path,
+                        )
+                self.assertEqual(old_matrix, original)
+
     def test_effect_execution_zero_eligible_is_optional_until_tracked(self) -> None:
         result = synthetic_result()
         result["runtime"]["authored_effect_stage_admission"] = (
@@ -987,6 +1298,31 @@ class SceneMatrixContractTests(unittest.TestCase):
             old_matrix["samples"][0],
         )
         self.assertFalse(execution_keys.intersection(default_refreshed))
+
+    def test_effect_execution_rejected_chain_without_owner_is_optional(
+        self,
+    ) -> None:
+        result = synthetic_result()
+        result["runtime"]["effect_runtime_disposition"] = (
+            rejected_chain_runtime_disposition_evidence()
+        )
+        self.assertIsNone(matrix_generator.effect_execution_values(result))
+
+    def test_effect_execution_eligible_owner_without_evidence_fails_closed(
+        self,
+    ) -> None:
+        for disposition in (
+            runtime_disposition_evidence(),
+            aggregate_runtime_disposition_evidence(),
+        ):
+            with self.subTest(kind=disposition["records"][0]["kind"]):
+                result = synthetic_result()
+                result["runtime"]["effect_runtime_disposition"] = disposition
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "effect execution evidence missing",
+                ):
+                    matrix_generator.effect_execution_values(result)
 
     def test_effect_execution_route_demand_requires_and_registers_evidence(
         self,

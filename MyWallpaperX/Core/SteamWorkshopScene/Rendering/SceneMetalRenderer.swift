@@ -212,12 +212,15 @@ struct SceneMetalRenderer {
                     )
                     continue
                 }
+                let authoredEffectChain = authoredEffectChain(for: layer.id)
+                let suppressesLegacyEffectFallback = authoredEffectCatalog
+                    .legacyEffectFallbackSuppressedLayerIDs.contains(layer.id)
                 let dependencyEffect = dependencyRuntime.effectInput(
                     for: layer.id,
                     textureRegistry: textureRegistry
                 )
-                let authoredEffectChain = authoredEffectChain(for: layer.id)
-                if dependencyRuntime.requiresEffect(for: layer.id), dependencyEffect == nil {
+                if dependencyRuntime.requiresEffect(for: layer.id),
+                   dependencyEffect == nil {
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     continue
                 }
@@ -286,6 +289,8 @@ struct SceneMetalRenderer {
                     authoredShaderFrameInputs: .init(frameContext: frameContext)
                 )
                 request.legacyAuthoredFrameTables = legacyAuthoredFrameTables[layer.id]
+                request.suppressesLegacyEffectFallback =
+                    suppressesLegacyEffectFallback
                 var selectedLegacyAuthoredRoute = false
                 let encoded = imageCompositor.draw(
                     request,

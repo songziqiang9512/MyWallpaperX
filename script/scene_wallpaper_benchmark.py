@@ -3667,43 +3667,45 @@ def effect_runtime_disposition_metrics(
         ):
             failures.append("effect runtime disposition composite group invalid")
 
-    state_contracts: dict[str, tuple[str, set[str], str, bool]] = {
-        "inactive": ("none", {"none"}, "none", False),
-        "strict-dedicated": ("exact-key", {"owner"}, "authored", True),
-        "strict-generic": ("exact-key", {"owner"}, "authored", True),
-        "strict-inline-suffix": ("exact-key", {"owner"}, "authored", True),
+    state_contracts: dict[str, tuple[str, set[str], str, str]] = {
+        "inactive": ("none", {"none"}, "none", "forbidden"),
+        "strict-dedicated": ("exact-key", {"owner"}, "authored", "required"),
+        "strict-generic": ("exact-key", {"owner"}, "authored", "required"),
+        "strict-inline-suffix": ("exact-key", {"owner"}, "authored", "required"),
         "omitted-by-strict-chain": (
-            "exact-key", {"member"}, "authored", False,
+            "exact-key", {"member"}, "authored", "forbidden",
         ),
         "legacy-exact-inline": (
-            "exact-key", {"owner"}, "legacy", True,
+            "exact-key", {"owner"}, "legacy", "required",
         ),
         "legacy-exact-offscreen": (
-            "exact-key", {"owner"}, "legacy-offscreen", True,
+            "exact-key", {"owner"}, "legacy-offscreen", "required",
         ),
         "legacy-structural-member": (
-            "exact-key", {"member"}, "legacy-offscreen", True,
+            "exact-key", {"member"}, "legacy-offscreen", "required",
         ),
         "legacy-coalesced-inline": (
-            "layer-aggregate", {"aggregate-contributor"}, "legacy", True,
+            "layer-aggregate", {"aggregate-contributor"}, "legacy", "required",
         ),
         "legacy-coalesced-offscreen": (
             "layer-aggregate",
             {"aggregate-contributor"},
             "legacy-offscreen",
-            True,
+            "required",
         ),
         "legacy-shadowed": (
-            "exact-key", {"member"}, "legacy-offscreen", True,
+            "exact-key", {"member"}, "legacy-offscreen", "required",
         ),
         "route-only-member": (
-            "exact-key", {"member"}, "offscreen-passthrough", True,
+            "exact-key", {"member"}, "offscreen-passthrough", "required",
         ),
         "composite-refused": (
-            "layer-aggregate", {"member"}, "composite-refused", True,
+            "layer-aggregate", {"member"}, "composite-refused", "required",
         ),
-        "unsupported": ("none", {"member"}, "legacy", True),
-        "unattributed": ("none", {"member"}, "legacy-or-authored", False),
+        "unsupported": ("none", {"member"}, "legacy", "optional"),
+        "unattributed": (
+            "none", {"member"}, "legacy-or-authored", "forbidden",
+        ),
     }
     legacy_group_kinds = {
         "direct",
@@ -3715,14 +3717,14 @@ def effect_runtime_disposition_metrics(
         if contract is None:
             failures.append("effect runtime disposition kind invalid")
             continue
-        expected_attribution, allowed_roles, group_contract, allows_family = contract
+        expected_attribution, allowed_roles, group_contract, family_contract = contract
         group = groups_by_layer.get(record["group_id"])
         group_kind = group["kind"] if group is not None else None
         if (
             record["attribution"] != expected_attribution
             or record["role"] not in allowed_roles
-            or (allows_family and record["family"] is None)
-            or (not allows_family and record["family"] is not None)
+            or (family_contract == "required" and record["family"] is None)
+            or (family_contract == "forbidden" and record["family"] is not None)
         ):
             failures.append("effect runtime disposition state combination invalid")
             continue

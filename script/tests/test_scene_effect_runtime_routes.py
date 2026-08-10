@@ -125,7 +125,7 @@ struct SceneAuthoredEffectStageAdmission {
         case inactive
         case complete
         case terminalInlineSuffix
-        case prefixOmitted
+        case rejectedChain
     }
     let key: SceneAuthoredEffectRenderPlan.EffectKey
     let definitionPath: String
@@ -137,9 +137,26 @@ struct SceneAuthoredEffectStageAdmission {
     let reasonCode: String?
 }
 
+struct SceneAuthoredEffectChainRejection {
+    enum Code: String {
+        case unsupportedStage = "unsupported-stage"
+    }
+    let code: Code
+}
+
+enum SceneAuthoredEffectChainAdmission {
+    case rejected(SceneAuthoredEffectChainRejection)
+
+    var rejection: SceneAuthoredEffectChainRejection? {
+        guard case .rejected(let rejection) = self else { return nil }
+        return rejection
+    }
+}
+
 struct SceneAuthoredEffectExecutionCatalog {
     let stageAdmissions: [SceneAuthoredEffectStageAdmission]
     let chainsByLayerID: [Int: Marker]
+    let chainAdmissionsByLayerID: [Int: SceneAuthoredEffectChainAdmission]
     let legacyGaussianBlurBlockedLayerIDs: Set<Int>
     let descriptorEffectStageCount: Int
     let descriptorEffectStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
@@ -610,11 +627,11 @@ enum Harness {
                 key: strictKeys[1],
                 definitionPath: strictLayer.effects[1].file,
                 activity: .active,
-                strictAdmission: .notAdmitted,
-                coverage: .terminalInlineSuffix,
-                backendName: nil,
+                strictAdmission: .admittedDedicated,
+                coverage: .complete,
+                backendName: "iris",
                 profileName: nil,
-                reasonCode: "terminal-inline-suffix"
+                reasonCode: nil
             ),
             SceneAuthoredEffectStageAdmission(
                 key: strictKeys[2],
@@ -630,31 +647,31 @@ enum Harness {
                 key: prefixKeys[0],
                 definitionPath: prefixLayer.effects[0].file,
                 activity: .active,
-                strictAdmission: .admittedDedicated,
-                coverage: .complete,
-                backendName: "xray",
+                strictAdmission: .notAdmitted,
+                coverage: .rejectedChain,
+                backendName: nil,
                 profileName: nil,
-                reasonCode: nil
+                reasonCode: "discarded-strict-prefix"
             ),
             SceneAuthoredEffectStageAdmission(
                 key: prefixKeys[1],
                 definitionPath: prefixLayer.effects[1].file,
                 activity: .active,
                 strictAdmission: .notAdmitted,
-                coverage: .prefixOmitted,
+                coverage: .rejectedChain,
                 backendName: nil,
                 profileName: nil,
-                reasonCode: "prefix-omitted"
+                reasonCode: "unsupported-stage"
             ),
             SceneAuthoredEffectStageAdmission(
                 key: prefixKeys[2],
                 definitionPath: prefixLayer.effects[2].file,
                 activity: .active,
                 strictAdmission: .notAdmitted,
-                coverage: .prefixOmitted,
+                coverage: .rejectedChain,
                 backendName: nil,
                 profileName: nil,
-                reasonCode: "prefix-omitted"
+                reasonCode: "unsupported-stage"
             ),
             SceneAuthoredEffectStageAdmission(
                 key: inactiveKeys[0],
@@ -680,7 +697,10 @@ enum Harness {
         let allKeys = strictKeys + prefixKeys + inactiveKeys + [migratedKey]
         let authored = SceneAuthoredEffectExecutionCatalog(
             stageAdmissions: admissions,
-            chainsByLayerID: [7: Marker(), 13: Marker()],
+            chainsByLayerID: [7: Marker()],
+            chainAdmissionsByLayerID: [
+                13: .rejected(.init(code: .unsupportedStage)),
+            ],
             legacyGaussianBlurBlockedLayerIDs: [],
             descriptorEffectStageCount: allKeys.count,
             descriptorEffectStageKeys: Set(allKeys)
@@ -700,6 +720,7 @@ enum Harness {
             authoredCatalog: .init(
                 stageAdmissions: [admissions.last!],
                 chainsByLayerID: [:],
+                chainAdmissionsByLayerID: [:],
                 legacyGaussianBlurBlockedLayerIDs: [],
                 descriptorEffectStageCount: 1,
                 descriptorEffectStageKeys: [migratedKey]
@@ -1119,7 +1140,7 @@ class SceneEffectRuntimeRouteTests(unittest.TestCase):
         )
         self.assertEqual(self.log_field(failed, "reason"), "pipeline-missing")
 
-    def test_strict_chain_owns_route_and_omitted_stage_never_falls_back(self) -> None:
+    def test_complete_chain_owns_route_and_rejected_chain_never_falls_back(self) -> None:
         decision = self.result["strict"]
         records = self.by_id(decision)
         groups = {group["layer"]: group for group in decision["groups"]}
@@ -1132,23 +1153,27 @@ class SceneEffectRuntimeRouteTests(unittest.TestCase):
         self.assertEqual(groups[7]["kind"], "authored")
         self.assertEqual(groups[7]["effects"], 2)
         self.assertEqual(groups[7]["owners"], ["generic", "iris"])
-        self.assertEqual(groups[13]["kind"], "authored")
+        self.assertEqual(groups[13]["kind"], "direct")
         self.assertEqual(groups[13]["effects"], 3)
-        self.assertEqual(groups[13]["owners"], ["xray"])
+        self.assertEqual(groups[13]["owners"], [])
         self.assertEqual(groups[18]["kind"], "inactive")
         self.assertEqual(groups[18]["effects"], 0)
         self.assertEqual(groups[18]["owners"], [])
         self.assertEqual(groups[19]["kind"], "authored")
         self.assertEqual(groups[19]["owners"], ["migrated"])
         self.assertEqual(records["generic"]["kind"], "strict-generic")
-        self.assertEqual(records["iris"]["kind"], "strict-inline-suffix")
-        self.assertEqual(records["xray"]["kind"], "strict-dedicated")
-        for identifier in ("prefix-omitted-a", "prefix-omitted-b"):
+        self.assertEqual(records["iris"]["kind"], "strict-dedicated")
+        for identifier in ("xray", "prefix-omitted-a", "prefix-omitted-b"):
             self.assertEqual(
                 records[identifier]["kind"],
-                "omitted-by-strict-chain",
+                "unsupported",
             )
+            self.assertIsNone(records[identifier]["family"])
             self.assertEqual(records[identifier]["role"], "member")
+            self.assertEqual(
+                records[identifier]["reason"],
+                "authored-chain-unsupported-stage",
+            )
         self.assertEqual(records["disabled"]["kind"], "inactive")
         self.assertIsNone(records["disabled"]["group"])
         self.assertEqual(records["inactive-only"]["kind"], "inactive")
@@ -1163,8 +1188,7 @@ class SceneEffectRuntimeRouteTests(unittest.TestCase):
             decision["resolvedMaterialSubjects"],
             [
                 {"id": "generic", "index": 0, "family": "scroll"},
-                {"id": "iris", "index": 1, "family": "iris-inline"},
-                {"id": "xray", "index": 0, "family": "xray"},
+                {"id": "iris", "index": 1, "family": "iris"},
                 {
                     "id": "migrated",
                     "index": 0,

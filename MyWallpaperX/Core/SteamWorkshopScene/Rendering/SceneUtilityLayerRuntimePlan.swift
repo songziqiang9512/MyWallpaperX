@@ -3,7 +3,6 @@ import Foundation
 struct SceneUtilityLayerRuntimePlan {
     enum Disposition: String {
         case capture
-        case captureAfterChildrenXRayPrefix
         case skippedHidden
         case skippedNoEffect
         case unsupportedDependencies
@@ -17,10 +16,9 @@ struct SceneUtilityLayerRuntimePlan {
     let disposition: Disposition
     let requiresNamedTarget: Bool
     let triggerLayerID: Int
-    let omittedEffectCount: Int
 
     var shouldCapture: Bool {
-        disposition == .capture || disposition == .captureAfterChildrenXRayPrefix
+        disposition == .capture
     }
 }
 
@@ -49,19 +47,23 @@ enum SceneUtilityLayerRuntimePlanner {
         resolvedMaterialLayerIDs: Set<Int> = []
     ) -> [Int: SceneUtilityLayerRuntimePlan] {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        let suppressedConsumerLayerIDs = authoredEffectCatalog
+            .legacyEffectFallbackSuppressedLayerIDs
         let dependencyPlan = SceneDependencyRenderPlan(
             descriptor: descriptor,
             visibleLayerIDs: visibleLayerIDs,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         )
-        let namedTargetLayerIDs = Set(descriptor.layers.flatMap(\.dependencyLayerIDs))
+        let namedTargetLayerIDs = Set(
+            descriptor.layers.flatMap(\.dependencyLayerIDs)
+        )
         return Dictionary(uniqueKeysWithValues: descriptor.layers.compactMap { layer in
             guard let utility = layer.utilityLayer else { return nil }
             let disposition: SceneUtilityLayerRuntimePlan.Disposition
-            var triggerLayerID = layer.id
-            var omittedEffectCount = 0
             if !visibleLayerIDs.contains(layer.id) {
                 disposition = .skippedHidden
+            } else if suppressedConsumerLayerIDs.contains(layer.id) {
+                disposition = .unsupportedEffects
             } else if !layer.dependencyLayerIDs.isEmpty {
                 if utility.kind == .composition,
                    layer.childLayerIDs.isEmpty,
@@ -79,19 +81,7 @@ enum SceneUtilityLayerRuntimePlanner {
             } else if !layer.effects.contains(where: { $0.visible != false }) {
                 disposition = .skippedNoEffect
             } else if !layer.childLayerIDs.isEmpty {
-                let omitted = authoredEffectCatalog
-                    .xRayPrefixOmittedEffectPathsByLayerID[layer.id]
-                if let omitted,
-                   let trigger = SceneUtilitySubtreeTriggerResolver.triggerLayerID(
-                       rootLayerID: layer.id,
-                       descriptor: descriptor
-                   ) {
-                    disposition = .captureAfterChildrenXRayPrefix
-                    triggerLayerID = trigger
-                    omittedEffectCount = omitted.count
-                } else {
-                    disposition = .unsupportedChildren
-                }
+                disposition = .unsupportedChildren
             } else if supportsCompleteAuthoredCapture(
                 layer: layer,
                 catalog: authoredEffectCatalog,
@@ -113,8 +103,7 @@ enum SceneUtilityLayerRuntimePlanner {
                     kind: utility.kind,
                     disposition: disposition,
                     requiresNamedTarget: namedTargetLayerIDs.contains(layer.id),
-                    triggerLayerID: triggerLayerID,
-                    omittedEffectCount: omittedEffectCount
+                    triggerLayerID: layer.id
                 )
             )
         })
@@ -191,12 +180,9 @@ enum SceneUtilityLayerRuntimePlanner {
             let trigger = plan.triggerLayerID == plan.layerID
                 ? ""
                 : "; trigger after \(plan.triggerLayerID)"
-            let omitted = plan.omittedEffectCount == 0
-                ? ""
-                : "; omitted effects \(plan.omittedEffectCount)"
             lines.append(
                 "utility layer \(plan.layerID): \(plan.disposition.rawValue) "
-                    + "kind=\(plan.kind.rawValue)\(trigger)\(omitted)\(namedTarget)"
+                    + "kind=\(plan.kind.rawValue)\(trigger)\(namedTarget)"
             )
         }
         return lines
@@ -233,7 +219,6 @@ enum SceneUtilityLayerRuntimePlanner {
         }
         guard
               let chain = catalog.chainsByLayerID[layer.id],
-              catalog.xRayPrefixOmittedEffectPathsByLayerID[layer.id] == nil,
               chain.executionStages.count == visible.count,
               chain.executionStages.count == chain.renderGraph.effects.count else {
             return false
@@ -279,47 +264,5 @@ extension SceneRenderDescriptor {
             visibleLayerIDs: visibleLayerIDs,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         ).requiredProviderLayerIDs.isEmpty
-    }
-}
-
-enum SceneUtilitySubtreeTriggerResolver {
-    static func triggerLayerID(
-        rootLayerID: Int,
-        descriptor: SceneRenderDescriptor
-    ) -> Int? {
-        let grouped = Dictionary(grouping: descriptor.layers, by: \.id)
-        guard grouped.values.allSatisfy({ $0.count == 1 }) else { return nil }
-        let layersByID = grouped.compactMapValues(\.first)
-        guard let root = layersByID[rootLayerID],
-              root.parentID == nil,
-              descriptor.renderOrderLayerIDs.first == rootLayerID else {
-            return nil
-        }
-
-        var descendants = Set<Int>()
-        var pending = root.childLayerIDs.map { (layerID: $0, parentID: rootLayerID) }
-        while let candidate = pending.popLast() {
-            guard descendants.insert(candidate.layerID).inserted,
-                  let layer = layersByID[candidate.layerID],
-                  layer.parentID == candidate.parentID,
-                  layer.dependencyLayerIDs.isEmpty,
-                  layer.utilityLayer == nil
-                    || !layer.effects.contains(where: { $0.visible != false }) else {
-                return nil
-            }
-            pending.append(contentsOf: layer.childLayerIDs.map {
-                (layerID: $0, parentID: candidate.layerID)
-            })
-        }
-        guard !descendants.isEmpty else { return nil }
-
-        let orderedSubtree = Array(
-            descriptor.renderOrderLayerIDs.prefix(descendants.count + 1)
-        )
-        guard orderedSubtree.first == rootLayerID,
-              Set(orderedSubtree.dropFirst()) == descendants else {
-            return nil
-        }
-        return orderedSubtree.last
     }
 }

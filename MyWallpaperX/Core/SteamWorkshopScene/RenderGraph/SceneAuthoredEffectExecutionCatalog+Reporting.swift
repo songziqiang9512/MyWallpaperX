@@ -1,6 +1,16 @@
 import Foundation
 
 extension SceneAuthoredEffectExecutionCatalog {
+    var resolvedMaterialExecutionLayerIDs: Set<Int> {
+        Set(unifiedExecutionStageKeys.map(\.layerID))
+    }
+
+    var legacyEffectRuntimeExcludedLayerIDs: Set<Int> {
+        legacyEffectFallbackSuppressedLayerIDs
+            .union(chainsByLayerID.keys)
+            .union(resolvedMaterialExecutionLayerIDs)
+    }
+
     var reportLines: [String] {
         let transformDiagnostics = chainsByLayerID.sorted(by: { $0.key < $1.key }).flatMap {
             entry in
@@ -9,12 +19,6 @@ extension SceneAuthoredEffectExecutionCatalog {
                     "layer=\(entry.key),\($0.reportValue)"
                 }
             }
-        }
-        let isolatedCursorRippleDiagnostics = isolatedDiagnostics {
-            $0.isolatedCursorRippleOmittedEffectPaths
-        }
-        let isolatedShineDiagnostics = isolatedDiagnostics {
-            $0.isolatedShineOmittedEffectPaths
         }
         let activityCounts = countMap(
             SceneAuthoredEffectStageAdmission.Activity.allCases,
@@ -114,12 +118,12 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphWaterWavesCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterWavesCount })",
             "authoredEffectGraphWaterCausticsCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterCausticsCount })",
             "authoredEffectGraphCursorRippleCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.cursorRippleCount })",
-            "authoredEffectGraphCursorRippleIsolatedCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.isolatedCursorRippleCount })",
-            "authoredEffectGraphCursorRippleOmittedEffects: \(isolatedCursorRippleDiagnostics.joined(separator: ";"))",
+            "authoredEffectGraphCursorRippleIsolatedCount: 0",
+            "authoredEffectGraphCursorRippleOmittedEffects: ",
             "authoredEffectGraphFoliageSwayCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.foliageSwayCount })",
             "authoredEffectGraphWaterRippleCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterRippleCount })",
             "authoredEffectGraphDepthParallaxCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.depthParallaxCount })",
-            "authoredEffectGraphIrisInlineSuffixCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.irisInlineSuffixCount })",
+            "authoredEffectGraphIrisInlineSuffixCount: 0",
             "authoredEffectGraphXRayCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.xRayCount })",
             "authoredEffectGraphClippingMaskCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.clippingMaskCount })",
             "authoredEffectGraphBlendCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.blendCount })",
@@ -131,23 +135,13 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphPulseCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.pulseCount })",
             "authoredEffectGraphGodraysCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.godraysCount })",
             "authoredEffectGraphShineCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.shineCount })",
-            "authoredEffectGraphShineIsolatedCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.isolatedShineCount })",
-            "authoredEffectGraphShineOmittedEffects: \(isolatedShineDiagnostics.joined(separator: ";"))",
+            "authoredEffectGraphShineIsolatedCount: 0",
+            "authoredEffectGraphShineOmittedEffects: ",
             "authoredEffectGraphAuthoredShaderCount: 0",
             "authoredEffectGraphScrollCount: 0",
-            "authoredEffectGraphXRayPrefixCount: \(xRayPrefixOmittedEffectPathsByLayerID.count)",
-            "authoredEffectGraphXRayPrefixOmittedEffects: \(xRayPrefixOmittedEffectPathsByLayerID.sorted(by: { $0.key < $1.key }).map { "\($0.key)=\($0.value.joined(separator: ","))" }.joined(separator: ";"))",
+            "authoredEffectGraphXRayPrefixCount: 0",
+            "authoredEffectGraphXRayPrefixOmittedEffects: ",
         ] + stageAdmissions.map(\.reportLine)
-    }
-
-    private func isolatedDiagnostics(
-        omittedPaths: (SceneAuthoredEffectExecutionChain) -> [String]
-    ) -> [String] {
-        chainsByLayerID.sorted { $0.key < $1.key }.compactMap { entry in
-            let omitted = omittedPaths(entry.value)
-            guard !omitted.isEmpty else { return nil }
-            return "layer=\(entry.key),omitted=\(omitted.joined(separator: ","))"
-        }
     }
 
     private func countMap<Value: RawRepresentable & Equatable>(

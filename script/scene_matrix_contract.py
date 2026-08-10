@@ -108,6 +108,25 @@ def effect_execution_static_demand(
         for record in records
         if record.get("kind") in EFFECT_EXECUTION_AGGREGATE_KINDS
     }
+    malformed_route_only_member = any(
+        record.get("kind") == "route-only-member"
+        and not (
+            isinstance(record.get("layer_id"), int)
+            and not isinstance(record.get("layer_id"), bool)
+            and record["layer_id"] >= 0
+        )
+        for record in records
+    )
+    route_only_layer_ids = {
+        record["layer_id"]
+        for record in records
+        if (
+            record.get("kind") == "route-only-member"
+            and isinstance(record.get("layer_id"), int)
+            and not isinstance(record.get("layer_id"), bool)
+            and record["layer_id"] >= 0
+        )
+    }
     return EffectExecutionStaticDemand(
         static_is_valid=True,
         eligible_exact_effect_count=sum(
@@ -117,6 +136,18 @@ def effect_execution_static_demand(
         eligible_aggregate_subject_count=len(aggregate_subjects),
         route_group_count=sum(
             group.get("kind") in EFFECT_EXECUTION_ROUTE_GROUP_KINDS
+            and not (
+                not malformed_route_only_member
+                and isinstance(group.get("layer_id"), int)
+                and not isinstance(group.get("layer_id"), bool)
+                and group["layer_id"] >= 0
+                and group.get("reason") == "authored-chain-rejected"
+                and type(group.get("owner_count")) is int
+                and group["owner_count"] == 0
+                and type(group.get("aggregate_contributor_count")) is int
+                and group["aggregate_contributor_count"] == 0
+                and group["layer_id"] not in route_only_layer_ids
+            )
             for group in groups
         ),
     )

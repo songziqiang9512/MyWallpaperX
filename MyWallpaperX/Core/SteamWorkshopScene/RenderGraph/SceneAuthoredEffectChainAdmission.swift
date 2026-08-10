@@ -5,20 +5,6 @@ nonisolated enum SceneAuthoredEffectChainAdmission {
 
     enum Coverage {
         case complete
-        case terminalIrisInlineSuffix(effect: EffectKey)
-        case xRayPrefix(omitted: [EffectKey])
-        case isolatedCursorRipple(executed: EffectKey, omitted: [EffectKey])
-        case isolatedShine(executed: EffectKey, omitted: [EffectKey])
-
-        var code: String {
-            switch self {
-            case .complete: "complete"
-            case .terminalIrisInlineSuffix: "terminal-iris-inline-suffix"
-            case .xRayPrefix: "xray-prefix"
-            case .isolatedCursorRipple: "isolated-cursor-ripple"
-            case .isolatedShine: "isolated-shine"
-            }
-        }
     }
 
     case accepted(
@@ -70,7 +56,6 @@ nonisolated struct SceneAuthoredEffectChainRejection {
         case unsupportedStage = "unsupported-stage"
         case stageProgramConservationViolation =
             "stage-program-conservation-violation"
-        case recoveryInvariantViolation = "recovery-invariant-violation"
         case duplicateGraph = "duplicate-graph"
     }
 
@@ -167,15 +152,6 @@ extension SceneAuthoredEffectChainPlanner {
             case .unsupported(let failure):
                 compileFailure = failure
             }
-            if let recovered = recoveredAdmission(
-                plannedPrograms: stagePrograms,
-                unsupportedOrdinal: ordinal,
-                graph: graph,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts
-            ) {
-                return recovered
-            }
             return reject(.init(
                 code: .unsupportedStage,
                 layerID: graph.layerID,
@@ -207,76 +183,6 @@ extension SceneAuthoredEffectChainPlanner {
             ))
         }
         return .accepted(chain: chain, coverage: .complete)
-    }
-
-    private nonisolated static func recoveredAdmission(
-        plannedPrograms: [SceneEffectStageProgram],
-        unsupportedOrdinal: Int,
-        graph: Graph,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
-    ) -> SceneAuthoredEffectChainAdmission? {
-        if let chain = irisInlineSuffix(
-            plannedPrograms: plannedPrograms,
-            unsupportedOrdinal: unsupportedOrdinal,
-            graph: graph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts
-        ), let effect = chain.irisInlineSuffix?.effectKey {
-            return .accepted(
-                chain: chain,
-                coverage: .terminalIrisInlineSuffix(effect: effect)
-            )
-        }
-        if let chain = isolatedCursorRippleChain(
-            graph: graph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts
-        ) {
-            return isolatedAdmission(chain: chain, graph: graph, cursorRipple: true)
-        }
-        if let chain = isolatedShineChain(
-            graph: graph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts
-        ) {
-            return isolatedAdmission(chain: chain, graph: graph, cursorRipple: false)
-        }
-        if let chain = xRayPrefix(
-            plannedPrograms: plannedPrograms,
-            unsupportedOrdinal: unsupportedOrdinal,
-            graph: graph,
-            descriptor: descriptor
-        ) {
-            let accepted = Set(chain.executionStages.compactMap {
-                $0.renderGraph.effects.first?.key
-            })
-            let omitted = graph.effects.map(\.key).filter { !accepted.contains($0) }
-            return .accepted(chain: chain, coverage: .xRayPrefix(omitted: omitted))
-        }
-        return nil
-    }
-
-    private nonisolated static func isolatedAdmission(
-        chain: SceneAuthoredEffectExecutionChain,
-        graph: Graph,
-        cursorRipple: Bool
-    ) -> SceneAuthoredEffectChainAdmission {
-        let executedKeys = chain.executionStages.compactMap {
-            $0.renderGraph.effects.first?.key
-        }
-        guard executedKeys.count == 1, let executed = executedKeys.first else {
-            return reject(.init(
-                code: .recoveryInvariantViolation,
-                layerID: graph.layerID,
-                observedCount: executedKeys.count
-            ))
-        }
-        let omitted = graph.effects.map(\.key).filter { $0 != executed }
-        let coverage: SceneAuthoredEffectChainAdmission.Coverage = cursorRipple
-            ? .isolatedCursorRipple(executed: executed, omitted: omitted)
-            : .isolatedShine(executed: executed, omitted: omitted)
-        return .accepted(chain: chain, coverage: coverage)
     }
 
     private nonisolated static func outerChainRejection(

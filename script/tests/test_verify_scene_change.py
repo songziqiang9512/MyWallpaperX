@@ -6,6 +6,7 @@ import argparse
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT_ROOT = Path(__file__).resolve().parents[1]
@@ -181,6 +182,12 @@ class SceneValidationSelectionTests(unittest.TestCase):
             verify.changed_paths("HEAD", ["/script/a.py", "script/a.py"]),
             ["script/a.py"],
         )
+
+    def test_deleted_test_path_is_not_selected_for_execution(self) -> None:
+        deleted_test = "script/tests/test_scene_removed_contract.py"
+        with patch.object(Path, "is_file", return_value=False):
+            gates, _ = verify.build_plan([deleted_test], arguments(), self.registry)
+        self.assertEqual(gates, [])
 
 
 if __name__ == "__main__":

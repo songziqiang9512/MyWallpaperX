@@ -23,10 +23,16 @@ LEGACY_BATCH_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
 )
 DEPENDENCY_RUNTIME_SOURCE = SOURCE_ROOT / "RenderGraph/SceneDependencyFrameRuntime.swift"
+AUTHORED_CATALOG_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift"
+)
 METAL_RENDERER_MASKS_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectMasks.swift"
 )
 METAL_VIEW_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalView.swift"
+IMAGE_COMPOSITOR_SOURCE = (
+    SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+)
 FRAME_PREFLIGHT_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
 )
@@ -298,6 +304,45 @@ class SceneUtilityLayerTests(unittest.TestCase):
             "dependencyRuntime.recordBindingIfRequired(",
             metal_renderer,
         )
+
+    def test_rejected_graph_suppression_does_not_retire_typed_dependencies(
+        self,
+    ) -> None:
+        catalog = AUTHORED_CATALOG_SOURCE.read_text(encoding="utf-8")
+        dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        image_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        utility_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(
+            encoding="utf-8"
+        )
+        compositor = IMAGE_COMPOSITOR_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "let legacyEffectFallbackSuppressedLayerIDs: Set<Int>",
+            catalog,
+        )
+        self.assertNotIn("suppressedConsumerLayerIDs", dependency_runtime)
+        self.assertNotIn("suppressedConsumerLayerIDs", image_renderer)
+        self.assertIn(
+            "descriptor.layers.flatMap(\\.dependencyLayerIDs)",
+            RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8"),
+        )
+        self.assertNotIn(
+            "descriptor.layers.filter {",
+            RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8"),
+        )
+        self.assertIn(
+            "request.suppressesLegacyEffectFallback =\n"
+            "                    suppressesLegacyEffectFallback",
+            image_renderer,
+        )
+
+        self.assertIn(
+            "let suppressesLegacyEffectFallback = renderer.authoredEffectCatalog",
+            utility_renderer,
+        )
+
+        self.assertIn("let dependencyEffect = request.dependencyEffect", compositor)
+        self.assertIn("dependencyTexture: dependencyEffect?.texture", compositor)
 
 
 if __name__ == "__main__":

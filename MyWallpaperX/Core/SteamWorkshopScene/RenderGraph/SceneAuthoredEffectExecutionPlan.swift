@@ -32,9 +32,9 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
     let chainsByLayerID: [Int: SceneAuthoredEffectExecutionChain]
     let hiddenEligibleLayerIDs: [Int]
     let legacyGaussianBlurBlockedLayerIDs: Set<Int>
-    let xRayPrefixOmittedEffectPathsByLayerID: [Int: [String]]
     let stageAdmissions: [SceneAuthoredEffectStageAdmission]
     let chainAdmissionsByLayerID: [Int: SceneAuthoredEffectChainAdmission]
+    let legacyEffectFallbackSuppressedLayerIDs: Set<Int>
     let unifiedExecutionStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
     let descriptorEffectStageCount: Int
     let descriptorEffectStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
@@ -77,7 +77,6 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
         )
         unifiedExecutionStageKeys = Set(unifiedSubjects.map(\.key))
         var eligible: [Int: SceneAuthoredEffectExecutionChain] = [:]
-        var xRayPrefixes: [Int: [String]] = [:]
         var chainAdmissions: [Int: SceneAuthoredEffectChainAdmission] = [:]
         for (layerID, candidates) in grouped
         where candidates.count == 1 && resolvedKeysByLayerID[layerID] == nil {
@@ -90,23 +89,24 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             chainAdmissions[layerID] = admission
             guard let chain = admission.chain else { continue }
             eligible[layerID] = chain
-            if case .accepted(_, .xRayPrefix(let omittedKeys)) = admission {
-                let omittedPaths = omittedKeys.compactMap { omittedKey in
-                    graph.effects.first(where: { $0.key == omittedKey })?
-                        .definitionPath
-                }
-                if omittedPaths.count == omittedKeys.count {
-                    xRayPrefixes[layerID] = omittedPaths
-                }
-            }
+        }
+        for (layerID, candidates) in grouped
+        where candidates.count > 1 && resolvedKeysByLayerID[layerID] == nil {
+            chainAdmissions[layerID] = .rejected(.init(
+                code: .duplicateGraph,
+                layerID: layerID,
+                observedCount: candidates.count
+            ))
         }
         let visibleEligible = eligible.filter { visible.contains($0.key) }
         chainsByLayerID = visibleEligible
-        xRayPrefixOmittedEffectPathsByLayerID = xRayPrefixes.filter {
-            visibleEligible[$0.key] != nil
-        }
         hiddenEligibleLayerIDs = eligible.keys.filter { !visible.contains($0) }.sorted()
         chainAdmissionsByLayerID = chainAdmissions
+        legacyEffectFallbackSuppressedLayerIDs = Set(
+            chainAdmissions.compactMap { layerID, admission in
+                admission.rejection == nil ? nil : layerID
+            }
+        )
         stageAdmissions = descriptor.layers.flatMap { layer in
             SceneAuthoredEffectStageAdmissionBuilder.make(
                 layer: layer,

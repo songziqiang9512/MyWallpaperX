@@ -155,12 +155,11 @@ enum SceneAuthoredEffectStageAdmissionBuilder {
                         rejection: rejection
                     )
                 )
-            case .accepted(let chain, let coverage):
+            case .accepted(let chain, _):
                 return plannedAdmission(
                     key: key,
                     path: descriptorEffect.file,
-                    chain: chain,
-                    chainCoverage: coverage
+                    chain: chain
                 )
             }
         }
@@ -169,8 +168,7 @@ enum SceneAuthoredEffectStageAdmissionBuilder {
     private nonisolated static func plannedAdmission(
         key: Graph.EffectKey,
         path: String,
-        chain: SceneAuthoredEffectExecutionChain,
-        chainCoverage: SceneAuthoredEffectChainAdmission.Coverage
+        chain: SceneAuthoredEffectExecutionChain
     ) -> Admission {
         let stageMatches = chain.executionStages.filter {
             $0.renderGraph.effects.count == 1
@@ -183,69 +181,16 @@ enum SceneAuthoredEffectStageAdmissionBuilder {
             guard stage.renderGraph.effects.first?.definitionPath == path else {
                 return invalidStageIdentity(key: key, path: path)
             }
-            guard let coverage = acceptedCoverage(
-                for: key,
-                chainCoverage: chainCoverage
-            ) else {
-                return invalidStageIdentity(key: key, path: path)
-            }
             return admission(
                 key: key,
                 path: path,
                 activity: .active,
                 strictAdmission: .admittedDedicated,
-                coverage: coverage,
+                coverage: .complete,
                 backendName: stage.backend.stableName
             )
         }
-        if let omitted = omittedCoverage(for: key, chainCoverage: chainCoverage) {
-            return admission(
-                key: key,
-                path: path,
-                activity: .active,
-                strictAdmission: .notAdmitted,
-                coverage: omitted.coverage,
-                reasonCode: omitted.reason
-            )
-        }
         return invalidStageIdentity(key: key, path: path)
-    }
-
-    private nonisolated static func acceptedCoverage(
-        for key: Graph.EffectKey,
-        chainCoverage: SceneAuthoredEffectChainAdmission.Coverage
-    ) -> Admission.Coverage? {
-        switch chainCoverage {
-        case .complete:
-            .complete
-        case .terminalIrisInlineSuffix:
-            .terminalInlinePrefix
-        case .xRayPrefix:
-            .prefixAccepted
-        case .isolatedCursorRipple(let executed, _),
-             .isolatedShine(let executed, _):
-            executed == key ? .isolatedAccepted : nil
-        }
-    }
-
-    private nonisolated static func omittedCoverage(
-        for key: Graph.EffectKey,
-        chainCoverage: SceneAuthoredEffectChainAdmission.Coverage
-    ) -> (coverage: Admission.Coverage, reason: String)? {
-        switch chainCoverage {
-        case .complete:
-            nil
-        case .terminalIrisInlineSuffix(let effect) where effect == key:
-            (.terminalInlineSuffix, "terminal-inline-suffix")
-        case .xRayPrefix(let omitted) where omitted.contains(key):
-            (.prefixOmitted, "prefix-omitted")
-        case .isolatedCursorRipple(_, let omitted) where omitted.contains(key):
-            (.isolatedOmitted, "isolated-omitted")
-        case .isolatedShine(_, let omitted) where omitted.contains(key):
-            (.isolatedOmitted, "isolated-omitted")
-        default:
-            nil
-        }
     }
 
     private nonisolated static func invalidStageIdentity(

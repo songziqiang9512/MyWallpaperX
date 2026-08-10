@@ -15,6 +15,7 @@ enum SceneUtilityLayerRenderer {
         cursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         authoredEffectChain: SceneAuthoredEffectExecutionChain?,
+        suppressesLegacyEffectFallback: Bool,
         dynamicValues: SceneDynamicSnapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot,
         blocksLegacyGaussianBlur: Bool,
@@ -72,6 +73,7 @@ enum SceneUtilityLayerRenderer {
                     audioSpectrum: audioSpectrum
                 )
             request.legacyAuthoredFrameTables = legacyAuthoredFrameTables
+            request.suppressesLegacyEffectFallback = suppressesLegacyEffectFallback
             return compositor.draw(
                 request,
                 pipeline: pipeline,

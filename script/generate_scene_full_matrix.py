@@ -128,6 +128,108 @@ PUPPET_ANIMATION_EXPECTATIONS = {
     "expected_puppet_animation_clip_count": "puppet_animation_clip_count",
 }
 
+AUTHORED_EFFECT_GRAPH_CORE_EXPECTATIONS = (
+    (
+        "expected_authored_effect_graph_succeeded_layer_ids",
+        "authored_effect_graph_succeeded_layer_ids",
+        "sorted_layer_ids",
+    ),
+    (
+        "expected_authored_effect_graph_legacy_blur_blocked_layer_ids",
+        "authored_effect_graph_legacy_blur_blocked_layer_ids",
+        "sorted_layer_ids",
+    ),
+    (
+        "expected_authored_effect_graph_chain_count",
+        "authored_effect_graph_chain_count",
+        "integer",
+    ),
+    (
+        "expected_authored_effect_graph_stage_count",
+        "authored_effect_graph_stage_count",
+        "integer",
+    ),
+)
+
+UTILITY_OWNER_AUTHORITY_EXPECTATIONS = (
+    (
+        "expected_utility_capture_planned",
+        "utility_capture_planned",
+        "required_utility_capture_succeeded_layer_ids",
+        "utility_capture_succeeded_layer_ids",
+        "utility_capture_failed_layer_ids",
+        "utility capture",
+    ),
+    (
+        "expected_utility_named_target_planned",
+        "utility_named_target_planned",
+        "required_named_target_capture_succeeded_layer_ids",
+        "named_target_capture_succeeded_layer_ids",
+        "named_target_capture_failed_layer_ids",
+        "named target capture",
+    ),
+    (
+        "expected_utility_named_binding_planned",
+        "utility_named_binding_planned",
+        "required_named_target_binding_succeeded_layer_ids",
+        "named_target_binding_succeeded_layer_ids",
+        "named_target_binding_failed_layer_ids",
+        "named target binding",
+    ),
+)
+
+UTILITY_OWNER_AUTHORITY_SCALAR_EXPECTATIONS = (
+    ("expected_utility_named_consumers", "utility_named_consumers"),
+    ("expected_utility_named_target_gaps", "utility_named_target_gaps"),
+)
+
+IMAGE_BLEND_OWNER_AUTHORITY_EXPECTATIONS = (
+    (
+        "expected_image_blend_planned",
+        "image_blend_planned",
+        "required_image_blend_succeeded_layer_ids",
+        "image_blend_succeeded_layer_ids",
+        "image_blend_failed_layer_ids",
+        "image blend",
+    ),
+)
+
+R4_OWNER_AUTHORITY_FATAL_REPORT_FAILURES = frozenset({
+    "utility layer runtime evidence missing",
+    "utility capture execution below planned count",
+    "named target capture execution below planned count",
+    "named target binding execution below planned count",
+    "image blend runtime evidence missing",
+    "image blend execution below planned count",
+})
+
+R4_OWNER_AUTHORITY_PRESERVED_EXPECTATION_KEYS = frozenset({
+    "expected_authored_effect_graph_color_key_count",
+})
+
+R4_OWNER_AUTHORITY_EXPECTATION_KEYS = frozenset({
+    *(matrix_key for matrix_key, _, _ in AUTHORED_EFFECT_GRAPH_CORE_EXPECTATIONS),
+    *(
+        expectation.matrix_key
+        for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS
+        if expectation.matrix_key
+        not in R4_OWNER_AUTHORITY_PRESERVED_EXPECTATION_KEYS
+    ),
+    *(expectation.matrix_key for expectation in EFFECT_STAGE_ADMISSION_EXPECTATIONS),
+    *(expectation.matrix_key for expectation in EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS),
+    *(expectation.matrix_key for expectation in EFFECT_EXECUTION_EXPECTATIONS),
+    *(expectation.matrix_key for expectation in RESOLVED_MATERIAL_GRAPH_EXPECTATIONS),
+    *(
+        matrix_key
+        for expectation in (
+            *UTILITY_OWNER_AUTHORITY_EXPECTATIONS,
+            *IMAGE_BLEND_OWNER_AUTHORITY_EXPECTATIONS,
+        )
+        for matrix_key in (expectation[0], expectation[2])
+    ),
+    *(matrix_key for matrix_key, _ in UTILITY_OWNER_AUTHORITY_SCALAR_EXPECTATIONS),
+})
+
 
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -206,6 +308,198 @@ def validate_report_identity(
     if require_passed and not all_passed:
         raise ValueError("full matrix refresh requires a passing benchmark report")
     return report_by_id, old_by_id
+
+
+def _nonnegative_integer(value: object, *, sample_id: object, label: str) -> int:
+    if type(value) is not int or value < 0:
+        raise ValueError(f"sample {sample_id} {label} is invalid")
+    return value
+
+
+def _sorted_layer_ids(
+    value: object,
+    *,
+    sample_id: object,
+    label: str,
+) -> list[int]:
+    if not (
+        isinstance(value, list)
+        and all(type(layer_id) is int and layer_id >= 0 for layer_id in value)
+        and value == sorted(set(value))
+    ):
+        raise ValueError(f"sample {sample_id} {label} is invalid")
+    return value
+
+
+def _string_list(value: object, *, sample_id: object, label: str) -> list[str]:
+    if not (
+        isinstance(value, list)
+        and all(isinstance(item, str) for item in value)
+    ):
+        raise ValueError(f"sample {sample_id} {label} is invalid")
+    return value
+
+
+def _validate_r4_owner_authority_report_failures(result: dict) -> None:
+    sample_id = result.get("id")
+    failures = result.get("failures")
+    if not (
+        isinstance(failures, list)
+        and all(isinstance(failure, str) for failure in failures)
+    ):
+        raise ValueError(
+            f"sample {sample_id} benchmark failure telemetry is malformed"
+        )
+    fatal_failures = [
+        failure
+        for failure in failures
+        if failure in R4_OWNER_AUTHORITY_FATAL_REPORT_FAILURES
+        or (
+            failure.startswith("authored effect graph layer ")
+            and failure.endswith(" failed")
+        )
+    ]
+    if fatal_failures:
+        raise ValueError(
+            f"sample {sample_id} owner authority telemetry failed: "
+            f"{fatal_failures[0]}"
+        )
+
+
+def authored_effect_graph_runtime_values(
+    result: dict,
+    old_sample: dict,
+    excluded_expectation_keys: frozenset[str] = frozenset(),
+) -> dict:
+    sample_id = result.get("id")
+    runtime = result.get("runtime")
+    if not isinstance(runtime, dict):
+        raise ValueError(
+            f"sample {sample_id} authored effect graph runtime evidence missing"
+        )
+
+    values = {}
+    for matrix_key, runtime_key, comparison in (
+        AUTHORED_EFFECT_GRAPH_CORE_EXPECTATIONS
+    ):
+        value = runtime.get(runtime_key)
+        if comparison == "integer":
+            value = _nonnegative_integer(
+                value,
+                sample_id=sample_id,
+                label=runtime_key,
+            )
+        else:
+            value = _sorted_layer_ids(
+                value,
+                sample_id=sample_id,
+                label=runtime_key,
+            )
+        values[matrix_key] = value
+
+    failed_layer_ids = _sorted_layer_ids(
+        runtime.get("authored_effect_graph_failed_layer_ids"),
+        sample_id=sample_id,
+        label="authored_effect_graph_failed_layer_ids",
+    )
+    if failed_layer_ids:
+        raise ValueError(
+            f"sample {sample_id} authored effect graph execution failed"
+        )
+
+    optional_groups = {
+        expectation.optional_group
+        for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS
+        if expectation.optional_group
+        and optional_group_is_active(
+            expectation.optional_group,
+            runtime,
+            old_sample,
+        )
+    }
+    for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS:
+        if expectation.matrix_key in excluded_expectation_keys:
+            continue
+        if expectation.matrix_key not in old_sample:
+            continue
+        value = runtime.get(expectation.report_metric)
+        if expectation.comparison == "integer":
+            value = _nonnegative_integer(
+                value,
+                sample_id=sample_id,
+                label=expectation.report_metric,
+            )
+        elif expectation.comparison == "sorted_list":
+            value = _sorted_layer_ids(
+                value,
+                sample_id=sample_id,
+                label=expectation.report_metric,
+            )
+        else:
+            value = _string_list(
+                value,
+                sample_id=sample_id,
+                label=expectation.report_metric,
+            )
+        if (
+            expectation.optional_group
+            and expectation.optional_group not in optional_groups
+        ):
+            continue
+        values[expectation.matrix_key] = value
+    return values
+
+
+def owner_authority_plan_execution_values(result: dict) -> dict:
+    sample_id = result.get("id")
+    runtime = result.get("runtime")
+    if not isinstance(runtime, dict):
+        raise ValueError(
+            f"sample {sample_id} owner authority runtime evidence missing"
+        )
+
+    values = {}
+    for matrix_key, runtime_key in UTILITY_OWNER_AUTHORITY_SCALAR_EXPECTATIONS:
+        values[matrix_key] = _nonnegative_integer(
+            runtime.get(runtime_key),
+            sample_id=sample_id,
+            label=runtime_key,
+        )
+    for (
+        plan_matrix_key,
+        plan_runtime_key,
+        success_matrix_key,
+        success_runtime_key,
+        failure_runtime_key,
+        label,
+    ) in (
+        *UTILITY_OWNER_AUTHORITY_EXPECTATIONS,
+        *IMAGE_BLEND_OWNER_AUTHORITY_EXPECTATIONS,
+    ):
+        planned = _nonnegative_integer(
+            runtime.get(plan_runtime_key),
+            sample_id=sample_id,
+            label=plan_runtime_key,
+        )
+        succeeded_layer_ids = _sorted_layer_ids(
+            runtime.get(success_runtime_key),
+            sample_id=sample_id,
+            label=success_runtime_key,
+        )
+        failed_layer_ids = _sorted_layer_ids(
+            runtime.get(failure_runtime_key),
+            sample_id=sample_id,
+            label=failure_runtime_key,
+        )
+        if failed_layer_ids:
+            raise ValueError(f"sample {sample_id} {label} execution failed")
+        if len(succeeded_layer_ids) < planned:
+            raise ValueError(
+                f"sample {sample_id} {label} execution below planned count"
+            )
+        values[plan_matrix_key] = planned
+        values[success_matrix_key] = succeeded_layer_ids
+    return values
 
 
 def effect_stage_admission_values(result: dict) -> dict:
@@ -612,6 +906,8 @@ def effect_execution_values(
 def resolved_material_graph_execution_values(
     result: dict,
     old_sample: dict | None = None,
+    *,
+    require_evidence: bool = False,
 ) -> dict | None:
     expectation = RESOLVED_MATERIAL_GRAPH_EXPECTATIONS[0]
     runtime = result.get("runtime")
@@ -621,11 +917,20 @@ def resolved_material_graph_execution_values(
         else None
     )
     capability = execution.get("capability") if isinstance(execution, dict) else None
-    expects_evidence = expectation.matrix_key in (old_sample or {})
+    expects_evidence = (
+        require_evidence or expectation.matrix_key in (old_sample or {})
+    )
     has_capability_evidence = bool(
         isinstance(capability, dict)
         and capability.get("has_evidence") is True
     )
+    if require_evidence and not (
+        isinstance(execution, dict)
+        and execution.get("has_evidence") is True
+    ):
+        raise ValueError(
+            f"sample {result.get('id')} resolved material graph evidence missing"
+        )
     if not has_capability_evidence and not expects_evidence:
         return None
     if not isinstance(execution, dict) or not has_capability_evidence:
@@ -793,6 +1098,60 @@ def scoped_r0_effect_chain_matrix(
         )
         if execution_values is not None:
             values.update(execution_values)
+        updates_by_id[sample_id] = values
+
+    matrix = copy.deepcopy(old_matrix)
+    execution_expectation_keys = {
+        expectation.matrix_key for expectation in EFFECT_EXECUTION_EXPECTATIONS
+    }
+    for sample in matrix["samples"]:
+        for key in execution_expectation_keys:
+            sample.pop(key, None)
+        sample.update(updates_by_id[str(sample["id"])])
+    return matrix
+
+
+def scoped_r4_owner_authority_matrix(
+    report: dict,
+    old_matrix: dict,
+    old_matrix_path: Path,
+) -> dict:
+    report_by_id, old_by_id = validate_report_identity(
+        report,
+        old_matrix,
+        old_matrix_path,
+        require_passed=False,
+    )
+    updates_by_id = {}
+    for sample_id, result in report_by_id.items():
+        old_sample = old_by_id[sample_id]
+        _validate_r4_owner_authority_report_failures(result)
+        values = authored_effect_graph_runtime_values(
+            result,
+            old_sample,
+            excluded_expectation_keys=
+                R4_OWNER_AUTHORITY_PRESERVED_EXPECTATION_KEYS,
+        )
+        values.update(effect_stage_admission_values(result))
+        values.update(effect_runtime_disposition_values(result))
+        execution_values = effect_execution_values(result, old_sample)
+        if execution_values is not None:
+            values.update(execution_values)
+        values.update(owner_authority_plan_execution_values(result))
+        graph_values = resolved_material_graph_execution_values(
+            result,
+            old_sample,
+            require_evidence=True,
+        )
+        if graph_values is None:
+            raise ValueError(
+                f"sample {sample_id} resolved material graph evidence missing"
+            )
+        values.update(graph_values)
+        if not set(values).issubset(R4_OWNER_AUTHORITY_EXPECTATION_KEYS):
+            raise ValueError(
+                f"sample {sample_id} R4 owner authority whitelist escaped"
+            )
         updates_by_id[sample_id] = values
 
     matrix = copy.deepcopy(old_matrix)
@@ -993,11 +1352,13 @@ def parse_args() -> argparse.Namespace:
             "effect-stage-admission",
             "r0-effect-ledgers",
             "r0-effect-chain",
+            "r4-owner-authority",
         ),
         default="all",
         help=(
             "refresh every contract, only effect-stage admission, both R0 "
-            "static ledgers, or the atomic R0 admission/disposition/execution chain"
+            "static ledgers, the atomic R0 admission/disposition/execution chain, "
+            "or the R4 authored owner-authority runtime families"
         ),
     )
     return parser.parse_args()
@@ -1025,6 +1386,12 @@ def main() -> None:
         )
     elif args.scope == "r0-effect-chain":
         matrix = scoped_r0_effect_chain_matrix(
+            report,
+            old_matrix,
+            old_matrix_path,
+        )
+    elif args.scope == "r4-owner-authority":
+        matrix = scoped_r4_owner_authority_matrix(
             report,
             old_matrix,
             old_matrix_path,

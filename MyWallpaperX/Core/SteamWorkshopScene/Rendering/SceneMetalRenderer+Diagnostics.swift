@@ -8,6 +8,10 @@ extension SceneMetalRenderer {
             resolvedMaterialLayerIDs:
                 imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
         )
+        let imageBlendLines = SceneImageBlendRenderPlan(
+            descriptor: renderDescriptor,
+            visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
+        ).reportLines()
         let candidateCount = renderDescriptor.layers.filter {
             $0.contentKind == "spotLight"
         }.count
@@ -35,7 +39,7 @@ extension SceneMetalRenderer {
         )
         let dispositionLines = dispositionCatalog.reportLines
             + (imageCompositor.resolvedMaterialRuntime?.executionEvidenceReportLines ?? [])
-        return utilityLines + authoredEffectCatalog.reportLines
+        return utilityLines + imageBlendLines + authoredEffectCatalog.reportLines
             + dispositionLines
             + spotLightRuntime.reportLines(candidateCount: candidateCount)
     }
@@ -107,7 +111,12 @@ extension SceneMetalRenderer {
     }
 
     func offscreenPassCount(for layer: SceneRenderDescriptor.Layer) -> Int {
-        authoredEffectChain(for: layer.id)?.materialNodeCount
+        let chain = authoredEffectChain(for: layer.id)
+        if chain == nil,
+           authoredEffectCatalog.legacyEffectRuntimeExcludedLayerIDs.contains(layer.id) {
+            return 0
+        }
+        return chain?.materialNodeCount
             ?? SceneEffectRuntimePlanner.offscreenPassCount(for: layer)
     }
 
@@ -118,15 +127,17 @@ extension SceneMetalRenderer {
         hasWaterMask: Bool = false,
         hasFoliageMask: Bool = false
     ) -> String? {
+        if let rejection = authoredEffectCatalog
+            .chainAdmissionsByLayerID[layer.id]?.rejection {
+            return "effect runtime authored-chain rejected; \(rejection.code.rawValue)"
+        }
+        if authoredEffectCatalog.resolvedMaterialExecutionLayerIDs.contains(layer.id) {
+            return "effect runtime resolved-material-graph; graph owner"
+        }
         if let chain = authoredEffectChain(for: layer.id) {
             let executionStageCount = chain.executionStages.count
-            if executionStageCount > 1 {
-                let suffix = chain.irisInlineSuffix == nil
-                    ? ""
-                    : "; iris inline suffix"
-                return "effect runtime authored-chain; \(executionStageCount) stage(s); "
-                    + "\(chain.materialNodeCount) material pass(es)\(suffix)"
-            }
+            return "effect runtime authored-chain; \(executionStageCount) stage(s); "
+                + "\(chain.materialNodeCount) material pass(es)"
         }
         return SceneEffectRuntimePlanner.runtimeSummary(
             for: layer,

@@ -172,26 +172,19 @@
       {
         "id": "legacy-recovery-kinds",
         "role": "retirement",
-        "description": "The four existing recovery kinds are frozen until each omission path is absorbed by the graph scheduler.",
-        "pattern": "^        case (?:terminalIrisInlineSuffix|xRayPrefix|isolatedCursorRipple|isolatedShine)$",
-        "start_marker": "enum LegacyRecoveryKind: Equatable {",
-        "end_marker": "    enum ExecutionRoute {",
-        "baseline_occurrences": 4,
+        "description": "Product source must not reconstruct or execute partial authored graphs through Iris, X-Ray, Cursor Ripple, or Shine recovery surfaces.",
+        "pattern": "(?:legacyRecovery|recoveredAdmission|terminalIrisInlineSuffix|xRayPrefix|isolatedCursorRipple|isolatedShine|irisInlineSuffix|xRayPrefixOmittedEffectPathsByLayerID|captureAfterChildrenXRayPrefix)",
+        "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "RenderGraph/SceneAuthoredEffectExecutionChain+Route.swift"
-        ],
-        "allowed_files": [
-          "RenderGraph/SceneAuthoredEffectExecutionChain+Route.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "hardcoded-expected-sha",
         "role": "inventory",
         "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
-        "baseline_occurrences": 229,
+        "baseline_occurrences": 222,
         "allowed_files": [
           "RenderGraph/SceneAuthoredBlendPlanner.swift",
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
@@ -201,7 +194,6 @@
           "RenderGraph/SceneAuthoredFilmGrainPlanner.swift",
           "RenderGraph/SceneAuthoredFisheyeZeroDistortionPlanner.swift",
           "RenderGraph/SceneAuthoredFoliageSwayPlanner.swift",
-          "RenderGraph/SceneAuthoredIrisInlineSuffixPlanner.swift",
           "RenderGraph/SceneAuthoredLightShaftsPlanner+AssetValidation.swift",
           "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
           "RenderGraph/SceneAuthoredOpacityPlanner.swift",
@@ -222,7 +214,6 @@
           "RenderGraph/SceneFisheyeZeroDistortionShaderProfile.swift",
           "RenderGraph/SceneFoliageSwayShaderProfile.swift",
           "RenderGraph/SceneGodraysShaderProfile.swift",
-          "RenderGraph/SceneIrisInlineSuffixPlan.swift",
           "RenderGraph/SceneProceduralNoiseShaderProfile.swift",
           "RenderGraph/ScenePulseShaderProfile.swift",
           "RenderGraph/SceneShakeShaderProfile.swift",

@@ -428,6 +428,17 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                     old_rule["completion_target_occurrences"]
                 ):
                     violations.append(f"{rule_id}: completion target increased")
+            reaches_retirement_target = (
+                old_rule.get("role") == "retirement"
+                and int(old_rule["baseline_occurrences"])
+                != int(old_rule["completion_target_occurrences"])
+                and int(new_rule["baseline_occurrences"])
+                == int(new_rule["completion_target_occurrences"])
+            )
+            if not reaches_retirement_target:
+                for field in ("pattern", "start_marker", "end_marker"):
+                    if new_rule.get(field) != old_rule.get(field):
+                        violations.append(f"{rule_id}: {field} changed")
         self.assertEqual(violations, [])
 
     def test_render_chain_ratchet_rejects_new_owner_recovery_and_selector(self) -> None:

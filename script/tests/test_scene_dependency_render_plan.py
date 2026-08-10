@@ -167,6 +167,7 @@ enum Harness {
             visible: true,
             effects: [proceduralNoiseEffect(id: 31, provider: 30)]
         )
+        let missingProviderConsumer = consumer(32, provider: 999)
         let descriptor = SceneRenderDescriptor(
             layers: [
                 provider, visibleConsumer, hiddenConsumer,
@@ -175,15 +176,15 @@ enum Harness {
                 supportedGradientConsumer, reversedGradientConsumer, invalidGradientConsumer,
                 utilityConsumer, lookalikeConsumer, projectUtilityConsumer,
                 childUtilityConsumer, extraDependencyUtilityConsumer,
-                legacyNoiseProvider, legacyNoiseConsumer,
+                legacyNoiseProvider, legacyNoiseConsumer, missingProviderConsumer,
             ],
             renderOrderLayerIDs: [
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-                30, 31,
+                30, 31, 32,
             ]
         )
         let visibleLayerIDs: Set<Int> = [
-            1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31,
+            1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32,
         ]
         let plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
@@ -200,12 +201,16 @@ enum Harness {
             consumer(20 + offset, provider: providerID, visible: offset != 2)
         }
         let matrixLayers = matrixProviders + matrixConsumers
+        let matrixDescriptor = SceneRenderDescriptor(
+            layers: matrixLayers,
+            renderOrderLayerIDs: matrixLayers.map(\.id)
+        )
+        let matrixVisible = Set(matrixLayers.compactMap {
+            $0.visible == false ? nil : $0.id
+        })
         let matrixPlan = SceneDependencyRenderPlan(
-            descriptor: .init(
-                layers: matrixLayers,
-                renderOrderLayerIDs: matrixLayers.map(\.id)
-            ),
-            visibleLayerIDs: Set(matrixLayers.compactMap { $0.visible == false ? nil : $0.id })
+            descriptor: matrixDescriptor,
+            visibleLayerIDs: matrixVisible
         )
         let parsed = [
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42")?.variant.rawValue ?? "nil",
@@ -398,14 +403,14 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertTrue(self.result["invalidReference"])
 
     def test_image_and_composition_clipping_consumers_share_backward_binding(self) -> None:
-        self.assertEqual(self.result["referenceCount"], 16)
+        self.assertEqual(self.result["referenceCount"], 17)
         self.assertEqual(
             self.result["namedConsumers"],
-            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31],
+            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32],
         )
         self.assertEqual(
             self.result["requiredEffectConsumers"],
-            [2, 6, 8, 9, 12, 13, 14, 15, 31],
+            [2, 6, 8, 9, 12, 13, 14, 15, 31, 32],
         )
         self.assertEqual(self.result["executableUtilityConsumers"], [15, 31])
         self.assertEqual(
@@ -419,6 +424,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertEqual(self.result["cycles"], [4, 5])
         self.assertIn("2:dependencyMismatch:1", self.result["issues"])
         self.assertIn("6:forwardUtilityProvider:7", self.result["issues"])
+        self.assertIn("32:missingProvider:999", self.result["issues"])
         self.assertIn("10:unsupportedConsumer:-1", self.result["issues"])
         self.assertNotIn("15:unsupportedConsumer:-1", self.result["issues"])
         self.assertIn("16:unsupportedConsumer:-1", self.result["issues"])
@@ -431,7 +437,6 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
     def test_matrix_shape_keeps_hidden_consumer_out_of_runtime_liveness(self) -> None:
         self.assertEqual(self.result["matrixBindingCount"], 7)
         self.assertEqual(self.result["matrixRequiredProviders"], [10, 11, 12, 13, 14, 15])
-
 
 if __name__ == "__main__":
     unittest.main()

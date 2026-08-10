@@ -179,6 +179,7 @@ struct SceneImageLayerDrawRequest {
     let authoredEffectPlan: SceneAuthoredEffectExecutionPlan?
     let blocksLegacyGaussianBlur: Bool
     var authoredEffectChain: SceneAuthoredEffectExecutionChain? = nil
+    var suppressesLegacyEffectFallback = false
     var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var localContrastStrength: Float? = nil

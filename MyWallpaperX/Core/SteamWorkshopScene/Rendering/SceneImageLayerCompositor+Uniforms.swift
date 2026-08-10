@@ -65,6 +65,7 @@ extension SceneImageLayerCompositor {
             tint: tint * brightness,
             foliageMaskUVScale: request.masks.foliageUVScale,
             dependencyBlendMode: routesOffscreen
+                || request.suppressesLegacyEffectFallback
                 ? nil : request.dependencyEffect?.blendMode
         )
     }

@@ -62,6 +62,7 @@ METAL_VIEW_FRAME_CONTEXT = (
     SCENE_ROOT / "Rendering/SceneMetalView+FrameContext.swift"
 )
 METAL_VIEW = SCENE_ROOT / "Rendering/SceneMetalView.swift"
+TEXT_TEXTURE_LOADER = SCENE_ROOT / "Text/SceneTextTextureLoader.swift"
 HOST = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
 HOST_FRAME_DRIVER = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
@@ -2435,6 +2436,28 @@ enum Harness {
 
 
 class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
+    def test_preview_and_inline_reporting_follow_the_selected_execution_owner(self) -> None:
+        diagnostics = RENDERER_DIAGNOSTICS.read_text(encoding="utf-8")
+        view = METAL_VIEW.read_text(encoding="utf-8")
+        text_loader = TEXT_TEXTURE_LOADER.read_text(encoding="utf-8")
+
+        rejected = diagnostics.index("effect runtime authored-chain rejected")
+        resolved = diagnostics.index("effect runtime resolved-material")
+        authored_chain = diagnostics.index("effect runtime authored-chain;")
+        legacy_planner = diagnostics.index(
+            "SceneEffectRuntimePlanner.runtimeSummary(", authored_chain
+        )
+        self.assertLess(rejected, resolved)
+        self.assertLess(resolved, authored_chain)
+        self.assertLess(authored_chain, legacy_planner)
+        self.assertIn("resolvedMaterialExecutionLayerIDs", diagnostics)
+        self.assertNotIn("if executionStageCount > 1", diagnostics)
+
+        self.assertIn("legacyEffectRuntimeExcludedLayerIDs", view)
+        self.assertIn("legacyEffectRuntimeExcludedLayerIDs", text_loader)
+        self.assertNotIn("legacyEffectFallbackSuppressedLayerIDs", view)
+        self.assertNotIn("suppressedLegacyEffectLayerIDs", text_loader)
+
     def test_resource_demands_share_schema_and_never_guess_regular_assets(self) -> None:
         source = RUNTIME_CATALOG.read_text(encoding="utf-8")
         self.assertIn(

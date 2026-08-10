@@ -1267,8 +1267,6 @@ struct SceneAuthoredEffectExecutionChain {
     let renderGraph: SceneAuthoredEffectRenderPlan
     let executionStages: [SceneAuthoredEffectExecutionPlan]
 
-    var irisInlineSuffix: SceneIrisInlineSuffixPlan? { nil }
-
     var singleStage: SceneAuthoredEffectExecutionPlan? {
         executionStages.count == 1 ? executionStages[0] : nil
     }
@@ -1277,15 +1275,6 @@ struct SceneAuthoredEffectExecutionChain {
         executionStages.filter { $0.clippingMask != nil }.count
     }
 
-}
-
-struct SceneIrisInlineSuffixPlan {
-    let effectKey = SceneAuthoredEffectRenderPlan.EffectKey(
-        layerID: 0,
-        effectIndex: 0,
-        descriptorID: "framebuffer-harness-iris"
-    )
-    var inputs: SceneLayerEffectInputs { .neutral }
 }
 
 struct SceneDynamicSnapshot {
@@ -1921,6 +1910,17 @@ enum Harness {
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             blendMode: 33
         ) == nil
+        let rejectedLayerBlend = try layerColorBlendPixel(
+            device: device, queue: queue, pipeline: pipeline, compositor: compositor,
+            blendMode: 14,
+            suppressesLegacyFallback: true
+        )
+        let rejectedLayerBlendWithoutPoolRefused = try layerColorBlendPixel(
+            device: device, queue: queue, pipeline: pipeline, compositor: compositor,
+            blendMode: 14,
+            suppressesLegacyFallback: true,
+            providesOffscreenPool: false
+        ) == nil
         let coarseBlur = blurPlan(path: "effects/blur/effect.json", scale: 0.6)
         let preciseBlur = blurPlan(path: "effects/blurprecise/effect.json", scale: 0.45)
         let blockedPreciseBlur = blurPlan(
@@ -2136,6 +2136,8 @@ enum Harness {
             "vividLayerBlendBGRA": vividLayerBlend as Any,
             "warmAdditiveLayerBlendBGRA": warmAdditiveLayerBlend as Any,
             "invalidLayerBlendRefused": invalidLayerBlendRefused,
+            "rejectedLayerBlendBGRA": rejectedLayerBlend as Any,
+            "rejectedLayerBlendWithoutPoolRefused": rejectedLayerBlendWithoutPoolRefused,
             "fragmentUniformSize": MemoryLayout<SceneLayerFragmentUniforms>.size,
             "dependencyBlendModeOffset": MemoryLayout<SceneLayerFragmentUniforms>.offset(
                 of: \SceneLayerFragmentUniforms.dependencyBlendMode
@@ -2791,7 +2793,9 @@ enum Harness {
         sourceBGRA: [UInt8] = [64, 96, 128, 128],
         background: MTLClearColor = MTLClearColorMake(0.2, 0.4, 0.6, 1),
         tint: SIMD3<Float> = SIMD3(repeating: 1),
-        brightness: Double? = nil
+        brightness: Double? = nil,
+        suppressesLegacyFallback: Bool = false,
+        providesOffscreenPool: Bool = true
     ) throws -> [UInt8]? {
         guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
               let target = makeTexture(
@@ -2806,33 +2810,33 @@ enum Harness {
             target: target,
             clearColor: background
         )
-        let drew = compositor.draw(
-            SceneImageLayerDrawRequest(
-                layer: SceneRenderDescriptor.Layer(
-                    contentKind: "image",
-                    colorRGB: nil,
-                    colorBlendMode: blendMode,
-                    brightness: brightness,
-                    effects: []
-                ),
-                texture: source,
-                masks: .empty,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(
-                    time: 0, alpha: 1, cursorUV: .zero, tint: tint
-                ),
-                offscreenTexturePool: SceneOffscreenTexturePool(device: device),
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false
+        var request = SceneImageLayerDrawRequest(
+            layer: SceneRenderDescriptor.Layer(
+                contentKind: "image",
+                colorRGB: nil,
+                colorBlendMode: blendMode,
+                brightness: brightness,
+                effects: []
             ),
-            pipeline: pipeline,
-            mainPass: mainPass
+            texture: source,
+            masks: .empty,
+            textureFrame: .identity,
+            mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+            uniforms: SceneImageLayerUniformValues(
+                time: 0, alpha: 1, cursorUV: .zero, tint: tint
+            ),
+            offscreenTexturePool: providesOffscreenPool
+                ? SceneOffscreenTexturePool(device: device)
+                : nil,
+            offscreenSize: nil,
+            requiresSourceCopy: false,
+            finalCompositeAlpha: nil,
+            dependencyEffect: nil,
+            authoredEffectPlan: nil,
+            blocksLegacyGaussianBlur: false
         )
+        request.suppressesLegacyEffectFallback = suppressesLegacyFallback
+        let drew = compositor.draw(request, pipeline: pipeline, mainPass: mainPass)
         guard drew else { return nil }
         mainPass.finishEnsuringClear()
         commandBuffer.commit()
@@ -3792,14 +3796,27 @@ enum Harness {
     ) throws -> [String: Any] {
         var out: [String: Any] = [:]
         let maskPath = "masks/opacity_mask"
-        let cases: [(key: String, chain: SceneAuthoredEffectExecutionChain?, binds: Bool)] = [
-            ("authored", authoredOpacityChain(alpha: 0.5, maskTexturePath: maskPath), true),
-            ("legacy", nil, false),
-            ("missingMask", authoredOpacityChain(alpha: 0.5, maskTexturePath: maskPath), false),
+        let cases: [(
+            key: String,
+            chain: SceneAuthoredEffectExecutionChain?,
+            binds: Bool,
+            suppressesLegacyFallback: Bool,
+            requiresSourceCopy: Bool,
+            bindsDependency: Bool
+        )] = [
+            ("authored", authoredOpacityChain(alpha: 0.5, maskTexturePath: maskPath), true, false, false, false),
+            ("legacy", nil, false, false, false, false),
+            ("rejected", nil, false, true, false, false),
+            ("rejectedSourceCopy", nil, false, true, true, false),
+            ("rejectedDependency", nil, false, true, false, true),
+            ("missingMask", authoredOpacityChain(alpha: 0.5, maskTexturePath: maskPath), false, false, false, false),
         ]
         for item in cases {
             guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
                   let mask = makeTexture(device: device, size: 1, usage: .shaderRead),
+                  let dependency = makeTexture(
+                      device: device, size: 1, usage: .shaderRead
+                  ),
                   let target = makeTexture(
                       device: device, size: 1, usage: [.renderTarget, .shaderRead]
                   ), let commandBuffer = queue.makeCommandBuffer() else {
@@ -3807,6 +3824,7 @@ enum Harness {
             }
             fill(source, bgra: [40, 80, 160, 200])
             fill(mask, bgra: [0, 0, 128, 255])
+            fill(dependency, bgra: [200, 10, 20, 255])
             let mainPass = SceneMainPassEncoder(
                 commandBuffer: commandBuffer,
                 target: target,
@@ -3838,8 +3856,7 @@ enum Harness {
                     constantShaderValues: ["alpha": .init(components: [0.5])]
                 )]
             )
-            let encoded = compositor.draw(
-                SceneImageLayerDrawRequest(
+            var request = SceneImageLayerDrawRequest(
                     layer: SceneRenderDescriptor.Layer(
                         contentKind: "image",
                         colorRGB: nil,
@@ -3883,18 +3900,34 @@ enum Harness {
                     offscreenTexturePool: pool,
                     legacyAuthoredFrameTables: frameTables,
                     offscreenSize: nil,
-                    requiresSourceCopy: false,
+                    requiresSourceCopy: item.requiresSourceCopy,
                     finalCompositeAlpha: nil,
-                    dependencyEffect: nil,
+                    dependencyEffect: item.bindsDependency
+                        ? SceneDependencyEffectInput(
+                            texture: dependency,
+                            blendMode: 0,
+                            slotIndex: 1
+                        )
+                        : nil,
                     authoredEffectPlan: nil,
                     blocksLegacyGaussianBlur: false,
                     authoredEffectChain: item.chain,
                     dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
-                ),
+                )
+            request.suppressesLegacyEffectFallback =
+                item.suppressesLegacyFallback
+            var selectedLegacyAuthoredRoute = false
+            let encoded = compositor.draw(
+                request,
                 pipeline: pipeline,
                 mainPass: mainPass,
-                frameTransaction: frameTransaction
+                frameTransaction: frameTransaction,
+                onLegacyAuthoredRouteSelected: {
+                    selectedLegacyAuthoredRoute = true
+                }
             )
+            out["\(item.key)LegacyAuthoredRouteSelected"] =
+                selectedLegacyAuthoredRoute
             if item.key == "missingMask" {
                 out["missingMaskRefused"] = !encoded
                 continue
@@ -6118,6 +6151,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             self.result["warmAdditiveLayerBlendBGRA"], [166, 208, 255, 255], 2
         )
         self.assertTrue(self.result["invalidLayerBlendRefused"])
+        self.assert_pixel_close(
+            self.result["rejectedLayerBlendBGRA"],
+            self.result["vividLayerBlendBGRA"],
+            2,
+        )
+        self.assertTrue(self.result["rejectedLayerBlendWithoutPoolRefused"])
 
     def test_blur_scales_remain_authored_pixels_until_target_normalization(self) -> None:
         for actual, expected in zip(self.result["coarseBlur"], [0.6, 0.6, 4]):
@@ -6276,6 +6315,32 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             1,
             f"authored opacity dropped the mask: {pixel['authored']}",
         )
+        self.assertLessEqual(
+            max(abs(a - b) for a, b in zip(pixel["rejected"], [40, 80, 160, 200])),
+            1,
+            f"rejected authored graph fell back to legacy opacity: {pixel['rejected']}",
+        )
+        self.assertLessEqual(
+            max(abs(a - b) for a, b in zip(
+                pixel["rejectedSourceCopy"], [40, 80, 160, 200]
+            )),
+            1,
+            "rejected authored graph failed neutral source-copy routing: "
+            f"{pixel['rejectedSourceCopy']}",
+        )
+        self.assertGreater(
+            max(abs(a - b) for a, b in zip(
+                pixel["rejectedDependency"], pixel["rejected"]
+            )),
+            10,
+            "rejected authored graph retired an independently admitted dependency: "
+            f"{pixel['rejectedDependency']}",
+        )
+        for key in ("rejected", "rejectedSourceCopy", "rejectedDependency"):
+            self.assertFalse(
+                pixel[f"{key}LegacyAuthoredRouteSelected"],
+                f"{key} selected a legacy authored route",
+            )
         # 声明了遮罩但 opacityEffects 里没有对应贴图时必须整段拒绝：静默按无遮罩渲染
         # 就是这次修的那类缺陷，会让语料里 108 个绑遮罩的 stock opacity pass 不声不响地失效。
         self.assertTrue(pixel["missingMaskRefused"], pixel)

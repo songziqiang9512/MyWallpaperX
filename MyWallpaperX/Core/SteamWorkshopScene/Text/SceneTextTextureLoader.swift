@@ -28,7 +28,8 @@ enum SceneTextTextureLoader {
         device: MTLDevice,
         effectSummary: (SceneRenderDescriptor.Layer) -> String? = {
             SceneEffectRuntimePlanner.runtimeSummary(for: $0)
-        }
+        },
+        legacyEffectRuntimeExcludedLayerIDs: Set<Int> = []
     ) -> SceneTextTextureLoadResult {
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let candidates = descriptor.layers.filter {
@@ -50,7 +51,11 @@ enum SceneTextTextureLoader {
             if let summary = effectSummary(layer) {
                 message += "; \(summary)"
             }
-            if let inlineSummary = SceneInlineEffectRuntime.summary(for: layer, hasWaterMask: false) {
+            if !legacyEffectRuntimeExcludedLayerIDs.contains(layer.id),
+               let inlineSummary = SceneInlineEffectRuntime.summary(
+                   for: layer,
+                   hasWaterMask: false
+               ) {
                 message += "; \(inlineSummary)"
             }
             messages.append(message)
