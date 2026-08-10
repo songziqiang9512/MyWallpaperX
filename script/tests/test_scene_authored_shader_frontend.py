@@ -232,6 +232,197 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertIsNone(output.get("metalError"))
 
+    def test_explicit_lod_texture_sample_compiles_to_metal(self):
+        output = self.compile(
+            VEC4_COORDINATE_VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            uniform sampler2D g_Texture1;
+            uniform float g_LOD;
+            varying vec4 v_Coordinates;
+            void main() {
+                vec4 base = texSample2D(g_Texture0, v_Coordinates.xy);
+                float first = texSample2DLod(
+                    g_Texture1, v_Coordinates.xy, g_LOD
+                ).r;
+                float second = texSample2DLod(
+                    g_Texture1, v_Coordinates.zw, 0.0
+                ).r;
+                base.rgb = mix(base.rgb, vec3(first * second), 0.5);
+                gl_FragColor = base;
+            }
+            """,
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["textureSlots"], [0, 1])
+        self.assertIn("g_LOD", output["uniformNames"])
+        self.assertIn(
+            "mwxTexture1.sample(mwxSampler1,mwxInput.v_Coordinates.xy,"
+            "level(mwxUniforms.g_LOD))",
+            compact_source,
+        )
+        self.assertIn(
+            "mwxTexture1.sample(mwxSampler1,mwxInput.v_Coordinates.zw,level(0.0))",
+            compact_source,
+        )
+        self.assertNotIn("texSample2DLod", output["metalSource"])
+        self.assertIsNone(output.get("metalError"))
+
+    def test_explicit_lod_texture_sample_compiles_in_vertex_stage(self):
+        output = self.compile(
+            """
+            uniform sampler2D g_Texture0;
+            uniform float g_LOD;
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec4 v_Color;
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                v_Color = texSample2DLod(g_Texture0, a_TexCoord, g_LOD);
+            }
+            """,
+            """
+            varying vec4 v_Color;
+            void main() {
+                gl_FragColor = v_Color;
+            }
+            """,
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["textureSlots"], [0])
+        self.assertIn("g_LOD", output["uniformNames"])
+        self.assertIn(
+            "mwxTexture0.sample(mwxSampler0,mwxAttributes.a_TexCoord,"
+            "level(mwxUniforms.g_LOD))",
+            compact_source,
+        )
+        self.assertNotIn("texSample2DLod", output["metalSource"])
+        self.assertIsNone(output.get("metalError"))
+
+    def test_regular_texture_samples_remain_two_argument_metal_calls(self):
+        for name in ["texSample2D", "texture2D"]:
+            with self.subTest(name=name):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    f"""
+                    uniform sampler2D g_Texture0;
+                    varying vec2 v_TexCoord;
+                    void main() {{
+                        gl_FragColor = {name}(g_Texture0, v_TexCoord);
+                    }}
+                    """,
+                )
+                compact_source = output["metalSource"].replace(" ", "")
+                self.assertEqual(output["diagnosticCodes"], [])
+                self.assertIn(
+                    "mwxTexture0.sample(mwxSampler0,mwxInput.v_TexCoord)",
+                    compact_source,
+                )
+                self.assertNotIn("level(", compact_source)
+                self.assertIsNone(output.get("metalError"))
+
+    def test_explicit_lod_texture_sample_rejects_unproven_forms(self):
+        fixtures = {
+            "missing level": """
+                uniform sampler2D g_Texture0;
+                varying vec2 v_TexCoord;
+                void main() {
+                    gl_FragColor = texSample2DLod(g_Texture0, v_TexCoord);
+                }
+            """,
+            "extra argument": """
+                uniform sampler2D g_Texture0;
+                varying vec2 v_TexCoord;
+                void main() {
+                    gl_FragColor = texSample2DLod(
+                        g_Texture0, v_TexCoord, 0.0, 1.0
+                    );
+                }
+            """,
+            "unknown sampler": """
+                uniform sampler2D g_Texture0;
+                varying vec2 v_TexCoord;
+                void main() {
+                    gl_FragColor = texSample2DLod(g_Texture1, v_TexCoord, 0.0);
+                }
+            """,
+            "indirect sampler": """
+                uniform sampler2D g_Texture0;
+                varying vec2 v_TexCoord;
+                void main() {
+                    gl_FragColor = texSample2DLod((g_Texture0), v_TexCoord, 0.0);
+                }
+            """,
+            "vector level": """
+                uniform sampler2D g_Texture0;
+                uniform vec2 g_LOD;
+                varying vec2 v_TexCoord;
+                void main() {
+                    gl_FragColor = texSample2DLod(g_Texture0, v_TexCoord, g_LOD);
+                }
+            """,
+            "matrix level": """
+                uniform sampler2D g_Texture0;
+                uniform mat3 g_LOD;
+                varying vec2 v_TexCoord;
+                void main() {
+                    gl_FragColor = texSample2DLod(g_Texture0, v_TexCoord, g_LOD);
+                }
+            """,
+            "indirect level": """
+                uniform sampler2D g_Texture0;
+                uniform float g_LOD;
+                varying vec2 v_TexCoord;
+                void main() {
+                    gl_FragColor = texSample2DLod(
+                        g_Texture0, v_TexCoord, g_LOD + 0.0
+                    );
+                }
+            """,
+            "ambiguous level": """
+                uniform sampler2D g_Texture0;
+                varying vec2 v_TexCoord;
+                void main() {
+                    { vec2 lod = vec2(0.0); }
+                    float lod = 0.0;
+                    gl_FragColor = texSample2DLod(g_Texture0, v_TexCoord, lod);
+                }
+            """,
+            "ordinary sample extra argument": """
+                uniform sampler2D g_Texture0;
+                varying vec2 v_TexCoord;
+                void main() {
+                    gl_FragColor = texSample2D(g_Texture0, v_TexCoord, 0.0);
+                }
+            """,
+        }
+        for name, fragment_source in fixtures.items():
+            with self.subTest(name=name):
+                output = self.compile(VERTEX_SOURCE, fragment_source, metal=False)
+                self.assertIn("unsupportedSampler", output["diagnosticCodes"])
+                self.assertIsNone(output.get("metalSource"))
+
+    def test_user_defined_tex_sample_lod_is_not_rewritten(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec2 v_TexCoord;
+            float texSample2DLod(float first, float second, float third) {
+                return first + second + third;
+            }
+            void main() {
+                float value = texSample2DLod(v_TexCoord.x, 0.25, 0.5);
+                gl_FragColor = vec4(value, value, value, 1.0);
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIn("mwxF_texSample2DLod", output["metalSource"])
+        self.assertNotIn(".sample(", output["metalSource"])
+        self.assertIsNone(output.get("metalError"))
+
     def test_directive_extraction_ignores_commented_defines(self):
         output = self.compile(
             VERTEX_SOURCE,

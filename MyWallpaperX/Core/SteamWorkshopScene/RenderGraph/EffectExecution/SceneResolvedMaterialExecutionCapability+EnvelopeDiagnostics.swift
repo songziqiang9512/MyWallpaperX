@@ -45,4 +45,35 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics {
         )
 #endif
     }
+
+    static func variantSchemaFailure(template: SceneResolvedMaterialTemplate) {
+#if DEBUG
+        let samplerResult = Result {
+            try SceneResolvedMaterialShaderSchema.unconditionalSamplers(template)
+        }
+        let formatResult = Result {
+            try SceneResolvedMaterialTextureResolver.launchTextureFormatSlots(
+                template: template
+            )
+        }
+        print(
+            "MWX resolved material variant schema rejection:"
+                + " shader=\(template.diagnosticProvenance.authoredShaderPath)"
+                + " node=\(template.diagnosticProvenance.nodeIndex)"
+                + " sampler=\(failureDescription(samplerResult))"
+                + " format=\(failureDescription(formatResult))"
+        )
+#endif
+    }
+
+#if DEBUG
+    private static func failureDescription<Success, Failure: Error>(
+        _ result: Result<Success, Failure>
+    ) -> String {
+        switch result {
+        case .success: "accepted"
+        case .failure(let error): String(describing: error)
+        }
+    }
+#endif
 }

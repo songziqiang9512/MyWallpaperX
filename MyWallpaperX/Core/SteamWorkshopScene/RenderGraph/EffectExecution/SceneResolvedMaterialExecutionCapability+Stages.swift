@@ -118,6 +118,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 maximumVariantCount: maximumVariantsPerMaterial,
                 assetFormatFacts: assetFormatFacts
             ) else {
+                SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
+                    .variantSchemaFailure(template: template)
                 return .failure(rejection("material-variant-envelope-sampler-schema"))
             }
             if case let .failure(failure) = variants.precompileLaunchEnvelope(

@@ -1,4 +1,58 @@
 nonisolated extension SceneAuthoredShaderMetalEmitter {
+    static func isTextureSampleBuiltIn(
+        _ name: String,
+        functionNames: Set<String>
+    ) -> Bool {
+        ["texSample2D", "texture2D"].contains(name)
+            || (name == "texSample2DLod" && !functionNames.contains(name))
+    }
+
+    static func textureSampleArguments(
+        tokens: [SceneAuthoredShaderToken],
+        opening: Int,
+        closing: Int
+    ) -> [Range<Int>]? {
+        guard opening < closing else { return nil }
+        var arguments: [Range<Int>] = []
+        var start = opening + 1
+        var depth = 0
+        for index in start...closing {
+            let isEnd = index == closing
+            if !isEnd, ["(", "["].contains(tokens[index].text) { depth += 1 }
+            if !isEnd, [")", "]"].contains(tokens[index].text) { depth -= 1 }
+            guard depth >= 0 else { return nil }
+            guard isEnd || (depth == 0 && tokens[index].text == ",") else { continue }
+            guard start < index else { return nil }
+            arguments.append(start..<index)
+            start = index + 1
+        }
+        return depth == 0 ? arguments : nil
+    }
+
+    static func isStaticFloatLevel(
+        _ range: Range<Int>,
+        tokens: [SceneAuthoredShaderToken],
+        unit: SceneAuthoredShaderSyntaxUnit
+    ) -> Bool {
+        guard range.count == 1 else { return false }
+        let token = tokens[range.lowerBound]
+        if token.kind == .number { return true }
+        guard token.kind == .identifier else { return false }
+        var types = Set(unit.declarations.compactMap {
+            $0.name == token.text
+                ? SceneAuthoredShaderValueType(authoredName: $0.typeName)
+                : nil
+        })
+        for index in 0..<range.lowerBound where index + 1 < tokens.count {
+            guard tokens[index + 1].text == token.text,
+                  let type = SceneAuthoredShaderValueType(
+                      authoredName: tokens[index].text
+                  ) else { continue }
+            types.insert(type)
+        }
+        return types == [.float]
+    }
+
     static func translatedToken(
         _ token: SceneAuthoredShaderToken,
         context: Context

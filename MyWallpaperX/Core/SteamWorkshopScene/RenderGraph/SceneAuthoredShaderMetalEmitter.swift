@@ -267,7 +267,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                tokens[index + 2].text == "[" {
                 output.append("constant")
             }
-            if ["texSample2D", "texture2D"].contains(token.text),
+            if isTextureSampleBuiltIn(token.text, functionNames: context.functionNames),
                index + 1 < tokens.count, tokens[index + 1].text == "(" {
                 let sample = emitTextureSample(
                     tokens: tokens,
@@ -353,22 +353,38 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                   tokens: tokens,
                   opening: start + 1
               ),
-              let comma = topLevelComma(tokens: tokens, range: (start + 2)..<close),
-              comma == start + 3,
-              let texture = context.texturesByName[tokens[start + 2].text] else {
+              let arguments = textureSampleArguments(
+                  tokens: tokens, opening: start + 1, closing: close),
+              arguments.count == (tokens[start].text == "texSample2DLod" ? 3 : 2),
+              arguments[0].count == 1,
+              let texture = context.texturesByName[tokens[arguments[0].lowerBound].text]
+        else {
             return .init(source: nil, nextIndex: nil, diagnostic: nil)
         }
-        let coordinateTokens = Array(tokens[(comma + 1)..<close])
         let coordinate = emitTokens(
-            coordinateTokens,
-            context: context,
-            textures: textures,
+            Array(tokens[arguments[1]]), context: context, textures: textures,
             insertsContextIntoCalls: true
         )
         guard coordinate.diagnostics.isEmpty else {
             return .init(source: nil, nextIndex: nil, diagnostic: coordinate.diagnostics.first)
         }
-        let sample = "mwxTexture\(texture.slot).sample(mwxSampler\(texture.slot), \(coordinate.source))"
+        var levelSource: String?
+        if arguments.count == 3 {
+            guard isStaticFloatLevel(arguments[2], tokens: tokens, unit: context.unit) else {
+                return .init(source: nil, nextIndex: nil, diagnostic: nil)
+            }
+            let level = emitTokens(
+                Array(tokens[arguments[2]]), context: context, textures: textures,
+                insertsContextIntoCalls: true
+            )
+            guard level.diagnostics.isEmpty else {
+                return .init(source: nil, nextIndex: nil, diagnostic: level.diagnostics.first)
+            }
+            levelSource = level.source
+        }
+        let level = levelSource.map { ", level(\($0))" } ?? ""
+        let sample = "mwxTexture\(texture.slot).sample(mwxSampler\(texture.slot), "
+            + "\(coordinate.source)\(level))"
         let sampledSource = context.unpremultipliedTextureSlot == texture.slot
             ? "mwxUnpremultiply(\(sample))"
             : sample
@@ -380,18 +396,5 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             nextIndex: close + 1,
             diagnostic: nil
         )
-    }
-
-    private static func topLevelComma(
-        tokens: [SceneAuthoredShaderToken],
-        range: Range<Int>
-    ) -> Int? {
-        var depth = 0
-        for index in range {
-            if ["(", "["].contains(tokens[index].text) { depth += 1 }
-            if [")", "]"].contains(tokens[index].text) { depth -= 1 }
-            if depth == 0, tokens[index].text == "," { return index }
-        }
-        return nil
     }
 }
