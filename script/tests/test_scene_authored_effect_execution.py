@@ -1952,14 +1952,24 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         for backend_name in (".waterWaves", ".waterCaustics", ".waterRipple", ".pulse"):
             self.assertIn(backend_name, leaf_body)
         self.assertNotIn(".proceduralNoise", leaf_body)
-        self.assertNotIn(".xRay", leaf_body)
+        self.assertIn(".xRay", leaf_body)
+        self.assertIn("case .xRay(let plan):", topology)
+        self.assertIn("SceneXRayRuntimePlanner.resolve(", topology)
+        self.assertIn('return "x-ray-runtime-unsupported"', topology)
 
         water_flow = CHAIN_WATER_FLOW_SOURCE.read_text(encoding="utf-8")
         depth = CHAIN_DEPTH_PARALLAX_SOURCE.read_text(encoding="utf-8")
+        x_ray = (SOURCE_ROOT / (
+            "RenderGraph/EffectExecution/"
+            "SceneAuthoredEffectChainRenderer+XRay.swift"
+        )).read_text(encoding="utf-8")
         self.assertIn("targets.inputTexture === sourceTexture", water_flow)
         self.assertIn("SceneWaterFlowRenderer.render(", water_flow)
         self.assertIn("targets.inputTexture === sourceTexture", depth)
         self.assertIn("SceneDepthParallaxRenderer.render(", depth)
+        self.assertIn("sourceTexture !== targets.inputTexture", x_ray)
+        self.assertIn("copyIdentityOutput(", x_ray)
+        self.assertIn('encoder.label = "Scene X-Ray identity output"', x_ray)
 
     def test_only_effectively_visible_complete_graph_is_planned(self) -> None:
         self.assertEqual(self.result["planned"], [10])

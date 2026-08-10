@@ -2984,7 +2984,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         for backend_name in (
             ".blend", ".filmGrain", ".waterFlow", ".waterWaves",
             ".waterCaustics", ".foliageSway", ".waterRipple",
-            ".depthParallax", ".pulse",
+            ".depthParallax", ".xRay", ".pulse",
         ):
             self.assertIn(backend_name, leaf_body)
         for backend_name in (
@@ -2992,7 +2992,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             ".depthParallax",
         ):
             self.assertIn(backend_name, yield_body)
-        for backend_name in (".proceduralNoise", ".lightShafts", ".xRay"):
+        for backend_name in (".proceduralNoise", ".lightShafts"):
             self.assertNotIn(backend_name, leaf_body)
         self.assertNotIn(".spin", source)
         self.assertIn(".workshopAudioBars", leaf_body)

@@ -6135,9 +6135,7 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        69
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -6147,23 +6145,23 @@
       "expected_authored_effect_graph_procedural_noise_count": 0,
       "expected_authored_effect_graph_film_grain_count": 0,
       "expected_authored_effect_graph_light_shafts_count": 0,
-      "expected_authored_effect_graph_shake_count": 1,
-      "expected_authored_effect_graph_water_flow_count": 2,
+      "expected_authored_effect_graph_shake_count": 0,
+      "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
       "expected_authored_effect_graph_blend_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 5,
+      "expected_authored_effect_graph_chain_count": 0,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
       "hover_pointer_normalized": [
         0.0,
         0.0
       ],
       "expected_authored_effect_graph_foliage_sway_count": 0,
-      "expected_authored_effect_graph_water_ripple_count": 1,
+      "expected_authored_effect_graph_water_ripple_count": 0,
       "expected_effect_stage_admission_schema": 1,
       "expected_effect_stage_descriptor_count": 9,
       "expected_effect_stage_parsed_count": 9,
@@ -6234,7 +6232,9 @@
         "composite-refused": 0
       },
       "expected_effect_runtime_disposition_sha256": "e1dc3225ce2551479ad31b55d8ae20cc37eb12668751d4b68411a15bb3a6d672",
-      "expected_resolved_material_graph_succeeded_layer_ids": [],
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        69
+      ],
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 5,
       "expected_effect_execution_observed_eligible_exact_effect_count": 5,

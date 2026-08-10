@@ -180,6 +180,20 @@ extension SceneAuthoredEffectChainRenderer {
             }
             return pipelines.depthParallax == nil
                 ? "depth-parallax-pipeline-missing" : nil
+        case .xRay(let plan):
+            switch SceneXRayRuntimePlanner.resolve(
+                declaration: plan.declaration,
+                resources: inputs.masks.xRay,
+                snapshot: inputs.dynamicValues,
+                pointerIsInside: inputs.pointerIsInside
+            ) {
+            case .identity:
+                return nil
+            case .render:
+                return pipelines.xRay == nil ? "x-ray-pipeline-missing" : nil
+            case .unsupported:
+                return "x-ray-runtime-unsupported"
+            }
         case .blend(let plan):
             guard let resources = inputs.masks.blendEffects[
                 plan.effectKey.descriptorID
