@@ -51,20 +51,6 @@ extension SceneAuthoredEffectExecutionPlan {
         }
     }
 
-    /// A migrated dedicated profile may remain as a bounded fallback, while
-    /// yielding product ownership whenever the shared Program path can fully
-    /// compile the authored stage.
-    nonisolated var yieldsToResolvedMaterialProgram: Bool {
-        switch backend {
-        case .opacity, .blend, .tint, .proceduralNoise, .filmGrain,
-             .lightShafts, .waterFlow,
-             .foliageSway, .depthParallax:
-            return true
-        default:
-            return false
-        }
-    }
-
     nonisolated var supportsUnifiedLogicalTargetStage: Bool {
         switch backend {
         case .preciseGaussian:

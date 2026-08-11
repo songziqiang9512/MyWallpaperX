@@ -275,7 +275,6 @@ struct SceneAuthoredEffectExecutionPlan {
     let opacity: SceneOpacityExecutionPlan?
     var clippingMask: SceneClippingMaskExecutionPlan? = nil
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil
-    var yieldsToResolvedMaterialProgram = false
     var supportsUnifiedLogicalTargetStage = false
     var supportsUnifiedFullFrameComposeStage = false
     var supportsUtilityCapture = true
@@ -1314,7 +1313,6 @@ private func dedicatedProgram(
     effectIndex: Int,
     inputRole: SceneAuthoredEffectInputRole,
     opacity: Bool = false,
-    tint: Bool = false,
     clippingMask: SceneClippingMaskExecutionPlan? = nil,
     proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil,
     logicalTargetStage: Bool = false,
@@ -1344,7 +1342,6 @@ private func dedicatedProgram(
             opacity: opacity ? .init() : nil,
             clippingMask: clippingMask,
             proceduralNoise: proceduralNoise,
-            yieldsToResolvedMaterialProgram: opacity || tint,
             supportsUnifiedLogicalTargetStage: logicalTargetStage,
             supportsUnifiedFullFrameComposeStage: fullFrameComposeStage,
             supportsUtilityCapture: supportsUtilityCapture
@@ -2305,21 +2302,20 @@ private enum Harness {
             dedicatedStageFamilies: [secondKey: "fixture-dedicated"],
             dedicatedLeafKeys: []
         )
-        let resolvedBeforeTintCandidates =
+        let programFirstCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: pairDescriptor,
                 authoredPlans: [pairGraph],
                 dedicatedStagePrograms: [dedicatedProgram(
                     graph: pairGraph,
                     effectIndex: 1,
-                    inputRole: .priorEffectOutput,
-                    tint: true
+                    inputRole: .priorEffectOutput
                 )]
             )
-        let resolvedBeforeTintCatalog = Catalog(
-            admissionCandidates: resolvedBeforeTintCandidates,
+        let programFirstCatalog = Catalog(
+            admissionCandidates: programFirstCandidates,
             materialCatalog: materialCatalog(graph: pairGraph),
-            dedicatedStageFamilies: [secondKey: "tint"],
+            dedicatedStageFamilies: [secondKey: "fixture-program-fallback"],
             dedicatedLeafKeys: []
         )
         let logicalGraph = logicalTargetGraph()
@@ -2641,10 +2637,10 @@ private enum Harness {
                     emptyDedicatedLeafCatalog,
                     "dedicated-leaf-unsupported"
                 ),
-                "tintYieldsToResolvedProgram":
-                    resolvedBeforeTintCatalog.claim(layerID: layerID) != nil
+                "programFirstPrefersResolvedStage":
+                    programFirstCatalog.claim(layerID: layerID) != nil
                     && !reportHas(
-                        resolvedBeforeTintCatalog,
+                        programFirstCatalog,
                         "dedicated-leaf-unsupported"
                     ),
                 "logicalTargetStageAccepted":
@@ -2976,7 +2972,6 @@ struct SceneAuthoredEffectExecutionPlan {
     var inputRole: SceneAuthoredEffectInputRole { .layerSource }
     var clippingMask: SceneClippingMaskExecutionPlan? { nil }
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
-    var yieldsToResolvedMaterialProgram = false
     var supportsUnifiedLogicalTargetStage = false
     var supportsUnifiedFullFrameComposeStage = false
     var supportsUtilityCapture = true
@@ -4170,15 +4165,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
     def test_authored_material_families_use_program_first_pair_adapters(self) -> None:
         source = EFFECT_BACKEND_SOURCE.read_text(encoding="utf-8")
         leaf_start = source.index("        var supportsUnifiedPairLeaf: Bool")
-        yield_start = source.index(
-            "    nonisolated var yieldsToResolvedMaterialProgram: Bool"
-        )
-        leaf_body = source[leaf_start:yield_start]
-        yield_end = source.index("\n    var gaussianBlur:", yield_start)
-        yield_body = source[yield_start:yield_end]
         logical_start = source.index(
             "    nonisolated var supportsUnifiedLogicalTargetStage: Bool"
         )
+        leaf_body = source[leaf_start:logical_start]
         logical_end = source.index("\n    var gaussianBlur:", logical_start)
         logical_body = source[logical_start:logical_end]
 
@@ -4188,11 +4178,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             ".depthParallax", ".xRay", ".pulse",
         ):
             self.assertIn(backend_name, leaf_body)
-        for backend_name in (
-            ".blend", ".filmGrain", ".waterFlow", ".foliageSway",
-            ".depthParallax",
-        ):
-            self.assertIn(backend_name, yield_body)
+        self.assertNotIn("yieldsToResolvedMaterialProgram", source)
         self.assertNotIn(".lightShafts", leaf_body)
         self.assertIn("case .proceduralNoise(let plan):", leaf_body)
         for contract in (
@@ -4203,7 +4189,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             self.assertIn(contract, leaf_body)
         self.assertNotIn(".spin", source)
         self.assertIn(".workshopAudioBars", leaf_body)
-        self.assertNotIn(".workshopAudioBars", yield_body)
         self.assertIn(".fisheyeZeroDistortion", leaf_body)
         self.assertIn("case filmGrain(SceneFilmGrainExecutionPlan)", source)
         self.assertIn("case .preciseGaussian:", logical_body)
@@ -4221,7 +4206,22 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
 
         capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
         self.assertIn("Self.compileProgramFirstStages(", capability)
+        stages = CAPABILITY_STAGES_SOURCE.read_text(encoding="utf-8")
         program_first = CAPABILITY_PROGRAM_FIRST_SOURCE.read_text(encoding="utf-8")
+        for product_source in (stages, program_first):
+            self.assertNotIn("yieldsToResolvedMaterialProgram", product_source)
+        for empty_argument in (
+            "dedicatedStagePrograms: []",
+            "dedicatedStageFamilies: [:]",
+            "dedicatedLeafKeys: []",
+        ):
+            self.assertNotIn(empty_argument, program_first)
+        for removed_parameter in (
+            "dedicatedStagePrograms:",
+            "dedicatedStageFamilies:",
+            "dedicatedLeafKeys:",
+        ):
+            self.assertNotIn(removed_parameter, stages)
         self.assertLess(
             program_first.index("let programResult = compileStages("),
             program_first.index("case let .failure(programFailure):"),
@@ -4598,7 +4598,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "emptyDedicatedLeafAllowlist": True,
                 "fallbackDedicatedLeaf": True,
                 "emptyDedicatedLeafDoesNotUseDedicated": True,
-                "tintYieldsToResolvedProgram": True,
+                "programFirstPrefersResolvedStage": True,
                 "logicalTargetStageAccepted": True,
                 "logicalTargetStageRequiresAllowlist": True,
                 "logicalTargetStageRejectsHistory": True,

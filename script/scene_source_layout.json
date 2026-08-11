@@ -282,16 +282,11 @@
         "id": "resolved-program-legacy-yield-dispatch",
         "role": "retirement",
         "description": "Resolved capability admission must stop consulting a legacy backend yield decision before R4 completes.",
-        "pattern": "!program\\.executionPlan\\.yieldsToResolvedMaterialProgram",
-        "baseline_occurrences": 1,
+        "pattern": "yieldsToResolvedMaterialProgram",
+        "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
-        ],
-        "allowed_files": [
-          "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-light-shafts-main-pass-fallback",

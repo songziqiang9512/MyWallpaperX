@@ -12,46 +12,17 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         demandIssueKeys: Set<MaterialKey>,
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
-        dedicatedStagePrograms: [SceneEffectStageProgram],
-        dedicatedStageFamilies: [Graph.EffectKey: String],
-        dedicatedLeafKeys: Set<Graph.EffectKey>,
         maximumVariantsPerMaterial: Int
     ) -> Result<CompiledStages, Rejection> {
         guard (1 ... 256).contains(maximumVariantsPerMaterial) else {
             return .failure(rejection("material-variant-envelope-capacity"))
         }
-        let programsByKey = Dictionary(grouping: dedicatedStagePrograms, by: \.effectKey)
-        guard programsByKey.values.allSatisfy({ $0.count == 1 }) else {
-            return .failure(rejection("dedicated-leaf-identity-ambiguous"))
-        }
 
         var stages: [StageCapability] = []
         var allMaterials: [MaterialKey: MaterialCapability] = [:]
         for product in admitted.products {
-            guard let effect = product.graph.effects.first else {
+            guard product.graph.effects.first != nil else {
                 return .failure(rejection("stage-effect-identity-missing"))
-            }
-            let dedicatedProgram = programsByKey[effect.key]?.first
-            if let program = dedicatedProgram,
-               dedicatedLeafKeys.contains(effect.key) {
-                guard program.effectKey == effect.key,
-                      program.stageGraph.effects.first?.key == effect.key,
-                      program.executionPlan.logicalRenderTargetCount == 0,
-                      admitted.sourceRoute != .capturedMainTargetTexture
-                        || program.executionPlan.supportsUtilityCapture,
-                      product.graph.renderTargets.isEmpty else {
-                    return .failure(rejection("dedicated-leaf-unsupported"))
-                }
-                stages.append(.dedicated(
-                    product: product,
-                    program: program,
-                    family: dedicatedStageFamilies[effect.key] ?? "dedicated-leaf"
-                ))
-                continue
-            }
-            if let program = dedicatedProgram,
-               !program.executionPlan.yieldsToResolvedMaterialProgram {
-                return .failure(rejection("dedicated-leaf-unsupported"))
             }
 
             switch compileMaterials(
@@ -65,9 +36,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 maximumVariantsPerMaterial: maximumVariantsPerMaterial
             ) {
             case .failure(let failure):
-                if dedicatedProgram != nil {
-                    return .failure(rejection("dedicated-leaf-unsupported"))
-                }
                 return .failure(failure)
             case .success(let materials):
                 allMaterials.merge(materials) { _, replacement in replacement }
@@ -75,13 +43,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
         }
 
-        guard let firstStage = stages.first,
-              case .resolved = firstStage else {
-            return .failure(rejection("mixed-chain-resolved-prefix-required"))
+        guard !stages.isEmpty,
+              stages.count == admitted.products.count else {
+            return .failure(rejection("resolved-stage-empty"))
         }
-        guard stages.count == admitted.products.count,
-              stages.contains(where: { if case .resolved = $0 { true } else { false } })
-        else { return .failure(rejection("resolved-stage-empty")) }
         return .success(.init(stages: stages, materials: allMaterials))
     }
 

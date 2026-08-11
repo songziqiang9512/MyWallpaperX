@@ -166,7 +166,6 @@ struct SceneAuthoredEffectExecutionPlan {
     let cursorRipple: SceneCursorRippleExecutionPlan?
     let opacity: SceneOpacityExecutionPlan? = nil
 
-    var yieldsToResolvedMaterialProgram: Bool { opacity != nil }
     var supportsUnifiedLogicalTargetStage: Bool { false }
     var supportsUnifiedFullFrameComposeStage: Bool { false }
     var supportsUtilityCapture: Bool { true }

@@ -2031,25 +2031,21 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_authored_material_backends_yield_to_resolved_program(self) -> None:
+    def test_authored_material_backends_keep_typed_pair_contracts(self) -> None:
         backend = CHAIN_BACKEND_SOURCE.read_text(encoding="utf-8")
         leaf_start = backend.index("        var supportsUnifiedPairLeaf: Bool")
-        yield_start = backend.index(
-            "    nonisolated var yieldsToResolvedMaterialProgram: Bool",
+        logical_start = backend.index(
+            "    nonisolated var supportsUnifiedLogicalTargetStage: Bool",
             leaf_start,
         )
-        leaf_body = backend[leaf_start:yield_start]
-        yield_end = backend.index("\n    var gaussianBlur:", yield_start)
-        yield_body = backend[yield_start:yield_end]
+        leaf_body = backend[leaf_start:logical_start]
         topology = CHAIN_TOPOLOGY_SOURCE.read_text(encoding="utf-8")
 
         for backend_name in (".waterFlow", ".foliageSway", ".depthParallax"):
             self.assertIn(backend_name, leaf_body)
-            self.assertIn(backend_name, yield_body)
+        self.assertNotIn("yieldsToResolvedMaterialProgram", backend)
         self.assertNotIn(".spin", backend)
         self.assertIn(".workshopAudioBars", leaf_body)
-        self.assertNotIn(".workshopAudioBars", yield_body)
-        self.assertIn(".lightShafts", yield_body)
         self.assertIn("case .waterFlow(let plan):", topology)
         self.assertIn("inputs.masks.waterFlowEffects[", topology)
         self.assertIn("resources.matches(plan)", topology)

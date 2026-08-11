@@ -40,9 +40,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 demandIssueKeys: demandIssueKeys,
                 dynamicProducers: dynamicProducers,
                 assetFormatFacts: assetFormatFacts,
-                dedicatedStagePrograms: [],
-                dedicatedStageFamilies: [:],
-                dedicatedLeafKeys: [],
                 maximumVariantsPerMaterial: maximumVariantsPerMaterial
             )
             switch programResult {
