@@ -47,7 +47,6 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     private var requestedGeneration: UInt64 = 0
     private var readyGeneration: UInt64 = 0
     private var currentTexture: MTLTexture?
-    private var previousTexture: MTLTexture?
     private var reportedPendingGeneration: UInt64?
     private var pendingRequest: DecodeRequest?
 
@@ -124,31 +123,6 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             textures[SceneMediaThumbnailBindingProgram.currentIdentity] = current.texture
             publications[SceneMediaThumbnailBindingProgram.currentIdentity] = current
         }
-        if let previousTexture {
-            let size = CGSize(
-                width: previousTexture.width,
-                height: previousTexture.height
-            )
-            let previous = SceneTextureProviderPublication(
-                requestIdentity: .system(
-                    SceneMediaThumbnailBindingProgram.previousIdentity
-                ),
-                candidate: SceneTextureCandidate(
-                    texture: previousTexture,
-                    identity: .provider(.mediaThumbnailPrevious),
-                    generation: .provider(contentGeneration: readyGeneration),
-                    purpose: .premultipliedColor,
-                    content: .color(.resolved(.premultipliedAlpha)),
-                    physicalSize: size,
-                    mappedSize: size,
-                    uvTransform: .identity,
-                    sampling: .linearClamp
-                ),
-                contentGeneration: readyGeneration
-            )
-            textures[SceneMediaThumbnailBindingProgram.previousIdentity] = previous.texture
-            publications[SceneMediaThumbnailBindingProgram.previousIdentity] = previous
-        }
         return Snapshot(
             generation: readyGeneration,
             current: current,
@@ -163,17 +137,12 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         let currentImage = input.current.flatMap(imageDecoder)
         guard shouldContinue(request) else { return }
         let current = currentImage.flatMap(makeTexture)
-        guard shouldContinue(request) else { return }
-        let previousImage = input.previous.flatMap(imageDecoder)
-        guard shouldContinue(request) else { return }
-        let previous = previousImage.flatMap(makeTexture)
         guard !request.isCancelled else { return }
         lock.lock()
         defer { lock.unlock() }
         guard pendingRequest === request,
               requestedGeneration == input.generation else { return }
         currentTexture = current
-        previousTexture = previous
         readyGeneration = input.generation
         reportedPendingGeneration = nil
         pendingRequest = nil
@@ -182,7 +151,6 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             "MWX media thumbnail store: phase=ready"
                 + " generation=\(input.generation)"
                 + " hasCurrent=\(current != nil)"
-                + " hasPrevious=\(previous != nil)"
         )
 #endif
     }

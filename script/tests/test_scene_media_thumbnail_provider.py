@@ -37,7 +37,6 @@ import UniformTypeIdentifiers
 
 struct SceneMediaThumbnailBindingProgram {
     static let currentIdentity = "$mediaThumbnail"
-    static let previousIdentity = "$mediaPreviousThumbnail"
 }
 
 enum SceneTextureLoadOutcome {
@@ -167,7 +166,6 @@ let cleared = waitFor(store, generation: 6)
 let result: [String: Any] = [
     "generation": third.generation,
     "currentPixel": pixel(third.current?.texture),
-    "previousPixel": pixel(third.publications["$mediaPreviousThumbnail"]?.texture),
     "currentPublicationComplete": third.current?.isComplete == true,
     "currentRequestExact": third.current?.requestIdentity
         == .system(SceneMediaThumbnailBindingProgram.currentIdentity),
@@ -184,11 +182,6 @@ let result: [String: Any] = [
             == .provider(.mediaThumbnailCurrent)
         && third.current?.candidate.generation
             == .provider(contentGeneration: third.generation),
-    "previousPublicationComplete":
-        third.publications["$mediaPreviousThumbnail"]?.isComplete == true,
-    "previousRequestExact":
-        third.publications["$mediaPreviousThumbnail"]?.requestIdentity
-            == .system(SceneMediaThumbnailBindingProgram.previousIdentity),
     "rapidDecodeCount": rapidDecodeCount,
     "duplicateAccepted": duplicateAccepted,
     "duplicateGenerationStable": duplicateGeneration == 3,
@@ -196,19 +189,12 @@ let result: [String: Any] = [
     "pendingGeneration": retainedDuringPending.generation,
     "pendingCurrentPixel": pixel(retainedDuringPending.current?.texture),
     "fourthCurrentPixel": pixel(fourth.current?.texture),
-    "fourthPreviousPixel": pixel(
-        fourth.publications["$mediaPreviousThumbnail"]?.texture
-    ),
     "failurePendingGeneration": retainedDuringDecodeFailure.generation,
     "failurePendingCurrentPixel": pixel(retainedDuringDecodeFailure.current?.texture),
     "failedGeneration": failed.generation,
     "failedCurrent": failed.current == nil,
-    "failedPreviousPixel": pixel(
-        failed.publications["$mediaPreviousThumbnail"]?.texture
-    ),
     "clearedGeneration": cleared.generation,
     "clearedCurrent": cleared.current == nil,
-    "clearedPrevious": cleared.publications["$mediaPreviousThumbnail"] == nil,
 ]
 let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
 print(String(decoding: data, as: UTF8.self))
@@ -216,7 +202,7 @@ print(String(decoding: data, as: UTF8.self))
 
 
 class SceneMediaThumbnailProviderTests(unittest.TestCase):
-    def test_atomic_history_stale_rejection_and_clear(self) -> None:
+    def test_current_provider_stale_rejection_last_ready_and_clear(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
         with tempfile.TemporaryDirectory(prefix="mwx-media-provider-") as directory:
@@ -236,29 +222,23 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
             result = json.loads(subprocess.check_output([str(binary)], text=True))
         self.assertEqual(result["generation"], 3)
         self.assertEqual(result["currentPixel"], [0, 0, 255, 255])
-        self.assertEqual(result["previousPixel"], [0, 255, 0, 255])
         self.assertTrue(result["currentPublicationComplete"])
         self.assertTrue(result["currentRequestExact"])
         self.assertTrue(result["systemAndLayerRequestsAreDistinctAtoms"])
         self.assertTrue(result["currentPublicationPremultiplied"])
-        self.assertTrue(result["previousPublicationComplete"])
-        self.assertTrue(result["previousRequestExact"])
-        self.assertEqual(result["rapidDecodeCount"], 2)
+        self.assertEqual(result["rapidDecodeCount"], 1)
         self.assertTrue(result["duplicateAccepted"])
         self.assertTrue(result["duplicateGenerationStable"])
         self.assertTrue(result["oversizedRejected"])
         self.assertEqual(result["pendingGeneration"], 3)
         self.assertEqual(result["pendingCurrentPixel"], [0, 0, 255, 255])
         self.assertEqual(result["fourthCurrentPixel"], [255, 0, 0, 255])
-        self.assertEqual(result["fourthPreviousPixel"], [0, 0, 255, 255])
         self.assertEqual(result["failurePendingGeneration"], 4)
         self.assertEqual(result["failurePendingCurrentPixel"], [255, 0, 0, 255])
         self.assertEqual(result["failedGeneration"], 5)
         self.assertTrue(result["failedCurrent"])
-        self.assertEqual(result["failedPreviousPixel"], [255, 0, 0, 255])
         self.assertEqual(result["clearedGeneration"], 6)
         self.assertTrue(result["clearedCurrent"])
-        self.assertTrue(result["clearedPrevious"])
 
 
 if __name__ == "__main__":

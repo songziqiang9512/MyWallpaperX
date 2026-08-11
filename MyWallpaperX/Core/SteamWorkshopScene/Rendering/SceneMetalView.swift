@@ -40,8 +40,7 @@ class SceneMetalView: NSView {
         self.metalDevice = renderer.device
         self.renderer = renderer
         self.mediaThumbnailCoordinator = .init(
-            program: mediaThumbnailBindings, device: renderer.device,
-            pipelineRepository: pipelineRepository
+            program: mediaThumbnailBindings, device: renderer.device
         )
         self.solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
         let xRayDeclarations = renderDescriptor.layers.compactMap {
@@ -96,9 +95,6 @@ class SceneMetalView: NSView {
             descriptor: renderer.renderDescriptor
         )
         var report: [String] = []
-        report.append(contentsOf: mediaThumbnailCoordinator.loadTransitionTextures(
-            resolver: resolver, loader: loader, device: metalDevice
-        ))
         var loaded = SceneBaseImageTextureStore()
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
@@ -381,12 +377,6 @@ class SceneMetalView: NSView {
                 for playback in puppetPlaybackStates.values {
                     playback.encode(sceneTime: frameContext.sceneTime, dynamicValues: frameContext.dynamicValues, commandBuffer: commandBuffer, transaction: transaction)
                 }
-            },
-            encodeLayerSourceUpdates: { [mediaThumbnailCoordinator] commandBuffer, transaction in
-                mediaThumbnailCoordinator.encodeTransition(
-                    media: mediaThumbnailSnapshot, sceneTime: frameContext.sceneTime,
-                    commandBuffer: commandBuffer, transaction: transaction
-                )
             },
             encodeFrameReadback: frameReadback,
             performanceTelemetry: performanceTelemetry,

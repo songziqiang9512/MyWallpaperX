@@ -11,7 +11,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneMediaThumbnailBindingProgram.swift"
+SCENE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SOURCE = SCENE_ROOT / "Runtime/SceneMediaThumbnailBindingProgram.swift"
+LAUNCH_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 
 HARNESS = r'''
 import Foundation
@@ -110,7 +112,7 @@ let descriptor = SceneRenderDescriptor(layers: [
         effects: [effect(path: "effects/workshop/fixture/blend/effect.json", visible: false)]
     ),
     .init(id: 30, contentKind: "solid", effects: [effect(visible: false)]),
-    .init(id: 40, contentKind: "image", effects: [effect(identity: "$mediaPreviousThumbnail")]),
+    .init(id: 40, contentKind: "image", effects: [effect(identity: "$unclaimedMediaTexture")]),
     .init(id: 50, contentKind: "image", effects: [effect(multiply: 0.5)]),
     .init(id: 60, contentKind: "image", effects: [effect(path: "effects/color/effect.json")]),
     .init(id: 70, contentKind: "text", effects: [effect()]),
@@ -146,7 +148,34 @@ class SceneMediaThumbnailBindingTests(unittest.TestCase):
             result = json.loads(subprocess.check_output([str(binary)], text=True))
         self.assertEqual(result["accepted"], [10, 20])
         self.assertTrue(result["hasConsumers"])
-        self.assertIn("mediaThumbnailCurrentBindingCount: 2", result["report"])
+        self.assertEqual(
+            result["report"],
+            [
+                "mediaThumbnailCurrentBindingCount: 2",
+                "mediaThumbnailCurrentBindingLayerIDs: 10,20",
+            ],
+        )
+
+    def test_launch_uses_current_binding_compiler_without_transition_owner(self) -> None:
+        launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "let mediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(",
+            launch,
+        )
+        self.assertNotIn("SceneMediaThumbnailTransitionCompiler", launch)
+
+        product_source = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted(SCENE_ROOT.rglob("*.swift"))
+        )
+        for retired_identifier in (
+            "SceneMediaThumbnailTransition",
+            "$mediaPreviousThumbnail",
+            "previousTransitionsByLayerID",
+            "mediaThumbnailPreviousTransition",
+            "mediaThumbnailPrevious",
+        ):
+            self.assertNotIn(retired_identifier, product_source)
 
 
 if __name__ == "__main__":

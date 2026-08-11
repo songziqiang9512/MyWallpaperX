@@ -582,28 +582,6 @@ enum Harness {
             candidate: baseDirect.candidate,
             layerID: 7
         )
-        let typedStaticSnapshot = baseStore.snapshot(
-            textures: [7: baseDirect.texture]
-        )
-        let replacementPublication = SceneTextureProviderPublication(
-            requestIdentity: .layerSource(7),
-            candidate: croppedColor,
-            contentGeneration: 99
-        )
-        let replacementSnapshot = typedStaticSnapshot.replacingLayerSources([
-            7: replacementPublication
-        ])
-        let replacementCandidate = replacementSnapshot
-            .explicitLayerSources[7]?.candidate
-        let replacementPublicationPreservesMetadata =
-            replacementSnapshot[7] === croppedColor.texture
-            && replacementCandidate?.identity == croppedColor.identity
-            && replacementCandidate?.generation == croppedColor.generation
-            && replacementCandidate?.content == croppedColor.content
-            && replacementCandidate?.uvTransform.xAxis
-                == croppedColor.uvTransform.xAxis
-            && replacementCandidate?.sampling == croppedColor.sampling
-            && replacementSnapshot.explicitLayerSources[7]?.isComplete == true
         let mismatchedSnapshot = baseStore.snapshot(
             textures: [7: baseCropped.texture]
         )
@@ -981,8 +959,6 @@ enum Harness {
                 baseStoreReplacementClearsCandidate,
             "staticCandidatePublicationPreservesRevision":
                 staticCandidatePublicationPreservesRevision,
-            "replacementPublicationPreservesMetadata":
-                replacementPublicationPreservesMetadata,
             "baseSnapshotDropsMismatchedCandidate":
                 baseSnapshotDropsMismatchedCandidate,
             "baseSnapshotRejectsMismatchedPublication":
@@ -1546,7 +1522,6 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "baseSnapshotRejectsMismatchedPublication": True,
                 "baseStoreReplacementClearsCandidate": True,
                 "staticCandidatePublicationPreservesRevision": True,
-                "replacementPublicationPreservesMetadata": True,
                 "baseUnparsedLegacy": True,
                 "croppedColorMapped": [4, 4],
                 "croppedColorPhysical": [4, 4],

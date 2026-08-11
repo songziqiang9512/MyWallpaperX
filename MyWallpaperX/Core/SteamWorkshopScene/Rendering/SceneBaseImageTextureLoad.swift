@@ -44,24 +44,6 @@ struct SceneBaseImageTextureSnapshot {
         return candidate
     }
 
-    func replacingLayerSources(
-        _ replacements: [Int: SceneTextureProviderPublication]
-    ) -> SceneBaseImageTextureSnapshot {
-        guard !replacements.isEmpty else { return self }
-        var nextTextures = textures
-        var nextPublications = explicitLayerSources
-        for (layerID, publication) in replacements {
-            guard nextTextures[layerID] != nil,
-                  publication.requestIdentity == .layerSource(layerID) else { continue }
-            nextTextures[layerID] = publication.texture
-            nextPublications[layerID] = publication
-        }
-        return SceneBaseImageTextureSnapshot(
-            textures: nextTextures,
-            explicitLayerSources: nextPublications,
-            candidates: candidates
-        )
-    }
 }
 
 struct SceneBaseImageTextureStore {

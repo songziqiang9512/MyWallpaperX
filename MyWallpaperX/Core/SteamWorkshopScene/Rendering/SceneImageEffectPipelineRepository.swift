@@ -57,8 +57,6 @@ final class SceneImageEffectPipelineRepository {
     private let depthParallaxSlot: ScenePipelineSlot<SceneDepthParallaxPipeline>
     private let xRaySlot: ScenePipelineSlot<SceneXRayPipeline>
     private let blendSlot: ScenePipelineSlot<SceneBlendPipeline>
-    private let mediaThumbnailTransitionSlot:
-        ScenePipelineSlot<SceneMediaThumbnailTransitionPipeline>
     private let tintSlot: ScenePipelineSlot<SceneTintPipeline>
     private let fisheyeZeroDistortionSlot:
         ScenePipelineSlot<SceneFisheyeZeroDistortionPipeline>
@@ -94,9 +92,6 @@ final class SceneImageEffectPipelineRepository {
         depthParallaxSlot = .init { SceneDepthParallaxPipeline(device: device) }
         xRaySlot = .init { SceneXRayPipeline(device: device) }
         blendSlot = .init { SceneBlendPipeline(device: device) }
-        mediaThumbnailTransitionSlot = .init {
-            SceneMediaThumbnailTransitionPipeline(device: device)
-        }
         tintSlot = .init { SceneTintPipeline(device: device) }
         fisheyeZeroDistortionSlot = .init {
             SceneFisheyeZeroDistortionPipeline(device: device)
@@ -138,9 +133,6 @@ final class SceneImageEffectPipelineRepository {
     }
     func xRay() -> SceneXRayPipeline? { xRaySlot.resolve() }
     func blend() -> SceneBlendPipeline? { blendSlot.resolve() }
-    func mediaThumbnailTransition() -> SceneMediaThumbnailTransitionPipeline? {
-        mediaThumbnailTransitionSlot.resolve()
-    }
     func tint() -> SceneTintPipeline? { tintSlot.resolve() }
     func fisheyeZeroDistortion() -> SceneFisheyeZeroDistortionPipeline? {
         fisheyeZeroDistortionSlot.resolve()

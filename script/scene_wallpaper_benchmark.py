@@ -99,18 +99,6 @@ MEDIA_THUMBNAIL_CURRENT_BINDING_LAYER_IDS_RE = re.compile(
     r"^mediaThumbnailCurrentBindingLayerIDs: (?P<ids>[\d,]*)$",
     re.MULTILINE,
 )
-MEDIA_THUMBNAIL_PREVIOUS_TRANSITION_COUNT_RE = re.compile(
-    r"^mediaThumbnailPreviousTransitionCount: (?P<count>\d+)$",
-    re.MULTILINE,
-)
-MEDIA_THUMBNAIL_PREVIOUS_TRANSITION_LAYER_IDS_RE = re.compile(
-    r"^mediaThumbnailPreviousTransitionLayerIDs: (?P<ids>[\d,]*)$",
-    re.MULTILINE,
-)
-MEDIA_THUMBNAIL_TRANSITION_EXECUTION_RE = re.compile(
-    r"media thumbnail transition: layer=(?P<id>\d+) "
-    r"generation=(?P<generation>\d+) phase=(?P<phase>started|midpoint|completed)"
-)
 MEDIA_THUMBNAIL_PENDING_RE = re.compile(
     r"media thumbnail store: phase=pending-last-ready "
     r"requestedGeneration=(?P<requested>\d+) "
@@ -118,7 +106,7 @@ MEDIA_THUMBNAIL_PENDING_RE = re.compile(
 )
 MEDIA_THUMBNAIL_READY_RE = re.compile(
     r"media thumbnail store: phase=ready generation=(?P<generation>\d+) "
-    r"hasCurrent=(?P<current>true|false) hasPrevious=(?P<previous>true|false)"
+    r"hasCurrent=(?P<current>true|false)"
 )
 MEDIA_THUMBNAIL_CLEAR_RE = re.compile(r"phase=media-thumbnail-cleared")
 SCENE_SCRIPT_AUDIO_BARS_PLAN_COUNT_RE = re.compile(
@@ -1369,12 +1357,6 @@ def time_of_day_effect_script_runtime_metrics(preview_text: str) -> dict[str, An
 def media_thumbnail_runtime_metrics(preview_text: str) -> dict[str, Any]:
     count_match = MEDIA_THUMBNAIL_CURRENT_BINDING_COUNT_RE.search(preview_text)
     layer_ids_match = MEDIA_THUMBNAIL_CURRENT_BINDING_LAYER_IDS_RE.search(preview_text)
-    transition_count_match = MEDIA_THUMBNAIL_PREVIOUS_TRANSITION_COUNT_RE.search(
-        preview_text
-    )
-    transition_layer_ids_match = (
-        MEDIA_THUMBNAIL_PREVIOUS_TRANSITION_LAYER_IDS_RE.search(preview_text)
-    )
     layer_ids = []
     if layer_ids_match:
         layer_ids = [
@@ -1387,33 +1369,6 @@ def media_thumbnail_runtime_metrics(preview_text: str) -> dict[str, Any]:
             int(count_match.group("count")) if count_match else None
         ),
         "current_binding_layer_ids": layer_ids,
-        "previous_transition_count": (
-            int(transition_count_match.group("count"))
-            if transition_count_match else None
-        ),
-        "previous_transition_layer_ids": [
-            int(value)
-            for value in transition_layer_ids_match.group("ids").split(",")
-            if value
-        ] if transition_layer_ids_match else [],
-    }
-
-
-def media_thumbnail_transition_execution_metrics(log_text: str) -> dict[str, Any]:
-    phases: dict[str, set[int]] = {
-        "started": set(),
-        "midpoint": set(),
-        "completed": set(),
-    }
-    generations: set[int] = set()
-    for match in MEDIA_THUMBNAIL_TRANSITION_EXECUTION_RE.finditer(log_text):
-        phases[match.group("phase")].add(int(match.group("id")))
-        generations.add(int(match.group("generation")))
-    return {
-        "generation_ids": sorted(generations),
-        "started_layer_ids": sorted(phases["started"]),
-        "midpoint_layer_ids": sorted(phases["midpoint"]),
-        "completed_layer_ids": sorted(phases["completed"]),
     }
 
 
@@ -1431,7 +1386,6 @@ def media_thumbnail_store_metrics(log_text: str) -> dict[str, Any]:
             {
                 "generation": int(match.group("generation")),
                 "has_current": match.group("current") == "true",
-                "has_previous": match.group("previous") == "true",
             }
             for match in MEDIA_THUMBNAIL_READY_RE.finditer(log_text)
         ],
@@ -5116,9 +5070,6 @@ def run_sample(
         preview_text
     )
     media_thumbnail_runtime = media_thumbnail_runtime_metrics(preview_text)
-    media_thumbnail_transition_execution = (
-        media_thumbnail_transition_execution_metrics(log_text)
-    )
     media_thumbnail_store = media_thumbnail_store_metrics(log_text)
     scene_script_audio_bars_runtime = scene_script_audio_bars_runtime_metrics(
         preview_text
@@ -5641,44 +5592,6 @@ def run_sample(
             != required_media_thumbnail_layer_ids
         ):
             failures.append("media thumbnail current binding layer IDs mismatch")
-    expected_media_transition_count = sample.get(
-        "expected_media_thumbnail_previous_transition_count"
-    )
-    if expected_media_transition_count is not None:
-        if media_thumbnail_runtime["previous_transition_count"] != int(
-            expected_media_transition_count
-        ):
-            failures.append("media thumbnail previous transition count mismatch")
-    required_media_transition_layer_ids = sorted(
-        int(layer_id)
-        for layer_id in sample.get(
-            "required_media_thumbnail_previous_transition_layer_ids", []
-        )
-    )
-    if required_media_transition_layer_ids:
-        if (
-            media_thumbnail_runtime["previous_transition_layer_ids"]
-            != required_media_transition_layer_ids
-        ):
-            failures.append("media thumbnail previous transition layer IDs mismatch")
-    for expectation, metric in (
-        (
-            "required_media_thumbnail_transition_started_layer_ids",
-            "started_layer_ids",
-        ),
-        (
-            "required_media_thumbnail_transition_midpoint_layer_ids",
-            "midpoint_layer_ids",
-        ),
-        (
-            "required_media_thumbnail_transition_completed_layer_ids",
-            "completed_layer_ids",
-        ),
-    ):
-        required_layer_ids = sorted(int(value) for value in sample.get(expectation, []))
-        if required_layer_ids:
-            if media_thumbnail_transition_execution[metric] != required_layer_ids:
-                failures.append(f"media thumbnail transition {metric} mismatch")
     expected_media_store_values = (
         (
             "required_media_thumbnail_pending_last_ready",
@@ -5838,24 +5751,6 @@ def run_sample(
             ),
             "media_thumbnail_current_binding_layer_ids": (
                 media_thumbnail_runtime["current_binding_layer_ids"]
-            ),
-            "media_thumbnail_previous_transition_count": (
-                media_thumbnail_runtime["previous_transition_count"]
-            ),
-            "media_thumbnail_previous_transition_layer_ids": (
-                media_thumbnail_runtime["previous_transition_layer_ids"]
-            ),
-            "media_thumbnail_transition_generation_ids": (
-                media_thumbnail_transition_execution["generation_ids"]
-            ),
-            "media_thumbnail_transition_started_layer_ids": (
-                media_thumbnail_transition_execution["started_layer_ids"]
-            ),
-            "media_thumbnail_transition_midpoint_layer_ids": (
-                media_thumbnail_transition_execution["midpoint_layer_ids"]
-            ),
-            "media_thumbnail_transition_completed_layer_ids": (
-                media_thumbnail_transition_execution["completed_layer_ids"]
             ),
             "media_thumbnail_pending_last_ready": (
                 media_thumbnail_store["pending_last_ready"]

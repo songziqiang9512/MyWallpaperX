@@ -98,9 +98,6 @@ struct SceneMetalRenderer {
         encodeSourceUpdates: ((
             MTLCommandBuffer, SceneSourceUpdateTransaction
         ) -> Void)? = nil,
-        encodeLayerSourceUpdates: ((
-            MTLCommandBuffer, SceneSourceUpdateTransaction
-        ) -> [Int: SceneTextureProviderPublication])? = nil,
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         to drawable: CAMetalDrawable
@@ -117,11 +114,6 @@ struct SceneMetalRenderer {
             frameIndex: frameContext.frameIndex
         )
         encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
-        let imageTextures = imageTextures.replacingLayerSources(
-            encodeLayerSourceUpdates?(
-                commandBuffer, sourceUpdateTransaction
-            ) ?? [:]
-        )
         let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(descriptor: renderDescriptor,
             byID: layersByID, snapshot: frameContext.dynamicValues, staticFrames: worldFramesByLayerID)
         let viewportSize = frameContext.screenSize

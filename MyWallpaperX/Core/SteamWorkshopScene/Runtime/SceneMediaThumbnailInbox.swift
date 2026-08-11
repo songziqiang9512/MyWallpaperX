@@ -3,14 +3,13 @@ import os.lock
 
 /// Producer-agnostic media artwork ingress. The platform integration publishes
 /// encoded PNG/JPEG bytes atomically; every Scene surface observes the same
-/// current/previous pair and generation.
+/// current artwork and generation.
 final class SceneMediaThumbnailInbox: @unchecked Sendable {
     struct Snapshot: Equatable, Sendable {
         let current: Data?
-        let previous: Data?
         let generation: UInt64
 
-        static let empty = Snapshot(current: nil, previous: nil, generation: 0)
+        static let empty = Snapshot(current: nil, generation: 0)
     }
 
     static let shared = SceneMediaThumbnailInbox()
@@ -38,7 +37,6 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
         guard snapshot.current != encodedImage else { return true }
         snapshot = Snapshot(
             current: encodedImage,
-            previous: snapshot.current,
             generation: snapshot.generation &+ 1
         )
         return true
@@ -47,10 +45,9 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
     func clear() {
         os_unfair_lock_lock(&lock)
         defer { os_unfair_lock_unlock(&lock) }
-        guard snapshot.current != nil || snapshot.previous != nil else { return }
+        guard snapshot.current != nil else { return }
         snapshot = Snapshot(
             current: nil,
-            previous: nil,
             generation: snapshot.generation &+ 1
         )
     }

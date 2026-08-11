@@ -22,7 +22,6 @@ UTILITY_LAYER = SCENE / "Rendering/SceneUtilityLayerRenderer.swift"
 VIEW = SCENE / "Rendering/SceneMetalView.swift"
 PUPPET = SCENE / "Rendering/ScenePuppetPlaybackState.swift"
 SPRITE = SCENE / "Resources/SceneMultiImageSpritePlayback.swift"
-MEDIA = SCENE / "Rendering/SceneMediaThumbnailTransitionRenderer.swift"
 
 
 class SceneSourceUpdateTransactionTests(unittest.TestCase):
@@ -234,16 +233,13 @@ enum Harness {
         view = VIEW.read_text(encoding="utf-8")
         puppet = PUPPET.read_text(encoding="utf-8")
         sprite = SPRITE.read_text(encoding="utf-8")
-        media = MEDIA.read_text(encoding="utf-8")
 
         source_closure = view.split("encodeSourceUpdates:", maxsplit=1)[1]
         source_closure = source_closure.split(
-            "encodeLayerSourceUpdates:", maxsplit=1
+            "encodeFrameReadback:", maxsplit=1
         )[0]
-        media_closure = view.split("encodeLayerSourceUpdates:", maxsplit=1)[1]
-        media_closure = media_closure.split("encodeFrameReadback:", maxsplit=1)[0]
         self.assertEqual(source_closure.count("transaction: transaction"), 2)
-        self.assertEqual(media_closure.count("transaction: transaction"), 1)
+        self.assertNotIn("encodeLayerSourceUpdates", view)
 
         self.assertIn("SceneSourceUpdateStateFIFO(", puppet)
         self.assertIn("submissions.update(transaction: transaction)", puppet)
@@ -258,14 +254,6 @@ enum Harness {
         completion = sprite.index("commandBuffer.addCompletedHandler", sprite_rollback)
         self.assertIn("submissionTracker.cancel(submission)", sprite[sprite_rollback:completion])
         self.assertIn("if latest?.id == token.id", sprite)
-
-        self.assertIn("SceneSourceUpdateStateFIFO<[Int: PlaybackState]>", media)
-        self.assertIn("submissions.update(transaction: transaction)", media)
-        self.assertIn("states: inout [Int: PlaybackState]", media)
-        self.assertIn("lastIssuedPublicationGenerations", media)
-        self.assertIn("< UInt64.max", media)
-        self.assertNotIn("publicationGeneration &+=", media)
-
 
 if __name__ == "__main__":
     unittest.main()

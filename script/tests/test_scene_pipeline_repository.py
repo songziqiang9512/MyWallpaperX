@@ -62,7 +62,6 @@ final class SceneWaterRipplePipeline { init?(device: MTLDevice) {} }
 final class SceneDepthParallaxPipeline { init?(device: MTLDevice) {} }
 final class SceneXRayPipeline { init?(device: MTLDevice) {} }
 final class SceneBlendPipeline { init?(device: MTLDevice) {} }
-final class SceneMediaThumbnailTransitionPipeline { init?(device: MTLDevice) {} }
 final class ScenePulsePipeline { init?(device: MTLDevice) {} }
 final class SceneShinePipeline { init?(device: MTLDevice) {} }
 final class SceneGradientColorPipeline { init?(device: MTLDevice) {} }

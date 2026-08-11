@@ -229,14 +229,9 @@ extension SceneDesktopWallpaperHost {
                 return lhsName < rhsName
             }
         )
-        let currentMediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
+        let mediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings
-        )
-        let mediaThumbnailBindings = SceneMediaThumbnailTransitionCompiler.compile(
-            descriptor: runtimeInput.renderDescriptor,
-            shaderContracts: runtimeInput.shaderContracts,
-            currentProgram: currentMediaThumbnailBindings
         )
         try activate(SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,

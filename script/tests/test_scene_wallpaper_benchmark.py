@@ -335,14 +335,12 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "\n".join([
                 "mediaThumbnailCurrentBindingCount: 3",
                 "mediaThumbnailCurrentBindingLayerIDs: 10,20,30",
-                "mediaThumbnailPreviousTransitionCount: 2",
-                "mediaThumbnailPreviousTransitionLayerIDs: 10,30",
             ])
         )
-        self.assertEqual(metrics["current_binding_count"], 3)
-        self.assertEqual(metrics["current_binding_layer_ids"], [10, 20, 30])
-        self.assertEqual(metrics["previous_transition_count"], 2)
-        self.assertEqual(metrics["previous_transition_layer_ids"], [10, 30])
+        self.assertEqual(metrics, {
+            "current_binding_count": 3,
+            "current_binding_layer_ids": [10, 20, 30],
+        })
 
     def test_time_of_day_effect_script_metrics_keep_typed_targets(self) -> None:
         metrics = benchmark.time_of_day_effect_script_runtime_metrics(
@@ -1298,33 +1296,14 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                     ["invalid isolated media thumbnail sequence"],
                 )
 
-    def test_media_thumbnail_transition_execution_metrics_collect_exact_phases(self) -> None:
-        log = """
-MWX media thumbnail transition: layer=526 generation=2 phase=started duration=1.0
-MWX media thumbnail transition: layer=642 generation=2 phase=started duration=1.0
-MWX media thumbnail transition: layer=526 generation=2 phase=midpoint
-MWX media thumbnail transition: layer=642 generation=2 phase=midpoint
-X media thumbnail transition: layer=526 generation=2 phase=completed
-MWX media thumbnail transition: layer=642 generation=2 phase=completed
-"""
-        self.assertEqual(
-            benchmark.media_thumbnail_transition_execution_metrics(log),
-            {
-                "generation_ids": [2],
-                "started_layer_ids": [526, 642],
-                "midpoint_layer_ids": [526, 642],
-                "completed_layer_ids": [526, 642],
-            },
-        )
-
     def test_media_thumbnail_store_metrics_preserve_pending_and_clear_state(self) -> None:
         log = """
-MWX media thumbnail store: phase=ready generation=1 hasCurrent=true hasPrevious=false
+MWX media thumbnail store: phase=ready generation=1 hasCurrent=true
 MWX media thumbnail store: phase=pending-last-ready requestedGeneration=2 readyGeneration=1 hasCurrent=true
-MWX media thumbnail store: phase=ready generation=2 hasCurrent=true hasPrevious=true
+MWX media thumbnail store: phase=ready generation=2 hasCurrent=true
 MWX DEBUG SCENE: phase=media-thumbnail-cleared
 MWX media thumbnail store: phase=pending-last-ready requestedGeneration=3 readyGeneration=2 hasCurrent=true
-MWX media thumbnail store: phase=ready generation=3 hasCurrent=false hasPrevious=false
+MWX media thumbnail store: phase=ready generation=3 hasCurrent=false
 """
         self.assertEqual(
             benchmark.media_thumbnail_store_metrics(log),
@@ -1345,17 +1324,14 @@ MWX media thumbnail store: phase=ready generation=3 hasCurrent=false hasPrevious
                     {
                         "generation": 1,
                         "has_current": True,
-                        "has_previous": False,
                     },
                     {
                         "generation": 2,
                         "has_current": True,
-                        "has_previous": True,
                     },
                     {
                         "generation": 3,
                         "has_current": False,
-                        "has_previous": False,
                     },
                 ],
                 "clear_count": 1,

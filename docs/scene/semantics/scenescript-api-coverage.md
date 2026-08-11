@@ -251,7 +251,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | `MediaStatusEvent` | `enabled` 表示媒体集成可用/启用 | `L0` | `N` | enable/disable、无 provider 和订阅生命周期 |
 | `MediaPlaybackEvent` | state 0 stopped / 1 playing / 2 paused | `L0` | `N` | 状态映射、重复事件去重和 app 切换 |
 | `MediaPropertiesEvent` | title/artist/subTitle/albumTitle/albumArtist/genres/contentType | `L0` | `N` | 缺字段、Unicode、原子曲目切换和 stale generation |
-| `MediaThumbnailEvent` | thumbnail presence 和 primary/secondary/tertiary/text/high-contrast colors | `L0` | texture provider 尚无 media source；`N` | 图像+颜色同 generation、无封面 fallback、旧 decode 取消 |
+| `MediaThumbnailEvent` | thumbnail presence 和 primary/secondary/tertiary/text/high-contrast colors | `L0` | 项目保留current `$mediaThumbnail` typed provider、通用visibility binding与last-ready/fallback store，但没有live producer、event DTO/dispatch或derived colors；B20已删除fixed previous-transition脚本旁路，`N` | 图像+颜色同generation、live producer、event ordering/owner lifecycle与无封面语义；typed纹理provider不等于SceneScript API |
 | `MediaTimelineEvent` | position/duration 秒值，播放时频繁发送 | `L0` | `N` | rate/seek/unknown duration、节流与时间单调性 |
 
 ## 7. Render / scene property API

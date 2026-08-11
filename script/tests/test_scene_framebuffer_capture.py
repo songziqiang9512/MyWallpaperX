@@ -73,7 +73,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Rendering/SceneImageBlendPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneMediaThumbnailTransitionPipeline.swift",
     SOURCE_ROOT / "Effects/SceneGradientColorPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBloomPipeline.swift",
     SOURCE_ROOT / "Effects/SceneLightShaftsPipeline.swift",
@@ -409,14 +408,6 @@ struct SceneResolvedMaterialAdmittedLayer {
         case capturedLayerTexture
         case capturedMainTargetTexture
         case transparentDirectDraw
-    }
-}
-
-enum SceneMediaThumbnailTransitionTexture {
-    struct Arguments {
-        let texture: MTLTexture
-        let uvScale: SIMD2<Float>
-        let sampling: SceneTextureSampling
     }
 }
 

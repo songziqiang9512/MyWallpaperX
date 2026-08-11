@@ -177,7 +177,7 @@
         "role": "inventory",
         "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
-        "baseline_occurrences": 213,
+        "baseline_occurrences": 208,
         "allowed_files": [
           "RenderGraph/SceneAuthoredBlendPlanner.swift",
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
@@ -218,7 +218,6 @@
           "RenderGraph/SceneWaterRippleShaderProfile.swift",
           "RenderGraph/SceneWaterWavesAssetFamily.swift",
           "RenderGraph/SceneWaterWavesShaderProfile.swift",
-          "Runtime/SceneMediaThumbnailTransitionCompiler.swift",
           "Runtime/SceneScriptAudioBarsCompiler.swift"
         ]
       },
@@ -285,16 +284,14 @@
         "role": "retirement",
         "description": "Source and asset digests that choose fixed script behavior must be replaced by bounded typed interpreters before R4 completes.",
         "pattern": "(?:switch\\s+(?:sourceSHA256|sha256)|profile\\([^\\n]*sourceSHA256|(?:rawSHA256|materialRawSHA256|canonicalSHA256|sourceSHA256)\\s*==\\s*[A-Za-z][A-Za-z0-9_]*SHA256)",
-        "baseline_occurrences": 8,
+        "baseline_occurrences": 3,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
         "scope_files": [
-          "Runtime/SceneMediaThumbnailTransitionCompiler.swift",
           "Runtime/SceneScriptAudioBarsCompiler.swift",
           "Text/SceneTextScriptCompiler.swift"
         ],
         "allowed_files": [
-          "Runtime/SceneMediaThumbnailTransitionCompiler.swift",
           "Runtime/SceneScriptAudioBarsCompiler.swift"
         ]
       },

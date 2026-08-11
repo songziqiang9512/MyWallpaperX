@@ -15,7 +15,6 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 REGISTRY_SOURCE = SOURCE_ROOT / "Resources/SceneFrameTextureRegistry.swift"
 BASE_IMAGE_SOURCE = SOURCE_ROOT / "Rendering/SceneBaseImageTextureLoad.swift"
 FRAME_ASSEMBLY_SOURCE = SOURCE_ROOT / "Rendering/SceneFrameLayerTextureAssembly.swift"
-TRANSITION_SOURCE = SOURCE_ROOT / "Rendering/SceneMediaThumbnailTransitionRenderer.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
@@ -1117,11 +1116,9 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
     def test_layer_publishers_bind_each_logical_request_exactly(self) -> None:
         base = BASE_IMAGE_SOURCE.read_text(encoding="utf-8")
         assembly = FRAME_ASSEMBLY_SOURCE.read_text(encoding="utf-8")
-        transition = TRANSITION_SOURCE.read_text(encoding="utf-8")
         self.assertIn("requestIdentity: .layerSource(layerID)", base)
         self.assertIn("publication.requestIdentity == .layerSource(layerID)", base)
         self.assertIn("for: .layerSource(layerID)", assembly)
-        self.assertIn("requestIdentity: .layerSource(layerID)", transition)
 
 
 if __name__ == "__main__":

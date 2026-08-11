@@ -1,36 +1,21 @@
 import Foundation
 
-nonisolated struct SceneMediaThumbnailTransitionPlan: Equatable, Sendable {
-    let layerID: Int
-    let effectDescriptorID: String
-    let gradientTexturePath: String
-    let gradientScale: Float
-    let durationSeconds: Double
-}
-
 /// A fail-closed projection of authored album-cover bindings onto layer sources.
-/// Current covers use a normal full-strength replacement. Previous-cover plans
-/// are compiled separately because they also require an event-local timeline
-/// and an authored gradient mask.
+/// Current covers use a normal full-strength replacement; unsupported media
+/// identities and event-driven transitions remain unexecuted.
 nonisolated struct SceneMediaThumbnailBindingProgram {
     static let currentIdentity = "$mediaThumbnail"
-    static let previousIdentity = "$mediaPreviousThumbnail"
 
     let currentLayerIDs: Set<Int>
-    let previousTransitionsByLayerID: [Int: SceneMediaThumbnailTransitionPlan]
 
-    nonisolated init(
-        currentLayerIDs: Set<Int>,
-        previousTransitionsByLayerID: [Int: SceneMediaThumbnailTransitionPlan] = [:]
-    ) {
+    nonisolated init(currentLayerIDs: Set<Int>) {
         self.currentLayerIDs = currentLayerIDs
-        self.previousTransitionsByLayerID = previousTransitionsByLayerID
     }
 
     static let empty = SceneMediaThumbnailBindingProgram(currentLayerIDs: [])
 
     var hasConsumers: Bool {
-        !currentLayerIDs.isEmpty || !previousTransitionsByLayerID.isEmpty
+        !currentLayerIDs.isEmpty
     }
 
     func reportLines() -> [String] {
@@ -38,10 +23,6 @@ nonisolated struct SceneMediaThumbnailBindingProgram {
             "mediaThumbnailCurrentBindingCount: \(currentLayerIDs.count)",
             "mediaThumbnailCurrentBindingLayerIDs: "
                 + currentLayerIDs.sorted().map(String.init).joined(separator: ","),
-            "mediaThumbnailPreviousTransitionCount: \(previousTransitionsByLayerID.count)",
-            "mediaThumbnailPreviousTransitionLayerIDs: "
-                + previousTransitionsByLayerID.keys.sorted().map(String.init)
-                    .joined(separator: ","),
         ]
     }
 }

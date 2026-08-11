@@ -430,7 +430,7 @@ Scene `Sound` 对象与 host spectrum provider 是两条合同。`mediaextension
 - color/alpha/format；
 - consumer slots。
 
-当前 v22 继承 typed registry 的 identity/status/resource generation/frame epoch。文件型第一切片仍只服务静态 image-blend；dynamic text 以 per-layer signature/generation、串行异步 raster、stale cancellation 和 last-ready fallback 消费同一生命周期边界。embedded MP4 已有 launch-scoped publication generation；bounded media cover 另以 current/previous content generation、旧 request 协作取消、pending last-ready、clear/failure fallback 和严格 transition consumer 验证动态 provider。它们尚未抽成所有 provider 共用的 status/metadata/cancel/teardown，也不证明 Texture Variants、通用 video/material consumer、live system-media adapter 或 SceneScript 可用。
+当前 v22 继承 typed registry 的 identity/status/resource generation/frame epoch。文件型第一切片仍只服务静态 image-blend；dynamic text 以 per-layer signature/generation、串行异步 raster、stale cancellation 和 last-ready fallback 消费同一生命周期边界。embedded MP4 已有 launch-scoped publication generation；bounded media cover现只保留current `$mediaThumbnail` content generation、旧request协作取消、pending last-ready与clear/failure fallback。B20已删除previous payload/identity/publication和fixed gradient transition consumer。它们尚未抽成所有provider共用的status/metadata/cancel/teardown，也不证明Texture Variants、通用video/material consumer、live system-media adapter或SceneScript可用。
 
 ## 8. Puppet、3D 和 Lighting
 
@@ -480,9 +480,9 @@ Realtime Adapter              Offline Adapter
 | Timeline | IR、绝对 scene-time evaluator、bounded 作者 Bézier handle、9 条 Loop wrap 闭合段与 **48/48** typed authored-host 子集已执行，覆盖 Loop/Single/Mirror/start-paused、effect constant/layer alpha、9 条 relative layer transform、7 条 root particle scalar override、2 条 bounded text `maxwidth` 及 camera `origin/zoom` 两成员；5 条普通 transform 走共享 world-frame，4 条 `lspot` 保持 strict consumer，camera 组共享 owner clock 并原子进入 projection | 私有 `relative` 合成与 handle/wrap 单位均是 bounded clean-room 校准；generic Combined、multiple path/3D camera、event crossing、其他 target 与 Windows 同相位 golden 未完成，不能宣称任意 Timeline 可用 |
 | SceneScript | 顶层layer binding IR为`L1`；property-bound Text Date/string update subset与两个exact 64-band audio profile为`L3 bounded`。七个fixed Text profile已于R4-B18退役，旧报告只作历史 | 通用ECMAScript VM/API、`registerAudioBuffers`/`AudioBuffers`、`createLayer`/`ILayer` handles可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG；已注册 B0/direct text/X-Ray target 可无重建更新 | 全部样本属性可调、所有 texture target/variant/live value 已闭环 |
-| Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback、受限 file-backed property source；direct text/embedded MP4 使用显式 content generation，视频有 launch-scoped pause/rebuild/stop 合同；bounded current/previous media cover 还有旧 request 协作取消、last-ready/fallback 与一个严格 transition consumer | live system-media adapter、Texture Variants、generic video/material、effectful/nested provider、其余 provider cancellation 与单次 decode 抢占尚未闭环 |
+| Texture Provider | frame identity/status/generation、named variant隔离、property absent -> authored fallback、受限file-backed property source；direct text/embedded MP4使用显式content generation，视频有launch-scoped pause/rebuild/stop合同；bounded current media cover保留旧request协作取消、last-ready/fallback与strict current Blend/visibility consumer | live system-media adapter、Texture Variants、generic video/material、previous/transition、effectful/nested provider、其余provider cancellation与单次decode抢占尚未闭环 |
 | Audio | Scene 16/32/64 host left/right、既有 effect consumers 与两个 native 64-band average profiles 已闭合 | JS `AudioBuffers`、Sound/self-play、粒子 audio 或任何数值/视觉 parity |
-| Media | Scene 已有 bounded current/previous cover provider、严格 current Blend 与 previous gradient transition consumer；只有隔离 debug producer | live macOS producer、metadata/status/timeline snapshot、通用 event/SceneScript、其他 transition/variant 与真实切歌 lifecycle |
+| Media | Scene已有bounded current `$mediaThumbnail` provider、严格current Blend source replacement与visibility consumer；current-only store保留pending last-ready、cancel/stale及clear/failure fallback。previous/gradient transition已于B20退役；只有隔离debug producer | live macOS producer、metadata/status/timeline snapshot、通用event/SceneScript、previous/transition/variant与真实切歌lifecycle |
 
 ## 11. 实施顺序
 
