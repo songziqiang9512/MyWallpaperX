@@ -98,6 +98,17 @@ extension SceneAuthoredEffectChainRenderer {
         case .preciseGaussian:
             return pipelines.gaussianBlur == nil
                 ? "precise-gaussian-pipeline-missing" : nil
+        case .standardBlur(let plan):
+            guard pipelines.standardBlur != nil else {
+                return "standard-blur-pipeline-missing"
+            }
+            guard plan.maskTexturePath != nil else { return nil }
+            guard let resources = inputs.masks.standardBlurEffects[
+                plan.effectDescriptorID
+            ], resources.matches(plan), resources.maskCandidate != nil else {
+                return "standard-blur-resource-missing"
+            }
+            return nil
         case .opacity(let plan):
             guard pipelines.opacity != nil,
                   stage.opacityAlpha(in: inputs.dynamicValues) != nil else {

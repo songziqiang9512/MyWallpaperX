@@ -3124,6 +3124,11 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         leaf_body = source[leaf_start:yield_start]
         yield_end = source.index("\n    var gaussianBlur:", yield_start)
         yield_body = source[yield_start:yield_end]
+        logical_start = source.index(
+            "    nonisolated var supportsUnifiedLogicalTargetStage: Bool"
+        )
+        logical_end = source.index("\n    var gaussianBlur:", logical_start)
+        logical_body = source[logical_start:logical_end]
 
         for backend_name in (
             ".blend", ".filmGrain", ".waterFlow", ".waterWaves",
@@ -3143,6 +3148,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertNotIn(".workshopAudioBars", yield_body)
         self.assertIn(".fisheyeZeroDistortion", leaf_body)
         self.assertIn("case filmGrain(SceneFilmGrainExecutionPlan)", source)
+        self.assertIn("case .preciseGaussian:", logical_body)
+        self.assertIn("case .standardBlur:", logical_body)
+        self.assertNotIn("case .localContrast:", logical_body)
 
         capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
         self.assertIn("Self.compileProgramFirstStages(", capability)

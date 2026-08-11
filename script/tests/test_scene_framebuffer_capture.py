@@ -841,8 +841,14 @@ struct SceneLightShaftsEffectTextures {
     }
 
     var supportsUnifiedLogicalTargetStage: Bool {
-        if case .preciseGaussian = backend { return !usesLegacyComposeNormalization }
-        return false
+        switch backend {
+        case .preciseGaussian:
+            return !usesLegacyComposeNormalization
+        case .standardBlur:
+            return true
+        default:
+            return false
+        }
     }
 
     func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {
@@ -1394,10 +1400,12 @@ struct SceneStandardBlurEffectTextures {
     let maskPath: String
 
     func matches(_ plan: SceneStandardBlurPlan) -> Bool {
-        // Keep this harness gate deliberately weaker than production so a
-        // wrong-purpose candidate reaches the production Offscreen renderer's
-        // own typed-purpose guard.
-        maskCandidate != nil && maskPath == plan.maskTexturePath
+        maskCandidate?.axisAlignedMappedUVScale(expectedPurpose: .mask) != nil
+            && normalized(maskPath) == plan.maskTexturePath.map(normalized)
+    }
+
+    private func normalized(_ path: String) -> String {
+        path.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 }
 
@@ -3477,6 +3485,42 @@ enum Harness {
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
 
+        let preparedInputs = SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs(
+            masks: authoredEffectMasks(),
+            dynamicValues: .empty(frameIndex: 1),
+            pipelines: .init(
+                repository: SceneImageEffectPipelineRepository(device: device)
+            ),
+            cursorUV: .zero,
+            previousCursorUV: .zero,
+            pointerIsInside: false,
+            previousPointerIsInside: false,
+            frameTime: 1 / 60,
+            time: 0,
+            audioSpectrum: .silent,
+            dependencyEffect: nil
+        )
+        guard let preparedBuffer = queue.makeCommandBuffer(),
+              case let .ready(preparedStage) =
+                SceneAuthoredEffectChainRenderer.prepareStage(
+                    plan,
+                    sourceTexture: table.inputTexture,
+                    targets: table,
+                    inputs: preparedInputs,
+                    sourcePipeline: pipeline,
+                    time: 0
+                ),
+              SceneAuthoredEffectChainRenderer.encodePreparedStage(
+                  preparedStage,
+                  commandBuffer: preparedBuffer
+              ) else {
+            throw HarnessError.drawRefused
+        }
+        preparedBuffer.commit()
+        preparedBuffer.waitUntilCompleted()
+        guard preparedBuffer.status == .completed,
+              preparedBuffer.error == nil else { throw HarnessError.commandFailed }
+
         let sourceBytes = try textureBytes(source, queue: queue)
         let inputBytes = try textureBytes(table.inputTexture, queue: queue)
         let horizontalBytes = try textureBytes(quarterB, queue: queue)
@@ -3488,6 +3532,7 @@ enum Harness {
         let mainBytes = try textureBytes(target, queue: queue)
         return [
             "encoded": true,
+            "preparedStageEncoded": true,
             "inputMaxDelta": maxDifference(inputBytes, sourceBytes),
             "horizontalMaxDelta": maxDifference(
                 horizontalBytes, expectedHorizontalBytes
@@ -3537,7 +3582,7 @@ enum Harness {
             name: "standard-blur-mask",
             mappedWidth: size / 2
         )
-        try drawAuthoredBlur(
+        let acceptedFrameTables = try drawAuthoredBlur(
             source: source,
             target: acceptedTarget,
             layer: standardBlurLayer(),
@@ -3552,6 +3597,9 @@ enum Harness {
                 descriptorID: plan.standardBlur?.effectDescriptorID ?? ""
             )
         )
+        guard let acceptedTable = acceptedFrameTables.tables.first else {
+            throw HarnessError.drawRefused
+        }
 
         let wrongPurposeCandidate = textureCandidate(
             texture: mask,
@@ -3580,10 +3628,67 @@ enum Harness {
             wrongPurposeRejected = true
         }
 
+        func preparedStageResult(
+            masks: SceneImageLayerMasks
+        ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
+            let inputs = SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs(
+                masks: masks,
+                dynamicValues: .empty(frameIndex: 1),
+                pipelines: .init(
+                    repository: SceneImageEffectPipelineRepository(device: device)
+                ),
+                cursorUV: .zero,
+                previousCursorUV: .zero,
+                pointerIsInside: false,
+                previousPointerIsInside: false,
+                frameTime: 1 / 60,
+                time: 0,
+                audioSpectrum: .silent,
+                dependencyEffect: nil
+            )
+            return SceneAuthoredEffectChainRenderer.prepareStage(
+                plan,
+                sourceTexture: acceptedTable.inputTexture,
+                targets: acceptedTable,
+                inputs: inputs,
+                sourcePipeline: pipeline,
+                time: 0
+            )
+        }
+        let acceptedPreparation = preparedStageResult(masks: standardBlurMasks(
+            candidate: acceptedCandidate,
+            path: maskPath,
+            descriptorID: plan.standardBlur?.effectDescriptorID ?? ""
+        ))
+        let wrongPurposePreparation = preparedStageResult(masks: standardBlurMasks(
+            candidate: wrongPurposeCandidate,
+            path: maskPath,
+            descriptorID: plan.standardBlur?.effectDescriptorID ?? ""
+        ))
+        let missingPreparation = preparedStageResult(masks: authoredEffectMasks())
+        let acceptedPrepared: Bool
+        if case .ready = acceptedPreparation { acceptedPrepared = true }
+        else { acceptedPrepared = false }
+        let wrongPurposeReason: String?
+        if case let .rejected(reason) = wrongPurposePreparation {
+            wrongPurposeReason = reason
+        } else {
+            wrongPurposeReason = nil
+        }
+        let missingReason: String?
+        if case let .rejected(reason) = missingPreparation {
+            missingReason = reason
+        } else {
+            missingReason = nil
+        }
+
         let sourceBytes = try textureBytes(source, queue: queue)
         let acceptedBytes = try textureBytes(acceptedTarget, queue: queue)
         return [
             "accepted": true,
+            "preparedStageAccepted": acceptedPrepared,
+            "wrongPurposePreparationReason": wrongPurposeReason as Any,
+            "missingPreparationReason": missingReason as Any,
             "paddedZeroMaskPreservedSource":
                 maxDifference(sourceBytes, acceptedBytes) <= 2,
             "wrongPurposeRejected": wrongPurposeRejected,
@@ -6277,6 +6382,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
     def test_standard_graph_blur_runs_full_ping_pong_chain_on_mixed_alpha(self) -> None:
         evidence = self.result["authoredStandardCheckerboard"]
         self.assertTrue(evidence["encoded"])
+        self.assertTrue(evidence["preparedStageEncoded"])
         self.assertTrue(evidence["sourceHasMixedAlpha"])
         self.assertTrue(evidence["outputIsPremultiplied"])
         for key in (
@@ -6298,6 +6404,17 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
     ) -> None:
         evidence = self.result["authoredStandardCandidate"]
         self.assertTrue(evidence["accepted"], evidence)
+        self.assertTrue(evidence["preparedStageAccepted"], evidence)
+        self.assertEqual(
+            evidence["wrongPurposePreparationReason"],
+            "standard-blur-resource-missing",
+            evidence,
+        )
+        self.assertEqual(
+            evidence["missingPreparationReason"],
+            "standard-blur-resource-missing",
+            evidence,
+        )
         self.assertTrue(evidence["paddedZeroMaskPreservedSource"], evidence)
         self.assertTrue(evidence["wrongPurposeRejected"], evidence)
 

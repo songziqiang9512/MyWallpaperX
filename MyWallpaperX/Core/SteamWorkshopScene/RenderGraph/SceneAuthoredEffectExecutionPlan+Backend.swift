@@ -62,8 +62,14 @@ extension SceneAuthoredEffectExecutionPlan {
     }
 
     nonisolated var supportsUnifiedLogicalTargetStage: Bool {
-        if case .preciseGaussian = backend { return !usesLegacyComposeNormalization }
-        return false
+        switch backend {
+        case .preciseGaussian:
+            return !usesLegacyComposeNormalization
+        case .standardBlur:
+            return true
+        default:
+            return false
+        }
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {

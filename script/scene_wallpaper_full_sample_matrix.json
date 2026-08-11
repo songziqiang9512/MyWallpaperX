@@ -1067,12 +1067,11 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        246
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_resolved_material_graph_succeeded_layer_ids": [
         206,
         238,
+        246,
         301,
         457
       ],
@@ -1093,13 +1092,13 @@
       "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
-      "expected_authored_effect_graph_blend_count": 2,
+      "expected_authored_effect_graph_blend_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 3,
+      "expected_authored_effect_graph_chain_count": 0,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_time_of_day_effect_script_binding_count": 4,
       "required_time_of_day_effect_script_bindings": [
         {
@@ -1140,8 +1139,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 51,
-        "admitted-dedicated": 8,
-        "admitted-generic": 4,
+        "admitted-dedicated": 7,
+        "admitted-generic": 5,
         "not-admitted": 16
       },
       "expected_effect_stage_coverage_counts": {
@@ -1159,14 +1158,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "34da792d3d9c87467aea2c43c51ff8dd0d96e4af105182ed8072650ea605705b",
+      "expected_effect_stage_admission_sha256": "eac47496b1ab0d372f497e5403c2e8faad24af1417904f10b87d6b5fdea88ac2",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 79,
       "expected_effect_runtime_disposition_group_count": 30,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 51,
-        "strict-dedicated": 8,
-        "strict-generic": 4,
+        "strict-dedicated": 7,
+        "strict-generic": 5,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -1199,7 +1198,7 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "2b7c56fe2778ec7252f48cb48b8302d92b6fa4b36f0d6650897fbfbed7eb6051",
+      "expected_effect_runtime_disposition_sha256": "f722b0c07ae3477b4d6015ecf410327782bbfe06eab4b265d1133944f2656c99",
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 12,
       "expected_effect_execution_observed_eligible_exact_effect_count": 12,
