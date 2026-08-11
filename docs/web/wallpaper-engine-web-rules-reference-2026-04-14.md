@@ -1,5 +1,7 @@
 # Wallpaper Engine Web 规则参考（2026-04-15）
 
+> 状态：现役稳定规则。当前源码所有权、运行证据和未闭合项只查 [Web 现役状态](current-state.md)；本文不保存样本数量或 PASS 结论。
+>
 > 目的：沉淀当前 `MyWallpaperX` 继续开发 Wallpaper Engine Web 支持时仍然需要遵守的稳定规则。
 >
 > 说明：本文件只保留仍指导当前实现的规则，不再展开已经稳定落地或纯历史性的排障细节。

@@ -28,6 +28,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Select repository Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
       - name: Run tests and check Swift file health
         env:
           BASE_REF: ${{ github.event.before }}

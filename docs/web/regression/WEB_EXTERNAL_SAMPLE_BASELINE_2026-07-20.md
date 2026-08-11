@@ -1,5 +1,7 @@
 # Web 外部代表样本基线（2026-07-20）
 
+> 状态：历史运行基线，不代表当前 HEAD。以下 App 身份、样本数量、得分和 PASS 只属于 2026-07-20 批次；当前证据状态查 [Web 现役状态](../current-state.md)。
+
 ## 1. 目的与结论
 
 这组基线用于补充本机已有 10 项代表矩阵和 34 项完整基线，重点覆盖属性密集、WebGL2、WASM、Worker、音频频谱、大体积生成脚本和持续动画的组合场景；其中 `1396475780` 还包含一个浏览器独立运行分支的 Service Worker helper。
@@ -11,7 +13,7 @@
 - `launch`、`host_runtime`、`navigation`、`resource_mapping`、`properties`、`media_audio`、`interaction`、`visual_output`、`animation` 均无短板；
 - 外部矩阵门禁通过。
 
-这说明当前运行时通过了 5 个新增高差异样本，不表示已经覆盖所有 Wallpaper Engine Web 壁纸。外部样本不并入默认 10 项矩阵或 34 项本机基线，因为第三方构建产物没有提交到仓库，缺少 fixture 时不应让默认门禁产生假失败。
+这说明当时运行时通过了 5 个新增高差异样本，不表示已经覆盖所有 Wallpaper Engine Web 壁纸。外部样本不并入默认 10 项矩阵或 34 项本机基线，因为第三方构建产物没有提交到仓库，缺少 fixture 时不应让默认门禁产生假失败。
 
 ## 2. 样本来源
 

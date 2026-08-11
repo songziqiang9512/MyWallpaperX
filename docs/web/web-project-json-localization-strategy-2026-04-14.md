@@ -1,5 +1,7 @@
 # MyWallpaperX Web `project.json` 处理与本地化策略
 
+> 状态：现役稳定设计参考。本文规定原始声明、本地派生数据与本地化边界；当前实现、运行证据和未闭合项只查 [Web 现役状态](current-state.md)。
+>
 > 文档目的：
 > 明确 `MyWallpaperX` 对 `Wallpaper Engine` Web 项目的 `project.json` 应如何处理，尤其是：
 > 1. 是否直接使用原文件
@@ -475,4 +477,3 @@
 4. 运行逻辑仍要尊重原始 key、value、入口和属性语义。
 
 这套策略既能保住兼容基线，也能避免把 Windows 宿主表达硬塞进 macOS。
-

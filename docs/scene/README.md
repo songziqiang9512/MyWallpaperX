@@ -9,6 +9,10 @@
 - [Scene 语义手册](semantics/README.md)：按格式、渲染图、属性、粒子、SceneScript 等问题进入专项合同。
 - [能力依赖图](semantics/capability-dependency-map.md)：公共前置能力和当前开发顺序。
 
+## 现役执行计划
+
+- [Scene 解析到合成链路重构计划](scene-render-chain-refactor-plan-2026-08-03.md)：当前 R1-R5 owner 收敛顺序、断点和批次验收门。它只决定执行顺序，不决定能力等级或运行基线；R5 完成后转入历史实施快照。
+
 ## 历史实施快照
 
 - [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)：2026-07-22 至 2026-07-27 的实施顺序、样本和测试门。

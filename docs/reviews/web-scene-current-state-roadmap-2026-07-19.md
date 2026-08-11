@@ -2,7 +2,7 @@
 
 > 评估日期：2026-07-19，Web 状态更新至 2026-07-22，Scene 状态更新至 2026-07-25
 > 评估对象：当前仓库中的 Steam Workshop Web 与 Wallpaper Engine Scene 实现  
-> 文档性质：带日期的评估快照，不是当前 Scene baseline、门数据或能力等级入口。当前事实按 `docs/scene/semantics/README.md` 的权威分工查询；本文中的数字只代表标题日期所述批次。
+> 文档性质：带日期的历史评估快照，不是当前 Web/Scene baseline、门数据、能力等级或任务入口。Web 当前事实查 [`docs/web/current-state.md`](../web/current-state.md)，Scene 当前事实按 [`docs/scene/semantics/README.md`](../scene/semantics/README.md) 的权威分工查询；本文所有“当前”“最新”“最终”和数字只代表标题日期所述批次。
 
 ## 1. 执行摘要
 

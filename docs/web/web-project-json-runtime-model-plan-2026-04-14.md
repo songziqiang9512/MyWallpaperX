@@ -1,5 +1,7 @@
 # Web `project.json` 解析层 / 运行模型方案（2026-04-15）
 
+> 状态：现役稳定合同；当前代码仍使用本文的 project/descriptor/runtime/context 分层。能力、证据与剩余缺口只查 [Web 现役状态](current-state.md)。
+>
 > 目的：保留当前 Web 解析层与运行层设计中仍然有效的最小共识，作为后续实现的稳定参考。
 
 ---

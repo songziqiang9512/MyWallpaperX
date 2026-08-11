@@ -29,6 +29,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Select repository Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
       - name: Resolve validation range
         env:
           EVENT_NAME: ${{ github.event_name }}

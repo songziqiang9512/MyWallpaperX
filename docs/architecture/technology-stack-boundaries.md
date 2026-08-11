@@ -6,7 +6,7 @@
 >
 > 适用范围：MyWallpaperX 主 App、播放进程、Web / Scene runtime、SceneScript、shader 编译、测试与开发工具
 
-本文规定项目长期由哪些技术承担哪些职责、什么情况下才允许引入新语言或新进程，以及技术栈迁移不得突破的产品语义和证据边界。它不是能力覆盖表，也不表示文中候选依赖已经进入产品。
+本文规定项目长期由哪些技术承担哪些职责、什么情况下才允许引入新语言或新进程，以及技术栈迁移不得突破的产品语义、性能和证据边界。它不是能力覆盖表，也不表示文中候选依赖已经进入产品。
 
 文档事实按以下入口分工：
 
@@ -14,11 +14,18 @@
 2. 本文是技术栈职责、跨语言边界和候选准入的唯一长期入口；
 3. [Scene 语义手册](../scene/semantics/README.md)、专项覆盖表与[能力依赖图](../scene/semantics/capability-dependency-map.md)决定能力语义和开发顺序；
 4. [运行证据索引](../scene/semantics/runtime-evidence-index.md)决定当前构建、签名和真实运行证据；
-5. 带日期的 plan、roadmap、review 和实验报告只描述当时批次，不反向覆盖本文。
+5. [Web 现役状态](../web/current-state.md)决定 Web 当前源码所有权、证据边界和待验收项；
+6. 带日期的 plan、roadmap、review 和实验报告默认只描述当时批次；只有文档入口明确列为现役迁移目标或现役执行计划的文件才可指导当前顺序，且不反向覆盖本文或当前能力证据。
+
+本文使用三种状态词，禁止混写：
+
+- **现役**：已经在当前生产源码路径中承担产品职责；
+- **迁移目标**：方向已经确定，但当前残留尚未清零；
+- **候选**：只有研究或 shadow 权限，没有产品执行权，不能据此改变能力台账。
 
 ## 1. 当前基线与目标
 
-当前产品代码是 Swift-first 的原生 macOS 工程：AppKit / SwiftUI 承担界面和桌面宿主，Swift 承担产品模型、播放生命周期与 Scene 语义，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。当前仓库尚未把通用 JavaScript VM、第三方 shader compiler 或 Scene XPC service 接入生产链。
+当前产品代码是 Swift-first 的原生 macOS 工程：AppKit 承担 App 生命周期、主界面、窗口和桌面宿主，少量 SwiftUI 只作为 [0 SwiftUI 迁移计划](appkit-migration-plan-2026-05-17.md)列出的受控残留；Swift 承担产品模型、播放生命周期与 Scene 语义，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。当前仓库尚未把通用 JavaScript VM、第三方 shader compiler 或 Scene XPC service 接入生产链。
 
 长期目标不是追求单一语言，也不是为技术先进性重写现有代码，而是：
 
@@ -27,13 +34,16 @@
 - 不可信输入、编译器和易崩溃组件有明确预算与故障边界；
 - 每帧热路径不被跨进程或跨语言细粒度调用切碎；
 - 新技术先以无产品执行权的原型证明价值，再按公共能力迁移；
+- 项目自有的静态 shader 在构建期编译，作者输入才使用受预算的运行期编译；
+- 稳态帧率、首帧、内存、能耗和故障恢复分别测量，不用单个样本或平均 FPS 代替；
 - 任何“性能更好”“兼容更多”的结论都由当前代码、基准和用户可见运行证据证明。
 
 ## 2. 长期技术职责
 
 | 技术 | 长期职责 | 不得承担的职责 |
 |---|---|---|
-| Swift + AppKit / SwiftUI | App、窗口、设置、桌面宿主、Scene 格式与语义、typed IR、属性、资源、生命周期、Metal 调度、诊断与 XPC 合同 | 不重复实现完整 ECMAScript VM 或通用 HLSL/GLSL 编译器 |
+| Swift + AppKit | App、窗口、设置、桌面宿主、Scene 格式与语义、typed IR、属性、资源、生命周期、Metal 调度、诊断与 IPC 合同 | 不重复实现完整 ECMAScript VM 或通用 HLSL/GLSL 编译器；不新增 SwiftUI 产品面 |
+| SwiftUI | 只维护现有迁移残留，直到 AppKit 替代完成 | 不作为新界面、宿主、设置页或模块的默认技术；不得扩大 `NSHostingView`/bridge 边界 |
 | Metal + MSL | GPU 渲染、合成、effect、粒子和经性能证据选择的 compute kernel | 不决定样本、路径或资产身份对应的产品语义 |
 | C | QuickJS 等嵌入 API、稳定跨语言 ABI、opaque handle、buffer 与销毁合同 | 不承载 Scene 业务规则或第二套资源/属性模型 |
 | C++ | 第三方 shader compiler、IR/reflection 转换及必要的 compiler worker 内部实现 | 不接管 App、Scene 主语义、Renderer 高层调度或用户属性系统 |
@@ -41,7 +51,7 @@
 | Python 3.12 | 测试、fixture、benchmark、矩阵、证据聚合和开发工具 | 不进入 App 的帧循环或成为发布产品的 Scene runtime 依赖 |
 | Objective-C / Objective-C++ | 仅在 Apple 或第三方 API 无可维护的 Swift/C 入口时使用薄适配层 | 不作为新模块默认实现语言 |
 
-新增 Rust、Vulkan/MoltenVK、Electron、另一套 UI runtime 或完整 C++ renderer 不属于默认路线。只有当前栈存在经复现且无法通过较小边界解决的缺口，并完成维护成本、发布体积、签名、公证、双架构和退出方案评估后，才能单独提案；“可能更快”或“参考项目这样做”不是准入理由。
+新增 Rust、Vulkan/MoltenVK、Electron、另一套 UI runtime 或完整 C++ renderer 不属于默认路线。只有当前栈存在经复现且无法通过较小边界解决的缺口，并完成维护成本、发布体积、签名、公证、双架构和退出方案评估后，才能单独提案；“可能更快”或“参考项目这样做”不是准入理由。MirageWallpaper 等项目只提供 clean-room 结构线索，不能成为复制实现、重写当前已验证语义链或引入第二套 renderer 的依据。
 
 ## 3. 不可破坏的架构不变量
 
@@ -82,25 +92,29 @@ XPC 或 bundled helper 只有在需要隔离不可信代码、编译器崩溃、
 
 允许跨进程的消息应是场景启动/停止、属性或输入批次、编译请求、缓存结果、surface/resource handle 和 diagnostics。禁止把每个 draw、pass、uniform、JS property access 或每帧小对象调用拆成 XPC 往返。
 
+普通 XPC service 不承担桌面窗口或 WindowServer 用户界面所有权；Apple 将 XPC service 的 UI 能力限定为无 UI，除 IOSurface 等非常有限的交换方式。[Designing Daemons and Services](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/DesigningDaemons.html) 因此 compiler worker 可优先评估 XPC，若 renderer 需要直接拥有桌面窗口，则保持在主 App 或使用可呈现窗口的 bundled helper application；不能仅为形式隔离把 renderer 预设为 XPC。
+
 ## 4. 目标运行单元
 
 以下是通过准入后允许形成的目标边界，不表示现有 target 已经完成拆分：
 
 ```text
-MyWallpaperX.app                         Swift + AppKit / SwiftUI
-  -> SceneRuntimeService（候选）         Swift + Metal + 受限 SceneScript VM
-       -> Scene core / typed IR          Swift
-       -> RenderGraph / compositor       Swift + Metal / MSL
-       -> per-surface script domain      C VM + Swift host bridge
-  -> SceneShaderCompilerService（候选）  C/C++ 内部 + 稳定 C/XPC 合同
-       -> prepared source                只消费 Swift 已规范化输入
-       -> MSL/metallib/reflection         返回后再由 Swift 校验
+MyWallpaperX.app                              Swift + AppKit
+  -> Scene execution domain（当前在 App）     Swift + Metal
+       -> Scene core / typed IR               Swift
+       -> RenderGraph / compositor            Swift + Metal / MSL
+       -> per-surface script domain（候选）   C VM + Swift host bridge
+  -> Scene renderer helper app（条件候选）    仅在窗口/崩溃/资源证据成立时
+  -> Scene shader compiler worker（候选）     C/C++ 内部 + 稳定 C/XPC 合同
+       -> prepared source                     只消费 Swift 已规范化输入
+       -> MSL/metallib/reflection              返回后再由 Swift 校验
 ```
 
-- 主 App 负责用户界面、壁纸选择、显示器与高层播放控制，不直接承受不可信脚本和大型第三方编译器的崩溃。
+- 主 App 负责用户界面、壁纸选择、显示器与高层播放控制；当前 Scene execution domain 仍在 App 内，这一现状不能被目标图误写成已经拆分。
 - Scene runtime 负责每帧脚本、动态 snapshot、Metal 编码和 compositor；脚本与渲染保持同一故障域内的批量 typed 交换，避免每帧跨 XPC。
-- shader compiler service 只负责加载期或 variant 变化时的编译、reflection、取消和缓存；它不持有 drawable、长期 GPU 资源或真实 Workshop 根目录权限。
-- 只有真实崩溃、资源预算、权限或生命周期证据证明进程拆分收益时才落地 service；在此之前允许以同进程协议实现验证合同。
+- renderer helper 只有在能同时证明窗口所有权可行、跨进程 surface 成本可接受、崩溃恢复更可靠时才落地；普通 XPC 不作为它的默认容器。
+- shader compiler worker 只负责加载期或 variant 变化时的编译、reflection、取消和缓存；它不持有 drawable、长期 GPU 资源或真实 Workshop 根目录权限。
+- 只有真实崩溃、资源预算、权限或生命周期证据证明进程拆分收益时才落地 worker/helper；在此之前以同进程协议实现验证合同。
 
 ## 5. SceneScript 路线
 
@@ -178,7 +192,37 @@ Hello World、单段脚本成功或固定样本不崩溃不能授予 generic Sce
 
 本文不替代 [Scene 能力依赖图](../scene/semantics/capability-dependency-map.md) 的具体开发波次，也不把 R4/R5、SceneScript、shader 或进程隔离标记为已完成。
 
-## 8. 第三方依赖与发布门
+## 8. 性能与效率合同
+
+### 8.1 优化顺序
+
+性能工作先分辨瓶颈属于 CPU、GPU、编译、资源、IPC、窗口合成还是环境；使用 Instruments、Metal System Trace、GPU capture、signpost 或同等可复现证据。没有 profile 不进行 Swift 到 C/C++ 的语言迁移，也不以参考项目的语言选择推断本项目瓶颈。
+
+默认优化顺序为：减少无效工作和同步 -> 修正资源生命周期与数据布局 -> 缓存/批处理 -> Metal pass、带宽和 shader 优化 -> 经证据选择局部 Metal compute 或 C/C++ kernel。稳定帧率提升不能掩盖首帧、内存、能耗或故障恢复回退。
+
+### 8.2 Shader 与 pipeline
+
+- 项目自有、源码在构建时已知的固定 MSL 进入 `.metal` 源文件并由 Xcode 构建期生成 metallib；新增固定 shader 不默认使用 `makeLibrary(source:)`。
+- Workshop 作者 shader 才允许运行期编译；必须在 scene preparation/variant 变化阶段完成 normalization、digest cache、编译、reflection 与 pipeline preflight，不在 draw/pass encode 热路径首次同步编译。
+- 运行期编译必须有稳定 cache key、并发合并、取消、超时、内存预算、失败缓存和 compiler/OS/GPU 失效条件；缓存命中不得绕过 Program ABI、reflection、render state 和 color contract 校验。
+- `MTLBinaryArchive`、Metal 4 compilation API 或其他 pipeline 持久化只有在目标系统和冷启动测量证明收益后采用；archive miss、损坏和系统升级必须安全回落到受控编译。[Metal shader libraries](https://developer.apple.com/documentation/metal/shader-libraries)、[MTLBinaryArchive](https://developer.apple.com/documentation/metal/mtlbinaryarchive)
+
+当前以 Swift 字符串承载的固定 shader 是已知迁移债务，不因此否定其现役执行权，也不在 R4/R5 中机械搬迁。R4/R5 完成后按 effect family 独立迁移；每批先建立冷启动/首帧基线，再迁到 `.metal`、验证像素和性能、撤销旧 source owner，不能一次性重写全部 pipeline。
+
+### 8.3 基线与门禁
+
+性能批次至少按受影响面记录：
+
+- 冷启动到首个有效可见帧、warm scene switch 与首次 effect/variant 命中；
+- CPU/GPU frame time 的 p50/p95/p99、hitch/掉帧和 command buffer/encoder 数量；
+- shader/library/pipeline 冷热编译时间，以及阻塞主线程或渲染线程的时间；
+- 单 surface、多显示器下的 CPU、GPU、resident/峰值内存、纹理与 render target 预算；
+- 30/60/120 Hz、暂停、遮挡、锁屏、睡眠和显示器变更下的 frame pacing 与无效工作；
+- 代表负载连续运行后的内存增长、能耗、温度和恢复行为。
+
+首次建立基线时记录硬件、OS、显示器、构建配置、App 身份、样本/fixture 和采集工具，不凭主观体验写死阈值。后续 gate 使用已批准的绝对目标或相对回退上限；单次平均 FPS、非黑画面、进程存活或固定样本通过均不能证明性能闭环。[Analyzing Metal performance](https://developer.apple.com/documentation/xcode/analyzing-the-performance-of-your-metal-app)
+
+## 9. 第三方依赖与发布门
 
 任何新增 native runtime/compiler 依赖都必须在进入产品 target 前完成：
 
@@ -194,7 +238,14 @@ Hello World、单段脚本成功或固定样本不崩溃不能授予 generic Sce
 
 依赖升级必须重新执行其保护风险相关的合同门，不能只因包管理器解析成功就合入。
 
-## 9. 变更本文的门
+## 10. 工具链与语言模式
+
+- 仓库 Python 工具链固定为 Python 3.12.x；本地统一入口和 CI 必须显式选择兼容解释器，不能依赖 runner 的裸 `python3` 默认值。升级 minor/major 前先运行完整 Python 测试和正式 gate，并同步 CI 与本文。
+- 当前产品 target 使用 Swift 5 language mode。它不是渲染性能缺陷；在 R4/R5 结束前不进行全仓 Swift 6 迁移。
+- R4/R5 后优先让新隔离 module/target 和并发风险高的 provider、resource、compiler worker 边界启用 Swift 6 strict concurrency，再按模块迁移；不得用批量 `@unchecked Sendable`、`nonisolated(unsafe)` 或关闭检查制造通过。[Swift version compatibility](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/compatibility/)
+- Xcode、macOS deployment target 或 Metal language/API 大版本升级是独立工具链批次，必须区分源码兼容、运行兼容、签名发布和性能基线，不能与能力迁移混交。
+
+## 11. 变更本文的门
 
 只有以下情形需要修改本文：
 

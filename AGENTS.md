@@ -20,7 +20,7 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 3. [运行证据索引](docs/scene/semantics/runtime-evidence-index.md)：当前基线、样本、构建、签名和运行报告。
 4. [能力依赖图](docs/scene/semantics/capability-dependency-map.md)：公共前置能力与开发顺序。
 
-带日期的 plan、roadmap 和 review 是批次快照，不是当前能力或运行基线的权威入口。
+带日期的 plan、roadmap 和 review 默认是批次快照；只有 `docs/README.md` 或专题入口明确列为“现役迁移目标/现役执行计划”的文件才可指导当前顺序，但仍不是能力或运行基线的权威入口。
 
 开始 Scene 任务时，先从 `docs/scene/semantics/README.md` 按问题类型进入专项表，再核对总覆盖台账与运行证据索引；排开发顺序时补读能力依赖图，涉及官方客户端或公开资料时补读 `source-index.md`。不得全量扫描文档库后凭文件名选任务，也不得从静态取证直接推导“已支持”。
 
@@ -28,11 +28,14 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 
 ## 3. 技术栈与架构边界
 
-[技术栈与架构路线边界](docs/architecture/technology-stack-boundaries.md) 是语言职责、跨语言/跨进程所有权和候选依赖准入的唯一长期入口。默认保持 Swift/AppKit/SwiftUI 产品主体与 Swift/Metal Scene 主链：Swift 拥有产品语义、typed IR、资源/属性/生命周期和 GPU 调度，Metal/MSL 拥有 GPU 执行，Python 只用于测试与开发工具。
+[技术栈与架构路线边界](docs/architecture/technology-stack-boundaries.md) 是语言职责、跨语言/跨进程所有权、性能合同和候选依赖准入的唯一长期入口。最终产品主体为 Swift + AppKit，现有 SwiftUI 只作为 [0 SwiftUI 迁移计划](docs/architecture/appkit-migration-plan-2026-05-17.md)中的受控残留，不新增 SwiftUI 产品面或扩大 hosting bridge。Scene 主链保持 Swift + Metal：Swift 拥有产品语义、typed IR、资源/属性/生命周期和 GPU 调度，Metal/MSL 拥有 GPU 执行，Python 只用于测试与开发工具。
 
 - C/C++ 只可进入有明确生态优势的 VM/compiler ABI 或经 profiling 证明的局部 kernel，不得接管 Scene 业务语义、样本路由或第二套 renderer；长期边界使用窄 typed C ABI 或版本化进程协议。
 - QuickJS-NG、JavaScriptCore、Slang、DXC、Metal Shader Converter、glslang、SPIRV-Cross 与 XPC 均是带准入门的候选，不是当前能力。新增依赖先做无产品执行权的项目自有 fixture / shadow 评估，完成预算、失败关闭、许可证、双架构、签名和发布门后，才能按公共 capability family 迁移。
-- 进程边界只用于故障、权限或资源隔离；不得把 draw/pass/uniform/JS property access 等每帧细粒度操作改成 XPC 往返。
+- 进程边界只用于故障、权限或资源隔离；compiler worker 可评估 XPC，需要拥有桌面窗口的 renderer 保持在 App 或可呈现窗口的 helper application。不得把 draw/pass/uniform/JS property access 等每帧细粒度操作改成 XPC 往返。
+- 新增项目自有固定 MSL 使用 `.metal` 构建期编译；Workshop 作者 shader 才允许运行期编译，并须在 preparation/variant 阶段完成 cache、取消、预算、reflection 和 pipeline preflight，不在 encode 热路径首次同步编译。现有 Swift 字符串 shader 属于受控迁移债务，不在无性能证据时机械重写。
+- 性能结论必须区分首帧、稳态 frame time、hitch、内存、能耗和恢复；记录硬件、OS、显示器、构建/App 身份与样本。平均 FPS、非黑、进程存活或样本门通过不能单独证明性能闭环。
+- 仓库 Python 工具链固定为 3.12.x，本地与 CI 必须显式选择兼容解释器。当前 Swift 5 language mode 不作为性能缺陷；Swift 6 strict concurrency 只在 R4/R5 后按模块迁移。
 - 当前 R4/R5 未闭合时，不得把 VM、shader compiler 或 service 大迁移混入 owner 迁移批次。R4 先完成公共能力接管和旧 owner 撤权，R5 只删除残留；技术栈原型不得据此升级覆盖台账或取得隐式 execution owner。
 
 ## 4. 实现流程
