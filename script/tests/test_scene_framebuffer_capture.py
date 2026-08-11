@@ -859,7 +859,8 @@ struct SceneLightShaftsEffectTextures {
         case .localContrast:
             return true
         case .godrays(let plan):
-            return plan.direction == nil && !plan.legacyGaussianWeights
+            return (plan.direction == nil && !plan.legacyGaussianWeights)
+                || (plan.direction?.isFinite == true && plan.legacyGaussianWeights)
         case .shine:
             return true
         default:
@@ -4158,23 +4159,43 @@ enum Harness {
     ) throws -> [String: Any] {
         let size = 16
         guard let noise = makeTexture(device: device, size: size, usage: .shaderRead),
-              let commandBuffer = queue.makeCommandBuffer() else {
+              let stockCommandBuffer = queue.makeCommandBuffer(),
+              let legacyCommandBuffer = queue.makeCommandBuffer() else {
             throw HarnessError.metalUnavailable
         }
         fill(noise, bgra: [127, 127, 127, 255])
         let plan = authoredGodraysPlan()
         let legacyPlan = authoredGodraysPlan(legacyDirectional: true)
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let frameTables = try prepareStandaloneAuthoredTables(
+        let stockPool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        let legacyPool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        let stockFrameTables = try prepareStandaloneAuthoredTables(
             plan: plan,
-            pool: pool,
+            pool: stockPool,
             width: size,
             height: size,
-            commandBuffer: commandBuffer
+            commandBuffer: stockCommandBuffer
         )
-        defer { frameTables.commit.releaseAll() }
-        guard let table = frameTables.tables.first,
-              let godrays = plan.godrays else {
+        let legacyFrameTables = try prepareStandaloneAuthoredTables(
+            plan: legacyPlan,
+            pool: legacyPool,
+            width: size,
+            height: size,
+            commandBuffer: legacyCommandBuffer
+        )
+        defer {
+            stockFrameTables.commit.releaseAll()
+            legacyFrameTables.commit.releaseAll()
+        }
+        guard let stockTable = stockFrameTables.tables.first,
+              let legacyTable = legacyFrameTables.tables.first,
+              let godrays = plan.godrays,
+              let legacyGodrays = legacyPlan.godrays,
+              let legacyFirst = legacyTable.texture(
+                  for: legacyGodrays.firstHalfTarget
+              ),
+              let legacySecond = legacyTable.texture(
+                  for: legacyGodrays.secondHalfTarget
+              ) else {
             throw HarnessError.drawRefused
         }
         let resources = SceneGodraysEffectTextures(
@@ -4185,6 +4206,7 @@ enum Harness {
         )
         func preparation(
             _ stage: SceneAuthoredEffectExecutionPlan,
+            table: SceneGraphRenderTargetTable,
             resources: [String: SceneGodraysEffectTextures]
         ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
             SceneAuthoredEffectChainRenderer.prepareStage(
@@ -4210,34 +4232,84 @@ enum Harness {
                 time: 0
             )
         }
-        let accepted = preparation(
+        let stockAccepted = preparation(
             plan,
+            table: stockTable,
             resources: [godrays.effectKey.descriptorID: resources]
         )
-        guard case let .ready(prepared) = accepted,
-              SceneAuthoredEffectChainRenderer.encodePreparedStage(
-                  prepared,
-                  commandBuffer: commandBuffer
-              ) else { throw HarnessError.drawRefused }
-        let missing = preparation(plan, resources: [:])
-        let legacy = preparation(
+        let stockPreparedStageEncoded: Bool
+        let stockPreparationReason: String?
+        switch stockAccepted {
+        case .ready(let stockPrepared):
+            stockPreparedStageEncoded = SceneAuthoredEffectChainRenderer
+                .encodePreparedStage(
+                    stockPrepared,
+                    commandBuffer: stockCommandBuffer
+                )
+            stockPreparationReason = stockPreparedStageEncoded ? nil : "encode-refused"
+        case .rejected(let reason):
+            stockPreparedStageEncoded = false
+            stockPreparationReason = reason
+        }
+
+        let legacyAccepted = preparation(
             legacyPlan,
-            resources: [godrays.effectKey.descriptorID: resources]
+            table: legacyTable,
+            resources: [legacyGodrays.effectKey.descriptorID: resources]
         )
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed,
-              commandBuffer.error == nil else { throw HarnessError.commandFailed }
-        let missingReason: String?
-        if case let .rejected(reason) = missing { missingReason = reason }
-        else { missingReason = nil }
-        let legacyReason: String?
-        if case let .rejected(reason) = legacy { legacyReason = reason }
-        else { legacyReason = nil }
+        let legacyPreparedStageEncoded: Bool
+        let legacyPreparationReason: String?
+        switch legacyAccepted {
+        case .ready(let legacyPrepared):
+            legacyPreparedStageEncoded = SceneAuthoredEffectChainRenderer
+                .encodePreparedStage(
+                    legacyPrepared,
+                    commandBuffer: legacyCommandBuffer
+                )
+            legacyPreparationReason = legacyPreparedStageEncoded ? nil : "encode-refused"
+        case .rejected(let reason):
+            legacyPreparedStageEncoded = false
+            legacyPreparationReason = reason
+        }
+
+        let stockMissing = preparation(plan, table: stockTable, resources: [:])
+        let legacyMissing = preparation(
+            legacyPlan,
+            table: legacyTable,
+            resources: [:]
+        )
+        stockCommandBuffer.commit()
+        legacyCommandBuffer.commit()
+        stockCommandBuffer.waitUntilCompleted()
+        legacyCommandBuffer.waitUntilCompleted()
+        guard stockCommandBuffer.status == .completed,
+              stockCommandBuffer.error == nil,
+              legacyCommandBuffer.status == .completed,
+              legacyCommandBuffer.error == nil else {
+            throw HarnessError.commandFailed
+        }
+        let stockMissingReason: String?
+        if case let .rejected(reason) = stockMissing { stockMissingReason = reason }
+        else { stockMissingReason = nil }
+        let legacyMissingReason: String?
+        if case let .rejected(reason) = legacyMissing { legacyMissingReason = reason }
+        else { legacyMissingReason = nil }
+        let legacyRGBAContract = legacyTable.plan.logicalTargets.count == 2
+            && legacyTable.plan.logicalTargets.allSatisfy { $0.format == .rgba8888 }
+            && legacyFirst.pixelFormat == .rgba8Unorm
+            && legacySecond.pixelFormat == .rgba8Unorm
+            && legacyFirst !== legacySecond
+            && legacyTable.inputTexture.pixelFormat == .bgra8Unorm
+            && legacyTable.outputTexture.pixelFormat == .bgra8Unorm
+            && legacyTable.inputTexture !== legacyTable.outputTexture
         return [
-            "preparedStageEncoded": true,
-            "missingResourceReason": missingReason as Any,
-            "legacyDirectionalReason": legacyReason as Any,
+            "stockPreparedStageEncoded": stockPreparedStageEncoded,
+            "stockPreparationReason": stockPreparationReason as Any,
+            "legacyPreparedStageEncoded": legacyPreparedStageEncoded,
+            "legacyPreparationReason": legacyPreparationReason as Any,
+            "legacyRGBAContract": legacyRGBAContract,
+            "stockMissingResourceReason": stockMissingReason as Any,
+            "legacyMissingResourceReason": legacyMissingReason as Any,
         ]
     }
 
@@ -7315,19 +7387,21 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             evidence,
         )
 
-    def test_stock_godrays_prepared_stage_requires_resources_and_excludes_legacy(
+    def test_stock_and_legacy_godrays_prepare_encode_and_require_resources(
         self,
     ) -> None:
         evidence = self.result["authoredGodraysPrepared"]
-        self.assertTrue(evidence["preparedStageEncoded"], evidence)
+        self.assertTrue(evidence["stockPreparedStageEncoded"], evidence)
+        self.assertTrue(evidence["legacyPreparedStageEncoded"], evidence)
+        self.assertTrue(evidence["legacyRGBAContract"], evidence)
         self.assertEqual(
-            evidence["missingResourceReason"],
+            evidence["stockMissingResourceReason"],
             "godrays-resource-missing",
             evidence,
         )
         self.assertEqual(
-            evidence["legacyDirectionalReason"],
-            "backend-unsupported",
+            evidence["legacyMissingResourceReason"],
+            "godrays-resource-missing",
             evidence,
         )
 

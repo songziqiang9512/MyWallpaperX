@@ -68,6 +68,14 @@ SUPPORT = PUBLICATION_FIXTURE["SUPPORT"].replace(
 
 import simd
 
+struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
+
+extension SceneAuthoredEffectExecutionPlan {
+    var shake: HarnessDedicatedAudioExecutionPlan? { nil }
+    var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
+    var workshopAudioBars: SceneOpacityExecutionPlan? { nil }
+}
+
 struct SceneEffectExactRuntimeSubject: Hashable {
     let key: SceneAuthoredEffectRenderPlan.EffectKey
     let family: String

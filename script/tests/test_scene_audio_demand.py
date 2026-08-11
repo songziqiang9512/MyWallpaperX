@@ -9,6 +9,9 @@
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -43,6 +46,10 @@ SHAKE_PLANNER_AUDIO_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredShakePlanner
 AUDIO_ADMISSION_SOURCE = SCENE_ROOT / "RenderGraph/SceneAudioResponseAdmission.swift"
 PULSE_CONSTANTS_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneAuthoredPulsePlanner+Constants.swift"
+)
+RESOLVED_CAPABILITY_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
 )
 
 
@@ -184,6 +191,212 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         )
         self.assertIn("spectrum.left64", audio_bars_pipeline)
         self.assertIn("spectrum.right64", audio_bars_pipeline)
+
+    def test_unified_dedicated_audio_consumer_source_contract(self) -> None:
+        source = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
+        body = swift_body(source, "var hasAudioSpectrumConsumer: Bool")
+        self.assertIn("case .resolved(_, let materials):", body)
+        self.assertIn("$0.variants.hasAudioSpectrumConsumer", body)
+        self.assertIn("case .dedicated(_, let program, _):", body)
+        self.assertIn("let plan = program.executionPlan", body)
+        self.assertRegex(
+            body,
+            r"plan\.shake\?\.audio != nil\s*"
+            r"\|\| plan\.pulse\?\.audio != nil\s*"
+            r"\|\| plan\.workshopAudioBars != nil",
+            "unified owner transfer must retain every dedicated audio consumer",
+        )
+
+    @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
+    def test_compiled_unified_dedicated_audio_consumer_truth_table(self) -> None:
+        """Compile the production property body against a minimal typed catalog."""
+        source = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
+        body = swift_body(source, "var hasAudioSpectrumConsumer: Bool")
+        harness = """
+struct AudioParameters {}
+
+struct ShakePlan {
+    let audio: AudioParameters?
+}
+
+struct PulsePlan {
+    let audio: AudioParameters?
+}
+
+struct WorkshopAudioBarsPlan {}
+
+struct ExecutionPlan {
+    let shake: ShakePlan?
+    let pulse: PulsePlan?
+    let workshopAudioBars: WorkshopAudioBarsPlan?
+}
+
+struct Program {
+    let executionPlan: ExecutionPlan
+}
+
+struct VariantCapabilities {
+    let hasAudioSpectrumConsumer: Bool
+}
+
+struct MaterialCapability {
+    let variants: VariantCapabilities
+}
+
+enum StageCapability {
+    case resolved(Int, [String: MaterialCapability])
+    case dedicated(Int, Program, Int)
+}
+
+struct LayerCapability {
+    let stages: [StageCapability]
+}
+
+struct Catalog {
+    let capabilitiesByLayerID: [Int: LayerCapability]
+
+    var hasAudioSpectrumConsumer: Bool {
+""" + body + """
+    }
+}
+
+func demandsAudio(_ stage: StageCapability) -> Bool {
+    Catalog(
+        capabilitiesByLayerID: [1: LayerCapability(stages: [stage])]
+    ).hasAudioSpectrumConsumer
+}
+
+@main
+enum AudioDemandHarness {
+    static func main() {
+        let audio = AudioParameters()
+        let silent = ExecutionPlan(
+            shake: ShakePlan(audio: nil),
+            pulse: PulsePlan(audio: nil),
+            workshopAudioBars: nil
+        )
+        let shake = ExecutionPlan(
+            shake: ShakePlan(audio: audio),
+            pulse: nil,
+            workshopAudioBars: nil
+        )
+        let pulse = ExecutionPlan(
+            shake: nil,
+            pulse: PulsePlan(audio: audio),
+            workshopAudioBars: nil
+        )
+        let workshop = ExecutionPlan(
+            shake: nil,
+            pulse: nil,
+            workshopAudioBars: WorkshopAudioBarsPlan()
+        )
+        let checks: [(String, Bool, Bool)] = [
+            (
+                "resolved-positive",
+                demandsAudio(.resolved(
+                    1,
+                    ["material": MaterialCapability(
+                        variants: VariantCapabilities(
+                            hasAudioSpectrumConsumer: true
+                        )
+                    )]
+                )),
+                true
+            ),
+            (
+                "resolved-negative",
+                demandsAudio(.resolved(
+                    1,
+                    ["material": MaterialCapability(
+                        variants: VariantCapabilities(
+                            hasAudioSpectrumConsumer: false
+                        )
+                    )]
+                )),
+                false
+            ),
+            (
+                "dedicated-shake-audio",
+                demandsAudio(.dedicated(
+                    1,
+                    Program(executionPlan: shake),
+                    1
+                )),
+                true
+            ),
+            (
+                "dedicated-pulse-audio",
+                demandsAudio(.dedicated(
+                    1,
+                    Program(executionPlan: pulse),
+                    1
+                )),
+                true
+            ),
+            (
+                "dedicated-workshop-audio-bars",
+                demandsAudio(.dedicated(
+                    1,
+                    Program(executionPlan: workshop),
+                    1
+                )),
+                true
+            ),
+            (
+                "dedicated-without-audio",
+                demandsAudio(.dedicated(
+                    1,
+                    Program(executionPlan: silent),
+                    1
+                )),
+                false
+            )
+        ]
+
+        for (name, actual, expected) in checks where actual != expected {
+            fatalError("\\(name): expected \\(expected), got \\(actual)")
+        }
+        if Catalog(capabilitiesByLayerID: [:]).hasAudioSpectrumConsumer {
+            fatalError("empty catalog must not demand audio")
+        }
+        print("audio-demand-ok")
+    }
+}
+"""
+        with tempfile.TemporaryDirectory(prefix="scene-audio-demand-") as temp:
+            temp_path = Path(temp)
+            harness_path = temp_path / "AudioDemandHarness.swift"
+            executable_path = temp_path / "AudioDemandHarness"
+            harness_path.write_text(harness, encoding="utf-8")
+            compile_result = subprocess.run(
+                [
+                    shutil.which("swiftc") or "swiftc",
+                    "-parse-as-library",
+                    str(harness_path),
+                    "-o",
+                    str(executable_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                compile_result.returncode,
+                0,
+                compile_result.stdout + compile_result.stderr,
+            )
+            run_result = subprocess.run(
+                [str(executable_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                run_result.returncode,
+                0,
+                run_result.stdout + run_result.stderr,
+            )
+            self.assertEqual(run_result.stdout.strip(), "audio-demand-ok")
 
 
 class SceneShakeAudioContractTests(unittest.TestCase):

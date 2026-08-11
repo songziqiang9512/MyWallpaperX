@@ -71,7 +71,8 @@ extension SceneAuthoredEffectExecutionPlan {
         case .localContrast:
             return true
         case .godrays(let plan):
-            return plan.direction == nil && !plan.legacyGaussianWeights
+            return (plan.direction == nil && !plan.legacyGaussianWeights)
+                || (plan.direction?.isFinite == true && plan.legacyGaussianWeights)
         case .shine:
             return true
         default:

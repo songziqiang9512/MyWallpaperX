@@ -213,6 +213,7 @@ struct SceneCursorRippleExecutionPlan {
 }
 
 struct SceneOpacityExecutionPlan {}
+struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 
 struct SceneAuthoredEffectExecutionPlan {
     let layerID: Int
@@ -225,6 +226,9 @@ struct SceneAuthoredEffectExecutionPlan {
     var supportsUnifiedLogicalTargetStage = false
     var supportsUnifiedFullFrameComposeStage = false
     var supportsUtilityCapture = true
+    var shake: HarnessDedicatedAudioExecutionPlan? { nil }
+    var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
+    var workshopAudioBars: SceneOpacityExecutionPlan? { nil }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
@@ -2149,6 +2153,7 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
 }
 
 struct SceneOpacityExecutionPlan {}
+struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 
 struct SceneAuthoredEffectExecutionPlan {
     let logicalRenderTargetCount: Int
@@ -2157,6 +2162,9 @@ struct SceneAuthoredEffectExecutionPlan {
     var supportsUnifiedLogicalTargetStage = false
     var supportsUnifiedFullFrameComposeStage = false
     var supportsUtilityCapture = true
+    var shake: HarnessDedicatedAudioExecutionPlan? { nil }
+    var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
+    var workshopAudioBars: SceneOpacityExecutionPlan? { nil }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
@@ -3377,8 +3385,12 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("case .standardBlur:", logical_body)
         self.assertIn("case .localContrast:", logical_body)
         self.assertIn("case .godrays(let plan):", logical_body)
-        self.assertIn("plan.direction == nil", logical_body)
-        self.assertIn("!plan.legacyGaussianWeights", logical_body)
+        logical_compact = "".join(logical_body.split())
+        self.assertIn(
+            "return(plan.direction==nil&&!plan.legacyGaussianWeights)"
+            "||(plan.direction?.isFinite==true&&plan.legacyGaussianWeights)",
+            logical_compact,
+        )
         self.assertIn("case .shine:", logical_body)
         self.assertNotIn("case .cursorRipple:", logical_body)
 

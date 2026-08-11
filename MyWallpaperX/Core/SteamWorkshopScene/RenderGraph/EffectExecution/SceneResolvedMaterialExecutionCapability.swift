@@ -308,16 +308,16 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
-    /// A resolved Program may replace the dedicated audio stage entirely, so
-    /// launch-time capture demand must survive owner migration.
+    /// Unified owner migration preserves capture demand for every audio stage.
     var hasAudioSpectrumConsumer: Bool {
         capabilitiesByLayerID.values.contains { capability in
             capability.stages.contains { stage in
-                guard case .resolved(_, let materials) = stage else {
-                    return false
-                }
-                return materials.values.contains {
-                    $0.variants.hasAudioSpectrumConsumer
+                switch stage {
+                case .resolved(_, let materials):
+                    return materials.values.contains { $0.variants.hasAudioSpectrumConsumer }
+                case .dedicated(_, let program, _):
+                    let plan = program.executionPlan
+                    return plan.shake?.audio != nil || plan.pulse?.audio != nil || plan.workshopAudioBars != nil
                 }
             }
         }
