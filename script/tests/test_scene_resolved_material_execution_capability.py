@@ -529,7 +529,9 @@ private func logicalTargetGraph(unique: Bool = false) -> Graph {
     )
 }
 
-private func logicalTargetDescriptor() -> SceneRenderDescriptor {
+private func logicalTargetDescriptor(
+    capturedMain: Bool = false
+) -> SceneRenderDescriptor {
     .init(
         layers: [.init(
             id: layerID,
@@ -541,7 +543,9 @@ private func logicalTargetDescriptor() -> SceneRenderDescriptor {
                     .init(passIndex: 0, combos: [:]),
                     .init(passIndex: 1, combos: [:]),
                 ]
-            )]
+            )],
+            contentKind: capturedMain ? "composition" : "image",
+            utilityLayer: capturedMain ? .init(kind: .composition) : nil
         )],
         materialPasses: [
             .init(id: "m0", materialPath: "materials/m0.json", combos: [:]),
@@ -1186,13 +1190,15 @@ private func catalog(
 private func fullFrameComposeCatalog(
     graph: Graph,
     descriptor: SceneRenderDescriptor,
-    allowDedicated: Bool
+    allowDedicated: Bool,
+    supportsUtilityCapture: Bool = false
 ) -> Catalog {
     let program = dedicatedProgram(
         graph: graph,
         effectIndex: 0,
         inputRole: .layerSource,
-        fullFrameComposeStage: true
+        fullFrameComposeStage: true,
+        supportsUtilityCapture: supportsUtilityCapture
     )
     let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
         descriptor: descriptor,
@@ -1737,6 +1743,48 @@ private enum Harness {
             ),
             dedicatedStageFamilies: [firstKey: "precise-gaussian"]
         )
+        let capturedMainLogicalDescriptor = logicalTargetDescriptor(
+            capturedMain: true
+        )
+        let capturedMainLogicalCandidates =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: capturedMainLogicalDescriptor,
+                authoredPlans: [logicalGraph],
+                dedicatedStagePrograms: [dedicatedProgram(
+                    graph: logicalGraph,
+                    effectIndex: 0,
+                    inputRole: .layerSource,
+                    logicalTargetStage: true,
+                    supportsUtilityCapture: true
+                )]
+            )
+        let capturedMainLogicalCatalog = Catalog(
+            admissionCandidates: capturedMainLogicalCandidates,
+            materialCatalog: materialCatalog(
+                graph: logicalGraph,
+                demandIssueNodes: [0, 1]
+            ),
+            dedicatedStageFamilies: [firstKey: "precise-gaussian"],
+            dedicatedGraphStageKeys: [firstKey]
+        )
+        let capturedMainLogicalWithoutSupportCandidates =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: capturedMainLogicalDescriptor,
+                authoredPlans: [logicalGraph],
+                dedicatedStagePrograms: [logicalProgram]
+            )
+        let capturedMainLogicalWithoutSupportCatalog = Catalog(
+            admissionCandidates: capturedMainLogicalWithoutSupportCandidates,
+            materialCatalog: materialCatalog(
+                graph: logicalGraph,
+                demandIssueNodes: [0, 1]
+            ),
+            dedicatedStageFamilies: [firstKey: "precise-gaussian"],
+            dedicatedGraphStageKeys: [firstKey]
+        )
+        let capturedMainLogicalCapability = capturedMainLogicalCatalog
+            .claim(layerID: layerID)
+            .flatMap { capturedMainLogicalCatalog.resolve($0.token) }
         let uniqueLogicalGraph = logicalTargetGraph(unique: true)
         let uniqueLogicalCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
@@ -1773,7 +1821,8 @@ private enum Harness {
         let capturedMainComposeCatalog = fullFrameComposeCatalog(
             graph: composeGraph,
             descriptor: fullFrameComposeDescriptor(capturedMain: true),
-            allowDedicated: true
+            allowDedicated: true,
+            supportsUtilityCapture: true
         )
         let historyComposeGraph = fullFrameComposeGraph(includeHistory: true)
         let historyComposeCatalog = fullFrameComposeCatalog(
@@ -1975,6 +2024,17 @@ private enum Harness {
                     uniqueLogicalCatalog,
                     "dedicated-leaf-unsupported"
                 ) && uniqueLogicalCatalog.claim(layerID: layerID) == nil,
+                "logicalTargetStageAcceptsCapturedMain":
+                    capturedMainLogicalCapability?.sourceRoute
+                        == .capturedMainTargetTexture
+                    && capturedMainLogicalCapability?.stages.count == 1
+                    && capturedMainLogicalCapability?.materials.isEmpty == true,
+                "logicalTargetStageCapturedMainRequiresUtilitySupport": reportHas(
+                    capturedMainLogicalWithoutSupportCatalog,
+                    "dedicated-leaf-unsupported"
+                ) && capturedMainLogicalWithoutSupportCatalog.claim(
+                    layerID: layerID
+                ) == nil,
                 "fullFrameComposeStageAccepted":
                     fullFrameComposeCapability != nil,
                 "fullFrameComposeStageContract":
@@ -3417,11 +3477,21 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "admitted.sourceRoute != .capturedMainTargetTexture",
             program_first,
         )
-        self.assertIn(
-            "pairLeaf\n                            "
-            "&& program.executionPlan.supportsUtilityCapture",
-            program_first,
+        captured_route_start = program_first.index(
+            "admitted.sourceRoute != .capturedMainTargetTexture"
         )
+        captured_route_end = program_first.index(" else {", captured_route_start)
+        captured_route_guard = program_first[
+            captured_route_start:captured_route_end
+        ]
+        captured_route_compact = "".join(captured_route_guard.split())
+        self.assertIn(
+            "admitted.sourceRoute!=.capturedMainTargetTexture"
+            "||((pairLeaf||logicalTargetStage)"
+            "&&program.executionPlan.supportsUtilityCapture)",
+            captured_route_compact,
+        )
+        self.assertNotIn("fullFrameComposeStage", captured_route_guard)
 
     def test_runtime_variant_resolution_starts_from_launch_envelope_seed(
         self,
@@ -3758,6 +3828,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "logicalTargetStageAccepted": True,
                 "logicalTargetStageRequiresAllowlist": True,
                 "logicalTargetStageRejectsHistory": True,
+                "logicalTargetStageAcceptsCapturedMain": True,
+                "logicalTargetStageCapturedMainRequiresUtilitySupport": True,
                 "fullFrameComposeStageAccepted": True,
                 "fullFrameComposeStageContract": True,
                 "fullFrameComposeStageRequiresAllowlist": True,

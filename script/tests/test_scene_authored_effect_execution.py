@@ -1908,6 +1908,7 @@ enum Harness {
             "standardBackendMatched": standardBackendMatched
                 && standardPlan.gaussianBlur == nil
                 && !standardPlan.requiresExactInputExtent,
+            "standardSupportsUtilityCapture": standardPlan.supportsUtilityCapture,
             "standardLegacyBlocked": standardCatalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
             "standardWrongExtentRejected": standardRejected(graph: standardBlurGraph(wrongExtent: true)),
             "standardWrongBindingRejected": standardRejected(graph: standardBlurGraph(wrongBinding: true)),
@@ -2094,6 +2095,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         )
         self.assertTrue(self.result["standardGraphIdentityMatched"])
         self.assertTrue(self.result["standardBackendMatched"])
+        self.assertTrue(self.result["standardSupportsUtilityCapture"])
 
     def test_texture_precedence_preserves_slots(self) -> None:
         self.assertEqual(

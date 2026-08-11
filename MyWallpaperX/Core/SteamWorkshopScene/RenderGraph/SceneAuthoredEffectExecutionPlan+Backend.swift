@@ -264,6 +264,8 @@ extension SceneAuthoredEffectExecutionPlan {
         switch backend {
         case .colorGrading:
             return true
+        case .standardBlur:
+            return true
         case .foliageSway:
             return true
         case .clippingMask, .opacity:

@@ -85,7 +85,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                       program.effectKey == effect.key,
                       program.stageGraph.effects.first?.key == effect.key,
                       admitted.sourceRoute != .capturedMainTargetTexture
-                        || (pairLeaf
+                        || ((pairLeaf || logicalTargetStage)
                             && program.executionPlan.supportsUtilityCapture) else {
                     return .failure(rejection("dedicated-leaf-unsupported"))
                 }
