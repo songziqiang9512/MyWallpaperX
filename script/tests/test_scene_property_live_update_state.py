@@ -12,13 +12,20 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+TARGET_MAPPING_SOURCE = (
+    SOURCE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift"
+)
+SERVICE_SOURCE = REPOSITORY_ROOT / (
+    "MyWallpaperX/Modules/SteamWorkshop/Scene/"
+    "SteamWorkshopSceneService+SceneProperties.swift"
+)
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Properties/SceneUserProperty.swift",
     SOURCE_ROOT / "Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Properties/ScenePuppetAnimationPropertyTarget.swift",
     SOURCE_ROOT / "Properties/ScenePropertyBindingProgram.swift",
-    SOURCE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+    TARGET_MAPPING_SOURCE,
     SOURCE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",
     SOURCE_ROOT / "Properties/ScenePropertyLiveUpdateState.swift",
 ]
@@ -32,6 +39,14 @@ enum Harness {
     static let alphaTwo = SceneDynamicTarget.layer(layerID: 2, field: .alpha)
     static let alphaThree = SceneDynamicTarget.layer(layerID: 3, field: .alpha)
     static let color = SceneDynamicTarget.layer(layerID: 4, field: .color)
+    static let xrayVisibility = SceneDynamicTarget.effectVisibility(
+        layerID: 5,
+        effectIndex: 0
+    )
+    static let genericVisibility = SceneDynamicTarget.effectVisibility(
+        layerID: 6,
+        effectIndex: 0
+    )
 
     static func main() throws {
         let liveProgram = program(
@@ -183,6 +198,57 @@ enum Harness {
             from: beforePartialConsumer
         )
 
+        let genericVisibilityProgram = program(bindings: [
+            ("genericVisibility", genericVisibility, .bool, .bool(true)),
+        ])
+        var genericVisibilityState = ScenePropertyLiveUpdateState(
+            program: genericVisibilityProgram,
+            effectiveValues: ["genericVisibility": .bool(true)],
+            activeConsumerTargets: []
+        )
+        let beforeGenericVisibility = genericVisibilityState
+        let genericVisibilityRejected = !genericVisibilityState.apply(
+            .bool(false),
+            forPropertyKey: "genericVisibility"
+        )
+        let genericVisibilityWasAtomic = unchanged(
+            genericVisibilityState,
+            from: beforeGenericVisibility
+        )
+
+        let xrayVisibilityProgram = program(bindings: [
+            ("xrayVisibility", xrayVisibility, .bool, .bool(true)),
+        ])
+        var xrayVisibilityState = ScenePropertyLiveUpdateState(
+            program: xrayVisibilityProgram,
+            effectiveValues: ["xrayVisibility": .bool(true)],
+            activeConsumerTargets: [xrayVisibility]
+        )
+        let xrayVisibilityAccepted = xrayVisibilityState.apply(
+            .bool(false),
+            forPropertyKey: "xrayVisibility"
+        )
+        let xrayVisibilityUpdated = bool(xrayVisibilityState, xrayVisibility) == false
+
+        let mixedVisibilityProgram = program(bindings: [
+            ("sharedVisibility", xrayVisibility, .bool, .bool(true)),
+            ("sharedVisibility", genericVisibility, .bool, .bool(true)),
+        ])
+        var mixedVisibilityState = ScenePropertyLiveUpdateState(
+            program: mixedVisibilityProgram,
+            effectiveValues: ["sharedVisibility": .bool(true)],
+            activeConsumerTargets: [xrayVisibility]
+        )
+        let beforeMixedVisibility = mixedVisibilityState
+        let mixedVisibilityRejected = !mixedVisibilityState.apply(
+            .bool(false),
+            forPropertyKey: "sharedVisibility"
+        )
+        let mixedVisibilityWasAtomic = unchanged(
+            mixedVisibilityState,
+            from: beforeMixedVisibility
+        )
+
         let payload: [String: Bool] = [
             "initialEvaluatedAllTargets": initialEvaluatedAllTargets,
             "singleAccepted": singleAccepted,
@@ -215,6 +281,12 @@ enum Harness {
             "mixedWasAtomic": mixedWasAtomic,
             "partialConsumerRejected": partialConsumerRejected,
             "partialConsumerWasAtomic": partialConsumerWasAtomic,
+            "genericVisibilityRejected": genericVisibilityRejected,
+            "genericVisibilityWasAtomic": genericVisibilityWasAtomic,
+            "xrayVisibilityAccepted": xrayVisibilityAccepted,
+            "xrayVisibilityUpdated": xrayVisibilityUpdated,
+            "mixedVisibilityRejected": mixedVisibilityRejected,
+            "mixedVisibilityWasAtomic": mixedVisibilityWasAtomic,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -254,6 +326,14 @@ enum Harness {
     ) -> [Double]? {
         guard case let .vector3(x, y, z) = state.userValues[target] else { return nil }
         return [x, y, z]
+    }
+
+    static func bool(
+        _ state: ScenePropertyLiveUpdateState,
+        _ target: SceneDynamicTarget
+    ) -> Bool? {
+        guard case let .bool(value) = state.userValues[target] else { return nil }
+        return value
     }
 
     static func unchanged(
@@ -335,6 +415,43 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
     def test_shared_key_requires_every_consumer_to_be_active(self) -> None:
         self.assertTrue(self.result["partialConsumerRejected"])
         self.assertTrue(self.result["partialConsumerWasAtomic"])
+
+    def test_generic_effect_visibility_without_consumer_fails_atomically(self) -> None:
+        self.assertTrue(self.result["genericVisibilityRejected"])
+        self.assertTrue(self.result["genericVisibilityWasAtomic"])
+
+    def test_exact_xray_visibility_is_live_with_an_active_consumer(self) -> None:
+        self.assertTrue(self.result["xrayVisibilityAccepted"])
+        self.assertTrue(self.result["xrayVisibilityUpdated"])
+
+    def test_mixed_visibility_key_rejects_if_any_consumer_is_inactive(self) -> None:
+        self.assertTrue(self.result["mixedVisibilityRejected"])
+        self.assertTrue(self.result["mixedVisibilityWasAtomic"])
+
+    def test_xray_mapping_is_exact_and_live_rejection_requests_relaunch(self) -> None:
+        mapping = TARGET_MAPPING_SOURCE.read_text(encoding="utf-8")
+        visibility_mapping = mapping[
+            mapping.index("case let .effectVisibility") :
+            mapping.index("default:", mapping.index("case let .effectVisibility"))
+        ]
+        self.assertIn(
+            'normalized(effectPath) == "effects/xray/effect.json"',
+            visibility_mapping,
+        )
+
+        service = SERVICE_SOURCE.read_text(encoding="utf-8")
+        update = service[
+            service.index("func updateScenePropertyValue(") :
+            service.index("func resetScenePropertyValues(")
+        ]
+        self.assertIn(
+            "if !SceneDesktopWallpaperHost.shared.applyUserPropertyValue(",
+            update,
+        )
+        self.assertLess(
+            update.index("applyUserPropertyValue("),
+            update.index("scheduleActiveScenePropertyRender"),
+        )
 
 
 if __name__ == "__main__":

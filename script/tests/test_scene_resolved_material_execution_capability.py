@@ -3478,67 +3478,24 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             launch.count("SceneTimelineTargetCompiler.compile("),
             1,
         )
-        raw_visibility_census = (
-            "model.sceneDocument.userPropertyResolution.bindingReport.bindings"
-        )
-        executable_visibility_census = (
-            "runtimeInput.propertyBindingProgram.definitions"
-        )
         compact_launch = "".join(launch.split())
-        self.assertIn(raw_visibility_census, compact_launch)
-        self.assertIn(executable_visibility_census, compact_launch)
-        self.assertLess(
-            compact_launch.index(raw_visibility_census),
-            compact_launch.index(executable_visibility_census),
-        )
-        raw_visibility_owner_source = compact_launch[
-            compact_launch.index(raw_visibility_census) : compact_launch.index(
-                executable_visibility_census
-            )
+        visibility_owner_source = compact_launch[
+            compact_launch.index("typealiasVisibilityOwner=") :
+            compact_launch.index("letdedicatedStageLeaves=")
         ]
-        self.assertIn("caselet.effectVisibility", raw_visibility_owner_source)
-        self.assertIn("binding.target", raw_visibility_owner_source)
         self.assertIn(
-            "rawRebuildEffectVisibilityOwners.insert",
-            raw_visibility_owner_source,
+            "varframeDrivenEffectVisibilityOwners=Set<VisibilityOwner>()",
+            visibility_owner_source,
         )
         self.assertNotIn(
-            "dynamicEffectVisibilityOwners.insert",
-            raw_visibility_owner_source,
+            "userPropertyResolution.bindingReport",
+            visibility_owner_source,
         )
-        self.assertNotIn("effects/xray", raw_visibility_owner_source.lower())
-        full_frame_keys = "letdedicatedFullFrameComposeStageKeys="
-        full_frame_layers = "letdedicatedFullFrameComposeLayerIDs="
-        scoped_raw_merge = "dynamicEffectVisibilityOwners.formUnion("
-        self.assertIn(full_frame_keys, compact_launch)
-        self.assertIn(full_frame_layers, compact_launch)
-        self.assertIn(scoped_raw_merge, compact_launch)
-        self.assertLess(
-            compact_launch.index(full_frame_keys),
-            compact_launch.index(full_frame_layers),
+        self.assertNotIn(
+            "propertyBindingProgram.definitions",
+            visibility_owner_source,
         )
-        self.assertLess(
-            compact_launch.index(full_frame_layers),
-            compact_launch.index(scoped_raw_merge),
-        )
-        scoped_raw_source = compact_launch[
-            compact_launch.index(scoped_raw_merge) : compact_launch.index(
-                "letresolvedMaterialAdmissionCandidates="
-            )
-        ]
-        self.assertIn(
-            "rawRebuildEffectVisibilityOwners.filter",
-            scoped_raw_source,
-        )
-        self.assertIn(
-            "dedicatedFullFrameComposeLayerIDs.contains($0.layerID)",
-            scoped_raw_source,
-        )
-        executable_visibility_source = compact_launch[
-            compact_launch.index(executable_visibility_census) : compact_launch.index(
-                "forbindingintimelineProgram.bindings"
-            )
-        ]
+        self.assertNotIn("rawRebuildEffectVisibilityOwners", launch)
         timeline_visibility_source = compact_launch[
             compact_launch.index("forbindingintimelineProgram.bindings") :
             compact_launch.index("forbindinginmodel.sceneDocument.scriptBindings")
@@ -3548,18 +3505,22 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             compact_launch.index("letdedicatedStageLeaves=")
         ]
         for global_visibility_source in (
-            executable_visibility_source,
             timeline_visibility_source,
             script_visibility_source,
         ):
             self.assertIn(
-                "dynamicEffectVisibilityOwners.insert",
+                "frameDrivenEffectVisibilityOwners.insert",
                 global_visibility_source,
             )
             self.assertNotIn(
-                "rawRebuildEffectVisibilityOwners.insert",
+                "effects/xray",
                 global_visibility_source,
             )
+        self.assertIn(
+            'binding.targetKey=="visible"',
+            script_visibility_source,
+        )
+        self.assertNotIn("effectPath", script_visibility_source)
         admission_visibility_source = compact_launch[
             compact_launch.index("letresolvedMaterialAdmissionCandidates=") :
             compact_launch.index(
@@ -3567,7 +3528,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             )
         ]
         self.assertIn(
-            "dynamicEffectVisibilityOwners:dynamicEffectVisibilityOwners",
+            "dynamicEffectVisibilityOwners:frameDrivenEffectVisibilityOwners",
             admission_visibility_source,
         )
         self.assertIn("timelineProgram.bindings", launch)

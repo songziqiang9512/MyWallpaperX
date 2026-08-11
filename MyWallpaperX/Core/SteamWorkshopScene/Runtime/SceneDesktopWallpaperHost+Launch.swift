@@ -95,29 +95,14 @@ extension SceneDesktopWallpaperHost {
         typealias VisibilityOwner =
             SceneResolvedMaterialExecutionCapabilityAdmission
                 .DynamicEffectVisibilityOwner
-        var dynamicEffectVisibilityOwners = Set<VisibilityOwner>()
-        var rawRebuildEffectVisibilityOwners = Set<VisibilityOwner>()
-        for binding in model.sceneDocument.userPropertyResolution
-            .bindingReport.bindings {
-            guard case let .effectVisibility(layerID, effectIndex, _) =
-                    binding.target else { continue }
-            rawRebuildEffectVisibilityOwners.insert(.init(
-                layerID: layerID,
-                effectIndex: effectIndex
-            ))
-        }
-        for definition in runtimeInput.propertyBindingProgram.definitions {
-            guard case let .effectVisibility(layerID, effectIndex) =
-                    definition.target else { continue }
-            dynamicEffectVisibilityOwners.insert(.init(
-                layerID: layerID,
-                effectIndex: effectIndex
-            ))
-        }
+        // User-property visibility stays live for typed consumers; otherwise
+        // live-state rejects atomically and the service relaunches the Scene.
+        // Admission only blocks frame-driven topology changes here.
+        var frameDrivenEffectVisibilityOwners = Set<VisibilityOwner>()
         for binding in timelineProgram.bindings {
             guard case let .effectVisibility(layerID, effectIndex) =
                     binding.definition.target else { continue }
-            dynamicEffectVisibilityOwners.insert(.init(
+            frameDrivenEffectVisibilityOwners.insert(.init(
                 layerID: layerID,
                 effectIndex: effectIndex
             ))
@@ -127,7 +112,7 @@ extension SceneDesktopWallpaperHost {
                   binding.targetKey == "visible",
                   let layerID = binding.owner.objectID,
                   let effectIndex = binding.owner.effectIndex else { continue }
-            dynamicEffectVisibilityOwners.insert(.init(
+            frameDrivenEffectVisibilityOwners.insert(.init(
                 layerID: layerID,
                 effectIndex: effectIndex
             ))
@@ -156,14 +141,6 @@ extension SceneDesktopWallpaperHost {
                     ? $0.effectKey : nil
             }
         )
-        let dedicatedFullFrameComposeLayerIDs = Set(
-            dedicatedFullFrameComposeStageKeys.map(\.layerID)
-        )
-        dynamicEffectVisibilityOwners.formUnion(
-            rawRebuildEffectVisibilityOwners.filter {
-                dedicatedFullFrameComposeLayerIDs.contains($0.layerID)
-            }
-        )
         let timeOfDayEffectScriptCandidates = dedicatedStageLeaves.compactMap {
             $0.executionPlan.blend?.dynamicMultiplyBinding
         }
@@ -175,7 +152,8 @@ extension SceneDesktopWallpaperHost {
                 descriptor: runtimeInput.renderDescriptor,
                 authoredPlans: runtimeInput.authoredEffectRenderPlans,
                 dedicatedStagePrograms: dedicatedStageLeaves,
-                dynamicEffectVisibilityOwners: dynamicEffectVisibilityOwners,
+                dynamicEffectVisibilityOwners:
+                    frameDrivenEffectVisibilityOwners,
                 specializedLayerIDs: Set(
                     sceneScriptAudioBarsProgram.plans.map(\.layerID)
                 )

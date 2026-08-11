@@ -2,7 +2,7 @@
   "schema_version": 2,
   "name": "scene-runtime-fixed13-2026-07-26",
   "base_matrix": "scene_wallpaper_full_sample_matrix.json",
-  "base_matrix_sha256": "57dfb503e94765a90260ceac388b3d10fe245f31310d06309f973399b322e4a3",
+  "base_matrix_sha256": "000d3a9d3915b1765b7b0ff6786f59586a5d20f822ba2df0f85efabb635ddaa5",
   "sample_ids": [
     "2131872317",
     "2802243144",
