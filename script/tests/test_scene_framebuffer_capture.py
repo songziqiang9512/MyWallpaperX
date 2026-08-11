@@ -786,6 +786,11 @@ struct SceneLightShaftsEffectTextures {
         return plan
     }
 
+    var godrays: SceneGodraysPlan? {
+        guard case .godrays(let plan) = backend else { return nil }
+        return plan
+    }
+
     var opacity: SceneOpacityExecutionPlan? {
         guard case .opacity(let plan) = backend else { return nil }
         return plan
@@ -848,6 +853,8 @@ struct SceneLightShaftsEffectTextures {
             return true
         case .localContrast:
             return true
+        case .godrays(let plan):
+            return plan.direction == nil && !plan.legacyGaussianWeights
         default:
             return false
         }
@@ -1167,6 +1174,8 @@ struct SceneGodraysPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let firstHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
     let secondHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
+    let direction: Float?
+    let legacyGaussianWeights: Bool
     let maskTexturePath: String?
 }
 
@@ -1197,7 +1206,13 @@ enum SceneGodraysRenderer {
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
-        nil
+        guard let resources = masks.godraysEffects[plan.effectKey.descriptorID],
+              resources.matches(plan),
+              targets.texture(for: plan.firstHalfTarget) != nil,
+              targets.texture(for: plan.secondHalfTarget) != nil else {
+            return nil
+        }
+        return targets.outputTexture
     }
 }
 
@@ -2005,6 +2020,11 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let authoredGodraysPrepared = try authoredGodraysPreparedEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline
+        )
         let authoredTwoStageChain = try authoredTwoStageChainEvidence(
             device: device,
             queue: queue,
@@ -2191,6 +2211,7 @@ enum Harness {
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredStandardCandidate": authoredStandardCandidate,
             "authoredLocalContrastPrepared": authoredLocalContrastPrepared,
+            "authoredGodraysPrepared": authoredGodraysPrepared,
             "authoredTwoStageChain": authoredTwoStageChain,
             "authoredOpacityLivePixels": authoredOpacityLivePixels,
             "authoredOpacityMaskPixel": authoredOpacityMaskPixel,
@@ -3783,6 +3804,96 @@ enum Harness {
             "preparedStageEncoded": true,
             "invalidStrengthReason": invalidReason as Any,
             "inputToOutputDelta": maxDifference(inputBytes, outputBytes),
+        ]
+    }
+
+    static func authoredGodraysPreparedEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline
+    ) throws -> [String: Any] {
+        let size = 16
+        guard let noise = makeTexture(device: device, size: size, usage: .shaderRead),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(noise, bgra: [127, 127, 127, 255])
+        let plan = authoredGodraysPlan()
+        let legacyPlan = authoredGodraysPlan(legacyDirectional: true)
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        let frameTables = try prepareStandaloneAuthoredTables(
+            plan: plan,
+            pool: pool,
+            width: size,
+            height: size,
+            commandBuffer: commandBuffer
+        )
+        defer { frameTables.commit.releaseAll() }
+        guard let table = frameTables.tables.first,
+              let godrays = plan.godrays else {
+            throw HarnessError.drawRefused
+        }
+        let resources = SceneGodraysEffectTextures(
+            mask: nil,
+            maskUVScale: SIMD2(repeating: 1),
+            maskPath: nil,
+            noise: noise
+        )
+        func preparation(
+            _ stage: SceneAuthoredEffectExecutionPlan,
+            resources: [String: SceneGodraysEffectTextures]
+        ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
+            SceneAuthoredEffectChainRenderer.prepareStage(
+                stage,
+                sourceTexture: table.inputTexture,
+                targets: table,
+                inputs: .init(
+                    masks: authoredEffectMasks(godraysEffects: resources),
+                    dynamicValues: .empty(frameIndex: 1),
+                    pipelines: .init(
+                        repository: SceneImageEffectPipelineRepository(device: device)
+                    ),
+                    cursorUV: .zero,
+                    previousCursorUV: .zero,
+                    pointerIsInside: false,
+                    previousPointerIsInside: false,
+                    frameTime: 1 / 60,
+                    time: 0,
+                    audioSpectrum: .silent,
+                    dependencyEffect: nil
+                ),
+                sourcePipeline: pipeline,
+                time: 0
+            )
+        }
+        let accepted = preparation(
+            plan,
+            resources: [godrays.effectKey.descriptorID: resources]
+        )
+        guard case let .ready(prepared) = accepted,
+              SceneAuthoredEffectChainRenderer.encodePreparedStage(
+                  prepared,
+                  commandBuffer: commandBuffer
+              ) else { throw HarnessError.drawRefused }
+        let missing = preparation(plan, resources: [:])
+        let legacy = preparation(
+            legacyPlan,
+            resources: [godrays.effectKey.descriptorID: resources]
+        )
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed,
+              commandBuffer.error == nil else { throw HarnessError.commandFailed }
+        let missingReason: String?
+        if case let .rejected(reason) = missing { missingReason = reason }
+        else { missingReason = nil }
+        let legacyReason: String?
+        if case let .rejected(reason) = legacy { legacyReason = reason }
+        else { legacyReason = nil }
+        return [
+            "preparedStageEncoded": true,
+            "missingResourceReason": missingReason as Any,
+            "legacyDirectionalReason": legacyReason as Any,
         ]
     }
 
@@ -5415,6 +5526,89 @@ enum Harness {
         )
     }
 
+    static func authoredGodraysPlan(
+        legacyDirectional: Bool = false
+    ) -> SceneAuthoredEffectExecutionPlan {
+        let layerID = 832
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#0"
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
+        let firstHalf = graphTexture(
+            .framebuffer,
+            layerID: layerID,
+            effect: effectKey,
+            name: "_rt_HalfCompoBuffer1"
+        )
+        let secondHalf = graphTexture(
+            .framebuffer,
+            layerID: layerID,
+            effect: effectKey,
+            name: "_rt_HalfCompoBuffer2"
+        )
+        let targets = [firstHalf, secondHalf, firstHalf, secondHalf, output]
+        let nodes = targets.indices.map { index in
+            Graph.Node(
+                nodeIndex: index,
+                effect: effectKey,
+                definitionPassIndex: index,
+                materialOrdinal: index,
+                instancePassIndex: index,
+                kind: .material,
+                materialPath: "materials/effects/godrays_\(index).json",
+                materialPassID: "materials/effects/godrays_\(index).json#0",
+                target: targets[index],
+                bindings: [],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            )
+        }
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/godrays/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: nodes.map(\.nodeIndex)
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: [firstHalf, secondHalf].map {
+                .init(
+                    texture: $0,
+                    extent: .init(kind: .scale, first: 2, second: nil),
+                    format: legacyDirectional ? "rgba8888" : "rgba_backbuffer",
+                    declaredUnique: false,
+                    clear: nil,
+                    uvs: nil,
+                    conditions: nil
+                )
+            },
+            nodes: nodes,
+            finalOutput: output,
+            blockers: []
+        )
+        return SceneAuthoredEffectExecutionPlan(
+            layerID: layerID,
+            renderGraph: graph,
+            backend: .godrays(SceneGodraysPlan(
+                effectKey: effectKey,
+                firstHalfTarget: firstHalf,
+                secondHalfTarget: secondHalf,
+                direction: legacyDirectional ? 0 : nil,
+                legacyGaussianWeights: legacyDirectional,
+                maskTexturePath: nil
+            )),
+            materialNodeCount: 5,
+            logicalRenderTargetCount: 2
+        )
+    }
+
     static func authoredTwoStageBlurChain() -> SceneAuthoredEffectExecutionChain {
         let layerID = 840
         let first = authoredStandardBlurPlan(layerID: layerID)
@@ -5767,7 +5961,8 @@ enum Harness {
     static func authoredEffectMasks(
         blendEffects: [String: SceneBlendEffectTextures] = [:],
         tintMask: MTLTexture? = nil,
-        tintMaskPath: String? = nil
+        tintMaskPath: String? = nil,
+        godraysEffects: [String: SceneGodraysEffectTextures] = [:]
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
             iris: nil,
@@ -5795,7 +5990,7 @@ enum Harness {
                 maskUVScale: SIMD2(repeating: 1),
                 maskPath: tintMaskPath
             )],
-            godraysEffects: [:],
+            godraysEffects: godraysEffects,
             shineEffects: [:],
             xRay: nil
         )
@@ -6559,6 +6754,22 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertEqual(
             evidence["invalidStrengthReason"],
             "local-contrast-strength-invalid",
+            evidence,
+        )
+
+    def test_stock_godrays_prepared_stage_requires_resources_and_excludes_legacy(
+        self,
+    ) -> None:
+        evidence = self.result["authoredGodraysPrepared"]
+        self.assertTrue(evidence["preparedStageEncoded"], evidence)
+        self.assertEqual(
+            evidence["missingResourceReason"],
+            "godrays-resource-missing",
+            evidence,
+        )
+        self.assertEqual(
+            evidence["legacyDirectionalReason"],
+            "backend-unsupported",
             evidence,
         )
 

@@ -469,6 +469,8 @@ enum SceneAuthoredPulsePlanner {
 }
 
 struct SceneGodraysPlan {
+    var direction: Float? { nil }
+    var legacyGaussianWeights: Bool { false }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 

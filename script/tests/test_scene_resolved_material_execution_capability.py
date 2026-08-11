@@ -3151,6 +3151,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("case .preciseGaussian:", logical_body)
         self.assertIn("case .standardBlur:", logical_body)
         self.assertIn("case .localContrast:", logical_body)
+        self.assertIn("case .godrays(let plan):", logical_body)
+        self.assertIn("plan.direction == nil", logical_body)
+        self.assertIn("!plan.legacyGaussianWeights", logical_body)
         self.assertNotIn("case .cursorRipple:", logical_body)
 
         capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")

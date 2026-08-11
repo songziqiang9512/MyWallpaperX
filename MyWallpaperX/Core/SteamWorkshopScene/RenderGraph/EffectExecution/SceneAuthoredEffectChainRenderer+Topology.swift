@@ -119,6 +119,16 @@ extension SceneAuthoredEffectChainRenderer {
                 return "local-contrast-strength-invalid"
             }
             return nil
+        case .godrays(let plan):
+            guard pipelines.godrays != nil else {
+                return "godrays-pipeline-missing"
+            }
+            guard let resources = inputs.masks.godraysEffects[
+                plan.effectKey.descriptorID
+            ], resources.matches(plan) else {
+                return "godrays-resource-missing"
+            }
+            return nil
         case .opacity(let plan):
             guard pipelines.opacity != nil,
                   stage.opacityAlpha(in: inputs.dynamicValues) != nil else {
