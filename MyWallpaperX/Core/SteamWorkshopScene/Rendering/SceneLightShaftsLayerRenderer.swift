@@ -77,38 +77,6 @@ extension SceneMetalRenderer {
                 executionTrace: executionTrace
             )
         }
-
-        guard let plan = authoredEffectChain(for: layer.id)?.singleStage?.lightShafts,
-              let resources = effectTextures.lightShaftsEffects[plan.effectKey.descriptorID],
-              let pipeline = makeLightShaftsPipeline(),
-              let model = lightShaftsModelMatrix(
-                  for: layer,
-                  worldFramesByLayerID: worldFramesByLayerID,
-                  parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                  configuration: parallaxConfiguration
-              ) else {
-            return true
-        }
-        let encoded = SceneLightShaftsLayerRenderer.draw(
-            plan: plan,
-            resources: resources,
-            model: model,
-            viewProjection: cameraFrame.orthographicViewProjection,
-            time: time,
-            alpha: SceneDynamicLayerValues.alpha(
-                layerID: layer.id,
-                authoredValue: layer.alpha,
-                snapshot: frameContext.dynamicValues
-            ),
-            pipeline: pipeline,
-            mainPass: mainPass,
-            executionTrace: executionTrace
-        )
-        authoredEffectTelemetry.record(
-            layerID: layer.id,
-            encoded: encoded,
-            on: commandBuffer
-        )
         return true
     }
 

@@ -288,15 +288,10 @@
         "role": "retirement",
         "description": "A quad without a resolved claim must not recover a Light Shafts plan and write the main pass after R4 completes.",
         "pattern": "authoredEffectChain\\(for:\\s*layer\\.id\\)\\?\\.singleStage\\?\\.lightShafts",
-        "baseline_occurrences": 1,
+        "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "Rendering/SceneLightShaftsLayerRenderer.swift"
-        ],
-        "allowed_files": [
-          "Rendering/SceneLightShaftsLayerRenderer.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-script-source-profile-selector",
@@ -398,11 +393,10 @@
         "role": "retirement",
         "description": "R5 removes the old authored-effect telemetry owner after all legacy product routes are gone.",
         "pattern": "authoredEffectTelemetry",
-        "baseline_occurrences": 7,
+        "baseline_occurrences": 6,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
         "allowed_files": [
-          "Rendering/SceneLightShaftsLayerRenderer.swift",
           "Rendering/SceneMetalRenderer+EffectExecution.swift",
           "Rendering/SceneMetalRenderer.swift",
           "Rendering/SceneUtilityPlanFrameRenderer.swift"

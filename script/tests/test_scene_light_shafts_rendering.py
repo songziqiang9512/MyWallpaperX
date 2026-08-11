@@ -15,6 +15,10 @@ PIPELINE = (
     ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneLightShaftsPipeline.swift"
 )
+LAYER_RENDERER = (
+    ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneLightShaftsLayerRenderer.swift"
+)
 
 
 HARNESS = r'''
@@ -563,6 +567,41 @@ enum Harness {
 
 
 class SceneLightShaftsRenderingTests(unittest.TestCase):
+    def test_product_quad_route_is_resolved_only_and_legacy_renderer_is_unit_only(
+        self,
+    ) -> None:
+        source = LAYER_RENDERER.read_text(encoding="utf-8")
+        legacy_renderer, product_routes = source.split(
+            "extension SceneMetalRenderer {",
+            maxsplit=1,
+        )
+        draw_quad, resolved_direct = product_routes.split(
+            "    func drawResolvedDirectDrawQuad(",
+            maxsplit=1,
+        )
+        draw_body = draw_quad.split(") -> Bool {", maxsplit=1)[1]
+
+        self.assertIn("if let resolvedFramePlan {", draw_body)
+        self.assertIn("return drawResolvedDirectDrawQuad(", draw_body)
+        self.assertTrue(draw_body.rstrip().endswith("return true\n    }"), draw_body)
+        for retired_product_call in (
+            "authoredEffectChain(",
+            "effectTextures.",
+            "makeLightShaftsPipeline()",
+            "SceneLightShaftsLayerRenderer.draw(",
+            "authoredEffectTelemetry.record(",
+        ):
+            self.assertNotIn(retired_product_call, draw_body)
+
+        self.assertIn("imageCompositor.drawResolvedDirectDrawQuad(", resolved_direct)
+        self.assertIn("framePlan: framePlan", resolved_direct)
+        self.assertIn("executionTrace: executionTrace", resolved_direct)
+
+        self.assertIn("enum SceneLightShaftsLayerRenderer", legacy_renderer)
+        self.assertIn("let encoded = pipeline.draw(", legacy_renderer)
+        self.assertIn("executionTrace.recordExact(", legacy_renderer)
+        self.assertIn('family: "light-shafts"', legacy_renderer)
+
     def test_quad_is_animated_feathered_and_premultiplied(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
