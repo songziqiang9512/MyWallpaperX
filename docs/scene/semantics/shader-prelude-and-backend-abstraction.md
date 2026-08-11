@@ -1,5 +1,7 @@
 # Shader source 前置合同与跨后端假设审查
 
+> shader compiler 的语言职责、候选后端与迁移准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#6-shader-compiler-路线)统一约束。本文只记录 source/prelude/backend 语义合同，不选定 Slang、DXC、Metal Shader Converter、glslang 或 SPIRV-Cross，也不因外部 frontend 可编译而扩大生产 GPU 准入。
+
 审查日期：2026-07-25
 取证快照：Wallpaper Engine 2.8.42 `assets/shaders`
 审查方式：只读静态检查，共 14 个头文件 + 108 个顶层 shader + 7 个 HLSL 专用 shader

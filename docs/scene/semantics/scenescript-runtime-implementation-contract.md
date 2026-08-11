@@ -7,6 +7,8 @@
 > 本文只覆盖在线文档未公开、但客户端取证记录到的实现层事实。`lib.sceneScript.d.ts` 的 API 表面（接口、签名、生命周期钩子）已在 [SceneScript API 覆盖表](scenescript-api-coverage.md) 建立，本文不重复。
 >
 > 本文回答的是 API 覆盖表回答不了的问题：**声明背后的实际数值行为、宿主与 VM 的桥接协议、以及编辑器声明的 authoring/type surface**。
+>
+> VM 技术选型与准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#5-scenescript-路线)统一约束。本文出现的 JavaScriptCore 是历史候选或桥接示例，不表示已经选定；QuickJS-NG 同样必须先通过预算、隔离、生命周期和发布门，不能据候选身份升级覆盖等级。
 
 ## 1. 为什么需要这份文档
 

@@ -4,6 +4,7 @@
 
 ## 当前事实入口
 
+- [architecture/technology-stack-boundaries.md](architecture/technology-stack-boundaries.md)：项目长期技术栈职责、跨语言/跨进程边界，以及 VM、shader compiler 和第三方 native 依赖的准入顺序；候选不等于现役能力。
 - [scene/README.md](scene/README.md)：Scene 专题入口；区分现役台账、专项合同、公开参考和历史快照。
 - [scene/semantics/coverage-ledger.md](scene/semantics/coverage-ledger.md)：Scene 当前系统级摘要；新会话从这里定位系统，再进入专项能力表。
 - [scene/semantics/runtime-evidence-index.md](scene/semantics/runtime-evidence-index.md)：Scene 当前提交、正式运行门、签名身份与能力证据包。
@@ -27,7 +28,7 @@
 
 ## 目录分类
 
-- `architecture/`：AppKit 迁移目标，以及带日期的架构快照。
+- `architecture/`：现役技术栈边界、AppKit 迁移目标，以及带日期的架构快照。
 - `web/`：Web 壁纸规范、运行模型、评测标准、样本回归记录和历史方案。
 - `scene/`：Scene 壁纸设计、`semantics/` 现役语义手册、`reference/` 公开参考快照和历史评审。
 - `release/`：发布、签名、版本和 notarization。
@@ -35,7 +36,7 @@
 
 ## 使用规则
 
-- 判断框架结构时以代码和 `AGENTS.md` 为准，`architecture/` 旧 memo 只作线索；判断 Scene 能力和闭环状态时看覆盖台账、专项表与运行证据索引。
+- 判断框架结构时以代码和 `AGENTS.md` 为准；判断长期技术职责与候选准入时看现役[技术栈与架构路线边界](architecture/technology-stack-boundaries.md)，`architecture/` 旧 memo 只作线索；判断 Scene 能力和闭环状态时看覆盖台账、专项表与运行证据索引。
 - Web 暂无独立的持续更新状态台账；需要当前结论时核对代码、评测标准和最新可复现报告，不把 2026-07 的 roadmap 数字直接复用为当前 HEAD。
 - 专题下的 `regression/` 与 `reviews/` 下的文件主要用于查历史原因和证据，不反向覆盖当前规范。
 - 新增长期规范时放入对应专题目录；新增一次性样本回归或排障记录时放入该专题已有的 `regression/`，没有合适归属时先在对应专题建立清晰入口，不新设空泛归档目录。

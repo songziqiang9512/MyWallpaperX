@@ -103,6 +103,8 @@ MyWallpaperX.app
 WallpaperDaemonSources         ← 独立守护进程，承载视频播放与频谱呈现；Web daemon 仅保留诊断 harness
 ```
 
+长期语言职责、跨进程边界，以及 SceneScript VM / shader compiler 候选的准入规则见[技术栈与架构路线边界](docs/architecture/technology-stack-boundaries.md)。其中的候选路线不表示对应依赖或服务已经进入当前产品。
+
 ---
 
 ## 安装

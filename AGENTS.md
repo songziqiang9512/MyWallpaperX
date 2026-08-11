@@ -26,7 +26,16 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 
 不得将 `recognized`、`wired`、`executed-degraded`、固定 strict profile、固定样本通过或静态参考材料表述为完整兼容或 Wallpaper Engine 视觉等价。官方/参考材料只可作为 clean-room 证据；不得复制其 payload、shader、纹理、JSON、二进制或算法表达，新增断言使用项目自有 fixture。
 
-## 3. 实现流程
+## 3. 技术栈与架构边界
+
+[技术栈与架构路线边界](docs/architecture/technology-stack-boundaries.md) 是语言职责、跨语言/跨进程所有权和候选依赖准入的唯一长期入口。默认保持 Swift/AppKit/SwiftUI 产品主体与 Swift/Metal Scene 主链：Swift 拥有产品语义、typed IR、资源/属性/生命周期和 GPU 调度，Metal/MSL 拥有 GPU 执行，Python 只用于测试与开发工具。
+
+- C/C++ 只可进入有明确生态优势的 VM/compiler ABI 或经 profiling 证明的局部 kernel，不得接管 Scene 业务语义、样本路由或第二套 renderer；长期边界使用窄 typed C ABI 或版本化进程协议。
+- QuickJS-NG、JavaScriptCore、Slang、DXC、Metal Shader Converter、glslang、SPIRV-Cross 与 XPC 均是带准入门的候选，不是当前能力。新增依赖先做无产品执行权的项目自有 fixture / shadow 评估，完成预算、失败关闭、许可证、双架构、签名和发布门后，才能按公共 capability family 迁移。
+- 进程边界只用于故障、权限或资源隔离；不得把 draw/pass/uniform/JS property access 等每帧细粒度操作改成 XPC 往返。
+- 当前 R4/R5 未闭合时，不得把 VM、shader compiler 或 service 大迁移混入 owner 迁移批次。R4 先完成公共能力接管和旧 owner 撤权，R5 只删除残留；技术栈原型不得据此升级覆盖台账或取得隐式 execution owner。
+
+## 4. 实现流程
 
 ### 修复前
 
@@ -46,7 +55,7 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 - 验证通过后才提交该问题。提交信息须说明问题、根因和验证；不混入无关改动。
 - 修改文档、规则或门禁时也保持独立提交边界，并验证链接、脚本或门禁合同，没有功能改动时不虚构运行验证。
 
-## 4. 验证选择
+## 5. 验证选择
 
 按影响面选择最小充分集合，不默认全量运行。优先使用统一入口先解释、再执行；在脏工作区中用可重复的 `--path` 只声明本批拥有的文件：
 
@@ -75,7 +84,7 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 
 每个新增 gate 必须在 `script/scene_validation_gates.json` 声明所保护风险、触发条件、成本、串行要求和退役条件。迁移期 occurrence/count ratchet 在迁移完成后必须删除或收敛为稳定架构不变量，不得永久保留阶段性快照数字。
 
-## 5. Swift 代码健康
+## 6. Swift 代码健康
 
 - 新增或未列入 `script/code_health_baseline.json` 的 Swift 文件不得超过 400 个物理行。不得压缩语句、删除合理空行或降低可读性规避限制。
 - 历史超限文件只能保持或缩小；触达时先判断能否按真实职责拆出独立声明或 extension。只有有复用、独立生命周期或可明显降低复杂度时才新增类型、协议、包装层或文件。
@@ -83,7 +92,7 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 - 每份未变化的 Swift diff 在 checkpoint 前至少通过一次 `python3 script/check_code_health.py --check --base-ref HEAD`；`script/build_and_run.sh` 内的成功结果已满足同一源码版本，不再重复。文件缩短时先运行 `python3 script/check_code_health.py --ratchet-baseline`，再执行检查。
 - 未经用户明确批准，不得新增历史例外、提高额度、移除源码根目录或提高 400 行阈值。新增 Swift 源码根目录、Tests 或 helper target 时必须纳入扫描；远端比较使用 `--base-ref <base-ref>`。
 
-## 6. Scene 源码布局
+## 7. Scene 源码布局
 
 `MyWallpaperX/Core/SteamWorkshopScene` 是分类根目录，不直接放置 Swift 文件。`script/scene_source_layout.json` 是机器可读布局合同，`script/tests/test_scene_semantics_coverage.py` 强制执行。源码只可位于以下九个一级目录：
 
@@ -105,7 +114,7 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 - 当目录密度、共同生命周期或职责边界表明有必要时，可灵活新增二级目录，不要求预先固定全局分组方案；同批同步本规则、布局 manifest、自动门、受影响文档链接和测试源码路径，并按完整类型族迁移。
 - 移动 Scene 源码时保持 Swift 内容字节不变和 `project.pbxproj` 无无关改动，并按“验证选择”的目录迁移合同验证。
 
-## 7. `.codex` 工作区
+## 8. `.codex` 工作区
 
 `.codex` 是本机生成物工作区，不是源码、正式测试脚本或长期归档目录：
 
@@ -117,12 +126,12 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 - 删除后重跑审计，最终只报告实际删除范围、释放空间、保留例外和不可恢复性。归属不清、仍是唯一失败现场/运行证据/样本输入的候选只报告不删。禁止 `rm -rf .codex`、`git clean` 或按名称/日期模糊删除。
 - 只保留共享 `.codex/DerivedData`，不得长期留下单次能力验证的 `DerivedData-*`。
 
-## 8. 并行工作
+## 9. 并行工作
 
 - 并行写入前分配互不重叠的文件或主类型所有权；同一测试、矩阵和权威文档不得并发修改。
 - 静态扫描和彼此独立的测试模块可以并行；`script/build_and_run.sh`、共享 `.codex/DerivedData`、App runtime、benchmark、固定门和完整门必须串行。
 - 一个共享批次只由一名整合者暂存和提交，禁止 `git add -A`。
 
-## 9. 汇报
+## 10. 汇报
 
 过程更新简短说明正在处理的问题、已确认根因、拟改位置和下一步。最终仅报告：改动、影响范围、实际运行的验证与结果、是否提交，以及尚未消除的风险或未验证项。不要把静态检查、样本矩阵、路由计数或历史文档描述成超出其证据范围的结论。
