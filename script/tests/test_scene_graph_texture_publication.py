@@ -167,6 +167,7 @@ struct SceneAuthoredEffectExecutionPlan {
     let opacity: SceneOpacityExecutionPlan? = nil
 
     var yieldsToResolvedMaterialProgram: Bool { opacity != nil }
+    var supportsUnifiedLogicalTargetStage: Bool { false }
     var supportsUtilityCapture: Bool { true }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }

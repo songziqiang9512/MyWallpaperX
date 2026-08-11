@@ -222,6 +222,7 @@ struct SceneAuthoredEffectExecutionPlan {
     let cursorRipple: SceneCursorRippleExecutionPlan?
     let opacity: SceneOpacityExecutionPlan?
     var yieldsToResolvedMaterialProgram = false
+    var supportsUnifiedLogicalTargetStage = false
     var supportsUtilityCapture = true
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
@@ -475,16 +476,76 @@ private func framebuffer(
 
 private func target(
     _ identity: Graph.TextureIdentity,
-    condition: SceneJSONValue? = nil
+    condition: SceneJSONValue? = nil,
+    unique: Bool = false
 ) -> Graph.RenderTarget {
     .init(
         texture: identity,
         extent: .init(width: nil, height: nil, fit: nil, scale: nil),
         format: "rgba_backbuffer",
-        declaredUnique: false,
+        declaredUnique: unique,
         clear: nil,
         uvs: nil,
         conditions: condition
+    )
+}
+
+private func logicalTargetGraph(unique: Bool = false) -> Graph {
+    let graphInput = source()
+    let intermediate = framebuffer(firstKey, "precise-intermediate")
+    let graphOutput = output(firstKey)
+    let horizontal = material(
+        index: 0,
+        ordinal: 0,
+        effect: firstKey,
+        target: intermediate,
+        input: graphInput
+    )
+    let vertical = material(
+        index: 1,
+        ordinal: 1,
+        effect: firstKey,
+        target: graphOutput,
+        input: intermediate
+    )
+    return .init(
+        layerID: layerID,
+        effects: [.init(
+            key: firstKey,
+            definitionPath: "effects/blurprecise/effect.json",
+            input: graphInput,
+            output: graphOutput,
+            nodeIndices: [0, 1]
+        )],
+        renderTargets: [target(intermediate, unique: unique)],
+        nodes: [horizontal, vertical],
+        finalOutput: graphOutput,
+        blockers: []
+    )
+}
+
+private func logicalTargetDescriptor() -> SceneRenderDescriptor {
+    .init(
+        layers: [.init(
+            id: layerID,
+            effects: [.init(
+                id: firstKey.descriptorID,
+                file: "effects/blurprecise/effect.json",
+                visible: true,
+                passes: [
+                    .init(passIndex: 0, combos: [:]),
+                    .init(passIndex: 1, combos: [:]),
+                ]
+            )]
+        )],
+        materialPasses: [
+            .init(id: "m0", materialPath: "materials/m0.json", combos: [:]),
+            .init(id: "m1", materialPath: "materials/m1.json", combos: [:]),
+        ],
+        effectDefinitions: [.init(
+            relativePath: "effects/blurprecise/effect.json",
+            functions: nil
+        )]
     )
 }
 
@@ -820,14 +881,15 @@ private func dedicatedProgram(
     effectIndex: Int,
     inputRole: SceneAuthoredEffectInputRole,
     opacity: Bool = false,
-    tint: Bool = false
+    tint: Bool = false,
+    logicalTargetStage: Bool = false
 ) -> SceneEffectStageProgram {
     let effect = graph.effects[effectIndex]
     let nodes = graph.nodes.filter { $0.effect == effect.key }
     let stageGraph = Graph(
         layerID: layerID,
         effects: [effect],
-        renderTargets: [],
+        renderTargets: graph.renderTargets.filter { $0.texture.effect == effect.key },
         nodes: nodes,
         finalOutput: effect.output,
         blockers: []
@@ -838,11 +900,13 @@ private func dedicatedProgram(
         executionPlan: .init(
             layerID: layerID,
             materialNodeCount: nodes.count,
-            logicalRenderTargetCount: 0,
+            logicalRenderTargetCount: logicalTargetStage
+                ? stageGraph.renderTargets.count : 0,
             inputRole: inputRole,
             cursorRipple: nil,
             opacity: opacity ? .init() : nil,
-            yieldsToResolvedMaterialProgram: opacity || tint
+            yieldsToResolvedMaterialProgram: opacity || tint,
+            supportsUnifiedLogicalTargetStage: logicalTargetStage
         )
     )
 }
@@ -1326,6 +1390,21 @@ private enum Harness {
                 sceneScriptTargets: []
             )
         )
+        let validSceneScriptCatalog = catalog(
+            descriptor: desc,
+            graphs: [raw],
+            materials: materialCatalog(
+                graph: raw,
+                omitNode: 1,
+                uniformsByNode: [0: [dynamicUniform(contributors: [.sceneScript])]]
+            ),
+            admissionCandidates: admissionCandidates,
+            dynamicProducers: .init(
+                userProperties: [],
+                timelineTargets: [],
+                sceneScriptTargets: [dynamicTarget()]
+            )
+        )
         let unknownScriptCatalog = catalog(
             descriptor: desc,
             graphs: [raw],
@@ -1485,6 +1564,57 @@ private enum Harness {
             dedicatedStageFamilies: [secondKey: "tint"],
             dedicatedLeafKeys: []
         )
+        let logicalGraph = logicalTargetGraph()
+        let logicalProgram = dedicatedProgram(
+            graph: logicalGraph,
+            effectIndex: 0,
+            inputRole: .layerSource,
+            logicalTargetStage: true
+        )
+        let logicalCandidates =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: logicalTargetDescriptor(),
+                authoredPlans: [logicalGraph],
+                dedicatedStagePrograms: [logicalProgram]
+            )
+        let logicalCatalog = Catalog(
+            admissionCandidates: logicalCandidates,
+            materialCatalog: materialCatalog(
+                graph: logicalGraph,
+                demandIssueNodes: [0, 1]
+            ),
+            dedicatedStageFamilies: [firstKey: "precise-gaussian"],
+            dedicatedGraphStageKeys: [firstKey]
+        )
+        let logicalWithoutAllowlist = Catalog(
+            admissionCandidates: logicalCandidates,
+            materialCatalog: materialCatalog(
+                graph: logicalGraph,
+                demandIssueNodes: [0, 1]
+            ),
+            dedicatedStageFamilies: [firstKey: "precise-gaussian"]
+        )
+        let uniqueLogicalGraph = logicalTargetGraph(unique: true)
+        let uniqueLogicalCandidates =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: logicalTargetDescriptor(),
+                authoredPlans: [uniqueLogicalGraph],
+                dedicatedStagePrograms: [dedicatedProgram(
+                    graph: uniqueLogicalGraph,
+                    effectIndex: 0,
+                    inputRole: .layerSource,
+                    logicalTargetStage: true
+                )]
+            )
+        let uniqueLogicalCatalog = Catalog(
+            admissionCandidates: uniqueLogicalCandidates,
+            materialCatalog: materialCatalog(
+                graph: uniqueLogicalGraph,
+                demandIssueNodes: [0, 1]
+            ),
+            dedicatedStageFamilies: [firstKey: "precise-gaussian"],
+            dedicatedGraphStageKeys: [firstKey]
+        )
 
         let firstProduct = capability.admittedProducts[0]
         let result: [String: Any] = [
@@ -1591,6 +1721,9 @@ private enum Harness {
                     "dynamic-effect-visibility"
                 ),
                 "validTimeline": validTimelineCatalog.claim(layerID: layerID) != nil,
+                "validSceneScript": validSceneScriptCatalog.claim(layerID: layerID) != nil
+                    && validSceneScriptCatalog.sceneScriptConsumerTargets
+                        == Set([dynamicTarget()]),
                 "unknownScript": reportHas(
                     unknownScriptCatalog,
                     "dynamic-uniform-unavailable"
@@ -1650,6 +1783,16 @@ private enum Harness {
                         resolvedBeforeTintCatalog,
                         "dedicated-leaf-unsupported"
                     ),
+                "logicalTargetStageAccepted":
+                    logicalCatalog.claim(layerID: layerID) != nil,
+                "logicalTargetStageRequiresAllowlist": reportHas(
+                    logicalWithoutAllowlist,
+                    "dedicated-leaf-unsupported"
+                ) && logicalWithoutAllowlist.claim(layerID: layerID) == nil,
+                "logicalTargetStageRejectsHistory": reportHas(
+                    uniqueLogicalCatalog,
+                    "dedicated-leaf-unsupported"
+                ) && uniqueLogicalCatalog.claim(layerID: layerID) == nil,
                 "userPropertyLiveTarget":
                     validUserPropertyCatalog.liveConsumerTargets
                     == Set([dynamicTarget()]),
@@ -1797,6 +1940,7 @@ struct SceneAuthoredEffectExecutionPlan {
     let logicalRenderTargetCount: Int
     let opacity: SceneOpacityExecutionPlan?
     var yieldsToResolvedMaterialProgram = false
+    var supportsUnifiedLogicalTargetStage = false
     var supportsUtilityCapture = true
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
@@ -3008,6 +3152,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             program_first.index("case let .failure(programFailure):"),
         )
         self.assertIn("dedicatedLeafKeys.contains(effect.key)", program_first)
+        self.assertIn("dedicatedGraphStageKeys.contains(effect.key)", program_first)
+        self.assertIn("supportsUnifiedLogicalTargetStage", program_first)
 
     def test_runtime_variant_resolution_starts_from_launch_envelope_seed(
         self,
@@ -3069,9 +3215,27 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             launch,
         )
         self.assertIn("timelineProgram.bindings", launch)
+        self.assertIn("let timeOfDayEffectScriptCandidates =", launch)
+        self.assertIn(
+            "sceneScriptTargets: timeOfDayEffectScriptCandidateTargets",
+            launch,
+        )
+        self.assertIn(
+            "resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets",
+            launch,
+        )
+        self.assertLess(
+            launch.index("let timeOfDayEffectScriptCandidates ="),
+            launch.index("SceneResolvedMaterialExecutionCapabilityCatalog("),
+        )
+        self.assertLess(
+            launch.index("SceneResolvedMaterialExecutionCapabilityCatalog("),
+            launch.index("let timeOfDayEffectScriptProgram ="),
+        )
         self.assertIn("model.sceneDocument.scriptBindings", launch)
         self.assertIn("case let .effectVisibility", launch)
-        self.assertNotIn("case let .effectConstant", launch)
+        visibility_owner_source = launch[:launch.index("let dedicatedStageLeaves =")]
+        self.assertNotIn("case let .effectConstant", visibility_owner_source)
         self.assertIn('binding.targetKey == "visible"', launch)
         self.assertEqual(
             launch.count("SceneScriptAudioBarsCompiler.compile("),
@@ -3261,6 +3425,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "functionInvocation": True,
                 "dynamicVisibility": True,
                 "validTimeline": True,
+                "validSceneScript": True,
                 "unknownScript": True,
                 "multipleProducer": True,
                 "missingProducer": True,
@@ -3273,6 +3438,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "fallbackDedicatedLeaf": True,
                 "emptyDedicatedLeafDoesNotUseDedicated": True,
                 "tintYieldsToResolvedProgram": True,
+                "logicalTargetStageAccepted": True,
+                "logicalTargetStageRequiresAllowlist": True,
+                "logicalTargetStageRejectsHistory": True,
                 "userPropertyLiveTarget": True,
                 "routeUnavailable": True,
                 "hiddenParent": True,

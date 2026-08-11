@@ -840,6 +840,11 @@ struct SceneLightShaftsEffectTextures {
         return false
     }
 
+    var supportsUnifiedLogicalTargetStage: Bool {
+        if case .preciseGaussian = backend { return !usesLegacyComposeNormalization }
+        return false
+    }
+
     func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {
         guard let localContrast else { return nil }
         let effectIndex = renderGraph.effects.first?.key.effectIndex ?? -1
@@ -3270,6 +3275,47 @@ enum Harness {
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
 
+        var preparedStageEncoded = false
+        if !legacyCompose {
+            let preparedInputs =
+                SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs(
+                    masks: authoredEffectMasks(),
+                    dynamicValues: .empty(frameIndex: 1),
+                    pipelines: .init(
+                        repository: SceneImageEffectPipelineRepository(device: device)
+                    ),
+                    cursorUV: .zero,
+                    previousCursorUV: .zero,
+                    pointerIsInside: false,
+                    previousPointerIsInside: false,
+                    frameTime: 1 / 60,
+                    time: 0,
+                    audioSpectrum: .silent,
+                    dependencyEffect: nil
+                )
+            guard let preparedBuffer = queue.makeCommandBuffer(),
+                  case let .ready(preparedStage) =
+                    SceneAuthoredEffectChainRenderer.prepareStage(
+                        plan,
+                        sourceTexture: table.inputTexture,
+                        targets: table,
+                        inputs: preparedInputs,
+                        sourcePipeline: pipeline,
+                        time: 0
+                    ),
+                  SceneAuthoredEffectChainRenderer.encodePreparedStage(
+                      preparedStage,
+                      commandBuffer: preparedBuffer
+                  ) else {
+                throw HarnessError.drawRefused
+            }
+            preparedBuffer.commit()
+            preparedBuffer.waitUntilCompleted()
+            guard preparedBuffer.status == .completed,
+                  preparedBuffer.error == nil else { throw HarnessError.commandFailed }
+            preparedStageEncoded = true
+        }
+
         let sourceBytes = try textureBytes(source, queue: queue)
         let inputBytes = try textureBytes(table.inputTexture, queue: queue)
         let horizontalBytes = try textureBytes(intermediate, queue: queue)
@@ -3283,6 +3329,7 @@ enum Harness {
         let mainBytes = try textureBytes(target, queue: queue)
         return [
             "encoded": true,
+            "preparedStageEncoded": preparedStageEncoded,
             "sourceWidth": source.width,
             "inputWidth": table.inputTexture.width,
             "inputMaxDelta": maxDifference(inputBytes, sourceBytes),
@@ -6177,6 +6224,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
     def test_precise_graph_blur_runs_horizontal_then_vertical_on_mixed_alpha(self) -> None:
         evidence = self.result["authoredPreciseImpulse"]
         self.assertTrue(evidence["encoded"])
+        self.assertTrue(evidence["preparedStageEncoded"])
         self.assertTrue(evidence["sourceHasMixedAlpha"])
         self.assertTrue(evidence["outputIsPremultiplied"])
         for key in ("inputMaxDelta", "horizontalMaxDelta", "outputMaxDelta"):

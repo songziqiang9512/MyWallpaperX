@@ -156,6 +156,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         assetFormatFacts: [String: Int] = [:],
         dedicatedStageFamilies: [Graph.EffectKey: String] = [:],
         dedicatedLeafKeys: Set<Graph.EffectKey> = [],
+        dedicatedGraphStageKeys: Set<Graph.EffectKey> = [],
         maximumVariantsPerMaterial: Int = 16
     ) {
         let demandIssues = Set(materialCatalog.resourceDemandIssues.map(\.key))
@@ -177,6 +178,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     dedicatedStagePrograms: candidate.dedicatedStagePrograms,
                     dedicatedStageFamilies: dedicatedStageFamilies,
                     dedicatedLeafKeys: dedicatedLeafKeys,
+                    dedicatedGraphStageKeys: dedicatedGraphStageKeys,
                     maximumVariantsPerMaterial: maximumVariantsPerMaterial
                 ) {
                 case let .failure(failure):
@@ -269,6 +271,30 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                                   dynamic.valueContributors.count == 1,
                                   case .userProperty = dynamic.valueContributors[0]
                             else { continue }
+                            targets.insert(dynamic.target)
+                        }
+                    }
+                case .dedicated(_, let program, _):
+                    targets.formUnion(program.executionPlan.liveConsumerTargets)
+                }
+            }
+        }
+    }
+
+    /// SceneScript value producers must survive when their material stage moves
+    /// from the dedicated catalog into the shared Program executor.
+    var sceneScriptConsumerTargets: Set<SceneDynamicTarget> {
+        capabilitiesByLayerID.values.reduce(into: Set<SceneDynamicTarget>()) {
+            targets, capability in
+            for stage in capability.stages {
+                switch stage {
+                case .resolved(_, let materials):
+                    for material in materials.values {
+                        for declaration in material.template.uniformDeclarations {
+                            guard case let .dynamic(dynamic) = declaration.value,
+                                  dynamic.valueContributors == [.sceneScript] else {
+                                continue
+                            }
                             targets.insert(dynamic.target)
                         }
                     }

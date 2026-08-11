@@ -12,6 +12,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dedicatedStagePrograms: [SceneEffectStageProgram],
         dedicatedStageFamilies: [Graph.EffectKey: String],
         dedicatedLeafKeys: Set<Graph.EffectKey>,
+        dedicatedGraphStageKeys: Set<Graph.EffectKey>,
         maximumVariantsPerMaterial: Int
     ) -> Result<CompiledStages, Rejection> {
         let programsByKey = Dictionary(grouping: dedicatedStagePrograms, by: \.effectKey)
@@ -56,12 +57,20 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 guard let program = programsByKey[effect.key]?.first else {
                     return .failure(programFailure)
                 }
-                guard dedicatedLeafKeys.contains(effect.key),
+                let pairLeaf = dedicatedLeafKeys.contains(effect.key)
+                    && program.executionPlan.logicalRenderTargetCount == 0
+                    && product.graph.nodes.count == 1
+                    && product.graph.renderTargets.isEmpty
+                let logicalTargetStage = dedicatedGraphStageKeys.contains(effect.key)
+                    && program.executionPlan.supportsUnifiedLogicalTargetStage
+                    && program.executionPlan.logicalRenderTargetCount > 0
+                    && product.graph.nodes.count > 1
+                    && product.graph.renderTargets.count
+                        == program.executionPlan.logicalRenderTargetCount
+                    && product.graph.renderTargets.allSatisfy { !$0.declaredUnique }
+                guard pairLeaf || logicalTargetStage,
                       program.effectKey == effect.key,
                       program.stageGraph.effects.first?.key == effect.key,
-                      program.executionPlan.logicalRenderTargetCount == 0,
-                      product.graph.nodes.count == 1,
-                      product.graph.renderTargets.isEmpty,
                       admitted.sourceRoute != .capturedMainTargetTexture else {
                     return .failure(rejection("dedicated-leaf-unsupported"))
                 }

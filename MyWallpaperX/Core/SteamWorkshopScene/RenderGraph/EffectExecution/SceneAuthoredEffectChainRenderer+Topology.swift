@@ -24,13 +24,17 @@ extension SceneAuthoredEffectChainRenderer {
         sourcePipeline: SceneImageLayerPipeline,
         time: Float
     ) -> StagePreparation {
-        guard stage.backend.supportsUnifiedPairLeaf else {
+        let pairLeaf = stage.backend.supportsUnifiedPairLeaf
+            && stage.logicalRenderTargetCount == 0
+            && stage.renderGraph.renderTargets.isEmpty
+            && targets.plan.logicalTargets.isEmpty
+        let logicalTargetStage = stage.supportsUnifiedLogicalTargetStage
+            && stage.logicalRenderTargetCount > 0
+            && stage.renderGraph.renderTargets.count == stage.logicalRenderTargetCount
+            && targets.plan.logicalTargets.count == stage.logicalRenderTargetCount
+            && stage.renderGraph.renderTargets.allSatisfy { !$0.declaredUnique }
+        guard pairLeaf || logicalTargetStage else {
             return .rejected(reason: "backend-unsupported")
-        }
-        guard stage.logicalRenderTargetCount == 0,
-              stage.renderGraph.renderTargets.isEmpty,
-              targets.plan.logicalTargets.isEmpty else {
-            return .rejected(reason: "logical-target-unsupported")
         }
         guard targets.inputTexture === sourceTexture else {
             return .rejected(reason: "source-texture-mismatch")
@@ -91,6 +95,9 @@ extension SceneAuthoredEffectChainRenderer {
     ) -> String? {
         let pipelines = inputs.pipelines
         switch stage.backend {
+        case .preciseGaussian:
+            return pipelines.gaussianBlur == nil
+                ? "precise-gaussian-pipeline-missing" : nil
         case .opacity(let plan):
             guard pipelines.opacity != nil,
                   stage.opacityAlpha(in: inputs.dynamicValues) != nil else {

@@ -137,6 +137,15 @@ extension SceneDesktopWallpaperHost {
         let dedicatedLeafKeys = Set(dedicatedStageLeaves.compactMap {
             $0.executionPlan.backend.supportsUnifiedPairLeaf ? $0.effectKey : nil
         })
+        let dedicatedGraphStageKeys = Set(dedicatedStageLeaves.compactMap {
+            $0.executionPlan.supportsUnifiedLogicalTargetStage ? $0.effectKey : nil
+        })
+        let timeOfDayEffectScriptCandidates = dedicatedStageLeaves.compactMap {
+            $0.executionPlan.blend?.dynamicMultiplyBinding
+        }
+        let timeOfDayEffectScriptCandidateTargets = Set(
+            timeOfDayEffectScriptCandidates.map(\.definition.target)
+        )
         let resolvedMaterialAdmissionCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: runtimeInput.renderDescriptor,
@@ -175,11 +184,12 @@ extension SceneDesktopWallpaperHost {
                         }
                     ),
                     timelineTargets: Set(timelineProgram.bindings.map(\.target)),
-                    sceneScriptTargets: []
+                    sceneScriptTargets: timeOfDayEffectScriptCandidateTargets
                 ),
                 assetFormatFacts: materialAssetCatalog.launchFormatFacts,
                 dedicatedStageFamilies: dedicatedStageFamilies,
-                dedicatedLeafKeys: dedicatedLeafKeys
+                dedicatedLeafKeys: dedicatedLeafKeys,
+                dedicatedGraphStageKeys: dedicatedGraphStageKeys
             )
         let resolvedMaterialSubjects = resolvedMaterialExecutionCapabilities
             .runtimeDispositionOwnerships.flatMap(\.subjects)
@@ -189,12 +199,30 @@ extension SceneDesktopWallpaperHost {
             shaderContracts: runtimeInput.shaderContracts,
             resolvedMaterialSubjects: resolvedMaterialSubjects
         )
-        let timeOfDayEffectScriptProgram = SceneTimeOfDayEffectScriptProgram(
-            bindings: authoredEffectCatalog.chainsByLayerID.keys.sorted().flatMap { layerID in
+        var timeOfDayEffectScriptConsumerTargets =
+            resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets
+        timeOfDayEffectScriptConsumerTargets.formUnion(
+            authoredEffectCatalog.chainsByLayerID.keys.sorted().flatMap { layerID in
                 authoredEffectCatalog.chainsByLayerID[layerID]?
                     .executionStages.compactMap {
-                        $0.blend?.dynamicMultiplyBinding
+                        $0.blend?.dynamicMultiplyBinding?.definition.target
                     } ?? []
+            }
+        )
+        let timeOfDayEffectScriptProgram = SceneTimeOfDayEffectScriptProgram(
+            bindings: timeOfDayEffectScriptCandidates.filter {
+                timeOfDayEffectScriptConsumerTargets.contains($0.definition.target)
+            }.sorted { lhs, rhs in
+                guard case let .effectConstant(
+                    lhsLayer, lhsEffect, lhsPass, lhsName
+                ) = lhs.definition.target,
+                    case let .effectConstant(
+                        rhsLayer, rhsEffect, rhsPass, rhsName
+                    ) = rhs.definition.target else { return false }
+                if lhsLayer != rhsLayer { return lhsLayer < rhsLayer }
+                if lhsEffect != rhsEffect { return lhsEffect < rhsEffect }
+                if lhsPass != rhsPass { return lhsPass < rhsPass }
+                return lhsName < rhsName
             }
         )
         let currentMediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(

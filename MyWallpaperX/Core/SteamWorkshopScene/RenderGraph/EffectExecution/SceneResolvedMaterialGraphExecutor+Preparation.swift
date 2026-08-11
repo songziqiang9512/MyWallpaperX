@@ -343,7 +343,7 @@ extension SceneResolvedMaterialGraphExecutor {
         return ordinal == commandsBefore
     }
 
-    private func framebufferResource(
+    func framebufferResource(
         lease: SceneGraphRenderTargetLease,
         identity: Graph.TextureIdentity,
         resource: State.VersionedResource,
