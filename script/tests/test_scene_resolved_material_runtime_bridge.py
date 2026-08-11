@@ -3062,38 +3062,46 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             view,
         )
 
-    def test_legacy_authored_gpu_telemetry_follows_selected_route(self) -> None:
+    def test_legacy_chain_is_rejected_before_only_remaining_legacy_route(self) -> None:
         compositor = COMPOSITOR.read_text(encoding="utf-8")
         renderer = METAL_RENDERER.read_text(encoding="utf-8")
 
-        claimed = compositor.index("if let claim = resolvedMaterialClaim")
-        legacy_chain = compositor.index(
-            "} else if let authoredChain = request.authoredEffectChain",
-            claimed,
+        route = compositor.index(
+            "guard resolvedMaterialClaim != nil || request.authoredEffectChain == nil else {"
         )
-        chain_callback = compositor.index(
-            "onLegacyAuthoredRouteSelected?()",
-            legacy_chain,
+        rejection_operation = compositor.index(
+            'operation: "legacy-authored-chain-product-dispatch"',
+            route,
+        )
+        rejection_reason = compositor.index(
+            'outcome: .failed(reasonCode: "resolved-material-claim-unavailable")',
+            rejection_operation,
+        )
+        rejection_return = compositor.index(
+            "return false",
+            rejection_reason,
         )
         legacy_standalone = compositor.index(
             "} else if let authoredPlan = request.authoredEffectPlan",
-            chain_callback,
+            rejection_return,
         )
         standalone_callback = compositor.index(
             "onLegacyAuthoredRouteSelected?()",
             legacy_standalone,
         )
-        self.assertLess(claimed, legacy_chain)
+        self.assertLess(route, rejection_operation)
+        self.assertLess(rejection_operation, rejection_reason)
+        self.assertLess(rejection_reason, rejection_return)
+        self.assertLess(rejection_return, legacy_standalone)
+        self.assertLess(legacy_standalone, standalone_callback)
+        self.assertNotIn("renderLegacyAuthoredChain(", compositor)
         self.assertNotIn(
             "onLegacyAuthoredRouteSelected?()",
-            compositor[claimed:legacy_chain],
+            compositor[route:legacy_standalone],
         )
-        self.assertLess(legacy_chain, chain_callback)
-        self.assertLess(chain_callback, legacy_standalone)
-        self.assertLess(legacy_standalone, standalone_callback)
         self.assertEqual(
             compositor.count("onLegacyAuthoredRouteSelected?()"),
-            2,
+            1,
         )
 
         route_flag = renderer.index("var selectedLegacyAuthoredRoute = false")

@@ -268,15 +268,10 @@
         "role": "retirement",
         "description": "The product compositor must stop invoking the legacy authored whole-chain renderer before R4 completes.",
         "pattern": "renderedTexture\\s*=\\s*renderLegacyAuthoredChain\\(",
-        "baseline_occurrences": 1,
+        "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "Rendering/SceneImageLayerCompositor.swift"
-        ],
-        "allowed_files": [
-          "Rendering/SceneImageLayerCompositor.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "resolved-program-legacy-yield-dispatch",
@@ -344,16 +339,11 @@
         "role": "retirement",
         "description": "R5 removes the legacy whole-chain compositor helper after its R4 product call is gone.",
         "pattern": "renderLegacyAuthoredChain\\(",
-        "baseline_occurrences": 2,
+        "baseline_occurrences": 1,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift",
-          "Rendering/SceneImageLayerCompositor.swift"
-        ],
         "allowed_files": [
-          "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift",
-          "Rendering/SceneImageLayerCompositor.swift"
+          "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
         ]
       },
       {

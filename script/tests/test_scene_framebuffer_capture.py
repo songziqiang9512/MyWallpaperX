@@ -1490,6 +1490,63 @@ struct SceneLocalContrastPlan {
     let staticOrFallbackStrength: Float
 }
 
+extension SceneImageLayerCompositor {
+    /// Exercises the retained legacy renderer as a unit-test surface without
+    /// granting it a product route through `draw`.
+    func drawLegacyAuthoredChainForTest(
+        _ request: SceneImageLayerDrawRequest,
+        pipeline: SceneImageLayerPipeline,
+        mainPass: SceneMainPassEncoder,
+        frameTransaction: SceneSourceUpdateTransaction
+    ) -> Bool {
+        guard let chain = request.authoredEffectChain,
+              let pool = request.offscreenTexturePool,
+              request.layer.colorBlendMode ?? 0 == 0,
+              let sourceUniforms = sourceFragmentUniforms(
+                  for: request,
+                  effectInputs: .neutral,
+                  routesOffscreen: true
+              ),
+              let finalTexture = renderLegacyAuthoredChain(
+                  chain,
+                  request: request,
+                  pool: pool,
+                  sourceUniforms: sourceUniforms,
+                  pipeline: pipeline,
+                  pipelines: authoredEffectPipelines,
+                  mainPass: mainPass,
+                  frameTransaction: frameTransaction,
+                  executionTrace: nil,
+                  executionOrigin: .image
+              ) else {
+            return false
+        }
+        let finalUniforms = makeFragmentUniforms(
+            values: SceneImageLayerUniformValues(
+                time: request.uniforms.time,
+                alpha: request.finalCompositeAlpha ?? 1,
+                cursorUV: request.uniforms.cursorUV
+            ),
+            effectInputs: .neutral,
+            textureFrame: .identity,
+            tint: SIMD3(repeating: 1),
+            foliageMaskUVScale: SIMD2(repeating: 1),
+            dependencyBlendMode: nil
+        )
+        return SceneImageLayerMainPassRenderer.draw(
+            texture: finalTexture,
+            masks: .empty,
+            mvp: request.mvp,
+            uniforms: finalUniforms,
+            dependencyTexture: nil,
+            layer: request.layer,
+            pipeline: pipeline,
+            colorBlendPipeline: nil,
+            mainPass: mainPass
+        )
+    }
+}
+
 @main
 enum Harness {
     typealias Graph = SceneAuthoredEffectRenderPlan
@@ -2850,7 +2907,7 @@ enum Harness {
             commandBuffer: commandBuffer,
             transaction: frameTransaction
         ) else { throw HarnessError.commandFailed }
-        let drew = compositor.draw(
+        let drew = compositor.drawLegacyAuthoredChainForTest(
             SceneImageLayerDrawRequest(
                 layer: layer,
                 texture: source,
@@ -3432,7 +3489,7 @@ enum Harness {
             commandBuffer: commandBuffer,
             transaction: frameTransaction
         ) else { throw HarnessError.commandFailed }
-        let drew = compositor.draw(
+        let drew = compositor.drawLegacyAuthoredChainForTest(
             SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
                     contentKind: "solid", colorRGB: [1, 1, 1],
@@ -3979,34 +4036,46 @@ enum Harness {
         let layer = SceneRenderDescriptor.Layer(
             contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
         )
-        var selectedLegacyAuthoredRoute = false
-        let encoded = compositor.draw(
-            SceneImageLayerDrawRequest(
-                layer: layer,
-                texture: source,
-                masks: .empty,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(
-                    time: 0, alpha: 1, cursorUV: .zero
-                ),
-                offscreenTexturePool: pool,
-                legacyAuthoredFrameTables: frameTables,
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false,
-                authoredEffectChain: chain,
-                dynamicValues: .empty(frameIndex: 29)
+        let request = SceneImageLayerDrawRequest(
+            layer: layer,
+            texture: source,
+            masks: .empty,
+            textureFrame: .identity,
+            mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+            uniforms: SceneImageLayerUniformValues(
+                time: 0, alpha: 1, cursorUV: .zero
             ),
+            offscreenTexturePool: pool,
+            legacyAuthoredFrameTables: frameTables,
+            offscreenSize: nil,
+            requiresSourceCopy: false,
+            finalCompositeAlpha: nil,
+            dependencyEffect: nil,
+            authoredEffectPlan: nil,
+            blocksLegacyGaussianBlur: false,
+            authoredEffectChain: chain,
+            dynamicValues: .empty(frameIndex: 29)
+        )
+        var selectedLegacyAuthoredRoute = false
+        let routeRecorder = ExactEvidenceLogRecorder()
+        let routeTrace = SceneEffectExecutionTelemetry(
+            logSink: { routeRecorder.append($0) }
+        ).makeFrame(frameIndex: 29)
+        let productRouteEncoded = compositor.draw(
+            request,
             pipeline: pipeline,
             mainPass: mainPass,
             frameTransaction: transaction,
+            executionTrace: routeTrace,
             onLegacyAuthoredRouteSelected: {
                 selectedLegacyAuthoredRoute = true
             }
+        )
+        let encoded = compositor.drawLegacyAuthoredChainForTest(
+            request,
+            pipeline: pipeline,
+            mainPass: mainPass,
+            frameTransaction: transaction
         )
         mainPass.finishEnsuringClear()
         submitFrame(commandBuffer, transaction: transaction)
@@ -4026,6 +4095,8 @@ enum Harness {
             "encoded": encoded,
             "gpuCompleted": commandBuffer.status == .completed
                 && commandBuffer.error == nil,
+            "productRouteRejected": !productRouteEncoded,
+            "productRouteEvidence": routeRecorder.lines,
             "legacyAuthoredRouteSelected": selectedLegacyAuthoredRoute,
             "executionStageCount": chain.executionStages.count,
             "stageLogicalTargetCount": plan.logicalRenderTargetCount,
@@ -4833,7 +4904,7 @@ enum Harness {
             commandBuffer: commandBuffer,
             transaction: frameTransaction
         ) else { throw HarnessError.commandFailed }
-        guard compositor.draw(
+        guard compositor.drawLegacyAuthoredChainForTest(
             SceneImageLayerDrawRequest(
                 layer: standardBlurLayer(),
                 texture: source,
@@ -4933,7 +5004,7 @@ enum Harness {
                 strengthsByEffectIndex: [:],
                 opacitiesByEffectIndex: liveAlpha.map { [0: $0] } ?? [:]
             )
-            guard compositor.draw(
+            guard compositor.drawLegacyAuthoredChainForTest(
                 SceneImageLayerDrawRequest(
                     layer: SceneRenderDescriptor.Layer(
                         contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
@@ -5109,15 +5180,25 @@ enum Harness {
             request.suppressesLegacyEffectFallback =
                 item.suppressesLegacyFallback
             var selectedLegacyAuthoredRoute = false
-            let encoded = compositor.draw(
-                request,
-                pipeline: pipeline,
-                mainPass: mainPass,
-                frameTransaction: frameTransaction,
-                onLegacyAuthoredRouteSelected: {
-                    selectedLegacyAuthoredRoute = true
-                }
-            )
+            let encoded: Bool
+            if item.chain != nil {
+                encoded = compositor.drawLegacyAuthoredChainForTest(
+                    request,
+                    pipeline: pipeline,
+                    mainPass: mainPass,
+                    frameTransaction: frameTransaction
+                )
+            } else {
+                encoded = compositor.draw(
+                    request,
+                    pipeline: pipeline,
+                    mainPass: mainPass,
+                    frameTransaction: frameTransaction,
+                    onLegacyAuthoredRouteSelected: {
+                        selectedLegacyAuthoredRoute = true
+                    }
+                )
+            }
             out["\(item.key)LegacyAuthoredRouteSelected"] =
                 selectedLegacyAuthoredRoute
             if item.key == "missingMask" {
@@ -5187,7 +5268,7 @@ enum Harness {
             commandBuffer: commandBuffer,
             transaction: frameTransaction
         ) else { throw HarnessError.commandFailed }
-        let encoded = compositor.draw(
+        let encoded = compositor.drawLegacyAuthoredChainForTest(
             SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
                     contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
@@ -5274,7 +5355,7 @@ enum Harness {
             commandBuffer: commandBuffer,
             transaction: frameTransaction
         ) else { throw HarnessError.commandFailed }
-        let encoded = compositor.draw(
+        let encoded = compositor.drawLegacyAuthoredChainForTest(
             SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
                     contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
@@ -5365,7 +5446,7 @@ enum Harness {
                 commandBuffer: commandBuffer,
                 transaction: frameTransaction
             ) else { throw HarnessError.commandFailed }
-            guard compositor.draw(
+            guard compositor.drawLegacyAuthoredChainForTest(
                 SceneImageLayerDrawRequest(
                     layer: SceneRenderDescriptor.Layer(
                         contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
@@ -5437,7 +5518,7 @@ enum Harness {
             commandBuffer: commandBuffer,
             transaction: frameTransaction
         ) else { throw HarnessError.commandFailed }
-        let encoded = compositor.draw(
+        let encoded = compositor.drawLegacyAuthoredChainForTest(
             SceneImageLayerDrawRequest(
                 layer: standardBlurLayer(),
                 texture: source,
@@ -5514,7 +5595,7 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
-        let encoded = compositor.draw(
+        let encoded = compositor.drawLegacyAuthoredChainForTest(
             SceneImageLayerDrawRequest(
                 layer: standardBlurLayer(),
                 texture: source,
@@ -5653,7 +5734,7 @@ enum Harness {
             graphTexture in
             poolTextures.allSatisfy { graphTexture !== $0 }
         }
-        let encoded = compositor.draw(
+        let encoded = compositor.drawLegacyAuthoredChainForTest(
             SceneImageLayerDrawRequest(
                 layer: layer,
                 texture: source,
@@ -7752,11 +7833,21 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertTrue(evidence["outputHasPixels"])
         self.assertTrue(evidence["outputIsPremultiplied"])
 
-    def test_legacy_whole_chain_encodes_raw_full_frame_compose_with_one_pair(
+    def test_product_rejects_legacy_chain_while_retained_helper_encodes_compose(
         self,
     ) -> None:
         evidence = self.result["legacyWholeChainFullFrameCompose"]
-        self.assertTrue(evidence["legacyAuthoredRouteSelected"], evidence)
+        self.assertTrue(evidence["productRouteRejected"], evidence)
+        self.assertFalse(evidence["legacyAuthoredRouteSelected"], evidence)
+        self.assertEqual(len(evidence["productRouteEvidence"]), 1, evidence)
+        self.assertIn(
+            "operation=legacy-authored-chain-product-dispatch",
+            evidence["productRouteEvidence"][0],
+        )
+        self.assertIn(
+            "reason=resolved-material-claim-unavailable",
+            evidence["productRouteEvidence"][0],
+        )
         self.assertTrue(evidence["encoded"], evidence)
         self.assertTrue(evidence["gpuCompleted"], evidence)
         self.assertEqual(evidence["executionStageCount"], 1, evidence)

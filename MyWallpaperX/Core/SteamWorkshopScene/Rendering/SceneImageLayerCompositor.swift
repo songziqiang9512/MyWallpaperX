@@ -36,6 +36,15 @@ struct SceneImageLayerCompositor {
         let resolvedMaterialRoute = resolvedMaterialClaim(for: request)
         guard !resolvedMaterialRoute.isRejected else { return false }
         let resolvedMaterialClaim = resolvedMaterialRoute.execution
+        guard resolvedMaterialClaim != nil || request.authoredEffectChain == nil else {
+            executionTrace?.recordRouteOperation(
+                layerID: request.layer.id,
+                origin: executionOrigin,
+                operation: "legacy-authored-chain-product-dispatch",
+                outcome: .failed(reasonCode: "resolved-material-claim-unavailable")
+            )
+            return false
+        }
         let dependencyEffect = request.dependencyEffect
 
         guard (dependencyEffect.map {
@@ -146,20 +155,6 @@ struct SceneImageLayerCompositor {
                 case .failed:
                     return false
                 }
-            } else if let authoredChain = request.authoredEffectChain {
-                onLegacyAuthoredRouteSelected?()
-                renderedTexture = renderLegacyAuthoredChain(
-                    authoredChain,
-                    request: request,
-                    pool: pool,
-                    sourceUniforms: directUniforms,
-                    pipeline: pipeline,
-                    pipelines: authoredEffectPipelines,
-                    mainPass: mainPass,
-                    frameTransaction: frameTransaction,
-                    executionTrace: executionTrace,
-                    executionOrigin: executionOrigin
-                )
             } else if let authoredPlan = request.authoredEffectPlan {
                 onLegacyAuthoredRouteSelected?()
                 guard let frameTables = request.legacyAuthoredFrameTables,
