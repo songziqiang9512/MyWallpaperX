@@ -2819,6 +2819,15 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
 
         self.assertIn("legacyEffectRuntimeExcludedLayerIDs", view)
         self.assertIn("legacyEffectRuntimeExcludedLayerIDs", text_loader)
+        self.assertIn(
+            "effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) },",
+            view,
+        )
+        self.assertIn(
+            "effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil },",
+            text_loader,
+        )
+        self.assertNotIn("SceneEffectRuntimePlanner.runtimeSummary", text_loader)
         self.assertNotIn("legacyEffectFallbackSuppressedLayerIDs", view)
         self.assertNotIn("suppressedLegacyEffectLayerIDs", text_loader)
 

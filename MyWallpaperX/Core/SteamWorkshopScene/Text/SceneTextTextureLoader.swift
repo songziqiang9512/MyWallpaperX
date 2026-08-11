@@ -26,9 +26,7 @@ enum SceneTextTextureLoader {
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
         device: MTLDevice,
-        effectSummary: (SceneRenderDescriptor.Layer) -> String? = {
-            SceneEffectRuntimePlanner.runtimeSummary(for: $0)
-        },
+        effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil },
         legacyEffectRuntimeExcludedLayerIDs: Set<Int> = []
     ) -> SceneTextTextureLoadResult {
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)

@@ -120,6 +120,8 @@ class SceneUtilityLayerTests(unittest.TestCase):
     def test_complete_authored_capture_requires_every_visible_stage(self) -> None:
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
         self.assertIn("supportsCompleteAuthoredCapture", runtime_plan)
+        self.assertNotIn("implementedEffectPlan", runtime_plan)
+        self.assertNotIn("SceneEffectRuntimePlanner", runtime_plan)
         self.assertIn(
             "chain.executionStages.count == visible.count",
             runtime_plan,
@@ -214,6 +216,14 @@ class SceneUtilityLayerTests(unittest.TestCase):
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
 
         self.assertIn("resolvedMaterialLayerIDs.contains(layer.id)", runtime_plan)
+        compact_plan = "".join(runtime_plan.split())
+        complete_capture = compact_plan.index(
+            "elseifsupportsCompleteAuthoredCapture("
+        )
+        capture = compact_plan.index("disposition=.capture", complete_capture)
+        partial = compact_plan.index("disposition=.partialEffects", capture)
+        self.assertLess(complete_capture, capture)
+        self.assertLess(capture, partial)
         self.assertIn("case .capturedMainTargetTexture:", preflight)
         self.assertIn("sourceTexture = mainTarget", preflight)
         self.assertIn("textureFrame = geometry.sourceUV", preflight)

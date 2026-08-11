@@ -12,6 +12,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+TEXT_TEXTURE_LOADER_SOURCE = SOURCE_ROOT / "Text/SceneTextTextureLoader.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
@@ -285,11 +286,6 @@ struct SceneDiagnosticsReport {
     let capabilityProfile: SceneCapabilityProfile?
 }
 
-// 行/宽限制与 effect 摘要无关，摘要只进诊断字符串，这里给出中性实现。
-enum SceneEffectRuntimePlanner {
-    static func runtimeSummary(for layer: SceneRenderDescriptor.Layer) -> String? { nil }
-}
-
 enum SceneInlineEffectRuntime {
     static func summary(
         for layer: SceneRenderDescriptor.Layer,
@@ -549,6 +545,18 @@ class SceneTextRowLimitTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         if hasattr(cls, "temporary_directory"):
             cls.temporary_directory.cleanup()
+
+    def test_default_loader_has_no_legacy_effect_runtime_authority(self) -> None:
+        source = TEXT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil },",
+            source,
+        )
+        self.assertNotIn("SceneEffectRuntimePlanner", source)
+        self.assertFalse(
+            any("effect runtime" in message for message in self.result["messages"]),
+            self.result["messages"],
+        )
 
     def test_limit_fields_default_off_and_parse_wrapped_forms(self) -> None:
         # 官方 ITextLayer 的 limitrows/maxrows/limitwidth/maxwidth 与编辑器的

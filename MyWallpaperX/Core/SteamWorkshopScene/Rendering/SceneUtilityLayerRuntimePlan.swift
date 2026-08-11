@@ -88,9 +88,6 @@ enum SceneUtilityLayerRuntimePlanner {
                 resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
             ) {
                 disposition = .capture
-            } else if visibleEffects(in: layer).allSatisfy(SceneEffectRuntimeSupport.supportsUtilityCapture)
-                && implementedEffectPlan(for: layer).hasImplementedVisualWork {
-                disposition = .capture
             } else if visibleEffects(in: layer).contains(where: SceneEffectRuntimeSupport.supportsUtilityCapture) {
                 disposition = .partialEffects
             } else {
@@ -186,19 +183,6 @@ enum SceneUtilityLayerRuntimePlanner {
             )
         }
         return lines
-    }
-
-    private static func implementedEffectPlan(
-        for layer: SceneRenderDescriptor.Layer
-    ) -> SceneEffectRuntimePlan {
-        SceneEffectRuntimePlanner.plan(
-            for: layer,
-            hasIrisMask: false,
-            hasOpacityMask: false,
-            hasWaterMask: false,
-            hasFoliageMask: false,
-            hasWaterRippleNormal: false
-        )
     }
 
     private static func visibleEffects(

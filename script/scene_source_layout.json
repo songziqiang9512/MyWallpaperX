@@ -65,7 +65,7 @@
         "role": "retirement",
         "description": "Legacy planner calls still reachable from product planning are frozen until each family migrates.",
         "pattern": "SceneEffectRuntimePlanner\\.(?:legacyPlanningDecision|plan|runtimeSummary|offscreenPassCount)\\(",
-        "baseline_occurrences": 4,
+        "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
         "scope_files": [
@@ -73,11 +73,7 @@
           "Rendering/SceneUtilityLayerRuntimePlan.swift",
           "Text/SceneTextTextureLoader.swift"
         ],
-        "allowed_files": [
-          "Rendering/SceneImageLayerCompositor.swift",
-          "Rendering/SceneUtilityLayerRuntimePlan.swift",
-          "Text/SceneTextTextureLoader.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-observation-authority",
@@ -101,15 +97,12 @@
         "role": "retirement",
         "description": "All external legacy planner references are frozen so a new product or observation owner cannot appear in another file.",
         "pattern": "SceneEffectRuntimePlanner\\.(?:legacyPlanningDecision|plan|runtimeSummary|offscreenPassCount)\\(",
-        "baseline_occurrences": 7,
+        "baseline_occurrences": 3,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
         "allowed_files": [
-          "Rendering/SceneImageLayerCompositor.swift",
           "Rendering/SceneMetalRenderer+Diagnostics.swift",
-          "Rendering/SceneUtilityLayerRuntimePlan.swift",
-          "Runtime/SceneEffectRuntimeDispositionCatalog.swift",
-          "Text/SceneTextTextureLoader.swift"
+          "Runtime/SceneEffectRuntimeDispositionCatalog.swift"
         ]
       },
       {

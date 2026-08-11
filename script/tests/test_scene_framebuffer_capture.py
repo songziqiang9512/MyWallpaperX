@@ -3422,30 +3422,75 @@ enum Harness {
             return texture
         }
         let layer = gradientLayer(includesClipping: dependency != nil)
+        let dependencyEffect = dependency.map { dependencyInput(texture: $0) }
+        let pool = SceneOffscreenTexturePool(device: device)
+        let legacyDecision = SceneEffectRuntimePlanner.legacyPlanningDecision(
+            for: layer,
+            resources: .none
+        )
+        guard let textures = pool.textures(
+            width: source.width,
+            height: source.height
+        ), let gradientPipeline = SceneGradientColorPipeline(device: device) else {
+            throw HarnessError.metalUnavailable
+        }
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
-        let drew = compositor.draw(
-            SceneImageLayerDrawRequest(
-                layer: layer,
-                texture: source,
-                masks: .empty,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
-                offscreenTexturePool: SceneOffscreenTexturePool(device: device),
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: dependency.map {
-                    dependencyInput(texture: $0)
-                },
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false
+        let rendered = mainPass.encodeOffscreen { commandBuffer in
+            SceneOffscreenEffectRenderer.render(
+                sourceTexture: source,
+                waterMaskTexture: nil,
+                foliageMaskTexture: nil,
+                auxMaskTexture: nil,
+                offscreenPair: textures,
+                offscreenPassCount: max(
+                    legacyDecision.runtimePlan.offscreenPassCount,
+                    1
+                ),
+                blurPlan: nil,
+                bloomPlan: nil,
+                gradientColorPlan: legacyDecision.runtimePlan.gradientColor,
+                waterRippleNormalPlan: nil,
+                waterRippleNormalTexture: nil,
+                perspectiveOpacityPlan: nil,
+                sourceUniforms: .neutral(),
+                pipeline: pipeline,
+                gaussianBlurPipeline: nil,
+                bloomPipeline: nil,
+                gradientColorPipeline: gradientPipeline,
+                waterRipplePipeline: nil,
+                perspectiveOpacityPipeline: nil,
+                commandBuffer: commandBuffer,
+                legacyDecision: legacyDecision,
+                executionTrace: nil,
+                executionOrigin: .image
+            )
+        }
+        guard let rendered else { throw HarnessError.drawRefused }
+        let finalUniforms = compositor.makeFragmentUniforms(
+            values: SceneImageLayerUniformValues(
+                time: 0,
+                alpha: 1,
+                cursorUV: .zero
             ),
+            effectInputs: .neutral,
+            textureFrame: .identity,
+            tint: SIMD3(repeating: 1),
+            foliageMaskUVScale: SIMD2(repeating: 1),
+            dependencyBlendMode: dependencyEffect?.blendMode
+        )
+        let drew = SceneImageLayerMainPassRenderer.draw(
+            texture: rendered,
+            masks: .empty,
+            mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+            uniforms: finalUniforms,
+            dependencyTexture: dependencyEffect?.texture,
+            layer: layer,
             pipeline: pipeline,
+            colorBlendPipeline: nil,
             mainPass: mainPass
         )
         guard drew else { throw HarnessError.drawRefused }
@@ -5042,11 +5087,9 @@ enum Harness {
         }
     }
 
-    // 官方 opacity.frag 在 MASK 下是 `albedo.a *= mask * g_UserAlpha`。legacy 路径靠 capture
-    // 阶段的 `color *= auxMask * alpha` 实现；authored chain 路径的 capture uniforms 是
-    // .neutral，遮罩必须由 opacity 后端自己乘。这里让同一层既带 opacity 遮罩又带 authored
-    // chain，量出两条路径是否都只乘一次遮罩和 alpha；第三个用例声明了遮罩却不给贴图，
-    // 必须整段拒绝而不是静默降级成无遮罩。
+    // authored opacity 必须由自己的 backend 消费 mask 和 alpha。可见 effect 若没有
+    // resolved claim 或 standalone authored plan，产品 compositor 必须拒绝，不得回落到旧
+    // capture renderer。声明了 mask 却不给贴图时，authored helper 也必须整段拒绝。
     static func authoredOpacityMaskPixels(
         device: MTLDevice,
         queue: MTLCommandQueue,
@@ -5180,6 +5223,10 @@ enum Harness {
             request.suppressesLegacyEffectFallback =
                 item.suppressesLegacyFallback
             var selectedLegacyAuthoredRoute = false
+            let routeRecorder = ExactEvidenceLogRecorder()
+            let routeTrace = SceneEffectExecutionTelemetry(
+                logSink: { routeRecorder.append($0) }
+            ).makeFrame(frameIndex: 850)
             let encoded: Bool
             if item.chain != nil {
                 encoded = compositor.drawLegacyAuthoredChainForTest(
@@ -5194,6 +5241,7 @@ enum Harness {
                     pipeline: pipeline,
                     mainPass: mainPass,
                     frameTransaction: frameTransaction,
+                    executionTrace: routeTrace,
                     onLegacyAuthoredRouteSelected: {
                         selectedLegacyAuthoredRoute = true
                     }
@@ -5201,6 +5249,17 @@ enum Harness {
             }
             out["\(item.key)LegacyAuthoredRouteSelected"] =
                 selectedLegacyAuthoredRoute
+            out["\(item.key)RouteEvidence"] = routeRecorder.lines
+            if item.key == "legacy" {
+                out["legacyRefused"] = !encoded
+                mainPass.finishEnsuringClear()
+                submitFrame(commandBuffer, transaction: frameTransaction)
+                guard commandBuffer.status == .completed else {
+                    throw HarnessError.commandFailed
+                }
+                out["legacyTargetPixel"] = pixel(target, x: 0, y: 0)
+                continue
+            }
             if item.key == "missingMask" {
                 out["missingMaskRefused"] = !encoded
                 continue
@@ -6049,6 +6108,31 @@ enum Harness {
         compositeBuffer.commit()
         compositeBuffer.waitUntilCompleted()
 
+        let unavailableRuntimeCompositor = SceneImageLayerCompositor(
+            pipelineRepository: SceneImageEffectPipelineRepository(device: device)
+        )
+        let unavailableRuntimeRecorder = ExactEvidenceLogRecorder()
+        let unavailableRuntimeTrace = SceneEffectExecutionTelemetry(
+            logSink: { unavailableRuntimeRecorder.append($0) }
+        ).makeFrame(frameIndex: 703)
+        let (unavailableRuntimePass, unavailableRuntimeBuffer) = try makePass()
+        let unavailableRuntimePool = SceneOffscreenTexturePool(
+            device: device, maxDimension: size
+        )
+        let unavailableRuntimeRequest = try frameRequest(
+            pool: unavailableRuntimePool,
+            commandBuffer: unavailableRuntimeBuffer
+        )
+        let unavailableRuntimeStayedClosed = !unavailableRuntimeCompositor.draw(
+            unavailableRuntimeRequest,
+            pipeline: pipeline,
+            mainPass: unavailableRuntimePass,
+            executionTrace: unavailableRuntimeTrace
+        )
+        unavailableRuntimePass.finishEnsuringClear()
+        unavailableRuntimeBuffer.commit()
+        unavailableRuntimeBuffer.waitUntilCompleted()
+
         let rejectedRuntime = SceneResolvedMaterialRuntimeBridge(
             claimRejectionReason: "fixture-route-rejected"
         )
@@ -6064,7 +6148,8 @@ enum Harness {
         guard successBuffer.status == .completed,
               failedBuffer.status == .completed,
               allocationBuffer.status == .completed,
-              compositeBuffer.status == .completed else {
+              compositeBuffer.status == .completed,
+              unavailableRuntimeBuffer.status == .completed else {
             throw HarnessError.commandFailed
         }
         return [
@@ -6087,6 +6172,8 @@ enum Harness {
             "compositeFailureStayedClosed": compositeFailureStayedClosed,
             "compositeFailureMarkCalls": compositeRuntime.markCompositeCallCount,
             "compositeFailureReasons": compositeRuntime.claimedFailureReasons,
+            "unavailableRuntimeStayedClosed": unavailableRuntimeStayedClosed,
+            "unavailableRuntimeEvidence": unavailableRuntimeRecorder.lines,
             "rejectedClaimStayedClosed": rejectedClaimStayedClosed,
         ]
     }
@@ -8017,15 +8104,20 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertLessEqual(max(abs(a - b) for a, b in zip(live, [8, 16, 32, 40])), 1)
 
     def test_opacity_mask_alpha_is_applied_exactly_once(self) -> None:
-        # 官方 opacity.frag：`albedo.a *= mask * g_UserAlpha`。源 premultiplied
-        # BGRA [40,80,160,200]、mask=0.5、alpha=0.5 → 应为 ×0.25 = [10,20,40,50]。
-        # 丢遮罩会得到 ×0.5 = [20,40,80,100]，遮罩或 alpha 乘两次会得到 ×0.125。
         pixel = self.result["authoredOpacityMaskPixel"]
-        self.assertLessEqual(
-            max(abs(a - b) for a, b in zip(pixel["legacy"], [10, 20, 40, 50])),
-            1,
-            f"legacy opacity mask route wrong: {pixel['legacy']}",
+        self.assertTrue(pixel["legacyRefused"], pixel)
+        self.assertFalse(pixel["legacyLegacyAuthoredRouteSelected"], pixel)
+        self.assertEqual(pixel["legacyTargetPixel"], [0, 0, 0, 0], pixel)
+        self.assertEqual(len(pixel["legacyRouteEvidence"]), 1, pixel)
+        self.assertIn(
+            "operation=legacy-effect-product-authority",
+            pixel["legacyRouteEvidence"][0],
         )
+        self.assertIn(
+            "reason=unclaimed-visible-effects",
+            pixel["legacyRouteEvidence"][0],
+        )
+        # authored backend 仍必须只乘一次 mask=0.5 和 alpha=0.5。
         self.assertLessEqual(
             max(abs(a - b) for a, b in zip(pixel["authored"], [10, 20, 40, 50])),
             1,
@@ -8219,6 +8311,16 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             evidence["compositeFailureReasons"],
             ["fixture-composite-rejected"],
             evidence,
+        )
+        self.assertTrue(evidence["unavailableRuntimeStayedClosed"], evidence)
+        self.assertEqual(len(evidence["unavailableRuntimeEvidence"]), 1, evidence)
+        self.assertIn(
+            "operation=resolved-material-claim",
+            evidence["unavailableRuntimeEvidence"][0],
+        )
+        self.assertIn(
+            "reason=resolved-material-runtime-unavailable",
+            evidence["unavailableRuntimeEvidence"][0],
         )
         self.assertTrue(evidence["rejectedClaimStayedClosed"], evidence)
 
