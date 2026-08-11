@@ -3150,7 +3150,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("case filmGrain(SceneFilmGrainExecutionPlan)", source)
         self.assertIn("case .preciseGaussian:", logical_body)
         self.assertIn("case .standardBlur:", logical_body)
-        self.assertNotIn("case .localContrast:", logical_body)
+        self.assertIn("case .localContrast:", logical_body)
+        self.assertNotIn("case .cursorRipple:", logical_body)
 
         capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
         self.assertIn("Self.compileProgramFirstStages(", capability)

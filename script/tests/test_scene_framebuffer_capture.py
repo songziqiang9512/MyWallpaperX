@@ -846,6 +846,8 @@ struct SceneLightShaftsEffectTextures {
             return !usesLegacyComposeNormalization
         case .standardBlur:
             return true
+        case .localContrast:
+            return true
         default:
             return false
         }
@@ -1997,6 +1999,12 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let authoredLocalContrastPrepared = try authoredLocalContrastPreparedEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
         let authoredTwoStageChain = try authoredTwoStageChainEvidence(
             device: device,
             queue: queue,
@@ -2182,6 +2190,7 @@ enum Harness {
             "authoredPreciseInterleave": authoredPreciseInterleave,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredStandardCandidate": authoredStandardCandidate,
+            "authoredLocalContrastPrepared": authoredLocalContrastPrepared,
             "authoredTwoStageChain": authoredTwoStageChain,
             "authoredOpacityLivePixels": authoredOpacityLivePixels,
             "authoredOpacityMaskPixel": authoredOpacityMaskPixel,
@@ -3692,6 +3701,88 @@ enum Harness {
             "paddedZeroMaskPreservedSource":
                 maxDifference(sourceBytes, acceptedBytes) <= 2,
             "wrongPurposeRejected": wrongPurposeRejected,
+        ]
+    }
+
+    static func authoredLocalContrastPreparedEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let size = 16
+        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ) else { throw HarnessError.metalUnavailable }
+        fillPremultipliedCheckerboard(source)
+        let plan = authoredLocalContrastPlan()
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        let frameTables = try drawAuthoredBlur(
+            source: source,
+            target: target,
+            layer: standardBlurLayer(),
+            plan: plan,
+            pool: pool,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
+        guard let table = frameTables.tables.first else {
+            throw HarnessError.drawRefused
+        }
+        func preparation(
+            snapshot: SceneDynamicSnapshot
+        ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
+            SceneAuthoredEffectChainRenderer.prepareStage(
+                plan,
+                sourceTexture: table.inputTexture,
+                targets: table,
+                inputs: .init(
+                    masks: authoredEffectMasks(),
+                    dynamicValues: snapshot,
+                    pipelines: .init(
+                        repository: SceneImageEffectPipelineRepository(device: device)
+                    ),
+                    cursorUV: .zero,
+                    previousCursorUV: .zero,
+                    pointerIsInside: false,
+                    previousPointerIsInside: false,
+                    frameTime: 1 / 60,
+                    time: 0,
+                    audioSpectrum: .silent,
+                    dependencyEffect: nil
+                ),
+                sourcePipeline: pipeline,
+                time: 0
+            )
+        }
+        guard let commandBuffer = queue.makeCommandBuffer(),
+              case let .ready(prepared) = preparation(
+                  snapshot: .empty(frameIndex: 1)
+              ),
+              SceneAuthoredEffectChainRenderer.encodePreparedStage(
+                  prepared,
+                  commandBuffer: commandBuffer
+              ) else { throw HarnessError.drawRefused }
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed,
+              commandBuffer.error == nil else { throw HarnessError.commandFailed }
+
+        let invalid = preparation(snapshot: SceneDynamicSnapshot(
+            strengthsByEffectIndex: [0: 6],
+            opacitiesByEffectIndex: [:]
+        ))
+        let invalidReason: String?
+        if case let .rejected(reason) = invalid { invalidReason = reason }
+        else { invalidReason = nil }
+        let inputBytes = try textureBytes(table.inputTexture, queue: queue)
+        let outputBytes = try textureBytes(table.outputTexture, queue: queue)
+        return [
+            "preparedStageEncoded": true,
+            "invalidStrengthReason": invalidReason as Any,
+            "inputToOutputDelta": maxDifference(inputBytes, outputBytes),
         ]
     }
 
@@ -5283,6 +5374,47 @@ enum Harness {
         )
     }
 
+    static func authoredLocalContrastPlan() -> SceneAuthoredEffectExecutionPlan {
+        let blurGraph = standardBlurGraph(layerID: 831)
+        let graph = Graph(
+            layerID: blurGraph.layerID,
+            effects: blurGraph.effects,
+            renderTargets: blurGraph.renderTargets.map {
+                .init(
+                    texture: $0.texture,
+                    extent: $0.extent,
+                    format: "rgba8888",
+                    declaredUnique: $0.declaredUnique,
+                    clear: $0.clear,
+                    uvs: $0.uvs,
+                    conditions: $0.conditions
+                )
+            },
+            nodes: blurGraph.nodes,
+            finalOutput: blurGraph.finalOutput,
+            blockers: blurGraph.blockers
+        )
+        let first = graph.renderTargets.first {
+            $0.texture.name?.lowercased() == "_rt_quartercompobuffer1"
+        }?.texture
+        let second = graph.renderTargets.first {
+            $0.texture.name?.lowercased() == "_rt_quartercompobuffer2"
+        }?.texture
+        precondition(first != nil && second != nil)
+        return SceneAuthoredEffectExecutionPlan(
+            layerID: graph.layerID,
+            renderGraph: graph,
+            backend: .localContrast(SceneLocalContrastPlan(
+                firstQuarterTarget: first!,
+                secondQuarterTarget: second!,
+                renderGraph: graph,
+                staticOrFallbackStrength: 0.32
+            )),
+            materialNodeCount: 4,
+            logicalRenderTargetCount: 2
+        )
+    }
+
     static func authoredTwoStageBlurChain() -> SceneAuthoredEffectExecutionChain {
         let layerID = 840
         let first = authoredStandardBlurPlan(layerID: layerID)
@@ -6417,6 +6549,18 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         )
         self.assertTrue(evidence["paddedZeroMaskPreservedSource"], evidence)
         self.assertTrue(evidence["wrongPurposeRejected"], evidence)
+
+    def test_local_contrast_prepared_stage_encodes_and_rejects_invalid_strength(
+        self,
+    ) -> None:
+        evidence = self.result["authoredLocalContrastPrepared"]
+        self.assertTrue(evidence["preparedStageEncoded"], evidence)
+        self.assertGreater(evidence["inputToOutputDelta"], 0, evidence)
+        self.assertEqual(
+            evidence["invalidStrengthReason"],
+            "local-contrast-strength-invalid",
+            evidence,
+        )
 
     def test_standard_blur_combine_uses_red_mask_in_premultiplied_space(self) -> None:
         mask_zero, mask_half, mask_one = self.result["standardBlurMaskPixels"]

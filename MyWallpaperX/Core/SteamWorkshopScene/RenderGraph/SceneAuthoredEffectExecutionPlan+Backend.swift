@@ -67,6 +67,8 @@ extension SceneAuthoredEffectExecutionPlan {
             return !usesLegacyComposeNormalization
         case .standardBlur:
             return true
+        case .localContrast:
+            return true
         default:
             return false
         }

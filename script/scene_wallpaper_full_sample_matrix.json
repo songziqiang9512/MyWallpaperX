@@ -2560,8 +2560,6 @@
       "required_image_blend_succeeded_layer_ids": [],
       "expected_authored_effect_graph_succeeded_layer_ids": [
         70,
-        167,
-        177,
         182,
         217,
         245,
@@ -2571,7 +2569,7 @@
         791
       ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
-      "expected_authored_effect_graph_local_contrast_count": 2,
+      "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
       "expected_authored_effect_graph_color_key_count": null,
@@ -2590,7 +2588,7 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 10,
+      "expected_authored_effect_graph_stage_count": 8,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
@@ -2665,6 +2663,8 @@
       },
       "expected_effect_runtime_disposition_sha256": "2383f73d4ad8cfc767752319d0fa3545312ae9acc0270db68f3059f5f7cd7561",
       "expected_resolved_material_graph_succeeded_layer_ids": [
+        167,
+        177,
         317,
         330,
         365,
