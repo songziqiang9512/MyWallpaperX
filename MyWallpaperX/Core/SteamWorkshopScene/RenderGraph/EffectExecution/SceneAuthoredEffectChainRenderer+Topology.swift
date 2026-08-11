@@ -129,6 +129,16 @@ extension SceneAuthoredEffectChainRenderer {
                 return "godrays-resource-missing"
             }
             return nil
+        case .shine(let plan):
+            guard pipelines.shine != nil else {
+                return "shine-pipeline-missing"
+            }
+            guard let resources = inputs.masks.shineEffects[
+                plan.effectKey.descriptorID
+            ], resources.matches(plan) else {
+                return "shine-resource-missing"
+            }
+            return nil
         case .opacity(let plan):
             guard pipelines.opacity != nil,
                   stage.opacityAlpha(in: inputs.dynamicValues) != nil else {

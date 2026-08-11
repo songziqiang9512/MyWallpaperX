@@ -7093,9 +7093,7 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        17
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -7105,10 +7103,10 @@
       "expected_authored_effect_graph_procedural_noise_count": 0,
       "expected_authored_effect_graph_film_grain_count": 0,
       "expected_authored_effect_graph_light_shafts_count": 0,
-      "expected_authored_effect_graph_shake_count": 2,
-      "expected_authored_effect_graph_water_flow_count": 1,
+      "expected_authored_effect_graph_shake_count": 0,
+      "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
-      "expected_authored_effect_graph_shine_count": 1,
+      "expected_authored_effect_graph_shine_count": 0,
       "expected_authored_effect_graph_shine_isolated_count": 0,
       "expected_authored_effect_graph_shine_omitted_effects": [],
       "expected_authored_effect_graph_blend_count": 0,
@@ -7118,10 +7116,10 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 7,
+      "expected_authored_effect_graph_chain_count": 0,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
-      "expected_authored_effect_graph_foliage_sway_count": 3,
+      "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
       "expected_effect_stage_admission_schema": 1,
       "expected_effect_stage_descriptor_count": 7,
@@ -7133,8 +7131,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 0,
-        "admitted-dedicated": 7,
-        "admitted-generic": 0,
+        "admitted-dedicated": 1,
+        "admitted-generic": 6,
         "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
@@ -7152,14 +7150,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "bbc4b43c45591ab8fde3064360589cd092c5b32f7aa7972f66f57771c6a4cf0e",
+      "expected_effect_stage_admission_sha256": "5c23111571a3f27a8569f4ae4b90572b2b0e06094d4ae644c6fbc1b327768077",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 7,
       "expected_effect_runtime_disposition_group_count": 1,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 0,
-        "strict-dedicated": 7,
-        "strict-generic": 0,
+        "strict-dedicated": 1,
+        "strict-generic": 6,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -7192,8 +7190,10 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "fa0ca1c10bf585c3f6305f66a33e7599c5cad616abd1a841327217e5ea4905fd",
-      "expected_resolved_material_graph_succeeded_layer_ids": [],
+      "expected_effect_runtime_disposition_sha256": "b74cf1a64950271c984e8b1c3a024dd9b37ad495c376ee38ebc7cba7c596b5c5",
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        17
+      ],
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 7,
       "expected_effect_execution_observed_eligible_exact_effect_count": 7,
@@ -8512,11 +8512,7 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        115,
-        122,
-        130
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [
         156
       ],
@@ -8531,7 +8527,7 @@
       "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
-      "expected_authored_effect_graph_shine_count": 3,
+      "expected_authored_effect_graph_shine_count": 0,
       "expected_authored_effect_graph_shine_isolated_count": 0,
       "expected_authored_effect_graph_shine_omitted_effects": [],
       "expected_authored_effect_graph_blend_count": 0,
@@ -8539,8 +8535,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 3,
-      "expected_authored_effect_graph_stage_count": 6,
+      "expected_authored_effect_graph_chain_count": 0,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
@@ -8614,7 +8610,11 @@
         "composite-refused": 0
       },
       "expected_effect_runtime_disposition_sha256": "bb0dddf8188290449080604ae3d0bd9d1ba43f0e5a8ef51ad8abbc1b9df10830",
-      "expected_resolved_material_graph_succeeded_layer_ids": [],
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        115,
+        122,
+        130
+      ],
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 6,
       "expected_effect_execution_observed_eligible_exact_effect_count": 6,

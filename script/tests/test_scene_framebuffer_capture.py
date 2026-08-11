@@ -791,6 +791,11 @@ struct SceneLightShaftsEffectTextures {
         return plan
     }
 
+    var shine: SceneShineExecutionPlan? {
+        guard case .shine(let plan) = backend else { return nil }
+        return plan
+    }
+
     var opacity: SceneOpacityExecutionPlan? {
         guard case .opacity(let plan) = backend else { return nil }
         return plan
@@ -855,6 +860,8 @@ struct SceneLightShaftsEffectTextures {
             return true
         case .godrays(let plan):
             return plan.direction == nil && !plan.legacyGaussianWeights
+        case .shine:
+            return true
         default:
             return false
         }
@@ -1216,8 +1223,25 @@ enum SceneGodraysRenderer {
     }
 }
 
-struct SceneShineExecutionPlan {}
-struct SceneShineEffectTextures {}
+struct SceneShineExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let firstHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
+    let secondHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
+    let maskTexturePath: String?
+    let noiseTexturePath: String
+}
+
+struct SceneShineEffectTextures {
+    let mask: MTLTexture?
+    let maskPath: String?
+    let noise: MTLTexture?
+    let noisePath: String
+
+    func matches(_ plan: SceneShineExecutionPlan) -> Bool {
+        guard noise != nil, noisePath == plan.noiseTexturePath else { return false }
+        return plan.maskTexturePath == nil ? maskPath == nil : mask != nil
+    }
+}
 
 struct SceneShinePipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
@@ -1235,7 +1259,13 @@ enum SceneShineRenderer {
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
-        nil
+        guard let resources = masks.shineEffects[plan.effectKey.descriptorID],
+              resources.matches(plan),
+              targets.texture(for: plan.firstHalfTarget) != nil,
+              targets.texture(for: plan.secondHalfTarget) != nil else {
+            return nil
+        }
+        return targets.outputTexture
     }
 }
 
@@ -2025,6 +2055,11 @@ enum Harness {
             queue: queue,
             pipeline: pipeline
         )
+        let authoredShinePrepared = try authoredShinePreparedEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline
+        )
         let authoredTwoStageChain = try authoredTwoStageChainEvidence(
             device: device,
             queue: queue,
@@ -2212,6 +2247,7 @@ enum Harness {
             "authoredStandardCandidate": authoredStandardCandidate,
             "authoredLocalContrastPrepared": authoredLocalContrastPrepared,
             "authoredGodraysPrepared": authoredGodraysPrepared,
+            "authoredShinePrepared": authoredShinePrepared,
             "authoredTwoStageChain": authoredTwoStageChain,
             "authoredOpacityLivePixels": authoredOpacityLivePixels,
             "authoredOpacityMaskPixel": authoredOpacityMaskPixel,
@@ -3894,6 +3930,85 @@ enum Harness {
             "preparedStageEncoded": true,
             "missingResourceReason": missingReason as Any,
             "legacyDirectionalReason": legacyReason as Any,
+        ]
+    }
+
+    static func authoredShinePreparedEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline
+    ) throws -> [String: Any] {
+        let size = 16
+        guard let noise = makeTexture(device: device, size: size, usage: .shaderRead),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(noise, bgra: [127, 127, 127, 255])
+        let plan = authoredShinePlan()
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        let frameTables = try prepareStandaloneAuthoredTables(
+            plan: plan,
+            pool: pool,
+            width: size,
+            height: size,
+            commandBuffer: commandBuffer
+        )
+        defer { frameTables.commit.releaseAll() }
+        guard let table = frameTables.tables.first,
+              let shine = plan.shine else {
+            throw HarnessError.drawRefused
+        }
+        let resources = SceneShineEffectTextures(
+            mask: nil,
+            maskPath: nil,
+            noise: noise,
+            noisePath: shine.noiseTexturePath
+        )
+        func preparation(
+            resources: [String: SceneShineEffectTextures]
+        ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
+            SceneAuthoredEffectChainRenderer.prepareStage(
+                plan,
+                sourceTexture: table.inputTexture,
+                targets: table,
+                inputs: .init(
+                    masks: authoredEffectMasks(shineEffects: resources),
+                    dynamicValues: .empty(frameIndex: 1),
+                    pipelines: .init(
+                        repository: SceneImageEffectPipelineRepository(device: device)
+                    ),
+                    cursorUV: .zero,
+                    previousCursorUV: .zero,
+                    pointerIsInside: false,
+                    previousPointerIsInside: false,
+                    frameTime: 1 / 60,
+                    time: 0,
+                    audioSpectrum: .silent,
+                    dependencyEffect: nil
+                ),
+                sourcePipeline: pipeline,
+                time: 0
+            )
+        }
+        let accepted = preparation(
+            resources: [shine.effectKey.descriptorID: resources]
+        )
+        guard case let .ready(prepared) = accepted,
+              SceneAuthoredEffectChainRenderer.encodePreparedStage(
+                  prepared,
+                  commandBuffer: commandBuffer
+              ) else { throw HarnessError.drawRefused }
+        let missing = preparation(resources: [:])
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed,
+              commandBuffer.error == nil else { throw HarnessError.commandFailed }
+        let missingReason: String?
+        if case let .rejected(reason) = missing { missingReason = reason }
+        else { missingReason = nil }
+        return [
+            "preparedStageEncoded": true,
+            "missingResourceReason": missingReason as Any,
         ]
     }
 
@@ -5609,6 +5724,86 @@ enum Harness {
         )
     }
 
+    static func authoredShinePlan() -> SceneAuthoredEffectExecutionPlan {
+        let layerID = 833
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#0"
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
+        let firstHalf = graphTexture(
+            .framebuffer,
+            layerID: layerID,
+            effect: effectKey,
+            name: "_rt_HalfCompoBuffer1"
+        )
+        let secondHalf = graphTexture(
+            .framebuffer,
+            layerID: layerID,
+            effect: effectKey,
+            name: "_rt_HalfCompoBuffer2"
+        )
+        let targets = [firstHalf, secondHalf, firstHalf, secondHalf, output]
+        let nodes = targets.indices.map { index in
+            Graph.Node(
+                nodeIndex: index,
+                effect: effectKey,
+                definitionPassIndex: index,
+                materialOrdinal: index,
+                instancePassIndex: index,
+                kind: .material,
+                materialPath: "materials/effects/shine_\(index).json",
+                materialPassID: "materials/effects/shine_\(index).json#0",
+                target: targets[index],
+                bindings: [],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            )
+        }
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/shine/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: nodes.map(\.nodeIndex)
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: [firstHalf, secondHalf].map {
+                .init(
+                    texture: $0,
+                    extent: .init(kind: .scale, first: 2, second: nil),
+                    format: "rgba_backbuffer",
+                    declaredUnique: false,
+                    clear: nil,
+                    uvs: nil,
+                    conditions: nil
+                )
+            },
+            nodes: nodes,
+            finalOutput: output,
+            blockers: []
+        )
+        return SceneAuthoredEffectExecutionPlan(
+            layerID: layerID,
+            renderGraph: graph,
+            backend: .shine(SceneShineExecutionPlan(
+                effectKey: effectKey,
+                firstHalfTarget: firstHalf,
+                secondHalfTarget: secondHalf,
+                maskTexturePath: nil,
+                noiseTexturePath: "util/clouds_256"
+            )),
+            materialNodeCount: 5,
+            logicalRenderTargetCount: 2
+        )
+    }
+
     static func authoredTwoStageBlurChain() -> SceneAuthoredEffectExecutionChain {
         let layerID = 840
         let first = authoredStandardBlurPlan(layerID: layerID)
@@ -5962,7 +6157,8 @@ enum Harness {
         blendEffects: [String: SceneBlendEffectTextures] = [:],
         tintMask: MTLTexture? = nil,
         tintMaskPath: String? = nil,
-        godraysEffects: [String: SceneGodraysEffectTextures] = [:]
+        godraysEffects: [String: SceneGodraysEffectTextures] = [:],
+        shineEffects: [String: SceneShineEffectTextures] = [:]
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
             iris: nil,
@@ -5991,7 +6187,7 @@ enum Harness {
                 maskPath: tintMaskPath
             )],
             godraysEffects: godraysEffects,
-            shineEffects: [:],
+            shineEffects: shineEffects,
             xRay: nil
         )
     }
@@ -6770,6 +6966,15 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertEqual(
             evidence["legacyDirectionalReason"],
             "backend-unsupported",
+            evidence,
+        )
+
+    def test_stock_shine_prepared_stage_requires_resources(self) -> None:
+        evidence = self.result["authoredShinePrepared"]
+        self.assertTrue(evidence["preparedStageEncoded"], evidence)
+        self.assertEqual(
+            evidence["missingResourceReason"],
+            "shine-resource-missing",
             evidence,
         )
 

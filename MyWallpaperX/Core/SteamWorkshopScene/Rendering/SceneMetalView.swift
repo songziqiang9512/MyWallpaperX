@@ -278,9 +278,9 @@ class SceneMetalView: NSView {
                 .legacyEffectRuntimeExcludedLayerIDs
         )
         imageTextures.merge(textLoad.textures)
-        // CoreText text layers also load per-effect textures before authored-chain execution.
+        // CoreText text layers also load resources for the selected effect stages.
         for layer in renderer.renderDescriptor.layers
-        where layer.contentKind == "text" && renderer.authoredEffectChain(for: layer.id) != nil {
+        where layer.contentKind == "text" && !renderer.effectTextureStages(for: layer.id).isEmpty {
             let effectTextures = loadEffectTextures(for: layer)
             if !effectTextures.message.isEmpty {
                 report.append(

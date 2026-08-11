@@ -2600,6 +2600,15 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("func unifiedDedicatedEffectStages(", renderer)
         self.assertIn("func effectTextureStages(", renderer)
         self.assertIn("renderer.effectTextureStages(for: layer.id)", view)
+        self.assertIn(
+            'layer.contentKind == "text"'
+            " && !renderer.effectTextureStages(for: layer.id).isEmpty",
+            view,
+        )
+        self.assertNotIn(
+            'layer.contentKind == "text" && renderer.authoredEffectChain(for: layer.id)',
+            view,
+        )
 
     def test_legacy_authored_gpu_telemetry_follows_selected_route(self) -> None:
         compositor = COMPOSITOR.read_text(encoding="utf-8")
