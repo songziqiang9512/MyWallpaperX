@@ -2,8 +2,9 @@ import Foundation
 
 /// Layer wrapper that may drive an authored texture animation.
 ///
-/// Parsing preserves the complete wrapper shape. Execution remains fail-closed in
-/// `SceneTextureAnimationScriptCompiler` until a verified source and shape match.
+/// Parsing preserves the complete wrapper shape. No generic texture-animation
+/// SceneScript executor is authorized, so unsupported scripts remain inert while
+/// ordinary authored TEX sprite playback continues independently.
 nonisolated struct SceneTextureAnimationScriptDefinition: Codable, Equatable, Sendable {
     let host: String
     let source: String

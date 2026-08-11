@@ -278,9 +278,7 @@ extension SceneMetalRenderer {
                 )
                 outputMVP = sourceMVP
                 sourceTexture = texture
-                textureFrame = spriteAnimations[layerID]?.transform(
-                    at: time, wallDate: frameContext.wallDate
-                ) ?? .identity
+                textureFrame = spriteAnimations[layerID]?.transform(at: time) ?? .identity
                 capturesMainTarget = false
             case .capturedMainTargetTexture:
                 guard let utility = layer.utilityLayer,

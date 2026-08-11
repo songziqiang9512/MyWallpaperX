@@ -189,7 +189,6 @@ enum SceneBaseImageTextureLoad {
         usesPuppet: Bool,
         loader: SceneTextureLoader,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
-        textureAnimationPlan: SceneTextureAnimationPlaybackPlan? = nil,
         device: MTLDevice
     ) -> Outcome {
         let source = loader.sourceKey(for: url)
@@ -208,7 +207,6 @@ enum SceneBaseImageTextureLoad {
                 reason: legacyReason,
                 loader: loader,
                 spriteTextureLoader: spriteTextureLoader,
-                textureAnimationPlan: textureAnimationPlan,
                 device: device
             )
         }
@@ -284,7 +282,6 @@ enum SceneBaseImageTextureLoad {
         reason: String,
         loader: SceneTextureLoader,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
-        textureAnimationPlan: SceneTextureAnimationPlaybackPlan?,
         device: MTLDevice
     ) -> Outcome {
         var crossImageFallbackMessage = ""
@@ -294,7 +291,6 @@ enum SceneBaseImageTextureLoad {
                 source: source,
                 container: container,
                 device: device,
-                playbackPlan: textureAnimationPlan,
                 sourceIsCurrent: {
                     loader.sourceKey(for: url) == source
                 }
@@ -311,8 +307,6 @@ enum SceneBaseImageTextureLoad {
                     candidate: nil,
                     animation: animation,
                     message: "; base color cross-image sprite playback"
-                        + (textureAnimationPlan == nil
-                            ? "" : "; bounded texture-animation lifecycle")
                 ))
             case .unsupported(let detail):
                 crossImageFallbackMessage =
@@ -335,15 +329,10 @@ enum SceneBaseImageTextureLoad {
                 texture: texture,
                 candidate: nil,
                 animation: container.flatMap {
-                    SceneSpriteAnimation(
-                        frames: $0.spriteFrames,
-                        playbackPlan: textureAnimationPlan
-                    )
+                    SceneSpriteAnimation(frames: $0.spriteFrames)
                 },
                 message: "; base color legacy route (\(reason))"
                     + crossImageFallbackMessage
-                    + (textureAnimationPlan == nil
-                        ? "" : "; bounded texture-animation lifecycle")
             ))
         case let failure:
             return .failed(failure)

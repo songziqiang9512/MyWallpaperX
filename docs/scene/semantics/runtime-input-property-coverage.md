@@ -2,7 +2,7 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-08-09
+> 最近核对：2026-08-12
 >
 > 本页的 Timeline 与各 bounded consumer 历史基线保留在对应证据包；R3 provider/atomic material program 的现役状态见 [E-MATERIAL-PROGRAM](runtime-evidence-index.md#e-material-program)，精确全局当前状态见 [总覆盖台账](coverage-ledger.md)。
 >
@@ -316,7 +316,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | property-driven dynamic text | `L3` | 只更新变化 layer，重复值不生成；并发旧 generation/失败结果不覆盖 last-ready，连续 Timeline 则每层只保留一个在途任务、发布单调中间结果后只追最新 generation；真实 `2134765860` 三字段与 `2902406982` 两条 width Timeline 正门 | 长文本/emoji/多语言布局与多屏压力门 |
 | fixed native clock/day/date/greeting text | `L0 product owner / historical` | 七个exact source/property profile已于R4-B18删除；B18前报告只作历史，不证明现役Text owner、输出或视觉 | 现役只看下一行bounded AST；`clockWithPeriod`、greeting与其他未准入语法保留authored fallback |
 | bounded property-bound text update | `L3 bounded` | B18后唯一现役Text脚本合同：唯一exported `update(value)`解析为无循环AST；primitive property、变量/条件/赋值、`new Date()` getter、string拼接/`slice`由三层预算执行，不依赖sample/layer/source hash；compile/evaluate失败不覆盖作者文字 | 完整ECMAScript/coercion/scope/exception、init/engine/event/module、live script-property event、locale/DST/离线clock adapter |
-| exact native day/night texture toggle | `L3 bounded` | 精确source/wrapper/property profile用wall clock驱动三帧texture animation；B18后该schedule不再授权fixed Text greeting | cursor click、persisted manual override、跨午夜/DST/暂停长稳与Windows timing golden |
+| fixed native delayed-loop/day-night texture animation | `L0 product owner / historical` | B19已删除两个source SHA profile、compiler、playback plan、专用clock与wall-date sprite plumbing；TextureAnimation SceneScript仍保真但不执行 | 旧delayed-loop/time-of-day报告只作历史，不证明现役owner、当前时序或视觉；通用handle、cursor click、persisted override与Windows timing仍未实现，见 [E-R4-B19](runtime-evidence-index.md#e-r4-b19-fixed-texture-animation-profile-retirement) |
 | generic SceneScript/media text | `L0` | bounded text update 子集已复用动态纹理 consumer，但仍无 VM、通用 source/module loader、非 String target 或 media snapshot | 扩展 typed producer 时保持 syntax/value/budget/lifecycle fail-closed |
 | dynamic Layer Image particle source | `L0` | 无 emission bitmap refresh | 只在 text texture 变化时更新 emission source |
 
@@ -384,7 +384,7 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 | layer/named/graph/asset/property/system identity/status/generation | `L3 bounded；generic carrier L2` | R3统一`SceneFrameTextureIdentity`与`SceneTextureProviderPublication(requestIdentity,candidate,contentGeneration)`；immutable frame snapshot同时冻结frame index、ready/incomplete/absent/pending/unavailable，字典missing仍可区分。candidate的identity/generation/purpose/content、physical/mapped、UV、sampler raw flags必须同代，stale、purpose/identity不匹配与半 publication均拒绝；既有direct text、embedded MP4和bounded current/previous cover生命周期不变；[E-PROVIDER](runtime-evidence-index.md#e-provider)、[E-MATERIAL-PROGRAM](runtime-evidence-index.md#e-material-program) | graph FBO/effectOutput在command边界的publication、其他provider主动取消、device loss、platform producer/consumer生命周期与通用GPU consumer |
 | authored fallback chain | `L3 bounded` | 受限static Blend现与R3 material resolver共用explicit-absent-only规则；missing/pending/unavailable/incomplete不能落回较低优先级作者候选；[E-PROVIDER](runtime-evidence-index.md#e-provider)、[E-MATERIAL-PROGRAM](runtime-evidence-index.md#e-material-program) | 推广至material/effect/nested GPU consumer，并逐类证明producer的absent语义 |
 | property PNG/JPEG | `L3` | bookmark/security scope/decode/per-screen upload；[E-PROVIDER](runtime-evidence-index.md#e-provider) | cancellation、更多格式、通用 material |
-| multi-image TEX sprite playback | `L3 bounded` | BC1/2/3、axis-aligned/integer/same-extent frame 的 launch-scoped native autoplay；source 按 file generation/device 跨 surface 去重，destination 按实例计费并随 playback 释放，设备 allocation 聚合预算 384 MiB；SceneClock pause/resume/rebuild 保持同一 scene-time 映射，完整 stop 随 launch context 释放。精确 delayed-loop script profile 另使用实例级、timer-free 状态机执行 initial delay、末帧 reset 与独立随机等待；[E-PUPPET-BC](runtime-evidence-index.md#e-puppet-bc) | dynamic replacement、旋转/trimmed/fractional/异尺寸 frame、通用 SceneScript handle/detach/join/rate/pause/seek/command/timer、Windows timing/color/alpha golden |
+| multi-image TEX sprite playback | `L3 bounded` | 普通单图atlas及BC1/2/3、axis-aligned/integer/same-extent的cross-image multi-image按scene time与作者frame duration循环；source按file generation/device跨surface去重，destination按实例计费并随playback释放，设备allocation聚合预算384 MiB。B19撤销fixed TextureAnimation profile不删除该公共autoplay能力；[E-PUPPET-BC](runtime-evidence-index.md#e-puppet-bc) | dynamic replacement、旋转/trimmed/fractional/异尺寸frame、通用SceneScript handle/detach/join/rate/pause/seek/command/timer、Windows timing/color/alpha golden；B19未刷新运行或视觉证据 |
 | embedded MP4 image layer | `L3 bounded` | TEX payload 由 launch-scoped registry 管理，按共享 SceneClock 映射 item time；同 frame 去重、成功帧换代，pause 保帧、resume/rebuild 连续、stop 释放；[E-VIDEO](runtime-evidence-index.md#e-video) | 真实系统 pause/hot-plug、seek、loop 首帧/黑场、codec/device-loss 与 Windows parity |
 | video as generic material provider | `L0` | typed frame publication 已有，但没有 material/effect slot consumer | slot purpose/UV/sampler/format、fallback、动态尺寸与 generation 原子绑定 |
 | named primary variant producer | `L3` | bounded `_a` current-frame publication；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 target/extent/format |

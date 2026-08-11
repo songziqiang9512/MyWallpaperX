@@ -255,7 +255,7 @@ struct SceneMetalRenderer {
                     texture: preparedTexture,
                     baseTextureCandidate: imageTextures.candidate(for: layer.id, matching: preparedTexture),
                     masks: effectMasks(for: layer.id, in: effectTextures),
-                    textureFrame: spriteAnimations[layer.id]?.transform(at: time, wallDate: frameContext.wallDate) ?? .identity,
+                    textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
                     mvp: mvp,
                     uniforms: SceneImageLayerUniformValues(
                         time: time,

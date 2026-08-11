@@ -182,9 +182,6 @@ class SceneMetalView: NSView {
                 usesPuppet: layer.puppetMeshPath != nil,
                 loader: loader,
                 spriteTextureLoader: spriteTextureLoader,
-                textureAnimationPlan: SceneTextureAnimationScriptCompiler.compile(
-                    layerID: layer.id, definitions: layer.textureAnimationScripts ?? []
-                ),
                 device: metalDevice
             ) {
             case .loaded(let baseLoad):
@@ -377,7 +374,7 @@ class SceneMetalView: NSView {
             encodeSourceUpdates: { [puppetPlaybackStates, spriteAnimations] commandBuffer, transaction in
                 for animation in spriteAnimations.values {
                     animation.encode(
-                        sceneTime: Float(frameContext.sceneTime), wallDate: frameContext.wallDate,
+                        sceneTime: Float(frameContext.sceneTime),
                         commandBuffer: commandBuffer, transaction: transaction
                     )
                 }

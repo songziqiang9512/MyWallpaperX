@@ -196,14 +196,12 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
     private let device: MTLDevice
     private let residentReservation: SceneMultiImageSpriteResidentBudget.Reservation
     private let submissionTracker = SceneSpriteFrameSubmissionTracker()
-    private var playbackClock: SceneTextureAnimationPlaybackClock?
 
     fileprivate init?(
         textureSet: SceneMultiImageSpriteTextureSet,
         layout: SceneMultiImageSpriteLayout,
         device: MTLDevice,
-        residentReservation: SceneMultiImageSpriteResidentBudget.Reservation,
-        playbackPlan: SceneTextureAnimationPlaybackPlan?
+        residentReservation: SceneMultiImageSpriteResidentBudget.Reservation
     ) {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba8Unorm,
@@ -221,24 +219,14 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
         duration = layout.duration
         self.device = device
         self.residentReservation = residentReservation
-        playbackClock = playbackPlan.map {
-            SceneTextureAnimationPlaybackClock(
-                plan: $0,
-                frameDurations: layout.frames.map(\.duration)
-            )
-        }
     }
 
     func encode(
         sceneTime: Float,
-        wallDate: Date,
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
     ) {
-        let frameIndex = playbackClock?.frameIndex(
-            at: sceneTime,
-            wallDate: wallDate
-        ) ?? frameIndex(at: sceneTime)
+        let frameIndex = frameIndex(at: sceneTime)
         guard let submission = submissionTracker.begin(frameIndex: frameIndex) else {
             return
         }
@@ -313,7 +301,6 @@ final class SceneMultiImageSpriteTextureLoader {
         source: SceneTextureLoader.SourceKey,
         container: SceneTexContainer,
         device: MTLDevice,
-        playbackPlan: SceneTextureAnimationPlaybackPlan? = nil,
         sourceIsCurrent: () -> Bool
     ) -> Outcome {
         guard sourceIsCurrent() else {
@@ -370,8 +357,7 @@ final class SceneMultiImageSpriteTextureLoader {
             textureSet: textureSet,
             layout: plan.layout,
             device: device,
-            residentReservation: destinationReservation,
-            playbackPlan: playbackPlan
+            residentReservation: destinationReservation
         ) else {
             return .unsupported("RGBA frame target allocation failed")
         }

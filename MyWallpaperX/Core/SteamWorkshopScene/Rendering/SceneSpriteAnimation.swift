@@ -6,25 +6,9 @@ import simd
 protocol SceneSpriteTexturePlayback: AnyObject {
     func encode(
         sceneTime: Float,
-        wallDate: Date,
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
     )
-}
-
-private final class SceneSpriteAnimationPlaybackState {
-    private var clock: SceneTextureAnimationPlaybackClock
-
-    init(plan: SceneTextureAnimationPlaybackPlan, frames: [SceneTexContainer.SpriteFrame]) {
-        clock = SceneTextureAnimationPlaybackClock(
-            plan: plan,
-            frameDurations: frames.map(\.duration)
-        )
-    }
-
-    func frameIndex(sceneTime: Float, wallDate: Date) -> Int {
-        clock.frameIndex(at: sceneTime, wallDate: wallDate)
-    }
 }
 
 struct SceneSpriteAnimation {
@@ -32,12 +16,10 @@ struct SceneSpriteAnimation {
     let duration: Float
     private let frameAspectRatios: [Float]
     private let texturePlayback: SceneSpriteTexturePlayback?
-    private let playbackState: SceneSpriteAnimationPlaybackState?
 
     init?(
         frames: [SceneTexContainer.SpriteFrame],
         texturePlayback: SceneSpriteTexturePlayback? = nil,
-        playbackPlan: SceneTextureAnimationPlaybackPlan? = nil,
         textureSize: SIMD2<Int>? = nil,
         nominalFrameSize: SIMD2<Float>? = nil
     ) {
@@ -55,9 +37,6 @@ struct SceneSpriteAnimation {
             )
         }
         self.texturePlayback = texturePlayback
-        playbackState = texturePlayback == nil
-            ? playbackPlan.map { SceneSpriteAnimationPlaybackState(plan: $0, frames: frames) }
-            : nil
     }
 
     init?(container: SceneTexContainer, sourceURL: URL) {
@@ -81,19 +60,9 @@ struct SceneSpriteAnimation {
     }
 
     func transform(at elapsed: Float) -> SceneTextureUVTransform {
-        transform(at: elapsed, wallDate: Date(timeIntervalSince1970: 0))
-    }
-
-    func transform(at elapsed: Float, wallDate: Date) -> SceneTextureUVTransform {
         guard texturePlayback == nil else { return .identity }
         guard frames.count > 1, duration > 0 else {
             return transform(for: frames[0])
-        }
-        if let frameIndex = playbackState?.frameIndex(
-            sceneTime: elapsed,
-            wallDate: wallDate
-        ) {
-            return transform(for: frames[frameIndex])
         }
         var remaining = elapsed.truncatingRemainder(dividingBy: duration)
         if remaining < 0 { remaining += duration }
@@ -109,13 +78,11 @@ struct SceneSpriteAnimation {
 
     func encode(
         sceneTime: Float,
-        wallDate: Date,
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
     ) {
         texturePlayback?.encode(
             sceneTime: sceneTime,
-            wallDate: wallDate,
             commandBuffer: commandBuffer,
             transaction: transaction
         )

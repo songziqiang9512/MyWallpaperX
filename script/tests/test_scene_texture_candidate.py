@@ -33,8 +33,6 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
     SCENE_ROOT / "Resources/SceneMultiImageSpriteResidentBudget.swift",
-    SCENE_ROOT / "Runtime/SceneTextureAnimationPlaybackPlan.swift",
-    SCENE_ROOT / "Resources/SceneTextureAnimationPlaybackClock.swift",
     SCENE_ROOT / "Resources/SceneMultiImageSpritePlayback.swift",
     SCENE_ROOT / "Rendering/SceneMetalPipeline.swift",
     SCENE_ROOT / "Rendering/SceneSpriteAnimation.swift",
@@ -506,7 +504,6 @@ enum Harness {
         let firstFrameTransaction = SceneSourceUpdateTransaction()
         crossImageAnimation.encode(
             sceneTime: 0,
-            wallDate: Date(timeIntervalSince1970: 0),
             commandBuffer: firstFrameCommandBuffer,
             transaction: firstFrameTransaction
         )
@@ -521,7 +518,6 @@ enum Harness {
         let secondFrameTransaction = SceneSourceUpdateTransaction()
         crossImageAnimation.encode(
             sceneTime: 0.04,
-            wallDate: Date(timeIntervalSince1970: 0),
             commandBuffer: secondFrameCommandBuffer,
             transaction: secondFrameTransaction
         )
