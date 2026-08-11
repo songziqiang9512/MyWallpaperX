@@ -4140,6 +4140,7 @@ utility layer 763: skippedHidden kind=composition
         self.assertTrue(metrics["has_evidence"])
         self.assertTrue(metrics["execution_succeeded"])
         self.assertEqual(metrics["validation_failures"], [])
+
         self.assertEqual(metrics["capability"], {
             "has_evidence": True,
             "schema_version": "r4-layer-capability-v2",
@@ -4221,6 +4222,62 @@ utility layer 763: skippedHidden kind=composition
                     "expected_resolved_material_graph_succeeded_layer_ids": []
                 },
             ),
+        )
+
+    def test_resolved_material_graph_execution_gate_accepts_dependency_routes(
+        self,
+    ) -> None:
+        preview_text = "\n".join([
+            "resolved material execution capabilities: "
+            "schema=r4-layer-capability-v2 candidates=3 accepted=3 "
+            "rejected=0 variantLimit=8",
+            "resolved material execution capability: "
+            "schema=r4-layer-route-v2 layer=68 status=accepted "
+            "dependency=none dependencyReferences=0",
+            "resolved material execution capability: "
+            "schema=r4-layer-route-v2 layer=70 status=accepted "
+            "dependency=graph-internal dependencyReferences=1",
+            "resolved material execution capability: "
+            "schema=r4-layer-route-v2 layer=72 status=accepted "
+            "dependency=external-primary dependencyReferences=1",
+        ])
+
+        metrics = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            "",
+        )
+
+        self.assertEqual(
+            metrics["capability"]["accepted_layer_ids"],
+            [68, 70, 72],
+        )
+        self.assertEqual(
+            metrics["capability"]["malformed_route_observation_count"],
+            0,
+        )
+        self.assertNotIn(
+            "resolved material graph accepted layer evidence malformed",
+            metrics["validation_failures"],
+        )
+
+        malformed = benchmark.resolved_material_graph_execution_metrics(
+            "\n".join([
+                "resolved material execution capabilities: "
+                "schema=r4-layer-capability-v2 candidates=1 accepted=1 "
+                "rejected=0 variantLimit=8",
+                "resolved material execution capability: "
+                "schema=r4-layer-route-v2 layer=72 status=accepted "
+                "dependency=external-primary dependencyReferences=0",
+            ]),
+            "",
+        )
+        self.assertEqual(
+            malformed["capability"]["malformed_route_observation_count"],
+            1,
+        )
+        self.assertIn(
+            "resolved material graph accepted layer evidence malformed",
+            malformed["validation_failures"],
         )
 
     def test_resolved_material_graph_execution_gate_rejects_false_success(

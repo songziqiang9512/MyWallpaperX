@@ -69,8 +69,18 @@ SUPPORT = PUBLICATION_FIXTURE["SUPPORT"].replace(
 import simd
 
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
+struct SceneProceduralNoiseExecutionPlan { let dependencySlotIndex: Int? }
+struct SceneClippingMaskExecutionPlan {
+    let layerID: Int
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let providerLayerID: Int
+    let blendMode: Int
+}
 
 extension SceneAuthoredEffectExecutionPlan {
+    var clippingMask: SceneClippingMaskExecutionPlan? { nil }
+    var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
     var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
     var workshopAudioBars: SceneOpacityExecutionPlan? { nil }
@@ -139,17 +149,30 @@ struct SceneDependencyRenderPlan {
         let variant: SceneNamedTextureReference.Variant
     }
 
+    struct Binding: Hashable {
+        enum Kind: Hashable { case clippingMask, proceduralNoiseLayer }
+        let consumerLayerID: Int
+        let providerLayerID: Int
+        let slot: SceneEffectPassSlot
+        let blendMode: Int
+        let kind: Kind
+    }
+
     let references: [Reference]
     let namedReferenceConsumerLayerIDs: Set<Int>
+    let bindingsByConsumerLayerID: [Int: Binding]
 
     init(
         descriptor: SceneRenderDescriptor,
-        visibleLayerIDs: Set<Int>
+        visibleLayerIDs: Set<Int>,
+        executableUtilityConsumerLayerIDs: Set<Int> = []
     ) {
         _ = descriptor
         _ = visibleLayerIDs
+        _ = executableUtilityConsumerLayerIDs
         references = []
         namedReferenceConsumerLayerIDs = []
+        bindingsByConsumerLayerID = [:]
     }
 }
 

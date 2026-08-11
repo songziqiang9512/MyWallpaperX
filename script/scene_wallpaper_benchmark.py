@@ -527,7 +527,7 @@ RESOLVED_MATERIAL_LAYER_ROUTE_V1_RE = re.compile(
 RESOLVED_MATERIAL_LAYER_ROUTE_V2_RE = re.compile(
     r"resolved material execution capability: "
     r"schema=r4-layer-route-v2 layer=(?P<id>\d+) status=accepted "
-    r"dependency=(?P<dependency>none|graph-internal) "
+    r"dependency=(?P<dependency>none|graph-internal|external-primary) "
     r"dependencyReferences=(?P<dependency_references>\d+)"
 )
 RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE = re.compile(
@@ -2137,7 +2137,7 @@ def resolved_material_graph_execution_metrics(
             dependency = current.group("dependency")
             reference_count = int(current.group("dependency_references"))
             if (dependency == "none" and reference_count != 0) or (
-                dependency == "graph-internal" and reference_count == 0
+                dependency != "none" and reference_count == 0
             ):
                 malformed_route_count += 1
                 continue

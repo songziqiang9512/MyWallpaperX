@@ -82,6 +82,10 @@ SUBMISSION_FRAME_COMMIT = (
     SCENE_ROOT
     / "Runtime/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift"
 )
+SUBMISSION_EXECUTION = (
+    SCENE_ROOT
+    / "Runtime/SceneResolvedMaterialSubmissionCoordinator+Execution.swift"
+)
 GRAPH_OBSERVATION = SCENE_ROOT / "Runtime/SceneGraphExecutionObservation.swift"
 GRAPH_TELEMETRY = SCENE_ROOT / "Runtime/SceneGraphExecutionTelemetry.swift"
 GRAPH_OBSERVATION_BUILDER = (
@@ -97,6 +101,7 @@ SUBMISSION_SWIFT_SOURCES = [
     SUBMISSION_LIFECYCLE,
     SUBMISSION_COMPLETION,
     SUBMISSION_FRAME_COMMIT,
+    SUBMISSION_EXECUTION,
 ]
 
 
@@ -525,6 +530,36 @@ struct SceneResolvedMaterialAdmittedLayer {
         case transparentDirectDraw
     }
 }
+struct SceneEffectPassSlot: Hashable {
+    let effectID: String
+    let passIndex: Int
+    let slotIndex: Int
+}
+enum SceneNamedTextureReference {
+    enum Variant: Hashable {
+        case primary
+        case secondary
+    }
+}
+struct SceneDependencyRenderPlan {
+    struct Binding: Hashable {
+        enum Kind: Hashable {
+            case clippingMask
+            case proceduralNoiseLayer
+        }
+
+        let consumerLayerID: Int
+        let providerLayerID: Int
+        let slot: SceneEffectPassSlot
+        let blendMode: Int
+        let kind: Kind
+    }
+}
+enum SceneResolvedMaterialDependencyOwnership: Equatable {
+    case none
+    case graphInternal(referenceCount: Int)
+    case externalPrimary(SceneDependencyRenderPlan.Binding)
+}
 struct SceneAuthoredEffectExecutionPlan {}
 final class SceneResolvedMaterialExecutionCapabilityCatalog {
     struct Token: Hashable { let value: Int }
@@ -556,6 +591,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let admittedProducts: [AdmittedProduct]
         let stages: [StageCapability]
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
+        let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         var effectSubjectsAreConserved: Bool {
             let expected = admittedProducts.flatMap { $0.graph.effects.map(\.key) }
@@ -655,7 +691,17 @@ struct SceneImageLayerPipeline {}
 struct SceneImageLayerMasks {}
 struct SceneAuthoredEffectPipelineSet {}
 struct SceneAudioSpectrumSnapshot {}
-struct SceneDependencyEffectInput {}
+struct SceneDependencyEffectInput {
+    let consumerLayerID: Int
+    let providerLayerID: Int
+    let variant: SceneNamedTextureReference.Variant
+    let slot: SceneEffectPassSlot
+    let blendMode: Int
+    let frameEpoch: UInt64
+    let texture: MTLTexture
+
+    var slotIndex: Int { slot.slotIndex }
+}
 struct SceneResolvedMaterialFailure: Error {}
 struct SceneFrameTextureRegistrySnapshot { let frameIndex: UInt64; let valid: Bool }
 struct SceneDynamicSnapshot {}
@@ -1118,6 +1164,7 @@ private func makeLedger(
     identity: UInt64,
     commandBuffer: MTLCommandBuffer,
     prepared: SceneResolvedMaterialGraphExecutor.PreparedChain,
+    preparedDependencyEffect: SceneDependencyEffectInput? = nil,
     commit: ScenePreparedPersistentGraphTargets.Commit,
     blueprint: Coordinator.CandidateBlueprint? = nil,
     candidate: [Graph.EffectKey: Coordinator.Tail]? = nil,
@@ -1133,6 +1180,7 @@ private func makeLedger(
         layerID: 7,
         capabilityToken: .init(value: 7),
         prepared: prepared,
+        preparedDependencyEffect: preparedDependencyEffect,
         commandBuffer: commandBuffer,
         committedBaseTails: coordinator.committedTails,
         blueprint: blueprint,
@@ -1146,8 +1194,52 @@ private func makeLedger(
     )
 }
 
+private func externalPrimaryBinding(
+    consumerLayerID: Int = 7,
+    providerLayerID: Int = 42,
+    slotIndex: Int = 1,
+    blendMode: Int = 5,
+    kind: SceneDependencyRenderPlan.Binding.Kind = .clippingMask
+) -> SceneDependencyRenderPlan.Binding {
+    .init(
+        consumerLayerID: consumerLayerID,
+        providerLayerID: providerLayerID,
+        slot: .init(
+            effectID: "effect-\(consumerLayerID)",
+            passIndex: 0,
+            slotIndex: slotIndex
+        ),
+        blendMode: blendMode,
+        kind: kind
+    )
+}
+
+private func dependencyInput(
+    binding: SceneDependencyRenderPlan.Binding,
+    texture: MTLTexture,
+    frameEpoch: UInt64 = 13,
+    consumerLayerID: Int? = nil,
+    providerLayerID: Int? = nil,
+    variant: SceneNamedTextureReference.Variant = .primary,
+    slot: SceneEffectPassSlot? = nil,
+    blendMode: Int? = nil
+) -> SceneDependencyEffectInput {
+    .init(
+        consumerLayerID: consumerLayerID ?? binding.consumerLayerID,
+        providerLayerID: providerLayerID ?? binding.providerLayerID,
+        variant: variant,
+        slot: slot ?? binding.slot,
+        blendMode: blendMode ?? binding.blendMode,
+        frameEpoch: frameEpoch,
+        texture: texture
+    )
+}
+
 private func makeCapabilities(
     layerIDs: [Int] = [7],
+    dependencyOwnershipByLayerID: [
+        Int: SceneResolvedMaterialDependencyOwnership
+    ] = [:],
     resolvesClaims: Bool = true
 ) -> SceneResolvedMaterialExecutionCapabilityCatalog {
     let capabilities = layerIDs.map { layerID ->
@@ -1167,6 +1259,8 @@ private func makeCapabilities(
                 family: "resolved-material"
             ))],
             fullFrameExtentPolicy: .standard,
+            dependencyOwnership:
+                dependencyOwnershipByLayerID[layerID] ?? .none,
             sourceRoute: .capturedLayerTexture
         )
     }
@@ -1197,6 +1291,9 @@ private final class LogRecorder: @unchecked Sendable {
 private func makeCoordinator(
     _ device: MTLDevice,
     layerIDs: [Int] = [7],
+    dependencyOwnershipByLayerID: [
+        Int: SceneResolvedMaterialDependencyOwnership
+    ] = [:],
     resolvesClaims: Bool = true,
     logSink: @escaping Coordinator.LogSink = { _ in }
 ) -> Coordinator {
@@ -1204,6 +1301,7 @@ private func makeCoordinator(
         device: device,
         capabilities: makeCapabilities(
             layerIDs: layerIDs,
+            dependencyOwnershipByLayerID: dependencyOwnershipByLayerID,
             resolvesClaims: resolvesClaims
         ),
         logSink: logSink
@@ -1329,7 +1427,74 @@ private func recordedFailure(
                 && $0.contains("failure=\(reasonCode)")
                 && $0.contains("gpuCompletion=\(gpu)")
                 && !$0.contains("diagnostic=")
-        }
+    }
+}
+
+private struct DependencyExecutionProbe {
+    let reasonCode: String
+    let consumesExternalPrimaryDependency: Bool?
+}
+
+private func executeExternalDependency(
+    device: MTLDevice,
+    queue: MTLCommandQueue,
+    binding: SceneDependencyRenderPlan.Binding,
+    preparedDependencyEffect: SceneDependencyEffectInput?,
+    readyDependencyEffect: SceneDependencyEffectInput?
+) -> DependencyExecutionProbe {
+    SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
+    let coordinator = makeCoordinator(
+        device,
+        dependencyOwnershipByLayerID: [7: .externalPrimary(binding)]
+    )
+    let buffer = queue.makeCommandBuffer()!
+    let commit = makeCommit(generation: 1)
+    coordinator.frameIsActive = true
+    coordinator.frame = .init(frameIndex: 13)
+    coordinator.activeByID[1] = makeLedger(
+        coordinator: coordinator,
+        identity: 1,
+        commandBuffer: buffer,
+        prepared: makePrepared(device: device),
+        preparedDependencyEffect: preparedDependencyEffect,
+        commit: commit,
+        phase: .allocationCommitted,
+        claimed: false
+    )
+    coordinator.activeTransactions = [1]
+    coordinator.preparedLedgerByLayerID = [7: 1]
+    coordinator.framePreparationComplete = true
+    let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
+    switch coordinator.claim(layerID: 7) {
+    case let .claimed(value): claim = value
+    case let .rejected(reasonCode):
+        return .init(
+            reasonCode: reasonCode,
+            consumesExternalPrimaryDependency: nil
+        )
+    case .notMigrated:
+        return .init(
+            reasonCode: "not-migrated",
+            consumesExternalPrimaryDependency: nil
+        )
+    }
+    switch coordinator.executeClaimed(
+        claim: claim,
+        dependencyEffect: readyDependencyEffect,
+        commandBuffer: buffer
+    ) {
+    case let .encoded(_, ticket):
+        return .init(
+            reasonCode: "encoded",
+            consumesExternalPrimaryDependency:
+                ticket.consumesExternalPrimaryDependency
+        )
+    case let .failed(reasonCode):
+        return .init(
+            reasonCode: reasonCode,
+            consumesExternalPrimaryDependency: nil
+        )
+    }
 }
 
 @main
@@ -1341,6 +1506,113 @@ enum Harness {
             return
         }
         var results: [String: Bool] = [:]
+
+        do {
+            let binding = externalPrimaryBinding()
+            let reservedTexture = makeTexture(device, "dependency-reservation")
+            let reserved = dependencyInput(
+                binding: binding,
+                texture: reservedTexture
+            )
+            let exact = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: binding,
+                    texture: reservedTexture
+                )
+            )
+            results["externalDependencyExactReadyMatchIssuesTicket"] =
+                exact.reasonCode == "encoded"
+                && exact.consumesExternalPrimaryDependency == true
+
+            let missing = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: nil
+            )
+            results["externalDependencyMissingReadyRejected"] =
+                missing.reasonCode == "prepared-frame-consumption-rejected"
+
+            let wrongProvider = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: binding,
+                    texture: reservedTexture,
+                    providerLayerID: binding.providerLayerID + 1
+                )
+            )
+            results["externalDependencyWrongProviderRejected"] =
+                wrongProvider.reasonCode
+                    == "prepared-frame-consumption-rejected"
+
+            let wrongSlot = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: binding,
+                    texture: reservedTexture,
+                    slot: .init(
+                        effectID: binding.slot.effectID,
+                        passIndex: binding.slot.passIndex,
+                        slotIndex: binding.slot.slotIndex + 1
+                    )
+                )
+            )
+            results["externalDependencyWrongSlotRejected"] =
+                wrongSlot.reasonCode == "prepared-frame-consumption-rejected"
+
+            let wrongBlend = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: binding,
+                    texture: reservedTexture,
+                    blendMode: binding.blendMode == 5 ? 0 : 5
+                )
+            )
+            results["externalDependencyWrongBlendRejected"] =
+                wrongBlend.reasonCode == "prepared-frame-consumption-rejected"
+
+            let stale = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: binding,
+                    texture: reservedTexture,
+                    frameEpoch: reserved.frameEpoch + 1
+                )
+            )
+            results["externalDependencyWrongEpochRejected"] =
+                stale.reasonCode == "prepared-frame-consumption-rejected"
+
+            let wrongObject = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: binding,
+                    texture: makeTexture(device, "dependency-ready-lookalike")
+                )
+            )
+            results["externalDependencyWrongObjectRejected"] =
+                wrongObject.reasonCode
+                    == "prepared-frame-consumption-rejected"
+        }
 
         do {
             let recorder = LogRecorder()
@@ -1720,6 +1992,7 @@ enum Harness {
                 }
                 switch coordinator.executeClaimed(
                     claim: claim,
+                    dependencyEffect: nil,
                     commandBuffer: buffer
                 ) {
                 case let .encoded(texture, ticket):
@@ -1960,6 +2233,7 @@ enum Harness {
             }
             let outcome = coordinator.executeClaimed(
                 claim: claim,
+                dependencyEffect: nil,
                 commandBuffer: foreignBuffer
             )
             let reason: String
@@ -1998,7 +2272,8 @@ enum Harness {
             let ticket = SceneResolvedMaterialRuntimeBridge.ExecutionTicket(
                 identity: 1,
                 epoch: coordinator.executionEpoch,
-                finalTextureIdentity: ObjectIdentifier(texture)
+                finalTextureIdentity: ObjectIdentifier(texture),
+                consumesExternalPrimaryDependency: false
             )
             let firstOutcome = coordinator.markComposite(
                 ticket, texture: texture, consumed: true
@@ -2573,6 +2848,90 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn('operation: "r4-final-composite"', composition)
         self.assertIn("consumeResolvedMaterialComposite(", compositor)
         self.assertIn("return false", compositor)
+
+    def test_external_dependency_is_late_ready_and_composited_once(self) -> None:
+        bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
+        coordinator = SUBMISSION_COORDINATOR.read_text(encoding="utf-8")
+        frame_commit = SUBMISSION_FRAME_COMMIT.read_text(encoding="utf-8")
+        execution = SUBMISSION_EXECUTION.read_text(encoding="utf-8")
+        composition = GRAPH_COMPOSITION.read_text(encoding="utf-8")
+        compositor = COMPOSITOR.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "let dependencyOwnership: SceneResolvedMaterialDependencyOwnership",
+            bridge,
+        )
+        self.assertIn(
+            "let consumesExternalPrimaryDependency: Bool",
+            bridge,
+        )
+        self.assertIn(
+            "dependencyEffect: SceneDependencyEffectInput?",
+            bridge,
+        )
+        self.assertIn("let preparedDependencyEffect:", coordinator)
+        self.assertIn("let preparedDependencyEffect:", frame_commit)
+
+        compact_coordinator = "".join(coordinator.split())
+        self.assertIn(
+            "dependencyReservationMatches("
+            "request.dedicatedInputs.dependencyEffect,"
+            "ownership:claim.dependencyOwnership)",
+            compact_coordinator,
+        )
+
+        compact_execution = "".join(execution.split())
+        self.assertIn(
+            "dependenciesMatch(prepared:ledger.preparedDependencyEffect,"
+            "ready:dependencyEffect,ownership:claim.dependencyOwnership)",
+            compact_execution,
+        )
+        for contract in (
+            "input.consumerLayerID==binding.consumerLayerID",
+            "input.providerLayerID==binding.providerLayerID",
+            "input.variant==.primary",
+            "input.slot==binding.slot",
+            "input.blendMode==binding.blendMode",
+            "prepared.frameEpoch==ready.frameEpoch",
+            "prepared.texture===ready.texture",
+        ):
+            self.assertIn(contract, compact_execution)
+        self.assertIn(
+            "ifcase.externalPrimary=claim.dependencyOwnership",
+            compact_execution,
+        )
+        self.assertIn(
+            "consumesExternalPrimaryDependency:"
+            "consumesExternalPrimaryDependency",
+            compact_execution,
+        )
+
+        compact_composition = "".join(composition.split())
+        self.assertIn(
+            "dependencyEffect:request.dependencyEffect",
+            compact_composition,
+        )
+        self.assertIn(
+            "dependencyEffect:dependencyEffect",
+            compact_composition,
+        )
+
+        compact_compositor = "".join(compositor.split())
+        self.assertIn(
+            "letdependencyConsumed=legacyChainConsumesDependency||"
+            "graphExecutionTicket?.consumesExternalPrimaryDependency==true",
+            compact_compositor,
+        )
+        self.assertIn(
+            "dependencyBlendMode:dependencyConsumed?nil:"
+            "dependencyEffect?.blendMode",
+            compact_compositor,
+        )
+        self.assertIn(
+            "dependencyTexture:dependencyConsumed?nil:"
+            "dependencyEffect?.texture",
+            compact_compositor,
+        )
         self.assertNotIn("requiresDependencyEffect", bridge)
         self.assertIn("func recordClaimedFailure(reasonCode: String)", bridge)
         self.assertNotIn("recordClaimedFailure()", bridge)
@@ -2669,6 +3028,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         cache = TARGET_CACHE.read_text(encoding="utf-8")
         batch = TARGET_BATCH.read_text(encoding="utf-8")
         coordinator = SUBMISSION_COORDINATOR.read_text(encoding="utf-8")
+        execution = SUBMISSION_EXECUTION.read_text(encoding="utf-8")
 
         self.assertIn("commandBuffer: commandBuffer", frame_preflight)
         self.assertIn("commandBuffer: MTLCommandBuffer", frame_preflight)
@@ -2681,11 +3041,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("submissionPins", cache + batch)
         self.assertNotIn("submissionPins = Set<UUID>()", allocator)
         commit = coordinator.index("pool.commitAndPinPersistentGraphTargets(")
-        encode = coordinator.index("executor.encode(ledger.prepared", commit)
         self.assertIn(
             "commandBuffer: commandBuffer",
-            coordinator[commit:encode],
+            coordinator[commit:],
         )
+        self.assertIn("executor.encode(ledger.prepared", execution)
 
     def test_normal_invalidation_is_not_a_graph_failure_diagnostic(self) -> None:
         lifecycle = SUBMISSION_LIFECYCLE.read_text(encoding="utf-8")
@@ -2713,6 +3073,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
 
     def test_observer_precedes_encoding_and_frame_uses_one_buffer(self) -> None:
         coordinator = SUBMISSION_COORDINATOR.read_text(encoding="utf-8")
+        execution = SUBMISSION_EXECUTION.read_text(encoding="utf-8")
         frame_commit = SUBMISSION_FRAME_COMMIT.read_text(encoding="utf-8")
         completion = SUBMISSION_COMPLETION.read_text(encoding="utf-8")
 
@@ -2722,14 +3083,17 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "pool.commitAndPinPersistentGraphTargets(", prepared
         )
         ledger = coordinator.index("activeByID[identity] = .init(", allocation_commit)
-        encode = coordinator.index("executor.encode(ledger.prepared", ledger)
         self.assertLess(observer, prepared)
         self.assertLess(prepared, allocation_commit)
         self.assertLess(allocation_commit, ledger)
-        self.assertLess(ledger, encode)
         self.assertIn("commandBuffer: commandBuffer", coordinator)
-        self.assertIn("ledger.commandBuffer === commandBuffer", coordinator)
-        self.assertIn('"prepared-frame-consumption-rejected"', coordinator)
+        command_buffer_guard = execution.index(
+            "ledger.commandBuffer === commandBuffer"
+        )
+        encode = execution.index("executor.encode(ledger.prepared")
+        self.assertLess(command_buffer_guard, encode)
+        self.assertIn("ledger.phase == .allocationCommitted", execution)
+        self.assertIn('"prepared-frame-consumption-rejected"', execution)
         self.assertEqual(frame_commit.count("addCompletedHandler"), 1)
         self.assertIn(
             "guard commandBuffer.status == .notEnqueued",
@@ -2832,6 +3196,13 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             if not result["metalAvailable"]:
                 self.skipTest("Metal device unavailable")
             expected = {
+                "externalDependencyExactReadyMatchIssuesTicket",
+                "externalDependencyMissingReadyRejected",
+                "externalDependencyWrongProviderRejected",
+                "externalDependencyWrongSlotRejected",
+                "externalDependencyWrongBlendRejected",
+                "externalDependencyWrongEpochRejected",
+                "externalDependencyWrongObjectRejected",
                 "normalInvalidateHasNoGraphDiagnostic",
                 "deviceLossInvalidateHasGraphDiagnostic",
                 "executorInvalidateHasGraphDiagnostic",

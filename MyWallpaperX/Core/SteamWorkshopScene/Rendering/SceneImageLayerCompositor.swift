@@ -110,7 +110,7 @@ struct SceneImageLayerCompositor {
             return rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "solid-offscreen-size-unavailable")
         }
-        let chainConsumesDependency = request.authoredEffectChain != nil
+        let legacyChainConsumesDependency = request.authoredEffectChain != nil
             && dependencyEffect != nil
 
         let sourceEffectInputs = request.authoredEffectChain == nil
@@ -136,6 +136,7 @@ struct SceneImageLayerCompositor {
                     claim: claim,
                     framePlan: request.resolvedMaterialFrameTargetPlan,
                     layerID: request.layer.id,
+                    dependencyEffect: dependencyEffect,
                     mainPass: mainPass,
                     executionTrace: executionTrace,
                     executionOrigin: executionOrigin
@@ -276,13 +277,15 @@ struct SceneImageLayerCompositor {
                 alpha: request.finalCompositeAlpha ?? 1,
                 cursorUV: request.uniforms.cursorUV
             )
+            let dependencyConsumed = legacyChainConsumesDependency
+                || graphExecutionTicket?.consumesExternalPrimaryDependency == true
             let finalUniforms = makeFragmentUniforms(
                 values: finalValues,
                 effectInputs: .neutral,
                 textureFrame: .identity,
                 tint: SIMD3(repeating: 1),
                 foliageMaskUVScale: SIMD2(repeating: 1),
-                dependencyBlendMode: chainConsumesDependency
+                dependencyBlendMode: dependencyConsumed
                     ? nil
                     : dependencyEffect?.blendMode
             )
@@ -291,7 +294,7 @@ struct SceneImageLayerCompositor {
                 masks: .empty,
                 mvp: request.mvp,
                 uniforms: finalUniforms,
-                dependencyTexture: chainConsumesDependency
+                dependencyTexture: dependencyConsumed
                     ? nil
                     : dependencyEffect?.texture,
                 layer: request.layer,
@@ -372,6 +375,7 @@ struct SceneImageLayerCompositor {
         claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution,
         framePlan: SceneResolvedMaterialFrameTargetPlan?,
         layerID: Int,
+        dependencyEffect: SceneDependencyEffectInput?,
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace?,
         executionOrigin: SceneEffectExecutionOrigin
@@ -381,6 +385,7 @@ struct SceneImageLayerCompositor {
             claim: claim,
             framePlan: framePlan,
             layerID: layerID,
+            dependencyEffect: dependencyEffect,
             mainPass: mainPass,
             executionTrace: executionTrace,
             executionOrigin: executionOrigin

@@ -1,8 +1,11 @@
 import Foundation
 
 nonisolated enum SceneResolvedMaterialDependencyOwnership: Equatable {
+    typealias Binding = SceneDependencyRenderPlan.Binding
+
     case none
     case graphInternal(referenceCount: Int)
+    case externalPrimary(Binding)
 
     var reportKind: String {
         switch self {
@@ -10,6 +13,8 @@ nonisolated enum SceneResolvedMaterialDependencyOwnership: Equatable {
             "none"
         case .graphInternal:
             "graph-internal"
+        case .externalPrimary:
+            "external-primary"
         }
     }
 
@@ -19,6 +24,8 @@ nonisolated enum SceneResolvedMaterialDependencyOwnership: Equatable {
             0
         case let .graphInternal(referenceCount):
             referenceCount
+        case .externalPrimary:
+            1
         }
     }
 }
@@ -29,16 +36,47 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Reference = SceneDependencyRenderPlan.Reference
 
+    static func structuralUtilityConsumerLayerIDs(
+        in descriptor: SceneRenderDescriptor
+    ) -> Set<Int> {
+        Set(descriptor.layers.compactMap { layer in
+            guard layer.contentKind == "composition",
+                  layer.utilityLayer?.kind == .composition,
+                  layer.childLayerIDs.isEmpty,
+                  layer.dependencyLayerIDs.count == 1,
+                  layer.authoredDependencies.isEmpty else { return nil }
+            return layer.id
+        })
+    }
+
     static func compile(
         layer: SceneRenderDescriptor.Layer,
         graph: Graph?,
-        references: [Reference]
+        references: [Reference],
+        binding: SceneDependencyRenderPlan.Binding?
     ) -> SceneResolvedMaterialDependencyOwnership? {
         let hasDependencyMetadata = !layer.dependencyLayerIDs.isEmpty
             || !layer.authoredDependencies.isEmpty
             || !references.isEmpty
         guard hasDependencyMetadata else {
             return SceneResolvedMaterialDependencyOwnership.none
+        }
+
+        if let binding {
+            guard binding.kind == .clippingMask,
+                  binding.consumerLayerID == layer.id,
+                  binding.slot.slotIndex == 1,
+                  layer.authoredDependencies.isEmpty,
+                  layer.dependencyLayerIDs == [binding.providerLayerID],
+                  references.count == 1,
+                  let reference = references.first,
+                  reference.consumerLayerID == binding.consumerLayerID,
+                  reference.providerLayerID == binding.providerLayerID,
+                  reference.slot == binding.slot,
+                  reference.variant == .primary else {
+                return nil
+            }
+            return .externalPrimary(binding)
         }
 
         guard layer.authoredDependencies.isEmpty,

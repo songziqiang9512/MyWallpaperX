@@ -46,6 +46,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         let capabilityToken:
             SceneResolvedMaterialExecutionCapabilityCatalog.Token
         let prepared: SceneResolvedMaterialGraphExecutor.PreparedChain
+        let preparedDependencyEffect: SceneDependencyEffectInput?
         let commandBuffer: MTLCommandBuffer
         let committedBaseTails: [Graph.EffectKey: Tail]
         var blueprint: CandidateBlueprint?
@@ -208,7 +209,12 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                   let capability = capabilities.resolve(claim.token),
                   capability.layerID == claim.layerID,
                   capability.pairPlan.layerID == claim.layerID,
-                  capability.effectSubjectsAreConserved else { return false }
+                  capability.effectSubjectsAreConserved,
+                  capability.dependencyOwnership == claim.dependencyOwnership,
+                  dependencyReservationMatches(
+                      request.dedicatedInputs.dependencyEffect,
+                      ownership: claim.dependencyOwnership
+                  ) else { return false }
             return true
         }), let preparedTargets = pool.preparePersistentGraphTargets(
             framePlans: requests.map { $0.targetPlan.allocation }
@@ -282,6 +288,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 layerID: claim.layerID,
                 capabilityToken: claim.token,
                 prepared: prepared,
+                preparedDependencyEffect: request.dedicatedInputs.dependencyEffect,
                 commandBuffer: commandBuffer,
                 committedBaseTails: committedTails,
                 blueprint: blueprint,
@@ -330,6 +337,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 layerID: candidate.layerID,
                 capabilityToken: candidate.capabilityToken,
                 prepared: candidate.prepared,
+                preparedDependencyEffect: candidate.preparedDependencyEffect,
                 commandBuffer: candidate.commandBuffer,
                 committedBaseTails: candidate.committedBaseTails,
                 blueprint: candidate.blueprint,
@@ -343,58 +351,6 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         framePreparationComplete = true
         lock.unlock()
         return .ready
-    }
-
-    func executeClaimed(
-        claim: Bridge.ClaimedExecution,
-        commandBuffer: MTLCommandBuffer
-    ) -> Bridge.ExecutionResult {
-        var emission = Emission()
-        lock.lock()
-        guard terminalFailureReason == nil, frameIsActive,
-              framePreparationComplete, !frameRequiresDrop,
-              frameFailure == nil, let executor,
-              let identity = preparedLedgerByLayerID[claim.layerID],
-              let index = activeTransactions.firstIndex(of: identity),
-              var ledger = activeByID[identity],
-              ledger.layerID == claim.layerID,
-              ledger.capabilityToken == claim.token,
-              ledger.claimConsumed,
-              ledger.phase == .allocationCommitted,
-              ledger.commandBuffer === commandBuffer,
-              commandBuffer.status == .notEnqueued,
-              activeTransactions[..<index].allSatisfy({
-                  activeByID[$0]?.phase == .composited
-              }), activeTransactions[activeTransactions.index(after: index)...]
-                .allSatisfy({ activeByID[$0]?.phase == .allocationCommitted })
-        else {
-            let reason = commandBuffer.status == .notEnqueued
-                ? "prepared-frame-consumption-rejected"
-                : "transaction-armed-after-submit"
-            emission = claimedFailureLocked(reason: reason)
-            lock.unlock()
-            emit(emission)
-            return .failed(reasonCode: reason)
-        }
-        guard executor.encode(ledger.prepared, commandBuffer: commandBuffer) else {
-            emission = claimedFailureLocked(reason: "command-append-failed")
-            lock.unlock()
-            emit(emission)
-            return .failed(reasonCode: "command-append-failed")
-        }
-        ledger.phase = .encoded
-        activeByID[identity] = ledger
-        frameEncoded += 1
-        let result = Bridge.ExecutionResult.encoded(
-            texture: ledger.prepared.finalTexture,
-            ticket: .init(
-                identity: identity,
-                epoch: executionEpoch,
-                finalTextureIdentity: ObjectIdentifier(ledger.prepared.finalTexture)
-            )
-        )
-        lock.unlock()
-        return result
     }
 
 }

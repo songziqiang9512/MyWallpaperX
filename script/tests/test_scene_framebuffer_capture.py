@@ -53,6 +53,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
     SOURCE_ROOT / "Resources/SceneTextureSlotBinding.swift",
+    SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SOURCE_ROOT / "Rendering/SceneBaseImageTextureCandidateSupport.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurPipeline.swift",
@@ -205,6 +206,11 @@ enum SceneResolvedMaterialExecutionCapabilityCatalog {
     struct Token: Hashable { let rawValue: Int }
 }
 
+enum SceneResolvedMaterialDependencyOwnership: Equatable {
+    case none
+    case externalPrimary
+}
+
 final class SceneResolvedMaterialRuntimeBridge {
     struct DedicatedFrameInputs {
         let masks: SceneImageLayerMasks
@@ -219,7 +225,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         let audioSpectrum: SceneAudioSpectrumSnapshot
         let dependencyEffect: SceneDependencyEffectInput?
     }
-    struct ExecutionTicket: Hashable { let identity: Int }
+    struct ExecutionTicket: Hashable {
+        let identity: Int
+        let consumesExternalPrimaryDependency: Bool
+    }
     struct ExactEffectSubject {
         let key: SceneAuthoredEffectRenderPlan.EffectKey
         let family: String
@@ -231,6 +240,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let pairPlan: SceneLayerFullFramePairPlan
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
+        let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
     }
 
     enum ClaimResult {
@@ -324,15 +334,20 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     func executeClaimed(
         claim: ClaimedExecution,
+        dependencyEffect: SceneDependencyEffectInput?,
         commandBuffer: MTLCommandBuffer
     ) -> ExecutionResult {
-        _ = claim
+        _ = dependencyEffect
         _ = commandBuffer
         executeCallCount += 1
         return executionShouldSucceed && preparedTexture != nil
             ? .encoded(
                 texture: preparedTexture!,
-                ticket: .init(identity: executeCallCount)
+                ticket: .init(
+                    identity: executeCallCount,
+                    consumesExternalPrimaryDependency:
+                        claim.dependencyOwnership == .externalPrimary
+                )
             )
             : .failed(reasonCode: "fixture-executor-failed")
     }
@@ -703,7 +718,7 @@ struct SceneLightShaftsEffectTextures {
             switch self {
             case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                  .workshopShadow,
-                 .proceduralNoise, .filmGrain, .shake:
+                 .proceduralNoise, .filmGrain, .shake, .clippingMask:
                 return true
             default:
                 return false
@@ -1950,6 +1965,11 @@ enum Harness {
             compositor: compositor,
             contentKind: "composition"
         )
+        let resolvedClippingMaskPrepared = try resolvedClippingMaskPreparedEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline
+        )
         let solidTint = try layerTintPixel(
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             contentKind: "solid"
@@ -2224,6 +2244,7 @@ enum Harness {
             "darkenHalfAlphaBGRA": darkenHalfAlpha,
             "authoredClippingMaskBGRA": authoredClippingMask,
             "authoredCompositionClippingMaskBGRA": authoredCompositionClippingMask,
+            "resolvedClippingMaskPrepared": resolvedClippingMaskPrepared,
             "solidTintBGRA": solidTint,
             "imageTintBGRA": imageTint,
             "imageBrightnessBGRA": imageBrightness,
@@ -2736,7 +2757,7 @@ enum Harness {
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
                 dependencyEffect: blendMode.map {
-                    SceneDependencyEffectInput(texture: dependency, blendMode: $0)
+                    dependencyInput(blendMode: $0, texture: dependency)
                 },
                 authoredEffectPlan: nil,
                 blocksLegacyGaussianBlur: false
@@ -2750,6 +2771,32 @@ enum Harness {
         submitFrame(commandBuffer, transaction: frameTransaction)
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return pixel(target, x: 4, y: 4)
+    }
+
+    static func dependencyInput(
+        consumerLayerID: Int = 0,
+        providerLayerID: Int = 1,
+        variant: SceneNamedTextureReference.Variant = .primary,
+        effectID: String = "0#effect#0",
+        passIndex: Int = 0,
+        slotIndex: Int = 1,
+        blendMode: Int = 0,
+        frameEpoch: UInt64 = 1,
+        texture: MTLTexture
+    ) -> SceneDependencyEffectInput {
+        SceneDependencyEffectInput(
+            consumerLayerID: consumerLayerID,
+            providerLayerID: providerLayerID,
+            variant: variant,
+            slot: SceneEffectPassSlot(
+                effectID: effectID,
+                passIndex: passIndex,
+                slotIndex: slotIndex
+            ),
+            blendMode: blendMode,
+            frameEpoch: frameEpoch,
+            texture: texture
+        )
     }
 
     static func authoredClippingMaskPixel(
@@ -2780,6 +2827,9 @@ enum Harness {
         let frameTransaction = SceneSourceUpdateTransaction()
         defer { frameTransaction.cancel() }
         let chain = authoredClippingMaskChain()
+        guard let clipping = chain.executionStages.first?.clippingMask else {
+            throw HarnessError.drawRefused
+        }
         let pool = SceneOffscreenTexturePool(device: device)
         guard let frameTables = legacyFrameTables(
             pool: pool,
@@ -2804,9 +2854,14 @@ enum Harness {
                 offscreenSize: nil,
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
-                dependencyEffect: SceneDependencyEffectInput(
-                    texture: dependency,
-                    blendMode: 0
+                dependencyEffect: dependencyInput(
+                    consumerLayerID: clipping.layerID,
+                    providerLayerID: clipping.providerLayerID,
+                    effectID: clipping.effectKey.descriptorID,
+                    slotIndex: 1,
+                    blendMode: clipping.blendMode,
+                    frameEpoch: 1,
+                    texture: dependency
                 ),
                 authoredEffectPlan: nil,
                 blocksLegacyGaussianBlur: false,
@@ -2821,6 +2876,131 @@ enum Harness {
         submitFrame(commandBuffer, transaction: frameTransaction)
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return pixel(target, x: 4, y: 4)
+    }
+
+    static func resolvedClippingMaskPreparedEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline
+    ) throws -> [String: Any] {
+        let size = 8
+        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
+              let dependency = makeTexture(
+                  device: device, size: size, usage: .shaderRead
+              ),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: [32, 64, 128, 128])
+        fill(dependency, bgra: [192, 32, 64, 255])
+
+        let chain = authoredClippingMaskChain()
+        guard let stage = chain.executionStages.first,
+              let clipping = stage.clippingMask else {
+            throw HarnessError.drawRefused
+        }
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        let frameTables = try prepareStandaloneAuthoredTables(
+            plan: stage,
+            pool: pool,
+            width: size,
+            height: size,
+            commandBuffer: commandBuffer
+        )
+        defer { frameTables.commit.releaseAll() }
+        guard let table = frameTables.tables.first else {
+            throw HarnessError.drawRefused
+        }
+        let pipelines = SceneAuthoredEffectPipelineSet(
+            repository: SceneImageEffectPipelineRepository(device: device)
+        )
+        func input(
+            providerLayerID: Int = 1,
+            slotIndex: Int = 1,
+            frameEpoch: UInt64 = 1
+        ) -> SceneDependencyEffectInput {
+            dependencyInput(
+                consumerLayerID: clipping.layerID,
+                providerLayerID: providerLayerID,
+                variant: .primary,
+                effectID: clipping.effectKey.descriptorID,
+                passIndex: 0,
+                slotIndex: slotIndex,
+                blendMode: clipping.blendMode,
+                frameEpoch: frameEpoch,
+                texture: dependency
+            )
+        }
+        func preparation(
+            dependencyEffect: SceneDependencyEffectInput?
+        ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
+            SceneAuthoredEffectChainRenderer.prepareStage(
+                stage,
+                sourceTexture: table.inputTexture,
+                targets: table,
+                inputs: .init(
+                    masks: authoredEffectMasks(),
+                    dynamicValues: .empty(frameIndex: 1),
+                    pipelines: pipelines,
+                    cursorUV: .zero,
+                    previousCursorUV: .zero,
+                    pointerIsInside: false,
+                    previousPointerIsInside: false,
+                    frameTime: 1 / 60,
+                    time: 0,
+                    audioSpectrum: .silent,
+                    dependencyEffect: dependencyEffect
+                ),
+                sourcePipeline: pipeline,
+                time: 0
+            )
+        }
+        func rejectionReason(
+            _ result: SceneAuthoredEffectChainRenderer.StagePreparation
+        ) -> String? {
+            guard case let .rejected(reason) = result else { return nil }
+            return reason
+        }
+
+        let missingReason = rejectionReason(preparation(dependencyEffect: nil))
+        let wrongProviderReason = rejectionReason(preparation(
+            dependencyEffect: input(providerLayerID: clipping.providerLayerID + 1)
+        ))
+        let wrongSlotReason = rejectionReason(preparation(
+            dependencyEffect: input(slotIndex: 2)
+        ))
+        let zeroEpochReason = rejectionReason(preparation(
+            dependencyEffect: input(frameEpoch: 0)
+        ))
+        guard case let .ready(preparedStage) = preparation(
+            dependencyEffect: input(providerLayerID: clipping.providerLayerID)
+        ), SceneOffscreenEffectRenderer.captureSource(
+            sourceTexture: source,
+            waterMaskTexture: nil,
+            foliageMaskTexture: nil,
+            auxMaskTexture: nil,
+            target: table.inputTexture,
+            sourceUniforms: .neutral(),
+            pipeline: pipeline,
+            commandBuffer: commandBuffer
+        ), SceneAuthoredEffectChainRenderer.encodePreparedStage(
+            preparedStage,
+            commandBuffer: commandBuffer
+        ) else {
+            throw HarnessError.drawRefused
+        }
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed,
+              commandBuffer.error == nil else { throw HarnessError.commandFailed }
+        return [
+            "preparedStageEncoded": true,
+            "outputBGRA": pixel(table.outputTexture, x: size / 2, y: size / 2),
+            "missingReason": missingReason as Any,
+            "wrongProviderReason": wrongProviderReason as Any,
+            "wrongSlotReason": wrongSlotReason as Any,
+            "zeroEpochReason": zeroEpochReason as Any,
+        ]
     }
 
     static func layerTintPixel(
@@ -3050,7 +3230,7 @@ enum Harness {
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
                 dependencyEffect: dependency.map {
-                    SceneDependencyEffectInput(texture: $0, blendMode: 0)
+                    dependencyInput(texture: $0)
                 },
                 authoredEffectPlan: nil,
                 blocksLegacyGaussianBlur: false
@@ -4758,10 +4938,14 @@ enum Harness {
                     requiresSourceCopy: item.requiresSourceCopy,
                     finalCompositeAlpha: nil,
                     dependencyEffect: item.bindsDependency
-                        ? SceneDependencyEffectInput(
-                            texture: dependency,
+                        ? dependencyInput(
+                            consumerLayerID: 850,
+                            providerLayerID: 1,
+                            effectID: "850#effect#0",
+                            slotIndex: 1,
                             blendMode: 0,
-                            slotIndex: 1
+                            frameEpoch: 1,
+                            texture: dependency
                         )
                         : nil,
                     authoredEffectPlan: nil,
@@ -5400,7 +5584,8 @@ enum Harness {
             admittedGraphs: [graph],
             pairPlan: pairPlan,
             fullFrameExtentPolicy: .standard,
-            sourceRoute: .capturedLayerTexture
+            sourceRoute: .capturedLayerTexture,
+            dependencyOwnership: .none
         )
         let layer = SceneRenderDescriptor.Layer(
             contentKind: "image",
@@ -7193,6 +7378,23 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             self.result["authoredCompositionClippingMaskBGRA"],
             self.result["normalDependencyBGRA"],
         )
+        prepared = self.result["resolvedClippingMaskPrepared"]
+        self.assertTrue(prepared["preparedStageEncoded"], prepared)
+        self.assert_pixel_close(
+            prepared["outputBGRA"],
+            self.result["normalDependencyBGRA"],
+        )
+        for key in (
+            "missingReason",
+            "wrongProviderReason",
+            "wrongSlotReason",
+            "zeroEpochReason",
+        ):
+            self.assertEqual(
+                prepared[key],
+                "clipping-mask-dependency-mismatch",
+                prepared,
+            )
 
     def test_layer_tint_is_applied_to_image_and_solid_content_on_gpu(self) -> None:
         self.assert_pixel_close(self.result["solidTintBGRA"], [191, 128, 64, 255])

@@ -3,11 +3,21 @@ import Metal
 import simd
 
 final class SceneDependencyFrameRuntime {
+    private struct EffectTargetReservation {
+        let providerLayerID: Int
+        let texture: MTLTexture
+        let width: Int
+        let height: Int
+        let frameEpoch: UInt64
+    }
+
     private let plan: SceneDependencyRenderPlan
     private let targetPool: SceneNamedRenderTargetPool
     private let imageBlendRuntime: SceneImageBlendRuntime?
     private let captureTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-capture")
     private let bindingTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-binding")
+    private var reservationFrameEpoch: UInt64?
+    private var reservationsByProviderLayerID: [Int: EffectTargetReservation] = [:]
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -42,21 +52,85 @@ final class SceneDependencyFrameRuntime {
         imageBlendRuntime?.requiresPreparation(for: consumerLayerID) == true
     }
 
+    func reserveEffectInput(
+        for binding: SceneDependencyRenderPlan.Binding,
+        providerLayer: SceneRenderDescriptor.Layer,
+        layerMVP: simd_float4x4,
+        viewportSize: CGSize,
+        frameEpoch: UInt64
+    ) -> SceneDependencyEffectInput? {
+        guard frameEpoch > 0,
+              binding.providerLayerID == providerLayer.id,
+              plan.bindingsByConsumerLayerID[binding.consumerLayerID] == binding,
+              let geometry = SceneCaptureGeometryResolver.resolve(
+                  kind: providerLayer.utilityLayer?.kind ?? .composition,
+                  layerMVP: layerMVP,
+                  viewportSize: viewportSize
+              ), let extent = Self.normalizedExtent(
+                  width: Int(geometry.pixelSize.width.rounded(.up)),
+                  height: Int(geometry.pixelSize.height.rounded(.up))
+              ) else {
+            return nil
+        }
+        synchronizeReservations(to: frameEpoch)
+
+        let texture: MTLTexture
+        if let reservation = reservationsByProviderLayerID[providerLayer.id] {
+            guard reservation.frameEpoch == frameEpoch,
+                  reservation.providerLayerID == providerLayer.id,
+                  reservation.width == extent.width,
+                  reservation.height == extent.height else {
+                return nil
+            }
+            texture = reservation.texture
+        } else {
+            guard let reservedTexture = targetPool.texture(
+                      for: providerLayer.id,
+                      width: extent.width,
+                      height: extent.height
+                  ), reservedTexture.width == extent.width,
+                  reservedTexture.height == extent.height else {
+                return nil
+            }
+            reservationsByProviderLayerID[providerLayer.id] = EffectTargetReservation(
+                providerLayerID: providerLayer.id,
+                texture: reservedTexture,
+                width: extent.width,
+                height: extent.height,
+                frameEpoch: frameEpoch
+            )
+            texture = reservedTexture
+        }
+
+        return makeEffectInput(
+            binding: binding,
+            frameEpoch: frameEpoch,
+            texture: texture
+        )
+    }
+
     func effectInput(
         for consumerLayerID: Int,
         textureRegistry: SceneFrameTextureRegistry
     ) -> SceneDependencyEffectInput? {
-        guard let binding = plan.bindingsByConsumerLayerID[consumerLayerID],
-              let texture = textureRegistry.texture(for: .namedLayerTarget(.init(
-                  providerLayerID: binding.providerLayerID,
-                  variant: .primary
-              ))) else {
+        guard let binding = plan.bindingsByConsumerLayerID[consumerLayerID] else {
             return nil
         }
-        return SceneDependencyEffectInput(
-            texture: texture,
-            blendMode: binding.blendMode,
-            slotIndex: binding.slot.slotIndex
+        let frameEpoch = textureRegistry.frameEpoch
+        synchronizeReservations(to: frameEpoch)
+        let identity = SceneFrameTextureIdentity.namedLayerTarget(SceneNamedTextureReference(
+            providerLayerID: binding.providerLayerID,
+            variant: .primary
+        ))
+        guard let texture = textureRegistry.texture(for: identity) else { return nil }
+        if let reservation = reservationsByProviderLayerID[binding.providerLayerID] {
+            guard reservation.frameEpoch == frameEpoch,
+                  texture === reservation.texture else { return nil }
+        }
+        return makeEffectInput(
+            binding: binding,
+            frameEpoch: frameEpoch,
+            texture: texture
         )
     }
 
@@ -98,24 +172,57 @@ final class SceneDependencyFrameRuntime {
         mainPass: SceneMainPassEncoder
     ) -> Bool? {
         guard plan.requiredProviderLayerIDs.contains(layer.id) else { return nil }
+        let frameEpoch = textureRegistry.frameEpoch
+        synchronizeReservations(to: frameEpoch)
         let identity = SceneFrameTextureIdentity.namedLayerTarget(SceneNamedTextureReference(
             providerLayerID: layer.id,
             variant: .primary
         ))
-        guard textureRegistry.texture(for: identity) == nil else { return true }
+        let reservation = reservationsByProviderLayerID[layer.id]
+        if reservation == nil, textureRegistry.texture(for: identity) != nil {
+            return true
+        }
         let captureKind = layer.utilityLayer?.kind ?? .composition
         guard let geometry = SceneCaptureGeometryResolver.resolve(
                   kind: captureKind,
                   layerMVP: layerMVP,
                   viewportSize: viewportSize
-              ),
-              let target = targetPool.texture(
-                  for: layer.id,
+              ), let extent = Self.normalizedExtent(
                   width: Int(geometry.pixelSize.width.rounded(.up)),
                   height: Int(geometry.pixelSize.height.rounded(.up))
               ) else {
             captureTelemetry.recordFailure(layerID: layer.id)
             return false
+        }
+        let target: MTLTexture
+        if let reservation {
+            guard reservation.frameEpoch == frameEpoch,
+                  reservation.providerLayerID == layer.id,
+                  reservation.width == extent.width,
+                  reservation.height == extent.height,
+                  reservation.texture.width == extent.width,
+                  reservation.texture.height == extent.height else {
+                captureTelemetry.recordFailure(layerID: layer.id)
+                return false
+            }
+            if let publishedTexture = textureRegistry.texture(for: identity) {
+                guard publishedTexture === reservation.texture else {
+                    captureTelemetry.recordFailure(layerID: layer.id)
+                    return false
+                }
+                return true
+            }
+            target = reservation.texture
+        } else {
+            guard let pooledTarget = targetPool.texture(
+                      for: layer.id,
+                      width: extent.width,
+                      height: extent.height
+                  ) else {
+                captureTelemetry.recordFailure(layerID: layer.id)
+                return false
+            }
+            target = pooledTarget
         }
 
         var didObserveCommandBuffer = false
@@ -158,6 +265,45 @@ final class SceneDependencyFrameRuntime {
             textureRegistry.set(.ready(target), for: identity)
         }
         return encoded
+    }
+
+    private func makeEffectInput(
+        binding: SceneDependencyRenderPlan.Binding,
+        frameEpoch: UInt64,
+        texture: MTLTexture
+    ) -> SceneDependencyEffectInput {
+        SceneDependencyEffectInput(
+            consumerLayerID: binding.consumerLayerID,
+            providerLayerID: binding.providerLayerID,
+            variant: .primary,
+            slot: binding.slot,
+            blendMode: binding.blendMode,
+            frameEpoch: frameEpoch,
+            texture: texture
+        )
+    }
+
+    private func synchronizeReservations(to frameEpoch: UInt64) {
+        guard reservationFrameEpoch != frameEpoch else { return }
+        reservationFrameEpoch = frameEpoch
+        reservationsByProviderLayerID.removeAll(keepingCapacity: true)
+    }
+
+    private static func normalizedExtent(
+        width: Int,
+        height: Int
+    ) -> (width: Int, height: Int)? {
+        guard width > 0, height > 0 else { return nil }
+        let longestEdge = max(width, height)
+        guard longestEdge > SceneNamedRenderTargetPool.maximumDimension else {
+            return (width, height)
+        }
+        let scale = Double(SceneNamedRenderTargetPool.maximumDimension)
+            / Double(longestEdge)
+        return (
+            max(1, Int((Double(width) * scale).rounded())),
+            max(1, Int((Double(height) * scale).rounded()))
+        )
     }
 
     private static let fullTargetMVP = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))

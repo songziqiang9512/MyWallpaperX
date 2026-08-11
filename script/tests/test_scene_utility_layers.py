@@ -40,6 +40,10 @@ EFFECT_EXECUTION_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
 )
 BACKEND_SOURCE = SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
+CAPABILITY_PROGRAM_FIRST_SOURCE = (
+    SOURCE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+)
 FOLIAGE_PLANNER_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredFoliageSwayPlanner.swift"
 )
@@ -218,6 +222,49 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn(
             "resolvedMaterialFrameTargetPlan:",
             utility_renderer,
+        )
+
+    def test_resolved_utility_dependency_keeps_full_frame_closed_and_consumes_once(
+        self,
+    ) -> None:
+        program_first = CAPABILITY_PROGRAM_FIRST_SOURCE.read_text(
+            encoding="utf-8"
+        )
+        compositor = IMAGE_COMPOSITOR_SOURCE.read_text(encoding="utf-8")
+
+        compact_program = "".join(program_first.split())
+        start = compact_program.index(
+            "guardpairLeaf||logicalTargetStage||fullFrameComposeStage,"
+        )
+        end = compact_program.index("stages.append(.dedicated", start)
+        captured_main_gate = compact_program[start:end]
+        self.assertIn(
+            "admitted.sourceRoute!=.capturedMainTargetTexture||"
+            "((pairLeaf||logicalTargetStage)&&"
+            "program.executionPlan.supportsUtilityCapture)",
+            captured_main_gate,
+        )
+        self.assertNotIn(
+            "fullFrameComposeStage)&&"
+            "program.executionPlan.supportsUtilityCapture",
+            captured_main_gate,
+        )
+
+        compact_compositor = "".join(compositor.split())
+        self.assertIn(
+            "letdependencyConsumed=legacyChainConsumesDependency||"
+            "graphExecutionTicket?.consumesExternalPrimaryDependency==true",
+            compact_compositor,
+        )
+        self.assertIn(
+            "dependencyBlendMode:dependencyConsumed?nil:"
+            "dependencyEffect?.blendMode",
+            compact_compositor,
+        )
+        self.assertIn(
+            "dependencyTexture:dependencyConsumed?nil:"
+            "dependencyEffect?.texture",
+            compact_compositor,
         )
 
     def test_utility_authored_telemetry_follows_compositor_route_selection(self) -> None:

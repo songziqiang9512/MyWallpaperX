@@ -222,6 +222,17 @@ extension SceneMetalRenderer {
         guard !plans.isEmpty else { return [] }
         guard let imagePipeline, offscreenTexturePool != nil else { return nil }
         let time = Float(frameContext.sceneTime)
+        let imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4 = {
+            layer, renderSizeOverride in
+            cameraFrame.orthographicViewProjection * self.imageModelMatrix(
+                for: layer,
+                worldFramesByLayerID: worldFramesByLayerID,
+                renderSizeOverride: renderSizeOverride,
+                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                configuration: parallaxConfiguration,
+                visibleHalfExtents: cameraFrame.coverHalfExtents
+            )
+        }
         var result: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest] = []
         for layerID in renderDescriptor.renderOrderLayerIDs {
             guard let plan = plans[layerID] else { continue }
@@ -231,6 +242,27 @@ extension SceneMetalRenderer {
             )
             guard case let .claimed(claim) = route,
                   claim.token == plan.token else { return nil }
+            let dependencyEffect: SceneDependencyEffectInput?
+            switch claim.dependencyOwnership {
+            case .none, .graphInternal: dependencyEffect = nil
+            case .externalPrimary(let binding):
+                guard binding.consumerLayerID == layerID,
+                      let providerLayer = layersByID[binding.providerLayerID] else {
+                    return nil
+                }
+                let providerMVP = imageMVP(
+                    providerLayer,
+                    dynamicTextRenderSizes[providerLayer.id]
+                )
+                guard let reservedInput = dependencyRuntime.reserveEffectInput(
+                    for: binding,
+                    providerLayer: providerLayer,
+                    layerMVP: providerMVP,
+                    viewportSize: frameContext.screenSize,
+                    frameEpoch: textureRegistry.frameEpoch
+                ) else { return nil }
+                dependencyEffect = reservedInput
+            }
             let sourceMVP: simd_float4x4
             let outputMVP: simd_float4x4
             let sourceTexture: MTLTexture?
@@ -240,15 +272,10 @@ extension SceneMetalRenderer {
             switch claim.sourceRoute {
             case .capturedLayerTexture:
                 guard let texture = imageTextures[layerID] else { return nil }
-                let model = imageModelMatrix(
-                    for: layer,
-                    worldFramesByLayerID: worldFramesByLayerID,
-                    renderSizeOverride: dynamicTextRenderSizes[layerID],
-                    parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                    configuration: parallaxConfiguration,
-                    visibleHalfExtents: cameraFrame.coverHalfExtents
+                sourceMVP = imageMVP(
+                    layer,
+                    dynamicTextRenderSizes[layerID]
                 )
-                sourceMVP = cameraFrame.orthographicViewProjection * model
                 outputMVP = sourceMVP
                 sourceTexture = texture
                 textureFrame = spriteAnimations[layerID]?.transform(
@@ -259,14 +286,7 @@ extension SceneMetalRenderer {
                 guard let utility = layer.utilityLayer,
                       layer.contentKind == utility.kind.rawValue,
                       layer.childLayerIDs.isEmpty else { return nil }
-                let model = imageModelMatrix(
-                    for: layer,
-                    worldFramesByLayerID: worldFramesByLayerID,
-                    parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                    configuration: parallaxConfiguration,
-                    visibleHalfExtents: cameraFrame.coverHalfExtents
-                )
-                sourceMVP = cameraFrame.orthographicViewProjection * model
+                sourceMVP = imageMVP(layer, nil)
                 guard let geometry = SceneCaptureGeometryResolver.resolve(
                     kind: utility.kind,
                     layerMVP: sourceMVP,
@@ -371,7 +391,7 @@ extension SceneMetalRenderer {
                     frameTime: Float(frameContext.frameTime),
                     time: time,
                     audioSpectrum: frameContext.audioSpectrum,
-                    dependencyEffect: nil
+                    dependencyEffect: dependencyEffect
                 )
             ))
         }

@@ -268,6 +268,11 @@ extension SceneAuthoredEffectChainRenderer {
             case .unsupported:
                 return "x-ray-runtime-unsupported"
             }
+        case .clippingMask(let plan):
+            return clippingDependencyMatches(
+                inputs.dependencyEffect,
+                plan: plan
+            ) ? nil : "clipping-mask-dependency-mismatch"
         case .blend(let plan):
             guard let resources = inputs.masks.blendEffects[
                 plan.effectKey.descriptorID

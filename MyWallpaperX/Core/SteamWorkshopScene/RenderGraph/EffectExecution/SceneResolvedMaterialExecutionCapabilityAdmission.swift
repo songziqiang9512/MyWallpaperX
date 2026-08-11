@@ -66,9 +66,14 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             by: \.effectKey.layerID
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        let structuralUtilityDependencyConsumerLayerIDs =
+            SceneResolvedMaterialDependencyOwnershipCompiler
+                .structuralUtilityConsumerLayerIDs(in: descriptor)
         let dependencyPlan = SceneDependencyRenderPlan(
             descriptor: descriptor,
-            visibleLayerIDs: visibleLayerIDs
+            visibleLayerIDs: visibleLayerIDs,
+            executableUtilityConsumerLayerIDs:
+                structuralUtilityDependencyConsumerLayerIDs
         )
         let activeLayerIDs = Set(descriptor.layers.compactMap { layer in
             layer.effects.contains(where: { $0.visible != false }) ? layer.id : nil
@@ -90,7 +95,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                         ? rawGroups[layerID]?.first : nil,
                     references: dependencyPlan.references.filter {
                         $0.consumerLayerID == layerID
-                    }
+                    },
+                    binding: dependencyPlan.bindingsByConsumerLayerID[layerID]
                 )
             let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
             switch executionSourceRoute(
@@ -168,9 +174,18 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             default:
                 false
             }
-            guard kindMatchesContent,
-                  layer.childLayerIDs.isEmpty,
-                  case .none = dependencyOwnership else {
+            guard kindMatchesContent, layer.childLayerIDs.isEmpty else {
+                return .failure(failure("execution-route-utility-shape"))
+            }
+            switch dependencyOwnership {
+            case .none:
+                break
+            case let .externalPrimary(binding):
+                guard binding.consumerLayerID == layer.id,
+                      binding.kind == .clippingMask else {
+                    return .failure(failure("execution-route-utility-shape"))
+                }
+            case .graphInternal:
                 return .failure(failure("execution-route-utility-shape"))
             }
             return .success(.capturedMainTargetTexture)

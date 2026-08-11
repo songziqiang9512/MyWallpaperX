@@ -7,6 +7,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         let capabilityToken:
             SceneResolvedMaterialExecutionCapabilityCatalog.Token
         let prepared: SceneResolvedMaterialGraphExecutor.PreparedChain
+        let preparedDependencyEffect: SceneDependencyEffectInput?
         let commandBuffer: MTLCommandBuffer
         let committedBaseTails: [Graph.EffectKey: Tail]
         let blueprint: CandidateBlueprint

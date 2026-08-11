@@ -17,6 +17,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let admittedGraphs: [Graph]
         let pairPlan: SceneLayerFullFramePairPlan
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
+        let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
 
@@ -25,6 +26,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             admittedGraphs: [Graph],
             pairPlan: SceneLayerFullFramePairPlan,
             fullFrameExtentPolicy: SceneFullFrameExtentPolicy,
+            dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
             sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
             token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
         ) {
@@ -32,6 +34,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.admittedGraphs = admittedGraphs
             self.pairPlan = pairPlan
             self.fullFrameExtentPolicy = fullFrameExtentPolicy
+            self.dependencyOwnership = dependencyOwnership
             self.sourceRoute = sourceRoute
             self.token = token
         }
@@ -46,6 +49,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     struct ExecutionTicket: Hashable {
         let identity, epoch: UInt64
         let finalTextureIdentity: ObjectIdentifier
+        let consumesExternalPrimaryDependency: Bool
     }
 
     enum ExecutionResult {
@@ -259,10 +263,12 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     func executeClaimed(
         claim: ClaimedExecution,
+        dependencyEffect: SceneDependencyEffectInput?,
         commandBuffer: MTLCommandBuffer
     ) -> ExecutionResult {
         submissions.executeClaimed(
             claim: claim,
+            dependencyEffect: dependencyEffect,
             commandBuffer: commandBuffer
         )
     }
@@ -339,6 +345,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             admittedGraphs: capability.admittedProducts.map(\.graph),
             pairPlan: capability.pairPlan,
             fullFrameExtentPolicy: capability.fullFrameExtentPolicy,
+            dependencyOwnership: capability.dependencyOwnership,
             sourceRoute: capability.sourceRoute,
             token: claim.token
         )

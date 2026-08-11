@@ -38,7 +38,7 @@ extension SceneAuthoredEffectExecutionPlan {
                  .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                  .workshopShadow, .filmGrain, .shake, .waterFlow,
                  .waterWaves, .waterCaustics, .foliageSway, .waterRipple,
-                 .depthParallax, .xRay, .blend, .tint, .transform,
+                 .depthParallax, .xRay, .clippingMask, .blend, .tint, .transform,
                  .fisheyeZeroDistortion, .pulse:
                 return true
             default:

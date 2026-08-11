@@ -97,9 +97,63 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
         }
 
-        guard !stages.isEmpty, stages.count == admitted.products.count else {
+        guard !stages.isEmpty,
+              stages.count == admitted.products.count,
+              dependencyOwnershipMatches(
+                  admitted.dependencyOwnership,
+                  layerID: admitted.layerID,
+                  stages: stages
+              ) else {
             return .failure(rejection("execution-stage-conservation"))
         }
         return .success(.init(stages: stages, materials: allMaterials))
+    }
+
+    private static func dependencyOwnershipMatches(
+        _ ownership: SceneResolvedMaterialDependencyOwnership,
+        layerID: Int,
+        stages: [StageCapability]
+    ) -> Bool {
+        let clippingStages = stages.compactMap { stage -> (
+            program: SceneEffectStageProgram,
+            plan: SceneClippingMaskExecutionPlan
+        )? in
+            guard case let .dedicated(_, program, _) = stage,
+                  let plan = program.executionPlan.clippingMask else { return nil }
+            return (program, plan)
+        }
+        switch ownership {
+        case .none, .graphInternal:
+            return clippingStages.isEmpty
+
+        case let .externalPrimary(binding):
+            guard binding.kind == .clippingMask,
+                  binding.consumerLayerID == layerID,
+                  binding.slot.slotIndex == 1,
+                  clippingStages.count == 1,
+                  let clipping = clippingStages.first else { return false }
+            let program = clipping.program
+            let plan = clipping.plan
+            guard program.effectKey == plan.effectKey,
+                  program.stageGraph.effects.first?.key == plan.effectKey,
+                  plan.layerID == layerID,
+                  plan.effectKey.layerID == layerID,
+                  plan.effectKey.descriptorID == binding.slot.effectID,
+                  plan.providerLayerID == binding.providerLayerID,
+                  plan.blendMode == binding.blendMode,
+                  plan.renderGraph.effects.count == 1,
+                  plan.renderGraph.nodes.count == 1,
+                  plan.renderGraph.nodes.first?.instancePassIndex
+                    == binding.slot.passIndex else { return false }
+            return stages.allSatisfy { stage in
+                guard let execution = stage.dedicatedExecutionPlan else {
+                    return true
+                }
+                if execution.clippingMask != nil {
+                    return execution.clippingMask?.effectKey == plan.effectKey
+                }
+                return execution.proceduralNoise?.dependencySlotIndex == nil
+            }
+        }
     }
 }

@@ -148,14 +148,32 @@ struct SceneImageLayerUniformValues {
 }
 
 struct SceneDependencyEffectInput {
-    let texture: MTLTexture
+    let consumerLayerID: Int
+    let providerLayerID: Int
+    let variant: SceneNamedTextureReference.Variant
+    let slot: SceneEffectPassSlot
     let blendMode: Int
-    let slotIndex: Int
+    let frameEpoch: UInt64
+    let texture: MTLTexture
 
-    init(texture: MTLTexture, blendMode: Int, slotIndex: Int = 1) {
-        self.texture = texture
+    var slotIndex: Int { slot.slotIndex }
+
+    init(
+        consumerLayerID: Int,
+        providerLayerID: Int,
+        variant: SceneNamedTextureReference.Variant,
+        slot: SceneEffectPassSlot,
+        blendMode: Int,
+        frameEpoch: UInt64,
+        texture: MTLTexture
+    ) {
+        self.consumerLayerID = consumerLayerID
+        self.providerLayerID = providerLayerID
+        self.variant = variant
+        self.slot = slot
         self.blendMode = blendMode
-        self.slotIndex = slotIndex
+        self.frameEpoch = frameEpoch
+        self.texture = texture
     }
 }
 
