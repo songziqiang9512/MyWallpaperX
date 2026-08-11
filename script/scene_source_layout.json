@@ -177,7 +177,7 @@
         "role": "inventory",
         "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
-        "baseline_occurrences": 222,
+        "baseline_occurrences": 215,
         "allowed_files": [
           "RenderGraph/SceneAuthoredBlendPlanner.swift",
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
@@ -220,8 +220,7 @@
           "RenderGraph/SceneWaterWavesShaderProfile.swift",
           "Runtime/SceneMediaThumbnailTransitionCompiler.swift",
           "Runtime/SceneScriptAudioBarsCompiler.swift",
-          "Runtime/SceneTextureAnimationScriptCompiler.swift",
-          "Text/SceneTextScriptCompiler.swift"
+          "Runtime/SceneTextureAnimationScriptCompiler.swift"
         ]
       },
       {
@@ -247,14 +246,10 @@
         "role": "retirement",
         "description": "Named Workshop runtime profile dispatch is frozen until generic source contracts replace it.",
         "pattern": "workshop[0-9]+",
-        "baseline_occurrences": 30,
+        "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
-        "allowed_files": [
-          "Text/SceneTextScriptCompiler.swift",
-          "Text/SceneTextScriptProgram.swift",
-          "Text/SceneTextScriptRuntime.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-authored-chain-product-dispatch",
@@ -291,7 +286,7 @@
         "role": "retirement",
         "description": "Source and asset digests that choose fixed script behavior must be replaced by bounded typed interpreters before R4 completes.",
         "pattern": "(?:switch\\s+(?:sourceSHA256|sha256)|profile\\([^\\n]*sourceSHA256|(?:rawSHA256|materialRawSHA256|canonicalSHA256|sourceSHA256)\\s*==\\s*[A-Za-z][A-Za-z0-9_]*SHA256)",
-        "baseline_occurrences": 13,
+        "baseline_occurrences": 10,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
         "scope_files": [
@@ -303,8 +298,7 @@
         "allowed_files": [
           "Runtime/SceneMediaThumbnailTransitionCompiler.swift",
           "Runtime/SceneScriptAudioBarsCompiler.swift",
-          "Runtime/SceneTextureAnimationScriptCompiler.swift",
-          "Text/SceneTextScriptCompiler.swift"
+          "Runtime/SceneTextureAnimationScriptCompiler.swift"
         ]
       },
       {

@@ -314,9 +314,9 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | color/alpha | `L3` | 静态 descriptor 和 direct color generation consumer；[E-DYNAMIC-TEXT](runtime-evidence-index.md#e-dynamic-text) | premultiplied alpha 与 Windows golden |
 | outline/shadow/text effects | `L1` | 可见字段/effect 可能被保留 | 独立 style IR 与执行器 |
 | property-driven dynamic text | `L3` | 只更新变化 layer，重复值不生成；并发旧 generation/失败结果不覆盖 last-ready，连续 Timeline 则每层只保留一个在途任务、发布单调中间结果后只追最新 generation；真实 `2134765860` 三字段与 `2902406982` 两条 width Timeline 正门 | 长文本/emoji/多语言布局与多屏压力门 |
-| exact native clock/day/date/greeting text | `L3 bounded` | 七个 exact source/property profile 直接产生 typed text value；`3768903841` greeting 只消费唯一已验证 day/night schedule；不执行 JavaScript | 非 subset 格式、timeOfDay/engine、同步 Windows locale 与像素 golden |
-| bounded property-bound text update | `L3 bounded` | 唯一 exported `update(value)` 解析为无循环 AST；primitive property、变量/条件/赋值、`new Date()` getter、string 拼接/`slice` 由三层预算执行，不依赖 sample/layer/source hash；`2134765860` 两层与 `2802243144` 一层为真实正门 | 完整 ECMAScript/coercion/scope/exception、init/engine/event/module、live script-property event、locale/DST/离线 clock adapter |
-| exact native day/night texture toggle | `L3 bounded` | 精确 source/wrapper/property profile 用 wall clock 驱动三帧 texture animation，并与 greeting 共用 schedule | cursor click、persisted manual override、跨午夜/DST/暂停长稳与 Windows timing golden |
+| fixed native clock/day/date/greeting text | `L0 product owner / historical` | 七个exact source/property profile已于R4-B18删除；B18前报告只作历史，不证明现役Text owner、输出或视觉 | 现役只看下一行bounded AST；`clockWithPeriod`、greeting与其他未准入语法保留authored fallback |
+| bounded property-bound text update | `L3 bounded` | B18后唯一现役Text脚本合同：唯一exported `update(value)`解析为无循环AST；primitive property、变量/条件/赋值、`new Date()` getter、string拼接/`slice`由三层预算执行，不依赖sample/layer/source hash；compile/evaluate失败不覆盖作者文字 | 完整ECMAScript/coercion/scope/exception、init/engine/event/module、live script-property event、locale/DST/离线clock adapter |
+| exact native day/night texture toggle | `L3 bounded` | 精确source/wrapper/property profile用wall clock驱动三帧texture animation；B18后该schedule不再授权fixed Text greeting | cursor click、persisted manual override、跨午夜/DST/暂停长稳与Windows timing golden |
 | generic SceneScript/media text | `L0` | bounded text update 子集已复用动态纹理 consumer，但仍无 VM、通用 source/module loader、非 String target 或 media snapshot | 扩展 typed producer 时保持 syntax/value/budget/lifecycle fail-closed |
 | dynamic Layer Image particle source | `L0` | 无 emission bitmap refresh | 只在 text texture 变化时更新 emission source |
 
@@ -340,7 +340,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 
 Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选择 16、32 或 64 bins，并在 render frame 更新。
 
-官方 [IEngine.registerAudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) 只接受 16/32/64 三档，[AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) 的 `left`/`right`/`average` 等长数组按帧自动更新、由低频排到高频，数值通常在 0...1 但允许超过 1；shader 侧 [Audio globals](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 同样明确为正值且不归一化。当前 16/32/64 host snapshot 满足 renderer consumer 的输入形状，两个 exact native profile 也会逐 bin 求算术平均；但没有 SceneScript VM、engine method、`average` 数组对象或脚本订阅，因此不能据此升级任何 SceneScript API。
+官方 [IEngine.registerAudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) 只接受 16/32/64 三档，[AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) 的 `left`/`right`/`average` 等长数组按帧自动更新、由低频排到高频，数值通常在 0...1 但允许超过 1；shader 侧 [Audio globals](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 同样明确为正值且不归一化。当前16/32/64 host snapshot满足renderer consumer的输入形状，两个exact native **audio** profile也会逐bin求算术平均；但没有SceneScript VM、engine method、`average`数组对象或脚本订阅，因此不能据此升级任何SceneScript API。
 
 <a id="op-media-overview"></a>
 ### 8.1 [Audio Visualizer](https://docs.wallpaperengine.io/en/scene/audiovisualizer/overview.html) 资料边界

@@ -41,7 +41,7 @@
 |---|---|---|
 | 通用 ECMAScript VM、module、owner/handle、event 与 timer | 未实现，保持 `L0`；property-bound text 只有项目自有、无循环 `update(value)` Date/string AST 子集，不是 VM | [SceneScript API 覆盖表](scenescript-api-coverage.md) |
 | 文档级 inline property wrapper | 正式取证五类位置可保真保存 scene/object/effect/pass owner、完整 target path、source/properties/authored fallback/JSON value type，局部 `L1`；nested/未知 owner 不提升，`script + user` 冲突 fail-closed | [SceneScript API 覆盖表 §2](scenescript-api-coverage.md#2-property-bound-核心合同) |
-| bounded text/audio execution | exact native text/audio profiles 受完整指纹约束；text 另有按语法准入的无循环 Date/string update AST。两者均为 `L3 bounded`，不执行通用 JavaScript、不开放 host API | [运行证据索引](runtime-evidence-index.md) |
+| bounded text/audio execution | Text现役只保留按语法准入的无循环Date/string update AST，七个fixed native Text profile已于R4-B18退役；exact native audio profiles仍受完整指纹约束。两类现役bounded执行均不执行通用JavaScript、不开放host API | [运行证据索引](runtime-evidence-index.md) |
 | Timeline | 已有部分 target/evaluator 的 `L2-L3`，不能由此推导 SceneScript runtime | [覆盖台账 §6.1](coverage-ledger.md#61-timeline-与-scenescript) |
 
 后续实现时先从 API 覆盖表选择一个仍为 `L0/L1` 的能力，再使用本文相应合同建立自有 fixture；完成代码、测试和隔离运行证据后，才在覆盖表和运行证据索引升级状态。

@@ -2,37 +2,10 @@ import Foundation
 
 nonisolated struct SceneTextScriptProgram: Equatable, Sendable {
     nonisolated enum Profile: String, Codable, Equatable, Sendable {
-        case workshop2981960200Clock
-        case workshop2981960200SpacedDay
-        case workshop2981960200Date
-        case workshop3732231168CompactDay
-        case workshop3732231168LongMonthDate
-        case workshop3732231168Clock
-        case workshop3732231168Greeting
         case ecmaTextUpdateSubset
     }
 
     nonisolated enum Configuration: Equatable, Sendable {
-        case clock(use24Hour: Bool, showSeconds: Bool, delimiter: String)
-        case clockWithPeriod(
-            use24Hour: Bool,
-            showSeconds: Bool,
-            displayDate: Bool,
-            delimiter: String
-        )
-        case timeOfDayGreeting(
-            dayText: String,
-            nightText: String,
-            schedule: SceneTimeOfDaySchedule
-        )
-        case date(
-            monthFormat: Int,
-            dayFormat: Int,
-            showDay: Bool,
-            alignVertical: Bool,
-            useDelimiter: Bool,
-            delimiter: String
-        )
         case scriptSubset(
             program: SceneTextScriptSubsetProgram,
             properties: [String: SceneJSONValue]
@@ -51,8 +24,6 @@ nonisolated struct SceneTextScriptProgram: Equatable, Sendable {
     nonisolated struct Diagnostic: Equatable, Sendable {
         enum Code: String {
             case unknownProfile
-            case invalidProperties
-            case missingSharedState
         }
 
         let layerID: Int

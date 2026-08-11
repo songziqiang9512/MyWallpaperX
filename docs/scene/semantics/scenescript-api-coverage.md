@@ -1,6 +1,6 @@
 # SceneScript API 覆盖表（官方声明 v2.8）
 
-> 核验日期：2026-07-30
+> 核验日期：2026-08-12
 >
 > 官方基线：`lib.sceneScript.d.ts` **VERSION 2.8**，固定文档 revision `b26412295cbfd0ee5cdceff67e2c95069527aa1b`。
 >
@@ -12,9 +12,9 @@
 
 通用 SceneScript 当前仍是 **L0 runtime**。项目没有 ECMAScript VM、通用 file/module loader、host object bridge、事件队列或 timer scheduler。文档级 property binding IR 现在可把 inline `source`、scene/object/effect/pass owner、完整 JSON target path、`scriptproperties`、authored fallback 与 JSON value type 保真，覆盖正式取证的五类位置，达到局部 `L1`；nested/未知 owner 不会被错误提升，同 wrapper 的 `script + user` 冲突会诊断并拒绝。既有 layer 顶层 binding 仍送入 descriptor/cache，旧 cache 缺少该字段仍可解码。它没有建立 file/module、schema-resolved Vec/value type、runtime handle 或通用生命周期。
 
-`8740737` 新增一个与 VM 分离的 **L3 bounded native text profile**：按 raw source SHA-256 和完整 property key/type/range 同时准入 Workshop `2981960200` 的 clock、spaced-day、date 三个已独立复核格式器；每帧从 `SceneFrameContext.wallDate` 产生 string，按 `authored -> user -> Timeline -> SceneScript` 写入 per-surface snapshot，再复用 dynamic text generation/纹理 consumer。六个未修改真实样本的 16 个有效可见绑定执行，未知 source、增删/变异 property 均保留作者 fallback 并报告诊断。它不是 JavaScript 解释器，不开放 `engine`、lifecycle、handle、event、module 或任一官方 API；其证据不升级通用 SceneScript，Date 子集只按下一段的独立 AST 合同评级。
+`8740737`及后续扩展曾建立与VM分离的七个fixed native Text profile；这些source SHA、Workshop命名profile、property配置、greeting shared-state消费与native formatter已在R4-B18全部退役。对应真实样本、截图与格式器报告只说明B18前历史实现，不再证明现役产品owner、当前文字输出或视觉。source identity现在只用于unsupported diagnostic，不选择产品执行。
 
-`0e482550` 另新增一个不依赖 sample/layer/source hash 的 **L3 bounded property-bound text update subset**：只把 inline source 中唯一的 `export function update(value)` 解析为项目自有、无循环 AST，不执行 top-level/module。当前支持 primitive literals/properties、变量/赋值、`if/else`、`return`、同型比较、`+`/`%`、string `slice`、`new Date()` 与本地 Gregorian 年/月/日/星期/时分秒 getter；2048 tokens、128 statements、512 evaluation steps 任一越界或未知语义都不覆盖 authored fallback。它使 `2134765860` 两层时钟和 `2802243144` 另一时钟共用同一语法合同，但仍不是通用 VM，也不开放 `init`、engine、handle、event、timer、exception 或 module。
+`0e482550` 另新增一个不依赖 sample/layer/source hash 的 **L3 bounded property-bound text update subset**，也是B18后唯一现役Text脚本执行合同：只把inline source中唯一的`export function update(value)`解析为项目自有、无循环AST，不执行top-level/module。当前支持primitive literals/properties、变量/赋值、`if/else`、`return`、同型比较、`+`/`%`、string `slice`、`new Date()`与本地Gregorian年/月/日/星期/时分秒getter；2048 tokens、128 statements、512 evaluation steps任一越界或未知语义都不覆盖authored fallback。`clockWithPeriod`、greeting等未准入语法不再借fixed source绕过，只保留作者文字。它仍不是通用VM，也不开放`init`、engine、handle、event、timer、exception或module。
 
 `d83606bf` 再新增一个无 sample/layer/source-hash 准入的 **L3 bounded property-bound Blend update subset**：只接受完整 `script,user,value` wrapper、唯一 exported `update`、常数声明、有限四则算术、`engine.timeOfDay`、`WEMath.smoothStep` 与 `Math.max`，编译结果只能写回 typed Blend `multiply` target；1024 tokens、128 AST nodes、256 evaluation steps和 `0...2` consumer range 任一失败都保留 authored fallback。它用同一帧本地 wall date 驱动 `2134765860` 的清晨/正午切换，但不创建 `engine`/`WEMath` module object，不开放其他 target、statement、function、event 或通用 VM。
 
@@ -24,7 +24,7 @@
 
 Scene host 已有 16/32/64 档 left/right 频谱 snapshot，并由 stock effect、三个 exact Workshop Audio Bars profile与上述两个 native profile 按需驱动采集；这仍只是 renderer 输入/有界 consumer。当前没有 VM、`engine.registerAudioBuffers` bridge、`AudioBuffers`/Float32Array object identity 或脚本订阅，因此下表相关官方 API 全部保持 `L0`。
 
-`2938612768:[165,454,626,629,924]` 的 Opacity 值来自未支持 SceneScript，当前 strict planner 仍必须拒绝；只有 `2902406982:[365,372,647,664]` 的 direct binding 是正门。粗粒度总表中的 “Script presence L1” 只表示发现能力，exact native text profile 的证据与边界见 [E-TEXT-SCRIPT](runtime-evidence-index.md#e-text-script)。
+`2938612768:[165,454,626,629,924]` 的 Opacity 值来自未支持 SceneScript，当前 strict planner 仍必须拒绝；只有 `2902406982:[365,372,647,664]` 的 direct binding 是正门。粗粒度总表中的“Script presence L1”只表示发现能力；现役bounded Text AST与已退役fixed profile的历史边界见 [E-TEXT-SCRIPT](runtime-evidence-index.md#e-text-script)。
 
 等级沿用总覆盖台账：
 
@@ -43,7 +43,7 @@ Scene host 已有 16/32/64 档 left/right 频谱 snapshot，并由 stock effect�
 | `P` | [`SceneResourceIndex.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceIndex.swift)、[`SceneCapabilityProfile.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneCapabilityProfile.swift) | `.js` 分类和 package-level presence | 源码读取、模块加载、执行 |
 | `I` | [`SceneDocument.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift)、[`SceneScriptBindingDefinition.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneScriptBindingDefinition.swift)、[`SceneRenderDescriptor.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRenderDescriptor.swift)、[`SceneTextScriptDefinition.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptDefinition.swift) | 文档级五类 binding 保真 inline source、owner、完整 target path、properties、authored fallback 与 JSON value type；layer 顶层旧 carrier 与文字 inline source 继续保留 | file/module、schema-resolved Vec/value type、runtime handle、VM、API、生命周期 |
 | `W` | [`SceneParticleDefinitionParser.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinitionParser.swift)、[`test_scene_particle_definitions.py`](../../../script/tests/test_scene_particle_definitions.py) | 动态 wrapper 的 `hasScript` presence 可诊断 | wrapper script 的源码或求值 |
-| `D` | [`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift)、[`SceneTextScriptSubsetCompiler.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptSubsetCompiler.swift)、[`SceneTimeOfDayEffectScriptCompiler.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneTimeOfDayEffectScriptCompiler.swift)、[`SceneTimeOfDayEffectScriptRuntime.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneTimeOfDayEffectScriptRuntime.swift)、[`test_scene_text_script_runtime.py`](../../../script/tests/test_scene_text_script_runtime.py)、[`test_scene_time_of_day_effect_script.py`](../../../script/tests/test_scene_time_of_day_effect_script.py) | typed target、固定优先级、exact native profiles 与无身份旁路的 bounded text/Blend update AST/value | 通用 ECMAScript、module/API object bridge、其他 target、instance lifecycle |
+| `D` | [`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift)、[`SceneTextScriptSubsetCompiler.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptSubsetCompiler.swift)、[`SceneTimeOfDayEffectScriptCompiler.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneTimeOfDayEffectScriptCompiler.swift)、[`SceneTimeOfDayEffectScriptRuntime.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneTimeOfDayEffectScriptRuntime.swift)、[`test_scene_text_script_runtime.py`](../../../script/tests/test_scene_text_script_runtime.py)、[`test_scene_time_of_day_effect_script.py`](../../../script/tests/test_scene_time_of_day_effect_script.py) | typed target、固定优先级，以及无身份旁路的bounded text/Blend update AST/value；fixed Text profile已退役 | 通用ECMAScript、module/API object bridge、其他target、instance lifecycle |
 | `F` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[`SceneTextScriptRuntime.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptRuntime.swift)、[`SceneDesktopWallpaperHost+FrameDriver.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift) | 同帧 wall date、per-surface evaluation/snapshot、bounded `new Date()` getter 与本地 `timeOfDay` scalar | 脚本实例、event/timer、locale/DST/通用离线 clock、任意 JS |
 | `G` | 2.8.42 主程序与 SceneScript module 的 Ghidra 有界静态证据，详见 [实现层合同 §8](scenescript-runtime-implementation-contract.md#8-engine-与宿主生命周期静态互证gb) | 版本握手、effective time/pause、固定事件槽、watchdog/timer/audio tick、typed return、camera/material/particle/video/animation handle 与 host-owned teardown 结构 | MyWallpaperX 已实现、未闭合事件/冲突顺序、完整 ABI、官方性能/视觉等价 |
 | `N` | 全仓 `SceneScript`/VM/API 搜索及现有 Scene 测试 | 没有 VM 或 handle bridge；除 `D/F` 单列的 bounded text `update`/Date getter 与 Blend time-of-day expression 外，无其他官方 API 执行测试 | 不能把其他 Swift renderer 的同名能力算成脚本 API |
@@ -358,7 +358,7 @@ SceneScript core 至少满足以下门后，相关行才可从 `L0` 升级：
 - typed return、无返回、错类型、NaN/Inf、throw、死循环均有正反测试，单脚本失败不影响 renderer；
 - 用户属性、cursor、audio、media 事件使用 generation/order 合同，旧事件和旧资源不得覆盖新状态；
 - 默认关闭的 effect/parallax/particle 仍保持关闭，脚本只修改作者明确绑定或显式访问的目标；
-- 至少用通用 VM 执行的动态时钟文字、用户属性文字、cursor 局部坐标、受控音频 bins、media metadata 各一组隔离 fixture 验证；现有 exact native clock/date profile 不替代此门；
+- 至少用通用 VM 执行的动态时钟文字、用户属性文字、cursor 局部坐标、受控音频 bins、media metadata 各一组隔离 fixture 验证；bounded Text AST不替代此门，B18前exact native clock/date profile已退役且只能作历史；
 - `L3` 还要求签名 App 真实运行、相关隔离样本正反例与 stop 生命周期；`L4` 需要相同输入下的 Windows Wallpaper Engine golden。
 
 ## 14. 更新规则
