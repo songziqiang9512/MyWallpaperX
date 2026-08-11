@@ -98,7 +98,13 @@ extension SceneAuthoredEffectChainPlanner {
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract]
     ) -> SceneAuthoredEffectChainAdmission {
-        if !graph.blockers.isEmpty {
+        let rawPairBlockerReasons: Set<Graph.BlockerReason> = [
+            .unsupportedCompose,
+            .multipleEffectOutputs,
+        ]
+        if graph.blockers.contains(where: {
+            !rawPairBlockerReasons.contains($0.reason)
+        }) {
             return reject(.init(
                 code: .graphBlocked,
                 layerID: graph.layerID,
@@ -150,6 +156,13 @@ extension SceneAuthoredEffectChainPlanner {
                 stagePrograms.append(program)
                 continue
             case .unsupported(let failure):
+                if !graph.blockers.isEmpty {
+                    return reject(.init(
+                        code: .graphBlocked,
+                        layerID: graph.layerID,
+                        blockerReasons: graph.blockers.map(\.reason)
+                    ))
+                }
                 compileFailure = failure
             }
             return reject(.init(
@@ -160,6 +173,25 @@ extension SceneAuthoredEffectChainPlanner {
                 definitionPath: effect.definitionPath,
                 stageCompileFailure: compileFailure
             ))
+        }
+
+        if !graph.blockers.isEmpty {
+            let programsByKey = Dictionary(
+                uniqueKeysWithValues: stagePrograms.map { ($0.effectKey, $0) }
+            )
+            let blockerGroups = Dictionary(grouping: graph.blockers, by: \.effect)
+            let rawPairBlockersAreTyped = blockerGroups.allSatisfy { effect, blockers in
+                Set(blockers.map(\.reason)) == rawPairBlockerReasons
+                    && programsByKey[effect]?.executionPlan
+                        .supportsUnifiedFullFrameComposeStage == true
+            }
+            guard rawPairBlockersAreTyped else {
+                return reject(.init(
+                    code: .graphBlocked,
+                    layerID: graph.layerID,
+                    blockerReasons: graph.blockers.map(\.reason)
+                ))
+            }
         }
 
         guard let chain = SceneAuthoredEffectExecutionChain.complete(

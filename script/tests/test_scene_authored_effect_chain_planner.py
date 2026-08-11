@@ -854,7 +854,9 @@ enum Harness {
         )
     }
 
-    static func materials() -> [SceneRenderDescriptor.MaterialPassDescriptor] {
+    static func materials(
+        fullFrameCompose: Bool = false
+    ) -> [SceneRenderDescriptor.MaterialPassDescriptor] {
         func material(
             id: String,
             path: String,
@@ -879,7 +881,9 @@ enum Harness {
             material(
                 id: "materials/precise_y.json#0",
                 path: "materials/precise_y.json",
-                combos: ["VERTICAL": 1, "ENABLEMASK": 1]
+                combos: fullFrameCompose
+                    ? ["VERTICAL": 1]
+                    : ["VERTICAL": 1, "ENABLEMASK": 1]
             ),
         ]
     }
@@ -1089,6 +1093,93 @@ enum Harness {
             nodes: nodes,
             finalOutput: secondOutput,
             blockers: blockers
+        )
+    }
+
+    static func rawFullFrameComposeGraph() -> Graph {
+        let key = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "42#effect#0"
+        )
+        let source = texture(.layerSource)
+        let output = texture(.effectOutput, effect: key)
+        let nodes = [
+            Graph.Node(
+                nodeIndex: 0,
+                effect: key,
+                definitionPassIndex: 0,
+                materialOrdinal: 0,
+                instancePassIndex: 0,
+                kind: .material,
+                materialPath: "materials/precise_x.json",
+                materialPassID: "materials/precise_x.json#0",
+                target: output,
+                bindings: [],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: .bool(true),
+                conditions: nil
+            ),
+            Graph.Node(
+                nodeIndex: 1,
+                effect: key,
+                definitionPassIndex: 1,
+                materialOrdinal: 1,
+                instancePassIndex: 1,
+                kind: .material,
+                materialPath: "materials/precise_y.json",
+                materialPassID: "materials/precise_y.json#0",
+                target: output,
+                bindings: [],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            ),
+        ]
+        return Graph(
+            layerID: layerID,
+            effects: [.init(
+                key: key,
+                definitionPath: "effects/workshop/blurprecise/effect.json",
+                input: source,
+                output: output,
+                nodeIndices: [0, 1]
+            )],
+            renderTargets: [],
+            nodes: nodes,
+            finalOutput: output,
+            blockers: [
+                .init(
+                    effect: key,
+                    definitionPassIndex: 0,
+                    reason: .unsupportedCompose,
+                    detail: "raw compose is admitted by the unified graph compiler"
+                ),
+                .init(
+                    effect: key,
+                    definitionPassIndex: nil,
+                    reason: .multipleEffectOutputs,
+                    detail: "compose transition plus terminal output"
+                ),
+            ]
+        )
+    }
+
+    static func rawFullFrameComposeDescriptor() -> SceneRenderDescriptor {
+        SceneRenderDescriptor(
+            layers: [.init(
+                id: layerID,
+                parentID: nil,
+                visible: true,
+                contentKind: "text",
+                effects: [effectDescriptor(
+                    index: 0,
+                    verticalCombos: ["VERTICAL": 1]
+                )]
+            )],
+            materialPasses: materials(fullFrameCompose: true)
         )
     }
 
@@ -1415,6 +1506,50 @@ enum Harness {
             descriptor: validDescriptor,
             shaderContracts: []
         )!
+        let rawComposeGraph = rawFullFrameComposeGraph()
+        let rawComposeDescriptor = rawFullFrameComposeDescriptor()
+        let rawComposeOuterAdmission = SceneAuthoredEffectChainPlanner.admit(
+            graph: rawComposeGraph,
+            descriptor: rawComposeDescriptor,
+            shaderContracts: []
+        )
+        let rawComposeNonExactBlockerGraph = Graph(
+            layerID: rawComposeGraph.layerID,
+            effects: rawComposeGraph.effects,
+            renderTargets: rawComposeGraph.renderTargets,
+            nodes: rawComposeGraph.nodes,
+            finalOutput: rawComposeGraph.finalOutput,
+            blockers: rawComposeGraph.blockers + [.init(
+                effect: rawComposeGraph.effects[0].key,
+                definitionPassIndex: 0,
+                reason: .unsupportedCondition,
+                detail: "raw pair fallback must not admit unrelated blockers"
+            )]
+        )
+        let rawComposeNonExactBlockerAdmission =
+            SceneAuthoredEffectChainPlanner.admit(
+                graph: rawComposeNonExactBlockerGraph,
+                descriptor: rawComposeDescriptor,
+                shaderContracts: []
+            )
+        let rawComposeLeaves = SceneAuthoredEffectChainPlanner.compileDedicatedLeaves(
+            graph: rawComposeGraph,
+            descriptor: rawComposeDescriptor,
+            shaderContracts: []
+        )
+        let rawComposeProgram = rawComposeLeaves.first
+        let rawComposeLegacyCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: rawComposeDescriptor,
+            authoredPlans: [rawComposeGraph]
+        )
+        let rawComposeResolvedCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: rawComposeDescriptor,
+            authoredPlans: [rawComposeGraph],
+            resolvedMaterialSubjects: [.init(
+                key: rawComposeGraph.effects[0].key,
+                family: "resolved-material"
+            )]
+        )
         let firstEffect = validGraph.effects[0]
         let firstStageGraph = SceneAuthoredEffectChainPlanner.stageGraph(
             effect: firstEffect,
@@ -1439,28 +1574,26 @@ enum Harness {
         case .dedicated(let backend):
             firstCompilerBackend = backend.rawValue
         }
-        let firstLegacyPlan = chain.executionStages[0]
+        let firstStagePlan = chain.executionStages[0]
         let firstProjectionPreserved =
             firstProgram.authoredOrdinal == 0
             && firstProgram.effectKey == firstEffect.key
             && firstProgram.definitionPath == firstEffect.definitionPath
             && firstProgram.inputRole == .layerSource
-            && firstProgram.executionPlan.layerID == firstLegacyPlan.layerID
+            && firstProgram.executionPlan.layerID == firstStagePlan.layerID
             && firstProgram.executionPlan.backend.stableName
-                == firstLegacyPlan.backend.stableName
+                == firstStagePlan.backend.stableName
             && firstProgram.executionPlan.materialNodeCount
-                == firstLegacyPlan.materialNodeCount
+                == firstStagePlan.materialNodeCount
             && firstProgram.executionPlan.logicalRenderTargetCount
-                == firstLegacyPlan.logicalRenderTargetCount
-            && firstProgram.executionPlan.inputRole == firstLegacyPlan.inputRole
-            && firstProgram.executionPlan.usesLegacyComposeNormalization
-                == firstLegacyPlan.usesLegacyComposeNormalization
+                == firstStagePlan.logicalRenderTargetCount
+            && firstProgram.executionPlan.inputRole == firstStagePlan.inputRole
             && firstProgram.executionPlan.renderGraph.effects.map(\.key)
-                == firstLegacyPlan.renderGraph.effects.map(\.key)
+                == firstStagePlan.renderGraph.effects.map(\.key)
             && firstProgram.executionPlan.renderGraph.nodes.map(\.nodeIndex)
-                == firstLegacyPlan.renderGraph.nodes.map(\.nodeIndex)
+                == firstStagePlan.renderGraph.nodes.map(\.nodeIndex)
             && firstProgram.executionPlan.renderGraph.renderTargets.count
-                == firstLegacyPlan.renderGraph.renderTargets.count
+                == firstStagePlan.renderGraph.renderTargets.count
         let firstInput = SceneEffectStageCompileInput(
             stageGraph: firstStageGraph,
             authoredOrdinal: 0,
@@ -1473,7 +1606,7 @@ enum Harness {
         let backendInvariantRejected = SceneEffectStageProgram(
             input: firstInput,
             compilerBackend: .waterFlow,
-            executionPlan: firstLegacyPlan
+            executionPlan: firstStagePlan
         ) == nil
         let mismatchedGraph = Graph(
             layerID: firstStageGraph.layerID,
@@ -1484,14 +1617,12 @@ enum Harness {
             blockers: firstStageGraph.blockers
         )
         let mismatchedGraphPlan = SceneAuthoredEffectExecutionPlan(
-            layerID: firstLegacyPlan.layerID,
+            layerID: firstStagePlan.layerID,
             renderGraph: mismatchedGraph,
-            backend: firstLegacyPlan.backend,
-            materialNodeCount: firstLegacyPlan.materialNodeCount,
-            logicalRenderTargetCount: firstLegacyPlan.logicalRenderTargetCount,
-            inputRole: firstLegacyPlan.inputRole,
-            usesLegacyComposeNormalization:
-                firstLegacyPlan.usesLegacyComposeNormalization
+            backend: firstStagePlan.backend,
+            materialNodeCount: firstStagePlan.materialNodeCount,
+            logicalRenderTargetCount: firstStagePlan.logicalRenderTargetCount,
+            inputRole: firstStagePlan.inputRole
         )
         let graphInvariantRejected = SceneEffectStageProgram(
             input: firstInput,
@@ -1499,7 +1630,7 @@ enum Harness {
             executionPlan: mismatchedGraphPlan
         ) == nil
         let invariantAggregate = SceneEffectStageCompileResult.accepted(
-            firstLegacyPlan,
+            firstStagePlan,
             compilerBackend: .standardBlur,
             input: firstInput,
             precedingProbes: [.init(
@@ -1961,6 +2092,46 @@ enum Harness {
                         shaderContracts: []
                     ).rejection?.stageCompileFailure == nil,
             ],
+            "rawComposeOwnership": [
+                "outerRejection": rawComposeOuterAdmission.rejection?.code.rawValue
+                    ?? "accepted",
+                "outerChainAccepted":
+                    rawComposeOuterAdmission.chain?.stagePrograms.count == 1
+                    && rawComposeOuterAdmission.chain?.stagePrograms.first?
+                        .executionPlan.supportsUnifiedFullFrameComposeStage == true,
+                "nonExactBlockerRejection": rawComposeNonExactBlockerAdmission
+                    .rejection?.code.rawValue ?? "accepted",
+                "nonExactBlockerChainAbsent":
+                    rawComposeNonExactBlockerAdmission.chain == nil,
+                "rawBlockers": rawComposeGraph.blockers.map(\.reason.rawValue),
+                "rawAuthoredTargetCount": rawComposeGraph.renderTargets.count,
+                "rawValuesPreserved": rawComposeGraph.nodes.count == 2
+                    && rawComposeGraph.nodes.allSatisfy {
+                        $0.target == rawComposeGraph.finalOutput
+                            && $0.bindings.isEmpty
+                    }
+                    && rawComposeGraph.nodes[0].compose == .bool(true)
+                    && rawComposeGraph.nodes[1].compose == nil,
+                "dedicatedLeafCount": rawComposeLeaves.count,
+                "dedicatedFullFrameStage":
+                    rawComposeProgram?.executionPlan
+                        .supportsUnifiedFullFrameComposeStage == true
+                    && rawComposeProgram?.executionPlan.logicalRenderTargetCount == 0
+                    && rawComposeProgram?.stageGraph.renderTargets.isEmpty == true
+                    && rawComposeProgram?.stageGraph.blockers.isEmpty == true,
+                "legacyChainLayers": rawComposeLegacyCatalog
+                    .chainsByLayerID.keys.sorted(),
+                "legacyBlocked": rawComposeLegacyCatalog
+                    .legacyGaussianBlurBlockedLayerIDs.sorted(),
+                "legacyFallbackSuppressed": rawComposeLegacyCatalog
+                    .legacyEffectFallbackSuppressedLayerIDs.sorted(),
+                "resolvedChainLayers": rawComposeResolvedCatalog
+                    .chainsByLayerID.keys.sorted(),
+                "resolvedKeys": rawComposeResolvedCatalog
+                    .unifiedExecutionStageKeys.map(\.effectIndex).sorted(),
+                "resolvedLegacyBlocked": rawComposeResolvedCatalog
+                    .legacyGaussianBlurBlockedLayerIDs.sorted(),
+            ],
             "programChain": [
                 "programCount": chain.stagePrograms.count,
                 "authoredOrdinals": chain.stagePrograms.map(\.authoredOrdinal),
@@ -2313,6 +2484,27 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertTrue(success["scaleBelowOneExpandedRejected"])
         self.assertTrue(success["composedReducedFits"])
         self.assertTrue(success["invalidExtentsRejected"])
+
+    def test_raw_compose_typed_pair_and_resolved_owner_revoke_old_chain(self) -> None:
+        ownership = self.result["rawComposeOwnership"]
+        self.assertEqual(ownership["outerRejection"], "accepted")
+        self.assertTrue(ownership["outerChainAccepted"])
+        self.assertEqual(ownership["nonExactBlockerRejection"], "graph-blocked")
+        self.assertTrue(ownership["nonExactBlockerChainAbsent"])
+        self.assertEqual(
+            ownership["rawBlockers"],
+            ["unsupportedCompose", "multipleEffectOutputs"],
+        )
+        self.assertEqual(ownership["rawAuthoredTargetCount"], 0)
+        self.assertTrue(ownership["rawValuesPreserved"])
+        self.assertEqual(ownership["dedicatedLeafCount"], 1)
+        self.assertTrue(ownership["dedicatedFullFrameStage"])
+        self.assertEqual(ownership["legacyChainLayers"], [42])
+        self.assertEqual(ownership["legacyBlocked"], [])
+        self.assertEqual(ownership["legacyFallbackSuppressed"], [])
+        self.assertEqual(ownership["resolvedChainLayers"], [])
+        self.assertEqual(ownership["resolvedKeys"], [0])
+        self.assertEqual(ownership["resolvedLegacyBlocked"], [])
 
     def test_catalog_reports_chain_counts_without_exposing_single_stage_plan(self) -> None:
         catalog = self.result["catalog"]

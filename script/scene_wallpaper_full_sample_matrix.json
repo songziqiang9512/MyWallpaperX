@@ -595,9 +595,9 @@
       "expected_effect_graph_material_node_count": 90,
       "expected_effect_graph_copy_node_count": 0,
       "expected_effect_graph_swap_node_count": 0,
-      "expected_effect_graph_render_target_count": 16,
-      "expected_effect_graph_blocker_count": 0,
-      "expected_effect_graph_unblocked_layer_count": 28,
+      "expected_effect_graph_render_target_count": 0,
+      "expected_effect_graph_blocker_count": 32,
+      "expected_effect_graph_unblocked_layer_count": 12,
       "expected_visible_layer_count": 23,
       "expected_root_layer_count": 45,
       "expected_child_edge_count": 0,
@@ -614,7 +614,7 @@
       "expected_fullscreen_layer_count": 2,
       "expected_dependency_edge_count": 0,
       "expected_shader_contract_aggregate_sha256": "034fa2ee925469e2cbafbe5feeac2c11a44f7c1a413496dfa8388bc2376b857e",
-      "expected_effect_graph_sha256": "332256f9c917608413e6a56453e36422c99f3e1bd874f833bf46553b53a7cba2",
+      "expected_effect_graph_sha256": "31d0bf7fbf7727e808de0b53d6190d4b6c14bee9e9d1b7935059f05b176bd0b1",
       "expected_stock_opacity_single_effect_candidate_layer_ids": [],
       "minimum_loaded_ratio": 1.0,
       "minimum_text_loaded": 0,
@@ -625,14 +625,15 @@
         342,
         359
       ],
-      "expected_particle_candidates": 1,
-      "minimum_particle_loaded": 1,
+      "expected_particle_candidates": 2,
+      "minimum_particle_loaded": 2,
       "expected_particle_authored": 4,
       "expected_particle_visible": 2,
       "expected_particle_skipped_hidden": 2,
-      "expected_particle_skipped_transparent": 1,
+      "expected_particle_skipped_transparent": 0,
       "required_particle_loaded_layer_ids": [
-        435
+        435,
+        454
       ],
       "expected_camera_parallax": false,
       "expected_utility_candidates": 27,
@@ -649,7 +650,6 @@
       "required_image_blend_succeeded_layer_ids": [],
       "expected_authored_effect_graph_succeeded_layer_ids": [
         65,
-        161,
         1063
       ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [
@@ -670,19 +670,18 @@
       "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
-      "expected_authored_effect_graph_blend_count": 1,
-      "expected_authored_effect_graph_tint_count": 4,
+      "expected_authored_effect_graph_blend_count": 0,
+      "expected_authored_effect_graph_tint_count": 3,
       "expected_authored_effect_graph_godrays_count": 0,
-      "expected_authored_effect_graph_transform_count": 3,
-      "expected_authored_effect_graph_transform_static_fallback_count": 3,
+      "expected_authored_effect_graph_transform_count": 2,
+      "expected_authored_effect_graph_transform_static_fallback_count": 2,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [
         "layer=65,effect=2,pass=0,constant=scale,reason=unsupported-dynamic-binding-static-fallback",
-        "layer=161,effect=2,pass=0,constant=scale,reason=unsupported-dynamic-binding-static-fallback",
         "layer=1063,effect=3,pass=0,constant=scale,reason=unsupported-dynamic-binding-static-fallback"
       ],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 3,
-      "expected_authored_effect_graph_stage_count": 10,
+      "expected_authored_effect_graph_chain_count": 2,
+      "expected_authored_effect_graph_stage_count": 7,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
@@ -696,8 +695,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 54,
-        "admitted-dedicated": 10,
-        "admitted-generic": 1,
+        "admitted-dedicated": 8,
+        "admitted-generic": 3,
         "not-admitted": 15
       },
       "expected_effect_stage_coverage_counts": {
@@ -715,14 +714,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "08b8bc74a86ac6268a22c533d8d061dc0a9577f8817e4612728c31c11ac00d0d",
+      "expected_effect_stage_admission_sha256": "959686839c96ae908d693a65e91889d69f238c9ed465049ccd004902a2bcae01",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 80,
       "expected_effect_runtime_disposition_group_count": 29,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 54,
-        "strict-dedicated": 10,
-        "strict-generic": 1,
+        "strict-dedicated": 8,
+        "strict-generic": 3,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -755,8 +754,9 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "6341720b46252c2444af5423f2354095508daa192e4cd660d506ef77079ec48b",
+      "expected_effect_runtime_disposition_sha256": "310efe17f8c9e9e4320144376662451267b7dd0b1fd1bfa21a020df913f173ca",
       "expected_resolved_material_graph_succeeded_layer_ids": [
+        161,
         342
       ],
       "expected_effect_execution_schema": 1,
@@ -1724,12 +1724,12 @@
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 0,
         "admitted-dedicated": 0,
-        "admitted-generic": 0,
-        "not-admitted": 6
+        "admitted-generic": 6,
+        "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
         "inactive": 0,
-        "complete": 0,
+        "complete": 6,
         "terminal-inline-prefix": 0,
         "terminal-inline-suffix": 0,
         "isolated-accepted": 0,
@@ -1738,18 +1738,18 @@
         "prefix-omitted": 0,
         "rejected-missing-graph": 0,
         "rejected-ambiguous-graph": 0,
-        "rejected-chain": 6,
+        "rejected-chain": 0,
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "340cbb1bb8317ac11086448058ad06d100638fd72adb20937033bd657803880b",
+      "expected_effect_stage_admission_sha256": "3a0d9ff35ad09c882c9510755ac27cec147ab1792a7d72d0e44ad06afa7da695",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 6,
       "expected_effect_runtime_disposition_group_count": 1,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 0,
         "strict-dedicated": 0,
-        "strict-generic": 0,
+        "strict-generic": 6,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -1760,30 +1760,39 @@
         "legacy-shadowed": 0,
         "route-only-member": 0,
         "composite-refused": 0,
-        "unsupported": 6,
+        "unsupported": 0,
         "unattributed": 0
       },
       "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 0,
+        "exact-key": 6,
         "layer-aggregate": 0,
-        "none": 6
+        "none": 0
       },
       "expected_effect_runtime_disposition_role_counts": {
-        "owner": 0,
+        "owner": 6,
         "aggregate-contributor": 0,
-        "member": 6,
+        "member": 0,
         "none": 0
       },
       "expected_effect_runtime_disposition_group_kind_counts": {
         "inactive": 0,
-        "direct": 1,
-        "authored": 0,
+        "direct": 0,
+        "authored": 1,
         "legacy-offscreen": 0,
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "a7e758e8feaafa51e6fc64e48e1392f6feb8badf2ec2af79bee3d6ad7d92cf2f",
-      "expected_resolved_material_graph_succeeded_layer_ids": []
+      "expected_effect_runtime_disposition_sha256": "fb6f7ad1beb1a6c726c2c882aa7c798b6aef4055b1a97b0e8f06a0097d479d07",
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        13
+      ],
+      "expected_effect_execution_schema": 1,
+      "expected_effect_execution_eligible_exact_effect_count": 6,
+      "expected_effect_execution_observed_eligible_exact_effect_count": 6,
+      "expected_effect_execution_eligible_exact_gap_count": 0,
+      "expected_effect_execution_eligible_aggregate_subject_count": 0,
+      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
+      "expected_effect_execution_eligible_aggregate_gap_count": 0
     },
     {
       "id": "2473638329",
@@ -1900,13 +1909,13 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 0,
-        "not-admitted": 7
+        "admitted-dedicated": 1,
+        "admitted-generic": 6,
+        "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
         "inactive": 0,
-        "complete": 0,
+        "complete": 7,
         "terminal-inline-prefix": 0,
         "terminal-inline-suffix": 0,
         "isolated-accepted": 0,
@@ -1915,18 +1924,18 @@
         "prefix-omitted": 0,
         "rejected-missing-graph": 0,
         "rejected-ambiguous-graph": 0,
-        "rejected-chain": 7,
+        "rejected-chain": 0,
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "3406793cec5a7bdd60f4775f45b79b2865311fa878bd4b69b0c00824ffb936a7",
+      "expected_effect_stage_admission_sha256": "58507f6f0c8e1a17a649f2e95edf3feeb37ba9f0db42ad8d2f03210d8b943a8a",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 7,
       "expected_effect_runtime_disposition_group_count": 1,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 0,
+        "strict-dedicated": 1,
+        "strict-generic": 6,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -1937,30 +1946,39 @@
         "legacy-shadowed": 0,
         "route-only-member": 0,
         "composite-refused": 0,
-        "unsupported": 7,
+        "unsupported": 0,
         "unattributed": 0
       },
       "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 0,
+        "exact-key": 7,
         "layer-aggregate": 0,
-        "none": 7
+        "none": 0
       },
       "expected_effect_runtime_disposition_role_counts": {
-        "owner": 0,
+        "owner": 7,
         "aggregate-contributor": 0,
-        "member": 7,
+        "member": 0,
         "none": 0
       },
       "expected_effect_runtime_disposition_group_kind_counts": {
         "inactive": 0,
-        "direct": 1,
-        "authored": 0,
+        "direct": 0,
+        "authored": 1,
         "legacy-offscreen": 0,
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "ebe4b17571cd84e23eb275a7bc43d8451521006dd4dd1d9c9df5ce5ebf5ae343",
-      "expected_resolved_material_graph_succeeded_layer_ids": []
+      "expected_effect_runtime_disposition_sha256": "29ce8355624e610a1f680065368e6067ce7c43adff58edd19c3ea69ab131a503",
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        13
+      ],
+      "expected_effect_execution_schema": 1,
+      "expected_effect_execution_eligible_exact_effect_count": 7,
+      "expected_effect_execution_observed_eligible_exact_effect_count": 7,
+      "expected_effect_execution_eligible_exact_gap_count": 0,
+      "expected_effect_execution_eligible_aggregate_subject_count": 0,
+      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
+      "expected_effect_execution_eligible_aggregate_gap_count": 0
     },
     {
       "id": "2802243144",
@@ -1999,9 +2017,9 @@
       "expected_effect_graph_material_node_count": 11,
       "expected_effect_graph_copy_node_count": 0,
       "expected_effect_graph_swap_node_count": 0,
-      "expected_effect_graph_render_target_count": 3,
-      "expected_effect_graph_blocker_count": 0,
-      "expected_effect_graph_unblocked_layer_count": 4,
+      "expected_effect_graph_render_target_count": 0,
+      "expected_effect_graph_blocker_count": 6,
+      "expected_effect_graph_unblocked_layer_count": 1,
       "expected_visible_layer_count": 10,
       "expected_root_layer_count": 12,
       "expected_child_edge_count": 0,
@@ -2018,7 +2036,7 @@
       "expected_fullscreen_layer_count": 0,
       "expected_dependency_edge_count": 0,
       "expected_shader_contract_aggregate_sha256": "803860ba09c47e3e41383147db7adf43fd741461416f2329cb1c0c24c61f69bd",
-      "expected_effect_graph_sha256": "a2c038386e38447162f17c00c147f475782d2f93a84e448280164b889fd81923",
+      "expected_effect_graph_sha256": "f8fc91b2672a408cde148a91a34e7df67e93bd801fbbd71d5aede4fc0c7a53e7",
       "expected_stock_opacity_single_effect_candidate_layer_ids": [],
       "minimum_loaded_ratio": 1.0,
       "minimum_text_loaded": 2,
@@ -2051,14 +2069,10 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        41,
-        64,
-        115
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
-      "expected_authored_effect_graph_chain_count": 3,
-      "expected_authored_effect_graph_stage_count": 6,
+      "expected_authored_effect_graph_chain_count": 0,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_color_key_count": null,
@@ -2067,7 +2081,7 @@
       "expected_authored_effect_graph_procedural_noise_count": 0,
       "expected_authored_effect_graph_film_grain_count": 0,
       "expected_authored_effect_graph_light_shafts_count": 0,
-      "expected_authored_effect_graph_shake_count": 3,
+      "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
       "expected_authored_effect_graph_water_caustics_count": 0,
@@ -2101,8 +2115,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 0,
-        "admitted-dedicated": 6,
-        "admitted-generic": 2,
+        "admitted-dedicated": 3,
+        "admitted-generic": 5,
         "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
@@ -2120,14 +2134,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "2eb5975ff9786e1192cb285e7b6ee8d62927584a5315310d73798b929d328d8d",
+      "expected_effect_stage_admission_sha256": "892992896ba3d264780fd673dd7bd894be024b7d0a3265ef5012aedeee4f4b13",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 8,
       "expected_effect_runtime_disposition_group_count": 4,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 0,
-        "strict-dedicated": 6,
-        "strict-generic": 2,
+        "strict-dedicated": 3,
+        "strict-generic": 5,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -2160,9 +2174,12 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "91ca4043b87206b8eaafed0a477982c0a3a990dc6d640b74af830102232e519f",
+      "expected_effect_runtime_disposition_sha256": "f5e9823a7ada89657a5c941a663bf959f2cc16577b7e98ecc10a5f7c55ea0482",
       "expected_resolved_material_graph_succeeded_layer_ids": [
-        58
+        41,
+        58,
+        64,
+        115
       ],
       "requires_motion": true,
       "minimum_changed_ratio": 0.005,
@@ -2530,13 +2547,14 @@
       ],
       "expected_camera_parallax": true,
       "expected_utility_candidates": 11,
-      "expected_utility_capture_planned": 1,
+      "expected_utility_capture_planned": 2,
       "expected_utility_dependency_edges": 8,
       "expected_utility_named_consumers": 7,
       "expected_utility_named_target_planned": 6,
       "expected_utility_named_binding_planned": 7,
       "expected_utility_named_target_gaps": 0,
       "required_utility_capture_succeeded_layer_ids": [
+        257,
         530
       ],
       "required_named_target_capture_succeeded_layer_ids": [
@@ -2602,13 +2620,13 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 61,
-        "admitted-dedicated": 10,
-        "admitted-generic": 32,
-        "not-admitted": 12
+        "admitted-dedicated": 12,
+        "admitted-generic": 33,
+        "not-admitted": 9
       },
       "expected_effect_stage_coverage_counts": {
         "inactive": 61,
-        "complete": 42,
+        "complete": 45,
         "terminal-inline-prefix": 0,
         "terminal-inline-suffix": 0,
         "isolated-accepted": 0,
@@ -2617,18 +2635,18 @@
         "prefix-omitted": 0,
         "rejected-missing-graph": 0,
         "rejected-ambiguous-graph": 0,
-        "rejected-chain": 12,
+        "rejected-chain": 9,
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "f0f439d9f16cf83749f59948537f420345d60e46aeb4dc3549428b15000c1c66",
+      "expected_effect_stage_admission_sha256": "0d6474616ae0f9313d4a6da8b3784bb2d8278adbcc742d28eb59cfb8a6fe2463",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 115,
       "expected_effect_runtime_disposition_group_count": 50,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 61,
-        "strict-dedicated": 10,
-        "strict-generic": 32,
+        "strict-dedicated": 12,
+        "strict-generic": 33,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -2639,32 +2657,33 @@
         "legacy-shadowed": 0,
         "route-only-member": 0,
         "composite-refused": 0,
-        "unsupported": 12,
+        "unsupported": 9,
         "unattributed": 0
       },
       "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 42,
+        "exact-key": 45,
         "layer-aggregate": 0,
-        "none": 73
+        "none": 70
       },
       "expected_effect_runtime_disposition_role_counts": {
-        "owner": 42,
+        "owner": 45,
         "aggregate-contributor": 0,
-        "member": 12,
+        "member": 9,
         "none": 61
       },
       "expected_effect_runtime_disposition_group_kind_counts": {
         "inactive": 3,
-        "direct": 5,
-        "authored": 42,
+        "direct": 4,
+        "authored": 43,
         "legacy-offscreen": 0,
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "2383f73d4ad8cfc767752319d0fa3545312ae9acc0270db68f3059f5f7cd7561",
+      "expected_effect_runtime_disposition_sha256": "efe6ffe4379fa1cf9c3c411ba9c9430b22a75e9681fcbe78753f7932933204a3",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         167,
         177,
+        257,
         317,
         330,
         365,
@@ -2699,8 +2718,8 @@
         1270
       ],
       "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 42,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 42,
+      "expected_effect_execution_eligible_exact_effect_count": 45,
+      "expected_effect_execution_observed_eligible_exact_effect_count": 45,
       "expected_effect_execution_eligible_exact_gap_count": 0,
       "expected_effect_execution_eligible_aggregate_subject_count": 0,
       "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
@@ -2906,8 +2925,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 28,
-        "admitted-dedicated": 3,
-        "admitted-generic": 1,
+        "admitted-dedicated": 1,
+        "admitted-generic": 3,
         "not-admitted": 41
       },
       "expected_effect_stage_coverage_counts": {
@@ -2925,14 +2944,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "f59cd040d79d30ba19fc64f2d909af7c7784c85d7453eba59acff77e86a61e04",
+      "expected_effect_stage_admission_sha256": "da0b9e2f55f4186eeafd89531a6b9c7217fb301b7de6aa774236a07a8e22a8fe",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 73,
       "expected_effect_runtime_disposition_group_count": 37,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 28,
-        "strict-dedicated": 3,
-        "strict-generic": 1,
+        "strict-dedicated": 1,
+        "strict-generic": 3,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -2965,7 +2984,7 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "31f9ecab5df109e52a3f2c96fddc6ce2c160fa5870dcfc03365047444e1614dc",
+      "expected_effect_runtime_disposition_sha256": "43af882c10f0b95a21dbc4376278188a5f34a6d5912cfa833fbb9e8b1a2b0cde",
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 4,
       "expected_effect_execution_observed_eligible_exact_effect_count": 4,
@@ -3083,7 +3102,7 @@
       "expected_utility_named_consumers": 7,
       "expected_utility_named_target_planned": 2,
       "expected_utility_named_binding_planned": 2,
-      "expected_utility_named_target_gaps": 0,
+      "expected_utility_named_target_gaps": 1,
       "required_utility_capture_succeeded_layer_ids": [
         956,
         57098
@@ -3344,7 +3363,7 @@
       "expected_authored_effect_graph_shake_count": 4,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
-      "expected_authored_effect_graph_foliage_sway_count": 3,
+      "expected_authored_effect_graph_foliage_sway_count": 1,
       "expected_authored_effect_graph_water_ripple_count": 0,
       "expected_authored_effect_graph_blend_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
@@ -3368,8 +3387,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 0,
-        "admitted-dedicated": 22,
-        "admitted-generic": 0,
+        "admitted-dedicated": 8,
+        "admitted-generic": 14,
         "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
@@ -3387,14 +3406,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "a66d5ec864f468ca908c78d766846a6ec105fa5e9c2927e50b21ac549d1e7bdc",
+      "expected_effect_stage_admission_sha256": "d0f2400da53cd7dea5414980559b0c9fa3156aeccb576153922891e2cb38883d",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 22,
       "expected_effect_runtime_disposition_group_count": 5,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 0,
-        "strict-dedicated": 22,
-        "strict-generic": 0,
+        "strict-dedicated": 8,
+        "strict-generic": 14,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -3427,7 +3446,7 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "98095287bd1ff566e2b6f1f2ab2e3a930bfe18edb71d9cbbc7d874b8b6e0e708",
+      "expected_effect_runtime_disposition_sha256": "59d9de5f693bbf04ce33193f47e86349ede4901d646d94c76124a1e0c392d4b3",
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 22,
       "expected_effect_execution_observed_eligible_exact_effect_count": 22,
@@ -3788,12 +3807,12 @@
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 0,
         "admitted-dedicated": 0,
-        "admitted-generic": 1,
-        "not-admitted": 35
+        "admitted-generic": 17,
+        "not-admitted": 19
       },
       "expected_effect_stage_coverage_counts": {
         "inactive": 0,
-        "complete": 1,
+        "complete": 17,
         "terminal-inline-prefix": 0,
         "terminal-inline-suffix": 0,
         "isolated-accepted": 0,
@@ -3802,18 +3821,18 @@
         "prefix-omitted": 0,
         "rejected-missing-graph": 0,
         "rejected-ambiguous-graph": 0,
-        "rejected-chain": 35,
+        "rejected-chain": 19,
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "e4a2074c7cb5c11caba5675f2f59dd12c57f311b96d3aec757077c3d15b56731",
+      "expected_effect_stage_admission_sha256": "9de4c96e151fa56042c7c5dbd12e6998fea8023bf61f7fcc3ef42232f33ce7a4",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 36,
       "expected_effect_runtime_disposition_group_count": 9,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 0,
         "strict-dedicated": 0,
-        "strict-generic": 1,
+        "strict-generic": 17,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -3824,32 +3843,32 @@
         "legacy-shadowed": 0,
         "route-only-member": 0,
         "composite-refused": 0,
-        "unsupported": 35,
+        "unsupported": 19,
         "unattributed": 0
       },
       "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 1,
+        "exact-key": 17,
         "layer-aggregate": 0,
-        "none": 35
+        "none": 19
       },
       "expected_effect_runtime_disposition_role_counts": {
-        "owner": 1,
+        "owner": 17,
         "aggregate-contributor": 0,
-        "member": 35,
+        "member": 19,
         "none": 0
       },
       "expected_effect_runtime_disposition_group_kind_counts": {
         "inactive": 0,
-        "direct": 8,
-        "authored": 1,
+        "direct": 3,
+        "authored": 6,
         "legacy-offscreen": 0,
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "52e02fb9be7ab3485f00b8ef8138486a601e1c96bca74da0262efd5e3663596d",
+      "expected_effect_runtime_disposition_sha256": "cf6be9e827cb448cfa67fc3d67f3a1da000e959637c5a25f5670505fcb2954dd",
       "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 1,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 1,
+      "expected_effect_execution_eligible_exact_effect_count": 17,
+      "expected_effect_execution_observed_eligible_exact_effect_count": 17,
       "expected_effect_execution_eligible_exact_gap_count": 0,
       "expected_effect_execution_eligible_aggregate_subject_count": 0,
       "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
@@ -4500,9 +4519,7 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        28
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -4521,7 +4538,7 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 1,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
@@ -4596,6 +4613,7 @@
       },
       "expected_effect_runtime_disposition_sha256": "a47d82351bf8e6ca3f03cf72fa8251e689b2e7e0f72f89f93daa0fa8ab95ee90",
       "expected_resolved_material_graph_succeeded_layer_ids": [
+        28,
         66
       ],
       "expected_effect_execution_schema": 1,
@@ -4905,9 +4923,7 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        16
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -4917,20 +4933,20 @@
       "expected_authored_effect_graph_procedural_noise_count": 0,
       "expected_authored_effect_graph_film_grain_count": 0,
       "expected_authored_effect_graph_light_shafts_count": 0,
-      "expected_authored_effect_graph_shake_count": 2,
+      "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
       "expected_authored_effect_graph_blend_count": 0,
-      "expected_authored_effect_graph_pulse_count": 1,
+      "expected_authored_effect_graph_pulse_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 4,
+      "expected_authored_effect_graph_chain_count": 0,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
-      "expected_authored_effect_graph_water_ripple_count": 1,
+      "expected_authored_effect_graph_water_ripple_count": 0,
       "expected_effect_stage_admission_schema": 1,
       "expected_effect_stage_descriptor_count": 4,
       "expected_effect_stage_parsed_count": 4,
@@ -4941,8 +4957,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 0,
-        "admitted-dedicated": 4,
-        "admitted-generic": 0,
+        "admitted-dedicated": 2,
+        "admitted-generic": 2,
         "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
@@ -4960,14 +4976,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "b6279bffd915287e1ef00ee7039f2db4ddaab5e078449a72e149e19e84ce2962",
+      "expected_effect_stage_admission_sha256": "899e3dd217449fafec1a1983b418df91d726b58eacb0a95e65a87295227b5d07",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 4,
       "expected_effect_runtime_disposition_group_count": 1,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 0,
-        "strict-dedicated": 4,
-        "strict-generic": 0,
+        "strict-dedicated": 2,
+        "strict-generic": 2,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -5000,8 +5016,10 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "97448ac1416ed957333e2f22fa39bac1479ea2e69631e30a8ed3d2c6f79fdefd",
-      "expected_resolved_material_graph_succeeded_layer_ids": [],
+      "expected_effect_runtime_disposition_sha256": "5c3733d56a38c5d2c78db4e2a91b41a630c8bdfa62760993035a33286c3199a3",
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        16
+      ],
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 4,
       "expected_effect_execution_observed_eligible_exact_effect_count": 4,
@@ -5290,14 +5308,10 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        54,
-        60,
-        66
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 3,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_color_key_count": null,
@@ -5436,7 +5450,10 @@
       },
       "expected_effect_runtime_disposition_sha256": "a33fe35956e2f81007aaf95e82da3f858475a17555b9dabbc39a8dee3090fbd0",
       "expected_resolved_material_graph_succeeded_layer_ids": [
-        23
+        23,
+        54,
+        60,
+        66
       ],
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 4,
@@ -5736,13 +5753,7 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        17,
-        79,
-        86,
-        94,
-        122
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -5752,16 +5763,16 @@
       "expected_authored_effect_graph_procedural_noise_count": 0,
       "expected_authored_effect_graph_film_grain_count": 0,
       "expected_authored_effect_graph_light_shafts_count": 0,
-      "expected_authored_effect_graph_shake_count": 1,
-      "expected_authored_effect_graph_water_flow_count": 1,
+      "expected_authored_effect_graph_shake_count": 0,
+      "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
       "expected_authored_effect_graph_blend_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 6,
+      "expected_authored_effect_graph_chain_count": 0,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
@@ -5775,8 +5786,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 0,
-        "admitted-dedicated": 6,
-        "admitted-generic": 0,
+        "admitted-dedicated": 4,
+        "admitted-generic": 2,
         "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
@@ -5794,14 +5805,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "9c346595379afd0b8eebe9eaac8ea9ca8220113349b7fd84c8109747a1713a56",
+      "expected_effect_stage_admission_sha256": "bbe6f44aa0e40225d9e2f853a522b1249f1eb48cef99236db2474e793042dc6d",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 6,
       "expected_effect_runtime_disposition_group_count": 5,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 0,
-        "strict-dedicated": 6,
-        "strict-generic": 0,
+        "strict-dedicated": 4,
+        "strict-generic": 2,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -5834,8 +5845,14 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "ad374b8515599979e5c1a3910cdf03c61ab8544436830f02c9254beadd31b2c3",
-      "expected_resolved_material_graph_succeeded_layer_ids": [],
+      "expected_effect_runtime_disposition_sha256": "171e523faa63ce4004355c3df465e26848f3172312dd0d288108e1da9ea87b8f",
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        17,
+        79,
+        86,
+        94,
+        122
+      ],
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 6,
       "expected_effect_execution_observed_eligible_exact_effect_count": 6,
@@ -6171,8 +6188,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 4,
-        "admitted-dedicated": 5,
-        "admitted-generic": 0,
+        "admitted-dedicated": 2,
+        "admitted-generic": 3,
         "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
@@ -6190,14 +6207,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "9d12fcf12a6ffcdf3dcc87e5e16d4a994d0e9f0f46027c621a1f0029aca6208e",
+      "expected_effect_stage_admission_sha256": "d645ef68855ac94434516c072e89f692fb9a5ebc779b67fe29a6a4328b542c9c",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 9,
       "expected_effect_runtime_disposition_group_count": 2,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 4,
-        "strict-dedicated": 5,
-        "strict-generic": 0,
+        "strict-dedicated": 2,
+        "strict-generic": 3,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -6230,7 +6247,7 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "e1dc3225ce2551479ad31b55d8ae20cc37eb12668751d4b68411a15bb3a6d672",
+      "expected_effect_runtime_disposition_sha256": "913d74afc99cb707a6785885d6e742d92348135782416c6d7bbceae450d69eac",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         69
       ],
@@ -6338,12 +6355,7 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        68,
-        76,
-        82,
-        187
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -6361,10 +6373,10 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 5,
+      "expected_authored_effect_graph_chain_count": 0,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
-      "expected_authored_effect_graph_foliage_sway_count": 2,
+      "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
       "expected_effect_stage_admission_schema": 1,
       "expected_effect_stage_descriptor_count": 12,
@@ -6437,7 +6449,11 @@
       },
       "expected_effect_runtime_disposition_sha256": "a66d94dcb4486802784660c982a8baa32bc3003c852cabe7a2aa701a297762ea",
       "expected_resolved_material_graph_succeeded_layer_ids": [
-        74
+        68,
+        74,
+        76,
+        82,
+        187
       ],
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 6,
@@ -6730,9 +6746,7 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        65
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -6742,7 +6756,7 @@
       "expected_authored_effect_graph_procedural_noise_count": 0,
       "expected_authored_effect_graph_film_grain_count": 0,
       "expected_authored_effect_graph_light_shafts_count": 0,
-      "expected_authored_effect_graph_shake_count": 1,
+      "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
       "expected_authored_effect_graph_blend_count": 0,
@@ -6751,7 +6765,7 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 1,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
@@ -6765,8 +6779,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 0,
-        "admitted-dedicated": 1,
-        "admitted-generic": 0,
+        "admitted-dedicated": 0,
+        "admitted-generic": 1,
         "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
@@ -6784,14 +6798,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "6f1f8b734abcf5143356c8fa98fa5663c3083deb61bffa28bd4dd04f44eec37c",
+      "expected_effect_stage_admission_sha256": "66456271bbf73e13d6c348cc2bd5d60c7bce298bcb55310db40d6108101ae7ab",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 1,
       "expected_effect_runtime_disposition_group_count": 1,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 0,
-        "strict-dedicated": 1,
-        "strict-generic": 0,
+        "strict-dedicated": 0,
+        "strict-generic": 1,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -6824,8 +6838,10 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "d5734fb262435d62b4f6835bd433e9693ec504e62763a8ea04f7124121c7fadf",
-      "expected_resolved_material_graph_succeeded_layer_ids": [],
+      "expected_effect_runtime_disposition_sha256": "2bbc9769d63cf3280de39f9a6d5d3eec4be88f046be6634255a433a508ed1490",
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        65
+      ],
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 1,
       "expected_effect_execution_observed_eligible_exact_effect_count": 1,
@@ -7515,8 +7531,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 13,
-        "admitted-dedicated": 7,
-        "admitted-generic": 17,
+        "admitted-dedicated": 5,
+        "admitted-generic": 19,
         "not-admitted": 2
       },
       "expected_effect_stage_coverage_counts": {
@@ -7534,14 +7550,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "9223e66027996b900894a84609734860c36c065d178decc4046b4ab40e2d3934",
+      "expected_effect_stage_admission_sha256": "3d0735aed0237dd1b884f14a5ebc6e36d92b6ad4db3def7f6b062de5cfd8f4b4",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 39,
       "expected_effect_runtime_disposition_group_count": 8,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 13,
-        "strict-dedicated": 7,
-        "strict-generic": 17,
+        "strict-dedicated": 5,
+        "strict-generic": 19,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -7574,7 +7590,7 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "863d2f429c6604266c7d602400aeb20c7616360a4a4cb201e562d21b7102ca68",
+      "expected_effect_runtime_disposition_sha256": "d52fc1cdcd585f7f504d1708b3af2b9cf14e785585fa20690022eedde4ee1d31",
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 24,
       "expected_effect_execution_observed_eligible_exact_effect_count": 24,
@@ -7861,15 +7877,13 @@
       "expected_utility_named_consumers": 0,
       "expected_utility_named_target_planned": 0,
       "expected_utility_named_binding_planned": 0,
-      "expected_utility_named_target_gaps": 0,
+      "expected_utility_named_target_gaps": 9,
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        171
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -7881,15 +7895,15 @@
       "expected_authored_effect_graph_light_shafts_count": 0,
       "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
-      "expected_authored_effect_graph_water_waves_count": 6,
+      "expected_authored_effect_graph_water_waves_count": 0,
       "expected_authored_effect_graph_depth_parallax_count": 0,
       "expected_authored_effect_graph_blend_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 6,
+      "expected_authored_effect_graph_chain_count": 0,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
@@ -7903,8 +7917,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 51,
-        "admitted-dedicated": 6,
-        "admitted-generic": 9,
+        "admitted-dedicated": 0,
+        "admitted-generic": 15,
         "not-admitted": 8
       },
       "expected_effect_stage_coverage_counts": {
@@ -7922,14 +7936,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "28296b45566029e3d534d82cf19290d7d48c4705724d5e16ecd5111d9e894ce7",
+      "expected_effect_stage_admission_sha256": "976181e512f6e646b257c889252e2cf7478330e6e377b09fbf4821dcec20caae",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 74,
       "expected_effect_runtime_disposition_group_count": 32,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 51,
-        "strict-dedicated": 6,
-        "strict-generic": 9,
+        "strict-dedicated": 0,
+        "strict-generic": 15,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -7962,10 +7976,11 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "40f6453856b38cb6494eb162fe7ead67bf82bd96a1c5d48e863601109bc3869d",
+      "expected_effect_runtime_disposition_sha256": "7c6b904f9ba727ce02ea515e85dcc07c5d8470c0cd88ced4efd731da5f464ba2",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         85,
         107,
+        171,
         185,
         231,
         234,
@@ -8303,7 +8318,14 @@
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
       "expected_authored_effect_graph_succeeded_layer_ids": [
-        49,
+        49
+      ],
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        33,
+        37,
+        41,
+        44,
+        162,
         181,
         188,
         202,
@@ -8311,13 +8333,6 @@
         220,
         232,
         263
-      ],
-      "expected_resolved_material_graph_succeeded_layer_ids": [
-        33,
-        37,
-        41,
-        44,
-        162
       ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
@@ -8332,14 +8347,14 @@
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
       "expected_authored_effect_graph_tint_count": 0,
-      "expected_authored_effect_graph_color_grading_count": 1,
+      "expected_authored_effect_graph_color_grading_count": 0,
       "expected_authored_effect_graph_blend_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 8,
+      "expected_authored_effect_graph_stage_count": 1,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
@@ -8353,8 +8368,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 4,
-        "admitted-dedicated": 12,
-        "admitted-generic": 2,
+        "admitted-dedicated": 8,
+        "admitted-generic": 6,
         "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
@@ -8372,14 +8387,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "def8eba88b8f946eae74993fc01ca609a1634ab09821af534f9792b8a6b7da4d",
+      "expected_effect_stage_admission_sha256": "2490cf9c1764f7614d37b8f5b6b4e0becb394713872fdc2b15793ae21dfbdd03",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 18,
       "expected_effect_runtime_disposition_group_count": 13,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 4,
-        "strict-dedicated": 12,
-        "strict-generic": 2,
+        "strict-dedicated": 8,
+        "strict-generic": 6,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -8412,7 +8427,7 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "b1c6097300d034f9329b324afc0fbcc04e1e37cd4d15f588a6d5558f29c8a2e8",
+      "expected_effect_runtime_disposition_sha256": "9e5b59bb9bb9a41c13bc4221de5deb8f55533a136e774fdd516013c0f3fafd0b",
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 14,
       "expected_effect_execution_observed_eligible_exact_effect_count": 14,
@@ -8787,13 +8802,13 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 1,
-        "admitted-dedicated": 13,
-        "admitted-generic": 4,
-        "not-admitted": 41
+        "admitted-dedicated": 8,
+        "admitted-generic": 35,
+        "not-admitted": 15
       },
       "expected_effect_stage_coverage_counts": {
         "inactive": 1,
-        "complete": 17,
+        "complete": 43,
         "terminal-inline-prefix": 0,
         "terminal-inline-suffix": 0,
         "isolated-accepted": 0,
@@ -8802,18 +8817,18 @@
         "prefix-omitted": 0,
         "rejected-missing-graph": 0,
         "rejected-ambiguous-graph": 0,
-        "rejected-chain": 41,
+        "rejected-chain": 15,
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "9ef901e9a9dd8f355f5f85886cb29bf6345c3c8d2e697a174e80bc927317122c",
+      "expected_effect_stage_admission_sha256": "ca3e0f32d09bdd5d21e7f9c12ff0e2220226f96abb7b16f91d4ef45bff06dc7a",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 59,
       "expected_effect_runtime_disposition_group_count": 18,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 1,
-        "strict-dedicated": 13,
-        "strict-generic": 4,
+        "strict-dedicated": 8,
+        "strict-generic": 35,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -8824,32 +8839,32 @@
         "legacy-shadowed": 0,
         "route-only-member": 0,
         "composite-refused": 0,
-        "unsupported": 41,
+        "unsupported": 15,
         "unattributed": 0
       },
       "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 17,
+        "exact-key": 43,
         "layer-aggregate": 0,
-        "none": 42
+        "none": 16
       },
       "expected_effect_runtime_disposition_role_counts": {
-        "owner": 17,
+        "owner": 43,
         "aggregate-contributor": 0,
-        "member": 41,
+        "member": 15,
         "none": 1
       },
       "expected_effect_runtime_disposition_group_kind_counts": {
         "inactive": 0,
-        "direct": 10,
-        "authored": 8,
+        "direct": 5,
+        "authored": 13,
         "legacy-offscreen": 0,
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "bd5962fe975e5643adf5c5875d7a8b4de359c32ceb18eba4ca697bd5a31b28bb",
+      "expected_effect_runtime_disposition_sha256": "9c8e81f567a7764a567e4c1b4eb2789cd3f552ddede43226cbe28146be3524af",
       "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 17,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 17,
+      "expected_effect_execution_eligible_exact_effect_count": 43,
+      "expected_effect_execution_observed_eligible_exact_effect_count": 43,
       "expected_effect_execution_eligible_exact_gap_count": 0,
       "expected_effect_execution_eligible_aggregate_subject_count": 0,
       "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
@@ -8959,14 +8974,7 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        517,
-        524,
-        532,
-        538,
-        547,
-        559
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -8988,7 +8996,7 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 6,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
@@ -9002,13 +9010,13 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 0,
-        "admitted-dedicated": 6,
-        "admitted-generic": 0,
-        "not-admitted": 18
+        "admitted-dedicated": 8,
+        "admitted-generic": 16,
+        "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
         "inactive": 0,
-        "complete": 6,
+        "complete": 24,
         "terminal-inline-prefix": 0,
         "terminal-inline-suffix": 0,
         "isolated-accepted": 0,
@@ -9017,18 +9025,18 @@
         "prefix-omitted": 0,
         "rejected-missing-graph": 0,
         "rejected-ambiguous-graph": 0,
-        "rejected-chain": 18,
+        "rejected-chain": 0,
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "8a0d79f72d82f2d95e636e27e0ee8992b84a9083b740da9a0863a6d787492083",
+      "expected_effect_stage_admission_sha256": "b4ab40a97900ac44f35d64bc5cd3a1e151314800c202a7f8d6e051173c132991",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 24,
       "expected_effect_runtime_disposition_group_count": 7,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 0,
-        "strict-dedicated": 6,
-        "strict-generic": 0,
+        "strict-dedicated": 8,
+        "strict-generic": 16,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -9039,33 +9047,41 @@
         "legacy-shadowed": 0,
         "route-only-member": 0,
         "composite-refused": 0,
-        "unsupported": 18,
+        "unsupported": 0,
         "unattributed": 0
       },
       "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 6,
+        "exact-key": 24,
         "layer-aggregate": 0,
-        "none": 18
+        "none": 0
       },
       "expected_effect_runtime_disposition_role_counts": {
-        "owner": 6,
+        "owner": 24,
         "aggregate-contributor": 0,
-        "member": 18,
+        "member": 0,
         "none": 0
       },
       "expected_effect_runtime_disposition_group_kind_counts": {
         "inactive": 0,
-        "direct": 1,
-        "authored": 6,
+        "direct": 0,
+        "authored": 7,
         "legacy-offscreen": 0,
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "399ecefd8072cbc7fd2ec955e08b18512c13d7f46cc70e850200134f79a836eb",
-      "expected_resolved_material_graph_succeeded_layer_ids": [],
+      "expected_effect_runtime_disposition_sha256": "01b33b2bb710bd6ce5c38ec6dbe0fbb2bc1f31ba591cb2c5ba82b51016939738",
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        17,
+        517,
+        524,
+        532,
+        538,
+        547,
+        559
+      ],
       "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 6,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 6,
+      "expected_effect_execution_eligible_exact_effect_count": 24,
+      "expected_effect_execution_observed_eligible_exact_effect_count": 24,
       "expected_effect_execution_eligible_exact_gap_count": 0,
       "expected_effect_execution_eligible_aggregate_subject_count": 0,
       "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
@@ -9159,9 +9175,7 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        22
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -9171,19 +9185,19 @@
       "expected_authored_effect_graph_procedural_noise_count": 0,
       "expected_authored_effect_graph_film_grain_count": 0,
       "expected_authored_effect_graph_light_shafts_count": 0,
-      "expected_authored_effect_graph_shake_count": 2,
+      "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
-      "expected_authored_effect_graph_water_waves_count": 1,
+      "expected_authored_effect_graph_water_waves_count": 0,
       "expected_authored_effect_graph_blend_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 4,
+      "expected_authored_effect_graph_chain_count": 0,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
-      "expected_authored_effect_graph_water_ripple_count": 1,
+      "expected_authored_effect_graph_water_ripple_count": 0,
       "expected_effect_stage_admission_schema": 1,
       "expected_effect_stage_descriptor_count": 4,
       "expected_effect_stage_parsed_count": 4,
@@ -9194,8 +9208,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 0,
-        "admitted-dedicated": 4,
-        "admitted-generic": 0,
+        "admitted-dedicated": 1,
+        "admitted-generic": 3,
         "not-admitted": 0
       },
       "expected_effect_stage_coverage_counts": {
@@ -9213,14 +9227,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "454c1842f045bb4df525e14ba52ebc6d5b84f675d75095782656390a92490ade",
+      "expected_effect_stage_admission_sha256": "d86455055458a483f6940eadbfe57aa668e98a094967c939ef93b7ef449ae9aa",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 4,
       "expected_effect_runtime_disposition_group_count": 1,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 0,
-        "strict-dedicated": 4,
-        "strict-generic": 0,
+        "strict-dedicated": 1,
+        "strict-generic": 3,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -9253,8 +9267,10 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "cc69870321103a41a99ef47a95533ff91bae885bfddf144561658602b0afd6f6",
-      "expected_resolved_material_graph_succeeded_layer_ids": [],
+      "expected_effect_runtime_disposition_sha256": "a1c547cef40d2ccbb82d2976b36e3f4cbd354538564f1b1c47cc1a3e9501dcb2",
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        22
+      ],
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 4,
       "expected_effect_execution_observed_eligible_exact_effect_count": 4,
@@ -9356,11 +9372,7 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
-        18,
-        26,
-        32
-      ],
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -9378,8 +9390,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 2,
-      "expected_authored_effect_graph_stage_count": 5,
+      "expected_authored_effect_graph_chain_count": 0,
+      "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
@@ -9453,7 +9465,11 @@
         "composite-refused": 0
       },
       "expected_effect_runtime_disposition_sha256": "a8b610d7260a21f45de3ae5a61efbca37e1c4a093008ebf7abc5e4b24ed87363",
-      "expected_resolved_material_graph_succeeded_layer_ids": [],
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        18,
+        26,
+        32
+      ],
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 5,
       "expected_effect_execution_observed_eligible_exact_effect_count": 5,

@@ -113,6 +113,7 @@ enum SceneAuthoredEffectChainRenderer {
         time: Float,
         audioSpectrum: SceneAudioSpectrumSnapshot,
         dependencyEffect: SceneDependencyEffectInput?,
+        preciseBlurSampleExtent: SIMD2<Float>? = nil,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         let auxMask = masks.iris ?? masks.opacity
@@ -127,6 +128,7 @@ enum SceneAuthoredEffectChainRenderer {
                 auxMaskTexture: auxMask,
                 targets: targets,
                 sourceUniforms: sourceUniforms,
+                sampleNormalizationExtent: preciseBlurSampleExtent,
                 pipeline: pipeline,
                 gaussianBlurPipeline: gaussianBlurPipeline,
                 commandBuffer: commandBuffer

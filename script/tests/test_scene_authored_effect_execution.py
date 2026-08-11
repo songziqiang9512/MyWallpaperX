@@ -816,7 +816,7 @@ enum Harness {
         valueKind: String = "vector",
         userBinding: String? = nil,
         duplicateScaleKey: Bool = false,
-        legacyCompose: Bool = false,
+        fullFrameCompose: Bool = false,
         kernel: Int = 0,
         verticalKernel: Int? = nil,
         horizontalExtraCombos: [String: Int] = [:],
@@ -834,7 +834,7 @@ enum Harness {
         }
         var horizontalCombos = kernel == 0 ? [:] : ["KERNEL": kernel]
         horizontalCombos.merge(horizontalExtraCombos) { _, replacement in replacement }
-        var verticalCombos = legacyCompose
+        var verticalCombos = fullFrameCompose
             ? ["VERTICAL": 1]
             : ["VERTICAL": 1, "ENABLEMASK": 1]
         let resolvedVerticalKernel = verticalKernel ?? kernel
@@ -903,7 +903,11 @@ enum Harness {
         extraEffect: Bool = false,
         unique: Bool = false,
         maskCombo: Bool = false,
-        legacyCompose: Bool = false
+        fullFrameCompose: Bool = false,
+        firstCompose: SceneJSONValue? = .bool(true),
+        terminalCompose: SceneJSONValue? = nil,
+        composeTargetsFramebuffer: Bool = false,
+        fullFrameBinding: Bool = false
     ) -> Graph {
         let key = Graph.EffectKey(
             layerID: layerID, effectIndex: 0, descriptorID: "\(layerID)#effect#1"
@@ -911,30 +915,38 @@ enum Harness {
         let source = texture(.layerSource, layerID: layerID)
         let output = texture(.effectOutput, layerID: layerID, effect: key)
         let rt = texture(.framebuffer, layerID: layerID, effect: key, name: "full")
-        let verticalBindings: [Graph.Binding] = [
-            .init(slot: 0, authoredName: "full", texture: rt, conditions: nil),
-        ] + (!legacyCompose ? [
-            .init(
-                slot: maskCombo ? 2 : 1, authoredName: "previous",
-                texture: source, conditions: nil
-            ),
-        ] : [])
+        let verticalBindings: [Graph.Binding]
+        if fullFrameCompose {
+            verticalBindings = composeTargetsFramebuffer ? [
+                .init(slot: 0, authoredName: "full", texture: rt, conditions: nil),
+            ] : []
+        } else {
+            verticalBindings = [
+                .init(slot: 0, authoredName: "full", texture: rt, conditions: nil),
+                .init(
+                    slot: maskCombo ? 2 : 1, authoredName: "previous",
+                    texture: source, conditions: nil
+                ),
+            ]
+        }
         let nodes = [
             Graph.Node(
                 nodeIndex: 0, effect: key, definitionPassIndex: 0, materialOrdinal: 0,
                 instancePassIndex: 0, kind: .material, materialPath: "materials/x.json",
-                materialPassID: "materials/x.json#0", target: rt,
-                bindings: legacyCompose
+                materialPassID: "materials/x.json#0",
+                target: fullFrameCompose && !composeTargetsFramebuffer ? output : rt,
+                bindings: fullFrameCompose && fullFrameBinding
                     ? [.init(slot: 0, authoredName: "previous", texture: source, conditions: nil)]
                     : [],
-                commandSource: nil, commandTarget: nil, compose: nil, conditions: nil
+                commandSource: nil, commandTarget: nil,
+                compose: fullFrameCompose ? firstCompose : nil, conditions: nil
             ),
             Graph.Node(
                 nodeIndex: 1, effect: key, definitionPassIndex: 1, materialOrdinal: 1,
                 instancePassIndex: 1, kind: .material, materialPath: "materials/y.json",
                 materialPassID: "materials/y.json#0", target: output,
                 bindings: verticalBindings, commandSource: nil, commandTarget: nil,
-                compose: nil, conditions: nil
+                compose: fullFrameCompose ? terminalCompose : nil, conditions: nil
             ),
         ]
         let effect = Graph.Effect(
@@ -944,12 +956,10 @@ enum Harness {
         return Graph(
             layerID: layerID,
             effects: extraEffect ? [effect, effect] : [effect],
-            renderTargets: [
+            renderTargets: fullFrameCompose && !composeTargetsFramebuffer ? [] : [
                 .init(
                     texture: rt,
-                    extent: legacyCompose
-                        ? .init(kind: .scale, first: 1, second: nil)
-                        : .init(kind: .input, first: nil, second: nil),
+                    extent: .init(kind: .input, first: nil, second: nil),
                     format: "rgba_backbuffer", declaredUnique: unique, clear: nil,
                     uvs: nil, conditions: nil
                 ),
@@ -1621,35 +1631,36 @@ enum Harness {
             ) else { return nil }
             return plan
         }
-        let legacyComposeDescriptor = SceneRenderDescriptor(
+        let fullFrameComposeDescriptor = SceneRenderDescriptor(
             layers: [
                 .init(
                     id: 10, parentID: nil, visible: true, contentKind: "text",
                     effects: [
                         instanceEffect(
-                            layerID: 10, scale: 1.28, legacyCompose: true
+                            layerID: 10, scale: 1.28, fullFrameCompose: true
                         ),
                     ]
                 ),
             ],
             materialPasses: materials(verticalCombos: ["VERTICAL": 1])
         )
-        let legacyComposePlan = SceneAuthoredEffectExecutionPlanner.plan(
-            graph: graph(layerID: 10, legacyCompose: true),
-            descriptor: legacyComposeDescriptor
+        let fullFrameComposeGraph = graph(layerID: 10, fullFrameCompose: true)
+        let fullFrameComposePlan = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: fullFrameComposeGraph,
+            descriptor: fullFrameComposeDescriptor
         )
-        let legacyComposeTargetPlan = legacyComposePlan.flatMap {
+        let fullFrameComposeTargetPlan = fullFrameComposePlan.flatMap {
             executionPlan -> SceneGraphRenderTargetPlan? in
             guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
-                executionPlan: executionPlan,
                 graph: executionPlan.renderGraph,
+                inputRole: executionPlan.inputRole,
                 inputWidth: 1920,
                 inputHeight: 1080
             ) else { return nil }
             return plan
         }
-        let legacySmallPlan = SceneAuthoredEffectExecutionPlanner.plan(
-            graph: graph(layerID: 10, legacyCompose: true),
+        let fullFrameSmallPlan = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: graph(layerID: 10, fullFrameCompose: true),
             descriptor: SceneRenderDescriptor(
                 layers: [
                     .init(
@@ -1657,7 +1668,7 @@ enum Harness {
                         effects: [
                             instanceEffect(
                                 layerID: 10, scale: 1.28,
-                                legacyCompose: true, kernel: 2
+                                fullFrameCompose: true, kernel: 2
                             ),
                         ]
                     ),
@@ -1777,14 +1788,66 @@ enum Harness {
             "swapInterleavedPlanned": swapPlan?.logicalRenderTargetCount == 2
                 && swapTargetPlan?.commands.map(\.nodeIndex) == [1]
                 && swapTargetPlan?.logicalTargets.filter(\.lifetime.requiresHistorySeed).count == 1,
-            "legacyComposePlanned": legacyComposePlan?.usesLegacyComposeNormalization == true
-                && legacyComposeTargetPlan?.logicalTargets.map(\.extent)
-                    == [.init(width: 1920, height: 1080)],
+            "fullFrameComposePlanned":
+                fullFrameComposePlan?.supportsUnifiedFullFrameComposeStage == true
+                && fullFrameComposePlan?.logicalRenderTargetCount == 0
+                && fullFrameComposePlan?.requiresExactInputExtent == false
+                && fullFrameComposeTargetPlan?.logicalTargets.isEmpty == true,
+            "fullFrameComposeRawGraph":
+                fullFrameComposeGraph.renderTargets.isEmpty
+                && fullFrameComposeGraph.nodes.count == 2
+                && fullFrameComposeGraph.nodes.allSatisfy {
+                    $0.target == fullFrameComposeGraph.finalOutput
+                        && $0.bindings.isEmpty
+                }
+                && fullFrameComposeGraph.nodes[0].compose == .bool(true)
+                && fullFrameComposeGraph.nodes[1].compose == nil,
+            "fullFrameComposeFalseRejected": SceneAuthoredEffectExecutionPlanner.plan(
+                graph: graph(
+                    layerID: 10,
+                    fullFrameCompose: true,
+                    firstCompose: .bool(false)
+                ),
+                descriptor: fullFrameComposeDescriptor
+            ) == nil,
+            "fullFrameComposeStringRejected": SceneAuthoredEffectExecutionPlanner.plan(
+                graph: graph(
+                    layerID: 10,
+                    fullFrameCompose: true,
+                    firstCompose: .string("true")
+                ),
+                descriptor: fullFrameComposeDescriptor
+            ) == nil,
+            "fullFrameComposeTerminalRejected": SceneAuthoredEffectExecutionPlanner.plan(
+                graph: graph(
+                    layerID: 10,
+                    fullFrameCompose: true,
+                    firstCompose: nil,
+                    terminalCompose: .bool(true)
+                ),
+                descriptor: fullFrameComposeDescriptor
+            ) == nil,
+            "fullFrameComposeFramebufferRejected": SceneAuthoredEffectExecutionPlanner.plan(
+                graph: graph(
+                    layerID: 10,
+                    fullFrameCompose: true,
+                    composeTargetsFramebuffer: true
+                ),
+                descriptor: fullFrameComposeDescriptor
+            ) == nil,
+            "fullFrameComposeBindingRejected": SceneAuthoredEffectExecutionPlanner.plan(
+                graph: graph(
+                    layerID: 10,
+                    fullFrameCompose: true,
+                    fullFrameBinding: true
+                ),
+                descriptor: fullFrameComposeDescriptor
+            ) == nil,
             "preciseKernels": [
                 preciseBlur.kernel.rawValue,
                 mediumPlan?.gaussianBlur?.kernel.rawValue ?? -1,
                 smallPlan?.gaussianBlur?.kernel.rawValue ?? -1,
-                legacySmallPlan?.gaussianBlur?.kernel.rawValue ?? -1,
+                fullFrameSmallPlan?.gaussianBlur?.kernel.rawValue ?? -1,
             ],
             "mismatchedKernelRejected": mismatchedKernelRejected,
             "invalidKernelRejected": invalidKernelRejected,
@@ -1995,11 +2058,23 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertTrue(self.result["swapTargetOnlyUniqueRejected"])
 
     def test_precise_blur_accepts_all_bounded_kernel_sizes(self) -> None:
-        self.assertTrue(self.result["legacyComposePlanned"])
+        self.assertTrue(self.result["fullFrameComposePlanned"])
+        self.assertTrue(self.result["fullFrameComposeRawGraph"])
         self.assertEqual(self.result["preciseKernels"], [0, 1, 2, 2])
         self.assertTrue(self.result["mismatchedKernelRejected"])
         self.assertTrue(self.result["invalidKernelRejected"])
         self.assertTrue(self.result["maskAndBlurAlphaRejected"])
+
+    def test_precise_full_frame_compose_profile_fails_closed(self) -> None:
+        for key in (
+            "fullFrameComposeFalseRejected",
+            "fullFrameComposeStringRejected",
+            "fullFrameComposeTerminalRejected",
+            "fullFrameComposeFramebufferRejected",
+            "fullFrameComposeBindingRejected",
+            "composedCommandRejected",
+        ):
+            self.assertTrue(self.result[key], key)
 
     def test_default_standard_blur_graph_is_planned(self) -> None:
         self.assertEqual(self.result["standardPlanned"], [530])

@@ -34,19 +34,23 @@ struct SceneAuthoredEffectExecutionPlan {
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
     let cursorRipple: SceneCursorRippleExecutionPlan?
+    let supportsUnifiedFullFrameComposeStage: Bool
 
     init(
         layerID: Int,
         materialNodeCount: Int,
         logicalRenderTargetCount: Int,
         inputRole: SceneAuthoredEffectInputRole = .layerSource,
-        cursorRipple: SceneCursorRippleExecutionPlan? = nil
+        cursorRipple: SceneCursorRippleExecutionPlan? = nil,
+        supportsUnifiedFullFrameComposeStage: Bool = false
     ) {
         self.layerID = layerID
         self.materialNodeCount = materialNodeCount
         self.logicalRenderTargetCount = logicalRenderTargetCount
         self.inputRole = inputRole
         self.cursorRipple = cursorRipple
+        self.supportsUnifiedFullFrameComposeStage =
+            supportsUnifiedFullFrameComposeStage
     }
 }
 
@@ -160,14 +164,17 @@ enum Harness {
     static func failure(
         _ graph: Graph,
         materialNodeCount: Int? = nil,
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
+        inputRole: SceneAuthoredEffectInputRole = .layerSource,
+        supportsUnifiedFullFrameComposeStage: Bool = false
     ) -> String {
         let result = SceneGraphRenderTargetPlan.make(
             executionPlan: .init(
                 layerID: graph.layerID,
                 materialNodeCount: materialNodeCount ?? graph.nodes.count,
                 logicalRenderTargetCount: graph.renderTargets.count,
-                inputRole: inputRole
+                inputRole: inputRole,
+                supportsUnifiedFullFrameComposeStage:
+                    supportsUnifiedFullFrameComposeStage
             ),
             graph: graph,
             inputWidth: 1920,
@@ -748,6 +755,11 @@ enum Harness {
             "composeFalseAccepted": composeFalsePlan.logicalTargets.isEmpty,
             "composeTrueFailure": failure(composeTrue, materialNodeCount: 1),
             "composeStringFailure": failure(composeString, materialNodeCount: 1),
+            "typedFullFrameComposeAccepted": failure(
+                composeTransition,
+                materialNodeCount: 2,
+                supportsUnifiedFullFrameComposeStage: true
+            ) == "success",
             "genericComposeAccepted": genericComposePlan.output == output,
             "cursorHistoryTargets": targetSummary(cursorHistoryPlan),
             "commands": commandsPlan.commands.map {
@@ -971,6 +983,7 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
         self.assertTrue(self.result["composeFalseAccepted"])
         self.assertEqual(self.result["composeTrueFailure"], "executionMismatch")
         self.assertEqual(self.result["composeStringFailure"], "executionMismatch")
+        self.assertTrue(self.result["typedFullFrameComposeAccepted"])
         self.assertTrue(self.result["genericComposeAccepted"])
 
     def test_cursor_ripple_admits_only_its_named_history_and_fit_extent(self) -> None:

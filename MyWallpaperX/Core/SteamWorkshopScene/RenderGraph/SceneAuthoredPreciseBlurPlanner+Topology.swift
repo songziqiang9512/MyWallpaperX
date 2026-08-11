@@ -1,6 +1,16 @@
 import Foundation
 
 extension SceneAuthoredEffectExecutionPlanner {
+    nonisolated enum PreciseBlurTopology: Equatable {
+        case authoredIntermediate(horizontal: Graph.TextureIdentity, vertical: Graph.TextureIdentity)
+        case fullFrameCompose
+
+        nonisolated var usesFullFrameCompose: Bool {
+            if case .fullFrameCompose = self { return true }
+            return false
+        }
+    }
+
     nonisolated static func binding(
         _ bindings: [Graph.Binding],
         slot: Int
@@ -16,42 +26,65 @@ extension SceneAuthoredEffectExecutionPlanner {
         return texture
     }
 
-    nonisolated static func preciseBlurBindingProfile(
+    nonisolated static func preciseBlurTopology(
         horizontalNode: Graph.Node,
         verticalNode: Graph.Node,
-        effect: Graph.Effect
-    ) -> Bool? {
-        let intermediate = binding(verticalNode.bindings, slot: 0)?.texture
-        guard intermediate != nil else { return nil }
-        if horizontalNode.bindings.isEmpty,
-           verticalNode.bindings.count == 2,
-           binding(verticalNode.bindings, slot: 1)?.texture == effect.input {
-            return false
+        effect: Graph.Effect,
+        commandNodeCount: Int
+    ) -> PreciseBlurTopology? {
+        if commandNodeCount == 0,
+           horizontalNode.target == effect.output,
+           horizontalNode.bindings.isEmpty,
+           horizontalNode.compose == .bool(true),
+           verticalNode.target == effect.output,
+           verticalNode.bindings.isEmpty,
+           verticalNode.compose == nil {
+            return .fullFrameCompose
         }
-        if horizontalNode.bindings.count == 1,
-           binding(horizontalNode.bindings, slot: 0)?.texture == effect.input,
-           verticalNode.bindings.count == 1 {
-            return true
+        guard horizontalNode.compose == nil,
+              verticalNode.compose == nil,
+              horizontalNode.bindings.isEmpty,
+              verticalNode.bindings.count == 2,
+              binding(verticalNode.bindings, slot: 1)?.texture == effect.input,
+              let horizontalTarget = horizontalNode.target,
+              let verticalInput = binding(verticalNode.bindings, slot: 0)?.texture else {
+            return nil
         }
-        return nil
+        return .authoredIntermediate(
+            horizontal: horizontalTarget,
+            vertical: verticalInput
+        )
     }
 
     nonisolated static func validMaterialSlots(
         horizontal: SceneResolvedMaterialNode,
         vertical: SceneResolvedMaterialNode,
         effectInput: Graph.TextureIdentity,
-        intermediate: Graph.TextureIdentity,
-        legacyCompose: Bool
+        topology: PreciseBlurTopology
     ) -> Bool {
-        guard graphSlot(vertical.textureSlots[0]) == intermediate else { return false }
-        if legacyCompose {
-            return graphSlot(horizontal.textureSlots[0]) == effectInput
-                && horizontal.textureSlots.dropFirst().allSatisfy { $0 == nil }
-                && vertical.textureSlots.dropFirst().allSatisfy { $0 == nil }
+        switch topology {
+        case .fullFrameCompose:
+            return horizontal.textureSlots.allSatisfy { $0 == nil }
+                && vertical.textureSlots.allSatisfy { $0 == nil }
+        case .authoredIntermediate(_, let verticalInput):
+            return horizontal.textureSlots.allSatisfy { $0 == nil }
+                && graphSlot(vertical.textureSlots[0]) == verticalInput
+                && graphSlot(vertical.textureSlots[1]) == effectInput
+                && vertical.textureSlots.dropFirst(2).allSatisfy { $0 == nil }
         }
-        return horizontal.textureSlots.allSatisfy { $0 == nil }
-            && graphSlot(vertical.textureSlots[1]) == effectInput
-            && vertical.textureSlots.dropFirst(2).allSatisfy { $0 == nil }
+    }
+
+    nonisolated static func validNode(
+        _ node: Graph.Node,
+        ordinal: Int,
+        effect: Graph.EffectKey
+    ) -> Bool {
+        node.kind == .material
+            && node.effect == effect
+            && node.materialOrdinal == ordinal
+            && node.conditions == nil
+            && node.commandSource == nil
+            && node.commandTarget == nil
     }
 
     nonisolated static func validCommandNode(
@@ -89,19 +122,5 @@ extension SceneAuthoredEffectExecutionPlanner {
             && target.clear == nil
             && target.uvs == nil
             && target.conditions == nil
-    }
-}
-
-extension SceneAuthoredEffectExecutionPlan {
-    nonisolated func acceptsPreciseBlurHorizontalBindings(
-        _ bindings: [SceneAuthoredEffectRenderPlan.Binding],
-        effectInput: SceneAuthoredEffectRenderPlan.TextureIdentity
-    ) -> Bool {
-        if usesLegacyComposeNormalization {
-            return bindings.count == 1
-                && bindings.first?.slot == 0
-                && bindings.first?.texture == effectInput
-        }
-        return bindings.isEmpty
     }
 }

@@ -7,7 +7,6 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
-    let usesLegacyComposeNormalization: Bool
 
     init(
         layerID: Int,
@@ -15,8 +14,7 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
         backend: Backend,
         materialNodeCount: Int,
         logicalRenderTargetCount: Int,
-        inputRole: SceneAuthoredEffectInputRole = .layerSource,
-        usesLegacyComposeNormalization: Bool = false
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) {
         self.layerID = layerID
         self.renderGraph = renderGraph
@@ -24,7 +22,6 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
         self.materialNodeCount = materialNodeCount
         self.logicalRenderTargetCount = logicalRenderTargetCount
         self.inputRole = inputRole
-        self.usesLegacyComposeNormalization = usesLegacyComposeNormalization
     }
 }
 
@@ -163,7 +160,6 @@ enum SceneAuthoredEffectExecutionPlanner {
               materialNodes.count == 2,
               commandNodes.count <= 1,
               graph.nodes.count == materialNodes.count + commandNodes.count,
-              graph.renderTargets.count == 1 + commandNodes.count,
               let layer = descriptor.layers.first(where: { $0.id == graph.layerID }),
               ["image", "solid", "text"].contains(layer.contentKind) else {
             return nil
@@ -174,16 +170,15 @@ enum SceneAuthoredEffectExecutionPlanner {
         let targetGroups = Dictionary(grouping: graph.renderTargets, by: \.texture)
         guard targetGroups.values.allSatisfy({ $0.count == 1 }) else { return nil }
         let targetsByIdentity = targetGroups.compactMapValues(\.first)
-        guard let usesLegacyComposeNormalization = preciseBlurBindingProfile(
+        guard let topology = preciseBlurTopology(
             horizontalNode: horizontalNode,
             verticalNode: verticalNode,
-            effect: effect
+            effect: effect,
+            commandNodeCount: commandNodes.count
         ) else {
             return nil
         }
-        guard let horizontalTarget = horizontalNode.target,
-              let verticalInput = binding(verticalNode.bindings, slot: 0)?.texture,
-              effect.nodeIndices == graph.nodes.map(\.nodeIndex),
+        guard effect.nodeIndices == graph.nodes.map(\.nodeIndex),
               SceneAuthoredEffectInputValidator.accepts(
                 effect.input, layerID: graph.layerID, role: inputRole
               ),
@@ -197,32 +192,45 @@ enum SceneAuthoredEffectExecutionPlanner {
               verticalNode.target == effect.output else {
             return nil
         }
-        if let commandNode = commandNodes.first {
-            guard graph.nodes[0].nodeIndex == horizontalNode.nodeIndex,
-                  graph.nodes[1].nodeIndex == commandNode.nodeIndex,
-                  graph.nodes[2].nodeIndex == verticalNode.nodeIndex,
-                  validCommandNode(commandNode, effect: effect.key),
-                  commandNode.commandSource == horizontalTarget,
-                  commandNode.commandTarget == verticalInput,
-                  horizontalTarget != verticalInput,
-                  targetsByIdentity[horizontalTarget] != nil,
-                  targetsByIdentity[verticalInput] != nil else {
+        switch topology {
+        case .fullFrameCompose:
+            guard commandNodes.isEmpty,
+                  graph.renderTargets.isEmpty,
+                  graph.nodes[0].nodeIndex == horizontalNode.nodeIndex,
+                  graph.nodes[1].nodeIndex == verticalNode.nodeIndex else {
                 return nil
             }
-            let commandTargetsMustBeUnique = commandNode.kind == .swap
-            guard targetsByIdentity[horizontalTarget]?.declaredUnique
-                    == commandTargetsMustBeUnique,
-                  targetsByIdentity[verticalInput]?.declaredUnique
-                    == commandTargetsMustBeUnique else {
+        case let .authoredIntermediate(horizontalTarget, verticalInput):
+            guard graph.renderTargets.count == 1 + commandNodes.count else {
                 return nil
             }
-        } else {
-            guard graph.nodes[0].nodeIndex == horizontalNode.nodeIndex,
-                  graph.nodes[1].nodeIndex == verticalNode.nodeIndex,
-                  horizontalTarget == verticalInput,
-                  targetsByIdentity[horizontalTarget] != nil,
-                  graph.renderTargets.allSatisfy({ !$0.declaredUnique }) else {
-                return nil
+            if let commandNode = commandNodes.first {
+                guard graph.nodes[0].nodeIndex == horizontalNode.nodeIndex,
+                      graph.nodes[1].nodeIndex == commandNode.nodeIndex,
+                      graph.nodes[2].nodeIndex == verticalNode.nodeIndex,
+                      validCommandNode(commandNode, effect: effect.key),
+                      commandNode.commandSource == horizontalTarget,
+                      commandNode.commandTarget == verticalInput,
+                      horizontalTarget != verticalInput,
+                      targetsByIdentity[horizontalTarget] != nil,
+                      targetsByIdentity[verticalInput] != nil else {
+                    return nil
+                }
+                let commandTargetsMustBeUnique = commandNode.kind == .swap
+                guard targetsByIdentity[horizontalTarget]?.declaredUnique
+                        == commandTargetsMustBeUnique,
+                      targetsByIdentity[verticalInput]?.declaredUnique
+                        == commandTargetsMustBeUnique else {
+                    return nil
+                }
+            } else {
+                guard graph.nodes[0].nodeIndex == horizontalNode.nodeIndex,
+                      graph.nodes[1].nodeIndex == verticalNode.nodeIndex,
+                      horizontalTarget == verticalInput,
+                      targetsByIdentity[horizontalTarget] != nil,
+                      graph.renderTargets.allSatisfy({ !$0.declaredUnique }) else {
+                    return nil
+                }
             }
         }
 
@@ -248,20 +256,19 @@ enum SceneAuthoredEffectExecutionPlanner {
               let horizontalKernel = supportedKernel(
                   horizontalMaterial.combos,
                   vertical: false,
-                  legacyCompose: usesLegacyComposeNormalization
+                  fullFrameCompose: topology.usesFullFrameCompose
               ),
               let verticalKernel = supportedKernel(
                   verticalMaterial.combos,
                   vertical: true,
-                  legacyCompose: usesLegacyComposeNormalization
+                  fullFrameCompose: topology.usesFullFrameCompose
               ),
               horizontalKernel == verticalKernel,
               validMaterialSlots(
                   horizontal: horizontalMaterial,
                   vertical: verticalMaterial,
                   effectInput: effect.input,
-                  intermediate: verticalInput,
-                  legacyCompose: usesLegacyComposeNormalization
+                  topology: topology
               ),
               horizontalMaterial.constants.keys.allSatisfy({ $0.lowercased() == "scale" }),
               verticalMaterial.constants.keys.allSatisfy({ $0.lowercased() == "scale" }),
@@ -282,23 +289,8 @@ enum SceneAuthoredEffectExecutionPlanner {
             )),
             materialNodeCount: 2,
             logicalRenderTargetCount: graph.renderTargets.count,
-            inputRole: inputRole,
-            usesLegacyComposeNormalization: usesLegacyComposeNormalization
+            inputRole: inputRole
         )
-    }
-
-    private nonisolated static func validNode(
-        _ node: Graph.Node,
-        ordinal: Int,
-        effect: Graph.EffectKey
-    ) -> Bool {
-        node.kind == .material
-            && node.effect == effect
-            && node.materialOrdinal == ordinal
-            && node.compose == nil
-            && node.conditions == nil
-            && node.commandSource == nil
-            && node.commandTarget == nil
     }
 
     nonisolated static func containsRegisteredPreciseBlurShader(
@@ -347,7 +339,7 @@ enum SceneAuthoredEffectExecutionPlanner {
     private nonisolated static func supportedKernel(
         _ combos: [String: Int],
         vertical: Bool,
-        legacyCompose: Bool
+        fullFrameCompose: Bool
     ) -> SceneGaussianBlurKernel? {
         var normalized: [String: Int] = [:]
         for (key, value) in combos {
@@ -360,7 +352,7 @@ enum SceneAuthoredEffectExecutionPlanner {
               }),
               normalized["VERTICAL", default: 0] == (vertical ? 1 : 0),
               normalized["ENABLEMASK", default: 0]
-                == (vertical && !legacyCompose ? 1 : 0),
+                == (vertical && !fullFrameCompose ? 1 : 0),
               let kernel = SceneGaussianBlurKernel(
                   rawValue: normalized["KERNEL", default: 0]
               ) else {

@@ -751,7 +751,6 @@ struct SceneLightShaftsEffectTextures {
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
-    let usesLegacyComposeNormalization: Bool
 
     init(
         layerID: Int,
@@ -759,8 +758,7 @@ struct SceneLightShaftsEffectTextures {
         backend: Backend,
         materialNodeCount: Int,
         logicalRenderTargetCount: Int,
-        inputRole: SceneAuthoredEffectInputRole = .layerSource,
-        usesLegacyComposeNormalization: Bool = false
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) {
         self.layerID = layerID
         self.renderGraph = renderGraph
@@ -768,7 +766,6 @@ struct SceneLightShaftsEffectTextures {
         self.materialNodeCount = materialNodeCount
         self.logicalRenderTargetCount = logicalRenderTargetCount
         self.inputRole = inputRole
-        self.usesLegacyComposeNormalization = usesLegacyComposeNormalization
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
@@ -846,14 +843,17 @@ struct SceneLightShaftsEffectTextures {
     }
 
     var requiresExactInputExtent: Bool {
-        if case .preciseGaussian = backend { return !usesLegacyComposeNormalization }
+        if case .preciseGaussian = backend {
+            return !supportsUnifiedFullFrameComposeStage
+        }
         return false
     }
 
     var supportsUnifiedLogicalTargetStage: Bool {
         switch backend {
         case .preciseGaussian:
-            return !usesLegacyComposeNormalization
+            return logicalRenderTargetCount > 0
+                && !supportsUnifiedFullFrameComposeStage
         case .standardBlur:
             return true
         case .localContrast:
@@ -867,6 +867,24 @@ struct SceneLightShaftsEffectTextures {
         }
     }
 
+    var supportsUnifiedFullFrameComposeStage: Bool {
+        guard case .preciseGaussian = backend,
+              logicalRenderTargetCount == 0,
+              renderGraph.renderTargets.isEmpty,
+              renderGraph.effects.count == 1,
+              let effect = renderGraph.effects.first,
+              renderGraph.nodes.count == 2 else { return false }
+        let nodes = renderGraph.nodes
+        return nodes[0].kind == .material
+            && nodes[0].target == effect.output
+            && nodes[0].bindings.isEmpty
+            && nodes[0].compose == .bool(true)
+            && nodes[1].kind == .material
+            && nodes[1].target == effect.output
+            && nodes[1].bindings.isEmpty
+            && nodes[1].compose == nil
+    }
+
     func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {
         guard let localContrast else { return nil }
         let effectIndex = renderGraph.effects.first?.key.effectIndex ?? -1
@@ -878,17 +896,6 @@ struct SceneLightShaftsEffectTextures {
         opacity?.resolvedAlpha(in: snapshot)
     }
 
-    func acceptsPreciseBlurHorizontalBindings(
-        _ bindings: [SceneAuthoredEffectRenderPlan.Binding],
-        effectInput: SceneAuthoredEffectRenderPlan.TextureIdentity
-    ) -> Bool {
-        if usesLegacyComposeNormalization {
-            return bindings.count == 1
-                && bindings.first?.slot == 0
-                && bindings.first?.texture == effectInput
-        }
-        return bindings.isEmpty
-    }
 }
 
 struct SceneShakeExecutionPlan {
@@ -1555,8 +1562,9 @@ enum Harness {
     static func preciseBlurGraph(
         layerID: Int = 10,
         commandKind: Graph.NodeKind? = nil,
-        legacyCompose: Bool = false
+        fullFrameCompose: Bool = false
     ) -> Graph {
+        precondition(!fullFrameCompose || commandKind == nil)
         let effectKey = Graph.EffectKey(
             layerID: layerID,
             effectIndex: 0,
@@ -1586,13 +1594,11 @@ enum Harness {
             kind: .material,
             materialPath: "materials/blur_precise_x.json",
             materialPassID: "materials/blur_precise_x.json#0",
-            target: first,
-            bindings: legacyCompose
-                ? [.init(slot: 0, authoredName: "previous", texture: input, conditions: nil)]
-                : [],
+            target: fullFrameCompose ? output : first,
+            bindings: [],
             commandSource: nil,
             commandTarget: nil,
-            compose: nil,
+            compose: fullFrameCompose ? .bool(true) : nil,
             conditions: nil
         )
         let vertical = Graph.Node(
@@ -1605,16 +1611,16 @@ enum Harness {
             materialPath: "materials/blur_precise_y.json",
             materialPassID: "materials/blur_precise_y.json#0",
             target: output,
-            bindings: [
+            bindings: fullFrameCompose ? [] : [
                 .init(
                     slot: 0,
                     authoredName: verticalInput.name,
                     texture: verticalInput,
                     conditions: nil
                 ),
-            ] + (!legacyCompose ? [
+            ] + [
                 .init(slot: 1, authoredName: "previous", texture: input, conditions: nil),
-            ] : []),
+            ],
             commandSource: nil,
             commandTarget: nil,
             compose: nil,
@@ -1647,12 +1653,10 @@ enum Harness {
             output: output,
             nodeIndices: nodes.map(\.nodeIndex)
         )
-        var renderTargets = [
+        var renderTargets = fullFrameCompose ? [] : [
             Graph.RenderTarget(
                 texture: first,
-                extent: legacyCompose
-                    ? .init(kind: .scale, first: 1, second: nil)
-                    : .init(kind: .input, first: nil, second: nil),
+                extent: .init(kind: .input, first: nil, second: nil),
                 format: "rgba_backbuffer",
                 declaredUnique: commandKind == .swap,
                 clear: nil,
@@ -1768,12 +1772,14 @@ enum Harness {
     }
 
     static func authoredPreciseBlurPlan(
+        layerID: Int = 10,
         commandKind: Graph.NodeKind? = nil,
-        legacyCompose: Bool = false
+        fullFrameCompose: Bool = false
     ) -> SceneAuthoredEffectExecutionPlan {
         let graph = preciseBlurGraph(
+            layerID: layerID,
             commandKind: commandKind,
-            legacyCompose: legacyCompose
+            fullFrameCompose: fullFrameCompose
         )
         return SceneAuthoredEffectExecutionPlan(
             layerID: graph.layerID,
@@ -1785,8 +1791,7 @@ enum Harness {
                 isPrecise: true
             )),
             materialNodeCount: 2,
-            logicalRenderTargetCount: graph.renderTargets.count,
-            usesLegacyComposeNormalization: legacyCompose
+            logicalRenderTargetCount: graph.renderTargets.count
         )
     }
 
@@ -2010,22 +2015,29 @@ enum Harness {
             device: device,
             queue: queue
         )
-        let authoredLegacyComposeImpulse = try authoredPreciseBlurImpulseEvidence(
+        let authoredFullFrameComposeImpulse = try authoredPreciseBlurImpulseEvidence(
             device: device,
             queue: queue,
             pipeline: pipeline,
             compositor: compositor,
-            legacyCompose: true
+            fullFrameCompose: true
         )
-        let authoredLegacyComposeScaled = try authoredPreciseBlurImpulseEvidence(
+        let authoredFullFrameComposeScaled = try authoredPreciseBlurImpulseEvidence(
             device: device,
             queue: queue,
             pipeline: pipeline,
             compositor: compositor,
-            legacyCompose: true,
+            fullFrameCompose: true,
             sourceSize: 16,
             maxDimension: 8
         )
+        let legacyWholeChainFullFrameCompose =
+            try legacyWholeChainFullFrameComposeEvidence(
+                device: device,
+                queue: queue,
+                pipeline: pipeline,
+                compositor: compositor
+            )
         let authoredPreciseInterleave = try authoredPreciseInterleaveEvidence(
             device: device,
             queue: queue,
@@ -2240,8 +2252,9 @@ enum Harness {
             "authoredExtentMismatchRefused": authoredExtentMismatchRefused,
             "authoredPreciseImpulse": authoredPreciseImpulse,
             "gaussianKernelPixels": gaussianKernelPixels,
-            "authoredLegacyComposeImpulse": authoredLegacyComposeImpulse,
-            "authoredLegacyComposeScaled": authoredLegacyComposeScaled,
+            "authoredFullFrameComposeImpulse": authoredFullFrameComposeImpulse,
+            "authoredFullFrameComposeScaled": authoredFullFrameComposeScaled,
+            "legacyWholeChainFullFrameCompose": legacyWholeChainFullFrameCompose,
             "authoredPreciseInterleave": authoredPreciseInterleave,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredStandardCandidate": authoredStandardCandidate,
@@ -3257,7 +3270,7 @@ enum Harness {
         queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
-        legacyCompose: Bool = false,
+        fullFrameCompose: Bool = false,
         sourceSize: Int = 8,
         maxDimension: Int = 8
     ) throws -> [String: Any] {
@@ -3270,26 +3283,107 @@ enum Harness {
             throw HarnessError.metalUnavailable
         }
         fillPremultipliedImpulse(source)
-        let plan = authoredPreciseBlurPlan(legacyCompose: legacyCompose)
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: maxDimension)
-        let layer = SceneRenderDescriptor.Layer(
-            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
-        )
-        let frameTables = try drawAuthoredBlur(
-            source: source,
-            target: target,
-            layer: layer,
-            plan: plan,
-            pool: pool,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
-        guard frameTables.tables.count == 1,
-        let table = frameTables.tables.first,
-        let intermediateIdentity = table.plan.logicalTargets.first?.identity,
-        let intermediate = table.texture(for: intermediateIdentity),
-        let blur = plan.gaussianBlur,
+        let plan = authoredPreciseBlurPlan(fullFrameCompose: fullFrameCompose)
+        let table: SceneGraphRenderTargetTable
+        let intermediate: MTLTexture
+        var pairComposeTransitionCount = 0
+        var intermediateUsesOtherPairMember = false
+        if fullFrameCompose {
+            let targetSize = max(1, min(size, maxDimension))
+            guard let pairZero = makeTexture(
+                      device: device,
+                      size: targetSize,
+                      usage: [.renderTarget, .shaderRead],
+                      storageMode: .private
+                  ), let pairOne = makeTexture(
+                      device: device,
+                      size: targetSize,
+                      usage: [.renderTarget, .shaderRead],
+                      storageMode: .private
+                  ), case let .success(targetPlan) = SceneGraphRenderTargetPlan.make(
+                      graph: plan.renderGraph,
+                      inputRole: plan.inputRole,
+                      inputWidth: targetSize,
+                      inputHeight: targetSize
+                  ), case let .success(pairPlan) = SceneLayerFullFramePairPlan.make(
+                      conditionPrunedGraphs: [plan.renderGraph]
+                  ), let pairStep = pairPlan.effects.first,
+                  pairPlan.effects.count == 1,
+                  pairStep.inputMember == pairStep.outputMember,
+                  pairStep.composeTransitionCount == 1,
+                  pairStep.fullFrameOutputWriteCount == 2,
+                  pairStep.nodes.count == 2,
+                  pairStep.nodes[0].fullFrameWriteMember
+                    == pairStep.inputMember.opposite,
+                  pairStep.nodes[1].fullFrameWriteMember == pairStep.inputMember else {
+                throw HarnessError.drawRefused
+            }
+            let endpoint = pairStep.inputMember == .zero ? pairZero : pairOne
+            let other = pairStep.inputMember == .zero ? pairOne : pairZero
+            guard case let .success(mappedTable) = SceneGraphRenderTargetTable.makeMapped(
+                plan: targetPlan,
+                device: device,
+                texturesByIdentity: [
+                    targetPlan.input: endpoint,
+                    targetPlan.output: endpoint,
+                ],
+                fullFramePair: .init(first: pairZero, second: pairOne),
+                expectsInputOutputAlias: true
+            ), mappedTable.inputTexture === endpoint,
+               mappedTable.outputTexture === endpoint,
+               let captureBuffer = queue.makeCommandBuffer(),
+               SceneOffscreenEffectRenderer.captureSource(
+                   sourceTexture: source,
+                   waterMaskTexture: nil,
+                   foliageMaskTexture: nil,
+                   auxMaskTexture: nil,
+                   target: endpoint,
+                   sourceUniforms: .neutral(),
+                   pipeline: pipeline,
+                   commandBuffer: captureBuffer
+               ) else {
+                throw HarnessError.drawRefused
+            }
+            captureBuffer.commit()
+            captureBuffer.waitUntilCompleted()
+            guard captureBuffer.status == .completed,
+                  captureBuffer.error == nil else { throw HarnessError.commandFailed }
+            table = mappedTable
+            intermediate = other
+            pairComposeTransitionCount = pairStep.composeTransitionCount
+            intermediateUsesOtherPairMember = other !== endpoint
+        } else {
+            let pool = SceneOffscreenTexturePool(
+                device: device,
+                maxDimension: maxDimension
+            )
+            let layer = SceneRenderDescriptor.Layer(
+                contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
+            )
+            let frameTables = try drawAuthoredBlur(
+                source: source,
+                target: target,
+                layer: layer,
+                plan: plan,
+                pool: pool,
+                queue: queue,
+                pipeline: pipeline,
+                compositor: compositor
+            )
+            guard frameTables.tables.count == 1,
+                  let explicitTable = frameTables.tables.first,
+                  let intermediateIdentity = explicitTable.plan.logicalTargets.first?.identity,
+                  let explicitIntermediate = explicitTable.texture(
+                      for: intermediateIdentity
+                  ) else {
+                throw HarnessError.drawRefused
+            }
+            table = explicitTable
+            intermediate = explicitIntermediate
+        }
+        let sourceBytes = try textureBytes(source, queue: queue)
+        let inputBytes = try textureBytes(table.inputTexture, queue: queue)
+        guard let blur = plan.gaussianBlur,
         let referenceHorizontal = makeTexture(
             device: device,
             size: table.inputTexture.width,
@@ -3349,49 +3443,61 @@ enum Harness {
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
 
-        var preparedStageEncoded = false
-        if !legacyCompose {
-            let preparedInputs =
-                SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs(
-                    masks: authoredEffectMasks(),
-                    dynamicValues: .empty(frameIndex: 1),
-                    pipelines: .init(
-                        repository: SceneImageEffectPipelineRepository(device: device)
-                    ),
-                    cursorUV: .zero,
-                    previousCursorUV: .zero,
-                    pointerIsInside: false,
-                    previousPointerIsInside: false,
-                    frameTime: 1 / 60,
+        let preparedInputs = SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs(
+            masks: authoredEffectMasks(),
+            dynamicValues: .empty(frameIndex: 1),
+            pipelines: .init(
+                repository: SceneImageEffectPipelineRepository(device: device)
+            ),
+            cursorUV: .zero,
+            previousCursorUV: .zero,
+            pointerIsInside: false,
+            previousPointerIsInside: false,
+            frameTime: 1 / 60,
+            time: 0,
+            audioSpectrum: .silent,
+            dependencyEffect: nil
+        )
+        guard let preparedBuffer = queue.makeCommandBuffer(),
+              case let .ready(preparedStage) =
+                SceneAuthoredEffectChainRenderer.prepareStage(
+                    plan,
+                    sourceTexture: table.inputTexture,
+                    targets: table,
+                    inputs: preparedInputs,
+                    sourcePipeline: pipeline,
                     time: 0,
-                    audioSpectrum: .silent,
-                    dependencyEffect: nil
-                )
-            guard let preparedBuffer = queue.makeCommandBuffer(),
-                  case let .ready(preparedStage) =
-                    SceneAuthoredEffectChainRenderer.prepareStage(
-                        plan,
-                        sourceTexture: table.inputTexture,
-                        targets: table,
-                        inputs: preparedInputs,
-                        sourcePipeline: pipeline,
-                        time: 0
-                    ),
-                  SceneAuthoredEffectChainRenderer.encodePreparedStage(
-                      preparedStage,
-                      commandBuffer: preparedBuffer
-                  ) else {
-                throw HarnessError.drawRefused
-            }
-            preparedBuffer.commit()
-            preparedBuffer.waitUntilCompleted()
-            guard preparedBuffer.status == .completed,
-                  preparedBuffer.error == nil else { throw HarnessError.commandFailed }
-            preparedStageEncoded = true
+                    sourceSampleExtent: SIMD2(Float(size), Float(size))
+                ),
+              SceneAuthoredEffectChainRenderer.encodePreparedStage(
+                  preparedStage,
+                  commandBuffer: preparedBuffer
+              ) else {
+            throw HarnessError.drawRefused
+        }
+        preparedBuffer.commit()
+        preparedBuffer.waitUntilCompleted()
+        guard preparedBuffer.status == .completed,
+              preparedBuffer.error == nil else { throw HarnessError.commandFailed }
+
+        if fullFrameCompose {
+            guard let compositeBuffer = queue.makeCommandBuffer(),
+                  SceneOffscreenEffectRenderer.captureSource(
+                      sourceTexture: table.outputTexture,
+                      waterMaskTexture: nil,
+                      foliageMaskTexture: nil,
+                      auxMaskTexture: nil,
+                      target: target,
+                      sourceUniforms: .neutral(),
+                      pipeline: pipeline,
+                      commandBuffer: compositeBuffer
+                  ) else { throw HarnessError.drawRefused }
+            compositeBuffer.commit()
+            compositeBuffer.waitUntilCompleted()
+            guard compositeBuffer.status == .completed,
+                  compositeBuffer.error == nil else { throw HarnessError.commandFailed }
         }
 
-        let sourceBytes = try textureBytes(source, queue: queue)
-        let inputBytes = try textureBytes(table.inputTexture, queue: queue)
         let horizontalBytes = try textureBytes(intermediate, queue: queue)
         let expectedHorizontalBytes = try textureBytes(referenceHorizontal, queue: queue)
         let outputBytes = try textureBytes(table.outputTexture, queue: queue)
@@ -3403,9 +3509,13 @@ enum Harness {
         let mainBytes = try textureBytes(target, queue: queue)
         return [
             "encoded": true,
-            "preparedStageEncoded": preparedStageEncoded,
+            "preparedStageEncoded": true,
             "sourceWidth": source.width,
             "inputWidth": table.inputTexture.width,
+            "logicalTargetCount": table.plan.logicalTargets.count,
+            "inputOutputAliased": table.inputOutputAliased,
+            "intermediateUsesOtherPairMember": intermediateUsesOtherPairMember,
+            "pairComposeTransitionCount": pairComposeTransitionCount,
             "inputMaxDelta": maxDifference(inputBytes, sourceBytes),
             "horizontalMaxDelta": maxDifference(
                 horizontalBytes, expectedHorizontalBytes
@@ -3418,7 +3528,205 @@ enum Harness {
             "horizontalToOutputDelta": maxDifference(horizontalBytes, outputBytes),
             "sourceToOutputDelta": maxDifference(sourceBytes, outputBytes),
             "sourceHasMixedAlpha": hasMixedAlpha(sourceBytes),
+            "outputHasPixels": outputBytes.contains(where: { $0 != 0 }),
             "outputIsPremultiplied": isPremultiplied(outputBytes),
+        ]
+    }
+
+    static func legacyWholeChainFullFrameComposeEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let size = 8
+        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ), let referenceInput = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ), let referenceHorizontal = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ), let referenceOutput = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ), let blurPipeline = SceneGaussianBlurPipeline(device: device) else {
+            throw HarnessError.metalUnavailable
+        }
+        fillPremultipliedImpulse(source)
+        let plan = authoredPreciseBlurPlan(layerID: 0, fullFrameCompose: true)
+        guard let blur = plan.gaussianBlur,
+              let referenceBuffer = queue.makeCommandBuffer(),
+              SceneOffscreenEffectRenderer.captureSource(
+                  sourceTexture: source,
+                  waterMaskTexture: nil,
+                  foliageMaskTexture: nil,
+                  auxMaskTexture: nil,
+                  target: referenceInput,
+                  sourceUniforms: .neutral(),
+                  pipeline: pipeline,
+                  commandBuffer: referenceBuffer
+              ), blurPipeline.encode(
+                  source: referenceInput,
+                  target: referenceHorizontal,
+                  step: SIMD2(
+                      blur.horizontalStep * blur.sampleResolutionScale / Float(size),
+                      0
+                  ),
+                  kernel: blur.kernel,
+                  commandBuffer: referenceBuffer
+              ), blurPipeline.encode(
+                  source: referenceHorizontal,
+                  target: referenceOutput,
+                  step: SIMD2(
+                      0,
+                      blur.verticalStep * blur.sampleResolutionScale / Float(size)
+                  ),
+                  kernel: blur.kernel,
+                  commandBuffer: referenceBuffer
+              ) else {
+            throw HarnessError.drawRefused
+        }
+        referenceBuffer.commit()
+        referenceBuffer.waitUntilCompleted()
+        guard referenceBuffer.status == .completed,
+              referenceBuffer.error == nil else {
+            throw HarnessError.commandFailed
+        }
+
+        let chain = SceneAuthoredEffectExecutionChain(
+            layerID: plan.layerID,
+            renderGraph: plan.renderGraph,
+            executionStages: [plan]
+        )
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        guard let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        let transaction = SceneSourceUpdateTransaction()
+        defer { transaction.cancel() }
+        guard let frameTables = legacyFrameTables(
+            pool: pool,
+            chain: chain,
+            width: size,
+            height: size,
+            commandBuffer: commandBuffer,
+            transaction: transaction
+        ) else { throw HarnessError.drawRefused }
+        guard frameTables.tables.count == 1,
+              let table = frameTables.tables.first,
+              frameTables.commit.leases.count == 1,
+              let lease = frameTables.commit.leases.first else {
+            throw HarnessError.drawRefused
+        }
+        guard case let .success(pairPlan) = SceneLayerFullFramePairPlan.make(
+                  conditionPrunedGraphs: [plan.renderGraph]
+              ), pairPlan.effects.count == 1,
+              let pairStep = pairPlan.effects.first else {
+            throw HarnessError.drawRefused
+        }
+        let endpointUsesFirst = table.inputTexture === table.fullFramePair.first
+        let endpointUsesSecond = table.inputTexture === table.fullFramePair.second
+        guard endpointUsesFirst != endpointUsesSecond,
+              table.inputTexture === table.outputTexture,
+              let firstLeaseTexture = lease.texturesByToken[
+                  lease.fullFramePair.first
+              ], let secondLeaseTexture = lease.texturesByToken[
+                  lease.fullFramePair.second
+              ] else {
+            throw HarnessError.drawRefused
+        }
+        let intermediate = endpointUsesFirst
+            ? table.fullFramePair.second : table.fullFramePair.first
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let layer = SceneRenderDescriptor.Layer(
+            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
+        )
+        var selectedLegacyAuthoredRoute = false
+        let encoded = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: layer,
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0, alpha: 1, cursorUV: .zero
+                ),
+                offscreenTexturePool: pool,
+                legacyAuthoredFrameTables: frameTables,
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false,
+                authoredEffectChain: chain,
+                dynamicValues: .empty(frameIndex: 29)
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass,
+            frameTransaction: transaction,
+            onLegacyAuthoredRouteSelected: {
+                selectedLegacyAuthoredRoute = true
+            }
+        )
+        mainPass.finishEnsuringClear()
+        submitFrame(commandBuffer, transaction: transaction)
+
+        let sourceBytes = try textureBytes(source, queue: queue)
+        let horizontalBytes = try textureBytes(intermediate, queue: queue)
+        let expectedHorizontalBytes = try textureBytes(
+            referenceHorizontal, queue: queue
+        )
+        let outputBytes = try textureBytes(table.outputTexture, queue: queue)
+        let expectedOutputBytes = try textureBytes(referenceOutput, queue: queue)
+        let mainBytes = try textureBytes(target, queue: queue)
+        let residentAllocationCount = pool.residentAllocationCount
+        let residentTextureCount = pool.residentTextureCount
+        pool.reset()
+        return [
+            "encoded": encoded,
+            "gpuCompleted": commandBuffer.status == .completed
+                && commandBuffer.error == nil,
+            "legacyAuthoredRouteSelected": selectedLegacyAuthoredRoute,
+            "executionStageCount": chain.executionStages.count,
+            "stageLogicalTargetCount": plan.logicalRenderTargetCount,
+            "tableLogicalTargetCount": table.plan.logicalTargets.count,
+            "inputOutputAliased": table.inputOutputAliased,
+            "inputAndOutputUseSameTexture": table.inputTexture === table.outputTexture,
+            "pairMembersDistinct": table.fullFramePair.first
+                !== table.fullFramePair.second,
+            "endpointUsesPairMember": endpointUsesFirst || endpointUsesSecond,
+            "intermediateUsesOtherPairMember": intermediate !== table.inputTexture,
+            "pairEndpointMembersAliased": pairStep.inputMember
+                == pairStep.outputMember,
+            "pairComposeTransitionCount": pairStep.composeTransitionCount,
+            "pairFullFrameOutputWriteCount": pairStep.fullFrameOutputWriteCount,
+            "tableResidentTextureCount": table.residentTextureCount,
+            "leaseTextureCount": lease.texturesByToken.count,
+            "leasePairTokensDistinct": lease.fullFramePair.first
+                != lease.fullFramePair.second,
+            "leasePairTexturesMapped": firstLeaseTexture === table.fullFramePair.first
+                && secondLeaseTexture === table.fullFramePair.second,
+            "residentAllocationCount": residentAllocationCount,
+            "residentTextureCount": residentTextureCount,
+            "horizontalMaxDelta": maxDifference(
+                horizontalBytes, expectedHorizontalBytes
+            ),
+            "outputMaxDelta": maxDifference(outputBytes, expectedOutputBytes),
+            "mainMaxDelta": maxDifference(mainBytes, expectedOutputBytes),
+            "horizontalToOutputDelta": maxDifference(
+                horizontalBytes, outputBytes
+            ),
+            "sourceToOutputDelta": maxDifference(sourceBytes, outputBytes),
+            "sourceHasMixedAlpha": hasMixedAlpha(sourceBytes),
+            "outputHasPixels": outputBytes.contains(where: { $0 != 0 }),
+            "outputIsPremultiplied": isPremultiplied(outputBytes),
+            "resetReleasedCompletedSubmission": pool.residentAllocationCount == 0,
         ]
     }
 
@@ -6322,7 +6630,8 @@ enum Harness {
         device: MTLDevice,
         size: Int,
         usage: MTLTextureUsage,
-        pixelFormat: MTLPixelFormat = .bgra8Unorm
+        pixelFormat: MTLPixelFormat = .bgra8Unorm,
+        storageMode: MTLStorageMode = .shared
     ) -> MTLTexture? {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: pixelFormat,
@@ -6331,7 +6640,7 @@ enum Harness {
             mipmapped: false
         )
         descriptor.usage = usage
-        descriptor.storageMode = .shared
+        descriptor.storageMode = storageMode
         return device.makeTexture(descriptor: descriptor)
     }
 
@@ -6853,7 +7162,10 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         evidence = self.result["authoredPreciseImpulse"]
         self.assertTrue(evidence["encoded"])
         self.assertTrue(evidence["preparedStageEncoded"])
+        self.assertEqual(evidence["logicalTargetCount"], 1)
+        self.assertFalse(evidence["inputOutputAliased"])
         self.assertTrue(evidence["sourceHasMixedAlpha"])
+        self.assertTrue(evidence["outputHasPixels"])
         self.assertTrue(evidence["outputIsPremultiplied"])
         for key in ("inputMaxDelta", "horizontalMaxDelta", "outputMaxDelta"):
             self.assertLessEqual(evidence[key], 1, (key, evidence))
@@ -6869,29 +7181,79 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertNotEqual(evidence["largeAlpha"], evidence["mediumAlpha"])
         self.assertNotEqual(evidence["largeAlpha"], evidence["smallAlpha"])
 
-    def test_legacy_compose_precise_blur_matches_explicit_fbo_gpu_path(self) -> None:
+    def test_raw_full_frame_compose_blur_uses_pair_without_a_logical_target(self) -> None:
         explicit = self.result["authoredPreciseImpulse"]
-        legacy = self.result["authoredLegacyComposeImpulse"]
+        compose = self.result["authoredFullFrameComposeImpulse"]
+        self.assertTrue(compose["encoded"])
+        self.assertTrue(compose["preparedStageEncoded"])
+        self.assertEqual(compose["logicalTargetCount"], 0)
+        self.assertTrue(compose["inputOutputAliased"])
+        self.assertTrue(compose["intermediateUsesOtherPairMember"])
+        self.assertEqual(compose["pairComposeTransitionCount"], 1)
         for key in (
             "inputMaxDelta",
             "horizontalMaxDelta",
             "outputMaxDelta",
             "mainMaxDelta",
         ):
-            self.assertLessEqual(legacy[key], 2, (key, legacy))
-            self.assertLessEqual(abs(legacy[key] - explicit[key]), 1, (key, explicit, legacy))
-        self.assertTrue(legacy["sourceHasMixedAlpha"])
-        self.assertTrue(legacy["outputIsPremultiplied"])
-        self.assertGreater(legacy["sourceToOutputDelta"], 20, legacy)
+            self.assertLessEqual(compose[key], 2, (key, compose))
+            self.assertLessEqual(
+                abs(compose[key] - explicit[key]), 1, (key, explicit, compose)
+            )
+        self.assertTrue(compose["sourceHasMixedAlpha"])
+        self.assertTrue(compose["outputHasPixels"])
+        self.assertTrue(compose["outputIsPremultiplied"])
+        self.assertGreater(compose["horizontalToOutputDelta"], 2, compose)
+        self.assertGreater(compose["sourceToOutputDelta"], 20, compose)
 
-    def test_legacy_compose_preserves_authored_radius_when_pool_scales_input(self) -> None:
-        evidence = self.result["authoredLegacyComposeScaled"]
+    def test_raw_full_frame_compose_preserves_source_extent_after_cap(self) -> None:
+        evidence = self.result["authoredFullFrameComposeScaled"]
         self.assertTrue(evidence["encoded"])
+        self.assertTrue(evidence["preparedStageEncoded"])
         self.assertEqual(evidence["sourceWidth"], 16)
         self.assertEqual(evidence["inputWidth"], 8)
+        self.assertEqual(evidence["logicalTargetCount"], 0)
+        self.assertTrue(evidence["inputOutputAliased"])
+        self.assertTrue(evidence["intermediateUsesOtherPairMember"])
+        self.assertEqual(evidence["pairComposeTransitionCount"], 1)
+        self.assertLessEqual(evidence["horizontalMaxDelta"], 1, evidence)
         self.assertLessEqual(evidence["outputMaxDelta"], 1, evidence)
         self.assertGreater(evidence["targetNormalizedOutputDelta"], 1, evidence)
+        self.assertTrue(evidence["outputHasPixels"])
         self.assertTrue(evidence["outputIsPremultiplied"])
+
+    def test_legacy_whole_chain_encodes_raw_full_frame_compose_with_one_pair(
+        self,
+    ) -> None:
+        evidence = self.result["legacyWholeChainFullFrameCompose"]
+        self.assertTrue(evidence["legacyAuthoredRouteSelected"], evidence)
+        self.assertTrue(evidence["encoded"], evidence)
+        self.assertTrue(evidence["gpuCompleted"], evidence)
+        self.assertEqual(evidence["executionStageCount"], 1, evidence)
+        self.assertEqual(evidence["stageLogicalTargetCount"], 0, evidence)
+        self.assertEqual(evidence["tableLogicalTargetCount"], 0, evidence)
+        self.assertTrue(evidence["inputOutputAliased"], evidence)
+        self.assertTrue(evidence["inputAndOutputUseSameTexture"], evidence)
+        self.assertTrue(evidence["pairMembersDistinct"], evidence)
+        self.assertTrue(evidence["endpointUsesPairMember"], evidence)
+        self.assertTrue(evidence["intermediateUsesOtherPairMember"], evidence)
+        self.assertTrue(evidence["pairEndpointMembersAliased"], evidence)
+        self.assertEqual(evidence["pairComposeTransitionCount"], 1, evidence)
+        self.assertEqual(evidence["pairFullFrameOutputWriteCount"], 2, evidence)
+        self.assertEqual(evidence["tableResidentTextureCount"], 2, evidence)
+        self.assertEqual(evidence["leaseTextureCount"], 2, evidence)
+        self.assertTrue(evidence["leasePairTokensDistinct"], evidence)
+        self.assertTrue(evidence["leasePairTexturesMapped"], evidence)
+        self.assertEqual(evidence["residentTextureCount"], 2, evidence)
+        self.assertLessEqual(evidence["horizontalMaxDelta"], 1, evidence)
+        self.assertLessEqual(evidence["outputMaxDelta"], 1, evidence)
+        self.assertLessEqual(evidence["mainMaxDelta"], 2, evidence)
+        self.assertGreater(evidence["horizontalToOutputDelta"], 2, evidence)
+        self.assertGreater(evidence["sourceToOutputDelta"], 20, evidence)
+        self.assertTrue(evidence["sourceHasMixedAlpha"], evidence)
+        self.assertTrue(evidence["outputHasPixels"], evidence)
+        self.assertTrue(evidence["outputIsPremultiplied"], evidence)
+        self.assertTrue(evidence["resetReleasedCompletedSubmission"], evidence)
 
     def test_precise_graph_interleaves_copy_and_swap_between_material_nodes(self) -> None:
         evidence = self.result["authoredPreciseInterleave"]

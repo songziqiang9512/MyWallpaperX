@@ -72,9 +72,17 @@ enum Harness {
             "pointsize":{"user":"size","value":12},
             "color":{"user":"tint","value":"0 0 0"},
             "effects":[{
-              "file":"effects/wave.json",
+              "file":"effects/tint/effect.json",
               "visible":{"user":{"name":"mode","condition":"2"},"value":false},
               "passes":[{"constantshadervalues":{"strength":{"user":"size","value":1}}}]
+            },{
+              "file":"effects/blend/effect.json",
+              "visible":{"user":"enabled","value":false},
+              "passes":[]
+            },{
+              "file":"effects/transform/effect.json",
+              "visible":{"user":{"name":"mode","condition":"2"},"value":false},
+              "passes":[]
             }],
             "alpha":{"user":"size","value":0.5},
             "instanceoverride":{
@@ -106,7 +114,8 @@ enum Harness {
             ]
         )
         let object = ((resolution.root["objects"] as? [[String: Any]]) ?? [])[0]
-        let effect = ((object["effects"] as? [[String: Any]]) ?? [])[0]
+        let effects = (object["effects"] as? [[String: Any]]) ?? []
+        let effect = effects[0]
         let pass = ((effect["passes"] as? [[String: Any]]) ?? [])[0]
         let shaderValues = pass["constantshadervalues"] as? [String: Any] ?? [:]
         let diagnostics = Dictionary(grouping: resolution.diagnostics, by: \.kind.rawValue)
@@ -116,6 +125,16 @@ enum Harness {
         let definitionsByKey = Dictionary(uniqueKeysWithValues: catalog.definitions.map { ($0.key, $0) })
         let particleOverride = object["instanceoverride"] as? [String: Any] ?? [:]
         let animationLayer = ((object["animationlayers"] as? [[String: Any]]) ?? [])[0]
+        let effectVisibilityOwners: [[String: Any]] = resolution.bindingReport.bindings
+            .compactMap { binding in
+                guard case let .effectVisibility(layerID, effectIndex, effectPath) =
+                        binding.target else { return nil }
+                return [
+                    "layerID": layerID,
+                    "effectIndex": effectIndex,
+                    "effectPath": effectPath.map { $0 as Any } ?? NSNull(),
+                ]
+            }
         return [
             "definitionCount": catalog.definitions.count,
             "definitionKinds": kinds,
@@ -147,6 +166,10 @@ enum Harness {
             "pointSize": wrapperValue(object, key: "pointsize"),
             "color": wrapperValue(object, key: "color"),
             "effectVisible": wrapperValue(effect, key: "visible"),
+            "effectVisibilityValues": effects.map {
+                wrapperValue($0, key: "visible")
+            },
+            "effectVisibilityOwners": effectVisibilityOwners,
             "shaderStrength": wrapperValue(shaderValues, key: "strength"),
             "layerAlpha": wrapperValue(object, key: "alpha"),
             "particleCount": wrapperValue(particleOverride, key: "count"),
@@ -347,10 +370,10 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertEqual(result["officialTextureRuntimeType"], "texture")
         self.assertEqual(result["sceneTextureRuntimeType"], "scenetexture")
         self.assertTrue(result["unknownOverrideIgnored"])
-        self.assertEqual(result["bindingCount"], 15)
-        self.assertEqual(result["conditionalBindingCount"], 2)
+        self.assertEqual(result["bindingCount"], 17)
+        self.assertEqual(result["conditionalBindingCount"], 3)
         self.assertEqual(result["unsupportedBindingCount"], 3)
-        self.assertEqual(result["resolvedBindingCount"], 13)
+        self.assertEqual(result["resolvedBindingCount"], 15)
         self.assertEqual(result["particleBindingCount"], 2)
         self.assertEqual(result["puppetAnimationBindingCount"], 1)
         self.assertEqual(result["cameraParallax"], True)
@@ -361,6 +384,27 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertEqual(result["pointSize"], 42)
         self.assertEqual(result["color"], "0.2 0.4 0.6")
         self.assertEqual(result["effectVisible"], True)
+        self.assertEqual(result["effectVisibilityValues"], [True, True, True])
+        self.assertEqual(
+            result["effectVisibilityOwners"],
+            [
+                {
+                    "layerID": 10,
+                    "effectIndex": 0,
+                    "effectPath": "effects/tint/effect.json",
+                },
+                {
+                    "layerID": 10,
+                    "effectIndex": 1,
+                    "effectPath": "effects/blend/effect.json",
+                },
+                {
+                    "layerID": 10,
+                    "effectIndex": 2,
+                    "effectPath": "effects/transform/effect.json",
+                },
+            ],
+        )
         self.assertEqual(result["shaderStrength"], 42)
         self.assertEqual(result["layerAlpha"], 42)
         self.assertEqual(result["particleCount"], 2.5)

@@ -170,10 +170,10 @@ INCOMPATIBLE_CLEAR = incompatible_swap(
     {"scale": 1, "format": "rgba_backbuffer", "unique": True},
 )
 
-LEGACY_COMPOSE = {
+RAW_COMPOSE = {
     "passes": [
-        {"material": "materials/legacy-compose-x.json", "compose": True},
-        {"material": "materials/legacy-compose-y.json"},
+        {"material": "materials/raw-compose-x.json", "compose": True},
+        {"material": "materials/raw-compose-y.json"},
     ],
     "fbos": [],
 }
@@ -271,6 +271,7 @@ struct SceneAuthoredEffectExecutionPlan {
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
     let cursorRipple: SceneCursorRippleExecutionPlan?
+    var supportsUnifiedFullFrameComposeStage: Bool { false }
 }
 
 @main
@@ -354,7 +355,7 @@ enum Harness {
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let names = [
-            "blur", "motion", "legacy-compose", "composed-extent",
+            "blur", "motion", "raw-compose", "composed-extent",
             "fluid", "compose", "compose-false", "compose-string",
             "semantic-swap", "incompatible-extent", "incompatible-format",
             "incompatible-unique", "incompatible-clear", "malformed",
@@ -381,7 +382,7 @@ enum Harness {
             .init(id: 30, effects: [effect("fluid-a", "effects/fluid/effect.json", passCount: 18)]),
             .init(id: 40, effects: [effect("compose-a", "effects/compose/effect.json", passCount: 1)]),
             .init(id: 45, effects: [
-                effect("legacy-compose-a", "effects/legacy-compose/effect.json", passCount: 2),
+                effect("raw-compose-a", "effects/raw-compose/effect.json", passCount: 2),
             ]),
             .init(id: 50, effects: [
                 effect("blur-first", "effects/blur/effect.json", passCount: 4),
@@ -423,7 +424,7 @@ enum Harness {
         let motion = byLayer[20]!
         let fluid = byLayer[30]!
         let compose = byLayer[40]!
-        let legacyCompose = byLayer[45]!
+        let rawCompose = byLayer[45]!
         let scoped = byLayer[50]!
         let malformed = byLayer[60]!
         let composed = byLayer[70]!
@@ -523,19 +524,16 @@ enum Harness {
                 incompatibleExtent, incompatibleFormat,
                 incompatibleUnique, incompatibleClear,
             ].map(targetPlanFailure),
-            "legacyComposeStructural": legacyCompose.isStructurallyResolved,
-            "legacyComposeBlockers": legacyCompose.blockers.map { $0.reason.rawValue },
-            "legacyComposeTargets": legacyCompose.nodes.map { textureKey($0.target) },
-            "legacyComposeBindings": legacyCompose.nodes.map { node in
+            "rawComposeStructural": rawCompose.isStructurallyResolved,
+            "rawComposeBlockers": rawCompose.blockers.map { $0.reason.rawValue },
+            "rawComposeTargets": rawCompose.nodes.map { textureKey($0.target) },
+            "rawComposeBindings": rawCompose.nodes.map { node in
                 node.bindings.map { "\(String(describing: $0.slot))=\(textureKey($0.texture))" }
             },
-            "legacyComposeTargetCount": legacyCompose.renderTargets.count,
-            "legacyComposeTargetExtent": legacyCompose.renderTargets.map {
-                [$0.extent.kind.rawValue, String($0.extent.first ?? -1)]
-            },
-            "legacyComposeRawValuesCleared": legacyCompose.nodes.allSatisfy {
-                $0.compose == nil
-            },
+            "rawComposeTargetCount": rawCompose.renderTargets.count,
+            "rawComposeValuesPreserved": rawCompose.nodes.count == 2
+                && rawCompose.nodes[0].compose == .bool(true)
+                && rawCompose.nodes[1].compose == nil,
             "scopedQ1": scoped.renderTargets
                 .filter { $0.texture.name == "q1" }
                 .map { textureKey($0.texture) },
@@ -578,7 +576,7 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
             "incompatible-format": INCOMPATIBLE_FORMAT,
             "incompatible-unique": INCOMPATIBLE_UNIQUE,
             "incompatible-clear": INCOMPATIBLE_CLEAR,
-            "legacy-compose": LEGACY_COMPOSE,
+            "raw-compose": RAW_COMPOSE,
             "composed-extent": COMPOSED_EXTENT,
             "malformed": MALFORMED,
         }.items():
@@ -659,23 +657,19 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
             ["unsupportedTargetDescriptor"] * 4,
         )
 
-    def test_legacy_two_pass_compose_expands_to_explicit_intermediate(self) -> None:
-        self.assertTrue(self.result["legacyComposeStructural"])
-        self.assertEqual(self.result["legacyComposeBlockers"], [])
-        self.assertEqual(self.result["legacyComposeTargetCount"], 1)
-        self.assertEqual(self.result["legacyComposeTargetExtent"], [["scale", "1.0"]])
+    def test_raw_two_pass_compose_is_preserved_without_synthetic_framebuffer(self) -> None:
+        self.assertFalse(self.result["rawComposeStructural"])
         self.assertEqual(
-            self.result["legacyComposeTargets"],
-            ["framebuffer:45:0:_rt_FullCompoBuffer1", "effectOutput:45:0:-"],
+            self.result["rawComposeBlockers"],
+            ["unsupportedCompose", "multipleEffectOutputs"],
         )
+        self.assertEqual(self.result["rawComposeTargetCount"], 0)
         self.assertEqual(
-            self.result["legacyComposeBindings"],
-            [
-                ["Optional(0)=layerSource:45:-:-"],
-                ["Optional(0)=framebuffer:45:0:_rt_FullCompoBuffer1"],
-            ],
+            self.result["rawComposeTargets"],
+            ["effectOutput:45:0:-", "effectOutput:45:0:-"],
         )
-        self.assertTrue(self.result["legacyComposeRawValuesCleared"])
+        self.assertEqual(self.result["rawComposeBindings"], [[], []])
+        self.assertTrue(self.result["rawComposeValuesPreserved"])
 
     def test_framebuffer_identity_is_effect_scoped_and_chain_ordered(self) -> None:
         self.assertEqual(

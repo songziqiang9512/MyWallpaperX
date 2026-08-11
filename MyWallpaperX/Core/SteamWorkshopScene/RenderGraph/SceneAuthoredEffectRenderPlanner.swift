@@ -54,8 +54,6 @@ enum SceneAuthoredEffectRenderPlanner {
                 ))
                 continue
             }
-            let effectiveDefinition = effectiveDefinition(definition)
-
             if !instance.passes.isEmpty, instance.passes.count != definition.materialPassCount {
                 blockers.append(blocker(
                     key,
@@ -79,7 +77,7 @@ enum SceneAuthoredEffectRenderPlanner {
             }
 
             let framebufferGroups = Dictionary(
-                grouping: effectiveDefinition.framebuffers,
+                grouping: definition.framebuffers,
                 by: \.name
             )
             let framebufferDefinitions = framebufferGroups.compactMapValues { group in
@@ -92,7 +90,7 @@ enum SceneAuthoredEffectRenderPlanner {
                     detail: "Framebuffer \(name) is declared \(group.count) times."
                 ))
             }
-            for framebuffer in effectiveDefinition.framebuffers {
+            for framebuffer in definition.framebuffers {
                 let extent = targetExtent(framebuffer)
                 if extent.kind == .unsupported {
                     blockers.append(blocker(
@@ -151,7 +149,7 @@ enum SceneAuthoredEffectRenderPlanner {
 
             var materialOrdinal = 0
             var outputPassCount = 0
-            for pass in effectiveDefinition.passes {
+            for pass in definition.passes {
                 if pass.conditions != nil {
                     blockers.append(blocker(
                         key,

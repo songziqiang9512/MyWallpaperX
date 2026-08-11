@@ -10,6 +10,7 @@ enum SceneOffscreenEffectRenderer {
         auxMaskTexture: MTLTexture?,
         targets: SceneGraphRenderTargetTable,
         sourceUniforms: SceneLayerFragmentUniforms,
+        sampleNormalizationExtent: SIMD2<Float>? = nil,
         pipeline: SceneImageLayerPipeline,
         gaussianBlurPipeline: SceneGaussianBlurPipeline,
         commandBuffer: MTLCommandBuffer
@@ -28,10 +29,47 @@ enum SceneOffscreenEffectRenderer {
               ) else {
             return nil
         }
+        let currentExtent = SIMD2<Float>(
+            Float(sourceTexture.width), Float(sourceTexture.height)
+        )
+        let normalizationExtent = executionPlan.supportsUnifiedFullFrameComposeStage
+            ? sampleNormalizationExtent ?? currentExtent
+            : currentExtent
+        guard normalizationExtent.x.isFinite,
+              normalizationExtent.y.isFinite,
+              normalizationExtent.x > 0,
+              normalizationExtent.y > 0 else { return nil }
         let horizontalStep = plan.horizontalStep
-            * plan.sampleResolutionScale / Float(sourceTexture.width)
+            * plan.sampleResolutionScale / normalizationExtent.x
         let verticalStep = plan.verticalStep
-            * plan.sampleResolutionScale / Float(sourceTexture.height)
+            * plan.sampleResolutionScale / normalizationExtent.y
+        if executionPlan.supportsUnifiedFullFrameComposeStage {
+            guard targets.plan.logicalTargets.isEmpty,
+                  targets.inputOutputAliased,
+                  targets.inputTexture === targets.outputTexture else { return nil }
+            let intermediate: MTLTexture
+            if targets.fullFramePair.first === targets.inputTexture {
+                intermediate = targets.fullFramePair.second
+            } else if targets.fullFramePair.second === targets.inputTexture {
+                intermediate = targets.fullFramePair.first
+            } else {
+                return nil
+            }
+            guard gaussianBlurPipeline.encode(
+                source: targets.inputTexture,
+                target: intermediate,
+                step: SIMD2(horizontalStep, 0),
+                kernel: plan.kernel,
+                commandBuffer: commandBuffer
+            ), gaussianBlurPipeline.encode(
+                source: intermediate,
+                target: targets.outputTexture,
+                step: SIMD2(0, verticalStep),
+                kernel: plan.kernel,
+                commandBuffer: commandBuffer
+            ) else { return nil }
+            return targets.outputTexture
+        }
         let result = SceneGraphNodeScheduler.encode(
             graph: executionPlan.renderGraph,
             targets: targets,
@@ -43,7 +81,7 @@ enum SceneOffscreenEffectRenderer {
             }
             switch node.materialOrdinal {
             case 0:
-                guard executionPlan.acceptsPreciseBlurHorizontalBindings(node.bindings, effectInput: effect.input),
+                guard node.bindings.isEmpty,
                       let input = textures.texture(for: effect.input) else {
                     return false
                 }

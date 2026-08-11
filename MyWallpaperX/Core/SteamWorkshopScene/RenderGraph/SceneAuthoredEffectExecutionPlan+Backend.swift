@@ -64,7 +64,8 @@ extension SceneAuthoredEffectExecutionPlan {
     nonisolated var supportsUnifiedLogicalTargetStage: Bool {
         switch backend {
         case .preciseGaussian:
-            return !usesLegacyComposeNormalization
+            return logicalRenderTargetCount > 0
+                && !supportsUnifiedFullFrameComposeStage
         case .standardBlur:
             return true
         case .localContrast:
@@ -76,6 +77,23 @@ extension SceneAuthoredEffectExecutionPlan {
         default:
             return false
         }
+    }
+
+    nonisolated var supportsUnifiedFullFrameComposeStage: Bool {
+        guard case .preciseGaussian = backend,
+              logicalRenderTargetCount == 0,
+              renderGraph.renderTargets.isEmpty,
+              renderGraph.effects.count == 1,
+              let effect = renderGraph.effects.first else { return false }
+        let materialNodes = renderGraph.nodes.filter { $0.kind == .material }
+        return materialNodes.count == 2
+            && renderGraph.nodes.count == 2
+            && SceneAuthoredEffectExecutionPlanner.preciseBlurTopology(
+                horizontalNode: materialNodes[0],
+                verticalNode: materialNodes[1],
+                effect: effect,
+                commandNodeCount: 0
+            ) == .fullFrameCompose
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
@@ -268,7 +286,9 @@ extension SceneAuthoredEffectExecutionPlan {
     }
 
     var requiresExactInputExtent: Bool {
-        if case .preciseGaussian = backend { return !usesLegacyComposeNormalization }
+        if case .preciseGaussian = backend {
+            return !supportsUnifiedFullFrameComposeStage
+        }
         return false
     }
 }

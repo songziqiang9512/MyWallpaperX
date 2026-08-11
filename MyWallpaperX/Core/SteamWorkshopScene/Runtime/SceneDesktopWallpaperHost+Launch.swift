@@ -96,6 +96,16 @@ extension SceneDesktopWallpaperHost {
             SceneResolvedMaterialExecutionCapabilityAdmission
                 .DynamicEffectVisibilityOwner
         var dynamicEffectVisibilityOwners = Set<VisibilityOwner>()
+        var rawRebuildEffectVisibilityOwners = Set<VisibilityOwner>()
+        for binding in model.sceneDocument.userPropertyResolution
+            .bindingReport.bindings {
+            guard case let .effectVisibility(layerID, effectIndex, _) =
+                    binding.target else { continue }
+            rawRebuildEffectVisibilityOwners.insert(.init(
+                layerID: layerID,
+                effectIndex: effectIndex
+            ))
+        }
         for definition in runtimeInput.propertyBindingProgram.definitions {
             guard case let .effectVisibility(layerID, effectIndex) =
                     definition.target else { continue }
@@ -140,6 +150,20 @@ extension SceneDesktopWallpaperHost {
         let dedicatedGraphStageKeys = Set(dedicatedStageLeaves.compactMap {
             $0.executionPlan.supportsUnifiedLogicalTargetStage ? $0.effectKey : nil
         })
+        let dedicatedFullFrameComposeStageKeys = Set(
+            dedicatedStageLeaves.compactMap {
+                $0.executionPlan.supportsUnifiedFullFrameComposeStage
+                    ? $0.effectKey : nil
+            }
+        )
+        let dedicatedFullFrameComposeLayerIDs = Set(
+            dedicatedFullFrameComposeStageKeys.map(\.layerID)
+        )
+        dynamicEffectVisibilityOwners.formUnion(
+            rawRebuildEffectVisibilityOwners.filter {
+                dedicatedFullFrameComposeLayerIDs.contains($0.layerID)
+            }
+        )
         let timeOfDayEffectScriptCandidates = dedicatedStageLeaves.compactMap {
             $0.executionPlan.blend?.dynamicMultiplyBinding
         }
@@ -189,7 +213,9 @@ extension SceneDesktopWallpaperHost {
                 assetFormatFacts: materialAssetCatalog.launchFormatFacts,
                 dedicatedStageFamilies: dedicatedStageFamilies,
                 dedicatedLeafKeys: dedicatedLeafKeys,
-                dedicatedGraphStageKeys: dedicatedGraphStageKeys
+                dedicatedGraphStageKeys: dedicatedGraphStageKeys,
+                dedicatedFullFrameComposeStageKeys:
+                    dedicatedFullFrameComposeStageKeys
             )
         let resolvedMaterialSubjects = resolvedMaterialExecutionCapabilities
             .runtimeDispositionOwnerships.flatMap(\.subjects)

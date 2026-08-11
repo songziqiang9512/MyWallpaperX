@@ -58,7 +58,13 @@ SWIFT_SOURCES = [
 ]
 
 
-SUPPORT = PUBLICATION_FIXTURE["SUPPORT"] + r'''
+SUPPORT = PUBLICATION_FIXTURE["SUPPORT"].replace(
+    "    var supportsUnifiedFullFrameComposeStage: Bool { false }\n",
+    """    var supportsUnifiedFullFrameComposeStage: Bool {
+        materialNodeCount == 2 && logicalRenderTargetCount == 0
+    }
+""",
+) + r'''
 
 import simd
 
@@ -164,7 +170,11 @@ final class SceneResolvedMaterialRuntimeBridge {
 }
 
 enum SceneAuthoredEffectChainRenderer {
-    struct PreparedStage {}
+    struct PreparedStage {
+        let sourceTexture: MTLTexture
+        let composeTexture: MTLTexture
+        let outputTexture: MTLTexture
+    }
     enum StagePreparation {
         case ready(PreparedStage)
         case rejected(reason: String)
@@ -176,13 +186,80 @@ enum SceneAuthoredEffectChainRenderer {
         targets: SceneGraphRenderTargetTable,
         inputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
         sourcePipeline: SceneImageLayerPipeline,
-        time: Float
-    ) -> StagePreparation { .rejected(reason: "fixture-stage-unavailable") }
+        time: Float,
+        sourceSampleExtent: SIMD2<Float>
+    ) -> StagePreparation {
+        _ = inputs
+        _ = sourcePipeline
+        _ = time
+        guard stage.supportsUnifiedFullFrameComposeStage,
+              sourceSampleExtent.x > 0,
+              sourceSampleExtent.y > 0,
+              targets.plan.logicalTargets.isEmpty,
+              targets.inputOutputAliased,
+              targets.inputTexture === sourceTexture,
+              targets.outputTexture === sourceTexture,
+              targets.fullFramePair.first !== targets.fullFramePair.second else {
+            return .rejected(reason: "fixture-stage-unavailable")
+        }
+        let composeTexture: MTLTexture
+        if sourceTexture === targets.fullFramePair.first {
+            composeTexture = targets.fullFramePair.second
+        } else if sourceTexture === targets.fullFramePair.second {
+            composeTexture = targets.fullFramePair.first
+        } else {
+            return .rejected(reason: "fixture-pair-endpoint")
+        }
+        return .ready(.init(
+            sourceTexture: sourceTexture,
+            composeTexture: composeTexture,
+            outputTexture: targets.outputTexture
+        ))
+    }
 
     static func encodePreparedStage(
         _ stage: PreparedStage,
         commandBuffer: MTLCommandBuffer
-    ) -> Bool { false }
+    ) -> Bool {
+        guard stage.sourceTexture !== stage.composeTexture,
+              stage.composeTexture !== stage.outputTexture,
+              stage.sourceTexture.width == stage.composeTexture.width,
+              stage.sourceTexture.height == stage.composeTexture.height,
+              stage.composeTexture.width == stage.outputTexture.width,
+              stage.composeTexture.height == stage.outputTexture.height,
+              let encoder = commandBuffer.makeBlitCommandEncoder() else {
+            return false
+        }
+        let size = MTLSize(
+            width: stage.sourceTexture.width,
+            height: stage.sourceTexture.height,
+            depth: 1
+        )
+        encoder.copy(
+            from: stage.sourceTexture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: .init(x: 0, y: 0, z: 0),
+            sourceSize: size,
+            to: stage.composeTexture,
+            destinationSlice: 0,
+            destinationLevel: 0,
+            destinationOrigin: .init(x: 0, y: 0, z: 0)
+        )
+        encoder.copy(
+            from: stage.composeTexture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: .init(x: 0, y: 0, z: 0),
+            sourceSize: size,
+            to: stage.outputTexture,
+            destinationSlice: 0,
+            destinationLevel: 0,
+            destinationOrigin: .init(x: 0, y: 0, z: 0)
+        )
+        encoder.endEncoding()
+        return true
+    }
 }
 
 struct SceneResolvedMaterialRuntimeCatalog {
@@ -504,6 +581,29 @@ private func implicitFramebufferMaterial(
         commandSource: nil,
         commandTarget: nil,
         compose: nil,
+        conditions: nil
+    )
+}
+
+private func fullFrameComposeMaterial(
+    _ nodeIndex: Int,
+    ordinal: Int,
+    compose: SceneJSONValue?
+) -> Graph.Node {
+    .init(
+        nodeIndex: nodeIndex,
+        effect: effect,
+        definitionPassIndex: nodeIndex,
+        materialOrdinal: ordinal,
+        instancePassIndex: ordinal,
+        kind: .material,
+        materialPath: "materials/full-frame-compose.json",
+        materialPassID: "full-frame-compose#\(ordinal)",
+        target: output,
+        bindings: [],
+        commandSource: nil,
+        commandTarget: nil,
+        compose: compose,
         conditions: nil
     )
 }
@@ -1607,7 +1707,8 @@ private func intentKinds(
 
 private func capabilities(
     _ chain: SceneAuthoredEffectExecutionChain,
-    catalog: SceneResolvedMaterialRuntimeCatalog
+    catalog: SceneResolvedMaterialRuntimeCatalog,
+    dedicatedFullFrameComposeStageKeys: Set<Graph.EffectKey> = []
 ) -> Capabilities {
     let graph = chain.renderGraph
     let materialNodes = graph.nodes.filter { $0.kind == .material }
@@ -1647,11 +1748,19 @@ private func capabilities(
     )
     let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
         descriptor: descriptor,
-        authoredPlans: [graph]
+        authoredPlans: [graph],
+        dedicatedStagePrograms: dedicatedFullFrameComposeStageKeys.isEmpty
+            ? [] : chain.stagePrograms
     )
     return .init(
         admissionCandidates: candidates,
-        materialCatalog: catalog
+        materialCatalog: catalog,
+        dedicatedStageFamilies: Dictionary(
+            uniqueKeysWithValues: dedicatedFullFrameComposeStageKeys.map {
+                ($0, "fixture-full-frame-compose")
+            }
+        ),
+        dedicatedFullFrameComposeStageKeys: dedicatedFullFrameComposeStageKeys
     )
 }
 
@@ -1895,32 +2004,39 @@ private enum Harness {
         let admittedComposeGraph = graph(
             targets: [],
             nodes: [
-                material(
+                fullFrameComposeMaterial(
                     0,
                     ordinal: 0,
-                    target: output,
-                    read: input,
                     compose: .bool(true)
                 ),
-                material(1, ordinal: 1, target: output, read: input),
+                fullFrameComposeMaterial(1, ordinal: 1, compose: nil),
             ]
         )
         let admittedComposeChain = chain(admittedComposeGraph)
         let admittedComposeCapabilities = capabilities(
             admittedComposeChain,
-            catalog: catalog(for: admittedComposeGraph)
+            catalog: catalog(
+                for: admittedComposeGraph,
+                demandIssueNodes: [0, 1],
+                implicitFramebufferNodes: [0, 1]
+            ),
+            dedicatedFullFrameComposeStageKeys: [effect]
         )
         let admittedComposeClaim = admittedComposeCapabilities.claim(
             admittedComposeChain
+        )!
+        let admittedComposeCapability = admittedComposeCapabilities.resolve(
+            admittedComposeClaim.token,
+            for: admittedComposeChain
         )!
         let admittedComposeExecutor = Executor(
             device: device,
             capabilities: admittedComposeCapabilities
         )!
-        let admittedComposeLease = makeLease(
-            requireR4Plan(admittedComposeGraph),
+        let admittedComposeLease = makeChainedLeases(
+            admittedComposeCapability,
             device: device
-        )
+        )!.first!
         let inactiveComposeGraph = graph(
             targets: [rawTarget(first)],
             nodes: [
@@ -2127,7 +2243,41 @@ private enum Harness {
             resetGeneration: 1
         )
         let composeAppended: Bool
+        var composePublicationContract = false
+        var composeReadback: Readback?
         if case let .success(value) = composePreparation {
+            let stage = value.stages[0]
+            let firstPairNode = stage.pairStep.nodes[0]
+            let secondPairNode = stage.pairStep.nodes[1]
+            composePublicationContract = value.stages.count == 1
+                && stage.programCacheKeys.count == 1
+                && stage.programCacheKeys[0].hasPrefix("dedicated:")
+                && stage.persistentResources.isEmpty
+                && intentKinds(value) == ["material", "material"]
+                && admittedComposeLease.table.plan.logicalTargets.isEmpty
+                && admittedComposeLease.table.inputOutputAliased
+                && admittedComposeLease.table.inputTexture
+                    === admittedComposeLease.table.outputTexture
+                && admittedComposeLease.table.fullFramePair.first
+                    !== admittedComposeLease.table.fullFramePair.second
+                && stage.pairStep.nodes.count == 2
+                && stage.pairStep.fullFrameOutputWriteCount == 2
+                && firstPairNode.currentMemberBeforeNode == .zero
+                && firstPairNode.fullFrameWriteMember == .one
+                && firstPairNode.rotatesAfterNode
+                && firstPairNode.currentMemberAfterNode == .one
+                && secondPairNode.currentMemberBeforeNode == .one
+                && secondPairNode.fullFrameWriteMember == .zero
+                && !secondPairNode.rotatesAfterNode
+                && secondPairNode.currentMemberAfterNode == .one
+                && stage.effectOutputResource.resourceGeneration == 3
+                && stage.effectOutputResource.publication.requestIdentity
+                    == .graph(output)
+                && stage.effectOutputResource.publication.texture
+                    === admittedComposeLease.table.outputTexture
+                && value.finalResource.publication.isSameAtom(
+                    as: stage.effectOutputResource.publication
+                )
             composeAppended = admittedComposeExecutor.encode(
                 value,
                 commandBuffer: composeBuffer
@@ -2137,6 +2287,10 @@ private enum Harness {
                 && value.stages[0].pairStep.outputMember == .zero
                 && value.finalTexture
                     === admittedComposeLease.table.fullFramePair.first
+            composeReadback = appendReadback(
+                value.finalTexture,
+                commandBuffer: composeBuffer
+            )
         } else {
             composeAppended = false
         }
@@ -2144,6 +2298,10 @@ private enum Harness {
         composeBuffer.waitUntilCompleted()
         let composeEncoded = composeAppended
             && composeBuffer.status == .completed && composeBuffer.error == nil
+        let composePixelsPreserved = composeReadback.map {
+            matches($0.firstPixel, [0, 0, 255, 255])
+                && matches($0.lastPixel, [0, 0, 255, 255])
+        } ?? false
 
         guard let secondFrameBuffer = queue.makeCommandBuffer() else {
             fatalError("second frame buffer unavailable")
@@ -2633,7 +2791,10 @@ private enum Harness {
             "orderedStagesPreservePriorPixelContribution":
                 chainedStagePixelsPreserved,
             "ordinaryComposeRotatesWithinEffectAndReturnsTerminalZero":
-                failureCode(composePreparation) == "success" && composeEncoded,
+                failureCode(composePreparation) == "success"
+                    && composePublicationContract
+                    && composeEncoded
+                    && composePixelsPreserved,
             "secondFramePreviousStateAndResourcesPrepared": failureCode(secondFrame)
                 == "success",
             "secondFrameReusesShaderAndFrontendVariant":
@@ -2705,6 +2866,12 @@ private enum Harness {
                 "swapMismatch": failureCode(swapMismatch),
                 "firstFailedVariant": variantFailureCode(firstFailedVariant),
                 "secondFailedVariant": variantFailureCode(secondFailedVariant),
+            ],
+            "composeDiagnostics": [
+                "failure": failureCode(composePreparation),
+                "publication": String(composePublicationContract),
+                "encoded": String(composeEncoded),
+                "pixels": String(composePixelsPreserved),
             ],
             "mixedKinds": mixedKinds,
             "encodedPixel": encodedRead.firstPixel,

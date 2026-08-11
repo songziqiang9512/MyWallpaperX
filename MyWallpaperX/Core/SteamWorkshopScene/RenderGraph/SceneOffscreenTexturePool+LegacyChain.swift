@@ -84,8 +84,11 @@ extension SceneOffscreenTexturePool {
             ) else { return nil }
             chainPlan = owned
         }
-        guard chainPlan.stages.allSatisfy({
-            $0.pairStep.inputMember != $0.pairStep.outputMember
+        guard zip(stages, chainPlan.stages).allSatisfy({ stage, planned in
+            let aliasesEndpoints = planned.pairStep.inputMember
+                == planned.pairStep.outputMember
+            return aliasesEndpoints
+                == stage.supportsUnifiedFullFrameComposeStage
         }) else { return nil }
         return .init(
             residencyDomainID: residencyDomainID,

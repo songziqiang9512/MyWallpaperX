@@ -13,6 +13,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dedicatedStageFamilies: [Graph.EffectKey: String],
         dedicatedLeafKeys: Set<Graph.EffectKey>,
         dedicatedGraphStageKeys: Set<Graph.EffectKey>,
+        dedicatedFullFrameComposeStageKeys: Set<Graph.EffectKey>,
         maximumVariantsPerMaterial: Int
     ) -> Result<CompiledStages, Rejection> {
         let programsByKey = Dictionary(grouping: dedicatedStagePrograms, by: \.effectKey)
@@ -68,10 +69,24 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     && product.graph.renderTargets.count
                         == program.executionPlan.logicalRenderTargetCount
                     && product.graph.renderTargets.allSatisfy { !$0.declaredUnique }
-                guard pairLeaf || logicalTargetStage,
+                let pairStep = admitted.pairPlan.effects.first {
+                    $0.effect == effect.key
+                }
+                let fullFrameComposeStage =
+                    dedicatedFullFrameComposeStageKeys.contains(effect.key)
+                    && program.executionPlan.supportsUnifiedFullFrameComposeStage
+                    && program.executionPlan.logicalRenderTargetCount == 0
+                    && product.graph.nodes.count == 2
+                    && product.graph.renderTargets.isEmpty
+                    && pairStep?.composeTransitionCount == 1
+                    && pairStep?.fullFrameOutputWriteCount == 2
+                    && pairStep?.inputMember == pairStep?.outputMember
+                guard pairLeaf || logicalTargetStage || fullFrameComposeStage,
                       program.effectKey == effect.key,
                       program.stageGraph.effects.first?.key == effect.key,
-                      admitted.sourceRoute != .capturedMainTargetTexture else {
+                      admitted.sourceRoute != .capturedMainTargetTexture
+                        || (pairLeaf
+                            && program.executionPlan.supportsUtilityCapture) else {
                     return .failure(rejection("dedicated-leaf-unsupported"))
                 }
                 stages.append(.dedicated(

@@ -9,11 +9,34 @@ extension SceneResolvedMaterialGraphExecutor {
         lease: SceneGraphRenderTargetLease,
         sourcePipeline: SceneImageLayerPipeline,
         time: Float,
+        originalSourceTexture: MTLTexture?,
         inputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command]
     ) -> Failure? {
+        let sampleTexture = program.executionPlan.inputRole == .layerSource
+            ? originalSourceTexture ?? pair.resource.publication.texture
+            : pair.resource.publication.texture
+        let sourceSampleExtent = SIMD2<Float>(
+            Float(sampleTexture.width), Float(sampleTexture.height)
+        )
+        if program.executionPlan.supportsUnifiedFullFrameComposeStage {
+            return prepareDedicatedFullFrameComposeStage(
+                program: program,
+                transition: transition,
+                graph: graph,
+                pairStep: pairStep,
+                lease: lease,
+                sourcePipeline: sourcePipeline,
+                time: time,
+                sourceSampleExtent: sourceSampleExtent,
+                inputs: inputs,
+                pair: &pair,
+                publications: &publications,
+                commands: &commands
+            )
+        }
         if program.executionPlan.supportsUnifiedLogicalTargetStage {
             return prepareDedicatedGraphStage(
                 program: program,
@@ -23,6 +46,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 lease: lease,
                 sourcePipeline: sourcePipeline,
                 time: time,
+                sourceSampleExtent: sourceSampleExtent,
                 inputs: inputs,
                 pair: &pair,
                 publications: &publications,
@@ -61,7 +85,8 @@ extension SceneResolvedMaterialGraphExecutor {
                   targets: lease.table,
                   inputs: inputs,
                   sourcePipeline: sourcePipeline,
-                  time: time
+                  time: time,
+                  sourceSampleExtent: sourceSampleExtent
               )
         guard case let .ready(prepared) = stagePreparation else {
             guard case let .rejected(reason) = stagePreparation else {
@@ -79,6 +104,114 @@ extension SceneResolvedMaterialGraphExecutor {
         return nil
     }
 
+    private func prepareDedicatedFullFrameComposeStage(
+        program: SceneEffectStageProgram,
+        transition: State.Transition,
+        graph: Graph,
+        pairStep: Pair.EffectStep,
+        lease: SceneGraphRenderTargetLease,
+        sourcePipeline: SceneImageLayerPipeline,
+        time: Float,
+        sourceSampleExtent: SIMD2<Float>,
+        inputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
+        pair: inout PairAtom,
+        publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
+        commands: inout [Command]
+    ) -> Failure? {
+        guard program.effectKey == pairStep.effect,
+              program.stageGraph.effects.first?.key == pairStep.effect,
+              program.executionPlan.logicalRenderTargetCount == 0,
+              graph.nodes.count == 2,
+              graph.renderTargets.isEmpty,
+              pairStep.nodes.count == 2,
+              pairStep.composeTransitionCount == 1,
+              pairStep.fullFrameOutputWriteCount == 2,
+              pairStep.inputMember == pair.member,
+              pairStep.outputMember == pairStep.inputMember,
+              transition.nextState.historyClosureIdentities.isEmpty,
+              transition.transaction.intents.count == 2,
+              lease.table.plan.logicalTargets.isEmpty,
+              lease.table.inputOutputAliased,
+              lease.table.inputTexture === pair.resource.publication.texture,
+              lease.table.inputTexture === lease.table.outputTexture,
+              lease.table.fullFramePair.first !== lease.table.fullFramePair.second,
+              lease.table.outputTexture === pairTexture(
+                  lease: lease,
+                  member: pairStep.outputMember
+              ) else {
+            return .dedicatedLeafRejected(reason: "full-frame-compose-contract")
+        }
+        let firstNode = graph.nodes[0]
+        let secondNode = graph.nodes[1]
+        let firstPairNode = pairStep.nodes[0]
+        let secondPairNode = pairStep.nodes[1]
+        guard firstNode.compose == .bool(true),
+              secondNode.compose == nil,
+              firstNode.target == pairStep.outputIdentity,
+              secondNode.target == pairStep.outputIdentity,
+              firstNode.bindings.isEmpty,
+              secondNode.bindings.isEmpty,
+              firstPairNode.currentMemberBeforeNode == pair.member,
+              firstPairNode.fullFrameWriteMember == pair.member.opposite,
+              firstPairNode.rotatesAfterNode,
+              firstPairNode.currentMemberAfterNode == pair.member.opposite,
+              secondPairNode.currentMemberBeforeNode == pair.member.opposite,
+              secondPairNode.fullFrameWriteMember == pair.member,
+              !secondPairNode.rotatesAfterNode,
+              secondPairNode.currentMemberAfterNode == pair.member.opposite else {
+            return .dedicatedLeafRejected(reason: "full-frame-compose-topology")
+        }
+        for (node, intent) in zip(graph.nodes, transition.transaction.intents) {
+            guard case let .material(index, ordinal, bindings, target) = intent,
+                  index == node.nodeIndex,
+                  ordinal == node.materialOrdinal,
+                  bindings.isEmpty,
+                  target == nil else {
+                return .dedicatedLeafRejected(reason: "full-frame-compose-intent")
+            }
+        }
+
+        let stagePreparation = SceneAuthoredEffectChainRenderer.prepareStage(
+            program.executionPlan,
+            sourceTexture: pair.resource.publication.texture,
+            targets: lease.table,
+            inputs: inputs,
+            sourcePipeline: sourcePipeline,
+            time: time,
+            sourceSampleExtent: sourceSampleExtent
+        )
+        guard case let .ready(prepared) = stagePreparation else {
+            guard case let .rejected(reason) = stagePreparation else {
+                return .dedicatedLeafRejected(reason: "preparation-invariant")
+            }
+            return .dedicatedLeafRejected(reason: reason)
+        }
+        guard let composeGeneration = nextPairGeneration(),
+              let composePublication = pairResource(
+                  lease: lease,
+                  identity: pairStep.inputIdentity,
+                  member: pair.member.opposite,
+                  generation: composeGeneration,
+                  representation: .premultipliedAlpha
+              ), let outputGeneration = nextPairGeneration(),
+              let outputPublication = pairResource(
+                  lease: lease,
+                  identity: pairStep.outputIdentity,
+                  member: pairStep.outputMember,
+                  generation: outputGeneration,
+                  representation: .premultipliedAlpha
+              ) else { return .graphPublicationRejected }
+        commands.append(.dedicated(prepared))
+        publications[pairStep.inputIdentity] = composePublication
+        publications[pairStep.outputIdentity] = outputPublication
+        pair = .init(
+            member: pairStep.outputMember,
+            resource: outputPublication,
+            representation: .premultipliedAlpha
+        )
+        return nil
+    }
+
     private func prepareDedicatedGraphStage(
         program: SceneEffectStageProgram,
         transition: State.Transition,
@@ -87,6 +220,7 @@ extension SceneResolvedMaterialGraphExecutor {
         lease: SceneGraphRenderTargetLease,
         sourcePipeline: SceneImageLayerPipeline,
         time: Float,
+        sourceSampleExtent: SIMD2<Float>,
         inputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
@@ -129,7 +263,8 @@ extension SceneResolvedMaterialGraphExecutor {
             targets: lease.table,
             inputs: inputs,
             sourcePipeline: sourcePipeline,
-            time: time
+            time: time,
+            sourceSampleExtent: sourceSampleExtent
         )
         guard case let .ready(prepared) = stagePreparation else {
             guard case let .rejected(reason) = stagePreparation else {

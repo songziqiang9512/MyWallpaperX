@@ -223,6 +223,7 @@ struct SceneAuthoredEffectExecutionPlan {
     let opacity: SceneOpacityExecutionPlan?
     var yieldsToResolvedMaterialProgram = false
     var supportsUnifiedLogicalTargetStage = false
+    var supportsUnifiedFullFrameComposeStage = false
     var supportsUtilityCapture = true
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
@@ -542,6 +543,87 @@ private func logicalTargetDescriptor() -> SceneRenderDescriptor {
             .init(id: "m0", materialPath: "materials/m0.json", combos: [:]),
             .init(id: "m1", materialPath: "materials/m1.json", combos: [:]),
         ],
+        effectDefinitions: [.init(
+            relativePath: "effects/blurprecise/effect.json",
+            functions: nil
+        )]
+    )
+}
+
+private func fullFrameComposeGraph(
+    compose: SceneJSONValue? = .bool(true),
+    includeHistory: Bool = false,
+    includeThirdNode: Bool = false
+) -> Graph {
+    let graphInput = source()
+    let graphOutput = output(firstKey)
+    let history = framebuffer(firstKey, "compose-history")
+    func node(
+        _ index: Int,
+        compose: SceneJSONValue?,
+        bindings: [Graph.Binding] = []
+    ) -> Graph.Node {
+        .init(
+            nodeIndex: index,
+            effect: firstKey,
+            definitionPassIndex: index,
+            materialOrdinal: index,
+            instancePassIndex: index,
+            kind: .material,
+            materialPath: "materials/m\(index).json",
+            materialPassID: "m\(index)",
+            target: graphOutput,
+            bindings: bindings,
+            commandSource: nil,
+            commandTarget: nil,
+            compose: compose,
+            conditions: nil
+        )
+    }
+    var nodes = [
+        node(0, compose: compose),
+        node(1, compose: nil, bindings: includeHistory ? [binding(history)] : []),
+    ]
+    if includeThirdNode {
+        nodes.append(node(2, compose: nil))
+    }
+    return .init(
+        layerID: layerID,
+        effects: [.init(
+            key: firstKey,
+            definitionPath: "effects/blurprecise/effect.json",
+            input: graphInput,
+            output: graphOutput,
+            nodeIndices: nodes.map(\.nodeIndex)
+        )],
+        renderTargets: includeHistory ? [target(history, unique: true)] : [],
+        nodes: nodes,
+        finalOutput: graphOutput,
+        blockers: []
+    )
+}
+
+private func fullFrameComposeDescriptor(
+    capturedMain: Bool = false,
+    passCount: Int = 2
+) -> SceneRenderDescriptor {
+    .init(
+        layers: [.init(
+            id: layerID,
+            effects: [.init(
+                id: firstKey.descriptorID,
+                file: "effects/blurprecise/effect.json",
+                visible: true,
+                passes: (0 ..< passCount).map {
+                    .init(passIndex: $0, combos: [:])
+                }
+            )],
+            contentKind: capturedMain ? "composition" : "image",
+            utilityLayer: capturedMain ? .init(kind: .composition) : nil
+        )],
+        materialPasses: (0 ..< passCount).map {
+            .init(id: "m\($0)", materialPath: "materials/m\($0).json", combos: [:])
+        },
         effectDefinitions: [.init(
             relativePath: "effects/blurprecise/effect.json",
             functions: nil
@@ -882,7 +964,9 @@ private func dedicatedProgram(
     inputRole: SceneAuthoredEffectInputRole,
     opacity: Bool = false,
     tint: Bool = false,
-    logicalTargetStage: Bool = false
+    logicalTargetStage: Bool = false,
+    fullFrameComposeStage: Bool = false,
+    supportsUtilityCapture: Bool = false
 ) -> SceneEffectStageProgram {
     let effect = graph.effects[effectIndex]
     let nodes = graph.nodes.filter { $0.effect == effect.key }
@@ -906,7 +990,9 @@ private func dedicatedProgram(
             cursorRipple: nil,
             opacity: opacity ? .init() : nil,
             yieldsToResolvedMaterialProgram: opacity || tint,
-            supportsUnifiedLogicalTargetStage: logicalTargetStage
+            supportsUnifiedLogicalTargetStage: logicalTargetStage,
+            supportsUnifiedFullFrameComposeStage: fullFrameComposeStage,
+            supportsUtilityCapture: supportsUtilityCapture
         )
     )
 }
@@ -1090,6 +1176,33 @@ private func catalog(
         admissionCandidates: candidates,
         materialCatalog: materials,
         dynamicProducers: dynamicProducers
+    )
+}
+
+private func fullFrameComposeCatalog(
+    graph: Graph,
+    descriptor: SceneRenderDescriptor,
+    allowDedicated: Bool
+) -> Catalog {
+    let program = dedicatedProgram(
+        graph: graph,
+        effectIndex: 0,
+        inputRole: .layerSource,
+        fullFrameComposeStage: true
+    )
+    let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+        descriptor: descriptor,
+        authoredPlans: [graph],
+        dedicatedStagePrograms: [program]
+    )
+    return .init(
+        admissionCandidates: candidates,
+        materialCatalog: materialCatalog(
+            graph: graph,
+            demandIssueNodes: Set(graph.nodes.map(\.nodeIndex))
+        ),
+        dedicatedStageFamilies: [firstKey: "precise-gaussian"],
+        dedicatedFullFrameComposeStageKeys: allowDedicated ? [firstKey] : []
     )
 }
 
@@ -1287,11 +1400,37 @@ private enum Harness {
                     graph: utilityPairGraph,
                     effectIndex: 1,
                     inputRole: .priorEffectOutput,
-                    opacity: true
+                    opacity: true,
+                    supportsUtilityCapture: true
                 )]
             )
         let utilityAdapterCatalog = Catalog(
             admissionCandidates: utilityAdapterCandidates,
+            materialCatalog: materialCatalog(
+                graph: utilityPairGraph,
+                omitNode: 1,
+                uniformsByNode: [0: [
+                    .init(name: "g_AudioSpectrum16Left", value: .staticExact),
+                ]]
+            ),
+            dedicatedStageFamilies: [secondKey: "opacity"],
+            dedicatedLeafKeys: [secondKey]
+        )
+        let utilityAdapterCapability = utilityAdapterCatalog.claim(layerID: layerID)
+            .flatMap { utilityAdapterCatalog.resolve($0.token) }
+        let unsupportedUtilityAdapterCandidates =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: utilityPairDescriptor,
+                authoredPlans: [utilityPairGraph],
+                dedicatedStagePrograms: [dedicatedProgram(
+                    graph: utilityPairGraph,
+                    effectIndex: 1,
+                    inputRole: .priorEffectOutput,
+                    opacity: true
+                )]
+            )
+        let unsupportedUtilityAdapterCatalog = Catalog(
+            admissionCandidates: unsupportedUtilityAdapterCandidates,
             materialCatalog: materialCatalog(
                 graph: utilityPairGraph,
                 omitNode: 1,
@@ -1615,6 +1754,45 @@ private enum Harness {
             dedicatedStageFamilies: [firstKey: "precise-gaussian"],
             dedicatedGraphStageKeys: [firstKey]
         )
+        let composeGraph = fullFrameComposeGraph()
+        let composeDescriptor = fullFrameComposeDescriptor()
+        let admittedComposeCatalog = fullFrameComposeCatalog(
+            graph: composeGraph,
+            descriptor: composeDescriptor,
+            allowDedicated: true
+        )
+        let fullFrameComposeWithoutAllowlist = fullFrameComposeCatalog(
+            graph: composeGraph,
+            descriptor: composeDescriptor,
+            allowDedicated: false
+        )
+        let capturedMainComposeCatalog = fullFrameComposeCatalog(
+            graph: composeGraph,
+            descriptor: fullFrameComposeDescriptor(capturedMain: true),
+            allowDedicated: true
+        )
+        let historyComposeGraph = fullFrameComposeGraph(includeHistory: true)
+        let historyComposeCatalog = fullFrameComposeCatalog(
+            graph: historyComposeGraph,
+            descriptor: fullFrameComposeDescriptor(),
+            allowDedicated: true
+        )
+        let missingComposeGraph = fullFrameComposeGraph(compose: nil)
+        let missingComposeCatalog = fullFrameComposeCatalog(
+            graph: missingComposeGraph,
+            descriptor: fullFrameComposeDescriptor(),
+            allowDedicated: true
+        )
+        let extraNodeComposeGraph = fullFrameComposeGraph(includeThirdNode: true)
+        let extraNodeComposeCatalog = fullFrameComposeCatalog(
+            graph: extraNodeComposeGraph,
+            descriptor: fullFrameComposeDescriptor(passCount: 3),
+            allowDedicated: true
+        )
+        let fullFrameComposeCapability = admittedComposeCatalog
+            .claim(layerID: layerID)
+            .flatMap { admittedComposeCatalog.resolve($0.token) }
+        let fullFrameComposeStep = fullFrameComposeCapability?.pairPlan.effects.first
 
         let firstProduct = capability.admittedProducts[0]
         let result: [String: Any] = [
@@ -1793,6 +1971,30 @@ private enum Harness {
                     uniqueLogicalCatalog,
                     "dedicated-leaf-unsupported"
                 ) && uniqueLogicalCatalog.claim(layerID: layerID) == nil,
+                "fullFrameComposeStageAccepted":
+                    fullFrameComposeCapability != nil,
+                "fullFrameComposeStageContract":
+                    fullFrameComposeCapability?.stages.count == 1
+                    && fullFrameComposeCapability?.materials.isEmpty == true
+                    && fullFrameComposeStep?.nodes.count == 2
+                    && fullFrameComposeStep?.composeTransitionCount == 1
+                    && fullFrameComposeStep?.fullFrameOutputWriteCount == 2
+                    && fullFrameComposeStep?.inputMember
+                        == fullFrameComposeStep?.outputMember,
+                "fullFrameComposeStageRequiresAllowlist": reportHas(
+                    fullFrameComposeWithoutAllowlist,
+                    "dedicated-leaf-unsupported"
+                ) && fullFrameComposeWithoutAllowlist.claim(layerID: layerID) == nil,
+                "fullFrameComposeStageRejectsCapturedMain": reportHas(
+                    capturedMainComposeCatalog,
+                    "dedicated-leaf-unsupported"
+                ) && capturedMainComposeCatalog.claim(layerID: layerID) == nil,
+                "fullFrameComposeStageRejectsHistory":
+                    historyComposeCatalog.claim(layerID: layerID) == nil,
+                "fullFrameComposeStageRejectsMissingCompose":
+                    missingComposeCatalog.claim(layerID: layerID) == nil,
+                "fullFrameComposeStageRejectsExtraNode":
+                    extraNodeComposeCatalog.claim(layerID: layerID) == nil,
                 "userPropertyLiveTarget":
                     validUserPropertyCatalog.liveConsumerTargets
                     == Set([dynamicTarget()]),
@@ -1818,10 +2020,22 @@ private enum Harness {
                     nonAudioUtilityCatalog,
                     "utility-source-program-unsupported"
                 ) && nonAudioUtilityCatalog.claim(layerID: layerID) == nil,
-                "utilityAdapterRejected": reportHas(
-                    utilityAdapterCatalog,
+                "utilityAdapterAccepted":
+                    utilityAdapterCapability != nil,
+                "utilityAdapterContract": utilityAdapterCapability.map { capability in
+                    let subjects = capability.stages.compactMap(\.subject)
+                    return capability.sourceRoute == .capturedMainTargetTexture
+                        && subjects.map(\.key) == [firstKey, secondKey]
+                        && subjects.map(\.family) == ["resolved-material", "opacity"]
+                        && capability.stages.count == 2
+                        && capability.materials.keys.allSatisfy {
+                            $0.effect == firstKey
+                        }
+                } ?? false,
+                "utilityAdapterRejectsUnsupportedCapture": reportHas(
+                    unsupportedUtilityAdapterCatalog,
                     "dedicated-leaf-unsupported"
-                ) && utilityAdapterCatalog.claim(layerID: layerID) == nil,
+                ) && unsupportedUtilityAdapterCatalog.claim(layerID: layerID) == nil,
                 "utilityKindMismatch": admissionRejects(
                     descriptor(utilityLayer: "composition"),
                     raw: raw,
@@ -1941,6 +2155,7 @@ struct SceneAuthoredEffectExecutionPlan {
     let opacity: SceneOpacityExecutionPlan?
     var yieldsToResolvedMaterialProgram = false
     var supportsUnifiedLogicalTargetStage = false
+    var supportsUnifiedFullFrameComposeStage = false
     var supportsUtilityCapture = true
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
@@ -1962,7 +2177,17 @@ struct SceneGraphAdmissionProduct {
     let graph: SceneAuthoredEffectRenderPlan
 }
 
-struct SceneLayerFullFramePairPlan {}
+struct SceneLayerFullFramePairPlan {
+    struct EffectStep {
+        let effect: SceneAuthoredEffectRenderPlan.EffectKey
+        let composeTransitionCount: Int
+        let fullFrameOutputWriteCount: Int
+        let inputMember: Int
+        let outputMember: Int
+    }
+
+    let effects: [EffectStep] = []
+}
 
 struct SceneResolvedMaterialAdmittedLayer {
     enum SourceRoute: Equatable {
@@ -3167,6 +3392,24 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("dedicatedLeafKeys.contains(effect.key)", program_first)
         self.assertIn("dedicatedGraphStageKeys.contains(effect.key)", program_first)
         self.assertIn("supportsUnifiedLogicalTargetStage", program_first)
+        self.assertIn(
+            "dedicatedFullFrameComposeStageKeys.contains(effect.key)",
+            program_first,
+        )
+        self.assertIn("supportsUnifiedFullFrameComposeStage", program_first)
+        self.assertIn("product.graph.nodes.count == 2", program_first)
+        self.assertIn("product.graph.renderTargets.isEmpty", program_first)
+        self.assertIn("pairStep?.composeTransitionCount == 1", program_first)
+        self.assertIn("pairStep?.fullFrameOutputWriteCount == 2", program_first)
+        self.assertIn(
+            "admitted.sourceRoute != .capturedMainTargetTexture",
+            program_first,
+        )
+        self.assertIn(
+            "pairLeaf\n                            "
+            "&& program.executionPlan.supportsUtilityCapture",
+            program_first,
+        )
 
     def test_runtime_variant_resolution_starts_from_launch_envelope_seed(
         self,
@@ -3223,9 +3466,97 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             launch.count("SceneTimelineTargetCompiler.compile("),
             1,
         )
+        raw_visibility_census = (
+            "model.sceneDocument.userPropertyResolution.bindingReport.bindings"
+        )
+        executable_visibility_census = (
+            "runtimeInput.propertyBindingProgram.definitions"
+        )
+        compact_launch = "".join(launch.split())
+        self.assertIn(raw_visibility_census, compact_launch)
+        self.assertIn(executable_visibility_census, compact_launch)
+        self.assertLess(
+            compact_launch.index(raw_visibility_census),
+            compact_launch.index(executable_visibility_census),
+        )
+        raw_visibility_owner_source = compact_launch[
+            compact_launch.index(raw_visibility_census) : compact_launch.index(
+                executable_visibility_census
+            )
+        ]
+        self.assertIn("caselet.effectVisibility", raw_visibility_owner_source)
+        self.assertIn("binding.target", raw_visibility_owner_source)
         self.assertIn(
-            "runtimeInput.propertyBindingProgram.definitions",
-            launch,
+            "rawRebuildEffectVisibilityOwners.insert",
+            raw_visibility_owner_source,
+        )
+        self.assertNotIn(
+            "dynamicEffectVisibilityOwners.insert",
+            raw_visibility_owner_source,
+        )
+        self.assertNotIn("effects/xray", raw_visibility_owner_source.lower())
+        full_frame_keys = "letdedicatedFullFrameComposeStageKeys="
+        full_frame_layers = "letdedicatedFullFrameComposeLayerIDs="
+        scoped_raw_merge = "dynamicEffectVisibilityOwners.formUnion("
+        self.assertIn(full_frame_keys, compact_launch)
+        self.assertIn(full_frame_layers, compact_launch)
+        self.assertIn(scoped_raw_merge, compact_launch)
+        self.assertLess(
+            compact_launch.index(full_frame_keys),
+            compact_launch.index(full_frame_layers),
+        )
+        self.assertLess(
+            compact_launch.index(full_frame_layers),
+            compact_launch.index(scoped_raw_merge),
+        )
+        scoped_raw_source = compact_launch[
+            compact_launch.index(scoped_raw_merge) : compact_launch.index(
+                "letresolvedMaterialAdmissionCandidates="
+            )
+        ]
+        self.assertIn(
+            "rawRebuildEffectVisibilityOwners.filter",
+            scoped_raw_source,
+        )
+        self.assertIn(
+            "dedicatedFullFrameComposeLayerIDs.contains($0.layerID)",
+            scoped_raw_source,
+        )
+        executable_visibility_source = compact_launch[
+            compact_launch.index(executable_visibility_census) : compact_launch.index(
+                "forbindingintimelineProgram.bindings"
+            )
+        ]
+        timeline_visibility_source = compact_launch[
+            compact_launch.index("forbindingintimelineProgram.bindings") :
+            compact_launch.index("forbindinginmodel.sceneDocument.scriptBindings")
+        ]
+        script_visibility_source = compact_launch[
+            compact_launch.index("forbindinginmodel.sceneDocument.scriptBindings") :
+            compact_launch.index("letdedicatedStageLeaves=")
+        ]
+        for global_visibility_source in (
+            executable_visibility_source,
+            timeline_visibility_source,
+            script_visibility_source,
+        ):
+            self.assertIn(
+                "dynamicEffectVisibilityOwners.insert",
+                global_visibility_source,
+            )
+            self.assertNotIn(
+                "rawRebuildEffectVisibilityOwners.insert",
+                global_visibility_source,
+            )
+        admission_visibility_source = compact_launch[
+            compact_launch.index("letresolvedMaterialAdmissionCandidates=") :
+            compact_launch.index(
+                "letresolvedMaterialCatalog=SceneResolvedMaterialRuntimeCatalog("
+            )
+        ]
+        self.assertIn(
+            "dynamicEffectVisibilityOwners:dynamicEffectVisibilityOwners",
+            admission_visibility_source,
         )
         self.assertIn("timelineProgram.bindings", launch)
         self.assertIn("let timeOfDayEffectScriptCandidates =", launch)
@@ -3454,13 +3785,22 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "logicalTargetStageAccepted": True,
                 "logicalTargetStageRequiresAllowlist": True,
                 "logicalTargetStageRejectsHistory": True,
+                "fullFrameComposeStageAccepted": True,
+                "fullFrameComposeStageContract": True,
+                "fullFrameComposeStageRequiresAllowlist": True,
+                "fullFrameComposeStageRejectsCapturedMain": True,
+                "fullFrameComposeStageRejectsHistory": True,
+                "fullFrameComposeStageRejectsMissingCompose": True,
+                "fullFrameComposeStageRejectsExtraNode": True,
                 "userPropertyLiveTarget": True,
                 "routeUnavailable": True,
                 "hiddenParent": True,
                 "unsupportedContent": True,
                 "utilityCapture": True,
                 "utilityNonAudioRejected": True,
-                "utilityAdapterRejected": True,
+                "utilityAdapterAccepted": True,
+                "utilityAdapterContract": True,
+                "utilityAdapterRejectsUnsupportedCapture": True,
                 "utilityKindMismatch": True,
                 "utilityChildren": True,
                 "legacyDependency": True,
@@ -3473,6 +3813,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "selfReferenceAuthoredExtra": True,
                 "specializedOwner": True,
             },
+            payload,
         )
 
     def test_catalog_preloads_unconditional_seed_defaults_without_promoting_reachability(

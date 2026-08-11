@@ -248,6 +248,8 @@ final class SceneResolvedMaterialGraphExecutor {
                 frame: frame,
                 sourcePipeline: sourcePipeline,
                 time: dedicatedInputs.time,
+                originalSourceTexture: index == capability.stages.startIndex
+                    ? sourceTexture : nil,
                 dedicatedInputs: dedicatedInputs,
                 pair: &pair,
                 publications: &publications,

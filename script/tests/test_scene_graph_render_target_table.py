@@ -39,6 +39,7 @@ struct SceneAuthoredEffectExecutionPlan {
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
     var cursorRipple: SceneCursorRippleExecutionPlan? { nil }
+    var supportsUnifiedFullFrameComposeStage: Bool { false }
 }
 
 @main

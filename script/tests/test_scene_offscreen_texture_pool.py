@@ -66,6 +66,7 @@ struct SceneAuthoredEffectExecutionPlan {
         renderGraph.effects.first?.definitionPath.contains("/direct/") == true ? 1 : nil
     }
     var cursorRipple: SceneCursorRippleExecutionPlan? { nil }
+    var supportsUnifiedFullFrameComposeStage: Bool { false }
 }
 
 struct SceneAuthoredEffectExecutionChain {
