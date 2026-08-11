@@ -217,6 +217,7 @@ enum Harness {
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42_a")?.variant.rawValue ?? "nil",
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42_b")?.variant.rawValue ?? "nil",
         ]
+        let legacyNoiseBinding = plan.bindingsByConsumerLayerID[31]
         let result: [String: Any] = [
             "parsedVariants": parsed,
             "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
@@ -231,6 +232,26 @@ enum Harness {
             "issues": plan.issues.map { "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)" },
             "matrixBindingCount": matrixPlan.bindingsByConsumerLayerID.count,
             "matrixRequiredProviders": matrixPlan.requiredProviderLayerIDs.sorted(),
+            "legacyNoiseBinding": [
+                "consumer": legacyNoiseBinding?.consumerLayerID ?? -1,
+                "provider": legacyNoiseBinding?.providerLayerID ?? -1,
+                "effect": legacyNoiseBinding?.slot.effectID ?? "",
+                "pass": legacyNoiseBinding?.slot.passIndex ?? -1,
+                "slot": legacyNoiseBinding?.slot.slotIndex ?? -1,
+                "blend": legacyNoiseBinding?.blendMode ?? -1,
+                "procedural": legacyNoiseBinding?.kind == .proceduralNoiseLayer,
+            ],
+            "legacyNoiseRejects": [
+                "modern": proceduralBinding(effectPath: "effects/procedural_noise/effect.json") == nil,
+                "visibleProvider": proceduralBinding(providerVisible: true) == nil,
+                "wrongProviderKind": proceduralBinding(providerContentKind: "image") == nil,
+                "secondary": proceduralBinding(variantSuffix: "b") == nil,
+                "wrongEffect": proceduralBinding(effectPath: "effects/workshop/other/procedural_noise/effect.json") == nil,
+                "wrongPass": proceduralBinding(passIndex: 1) == nil,
+                "wrongSlot": proceduralBinding(slotIndex: 2) == nil,
+                "wrongCombos": proceduralBinding(extraCombos: ["BLENDMODE": 5]) == nil,
+                "extraReference": proceduralBinding(extraReference: true) == nil,
+            ],
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -344,25 +365,89 @@ enum Harness {
 
     static func proceduralNoiseEffect(
         id: Int,
-        provider: Int
+        provider: Int,
+        effectPath: String = "effects/workshop/2924967132/procedural_noise/effect.json",
+        passIndex: Int = 0,
+        slotIndex: Int = 3,
+        variantSuffix: String = "a",
+        extraCombos: [String: Int] = [:],
+        extraReference: Bool = false
     ) -> SceneRenderDescriptor.EffectDescriptor {
-        let path = "_rt_imageLayerComposite_\(provider)_a"
+        let path = "_rt_imageLayerComposite_\(provider)_\(variantSuffix)"
+        var slots = Array<String?>(repeating: nil, count: 4)
+        slots[slotIndex] = path
+        if extraReference {
+            slots[1] = "_rt_imageLayerComposite_\(provider)_a"
+        }
+        var combos = [
+            "AB_TYPECOLOR": 3,
+            "PERSPSWITCH": 1,
+            "WRITEALPHA": 1,
+        ]
+        combos.merge(extraCombos) { _, new in new }
         return .init(
             id: "\(id)#effect#noise",
-            file: "effects/workshop/2924967132/procedural_noise/effect.json",
+            file: effectPath,
             visible: true,
             passes: [.init(
-                passIndex: 0,
-                texturePaths: [path],
-                textureSlots: [nil, nil, nil, path],
-                combos: [
-                    "AB_TYPECOLOR": 3,
-                    "PERSPSWITCH": 1,
-                    "WRITEALPHA": 1,
-                ],
+                passIndex: passIndex,
+                texturePaths: extraReference
+                    ? [path, "_rt_imageLayerComposite_\(provider)_a"] : [path],
+                textureSlots: slots,
+                combos: combos,
                 constantShaderValues: [:]
             )]
         )
+    }
+
+    static func proceduralBinding(
+        providerVisible: Bool? = false,
+        providerContentKind: String = "solid",
+        effectPath: String = "effects/workshop/2924967132/procedural_noise/effect.json",
+        passIndex: Int = 0,
+        slotIndex: Int = 3,
+        variantSuffix: String = "a",
+        extraCombos: [String: Int] = [:],
+        extraReference: Bool = false
+    ) -> SceneDependencyRenderPlan.Binding? {
+        let providerID = 90
+        let consumerID = 91
+        let provider = SceneRenderDescriptor.Layer(
+            id: providerID,
+            contentKind: providerContentKind,
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: providerVisible,
+            effects: []
+        )
+        let consumer = SceneRenderDescriptor.Layer(
+            id: consumerID,
+            contentKind: "composition",
+            utilityLayer: .init(kind: .composition),
+            dependencyLayerIDs: [providerID],
+            childLayerIDs: [],
+            visible: true,
+            effects: [proceduralNoiseEffect(
+                id: consumerID,
+                provider: providerID,
+                effectPath: effectPath,
+                passIndex: passIndex,
+                slotIndex: slotIndex,
+                variantSuffix: variantSuffix,
+                extraCombos: extraCombos,
+                extraReference: extraReference
+            )]
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [provider, consumer],
+            renderOrderLayerIDs: [providerID, consumerID]
+        )
+        return SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: [consumerID],
+            executableUtilityConsumerLayerIDs: [consumerID]
+        ).bindingsByConsumerLayerID[consumerID]
     }
 }
 '''
@@ -437,6 +522,21 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
     def test_matrix_shape_keeps_hidden_consumer_out_of_runtime_liveness(self) -> None:
         self.assertEqual(self.result["matrixBindingCount"], 7)
         self.assertEqual(self.result["matrixRequiredProviders"], [10, 11, 12, 13, 14, 15])
+
+    def test_exact_legacy_procedural_dependency_is_typed_and_fail_closed(self) -> None:
+        self.assertEqual(
+            self.result["legacyNoiseBinding"],
+            {
+                "consumer": 31,
+                "provider": 30,
+                "effect": "31#effect#noise",
+                "pass": 0,
+                "slot": 3,
+                "blend": 0,
+                "procedural": True,
+            },
+        )
+        self.assertTrue(all(self.result["legacyNoiseRejects"].values()))
 
 if __name__ == "__main__":
     unittest.main()

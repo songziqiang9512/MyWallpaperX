@@ -193,11 +193,10 @@ extension SceneAuthoredEffectChainRenderer {
         case .workshopShadow:
             return pipelines.workshopShadow == nil ? "shadow-pipeline-missing" : nil
         case .proceduralNoise(let plan):
-            let dependencyReady = plan.dependencySlotIndex.map {
-                $0 == 3 && inputs.dependencyEffect?.slotIndex == $0
-                    && inputs.dependencyEffect?.blendMode == 0
-            } ?? (inputs.dependencyEffect == nil)
-            guard dependencyReady else { return "procedural-noise-dependency-missing" }
+            guard proceduralNoiseDependencyMatches(
+                inputs.dependencyEffect,
+                plan: plan
+            ) else { return "procedural-noise-dependency-missing" }
             return pipelines.proceduralNoise == nil
                 ? "procedural-noise-pipeline-missing" : nil
         case .filmGrain(let plan):

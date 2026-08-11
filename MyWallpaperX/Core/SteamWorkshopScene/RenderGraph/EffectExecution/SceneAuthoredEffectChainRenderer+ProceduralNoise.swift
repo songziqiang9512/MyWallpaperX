@@ -14,19 +14,8 @@ extension SceneAuthoredEffectChainRenderer {
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
-        let layerTexture: MTLTexture?
-        if let slotIndex = noise.dependencySlotIndex {
-            guard slotIndex == 3,
-                  dependencyEffect?.slotIndex == slotIndex,
-                  dependencyEffect?.blendMode == 0 else {
-                return nil
-            }
-            layerTexture = dependencyEffect?.texture
-        } else {
-            guard dependencyEffect == nil else { return nil }
-            layerTexture = nil
-        }
-        guard noise.layerID == noise.renderGraph.layerID,
+        guard proceduralNoiseDependencyMatches(dependencyEffect, plan: noise),
+              noise.layerID == noise.renderGraph.layerID,
               targets.plan.logicalTargets.isEmpty,
               SceneOffscreenEffectRenderer.captureSource(
                   sourceTexture: sourceTexture,
@@ -40,7 +29,7 @@ extension SceneAuthoredEffectChainRenderer {
               ),
               noisePipeline.encode(
                   source: targets.inputTexture,
-                  layerTexture: layerTexture,
+                  layerTexture: dependencyEffect?.texture,
                   target: targets.outputTexture,
                   uniforms: .init(
                       scale: noise.scale,
@@ -72,5 +61,38 @@ extension SceneAuthoredEffectChainRenderer {
             return nil
         }
         return targets.outputTexture
+    }
+
+    static func proceduralNoiseDependencyMatches(
+        _ input: SceneDependencyEffectInput?,
+        plan: SceneProceduralNoiseExecutionPlan
+    ) -> Bool {
+        guard plan.effectKey.layerID == plan.layerID,
+              plan.renderGraph.layerID == plan.layerID,
+              plan.renderGraph.effects.count == 1,
+              plan.renderGraph.effects.first?.key == plan.effectKey,
+              plan.renderGraph.nodes.count == 1,
+              plan.renderGraph.nodes.first?.effect == plan.effectKey,
+              plan.renderGraph.nodes.first?.instancePassIndex == 0 else {
+            return false
+        }
+        switch (plan.dependencyProviderLayerID, plan.dependencySlotIndex) {
+        case (nil, nil):
+            return input == nil
+        case (let providerLayerID?, 3):
+            guard plan.variant == .legacyWorleyColor,
+                  let input,
+                  input.consumerLayerID == plan.layerID,
+                  input.providerLayerID == providerLayerID,
+                  input.variant == .primary,
+                  input.slot.effectID == plan.effectKey.descriptorID,
+                  input.slot.passIndex == 0,
+                  input.slot.slotIndex == 3,
+                  input.blendMode == 0,
+                  input.frameEpoch > 0 else { return false }
+            return true
+        default:
+            return false
+        }
     }
 }

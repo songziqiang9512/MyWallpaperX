@@ -88,7 +88,8 @@ enum SceneAuthoredProceduralNoisePlanner {
             depthFade: parsed.depthFade,
             perspective01: parsed.perspective01,
             perspective23: parsed.perspective23,
-            dependencySlotIndex: instance.dependencyPath == nil ? nil : 3
+            dependencyProviderLayerID: instance.dependencyProviderLayerID,
+            dependencySlotIndex: instance.dependencyProviderLayerID == nil ? nil : 3
         )
     }
 
@@ -178,7 +179,8 @@ enum SceneAuthoredProceduralNoisePlanner {
         profile: ShaderProfile
     ) -> (
         pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
-        dependencyPath: String?
+        dependencyPath: String?,
+        dependencyProviderLayerID: Int?
     )? {
         guard layer.effects.indices.contains(effect.key.effectIndex) else { return nil }
         let descriptor = layer.effects[effect.key.effectIndex]
@@ -194,7 +196,7 @@ enum SceneAuthoredProceduralNoisePlanner {
         switch profile {
         case .modern:
             guard pass.texturePaths.isEmpty, pass.textureSlots.isEmpty else { return nil }
-            return (pass, nil)
+            return (pass, nil, nil)
         case .legacyWorleyColor:
             guard pass.texturePaths.count == 1,
                   pass.textureSlots.count == 4,
@@ -206,7 +208,7 @@ enum SceneAuthoredProceduralNoisePlanner {
                   layer.dependencyLayerIDs == [reference.providerLayerID] else {
                 return nil
             }
-            return (pass, path)
+            return (pass, path, reference.providerLayerID)
         }
     }
 

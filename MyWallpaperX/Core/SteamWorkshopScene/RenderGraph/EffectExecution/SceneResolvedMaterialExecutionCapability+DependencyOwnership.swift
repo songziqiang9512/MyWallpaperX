@@ -63,9 +63,16 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
         }
 
         if let binding {
-            guard binding.kind == .clippingMask,
+            let supportedBinding = switch binding.kind {
+            case .clippingMask:
+                binding.slot.slotIndex == 1
+            case .proceduralNoiseLayer:
+                binding.slot.passIndex == 0
+                    && binding.slot.slotIndex == 3
+                    && binding.blendMode == 0
+            }
+            guard supportedBinding,
                   binding.consumerLayerID == layer.id,
-                  binding.slot.slotIndex == 1,
                   layer.authoredDependencies.isEmpty,
                   layer.dependencyLayerIDs == [binding.providerLayerID],
                   references.count == 1,

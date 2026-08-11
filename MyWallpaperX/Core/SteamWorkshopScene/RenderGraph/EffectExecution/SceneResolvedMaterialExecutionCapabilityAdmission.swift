@@ -182,7 +182,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 break
             case let .externalPrimary(binding):
                 guard binding.consumerLayerID == layer.id,
-                      binding.kind == .clippingMask else {
+                      binding.kind == .clippingMask
+                        || binding.kind == .proceduralNoiseLayer else {
                     return .failure(failure("execution-route-utility-shape"))
                 }
             case .graphInternal:

@@ -120,6 +120,7 @@ struct SceneProceduralNoiseExecutionPlan: Sendable {
     }
 
     let variant: Variant
+    let dependencyProviderLayerID: Int?
     let dependencySlotIndex: Int?
 }
 struct SceneFilmGrainExecutionPlan: Sendable {}

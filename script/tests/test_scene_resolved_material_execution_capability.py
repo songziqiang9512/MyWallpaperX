@@ -119,6 +119,7 @@ struct SceneEffectStageProgram {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let stageGraph: SceneAuthoredEffectRenderPlan
     let executionPlan: SceneAuthoredEffectExecutionPlan
+    var inputRole: SceneAuthoredEffectInputRole { executionPlan.inputRole }
 }
 
 struct SceneUtilityLayer {
@@ -247,6 +248,13 @@ struct SceneCursorRippleExecutionPlan {
 
 struct SceneOpacityExecutionPlan {}
 struct SceneProceduralNoiseExecutionPlan {
+    enum Variant { case colorPerlinRGB, legacyWorleyColor }
+
+    let layerID: Int
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let variant: Variant
+    let dependencyProviderLayerID: Int?
     let dependencySlotIndex: Int?
 }
 struct SceneClippingMaskExecutionPlan {
@@ -977,6 +985,25 @@ private func externalClippingGraph(includeOpacity: Bool = false) -> Graph {
     )
 }
 
+private func externalProceduralGraph() -> Graph {
+    let base = externalClippingGraph()
+    let effect = base.effects[0]
+    return .init(
+        layerID: base.layerID,
+        effects: [.init(
+            key: effect.key,
+            definitionPath: "effects/workshop/2924967132/procedural_noise/effect.json",
+            input: effect.input,
+            output: effect.output,
+            nodeIndices: effect.nodeIndices
+        )],
+        renderTargets: base.renderTargets,
+        nodes: base.nodes,
+        finalOutput: base.finalOutput,
+        blockers: base.blockers
+    )
+}
+
 private func externalClippingDescriptor(
     utilityConsumer: Bool = false,
     includeOpacity: Bool = false,
@@ -1108,6 +1135,109 @@ private func externalClippingCatalog(
     )
 }
 
+private func externalProceduralDescriptor(
+    dependencyLayerIDs: [Int] = [providerLayerID],
+    authoredDependencies: [Int] = [],
+    references: [SceneDependencyRenderPlan.Reference]? = nil,
+    bindings: [SceneDependencyRenderPlan.Binding]? = nil
+) -> SceneRenderDescriptor {
+    .init(
+        layers: [
+            .init(
+                id: providerLayerID,
+                effects: [],
+                contentKind: "solid",
+                visible: false
+            ),
+            .init(
+                id: layerID,
+                effects: [.init(
+                    id: firstKey.descriptorID,
+                    file: "effects/workshop/2924967132/procedural_noise/effect.json",
+                    visible: true,
+                    passes: [.init(passIndex: 0, combos: [:])]
+                )],
+                contentKind: "composition",
+                utilityLayer: .init(kind: .composition),
+                dependencyLayerIDs: dependencyLayerIDs,
+                authoredDependencies: authoredDependencies,
+                namedReferences: references ?? [namedReference(
+                    effectID: firstKey.descriptorID,
+                    providerLayerID: providerLayerID,
+                    slotIndex: 3
+                )],
+                namedBindings: bindings ?? [dependencyBinding(
+                    effectID: firstKey.descriptorID,
+                    providerLayerID: providerLayerID,
+                    slotIndex: 3,
+                    kind: .proceduralNoiseLayer
+                )]
+            ),
+        ],
+        materialPasses: [
+            .init(id: "m0", materialPath: "materials/m0.json", combos: [:]),
+        ],
+        effectDefinitions: [
+            .init(
+                relativePath: "effects/workshop/2924967132/procedural_noise/effect.json",
+                functions: nil
+            ),
+        ]
+    )
+}
+
+private func proceduralProgram(
+    graph: Graph,
+    provider: Int? = providerLayerID,
+    variant: SceneProceduralNoiseExecutionPlan.Variant = .legacyWorleyColor,
+    slotIndex: Int? = 3,
+    inputRole: SceneAuthoredEffectInputRole = .layerSource,
+    supportsUtilityCapture: Bool = true
+) -> SceneEffectStageProgram {
+    let effect = graph.effects[0]
+    let stageGraph = Graph(
+        layerID: layerID,
+        effects: [effect],
+        renderTargets: [],
+        nodes: graph.nodes.filter { $0.effect == effect.key },
+        finalOutput: effect.output,
+        blockers: []
+    )
+    return dedicatedProgram(
+        graph: graph,
+        effectIndex: 0,
+        inputRole: inputRole,
+        proceduralNoise: .init(
+            layerID: layerID,
+            effectKey: effect.key,
+            renderGraph: stageGraph,
+            variant: variant,
+            dependencyProviderLayerID: provider,
+            dependencySlotIndex: slotIndex
+        ),
+        supportsUtilityCapture: supportsUtilityCapture
+    )
+}
+
+private func externalProceduralCatalog(
+    descriptor: SceneRenderDescriptor,
+    graph: Graph,
+    program: SceneEffectStageProgram? = nil,
+    allowDedicated: Bool = true
+) -> Catalog {
+    let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+        descriptor: descriptor,
+        authoredPlans: [graph],
+        dedicatedStagePrograms: [program ?? proceduralProgram(graph: graph)]
+    )
+    return Catalog(
+        admissionCandidates: candidates,
+        materialCatalog: materialCatalog(graph: graph, omitNode: 0),
+        dedicatedStageFamilies: [firstKey: "procedural-noise"],
+        dedicatedLeafKeys: allowDedicated ? [firstKey] : []
+    )
+}
+
 private func alternatingPairGraph() -> Graph {
     let keys = [firstKey, secondKey, thirdKey, fourthKey]
     var current = source()
@@ -1186,7 +1316,7 @@ private func dedicatedProgram(
     opacity: Bool = false,
     tint: Bool = false,
     clippingMask: SceneClippingMaskExecutionPlan? = nil,
-    proceduralNoiseDependencySlotIndex: Int? = nil,
+    proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil,
     logicalTargetStage: Bool = false,
     fullFrameComposeStage: Bool = false,
     supportsUtilityCapture: Bool = false
@@ -1213,9 +1343,7 @@ private func dedicatedProgram(
             cursorRipple: nil,
             opacity: opacity ? .init() : nil,
             clippingMask: clippingMask,
-            proceduralNoise: proceduralNoiseDependencySlotIndex.map {
-                .init(dependencySlotIndex: $0)
-            },
+            proceduralNoise: proceduralNoise,
             yieldsToResolvedMaterialProgram: opacity || tint,
             supportsUnifiedLogicalTargetStage: logicalTargetStage,
             supportsUnifiedFullFrameComposeStage: fullFrameComposeStage,
@@ -1650,6 +1778,153 @@ private enum Harness {
                 bindings: []
             ),
             graph: clippingGraph
+        )
+        let proceduralGraph = externalProceduralGraph()
+        let externalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(),
+            graph: proceduralGraph
+        )
+        let externalProceduralCapability = externalProcedural
+            .claim(layerID: layerID)
+            .flatMap { externalProcedural.resolve($0.token) }
+        let modernExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(),
+            graph: proceduralGraph,
+            program: proceduralProgram(
+                graph: proceduralGraph,
+                variant: .colorPerlinRGB
+            )
+        )
+        let wrongProviderExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(),
+            graph: proceduralGraph,
+            program: proceduralProgram(
+                graph: proceduralGraph,
+                provider: providerLayerID + 1
+            )
+        )
+        let secondaryExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(references: [namedReference(
+                effectID: firstKey.descriptorID,
+                providerLayerID: providerLayerID,
+                slotIndex: 3,
+                variant: .secondary
+            )]),
+            graph: proceduralGraph
+        )
+        let wrongEffectProceduralReference = namedReference(
+            effectID: "wrong-effect",
+            providerLayerID: providerLayerID,
+            slotIndex: 3
+        )
+        let wrongEffectExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(
+                references: [wrongEffectProceduralReference],
+                bindings: [dependencyBinding(
+                    effectID: "wrong-effect",
+                    providerLayerID: providerLayerID,
+                    slotIndex: 3,
+                    kind: .proceduralNoiseLayer
+                )]
+            ),
+            graph: proceduralGraph
+        )
+        let wrongPassProceduralReference = namedReference(
+            effectID: firstKey.descriptorID,
+            providerLayerID: providerLayerID,
+            passIndex: 1,
+            slotIndex: 3
+        )
+        let wrongPassExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(
+                references: [wrongPassProceduralReference],
+                bindings: [dependencyBinding(
+                    effectID: firstKey.descriptorID,
+                    providerLayerID: providerLayerID,
+                    passIndex: 1,
+                    slotIndex: 3,
+                    kind: .proceduralNoiseLayer
+                )]
+            ),
+            graph: proceduralGraph
+        )
+        let wrongSlotProceduralReference = namedReference(
+            effectID: firstKey.descriptorID,
+            providerLayerID: providerLayerID,
+            slotIndex: 2
+        )
+        let wrongSlotExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(
+                references: [wrongSlotProceduralReference],
+                bindings: [dependencyBinding(
+                    effectID: firstKey.descriptorID,
+                    providerLayerID: providerLayerID,
+                    slotIndex: 2,
+                    kind: .proceduralNoiseLayer
+                )]
+            ),
+            graph: proceduralGraph
+        )
+        let wrongBlendExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(bindings: [dependencyBinding(
+                effectID: firstKey.descriptorID,
+                providerLayerID: providerLayerID,
+                slotIndex: 3,
+                blendMode: 5,
+                kind: .proceduralNoiseLayer
+            )]),
+            graph: proceduralGraph
+        )
+        let missingExternalProceduralOwnership = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(
+                dependencyLayerIDs: [],
+                references: [],
+                bindings: []
+            ),
+            graph: proceduralGraph
+        )
+        let extraReferenceExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(references: [
+                namedReference(
+                    effectID: firstKey.descriptorID,
+                    providerLayerID: providerLayerID,
+                    slotIndex: 3
+                ),
+                namedReference(
+                    effectID: firstKey.descriptorID,
+                    providerLayerID: providerLayerID,
+                    passIndex: 1,
+                    slotIndex: 3
+                ),
+            ]),
+            graph: proceduralGraph
+        )
+        let extraProviderExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(
+                dependencyLayerIDs: [providerLayerID, providerLayerID + 1]
+            ),
+            graph: proceduralGraph
+        )
+        let providerlessExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(),
+            graph: proceduralGraph,
+            program: proceduralProgram(graph: proceduralGraph, provider: nil)
+        )
+        let wrongInputExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(),
+            graph: proceduralGraph,
+            program: proceduralProgram(
+                graph: proceduralGraph,
+                inputRole: .priorEffectOutput
+            )
+        )
+        let unsupportedCaptureExternalProcedural = externalProceduralCatalog(
+            descriptor: externalProceduralDescriptor(),
+            graph: proceduralGraph,
+            program: proceduralProgram(
+                graph: proceduralGraph,
+                supportsUtilityCapture: false
+            )
         )
         let externalOwnershipMatches: Bool
         if let externalClippingCapability,
@@ -2249,6 +2524,22 @@ private enum Harness {
                     .sourceRoute == .capturedMainTargetTexture,
                 "externalUtilityStages": utilityClippingOpacityCapability?
                     .stages.count == 2,
+                "externalProcedural": externalProceduralCapability.map {
+                    capability in
+                    guard case let .externalPrimary(binding) =
+                            capability.dependencyOwnership else { return false }
+                    return binding.consumerLayerID == layerID
+                        && binding.providerLayerID == providerLayerID
+                        && binding.slot == .init(
+                            effectID: firstKey.descriptorID,
+                            passIndex: 0,
+                            slotIndex: 3
+                        )
+                        && binding.blendMode == 0
+                        && binding.kind == .proceduralNoiseLayer
+                        && capability.sourceRoute == .capturedMainTargetTexture
+                        && capability.stages.count == 1
+                } ?? false,
             ],
             "capacity": [
                 "effects": SceneResolvedMaterialExecutionCapabilityAdmission
@@ -2439,6 +2730,60 @@ private enum Harness {
                     clippingWithoutOwnership,
                     "execution-stage-conservation"
                 ),
+                "externalProceduralAccepted":
+                    externalProceduralCapability?.stages.count == 1,
+                "externalProceduralRejectsModern": reportHas(
+                    modernExternalProcedural,
+                    "execution-stage-conservation"
+                ),
+                "externalProceduralRejectsWrongProvider": reportHas(
+                    wrongProviderExternalProcedural,
+                    "execution-stage-conservation"
+                ),
+                "externalProceduralRejectsSecondary": reportHas(
+                    secondaryExternalProcedural,
+                    "execution-route-dependency-owner"
+                ),
+                "externalProceduralRejectsWrongEffect": reportHas(
+                    wrongEffectExternalProcedural,
+                    "execution-stage-conservation"
+                ),
+                "externalProceduralRejectsWrongPass": reportHas(
+                    wrongPassExternalProcedural,
+                    "execution-route-dependency-owner"
+                ),
+                "externalProceduralRejectsWrongSlot": reportHas(
+                    wrongSlotExternalProcedural,
+                    "execution-route-dependency-owner"
+                ),
+                "externalProceduralRejectsWrongBlend": reportHas(
+                    wrongBlendExternalProcedural,
+                    "execution-route-dependency-owner"
+                ),
+                "externalProceduralRejectsMissingOwnership": reportHas(
+                    missingExternalProceduralOwnership,
+                    "execution-stage-conservation"
+                ),
+                "externalProceduralRejectsExtraReference": reportHas(
+                    extraReferenceExternalProcedural,
+                    "execution-route-dependency-owner"
+                ),
+                "externalProceduralRejectsExtraProvider": reportHas(
+                    extraProviderExternalProcedural,
+                    "execution-route-dependency-owner"
+                ),
+                "externalProceduralRejectsMissingProviderPlan": reportHas(
+                    providerlessExternalProcedural,
+                    "execution-stage-conservation"
+                ),
+                "externalProceduralRejectsWrongInput": reportHas(
+                    wrongInputExternalProcedural,
+                    "execution-stage-conservation"
+                ),
+                "externalProceduralRequiresUtilitySupport": reportHas(
+                    unsupportedCaptureExternalProcedural,
+                    "dedicated-leaf-unsupported"
+                ),
                 "userPropertyLiveTarget":
                     validUserPropertyCatalog.liveConsumerTargets
                     == Set([dynamicTarget()]),
@@ -2607,7 +2952,15 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
 }
 
 struct SceneOpacityExecutionPlan {}
-struct SceneProceduralNoiseExecutionPlan { let dependencySlotIndex: Int? }
+struct SceneProceduralNoiseExecutionPlan {
+    enum Variant { case colorPerlinRGB, legacyWorleyColor }
+    let layerID: Int
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let variant: Variant
+    let dependencyProviderLayerID: Int?
+    let dependencySlotIndex: Int?
+}
 struct SceneClippingMaskExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
@@ -2620,6 +2973,7 @@ struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 struct SceneAuthoredEffectExecutionPlan {
     let logicalRenderTargetCount: Int
     let opacity: SceneOpacityExecutionPlan?
+    var inputRole: SceneAuthoredEffectInputRole { .layerSource }
     var clippingMask: SceneClippingMaskExecutionPlan? { nil }
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
     var yieldsToResolvedMaterialProgram = false
@@ -2638,6 +2992,7 @@ struct SceneEffectStageProgram {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let stageGraph: SceneAuthoredEffectRenderPlan
     let executionPlan: ExecutionPlan
+    var inputRole: SceneAuthoredEffectInputRole { executionPlan.inputRole }
 }
 
 struct SceneEffectExactRuntimeSubject: Hashable {
@@ -3838,8 +4193,14 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             ".depthParallax",
         ):
             self.assertIn(backend_name, yield_body)
-        for backend_name in (".proceduralNoise", ".lightShafts"):
-            self.assertNotIn(backend_name, leaf_body)
+        self.assertNotIn(".lightShafts", leaf_body)
+        self.assertIn("case .proceduralNoise(let plan):", leaf_body)
+        for contract in (
+            "plan.variant == .legacyWorleyColor",
+            "plan.dependencyProviderLayerID != nil",
+            "plan.dependencySlotIndex == 3",
+        ):
+            self.assertIn(contract, leaf_body)
         self.assertNotIn(".spin", source)
         self.assertIn(".workshopAudioBars", leaf_body)
         self.assertNotIn(".workshopAudioBars", yield_body)
@@ -4210,6 +4571,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 ),
                 "externalUtilityRoute": True,
                 "externalUtilityStages": True,
+                "externalProcedural": True,
             },
         )
         self.assertEqual(
@@ -4259,6 +4621,20 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "externalClippingRejectsMismatchedProvider": True,
                 "externalClippingRejectsMismatchedBlend": True,
                 "clippingRejectsMissingExternalOwnership": True,
+                "externalProceduralAccepted": True,
+                "externalProceduralRejectsModern": True,
+                "externalProceduralRejectsWrongProvider": True,
+                "externalProceduralRejectsSecondary": True,
+                "externalProceduralRejectsWrongEffect": True,
+                "externalProceduralRejectsWrongPass": True,
+                "externalProceduralRejectsWrongSlot": True,
+                "externalProceduralRejectsWrongBlend": True,
+                "externalProceduralRejectsMissingOwnership": True,
+                "externalProceduralRejectsExtraReference": True,
+                "externalProceduralRejectsExtraProvider": True,
+                "externalProceduralRejectsMissingProviderPlan": True,
+                "externalProceduralRejectsWrongInput": True,
+                "externalProceduralRequiresUtilitySupport": True,
                 "userPropertyLiveTarget": True,
                 "routeUnavailable": True,
                 "hiddenParent": True,

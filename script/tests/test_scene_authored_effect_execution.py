@@ -184,10 +184,12 @@ struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
 struct SceneWorkshopGradientExecutionPlan: Sendable {}
 struct SceneProceduralNoiseExecutionPlan: Sendable {
     enum Variant: Sendable {
+        case colorPerlinRGB
         case legacyWorleyColor
     }
 
     let variant: Variant
+    let dependencyProviderLayerID: Int?
     let dependencySlotIndex: Int?
 }
 struct SceneFilmGrainExecutionPlan: Sendable {}
@@ -1579,6 +1581,43 @@ enum Harness {
             graph: standardGraph, descriptor: standardDescriptor
         )!
         let standardBlur = standardPlan.standardBlur!
+        func proceduralExecution(
+            variant: SceneProceduralNoiseExecutionPlan.Variant,
+            providerLayerID: Int?,
+            slotIndex: Int?
+        ) -> SceneAuthoredEffectExecutionPlan {
+            SceneAuthoredEffectExecutionPlan(
+                layerID: standardGraph.layerID,
+                renderGraph: standardGraph,
+                backend: .proceduralNoise(.init(
+                    variant: variant,
+                    dependencyProviderLayerID: providerLayerID,
+                    dependencySlotIndex: slotIndex
+                )),
+                materialNodeCount: 1,
+                logicalRenderTargetCount: 0
+            )
+        }
+        let exactLegacyProcedural = proceduralExecution(
+            variant: .legacyWorleyColor,
+            providerLayerID: 42,
+            slotIndex: 3
+        )
+        let modernProcedural = proceduralExecution(
+            variant: .colorPerlinRGB,
+            providerLayerID: nil,
+            slotIndex: nil
+        )
+        let providerlessLegacyProcedural = proceduralExecution(
+            variant: .legacyWorleyColor,
+            providerLayerID: nil,
+            slotIndex: 3
+        )
+        let wrongSlotLegacyProcedural = proceduralExecution(
+            variant: .legacyWorleyColor,
+            providerLayerID: 42,
+            slotIndex: 2
+        )
         let standardMaskedDescriptor = standardBlurDescriptor(
             effect: standardBlurInstanceEffect(maskPath: "masks/blur-mask")
         )
@@ -1909,6 +1948,16 @@ enum Harness {
                 && standardPlan.gaussianBlur == nil
                 && !standardPlan.requiresExactInputExtent,
             "standardSupportsUtilityCapture": standardPlan.supportsUtilityCapture,
+            "proceduralExternalEligibility": [
+                exactLegacyProcedural.backend.supportsUnifiedPairLeaf
+                    && exactLegacyProcedural.supportsUtilityCapture,
+                modernProcedural.backend.supportsUnifiedPairLeaf
+                    || modernProcedural.supportsUtilityCapture,
+                providerlessLegacyProcedural.backend.supportsUnifiedPairLeaf
+                    || providerlessLegacyProcedural.supportsUtilityCapture,
+                wrongSlotLegacyProcedural.backend.supportsUnifiedPairLeaf
+                    || wrongSlotLegacyProcedural.supportsUtilityCapture,
+            ],
             "standardLegacyBlocked": standardCatalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
             "standardWrongExtentRejected": standardRejected(graph: standardBlurGraph(wrongExtent: true)),
             "standardWrongBindingRejected": standardRejected(graph: standardBlurGraph(wrongBinding: true)),
@@ -2017,7 +2066,13 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertIn('"fisheye-pipeline-missing"', topology)
         for backend_name in (".waterWaves", ".waterCaustics", ".waterRipple", ".pulse"):
             self.assertIn(backend_name, leaf_body)
-        self.assertNotIn(".proceduralNoise", leaf_body)
+        self.assertIn("case .proceduralNoise(let plan):", leaf_body)
+        for contract in (
+            "plan.variant == .legacyWorleyColor",
+            "plan.dependencyProviderLayerID != nil",
+            "plan.dependencySlotIndex == 3",
+        ):
+            self.assertIn(contract, leaf_body)
         self.assertIn(".xRay", leaf_body)
         self.assertIn("case .xRay(let plan):", topology)
         self.assertIn("SceneXRayRuntimePlanner.resolve(", topology)
@@ -2036,6 +2091,12 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertIn("sourceTexture !== targets.inputTexture", x_ray)
         self.assertIn("copyIdentityOutput(", x_ray)
         self.assertIn('encoder.label = "Scene X-Ray identity output"', x_ray)
+
+    def test_only_exact_legacy_external_procedural_noise_is_pair_eligible(self) -> None:
+        self.assertEqual(
+            self.result["proceduralExternalEligibility"],
+            [True, False, False, False],
+        )
 
     def test_only_effectively_visible_complete_graph_is_planned(self) -> None:
         self.assertEqual(self.result["planned"], [10])

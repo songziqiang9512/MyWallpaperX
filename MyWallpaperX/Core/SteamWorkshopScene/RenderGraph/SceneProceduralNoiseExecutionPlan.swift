@@ -33,5 +33,6 @@ nonisolated struct SceneProceduralNoiseExecutionPlan {
     let depthFade: Float
     let perspective01: SIMD4<Float>
     let perspective23: SIMD4<Float>
+    let dependencyProviderLayerID: Int?
     let dependencySlotIndex: Int?
 }

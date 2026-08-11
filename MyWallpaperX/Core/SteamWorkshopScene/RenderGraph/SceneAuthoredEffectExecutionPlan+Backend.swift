@@ -41,6 +41,10 @@ extension SceneAuthoredEffectExecutionPlan {
                  .depthParallax, .xRay, .clippingMask, .blend, .tint, .transform,
                  .fisheyeZeroDistortion, .pulse:
                 return true
+            case .proceduralNoise(let plan):
+                return plan.variant == .legacyWorleyColor
+                    && plan.dependencyProviderLayerID != nil
+                    && plan.dependencySlotIndex == 3
             default:
                 return false
             }
@@ -274,6 +278,7 @@ extension SceneAuthoredEffectExecutionPlan {
             return true
         case .proceduralNoise(let plan):
             return plan.variant == .legacyWorleyColor
+                && plan.dependencyProviderLayerID != nil
                 && plan.dependencySlotIndex == 3
         default:
             return false

@@ -146,6 +146,13 @@ class SceneUtilityLayerTests(unittest.TestCase):
             backend,
             "exact named clipping and static/direct opacity must admit utility capture",
         )
+        self.assertIn("case .proceduralNoise(let plan):", backend)
+        for contract in (
+            "plan.variant == .legacyWorleyColor",
+            "plan.dependencyProviderLayerID != nil",
+            "plan.dependencySlotIndex == 3",
+        ):
+            self.assertIn(contract, backend)
         self.assertNotIn(
             "case .simple = plan.profile",
             backend,

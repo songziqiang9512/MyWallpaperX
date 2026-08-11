@@ -122,37 +122,67 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                   let plan = program.executionPlan.clippingMask else { return nil }
             return (program, plan)
         }
+        let proceduralDependencyStages = stages.compactMap { stage -> (
+            program: SceneEffectStageProgram,
+            plan: SceneProceduralNoiseExecutionPlan
+        )? in
+            guard case let .dedicated(_, program, _) = stage,
+                  let plan = program.executionPlan.proceduralNoise,
+                  plan.dependencyProviderLayerID != nil
+                    || plan.dependencySlotIndex != nil else { return nil }
+            return (program, plan)
+        }
         switch ownership {
         case .none, .graphInternal:
-            return clippingStages.isEmpty
+            return clippingStages.isEmpty && proceduralDependencyStages.isEmpty
 
         case let .externalPrimary(binding):
-            guard binding.kind == .clippingMask,
-                  binding.consumerLayerID == layerID,
-                  binding.slot.slotIndex == 1,
-                  clippingStages.count == 1,
-                  let clipping = clippingStages.first else { return false }
-            let program = clipping.program
-            let plan = clipping.plan
-            guard program.effectKey == plan.effectKey,
-                  program.stageGraph.effects.first?.key == plan.effectKey,
-                  plan.layerID == layerID,
-                  plan.effectKey.layerID == layerID,
-                  plan.effectKey.descriptorID == binding.slot.effectID,
-                  plan.providerLayerID == binding.providerLayerID,
-                  plan.blendMode == binding.blendMode,
-                  plan.renderGraph.effects.count == 1,
-                  plan.renderGraph.nodes.count == 1,
-                  plan.renderGraph.nodes.first?.instancePassIndex
-                    == binding.slot.passIndex else { return false }
-            return stages.allSatisfy { stage in
-                guard let execution = stage.dedicatedExecutionPlan else {
-                    return true
+            guard binding.consumerLayerID == layerID else { return false }
+            switch binding.kind {
+            case .clippingMask:
+                guard binding.slot.slotIndex == 1,
+                      clippingStages.count == 1,
+                      proceduralDependencyStages.isEmpty,
+                      let clipping = clippingStages.first else { return false }
+                let program = clipping.program
+                let plan = clipping.plan
+                return program.effectKey == plan.effectKey
+                    && program.stageGraph.effects.first?.key == plan.effectKey
+                    && plan.layerID == layerID
+                    && plan.effectKey.layerID == layerID
+                    && plan.effectKey.descriptorID == binding.slot.effectID
+                    && plan.providerLayerID == binding.providerLayerID
+                    && plan.blendMode == binding.blendMode
+                    && plan.renderGraph.effects.count == 1
+                    && plan.renderGraph.nodes.count == 1
+                    && plan.renderGraph.nodes.first?.instancePassIndex
+                        == binding.slot.passIndex
+
+            case .proceduralNoiseLayer:
+                guard binding.slot.passIndex == 0,
+                      binding.slot.slotIndex == 3,
+                      binding.blendMode == 0,
+                      clippingStages.isEmpty,
+                      proceduralDependencyStages.count == 1,
+                      let procedural = proceduralDependencyStages.first else {
+                    return false
                 }
-                if execution.clippingMask != nil {
-                    return execution.clippingMask?.effectKey == plan.effectKey
-                }
-                return execution.proceduralNoise?.dependencySlotIndex == nil
+                let program = procedural.program
+                let plan = procedural.plan
+                return program.effectKey == plan.effectKey
+                    && program.inputRole == .layerSource
+                    && program.stageGraph.effects.first?.key == plan.effectKey
+                    && plan.layerID == layerID
+                    && plan.effectKey.layerID == layerID
+                    && plan.effectKey.descriptorID == binding.slot.effectID
+                    && plan.variant == .legacyWorleyColor
+                    && plan.dependencyProviderLayerID == binding.providerLayerID
+                    && plan.dependencySlotIndex == binding.slot.slotIndex
+                    && plan.renderGraph.effects.count == 1
+                    && plan.renderGraph.nodes.count == 1
+                    && plan.renderGraph.renderTargets.isEmpty
+                    && plan.renderGraph.nodes.first?.instancePassIndex
+                        == binding.slot.passIndex
             }
         }
     }

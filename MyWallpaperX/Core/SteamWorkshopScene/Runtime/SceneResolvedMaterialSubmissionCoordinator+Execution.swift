@@ -75,9 +75,15 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         case .none, .graphInternal:
             return input == nil
         case .externalPrimary(let binding):
-            guard binding.kind == .clippingMask,
-                  binding.slot.slotIndex == 1,
-                  let input else { return false }
+            switch binding.kind {
+            case .clippingMask:
+                guard binding.slot.slotIndex == 1 else { return false }
+            case .proceduralNoiseLayer:
+                guard binding.slot.passIndex == 0,
+                      binding.slot.slotIndex == 3,
+                      binding.blendMode == 0 else { return false }
+            }
+            guard let input else { return false }
             return input.consumerLayerID == binding.consumerLayerID
                 && input.providerLayerID == binding.providerLayerID
                 && input.variant == .primary

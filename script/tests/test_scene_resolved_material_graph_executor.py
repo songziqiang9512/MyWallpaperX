@@ -69,7 +69,16 @@ SUPPORT = PUBLICATION_FIXTURE["SUPPORT"].replace(
 import simd
 
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
-struct SceneProceduralNoiseExecutionPlan { let dependencySlotIndex: Int? }
+struct SceneProceduralNoiseExecutionPlan {
+    enum Variant { case legacyWorleyColor }
+
+    let layerID: Int
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let variant: Variant
+    let dependencyProviderLayerID: Int?
+    let dependencySlotIndex: Int?
+}
 struct SceneClippingMaskExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey

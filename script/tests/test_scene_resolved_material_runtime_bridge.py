@@ -1615,6 +1615,95 @@ enum Harness {
         }
 
         do {
+            let binding = externalPrimaryBinding(
+                slotIndex: 3,
+                blendMode: 0,
+                kind: .proceduralNoiseLayer
+            )
+            let reservedTexture = makeTexture(
+                device,
+                "procedural-dependency-reservation"
+            )
+            let reserved = dependencyInput(
+                binding: binding,
+                texture: reservedTexture
+            )
+            let exact = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: binding,
+                    texture: reservedTexture
+                )
+            )
+            results["proceduralDependencyExactReadyMatchIssuesTicket"] =
+                exact.reasonCode == "encoded"
+                && exact.consumesExternalPrimaryDependency == true
+
+            let missing = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: nil
+            )
+            results["proceduralDependencyMissingReadyRejected"] =
+                missing.reasonCode == "prepared-frame-consumption-rejected"
+
+            let secondary = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: binding,
+                    texture: reservedTexture,
+                    variant: .secondary
+                )
+            )
+            results["proceduralDependencySecondaryRejected"] =
+                secondary.reasonCode == "prepared-frame-consumption-rejected"
+
+            let wrongEffect = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: binding,
+                    texture: reservedTexture,
+                    slot: .init(
+                        effectID: "wrong-effect",
+                        passIndex: binding.slot.passIndex,
+                        slotIndex: binding.slot.slotIndex
+                    )
+                )
+            )
+            results["proceduralDependencyWrongEffectRejected"] =
+                wrongEffect.reasonCode == "prepared-frame-consumption-rejected"
+
+            let wrongPass = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: binding,
+                    texture: reservedTexture,
+                    slot: .init(
+                        effectID: binding.slot.effectID,
+                        passIndex: 1,
+                        slotIndex: binding.slot.slotIndex
+                    )
+                )
+            )
+            results["proceduralDependencyWrongPassRejected"] =
+                wrongPass.reasonCode == "prepared-frame-consumption-rejected"
+        }
+
+        do {
             let recorder = LogRecorder()
             let coordinator = makeCoordinator(
                 device,
@@ -2896,6 +2985,10 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "prepared.texture===ready.texture",
         ):
             self.assertIn(contract, compact_execution)
+        self.assertIn("case.proceduralNoiseLayer:", compact_execution)
+        self.assertIn("binding.slot.passIndex==0", compact_execution)
+        self.assertIn("binding.slot.slotIndex==3", compact_execution)
+        self.assertIn("binding.blendMode==0", compact_execution)
         self.assertIn(
             "ifcase.externalPrimary=claim.dependencyOwnership",
             compact_execution,
@@ -3203,6 +3296,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "externalDependencyWrongBlendRejected",
                 "externalDependencyWrongEpochRejected",
                 "externalDependencyWrongObjectRejected",
+                "proceduralDependencyExactReadyMatchIssuesTicket",
+                "proceduralDependencyMissingReadyRejected",
+                "proceduralDependencySecondaryRejected",
+                "proceduralDependencyWrongEffectRejected",
+                "proceduralDependencyWrongPassRejected",
                 "normalInvalidateHasNoGraphDiagnostic",
                 "deviceLossInvalidateHasGraphDiagnostic",
                 "executorInvalidateHasGraphDiagnostic",
