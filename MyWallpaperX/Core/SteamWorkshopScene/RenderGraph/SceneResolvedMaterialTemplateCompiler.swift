@@ -12,13 +12,19 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
     }
 
     static func compile(
-        material: SceneResolvedMaterialNode, graph: Graph, shaderContract: SceneShaderContract
+        material: SceneResolvedMaterialNode, graph: Graph,
+        shaderContract: SceneShaderContract,
+        provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
     ) -> Result<Template, Failure> {
         do {
             let context = try graphContext(material, graph: graph)
             try validateShader(material.shaderPath, contract: shaderContract)
             let textures = try textureSlots(material.textureSlots, context: context)
-            let uniforms = try uniformDeclarations(material, node: context.node)
+            let uniforms = try uniformDeclarations(
+                material,
+                node: context.node,
+                provenSceneScriptValueTargets: provenSceneScriptValueTargets
+            )
             guard let state = SceneMaterialRenderState.compile(
                 blending: material.renderState.blending,
                 depthTest: material.renderState.depthTest,
@@ -201,7 +207,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         diagnostics: [Template.DiagnosticProvenance.UniformSource]
     )
     private static func uniformDeclarations(
-        _ material: SceneResolvedMaterialNode, node: Graph.Node
+        _ material: SceneResolvedMaterialNode, node: Graph.Node,
+        provenSceneScriptValueTargets: Set<SceneDynamicTarget>
     ) throws -> UniformProjection {
         let names = Set(material.constants.keys).union(material.userShaderValues.keys).sorted()
         var values: [Template.UniformDeclaration] = []
@@ -223,24 +230,31 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                     )
                 }
             }
-            let dynamic = try dynamicBinding(
-                authored: authored, userValue: material.userShaderValues[name], name: name
-            )
+            let target = node.instancePassIndex.map {
+                SceneDynamicTarget.effectConstant(
+                    layerID: node.effect.layerID,
+                    effectIndex: node.effect.effectIndex,
+                    passIndex: $0,
+                    name: name
+                )
+            }
+            guard let dynamic = SceneResolvedMaterialScriptBindingClassifier.binding(
+                authored: authored,
+                userValue: material.userShaderValues[name],
+                target: target,
+                provenSceneScriptValueTargets: provenSceneScriptValueTargets
+            ) else { throw uniformFailure(.uniformDeclarationInvalid, name) }
             guard fallback != nil || !dynamic.valueContributors.isEmpty
             else { throw uniformFailure(.uniformDeclarationInvalid, name) }
             let value: Template.UniformValue
             if dynamic.valueContributors.isEmpty && dynamic.controlAttachments.isEmpty {
                 value = .staticExact(fallback!)
             } else {
-                guard let passIndex = node.instancePassIndex
-                else { throw graphFailure("pass-missing-for-dynamic-uniform") }
+                guard let target else {
+                    throw graphFailure("pass-missing-for-dynamic-uniform")
+                }
                 value = .dynamic(.init(
-                    target: .effectConstant(
-                        layerID: node.effect.layerID,
-                        effectIndex: node.effect.effectIndex,
-                        passIndex: passIndex,
-                        name: name
-                    ),
+                    target: target,
                     valueContributors: dynamic.valueContributors,
                     controlAttachments: dynamic.controlAttachments,
                     authoredFallback: fallback,
@@ -254,57 +268,6 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             ))
         }
         return (values, diagnostics)
-    }
-
-    private typealias DynamicBinding = (
-        valueContributors: [Template.DynamicUniformSource],
-        controlAttachments: [Template.DynamicUniformControlAttachment]
-    )
-
-    private static func dynamicBinding(
-        authored: SceneDocument.ShaderValue?, userValue: String?, name: String
-    ) throws -> DynamicBinding {
-        var sources: [Template.DynamicUniformSource] = []
-        var controls: [Template.DynamicUniformControlAttachment] = []
-        if let raw = authored?.userBinding {
-            guard let value = normalizedProviderValue(raw)
-            else { throw uniformFailure(.uniformDeclarationInvalid, name) }
-            sources.append(.userProperty(value))
-        }
-        if authored?.timeline != nil { sources.append(.timeline) }
-        if let script = authored?.scriptSource, !script.isEmpty {
-            controls.append(
-                isKnownMediaRestartControl(script)
-                    ? .mediaThumbnailAnimationRestart
-                    : .unprovenSceneScript
-            )
-        }
-        if let raw = userValue {
-            guard let value = normalizedProviderValue(raw)
-            else { throw uniformFailure(.uniformDeclarationInvalid, name) }
-            sources.append(.userProperty(value))
-        }
-        return (sources, controls)
-    }
-
-    /// The current executable profile is deliberately limited to the modeled
-    /// stop/play restart shape. Observed play-only and direct-play callbacks
-    /// remain unproven until they have a shared control semantic.
-    private static func isKnownMediaRestartControl(_ source: String) -> Bool {
-        let compact = source
-            .replacingOccurrences(
-                of: #"/\*[\s\S]*?\*/"#,
-                with: "",
-                options: .regularExpression
-            )
-            .replacingOccurrences(
-                of: #"//[^\n\r]*"#,
-                with: "",
-                options: .regularExpression
-            )
-            .replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
-        let pattern = #"^exportfunctionmediaThumbnailChanged\(([A-Za-z_$][A-Za-z0-9_$]*)\)\{if\(\1\.hasThumbnail\)\{(?:var|let|const)([A-Za-z_$][A-Za-z0-9_$]*)=thisObject\.getAnimation\(\);\2\.stop\(\);\2\.play\(\);?\}\}$"#
-        return compact.range(of: pattern, options: .regularExpression) != nil
     }
 
     private static func graphRole(_ context: GraphContext) -> Template.GraphRole? {

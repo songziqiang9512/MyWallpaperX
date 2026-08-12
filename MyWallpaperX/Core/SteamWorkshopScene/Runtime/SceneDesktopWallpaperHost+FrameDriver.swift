@@ -98,6 +98,8 @@ extension SceneDesktopWallpaperHost {
             textScriptProgram: launchContext.textScriptProgram,
             additionalDefinitions: launchContext.timeOfDayEffectScriptProgram.bindings.map(
                 \.definition
+            ) + launchContext.mediaPlaybackPlaceholderFadeProgram.bindings.map(
+                \.definition
             )
         )
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
@@ -112,6 +114,10 @@ extension SceneDesktopWallpaperHost {
             program: launchContext.timeOfDayEffectScriptProgram,
             wallDate: timing.wallDate
         )
+        let mediaPlaybackPlaceholderFadeValues =
+            mediaPlaybackPlaceholderFadeRuntime.values(
+                frameTime: timing.simulationFrameTime
+            )
         for surface in surfaces.values {
             guard !surface.metalView.shouldDeferResolvedMaterialFrame else {
                 continue
@@ -126,6 +132,9 @@ extension SceneDesktopWallpaperHost {
                 sceneScriptValues: textScriptValues.merging(
                     timeOfDayEffectScriptValues,
                     uniquingKeysWith: { textValue, _ in textValue }
+                ).merging(
+                    mediaPlaybackPlaceholderFadeValues,
+                    uniquingKeysWith: { existing, _ in existing }
                 )
             ).snapshot
             surface.metalView.renderFrame(

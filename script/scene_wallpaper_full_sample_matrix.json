@@ -1750,9 +1750,12 @@
         322
       ],
       "expected_resolved_material_graph_succeeded_layer_ids": [
+        79,
+        165,
         280,
         322,
         390,
+        454,
         563
       ],
       "expected_authored_effect_graph_local_contrast_count": 0,
@@ -1946,8 +1949,10 @@
         568
       ],
       "expected_resolved_material_graph_succeeded_layer_ids": [
+        454,
         956,
         1481,
+        2130,
         57098
       ],
       "expected_effect_execution_schema": 1

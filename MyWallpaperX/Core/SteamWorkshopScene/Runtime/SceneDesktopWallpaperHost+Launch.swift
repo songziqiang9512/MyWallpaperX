@@ -13,6 +13,8 @@ struct SceneDesktopWallpaperLaunchContext {
     let timelineProgram: SceneTimelineProgram
     let textScriptProgram: SceneTextScriptProgram
     let timeOfDayEffectScriptProgram: SceneTimeOfDayEffectScriptProgram
+    let mediaPlaybackPlaceholderFadeProgram:
+        SceneMediaPlaybackPlaceholderFadeProgram
     let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
@@ -28,7 +30,10 @@ struct SceneDesktopWallpaperLaunchContext {
             "resolved material system providers: schema=r3-system-provider-v1"
                 + " demands=\(resolvedMaterialCatalog.systemProviderDemands.count)"
                 + " missingState=unavailable"
-                + " reason=snapshot-lifecycle-unproven"
+                + " reason=snapshot-lifecycle-unproven",
+            "scene media placeholder fade: schema=bounded-playback-fade-v1"
+                + " bindings=\(mediaPlaybackPlaceholderFadeProgram.bindings.count)"
+                + " input=unavailable events=0 initialMode=authored-zero"
         ]
     }
 
@@ -55,12 +60,15 @@ struct SceneDesktopWallpaperLaunchContext {
 
 enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
     case missingPackageCache
+    case invalidBoundedSceneScriptProgram
     case noSurface
 
     var errorDescription: String? {
         switch self {
         case .missingPackageCache:
             "Scene 资源缓存不可用。"
+        case .invalidBoundedSceneScriptProgram:
+            "Scene 有界脚本目标存在冲突，已停止启动。"
         case .noSurface:
             "Scene 宿主未能创建可播放表面。"
         }
@@ -142,6 +150,23 @@ extension SceneDesktopWallpaperHost {
         let timeOfDayEffectScriptCandidateTargets = Set(
             timeOfDayEffectScriptCandidates.map(\.definition.target)
         )
+        guard let mediaPlaybackPlaceholderFadeCandidates =
+                SceneMediaPlaybackPlaceholderFadeProgramCompiler.compile(
+                    descriptor: runtimeInput.renderDescriptor,
+                    scriptBindings: model.sceneDocument.scriptBindings
+                ) else {
+            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+        }
+        let mediaPlaybackPlaceholderFadeCandidateTargets = Set(
+            mediaPlaybackPlaceholderFadeCandidates.bindings.map(\.definition.target)
+        )
+        guard timeOfDayEffectScriptCandidateTargets.isDisjoint(
+            with: mediaPlaybackPlaceholderFadeCandidateTargets
+        ) else {
+            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+        }
+        let provenSceneScriptValueTargets = timeOfDayEffectScriptCandidateTargets
+            .union(mediaPlaybackPlaceholderFadeCandidateTargets)
         let resolvedMaterialAdmissionCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: runtimeInput.renderDescriptor,
@@ -153,7 +178,8 @@ extension SceneDesktopWallpaperHost {
         let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
             descriptor: runtimeInput.renderDescriptor,
             admissionCandidates: resolvedMaterialAdmissionCandidates,
-            shaderContracts: runtimeInput.shaderContracts
+            shaderContracts: runtimeInput.shaderContracts,
+            provenSceneScriptValueTargets: provenSceneScriptValueTargets
         )
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw SceneDesktopWallpaperHostLaunchError.noSurface
@@ -178,7 +204,7 @@ extension SceneDesktopWallpaperHost {
                         }
                     ),
                     timelineTargets: Set(timelineProgram.bindings.map(\.target)),
-                    sceneScriptTargets: timeOfDayEffectScriptCandidateTargets
+                    sceneScriptTargets: provenSceneScriptValueTargets
                 ),
                 assetFormatFacts: materialAssetCatalog.launchFormatFacts,
                 dedicatedStageFamilies: dedicatedStageFamilies,
@@ -194,11 +220,11 @@ extension SceneDesktopWallpaperHost {
             authoredPlans: runtimeInput.authoredEffectRenderPlans,
             resolvedMaterialSubjects: resolvedMaterialSubjects
         )
-        let timeOfDayEffectScriptConsumerTargets =
+        let sceneScriptConsumerTargets =
             resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets
         let timeOfDayEffectScriptProgram = SceneTimeOfDayEffectScriptProgram(
             bindings: timeOfDayEffectScriptCandidates.filter {
-                timeOfDayEffectScriptConsumerTargets.contains($0.definition.target)
+                sceneScriptConsumerTargets.contains($0.definition.target)
             }.sorted { lhs, rhs in
                 guard case let .effectConstant(
                     lhsLayer, lhsEffect, lhsPass, lhsName
@@ -212,6 +238,16 @@ extension SceneDesktopWallpaperHost {
                 return lhsName < rhsName
             }
         )
+        guard let mediaPlaybackPlaceholderFadeProgram =
+                SceneMediaPlaybackPlaceholderFadeProgram.validated(
+                    bindings: mediaPlaybackPlaceholderFadeCandidates.bindings.filter {
+                        sceneScriptConsumerTargets.contains(
+                            $0.definition.target
+                        )
+                    }
+                ) else {
+            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+        }
         let mediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings
@@ -230,6 +266,8 @@ extension SceneDesktopWallpaperHost {
                 descriptor: runtimeInput.renderDescriptor
             ),
             timeOfDayEffectScriptProgram: timeOfDayEffectScriptProgram,
+            mediaPlaybackPlaceholderFadeProgram:
+                mediaPlaybackPlaceholderFadeProgram,
             mediaThumbnailBindings: mediaThumbnailBindings,
             liveState: ScenePropertyLiveUpdateState(
                 program: runtimeInput.propertyBindingProgram,

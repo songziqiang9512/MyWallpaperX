@@ -49,6 +49,9 @@ DEPENDENCY_OWNERSHIP_SOURCE = (
 RUNTIME_CATALOG_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
 )
+RUNTIME_CATALOG_REPORT_SOURCE = (
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog+Report.swift"
+)
 EFFECT_BACKEND_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift"
 )
@@ -111,6 +114,7 @@ ENVELOPE_SWIFT_SOURCES = [
 CATALOG_DEMAND_SWIFT_SOURCES = [
     *PROGRAM_FINALIZER_FIXTURE["SWIFT_SOURCES"],
     RUNTIME_CATALOG_SOURCE,
+    RUNTIME_CATALOG_REPORT_SOURCE,
 ]
 
 
@@ -3928,9 +3932,11 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
     static func compile(
         material: SceneResolvedMaterialNode,
         graph: Graph,
-        shaderContract: SceneShaderContract
+        shaderContract: SceneShaderContract,
+        provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
     ) -> Result<Template, SceneResolvedMaterialFailure> {
         _ = material
+        _ = provenSceneScriptValueTargets
         guard let node = graph.nodes.first,
               let effect = graph.effects.first,
               let state = SceneMaterialRenderState.compile(
@@ -4536,7 +4542,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
     ) -> None:
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
         renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
-        runtime_catalog = RUNTIME_CATALOG_SOURCE.read_text(encoding="utf-8")
+        runtime_catalog = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (RUNTIME_CATALOG_SOURCE, RUNTIME_CATALOG_REPORT_SOURCE)
+        )
         admission = ADMISSION_SOURCE.read_text(encoding="utf-8")
         capability = CAPABILITY_SOURCE.read_text(encoding="utf-8") \
             + CAPABILITY_STAGES_SOURCE.read_text(encoding="utf-8")
@@ -4625,11 +4634,27 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("timelineProgram.bindings", launch)
         self.assertIn("let timeOfDayEffectScriptCandidates =", launch)
         self.assertIn(
-            "sceneScriptTargets: timeOfDayEffectScriptCandidateTargets",
+            "SceneMediaPlaybackPlaceholderFadeProgramCompiler.compile(",
+            launch,
+        )
+        self.assertIn(
+            "provenSceneScriptValueTargets: provenSceneScriptValueTargets",
+            launch,
+        )
+        self.assertIn(
+            "sceneScriptTargets: provenSceneScriptValueTargets",
             launch,
         )
         self.assertIn(
             "resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets",
+            launch,
+        )
+        self.assertIn(
+            "timeOfDayEffectScriptCandidateTargets.isDisjoint(",
+            launch,
+        )
+        self.assertIn(
+            "mediaPlaybackPlaceholderFadeCandidates.bindings.filter",
             launch,
         )
         self.assertLess(

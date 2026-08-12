@@ -414,10 +414,22 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("let timing = sceneClock.advance", frame_driver)
         render_position = frame_driver.index("private func renderFrame()")
         broadcast_position = frame_driver.index("for surface in surfaces.values", render_position)
+        fade_position = frame_driver.index(
+            "mediaPlaybackPlaceholderFadeRuntime.values(", render_position
+        )
         snapshot_position = frame_driver.index(
             "surface.evaluationTransaction.evaluate", broadcast_position
         )
+        self.assertLess(fade_position, broadcast_position)
         self.assertLess(broadcast_position, snapshot_position)
+        self.assertEqual(
+            frame_driver.count("mediaPlaybackPlaceholderFadeRuntime.values("), 1
+        )
+        self.assertIn("frameTime: timing.simulationFrameTime", frame_driver)
+        self.assertIn(
+            "launchContext.mediaPlaybackPlaceholderFadeProgram.bindings", frame_driver
+        )
+        self.assertEqual(host.count("SceneMediaPlaybackPlaceholderFadeRuntime"), 1)
         self.assertNotIn(
             "SceneDynamicSnapshot.empty(frameIndex: timing.frameIndex)", frame_driver
         )

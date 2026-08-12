@@ -1521,6 +1521,31 @@ private enum Harness {
                 && program.semanticIdentity.colorContract.fragmentOutput
                     == .premultipliedAlpha
         }()
+        let sceneScriptAlphaProgram = finalize(
+            shader: maskedShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                maskedIdentity: readyStatus(
+                    device,
+                    identity: maskedIdentity,
+                    purpose: .mask,
+                    content: .data
+                ),
+            ],
+            uniformDeclarations: [dynamicAlphaDeclaration([.sceneScript])],
+            dynamicSource: .sceneScript,
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let sceneScriptDynamicAlphaEncoded: Bool = {
+            guard case let .success(program) = sceneScriptAlphaProgram,
+                  let field = program.frontendProgram.uniformLayout.fields.first(
+                    where: { $0.name == "g_UserAlpha" }
+                  )
+            else { return false }
+            return float(program.uniformBytes, at: field.offset) == 0.25
+        }()
         let overlayPath = SceneVFSAssetPath("textures/overlay-data.tex")!
         let overlayIdentity = SceneFrameTextureIdentity.asset(.init(
             path: overlayPath,
@@ -2304,6 +2329,7 @@ private enum Harness {
                 "userReferenceTyped": failureToken(propertyProgram) == "success",
                 "providerReferenceTyped": failureToken(providerProgram) == "success",
                 "maskedDynamicAlphaEncoded": maskedDynamicAlphaEncoded,
+                "sceneScriptDynamicAlphaEncoded": sceneScriptDynamicAlphaEncoded,
                 "overlayDataTyped": overlayDataTyped,
                 "optionalMaskWithoutResourceAccepted":
                     optionalMaskWithoutResourceAccepted,

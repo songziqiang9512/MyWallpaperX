@@ -26,6 +26,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialEffectIngress.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialScriptBindingClassifier.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTemplateCompiler.swift",
 ]
 
@@ -299,12 +300,14 @@ private extension Array where Element == SceneResolvedMaterialNode.TextureSlot? 
 private func compile(
     _ material: SceneResolvedMaterialNode,
     graph value: Graph = graph(),
-    contract shaderContract: SceneShaderContract? = nil
+    contract shaderContract: SceneShaderContract? = nil,
+    provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
 ) -> Result<Template, SceneResolvedMaterialFailure> {
     SceneResolvedMaterialTemplateCompiler.compile(
         material: material,
         graph: value,
-        shaderContract: shaderContract ?? contract(material.shaderPath)
+        shaderContract: shaderContract ?? contract(material.shaderPath),
+        provenSceneScriptValueTargets: provenSceneScriptValueTargets
     )
 }
 
@@ -473,6 +476,35 @@ enum Harness {
                 scriptSource: "return 1"
             ),
         ])))
+        let boundedScriptTarget = SceneDynamicTarget.effectConstant(
+            layerID: 42,
+            effectIndex: 2,
+            passIndex: 3,
+            name: "g_Fade"
+        )
+        let boundedScriptValue = SceneDocument.ShaderValue(
+            rawValue: "1",
+            valueKind: "binding",
+            components: [1],
+            scriptSource: "project-owned bounded source",
+            bindingKeys: ["script", "value"]
+        )
+        let boundedScriptUnproven = template(compile(material(constants: [
+            "g_Fade": boundedScriptValue,
+        ])))
+        let boundedScriptProven = template(compile(
+            material(constants: ["g_Fade": boundedScriptValue]),
+            provenSceneScriptValueTargets: [boundedScriptTarget]
+        ))
+        let boundedScriptWrongTarget = template(compile(
+            material(constants: ["g_Fade": boundedScriptValue]),
+            provenSceneScriptValueTargets: [.effectConstant(
+                layerID: 42,
+                effectIndex: 2,
+                passIndex: 3,
+                name: "g_Other"
+            )]
+        ))
         let playOnlyTimelineScript = template(compile(material(constants: [
             "g_Time": .init(
                 rawValue: "0.5",
@@ -709,6 +741,25 @@ enum Harness {
                     return value.valueContributors == [.timeline]
                         && value.controlAttachments == [.unprovenSceneScript]
                 } == true,
+            "boundedScriptNeedsExactProof": boundedScriptUnproven?
+                .uniformDeclarations.first.map { declaration in
+                    guard case let .dynamic(value) = declaration.value else { return false }
+                    return value.valueContributors.isEmpty
+                        && value.controlAttachments == [.unprovenSceneScript]
+                } == true
+                && boundedScriptWrongTarget?.uniformDeclarations.first.map {
+                    declaration in
+                    guard case let .dynamic(value) = declaration.value else { return false }
+                    return value.valueContributors.isEmpty
+                        && value.controlAttachments == [.unprovenSceneScript]
+                } == true,
+            "boundedScriptExactProofBecomesSoleValue": boundedScriptProven?
+                .uniformDeclarations.first.map { declaration in
+                    guard case let .dynamic(value) = declaration.value else { return false }
+                    return value.target == boundedScriptTarget
+                        && value.valueContributors == [.sceneScript]
+                        && value.controlAttachments.isEmpty
+                } == true,
             "observedPlayShapesRemainUnproven": [
                 playOnlyTimelineScript, directPlayTimelineScript,
                 extendedRestartScript,
@@ -885,6 +936,8 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "multipleValueContributorsPreserved",
             "timelineControlSeparated",
             "unknownScriptTypedUnproven",
+            "boundedScriptNeedsExactProof",
+            "boundedScriptExactProofBecomesSoleValue",
         ])
 
     def test_vfs_and_shader_lexical_boundaries_match_production(self) -> None:
