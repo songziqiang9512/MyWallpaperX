@@ -7,7 +7,7 @@ struct SceneResolvedMaterialFrameTargetPlan {
 }
 
 /// The compositor-facing claim handshake. Only a static `notMigrated` result may
-/// reach the legacy authored renderer; every capability-owned failure stays closed.
+/// remain unclaimed; every capability-owned failure stays closed.
 enum SceneResolvedMaterialGraphComposition {
     struct FrameTargetRequest {
         let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
@@ -62,14 +62,14 @@ enum SceneResolvedMaterialGraphComposition {
     ) -> Result {
         guard let framePlan,
               framePlan.token == claim.token,
-              framePlan.allocation.chainPlan.key.layerID == claim.layerID else {
+              framePlan.allocation.graphPlan.key.layerID == claim.layerID else {
             runtime.recordClaimedFailure(
                 reasonCode: "frame-target-plan-consumption-failed"
             )
             executionTrace?.recordRouteOperation(
                 layerID: layerID,
                 origin: executionOrigin,
-                operation: "r4-graph-target-allocation",
+                operation: "layer-graph-target-allocation",
                 outcome: .failed(reasonCode: "frame-plan-unavailable")
             )
             return .failed
@@ -102,7 +102,7 @@ enum SceneResolvedMaterialGraphComposition {
             executionTrace?.recordRouteOperation(
                 layerID: layerID,
                 origin: executionOrigin,
-                operation: "r4-unified-graph-executor",
+                operation: "unified-graph-executor",
                 outcome: .failed(reasonCode: reasonCode)
             )
             return .failed
@@ -134,7 +134,7 @@ enum SceneResolvedMaterialGraphComposition {
                       requestedHeight: request.requestedHeight,
                       sharesFullFramePairWhenHistoryFree: true,
                       orderingContext: orderingContext
-                  ), allocation.chainPlan.key.layerID == request.claim.layerID,
+                  ), allocation.graphPlan.key.layerID == request.claim.layerID,
                   byLayerID.updateValue(.init(
                       token: request.claim.token,
                       allocation: allocation
@@ -155,7 +155,7 @@ enum SceneResolvedMaterialGraphComposition {
 }
 
 enum SceneResolvedMaterialClaimRoute {
-    case legacy
+    case unclaimed
     case rejected(reasonCode: String)
     case claimed(SceneResolvedMaterialRuntimeBridge.ClaimedExecution)
 
@@ -223,15 +223,12 @@ extension SceneImageLayerCompositor {
         }
         let uniforms = makeFragmentUniforms(
             values: .init(time: 0, alpha: alpha, cursorUV: .zero),
-            effectInputs: .neutral,
             textureFrame: .identity,
             tint: SIMD3<Float>(repeating: 1),
-            foliageMaskUVScale: SIMD2<Float>(repeating: 1),
             dependencyBlendMode: nil
         )
         let composited = SceneImageLayerMainPassRenderer.draw(
             texture: texture,
-            masks: .empty,
             mvp: modelViewProjection,
             uniforms: uniforms,
             dependencyTexture: nil,
@@ -269,10 +266,10 @@ extension SceneImageLayerCompositor {
     func preflightResolvedMaterialClaim(
         layerID: Int
     ) -> SceneResolvedMaterialClaimRoute {
-        guard let resolvedMaterialRuntime else { return .legacy }
+        guard let resolvedMaterialRuntime else { return .unclaimed }
         switch resolvedMaterialRuntime.preflightClaim(layerID: layerID) {
         case .notMigrated:
-            return .legacy
+            return .unclaimed
         case let .rejected(reasonCode):
             return .rejected(reasonCode: reasonCode)
         case let .claimed(claim):
@@ -283,10 +280,10 @@ extension SceneImageLayerCompositor {
     func resolvedMaterialClaim(
         for request: SceneImageLayerDrawRequest
     ) -> SceneResolvedMaterialClaimRoute {
-        guard let resolvedMaterialRuntime else { return .legacy }
+        guard let resolvedMaterialRuntime else { return .unclaimed }
         switch resolvedMaterialRuntime.claim(layerID: request.layer.id) {
         case .notMigrated:
-            return .legacy
+            return .unclaimed
         case let .rejected(reasonCode):
             resolvedMaterialRuntime.recordClaimedFailure(reasonCode: reasonCode)
             return .rejected(reasonCode: reasonCode)
@@ -325,7 +322,7 @@ extension SceneImageLayerCompositor {
             executionTrace?.recordRouteOperation(
                 layerID: layerID,
                 origin: executionOrigin,
-                operation: "r4-final-composite",
+                operation: "final-composite",
                 outcome: .failed(reasonCode: reasonCode)
             )
             return false

@@ -4,7 +4,7 @@ import simd
 struct SceneWaterWavesEffectTextures {
     let mask: MTLTexture?
     let maskUVScale: SIMD2<Float>
-    /// nil 表示 legacy 实例未绑遮罩（等价 mask=1）。
+    /// nil 表示 v1 实例未绑遮罩（等价 mask=1）。
     let maskPath: String?
 
     func matches(_ plan: SceneWaterWavesExecutionPlan) -> Bool {
@@ -34,7 +34,7 @@ enum SceneWaterWavesEffectTextureLoader {
             else {
                 continue
             }
-            // legacy profile 允许未绑遮罩（等价 mask=1），也要建 entry 供 renderer 命中。
+            // v1 profile 允许未绑遮罩（等价 mask=1），也要建 entry 供 renderer 命中。
             guard let maskPath = SceneEffectMaskSemantics.maskPath(in: pass) else {
                 textures[effect.id] = SceneWaterWavesEffectTextures(
                     mask: nil,
@@ -43,7 +43,7 @@ enum SceneWaterWavesEffectTextureLoader {
                 )
                 continue
             }
-            // legacy shader 声明的 default `util/white` 是 stock 资产，样本包通常不携带。
+            // v1 shader 声明的 default `util/white` 是 stock 资产，样本包通常不携带。
             let maskURL = resolver.resolveTextureFile(named: maskPath)
                 ?? SceneStockTextureResolver.defaultBundleRoot()
                 .flatMap { SceneStockTextureResolver(bundleRoot: $0) }?

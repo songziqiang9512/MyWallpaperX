@@ -1,7 +1,7 @@
 import Foundation
 import simd
 
-/// definition、material、combo 与常量的逐项校验。stock 与 legacy profile 分别锁定
+/// definition、material、combo 与常量的逐项校验。stock 与 v1 profile 分别锁定
 /// 自己的 CASTER、RT format、定义元数据与 gaussian 核；未知组合继续整条拒绝。
 extension SceneAuthoredGodraysPlanner {
     nonisolated struct DownsampleConstants {
@@ -48,7 +48,7 @@ extension SceneAuthoredGodraysPlanner {
         case .stock2842:
             return definition.replacementKey == "godrays"
                 && definition.performance == "expensive"
-        case .legacyDirectional:
+        case .directionalV1:
             return definition.replacementKey == nil && definition.performance == nil
         }
     }
@@ -78,7 +78,7 @@ extension SceneAuthoredGodraysPlanner {
         let expectedBySlot = Dictionary(uniqueKeysWithValues: bindings.map { ($0.0, $0.2) })
         for index in material.textureSlots.indices {
             if let expected = expectedBySlot[index] {
-                if profile == .legacyDirectional, ordinal == 4, index == 1 {
+                if profile == .directionalV1, ordinal == 4, index == 1 {
                     let capture = "_rt_imagelayercomposite_\(expected.layerID)_a"
                     guard let slot = material.textureSlots[index],
                           slot.candidates.count == 2,
@@ -140,11 +140,11 @@ extension SceneAuthoredGodraysPlanner {
         case 1:
             return combos.keys.allSatisfy { ["CASTER", "SAMPLES"].contains($0) }
                 && combos["CASTER", default: 0]
-                    == (profile == .legacyDirectional ? 1 : 0)
+                    == (profile == .directionalV1 ? 1 : 0)
                 && [0, 1].contains(combos["SAMPLES", default: 0])
         case 2, 3:
             return combos.keys.allSatisfy { ["KERNEL", "VERTICAL"].contains($0) }
-                && (profile == .legacyDirectional
+                && (profile == .directionalV1
                     ? combos["KERNEL", default: 0] == 0
                     : [0, 1].contains(combos["KERNEL", default: 1]))
                 && combos["VERTICAL", default: 0] == (ordinal == 3 ? 1 : 0)
@@ -199,7 +199,7 @@ extension SceneAuthoredGodraysPlanner {
                 }
                 center = SIMD2(components[0], components[1])
             case "direction":
-                guard profile == .legacyDirectional,
+                guard profile == .directionalV1,
                       let components = staticVector(value, count: 1, range: 0 ... 6.28)
                 else {
                     return nil
@@ -227,7 +227,7 @@ extension SceneAuthoredGodraysPlanner {
         }
         return CastConstants(
             center: center,
-            direction: profile == .legacyDirectional ? direction ?? 0 : nil,
+            direction: profile == .directionalV1 ? direction ?? 0 : nil,
             color: color,
             length: values["raylength"]!,
             intensity: values["rayintensity"]!
@@ -263,7 +263,7 @@ extension SceneAuthoredGodraysPlanner {
         vertical: [String: Int],
         profile: SceneGodraysShaderProfile
     ) -> Bool? {
-        let defaultKernel = profile == .legacyDirectional ? 0 : 1
+        let defaultKernel = profile == .directionalV1 ? 0 : 1
         guard let x = normalizedCombos(horizontal),
               let y = normalizedCombos(vertical),
               x["KERNEL", default: defaultKernel] == y["KERNEL", default: defaultKernel]
@@ -275,7 +275,7 @@ extension SceneAuthoredGodraysPlanner {
 
     /// 区分「拒绝」（nil）与「合法无遮罩」（`.path == nil`）。pass 0 实例槽只接受
     /// 空、`[nil, mask]`、`[nil, mask, nil|clouds]`、`[nil, nil, clouds]` 形态；
-    /// legacy combine 只接受与当前 layer capture 名称精确一致的冗余实例引用。
+    /// directional-v1 combine 只接受与当前 layer capture 名称精确一致的冗余实例引用。
     nonisolated struct MaskResolution {
         let path: String?
     }
@@ -297,7 +297,7 @@ extension SceneAuthoredGodraysPlanner {
         for (index, pass) in descriptor.passes.enumerated() {
             guard pass.userTextureInputs.isEmpty else { return nil }
             if index == 0 { continue }
-            if index == 4, profile == .legacyDirectional {
+            if index == 4, profile == .directionalV1 {
                 let capture = "_rt_imagelayercomposite_\(layer.id)_a"
                 guard pass.textureSlots.count == 2,
                       pass.textureSlots[0] == nil,

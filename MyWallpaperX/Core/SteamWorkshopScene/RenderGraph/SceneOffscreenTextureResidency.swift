@@ -26,7 +26,7 @@ final class ScenePreparedPersistentGraphTargets {
     struct CommitRequest {
         let cache: SceneOffscreenTextureAllocationCache
         let candidate: SceneOffscreenTextureAllocationCache.Candidate
-        let reservation: SceneOffscreenTextureAllocationCache.ChainReservation
+        let reservation: SceneOffscreenTextureAllocationCache.GraphReservation
         let historyTokensByEffect: [EffectKey: Set<Token>]
         let commandBuffer: MTLCommandBuffer?
     }
@@ -35,7 +35,7 @@ final class ScenePreparedPersistentGraphTargets {
     let historyRehydrateCopiesByEffect: [EffectKey: [HistoryRehydrateCopy]]
     private let cache: SceneOffscreenTextureAllocationCache
     private let candidate: SceneOffscreenTextureAllocationCache.Candidate
-    private let reservation: SceneOffscreenTextureAllocationCache.ChainReservation
+    private let reservation: SceneOffscreenTextureAllocationCache.GraphReservation
     private let lock = NSLock()
     private var isAvailable = true
 
@@ -44,7 +44,7 @@ final class ScenePreparedPersistentGraphTargets {
         historyRehydrateCopiesByEffect: [EffectKey: [HistoryRehydrateCopy]],
         cache: SceneOffscreenTextureAllocationCache,
         candidate: SceneOffscreenTextureAllocationCache.Candidate,
-        reservation: SceneOffscreenTextureAllocationCache.ChainReservation
+        reservation: SceneOffscreenTextureAllocationCache.GraphReservation
     ) {
         self.leases = leases
         self.historyRehydrateCopiesByEffect = historyRehydrateCopiesByEffect
@@ -128,7 +128,7 @@ struct SceneGraphHistoryResidency {
     typealias EffectKey = SceneAuthoredEffectRenderPlan.EffectKey
     typealias Token = SceneGraphExecutionState.PhysicalToken
 
-    let plan: SceneGraphRenderTargetChainPlan
+    let plan: SceneLayerGraphTargetPlan
     let generation: UInt64
     let texturesByToken: [Token: MTLTexture]
     let byteCostsByToken: [Token: Int]
@@ -173,7 +173,7 @@ struct SceneGraphHistoryResidency {
     /// Pair extent changes do not invalidate fixed-size authored history FBOs.
     /// Any changed history descriptor keeps the old pin resident but prevents
     /// that generation from becoming a rehydrate seed.
-    func isCompatible(with candidate: SceneGraphRenderTargetChainPlan) -> Bool {
+    func isCompatible(with candidate: SceneLayerGraphTargetPlan) -> Bool {
         guard plan.key == candidate.key,
               Set(tokensByEffect.keys) == candidate.historyEffects,
               historySemanticsMatch(candidate) else {
@@ -217,7 +217,7 @@ struct SceneGraphHistoryResidency {
     }
 
     private func historySemanticsMatch(
-        _ candidate: SceneGraphRenderTargetChainPlan
+        _ candidate: SceneLayerGraphTargetPlan
     ) -> Bool {
         for effect in tokensByEffect.keys {
             let oldMatches = plan.stages.filter { $0.plan.output.effect == effect }
@@ -261,11 +261,11 @@ struct SceneGraphHistorySeed {
     let tokensByEffect: [EffectKey: Set<Token>]
 }
 
-struct SceneGraphRenderTargetChainAllocation {
+struct SceneLayerGraphTargetAllocation {
     typealias EffectKey = SceneAuthoredEffectRenderPlan.EffectKey
     typealias Token = SceneGraphExecutionState.PhysicalToken
 
-    let plan: SceneGraphRenderTargetChainPlan
+    let plan: SceneLayerGraphTargetPlan
     let leases: [SceneGraphRenderTargetLease]
     let texturesBySlot: [Int: MTLTexture]
     let tokenBySlot: [Int: Token]
@@ -283,7 +283,7 @@ struct SceneGraphRenderTargetChainAllocation {
     }
 
     static func make(
-        plan: SceneGraphRenderTargetChainPlan,
+        plan: SceneLayerGraphTargetPlan,
         leases: [SceneGraphRenderTargetLease],
         texturesBySlot: [Int: MTLTexture],
         generation: UInt64,
@@ -380,7 +380,7 @@ struct SceneGraphRenderTargetChainAllocation {
     }
 
     private static func byteCost(
-        _ descriptor: SceneGraphRenderTargetChainPlan.Descriptor
+        _ descriptor: SceneLayerGraphTargetPlan.Descriptor
     ) -> Int? {
         let (pixels, pixelOverflow) = descriptor.extent.width
             .multipliedReportingOverflow(by: descriptor.extent.height)

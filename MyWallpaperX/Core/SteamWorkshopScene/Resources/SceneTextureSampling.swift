@@ -59,14 +59,14 @@ nonisolated struct SceneTextureSampling: Equatable, Hashable, Sendable {
     /// Exact authored TEX flags. Direct image uploads have no authored flag word.
     let rawFlags: UInt32?
 
-    /// R3 Program admission is intentionally narrower than the legacy sampler.
+    /// Program admission is intentionally narrower than the direct-image sampler.
     /// Only the proven no-interpolation and clamp-UV bits are executable.
     var isResolvedForMaterialProgram: Bool {
         guard let rawFlags else { return true }
         return rawFlags & ~UInt32(0b11) == 0
     }
 
-    /// Preserve the legacy effective-sampler equality used by existing image
+    /// Preserve the effective-sampler equality used by direct image
     /// routes. Program admission inspects `rawFlags` separately before use.
     static func == (lhs: SceneTextureSampling, rhs: SceneTextureSampling) -> Bool {
         lhs.filter == rhs.filter

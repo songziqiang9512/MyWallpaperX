@@ -1,10 +1,10 @@
 import Foundation
 import Metal
 
-/// Materializes one already-budgeted chain plan. The reservation and retained
+/// Materializes one already-budgeted graph plan. The reservation and retained
 /// history seed are validated before the first texture factory call.
 struct ScenePersistentGraphTargetAllocator {
-    typealias ChainPlan = SceneGraphRenderTargetChainPlan
+    typealias GraphPlan = SceneLayerGraphTargetPlan
     typealias Token = SceneGraphExecutionState.PhysicalToken
     typealias TextureFactory = (MTLTextureDescriptor, String) -> MTLTexture?
 
@@ -33,26 +33,26 @@ struct ScenePersistentGraphTargetAllocator {
     }
 
     func prepare(
-        plan: ChainPlan,
+        plan: GraphPlan,
         orderingContext: SceneGraphCommandQueueOrderingContext? = nil
     ) -> ScenePreparedPersistentGraphTargets? {
         prepare(plans: [plan], orderingContext: orderingContext)?.first
     }
 
     func prepare(
-        plans: [ChainPlan],
+        plans: [GraphPlan],
         orderingContext: SceneGraphCommandQueueOrderingContext? = nil
     ) -> [ScenePreparedPersistentGraphTargets]? {
         guard !plans.isEmpty,
-              let reservations = cache.reserveChains(
+              let reservations = cache.reserveGraphs(
                   plans: plans, orderingContext: orderingContext
               ) else { return nil }
         return prepare(plans: plans, reservations: reservations)
     }
 
     func prepare(
-        plans: [ChainPlan],
-        reservations: [SceneOffscreenTextureAllocationCache.ChainReservation]
+        plans: [GraphPlan],
+        reservations: [SceneOffscreenTextureAllocationCache.GraphReservation]
     ) -> [ScenePreparedPersistentGraphTargets]? {
         guard !plans.isEmpty, plans.count == reservations.count else { return nil }
         var result: [ScenePreparedPersistentGraphTargets] = []
@@ -66,13 +66,13 @@ struct ScenePersistentGraphTargetAllocator {
     }
 
     private func prepare(
-        plan: ChainPlan,
-        reservation: SceneOffscreenTextureAllocationCache.ChainReservation
+        plan: GraphPlan,
+        reservation: SceneOffscreenTextureAllocationCache.GraphReservation
     ) -> ScenePreparedPersistentGraphTargets? {
         if let cached = reservation.cachedAllocation {
             let candidate = SceneOffscreenTextureAllocationCache.Candidate(
-                key: .chain(plan.key),
-                allocation: .chain(cached),
+                key: .layerGraph(plan.key),
+                allocation: .layerGraph(cached),
                 byteCost: plan.residentByteCost
             )
             return prepared(
@@ -110,7 +110,7 @@ struct ScenePersistentGraphTargetAllocator {
             var allocated: [Int: MTLTexture] = [:]
             for slot in framebufferSlots {
                 let descriptor = textureDescriptor(for: slot.descriptor)
-                let label = "SceneGraphChainRT layer=\(plan.key.layerID) slot=\(slot.id)"
+                let label = "SceneLayerGraphRT layer=\(plan.key.layerID) slot=\(slot.id)"
                 guard let texture = textureFactory(descriptor, label) else { return nil }
                 allocated[slot.id] = texture
             }
@@ -198,7 +198,7 @@ struct ScenePersistentGraphTargetAllocator {
             }
             leases.append(lease)
         }
-        guard let allocation = SceneGraphRenderTargetChainAllocation.make(
+        guard let allocation = SceneLayerGraphTargetAllocation.make(
             plan: plan,
             leases: leases,
             texturesBySlot: allTexturesBySlot,
@@ -207,8 +207,8 @@ struct ScenePersistentGraphTargetAllocator {
             fullFramePairGeneration: sharedPair?.identity.generation
         ) else { return nil }
         let candidate = SceneOffscreenTextureAllocationCache.Candidate(
-            key: .chain(plan.key),
-            allocation: .chain(allocation),
+            key: .layerGraph(plan.key),
+            allocation: .layerGraph(allocation),
             byteCost: plan.residentByteCost
         )
         guard let copies = rehydrateCopies(
@@ -224,9 +224,9 @@ struct ScenePersistentGraphTargetAllocator {
     }
 
     private func prepared(
-        allocation: SceneGraphRenderTargetChainAllocation,
+        allocation: SceneLayerGraphTargetAllocation,
         candidate: SceneOffscreenTextureAllocationCache.Candidate,
-        reservation: SceneOffscreenTextureAllocationCache.ChainReservation,
+        reservation: SceneOffscreenTextureAllocationCache.GraphReservation,
         historyRehydrateCopiesByEffect: [
             SceneAuthoredEffectRenderPlan.EffectKey:
                 [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy]
@@ -243,7 +243,7 @@ struct ScenePersistentGraphTargetAllocator {
 
     private func rehydrateCopies(
         seed: SceneGraphHistorySeed?,
-        allocation: SceneGraphRenderTargetChainAllocation
+        allocation: SceneLayerGraphTargetAllocation
     ) -> [
         SceneAuthoredEffectRenderPlan.EffectKey:
             [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy]
@@ -279,7 +279,7 @@ struct ScenePersistentGraphTargetAllocator {
 
     private func valid(
         seed: SceneGraphHistorySeed?,
-        for plan: ChainPlan
+        for plan: GraphPlan
     ) -> Bool {
         guard let seed else { return true }
         guard seed.generation > 0,
@@ -318,7 +318,7 @@ struct ScenePersistentGraphTargetAllocator {
 
     private func validReusableTextures(
         _ texturesBySlot: [Int: MTLTexture],
-        for plan: ChainPlan
+        for plan: GraphPlan
     ) -> Bool {
         guard texturesBySlot.count == plan.slots.count,
               Set(texturesBySlot.keys) == Set(plan.slots.map(\.id)),
@@ -346,7 +346,7 @@ struct ScenePersistentGraphTargetAllocator {
     }
 
     private func textureDescriptor(
-        for value: ChainPlan.Descriptor
+        for value: GraphPlan.Descriptor
     ) -> MTLTextureDescriptor {
         let pixelFormat: MTLPixelFormat = switch value.format {
         case .rgbaBackbuffer: .bgra8Unorm

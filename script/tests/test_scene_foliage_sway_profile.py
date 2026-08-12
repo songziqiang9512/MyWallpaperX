@@ -348,7 +348,7 @@ enum Harness {
         let legacySparseConstants = Options(
             constants: ["strength": value(0.4)]
         )
-        let legacyExplicitNoiseWithoutMask = Options(
+        let explicitNoiseV1WithoutMask = Options(
             slots: [nil, nil, noisePath],
             paths: [noisePath],
             constants: ["strength": value(0.4)]
@@ -379,8 +379,8 @@ enum Harness {
                 planned(mismatchedMaskPath, contracts: contracts) == nil,
             "legacySparseConstantsRejected":
                 planned(legacySparseConstants, contracts: contracts) == nil,
-            "legacyExplicitNoiseWithoutMaskRejected":
-                planned(legacyExplicitNoiseWithoutMask, contracts: contracts) == nil,
+            "explicitNoiseV1WithoutMaskRejected":
+                planned(explicitNoiseV1WithoutMask, contracts: contracts) == nil,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: result,
@@ -471,7 +471,7 @@ class SceneFoliageSwayProfileTests(unittest.TestCase):
     def test_legacy_instance_shapes_do_not_expand_the_stock_profile(self) -> None:
         self.assertTrue(self.result["legacySparseConstantsRejected"], self.result)
         self.assertTrue(
-            self.result["legacyExplicitNoiseWithoutMaskRejected"],
+            self.result["explicitNoiseV1WithoutMaskRejected"],
             self.result,
         )
 

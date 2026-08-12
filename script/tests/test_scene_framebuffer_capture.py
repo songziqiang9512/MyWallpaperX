@@ -24,7 +24,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable+Mapped.swift",
     SOURCE_ROOT / "RenderGraph/SceneLayerFullFramePairPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetChainPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneLayerGraphTargetPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetLease.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetLease+Publication.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureResidency.swift",
@@ -69,11 +69,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneGradientColorPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneBloomPipeline.swift",
     SOURCE_ROOT / "Effects/SceneLightShaftsPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWaterRipplePipeline.swift",
-    SOURCE_ROOT / "Effects/ScenePerspectiveOpacityPipeline.swift",
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
     SOURCE_ROOT / "Rendering/SceneLayerColorBlendPipeline.swift",
@@ -82,46 +79,37 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "Effects/SceneFoliageSwayRuntimePlan.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurRuntimePlan.swift",
-    SOURCE_ROOT / "Effects/SceneGradientColorRuntimePlan.swift",
     SOURCE_ROOT / "Rendering/SceneTextureMappedUVScale.swift",
     SOURCE_ROOT / "Effects/SceneWaterRippleRuntimePlan.swift",
-    SOURCE_ROOT / "Effects/SceneInlineEffectRuntime.swift",
-    SOURCE_ROOT / "Effects/SceneEffectRuntimeSupport.swift",
-    SOURCE_ROOT / "Effects/SceneEffectRuntimePlan.swift",
-    SOURCE_ROOT / "Effects/SceneEffectRuntimeModel.swift",
     SOURCE_ROOT / "Effects/SceneEffectStageRuntimeDisposition.swift",
-    SOURCE_ROOT / "Effects/SceneLegacyEffectPlanningDecision.swift",
-    SOURCE_ROOT / "Effects/SceneLegacyEffectPlanningDecision+Inline.swift",
-    SOURCE_ROOT / "Effects/SceneLegacyEffectPlanningDecision+Execution.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer.swift",
-    SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer+LegacyTelemetry.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer+Capture.swift",
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
     SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneFilmGrainExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift",
     SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SpecializedStage.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+CursorRipple.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WaterRipple.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Rays.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Blend.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Opacity.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AudioBars.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopGradient.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ColorGrading.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Pulse.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ShiftHue.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ProceduralNoise.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+FilmGrain.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ClippingMask.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Tint.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Transform.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+XRay.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Topology.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopStage.swift",
+    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+CursorRipple.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterRipple.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Rays.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Opacity.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+AudioBars.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WorkshopGradient.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ColorGrading.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ShiftHue.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ProceduralNoise.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+FilmGrain.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ClippingMask.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Tint.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+XRay.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WorkshopStage.swift",
     SOURCE_ROOT / "Rendering/SceneImageEffectPipelineRepository.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectPipelineSet.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
@@ -582,7 +570,7 @@ struct SceneOpacityEffectTextures {
 }
 
 enum SceneBlendShaderProfile {
-    case legacySingleTexture
+    case singleTextureV1
 }
 
 struct SceneBlendExecutionPlan {
@@ -664,7 +652,7 @@ struct SceneLightShaftsEffectTextures {
     }
 }
 
-    struct SceneAuthoredEffectExecutionPlan {
+    struct SceneEffectStageExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
@@ -703,7 +691,7 @@ struct SceneLightShaftsEffectTextures {
                  .filmGrain, .shake, .clippingMask:
                 return true
             case .proceduralNoise(let plan):
-                return plan.variant == .legacyWorleyColor
+                return plan.variant == .worleyColorV1
                     && plan.dependencyProviderLayerID != nil
                     && plan.dependencySlotIndex == 3
             default:
@@ -860,8 +848,8 @@ struct SceneLightShaftsEffectTextures {
         case .localContrast:
             return true
         case .godrays(let plan):
-            return (plan.direction == nil && !plan.legacyGaussianWeights)
-                || (plan.direction?.isFinite == true && plan.legacyGaussianWeights)
+            return (plan.direction == nil && !plan.usesDirectionalGaussianKernel)
+                || (plan.direction?.isFinite == true && plan.usesDirectionalGaussianKernel)
         case .shine:
             return true
         default:
@@ -1094,12 +1082,11 @@ struct SceneDepthParallaxPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
 }
 
-extension SceneAuthoredEffectChainRenderer {
+extension SceneEffectStageRenderer {
     static func renderWaterCaustics(
         _ plan: SceneWaterCausticsExecutionPlan,
         sourceTexture: MTLTexture,
         masks: SceneImageLayerMasks,
-        auxMask: MTLTexture?,
         targets: SceneGraphRenderTargetTable,
         sourceUniforms: SceneLayerFragmentUniforms,
         sourcePipeline: SceneImageLayerPipeline,
@@ -1112,7 +1099,6 @@ extension SceneAuthoredEffectChainRenderer {
         _ depthParallax: SceneDepthParallaxExecutionPlan,
         sourceTexture: MTLTexture,
         masks: SceneImageLayerMasks,
-        auxMask: MTLTexture?,
         targets: SceneGraphRenderTargetTable,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
@@ -1191,7 +1177,7 @@ struct SceneGodraysPlan {
     let firstHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
     let secondHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
     let direction: Float?
-    let legacyGaussianWeights: Bool
+    let usesDirectionalGaussianKernel: Bool
     let maskTexturePath: String?
 }
 
@@ -1333,21 +1319,6 @@ struct ScenePulseEffectTextures {
     private func normalized(_ path: String) -> String {
         path.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
-}
-
-struct SceneAuthoredEffectExecutionChain {
-    let layerID: Int
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let executionStages: [SceneAuthoredEffectExecutionPlan]
-
-    var singleStage: SceneAuthoredEffectExecutionPlan? {
-        executionStages.count == 1 ? executionStages[0] : nil
-    }
-
-    var clippingMaskCount: Int {
-        executionStages.filter { $0.clippingMask != nil }.count
-    }
-
 }
 
 struct SceneDynamicSnapshot {
@@ -1720,13 +1691,13 @@ enum Harness {
         layerID: Int = 10,
         commandKind: Graph.NodeKind? = nil,
         fullFrameCompose: Bool = false
-    ) -> SceneAuthoredEffectExecutionPlan {
+    ) -> SceneEffectStageExecutionPlan {
         let graph = preciseBlurGraph(
             layerID: layerID,
             commandKind: commandKind,
             fullFrameCompose: fullFrameCompose
         )
-        return SceneAuthoredEffectExecutionPlan(
+        return SceneEffectStageExecutionPlan(
             layerID: graph.layerID,
             renderGraph: graph,
             backend: .preciseGaussian(SceneGaussianBlurPlan(
@@ -1771,10 +1742,6 @@ enum Harness {
         pipeline.bind(encoder: baseEncoder)
         pipeline.drawLayer(
             texture: source,
-            shakeMaskTexture: nil,
-            waterMaskTexture: nil,
-            foliageMaskTexture: nil,
-            auxMaskTexture: nil,
             mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
             uniforms: .neutral(),
             encoder: baseEncoder
@@ -1803,7 +1770,6 @@ enum Harness {
                     requiresSourceCopy: true,
                     finalCompositeAlpha: 1,
                     dependencyEffect: nil,
-                    blocksLegacyGaussianBlur: false
                 ),
                 pipeline: pipeline,
                 mainPass: mainPass
@@ -1829,7 +1795,6 @@ enum Harness {
                     requiresSourceCopy: true,
                     finalCompositeAlpha: 1,
                     dependencyEffect: nil,
-                    blocksLegacyGaussianBlur: false
                 ),
                 pipeline: pipeline,
                 mainPass: mainPass
@@ -1921,21 +1886,7 @@ enum Harness {
         ) == nil
         let rejectedLayerBlend = try layerColorBlendPixel(
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
-            blendMode: 14,
-            suppressesLegacyFallback: true
-        )
-        let rejectedLayerBlendWithoutPoolRefused = try layerColorBlendPixel(
-            device: device, queue: queue, pipeline: pipeline, compositor: compositor,
-            blendMode: 14,
-            suppressesLegacyFallback: true,
-            providesOffscreenPool: false
-        ) == nil
-        let coarseBlur = blurPlan(path: "effects/blur/effect.json", scale: 0.6)
-        let preciseBlur = blurPlan(path: "effects/blurprecise/effect.json", scale: 0.45)
-        let blockedPreciseBlur = blurPlan(
-            path: "effects/blurprecise/effect.json",
-            scale: 0.45,
-            blocksLegacyGaussianBlur: true
+            blendMode: 14
         )
         let authoredPreciseImpulse = try authoredPreciseBlurImpulseEvidence(
             device: device,
@@ -1963,13 +1914,6 @@ enum Harness {
             sourceSize: 16,
             maxDimension: 8
         )
-        let legacyChainProductRejection =
-            try legacyChainProductRejectionEvidence(
-                device: device,
-                queue: queue,
-                pipeline: pipeline,
-                compositor: compositor
-            )
         let authoredStandardCheckerboard = try authoredStandardBlurCheckerboardEvidence(
             device: device,
             queue: queue,
@@ -1998,8 +1942,6 @@ enum Harness {
             queue: queue,
             pipeline: pipeline
         )
-        let authoredBlendRuntimeSummary = authoredBlendRuntimeSummary()
-        let authoredStandardBlurOverridesLegacy = standardBlurOverridesLegacy()
         let standardBlurAlphaAwareDownsample = try alphaAwareDownsamplePixel(
             device: device,
             queue: queue
@@ -2008,8 +1950,6 @@ enum Harness {
             device: device,
             queue: queue
         )
-        let foliage = foliageInputs(mode: 0)
-        let unsupportedFoliage = foliageInputs(mode: 1)
         let mappedMaskScale = SceneTextureMappedUVScale.resolve(
             physicalWidth: 4096,
             physicalHeight: 4096,
@@ -2023,22 +1963,6 @@ enum Harness {
             mappedHeight: 2047,
             sampledWidth: 1415,
             sampledHeight: 2047
-        )
-        let standaloneGradientPixels = try gradientPixels(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor,
-            sourceBGRA: [255, 255, 255, 255],
-            dependencyBGRA: nil
-        )
-        let clippedGradientPixels = try gradientPixels(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor,
-            sourceBGRA: [128, 128, 128, 128],
-            dependencyBGRA: [0, 255, 0, 255]
         )
         let resolvedMaterialComposition = try resolvedMaterialCompositionEvidence(
             device: device,
@@ -2072,51 +1996,23 @@ enum Harness {
             "warmAdditiveLayerBlendBGRA": warmAdditiveLayerBlend as Any,
             "invalidLayerBlendRefused": invalidLayerBlendRefused,
             "rejectedLayerBlendBGRA": rejectedLayerBlend as Any,
-            "rejectedLayerBlendWithoutPoolRefused": rejectedLayerBlendWithoutPoolRefused,
             "fragmentUniformSize": MemoryLayout<SceneLayerFragmentUniforms>.size,
             "dependencyBlendModeOffset": MemoryLayout<SceneLayerFragmentUniforms>.offset(
                 of: \SceneLayerFragmentUniforms.dependencyBlendMode
             ) ?? -1,
-            "coarseBlur": [
-                coarseBlur?.horizontalStep ?? -1,
-                coarseBlur?.verticalStep ?? -1,
-                coarseBlur?.sampleResolutionScale ?? -1,
-            ],
-            "coarseBlurIsPrecise": coarseBlur?.isPrecise ?? true,
-            "preciseBlur": [
-                preciseBlur?.horizontalStep ?? -1,
-                preciseBlur?.verticalStep ?? -1,
-                preciseBlur?.sampleResolutionScale ?? -1,
-            ],
-            "preciseBlurIsPrecise": preciseBlur?.isPrecise ?? false,
-            "blockedPreciseBlurIsNil": blockedPreciseBlur == nil,
             "authoredPreciseImpulse": authoredPreciseImpulse,
             "gaussianKernelPixels": gaussianKernelPixels,
             "authoredFullFrameComposeImpulse": authoredFullFrameComposeImpulse,
             "authoredFullFrameComposeScaled": authoredFullFrameComposeScaled,
-            "legacyChainProductRejection": legacyChainProductRejection,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredStandardCandidate": authoredStandardCandidate,
             "authoredLocalContrastPrepared": authoredLocalContrastPrepared,
             "authoredGodraysPrepared": authoredGodraysPrepared,
             "authoredShinePrepared": authoredShinePrepared,
-            "authoredBlendRuntimeSummary": authoredBlendRuntimeSummary as Any,
-            "authoredStandardBlurOverridesLegacy": authoredStandardBlurOverridesLegacy,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
             "standardBlurMaskPixels": standardBlurMaskPixels,
-            "foliageFlags": foliage.flags.rawValue,
-            "foliageParams3": [
-                foliage.params3.x, foliage.params3.y, foliage.params3.z, foliage.params3.w,
-            ],
-            "foliageParams4": [
-                foliage.params4.x, foliage.params4.y, foliage.params4.z, foliage.params4.w,
-            ],
-            "unsupportedFoliageFlags": unsupportedFoliage.flags.rawValue,
             "mappedMaskScale": [mappedMaskScale.x, mappedMaskScale.y],
             "decodedMappedScale": [decodedMappedScale.x, decodedMappedScale.y],
-            "gradientTopBGRA": standaloneGradientPixels[0],
-            "gradientBottomBGRA": standaloneGradientPixels[1],
-            "clippedGradientTopBGRA": clippedGradientPixels[0],
             "resolvedMaterialComposition": resolvedMaterialComposition,
             "filmGrain": filmGrain,
             "baseColorCandidate": baseColorCandidate,
@@ -2433,7 +2329,6 @@ enum Harness {
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
                 dependencyEffect: nil,
-                blocksLegacyGaussianBlur: false
             )
         let encoded = compositor.draw(
             request,
@@ -2492,7 +2387,6 @@ enum Harness {
                 dependencyEffect: blendMode.map {
                     dependencyInput(blendMode: $0, texture: dependency)
                 },
-                blocksLegacyGaussianBlur: false
             ),
             pipeline: pipeline,
             mainPass: mainPass
@@ -2547,9 +2441,8 @@ enum Harness {
         fill(source, bgra: [32, 64, 128, 128])
         fill(dependency, bgra: [192, 32, 64, 255])
 
-        let chain = authoredClippingMaskChain()
-        guard let stage = chain.executionStages.first,
-              let clipping = stage.clippingMask else {
+        let stage = clippingMaskStage()
+        guard let clipping = stage.clippingMask else {
             throw HarnessError.drawRefused
         }
         let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
@@ -2586,8 +2479,8 @@ enum Harness {
         }
         func preparation(
             dependencyEffect: SceneDependencyEffectInput?
-        ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
-            SceneAuthoredEffectChainRenderer.prepareStage(
+        ) -> SceneEffectStageRenderer.StagePreparation {
+            SceneEffectStageRenderer.prepareStage(
                 stage,
                 sourceTexture: table.inputTexture,
                 targets: table,
@@ -2609,7 +2502,7 @@ enum Harness {
             )
         }
         func rejectionReason(
-            _ result: SceneAuthoredEffectChainRenderer.StagePreparation
+            _ result: SceneEffectStageRenderer.StagePreparation
         ) -> String? {
             guard case let .rejected(reason) = result else { return nil }
             return reason
@@ -2629,14 +2522,11 @@ enum Harness {
             dependencyEffect: input(providerLayerID: clipping.providerLayerID)
         ), SceneOffscreenEffectRenderer.captureSource(
             sourceTexture: source,
-            waterMaskTexture: nil,
-            foliageMaskTexture: nil,
-            auxMaskTexture: nil,
             target: table.inputTexture,
             sourceUniforms: .neutral(),
             pipeline: pipeline,
             commandBuffer: commandBuffer
-        ), SceneAuthoredEffectChainRenderer.encodePreparedStage(
+        ), SceneEffectStageRenderer.encodePreparedStage(
             preparedStage,
             commandBuffer: commandBuffer
         ) else {
@@ -2672,9 +2562,8 @@ enum Harness {
         fill(source, bgra: [32, 64, 128, 128])
         fill(dependency, bgra: [192, 32, 64, 255])
 
-        let chain = authoredLegacyProceduralNoiseChain()
-        guard let stage = chain.executionStages.first,
-              case let .proceduralNoise(noise) = stage.backend,
+        let stage = externalProceduralNoiseStage()
+        guard case let .proceduralNoise(noise) = stage.backend,
               let providerLayerID = noise.dependencyProviderLayerID else {
             throw HarnessError.drawRefused
         }
@@ -2716,8 +2605,8 @@ enum Harness {
         }
         func preparation(
             dependencyEffect: SceneDependencyEffectInput?
-        ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
-            SceneAuthoredEffectChainRenderer.prepareStage(
+        ) -> SceneEffectStageRenderer.StagePreparation {
+            SceneEffectStageRenderer.prepareStage(
                 stage,
                 sourceTexture: table.inputTexture,
                 targets: table,
@@ -2739,7 +2628,7 @@ enum Harness {
             )
         }
         func rejectionReason(
-            _ result: SceneAuthoredEffectChainRenderer.StagePreparation
+            _ result: SceneEffectStageRenderer.StagePreparation
         ) -> String? {
             guard case let .rejected(reason) = result else { return nil }
             return reason
@@ -2773,14 +2662,11 @@ enum Harness {
             dependencyEffect: input()
         ), SceneOffscreenEffectRenderer.captureSource(
             sourceTexture: source,
-            waterMaskTexture: nil,
-            foliageMaskTexture: nil,
-            auxMaskTexture: nil,
             target: table.inputTexture,
             sourceUniforms: .neutral(),
             pipeline: pipeline,
             commandBuffer: commandBuffer
-        ), SceneAuthoredEffectChainRenderer.encodePreparedStage(
+        ), SceneEffectStageRenderer.encodePreparedStage(
             preparedStage,
             commandBuffer: commandBuffer
         ) else {
@@ -2844,7 +2730,6 @@ enum Harness {
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
                 dependencyEffect: nil,
-                blocksLegacyGaussianBlur: false
             ),
             pipeline: pipeline,
             mainPass: mainPass
@@ -2866,9 +2751,7 @@ enum Harness {
         sourceBGRA: [UInt8] = [64, 96, 128, 128],
         background: MTLClearColor = MTLClearColorMake(0.2, 0.4, 0.6, 1),
         tint: SIMD3<Float> = SIMD3(repeating: 1),
-        brightness: Double? = nil,
-        suppressesLegacyFallback: Bool = false,
-        providesOffscreenPool: Bool = true
+        brightness: Double? = nil
     ) throws -> [UInt8]? {
         guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
               let target = makeTexture(
@@ -2883,7 +2766,7 @@ enum Harness {
             target: target,
             clearColor: background
         )
-        var request = SceneImageLayerDrawRequest(
+        let request = SceneImageLayerDrawRequest(
             layer: SceneRenderDescriptor.Layer(
                 contentKind: "image",
                 colorRGB: nil,
@@ -2898,16 +2781,12 @@ enum Harness {
             uniforms: SceneImageLayerUniformValues(
                 time: 0, alpha: 1, cursorUV: .zero, tint: tint
             ),
-            offscreenTexturePool: providesOffscreenPool
-                ? SceneOffscreenTexturePool(device: device)
-                : nil,
+            offscreenTexturePool: SceneOffscreenTexturePool(device: device),
             offscreenSize: nil,
             requiresSourceCopy: false,
             finalCompositeAlpha: nil,
             dependencyEffect: nil,
-            blocksLegacyGaussianBlur: false
         )
-        request.suppressesLegacyEffectFallback = suppressesLegacyFallback
         let drew = compositor.draw(request, pipeline: pipeline, mainPass: mainPass)
         guard drew else { return nil }
         mainPass.finishEnsuringClear()
@@ -2917,172 +2796,11 @@ enum Harness {
         return pixel(target, x: 0, y: 0)
     }
 
-    static func gradientPixels(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor,
-        sourceBGRA: [UInt8],
-        dependencyBGRA: [UInt8]?
-    ) throws -> [[UInt8]] {
-        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
-              ), let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: sourceBGRA)
-        let dependency = dependencyBGRA.flatMap { color -> MTLTexture? in
-            guard let texture = makeTexture(device: device, size: 8, usage: .shaderRead) else {
-                return nil
-            }
-            fill(texture, bgra: color)
-            return texture
-        }
-        let layer = gradientLayer(includesClipping: dependency != nil)
-        let dependencyEffect = dependency.map { dependencyInput(texture: $0) }
-        let pool = SceneOffscreenTexturePool(device: device)
-        let legacyDecision = SceneEffectRuntimePlanner.legacyPlanningDecision(
-            for: layer,
-            resources: .none
-        )
-        guard let textures = pool.textures(
-            width: source.width,
-            height: source.height
-        ), let gradientPipeline = SceneGradientColorPipeline(device: device) else {
-            throw HarnessError.metalUnavailable
-        }
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: target,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        )
-        let rendered = mainPass.encodeOffscreen { commandBuffer in
-            SceneOffscreenEffectRenderer.render(
-                sourceTexture: source,
-                waterMaskTexture: nil,
-                foliageMaskTexture: nil,
-                auxMaskTexture: nil,
-                offscreenPair: textures,
-                offscreenPassCount: max(
-                    legacyDecision.runtimePlan.offscreenPassCount,
-                    1
-                ),
-                blurPlan: nil,
-                bloomPlan: nil,
-                gradientColorPlan: legacyDecision.runtimePlan.gradientColor,
-                waterRippleNormalPlan: nil,
-                waterRippleNormalTexture: nil,
-                perspectiveOpacityPlan: nil,
-                sourceUniforms: .neutral(),
-                pipeline: pipeline,
-                gaussianBlurPipeline: nil,
-                bloomPipeline: nil,
-                gradientColorPipeline: gradientPipeline,
-                waterRipplePipeline: nil,
-                perspectiveOpacityPipeline: nil,
-                commandBuffer: commandBuffer,
-                legacyDecision: legacyDecision,
-                executionTrace: nil,
-                executionOrigin: .image
-            )
-        }
-        guard let rendered else { throw HarnessError.drawRefused }
-        let finalUniforms = compositor.makeFragmentUniforms(
-            values: SceneImageLayerUniformValues(
-                time: 0,
-                alpha: 1,
-                cursorUV: .zero
-            ),
-            effectInputs: .neutral,
-            textureFrame: .identity,
-            tint: SIMD3(repeating: 1),
-            foliageMaskUVScale: SIMD2(repeating: 1),
-            dependencyBlendMode: dependencyEffect?.blendMode
-        )
-        let drew = SceneImageLayerMainPassRenderer.draw(
-            texture: rendered,
-            masks: .empty,
-            mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-            uniforms: finalUniforms,
-            dependencyTexture: dependencyEffect?.texture,
-            layer: layer,
-            pipeline: pipeline,
-            colorBlendPipeline: nil,
-            mainPass: mainPass
-        )
-        guard drew else { throw HarnessError.drawRefused }
-        mainPass.finishEnsuringClear()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
-        return [pixel(target, x: 4, y: 0), pixel(target, x: 4, y: 7)]
-    }
 
-    static func gradientLayer(includesClipping: Bool) -> SceneRenderDescriptor.Layer {
-        let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
-            texturePaths: [],
-            textureSlots: [],
-            combos: ["AXIS": 1, "BLENDMODE": 0],
-            constantShaderValues: [
-                "Amount": .init(components: [1]),
-                "Color 1": .init(components: [1, 0, 0]),
-                "Color 2": .init(components: [0, 0, 1]),
-                "Hue Speed": .init(components: [0]),
-                "Opacity": .init(components: [1]),
-                "Oscillate": .init(components: [0]),
-            ]
-        )
-        var effects = [SceneRenderDescriptor.EffectDescriptor(
-            file: "effects/workshop/2552475732/gradient_color/effect.json",
-            visible: true,
-            passes: [pass]
-        )]
-        if includesClipping {
-            effects.append(.init(
-                file: "effects/workshop/2800594362/clipping_mask/effect.json",
-                visible: true,
-                passes: []
-            ))
-        }
-        return SceneRenderDescriptor.Layer(
-            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: effects
-        )
-    }
 
-    static func blurPlan(
-        path: String,
-        scale: Double,
-        blocksLegacyGaussianBlur: Bool = false
-    ) -> SceneGaussianBlurPlan? {
-        let empty = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
-            texturePaths: [], textureSlots: [], combos: [:], constantShaderValues: [:]
-        )
-        let scaled = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
-            texturePaths: [],
-            textureSlots: [],
-            combos: [:],
-            constantShaderValues: ["scale": .init(components: [scale, scale])]
-        )
-        let passes = path.contains("blurprecise")
-            ? [scaled, scaled]
-            : [empty, scaled, scaled, empty]
-        let layer = SceneRenderDescriptor.Layer(
-            contentKind: "image",
-            colorRGB: nil,
-            colorBlendMode: nil,
-            effects: [.init(file: path, visible: true, passes: passes)]
-        )
-        return SceneEffectRuntimePlanner.plan(
-            for: layer,
-            hasIrisMask: false,
-            hasOpacityMask: false,
-            hasWaterMask: false,
-            hasFoliageMask: false,
-            hasWaterRippleNormal: false,
-            blocksLegacyGaussianBlur: blocksLegacyGaussianBlur
-        ).gaussianBlur
-    }
+
+
+
 
     static func authoredPreciseBlurImpulseEvidence(
         device: MTLDevice,
@@ -3153,9 +2871,6 @@ enum Harness {
                let captureBuffer = queue.makeCommandBuffer(),
                SceneOffscreenEffectRenderer.captureSource(
                    sourceTexture: source,
-                   waterMaskTexture: nil,
-                   foliageMaskTexture: nil,
-                   auxMaskTexture: nil,
                    target: endpoint,
                    sourceUniforms: .neutral(),
                    pipeline: pipeline,
@@ -3279,7 +2994,7 @@ enum Harness {
         )
         guard let preparedBuffer = queue.makeCommandBuffer(),
               case let .ready(preparedStage) =
-                SceneAuthoredEffectChainRenderer.prepareStage(
+                SceneEffectStageRenderer.prepareStage(
                     plan,
                     sourceTexture: table.inputTexture,
                     targets: table,
@@ -3288,7 +3003,7 @@ enum Harness {
                     time: 0,
                     sourceSampleExtent: SIMD2(Float(size), Float(size))
                 ),
-              SceneAuthoredEffectChainRenderer.encodePreparedStage(
+              SceneEffectStageRenderer.encodePreparedStage(
                   preparedStage,
                   commandBuffer: preparedBuffer
               ) else {
@@ -3303,9 +3018,6 @@ enum Harness {
             guard let compositeBuffer = queue.makeCommandBuffer(),
                   SceneOffscreenEffectRenderer.captureSource(
                       sourceTexture: table.outputTexture,
-                      waterMaskTexture: nil,
-                      foliageMaskTexture: nil,
-                      auxMaskTexture: nil,
                       target: target,
                       sourceUniforms: .neutral(),
                       pipeline: pipeline,
@@ -3349,78 +3061,6 @@ enum Harness {
             "sourceHasMixedAlpha": hasMixedAlpha(sourceBytes),
             "outputHasPixels": outputBytes.contains(where: { $0 != 0 }),
             "outputIsPremultiplied": isPremultiplied(outputBytes),
-        ]
-    }
-
-    static func legacyChainProductRejectionEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [String: Any] {
-        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
-              ), let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: [32, 64, 128, 255])
-        let plan = authoredPreciseBlurPlan(layerID: 0, fullFrameCompose: true)
-        let chain = SceneAuthoredEffectExecutionChain(
-            layerID: plan.layerID,
-            renderGraph: plan.renderGraph,
-            executionStages: [plan]
-        )
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: 8)
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: target,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        )
-        let recorder = ExactEvidenceLogRecorder()
-        let trace = SceneEffectExecutionTelemetry(
-            logSink: { recorder.append($0) }
-        ).makeFrame(frameIndex: 29)
-        let encoded = compositor.draw(
-            SceneImageLayerDrawRequest(
-                layer: SceneRenderDescriptor.Layer(
-                    contentKind: "image",
-                    colorRGB: nil,
-                    colorBlendMode: nil,
-                    effects: []
-                ),
-                texture: source,
-                masks: .empty,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(
-                    time: 0, alpha: 1, cursorUV: .zero
-                ),
-                offscreenTexturePool: pool,
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                blocksLegacyGaussianBlur: false,
-                authoredEffectChain: chain,
-                dynamicValues: .empty(frameIndex: 29)
-            ),
-            pipeline: pipeline,
-            mainPass: mainPass,
-            executionTrace: trace
-        )
-        mainPass.finishEnsuringClear()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed else {
-            throw HarnessError.commandFailed
-        }
-        return [
-            "encoded": encoded,
-            "exactEvidence": recorder.lines,
-            "targetPixel": pixel(target, x: 4, y: 4),
-            "residentAllocationCount": pool.residentAllocationCount,
-            "residentTextureCount": pool.residentTextureCount,
         ]
     }
 
@@ -3517,7 +3157,7 @@ enum Harness {
         )
         guard let preparedBuffer = queue.makeCommandBuffer(),
               case let .ready(preparedStage) =
-                SceneAuthoredEffectChainRenderer.prepareStage(
+                SceneEffectStageRenderer.prepareStage(
                     plan,
                     sourceTexture: table.inputTexture,
                     targets: table,
@@ -3525,7 +3165,7 @@ enum Harness {
                     sourcePipeline: pipeline,
                     time: 0
                 ),
-              SceneAuthoredEffectChainRenderer.encodePreparedStage(
+              SceneEffectStageRenderer.encodePreparedStage(
                   preparedStage,
                   commandBuffer: preparedBuffer
               ) else {
@@ -3645,7 +3285,7 @@ enum Harness {
 
         func preparedStageResult(
             masks: SceneImageLayerMasks
-        ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
+        ) -> SceneEffectStageRenderer.StagePreparation {
             let inputs = SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs(
                 masks: masks,
                 dynamicValues: .empty(frameIndex: 1),
@@ -3661,7 +3301,7 @@ enum Harness {
                 audioSpectrum: .silent,
                 dependencyEffect: nil
             )
-            return SceneAuthoredEffectChainRenderer.prepareStage(
+            return SceneEffectStageRenderer.prepareStage(
                 plan,
                 sourceTexture: acceptedTable.inputTexture,
                 targets: acceptedTable,
@@ -3739,8 +3379,8 @@ enum Harness {
         }
         func preparation(
             snapshot: SceneDynamicSnapshot
-        ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
-            SceneAuthoredEffectChainRenderer.prepareStage(
+        ) -> SceneEffectStageRenderer.StagePreparation {
+            SceneEffectStageRenderer.prepareStage(
                 plan,
                 sourceTexture: table.inputTexture,
                 targets: table,
@@ -3767,7 +3407,7 @@ enum Harness {
               case let .ready(prepared) = preparation(
                   snapshot: .empty(frameIndex: 1)
               ),
-              SceneAuthoredEffectChainRenderer.encodePreparedStage(
+              SceneEffectStageRenderer.encodePreparedStage(
                   prepared,
                   commandBuffer: commandBuffer
               ) else { throw HarnessError.drawRefused }
@@ -3805,7 +3445,7 @@ enum Harness {
         }
         fill(noise, bgra: [127, 127, 127, 255])
         let plan = authoredGodraysPlan()
-        let legacyPlan = authoredGodraysPlan(legacyDirectional: true)
+        let legacyPlan = authoredGodraysPlan(directionalV1: true)
         let stockPool = SceneOffscreenTexturePool(device: device, maxDimension: size)
         let legacyPool = SceneOffscreenTexturePool(device: device, maxDimension: size)
         let stockFrameTables = try prepareStageTargets(
@@ -3845,11 +3485,11 @@ enum Harness {
             noise: noise
         )
         func preparation(
-            _ stage: SceneAuthoredEffectExecutionPlan,
+            _ stage: SceneEffectStageExecutionPlan,
             table: SceneGraphRenderTargetTable,
             resources: [String: SceneGodraysEffectTextures]
-        ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
-            SceneAuthoredEffectChainRenderer.prepareStage(
+        ) -> SceneEffectStageRenderer.StagePreparation {
+            SceneEffectStageRenderer.prepareStage(
                 stage,
                 sourceTexture: table.inputTexture,
                 targets: table,
@@ -3881,7 +3521,7 @@ enum Harness {
         let stockPreparationReason: String?
         switch stockAccepted {
         case .ready(let stockPrepared):
-            stockPreparedStageEncoded = SceneAuthoredEffectChainRenderer
+            stockPreparedStageEncoded = SceneEffectStageRenderer
                 .encodePreparedStage(
                     stockPrepared,
                     commandBuffer: stockCommandBuffer
@@ -3901,7 +3541,7 @@ enum Harness {
         let legacyPreparationReason: String?
         switch legacyAccepted {
         case .ready(let legacyPrepared):
-            legacyPreparedStageEncoded = SceneAuthoredEffectChainRenderer
+            legacyPreparedStageEncoded = SceneEffectStageRenderer
                 .encodePreparedStage(
                     legacyPrepared,
                     commandBuffer: legacyCommandBuffer
@@ -3986,8 +3626,8 @@ enum Harness {
         )
         func preparation(
             resources: [String: SceneShineEffectTextures]
-        ) -> SceneAuthoredEffectChainRenderer.StagePreparation {
-            SceneAuthoredEffectChainRenderer.prepareStage(
+        ) -> SceneEffectStageRenderer.StagePreparation {
+            SceneEffectStageRenderer.prepareStage(
                 plan,
                 sourceTexture: table.inputTexture,
                 targets: table,
@@ -4014,7 +3654,7 @@ enum Harness {
             resources: [shine.effectKey.descriptorID: resources]
         )
         guard case let .ready(prepared) = accepted,
-              SceneAuthoredEffectChainRenderer.encodePreparedStage(
+              SceneEffectStageRenderer.encodePreparedStage(
                   prepared,
                   commandBuffer: commandBuffer
               ) else { throw HarnessError.drawRefused }
@@ -4077,13 +3717,6 @@ enum Harness {
         descriptorID: String
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            iris: nil,
-            opacity: nil,
-            water: nil,
-            waterUVScale: SIMD2(repeating: 1),
-            foliage: nil,
-            foliageUVScale: SIMD2(repeating: 1),
-            waterRippleNormal: nil,
             foliageSwayEffects: [:],
             waterRippleEffects: [:],
             depthParallaxEffects: [:],
@@ -4122,7 +3755,7 @@ enum Harness {
             size: size,
             usage: .shaderRead
         ) else { throw HarnessError.metalUnavailable }
-        let graph = xRayChain(layerID: 0).renderGraph
+        let graph = xRayStage(layerID: 0).renderGraph
         let pairPlan: SceneLayerFullFramePairPlan
         switch SceneLayerFullFramePairPlan.make(conditionPrunedGraphs: [graph]) {
         case let .success(value): pairPlan = value
@@ -4159,7 +3792,6 @@ enum Harness {
             requiresSourceCopy: false,
             finalCompositeAlpha: nil,
             dependencyEffect: nil,
-            blocksLegacyGaussianBlur: false
         )
 
         func makePass() throws -> (SceneMainPassEncoder, MTLCommandBuffer) {
@@ -4211,7 +3843,6 @@ enum Harness {
                 requiresSourceCopy: request.requiresSourceCopy,
                 finalCompositeAlpha: request.finalCompositeAlpha,
                 dependencyEffect: request.dependencyEffect,
-                blocksLegacyGaussianBlur: request.blocksLegacyGaussianBlur
             )
         }
 
@@ -4433,7 +4064,7 @@ enum Harness {
         ]
     }
 
-    static func xRayChain(layerID: Int) -> SceneAuthoredEffectExecutionChain {
+    static func xRayStage(layerID: Int) -> SceneEffectStageExecutionPlan {
         let effectKey = Graph.EffectKey(
             layerID: layerID,
             effectIndex: 0,
@@ -4476,7 +4107,7 @@ enum Harness {
             finalOutput: output,
             blockers: []
         )
-        let stage = SceneAuthoredEffectExecutionPlan(
+        let stage = SceneEffectStageExecutionPlan(
             layerID: layerID,
             renderGraph: graph,
             backend: .xRay(SceneXRayExecutionPlan(
@@ -4485,15 +4116,11 @@ enum Harness {
             materialNodeCount: 1,
             logicalRenderTargetCount: 0
         )
-        return SceneAuthoredEffectExecutionChain(
-            layerID: layerID,
-            renderGraph: graph,
-            executionStages: [stage]
-        )
+        return stage
     }
 
     static func prepareStageTargets(
-        plan: SceneAuthoredEffectExecutionPlan,
+        plan: SceneEffectStageExecutionPlan,
         pool: SceneOffscreenTexturePool,
         width: Int,
         height: Int,
@@ -4529,7 +4156,7 @@ enum Harness {
         source: MTLTexture,
         target: MTLTexture,
         layer: SceneRenderDescriptor.Layer,
-        plan: SceneAuthoredEffectExecutionPlan,
+        plan: SceneEffectStageExecutionPlan,
         pool: SceneOffscreenTexturePool,
         queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
@@ -4555,14 +4182,11 @@ enum Harness {
         guard let table = frameTables.tables.first,
               SceneOffscreenEffectRenderer.captureSource(
                   sourceTexture: source,
-                  waterMaskTexture: masks.water,
-                  foliageMaskTexture: masks.foliage,
-                  auxMaskTexture: masks.iris ?? masks.opacity,
                   target: table.inputTexture,
                   sourceUniforms: .neutral(),
                   pipeline: pipeline,
                   commandBuffer: commandBuffer
-              ), let output = SceneAuthoredEffectChainRenderer.renderStage(
+              ), let output = SceneEffectStageRenderer.renderStage(
                   plan,
                   sourceTexture: table.inputTexture,
                   masks: masks,
@@ -4584,16 +4208,13 @@ enum Harness {
                   commandBuffer: commandBuffer
               ), SceneImageLayerMainPassRenderer.draw(
                   texture: output,
-                  masks: .empty,
                   mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
                   uniforms: compositor.makeFragmentUniforms(
                       values: SceneImageLayerUniformValues(
                           time: 0, alpha: 1, cursorUV: .zero
                       ),
-                      effectInputs: .neutral,
                       textureFrame: .identity,
                       tint: SIMD3(repeating: 1),
-                      foliageMaskUVScale: SIMD2(repeating: 1),
                       dependencyBlendMode: nil
                   ),
                   dependencyTexture: nil,
@@ -4702,30 +4323,7 @@ enum Harness {
         }
     }
 
-    static func standardBlurOverridesLegacy() -> Bool {
-        let layer = standardBlurLayer()
-        let legacy = SceneEffectRuntimePlanner.plan(
-            for: layer,
-            hasIrisMask: false,
-            hasOpacityMask: false,
-            hasWaterMask: false,
-            hasFoliageMask: false,
-            hasWaterRippleNormal: false
-        )
-        let authored = SceneEffectRuntimePlanner.plan(
-            for: layer,
-            hasIrisMask: false,
-            hasOpacityMask: false,
-            hasWaterMask: false,
-            hasFoliageMask: false,
-            hasWaterRippleNormal: false,
-            authoredEffectPlan: authoredStandardBlurPlan()
-        )
-        return legacy.gaussianBlur != nil
-            && authored.standardBlur != nil
-            && authored.gaussianBlur == nil
-            && authored.offscreenPassCount == 4
-    }
+
 
     static func standardBlurLayer() -> SceneRenderDescriptor.Layer {
         let empty = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
@@ -4754,13 +4352,13 @@ enum Harness {
         effectIndex: Int = 0,
         input: Graph.TextureIdentity? = nil,
         maskTexturePath: String? = nil
-    ) -> SceneAuthoredEffectExecutionPlan {
+    ) -> SceneEffectStageExecutionPlan {
         let graph = standardBlurGraph(
             layerID: layerID,
             effectIndex: effectIndex,
             input: input
         )
-        return SceneAuthoredEffectExecutionPlan(
+        return SceneEffectStageExecutionPlan(
             layerID: graph.layerID,
             renderGraph: graph,
             backend: .standardBlur(SceneStandardBlurPlan(
@@ -4776,7 +4374,7 @@ enum Harness {
         )
     }
 
-    static func authoredLocalContrastPlan() -> SceneAuthoredEffectExecutionPlan {
+    static func authoredLocalContrastPlan() -> SceneEffectStageExecutionPlan {
         let blurGraph = standardBlurGraph(layerID: 831)
         let graph = Graph(
             layerID: blurGraph.layerID,
@@ -4803,7 +4401,7 @@ enum Harness {
             $0.texture.name?.lowercased() == "_rt_quartercompobuffer2"
         }?.texture
         precondition(first != nil && second != nil)
-        return SceneAuthoredEffectExecutionPlan(
+        return SceneEffectStageExecutionPlan(
             layerID: graph.layerID,
             renderGraph: graph,
             backend: .localContrast(SceneLocalContrastPlan(
@@ -4818,8 +4416,8 @@ enum Harness {
     }
 
     static func authoredGodraysPlan(
-        legacyDirectional: Bool = false
-    ) -> SceneAuthoredEffectExecutionPlan {
+        directionalV1: Bool = false
+    ) -> SceneEffectStageExecutionPlan {
         let layerID = 832
         let effectKey = Graph.EffectKey(
             layerID: layerID,
@@ -4873,7 +4471,7 @@ enum Harness {
                 .init(
                     texture: $0,
                     extent: .init(kind: .scale, first: 2, second: nil),
-                    format: legacyDirectional ? "rgba8888" : "rgba_backbuffer",
+                    format: directionalV1 ? "rgba8888" : "rgba_backbuffer",
                     declaredUnique: false,
                     clear: nil,
                     uvs: nil,
@@ -4884,15 +4482,15 @@ enum Harness {
             finalOutput: output,
             blockers: []
         )
-        return SceneAuthoredEffectExecutionPlan(
+        return SceneEffectStageExecutionPlan(
             layerID: layerID,
             renderGraph: graph,
             backend: .godrays(SceneGodraysPlan(
                 effectKey: effectKey,
                 firstHalfTarget: firstHalf,
                 secondHalfTarget: secondHalf,
-                direction: legacyDirectional ? 0 : nil,
-                legacyGaussianWeights: legacyDirectional,
+                direction: directionalV1 ? 0 : nil,
+                usesDirectionalGaussianKernel: directionalV1,
                 maskTexturePath: nil
             )),
             materialNodeCount: 5,
@@ -4900,7 +4498,7 @@ enum Harness {
         )
     }
 
-    static func authoredShinePlan() -> SceneAuthoredEffectExecutionPlan {
+    static func authoredShinePlan() -> SceneEffectStageExecutionPlan {
         let layerID = 833
         let effectKey = Graph.EffectKey(
             layerID: layerID,
@@ -4965,7 +4563,7 @@ enum Harness {
             finalOutput: output,
             blockers: []
         )
-        return SceneAuthoredEffectExecutionPlan(
+        return SceneEffectStageExecutionPlan(
             layerID: layerID,
             renderGraph: graph,
             backend: .shine(SceneShineExecutionPlan(
@@ -4980,7 +4578,7 @@ enum Harness {
         )
     }
 
-    static func authoredClippingMaskChain() -> SceneAuthoredEffectExecutionChain {
+    static func clippingMaskStage() -> SceneEffectStageExecutionPlan {
         let layerID = 846
         let effectKey = Graph.EffectKey(
             layerID: layerID,
@@ -5028,22 +4626,18 @@ enum Harness {
             blendMode: 0,
             profile: .classic
         )
-        let stage = SceneAuthoredEffectExecutionPlan(
+        let stage = SceneEffectStageExecutionPlan(
             layerID: layerID,
             renderGraph: graph,
             backend: .clippingMask(clipping),
             materialNodeCount: 1,
             logicalRenderTargetCount: 0
         )
-        return SceneAuthoredEffectExecutionChain(
-            layerID: layerID,
-            renderGraph: graph,
-            executionStages: [stage]
-        )
+        return stage
     }
 
-    static func authoredLegacyProceduralNoiseChain()
-        -> SceneAuthoredEffectExecutionChain {
+    static func externalProceduralNoiseStage()
+        -> SceneEffectStageExecutionPlan {
         let layerID = 847
         let effectKey = Graph.EffectKey(
             layerID: layerID,
@@ -5088,7 +4682,7 @@ enum Harness {
             layerID: layerID,
             effectKey: effectKey,
             renderGraph: graph,
-            variant: .legacyWorleyColor,
+            variant: .worleyColorV1,
             scale: SIMD2(repeating: 1),
             offset: .zero,
             magnitude: SIMD2(repeating: 1),
@@ -5113,113 +4707,17 @@ enum Harness {
             dependencyProviderLayerID: 1,
             dependencySlotIndex: 3
         )
-        let stage = SceneAuthoredEffectExecutionPlan(
+        let stage = SceneEffectStageExecutionPlan(
             layerID: layerID,
             renderGraph: graph,
             backend: .proceduralNoise(noise),
             materialNodeCount: 1,
             logicalRenderTargetCount: 0
         )
-        return SceneAuthoredEffectExecutionChain(
-            layerID: layerID,
-            renderGraph: graph,
-            executionStages: [stage]
-        )
+        return stage
     }
 
-    static func authoredBlendChain(
-        multiply: Float,
-        alphaMultiply: Float = 1,
-        writesAlpha: Bool = false
-    ) -> SceneAuthoredEffectExecutionChain {
-        let layerID = authoredBlendLayerID
-        let effectKey = Graph.EffectKey(
-            layerID: layerID,
-            effectIndex: 0,
-            descriptorID: authoredBlendEffectID
-        )
-        let input = graphTexture(.layerSource, layerID: layerID)
-        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
-        let node = Graph.Node(
-            nodeIndex: 0,
-            effect: effectKey,
-            definitionPassIndex: 0,
-            materialOrdinal: 0,
-            instancePassIndex: 0,
-            kind: .material,
-            materialPath: "materials/effects/blend.json",
-            materialPassID: "materials/effects/blend.json#0",
-            target: output,
-            bindings: [],
-            commandSource: nil,
-            commandTarget: nil,
-            compose: nil,
-            conditions: nil
-        )
-        let effect = Graph.Effect(
-            key: effectKey,
-            definitionPath: "effects/blend/effect.json",
-            input: input,
-            output: output,
-            nodeIndices: [0]
-        )
-        let graph = Graph(
-            layerID: layerID,
-            effects: [effect],
-            renderTargets: [],
-            nodes: [node],
-            finalOutput: output,
-            blockers: []
-        )
-        let blend = SceneBlendExecutionPlan(
-            layerID: layerID,
-            effectKey: effectKey,
-            renderGraph: graph,
-            shaderProfile: .legacySingleTexture,
-            blendMode: 0,
-            multiply: multiply,
-            alphaMultiply: alphaMultiply,
-            writesAlpha: writesAlpha,
-            assetTexturePath: authoredBlendAssetPath,
-            userPropertyKey: nil
-        )
-        let stage = SceneAuthoredEffectExecutionPlan(
-            layerID: layerID,
-            renderGraph: graph,
-            backend: .blend(blend),
-            materialNodeCount: 1,
-            logicalRenderTargetCount: 0
-        )
-        return SceneAuthoredEffectExecutionChain(
-            layerID: layerID,
-            renderGraph: graph,
-            executionStages: [stage]
-        )
-    }
 
-    static func authoredBlendRuntimeSummary() -> String? {
-        let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
-            texturePaths: [authoredBlendAssetPath],
-            textureSlots: [nil, authoredBlendAssetPath],
-            combos: ["BLENDMODE": 0],
-            constantShaderValues: ["multiply": .init(components: [0.5])]
-        )
-        let layer = SceneRenderDescriptor.Layer(
-            contentKind: "solid",
-            colorRGB: [0, 0, 0],
-            colorBlendMode: nil,
-            effects: [.init(
-                file: "effects/blend/effect.json",
-                visible: true,
-                passes: [pass]
-            )]
-        )
-        return SceneEffectRuntimePlanner.runtimeSummary(
-            for: layer,
-            authoredEffectPlan:
-                authoredBlendChain(multiply: 0.5).executionStages[0]
-        )
-    }
 
     static func authoredEffectMasks(
         blendEffects: [String: SceneBlendEffectTextures] = [:],
@@ -5229,13 +4727,6 @@ enum Harness {
         shineEffects: [String: SceneShineEffectTextures] = [:]
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            iris: nil,
-            opacity: nil,
-            water: nil,
-            waterUVScale: SIMD2(repeating: 1),
-            foliage: nil,
-            foliageUVScale: SIMD2(repeating: 1),
-            waterRippleNormal: nil,
             foliageSwayEffects: [:],
             waterRippleEffects: [:],
             depthParallaxEffects: [:],
@@ -5260,41 +4751,7 @@ enum Harness {
         )
     }
 
-    static func foliageInputs(mode: Int) -> SceneLayerEffectInputs {
-        let values: [String: SceneDocument.ShaderValue] = [
-            "strength": .init(components: [0.4]),
-            "speeduv": .init(components: [5]),
-            "phase": .init(components: [0.57]),
-            "power": .init(components: [1]),
-            "scale": .init(components: [0.05]),
-            "ratio": .init(components: [0.3]),
-            "scrolldirection": .init(components: [-0.5]),
-        ]
-        let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
-            texturePaths: ["mask"],
-            textureSlots: [nil, "mask"],
-            combos: ["MODE": mode],
-            constantShaderValues: values
-        )
-        let layer = SceneRenderDescriptor.Layer(
-            contentKind: "image",
-            colorRGB: nil,
-            colorBlendMode: nil,
-            effects: [.init(
-                file: "effects/foliagesway/effect.json",
-                visible: true,
-                passes: [pass]
-            )]
-        )
-        return SceneEffectRuntimePlanner.plan(
-            for: layer,
-            hasIrisMask: false,
-            hasOpacityMask: false,
-            hasWaterMask: false,
-            hasFoliageMask: true,
-            hasWaterRippleNormal: false
-        ).inputs
-    }
+
 
     static func makeTexture(
         device: MTLDevice,
@@ -5827,16 +5284,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             self.result["vividLayerBlendBGRA"],
             2,
         )
-        self.assertTrue(self.result["rejectedLayerBlendWithoutPoolRefused"])
 
-    def test_blur_scales_remain_authored_pixels_until_target_normalization(self) -> None:
-        for actual, expected in zip(self.result["coarseBlur"], [0.6, 0.6, 4]):
-            self.assertAlmostEqual(actual, expected, places=6)
-        self.assertFalse(self.result["coarseBlurIsPrecise"])
-        for actual, expected in zip(self.result["preciseBlur"], [0.45, 0.45, 1]):
-            self.assertAlmostEqual(actual, expected, places=6)
-        self.assertTrue(self.result["preciseBlurIsPrecise"])
-        self.assertTrue(self.result["blockedPreciseBlurIsNil"])
 
     def test_precise_graph_blur_runs_horizontal_then_vertical_on_mixed_alpha(self) -> None:
         evidence = self.result["authoredPreciseImpulse"]
@@ -5902,24 +5350,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertTrue(evidence["outputHasPixels"])
         self.assertTrue(evidence["outputIsPremultiplied"])
 
-    def test_product_rejects_legacy_chain_without_allocating_or_encoding(
-        self,
-    ) -> None:
-        evidence = self.result["legacyChainProductRejection"]
-        self.assertFalse(evidence["encoded"], evidence)
-        self.assertEqual(len(evidence["exactEvidence"]), 1, evidence)
-        self.assertIn(
-            "operation=legacy-authored-chain-product-dispatch",
-            evidence["exactEvidence"][0],
-        )
-        self.assertIn(
-            "reason=resolved-material-claim-unavailable",
-            evidence["exactEvidence"][0],
-        )
-        self.assertEqual(evidence["targetPixel"], [0, 0, 0, 0], evidence)
-        self.assertEqual(evidence["residentAllocationCount"], 0, evidence)
-        self.assertEqual(evidence["residentTextureCount"], 0, evidence)
-
     def test_standard_graph_blur_runs_full_ping_pong_chain_on_mixed_alpha(self) -> None:
         evidence = self.result["authoredStandardCheckerboard"]
         self.assertTrue(evidence["encoded"])
@@ -5938,7 +5368,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertGreater(evidence["verticalToExpectedHorizontalDelta"], 2, evidence)
         self.assertGreater(evidence["horizontalToVerticalDelta"], 2, evidence)
         self.assertGreater(evidence["inputToOutputDelta"], 20, evidence)
-        self.assertTrue(self.result["authoredStandardBlurOverridesLegacy"])
 
     def test_standard_blur_consumes_typed_mask_candidate_and_rejects_wrong_purpose(
         self,
@@ -6004,11 +5433,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assert_pixel_close(mask_one, [100, 80, 40, 200], 1)
         self.assert_pixel_close(mask_half, [60, 60, 60, 150], 2)
 
-    def test_authored_blend_runtime_summary_is_not_route_only(self) -> None:
-        self.assertEqual(
-            self.result["authoredBlendRuntimeSummary"],
-            "effect runtime blend-authored; 1 declared pass(es)",
-        )
 
     def test_production_resolved_material_composition_executes_and_fails_closed(
         self,
@@ -6065,15 +5489,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             3,
         )
 
-    def test_single_builtin_foliage_plan_preserves_authored_parameters(self) -> None:
-        self.assertNotEqual(self.result["foliageFlags"] & 1, 0)
-        expected3 = [0.4, 5, 0.57, 1]
-        expected4 = [0.05, 0.3, -0.5, 0]
-        for actual, expected in zip(self.result["foliageParams3"], expected3):
-            self.assertAlmostEqual(actual, expected, places=6)
-        for actual, expected in zip(self.result["foliageParams4"], expected4):
-            self.assertAlmostEqual(actual, expected, places=6)
-        self.assertEqual(self.result["unsupportedFoliageFlags"] & 1, 0)
 
     def test_foliage_mask_uses_mapped_to_physical_uv_scale(self) -> None:
         self.assertAlmostEqual(self.result["mappedMaskScale"][0], 0.9375, places=6)
@@ -6082,14 +5497,10 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
     def test_decoded_tex_does_not_reapply_removed_physical_padding(self) -> None:
         self.assertEqual(self.result["decodedMappedScale"], [1, 1])
 
-    def test_gradient_color_runs_before_dependency_clipping_and_preserves_alpha(self) -> None:
-        self.assert_pixel_close(self.result["gradientTopBGRA"], [16, 0, 239, 255], 2)
-        self.assert_pixel_close(self.result["gradientBottomBGRA"], [239, 0, 16, 255], 2)
-        self.assert_pixel_close(self.result["clippedGradientTopBGRA"], [4, 128, 60, 128], 2)
 
-    def test_dependency_mode_reuses_uniform_padding_without_layout_growth(self) -> None:
-        self.assertEqual(self.result["fragmentUniformSize"], 176)
-        self.assertEqual(self.result["dependencyBlendModeOffset"], 12)
+    def test_base_layer_uniforms_exclude_effect_stage_payloads(self) -> None:
+        self.assertEqual(self.result["fragmentUniformSize"], 80)
+        self.assertEqual(self.result["dependencyBlendModeOffset"], 8)
 
     def assert_pixel_close(
         self, actual: list[int], expected: list[int], tolerance: int = 1

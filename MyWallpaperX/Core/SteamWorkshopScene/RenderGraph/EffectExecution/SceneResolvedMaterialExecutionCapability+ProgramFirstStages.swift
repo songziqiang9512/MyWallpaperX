@@ -172,7 +172,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     && plan.layerID == layerID
                     && plan.effectKey.layerID == layerID
                     && plan.effectKey.descriptorID == binding.slot.effectID
-                    && plan.variant == .legacyWorleyColor
+                    && plan.variant == .worleyColorV1
                     && plan.dependencyProviderLayerID == binding.providerLayerID
                     && plan.dependencySlotIndex == binding.slot.slotIndex
                     && plan.renderGraph.effects.count == 1

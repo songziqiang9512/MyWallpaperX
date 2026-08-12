@@ -219,10 +219,6 @@ final class SceneDependencyFrameRuntime {
             pipeline.bind(encoder: encoder)
             pipeline.drawLayer(
                 texture: sourceTexture,
-                shakeMaskTexture: nil,
-                waterMaskTexture: nil,
-                foliageMaskTexture: nil,
-                auxMaskTexture: nil,
                 dependencyTexture: nil,
                 mvp: Self.fullTargetMVP,
                 uniforms: uniforms,

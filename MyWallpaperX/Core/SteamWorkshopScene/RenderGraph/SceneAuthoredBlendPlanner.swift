@@ -1,6 +1,6 @@
 import Foundation
 
-/// Fail-closed admission for the legacy, one-texture `effects/blend` contract.
+/// Fail-closed admission for the single-texture-v1 `effects/blend` contract.
 enum SceneAuthoredBlendPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
 

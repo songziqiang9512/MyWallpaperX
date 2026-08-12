@@ -166,7 +166,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         }
         let accepted = entries.count - failures.count
         var lines = [
-            "resolved material catalog: schema=r4-executable-material-v1"
+            "resolved material catalog: schema=executable-material-v1"
                 + " nodes=\(entries.count) templates=\(accepted) failures=\(failures.count)",
             demandSummary("asset", count: assetDemands.count),
             demandSummary("user-property", count: userPropertyDemands.count),

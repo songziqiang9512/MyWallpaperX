@@ -1,23 +1,23 @@
 import Foundation
-struct SceneGraphChainAllocationReservation {
+struct SceneLayerGraphAllocationReservation {
     let revision: UUID
     let resetEpoch: UUID
     let orderingContext: SceneGraphCommandQueueOrderingContext?
     let historySeed: SceneGraphHistorySeed?
-    let cachedAllocation: SceneGraphRenderTargetChainAllocation?
-    let reusableAllocation: SceneGraphRenderTargetChainAllocation?
+    let cachedAllocation: SceneLayerGraphTargetAllocation?
+    let reusableAllocation: SceneLayerGraphTargetAllocation?
     let historySeedGeneration: UInt64?
     let replacedCurrentGeneration: UInt64?
     let consumedRetiredGeneration: UInt64?
     let sharedPair: SceneOffscreenTextureAllocationCache.SharedPair?
 }
 extension SceneOffscreenTextureAllocationCache {
-    func reserveChains(
-        plans: [SceneGraphRenderTargetChainPlan],
+    func reserveGraphs(
+        plans: [SceneLayerGraphTargetPlan],
         orderingContext: SceneGraphCommandQueueOrderingContext? = nil
-    ) -> [ChainReservation]? {
+    ) -> [GraphReservation]? {
         locked {
-            reserveChainsLocked(
+            reserveGraphsLocked(
                 plans: plans,
                 orderingContext: orderingContext,
                 pendingSharedPairs: [:]
@@ -25,17 +25,17 @@ extension SceneOffscreenTextureAllocationCache {
         }
     }
 
-    func reserveChainsLocked(
-        plans: [SceneGraphRenderTargetChainPlan],
+    func reserveGraphsLocked(
+        plans: [SceneLayerGraphTargetPlan],
         orderingContext: SceneGraphCommandQueueOrderingContext?,
         pendingSharedPairs: [Key: SharedPair]
-    ) -> [ChainReservation]? {
+    ) -> [GraphReservation]? {
         guard !plans.isEmpty,
               Set(plans.map(\.key)).count == plans.count,
               orderingContext?.isPending != false else { return nil }
-        var result: [ChainReservation] = []
+        var result: [GraphReservation] = []
         for plan in plans {
-            guard let reservation = reserveChainLocked(
+            guard let reservation = reserveGraphLocked(
                 plan: plan,
                 orderingContext: orderingContext,
                 pendingSharedPairs: pendingSharedPairs
@@ -45,11 +45,11 @@ extension SceneOffscreenTextureAllocationCache {
         return result
     }
 
-    private func reserveChainLocked(
-        plan: SceneGraphRenderTargetChainPlan,
+    private func reserveGraphLocked(
+        plan: SceneLayerGraphTargetPlan,
         orderingContext: SceneGraphCommandQueueOrderingContext?,
         pendingSharedPairs: [Key: SharedPair] = [:]
-    ) -> ChainReservation? {
+    ) -> GraphReservation? {
         let byteCost = plan.residentByteCost
         let sharedPair: SharedPair?
         if plan.pairStorage == .shared {
@@ -70,21 +70,21 @@ extension SceneOffscreenTextureAllocationCache {
         } else {
             sharedPair = nil
         }
-        let current = ResidentKey.current(.chain(plan.key))
+        let current = ResidentKey.current(.layerGraph(plan.key))
         guard byteCost >= 0,
               SceneResolvedMaterialInFlightCapacity.admitsNewSubmission(
                   Array(residents.values),
-                  chainKey: plan.key
+                  graphKey: plan.key
               ) else { return nil }
         let currentEntry = residents[current]
         if let currentEntry {
-            guard case .chain(let chain) = currentEntry.allocation else {
+            guard case .layerGraph(let graph) = currentEntry.allocation else {
                 return nil
             }
             let pairGenerationMatches = plan.pairStorage == .owned
-                || chain.fullFramePairGeneration == sharedPair?.identity.generation
+                || graph.fullFramePairGeneration == sharedPair?.identity.generation
             let idleHit = currentEntry.submissionPins.isEmpty
-                && chain.plan == plan && plan.historyEffects.isEmpty
+                && graph.plan == plan && plan.historyEffects.isEmpty
                 && pairGenerationMatches
             let orderedHit = currentEntry.permitsOrderedSubmissionReuse(
                 for: plan,
@@ -96,7 +96,7 @@ extension SceneOffscreenTextureAllocationCache {
                     resetEpoch: resetEpoch,
                     orderingContext: orderingContext,
                     historySeed: nil,
-                    cachedAllocation: chain,
+                    cachedAllocation: graph,
                     reusableAllocation: nil,
                     historySeedGeneration: nil,
                     replacedCurrentGeneration: nil,
@@ -107,26 +107,26 @@ extension SceneOffscreenTextureAllocationCache {
         }
         let idle = residents.compactMap { key, entry
             -> (key: ResidentKey, entry: Entry,
-                chain: SceneGraphRenderTargetChainAllocation)? in
+                graph: SceneLayerGraphTargetAllocation)? in
             guard case .retired = key,
                   !entry.isPinned,
                   !entry.isResetInvalidated,
-                  case .chain(let chain) = entry.allocation,
-                  chain.plan.key == plan.key else { return nil }
-            return (key, entry, chain)
+                  case .layerGraph(let graph) = entry.allocation,
+                  graph.plan.key == plan.key else { return nil }
+            return (key, entry, graph)
         }.sorted { $0.entry.lastAccess < $1.entry.lastAccess }
-        let reusable = idle.first { $0.chain.plan == plan }
+        let reusable = idle.first { $0.graph.plan == plan }
         let consumed = reusable ?? idle.first
         var replacingGenerations = Set<UInt64>()
         if let currentEntry, currentEntry.submissionPins.isEmpty {
             replacingGenerations.insert(currentEntry.allocation.generation)
         }
         if let consumed {
-            replacingGenerations.insert(consumed.chain.generation)
+            replacingGenerations.insert(consumed.graph.generation)
         }
         guard SceneResolvedMaterialInFlightCapacity.admitsNewAllocation(
             residents.values.map(\.allocation),
-            chainKey: plan.key,
+            graphKey: plan.key,
             replacingGenerations: replacingGenerations
         ) else { return nil }
         var staged = residents
@@ -177,10 +177,10 @@ extension SceneOffscreenTextureAllocationCache {
                 return history.seed
             },
             cachedAllocation: nil,
-            reusableAllocation: reusable?.chain,
+            reusableAllocation: reusable?.graph,
             historySeedGeneration: seed?.1.allocation.generation,
             replacedCurrentGeneration: replaced?.allocation.generation,
-            consumedRetiredGeneration: consumed?.chain.generation,
+            consumedRetiredGeneration: consumed?.graph.generation,
             sharedPair: sharedPair
         )
     }
@@ -190,8 +190,8 @@ extension SceneOffscreenTextureAllocationCache {
         locked {
             typealias Effective = (
                 request: ScenePreparedPersistentGraphTargets.CommitRequest,
-                reservation: ChainReservation,
-                chain: SceneGraphRenderTargetChainAllocation,
+                reservation: GraphReservation,
+                graph: SceneLayerGraphTargetAllocation,
                 requestedHistory: Set<Token>
             )
             guard !requests.isEmpty,
@@ -204,22 +204,22 @@ extension SceneOffscreenTextureAllocationCache {
                 guard original.resetEpoch == resetEpoch,
                       original.orderingContext?.accepts(request.commandBuffer)
                         ?? true,
-                      case .chain(let chain) = candidate.allocation,
-                      candidate.key == .chain(chain.plan.key),
-                      candidate.byteCost == chain.plan.residentByteCost,
+                      case .layerGraph(let graph) = candidate.allocation,
+                      candidate.key == .layerGraph(graph.plan.key),
+                      candidate.byteCost == graph.plan.residentByteCost,
                       sharedPairMatches(
                           original.sharedPair,
-                          allocation: chain
+                          allocation: graph
                       ),
-                      let requestedHistory = chain.validatedHistoryTokens(
+                      let requestedHistory = graph.validatedHistoryTokens(
                           request.historyTokensByEffect
                       ) else { return nil }
-                let reservation: ChainReservation
+                let reservation: GraphReservation
                 if original.revision == revision {
                     reservation = original
                 } else {
-                    guard let refreshed = reserveChainLocked(
-                        plan: chain.plan,
+                    guard let refreshed = reserveGraphLocked(
+                        plan: graph.plan,
                         orderingContext: original.orderingContext,
                         pendingSharedPairs: [:]
                     ), reservationStillMatches(original, refreshed) else {
@@ -227,12 +227,12 @@ extension SceneOffscreenTextureAllocationCache {
                     }
                     reservation = refreshed
                 }
-                effective.append((request, reservation, chain, requestedHistory))
+                effective.append((request, reservation, graph, requestedHistory))
             }
             var next = residents
             var access = accessCounter
             var pinRecords: [(
-                chain: SceneGraphRenderTargetChainAllocation,
+                graph: SceneLayerGraphTargetAllocation,
                 submission: UUID,
                 history: [EffectKey: UUID],
                 tokens: [EffectKey: Set<Token>],
@@ -241,14 +241,14 @@ extension SceneOffscreenTextureAllocationCache {
             for value in effective {
                 let candidate = value.request.candidate
                 let reservation = value.reservation
-                let chain = value.chain
+                let graph = value.graph
                 let historyTokens = value.request.historyTokensByEffect
                 guard reservation.reusableAllocation == nil
                         || reservation.reusableAllocation?.generation
                             == reservation.consumedRetiredGeneration,
                       SceneResolvedMaterialInFlightCapacity.admitsNewSubmission(
                           Array(next.values),
-                          chainKey: chain.plan.key
+                          graphKey: graph.plan.key
                       ) else { return nil }
                 var submissionPins: [UUID: Entry.SubmissionPin] = [:]
                 var historyPins: [UUID: Entry.HistoryPin] = [:]
@@ -260,12 +260,12 @@ extension SceneOffscreenTextureAllocationCache {
                               case .history(let history) = seed.allocation else {
                             return false
                         }
-                        return history.isCompatible(with: chain.plan)
+                        return history.isCompatible(with: graph.plan)
                     }) else { return nil }
                 }
                 if !consumeRetired(
                     reservation,
-                    candidate: chain,
+                    candidate: graph,
                     values: &next
                 ) { return nil }
                 if let generation = reservation.replacedCurrentGeneration {
@@ -279,19 +279,19 @@ extension SceneOffscreenTextureAllocationCache {
                         guard next[retired] == nil else { return nil }
                         next[retired] = replaced
                     } else if let history = replaced.historyOnlyEntry() {
-                        next[.history(chain.plan.key, generation)] = history
+                        next[.history(graph.plan.key, generation)] = history
                     }
                 }
                 let existing = next.removeValue(forKey: .current(candidate.key))
                 if let cached = reservation.cachedAllocation {
-                    guard cached.generation == chain.generation,
-                          existing?.allocation.generation == chain.generation else {
+                    guard cached.generation == graph.generation,
+                          existing?.allocation.generation == graph.generation else {
                         return nil
                     }
                     if existing?.submissionPins.isEmpty == false {
                         guard historyTokens.isEmpty,
                               existing?.permitsOrderedSubmissionReuse(
-                                  for: chain.plan,
+                                  for: graph.plan,
                                   orderingContext: reservation.orderingContext
                               ) == true else { return nil }
                     }
@@ -300,7 +300,7 @@ extension SceneOffscreenTextureAllocationCache {
                 } else {
                     guard existing == nil,
                           !next.values.contains(where: {
-                              $0.allocation.generation == chain.generation
+                              $0.allocation.generation == graph.generation
                           }) else { return nil }
                 }
                 let (nextAccess, overflow) = access.addingReportingOverflow(1)
@@ -352,7 +352,7 @@ extension SceneOffscreenTextureAllocationCache {
                 }
                 next[.current(candidate.key)] = entry
                 pinRecords.append((
-                    chain,
+                    graph,
                     submissionID,
                     historyIDs,
                     historyTokens,

@@ -180,10 +180,6 @@ final class SceneGraphResourcePassEncoder {
         pipeline.bind(encoder: encoder)
         pipeline.drawLayer(
             texture: source,
-            shakeMaskTexture: nil,
-            waterMaskTexture: nil,
-            foliageMaskTexture: nil,
-            auxMaskTexture: nil,
             mvp: Self.fullTargetMVP,
             uniforms: uniforms,
             encoder: encoder

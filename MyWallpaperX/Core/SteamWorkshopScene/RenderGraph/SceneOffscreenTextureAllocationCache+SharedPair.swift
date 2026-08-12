@@ -20,7 +20,7 @@ struct SceneOffscreenTextureAllocationCandidate {
 
     var keyMatchesAllocation: Bool {
         switch (key, allocation) {
-        case (.pair, .pair), (.authoredPair, .pair): true
+        case (.composition, .composition): true
         case (.sharedGraphPair, .sharedGraphPair): true
         case (.graph(let effect), .graph(let lease)):
             lease.table.plan.output.effect == effect
@@ -36,21 +36,8 @@ extension SceneOffscreenTextureAllocationCache {
         let identity: PhysicalIdentity
     }
 
-    func cachedPair(for key: Key) -> SceneOffscreenTexturePool.Pair? {
-        locked {
-            let residentKey = ResidentKey.current(key)
-            guard var entry = residents[residentKey],
-                  case .pair(let pair, _) = entry.allocation else { return nil }
-            guard accessCounter < UInt64.max else { return nil }
-            accessCounter += 1
-            entry.lastAccess = accessCounter
-            residents[residentKey] = entry
-            return pair
-        }
-    }
-
     func currentSharedPairLocked(
-        for plan: SceneGraphRenderTargetChainPlan
+        for plan: SceneLayerGraphTargetPlan
     ) -> SharedPair? {
         guard let dimensions = plan.sharedPairDimensions else { return nil }
         let key = Key.sharedGraphPair(
@@ -67,15 +54,15 @@ extension SceneOffscreenTextureAllocationCache {
 
     func sharedPairMatches(
         _ pair: SharedPair?,
-        allocation: SceneGraphRenderTargetChainAllocation
+        allocation: SceneLayerGraphTargetAllocation
     ) -> Bool {
         guard allocation.plan.pairStorage == .shared else { return pair == nil }
         return pair?.identity.generation == allocation.fullFramePairGeneration
     }
 
     func reservationStillMatches(
-        _ original: ChainReservation,
-        _ refreshed: ChainReservation
+        _ original: GraphReservation,
+        _ refreshed: GraphReservation
     ) -> Bool {
         original.resetEpoch == refreshed.resetEpoch
             && original.historySeedGeneration == refreshed.historySeedGeneration
@@ -92,7 +79,7 @@ extension SceneOffscreenTextureAllocationCache {
 
     func makeCommit(
         _ value: (
-            chain: SceneGraphRenderTargetChainAllocation,
+            graph: SceneLayerGraphTargetAllocation,
             submission: UUID,
             history: [EffectKey: UUID],
             tokens: [EffectKey: Set<Token>],
@@ -102,7 +89,7 @@ extension SceneOffscreenTextureAllocationCache {
         let submission = SceneGraphRenderTargetResidencyPin(
             identity: value.submission,
             purpose: .submission,
-            generation: value.chain.generation,
+            generation: value.graph.generation,
             cache: self
         )
         let history = Dictionary(uniqueKeysWithValues: value.tokens.map {
@@ -110,7 +97,7 @@ extension SceneOffscreenTextureAllocationCache {
             (effect, SceneGraphRenderTargetResidencyPin(
                 identity: value.history[effect]!,
                 purpose: .history(effect, tokens),
-                generation: value.chain.generation,
+                generation: value.graph.generation,
                 cache: self
             ))
         })
@@ -123,7 +110,7 @@ extension SceneOffscreenTextureAllocationCache {
             )
         }
         return .init(
-            leases: value.chain.leases,
+            leases: value.graph.leases,
             submissionPin: submission,
             historyPinsByEffect: history,
             sharedPairPin: sharedPair
@@ -156,8 +143,8 @@ extension SceneOffscreenTexturePool {
         for plans: [ScenePersistentGraphTargetFramePlan]
     ) -> Set<SceneOffscreenTextureAllocationCache.Key>? {
         var keys = Set<SceneOffscreenTextureAllocationCache.Key>()
-        for framePlan in plans where framePlan.chainPlan.pairStorage == .shared {
-            guard let dimensions = framePlan.chainPlan.sharedPairDimensions else {
+        for framePlan in plans where framePlan.graphPlan.pairStorage == .shared {
+            guard let dimensions = framePlan.graphPlan.sharedPairDimensions else {
                 return nil
             }
             keys.insert(.sharedGraphPair(

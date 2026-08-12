@@ -117,7 +117,6 @@ enum SceneLayerColorBlendRenderer {
 
     static func draw(
         texture: MTLTexture,
-        masks: SceneImageLayerMasks,
         mvp: simd_float4x4,
         uniforms: SceneLayerFragmentUniforms,
         dependencyTexture: MTLTexture?,
@@ -133,10 +132,6 @@ enum SceneLayerColorBlendRenderer {
             pipeline.bind(encoder: encoder)
             pipeline.drawLayer(
                 texture: texture,
-                shakeMaskTexture: nil,
-                waterMaskTexture: masks.water,
-                foliageMaskTexture: masks.foliage,
-                auxMaskTexture: masks.iris ?? masks.opacity,
                 dependencyTexture: dependencyTexture,
                 mvp: mvp,
                 uniforms: uniforms,

@@ -3,8 +3,8 @@
 
 语料 5 种可执行指纹逐 profile 断言：
 - stock 2.8.42：五键全齐 exact、mask 必绑、gizmos 必含；
-- legacyReversedDirection（`2131872317`）：方向基向量 `(0,-1)` 折算 +π；
-- legacyDirectV1（两个 fragment 指纹）与 legacyV2：基向量同 stock；
+- reversedDirectionV1（`2131872317`）：方向基向量 `(0,-1)` 折算 +π；
+- directV1（两个 fragment 指纹）与 reducedV2：基向量同 stock；
 - legacy 族共同语义：常量可缺省（default 5/200/0.1/0）、`exponent` 键拒绝、
   `perspective` 仅接受 0、mask 可缺省（等价 mask=1）、v1 族 definition 无 gizmos。
 """
@@ -427,10 +427,10 @@ enum Harness {
 
         let result: [String: Any] = [
             "profilesResolved": profiles[0] == .stock2842
-                && profiles[1] == .legacyReversedDirection
-                && profiles[2] == .legacyDirectV1
-                && profiles[3] == .legacyDirectV1
-                && profiles[4] == .legacyV2,
+                && profiles[1] == .reversedDirectionV1
+                && profiles[2] == .directV1
+                && profiles[3] == .directV1
+                && profiles[4] == .reducedV2,
             "reversedDirectionOffset": profiles[1]!.directionOffset == Float.pi
                 && profiles[2]!.directionOffset == 0
                 && profiles[4]!.directionOffset == 0
@@ -440,7 +440,7 @@ enum Harness {
                 && stockPlan!.direction == 1.5
                 && stockPlan!.maskTexturePath == "masks/waves_mask_a",
             "reversedPlanApplied": reversedPlan != nil
-                && reversedPlan!.shaderProfile == .legacyReversedDirection
+                && reversedPlan!.shaderProfile == .reversedDirectionV1
                 && reversedPlan!.direction == 1.5 + Float.pi
                 && reversedPlan!.exponent == 1
                 && reversedPlan!.speed == 3
@@ -456,10 +456,10 @@ enum Harness {
                 && noMaskPlan!.maskTexturePath == nil
                 && noMaskPlan!.strength == 0.1,
             "v2Planned": v2Plan != nil
-                && v2Plan!.shaderProfile == .legacyV2
+                && v2Plan!.shaderProfile == .reducedV2
                 && v2Plan!.direction == 0.5,
             "relocatedAnnotationOrderPlanned": relocatedExecution != nil
-                && relocatedExecution!.shaderProfile == .legacyDirectV1
+                && relocatedExecution!.shaderProfile == .directV1
                 && relocatedExecution!.direction == 1.5
                 && relocatedExecution!.maskTexturePath == "masks/waves_mask_a",
             "relocatedAssetFamilyDerived": {

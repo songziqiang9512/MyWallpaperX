@@ -39,8 +39,8 @@ nonisolated struct SceneShaderContract: Codable, Equatable, Sendable {
     struct Annotation: Codable, Equatable, Sendable {
         let marker: String?
         let value: SceneJSONValue
-        /// Exact numeric view used by the R2 variant compiler. `value` remains
-        /// the legacy projection encoded into `canonicalSHA256`.
+        /// Exact numeric view used by the variant compiler. `value` remains
+        /// the JSON projection encoded into `canonicalSHA256`.
         let variantValue: SceneShaderAnnotationValue
         let raw: String
         let line: Int
@@ -58,7 +58,7 @@ nonisolated struct SceneShaderContract: Codable, Equatable, Sendable {
         ) {
             self.marker = marker
             self.value = value
-            self.variantValue = variantValue ?? .init(legacyValue: value)
+            self.variantValue = variantValue ?? .init(jsonValue: value)
             self.raw = raw
             self.line = line
         }
@@ -72,7 +72,7 @@ nonisolated struct SceneShaderContract: Codable, Equatable, Sendable {
             variantValue = SceneShaderAnnotationValue(
                 rawAnnotation: raw,
                 marker: marker
-            ) ?? .init(legacyValue: value)
+            ) ?? .init(jsonValue: value)
         }
 
         func encode(to encoder: Encoder) throws {
@@ -117,8 +117,8 @@ nonisolated struct SceneShaderContract: Codable, Equatable, Sendable {
     let diagnostics: [Diagnostic]
     let canonicalSHA256: String
     /// Deterministic VFS snapshot for authored stage/include preparation. It is
-    /// intentionally separate from `canonicalSHA256`, whose legacy root-stage
-    /// identity remains the compatibility key used by existing strict profiles.
+    /// intentionally separate from `canonicalSHA256`, whose root-stage
+    /// identity remains the revision key used by registered shader profiles.
     let sourceGraph: SceneShaderSourceGraph?
 
     init(
@@ -171,8 +171,8 @@ nonisolated indirect enum SceneShaderAnnotationValue: Decodable, Equatable, Send
         }
     }
 
-    init(legacyValue: SceneJSONValue) {
-        switch legacyValue {
+    init(jsonValue: SceneJSONValue) {
+        switch jsonValue {
         case .null: self = .null
         case .bool(let value): self = .bool(value)
         case .number(let value):
@@ -180,9 +180,9 @@ nonisolated indirect enum SceneShaderAnnotationValue: Decodable, Equatable, Send
                 ? Int64(exactly: value).map(Self.integer) ?? .number(value)
                 : .number(value)
         case .string(let value): self = .string(value)
-        case .array(let values): self = .array(values.map(Self.init(legacyValue:)))
+        case .array(let values): self = .array(values.map(Self.init(jsonValue:)))
         case .object(let values):
-            self = .object(values.mapValues(Self.init(legacyValue:)))
+            self = .object(values.mapValues(Self.init(jsonValue:)))
         }
     }
 

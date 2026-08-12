@@ -196,8 +196,7 @@ enum Harness {
         }
         pipeline.bind(encoder: encoder)
         pipeline.drawLayer(
-            texture: texture, shakeMaskTexture: nil, waterMaskTexture: nil,
-            foliageMaskTexture: nil, auxMaskTexture: nil,
+            texture: texture,
             mvp: labelMVP(anchor: anchor, viewportSize: viewportSize),
             uniforms: uniforms, encoder: encoder
         )
@@ -272,10 +271,8 @@ enum Harness {
     }
 
     static let uniforms = SceneLayerFragmentUniforms(
-        time: 0, alpha: 1, effectFlags: 0, dependencyBlendMode: 0,
+        time: 0, alpha: 1, dependencyBlendMode: 0, usesDependencyBlend: 0,
         cursorUV: .zero, _pad1: .zero, tint: SIMD4(repeating: 1),
-        effectParams0: .zero, effectParams1: .zero, effectParams2: .zero,
-        effectParams3: .zero, effectParams4: .zero, effectParams5: SIMD4(1, 1, 0, 0),
         textureFrame0: SIMD4(0, 0, 1, 0), textureFrame1: SIMD4(0, 1, 0, 0)
     )
 

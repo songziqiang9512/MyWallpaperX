@@ -856,14 +856,14 @@ enum Harness {
                 && stockProfile!.noiseSpeedDefault == 0.5
                 && stockProfile!.noiseSpeedRange == 0 ... 1
                 && stockProfile!.saturatesOutput == false,
-            "legacySaturateResolved": saturateProfile == .legacyDirectPhaseSaturate
+            "legacySaturateResolved": saturateProfile == .directPhaseSaturateV1
                 && saturateProfile!.phaseOffset == 0
                 && saturateProfile!.noiseUVScale == SIMD2<Float>(1, 0.333)
                 && saturateProfile!.noiseSpeedDefault == 0.1
                 && saturateProfile!.noiseSpeedRange == 0 ... 0.5
                 && saturateProfile!.saturatesOutput == true,
-            "legacyMaxClampResolved": cast3Profile == .legacyDirectPhaseMaxClamp
-                && literalProfile == .legacyDirectPhaseMaxClamp
+            "legacyMaxClampResolved": cast3Profile == .directPhaseMaxClampV1
+                && literalProfile == .directPhaseMaxClampV1
                 && cast3Profile!.saturatesOutput == false,
             "staticAccepted": staticPlan != nil
                 && staticPlan!.shaderProfile == .stock2842
@@ -900,7 +900,7 @@ enum Harness {
                 && defaultsPlan!.noiseTexturePath == nil
                 && defaultsPlan!.requiresNoiseTexture == false,
             "legacyNoiseSpeedDefault": legacyDefaultsPlan != nil
-                && legacyDefaultsPlan!.shaderProfile == .legacyDirectPhaseSaturate
+                && legacyDefaultsPlan!.shaderProfile == .directPhaseSaturateV1
                 && scalar(legacyDefaultsPlan!, .noiseSpeed) == 0.1,
             "legacyMissingReplacementAccepted": accepted(
                 descriptorOptions: missingReplacement,

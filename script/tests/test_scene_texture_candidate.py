@@ -453,14 +453,14 @@ enum Harness {
             spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
-        let basePaddedLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
+        let basePaddedSpecialized = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: url,
             usesPuppet: false,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
-        let baseSpriteLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
+        let baseSpritePlayback = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: spriteURL,
             usesPuppet: false,
             loader: loader,
@@ -529,14 +529,14 @@ enum Harness {
             device: device
         )
         let crossImageTransform = crossImageAnimation.transform(at: 0.04)
-        let basePuppetLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
+        let basePuppetSpecialized = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: croppedColorURL,
             usesPuppet: true,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
-        let baseUnparsedLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
+        let baseUnparsedSpecialized = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: unparsedFallbackURL,
             usesPuppet: false,
             loader: loader,
@@ -917,12 +917,12 @@ enum Harness {
             "mappedTexb2MipRejected": mappedTexb2MipRejected,
             "baseDirectCandidate": baseDirect.candidate != nil,
             "baseCroppedCandidate": baseCropped.candidate != nil,
-            "basePaddedR8Legacy":
-                basePaddedLegacy.candidate == nil
-                    && basePaddedLegacy.message.contains("legacy binding"),
-            "baseSpriteLegacy":
-                baseSpriteLegacy.candidate == nil
-                    && baseSpriteLegacy.animation != nil,
+            "basePaddedR8Specialized":
+                basePaddedSpecialized.candidate == nil
+                    && basePaddedSpecialized.message.contains("specialized authored binding"),
+            "baseSpritePlayback":
+                baseSpritePlayback.candidate == nil
+                    && baseSpritePlayback.animation != nil,
             "baseCrossImageSpritePlayback":
                 baseCrossImageSprite.candidate == nil
                     && baseCrossImageSprite.animation != nil
@@ -940,7 +940,7 @@ enum Harness {
                 baseRotatedCrossImageSprite.candidate == nil
                     && baseRotatedCrossImageSprite.animation == nil
                     && baseRotatedCrossImageSprite.message.contains(
-                        "legacy route (multi-image TEX)"
+                        "specialized authored load (multi-image TEX)"
                     ),
             "baseBudgetLimitedCrossImageSpriteFailsClosed":
                 baseBudgetLimitedCrossImageSprite.candidate == nil
@@ -948,12 +948,12 @@ enum Harness {
                     && baseBudgetLimitedCrossImageSprite.message.contains(
                         "resident budget exceeded"
                     ),
-            "basePuppetLegacy":
-                basePuppetLegacy.candidate == nil
-                    && basePuppetLegacy.message.contains("puppet atlas"),
-            "baseUnparsedLegacy":
-                baseUnparsedLegacy.candidate == nil
-                    && baseUnparsedLegacy.message.contains("unparsed TEX"),
+            "basePuppetSpecialized":
+                basePuppetSpecialized.candidate == nil
+                    && basePuppetSpecialized.message.contains("puppet atlas"),
+            "baseUnparsedSpecialized":
+                baseUnparsedSpecialized.candidate == nil
+                    && baseUnparsedSpecialized.message.contains("unparsed TEX"),
             "baseCandidateFailureTerminal": baseCandidateFailureTerminal,
             "baseStoreReplacementClearsCandidate":
                 baseStoreReplacementClearsCandidate,
@@ -1514,15 +1514,15 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "baseCrossImageSpritePlayback": True,
                 "baseCroppedCandidate": True,
                 "baseDirectCandidate": True,
-                "basePaddedR8Legacy": True,
-                "basePuppetLegacy": True,
+                "basePaddedR8Specialized": True,
+                "basePuppetSpecialized": True,
                 "baseRotatedCrossImageSpriteFailsClosed": True,
-                "baseSpriteLegacy": True,
+                "baseSpritePlayback": True,
                 "baseSnapshotDropsMismatchedCandidate": True,
                 "baseSnapshotRejectsMismatchedPublication": True,
                 "baseStoreReplacementClearsCandidate": True,
                 "staticCandidatePublicationPreservesRevision": True,
-                "baseUnparsedLegacy": True,
+                "baseUnparsedSpecialized": True,
                 "croppedColorMapped": [4, 4],
                 "croppedColorPhysical": [4, 4],
                 "croppedColorScale": [1, 1],

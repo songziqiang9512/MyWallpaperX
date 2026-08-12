@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 nonisolated enum SceneWaterFlowShaderProfile {
-    case legacy
+    case baseV1
     case phaseFeather
 
     private struct CanonicalShaderPayload: Encodable {
@@ -72,7 +72,7 @@ nonisolated enum SceneWaterFlowShaderProfile {
     private static let fragmentPath = "shaders/effects/waterflow.frag"
     private static let fingerprints = [
         Fingerprint(
-            profile: .legacy,
+            profile: .baseV1,
             canonicalSHA256: "63ef341dd11eb804ecc05196ff86e5802b950cec8d3dcf29b4bc20872595c2e3",
             vertexSHA256: "45803f340c80659ca4726cdea107eb017e7638a64a1b9ff7d30093d1938a738e",
             fragmentSHA256: "20928cfc8b69497820cd70dc98d18f32398ba473707e1c72363670707af6dc7f"

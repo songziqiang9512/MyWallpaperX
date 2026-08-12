@@ -111,7 +111,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
 #endif
 
     static func make(
-        executionPlan: SceneAuthoredEffectExecutionPlan,
+        executionPlan: SceneEffectStageExecutionPlan,
         graph: Graph,
         inputWidth: Int,
         inputHeight: Int
@@ -127,7 +127,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             inputRole: executionPlan.inputRole,
             inputWidth: inputWidth,
             inputHeight: inputHeight,
-            legacyExecutionPlan: executionPlan
+            stageExecutionPlan: executionPlan
         )
     }
 
@@ -144,7 +144,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             inputRole: inputRole,
             inputWidth: inputWidth,
             inputHeight: inputHeight,
-            legacyExecutionPlan: nil
+            stageExecutionPlan: nil
         )
     }
 
@@ -153,7 +153,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
-        legacyExecutionPlan: SceneAuthoredEffectExecutionPlan?
+        stageExecutionPlan: SceneEffectStageExecutionPlan?
     ) -> Result<Self, Failure> {
         guard inputWidth > 0, inputHeight > 0 else {
             return .failure(.invalidInputExtent)
@@ -218,7 +218,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             guard let descriptor = descriptors[identity] else { return false }
             return descriptor.initialClear != nil || permitsHistorySeed(
                 identity,
-                legacyExecutionPlan: legacyExecutionPlan,
+                stageExecutionPlan: stageExecutionPlan,
                 declarations: declarations
             )
         }
@@ -235,8 +235,8 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             default: return .failure(.executionMismatch)
             }
             if composes,
-               let legacyExecutionPlan,
-               !legacyExecutionPlan.supportsUnifiedFullFrameComposeStage {
+               let stageExecutionPlan,
+               !stageExecutionPlan.supportsUnifiedFullFrameComposeStage {
                 return .failure(.executionMismatch)
             }
             if let previousNodeIndex, node.nodeIndex <= previousNodeIndex {

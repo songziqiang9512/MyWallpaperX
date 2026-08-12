@@ -21,7 +21,7 @@ UTILITY_FRAME_RENDERER_SOURCE = (
 )
 DEPENDENCY_RUNTIME_SOURCE = SOURCE_ROOT / "RenderGraph/SceneDependencyFrameRuntime.swift"
 AUTHORED_CATALOG_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift"
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan.swift"
 )
 METAL_RENDERER_MASKS_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectMasks.swift"
@@ -36,7 +36,7 @@ FRAME_PREFLIGHT_SOURCE = (
 EFFECT_EXECUTION_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
 )
-BACKEND_SOURCE = SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
+BACKEND_SOURCE = SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift"
 CAPABILITY_PROGRAM_FIRST_SOURCE = (
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
@@ -114,26 +114,12 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("authoredDependencies: object.authoredDependencies", descriptor)
         self.assertIn("if let utilityLayer = object.utilityLayer", descriptor)
 
-    def test_complete_authored_capture_requires_every_visible_stage(self) -> None:
+    def test_utility_capture_requires_unified_layer_ownership(self) -> None:
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("supportsCompleteAuthoredCapture", runtime_plan)
-        self.assertNotIn("implementedEffectPlan", runtime_plan)
-        self.assertNotIn("SceneEffectRuntimePlanner", runtime_plan)
-        self.assertIn(
-            "chain.executionStages.count == visible.count",
-            runtime_plan,
-            "utility capture must not silently truncate a visible effect suffix",
-        )
-        self.assertIn(
-            "chain.executionStages.count == chain.renderGraph.effects.count",
-            runtime_plan,
-            "utility capture must represent the complete authored graph",
-        )
-        self.assertIn(
-            "chain.executionStages.allSatisfy(\\.supportsUtilityCapture)",
-            runtime_plan,
-            "every stage must explicitly admit utility capture",
-        )
+        self.assertIn("resolvedMaterialLayerIDs.contains(layer.id)", runtime_plan)
+        self.assertIn("disposition = .capture", runtime_plan)
+        self.assertNotIn("supportsCompleteAuthoredCapture", runtime_plan)
+        self.assertNotIn("partialEffects", runtime_plan)
         backend = BACKEND_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
             "case .foliageSway:",
@@ -147,7 +133,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
         )
         self.assertIn("case .proceduralNoise(let plan):", backend)
         for contract in (
-            "plan.variant == .legacyWorleyColor",
+            "plan.variant == .worleyColorV1",
             "plan.dependencyProviderLayerID != nil",
             "plan.dependencySlotIndex == 3",
         ):
@@ -187,7 +173,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
             "a unified utility owner must still load its effect resources",
         )
         self.assertIn(
-            ").authoredEffectResourcesOnly",
+            "masks: renderer.effectMasks(",
             metal_renderer,
             "utility capture must receive the same planned effect-instance resources",
         )
@@ -214,13 +200,10 @@ class SceneUtilityLayerTests(unittest.TestCase):
 
         self.assertIn("resolvedMaterialLayerIDs.contains(layer.id)", runtime_plan)
         compact_plan = "".join(runtime_plan.split())
-        complete_capture = compact_plan.index(
-            "elseifsupportsCompleteAuthoredCapture("
+        self.assertIn(
+            "elseifresolvedMaterialLayerIDs.contains(layer.id){disposition=.capture}",
+            compact_plan,
         )
-        capture = compact_plan.index("disposition=.capture", complete_capture)
-        partial = compact_plan.index("disposition=.partialEffects", capture)
-        self.assertLess(complete_capture, capture)
-        self.assertLess(capture, partial)
         self.assertIn("case .capturedMainTargetTexture:", preflight)
         self.assertIn("sourceTexture = mainTarget", preflight)
         self.assertIn("textureFrame = geometry.sourceUV", preflight)
@@ -266,8 +249,8 @@ class SceneUtilityLayerTests(unittest.TestCase):
 
         compact_compositor = "".join(compositor.split())
         self.assertIn(
-            "letdependencyConsumed=authoredChainConsumesDependency||"
-            "graphExecutionTicket?.consumesExternalPrimaryDependency==true",
+            "letdependencyConsumed=graphExecutionTicket?."
+            "consumesExternalPrimaryDependency==true",
             compact_compositor,
         )
         self.assertIn(
@@ -340,10 +323,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
         )
         compositor = IMAGE_COMPOSITOR_SOURCE.read_text(encoding="utf-8")
 
-        self.assertIn(
-            "let legacyEffectFallbackSuppressedLayerIDs: Set<Int>",
-            catalog,
-        )
+        self.assertNotIn("FallbackSuppressedLayerIDs", catalog)
         self.assertNotIn("suppressedConsumerLayerIDs", dependency_runtime)
         self.assertNotIn("suppressedConsumerLayerIDs", image_renderer)
         self.assertIn(
@@ -354,16 +334,8 @@ class SceneUtilityLayerTests(unittest.TestCase):
             "descriptor.layers.filter {",
             RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8"),
         )
-        self.assertIn(
-            "request.suppressesLegacyEffectFallback =\n"
-            "                    suppressesLegacyEffectFallback",
-            image_renderer,
-        )
-
-        self.assertIn(
-            "let suppressesLegacyEffectFallback = renderer.authoredEffectCatalog",
-            utility_renderer,
-        )
+        self.assertNotIn("suppressesUnclaimedEffectFallback", image_renderer)
+        self.assertNotIn("authoredEffectCatalog", utility_renderer)
 
         self.assertIn("let dependencyEffect = request.dependencyEffect", compositor)
         self.assertIn("dependencyTexture: dependencyEffect?.texture", compositor)

@@ -46,7 +46,7 @@ struct SceneGodraysPlan {
     let samples50: Bool
     let kernel13: Bool
     let direction: Float?
-    let legacyGaussianWeights: Bool
+    let usesDirectionalGaussianKernel: Bool
     let blurScaleX: SIMD2<Float>
     let blurScaleY: SIMD2<Float>
     let blendMode: Int
@@ -251,7 +251,7 @@ enum Harness {
             samples50: false,
             kernel13: false,
             direction: nil,
-            legacyGaussianWeights: false,
+            usesDirectionalGaussianKernel: false,
             blurScaleX: SIMD2(repeating: 1),
             blurScaleY: SIMD2(repeating: 1),
             blendMode: 9

@@ -21,50 +21,45 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectStageCompileModel.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainAdmission.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageGraphAdmission.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageGraph.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectProgramCompiler+DedicatedStages.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectStageCompiler.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionCatalog+ResolvedMaterial.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectAdmissionCatalog.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectAdmissionCatalog+ResolvedMaterial.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectStageProgram.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageAdmission.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageAdmission.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
 ]
-CHAIN_PLANNER_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainAdmission.swift"
-)
-# stage 解析（逐 planner 尝试 + backend 构造）拆在扩展文件中，文本标记检查读拼接。
-CHAIN_STAGE_RESOLUTION_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift"
+PROGRAM_COMPILER_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/SceneEffectProgramCompiler+DedicatedStages.swift"
 )
 CHAIN_BACKEND_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift"
 )
 CHAIN_RENDERER_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift"
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift"
 )
 CHAIN_SPECIALIZED_STAGE_SOURCE = (
     SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SpecializedStage.swift"
+    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift"
 )
 CHAIN_TOPOLOGY_SOURCE = (
     SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Topology.swift"
+    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift"
 )
 CHAIN_WATER_FLOW_SOURCE = (
     SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+CursorRipple.swift"
+    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+CursorRipple.swift"
 )
 CHAIN_DEPTH_PARALLAX_SOURCE = (
     SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+DepthParallax.swift"
+    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+DepthParallax.swift"
 )
 COMPOSITOR_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
 DRAW_REQUEST_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift"
@@ -75,8 +70,8 @@ SHAKE_TEXTURE_LOADER_SOURCE = (
     SOURCE_ROOT / "Resources/SceneShakeEffectTextureLoader.swift"
 )
 
-SAMPLE_STAGE_FIXTURES = {
-    "2998757800": (
+ORDERED_STAGE_FIXTURES = {
+    "shake-foliage-xray": (
         (0, "shake"),
         (1, "shake"),
         (2, "shake"),
@@ -84,7 +79,7 @@ SAMPLE_STAGE_FIXTURES = {
         (4, "foliageSway"),
         (5, "xRay"),
     ),
-    "3757555836": (
+    "xray-water-shake": (
         (0, "xRay"),
         (1, "waterFlow"),
         (2, "waterRipple"),
@@ -185,7 +180,7 @@ struct SceneWorkshopGradientExecutionPlan: Sendable {}
 struct SceneProceduralNoiseExecutionPlan: Sendable {
     enum Variant: Sendable {
         case colorPerlinRGB
-        case legacyWorleyColor
+        case worleyColorV1
     }
 
     let variant: Variant
@@ -512,7 +507,7 @@ enum SceneAuthoredPulsePlanner {
 
 struct SceneGodraysPlan {
     var direction: Float? { nil }
-    var legacyGaussianWeights: Bool { false }
+    var usesDirectionalGaussianKernel: Bool { false }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
@@ -634,10 +629,10 @@ extension HarnessDedicatedPlanner {
     }
 }
 
-extension SceneAuthoredEffectExecutionPlanner {
+extension SceneEffectStageExecutionPlanner {
     nonisolated static func compile(
         _ input: SceneEffectStageCompileInput
-    ) -> SceneEffectStageBackendCompileResult<SceneAuthoredEffectExecutionPlan> {
+    ) -> SceneEffectStageBackendCompileResult<SceneEffectStageExecutionPlan> {
         SceneEffectStageDedicatedCompilerAdapter.compile(
             backend: .preciseGaussian,
             candidate: { false },
@@ -655,7 +650,7 @@ extension SceneAuthoredEffectExecutionPlanner {
 extension SceneAuthoredStandardBlurPlanner {
     nonisolated static func compile(
         _ input: SceneEffectStageCompileInput
-    ) -> SceneEffectStageBackendCompileResult<SceneAuthoredEffectExecutionPlan> {
+    ) -> SceneEffectStageBackendCompileResult<SceneEffectStageExecutionPlan> {
         SceneEffectStageDedicatedCompilerAdapter.compile(
             backend: .standardBlur,
             candidate: { false },
@@ -1407,7 +1402,7 @@ enum Harness {
         ]
     }
 
-    static func sampleChain(
+    static func orderedGraph(
         layerID: Int,
         stageNames: [String]
     ) -> (graph: Graph, descriptor: SceneRenderDescriptor) {
@@ -1479,9 +1474,15 @@ enum Harness {
     }
 
     static func stageEvidence(
-        _ chain: SceneAuthoredEffectExecutionChain?
+        graph: Graph,
+        descriptor: SceneRenderDescriptor
     ) -> [[Any]] {
-        chain?.executionStages.map { stage in
+        SceneEffectProgramCompiler.compileDedicatedLeaves(
+            graph: graph,
+            descriptor: descriptor,
+            shaderContracts: []
+        ).map { program in
+            let stage = program.executionPlan
             let effectIndex = stage.renderGraph.effects[0].key.effectIndex
             let backend: String
             switch stage.backend {
@@ -1516,7 +1517,7 @@ enum Harness {
             case .shine: backend = "shine"
             }
             return [effectIndex, backend]
-        } ?? []
+        }
     }
 
     static func main() throws {
@@ -1527,14 +1528,9 @@ enum Harness {
             .init(id: 30, parentID: nil, visible: true, contentKind: "text", effects: [instanceEffect(layerID: 30, scale: 0.43)]),
         ]
         let descriptor = SceneRenderDescriptor(layers: layers, materialPasses: materials())
-        let catalog = SceneAuthoredEffectExecutionCatalog(
-            descriptor: descriptor,
-            authoredPlans: [
-                graph(layerID: 10), graph(layerID: 20), graph(layerID: 21),
-                graph(layerID: 30, extraEffect: true),
-            ]
-        )
-        let visiblePlan = catalog.plansByLayerID[10]!
+        let visiblePlan = SceneEffectStageExecutionPlanner.plan(
+            graph: graph(layerID: 10), descriptor: descriptor
+        )!
         let preciseBlur = visiblePlan.gaussianBlur!
         let preciseRenderTargetPlan: SceneGraphRenderTargetPlan = {
             switch SceneGraphRenderTargetPlan.make(
@@ -1585,8 +1581,8 @@ enum Harness {
             variant: SceneProceduralNoiseExecutionPlan.Variant,
             providerLayerID: Int?,
             slotIndex: Int?
-        ) -> SceneAuthoredEffectExecutionPlan {
-            SceneAuthoredEffectExecutionPlan(
+        ) -> SceneEffectStageExecutionPlan {
+            SceneEffectStageExecutionPlan(
                 layerID: standardGraph.layerID,
                 renderGraph: standardGraph,
                 backend: .proceduralNoise(.init(
@@ -1599,7 +1595,7 @@ enum Harness {
             )
         }
         let exactLegacyProcedural = proceduralExecution(
-            variant: .legacyWorleyColor,
+            variant: .worleyColorV1,
             providerLayerID: 42,
             slotIndex: 3
         )
@@ -1609,12 +1605,12 @@ enum Harness {
             slotIndex: nil
         )
         let providerlessLegacyProcedural = proceduralExecution(
-            variant: .legacyWorleyColor,
+            variant: .worleyColorV1,
             providerLayerID: nil,
             slotIndex: 3
         )
         let wrongSlotLegacyProcedural = proceduralExecution(
-            variant: .legacyWorleyColor,
+            variant: .worleyColorV1,
             providerLayerID: 42,
             slotIndex: 2
         )
@@ -1641,15 +1637,12 @@ enum Harness {
             if case .standardBlur = standardPlan.backend { return true }
             return false
         }()
-        let standardCatalog = SceneAuthoredEffectExecutionCatalog(
-            descriptor: standardDescriptor, authoredPlans: [standardGraph]
-        )
         let copyGraph = interleavedGraph(commandKind: .copy)
         let swapGraph = interleavedGraph(commandKind: .swap)
-        let copyPlan = SceneAuthoredEffectExecutionPlanner.plan(
+        let copyPlan = SceneEffectStageExecutionPlanner.plan(
             graph: copyGraph, descriptor: descriptor
         )
-        let swapPlan = SceneAuthoredEffectExecutionPlanner.plan(
+        let swapPlan = SceneEffectStageExecutionPlanner.plan(
             graph: swapGraph, descriptor: descriptor
         )
         let copyTargetPlan = copyPlan.flatMap { executionPlan -> SceneGraphRenderTargetPlan? in
@@ -1684,7 +1677,7 @@ enum Harness {
             materialPasses: materials(verticalCombos: ["VERTICAL": 1])
         )
         let fullFrameComposeGraph = graph(layerID: 10, fullFrameCompose: true)
-        let fullFrameComposePlan = SceneAuthoredEffectExecutionPlanner.plan(
+        let fullFrameComposePlan = SceneEffectStageExecutionPlanner.plan(
             graph: fullFrameComposeGraph,
             descriptor: fullFrameComposeDescriptor
         )
@@ -1698,7 +1691,7 @@ enum Harness {
             ) else { return nil }
             return plan
         }
-        let fullFrameSmallPlan = SceneAuthoredEffectExecutionPlanner.plan(
+        let fullFrameSmallPlan = SceneEffectStageExecutionPlanner.plan(
             graph: graph(layerID: 10, fullFrameCompose: true),
             descriptor: SceneRenderDescriptor(
                 layers: [
@@ -1715,31 +1708,31 @@ enum Harness {
                 materialPasses: materials(verticalCombos: ["VERTICAL": 1])
             )
         )
-        let mediumPlan = SceneAuthoredEffectExecutionPlanner.plan(
+        let mediumPlan = SceneEffectStageExecutionPlanner.plan(
             graph: graph(layerID: 10),
             descriptor: descriptorForLayer10(
                 effect: instanceEffect(layerID: 10, kernel: 1)
             )
         )
-        let smallPlan = SceneAuthoredEffectExecutionPlanner.plan(
+        let smallPlan = SceneEffectStageExecutionPlanner.plan(
             graph: graph(layerID: 10),
             descriptor: descriptorForLayer10(
                 effect: instanceEffect(layerID: 10, kernel: 2)
             )
         )
-        let mismatchedKernelRejected = SceneAuthoredEffectExecutionPlanner.plan(
+        let mismatchedKernelRejected = SceneEffectStageExecutionPlanner.plan(
             graph: graph(layerID: 10),
             descriptor: descriptorForLayer10(
                 effect: instanceEffect(layerID: 10, kernel: 1, verticalKernel: 2)
             )
         ) == nil
-        let invalidKernelRejected = SceneAuthoredEffectExecutionPlanner.plan(
+        let invalidKernelRejected = SceneEffectStageExecutionPlanner.plan(
             graph: graph(layerID: 10),
             descriptor: descriptorForLayer10(
                 effect: instanceEffect(layerID: 10, kernel: 3)
             )
         ) == nil
-        let actualMaskRejected = SceneAuthoredEffectExecutionPlanner.plan(
+        let actualMaskRejected = SceneEffectStageExecutionPlanner.plan(
             graph: graph(layerID: 10),
             descriptor: descriptorForLayer10(
                 effect: instanceEffect(
@@ -1748,7 +1741,7 @@ enum Harness {
                 )
             )
         ) == nil
-        let blurAlphaRejected = SceneAuthoredEffectExecutionPlanner.plan(
+        let blurAlphaRejected = SceneEffectStageExecutionPlanner.plan(
             graph: graph(layerID: 10),
             descriptor: descriptorForLayer10(
                 effect: instanceEffect(
@@ -1784,28 +1777,17 @@ enum Harness {
         ) -> Bool {
             SceneAuthoredStandardBlurPlanner.plan(graph: graph, descriptor: descriptor) == nil
         }
-        func standardLegacyBlocked(
-            graph: Graph,
-            descriptor: SceneRenderDescriptor = standardDescriptor
-        ) -> [Int] {
-            SceneAuthoredEffectExecutionCatalog(
-                descriptor: descriptor, authoredPlans: [graph]
-            ).legacyGaussianBlurBlockedLayerIDs.sorted()
-        }
-        let sample2998757800 = sampleChain(
-            layerID: 2998757800,
+        let shakeFoliageXRay = orderedGraph(
+            layerID: 910,
             stageNames: [
                 "shake", "shake", "shake", "shake", "foliageSway", "xRay",
             ]
         )
-        let sample3757555836 = sampleChain(
-            layerID: 3757555836,
+        let xRayWaterShake = orderedGraph(
+            layerID: 920,
             stageNames: ["xRay", "waterFlow", "waterRipple", "waterFlow", "shake"]
         )
         let result: [String: Any] = [
-            "planned": catalog.plansByLayerID.keys.sorted(),
-            "hidden": catalog.hiddenEligibleLayerIDs,
-            "legacyBlurBlocked": catalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
             "scale": [preciseBlur.horizontalStep, preciseBlur.verticalStep],
             "nodes": visiblePlan.materialNodeCount,
             "targets": visiblePlan.logicalRenderTargetCount,
@@ -1841,7 +1823,7 @@ enum Harness {
                 }
                 && fullFrameComposeGraph.nodes[0].compose == .bool(true)
                 && fullFrameComposeGraph.nodes[1].compose == nil,
-            "fullFrameComposeFalseRejected": SceneAuthoredEffectExecutionPlanner.plan(
+            "fullFrameComposeFalseRejected": SceneEffectStageExecutionPlanner.plan(
                 graph: graph(
                     layerID: 10,
                     fullFrameCompose: true,
@@ -1849,7 +1831,7 @@ enum Harness {
                 ),
                 descriptor: fullFrameComposeDescriptor
             ) == nil,
-            "fullFrameComposeStringRejected": SceneAuthoredEffectExecutionPlanner.plan(
+            "fullFrameComposeStringRejected": SceneEffectStageExecutionPlanner.plan(
                 graph: graph(
                     layerID: 10,
                     fullFrameCompose: true,
@@ -1857,7 +1839,7 @@ enum Harness {
                 ),
                 descriptor: fullFrameComposeDescriptor
             ) == nil,
-            "fullFrameComposeTerminalRejected": SceneAuthoredEffectExecutionPlanner.plan(
+            "fullFrameComposeTerminalRejected": SceneEffectStageExecutionPlanner.plan(
                 graph: graph(
                     layerID: 10,
                     fullFrameCompose: true,
@@ -1866,7 +1848,7 @@ enum Harness {
                 ),
                 descriptor: fullFrameComposeDescriptor
             ) == nil,
-            "fullFrameComposeFramebufferRejected": SceneAuthoredEffectExecutionPlanner.plan(
+            "fullFrameComposeFramebufferRejected": SceneEffectStageExecutionPlanner.plan(
                 graph: graph(
                     layerID: 10,
                     fullFrameCompose: true,
@@ -1874,7 +1856,7 @@ enum Harness {
                 ),
                 descriptor: fullFrameComposeDescriptor
             ) == nil,
-            "fullFrameComposeBindingRejected": SceneAuthoredEffectExecutionPlanner.plan(
+            "fullFrameComposeBindingRejected": SceneEffectStageExecutionPlanner.plan(
                 graph: graph(
                     layerID: 10,
                     fullFrameCompose: true,
@@ -1891,41 +1873,38 @@ enum Harness {
             "mismatchedKernelRejected": mismatchedKernelRejected,
             "invalidKernelRejected": invalidKernelRejected,
             "maskAndBlurAlphaRejected": actualMaskRejected && blurAlphaRejected,
-            "lateCommandRejected": SceneAuthoredEffectExecutionPlanner.plan(
+            "lateCommandRejected": SceneEffectStageExecutionPlanner.plan(
                 graph: interleavedGraph(commandKind: .copy, commandAfterVertical: true),
                 descriptor: descriptor
             ) == nil,
-            "composedCommandRejected": SceneAuthoredEffectExecutionPlanner.plan(
+            "composedCommandRejected": SceneEffectStageExecutionPlanner.plan(
                 graph: interleavedGraph(
                     commandKind: .copy,
                     commandCompose: .bool(true)
                 ),
                 descriptor: descriptor
             ) == nil,
-            "swapSourceOnlyUniqueRejected": SceneAuthoredEffectExecutionPlanner.plan(
+            "swapSourceOnlyUniqueRejected": SceneEffectStageExecutionPlanner.plan(
                 graph: interleavedGraph(commandKind: .swap, targetUnique: false),
                 descriptor: descriptor
             ) == nil,
-            "swapTargetOnlyUniqueRejected": SceneAuthoredEffectExecutionPlanner.plan(
+            "swapTargetOnlyUniqueRejected": SceneEffectStageExecutionPlanner.plan(
                 graph: interleavedGraph(commandKind: .swap, sourceUnique: false),
                 descriptor: descriptor
             ) == nil,
             "precedence": resolverPrecedence(),
             "materialOnly": materialOnlyResolverEvidence(),
-            "extraEffectRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, extraEffect: true), descriptor: descriptor) == nil,
-            "blockerRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, blockers: [blocker]), descriptor: descriptor) == nil,
-            "uniqueRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, unique: true), descriptor: descriptor) == nil,
-            "bindingRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, maskCombo: true), descriptor: descriptor) == nil,
-            "stateRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: badStateDescriptor) == nil,
-            "shaderRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: badShaderDescriptor) == nil,
-            "duplicateComboRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: duplicateComboDescriptor) == nil,
-            "dynamicScaleRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: dynamicScaleDescriptor) == nil,
-            "outOfRangeScaleRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: outOfRangeScaleDescriptor) == nil,
-            "duplicateScaleRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: duplicateScaleDescriptor) == nil,
-            "threeComponentScaleRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: threeComponentScaleDescriptor) == nil,
-            "badShaderLegacyBlocked": SceneAuthoredEffectExecutionCatalog(descriptor: badShaderDescriptor, authoredPlans: [graph(layerID: 10)]).legacyGaussianBlurBlockedLayerIDs.sorted(),
-            "missingMaterialLegacyBlocked": SceneAuthoredEffectExecutionCatalog(descriptor: missingMaterialDescriptor, authoredPlans: [graph(layerID: 10)]).legacyGaussianBlurBlockedLayerIDs.sorted(),
-            "standardPlanned": standardCatalog.plansByLayerID.keys.sorted(),
+            "extraEffectRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10, extraEffect: true), descriptor: descriptor) == nil,
+            "blockerRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10, blockers: [blocker]), descriptor: descriptor) == nil,
+            "uniqueRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10, unique: true), descriptor: descriptor) == nil,
+            "bindingRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10, maskCombo: true), descriptor: descriptor) == nil,
+            "stateRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: badStateDescriptor) == nil,
+            "shaderRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: badShaderDescriptor) == nil,
+            "duplicateComboRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: duplicateComboDescriptor) == nil,
+            "dynamicScaleRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: dynamicScaleDescriptor) == nil,
+            "outOfRangeScaleRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: outOfRangeScaleDescriptor) == nil,
+            "duplicateScaleRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: duplicateScaleDescriptor) == nil,
+            "threeComponentScaleRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: threeComponentScaleDescriptor) == nil,
             "standardScale": [standardBlur.horizontalStep, standardBlur.verticalStep],
             "standardRTScale": standardBlur.renderTargetScale,
             "standardEffectDescriptorID": standardBlur.effectDescriptorID,
@@ -1958,7 +1937,6 @@ enum Harness {
                 wrongSlotLegacyProcedural.backend.supportsUnifiedPairLeaf
                     || wrongSlotLegacyProcedural.supportsUtilityCapture,
             ],
-            "standardLegacyBlocked": standardCatalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
             "standardWrongExtentRejected": standardRejected(graph: standardBlurGraph(wrongExtent: true)),
             "standardWrongBindingRejected": standardRejected(graph: standardBlurGraph(wrongBinding: true)),
             "standardBadShaderRejected": standardRejected(descriptor: standardBadShaderDescriptor),
@@ -1972,26 +1950,13 @@ enum Harness {
                 descriptor: standardUnknownMaskComboDescriptor
             ),
             "standardMixedEffectRejected": standardRejected(graph: standardBlurGraph(extraMixedEffect: true)),
-            "standardWrongExtentLegacyBlocked": standardLegacyBlocked(graph: standardBlurGraph(wrongExtent: true)),
-            "standardWrongBindingLegacyBlocked": standardLegacyBlocked(graph: standardBlurGraph(wrongBinding: true)),
-            "standardBadShaderLegacyBlocked": standardLegacyBlocked(graph: standardGraph, descriptor: standardBadShaderDescriptor),
-            "standardBadStateLegacyBlocked": standardLegacyBlocked(graph: standardGraph, descriptor: standardBadStateDescriptor),
-            "standardKernelLegacyBlocked": standardLegacyBlocked(graph: standardGraph, descriptor: standardKernelDescriptor),
-            "standardCompositeLegacyBlocked": standardLegacyBlocked(graph: standardGraph, descriptor: standardCompositeDescriptor),
-            "standardMixedEffectLegacyBlocked": standardLegacyBlocked(graph: standardBlurGraph(extraMixedEffect: true)),
-            "sample2998757800Stages": stageEvidence(
-                SceneAuthoredEffectChainPlanner.plan(
-                    graph: sample2998757800.graph,
-                    descriptor: sample2998757800.descriptor,
-                    shaderContracts: []
-                )
+            "shakeFoliageXRayStages": stageEvidence(
+                graph: shakeFoliageXRay.graph,
+                descriptor: shakeFoliageXRay.descriptor
             ),
-            "sample3757555836Stages": stageEvidence(
-                SceneAuthoredEffectChainPlanner.plan(
-                    graph: sample3757555836.graph,
-                    descriptor: sample3757555836.descriptor,
-                    shaderContracts: []
-                )
+            "xRayWaterShakeStages": stageEvidence(
+                graph: xRayWaterShake.graph,
+                descriptor: xRayWaterShake.descriptor
             ),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -2064,7 +2029,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             self.assertIn(backend_name, leaf_body)
         self.assertIn("case .proceduralNoise(let plan):", leaf_body)
         for contract in (
-            "plan.variant == .legacyWorleyColor",
+            "plan.variant == .worleyColorV1",
             "plan.dependencyProviderLayerID != nil",
             "plan.dependencySlotIndex == 3",
         ):
@@ -2078,7 +2043,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         depth = CHAIN_DEPTH_PARALLAX_SOURCE.read_text(encoding="utf-8")
         x_ray = (SOURCE_ROOT / (
             "RenderGraph/EffectExecution/"
-            "SceneAuthoredEffectChainRenderer+XRay.swift"
+            "SceneEffectStageRenderer+XRay.swift"
         )).read_text(encoding="utf-8")
         self.assertIn("targets.inputTexture === sourceTexture", water_flow)
         self.assertIn("SceneWaterFlowRenderer.render(", water_flow)
@@ -2095,9 +2060,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         )
 
     def test_only_effectively_visible_complete_graph_is_planned(self) -> None:
-        self.assertEqual(self.result["planned"], [10])
-        self.assertEqual(self.result["hidden"], [20, 21])
-        self.assertEqual(self.result["legacyBlurBlocked"], [30])
         self.assertEqual(self.result["nodes"], 2)
         self.assertEqual(self.result["targets"], 1)
         self.assertAlmostEqual(self.result["scale"][0], 1.28, places=5)
@@ -2135,8 +2097,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             self.assertTrue(self.result[key], key)
 
     def test_default_standard_blur_graph_is_planned(self) -> None:
-        self.assertEqual(self.result["standardPlanned"], [530])
-        self.assertEqual(self.result["standardLegacyBlocked"], [])
         self.assertEqual(self.result["standardNodes"], 4)
         self.assertEqual(self.result["standardTargets"], 2)
         self.assertEqual(self.result["standardRTScale"], 4)
@@ -2203,8 +2163,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             "threeComponentScaleRejected",
         ):
             self.assertTrue(self.result[key], key)
-        self.assertEqual(self.result["badShaderLegacyBlocked"], [10])
-        self.assertEqual(self.result["missingMaterialLegacyBlocked"], [10])
 
     def test_unsupported_standard_blur_shapes_fail_closed(self) -> None:
         rejection_keys = (
@@ -2220,68 +2178,51 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         )
         for key in rejection_keys:
             self.assertTrue(self.result[key], key)
-        blocking_keys = (
-            "standardWrongExtentLegacyBlocked",
-            "standardWrongBindingLegacyBlocked",
-            "standardBadShaderLegacyBlocked",
-            "standardBadStateLegacyBlocked",
-            "standardKernelLegacyBlocked",
-            "standardCompositeLegacyBlocked",
-            "standardMixedEffectLegacyBlocked",
-        )
-        for key in blocking_keys:
-            self.assertEqual(self.result[key], [530], key)
 
-    def assert_ordered_stage_fixture(self, sample_id: str) -> None:
-        planner = CHAIN_PLANNER_SOURCE.read_text(encoding="utf-8") \
-            + CHAIN_STAGE_RESOLUTION_SOURCE.read_text(encoding="utf-8")
+    def assert_ordered_stage_fixture(self, fixture_name: str) -> None:
+        compiler = PROGRAM_COMPILER_SOURCE.read_text(encoding="utf-8")
         backend = CHAIN_BACKEND_SOURCE.read_text(encoding="utf-8")
         renderer = CHAIN_RENDERER_SOURCE.read_text(encoding="utf-8") \
             + CHAIN_SPECIALIZED_STAGE_SOURCE.read_text(encoding="utf-8")
         compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
-        fixture = SAMPLE_STAGE_FIXTURES[sample_id]
+        fixture = ORDERED_STAGE_FIXTURES[fixture_name]
 
         self.assertEqual(
             [effect_index for effect_index, _ in fixture],
             list(range(len(fixture))),
-            f"{sample_id} fixture must preserve authored effect indexes",
+            f"{fixture_name} fixture must preserve authored effect indexes",
         )
-        loop = planner.index("for (ordinal, effect) in graph.effects.enumerated()")
-        append = planner.index("stagePrograms.append(program)", loop)
-        returned_chain = planner.index(
-            "guard let chain = SceneAuthoredEffectExecutionChain.complete(",
-            append,
-        )
-        self.assertLess(loop, append)
-        self.assertLess(append, returned_chain)
+        loop = compiler.index("graph.effects.enumerated().compactMap")
+        compile_program = compiler.index("return SceneEffectStageProgram(", loop)
+        self.assertLess(loop, compile_program)
 
         for stage in dict.fromkeys(stage for _, stage in fixture):
             planner_marker, backend_marker, renderer_marker = STAGE_SOURCE_MARKERS[stage]
             self.assertIn(
                 planner_marker,
-                planner,
-                f"{sample_id} is missing the {stage} authored planner",
+                compiler,
+                f"{fixture_name} is missing the {stage} compiler",
             )
             self.assertIn(
                 backend_marker,
                 backend,
-                f"{sample_id} is missing the {stage} backend",
+                f"{fixture_name} is missing the {stage} backend",
             )
             self.assertIn(
                 renderer_marker,
                 renderer,
-                f"{sample_id} is missing the {stage} ordered renderer",
+                f"{fixture_name} is missing the {stage} ordered renderer",
             )
 
         self.assertNotIn(
             "if let xRayPlan",
             compositor,
-            f"{sample_id} must not append X-Ray after the ordered chain",
+            f"{fixture_name} must not append X-Ray outside GraphExecutor",
         )
 
-    def test_2998757800_preserves_shake_foliage_then_xray_stage_order(self) -> None:
+    def test_public_graph_preserves_shake_foliage_then_xray_stage_order(self) -> None:
         self.assertEqual(
-            SAMPLE_STAGE_FIXTURES["2998757800"],
+            ORDERED_STAGE_FIXTURES["shake-foliage-xray"],
             (
                 (0, "shake"),
                 (1, "shake"),
@@ -2292,14 +2233,14 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            self.result["sample2998757800Stages"],
-            [list(stage) for stage in SAMPLE_STAGE_FIXTURES["2998757800"]],
+            self.result["shakeFoliageXRayStages"],
+            [list(stage) for stage in ORDERED_STAGE_FIXTURES["shake-foliage-xray"]],
         )
-        self.assert_ordered_stage_fixture("2998757800")
+        self.assert_ordered_stage_fixture("shake-foliage-xray")
 
-    def test_3757555836_preserves_xray_then_water_and_shake_stage_order(self) -> None:
+    def test_public_graph_preserves_xray_water_and_shake_stage_order(self) -> None:
         self.assertEqual(
-            SAMPLE_STAGE_FIXTURES["3757555836"],
+            ORDERED_STAGE_FIXTURES["xray-water-shake"],
             (
                 (0, "xRay"),
                 (1, "waterFlow"),
@@ -2309,27 +2250,23 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            self.result["sample3757555836Stages"],
-            [list(stage) for stage in SAMPLE_STAGE_FIXTURES["3757555836"]],
+            self.result["xRayWaterShakeStages"],
+            [list(stage) for stage in ORDERED_STAGE_FIXTURES["xray-water-shake"]],
         )
-        self.assert_ordered_stage_fixture("3757555836")
+        self.assert_ordered_stage_fixture("xray-water-shake")
 
     def test_later_authored_stages_retain_required_resources(self) -> None:
         source = DRAW_REQUEST_SOURCE.read_text(encoding="utf-8")
-        start = source.index(
-            "var authoredEffectResourcesOnly: SceneImageLayerMasks"
-        )
-        end = source.index("static let empty", start)
-        resources_only = source[start:end]
+        self.assertNotIn("authoredEffectResourcesOnly", source)
         for resource in (
-            "water",
-            "foliage",
-            "waterRippleNormal",
+            "waterFlowEffects",
+            "waterWavesEffects",
+            "waterRippleEffects",
+            "foliageSwayEffects",
             "blendEffects",
             "xRay",
         ):
-            self.assertIn(f"{resource}: {resource}", resources_only)
-            self.assertNotIn(f"{resource}: nil", resources_only)
+            self.assertIn(f"let {resource}", source)
 
         layer_loader = EFFECT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
@@ -2350,10 +2287,9 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             self.assertIn(marker, loader)
 
     def test_partial_recovery_helpers_and_iris_composite_path_are_absent(self) -> None:
-        planner = CHAIN_PLANNER_SOURCE.read_text(encoding="utf-8")
+        compiler = PROGRAM_COMPILER_SOURCE.read_text(encoding="utf-8")
         compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
 
-        self.assertIn("code: .unsupportedStage", planner)
         for marker in (
             "recoveredAdmission",
             "legacyRecovery",
@@ -2362,7 +2298,18 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             "isolatedShineChain",
             "xRayPrefix",
         ):
-            self.assertNotIn(marker, planner)
+            self.assertNotIn(marker, compiler)
+        for marker in (
+            "SceneAuthoredEffectExecutionChain",
+            "SceneAuthoredEffectGraphPlanner",
+            "authoredEffectChain",
+            "chainsByLayerID",
+            "legacy-authored-chain-product-dispatch",
+        ):
+            self.assertNotIn(marker, "\n".join(
+                path.read_text(encoding="utf-8")
+                for path in SOURCE_ROOT.rglob("*.swift")
+            ))
         self.assertNotIn("irisSuffix", compositor)
         for relative in (
             "RenderGraph/SceneAuthoredEffectIrisInlineSuffix.swift",

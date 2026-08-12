@@ -3,19 +3,19 @@ import Metal
 
 struct ScenePersistentGraphTargetFramePlan {
     let residencyDomainID: UUID
-    let chainPlan: SceneGraphRenderTargetChainPlan
+    let graphPlan: SceneLayerGraphTargetPlan
     let orderingContext: SceneGraphCommandQueueOrderingContext?
 }
 
 extension SceneOffscreenTextureAllocationCache {
-    func preflightChains(
-        _ plans: [SceneGraphRenderTargetChainPlan],
+    func preflightGraphs(
+        _ plans: [SceneLayerGraphTargetPlan],
         orderingContext: SceneGraphCommandQueueOrderingContext? = nil,
         requiredSharedPairKeys: Set<Key> = [],
         pendingSharedPairByteCosts: [Key: Int] = [:]
     ) -> SceneOffscreenTextureFramePreflight.Result {
         locked {
-            preflightChainsLocked(
+            preflightGraphsLocked(
                 plans,
                 orderingContext: orderingContext,
                 requiredSharedPairKeys: requiredSharedPairKeys,
@@ -24,8 +24,8 @@ extension SceneOffscreenTextureAllocationCache {
         }
     }
 
-    private func preflightChainsLocked(
-        _ plans: [SceneGraphRenderTargetChainPlan],
+    private func preflightGraphsLocked(
+        _ plans: [SceneLayerGraphTargetPlan],
         orderingContext: SceneGraphCommandQueueOrderingContext?,
         requiredSharedPairKeys: Set<Key>,
         pendingSharedPairByteCosts: [Key: Int]
@@ -59,15 +59,15 @@ extension SceneOffscreenTextureAllocationCache {
         var snapshot = residents.enumerated().map { offset, value in
             let (key, entry) = value
             let location: SceneOffscreenTextureFramePreflight.Location = switch key {
-            case .current(.chain(let chainKey)): .currentChain(chainKey)
+            case .current(.layerGraph(let graphKey)): .currentGraph(graphKey)
             case .current: .currentOther
             case .retired: .retired
             case .history: .history
             }
-            let (chainPlan, history): (
-                SceneGraphRenderTargetChainPlan?, SceneGraphHistoryResidency?
+            let (graphPlan, history): (
+                SceneLayerGraphTargetPlan?, SceneGraphHistoryResidency?
             ) = switch entry.allocation {
-            case .chain(let chain): (chain.plan, nil)
+            case .layerGraph(let graph): (graph.plan, nil)
             case .history(let value): (nil, value)
             default: (nil, nil)
             }
@@ -85,13 +85,13 @@ extension SceneOffscreenTextureAllocationCache {
             return SceneOffscreenTextureFramePreflight.Resident(
                 id: offset,
                 location: location,
-                chainPlan: chainPlan,
+                graphPlan: graphPlan,
                 history: history,
                 demotedHistory: demotedHistory,
                 byteCost: entry.byteCost,
                 submissionPinCount: entry.submissionPins.count,
                 historyPinCount: entry.historyPins.count,
-                permitsOrderedReuse: chainPlan.map {
+                permitsOrderedReuse: graphPlan.map {
                     entry.permitsOrderedSubmissionReuse(
                         for: $0,
                         orderingContext: orderingContext
@@ -107,7 +107,7 @@ extension SceneOffscreenTextureAllocationCache {
             snapshot.append(.init(
                 id: snapshot.count,
                 location: .currentOther,
-                chainPlan: nil,
+                graphPlan: nil,
                 history: nil,
                 demotedHistory: nil,
                 byteCost: byteCost,
@@ -146,8 +146,8 @@ extension SceneOffscreenTextureAllocationCache {
 }
 
 extension SceneOffscreenTexturePool {
-    /// Allocates the two-texture pair shared by history-free graph chains.
-    /// This is a generic persistent-target resource, not a legacy chain batch.
+    /// Allocates the two-texture pair shared by history-free graph graphs.
+    /// This is a generic persistent-target resource shared by graph executions.
     func sharedPairCandidate(
         width: Int,
         height: Int,
@@ -209,9 +209,9 @@ extension SceneOffscreenTexturePool {
                   requestedWidth: requestedWidth,
                   requestedHeight: requestedHeight
               ) else { return nil }
-        let plan: SceneGraphRenderTargetChainPlan
+        let plan: SceneLayerGraphTargetPlan
         if sharesFullFramePairWhenHistoryFree,
-           case let .success(shared) = SceneGraphRenderTargetChainPlan.make(
+           case let .success(shared) = SceneLayerGraphTargetPlan.make(
                plans: prepared.plans,
                pairPlan: pairPlan,
                byteBudget: residentByteBudget,
@@ -219,7 +219,7 @@ extension SceneOffscreenTexturePool {
            ) {
             plan = shared
         } else {
-            guard case let .success(owned) = SceneGraphRenderTargetChainPlan.make(
+            guard case let .success(owned) = SceneLayerGraphTargetPlan.make(
                 plans: prepared.plans,
                 pairPlan: pairPlan,
                 byteBudget: residentByteBudget,
@@ -229,7 +229,7 @@ extension SceneOffscreenTexturePool {
         }
         return .init(
             residencyDomainID: residencyDomainID,
-            chainPlan: plan,
+            graphPlan: plan,
             orderingContext: orderingContext
         )
     }
@@ -251,8 +251,8 @@ extension SceneOffscreenTexturePool {
               Set(contexts.map({ ObjectIdentifier($0.commandBuffer) })).count <= 1 else {
             return .rejected(reasonCode: "frame-target-ordering-context-mismatch")
         }
-        return allocationCache.preflightChains(
-            plans.map(\.chainPlan),
+        return allocationCache.preflightGraphs(
+            plans.map(\.graphPlan),
             orderingContext: contexts.first,
             requiredSharedPairKeys: requiredSharedPairKeys,
             pendingSharedPairByteCosts: pendingSharedPairByteCosts
@@ -277,7 +277,7 @@ extension SceneOffscreenTexturePool {
         return ScenePersistentGraphTargetAllocator(
             device: device, cache: allocationCache
         ).prepare(
-            plans: framePlans.map(\.chainPlan),
+            plans: framePlans.map(\.graphPlan),
             orderingContext: contexts.first
         )
     }

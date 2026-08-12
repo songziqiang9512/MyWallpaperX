@@ -9,8 +9,6 @@ from pathlib import Path
 from scene_matrix_contract import (
     AUTHORED_EFFECT_RUNTIME_EXPECTATIONS,
     EFFECT_EXECUTION_EXPECTATIONS,
-    EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS,
-    EFFECT_STAGE_ADMISSION_EXPECTATIONS,
     RESOLVED_MATERIAL_GRAPH_BACKEND,
     RESOLVED_MATERIAL_GRAPH_EXPECTATIONS,
     effect_execution_static_demand,
@@ -74,10 +72,8 @@ PRESERVED_KEYS = [
     "maximum_flat_border_ratio",
     "property_overrides",
     "live_property_overrides",
-    "maximum_legacy_waterwaves_runtime_count",
     "minimum_authored_opacity_runtime_count",
     "minimum_authored_parallax_layer_count",
-    "minimum_legacy_waterwaves_runtime_count",
     "minimum_live_changed_ratio",
     "minimum_particle_initial_live",
     "required_effect_files",
@@ -115,24 +111,6 @@ PUPPET_ANIMATION_EXPECTATIONS = {
         "puppet_disjoint_additive_layer_ids",
     "expected_puppet_animation_clip_count": "puppet_animation_clip_count",
 }
-
-AUTHORED_EFFECT_GRAPH_CORE_EXPECTATIONS = (
-    (
-        "expected_authored_effect_graph_legacy_blur_blocked_layer_ids",
-        "authored_effect_graph_legacy_blur_blocked_layer_ids",
-        "sorted_layer_ids",
-    ),
-    (
-        "expected_authored_effect_graph_chain_count",
-        "authored_effect_graph_chain_count",
-        "integer",
-    ),
-    (
-        "expected_authored_effect_graph_stage_count",
-        "authored_effect_graph_stage_count",
-        "integer",
-    ),
-)
 
 UTILITY_OWNER_AUTHORITY_EXPECTATIONS = (
     (
@@ -178,15 +156,12 @@ R4_OWNER_AUTHORITY_PRESERVED_EXPECTATION_KEYS = frozenset({
 })
 
 R4_OWNER_AUTHORITY_EXPECTATION_KEYS = frozenset({
-    *(matrix_key for matrix_key, _, _ in AUTHORED_EFFECT_GRAPH_CORE_EXPECTATIONS),
     *(
         expectation.matrix_key
         for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS
         if expectation.matrix_key
         not in R4_OWNER_AUTHORITY_PRESERVED_EXPECTATION_KEYS
     ),
-    *(expectation.matrix_key for expectation in EFFECT_STAGE_ADMISSION_EXPECTATIONS),
-    *(expectation.matrix_key for expectation in EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS),
     *(expectation.matrix_key for expectation in EFFECT_EXECUTION_EXPECTATIONS),
     *(expectation.matrix_key for expectation in RESOLVED_MATERIAL_GRAPH_EXPECTATIONS),
     *(
@@ -346,23 +321,6 @@ def authored_effect_graph_runtime_values(
         )
 
     values = {}
-    for matrix_key, runtime_key, comparison in (
-        AUTHORED_EFFECT_GRAPH_CORE_EXPECTATIONS
-    ):
-        value = runtime.get(runtime_key)
-        if comparison == "integer":
-            value = _nonnegative_integer(
-                value,
-                sample_id=sample_id,
-                label=runtime_key,
-            )
-        else:
-            value = _sorted_layer_ids(
-                value,
-                sample_id=sample_id,
-                label=runtime_key,
-            )
-        values[matrix_key] = value
 
     optional_groups = {
         expectation.optional_group
@@ -456,207 +414,6 @@ def owner_authority_plan_execution_values(result: dict) -> dict:
     return values
 
 
-def effect_stage_admission_values(result: dict) -> dict:
-    runtime = result.get("runtime")
-    admission = runtime.get("authored_effect_stage_admission") if isinstance(
-        runtime, dict
-    ) else None
-    if not isinstance(admission, dict) or admission.get("has_evidence") is not True:
-        raise ValueError(
-            f"sample {result.get('id')} effect stage admission evidence missing"
-        )
-    if admission.get("schema_version") != 1:
-        raise ValueError(
-            f"sample {result.get('id')} effect stage admission schema mismatch"
-        )
-    if admission.get("validation_failures") != []:
-        raise ValueError(
-            f"sample {result.get('id')} effect stage admission validation failed"
-        )
-
-    descriptor_count = admission.get("descriptor_count")
-    parsed_count = admission.get("parsed_count")
-    if (
-        not isinstance(descriptor_count, int)
-        or isinstance(descriptor_count, bool)
-        or descriptor_count < 0
-        or parsed_count != descriptor_count
-    ):
-        raise ValueError(
-            f"sample {result.get('id')} effect stage admission counts are invalid"
-        )
-    count_contracts = {
-        "activity_counts": {"author-disabled", "layer-hidden", "active"},
-        "strict_admission_counts": {
-            "inactive",
-            "admitted-dedicated",
-            "admitted-generic",
-            "not-admitted",
-        },
-        "coverage_counts": {
-            "inactive",
-            "complete",
-            "terminal-inline-prefix",
-            "terminal-inline-suffix",
-            "isolated-accepted",
-            "isolated-omitted",
-            "prefix-accepted",
-            "prefix-omitted",
-            "rejected-missing-graph",
-            "rejected-ambiguous-graph",
-            "rejected-chain",
-            "rejected-graph-mismatch",
-            "rejected-invariant",
-        },
-    }
-    for field, expected_keys in count_contracts.items():
-        counts = admission.get(field)
-        if (
-            not isinstance(counts, dict)
-            or set(counts) != expected_keys
-            or any(
-                not isinstance(value, int) or isinstance(value, bool) or value < 0
-                for value in counts.values()
-            )
-            or sum(counts.values()) != descriptor_count
-        ):
-            raise ValueError(
-                f"sample {result.get('id')} effect stage admission {field} invalid"
-            )
-
-    records = admission.get("records")
-    canonical_sha256 = admission.get("canonical_sha256")
-    if not isinstance(records, list) or len(records) != descriptor_count:
-        raise ValueError(
-            f"sample {result.get('id')} effect stage admission records invalid"
-        )
-    computed_hash = hashlib.sha256(json.dumps(
-        records,
-        ensure_ascii=True,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")).hexdigest()
-    if canonical_sha256 != computed_hash:
-        raise ValueError(
-            f"sample {result.get('id')} effect stage admission sha256 invalid"
-        )
-
-    return {
-        expectation.matrix_key: admission[expectation.metric_key]
-        for expectation in EFFECT_STAGE_ADMISSION_EXPECTATIONS
-    }
-
-
-def effect_runtime_disposition_values(result: dict) -> dict:
-    runtime = result.get("runtime")
-    disposition = runtime.get("effect_runtime_disposition") if isinstance(
-        runtime, dict
-    ) else None
-    if (
-        not isinstance(disposition, dict)
-        or disposition.get("has_evidence") is not True
-    ):
-        raise ValueError(
-            f"sample {result.get('id')} effect runtime disposition evidence missing"
-        )
-    if disposition.get("schema_version") != 1:
-        raise ValueError(
-            f"sample {result.get('id')} effect runtime disposition schema mismatch"
-        )
-    if disposition.get("validation_failures") != []:
-        raise ValueError(
-            f"sample {result.get('id')} effect runtime disposition validation failed"
-        )
-
-    record_count = disposition.get("record_count")
-    group_count = disposition.get("group_count")
-    if any(
-        not isinstance(value, int) or isinstance(value, bool) or value < 0
-        for value in (record_count, group_count)
-    ):
-        raise ValueError(
-            f"sample {result.get('id')} effect runtime disposition counts are invalid"
-        )
-    count_contracts = {
-        "kind_counts": ({
-            "inactive",
-            "strict-dedicated",
-            "strict-generic",
-            "strict-inline-suffix",
-            "omitted-by-strict-chain",
-            "legacy-exact-inline",
-            "legacy-exact-offscreen",
-            "legacy-structural-member",
-            "legacy-coalesced-inline",
-            "legacy-coalesced-offscreen",
-            "legacy-shadowed",
-            "route-only-member",
-            "composite-refused",
-            "unsupported",
-            "unattributed",
-        }, record_count),
-        "attribution_counts": ({
-            "exact-key",
-            "layer-aggregate",
-            "none",
-        }, record_count),
-        "role_counts": ({
-            "owner",
-            "aggregate-contributor",
-            "member",
-            "none",
-        }, record_count),
-        "group_kind_counts": ({
-            "inactive",
-            "direct",
-            "authored",
-            "legacy-offscreen",
-            "offscreen-passthrough",
-            "composite-refused",
-        }, group_count),
-    }
-    for field, (expected_keys, expected_total) in count_contracts.items():
-        counts = disposition.get(field)
-        if (
-            not isinstance(counts, dict)
-            or set(counts) != expected_keys
-            or any(
-                not isinstance(value, int) or isinstance(value, bool) or value < 0
-                for value in counts.values()
-            )
-            or sum(counts.values()) != expected_total
-        ):
-            raise ValueError(
-                f"sample {result.get('id')} effect runtime disposition {field} invalid"
-            )
-
-    records = disposition.get("records")
-    groups = disposition.get("groups")
-    if not isinstance(records, list) or len(records) != record_count:
-        raise ValueError(
-            f"sample {result.get('id')} effect runtime disposition records invalid"
-        )
-    if not isinstance(groups, list) or len(groups) != group_count:
-        raise ValueError(
-            f"sample {result.get('id')} effect runtime disposition groups invalid"
-        )
-    computed_hash = hashlib.sha256(json.dumps(
-        {"groups": groups, "records": records},
-        ensure_ascii=True,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")).hexdigest()
-    if disposition.get("canonical_sha256") != computed_hash:
-        raise ValueError(
-            f"sample {result.get('id')} effect runtime disposition sha256 invalid"
-        )
-
-    return {
-        expectation.matrix_key: disposition[expectation.metric_key]
-        for expectation in EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS
-    }
-
-
 def effect_execution_values(
     result: dict,
     old_sample: dict | None = None,
@@ -687,7 +444,6 @@ def effect_execution_values(
         raise ValueError(
             f"sample {result.get('id')} effect runtime disposition evidence missing"
         )
-    effect_runtime_disposition_values(result)
     records = disposition.get("records")
     if not isinstance(records, list):
         raise ValueError(
@@ -699,8 +455,6 @@ def effect_execution_values(
         raise ValueError(
             f"sample {result.get('id')} effect runtime disposition evidence invalid"
         )
-    eligible_exact_count = demand.eligible_exact_effect_count
-    eligible_aggregate_count = demand.eligible_aggregate_subject_count
     has_evidence = bool(
         isinstance(execution, dict)
         and execution.get("has_evidence") is True
@@ -726,16 +480,7 @@ def effect_execution_values(
             f"sample {result.get('id')} effect execution validation failed"
         )
 
-    integer_fields = (
-        "eligible_exact_effect_count",
-        "observed_eligible_exact_effect_count",
-        "eligible_exact_gap_count",
-        "eligible_aggregate_subject_count",
-        "observed_eligible_aggregate_subject_count",
-        "eligible_aggregate_gap_count",
-        "cpu_invocation_count",
-        "route_operation_count",
-    )
+    integer_fields = ("cpu_invocation_count", "route_operation_count")
     if any(
         not isinstance(execution.get(field), int)
         or isinstance(execution.get(field), bool)
@@ -746,32 +491,8 @@ def effect_execution_values(
             f"sample {result.get('id')} effect execution counts are invalid"
         )
 
-    if (
-        execution["eligible_exact_effect_count"] != eligible_exact_count
-        or execution["eligible_aggregate_subject_count"]
-        != eligible_aggregate_count
-    ):
-        raise ValueError(
-            f"sample {result.get('id')} effect execution static eligibility mismatch"
-        )
-    if execution["eligible_exact_effect_count"] != (
-        execution["observed_eligible_exact_effect_count"]
-        + execution["eligible_exact_gap_count"]
-    ):
-        raise ValueError(
-            f"sample {result.get('id')} effect execution exact conservation invalid"
-        )
-    if execution["eligible_aggregate_subject_count"] != (
-        execution["observed_eligible_aggregate_subject_count"]
-        + execution["eligible_aggregate_gap_count"]
-    ):
-        raise ValueError(
-            f"sample {result.get('id')} effect execution aggregate conservation invalid"
-        )
-
     failure_fields = (
         "failed_exact_effects",
-        "failed_aggregates",
         "failed_route_operations",
         "failed_frame_ids",
     )
@@ -788,7 +509,6 @@ def effect_execution_values(
     cpu_invocations = execution.get("cpu_invocations")
     route_operations = execution.get("route_operations")
     succeeded_exact_effects = execution.get("succeeded_exact_effects")
-    succeeded_aggregates = execution.get("succeeded_aggregates")
     encoded_route_operations = execution.get("encoded_route_operations")
     completed_frame_ids = execution.get("completed_frame_ids")
     if (
@@ -800,12 +520,6 @@ def effect_execution_values(
         or any(not isinstance(operation, dict) for operation in route_operations)
         or not isinstance(succeeded_exact_effects, list)
         or any(not isinstance(effect, dict) for effect in succeeded_exact_effects)
-        or len(succeeded_exact_effects)
-        != execution["observed_eligible_exact_effect_count"]
-        or not isinstance(succeeded_aggregates, list)
-        or any(not isinstance(effect, dict) for effect in succeeded_aggregates)
-        or len(succeeded_aggregates)
-        != execution["observed_eligible_aggregate_subject_count"]
         or not isinstance(encoded_route_operations, list)
         or any(
             not isinstance(operation, dict)
@@ -985,80 +699,6 @@ def resolved_material_graph_execution_values(
     return {expectation.matrix_key: succeeded_layer_ids}
 
 
-def scoped_effect_stage_admission_matrix(
-    report: dict,
-    old_matrix: dict,
-    old_matrix_path: Path,
-) -> dict:
-    report_by_id, _ = validate_report_identity(
-        report,
-        old_matrix,
-        old_matrix_path,
-        require_passed=False,
-    )
-    matrix = copy.deepcopy(old_matrix)
-    for sample in matrix["samples"]:
-        sample.update(effect_stage_admission_values(report_by_id[str(sample["id"])]))
-    return matrix
-
-
-def scoped_r0_effect_ledgers_matrix(
-    report: dict,
-    old_matrix: dict,
-    old_matrix_path: Path,
-) -> dict:
-    report_by_id, _ = validate_report_identity(
-        report,
-        old_matrix,
-        old_matrix_path,
-        require_passed=False,
-    )
-    updates_by_id = {}
-    for sample_id, result in report_by_id.items():
-        values = effect_stage_admission_values(result)
-        values.update(effect_runtime_disposition_values(result))
-        updates_by_id[sample_id] = values
-
-    matrix = copy.deepcopy(old_matrix)
-    for sample in matrix["samples"]:
-        sample.update(updates_by_id[str(sample["id"])])
-    return matrix
-
-
-def scoped_r0_effect_chain_matrix(
-    report: dict,
-    old_matrix: dict,
-    old_matrix_path: Path,
-) -> dict:
-    report_by_id, old_by_id = validate_report_identity(
-        report,
-        old_matrix,
-        old_matrix_path,
-        require_passed=False,
-    )
-    updates_by_id = {}
-    for sample_id, result in report_by_id.items():
-        values = effect_stage_admission_values(result)
-        values.update(effect_runtime_disposition_values(result))
-        execution_values = effect_execution_values(
-            result,
-            old_by_id[sample_id],
-        )
-        if execution_values is not None:
-            values.update(execution_values)
-        updates_by_id[sample_id] = values
-
-    matrix = copy.deepcopy(old_matrix)
-    execution_expectation_keys = {
-        expectation.matrix_key for expectation in EFFECT_EXECUTION_EXPECTATIONS
-    }
-    for sample in matrix["samples"]:
-        for key in execution_expectation_keys:
-            sample.pop(key, None)
-        sample.update(updates_by_id[str(sample["id"])])
-    return matrix
-
-
 def scoped_r4_owner_authority_matrix(
     report: dict,
     old_matrix: dict,
@@ -1080,8 +720,6 @@ def scoped_r4_owner_authority_matrix(
             excluded_expectation_keys=
                 R4_OWNER_AUTHORITY_PRESERVED_EXPECTATION_KEYS,
         )
-        values.update(effect_stage_admission_values(result))
-        values.update(effect_runtime_disposition_values(result))
         execution_values = effect_execution_values(result, old_sample)
         if execution_values is not None:
             values.update(execution_values)
@@ -1126,10 +764,6 @@ def capabilities(runtime):
             values.append(label)
     if runtime["runtime_evidence"].get("dependency_edge_count", 0):
         values.append("dependency_graph")
-    if runtime.get("authored_effect_graph_stage_count", 0):
-        values.append("authored_effect_runtime")
-    if runtime.get("route_only_effect_count", 0):
-        values.append("route_only_effects")
     return values
 
 
@@ -1186,9 +820,6 @@ def matrix_sample(result, old):
         "required_utility_capture_succeeded_layer_ids": runtime["utility_capture_succeeded_layer_ids"],
         "required_named_target_capture_succeeded_layer_ids": runtime["named_target_capture_succeeded_layer_ids"],
         "required_named_target_binding_succeeded_layer_ids": runtime["named_target_binding_succeeded_layer_ids"],
-        "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": runtime["authored_effect_graph_legacy_blur_blocked_layer_ids"],
-        "expected_authored_effect_graph_chain_count": runtime["authored_effect_graph_chain_count"],
-        "expected_authored_effect_graph_stage_count": runtime["authored_effect_graph_stage_count"],
     })
 
     optional_effect_groups = {
@@ -1220,28 +851,6 @@ def matrix_sample(result, old):
     if has_puppet_animation_contract:
         for expectation, metric in PUPPET_ANIMATION_EXPECTATIONS.items():
             sample[expectation] = runtime[metric]
-
-    stage_expectation_keys = {
-        expectation.matrix_key
-        for expectation in EFFECT_STAGE_ADMISSION_EXPECTATIONS
-    }
-    stage_admission = runtime.get("authored_effect_stage_admission")
-    if (
-        isinstance(stage_admission, dict)
-        and stage_admission.get("has_evidence") is True
-    ) or stage_expectation_keys.intersection(old):
-        sample.update(effect_stage_admission_values(result))
-
-    disposition_expectation_keys = {
-        expectation.matrix_key
-        for expectation in EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS
-    }
-    runtime_disposition = runtime.get("effect_runtime_disposition")
-    if (
-        isinstance(runtime_disposition, dict)
-        and runtime_disposition.get("has_evidence") is True
-    ) or disposition_expectation_keys.intersection(old):
-        sample.update(effect_runtime_disposition_values(result))
 
     execution_values = effect_execution_values(result, old)
     if execution_values is not None:
@@ -1284,16 +893,11 @@ def parse_args() -> argparse.Namespace:
         "--scope",
         choices=(
             "all",
-            "effect-stage-admission",
-            "r0-effect-ledgers",
-            "r0-effect-chain",
             "r4-owner-authority",
         ),
         default="all",
         help=(
-            "refresh every contract, only effect-stage admission, both R0 "
-            "static ledgers, the atomic R0 admission/disposition/execution chain, "
-            "or the R4 authored owner-authority runtime families"
+            "refresh every public contract or the R4 owner-authority families"
         ),
     )
     return parser.parse_args()
@@ -1307,25 +911,7 @@ def main() -> None:
     report = json.loads(report_path.read_text())
     old_matrix_payload = json.loads(old_matrix_path.read_text())
     old_matrix = load_scene_matrix(old_matrix_path)
-    if args.scope == "effect-stage-admission":
-        matrix = scoped_effect_stage_admission_matrix(
-            report,
-            old_matrix,
-            old_matrix_path,
-        )
-    elif args.scope == "r0-effect-ledgers":
-        matrix = scoped_r0_effect_ledgers_matrix(
-            report,
-            old_matrix,
-            old_matrix_path,
-        )
-    elif args.scope == "r0-effect-chain":
-        matrix = scoped_r0_effect_chain_matrix(
-            report,
-            old_matrix,
-            old_matrix_path,
-        )
-    elif args.scope == "r4-owner-authority":
+    if args.scope == "r4-owner-authority":
         matrix = scoped_r4_owner_authority_matrix(
             report,
             old_matrix,

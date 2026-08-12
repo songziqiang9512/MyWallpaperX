@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-/// Exact Workshop 3347128360 six-color circular profile used by sample 3767460992.
+/// Exact Workshop 3347128360 six-color circular effect contract.
 /// Other shapes, color counts, blend modes, perspective, masks, and constants stay closed.
 enum SceneAuthoredWorkshopGradientPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan

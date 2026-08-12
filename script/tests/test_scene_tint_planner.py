@@ -771,7 +771,7 @@ enum Harness {
             "legacyCanonicalContract": legacyContracts.first?.canonicalSHA256
                 == "3c418471e512703771cdf2bd3ffbfeda024113fa6edd426ddd37267605e087ee",
             "profilesResolved": SceneTintShaderProfile.resolve(contracts) == .stock2842
-                && SceneTintShaderProfile.resolve(legacyContracts) == .legacyMaskOverride,
+                && SceneTintShaderProfile.resolve(legacyContracts) == .maskOverrideV1,
             "staticAccepted": staticPlan.staticOrFallbackColor
                 == SIMD3<Float>(0.25, 0.6, 0.9)
                 && staticPlan.staticOrFallbackAlpha == 0.4

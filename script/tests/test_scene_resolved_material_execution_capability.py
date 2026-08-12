@@ -50,7 +50,7 @@ RUNTIME_CATALOG_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
 )
 EFFECT_BACKEND_SOURCE = (
-    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
+    SCENE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift"
 )
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
@@ -119,7 +119,7 @@ struct SceneEffectExactRuntimeSubject: Hashable {
 struct SceneEffectStageProgram {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let stageGraph: SceneAuthoredEffectRenderPlan
-    let executionPlan: SceneAuthoredEffectExecutionPlan
+    let executionPlan: SceneEffectStageExecutionPlan
     var inputRole: SceneAuthoredEffectInputRole { executionPlan.inputRole }
 }
 
@@ -249,7 +249,7 @@ struct SceneCursorRippleExecutionPlan {
 
 struct SceneOpacityExecutionPlan {}
 struct SceneProceduralNoiseExecutionPlan {
-    enum Variant { case colorPerlinRGB, legacyWorleyColor }
+    enum Variant { case colorPerlinRGB, worleyColorV1 }
 
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
@@ -267,7 +267,7 @@ struct SceneClippingMaskExecutionPlan {
 }
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 
-struct SceneAuthoredEffectExecutionPlan {
+struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
@@ -1189,7 +1189,7 @@ private func externalProceduralDescriptor(
 private func proceduralProgram(
     graph: Graph,
     provider: Int? = providerLayerID,
-    variant: SceneProceduralNoiseExecutionPlan.Variant = .legacyWorleyColor,
+    variant: SceneProceduralNoiseExecutionPlan.Variant = .worleyColorV1,
     slotIndex: Int? = 3,
     inputRole: SceneAuthoredEffectInputRole = .layerSource,
     supportsUtilityCapture: Bool = true
@@ -2535,7 +2535,7 @@ private enum Harness {
             ],
             "report": success.reportLines.first ?? "",
             "acceptedRouteLines": success.reportLines.filter {
-                $0.contains("schema=r4-layer-route-v2")
+                $0.contains("schema=layer-graph-route-v1")
             },
             "rejections": [
                 "omitted": reportHas(
@@ -2923,7 +2923,7 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
 
 struct SceneOpacityExecutionPlan {}
 struct SceneProceduralNoiseExecutionPlan {
-    enum Variant { case colorPerlinRGB, legacyWorleyColor }
+    enum Variant { case colorPerlinRGB, worleyColorV1 }
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
@@ -2940,7 +2940,7 @@ struct SceneClippingMaskExecutionPlan {
 }
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 
-struct SceneAuthoredEffectExecutionPlan {
+struct SceneEffectStageExecutionPlan {
     let logicalRenderTargetCount: Int
     let opacity: SceneOpacityExecutionPlan?
     var inputRole: SceneAuthoredEffectInputRole { .layerSource }
@@ -2956,7 +2956,7 @@ struct SceneAuthoredEffectExecutionPlan {
 }
 
 struct SceneEffectStageProgram {
-    typealias ExecutionPlan = SceneAuthoredEffectExecutionPlan
+    typealias ExecutionPlan = SceneEffectStageExecutionPlan
 
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let stageGraph: SceneAuthoredEffectRenderPlan
@@ -4156,7 +4156,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertNotIn(".lightShafts", leaf_body)
         self.assertIn("case .proceduralNoise(let plan):", leaf_body)
         for contract in (
-            "plan.variant == .legacyWorleyColor",
+            "plan.variant == .worleyColorV1",
             "plan.dependencyProviderLayerID != nil",
             "plan.dependencySlotIndex == 3",
         ):
@@ -4171,8 +4171,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("case .godrays(let plan):", logical_body)
         logical_compact = "".join(logical_body.split())
         self.assertIn(
-            "return(plan.direction==nil&&!plan.legacyGaussianWeights)"
-            "||(plan.direction?.isFinite==true&&plan.legacyGaussianWeights)",
+            "return(plan.direction==nil&&!plan.usesDirectionalGaussianKernel)"
+            "||(plan.direction?.isFinite==true&&plan.usesDirectionalGaussianKernel)",
             logical_compact,
         )
         self.assertIn("case .shine:", logical_body)
@@ -4432,7 +4432,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("for product in admitted.products", runtime_catalog)
         self.assertIn("for node in product.graph.nodes", runtime_catalog)
         self.assertNotIn("func admittedEntry(", runtime_catalog)
-        self.assertIn("r4-executable-material-v1", runtime_catalog)
+        self.assertIn("executable-material-v1", runtime_catalog)
 
     def test_raw_graph_admission_pair_and_token_contract(self) -> None:
         with tempfile.TemporaryDirectory(
@@ -4517,13 +4517,13 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "rejectsOversized": True,
             },
         )
-        self.assertIn("schema=r4-layer-capability-v2", payload["report"])
+        self.assertIn("schema=layer-graph-capability-v1", payload["report"])
         self.assertIn("candidates=1 accepted=1 rejected=0", payload["report"])
         self.assertEqual(
             payload["acceptedRouteLines"],
             [
                 "resolved material execution capability: "
-                "schema=r4-layer-route-v2 layer=880 status=accepted "
+                "schema=layer-graph-route-v1 layer=880 status=accepted "
                 "dependency=none dependencyReferences=0"
             ],
         )
@@ -4534,13 +4534,13 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "graphInternal": True,
                 "graphInternalReport": (
                     "resolved material execution capability: "
-                    "schema=r4-layer-route-v2 layer=880 status=accepted "
+                    "schema=layer-graph-route-v1 layer=880 status=accepted "
                     "dependency=graph-internal dependencyReferences=1"
                 ),
                 "externalPrimary": True,
                 "externalPrimaryReport": (
                     "resolved material execution capability: "
-                    "schema=r4-layer-route-v2 layer=880 status=accepted "
+                    "schema=layer-graph-route-v1 layer=880 status=accepted "
                     "dependency=external-primary dependencyReferences=1"
                 ),
                 "externalUtilityRoute": True,

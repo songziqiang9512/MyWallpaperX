@@ -29,59 +29,6 @@ enum SceneLayerEffectTextureLoader {
         straightAlbedoUserPropertyTextures: [String: MTLTexture] = [:],
         preservedUserPropertyTextures: [String: MTLTexture] = [:]
     ) -> SceneLayerEffectTextures {
-        let iris = loadTexture(
-            url: resolveFirstTexture(for: layer, effectFragment: "iris", resolver: resolver),
-            label: "iris mask",
-            purpose: .mask,
-            loader: loader,
-            device: device
-        )
-        let opacity = loadTexture(
-            url: resolveFirstTexture(for: layer, effectFragment: "opacity", resolver: resolver),
-            label: "opacity mask",
-            purpose: .mask,
-            loader: loader,
-            device: device
-        )
-        let legacyWaterEffectFragments = waterWavesEffectIDs.isEmpty
-            ? ["waterwaves", "waterripple"]
-            : ["waterripple"]
-        let waterURL = resolveMaskedTexture(
-            for: layer,
-            effectFragments: legacyWaterEffectFragments,
-            resolver: resolver
-        )
-        let water = loadTexture(
-            url: waterURL,
-            label: "water mask",
-            purpose: .mask,
-            loader: loader,
-            device: device
-        )
-        let foliageURL = resolveMaskedTexture(
-            for: layer,
-            effectFragments: ["foliagesway"],
-            resolver: resolver
-        )
-        let foliage = loadTexture(
-            url: foliageURL,
-            label: "foliage mask",
-            purpose: .mask,
-            loader: loader,
-            device: device
-        )
-        let normal = loadTexture(
-            url: resolveTextureSlot(
-                for: layer,
-                effectFragment: "waterripple",
-                slot: 2,
-                resolver: resolver
-            ),
-            label: "waterripple normal",
-            purpose: .normal,
-            loader: loader,
-            device: device
-        )
         let blend = SceneBlendEffectTextureLoader.load(
             for: layer, effectIDs: blendEffectIDs, resolver: resolver, loader: loader,
             device: device,
@@ -205,22 +152,7 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
-        let foliageUVScale = mappedUVScale(for: foliageURL, texture: foliage.texture)
-        let foliageScaleMessage = foliage.texture == nil || foliageUVScale == SIMD2(repeating: 1)
-            ? ""
-            : String(
-                format: "; foliage mapped UV scale=(%.6f, %.6f)",
-                foliageUVScale.x,
-                foliageUVScale.y
-            )
         return SceneLayerEffectTextures(
-            irisMask: iris.texture,
-            opacityMask: opacity.texture,
-            waterMask: water.texture,
-            waterUVScale: mappedUVScale(for: waterURL, texture: water.texture),
-            foliageMask: foliage.texture,
-            foliageUVScale: foliageUVScale,
-            waterRippleNormal: normal.texture,
             foliageSwayEffects: foliageSway.textures,
             waterRippleEffects: waterRipple.textures,
             depthParallaxEffects: depthParallax.textures,
@@ -240,8 +172,7 @@ enum SceneLayerEffectTextureLoader {
             shineEffects: shineEffects.textures,
             xRay: xRay.textures,
             message: [
-                iris.message, opacity.message, water.message, foliage.message,
-                foliageScaleMessage, normal.message, blend.message, shake.message, filmGrain.message,
+                blend.message, shake.message, filmGrain.message,
                 standardBlur.message,
                 lightShafts.message,
                 waterFlow.message, waterWaves.message, cursorRipple.message,
@@ -253,55 +184,6 @@ enum SceneLayerEffectTextureLoader {
                 xRay.message,
             ].joined()
         )
-    }
-
-    private static func resolveFirstTexture(
-        for layer: SceneRenderDescriptor.Layer,
-        effectFragment: String,
-        resolver: SceneTexturePathResolver
-    ) -> URL? {
-        for effect in layer.effects where effect.visible != false
-            && effect.file.localizedLowercase.contains(effectFragment) {
-            for path in effect.passes.flatMap(\.texturePaths) {
-                if let url = resolver.resolveTextureFile(named: path) { return url }
-            }
-        }
-        return nil
-    }
-
-    private static func resolveMaskedTexture(
-        for layer: SceneRenderDescriptor.Layer,
-        effectFragments: [String],
-        resolver: SceneTexturePathResolver
-    ) -> URL? {
-        for effect in layer.effects where effect.visible != false {
-            guard effectFragments.contains(where: effect.file.localizedLowercase.contains) else { continue }
-            for pass in effect.passes {
-                if let path = SceneEffectMaskSemantics.maskPath(in: pass),
-                   let url = resolver.resolveTextureFile(named: path) {
-                    return url
-                }
-            }
-        }
-        return nil
-    }
-
-    private static func resolveTextureSlot(
-        for layer: SceneRenderDescriptor.Layer,
-        effectFragment: String,
-        slot: Int,
-        resolver: SceneTexturePathResolver
-    ) -> URL? {
-        for effect in layer.effects where effect.visible != false
-            && effect.file.localizedLowercase.contains(effectFragment) {
-            for pass in effect.passes where pass.textureSlots.indices.contains(slot) {
-                if let path = pass.textureSlots[slot],
-                   let url = resolver.resolveTextureFile(named: path) {
-                    return url
-                }
-            }
-        }
-        return nil
     }
 
 }

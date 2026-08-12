@@ -26,9 +26,6 @@ enum SceneCursorRippleRenderer {
               targets.plan.logicalTargets.count == 2,
               SceneOffscreenEffectRenderer.captureSource(
                   sourceTexture: sourceTexture,
-                  waterMaskTexture: masks.water,
-                  foliageMaskTexture: masks.foliage,
-                  auxMaskTexture: masks.iris ?? masks.opacity,
                   target: targets.inputTexture,
                   sourceUniforms: sourceUniforms,
                   pipeline: sourcePipeline,

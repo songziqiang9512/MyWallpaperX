@@ -70,19 +70,11 @@ struct SceneImageLayerPipeline {
 
     func drawLayer(
         texture: MTLTexture,
-        shakeMaskTexture: MTLTexture?,
-        waterMaskTexture: MTLTexture?,
-        foliageMaskTexture: MTLTexture?,
-        auxMaskTexture: MTLTexture?,
         dependencyTexture: MTLTexture? = nil,
         mvp: simd_float4x4,
         uniforms: SceneLayerFragmentUniforms,
         encoder: MTLRenderCommandEncoder
     ) {
-        _ = shakeMaskTexture
-        _ = waterMaskTexture
-        _ = foliageMaskTexture
-        _ = auxMaskTexture
         _ = dependencyTexture
         var mvp = mvp
         var uniforms = uniforms

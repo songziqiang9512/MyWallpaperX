@@ -4,7 +4,7 @@ import Foundation
 nonisolated enum SceneShakeShaderProfile {
     case whitePhaseFallback
     case timeOffsetCombo
-    case legacyUnconditionalPhase
+    case unconditionalPhaseV1
 
     private struct CanonicalShaderPayload: Encodable {
         let identity: String
@@ -84,7 +84,7 @@ nonisolated enum SceneShakeShaderProfile {
             fragmentSHA256: "9f3d003499dea2870d2f49692c7d859e38499f35f82574daaebccbce0b0d57ac"
         ),
         Fingerprint(
-            profile: .legacyUnconditionalPhase,
+            profile: .unconditionalPhaseV1,
             canonicalSHA256: "af9b4c97f86d10182d73b239cea9fd377ffcd4ac9ee8f7947c3dddea58898963",
             fragmentSHA256: "c4911d58042b97b814c0562800463c85af0a6354035d5fc9d7e1b342bc8014ef"
         ),

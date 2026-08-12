@@ -1,6 +1,10 @@
 import Foundation
 
-extension SceneAuthoredEffectChainPlanner {
+nonisolated enum SceneEffectProgramCompiler {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+}
+
+extension SceneEffectProgramCompiler {
     /// Single typed authority for stage backend selection. Dedicated Optional
     /// planners terminate at the ordered adapter boundary; authored-source
     /// fallback already preserves its more specific typed rejection.
@@ -24,13 +28,13 @@ extension SceneAuthoredEffectChainPlanner {
     }
 
     nonisolated static func stage(
-        _ backend: SceneAuthoredEffectExecutionPlan.Backend,
+        _ backend: SceneEffectStageExecutionPlan.Backend,
         stageGraph: Graph,
         inputRole: SceneAuthoredEffectInputRole,
         materialNodeCount: Int = 1,
         logicalRenderTargetCount: Int = 0
-    ) -> SceneAuthoredEffectExecutionPlan {
-        SceneAuthoredEffectExecutionPlan(
+    ) -> SceneEffectStageExecutionPlan {
+        SceneEffectStageExecutionPlan(
             layerID: stageGraph.layerID,
             renderGraph: stageGraph,
             backend: backend,

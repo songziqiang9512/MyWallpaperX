@@ -14,7 +14,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
-    SOURCE_ROOT / "Effects/SceneGradientColorRuntimePlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneClippingMaskContract.swift",
     SOURCE_ROOT / "RenderGraph/SceneDependencyRenderPlan.swift",
 ]

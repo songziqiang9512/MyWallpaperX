@@ -42,24 +42,14 @@ struct SceneImageLayerCompositor {
         let resolvedMaterialRoute = resolvedMaterialClaim(for: request)
         guard !resolvedMaterialRoute.isRejected else { return false }
         let resolvedMaterialClaim = resolvedMaterialRoute.execution
-        guard resolvedMaterialClaim != nil || request.authoredEffectChain == nil else {
-            executionTrace?.recordRouteOperation(
-                layerID: request.layer.id,
-                origin: executionOrigin,
-                operation: "legacy-authored-chain-product-dispatch",
-                outcome: .failed(reasonCode: "resolved-material-claim-unavailable")
-            )
-            return false
-        }
         let hasUnclaimedVisibleEffects = request.layer.effects.contains {
             $0.visible != false
         } && resolvedMaterialClaim == nil
-            && !request.suppressesLegacyEffectFallback
         guard !hasUnclaimedVisibleEffects else {
             executionTrace?.recordRouteOperation(
                 layerID: request.layer.id,
                 origin: executionOrigin,
-                operation: "legacy-effect-product-authority",
+                operation: "unclaimed-effect-product-authority",
                 outcome: .failed(reasonCode: "unclaimed-visible-effects")
             )
             return false
@@ -86,8 +76,6 @@ struct SceneImageLayerCompositor {
         }
         let routesOffscreen = request.requiresSourceCopy
             || resolvedMaterialClaim != nil
-            || request.authoredEffectChain != nil
-            || request.suppressesLegacyEffectFallback
             || layerColorBlendMode > 0
         guard !routesOffscreen
             || request.layer.contentKind != "solid"
@@ -95,12 +83,8 @@ struct SceneImageLayerCompositor {
             return rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "solid-offscreen-size-unavailable")
         }
-        let authoredChainConsumesDependency = request.authoredEffectChain != nil
-            && dependencyEffect != nil
-
         guard let directUniforms = sourceFragmentUniforms(
             for: request,
-            effectInputs: .neutral,
             routesOffscreen: routesOffscreen
         ) else {
             return rejectResolvedMaterialClaim(resolvedMaterialClaim,
@@ -133,29 +117,24 @@ struct SceneImageLayerCompositor {
                     return false
                 }
             } else {
-                let dimensions = legacyOffscreenDimensions(for: request)
-                guard let textures = pool.textures(
+                let dimensions = offscreenDimensions(for: request)
+                guard let target = pool.compositionTarget(
                     width: dimensions.width,
                     height: dimensions.height
                 ) else { return false }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer in
                     SceneOffscreenEffectRenderer.captureSource(
                         sourceTexture: request.texture,
-                        waterMaskTexture: nil,
-                        foliageMaskTexture: nil,
-                        auxMaskTexture: nil,
-                        target: textures.primary,
+                        target: target.texture,
                         sourceUniforms: directUniforms,
                         pipeline: pipeline,
                         commandBuffer: commandBuffer
-                    ) ? textures.primary : nil
+                    ) ? target.texture : nil
                 }
             }
             guard let finalTexture = renderedTexture ?? (
                 request.requiresSourceCopy
                     || resolvedMaterialClaim != nil
-                    || request.authoredEffectChain != nil
-                    || request.suppressesLegacyEffectFallback
                     ? nil
                     : request.texture
             ) else {
@@ -167,21 +146,18 @@ struct SceneImageLayerCompositor {
                 alpha: request.finalCompositeAlpha ?? 1,
                 cursorUV: request.uniforms.cursorUV
             )
-            let dependencyConsumed = authoredChainConsumesDependency
-                || graphExecutionTicket?.consumesExternalPrimaryDependency == true
+            let dependencyConsumed = graphExecutionTicket?
+                .consumesExternalPrimaryDependency == true
             let finalUniforms = makeFragmentUniforms(
                 values: finalValues,
-                effectInputs: .neutral,
                 textureFrame: .identity,
                 tint: SIMD3(repeating: 1),
-                foliageMaskUVScale: SIMD2(repeating: 1),
                 dependencyBlendMode: dependencyConsumed
                     ? nil
                     : dependencyEffect?.blendMode
             )
             let composited = SceneImageLayerMainPassRenderer.draw(
                 texture: finalTexture,
-                masks: .empty,
                 mvp: request.mvp,
                 uniforms: finalUniforms,
                 dependencyTexture: dependencyConsumed
@@ -202,27 +178,16 @@ struct SceneImageLayerCompositor {
                     executionOrigin: executionOrigin
                 ) else { return false }
             }
-            if !composited, request.authoredEffectChain != nil {
-                executionTrace?.recordRouteOperation(
-                    layerID: request.layer.id,
-                    origin: executionOrigin,
-                    operation: "layer-final-composite",
-                    outcome: .failed(reasonCode: "main-pass-returned-false")
-                )
-            }
             return composited
         }
         if request.requiresSourceCopy
             || resolvedMaterialClaim != nil
-            || request.authoredEffectChain != nil
-            || request.suppressesLegacyEffectFallback
             || (routesOffscreen && dependencyEffect != nil) {
             return rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "offscreen-pool-unavailable")
         }
         let rendered = SceneImageLayerMainPassRenderer.draw(
             texture: request.texture,
-            masks: masks,
             mvp: request.mvp,
             uniforms: directUniforms,
             dependencyTexture: dependencyEffect?.texture,

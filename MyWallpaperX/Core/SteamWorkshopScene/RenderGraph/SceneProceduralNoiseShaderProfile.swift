@@ -4,19 +4,19 @@ import Foundation
 enum SceneProceduralNoiseShaderProfile {
     nonisolated enum Profile: CaseIterable, Sendable {
         case modern
-        case legacyWorleyColor
+        case worleyColorV1
 
         var shaderIdentity: String {
             switch self {
             case .modern: "workshop/2906937488/effects/procedural_noise"
-            case .legacyWorleyColor: "workshop/2924967132/effects/procedural_noise"
+            case .worleyColorV1: "workshop/2924967132/effects/procedural_noise"
             }
         }
 
         var definitionPath: String {
             switch self {
             case .modern: "effects/workshop/2906937488/procedural_noise/effect.json"
-            case .legacyWorleyColor:
+            case .worleyColorV1:
                 "effects/workshop/2924967132/procedural_noise/effect.json"
             }
         }
@@ -29,7 +29,7 @@ enum SceneProceduralNoiseShaderProfile {
             switch self {
             case .modern:
                 "4f48c4c321b1c9058986f253a3e7dfb28febf894f6b6ddb589aa7132cb006d8a"
-            case .legacyWorleyColor:
+            case .worleyColorV1:
                 "01608b45e4ce2065c1f6cfdf61532771e6408fb8166d1251e905ca64caca1828"
             }
         }
@@ -38,7 +38,7 @@ enum SceneProceduralNoiseShaderProfile {
             switch self {
             case .modern:
                 "1c551685d5b7a17a24e1e4d5c85bdd9d93072f621dfc0470b5e624e6b88d0342"
-            case .legacyWorleyColor:
+            case .worleyColorV1:
                 "6739631a2be09fd772b6cb2b70b2789865153af1eefceea2710600ecb8420b14"
             }
         }
@@ -50,7 +50,7 @@ enum SceneProceduralNoiseShaderProfile {
                     "ebe97469efc7c80a6c9501af0a9e9fe3d98c8d6fdc45f112547eaad63a702a84",
                     "915b525ed18ab865191d437f0e3bd6154ea4e41831761148d32a0c1a67e7c767"
                 )
-            case .legacyWorleyColor:
+            case .worleyColorV1:
                 (
                     "32443038eb517a8c16f56ea69e7c731cfa9cf8cdcf5633518095db83ae5a6108",
                     "17747e7bb09b92369a5925b658d94db56b55e1832740097bd16552f045674bf2"

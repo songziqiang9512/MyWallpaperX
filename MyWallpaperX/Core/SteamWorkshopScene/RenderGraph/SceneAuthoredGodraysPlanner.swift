@@ -24,7 +24,7 @@ nonisolated struct SceneGodraysPlan {
     let noiseSmoothness: Float
     /// pass 1：Radial 光线积分。
     let center: SIMD2<Float>
-    /// nil 为 radial；非 nil 为 legacy Directional 的弧度。
+    /// nil 为 radial；非 nil 为 directional-v1 的弧度。
     let direction: Float?
     let colorRays: SIMD3<Float>
     let rayLength: Float
@@ -34,7 +34,7 @@ nonisolated struct SceneGodraysPlan {
     /// `KERNEL` combo：官方 gaussian.vert 注解默认 1（blur7a）；显式 0 用 blur13a。
     let kernel13: Bool
     /// 老编辑器 KERNEL=0 使用原始 13-tap 权重，而不是新版 blur13a 优化核。
-    let legacyGaussianWeights: Bool
+    let usesDirectionalGaussianKernel: Bool
     /// pass 2/3 的 `blurscale`（gaussian_x 消费 `.x`、_y 消费 `.y`）。
     let blurScaleX: SIMD2<Float>
     let blurScaleY: SIMD2<Float>
@@ -200,7 +200,7 @@ enum SceneAuthoredGodraysPlanner {
             rayIntensity: cast.intensity,
             samples50: samples50,
             kernel13: kernel13,
-            legacyGaussianWeights: profile == .legacyDirectional,
+            usesDirectionalGaussianKernel: profile == .directionalV1,
             blurScaleX: blurX,
             blurScaleY: blurY,
             blendMode: blendMode,
@@ -225,7 +225,7 @@ enum SceneAuthoredGodraysPlanner {
             && target.extent.first == 2
             && target.extent.second == nil
             && target.format?.lowercased()
-                == (profile == .legacyDirectional ? "rgba8888" : "rgba_backbuffer")
+                == (profile == .directionalV1 ? "rgba8888" : "rgba_backbuffer")
             && !target.declaredUnique
             && target.clear == nil
             && target.uvs == nil

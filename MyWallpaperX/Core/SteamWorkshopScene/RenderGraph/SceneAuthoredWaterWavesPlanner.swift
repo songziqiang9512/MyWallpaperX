@@ -6,13 +6,13 @@ nonisolated struct SceneWaterWavesExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
     let shaderProfile: SceneWaterWavesShaderProfile
-    /// 已按 profile 归一（`legacyReversedDirection` 的基向量翻转折算为 +π）。
+    /// 已按 profile 归一（`reversedDirectionV1` 的基向量翻转折算为 +π）。
     let direction: Float
     let speed: Float
     let scale: Float
     let exponent: Float
     let strength: Float
-    /// nil 表示 legacy 实例未绑遮罩（v1 default `util/white`、v2 MASK combo 未启用，
+    /// nil 表示 directional-v1 实例未绑遮罩（v1 default `util/white`、v2 MASK combo 未启用，
     /// 均等价无遮罩）；stock profile 恒非 nil。
     let maskTexturePath: String?
 }
@@ -215,7 +215,7 @@ enum SceneAuthoredWaterWavesPlanner {
         return pass
     }
 
-    /// 区分「拒绝」（nil）与「合法无遮罩」（`.path == nil`，仅 legacy profile）。
+    /// 区分「拒绝」（nil）与「合法无遮罩」（`.path == nil`，仅 directional-v1 profile）。
     private struct MaskResolution {
         let path: String?
     }
@@ -307,11 +307,11 @@ enum SceneAuthoredWaterWavesPlanner {
                 strength: strength
             )
         }
-        // legacy shader 无 g_Exponent；语料按旧编辑器行为省略未改动键，缺省用注解 default。
-        // `perspective` 是 legacy 专有标量（range [0,0.2]），语料全部为 0，非 0 无执行
+        // directional-v1 shader 无 g_Exponent；语料按旧编辑器行为省略未改动键，缺省用注解 default。
+        // `perspective` 是 directional-v1 专有标量（range [0,0.2]），语料全部为 0，非 0 无执行
         // oracle，fail closed；执行端因此无需 perspective 修正项。
-        let legacyKeys: Set<String> = ["direction", "speed", "scale", "strength", "perspective"]
-        guard Set(values.keys).isSubset(of: legacyKeys),
+        let v1Keys: Set<String> = ["direction", "speed", "scale", "strength", "perspective"]
+        guard Set(values.keys).isSubset(of: v1Keys),
               !profile.supportsExponent,
               let direction = scalarOrDefault(values["direction"], default: 0),
               let speed = scalarOrDefault(values["speed"], range: 0.01...50, default: 5),
@@ -353,7 +353,8 @@ enum SceneAuthoredWaterWavesPlanner {
             return nil
         }
         // range 按 Float 精度比较：作者值是编辑器 float32 序列化（语料
-        // `2131872317` 的 scale 0.01 存成 0.009999999776…），shader 消费同为 Float。
+        // authored scale 0.01 may be stored as 0.009999999776…; the shader
+        // consumes the value as Float either way.
         let result = Float(component)
         guard result.isFinite,
               range.map({ ClosedRange(

@@ -70,7 +70,7 @@ import simd
 
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 struct SceneProceduralNoiseExecutionPlan {
-    enum Variant { case legacyWorleyColor }
+    enum Variant { case worleyColorV1 }
 
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
@@ -87,7 +87,7 @@ struct SceneClippingMaskExecutionPlan {
     let blendMode: Int
 }
 
-extension SceneAuthoredEffectExecutionPlan {
+extension SceneEffectStageExecutionPlan {
     var clippingMask: SceneClippingMaskExecutionPlan? { nil }
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
@@ -189,15 +189,15 @@ struct SceneEffectStageProgram {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let inputRole: SceneAuthoredEffectInputRole
     let stageGraph: SceneAuthoredEffectRenderPlan
-    let executionPlan: SceneAuthoredEffectExecutionPlan
+    let executionPlan: SceneEffectStageExecutionPlan
 }
 
-struct SceneAuthoredEffectExecutionChain {
+struct AdmittedLayerGraph {
     let layerID: Int
     let renderGraph: SceneAuthoredEffectRenderPlan
     let stagePrograms: [SceneEffectStageProgram]
 
-    var executionStages: [SceneAuthoredEffectExecutionPlan] {
+    var executionStages: [SceneEffectStageExecutionPlan] {
         stagePrograms.map(\.executionPlan)
     }
 }
@@ -209,7 +209,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 }
 
-enum SceneAuthoredEffectChainRenderer {
+enum SceneEffectStageRenderer {
     struct PreparedStage {
         let sourceTexture: MTLTexture
         let composeTexture: MTLTexture
@@ -221,7 +221,7 @@ enum SceneAuthoredEffectChainRenderer {
     }
 
     static func prepareStage(
-        _ stage: SceneAuthoredEffectExecutionPlan,
+        _ stage: SceneEffectStageExecutionPlan,
         sourceTexture: MTLTexture,
         targets: SceneGraphRenderTargetTable,
         inputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
@@ -356,17 +356,17 @@ final class ScenePreparedPersistentGraphTargets {
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
     func claim(
-        _ chain: SceneAuthoredEffectExecutionChain
+        _ admittedGraph: AdmittedLayerGraph
     ) -> ClaimedLayer? {
-        claim(layerID: chain.layerID)
+        claim(layerID: admittedGraph.layerID)
     }
 
     func resolve(
         _ token: Token,
-        for chain: SceneAuthoredEffectExecutionChain
-    ) -> ChainCapability? {
+        for admittedGraph: AdmittedLayerGraph
+    ) -> LayerCapability? {
         guard let capability = resolve(token),
-              capability.layerID == chain.layerID else { return nil }
+              capability.layerID == admittedGraph.layerID else { return nil }
         return capability
     }
 }
@@ -406,19 +406,11 @@ struct SceneImageLayerPipeline {
 
     func drawLayer(
         texture: MTLTexture,
-        shakeMaskTexture: MTLTexture?,
-        waterMaskTexture: MTLTexture?,
-        foliageMaskTexture: MTLTexture?,
-        auxMaskTexture: MTLTexture?,
         dependencyTexture: MTLTexture? = nil,
         mvp: simd_float4x4,
         uniforms: SceneLayerFragmentUniforms,
         encoder: MTLRenderCommandEncoder
     ) {
-        _ = shakeMaskTexture
-        _ = waterMaskTexture
-        _ = foliageMaskTexture
-        _ = auxMaskTexture
         _ = dependencyTexture
         var mvp = mvp
         var uniforms = uniforms
@@ -464,17 +456,17 @@ private let effect = Graph.EffectKey(
 private let chainedFirstEffect = Graph.EffectKey(
     layerID: layerID,
     effectIndex: 0,
-    descriptorID: "pixel-chain-first"
+    descriptorID: "pixel-admittedGraph-first"
 )
 private let chainedSecondEffect = Graph.EffectKey(
     layerID: layerID,
     effectIndex: 1,
-    descriptorID: "pixel-chain-second"
+    descriptorID: "pixel-admittedGraph-second"
 )
 private let chainedThirdEffect = Graph.EffectKey(
     layerID: layerID,
     effectIndex: 2,
-    descriptorID: "pixel-chain-third"
+    descriptorID: "pixel-admittedGraph-third"
 )
 private let input = Graph.TextureIdentity(
     kind: .layerSource,
@@ -741,21 +733,21 @@ private func chainedGraph() -> Graph {
         effects: [
             .init(
                 key: chainedFirstEffect,
-                definitionPath: "effects/pixel-chain-first/effect.json",
+                definitionPath: "effects/pixel-admittedGraph-first/effect.json",
                 input: input,
                 output: chainedFirstOutput,
                 nodeIndices: [0]
             ),
             .init(
                 key: chainedSecondEffect,
-                definitionPath: "effects/pixel-chain-second/effect.json",
+                definitionPath: "effects/pixel-admittedGraph-second/effect.json",
                 input: chainedFirstOutput,
                 output: chainedSecondOutput,
                 nodeIndices: [1]
             ),
             .init(
                 key: chainedThirdEffect,
-                definitionPath: "effects/pixel-chain-third/effect.json",
+                definitionPath: "effects/pixel-admittedGraph-third/effect.json",
                 input: chainedSecondOutput,
                 output: chainedFinalOutput,
                 nodeIndices: [2]
@@ -771,7 +763,7 @@ private func chainedGraph() -> Graph {
 private func executionPlan(
     for graph: Graph,
     inputRole: SceneAuthoredEffectInputRole = .layerSource
-) -> SceneAuthoredEffectExecutionPlan {
+) -> SceneEffectStageExecutionPlan {
     .init(
         layerID: graph.layerID,
         materialNodeCount: graph.nodes.filter { $0.kind == .material }.count,
@@ -781,7 +773,7 @@ private func executionPlan(
     )
 }
 
-private func chain(_ graph: Graph) -> SceneAuthoredEffectExecutionChain {
+private func admittedGraph(_ graph: Graph) -> AdmittedLayerGraph {
     let execution = executionPlan(for: graph)
     return .init(
         layerID: graph.layerID,
@@ -795,7 +787,7 @@ private func chain(_ graph: Graph) -> SceneAuthoredEffectExecutionChain {
     )
 }
 
-private func chainedExecutionChain(_ graph: Graph) -> SceneAuthoredEffectExecutionChain {
+private func orderedLayerGraph(_ graph: Graph) -> AdmittedLayerGraph {
     precondition(graph.renderTargets.isEmpty && graph.effects.count == 3)
     let stages = graph.effects.enumerated().map { index, effect in
         let stageGraph = Graph(
@@ -1122,7 +1114,7 @@ private func makeLease(
 }
 
 private func makeChainedLeases(
-    _ capability: Capabilities.ChainCapability,
+    _ capability: Capabilities.LayerCapability,
     device: MTLDevice,
     generation: UInt64 = 17
 ) -> [SceneGraphRenderTargetLease]? {
@@ -1136,8 +1128,8 @@ private func makeChainedLeases(
     descriptor.usage = [.renderTarget, .shaderRead]
     guard let zero = device.makeTexture(descriptor: descriptor),
           let one = device.makeTexture(descriptor: descriptor) else { return nil }
-    let zeroToken = Executor.State.PhysicalToken(rawValue: "pixel-chain-zero")
-    let oneToken = Executor.State.PhysicalToken(rawValue: "pixel-chain-one")
+    let zeroToken = Executor.State.PhysicalToken(rawValue: "pixel-admittedGraph-zero")
+    let oneToken = Executor.State.PhysicalToken(rawValue: "pixel-admittedGraph-one")
     func texture(_ member: SceneLayerFullFramePairPlan.Member) -> MTLTexture {
         member == .zero ? zero : one
     }
@@ -1518,9 +1510,9 @@ private func runHistoryScenario(
     preservesDescriptors: Bool
 ) -> HistoryScenarioResult {
     let graph = historyGraph(fixedSize: fixedSize)
-    let chain = chain(graph)
-    let capabilities = capabilities(chain, catalog: catalog(for: graph))
-    guard let claim = capabilities.claim(chain),
+    let admittedGraph = admittedGraph(graph)
+    let capabilities = capabilities(admittedGraph, catalog: catalog(for: graph))
+    guard let claim = capabilities.claim(admittedGraph),
           let executor = Executor(device: device, capabilities: capabilities),
           let firstBuffer = queue.makeCommandBuffer() else { return .init() }
     let firstLease = makeLease(
@@ -1656,7 +1648,7 @@ private func runHistoryScenario(
             == Executor.Failure.historyRejected.rawValue
     }
 
-    let acceptedPreparation: Result<Executor.PreparedChain, Executor.Failure>
+    let acceptedPreparation: Result<Executor.PreparedGraph, Executor.Failure>
     let acceptedBuffer: MTLCommandBuffer
     if preservesDescriptors {
         guard let buffer = queue.makeCommandBuffer() else { return result }
@@ -1713,7 +1705,7 @@ private func runHistoryScenario(
 }
 
 private func failureCode(
-    _ result: Result<Executor.PreparedChain, Executor.Failure>
+    _ result: Result<Executor.PreparedGraph, Executor.Failure>
 ) -> String {
     switch result {
     case .success: "success"
@@ -1731,9 +1723,9 @@ private func variantFailureCode(
 }
 
 private func intentKinds(
-    _ chain: Executor.PreparedChain
+    _ admittedGraph: Executor.PreparedGraph
 ) -> [String] {
-    chain.stages.flatMap { value in
+    admittedGraph.stages.flatMap { value in
         value.transition.transaction.intents.map { intent in
             switch intent {
             case .initialize: "initialize"
@@ -1746,11 +1738,11 @@ private func intentKinds(
 }
 
 private func capabilities(
-    _ chain: SceneAuthoredEffectExecutionChain,
+    _ admittedGraph: AdmittedLayerGraph,
     catalog: SceneResolvedMaterialRuntimeCatalog,
     dedicatedFullFrameComposeStageKeys: Set<Graph.EffectKey> = []
 ) -> Capabilities {
-    let graph = chain.renderGraph
+    let graph = admittedGraph.renderGraph
     let materialNodes = graph.nodes.filter { $0.kind == .material }
         .sorted { ($0.materialOrdinal ?? -1) < ($1.materialOrdinal ?? -1) }
     let instancePasses = Dictionary(grouping: materialNodes, by: \.effect)
@@ -1790,7 +1782,7 @@ private func capabilities(
         descriptor: descriptor,
         authoredPlans: [graph],
         dedicatedStagePrograms: dedicatedFullFrameComposeStageKeys.isEmpty
-            ? [] : chain.stagePrograms
+            ? [] : admittedGraph.stagePrograms
     )
     return .init(
         admissionCandidates: candidates,
@@ -1805,7 +1797,7 @@ private func capabilities(
 }
 
 private func compilerCounts(
-    _ capability: Capabilities.ChainCapability
+    _ capability: Capabilities.LayerCapability
 ) -> (shader: Int, frontend: Int) {
     capability.materials.values.reduce(into: (0, 0)) { result, material in
         let counters = material.variants.counters
@@ -1826,7 +1818,7 @@ private enum Harness {
         let sourcePipeline = makeSourcePipeline(device)
 
         let pixelGraph = chainedGraph()
-        let pixelChain = chainedExecutionChain(pixelGraph)
+        let pixelChain = orderedLayerGraph(pixelGraph)
         let pixelCapabilities = capabilities(
             pixelChain,
             catalog: catalog(for: pixelGraph)
@@ -1938,7 +1930,7 @@ private enum Harness {
                 material(1, ordinal: 1, target: output, read: first),
             ]
         )
-        let ordinaryChain = chain(ordinaryGraph)
+        let ordinaryChain = admittedGraph(ordinaryGraph)
         let ordinaryCatalog = catalog(for: ordinaryGraph)
         let ordinaryCapabilities = capabilities(
             ordinaryChain,
@@ -1958,7 +1950,7 @@ private enum Harness {
                 implicitFramebufferMaterial(0, ordinal: 0, target: output),
             ]
         )
-        let implicitFramebufferChain = chain(implicitFramebufferGraph)
+        let implicitFramebufferChain = admittedGraph(implicitFramebufferGraph)
         let implicitFramebufferCapabilities = capabilities(
             implicitFramebufferChain,
             catalog: catalog(
@@ -2052,7 +2044,7 @@ private enum Harness {
                 fullFrameComposeMaterial(1, ordinal: 1, compose: nil),
             ]
         )
-        let admittedComposeChain = chain(admittedComposeGraph)
+        let admittedComposeChain = admittedGraph(admittedComposeGraph)
         let admittedComposeCapabilities = capabilities(
             admittedComposeChain,
             catalog: catalog(
@@ -2125,11 +2117,11 @@ private enum Harness {
             catalog: catalog(for: ordinaryGraph, internalDefaultNodes: [1])
         )
         let repeatTargetCapabilities = capabilities(
-            chain(repeatTargetGraph),
+            admittedGraph(repeatTargetGraph),
             catalog: catalog(for: repeatTargetGraph)
         )
         let nonzeroClearCapabilities = capabilities(
-            chain(nonzeroClearGraph),
+            admittedGraph(nonzeroClearGraph),
             catalog: catalog(for: nonzeroClearGraph)
         )
         let oversizedNodeGraph = graph(
@@ -2468,7 +2460,7 @@ private enum Harness {
                 material(4, ordinal: 2, target: output, read: first),
             ]
         )
-        let mixedChain = chain(mixedGraph)
+        let mixedChain = admittedGraph(mixedGraph)
         let mixedCapabilities = capabilities(
             mixedChain,
             catalog: catalog(for: mixedGraph)
@@ -2506,7 +2498,7 @@ private enum Harness {
                 material(2, ordinal: 1, target: output, read: second),
             ]
         )
-        let freshCopyChain = chain(freshCopyGraph)
+        let freshCopyChain = admittedGraph(freshCopyGraph)
         let freshCopyCapabilities = capabilities(
             freshCopyChain,
             catalog: catalog(for: freshCopyGraph)
@@ -2605,7 +2597,7 @@ private enum Harness {
                 target: second
             )]
         )
-        let copyMismatchChain = chain(copyMismatchGraph)
+        let copyMismatchChain = admittedGraph(copyMismatchGraph)
         let copyMismatchCapabilities = capabilities(
             copyMismatchChain,
             catalog: catalog(for: copyMismatchGraph)
@@ -2671,7 +2663,7 @@ private enum Harness {
                 target: second
             )]
         )
-        let swapMismatchChain = chain(swapMismatchGraph)
+        let swapMismatchChain = admittedGraph(swapMismatchGraph)
         let swapMismatchCapabilities = capabilities(
             swapMismatchChain,
             catalog: catalog(for: swapMismatchGraph)
@@ -2755,13 +2747,13 @@ private enum Harness {
                 ordinaryClaim.token
             ) == nil,
             "conditionRejected": capabilities(
-                chain(conditionGraph), catalog: catalog(for: conditionGraph)
-            ).claim(chain(conditionGraph)) == nil,
+                admittedGraph(conditionGraph), catalog: catalog(for: conditionGraph)
+            ).claim(admittedGraph(conditionGraph)) == nil,
             "composeRejected": capabilities(
-                chain(composeGraph), catalog: catalog(for: composeGraph)
-            ).claim(chain(composeGraph)) == nil,
+                admittedGraph(composeGraph), catalog: catalog(for: composeGraph)
+            ).claim(admittedGraph(composeGraph)) == nil,
             "inactiveComposeAccepted": {
-                let value = chain(inactiveComposeGraph)
+                let value = admittedGraph(inactiveComposeGraph)
                 return capabilities(
                     value,
                     catalog: catalog(for: inactiveComposeGraph)
@@ -2800,17 +2792,17 @@ private enum Harness {
             "internalDefaultRejectedBeforeFrame":
                 internalDefaultCapabilities.claim(ordinaryChain) == nil,
             "repeatTargetRejectedBeforeFrame": repeatTargetCapabilities.claim(
-                chain(repeatTargetGraph)
+                admittedGraph(repeatTargetGraph)
             ) == nil,
             "nonzeroClearRejectedBeforeFrame": nonzeroClearCapabilities.claim(
-                chain(nonzeroClearGraph)
+                admittedGraph(nonzeroClearGraph)
             ) == nil,
             "oversizedNodeGraphRejectedBeforeGPU": capabilities(
-                chain(oversizedNodeGraph), catalog: catalog(for: oversizedNodeGraph)
-            ).claim(chain(oversizedNodeGraph)) == nil,
+                admittedGraph(oversizedNodeGraph), catalog: catalog(for: oversizedNodeGraph)
+            ).claim(admittedGraph(oversizedNodeGraph)) == nil,
             "oversizedLogicalGraphRejectedBeforeGPU": capabilities(
-                chain(oversizedLogicalGraph), catalog: catalog(for: oversizedLogicalGraph)
-            ).claim(chain(oversizedLogicalGraph)) == nil,
+                admittedGraph(oversizedLogicalGraph), catalog: catalog(for: oversizedLogicalGraph)
+            ).claim(admittedGraph(oversizedLogicalGraph)) == nil,
             "prepareHasNoEncodingSideEffect": prepareHasNoEncodingSideEffect,
             "unreadableSourceCaptureRejectedDuringPreflight":
                 failureCode(unreadableCapturePreparation)

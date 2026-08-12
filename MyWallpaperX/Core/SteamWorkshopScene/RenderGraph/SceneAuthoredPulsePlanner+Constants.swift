@@ -23,7 +23,7 @@ extension SceneAuthoredPulsePlanner {
     }
 
     /// `AUDIOPROCESSING` 取值 1/2/3 分别是 left、right 与左右平均，只在 stock 指纹上
-    /// 放开：两个 legacy profile 的 audio 行为尚无正反例，继续 fail closed。
+    /// 放开：两个 v1 profile 的 audio 行为尚无正反例，继续 fail closed。
     /// `MASK` 由编辑器按槽位绑图在编译期自动设置（E-MASK-SLOT-COMBO），语料 0 次显式声明。
     /// `allowsAudio` 只对 effect 实例 pass 为真：语料中 audio 声明全部落在实例层，
     /// material 层是经 SHA 校验的 stock 文件，出现非 0 值即视为异常。

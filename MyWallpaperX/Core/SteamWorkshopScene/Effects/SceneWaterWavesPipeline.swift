@@ -55,7 +55,7 @@ fragment float4 sceneWaterWavesFrag(
     float value = sin(distance);
     value = sign(value) * pow(abs(value), exponent);
 
-    // maskUVScale == 0 是「无遮罩」哨兵（legacy 无绑图实例，等价 mask=1）；
+    // maskUVScale == 0 是「无遮罩」哨兵（v1 无绑图实例，等价 mask=1）；
     // 合法遮罩的 UV scale 恒 > 0（pipeline 入口校验）。
     float mask = 1.0;
     if (maskUVScale.x > 0.0) {

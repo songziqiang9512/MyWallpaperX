@@ -12,18 +12,14 @@ extension SceneEffectRuntimeDispositionCatalog {
             return Set(records.map(\.key)) == Set(group.effectKeys)
                 && Set(records.filter { $0.routeRole == .owner }.map(\.key))
                     == Set(group.ownerKeys)
-                && Set(records.filter {
-                    $0.routeRole == .aggregateContributor
-                }.map(\.key)) == Set(group.aggregateContributorKeys)
         } && dispositions.allSatisfy {
             $0.routeGroupID == nil || byID[$0.routeGroupID!] != nil
         }
     }
 
-    nonisolated static func strictMappingsAreConserved(
+    nonisolated static func admissionMappingsAreConserved(
         admissions: [Admission],
         dispositions: [Disposition],
-        strictLayerIDs: Set<Int>,
         resolvedLayerIDs: Set<Int>
     ) -> Bool {
         let keys = dispositions.map(\.key)
@@ -47,42 +43,23 @@ extension SceneEffectRuntimeDispositionCatalog {
             if resolvedLayerIDs.contains(admission.key.layerID) {
                 guard disposition.attribution == .exactKey,
                       disposition.routeRole == .owner else { return false }
-                switch admission.strictAdmission {
+                switch admission.admission {
                 case .admittedGeneric:
-                    return disposition.kind == .strictGeneric
+                    return disposition.kind == .program
                         && disposition.family == "resolved-material"
                         && disposition.reasonCode
                             == "resolved-material-capability-owner"
                 case .admittedDedicated:
-                    return disposition.kind == .strictDedicated
+                    return disposition.kind == .dedicated
                         && disposition.family == admission.backendName
                         && disposition.reasonCode == admission.reasonCode
                 default:
                     return false
                 }
             }
-            if strictLayerIDs.contains(admission.key.layerID) {
-                switch admission.strictAdmission {
-                case .admittedDedicated:
-                    return disposition.kind == .strictDedicated
-                        && disposition.routeRole == .owner
-                case .admittedGeneric:
-                    return disposition.kind == .strictGeneric
-                        && disposition.routeRole == .owner
-                case .notAdmitted where admission.coverage == .terminalInlineSuffix:
-                    return disposition.kind == .strictInlineSuffix
-                        && disposition.routeRole == .owner
-                case .notAdmitted:
-                    return disposition.kind == .omittedByStrictChain
-                        && disposition.routeRole == .member
-                case .inactive:
-                    return false
-                }
-            }
-            guard admission.strictAdmission == .notAdmitted else { return false }
+            guard admission.admission == .notAdmitted else { return false }
             switch disposition.kind {
-            case .inactive, .strictDedicated, .strictGeneric,
-                 .strictInlineSuffix, .omittedByStrictChain:
+            case .inactive, .dedicated, .program:
                 return false
             default:
                 return true

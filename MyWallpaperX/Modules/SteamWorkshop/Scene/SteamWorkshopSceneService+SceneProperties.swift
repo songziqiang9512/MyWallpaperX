@@ -98,21 +98,14 @@ extension SteamWorkshopService {
               let renderDescriptor = report.renderDescriptor else {
             return nil
         }
-        let authoredEffectCatalog = SceneAuthoredEffectExecutionCatalog(
-            descriptor: renderDescriptor,
-            authoredPlans: SceneAuthoredEffectRenderPlanner.plans(for: renderDescriptor),
-            shaderContracts: report.assetCatalog?.shaderContracts ?? []
-        )
-        var actionableKeys = Set(
+        let actionableKeys = Set(
             document.userPropertyResolution.bindingReport.bindings.compactMap { binding in
                 supportsScenePropertyTarget(
                     binding.target,
-                    in: renderDescriptor,
-                    authoredEffectCatalog: authoredEffectCatalog
+                    in: renderDescriptor
                 ) ? binding.reference.key : nil
             }
         )
-        actionableKeys.formUnion(authoredEffectCatalog.executedUserPropertyKeys)
         let catalog = project.userProperties
         let context = SteamWorkshopScenePropertyContext(
             catalog: catalog,
@@ -221,8 +214,7 @@ extension SteamWorkshopService {
 
     private func supportsScenePropertyTarget(
         _ target: SceneUserPropertyBindingTarget,
-        in renderDescriptor: SceneRenderDescriptor,
-        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+        in renderDescriptor: SceneRenderDescriptor
     ) -> Bool {
         switch target {
         case .layerVisibility, .layerAlpha, .text:
@@ -265,52 +257,32 @@ extension SteamWorkshopService {
                 return false
             }
             return true
-        case let .effectVisibility(_, _, effectPath):
-            if Self.isStrictLocalContrastPath(effectPath) {
-                return true
-            }
-            return Self.supportsSceneEffectProperty(path: effectPath, valueName: nil)
-        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath):
-            if Self.isStrictLocalContrastPath(effectPath) {
-                return authoredEffectCatalog.liveConsumerTargets.contains(.effectConstant(
-                    layerID: layerID,
-                    effectIndex: effectIndex,
-                    passIndex: passIndex,
-                    name: name
-                ))
-            }
-            return Self.supportsSceneEffectProperty(path: effectPath, valueName: name)
+        case let .effectVisibility(layerID, effectIndex, effectPath),
+             let .shaderValue(layerID, effectIndex, _, _, effectPath):
+            return Self.hasAuthoredEffect(
+                layerID: layerID,
+                effectIndex: effectIndex,
+                effectPath: effectPath,
+                in: renderDescriptor
+            )
         case .unsupported:
             return false
         }
     }
 
-    private static func isStrictLocalContrastPath(_ path: String?) -> Bool {
-        path?.replacingOccurrences(of: "\\", with: "/").lowercased()
-            == "effects/localcontrast/effect.json"
-    }
-
-    private static func supportsSceneEffectProperty(path: String?, valueName: String?) -> Bool {
-        guard let path = path?.localizedLowercase else { return false }
-        let name = valueName?.localizedLowercase
-        let supportedNamesByPath: [(String, Set<String>?)] = [
-            ("foliagesway", nil),
-            ("cursorripple", nil),
-            ("chromaticaberration", nil),
-            ("waterwaves", ["scale", "speed", "animationspeed", "scrollspeed", "strength", "ripplestrength", "direction", "scrolldirection"]),
-            ("waterripple", ["scale", "speed", "animationspeed", "scrollspeed", "strength", "ripplestrength", "direction", "scrolldirection"]),
-            ("iris", ["scale", "speed", "phase", "rough", "noiseamount"]),
-            ("blur", ["scale"]),
-            ("bloom", ["threshold", "gamma", "radius", "opacity", "strength", "tint"]),
-            ("perspective", ["top", "bottom", "left", "right"]),
-            ("opacity", ["alpha"]),
-            ("tint", ["alpha", "color"]),
-            ("xray", ["size"])
-        ]
-        guard let supportedNames = supportedNamesByPath.first(where: { path.contains($0.0) })?.1 else {
-            return supportedNamesByPath.contains { path.contains($0.0) && $0.1 == nil } && name == nil
+    private static func hasAuthoredEffect(
+        layerID: Int,
+        effectIndex: Int,
+        effectPath: String?,
+        in descriptor: SceneRenderDescriptor
+    ) -> Bool {
+        guard let layer = descriptor.layers.first(where: { $0.id == layerID }),
+              layer.effects.indices.contains(effectIndex) else { return false }
+        guard let effectPath else { return true }
+        let normalize: (String) -> String = {
+            $0.replacingOccurrences(of: "\\", with: "/").lowercased()
         }
-        return name == nil || name.map(supportedNames.contains) == true
+        return normalize(layer.effects[effectIndex].file) == normalize(effectPath)
     }
 
     private static func webPropertyValues(

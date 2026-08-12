@@ -1,7 +1,7 @@
 import Metal
 
 extension SceneGraphRenderTargetTable {
-    /// Checked legacy entry: semantic input and output own both pair members and
+    /// Checked disjoint-endpoint entry: semantic input and output own both pair members and
     /// therefore must remain physically distinct.
     static func makeMapped(
         plan: SceneGraphRenderTargetPlan,
@@ -21,7 +21,7 @@ extension SceneGraphRenderTargetTable {
         )
     }
 
-    /// Checked whole-chain entry. Only the two semantic endpoints may share one
+    /// Checked graph entry. Only the two semantic endpoints may share one
     /// full-frame member, and only when the admitted transition parity requires
     /// it. Authored FBOs remain disjoint from the pair and from one another.
     static func makeMapped(

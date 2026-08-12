@@ -26,8 +26,7 @@ enum SceneTextTextureLoader {
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
         device: MTLDevice,
-        effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil },
-        legacyEffectRuntimeExcludedLayerIDs: Set<Int> = []
+        effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }
     ) -> SceneTextTextureLoadResult {
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let candidates = descriptor.layers.filter {
@@ -48,13 +47,6 @@ enum SceneTextTextureLoader {
             var message = "text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\": OK \(rendered.texture.width)×\(rendered.texture.height); \(rendered.font.summary)"
             if let summary = effectSummary(layer) {
                 message += "; \(summary)"
-            }
-            if !legacyEffectRuntimeExcludedLayerIDs.contains(layer.id),
-               let inlineSummary = SceneInlineEffectRuntime.summary(
-                   for: layer,
-                   hasWaterMask: false
-               ) {
-                message += "; \(inlineSummary)"
             }
             messages.append(message)
         }

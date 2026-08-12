@@ -1,32 +1,16 @@
 extension SceneMetalRenderer {
-    func runtimeReportLines(
-        effectTextures: SceneLayerEffectTextureStore
-    ) -> [String] {
+    func runtimeReportLines() -> [String] {
         let utilityLines = SceneUtilityLayerRuntimePlanner.reportLines(
             descriptor: renderDescriptor,
-            authoredEffectCatalog: authoredEffectCatalog,
             resolvedMaterialLayerIDs:
                 imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
         )
         let candidateCount = renderDescriptor.layers.filter {
             $0.contentKind == "spotLight"
         }.count
-        let resourceAvailability = Dictionary(uniqueKeysWithValues:
-            renderDescriptor.layers.filter { !$0.effects.isEmpty }.map { layer in
-                (layer.id, SceneLegacyEffectResourceAvailability(
-                    hasIrisMask: effectTextures.irisMasks[layer.id] != nil,
-                    hasOpacityMask: effectTextures.opacityMasks[layer.id] != nil,
-                    hasWaterMask: effectTextures.waterMasks[layer.id] != nil,
-                    hasFoliageMask: effectTextures.foliageMasks[layer.id] != nil,
-                    hasWaterRippleNormal:
-                        effectTextures.waterRippleNormals[layer.id] != nil
-                ))
-            }
-        )
         let dispositionCatalog = SceneEffectRuntimeDispositionCatalog(
             descriptor: renderDescriptor,
-            authoredCatalog: authoredEffectCatalog,
-            resourcesByLayerID: resourceAvailability,
+            admissionCatalog: effectAdmissionCatalog,
             resolvedMaterialSubjects: imageCompositor.resolvedMaterialRuntime?
                 .runtimeDispositionSubjects ?? []
         )
@@ -35,22 +19,14 @@ extension SceneMetalRenderer {
         )
         let dispositionLines = dispositionCatalog.reportLines
             + (imageCompositor.resolvedMaterialRuntime?.executionEvidenceReportLines ?? [])
-        return utilityLines + authoredEffectCatalog.reportLines
+        return utilityLines + effectAdmissionCatalog.reportLines
             + dispositionLines
             + spotLightRuntime.reportLines(candidateCount: candidateCount)
     }
 
-    func authoredEffectPlan(for layerID: Int) -> SceneAuthoredEffectExecutionPlan? {
-        authoredEffectCatalog.plansByLayerID[layerID]
-    }
-
-    func authoredEffectChain(for layerID: Int) -> SceneAuthoredEffectExecutionChain? {
-        authoredEffectCatalog.chainsByLayerID[layerID]
-    }
-
     func unifiedDedicatedEffectStages(
         for layerID: Int
-    ) -> [SceneAuthoredEffectExecutionPlan] {
+    ) -> [SceneEffectStageExecutionPlan] {
         imageCompositor.resolvedMaterialRuntime?.dedicatedEffectStages(
             for: layerID
         ) ?? []
@@ -60,17 +36,10 @@ extension SceneMetalRenderer {
         imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
     }
 
-    func effectTextureStages(
+    func dedicatedEffectResourceStages(
         for layerID: Int
-    ) -> [SceneAuthoredEffectExecutionPlan] {
-        let unified = unifiedDedicatedEffectStages(for: layerID)
-        return unified.isEmpty
-            ? authoredEffectChain(for: layerID)?.executionStages ?? []
-            : unified
-    }
-
-    func blocksLegacyGaussianBlur(for layerID: Int) -> Bool {
-        authoredEffectCatalog.legacyGaussianBlurBlockedLayerIDs.contains(layerID)
+    ) -> [SceneEffectStageExecutionPlan] {
+        unifiedDedicatedEffectStages(for: layerID)
     }
 
     func debugPlacementSummary(for layer: SceneRenderDescriptor.Layer) -> String {
@@ -106,43 +75,12 @@ extension SceneMetalRenderer {
         )
     }
 
-    func offscreenPassCount(for layer: SceneRenderDescriptor.Layer) -> Int {
-        let chain = authoredEffectChain(for: layer.id)
-        if chain == nil,
-           authoredEffectCatalog.legacyEffectRuntimeExcludedLayerIDs.contains(layer.id) {
-            return 0
-        }
-        return chain?.materialNodeCount
-            ?? SceneEffectRuntimePlanner.offscreenPassCount(for: layer)
-    }
-
     func effectRuntimeSummary(
-        for layer: SceneRenderDescriptor.Layer,
-        hasWaterRippleNormal: Bool = false,
-        hasOpacityMask: Bool = false,
-        hasWaterMask: Bool = false,
-        hasFoliageMask: Bool = false
+        for layer: SceneRenderDescriptor.Layer
     ) -> String? {
-        if let rejection = authoredEffectCatalog
-            .chainAdmissionsByLayerID[layer.id]?.rejection {
-            return "effect runtime authored-chain rejected; \(rejection.code.rawValue)"
-        }
-        if authoredEffectCatalog.resolvedMaterialExecutionLayerIDs.contains(layer.id) {
+        if effectAdmissionCatalog.resolvedMaterialExecutionLayerIDs.contains(layer.id) {
             return "effect runtime resolved-material-graph; graph owner"
         }
-        if let chain = authoredEffectChain(for: layer.id) {
-            let executionStageCount = chain.executionStages.count
-            return "effect runtime authored-chain; \(executionStageCount) stage(s); "
-                + "\(chain.materialNodeCount) material pass(es)"
-        }
-        return SceneEffectRuntimePlanner.runtimeSummary(
-            for: layer,
-            hasWaterRippleNormal: hasWaterRippleNormal,
-            hasOpacityMask: hasOpacityMask,
-            hasWaterMask: hasWaterMask,
-            hasFoliageMask: hasFoliageMask,
-            authoredEffectPlan: authoredEffectPlan(for: layer.id),
-            blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id)
-        )
+        return nil
     }
 }

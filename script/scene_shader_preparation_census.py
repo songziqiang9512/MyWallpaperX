@@ -524,7 +524,7 @@ private enum CorpusHarness {
 #else
         SceneShaderContractLoader().load(
             shaderReferences: [reference],
-            rootURL: legacyRootURL(
+            rootURL: sourceRootURL(
                 reference: reference,
                 resourceView: resourceView
             )
@@ -532,7 +532,7 @@ private enum CorpusHarness {
 #endif
     }
 
-    private static func legacyRootURL(
+    private static func sourceRootURL(
         reference: String,
         resourceView: SceneResourceView
     ) -> URL {

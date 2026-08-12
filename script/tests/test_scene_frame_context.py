@@ -521,7 +521,7 @@ class SceneFrameContextTests(unittest.TestCase):
         coordinator = COORDINATOR_SOURCE.read_text(encoding="utf-8")
         debug_runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("let runtimeInput: SceneRuntimeInput", host)
-        self.assertIn("let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog", host)
+        self.assertIn("let effectAdmissionCatalog: SceneEffectAdmissionCatalog", host)
         self.assertIn("shaderContracts: runtimeInput.shaderContracts", host)
         self.assertIn(
             "program: runtimeInput.propertyBindingProgram", host
@@ -570,7 +570,7 @@ class SceneFrameContextTests(unittest.TestCase):
         derivation = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
         self.assertIn("static func activeLiveConsumerTargets(", derivation)
         self.assertIn(
-            "var effectTargets = authoredEffectCatalog.liveConsumerTargets",
+            "let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets",
             derivation,
         )
         self.assertIn(

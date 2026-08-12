@@ -15,7 +15,7 @@
 3. [Scene 语义手册](../scene/semantics/README.md)、专项覆盖表与[能力依赖图](../scene/semantics/capability-dependency-map.md)决定能力语义和开发顺序；
 4. [运行证据索引](../scene/semantics/runtime-evidence-index.md)决定当前构建、签名和真实运行证据；
 5. [Web 现役状态](../web/current-state.md)决定 Web 当前源码所有权、证据边界和待验收项；
-6. 带日期的 plan、roadmap、review 和实验报告默认只描述当时批次；只有文档入口明确列为现役迁移目标或现役执行计划的文件才可指导当前顺序，且不反向覆盖本文或当前能力证据。
+6. 带日期的 plan、roadmap、review 和实验报告默认只描述当时批次；已完成的 Scene R0-R5 计划只作历史实施记录，不反向覆盖本文或当前能力证据。
 
 本文使用三种状态词，禁止混写：
 
@@ -183,14 +183,14 @@ Hello World、单段脚本成功或固定样本不崩溃不能授予 generic Sce
 
 技术栈路线服从 Scene 公共能力和当前 owner 收敛顺序：
 
-1. **先完成当前 R4/R5**：R4 迁移所有旧产品 execution owner，R5 只删除残留；不得把 VM、compiler 或 XPC 大迁移混入未闭合的 owner 批次。
+1. **保持已完成的 R4/R5 不变量**：R4/R5已收敛到唯一GraphExecutor；任何新增能力都必须扩展typed contract与统一executor，不得恢复旧owner、样本分支或第二套resource/target/compositor路径。
 2. **冻结 typed contracts**：先稳定跨模块所需的 Program、script value、runtime input/output、diagnostics、handle 和 lifecycle 合同，不为候选依赖泄漏其内部类型。
 3. **建立隔离原型**：QuickJS-NG / JavaScriptCore 对照原型和 shader backend census 都无产品执行权，不改变能力台账。
 4. **一次迁移一个公共能力**：验证、撤销旧 owner、同步专项文档和运行证据、独立提交后再选下一项。
 5. **再决定进程拆分**：合同和每帧交换粒度稳定后，用崩溃、预算和性能证据决定是否落地 runtime/compiler service。
 6. **最后做性能型语言迁移**：只有 profiling 证明 Swift/CPU 是真实瓶颈，才选择 Metal compute 或局部 C/C++ kernel。
 
-本文不替代 [Scene 能力依赖图](../scene/semantics/capability-dependency-map.md) 的具体开发波次，也不把 R4/R5、SceneScript、shader 或进程隔离标记为已完成。
+本文不替代 [Scene 能力依赖图](../scene/semantics/capability-dependency-map.md) 的具体开发波次。R4/R5架构重构已完成；SceneScript完整语义、任意shader兼容、视觉parity或进程隔离没有因此自动完成。
 
 ## 8. 性能与效率合同
 
@@ -241,8 +241,8 @@ Hello World、单段脚本成功或固定样本不崩溃不能授予 generic Sce
 ## 10. 工具链与语言模式
 
 - 仓库 Python 工具链固定为 Python 3.12.x；本地统一入口和 CI 必须显式选择兼容解释器，不能依赖 runner 的裸 `python3` 默认值。升级 minor/major 前先运行完整 Python 测试和正式 gate，并同步 CI 与本文。
-- 当前产品 target 使用 Swift 5 language mode。它不是渲染性能缺陷；在 R4/R5 结束前不进行全仓 Swift 6 迁移。
-- R4/R5 后优先让新隔离 module/target 和并发风险高的 provider、resource、compiler worker 边界启用 Swift 6 strict concurrency，再按模块迁移；不得用批量 `@unchecked Sendable`、`nonisolated(unsafe)` 或关闭检查制造通过。[Swift version compatibility](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/compatibility/)
+- 当前产品 target 使用 Swift 5 language mode。它不是渲染性能缺陷；Swift 6迁移应作为独立工具链工作，不与能力扩展混交。
+- R4/R5完成后，优先让新隔离 module/target 和并发风险高的 provider、resource、compiler worker 边界启用 Swift 6 strict concurrency，再按模块迁移；不得用批量 `@unchecked Sendable`、`nonisolated(unsafe)` 或关闭检查制造通过。[Swift version compatibility](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/compatibility/)
 - Xcode、macOS deployment target 或 Metal language/API 大版本升级是独立工具链批次，必须区分源码兼容、运行兼容、签名发布和性能基线，不能与能力迁移混交。
 
 ## 11. 变更本文的门

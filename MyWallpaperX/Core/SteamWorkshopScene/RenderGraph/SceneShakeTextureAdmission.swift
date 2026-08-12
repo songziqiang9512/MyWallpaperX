@@ -15,7 +15,7 @@ enum SceneShakeTextureAdmission {
         from pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
         profile: SceneShakeShaderProfile
     ) -> SceneShakeTexturePaths? {
-        let supportsOmittedPhase = profile == .legacyUnconditionalPhase
+        let supportsOmittedPhase = profile == .unconditionalPhaseV1
             || (profile == .timeOffsetCombo
                 && comboValue("TIMEOFFSET", in: pass.combos) != 1)
         guard (pass.textureSlots.count == 3
@@ -43,9 +43,9 @@ enum SceneShakeTextureAdmission {
             + (mask.map { [$0] } ?? [])
         guard pass.texturePaths == expected else { return nil }
 
-        // legacy 实例会显式写 shader 默认 `util/white`。白 phase 等价于 2π≡0，
+        // v1 实例会显式写 shader 默认 `util/white`。白 phase 等价于 2π≡0，
         // 归一为 nil 后走 pipeline 内置 R8 白回退。
-        let normalizedPhase = profile == .legacyUnconditionalPhase
+        let normalizedPhase = profile == .unconditionalPhaseV1
             && phase.map(normalized) == "util/white" ? nil : phase
         return SceneShakeTexturePaths(flow: flow, phase: normalizedPhase, mask: mask)
     }
@@ -59,7 +59,7 @@ enum SceneShakeTextureAdmission {
     ) -> Bool {
         let resolvedPhase = assetPath(material.textureSlots[2])
         let phaseMatches = resolvedPhase == phasePath
-            || (profile == .legacyUnconditionalPhase
+            || (profile == .unconditionalPhaseV1
                 && phasePath == nil
                 && resolvedPhase.map(normalized) == "util/white")
         guard normalized(material.shaderPath) == "effects/shake",

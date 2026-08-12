@@ -197,7 +197,7 @@ enum SceneAuthoredProceduralNoisePlanner {
         case .modern:
             guard pass.texturePaths.isEmpty, pass.textureSlots.isEmpty else { return nil }
             return (pass, nil, nil)
-        case .legacyWorleyColor:
+        case .worleyColorV1:
             guard pass.texturePaths.count == 1,
                   pass.textureSlots.count == 4,
                   pass.textureSlots[0...2].allSatisfy({ $0 == nil }),
@@ -258,10 +258,10 @@ enum SceneAuthoredProceduralNoisePlanner {
         case (.modern, ["AA_CATEGORY": 1, "AB_TYPEUV": 2]):
             return .uvWorleyMix
         case (
-            .legacyWorleyColor,
+            .worleyColorV1,
             ["AB_TYPECOLOR": 3, "PERSPSWITCH": 1, "WRITEALPHA": 1]
         ):
-            return .legacyWorleyColor
+            return .worleyColorV1
         default:
             return nil
         }

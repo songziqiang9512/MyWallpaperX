@@ -560,7 +560,7 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
     case graphInternal(referenceCount: Int)
     case externalPrimary(SceneDependencyRenderPlan.Binding)
 }
-struct SceneAuthoredEffectExecutionPlan {}
+struct SceneEffectStageExecutionPlan {}
 final class SceneResolvedMaterialExecutionCapabilityCatalog {
     struct Token: Hashable { let value: Int }
     struct Claim { let token: Token }
@@ -575,11 +575,11 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     }
     struct StageCapability {
         let subject: ExactEffectSubject?
-        let dedicatedExecutionPlan: SceneAuthoredEffectExecutionPlan?
+        let dedicatedExecutionPlan: SceneEffectStageExecutionPlan?
 
         init(
             subject: ExactEffectSubject?,
-            dedicatedExecutionPlan: SceneAuthoredEffectExecutionPlan? = nil
+            dedicatedExecutionPlan: SceneEffectStageExecutionPlan? = nil
         ) {
             self.subject = subject
             self.dedicatedExecutionPlan = dedicatedExecutionPlan
@@ -630,12 +630,12 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     var executionLayerIDs: Set<Int> { Set(capabilitiesByLayerID.keys) }
 }
 
-struct SceneGraphRenderTargetChainPlan {
+struct SceneLayerGraphTargetPlan {
     struct Key { let layerID: Int }
     let key: Key
 }
 struct ScenePersistentGraphTargetFramePlan {
-    let chainPlan: SceneGraphRenderTargetChainPlan
+    let graphPlan: SceneLayerGraphTargetPlan
 }
 struct SceneResolvedMaterialFrameTargetPlan {
     let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
@@ -786,7 +786,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let effectOutputResource: SceneFrameTextureResource
         let programCacheKeys: [String]
     }
-    struct PreparedChain {
+    struct PreparedGraph {
         let stages: [PreparedStage]
         let finalResource: SceneFrameTextureResource
         let finalTexture: MTLTexture
@@ -794,7 +794,7 @@ final class SceneResolvedMaterialGraphExecutor {
     }
     static var prepareCallCount = 0
     static var prepareTokens: [Int] = []
-    static var preparedByToken: [Int: PreparedChain] = [:]
+    static var preparedByToken: [Int: PreparedGraph] = [:]
     static var encodeSucceeds = false
     init?(
         device: MTLDevice,
@@ -814,7 +814,7 @@ final class SceneResolvedMaterialGraphExecutor {
         previousGraphResources: [Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]],
         effectGeneration: UInt64,
         resetGeneration: UInt64
-    ) -> Result<PreparedChain, Failure> {
+    ) -> Result<PreparedGraph, Failure> {
         _ = token; _ = leases; _ = historyRehydrateCopiesByEffect; _ = frame
         _ = sourceTexture; _ = sourceUniforms; _ = sourcePipeline
         _ = dedicatedInputs; _ = commandBuffer
@@ -825,7 +825,7 @@ final class SceneResolvedMaterialGraphExecutor {
         return Self.preparedByToken[token.value].map(Result.success)
             ?? .failure(.unavailable)
     }
-    func encode(_ value: PreparedChain, commandBuffer: MTLCommandBuffer) -> Bool {
+    func encode(_ value: PreparedGraph, commandBuffer: MTLCommandBuffer) -> Bool {
         _ = value; _ = commandBuffer; return Self.encodeSucceeds
     }
     func reset() -> Bool { true }
@@ -936,7 +936,7 @@ private func makeTail(
 private func makePrepared(
     device: MTLDevice,
     texture: MTLTexture? = nil
-) -> SceneResolvedMaterialGraphExecutor.PreparedChain {
+) -> SceneResolvedMaterialGraphExecutor.PreparedGraph {
     let final = texture ?? makeTexture(device, "final")
     return .init(
         stages: [],
@@ -1019,7 +1019,7 @@ private func makeObservationTransition(
 
 private func makeObservedPrepared(
     device: MTLDevice
-) -> SceneResolvedMaterialGraphExecutor.PreparedChain {
+) -> SceneResolvedMaterialGraphExecutor.PreparedGraph {
     let transition = makeObservationTransition(device: device)
     return .init(
         stages: [transition],
@@ -1033,7 +1033,7 @@ private func makeAtomicPrepared(
     device: MTLDevice,
     layerID: Int,
     generation: UInt64
-) -> SceneResolvedMaterialGraphExecutor.PreparedChain {
+) -> SceneResolvedMaterialGraphExecutor.PreparedGraph {
     let key = effect(for: layerID)
     let output = outputIdentity(for: layerID)
     let texture = makeTexture(device, "atomic-final-\(layerID)")
@@ -1163,7 +1163,7 @@ private func makeLedger(
     coordinator: Coordinator,
     identity: UInt64,
     commandBuffer: MTLCommandBuffer,
-    prepared: SceneResolvedMaterialGraphExecutor.PreparedChain,
+    prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph,
     preparedDependencyEffect: SceneDependencyEffectInput? = nil,
     commit: ScenePreparedPersistentGraphTargets.Commit,
     blueprint: Coordinator.CandidateBlueprint? = nil,
@@ -1314,7 +1314,7 @@ private func seedPendingSuccess(
     commandBuffer: MTLCommandBuffer,
     tail: Coordinator.Tail?,
     commit: ScenePreparedPersistentGraphTargets.Commit,
-    prepared: SceneResolvedMaterialGraphExecutor.PreparedChain? = nil
+    prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph? = nil
 ) {
     _ = coordinator.observeCommandBufferLocked(commandBuffer)
     let ledger = makeLedger(
@@ -1941,7 +1941,7 @@ enum Harness {
             let targets7 = makeAtomicTargets(layerID: 7, generation: 1)
             let targets8 = makeAtomicTargets(layerID: 8, generation: 2)
             let pool = SceneOffscreenTexturePool(factory: { plan in
-                switch plan.chainPlan.key.layerID {
+                switch plan.graphPlan.key.layerID {
                 case 7: targets7.prepared
                 case 8: targets8.prepared
                 default: nil
@@ -1953,7 +1953,7 @@ enum Harness {
                         claim: claim7,
                         targetPlan: .init(
                             token: claim7.token,
-                            allocation: .init(chainPlan: .init(key: .init(layerID: 7)))
+                            allocation: .init(graphPlan: .init(key: .init(layerID: 7)))
                         ),
                         sourceTexture: makeTexture(device, "atomic-source-7"),
                         sourceUniforms: .init(),
@@ -1964,7 +1964,7 @@ enum Harness {
                         claim: claim8,
                         targetPlan: .init(
                             token: claim8.token,
-                            allocation: .init(chainPlan: .init(key: .init(layerID: 8)))
+                            allocation: .init(graphPlan: .init(key: .init(layerID: 8)))
                         ),
                         sourceTexture: makeTexture(device, "atomic-source-8"),
                         sourceUniforms: .init(),
@@ -1989,7 +1989,7 @@ enum Harness {
                 postFailureClaimRejected = false
             }
             results["secondPreparationFailureRollsBackWholeFrame"] =
-                reason == "whole-chain-preflight-fixture-preflight-unavailable"
+                reason == "graph-preflight-fixture-preflight-unavailable"
                 && SceneResolvedMaterialGraphExecutor.prepareTokens == [7, 8]
                 && targets7.commit.submissionPin.releaseCount == 0
                 && pool.batchCommitCount == 0
@@ -2033,7 +2033,7 @@ enum Harness {
             let targets7 = makeAtomicTargets(layerID: 7, generation: 1)
             let targets8 = makeAtomicTargets(layerID: 8, generation: 2)
             let pool = SceneOffscreenTexturePool(factory: { plan in
-                plan.chainPlan.key.layerID == 7
+                plan.graphPlan.key.layerID == 7
                     ? targets7.prepared : targets8.prepared
             })
             let prepared = coordinator.prepareFrame(
@@ -2042,7 +2042,7 @@ enum Harness {
                         claim: preflight7,
                         targetPlan: .init(
                             token: preflight7.token,
-                            allocation: .init(chainPlan: .init(key: .init(layerID: 7)))
+                            allocation: .init(graphPlan: .init(key: .init(layerID: 7)))
                         ),
                         sourceTexture: makeTexture(device, "success-source-7"),
                         sourceUniforms: .init(),
@@ -2053,7 +2053,7 @@ enum Harness {
                         claim: preflight8,
                         targetPlan: .init(
                             token: preflight8.token,
-                            allocation: .init(chainPlan: .init(key: .init(layerID: 8)))
+                            allocation: .init(graphPlan: .init(key: .init(layerID: 8)))
                         ),
                         sourceTexture: makeTexture(device, "success-source-8"),
                         sourceUniforms: .init(),
@@ -2229,7 +2229,7 @@ enum Harness {
             }
             let targetPlan = SceneResolvedMaterialFrameTargetPlan(
                 token: claim.token,
-                allocation: .init(chainPlan: .init(key: .init(layerID: 7)))
+                allocation: .init(graphPlan: .init(key: .init(layerID: 7)))
             )
             let outcome = coordinator.prepareFrame(
                 [.init(
@@ -2243,7 +2243,7 @@ enum Harness {
                 pool: .init(),
                 commandBuffer: buffer
             )
-            let expected = "whole-chain-preflight-fixture-preflight-unavailable"
+            let expected = "graph-preflight-fixture-preflight-unavailable"
             let reason: String
             switch outcome {
             case let .rejected(value): reason = value
@@ -2800,36 +2800,27 @@ enum Harness {
 
 
 class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
-    def test_preview_and_inline_reporting_follow_the_selected_execution_owner(self) -> None:
+    def test_preview_and_inline_reporting_only_describe_typed_execution_owners(self) -> None:
         diagnostics = RENDERER_DIAGNOSTICS.read_text(encoding="utf-8")
         view = METAL_VIEW.read_text(encoding="utf-8")
         text_loader = TEXT_TEXTURE_LOADER.read_text(encoding="utf-8")
 
-        rejected = diagnostics.index("effect runtime authored-chain rejected")
-        resolved = diagnostics.index("effect runtime resolved-material")
-        authored_chain = diagnostics.index("effect runtime authored-chain;")
-        legacy_planner = diagnostics.index(
-            "SceneEffectRuntimePlanner.runtimeSummary(", authored_chain
-        )
-        self.assertLess(rejected, resolved)
-        self.assertLess(resolved, authored_chain)
-        self.assertLess(authored_chain, legacy_planner)
+        self.assertIn("effect runtime resolved-material", diagnostics)
         self.assertIn("resolvedMaterialExecutionLayerIDs", diagnostics)
         self.assertNotIn("if executionStageCount > 1", diagnostics)
+        self.assertNotIn("SceneEffectRuntimePlanner", diagnostics)
+        self.assertIn("return nil", diagnostics)
 
-        self.assertIn("legacyEffectRuntimeExcludedLayerIDs", view)
-        self.assertIn("legacyEffectRuntimeExcludedLayerIDs", text_loader)
         self.assertIn(
-            "effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) },",
+            "effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }",
             view,
         )
         self.assertIn(
-            "effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil },",
+            "effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }",
             text_loader,
         )
         self.assertNotIn("SceneEffectRuntimePlanner.runtimeSummary", text_loader)
-        self.assertNotIn("legacyEffectFallbackSuppressedLayerIDs", view)
-        self.assertNotIn("suppressedLegacyEffectLayerIDs", text_loader)
+        self.assertNotIn("legacyEffectRuntimeExcludedLayerIDs", view + text_loader)
 
     def test_resource_demands_share_schema_and_never_guess_regular_assets(self) -> None:
         source = RUNTIME_CATALOG.read_text(encoding="utf-8")
@@ -2905,7 +2896,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             '                reasonCode: "frame-target-plan-consumption-failed"',
             composition,
         )
-        self.assertNotIn("SceneAuthoredEffectChainRenderer", composition)
+        self.assertNotIn("SceneEffectStageRenderer", composition)
         self.assertIn(
             "let resolvedMaterialRoute = resolvedMaterialClaim(for: request)",
             compositor,
@@ -2914,7 +2905,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "guard !resolvedMaterialRoute.isRejected else { return false }",
             compositor,
         )
-        self.assertIn("case .notMigrated:\n            return .legacy", composition)
+        self.assertIn("case .notMigrated:\n            return .unclaimed", composition)
         self.assertIn("case rejected(reasonCode: String)", composition)
         self.assertIn("case let .rejected(reasonCode):", composition)
         self.assertIn("switch route {", frame_preflight)
@@ -2943,7 +2934,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("case .failed:\n                    return false", compositor)
         self.assertIn("switch resolvedMaterialRuntime.markComposite(", composition)
         self.assertIn("case let .failed(reasonCode):", composition)
-        self.assertIn('operation: "r4-final-composite"', composition)
+        self.assertIn('operation: "final-composite"', composition)
         self.assertIn("consumeResolvedMaterialComposite(", compositor)
         self.assertIn("return false", compositor)
 
@@ -3020,8 +3011,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
 
         compact_compositor = "".join(compositor.split())
         self.assertIn(
-            "letdependencyConsumed=authoredChainConsumesDependency||"
-            "graphExecutionTicket?.consumesExternalPrimaryDependency==true",
+            "letdependencyConsumed=graphExecutionTicket?"
+            ".consumesExternalPrimaryDependency==true",
             compact_compositor,
         )
         self.assertIn(
@@ -3046,10 +3037,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             encoding="utf-8"
         )
 
-        report = view.index(
-            "renderer.runtimeReportLines(effectTextures: loadedEffectTextures)"
-        )
-        self.assertLess(view.rfind("loadEffectTextures(for: layer)", 0, report), report)
+        self.assertIn("renderer.runtimeReportLines()", view)
+        self.assertNotIn("runtimeReportLines(effectTextures:", view)
 
         load = host.index("metalView.loadImageLayers(")
         register = host.index("surfaces[screenID] = Surface(", load)
@@ -3059,48 +3048,26 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("func dedicatedEffectStages(", bridge)
         self.assertIn("compactMap(\\.dedicatedExecutionPlan)", bridge)
         self.assertIn("func unifiedDedicatedEffectStages(", renderer)
-        self.assertIn("func effectTextureStages(", renderer)
-        self.assertIn("renderer.effectTextureStages(for: layer.id)", view)
+        self.assertIn("func dedicatedEffectResourceStages(", renderer)
+        self.assertIn("renderer.dedicatedEffectResourceStages(for: layer.id)", view)
+        self.assertIn('where layer.contentKind == "text"', view)
         self.assertIn(
-            'layer.contentKind == "text"'
-            " && !renderer.effectTextureStages(for: layer.id).isEmpty",
+            "&& !renderer.dedicatedEffectResourceStages(for: layer.id).isEmpty",
             view,
         )
-        self.assertNotIn(
-            'layer.contentKind == "text" && renderer.authoredEffectChain(for: layer.id)',
-            view,
-        )
-
-    def test_legacy_chain_is_rejected_and_old_routes_are_absent(self) -> None:
+    def test_retired_chain_types_and_routes_are_absent(self) -> None:
         compositor = COMPOSITOR.read_text(encoding="utf-8")
         renderer = METAL_RENDERER.read_text(encoding="utf-8")
-
-        route = compositor.index(
-            "guard resolvedMaterialClaim != nil || request.authoredEffectChain == nil else {"
-        )
-        rejection_operation = compositor.index(
-            'operation: "legacy-authored-chain-product-dispatch"',
-            route,
-        )
-        rejection_reason = compositor.index(
-            'outcome: .failed(reasonCode: "resolved-material-claim-unavailable")',
-            rejection_operation,
-        )
-        rejection_return = compositor.index(
-            "return false",
-            rejection_reason,
-        )
-        self.assertLess(route, rejection_operation)
-        self.assertLess(rejection_operation, rejection_reason)
-        self.assertLess(rejection_reason, rejection_return)
-        self.assertNotIn("renderLegacyAuthoredChain(", compositor)
         product = compositor + renderer
-        self.assertNotIn("SceneStandaloneAuthoredEffectRenderer", product)
-        self.assertNotIn("onLegacyAuthoredRouteSelected", product)
-        self.assertNotIn("selectedLegacyAuthoredRoute", product)
-        self.assertNotIn("authoredEffectTelemetry", product)
-        self.assertNotIn("legacyAuthoredFrameTables", product)
-        self.assertNotIn("prepareAndRegisterLegacyAuthoredBatch", product)
+        for retired in (
+            "SceneAuthoredEffectExecutionChain",
+            "SceneAuthoredEffectGraphPlanner",
+            "authoredEffectChain",
+            "chainsByLayerID",
+            "renderLegacyAuthoredChain",
+            "legacy-authored-chain-product-dispatch",
+        ):
+            self.assertNotIn(retired, product)
 
     def test_frame_ordering_context_reaches_reserve_and_commit(self) -> None:
         frame_preflight = FRAME_PREFLIGHT.read_text(encoding="utf-8")

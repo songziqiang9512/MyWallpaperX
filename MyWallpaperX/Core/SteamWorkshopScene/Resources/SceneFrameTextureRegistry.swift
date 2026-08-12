@@ -33,35 +33,14 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
     }
 }
 
-/// Transitional ordered selection retained for generic legacy provider
-/// resolution until R5 cleanup. A producer must explicitly publish `absent`
-/// before resolution may advance to the next authored candidate.
-nonisolated struct SceneFrameTextureSelection: Hashable {
-    let candidates: [SceneFrameTextureIdentity]
-
-    init(candidates: [SceneFrameTextureIdentity]) {
-        self.candidates = candidates
-    }
-}
-
 final class SceneFrameTextureRegistry {
-    /// Transitional bare-texture status. Typed providers publish a complete
-    /// SceneTextureProviderPublication instead.
+    /// Bare status is reserved for layer sources and named render targets.
+    /// Material providers publish a complete SceneTextureProviderPublication.
     enum ProviderStatus {
         case ready(MTLTexture)
         case absent
         case pending
         case unavailable
-    }
-
-    /// Transitional candidate-resolution result retained for the legacy binder.
-    struct Resolution {
-        let identity: SceneFrameTextureIdentity
-        let texture: MTLTexture
-        let generation: UInt64
-        let candidateIndex: Int
-
-        var usedFallback: Bool { candidateIndex > 0 }
     }
 
     private enum StoredResource {
@@ -252,37 +231,6 @@ final class SceneFrameTextureRegistry {
     func texture(for identity: SceneFrameTextureIdentity) -> MTLTexture? {
         guard case let .ready(texture) = entries[identity]?.status else { return nil }
         return texture
-    }
-
-    func resolve(_ selection: SceneFrameTextureSelection) -> Resolution? {
-        for (index, identity) in selection.candidates.enumerated() {
-            guard let entry = entries[identity] else { return nil }
-            switch entry.status {
-            case .absent:
-                continue
-            case .pending, .unavailable:
-                return nil
-            case let .ready(texture):
-                guard let resource = entry.resource else { return nil }
-                switch resource.lookupStatus {
-                case .ready:
-                    break
-                case .incomplete(.bare):
-                    guard case .layerSource = identity else { return nil }
-                case .incomplete(.publication):
-                    return nil
-                case .absent, .pending, .unavailable:
-                    return nil
-                }
-                return Resolution(
-                    identity: identity,
-                    texture: texture,
-                    generation: entry.generation,
-                    candidateIndex: index
-                )
-            }
-        }
-        return nil
     }
 
     private func publishPersistent(

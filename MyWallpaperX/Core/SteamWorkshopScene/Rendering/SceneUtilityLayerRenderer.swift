@@ -14,11 +14,8 @@ enum SceneUtilityLayerRenderer {
         masks: SceneImageLayerMasks,
         cursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
-        authoredEffectChain: SceneAuthoredEffectExecutionChain?,
-        suppressesLegacyEffectFallback: Bool,
         dynamicValues: SceneDynamicSnapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot,
-        blocksLegacyGaussianBlur: Bool,
         dependencyEffect: SceneDependencyEffectInput?,
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
@@ -61,12 +58,9 @@ enum SceneUtilityLayerRenderer {
                     requiresSourceCopy: true,
                     finalCompositeAlpha: finalCompositeAlpha,
                     dependencyEffect: dependencyEffect,
-                    blocksLegacyGaussianBlur: blocksLegacyGaussianBlur,
-                    authoredEffectChain: authoredEffectChain,
                     dynamicValues: dynamicValues,
                     audioSpectrum: audioSpectrum
                 )
-            request.suppressesLegacyEffectFallback = suppressesLegacyEffectFallback
             return compositor.draw(
                 request,
                 pipeline: pipeline,

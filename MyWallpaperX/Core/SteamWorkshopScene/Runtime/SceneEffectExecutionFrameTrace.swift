@@ -61,7 +61,6 @@ nonisolated struct SceneEffectExecutionFrameCohort: Sendable {
 
 nonisolated enum SceneEffectSubjectKind: String, Hashable, Sendable {
     case effect
-    case aggregate
 }
 
 nonisolated enum SceneEffectOutcomeFact: Hashable, Sendable {
@@ -167,28 +166,6 @@ nonisolated final class SceneEffectExecutionFrameTrace: @unchecked Sendable {
                 layerID: identity.layerID,
                 effectIndex: identity.effectIndex,
                 descriptorID: identity.descriptorID,
-                family: family,
-                backend: backend
-            ),
-            outcome: outcome
-        )
-    }
-
-    @discardableResult
-    func recordAggregate(
-        layerID: Int,
-        family: String,
-        origin: SceneEffectExecutionOrigin,
-        backend: String,
-        outcome: SceneEffectCPUInvocationOutcome
-    ) -> Bool {
-        recordInvocation(
-            subject: SceneEffectInvocationSubject(
-                kind: .aggregate,
-                origin: origin,
-                layerID: layerID,
-                effectIndex: nil,
-                descriptorID: nil,
                 family: family,
                 backend: backend
             ),

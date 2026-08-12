@@ -1,7 +1,7 @@
 import Foundation
 
 /// Launch-scoped capability catalog compiled from immutable graph-admission
-/// products. Strict renderer recovery chains are intentionally not inputs.
+/// products. No secondary renderer route participates in capability ownership.
 final class SceneResolvedMaterialExecutionCapabilityCatalog {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias MaterialKey = SceneResolvedMaterialRuntimeCatalog.Key
@@ -91,13 +91,13 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
         /// Projects only the dedicated leaf's execution plan for resource
         /// loading. Resolved material stages own their resources elsewhere.
-        var dedicatedExecutionPlan: SceneAuthoredEffectExecutionPlan? {
+        var dedicatedExecutionPlan: SceneEffectStageExecutionPlan? {
             guard case .dedicated(_, let program, _) = self else { return nil }
             return program.executionPlan
         }
     }
 
-    final class ChainCapability {
+    final class LayerCapability {
         let layerID: Int
         let admittedProducts: [SceneGraphAdmissionProduct]
         let stages: [StageCapability]
@@ -142,7 +142,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 
     private let ownerID = UUID()
-    private let capabilitiesByLayerID: [Int: ChainCapability]
+    private let capabilitiesByLayerID: [Int: LayerCapability]
     private let rejectedReasons: [String: Int]
     private let candidateCount: Int
     private let variantLimit: Int
@@ -163,7 +163,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let demandIssues = Set(materialCatalog.resourceDemandIssues.map(\.key))
         candidateCount = admissionCandidates.count
         variantLimit = maximumVariantsPerMaterial
-        var accepted: [Int: ChainCapability] = [:]
+        var accepted: [Int: LayerCapability] = [:]
         var rejected: [String: Int] = [:]
         for candidate in admissionCandidates {
             switch candidate.result {
@@ -211,7 +211,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         )
     }
 
-    func resolve(_ token: Token) -> ChainCapability? {
+    func resolve(_ token: Token) -> LayerCapability? {
         guard token.ownerID == ownerID,
               let capability = capabilitiesByLayerID[token.layerID],
               token.capabilityID == capability.capabilityID else { return nil }
@@ -260,8 +260,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         Set(capabilitiesByLayerID.keys)
     }
 
-    /// Dynamic uniforms owned by an admitted resolved chain remain live
-    /// property consumers after their legacy execution plans yield ownership.
+    /// Dynamic uniforms owned by an admitted resolved graph remain live
+    /// property consumers.
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         capabilitiesByLayerID.values.reduce(into: Set<SceneDynamicTarget>()) {
             targets, capability in
@@ -325,7 +325,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
     var reportLines: [String] {
         var result = [
-            "resolved material execution capabilities: schema=r4-layer-capability-v2"
+            "resolved material execution capabilities: schema=layer-graph-capability-v1"
                 + " candidates=\(candidateCount)"
                 + " accepted=\(capabilitiesByLayerID.count)"
                 + " rejected=\(rejectedReasons.values.reduce(0, +))"
@@ -338,11 +338,11 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         result += capabilitiesByLayerID.keys.sorted().map { layerID in
             guard let dependency = capabilitiesByLayerID[layerID]?
                 .dependencyOwnership else {
-                return "resolved material execution capability: schema=r4-layer-route-v2"
+                return "resolved material execution capability: schema=layer-graph-route-v1"
                     + " layer=\(layerID) status=accepted"
                     + " dependency=missing dependencyReferences=0"
             }
-            return "resolved material execution capability: schema=r4-layer-route-v2"
+            return "resolved material execution capability: schema=layer-graph-route-v1"
                 + " layer=\(layerID) status=accepted"
                 + " dependency=\(dependency.reportKind)"
                 + " dependencyReferences=\(dependency.referenceCount)"
@@ -352,7 +352,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
     /// This launch-time gate is intentionally no broader than Finalizer's
     /// per-frame policy. It prevents a predictable post-claim failure from
-    /// suppressing the still-authoritative legacy route.
+    /// preventing duplicate execution ownership.
     static func dynamicUniformsAreExecutable(
         _ template: Template,
         node: Graph.Node,

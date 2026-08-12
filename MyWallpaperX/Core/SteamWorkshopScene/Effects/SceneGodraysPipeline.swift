@@ -2,7 +2,7 @@ import Metal
 import simd
 
 /// Godrays 五 pass 的 Metal 等价实现。完整 shader contract profile 决定 radial
-/// 或 legacy directional cast 以及对应 Gaussian 权重；combine 消费共享 blending 表。
+/// 或 directional-v1 cast 以及对应 Gaussian 权重；combine 消费共享 blending 表。
 private let sceneGodraysShaderSource = SceneBlendModeShaderSource.blendFunctions + """
 
 struct GodraysVaryings {
@@ -80,7 +80,7 @@ fragment float4 sceneGodraysDownsampleFrag(
 struct GodraysCastUniforms {
     float4 centerLength;     // xy=center, z=rayLength, w=rayIntensity
     float4 colorSamples;     // xyz=colorRays, w=samples50
-    float4 directionProfile; // x=legacy direction radians, y=directional
+    float4 directionProfile; // x=directional-v1 direction radians, y=directional
 };
 
 fragment float4 sceneGodraysCastFrag(
@@ -120,7 +120,7 @@ fragment float4 sceneGodraysCastFrag(
 struct GodraysGaussianUniforms {
     float4 step; // xy = 采样步长（官方 v_TexCoord.zw：scale / halfResolution）
     int kernel13;
-    int legacyWeights;
+    int directionalKernel;
 };
 
 fragment float4 sceneGodraysGaussianFrag(
@@ -133,7 +133,7 @@ fragment float4 sceneGodraysGaussianFrag(
     constexpr sampler linearClamp(filter::linear, address::clamp_to_zero);
     float2 uv = input.texcoord;
     float2 d = u.step.xy;
-    if (u.legacyWeights != 0) {
+    if (u.directionalKernel != 0) {
         constexpr float weights[7] = {
             0.171834, 0.156756, 0.119007, 0.075189, 0.039533, 0.017298, 0.006299
         };
@@ -206,7 +206,7 @@ struct SceneGodraysPipeline {
     private struct GaussianUniforms {
         var step: SIMD4<Float>
         var kernel13: Int32
-        var legacyWeights: Int32
+        var directionalKernel: Int32
     }
 
     private struct CombineUniforms {
@@ -356,7 +356,7 @@ struct SceneGodraysPipeline {
         var uniforms = GaussianUniforms(
             step: SIMD4(step.x, step.y, 0, 0),
             kernel13: plan.kernel13 ? 1 : 0,
-            legacyWeights: plan.legacyGaussianWeights ? 1 : 0
+            directionalKernel: plan.usesDirectionalGaussianKernel ? 1 : 0
         )
         return draw(
             state: states(for: target)?.gaussian,

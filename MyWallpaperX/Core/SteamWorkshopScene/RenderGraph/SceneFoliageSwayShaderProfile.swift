@@ -3,14 +3,14 @@ import Foundation
 
 nonisolated enum SceneFoliageSwayShaderProfile {
     case stock
-    case legacyExplicitNoise
+    case explicitNoiseV1
 
     var acceptsSparseConstants: Bool {
-        self == .legacyExplicitNoise
+        self == .explicitNoiseV1
     }
 
     var expectsExplicitNoise: Bool {
-        self == .legacyExplicitNoise
+        self == .explicitNoiseV1
     }
 
     static func resolve(_ contracts: [SceneShaderContract]) -> Self? {
@@ -30,12 +30,12 @@ nonisolated enum SceneFoliageSwayShaderProfile {
         switch contract.canonicalSHA256 {
         case stockCanonicalSHA256:
             profile = .stock
-        case legacyCanonicalSHA256:
-            profile = .legacyExplicitNoise
+        case explicitNoiseCanonicalSHA256:
+            profile = .explicitNoiseV1
         default:
             return nil
         }
-        let expected = profile == .stock ? stockStages : legacyStages
+        let expected = profile == .stock ? stockStages : explicitNoiseStages
         guard zip(contract.stages, expected).allSatisfy({ stage, fingerprint in
             stage.kind == fingerprint.kind
                 && normalized(stage.relativePath) == fingerprint.path
@@ -86,7 +86,7 @@ nonisolated enum SceneFoliageSwayShaderProfile {
     private static let fragmentPath = "shaders/effects/foliagesway.frag"
     private static let stockCanonicalSHA256 =
         "1f5c11c92bb715d86fd0b57f59c4fb5b263596a2bbeb158276336b7cc86544d6"
-    private static let legacyCanonicalSHA256 =
+    private static let explicitNoiseCanonicalSHA256 =
         "d66f4e9c99b4a6801682e55064fba1692c1a4f1a7f931c34a91215375aca651a"
     private static let stockStages = [
         StageFingerprint(
@@ -100,7 +100,7 @@ nonisolated enum SceneFoliageSwayShaderProfile {
             sha256: "02954542ab458f828eeb0d9da8201f02bf9c180effecacb81e86402704040f4c"
         ),
     ]
-    private static let legacyStages = [
+    private static let explicitNoiseStages = [
         StageFingerprint(
             kind: .vertex,
             path: vertexPath,

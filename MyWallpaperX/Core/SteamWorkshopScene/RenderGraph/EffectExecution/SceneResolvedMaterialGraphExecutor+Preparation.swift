@@ -9,7 +9,7 @@ extension SceneResolvedMaterialGraphExecutor {
         pairStep: Pair.EffectStep,
         stageCapability:
             SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
-        capability: SceneResolvedMaterialExecutionCapabilityCatalog.ChainCapability,
+        capability: SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability,
         lease: SceneGraphRenderTargetLease,
         frame: SceneResolvedMaterialFrameSnapshot,
         sourcePipeline: SceneImageLayerPipeline,

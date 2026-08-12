@@ -36,22 +36,8 @@ class NestedRuntimeExpectation:
 
 
 EFFECT_EXECUTION_EXACT_KINDS = frozenset({
-    "strict-dedicated",
-    "strict-generic",
-    "strict-inline-suffix",
-    "legacy-exact-inline",
-    "legacy-exact-offscreen",
-})
-EFFECT_EXECUTION_AGGREGATE_KINDS = frozenset({
-    "legacy-coalesced-inline",
-    "legacy-coalesced-offscreen",
-})
-EFFECT_EXECUTION_ROUTE_GROUP_KINDS = frozenset({
-    "direct",
-    "authored",
-    "legacy-offscreen",
-    "offscreen-passthrough",
-    "composite-refused",
+    "dedicated",
+    "program",
 })
 RESOLVED_MATERIAL_GRAPH_BACKEND = "resolved-material-graph"
 
@@ -60,16 +46,10 @@ RESOLVED_MATERIAL_GRAPH_BACKEND = "resolved-material-graph"
 class EffectExecutionStaticDemand:
     static_is_valid: bool
     eligible_exact_effect_count: int = 0
-    eligible_aggregate_subject_count: int = 0
-    route_group_count: int = 0
 
     @property
     def has_demand(self) -> bool:
-        return bool(
-            self.eligible_exact_effect_count
-            or self.eligible_aggregate_subject_count
-            or self.route_group_count
-        )
+        return self.eligible_exact_effect_count > 0
 
     @property
     def requires_evidence(self) -> bool:
@@ -88,162 +68,18 @@ def effect_execution_static_demand(
         return EffectExecutionStaticDemand(static_is_valid=False)
 
     records = disposition.get("records")
-    groups = disposition.get("groups")
     if not (
         isinstance(records, list)
         and all(isinstance(record, dict) for record in records)
-        and isinstance(groups, list)
-        and all(isinstance(group, dict) for group in groups)
     ):
         return EffectExecutionStaticDemand(static_is_valid=False)
-
-    group_kinds = {group.get("kind") for group in groups}
-    if not group_kinds.issubset(
-        EFFECT_EXECUTION_ROUTE_GROUP_KINDS | {"inactive"}
-    ):
-        return EffectExecutionStaticDemand(static_is_valid=False)
-
-    aggregate_subjects = {
-        (record.get("layer_id"), record.get("family"))
-        for record in records
-        if record.get("kind") in EFFECT_EXECUTION_AGGREGATE_KINDS
-    }
-    malformed_route_only_member = any(
-        record.get("kind") == "route-only-member"
-        and not (
-            isinstance(record.get("layer_id"), int)
-            and not isinstance(record.get("layer_id"), bool)
-            and record["layer_id"] >= 0
-        )
-        for record in records
-    )
-    route_only_layer_ids = {
-        record["layer_id"]
-        for record in records
-        if (
-            record.get("kind") == "route-only-member"
-            and isinstance(record.get("layer_id"), int)
-            and not isinstance(record.get("layer_id"), bool)
-            and record["layer_id"] >= 0
-        )
-    }
     return EffectExecutionStaticDemand(
         static_is_valid=True,
         eligible_exact_effect_count=sum(
             record.get("kind") in EFFECT_EXECUTION_EXACT_KINDS
             for record in records
         ),
-        eligible_aggregate_subject_count=len(aggregate_subjects),
-        route_group_count=sum(
-            group.get("kind") in EFFECT_EXECUTION_ROUTE_GROUP_KINDS
-            and not (
-                not malformed_route_only_member
-                and isinstance(group.get("layer_id"), int)
-                and not isinstance(group.get("layer_id"), bool)
-                and group["layer_id"] >= 0
-                and group.get("reason") == "authored-chain-rejected"
-                and type(group.get("owner_count")) is int
-                and group["owner_count"] == 0
-                and type(group.get("aggregate_contributor_count")) is int
-                and group["aggregate_contributor_count"] == 0
-                and group["layer_id"] not in route_only_layer_ids
-            )
-            for group in groups
-        ),
     )
-
-
-EFFECT_STAGE_ADMISSION_EXPECTATIONS = (
-    NestedRuntimeExpectation(
-        "expected_effect_stage_admission_schema",
-        ("runtime", "authored_effect_stage_admission", "schema_version"),
-        "effect stage admission schema mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_stage_descriptor_count",
-        ("runtime", "authored_effect_stage_admission", "descriptor_count"),
-        "effect stage admission descriptor count mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_stage_parsed_count",
-        ("runtime", "authored_effect_stage_admission", "parsed_count"),
-        "effect stage admission parsed count mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_stage_activity_counts",
-        ("runtime", "authored_effect_stage_admission", "activity_counts"),
-        "effect stage admission activity counts mismatch",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_stage_strict_admission_counts",
-        (
-            "runtime",
-            "authored_effect_stage_admission",
-            "strict_admission_counts",
-        ),
-        "effect stage admission strict counts mismatch",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_stage_coverage_counts",
-        ("runtime", "authored_effect_stage_admission", "coverage_counts"),
-        "effect stage admission coverage counts mismatch",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_stage_admission_sha256",
-        ("runtime", "authored_effect_stage_admission", "canonical_sha256"),
-        "effect stage admission sha256 mismatch",
-    ),
-)
-
-
-EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS = (
-    NestedRuntimeExpectation(
-        "expected_effect_runtime_disposition_schema",
-        ("runtime", "effect_runtime_disposition", "schema_version"),
-        "effect runtime disposition schema mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_runtime_disposition_record_count",
-        ("runtime", "effect_runtime_disposition", "record_count"),
-        "effect runtime disposition record count mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_runtime_disposition_group_count",
-        ("runtime", "effect_runtime_disposition", "group_count"),
-        "effect runtime disposition group count mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_runtime_disposition_kind_counts",
-        ("runtime", "effect_runtime_disposition", "kind_counts"),
-        "effect runtime disposition kind counts mismatch",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_runtime_disposition_attribution_counts",
-        ("runtime", "effect_runtime_disposition", "attribution_counts"),
-        "effect runtime disposition attribution counts mismatch",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_runtime_disposition_role_counts",
-        ("runtime", "effect_runtime_disposition", "role_counts"),
-        "effect runtime disposition role counts mismatch",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_runtime_disposition_group_kind_counts",
-        ("runtime", "effect_runtime_disposition", "group_kind_counts"),
-        "effect runtime disposition group kind counts mismatch",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_runtime_disposition_sha256",
-        ("runtime", "effect_runtime_disposition", "canonical_sha256"),
-        "effect runtime disposition sha256 mismatch",
-    ),
-)
 
 
 EFFECT_EXECUTION_EXPECTATIONS = (
@@ -251,58 +87,6 @@ EFFECT_EXECUTION_EXPECTATIONS = (
         "expected_effect_execution_schema",
         ("runtime", "effect_execution", "schema_version"),
         "effect execution schema mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_execution_eligible_exact_effect_count",
-        ("runtime", "effect_execution", "eligible_exact_effect_count"),
-        "effect execution eligible exact count mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_execution_observed_eligible_exact_effect_count",
-        (
-            "runtime",
-            "effect_execution",
-            "observed_eligible_exact_effect_count",
-        ),
-        "effect execution observed exact count mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_execution_eligible_exact_gap_count",
-        ("runtime", "effect_execution", "eligible_exact_gap_count"),
-        "effect execution exact gap count mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_execution_eligible_aggregate_subject_count",
-        (
-            "runtime",
-            "effect_execution",
-            "eligible_aggregate_subject_count",
-        ),
-        "effect execution eligible aggregate count mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_execution_observed_eligible_aggregate_subject_count",
-        (
-            "runtime",
-            "effect_execution",
-            "observed_eligible_aggregate_subject_count",
-        ),
-        "effect execution observed aggregate count mismatch",
-        comparison="integer",
-    ),
-    NestedRuntimeExpectation(
-        "expected_effect_execution_eligible_aggregate_gap_count",
-        (
-            "runtime",
-            "effect_execution",
-            "eligible_aggregate_gap_count",
-        ),
-        "effect execution aggregate gap count mismatch",
         comparison="integer",
     ),
 )
@@ -510,11 +294,6 @@ AUTHORED_EFFECT_RUNTIME_EXPECTATIONS = (
         "expected_authored_effect_graph_scroll_count",
         "scroll_count",
         "authored effect graph Scroll count mismatch",
-    ),
-    RuntimeExpectation(
-        "expected_route_only_effect_count",
-        "route_only_effect_count",
-        "offscreen route-only effect count mismatch",
     ),
 )
 

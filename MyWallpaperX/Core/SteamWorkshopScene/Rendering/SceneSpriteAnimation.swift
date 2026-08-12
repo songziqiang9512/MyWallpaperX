@@ -175,24 +175,14 @@ extension SceneLayerFragmentUniforms {
         dependencyBlendMode: Int? = nil
     ) -> SceneLayerFragmentUniforms {
         let frame = SceneTextureUVTransform.identity
-        var flags = SceneEffectFlags()
-        if dependencyBlendMode != nil {
-            flags.insert(.dependencyBlend)
-        }
         return SceneLayerFragmentUniforms(
             time: 0,
             alpha: alpha,
-            effectFlags: flags.rawValue,
             dependencyBlendMode: UInt32(dependencyBlendMode ?? 0),
+            usesDependencyBlend: dependencyBlendMode == nil ? 0 : 1,
             cursorUV: .zero,
             _pad1: .zero,
             tint: SIMD4(repeating: 1),
-            effectParams0: .zero,
-            effectParams1: .zero,
-            effectParams2: .zero,
-            effectParams3: .zero,
-            effectParams4: .zero,
-            effectParams5: SIMD4(1, 1, 0, 0),
             textureFrame0: frame.uniform0,
             textureFrame1: frame.uniform1
         )

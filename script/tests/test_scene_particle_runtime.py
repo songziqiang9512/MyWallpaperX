@@ -217,25 +217,13 @@ struct SceneUserTextureInput: Codable {
 struct SceneLayerFragmentUniforms {
     var time: Float
     var alpha: Float
-    var effectFlags: UInt32
     var dependencyBlendMode: UInt32
+    var usesDependencyBlend: UInt32
     var cursorUV: SIMD2<Float>
     var _pad1: SIMD2<Float>
     var tint: SIMD4<Float>
-    var effectParams0: SIMD4<Float>
-    var effectParams1: SIMD4<Float>
-    var effectParams2: SIMD4<Float>
-    var effectParams3: SIMD4<Float>
-    var effectParams4: SIMD4<Float>
-    var effectParams5: SIMD4<Float>
     var textureFrame0: SIMD4<Float>
     var textureFrame1: SIMD4<Float>
-}
-
-struct SceneEffectFlags: OptionSet {
-    let rawValue: UInt32
-
-    static let dependencyBlend = SceneEffectFlags(rawValue: 1 << 10)
 }
 
 final class SceneVideoTextureSource {

@@ -318,7 +318,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     }
 
     func candidateBlueprintLocked(
-        for prepared: SceneResolvedMaterialGraphExecutor.PreparedChain,
+        for prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph,
         startingAt base: [Graph.EffectKey: Tail]
     ) -> CandidateBlueprint? {
         guard let terminal = prepared.stages.last?.effectOutputResource,

@@ -154,7 +154,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         let pendingCount = pendingSubmissions.reduce(0) {
             $0 + $1.ledgerIDs.count
         }
-        let line = "resolved material runtime audit: schema=r4-graph-executor-v1"
+        let line = "resolved material runtime audit: schema=scene-graph-executor-v1"
             + " claimed=\(frameClaimed) encoded=\(frameEncoded)"
             + " failures=\(frameFailures) deferred=\(frameDeferred)"
             + " pending=\(pendingCount) gpuEncoded=\(frameEncoded)"
@@ -177,7 +177,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     func commitIsValid(
         _ commit: Commit,
         preparedTargets: ScenePreparedPersistentGraphTargets,
-        prepared: SceneResolvedMaterialGraphExecutor.PreparedChain
+        prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
     ) -> Bool {
         let effects = Set(prepared.stages.map(\.effect))
         let generations = Set(prepared.stages.map {

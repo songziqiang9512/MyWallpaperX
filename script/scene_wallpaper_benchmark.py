@@ -18,11 +18,8 @@ from urllib.parse import unquote
 
 from scene_matrix_contract import (
     AUTHORED_EFFECT_RUNTIME_EXPECTATIONS,
-    EFFECT_EXECUTION_AGGREGATE_KINDS,
     EFFECT_EXECUTION_EXACT_KINDS,
     EFFECT_EXECUTION_EXPECTATIONS,
-    EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS,
-    EFFECT_STAGE_ADMISSION_EXPECTATIONS,
     RESOLVED_MATERIAL_GRAPH_BACKEND,
     RESOLVED_MATERIAL_GRAPH_EXPECTATIONS,
     effect_execution_static_demand,
@@ -167,10 +164,6 @@ UTILITY_LAYER_RE = re.compile(
 )
 UTILITY_CAPTURE_EXECUTION_RE = re.compile(
     r"phase=utility-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
-)
-AUTHORED_EFFECT_GRAPH_LEGACY_BLUR_BLOCKED_RE = re.compile(
-    r"^authoredEffectGraphLegacyBlurBlockedLayerIDs: ?(?P<ids>[\d,]*)$",
-    re.MULTILINE,
 )
 AUTHORED_EFFECT_GRAPH_LOCAL_CONTRAST_COUNT_RE = re.compile(
     r"^authoredEffectGraphLocalContrastCount: (?P<count>\d+)$",
@@ -326,61 +319,53 @@ AUTHORED_EFFECT_GRAPH_SCROLL_COUNT_RE = re.compile(
     r"^authoredEffectGraphScrollCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_GRAPH_CHAIN_COUNT_RE = re.compile(
-    r"^authoredEffectGraphChainCount: (?P<count>\d+)$",
+EFFECT_STAGE_DESCRIPTOR_COUNT_RE = re.compile(
+    r"^effectStageDescriptorCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_GRAPH_STAGE_COUNT_RE = re.compile(
-    r"^authoredEffectGraphStageCount: (?P<count>\d+)$",
+EFFECT_STAGE_PARSED_COUNT_RE = re.compile(
+    r"^effectStageParsedCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_STAGE_DESCRIPTOR_COUNT_RE = re.compile(
-    r"^authoredEffectStageDescriptorCount: (?P<count>\d+)$",
+EFFECT_STAGE_ACTIVITY_COUNTS_RE = re.compile(
+    r"^effectStageActivityCounts: (?P<counts>[^\r\n]+)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_STAGE_PARSED_COUNT_RE = re.compile(
-    r"^authoredEffectStageParsedCount: (?P<count>\d+)$",
+EFFECT_STAGE_ADMISSION_COUNTS_RE = re.compile(
+    r"^effectStageAdmissionCounts: (?P<counts>[^\r\n]+)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_STAGE_ACTIVITY_COUNTS_RE = re.compile(
-    r"^authoredEffectStageActivityCounts: (?P<counts>[^\r\n]+)$",
+EFFECT_STAGE_COVERAGE_COUNTS_RE = re.compile(
+    r"^effectStageCoverageCounts: (?P<counts>[^\r\n]+)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_STAGE_STRICT_COUNTS_RE = re.compile(
-    r"^authoredEffectStageStrictAdmissionCounts: (?P<counts>[^\r\n]+)$",
+EFFECT_STAGE_CONSERVATION_RE = re.compile(
+    r"^effectStage(?P<name>DescriptorIdentity|Activity|InactiveAdmission|"
+    r"ActiveAdmission|ExecutionIdentity)Conserved: (?P<value>true|false)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_STAGE_COVERAGE_COUNTS_RE = re.compile(
-    r"^authoredEffectStageCoverageCounts: (?P<counts>[^\r\n]+)$",
-    re.MULTILINE,
-)
-AUTHORED_EFFECT_STAGE_CONSERVATION_RE = re.compile(
-    r"^authoredEffectStage(?P<name>DescriptorIdentity|Activity|InactiveAdmission|"
-    r"ActiveAdmission|StrictIdentity)Conserved: (?P<value>true|false)$",
-    re.MULTILINE,
-)
-AUTHORED_EFFECT_STAGE_ADMISSION_RE = re.compile(
-    r"^authoredEffectStageAdmission: layer=(?P<layer>\d+) "
+EFFECT_STAGE_ADMISSION_RE = re.compile(
+    r"^effectStageAdmission: layer=(?P<layer>\d+) "
     r"effect=(?P<effect>\d+) descriptor=(?P<descriptor>\S+) "
-    r"activity=(?P<activity>\S+) strict=(?P<strict>\S+) "
+    r"activity=(?P<activity>\S+) admission=(?P<admission>\S+) "
     r"coverage=(?P<coverage>\S+) backend=(?P<backend>\S+) "
     r"profile=(?P<profile>\S+) reason=(?P<reason>\S+) path=(?P<path>\S+)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_STAGE_COMPILE_FAILURE_COUNT_RE = re.compile(
-    r"^authoredEffectStageCompileFailureCount: (?P<count>\d+)$",
+EFFECT_STAGE_COMPILE_FAILURE_COUNT_RE = re.compile(
+    r"^effectStageCompileFailureCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_STAGE_COMPILE_FAILURE_CODES_RE = re.compile(
-    r"^authoredEffectStageCompileFailureCodes: ?(?P<counts>[^\r\n]*)$",
+EFFECT_STAGE_COMPILE_FAILURE_CODES_RE = re.compile(
+    r"^effectStageCompileFailureCodes: ?(?P<counts>[^\r\n]*)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_STAGE_COMPILER_PROBE_OUTCOMES_RE = re.compile(
-    r"^authoredEffectStageCompilerProbeOutcomeCounts: ?(?P<counts>[^\r\n]*)$",
+EFFECT_STAGE_COMPILER_PROBE_OUTCOMES_RE = re.compile(
+    r"^effectStageCompilerProbeOutcomeCounts: ?(?P<counts>[^\r\n]*)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_STAGE_COMPILER_FAILURE_CODES_RE = re.compile(
-    r"^authoredEffectStageCompilerFailureCodes: ?(?P<counts>[^\r\n]*)$",
+EFFECT_STAGE_COMPILER_FAILURE_CODES_RE = re.compile(
+    r"^effectStageCompilerFailureCodes: ?(?P<counts>[^\r\n]*)$",
     re.MULTILINE,
 )
 EFFECT_RUNTIME_DISPOSITION_SCHEMA_RE = re.compile(
@@ -417,14 +402,15 @@ EFFECT_RUNTIME_ROUTE_GROUP_KIND_COUNTS_RE = re.compile(
 )
 EFFECT_RUNTIME_DISPOSITION_CONSERVATION_RE = re.compile(
     r"^effectStageRuntime(?P<name>DescriptorIdentity|GroupIdentity|"
-    r"StrictIdentity)Conserved: (?P<value>true|false)$",
+    r"AdmissionIdentity|ResolvedMaterialOwnership)Conserved: "
+    r"(?P<value>true|false)$",
     re.MULTILINE,
 )
 EFFECT_RUNTIME_ROUTE_GROUP_RE = re.compile(
     r"^effectStaticRouteGroup: layer=(?P<layer>\d+) scope=(?P<scope>\S+) "
     r"kind=(?P<kind>\S+) "
     r"effects=(?P<effects>\d+) owners=(?P<owners>\d+) "
-    r"aggregate=(?P<aggregate>\d+) reason=(?P<reason>\S+)$",
+    r"reason=(?P<reason>\S+)$",
     re.MULTILINE,
 )
 EFFECT_RUNTIME_DISPOSITION_RE = re.compile(
@@ -442,7 +428,7 @@ EFFECT_RUNTIME_EVIDENCE_PREFIX_RE = re.compile(
 EFFECT_CPU_INVOCATION_RE = re.compile(
     r"schema=(?P<schema>\d+) axis=effect-cpu-invocation "
     r"frame=(?P<frame>\d+) origin=(?P<origin>\S+) "
-    r"subject=(?P<subject>effect|aggregate) layer=(?P<layer>\d+) "
+    r"subject=(?P<subject>effect) layer=(?P<layer>\d+) "
     r"effect=(?P<effect>-|\d+) descriptor=(?P<descriptor>\S+) "
     r"family=(?P<family>\S+) backend=(?P<backend>\S+) "
     r"outcome=(?P<outcome>encoded-output|failed) "
@@ -465,22 +451,22 @@ SCENE_FRAME_COMMAND_BUFFER_RE = re.compile(
 )
 RESOLVED_MATERIAL_LAYER_CAPABILITY_RE = re.compile(
     r"resolved material execution capabilities: "
-    r"schema=r4-layer-capability-v2 "
+    r"schema=layer-graph-capability-v1 "
     r"candidates=(?P<candidates>\d+) accepted=(?P<accepted>\d+) "
     r"rejected=(?P<rejected>\d+) variantLimit=(?P<variant_limit>\d+)(?=\s|$)"
 )
 RESOLVED_MATERIAL_LAYER_ROUTE_V1_RE = re.compile(
     r"resolved material execution capability: "
-    r"schema=r4-layer-route-v1 layer=(?P<id>\d+) status=accepted"
+    r"schema=layer-graph-route-v1 layer=(?P<id>\d+) status=accepted"
 )
 RESOLVED_MATERIAL_LAYER_ROUTE_V2_RE = re.compile(
     r"resolved material execution capability: "
-    r"schema=r4-layer-route-v2 layer=(?P<id>\d+) status=accepted "
+    r"schema=layer-graph-route-v1 layer=(?P<id>\d+) status=accepted "
     r"dependency=(?P<dependency>none|graph-internal|external-primary) "
     r"dependencyReferences=(?P<dependency_references>\d+)"
 )
 RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE = re.compile(
-    r"resolved material runtime audit: schema=r4-graph-executor-v1 "
+    r"resolved material runtime audit: schema=scene-graph-executor-v1 "
     r"claimed=(?P<claimed>\d+) encoded=(?P<encoded>\d+) "
     r"failures=(?P<failures>\d+) deferred=(?P<deferred>\d+) "
     r"pending=(?P<pending>\d+) gpuEncoded=(?P<gpu_encoded>\d+)(?=\s|$)"
@@ -1432,7 +1418,7 @@ def resolved_material_graph_exact_backend_metrics(
     static_disposition: dict[str, Any] | None,
 ) -> dict[str, Any]:
     accepted_layers = set(accepted_layer_ids)
-    disposition_is_valid, _, eligible_exact, _ = (
+    disposition_is_valid, _, eligible_exact = (
         _effect_execution_static_catalog(static_disposition)
     )
     required_by_layer: dict[int, set[tuple[int, str]]] = {
@@ -1725,7 +1711,7 @@ def resolved_material_graph_execution_metrics(
     ]
     capability_failures: list[str] = []
     if (
-        "schema=r4-layer-capability-v2" in preview_text
+        "schema=layer-graph-capability-v1" in preview_text
         and not capability_observations
     ):
         capability_failures.append(
@@ -1754,7 +1740,7 @@ def resolved_material_graph_execution_metrics(
     route_lines = [
         line.strip()
         for line in preview_text.splitlines()
-        if "schema=r4-layer-route-v" in line
+        if "schema=layer-graph-route-v" in line
     ]
     accepted_layer_observations: list[int] = []
     route_schema_versions: list[str] = []
@@ -1770,12 +1756,12 @@ def resolved_material_graph_execution_metrics(
                 malformed_route_count += 1
                 continue
             accepted_layer_observations.append(int(current.group("id")))
-            route_schema_versions.append("r4-layer-route-v2")
+            route_schema_versions.append("layer-graph-route-v1")
             continue
         legacy = RESOLVED_MATERIAL_LAYER_ROUTE_V1_RE.fullmatch(line)
         if legacy is not None:
             accepted_layer_observations.append(int(legacy.group("id")))
-            route_schema_versions.append("r4-layer-route-v1")
+            route_schema_versions.append("layer-graph-route-v1")
             continue
         malformed_route_count += 1
     accepted_layer_ids = sorted(set(accepted_layer_observations))
@@ -1824,7 +1810,7 @@ def resolved_material_graph_execution_metrics(
         for match in RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE.finditer(log_text)
     ]
     executor_failures: list[str] = []
-    if "schema=r4-graph-executor-v1" in log_text and not executor_observations:
+    if "schema=scene-graph-executor-v1" in log_text and not executor_observations:
         executor_failures.append(
             "resolved material graph executor evidence malformed"
         )
@@ -2071,7 +2057,7 @@ def resolved_material_graph_execution_metrics(
         "capability": {
             "has_evidence": bool(capability_observations),
             "schema_version": (
-                "r4-layer-capability-v2" if capability_observations else None
+                "layer-graph-capability-v1" if capability_observations else None
             ),
             "observation_count": len(capability_observations),
             "candidate_count": (
@@ -2090,7 +2076,7 @@ def resolved_material_graph_execution_metrics(
         "executor": {
             "has_evidence": bool(executor_observations),
             "schema_version": (
-                "r4-graph-executor-v1" if executor_observations else None
+                "scene-graph-executor-v1" if executor_observations else None
             ),
             "observation_count": len(executor_observations),
             "claimed_count": claimed_count,
@@ -2208,13 +2194,6 @@ def resolved_material_graph_execution_failures(
             "resolved material graph successful transaction count below two"
         )
     return list(dict.fromkeys(failures))
-
-
-def authored_effect_graph_legacy_blur_blocked_layer_ids(preview_text: str) -> list[int]:
-    match = AUTHORED_EFFECT_GRAPH_LEGACY_BLUR_BLOCKED_RE.search(preview_text)
-    if match is None or not match.group("ids"):
-        return []
-    return sorted({int(value) for value in match.group("ids").split(",")})
 
 
 def authored_effect_graph_local_contrast_count(preview_text: str) -> int | None:
@@ -2446,15 +2425,6 @@ def authored_effect_graph_scroll_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
-def authored_effect_graph_chain_metrics(preview_text: str) -> dict[str, int | None]:
-    chain_match = AUTHORED_EFFECT_GRAPH_CHAIN_COUNT_RE.search(preview_text)
-    stage_match = AUTHORED_EFFECT_GRAPH_STAGE_COUNT_RE.search(preview_text)
-    return {
-        "chain_count": int(chain_match.group("count")) if chain_match else None,
-        "stage_count": int(stage_match.group("count")) if stage_match else None,
-    }
-
-
 def _stage_count_map(
     raw: str,
     expected_keys: tuple[str, ...],
@@ -2468,37 +2438,27 @@ def _stage_count_map(
     return result if set(result) == set(expected_keys) else None
 
 
-def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]:
+def effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]:
     activity_keys = ("author-disabled", "layer-hidden", "active")
-    strict_keys = (
+    admission_keys = (
         "inactive",
         "admitted-dedicated",
         "admitted-generic",
         "not-admitted",
     )
     coverage_keys = (
-        "inactive",
-        "complete",
-        "terminal-inline-prefix",
-        "terminal-inline-suffix",
-        "isolated-accepted",
-        "isolated-omitted",
-        "prefix-accepted",
-        "prefix-omitted",
-        "rejected-missing-graph",
-        "rejected-ambiguous-graph",
-        "rejected-chain",
-        "rejected-graph-mismatch",
-        "rejected-invariant",
+        "inactive", "complete", "rejected-missing-graph",
+        "rejected-ambiguous-graph", "rejected-graph-mismatch",
+        "rejected-capability",
     )
-    descriptor_match = AUTHORED_EFFECT_STAGE_DESCRIPTOR_COUNT_RE.search(preview_text)
-    parsed_match = AUTHORED_EFFECT_STAGE_PARSED_COUNT_RE.search(preview_text)
-    activity_match = AUTHORED_EFFECT_STAGE_ACTIVITY_COUNTS_RE.search(preview_text)
-    strict_match = AUTHORED_EFFECT_STAGE_STRICT_COUNTS_RE.search(preview_text)
-    coverage_match = AUTHORED_EFFECT_STAGE_COVERAGE_COUNTS_RE.search(preview_text)
+    descriptor_match = EFFECT_STAGE_DESCRIPTOR_COUNT_RE.search(preview_text)
+    parsed_match = EFFECT_STAGE_PARSED_COUNT_RE.search(preview_text)
+    activity_match = EFFECT_STAGE_ACTIVITY_COUNTS_RE.search(preview_text)
+    admission_match = EFFECT_STAGE_ADMISSION_COUNTS_RE.search(preview_text)
+    coverage_match = EFFECT_STAGE_COVERAGE_COUNTS_RE.search(preview_text)
     conservation = {
         match.group("name"): match.group("value") == "true"
-        for match in AUTHORED_EFFECT_STAGE_CONSERVATION_RE.finditer(preview_text)
+        for match in EFFECT_STAGE_CONSERVATION_RE.finditer(preview_text)
     }
     records = [
         {
@@ -2507,19 +2467,19 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
             "descriptor_id": unquote(match.group("descriptor")),
             "definition_path": unquote(match.group("path")),
             "activity": match.group("activity"),
-            "strict_admission": match.group("strict"),
+            "admission": match.group("admission"),
             "coverage": match.group("coverage"),
             "backend": None if match.group("backend") == "-" else match.group("backend"),
             "profile": None if match.group("profile") == "-" else match.group("profile"),
             "reason": None if match.group("reason") == "-" else match.group("reason"),
         }
-        for match in AUTHORED_EFFECT_STAGE_ADMISSION_RE.finditer(preview_text)
+        for match in EFFECT_STAGE_ADMISSION_RE.finditer(preview_text)
     ]
     has_evidence = any((
         descriptor_match,
         parsed_match,
         activity_match,
-        strict_match,
+        admission_match,
         coverage_match,
         conservation,
         records,
@@ -2532,7 +2492,7 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
             "descriptor_count": None,
             "parsed_count": None,
             "activity_counts": None,
-            "strict_admission_counts": None,
+            "admission_counts": None,
             "coverage_counts": None,
             "conservation": {},
             "records": [],
@@ -2546,9 +2506,9 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
         _stage_count_map(activity_match.group("counts"), activity_keys)
         if activity_match else None
     )
-    strict_counts = (
-        _stage_count_map(strict_match.group("counts"), strict_keys)
-        if strict_match else None
+    admission_counts = (
+        _stage_count_map(admission_match.group("counts"), admission_keys)
+        if admission_match else None
     )
     coverage_counts = (
         _stage_count_map(coverage_match.group("counts"), coverage_keys)
@@ -2563,16 +2523,16 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
         key: sum(record["activity"] == key for record in records)
         for key in activity_keys
     }
-    computed_strict = {
-        key: sum(record["strict_admission"] == key for record in records)
-        for key in strict_keys
+    computed_admission = {
+        key: sum(record["admission"] == key for record in records)
+        for key in admission_keys
     }
     computed_coverage = {
         key: sum(record["coverage"] == key for record in records)
         for key in coverage_keys
     }
     failures: list[str] = []
-    if None in (descriptor_count, parsed_count, activity_counts, strict_counts, coverage_counts):
+    if None in (descriptor_count, parsed_count, activity_counts, admission_counts, coverage_counts):
         failures.append("effect stage admission summary missing or malformed")
     if descriptor_count != len(records) or parsed_count != len(records):
         failures.append("effect stage admission record count mismatch")
@@ -2584,14 +2544,14 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
         failures.append("effect stage admission identity duplicated")
     if activity_counts != computed_activity:
         failures.append("effect stage admission activity counts mismatch")
-    if strict_counts != computed_strict:
-        failures.append("effect stage strict admission counts mismatch")
+    if admission_counts != computed_admission:
+        failures.append("effect stage admission counts mismatch")
     if coverage_counts != computed_coverage:
         failures.append("effect stage coverage counts mismatch")
     if activity_counts is not None and sum(activity_counts.values()) != len(records):
         failures.append("effect stage activity total mismatch")
-    if strict_counts is not None and sum(strict_counts.values()) != len(records):
-        failures.append("effect stage strict admission total mismatch")
+    if admission_counts is not None and sum(admission_counts.values()) != len(records):
+        failures.append("effect stage admission total mismatch")
     if coverage_counts is not None and sum(coverage_counts.values()) != len(records):
         failures.append("effect stage coverage total mismatch")
     expected_conservation = {
@@ -2599,42 +2559,26 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
         "Activity",
         "InactiveAdmission",
         "ActiveAdmission",
-        "StrictIdentity",
+        "ExecutionIdentity",
     }
     if set(conservation) != expected_conservation or not all(conservation.values()):
         failures.append("effect stage admission Swift conservation failed")
-    accepted_coverages = {
-        "complete",
-        "terminal-inline-prefix",
-        "isolated-accepted",
-        "prefix-accepted",
-    }
-    omitted_or_rejected_coverages = {
-        "terminal-inline-suffix",
-        "isolated-omitted",
-        "prefix-omitted",
-        "rejected-chain",
-    }
+    accepted_coverages = {"complete"}
+    omitted_or_rejected_coverages = {"rejected-capability"}
     structural_rejection_coverages = {
         "rejected-missing-graph",
         "rejected-ambiguous-graph",
         "rejected-graph-mismatch",
-        "rejected-invariant",
-    }
-    omitted_reasons = {
-        "terminal-inline-suffix": "terminal-inline-suffix",
-        "isolated-omitted": "isolated-omitted",
-        "prefix-omitted": "prefix-omitted",
     }
     for record in records:
         active = record["activity"] == "active"
-        strict_inactive = record["strict_admission"] == "inactive"
-        admitted = record["strict_admission"] in {
+        admission_inactive = record["admission"] == "inactive"
+        admitted = record["admission"] in {
             "admitted-dedicated",
             "admitted-generic",
         }
-        if active == strict_inactive:
-            failures.append("effect stage activity and strict admission conflict")
+        if active == admission_inactive:
+            failures.append("effect stage activity and admission conflict")
             break
         if admitted and record["backend"] is None:
             failures.append("effect stage admitted backend missing")
@@ -2642,7 +2586,7 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
         if admitted and record["reason"] is not None:
             failures.append("effect stage admitted record has rejection reason")
             break
-        if record["strict_admission"] == "admitted-generic" and (
+        if record["admission"] == "admitted-generic" and (
             record["backend"] != "resolved-material"
             or record["profile"] != "program"
         ):
@@ -2652,7 +2596,7 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
             failures.append("effect stage non-admitted reason missing")
             break
         if not active and (
-            not strict_inactive
+            not admission_inactive
             or record["coverage"] != "inactive"
             or record["backend"] is not None
             or record["profile"] is not None
@@ -2662,15 +2606,15 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
             break
         if admitted and (
             record["coverage"] not in accepted_coverages
-            or (record["strict_admission"] == "admitted-dedicated"
+            or (record["admission"] == "admitted-dedicated"
                 and record["profile"] is not None)
-            or (record["strict_admission"] == "admitted-generic"
+            or (record["admission"] == "admitted-generic"
                 and record["profile"] is None)
         ):
             failures.append("effect stage admitted state combination invalid")
             break
         if active and not admitted and (
-            record["strict_admission"] != "not-admitted"
+            record["admission"] != "not-admitted"
             or record["coverage"] not in (
                 omitted_or_rejected_coverages | structural_rejection_coverages
             )
@@ -2679,27 +2623,12 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
         ):
             failures.append("effect stage non-admitted state combination invalid")
             break
-        expected_omitted_reason = omitted_reasons.get(record["coverage"])
-        if expected_omitted_reason is not None and (
-            record["reason"] != expected_omitted_reason
-        ):
-            failures.append("effect stage omitted reason mismatch")
-            break
         if record["coverage"] in structural_rejection_coverages:
             failures.append(
                 "effect stage admission structural rejection: "
                 + record["coverage"]
             )
             break
-    chain_stage_match = AUTHORED_EFFECT_GRAPH_STAGE_COUNT_RE.search(preview_text)
-    if chain_stage_match is None:
-        failures.append("effect stage chain stage count missing")
-    elif strict_counts is not None:
-        if (
-            int(chain_stage_match.group("count"))
-            > strict_counts["admitted-dedicated"]
-        ):
-            failures.append("effect stage chain count exceeds dedicated admission count")
     canonical_sha256 = hashlib.sha256(json.dumps(
         records,
         ensure_ascii=True,
@@ -2712,7 +2641,7 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
         "descriptor_count": descriptor_count,
         "parsed_count": parsed_count,
         "activity_counts": activity_counts,
-        "strict_admission_counts": strict_counts,
+        "admission_counts": admission_counts,
         "coverage_counts": coverage_counts,
         "conservation": conservation,
         "records": records,
@@ -2755,20 +2684,20 @@ def _stage_compile_count_map(
 def authored_effect_stage_compile_metrics(preview_text: str) -> dict[str, Any]:
     line_specs = (
         (
-            "authoredEffectStageCompileFailureCount:",
-            AUTHORED_EFFECT_STAGE_COMPILE_FAILURE_COUNT_RE,
+            "effectStageCompileFailureCount:",
+            EFFECT_STAGE_COMPILE_FAILURE_COUNT_RE,
         ),
         (
-            "authoredEffectStageCompileFailureCodes:",
-            AUTHORED_EFFECT_STAGE_COMPILE_FAILURE_CODES_RE,
+            "effectStageCompileFailureCodes:",
+            EFFECT_STAGE_COMPILE_FAILURE_CODES_RE,
         ),
         (
-            "authoredEffectStageCompilerProbeOutcomeCounts:",
-            AUTHORED_EFFECT_STAGE_COMPILER_PROBE_OUTCOMES_RE,
+            "effectStageCompilerProbeOutcomeCounts:",
+            EFFECT_STAGE_COMPILER_PROBE_OUTCOMES_RE,
         ),
         (
-            "authoredEffectStageCompilerFailureCodes:",
-            AUTHORED_EFFECT_STAGE_COMPILER_FAILURE_CODES_RE,
+            "effectStageCompilerFailureCodes:",
+            EFFECT_STAGE_COMPILER_FAILURE_CODES_RE,
         ),
     )
     if not any(prefix in preview_text for prefix, _ in line_specs):
@@ -2793,7 +2722,7 @@ def authored_effect_stage_compile_metrics(preview_text: str) -> dict[str, Any]:
             "effect stage compile summary missing, duplicated, or malformed"
         )
 
-    count_matches = matches["authoredEffectStageCompileFailureCount:"]
+    count_matches = matches["effectStageCompileFailureCount:"]
     stage_failure_count = (
         int(count_matches[0].group("count"))
         if len(count_matches) == 1
@@ -2823,19 +2752,19 @@ def authored_effect_stage_compile_metrics(preview_text: str) -> dict[str, Any]:
         )
 
     stage_failure_codes = parsed_map(
-        "authoredEffectStageCompileFailureCodes:",
+        "effectStageCompileFailureCodes:",
         key_pattern=token_pattern,
         maximum_entries=2,
         allowed_keys={"no-backend-accepted", "stage-program-invariant"},
     )
     probe_outcomes = parsed_map(
-        "authoredEffectStageCompilerProbeOutcomeCounts:",
+        "effectStageCompilerProbeOutcomeCounts:",
         key_pattern=token_pattern,
         maximum_entries=2,
         allowed_keys={"not-applicable", "rejected"},
     )
     compiler_failure_codes = parsed_map(
-        "authoredEffectStageCompilerFailureCodes:",
+        "effectStageCompilerFailureCodes:",
         key_pattern=compiler_failure_pattern,
         maximum_entries=256,
     )
@@ -2887,37 +2816,14 @@ def authored_effect_stage_compile_metrics(preview_text: str) -> dict[str, Any]:
     }
 
 
-def authored_effect_stage_admission_failures(
+def effect_stage_admission_failures(
     sample: dict[str, Any],
     metrics: dict[str, Any],
     require_evidence: bool = False,
 ) -> list[str]:
-    expectation_keys = {
-        expectation.matrix_key
-        for expectation in EFFECT_STAGE_ADMISSION_EXPECTATIONS
-    }
-    present_expectations = expectation_keys.intersection(sample)
-    expects_evidence = bool(present_expectations)
     if not metrics["has_evidence"]:
-        return ["effect stage admission evidence missing"] if (
-            expects_evidence or require_evidence
-        ) else []
-    failures = list(metrics["validation_failures"])
-    if present_expectations and present_expectations != expectation_keys:
-        failures.append("effect stage admission matrix contract incomplete")
-    for expectation in EFFECT_STAGE_ADMISSION_EXPECTATIONS:
-        if expectation.matrix_key not in sample:
-            continue
-        expected = sample[expectation.matrix_key]
-        if expectation.comparison == "integer":
-            try:
-                expected = int(expected)
-            except (TypeError, ValueError):
-                failures.append(expectation.failure_message)
-                continue
-        if metrics[expectation.metric_key] != expected:
-            failures.append(expectation.failure_message)
-    return failures
+        return ["effect stage admission evidence missing"] if require_evidence else []
+    return list(metrics["validation_failures"])
 
 
 def effect_runtime_disposition_metrics(
@@ -2926,31 +2832,14 @@ def effect_runtime_disposition_metrics(
 ) -> dict[str, Any]:
     kind_keys = (
         "inactive",
-        "strict-dedicated",
-        "strict-generic",
-        "strict-inline-suffix",
-        "omitted-by-strict-chain",
-        "legacy-exact-inline",
-        "legacy-exact-offscreen",
-        "legacy-structural-member",
-        "legacy-coalesced-inline",
-        "legacy-coalesced-offscreen",
-        "legacy-shadowed",
-        "route-only-member",
-        "composite-refused",
+        "dedicated",
+        "program",
         "unsupported",
         "unattributed",
     )
-    attribution_keys = ("exact-key", "layer-aggregate", "none")
-    role_keys = ("owner", "aggregate-contributor", "member", "none")
-    group_kind_keys = (
-        "inactive",
-        "direct",
-        "authored",
-        "legacy-offscreen",
-        "offscreen-passthrough",
-        "composite-refused",
-    )
+    attribution_keys = ("exact-key", "none")
+    role_keys = ("owner", "member", "none")
+    group_kind_keys = ("inactive", "direct", "resolved")
     if EFFECT_RUNTIME_EVIDENCE_PREFIX_RE.search(preview_text) is None:
         return {
             "has_evidence": False,
@@ -3044,7 +2933,6 @@ def effect_runtime_disposition_metrics(
             "kind": match.group("kind"),
             "effect_count": int(match.group("effects")),
             "owner_count": int(match.group("owners")),
-            "aggregate_contributor_count": int(match.group("aggregate")),
             "reason": (
                 None if match.group("reason") == "-"
                 else match.group("reason")
@@ -3108,7 +2996,7 @@ def effect_runtime_disposition_metrics(
         failures.append("effect runtime disposition summary missing or malformed")
     if schema_version != 1:
         failures.append("effect runtime disposition schema unsupported")
-    if route_scope != "effect-induced-static":
+    if route_scope != "unified-effect-graph":
         failures.append("effect runtime disposition route scope invalid")
     if record_count != len(records):
         failures.append("effect runtime disposition record count mismatch")
@@ -3161,7 +3049,8 @@ def effect_runtime_disposition_metrics(
     expected_conservation = {
         "DescriptorIdentity",
         "GroupIdentity",
-        "StrictIdentity",
+        "AdmissionIdentity",
+        "ResolvedMaterialOwnership",
     }
     if (
         len(conservation_matches) != len(expected_conservation)
@@ -3182,148 +3071,49 @@ def effect_runtime_disposition_metrics(
             failures.append("effect runtime disposition group reference invalid")
             break
     for group in groups:
-        if group["scope"] != "effect-induced-static":
+        if group["scope"] != "unified-effect-graph":
             failures.append("effect runtime disposition group scope invalid")
         referenced = [
             record for record in records
             if record["group_id"] == group["layer_id"]
         ]
         owners = sum(record["role"] == "owner" for record in referenced)
-        aggregate = sum(
-            record["role"] == "aggregate-contributor"
-            for record in referenced
-        )
         if group["effect_count"] != len(referenced):
             failures.append("effect runtime disposition group membership count mismatch")
         if group["owner_count"] != owners:
             failures.append("effect runtime disposition group owner count mismatch")
-        if group["aggregate_contributor_count"] != aggregate:
-            failures.append("effect runtime disposition group aggregate count mismatch")
         kinds = {record["kind"] for record in referenced}
         if group["kind"] == "inactive":
-            if referenced or any(group[key] != 0 for key in (
-                "effect_count",
-                "owner_count",
-                "aggregate_contributor_count",
-            )):
+            if referenced or group["effect_count"] != 0 or group["owner_count"] != 0:
                 failures.append("effect runtime disposition inactive group invalid")
         elif not referenced:
             failures.append("effect runtime disposition active group is empty")
-        if group["kind"] == "authored" and (
+        if group["kind"] == "resolved" and (
             group["owner_count"] < 1
             or not kinds.issubset({
-                "strict-dedicated",
-                "strict-generic",
-                "strict-inline-suffix",
-                "omitted-by-strict-chain",
+                "dedicated",
+                "program",
                 "unattributed",
             })
         ):
-            failures.append("effect runtime disposition authored group invalid")
-        if group["kind"] == "direct" and kinds.intersection({
-            "strict-dedicated",
-            "strict-generic",
-            "strict-inline-suffix",
-            "omitted-by-strict-chain",
-            "legacy-exact-offscreen",
-            "legacy-structural-member",
-            "legacy-coalesced-offscreen",
-            "legacy-shadowed",
-            "route-only-member",
-            "composite-refused",
-        }):
+            failures.append("effect runtime disposition resolved group invalid")
+        if group["kind"] == "direct" and (
+            group["owner_count"] != 0
+            or not kinds.issubset({"unsupported", "unattributed"})
+            or group["reason"] not in {
+                "r5-no-runtime-owner",
+            }
+        ):
             failures.append("effect runtime disposition direct group invalid")
-        if group["kind"] == "legacy-offscreen" and (
-            not any(
-                (
-                    record["kind"] == "legacy-exact-offscreen"
-                    and record["role"] == "owner"
-                ) or (
-                    record["kind"] == "legacy-coalesced-offscreen"
-                    and record["role"] == "aggregate-contributor"
-                )
-                for record in referenced
-            )
-            or kinds.intersection({
-                "strict-dedicated",
-                "strict-generic",
-                "strict-inline-suffix",
-                "omitted-by-strict-chain",
-                "route-only-member",
-                "composite-refused",
-            })
-        ):
-            failures.append("effect runtime disposition legacy offscreen group invalid")
-        if group["kind"] == "offscreen-passthrough" and (
-            not kinds.intersection({
-                "route-only-member",
-                "legacy-exact-inline",
-                "legacy-coalesced-inline",
-            })
-            or kinds.intersection({
-                "strict-dedicated",
-                "strict-generic",
-                "strict-inline-suffix",
-                "omitted-by-strict-chain",
-                "legacy-exact-offscreen",
-                "legacy-structural-member",
-                "legacy-coalesced-offscreen",
-                "legacy-shadowed",
-                "composite-refused",
-            })
-        ):
-            failures.append("effect runtime disposition passthrough group invalid")
-        if group["kind"] == "composite-refused" and (
-            kinds != {"composite-refused"}
-            or group["owner_count"] != 0
-            or group["aggregate_contributor_count"] != 0
-        ):
-            failures.append("effect runtime disposition composite group invalid")
 
     state_contracts: dict[str, tuple[str, set[str], str, str]] = {
         "inactive": ("none", {"none"}, "none", "forbidden"),
-        "strict-dedicated": ("exact-key", {"owner"}, "authored", "required"),
-        "strict-generic": ("exact-key", {"owner"}, "authored", "required"),
-        "strict-inline-suffix": ("exact-key", {"owner"}, "authored", "required"),
-        "omitted-by-strict-chain": (
-            "exact-key", {"member"}, "authored", "forbidden",
-        ),
-        "legacy-exact-inline": (
-            "exact-key", {"owner"}, "legacy", "required",
-        ),
-        "legacy-exact-offscreen": (
-            "exact-key", {"owner"}, "legacy-offscreen", "required",
-        ),
-        "legacy-structural-member": (
-            "exact-key", {"member"}, "legacy-offscreen", "required",
-        ),
-        "legacy-coalesced-inline": (
-            "layer-aggregate", {"aggregate-contributor"}, "legacy", "required",
-        ),
-        "legacy-coalesced-offscreen": (
-            "layer-aggregate",
-            {"aggregate-contributor"},
-            "legacy-offscreen",
-            "required",
-        ),
-        "legacy-shadowed": (
-            "exact-key", {"member"}, "legacy-offscreen", "required",
-        ),
-        "route-only-member": (
-            "exact-key", {"member"}, "offscreen-passthrough", "required",
-        ),
-        "composite-refused": (
-            "layer-aggregate", {"member"}, "composite-refused", "required",
-        ),
-        "unsupported": ("none", {"member"}, "legacy", "optional"),
+        "dedicated": ("exact-key", {"owner"}, "resolved", "required"),
+        "program": ("exact-key", {"owner"}, "resolved", "required"),
+        "unsupported": ("none", {"member"}, "direct", "forbidden"),
         "unattributed": (
-            "none", {"member"}, "legacy-or-authored", "forbidden",
+            "none", {"member"}, "resolved-or-direct", "forbidden",
         ),
-    }
-    legacy_group_kinds = {
-        "direct",
-        "legacy-offscreen",
-        "offscreen-passthrough",
     }
     for record in records:
         contract = state_contracts.get(record["kind"])
@@ -3343,45 +3133,21 @@ def effect_runtime_disposition_metrics(
             continue
         if group_contract == "none":
             valid_group = record["group_id"] is None and group is None
-        elif group_contract == "legacy":
-            valid_group = group_kind in legacy_group_kinds
-        elif group_contract == "legacy-or-authored":
-            valid_group = group_kind in legacy_group_kinds | {"authored"}
+        elif group_contract == "resolved-or-direct":
+            valid_group = group_kind in {"resolved", "direct"}
         else:
             valid_group = group_kind == group_contract
         if not valid_group:
             failures.append("effect runtime disposition state group invalid")
-        if record["kind"] in {
-            "legacy-structural-member",
-            "legacy-coalesced-inline",
-            "legacy-coalesced-offscreen",
-            "legacy-shadowed",
-            "route-only-member",
-            "composite-refused",
-            "unsupported",
-            "unattributed",
-        } and record["reason"] is None:
+        if record["kind"] in {"unsupported", "unattributed"} and (
+            record["reason"] is None
+        ):
             failures.append("effect runtime disposition diagnostic reason missing")
-        if (
-            record["kind"] == "legacy-structural-member"
-            and record["reason"] != "shape-only-legacy-member"
-        ):
-            failures.append("effect runtime disposition structural reason mismatch")
-        if (
-            record["kind"] == "legacy-coalesced-offscreen"
-            and record["reason"] not in {
-                "first-parameters-first-resolvable-normal",
-                "combined-stage-first-resolvable-opacity-mask",
-            }
-        ):
-            failures.append(
-                "effect runtime disposition coalesced offscreen reason mismatch"
-            )
         if record["kind"] == "unattributed":
             failures.append("effect runtime disposition contains unattributed stage")
 
     if stage_admission is None:
-        stage_admission = authored_effect_stage_admission_metrics(preview_text)
+        stage_admission = effect_stage_admission_metrics(preview_text)
     admission_records = stage_admission.get("records", [])
     admission_identities = [
         (record["layer_id"], record["effect_index"], record["descriptor_id"])
@@ -3412,10 +3178,10 @@ def effect_runtime_disposition_metrics(
             group = groups_by_layer.get(record["layer_id"])
             group_kind = group["kind"] if group is not None else None
             resolved_material_owner = (
-                record["kind"] == "strict-generic"
+                record["kind"] == "program"
                 and record["family"] == "resolved-material"
                 and record["reason"] == "resolved-material-capability-owner"
-                and group_kind == "authored"
+                and group_kind == "resolved"
             )
             if record["definition_path"] != admission["definition_path"]:
                 failures.append("effect runtime disposition definition path mismatch")
@@ -3423,49 +3189,36 @@ def effect_runtime_disposition_metrics(
                 expected_kind = "inactive"
                 expected_reason = admission["activity"]
             elif resolved_material_owner:
-                expected_kind = "strict-generic"
+                expected_kind = "program"
                 expected_reason = "resolved-material-capability-owner"
-            elif admission["strict_admission"] == "admitted-dedicated":
-                expected_kind = "strict-dedicated"
+            elif admission["admission"] == "admitted-dedicated":
+                expected_kind = "dedicated"
                 expected_reason = admission["reason"]
-            elif admission["strict_admission"] == "admitted-generic":
-                expected_kind = "strict-generic"
-                expected_reason = admission["reason"]
-            elif group_kind == "authored":
-                expected_kind = (
-                    "strict-inline-suffix"
-                    if admission["coverage"] == "terminal-inline-suffix"
-                    else "omitted-by-strict-chain"
-                )
+            elif admission["admission"] == "admitted-generic":
+                expected_kind = "program"
                 expected_reason = admission["reason"]
             else:
-                expected_kind = None
-                expected_reason = None
-            if expected_kind is not None and record["kind"] != expected_kind:
+                expected_kind = "unsupported"
+                expected_reason = (
+                    "r5-no-runtime-owner"
+                    if group is not None
+                    and group["reason"] == "r5-no-runtime-owner"
+                    else None
+                )
+            if record["kind"] != expected_kind:
                 failures.append("effect runtime disposition conflicts with admission")
-            if expected_kind is not None and record["reason"] != expected_reason:
+            if expected_reason is not None and record["reason"] != expected_reason:
                 failures.append("effect runtime disposition admission reason mismatch")
-            if expected_kind == "strict-dedicated" and (
+            if expected_kind == "dedicated" and (
                 record["family"] != admission["backend"]
             ):
                 failures.append("effect runtime disposition dedicated family mismatch")
-            if expected_kind == "strict-generic" and not resolved_material_owner and (
+            if expected_kind == "program" and not resolved_material_owner and (
                 record["family"] != (
                     admission["profile"] or admission["backend"]
                 )
             ):
                 failures.append("effect runtime disposition generic family mismatch")
-            if expected_kind == "strict-inline-suffix" and (
-                record["family"] != "iris-inline"
-            ):
-                failures.append("effect runtime disposition suffix family mismatch")
-            if expected_kind is None and record["kind"] in {
-                "strict-dedicated",
-                "strict-generic",
-                "strict-inline-suffix",
-                "omitted-by-strict-chain",
-            }:
-                failures.append("effect runtime disposition legacy admission conflict")
         for group in groups:
             admissions = [
                 record for record in admission_records
@@ -3504,42 +3257,9 @@ def effect_runtime_disposition_metrics(
     }
 
 
-def effect_runtime_disposition_failures(
-    sample: dict[str, Any],
-    metrics: dict[str, Any],
-    require_evidence: bool = False,
-) -> list[str]:
-    expectation_keys = {
-        expectation.matrix_key
-        for expectation in EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS
-    }
-    present_expectations = expectation_keys.intersection(sample)
-    expects_evidence = bool(present_expectations)
-    if not metrics["has_evidence"]:
-        return ["effect runtime disposition evidence missing"] if (
-            expects_evidence or require_evidence
-        ) else []
-    failures = list(metrics["validation_failures"])
-    if present_expectations and present_expectations != expectation_keys:
-        failures.append("effect runtime disposition matrix contract incomplete")
-    for expectation in EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS:
-        if expectation.matrix_key not in sample:
-            continue
-        expected = sample[expectation.matrix_key]
-        if expectation.comparison == "integer":
-            try:
-                expected = int(expected)
-            except (TypeError, ValueError):
-                failures.append(expectation.failure_message)
-                continue
-        if metrics[expectation.metric_key] != expected:
-            failures.append(expectation.failure_message)
-    return failures
-
-
 def _effect_execution_static_catalog(
     disposition: dict[str, Any] | None,
-) -> tuple[bool, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[bool, list[dict[str, Any]], list[dict[str, Any]]]:
     is_valid = effect_execution_static_demand(disposition).static_is_valid
     records = list(disposition.get("records", [])) if is_valid else []
     eligible_exact = [
@@ -3557,38 +3277,10 @@ def _effect_execution_static_catalog(
     eligible_exact.sort(key=lambda item: (
         item["layer_id"], item["effect_index"], item["descriptor_id"]
     ))
-    aggregate_map: dict[tuple[int, str], dict[str, Any]] = {}
-    for record in records:
-        if record.get("kind") not in EFFECT_EXECUTION_AGGREGATE_KINDS:
-            continue
-        key = (record["layer_id"], record["family"])
-        entry = aggregate_map.setdefault(key, {
-            "layer_id": record["layer_id"],
-            "family": record["family"],
-            "contributors": [],
-        })
-        entry["contributors"].append({
-            "effect_index": record["effect_index"],
-            "descriptor_id": record["descriptor_id"],
-            "definition_path": record["definition_path"],
-            "disposition_kind": record["kind"],
-        })
-    eligible_aggregates = []
-    for key in sorted(aggregate_map):
-        entry = aggregate_map[key]
-        entry["contributors"].sort(key=lambda item: (
-            item["effect_index"], item["descriptor_id"]
-        ))
-        eligible_aggregates.append(entry)
-    return is_valid, records, eligible_exact, eligible_aggregates
+    return is_valid, records, eligible_exact
 
 
-def _empty_effect_execution_metrics(
-    disposition: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    disposition_is_valid, _, eligible_exact, eligible_aggregates = (
-        _effect_execution_static_catalog(disposition)
-    )
+def _empty_effect_execution_metrics() -> dict[str, Any]:
     return {
         "has_evidence": False,
         "schema_version": None,
@@ -3603,30 +3295,12 @@ def _empty_effect_execution_metrics(
         "cpu_invocations": [],
         "succeeded_exact_effects": [],
         "failed_exact_effects": [],
-        "succeeded_aggregates": [],
-        "failed_aggregates": [],
         "route_operations": [],
         "encoded_route_operations": [],
         "failed_route_operations": [],
         "frames": [],
         "completed_frame_ids": [],
         "failed_frame_ids": [],
-        "eligible_exact_effect_count": (
-            len(eligible_exact) if disposition_is_valid else None
-        ),
-        "observed_eligible_exact_effect_count": 0,
-        "eligible_exact_gap_count": (
-            len(eligible_exact) if disposition_is_valid else None
-        ),
-        "unobserved_eligible_exact_effects": eligible_exact,
-        "eligible_aggregate_subject_count": (
-            len(eligible_aggregates) if disposition_is_valid else None
-        ),
-        "observed_eligible_aggregate_subject_count": 0,
-        "eligible_aggregate_gap_count": (
-            len(eligible_aggregates) if disposition_is_valid else None
-        ),
-        "unobserved_eligible_aggregates": eligible_aggregates,
         "canonical_sha256": None,
         "validation_failures": [],
     }
@@ -3639,49 +3313,28 @@ def _effect_execution_payload(line: str) -> str | None:
 
 def _effect_execution_identity_list(
     invocations: list[dict[str, Any]],
-    subject: str,
     outcome: str,
 ) -> list[dict[str, Any]]:
     grouped: dict[tuple[Any, ...], dict[str, Any]] = {}
     for invocation in invocations:
-        if invocation["subject"] != subject or invocation["outcome"] != outcome:
+        if invocation["outcome"] != outcome:
             continue
-        if subject == "effect":
-            key = (
-                invocation["layer_id"],
-                invocation["effect_index"],
-                invocation["descriptor_id"],
-                invocation["definition_path"],
-                invocation["family"],
-            )
-            identity = {
-                "layer_id": invocation["layer_id"],
-                "effect_index": invocation["effect_index"],
-                "descriptor_id": invocation["descriptor_id"],
-                "definition_path": invocation["definition_path"],
-                "family": invocation["family"],
-                "origins": set(),
-                "backends": set(),
-            }
-        else:
-            contributor_key = json.dumps(
-                invocation["contributors"],
-                ensure_ascii=True,
-                sort_keys=True,
-                separators=(",", ":"),
-            )
-            key = (
-                invocation["layer_id"],
-                invocation["family"],
-                contributor_key,
-            )
-            identity = {
-                "layer_id": invocation["layer_id"],
-                "family": invocation["family"],
-                "contributors": invocation["contributors"],
-                "origins": set(),
-                "backends": set(),
-            }
+        key = (
+            invocation["layer_id"],
+            invocation["effect_index"],
+            invocation["descriptor_id"],
+            invocation["definition_path"],
+            invocation["family"],
+        )
+        identity = {
+            "layer_id": invocation["layer_id"],
+            "effect_index": invocation["effect_index"],
+            "descriptor_id": invocation["descriptor_id"],
+            "definition_path": invocation["definition_path"],
+            "family": invocation["family"],
+            "origins": set(),
+            "backends": set(),
+        }
         entry = grouped.setdefault(key, identity)
         entry["origins"].add(invocation["origin"])
         entry["backends"].add(invocation["backend"])
@@ -3710,7 +3363,7 @@ def effect_execution_metrics(
         for key, marker in axis_markers.items()
     }
     if not any(axis_lines.values()):
-        return _empty_effect_execution_metrics(disposition)
+        return _empty_effect_execution_metrics()
 
     failures: list[str] = []
     raw_invocations: dict[str, dict[str, Any]] = {}
@@ -3733,13 +3386,7 @@ def effect_execution_metrics(
         backend_token = match.group("backend")
         subject = match.group("subject")
         reason_token = match.group("reason")
-        if (
-            subject == "effect"
-            and (effect_token == "-" or descriptor_token == "-")
-        ) or (
-            subject == "aggregate"
-            and (effect_token != "-" or descriptor_token != "-")
-        ):
+        if effect_token == "-" or descriptor_token == "-":
             failures.append("effect execution CPU subject identity malformed")
         outcome = match.group("outcome")
         canonical_line = (
@@ -3784,7 +3431,6 @@ def effect_execution_metrics(
             "reason_token": reason_token,
             "reason": None if reason_token == "-" else unquote(reason_token),
             "disposition_kind": None,
-            "contributors": [],
             "join_valid": False,
             "canonical_line": canonical_line,
         })
@@ -3873,7 +3519,6 @@ def effect_execution_metrics(
         disposition_is_valid,
         disposition_records,
         eligible_exact,
-        eligible_aggregates,
     ) = _effect_execution_static_catalog(disposition)
     exact_records = {
         (
@@ -3883,77 +3528,33 @@ def effect_execution_metrics(
         ): record
         for record in disposition_records
     }
-    aggregate_records = [
-        record for record in disposition_records
-        if record.get("kind") in EFFECT_EXECUTION_AGGREGATE_KINDS
-    ]
     if invocations and not disposition_is_valid:
         failures.append("effect execution static disposition unavailable or invalid")
 
     for invocation in invocations:
-        if invocation["subject"] == "effect":
-            if (
-                invocation["effect_index"] is None
-                or invocation["descriptor_id"] is None
-            ):
-                continue
-            record = exact_records.get((
-                invocation["layer_id"],
-                invocation["effect_index"],
-                invocation["descriptor_id"],
-            ))
-            if record is None:
-                if disposition_is_valid:
-                    failures.append("effect execution exact identity missing from disposition")
-                continue
-            invocation["definition_path"] = record["definition_path"]
-            invocation["disposition_kind"] = record["kind"]
-            if record["kind"] not in EFFECT_EXECUTION_EXACT_KINDS:
-                failures.append("effect execution exact disposition cannot invoke")
-                continue
-            if invocation["family"] != record["family"]:
-                failures.append("effect execution exact family mismatch")
-                continue
-            invocation["join_valid"] = True
-        else:
-            if (
-                invocation["effect_index"] is not None
-                or invocation["descriptor_id"] is not None
-            ):
-                continue
-            layer_candidates = [
-                record for record in aggregate_records
-                if record["layer_id"] == invocation["layer_id"]
-            ]
-            contributors = [
-                record for record in layer_candidates
-                if record["family"] == invocation["family"]
-            ]
-            if not contributors:
-                if disposition_is_valid:
-                    failures.append(
-                        "effect execution aggregate family mismatch"
-                        if layer_candidates
-                        else "effect execution aggregate disposition cannot invoke"
-                    )
-                continue
-            invocation["contributors"] = [
-                {
-                    "layer_id": record["layer_id"],
-                    "effect_index": record["effect_index"],
-                    "descriptor_id": record["descriptor_id"],
-                    "definition_path": record["definition_path"],
-                    "disposition_kind": record["kind"],
-                }
-                for record in sorted(contributors, key=lambda item: (
-                    item["effect_index"],
-                    item["descriptor_id"],
-                ))
-            ]
-            invocation["disposition_kind"] = sorted({
-                record["kind"] for record in contributors
-            })
-            invocation["join_valid"] = True
+        if (
+            invocation["effect_index"] is None
+            or invocation["descriptor_id"] is None
+        ):
+            continue
+        record = exact_records.get((
+            invocation["layer_id"],
+            invocation["effect_index"],
+            invocation["descriptor_id"],
+        ))
+        if record is None:
+            if disposition_is_valid:
+                failures.append("effect execution exact identity missing from disposition")
+            continue
+        invocation["definition_path"] = record["definition_path"]
+        invocation["disposition_kind"] = record["kind"]
+        if record["kind"] not in EFFECT_EXECUTION_EXACT_KINDS:
+            failures.append("effect execution exact disposition cannot invoke")
+            continue
+        if invocation["family"] != record["family"]:
+            failures.append("effect execution exact family mismatch")
+            continue
+        invocation["join_valid"] = True
 
     frame_statuses: dict[tuple[int, str], int] = {}
     for frame in frames:
@@ -3970,31 +3571,18 @@ def effect_execution_metrics(
     if any(count != 1 for count in frame_statuses.values()):
         failures.append("effect execution frame status identity duplicated")
 
-    succeeded_exact = _effect_execution_identity_list(
-        invocations, "effect", "encoded-output"
-    )
-    failed_exact = _effect_execution_identity_list(invocations, "effect", "failed")
-    succeeded_aggregate = _effect_execution_identity_list(
-        invocations, "aggregate", "encoded-output"
-    )
-    failed_aggregate = _effect_execution_identity_list(
-        invocations, "aggregate", "failed"
-    )
+    succeeded_exact = _effect_execution_identity_list(invocations, "encoded-output")
+    failed_exact = _effect_execution_identity_list(invocations, "failed")
     exact_key = lambda item: (
         item["layer_id"],
         item["effect_index"],
         item["descriptor_id"],
         item["definition_path"],
     )
-    aggregate_key = lambda item: (item["layer_id"], item["family"])
     if {exact_key(item) for item in succeeded_exact}.intersection(
         exact_key(item) for item in failed_exact
     ):
         failures.append("effect execution exact identity both succeeded and failed")
-    if {aggregate_key(item) for item in succeeded_aggregate}.intersection(
-        aggregate_key(item) for item in failed_aggregate
-    ):
-        failures.append("effect execution aggregate both succeeded and failed")
 
     route_identity = lambda item: {
         "origin": item["origin"],
@@ -4011,27 +3599,6 @@ def effect_execution_metrics(
     }
     if set(encoded_routes).intersection(failed_routes):
         failures.append("effect execution route both encoded and failed")
-
-    observed_exact_keys = {
-        (item["layer_id"], item["effect_index"], item["descriptor_id"])
-        for item in invocations
-        if item["subject"] == "effect" and item["join_valid"]
-    }
-    unobserved_exact = [
-        item for item in eligible_exact
-        if (item["layer_id"], item["effect_index"], item["descriptor_id"])
-        not in observed_exact_keys
-    ]
-
-    observed_aggregate_keys = {
-        (item["layer_id"], item["family"])
-        for item in invocations
-        if item["subject"] == "aggregate" and item["join_valid"]
-    }
-    unobserved_aggregates = [
-        item for item in eligible_aggregates
-        if (item["layer_id"], item["family"]) not in observed_aggregate_keys
-    ]
 
     public_invocations = []
     for invocation in invocations:
@@ -4079,8 +3646,6 @@ def effect_execution_metrics(
         "cpu_invocations": public_invocations,
         "succeeded_exact_effects": succeeded_exact,
         "failed_exact_effects": failed_exact,
-        "succeeded_aggregates": succeeded_aggregate,
-        "failed_aggregates": failed_aggregate,
         "route_operations": public_routes,
         "encoded_route_operations": [
             encoded_routes[key] for key in sorted(encoded_routes)
@@ -4097,24 +3662,6 @@ def effect_execution_metrics(
             frame["frame_id"] for frame in frames
             if frame["status"] == "failed"
         }),
-        "eligible_exact_effect_count": (
-            len(eligible_exact) if disposition_is_valid else None
-        ),
-        "observed_eligible_exact_effect_count": len(observed_exact_keys),
-        "eligible_exact_gap_count": (
-            len(unobserved_exact) if disposition_is_valid else None
-        ),
-        "unobserved_eligible_exact_effects": unobserved_exact,
-        "eligible_aggregate_subject_count": (
-            len(eligible_aggregates) if disposition_is_valid else None
-        ),
-        "observed_eligible_aggregate_subject_count": len(
-            observed_aggregate_keys
-        ),
-        "eligible_aggregate_gap_count": (
-            len(unobserved_aggregates) if disposition_is_valid else None
-        ),
-        "unobserved_eligible_aggregates": unobserved_aggregates,
         "canonical_sha256": canonical_sha256,
         "validation_failures": failures,
     }
@@ -4175,7 +3722,7 @@ def effect_execution_failures(
                 continue
         if metrics[expectation.metric_key] != expected:
             failures.append(expectation.failure_message)
-    if metrics["failed_exact_effects"] or metrics["failed_aggregates"]:
+    if metrics["failed_exact_effects"]:
         failures.append("effect execution CPU invocation failed")
     if metrics["failed_route_operations"]:
         failures.append("effect execution route operation failed")
@@ -4212,9 +3759,7 @@ def capture_execution_metrics(
 
 def authored_effect_graph_failures(
     sample: dict[str, Any],
-    legacy_blur_blocked_layer_ids: list[int],
     local_contrast_count: int | None,
-    chain_metrics: dict[str, int | None] | None = None,
     workshop_shadow_count: int | None = None,
     procedural_noise_count: int | None = None,
     film_grain_count: int | None = None,
@@ -4248,16 +3793,9 @@ def authored_effect_graph_failures(
     color_key_count: int | None = None,
     workshop_audio_bars_count: int | None = None,
     fisheye_zero_distortion_count: int | None = None,
-    route_only_effect_count: int | None = None,
     opacity_layer_ids: list[int] | None = None,
 ) -> list[str]:
     failures: list[str] = []
-    expected_blocked = sample.get(
-        "expected_authored_effect_graph_legacy_blur_blocked_layer_ids"
-    )
-    if expected_blocked is not None:
-        if set(legacy_blur_blocked_layer_ids) != set(expected_blocked):
-            failures.append("authored effect graph legacy blur blocked layer IDs mismatch")
     runtime_values = {
         "local_contrast_count": local_contrast_count,
         "opacity_count": opacity_count,
@@ -4295,7 +3833,6 @@ def authored_effect_graph_failures(
             transform_static_fallback_diagnostics,
         "authored_shader_count": authored_shader_count,
         "scroll_count": scroll_count,
-        "route_only_effect_count": route_only_effect_count,
     }
     for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS:
         expected = sample.get(expectation.matrix_key)
@@ -4310,13 +3847,6 @@ def authored_effect_graph_failures(
             matches = actual == expected
         if not matches:
             failures.append(expectation.failure_message)
-    chain_metrics = chain_metrics or {"chain_count": None, "stage_count": None}
-    for sample_key, metric_key, label in (
-        ("expected_authored_effect_graph_chain_count", "chain_count", "chain count"),
-        ("expected_authored_effect_graph_stage_count", "stage_count", "stage count"),
-    ):
-        if sample_key in sample and chain_metrics[metric_key] != int(sample[sample_key]):
-            failures.append(f"authored effect graph {label} mismatch")
     return failures
 
 
@@ -4563,7 +4093,6 @@ def run_sample(
     after_snapshot_delay: float | None,
     audio_spectrum_fixture: bool = False,
     require_effect_stage_admission: bool = False,
-    require_effect_runtime_disposition: bool = False,
     require_effect_execution: bool = False,
     require_graph_execution: bool = False,
 ) -> dict[str, Any]:
@@ -4688,9 +4217,6 @@ def run_sample(
     puppet_animation_runtime = puppet_animation_runtime_metrics(preview_text)
     utility_runtime = utility_runtime_metrics(preview_text)
     utility_capture_execution = utility_capture_execution_metrics(log_text)
-    authored_effect_graph_legacy_blur_blocked = (
-        authored_effect_graph_legacy_blur_blocked_layer_ids(preview_text)
-    )
     authored_effect_graph_local_contrast = authored_effect_graph_local_contrast_count(
         preview_text
     )
@@ -4779,8 +4305,7 @@ def run_sample(
         preview_text
     )
     authored_effect_graph_scroll = authored_effect_graph_scroll_count(preview_text)
-    authored_effect_graph_chain = authored_effect_graph_chain_metrics(preview_text)
-    authored_effect_stage_admission = authored_effect_stage_admission_metrics(
+    effect_stage_admission = effect_stage_admission_metrics(
         preview_text
     )
     authored_effect_stage_compile = authored_effect_stage_compile_metrics(
@@ -4788,7 +4313,7 @@ def run_sample(
     )
     effect_runtime_disposition = effect_runtime_disposition_metrics(
         preview_text,
-        authored_effect_stage_admission,
+        effect_stage_admission,
     )
     effect_execution = effect_execution_metrics(
         log_text,
@@ -4802,7 +4327,6 @@ def run_sample(
             static_disposition=effect_runtime_disposition,
         )
     )
-    route_only_effect_count = preview_text.count("offscreen route-only")
     named_target_capture_execution = named_target_capture_execution_metrics(log_text)
     named_target_binding_execution = named_target_binding_execution_metrics(log_text)
     particle_runtime = particle_runtime_metrics(preview_text)
@@ -4944,9 +4468,7 @@ def run_sample(
     failures.extend(utility_runtime_failures(sample, utility_runtime))
     failures.extend(authored_effect_graph_failures(
         sample,
-        authored_effect_graph_legacy_blur_blocked,
         authored_effect_graph_local_contrast,
-        authored_effect_graph_chain,
         workshop_shadow_count=authored_effect_graph_workshop_shadow,
         procedural_noise_count=authored_effect_graph_procedural_noise,
         film_grain_count=authored_effect_graph_film_grain,
@@ -4984,20 +4506,15 @@ def run_sample(
         fisheye_zero_distortion_count=(
             authored_effect_graph_fisheye_zero_distortion
         ),
-        route_only_effect_count=route_only_effect_count,
         opacity_layer_ids=authored_effect_graph_opacity_layers,
     ))
-    failures.extend(authored_effect_stage_admission_failures(
+    failures.extend(effect_stage_admission_failures(
         sample,
-        authored_effect_stage_admission,
+        effect_stage_admission,
         require_evidence=require_effect_stage_admission,
     ))
     failures.extend(authored_effect_stage_compile["validation_failures"])
-    failures.extend(effect_runtime_disposition_failures(
-        sample,
-        effect_runtime_disposition,
-        require_evidence=require_effect_runtime_disposition,
-    ))
+    failures.extend(effect_runtime_disposition["validation_failures"])
     failures.extend(effect_execution_failures(
         effect_execution,
         require_evidence=require_effect_execution,
@@ -5061,13 +4578,6 @@ def run_sample(
     if maximum_legacy_water_ripple_count is not None:
         if legacy_water_ripple_count > int(maximum_legacy_water_ripple_count):
             failures.append("legacy water ripple runtime count above maximum")
-    legacy_waterwaves_count = preview_text.count("effect runtime waterwaves-legacy;")
-    if legacy_waterwaves_count < int(sample.get("minimum_legacy_waterwaves_runtime_count", 0)):
-        failures.append("legacy waterwaves runtime count below minimum")
-    maximum_legacy_waterwaves_count = sample.get("maximum_legacy_waterwaves_runtime_count")
-    if maximum_legacy_waterwaves_count is not None:
-        if legacy_waterwaves_count > int(maximum_legacy_waterwaves_count):
-            failures.append("legacy waterwaves runtime count above maximum")
     sprite_animation_count = preview_text.count("; sprite animation frames=")
     if sprite_animation_count < int(sample.get("minimum_sprite_animation_count", 0)):
         failures.append("sprite animation runtime count below minimum")
@@ -5373,7 +4883,6 @@ def run_sample(
             "utility_layers": utility_runtime["layers"],
             "utility_capture_succeeded_layer_ids": utility_capture_execution["succeeded_layer_ids"],
             "utility_capture_failed_layer_ids": utility_capture_execution["failed_layer_ids"],
-            "authored_effect_graph_legacy_blur_blocked_layer_ids": authored_effect_graph_legacy_blur_blocked,
             "authored_effect_graph_local_contrast_count": authored_effect_graph_local_contrast,
             "authored_effect_graph_opacity_count": authored_effect_graph_opacity,
             "authored_effect_graph_color_key_count": authored_effect_graph_color_key,
@@ -5412,9 +4921,7 @@ def run_sample(
             "authored_effect_graph_transform_static_fallback_diagnostics": authored_effect_graph_transform_fallback_diagnostics,
             "authored_effect_graph_authored_shader_count": authored_effect_graph_authored_shader,
             "authored_effect_graph_scroll_count": authored_effect_graph_scroll,
-            "authored_effect_graph_chain_count": authored_effect_graph_chain["chain_count"],
-            "authored_effect_graph_stage_count": authored_effect_graph_chain["stage_count"],
-            "authored_effect_stage_admission": authored_effect_stage_admission,
+            "effect_stage_admission": effect_stage_admission,
             "authored_effect_stage_compile": authored_effect_stage_compile,
             "effect_runtime_disposition": effect_runtime_disposition,
             "effect_execution": effect_execution,
@@ -5479,11 +4986,9 @@ def run_sample(
             "water_ripple_normal_runtime_count": water_ripple_normal_count,
             "water_ripple_normal_load_count": water_ripple_normal_load_count,
             "legacy_water_ripple_runtime_count": legacy_water_ripple_count,
-            "legacy_waterwaves_runtime_count": legacy_waterwaves_count,
             "sprite_animation_count": sprite_animation_count,
             "color_blend_mode_9_count": color_blend_mode_9_count,
             "bloom_runtime_count": bloom_runtime_count,
-            "route_only_effect_count": route_only_effect_count,
             "runtime_evidence": runtime_evidence,
         },
     }
@@ -5562,14 +5067,6 @@ def parse_args() -> argparse.Namespace:
         help="fail selected samples when the structured effect-stage ledger is absent",
     )
     parser.add_argument(
-        "--require-effect-runtime-disposition",
-        action="store_true",
-        help=(
-            "fail selected samples when the structured effect runtime disposition "
-            "ledger is absent"
-        ),
-    )
-    parser.add_argument(
         "--require-effect-execution",
         action="store_true",
         help=(
@@ -5629,9 +5126,6 @@ def main() -> int:
             after_snapshot_delay=args.after_snapshot_delay,
             audio_spectrum_fixture=args.audio_spectrum_fixture,
             require_effect_stage_admission=args.require_effect_stage_admission,
-            require_effect_runtime_disposition=(
-                args.require_effect_runtime_disposition
-            ),
             require_effect_execution=args.require_effect_execution,
             require_graph_execution=args.require_graph_execution,
         )

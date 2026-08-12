@@ -127,6 +127,13 @@ enum Harness {
             else { return nil }
             return (texture, generation)
         }
+        func typedResolution(
+            _ registry: SceneFrameTextureRegistry,
+            _ identity: SceneFrameTextureIdentity
+        ) -> (texture: MTLTexture, generation: UInt64)? {
+            guard let resource = registry.resource(for: identity) else { return nil }
+            return (resource.publication.texture, resource.resourceGeneration)
+        }
 
         let registry = SceneFrameTextureRegistry()
         let fallbackTexture = texture()
@@ -150,13 +157,12 @@ enum Harness {
         let system = SceneFrameTextureIdentity.system("$mediaThumbnail")
         let fallback = SceneFrameTextureIdentity.layerSource(7)
         let dynamic = SceneFrameTextureIdentity.layerSource(8)
-        let selection = SceneFrameTextureSelection(candidates: [optionalProperty, fallback])
         let firstEpoch = registry.beginFrame(
             layerSources: [7: fallbackTexture],
             userPropertyTextures: ["persistent-cover": propertyTexture],
             systemTextures: ["$mediaThumbnail": systemTexture]
         )
-        let firstFallback = registry.resolve(SceneFrameTextureSelection(candidates: [fallback]))!
+        let firstFallback = bareResolution(registry, fallback)!
         let firstProperty = bareResolution(registry, persistentProperty)!
         let firstSystem = bareResolution(registry, system)!
         let bareLookupIsIncomplete: Bool
@@ -167,9 +173,7 @@ enum Harness {
         }
         let bareTypedLookupRejected = registry.resource(for: fallback) == nil
         let missingIsNotAbsent = registry.lookup(optionalProperty) == nil
-        let missing = registry.resolve(selection)
         registry.set(.absent, for: optionalProperty)
-        let absent = registry.resolve(selection)
         let absentIsExplicit: Bool
         if case .absent = registry.snapshot().lookup(optionalProperty) {
             absentIsExplicit = true
@@ -177,9 +181,9 @@ enum Harness {
             absentIsExplicit = false
         }
         registry.set(.pending, for: optionalProperty)
-        let pending = registry.resolve(selection)
+        let pending = registry.resource(for: optionalProperty)
         registry.set(.unavailable, for: optionalProperty)
-        let unavailable = registry.resolve(selection)
+        let unavailable = registry.resource(for: optionalProperty)
         registry.set(
             publication(
                 propertyTexture,
@@ -189,9 +193,9 @@ enum Harness {
             ),
             for: optionalProperty
         )
-        let incomplete = registry.resolve(selection)
+        let incomplete = registry.resource(for: optionalProperty)
         registry.set(.ready(propertyTexture), for: optionalProperty)
-        let bareExactProperty = registry.resolve(selection)
+        let bareExactProperty = registry.resource(for: optionalProperty)
         registry.set(
             publication(
                 propertyTexture,
@@ -202,7 +206,7 @@ enum Harness {
             ),
             for: optionalProperty
         )
-        let ready = registry.resolve(selection)
+        let ready = typedResolution(registry, optionalProperty)
 
         let primary = SceneNamedTextureReference(providerLayerID: 42, variant: .primary)
         let secondary = SceneNamedTextureReference(providerLayerID: 42, variant: .secondary)
@@ -219,7 +223,7 @@ enum Harness {
             userPropertyTextures: ["persistent-cover": propertyTexture],
             systemTextures: ["$mediaThumbnail": systemTexture]
         )
-        let secondFallback = registry.resolve(SceneFrameTextureSelection(candidates: [fallback]))!
+        let secondFallback = bareResolution(registry, fallback)!
         let secondProperty = bareResolution(registry, persistentProperty)!
         let secondSystem = bareResolution(registry, system)!
         let namedCleared = registry.texture(for: named) == nil
@@ -231,7 +235,7 @@ enum Harness {
             userPropertyTextures: ["persistent-cover": replacementPropertyTexture],
             systemTextures: ["$mediaThumbnail": replacementSystemTexture]
         )
-        let replacedFallback = registry.resolve(SceneFrameTextureSelection(candidates: [fallback]))!
+        let replacedFallback = bareResolution(registry, fallback)!
         let replacedProperty = bareResolution(registry, persistentProperty)!
         let replacedSystem = bareResolution(registry, system)!
 
@@ -245,7 +249,7 @@ enum Harness {
             userPropertyTextures: ["persistent-cover": propertyTexture],
             systemTextures: ["$mediaThumbnail": systemTexture]
         )
-        let restoredFallback = registry.resolve(SceneFrameTextureSelection(candidates: [fallback]))!
+        let restoredFallback = bareResolution(registry, fallback)!
         let restoredProperty = bareResolution(registry, persistentProperty)!
         let restoredSystem = bareResolution(registry, system)!
 
@@ -255,9 +259,7 @@ enum Harness {
                 8: publication(dynamicTexture, generation: 10)
             ]
         )
-        let firstDynamic = registry.resolve(
-            SceneFrameTextureSelection(candidates: [dynamic])
-        )!
+        let firstDynamic = typedResolution(registry, dynamic)!
         let firstDynamicResource = registry.resource(for: dynamic)
         let firstDynamicSnapshot = registry.snapshot()
         let firstDynamicCandidate = firstDynamicResource?.publication.candidate
@@ -299,18 +301,14 @@ enum Harness {
                 8: publication(dynamicTexture, generation: 11)
             ]
         )
-        let secondDynamic = registry.resolve(
-            SceneFrameTextureSelection(candidates: [dynamic])
-        )!
+        let secondDynamic = typedResolution(registry, dynamic)!
         registry.beginFrame(
             layerSources: [8: dynamicTexture],
             explicitLayerSources: [
                 8: publication(dynamicTexture, generation: 11)
             ]
         )
-        let repeatedDynamic = registry.resolve(
-            SceneFrameTextureSelection(candidates: [dynamic])
-        )!
+        let repeatedDynamic = typedResolution(registry, dynamic)!
         registry.beginFrame(
             layerSources: [8: dynamicTexture],
             explicitLayerSources: [
@@ -332,27 +330,21 @@ enum Harness {
                 8: publication(replacementDynamicTexture, generation: 11)
             ]
         )
-        let sameGenerationDynamic = registry.resolve(
-            SceneFrameTextureSelection(candidates: [dynamic])
-        )!
+        let sameGenerationDynamic = typedResolution(registry, dynamic)!
         registry.beginFrame(
             layerSources: [8: staleDynamicTexture],
             explicitLayerSources: [
                 8: publication(staleDynamicTexture, generation: 9)
             ]
         )
-        let lowerProducerGenerationDynamic = registry.resolve(
-            SceneFrameTextureSelection(candidates: [dynamic])
-        )!
+        let lowerProducerGenerationDynamic = typedResolution(registry, dynamic)!
         registry.beginFrame(
             layerSources: [8: replacementDynamicTexture],
             explicitLayerSources: [
                 8: publication(staleDynamicTexture, generation: 12)
             ]
         )
-        let mismatchedPublicationRejected = registry.resolve(
-            SceneFrameTextureSelection(candidates: [dynamic])
-        ) == nil
+        let mismatchedPublicationRejected = registry.resource(for: dynamic) == nil
 
         registry.beginFrame(
             layerSources: [:],
@@ -366,9 +358,7 @@ enum Harness {
                 )
             ]
         )
-        let firstExplicitSystem = registry.resolve(
-            SceneFrameTextureSelection(candidates: [system])
-        )!
+        let firstExplicitSystem = typedResolution(registry, system)!
         registry.beginFrame(
             layerSources: [:],
             systemTextures: ["$mediaThumbnail": systemTexture],
@@ -381,9 +371,7 @@ enum Harness {
                 )
             ]
         )
-        let secondExplicitSystem = registry.resolve(
-            SceneFrameTextureSelection(candidates: [system])
-        )!
+        let secondExplicitSystem = typedResolution(registry, system)!
         registry.beginFrame(
             layerSources: [:],
             systemTextures: ["$mediaThumbnail": replacementSystemTexture],
@@ -396,9 +384,7 @@ enum Harness {
                 )
             ]
         )
-        let replacedSameGenerationSystem = registry.resolve(
-            SceneFrameTextureSelection(candidates: [system])
-        )!
+        let replacedSameGenerationSystem = typedResolution(registry, system)!
         registry.beginFrame(
             layerSources: [:],
             systemTextures: ["$mediaThumbnail": replacementSystemTexture],
@@ -411,17 +397,15 @@ enum Harness {
                 )
             ]
         )
-        let lowerProducerGenerationSystem = registry.resolve(
-            SceneFrameTextureSelection(candidates: [system])
-        )!
+        let lowerProducerGenerationSystem = typedResolution(registry, system)!
 
-        let legacyBare = SceneFrameTextureIdentity.layerSource(9)
+        let bareLayerSource = SceneFrameTextureIdentity.layerSource(9)
         registry.beginFrame(layerSources: [9: dynamicTexture])
-        let legacyBareIsIncomplete: Bool
-        if case .incomplete(.bare) = registry.lookup(legacyBare) {
-            legacyBareIsIncomplete = registry.resource(for: legacyBare) == nil
+        let bareLayerSourceIsIncomplete: Bool
+        if case .incomplete(.bare) = registry.lookup(bareLayerSource) {
+            bareLayerSourceIsIncomplete = registry.resource(for: bareLayerSource) == nil
         } else {
-            legacyBareIsIncomplete = false
+            bareLayerSourceIsIncomplete = false
         }
         let bareGraphIdentity = SceneFrameTextureIdentity.graph(
             SceneAuthoredEffectRenderPlan.TextureIdentity(
@@ -895,15 +879,13 @@ enum Harness {
             "restoredGenerationsAdvanced": restoredFallback.generation > replacedFallback.generation
                 && restoredProperty.generation > replacedProperty.generation
                 && restoredSystem.generation > replacedSystem.generation,
-            "absentFallback": absent?.usedFallback == true && absent?.texture === fallbackTexture,
             "missingIsNotAbsent": missingIsNotAbsent,
-            "missingFailsClosed": missing == nil,
             "absentIsExplicit": absentIsExplicit,
             "pendingFailsClosed": pending == nil,
             "unavailableFailsClosed": unavailable == nil,
             "incompleteFailsClosed": incomplete == nil,
             "bareExactPropertyFailsClosed": bareExactProperty == nil,
-            "readyOverride": ready?.usedFallback == false && ready?.texture === propertyTexture,
+            "readyOverride": ready?.texture === propertyTexture,
             "primaryReady": primaryReady,
             "secondaryIsolated": secondaryIsolated,
             "namedCleared": namedCleared,
@@ -917,7 +899,7 @@ enum Harness {
                 explicitLayerPublishesExactGraphIdentity,
             "sameGenerationMetadataMutationPreservesAtom":
                 sameGenerationMetadataMutationPreservesAtom,
-            "legacyBareIsIncomplete": legacyBareIsIncomplete,
+            "bareLayerSourceIsIncomplete": bareLayerSourceIsIncomplete,
             "bareLayerDoesNotPublishTypedGraph": bareLayerDoesNotPublishTypedGraph,
             "unresolvedColorIsIncomplete": unresolvedColorIsIncomplete,
             "dataPurposeAndSourceRevisionPreserved":
@@ -1020,12 +1002,10 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_ready_provider_wins_and_only_explicit_absent_falls_back(self) -> None:
+    def test_typed_provider_requires_a_complete_publication(self) -> None:
         for key in (
-            "absentFallback",
             "missingIsNotAbsent",
             "absentIsExplicit",
-            "missingFailsClosed",
             "pendingFailsClosed",
             "unavailableFailsClosed",
             "incompleteFailsClosed",
@@ -1089,7 +1069,7 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             "snapshotUsesDirectIdentity",
             "explicitLayerPublishesExactGraphIdentity",
             "sameGenerationMetadataMutationPreservesAtom",
-            "legacyBareIsIncomplete",
+            "bareLayerSourceIsIncomplete",
             "bareLayerDoesNotPublishTypedGraph",
             "unresolvedColorIsIncomplete",
             "dataPurposeAndSourceRevisionPreserved",

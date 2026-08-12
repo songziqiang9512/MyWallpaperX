@@ -44,11 +44,6 @@ METAL_VIEW = (
 )
 LOADER_SOURCES = sorted(RESOURCE_ROOT.glob("*EffectTextureLoader*.swift"))
 EXPECTED_PURPOSES = {
-    "iris mask": "mask",
-    "opacity mask": "mask",
-    "water mask": "mask",
-    "foliage mask": "mask",
-    "waterripple normal": "normal",
     "shake flow": "flow",
     "shake phase": "phase",
     "shake mask": "mask",

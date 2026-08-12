@@ -50,7 +50,7 @@ nonisolated struct SceneTimelineKeyframe: Codable, Equatable {
 }
 
 /// 官方 Combined Animation 的序列化形态：同组 animation 用 property key 互相引用，并
-/// 复用持有方的 mode/时长。随包 `3768229922` 的 object 55 是唯一实例——`origin` 带
+/// 复用持有方的 mode/时长。已知 authored payload 的 `origin` 带
 /// `children: [{"key": "zoom"}]`，`zoom` 带 `parent: {"key": "origin"}`。
 nonisolated struct SceneTimelineGroupReference: Codable, Equatable {
     let key: String

@@ -1,9 +1,9 @@
 import CryptoKit
 import Foundation
 
-/// Exact shader contract for the legacy single-texture `effects/blend` variant.
+/// Exact shader contract for the single-texture-v1 `effects/blend` variant.
 nonisolated enum SceneBlendShaderProfile: Equatable {
-    case legacySingleTexture
+    case singleTextureV1
     case transformRepeatRequirementSingleTexture
 
     private struct Fingerprint {
@@ -77,7 +77,7 @@ nonisolated enum SceneBlendShaderProfile: Equatable {
     private nonisolated static let fragmentPath = "shaders/effects/blend.frag"
     private nonisolated static let fingerprints = [
         Fingerprint(
-            profile: .legacySingleTexture,
+            profile: .singleTextureV1,
             canonicalSHA256:
                 "302ccce9589534ff111de2125e10bbc55a9c2a4034388b43645491033bd1b5a4",
             fragmentSHA256:

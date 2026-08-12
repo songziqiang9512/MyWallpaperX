@@ -26,7 +26,7 @@ enum Harness {
             ["id": 9, "index": "bad", "type": " "],
         ] as [Any])
         let result: [String: Any] = [
-            "legacy": parsed.legacyLayerIDs,
+            "legacy": parsed.flatLayerIDs,
             "authored": parsed.authored.map {
                 ["id": $0.layerID, "index": $0.index as Any, "type": $0.type as Any]
             },

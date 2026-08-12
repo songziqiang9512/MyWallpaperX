@@ -39,9 +39,9 @@
 - [scene/scene-capability-development-plan-2026-07-22.md](scene/scene-capability-development-plan-2026-07-22.md)：历史总体实施批次、样本门和测试方法；当前等级与待办以专项表为准。
 - 专题下的 `regression/` 与普通 `reviews/` 文件默认是历史证据，不反向覆盖现役入口。
 
-## 现役执行计划
+## 已完成实施计划
 
-- [scene/scene-render-chain-refactor-plan-2026-08-03.md](scene/scene-render-chain-refactor-plan-2026-08-03.md)：Scene 当前 R1-R5 owner 收敛计划；只决定执行顺序，不覆盖能力台账和运行证据，R5 完成后退役为历史快照。
+- [scene/scene-render-chain-refactor-plan-2026-08-03.md](scene/scene-render-chain-refactor-plan-2026-08-03.md)：Scene R0-R5 owner 收敛与旧链删除的已完成实施记录；当前能力、下一任务和运行基线继续以专项台账、能力依赖图和运行证据索引为准。
 
 ## 目录分类
 

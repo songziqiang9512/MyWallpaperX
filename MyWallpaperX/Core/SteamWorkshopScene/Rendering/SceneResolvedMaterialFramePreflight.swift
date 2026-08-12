@@ -105,7 +105,7 @@ extension SceneMetalRenderer {
             )
             let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
             switch route {
-            case .legacy:
+            case .unclaimed:
                 continue
             case let .rejected(reasonCode):
                 return .rejected(reasonCode: reasonCode)
@@ -358,12 +358,10 @@ extension SceneMetalRenderer {
                     offscreenSize: nil,
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
-                    dependencyEffect: nil,
-                    blocksLegacyGaussianBlur: false
+                    dependencyEffect: nil
                 )
                 guard let uniforms = imageCompositor.sourceFragmentUniforms(
                     for: request,
-                    effectInputs: .neutral,
                     routesOffscreen: true
                 ) else { return nil }
                 sourceUniforms = uniforms
@@ -375,7 +373,7 @@ extension SceneMetalRenderer {
                 sourceUniforms: sourceUniforms,
                 sourcePipeline: imagePipeline,
                 dedicatedInputs: .init(
-                    masks: masks.authoredEffectResourcesOnly,
+                    masks: masks,
                     dynamicValues: frameContext.dynamicValues,
                     pipelines: imageCompositor.authoredEffectPipelines,
                     cursorUV: cursor ?? .zero,

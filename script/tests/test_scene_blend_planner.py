@@ -468,7 +468,7 @@ enum Harness {
         ]
         let result: [String: Bool] = [
             "profileResolved": SceneBlendShaderProfile.resolve(contracts)
-                == .legacySingleTexture,
+                == .singleTextureV1,
             "currentStockProfileResolved": SceneBlendShaderProfile.resolve(currentStock)
                 == .transformRepeatRequirementSingleTexture,
             "currentStockProfileAccepted": accepted(contracts: currentStock),

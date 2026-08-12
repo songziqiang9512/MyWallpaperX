@@ -3,11 +3,8 @@ import simd
 
 enum SceneOffscreenEffectRenderer {
     static func renderPreciseBlur(
-        executionPlan: SceneAuthoredEffectExecutionPlan,
+        executionPlan: SceneEffectStageExecutionPlan,
         sourceTexture: MTLTexture,
-        waterMaskTexture: MTLTexture?,
-        foliageMaskTexture: MTLTexture?,
-        auxMaskTexture: MTLTexture?,
         targets: SceneGraphRenderTargetTable,
         sourceUniforms: SceneLayerFragmentUniforms,
         sampleNormalizationExtent: SIMD2<Float>? = nil,
@@ -19,9 +16,6 @@ enum SceneOffscreenEffectRenderer {
               case .preciseGaussian(let plan) = executionPlan.backend,
               captureSource(
                   sourceTexture: sourceTexture,
-                  waterMaskTexture: waterMaskTexture,
-                  foliageMaskTexture: foliageMaskTexture,
-                  auxMaskTexture: auxMaskTexture,
                   target: targets.inputTexture,
                   sourceUniforms: sourceUniforms,
                   pipeline: pipeline,
@@ -134,9 +128,6 @@ enum SceneOffscreenEffectRenderer {
               let quarterB = targets.texture(for: intermediates[1].identity),
               captureSource(
             sourceTexture: sourceTexture,
-            waterMaskTexture: masks.water,
-            foliageMaskTexture: masks.foliage,
-            auxMaskTexture: masks.iris ?? masks.opacity,
             target: targets.inputTexture,
             sourceUniforms: sourceUniforms,
             pipeline: pipeline,
@@ -169,9 +160,6 @@ enum SceneOffscreenEffectRenderer {
 
     static func renderLocalContrast(
         sourceTexture: MTLTexture,
-        waterMaskTexture: MTLTexture?,
-        foliageMaskTexture: MTLTexture?,
-        auxMaskTexture: MTLTexture?,
         targets: SceneGraphRenderTargetTable,
         plan: SceneLocalContrastPlan,
         strength: Float,
@@ -182,9 +170,6 @@ enum SceneOffscreenEffectRenderer {
     ) -> MTLTexture? {
         guard captureSource(
             sourceTexture: sourceTexture,
-            waterMaskTexture: waterMaskTexture,
-            foliageMaskTexture: foliageMaskTexture,
-            auxMaskTexture: auxMaskTexture,
             target: targets.inputTexture,
             sourceUniforms: sourceUniforms,
             pipeline: pipeline,
@@ -204,9 +189,6 @@ enum SceneOffscreenEffectRenderer {
 
     static func renderWorkshopShadow(
         sourceTexture: MTLTexture,
-        waterMaskTexture: MTLTexture?,
-        foliageMaskTexture: MTLTexture?,
-        auxMaskTexture: MTLTexture?,
         targets: SceneGraphRenderTargetTable,
         plan: SceneWorkshopShadowExecutionPlan,
         sourceUniforms: SceneLayerFragmentUniforms,
@@ -217,9 +199,6 @@ enum SceneOffscreenEffectRenderer {
         guard targets.plan.logicalTargets.isEmpty,
               captureSource(
                   sourceTexture: sourceTexture,
-                  waterMaskTexture: waterMaskTexture,
-                  foliageMaskTexture: foliageMaskTexture,
-                  auxMaskTexture: auxMaskTexture,
                   target: targets.inputTexture,
                   sourceUniforms: sourceUniforms,
                   pipeline: pipeline,

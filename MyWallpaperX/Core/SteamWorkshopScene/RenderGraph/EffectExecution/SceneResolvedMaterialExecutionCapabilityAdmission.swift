@@ -17,7 +17,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
 }
 
 /// Raw-graph conservation and condition/function admission for one launch.
-/// It never consumes strict renderer chains or recovery subsets.
+/// It never consumes a secondary renderer route or a recovery subset.
 nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
     typealias Graph = SceneAuthoredEffectRenderPlan
 

@@ -5,7 +5,7 @@ nonisolated struct SceneProceduralNoiseExecutionPlan {
         case colorPerlinRGB
         case uvCurl
         case uvWorleyMix
-        case legacyWorleyColor
+        case worleyColorV1
     }
 
     let layerID: Int

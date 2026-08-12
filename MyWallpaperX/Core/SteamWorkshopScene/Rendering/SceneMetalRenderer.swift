@@ -14,7 +14,7 @@ struct SceneMetalRenderer {
     let layersByID: [Int: SceneRenderDescriptor.Layer]
     let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     let utilityCaptureLayerIDs: Set<Int>
-    let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+    let effectAdmissionCatalog: SceneEffectAdmissionCatalog
     let spotLightRuntime: SceneSpotLightRuntime
     let dependencyRuntime: SceneDependencyFrameRuntime
     let textureRegistry = SceneFrameTextureRegistry()
@@ -22,7 +22,7 @@ struct SceneMetalRenderer {
     private let effectExecutionTelemetry = SceneEffectExecutionTelemetry()
     init?(
         renderDescriptor: SceneRenderDescriptor,
-        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
+        effectAdmissionCatalog: SceneEffectAdmissionCatalog,
         pipelineRepository: SceneImageEffectPipelineRepository,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge? = nil
     ) {
@@ -40,13 +40,12 @@ struct SceneMetalRenderer {
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
         self.visibleLayerIDs = visibleLayerIDs
-        self.authoredEffectCatalog = authoredEffectCatalog
+        self.effectAdmissionCatalog = effectAdmissionCatalog
         self.spotLightRuntime = SceneSpotLightRuntime(descriptor: renderDescriptor, pipeline: pipelineRepository.spotLight())
         let resolvedMaterialLayerIDs = resolvedMaterialRuntime?.executionLayerIDs ?? []
         let executableUtilityConsumerLayerIDs = SceneUtilityLayerRuntimePlanner
             .executableUtilityConsumerLayerIDs(
                 in: renderDescriptor,
-                authoredEffectCatalog: authoredEffectCatalog,
                 resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
             )
         self.dependencyRuntime = SceneDependencyFrameRuntime(
@@ -59,7 +58,6 @@ struct SceneMetalRenderer {
         self.layersByID = byID
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: renderDescriptor,
-            authoredEffectCatalog: authoredEffectCatalog,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
             resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
         )
@@ -176,9 +174,6 @@ struct SceneMetalRenderer {
             switch layer.contentKind {
             case "image", "solid", "text":
                 guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }
-                let authoredEffectChain = authoredEffectChain(for: layer.id)
-                let suppressesLegacyEffectFallback = authoredEffectCatalog
-                    .legacyEffectFallbackSuppressedLayerIDs.contains(layer.id)
                 let dependencyEffect = dependencyRuntime.effectInput(
                     for: layer.id,
                     textureRegistry: textureRegistry
@@ -240,14 +235,10 @@ struct SceneMetalRenderer {
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: dependencyEffect,
-                    blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
-                    authoredEffectChain: authoredEffectChain,
                     dynamicValues: frameContext.dynamicValues,
                     audioSpectrum: frameContext.audioSpectrum,
                     authoredShaderFrameInputs: .init(frameContext: frameContext)
                 )
-                request.suppressesLegacyEffectFallback =
-                    suppressesLegacyEffectFallback
                 let encoded = imageCompositor.draw(
                     request,
                     pipeline: imagePipeline,

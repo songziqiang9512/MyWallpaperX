@@ -1,21 +1,16 @@
 extension SceneDesktopWallpaperHost {
     static func activeLiveConsumerTargets(
         in descriptor: SceneRenderDescriptor,
-        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
         resolvedMaterialExecutionCapabilities:
             SceneResolvedMaterialExecutionCapabilityCatalog
     ) -> Set<SceneDynamicTarget> {
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: descriptor,
-            authoredEffectCatalog: authoredEffectCatalog,
             resolvedMaterialLayerIDs:
                 resolvedMaterialExecutionCapabilities.executionLayerIDs
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
-        var effectTargets = authoredEffectCatalog.liveConsumerTargets
-        effectTargets.formUnion(
-            resolvedMaterialExecutionCapabilities.liveConsumerTargets
-        )
+        let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets
         return descriptor.layers.reduce(into: effectTargets) { targets, layer in
             switch layer.contentKind {
             case "image":

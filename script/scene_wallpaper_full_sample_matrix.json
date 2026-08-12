@@ -79,7 +79,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -96,81 +95,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 4,
-      "expected_effect_stage_parsed_count": 4,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 4
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 0,
-        "not-admitted": 4
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 0,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 4,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "a93cc44a2ddefe612f3856b66e3c2ba9fa20e09369f632ae4b403ec6ecc2d389",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 4,
-      "expected_effect_runtime_disposition_group_count": 1,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 0,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 4,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 0,
-        "layer-aggregate": 0,
-        "none": 4
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 0,
-        "aggregate-contributor": 0,
-        "member": 4,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 1,
-        "authored": 0,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "6f3a104706975dc4db2d30e474b4b85c664c6447ada657106690032db3b0eb8c",
       "expected_resolved_material_graph_succeeded_layer_ids": []
     },
     {
@@ -251,7 +177,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -268,81 +193,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 21,
-      "expected_effect_stage_parsed_count": 21,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 2,
-        "layer-hidden": 0,
-        "active": 19
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 2,
-        "admitted-dedicated": 0,
-        "admitted-generic": 0,
-        "not-admitted": 19
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 2,
-        "complete": 0,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 19,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "7058ef587c7bc56f3e16f74f8b127b959deae64bf15c258b2b1e845a040178cf",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 21,
-      "expected_effect_runtime_disposition_group_count": 2,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 2,
-        "strict-dedicated": 0,
-        "strict-generic": 0,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 19,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 0,
-        "layer-aggregate": 0,
-        "none": 21
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 0,
-        "aggregate-contributor": 0,
-        "member": 19,
-        "none": 2
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 2,
-        "authored": 0,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "d7585f1e66c1b3e93b720d397488f82093487a300b4b19b8abff8f46d0ff4811",
       "expected_resolved_material_graph_succeeded_layer_ids": []
     },
     {
@@ -445,7 +297,6 @@
         948,
         983
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -465,88 +316,9 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 51,
-      "expected_effect_stage_parsed_count": 51,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 51
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 13,
-        "admitted-generic": 38,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 51,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "9c17e912765e594c968c0cb757aa9b1f88cf5a8a65f3ab2d28391641363a234d",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 51,
-      "expected_effect_runtime_disposition_group_count": 13,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 13,
-        "strict-generic": 38,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 51,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 51,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 13,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "629c0afcd9729d65251668bd6bfde052bb32028a5f508654dfbf0c47dd9f7965",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 51,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 51,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "2067939514",
@@ -556,8 +328,7 @@
         "solid_layers",
         "particle_layers",
         "utility_layers",
-        "authored_effect_runtime",
-        "route_only_effects"
+        "authored_effect_runtime"
       ],
       "project_sha256": "cc06d2d33b8740ee247faf45a2f6d800e1a5c0a79cd581f51760b7eb4b2f5912",
       "package_sha256": "3a3881cd8af5165d789b2b9e3ab09e8c4955a741893bbadec660af65570b2455",
@@ -637,13 +408,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [
-        382,
-        525,
-        605,
-        617,
-        935
-      ],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -662,94 +426,15 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 80,
-      "expected_effect_stage_parsed_count": 80,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 6,
-        "layer-hidden": 48,
-        "active": 26
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 54,
-        "admitted-dedicated": 5,
-        "admitted-generic": 6,
-        "not-admitted": 15
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 54,
-        "complete": 11,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 15,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "d57e896dacf098f9ffe9b150eb76edad29cabcb7a12472a67ff04aa074274ec5",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 80,
-      "expected_effect_runtime_disposition_group_count": 29,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 54,
-        "strict-dedicated": 5,
-        "strict-generic": 6,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 15,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 11,
-        "layer-aggregate": 0,
-        "none": 69
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 11,
-        "aggregate-contributor": 0,
-        "member": 15,
-        "none": 54
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 19,
-        "direct": 6,
-        "authored": 4,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "87a845cb73f5a67e9f0809d00c507d232c4d3e60f0a876f904dbb010f6b4df9c",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         65,
         161,
         342,
         1063
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 11,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 11,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "2131872317",
@@ -848,7 +533,6 @@
         78,
         82
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -865,88 +549,9 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 21,
-      "expected_effect_stage_parsed_count": 21,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 21
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 7,
-        "admitted-generic": 12,
-        "not-admitted": 2
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 19,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 2,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "89e39c795804ffef224ac1ff941024a498bb5e50112cc419575d5361f7c529ab",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 21,
-      "expected_effect_runtime_disposition_group_count": 6,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 7,
-        "strict-generic": 12,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 2,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 19,
-        "layer-aggregate": 0,
-        "none": 2
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 19,
-        "aggregate-contributor": 0,
-        "member": 2,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 1,
-        "authored": 5,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "3cfd954a4b590bc7489eadfe382b28a46e700a7a98e5c5b5cbd7021ea6eee3e3",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 19,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 19,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "2134765860",
@@ -957,8 +562,7 @@
         "text_layers",
         "particle_layers",
         "utility_layers",
-        "authored_effect_runtime",
-        "route_only_effects"
+        "authored_effect_runtime"
       ],
       "project_sha256": "d7148106c25efbbfc5b58238f3d24305ab6f7f81634298be94be549b20ea152f",
       "package_sha256": "4198746acad0d1216c0d598624396ba9e9e4ddd114ccd29d1a8a0c5783245e0f",
@@ -1053,12 +657,6 @@
         301,
         457
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [
-        350,
-        472,
-        526,
-        674
-      ],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -1075,8 +673,6 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
       "expected_time_of_day_effect_script_binding_count": 4,
       "required_time_of_day_effect_script_bindings": [
         {
@@ -1104,94 +700,16 @@
           "constant": "multiply"
         }
       ],
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 79,
-      "expected_effect_stage_parsed_count": 79,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 27,
-        "layer-hidden": 24,
-        "active": 28
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 51,
-        "admitted-dedicated": 7,
-        "admitted-generic": 5,
-        "not-admitted": 16
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 51,
-        "complete": 12,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 16,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "eac47496b1ab0d372f497e5403c2e8faad24af1417904f10b87d6b5fdea88ac2",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 79,
-      "expected_effect_runtime_disposition_group_count": 30,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 51,
-        "strict-dedicated": 7,
-        "strict-generic": 5,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 16,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 12,
-        "layer-aggregate": 0,
-        "none": 67
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 12,
-        "aggregate-contributor": 0,
-        "member": 16,
-        "none": 51
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 16,
-        "direct": 9,
-        "authored": 5,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "f722b0c07ae3477b4d6015ecf410327782bbfe06eab4b265d1133944f2656c99",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 12,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 12,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "2241938645",
       "title": "KDA Akali [4k Version]",
       "capabilities": [
         "image_layers",
-        "particle_layers",
-        "route_only_effects"
+        "particle_layers"
       ],
       "project_sha256": "ba0930a888d9d808b997eeaf8decf42598e3ec4eab5bff72a0f9d9d9ca7ba2b4",
       "package_sha256": "763e7e031e8bdcb4528a7eb04c6db7673b0def098cd116784bf2d1b21b814910",
@@ -1267,7 +785,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -1287,81 +804,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 10,
-      "expected_effect_stage_parsed_count": 10,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 10
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 0,
-        "not-admitted": 10
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 0,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 10,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "ca9acb4db4654811dcec3bb05c4a4971fe07597d830a436a8d642679d6e41f63",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 10,
-      "expected_effect_runtime_disposition_group_count": 1,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 0,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 10,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 0,
-        "layer-aggregate": 0,
-        "none": 10
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 0,
-        "aggregate-contributor": 0,
-        "member": 10,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 1,
-        "authored": 0,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "d533d4c27cd92e0102b189651695fb73313beb994f61e1aaf82cd45f6ead1a07",
       "expected_resolved_material_graph_succeeded_layer_ids": []
     },
     {
@@ -1449,7 +893,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -1466,81 +909,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 13,
-      "expected_effect_stage_parsed_count": 13,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 1,
-        "layer-hidden": 3,
-        "active": 9
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 4,
-        "admitted-dedicated": 0,
-        "admitted-generic": 0,
-        "not-admitted": 9
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 4,
-        "complete": 0,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 9,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "1510ff64a7ee09a9696e2d56f3b3fc4736d817cdc1de48c4fa11d390715a1141",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 13,
-      "expected_effect_runtime_disposition_group_count": 4,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 4,
-        "strict-dedicated": 0,
-        "strict-generic": 0,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 9,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 0,
-        "layer-aggregate": 0,
-        "none": 13
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 0,
-        "aggregate-contributor": 0,
-        "member": 9,
-        "none": 4
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 2,
-        "direct": 2,
-        "authored": 0,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "670cd9c492e34f7ab6db09a21cbed3c0b4955e79ac5c5ee3f418060773a3bf8f",
       "expected_resolved_material_graph_succeeded_layer_ids": []
     },
     {
@@ -1624,7 +994,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -1641,92 +1010,13 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
       "expected_authored_effect_graph_iris_inline_suffix_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 6,
-      "expected_effect_stage_parsed_count": 6,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 6
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 6,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 6,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "3a0d9ff35ad09c882c9510755ac27cec147ab1792a7d72d0e44ad06afa7da695",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 6,
-      "expected_effect_runtime_disposition_group_count": 1,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 6,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 6,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 6,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "fb6f7ad1beb1a6c726c2c882aa7c798b6aef4055b1a97b0e8f06a0097d479d07",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         13
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 6,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 6,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "2473638329",
@@ -1808,7 +1098,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -1825,91 +1114,12 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 7,
-      "expected_effect_stage_parsed_count": 7,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 7
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 1,
-        "admitted-generic": 6,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 7,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "58507f6f0c8e1a17a649f2e95edf3feeb37ba9f0db42ad8d2f03210d8b943a8a",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 7,
-      "expected_effect_runtime_disposition_group_count": 1,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 1,
-        "strict-generic": 6,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 7,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 7,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "29ce8355624e610a1f680065368e6067ce7c43adff58edd19c3ea69ab131a503",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         13
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 7,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 7,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "2802243144",
@@ -1918,8 +1128,7 @@
         "image_layers",
         "text_layers",
         "particle_layers",
-        "strict_effect_runtime",
-        "route_only_effects"
+        "strict_effect_runtime"
       ],
       "project_sha256": "17d531c1c8744405d3ca723cf9f0b0482604c42cf1e8f2e4567a511ea2a91fc3",
       "package_sha256": "37177bea231f0fc337b5ad2d08cfbc68ee14afe3c4e7208fbceb7fd4da795625",
@@ -1998,9 +1207,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_color_key_count": null,
@@ -2027,82 +1233,11 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_scroll_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_text_script_binding_count": 2,
       "required_text_script_binding_layer_ids": [
         73,
         74
       ],
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 8,
-      "expected_effect_stage_parsed_count": 8,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 8
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 3,
-        "admitted-generic": 5,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 8,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "892992896ba3d264780fd673dd7bd894be024b7d0a3265ef5012aedeee4f4b13",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 8,
-      "expected_effect_runtime_disposition_group_count": 4,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 3,
-        "strict-generic": 5,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 8,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 8,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 4,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "f5e9823a7ada89657a5c941a663bf959f2cc16577b7e98ecc10a5f7c55ea0482",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         41,
         58,
@@ -2111,13 +1246,7 @@
       ],
       "requires_motion": true,
       "minimum_changed_ratio": 0.005,
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 8,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 8,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "2884628849",
@@ -2126,8 +1255,7 @@
         "image_layers",
         "text_layers",
         "solid_layers",
-        "utility_layers",
-        "route_only_effects"
+        "utility_layers"
       ],
       "project_sha256": "4b7d1cda2d3917e5d76f6dd1133e64b32431787435b0588d9c2fb97dfc2e6eff",
       "package_sha256": "9769d3f65fbd22e3de5a2592cb001a21fea5d86980a9f68db2f3fdd1ddc2f146",
@@ -2210,9 +1338,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_color_key_count": null,
@@ -2239,87 +1364,10 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_scroll_count": 0,
-      "expected_route_only_effect_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 33,
-      "expected_effect_stage_parsed_count": 33,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 1,
-        "layer-hidden": 17,
-        "active": 15
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 18,
-        "admitted-dedicated": 0,
-        "admitted-generic": 2,
-        "not-admitted": 13
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 18,
-        "complete": 2,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 13,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "58d6ada9525cdcc46ffec586fb91f75ed0e3eb02ae6a8a9a6b9c3835feb0faf9",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 33,
-      "expected_effect_runtime_disposition_group_count": 10,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 18,
-        "strict-dedicated": 0,
-        "strict-generic": 2,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 13,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 2,
-        "layer-aggregate": 0,
-        "none": 31
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 2,
-        "aggregate-contributor": 0,
-        "member": 13,
-        "none": 18
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 6,
-        "direct": 3,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "cb505d4ba617c3358aae49cf1fc62540725eda5054d09255e5c2dcad5f1d7637",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         139
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 2,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 2,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "2902406982",
@@ -2332,8 +1380,7 @@
         "utility_layers",
         "dependency_graph",
         "named_texture_references",
-        "strict_effect_runtime",
-        "route_only_effects"
+        "strict_effect_runtime"
       ],
       "project_sha256": "42664ae4949af13ee7b53bef3e9b01a65a0bf04990d4626115c8463ba394174e",
       "package_sha256": "57d26227f86014706887b5325ea84437c2b4d20d98fa03f46c6c3f53199459c4",
@@ -2499,7 +1546,6 @@
         285,
         791
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -2518,81 +1564,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 115,
-      "expected_effect_stage_parsed_count": 115,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 57,
-        "layer-hidden": 4,
-        "active": 54
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 61,
-        "admitted-dedicated": 12,
-        "admitted-generic": 33,
-        "not-admitted": 9
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 61,
-        "complete": 45,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 9,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "0d6474616ae0f9313d4a6da8b3784bb2d8278adbcc742d28eb59cfb8a6fe2463",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 115,
-      "expected_effect_runtime_disposition_group_count": 50,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 61,
-        "strict-dedicated": 12,
-        "strict-generic": 33,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 9,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 45,
-        "layer-aggregate": 0,
-        "none": 70
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 45,
-        "aggregate-contributor": 0,
-        "member": 9,
-        "none": 61
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 3,
-        "direct": 4,
-        "authored": 43,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "efe6ffe4379fa1cf9c3c411ba9c9430b22a75e9681fcbe78753f7932933204a3",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         70,
         167,
@@ -2638,13 +1611,7 @@
         912,
         1270
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 45,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 45,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "2938612768",
@@ -2656,8 +1623,7 @@
         "particle_layers",
         "utility_layers",
         "dependency_graph",
-        "named_texture_references",
-        "route_only_effects"
+        "named_texture_references"
       ],
       "project_sha256": "224360470a676696a07fc15a620c422126d1653f193d58b089c49b4e1a34f547",
       "package_sha256": "1f3a74c0241bb8f57c0abdbcded05562e329ebfc6ff47bf762e8b71f4e0326fc",
@@ -2788,9 +1754,6 @@
         390,
         563
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_color_key_count": null,
@@ -2819,89 +1782,12 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_scroll_count": 0,
-      "expected_route_only_effect_count": 6,
       "expected_text_script_binding_count": 2,
       "required_text_script_binding_layer_ids": [
         187,
         1095
       ],
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 73,
-      "expected_effect_stage_parsed_count": 73,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 11,
-        "layer-hidden": 17,
-        "active": 45
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 28,
-        "admitted-dedicated": 1,
-        "admitted-generic": 3,
-        "not-admitted": 41
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 28,
-        "complete": 4,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 41,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "da0b9e2f55f4186eeafd89531a6b9c7217fb301b7de6aa774236a07a8e22a8fe",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 73,
-      "expected_effect_runtime_disposition_group_count": 37,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 28,
-        "strict-dedicated": 1,
-        "strict-generic": 3,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 41,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 4,
-        "layer-aggregate": 0,
-        "none": 69
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 4,
-        "aggregate-contributor": 0,
-        "member": 41,
-        "none": 28
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 15,
-        "direct": 19,
-        "authored": 3,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "43af882c10f0b95a21dbc4376278188a5f34a6d5912cfa833fbb9e8b1a2b0cde",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 4,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 4,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "2974757317",
@@ -2913,8 +1799,7 @@
         "particle_layers",
         "utility_layers",
         "dependency_graph",
-        "named_texture_references",
-        "route_only_effects"
+        "named_texture_references"
       ],
       "project_sha256": "d68be91d3e01c5b32cb818290de49c99551335ca3e051f7664b303018b1fb6f6",
       "package_sha256": "344bcd46940ce402c3ac6f110e5d3a4694026dd6e27b3ee9c8bbe49ed0143f4a",
@@ -3024,9 +1909,6 @@
         956,
         57098
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_color_key_count": null,
@@ -3057,94 +1939,17 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_scroll_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_text_script_binding_count": 2,
       "required_text_script_binding_layer_ids": [
         187,
         568
       ],
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 67,
-      "expected_effect_stage_parsed_count": 67,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 3,
-        "layer-hidden": 4,
-        "active": 60
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 7,
-        "admitted-dedicated": 3,
-        "admitted-generic": 2,
-        "not-admitted": 55
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 7,
-        "complete": 5,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 55,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "41ed98ac65de3bccaabed8fea3c89808f6c5763f7b7994ac8cfed0bb31c09ccd",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 67,
-      "expected_effect_runtime_disposition_group_count": 26,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 7,
-        "strict-dedicated": 3,
-        "strict-generic": 2,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 55,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 5,
-        "layer-aggregate": 0,
-        "none": 62
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 5,
-        "aggregate-contributor": 0,
-        "member": 55,
-        "none": 7
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 2,
-        "direct": 21,
-        "authored": 3,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "09830472042639ba1efa6945eed9afb2882c1d92b551b5d08660e7864857b868",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         956,
         1481,
         57098
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 5,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 5,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "2998757800",
@@ -3247,7 +2052,6 @@
         55,
         85
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -3266,90 +2070,11 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "hover_pointer_normalized": [
         0.0,
         0.0
       ],
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 22,
-      "expected_effect_stage_parsed_count": 22,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 22
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 3,
-        "admitted-generic": 19,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 22,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "59dc30b5f99757a3a53350342dc11e596aaed2d89b274d362ad6fe96e128c424",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 22,
-      "expected_effect_runtime_disposition_group_count": 5,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 3,
-        "strict-generic": 19,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 22,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 22,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 5,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "83f4613299336f0b203c3b9ef32a1fc04aa0fd3300d61b926eae250237aa6dc2",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 22,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 22,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3028090166",
@@ -3357,8 +2082,7 @@
       "capabilities": [
         "image_layers",
         "particle_layers",
-        "utility_layers",
-        "route_only_effects"
+        "utility_layers"
       ],
       "project_sha256": "25c04a16b027547651ba5e6a17749dab8003a01c31e4502aad745f370356cd9a",
       "package_sha256": "18e1c562d68bc60c93f2eb7c1f5d3777af4b211d56a83de5538aa7180c24b379",
@@ -3434,9 +2158,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_color_key_count": null,
@@ -3463,77 +2184,6 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_scroll_count": 0,
-      "expected_route_only_effect_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 20,
-      "expected_effect_stage_parsed_count": 20,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 4,
-        "layer-hidden": 0,
-        "active": 16
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 4,
-        "admitted-dedicated": 6,
-        "admitted-generic": 9,
-        "not-admitted": 1
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 4,
-        "complete": 15,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 1,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "81140edd799178401e7c2ae9c1556324e3e3d5284a758b2c913def9dbdea31d8",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 20,
-      "expected_effect_runtime_disposition_group_count": 8,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 4,
-        "strict-dedicated": 6,
-        "strict-generic": 9,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 1,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 15,
-        "layer-aggregate": 0,
-        "none": 5
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 15,
-        "aggregate-contributor": 0,
-        "member": 1,
-        "none": 4
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 2,
-        "direct": 1,
-        "authored": 5,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "e0f50336d11585c097748263e32f0afee8c99f6749bdbcc57807f8ccbd22467b",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         13,
         82,
@@ -3541,21 +2191,14 @@
         111,
         129
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 15,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 15,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3088601835",
       "title": "Winter Wanderer Xayah - League of Legends [ NAMAKXIN ]",
       "capabilities": [
         "image_layers",
-        "particle_layers",
-        "route_only_effects"
+        "particle_layers"
       ],
       "project_sha256": "03d5774aa09b83608be59c0034cc70614dc898ca037430a30cef700356702e4a",
       "package_sha256": "c6197157f8d85a3ddc056860ba7b58f3a5f555ac48ba4339a94b05f491baf80b",
@@ -3656,9 +2299,6 @@
         50,
         54
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_color_key_count": null,
@@ -3685,84 +2325,7 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_scroll_count": 0,
-      "expected_route_only_effect_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 36,
-      "expected_effect_stage_parsed_count": 36,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 36
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 17,
-        "not-admitted": 19
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 17,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 19,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "9de4c96e151fa56042c7c5dbd12e6998fea8023bf61f7fcc3ef42232f33ce7a4",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 36,
-      "expected_effect_runtime_disposition_group_count": 9,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 17,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 19,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 17,
-        "layer-aggregate": 0,
-        "none": 19
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 17,
-        "aggregate-contributor": 0,
-        "member": 19,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 3,
-        "authored": 6,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "cf6be9e827cb448cfa67fc3d67f3a1da000e959637c5a25f5670505fcb2954dd",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 17,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 17,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3122339805",
@@ -4024,7 +2587,6 @@
         668,
         675
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -4043,88 +2605,9 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 17,
-      "expected_effect_stage_parsed_count": 17,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 5,
-        "active": 12
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 5,
-        "admitted-dedicated": 0,
-        "admitted-generic": 12,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 5,
-        "complete": 12,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "53ffb49474e5d6d6a7eeb158b7821971e3b91dd9f04dda8e7e7753bd818ab3ff",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 17,
-      "expected_effect_runtime_disposition_group_count": 17,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 5,
-        "strict-dedicated": 0,
-        "strict-generic": 12,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 12,
-        "layer-aggregate": 0,
-        "none": 5
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 12,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 5
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 5,
-        "direct": 0,
-        "authored": 12,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "7a5f2c72034d748f5f2003d0ef9c027c6dd766c21e72f00c1191083f55606b3d",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 12,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 12,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3141421197",
@@ -4209,7 +2692,6 @@
       "expected_resolved_material_graph_succeeded_layer_ids": [
         20
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -4226,88 +2708,9 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 1,
-      "expected_effect_stage_parsed_count": 1,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 1
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 1,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 1,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "021425fd7fbeae99884e2b18a8800b64b230163bfe46fd5efd6e6d733598482c",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 1,
-      "expected_effect_runtime_disposition_group_count": 1,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 1,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 1,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 1,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "4486af8c85ae6ad00223025516c415b24b9e6c51183ff579b414b2fb4b7c4b1e",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 1,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 1,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3290491250",
@@ -4401,7 +2804,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -4418,92 +2820,13 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 3,
-      "expected_effect_stage_parsed_count": 3,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 3
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 1,
-        "admitted-generic": 1,
-        "not-admitted": 1
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 2,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 1,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "09a0070ab923451ba0a96344e983fd674159ed58b1301847efaab3ce39c908af",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 3,
-      "expected_effect_runtime_disposition_group_count": 3,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 1,
-        "strict-generic": 1,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 1,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 2,
-        "layer-aggregate": 0,
-        "none": 1
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 2,
-        "aggregate-contributor": 0,
-        "member": 1,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 1,
-        "authored": 2,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "a47d82351bf8e6ca3f03cf72fa8251e689b2e7e0f72f89f93daa0fa8ab95ee90",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         28,
         66
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 2,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 2,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3299228616",
@@ -4513,8 +2836,7 @@
         "text_layers",
         "particle_layers",
         "utility_layers",
-        "authored_effect_runtime",
-        "route_only_effects"
+        "authored_effect_runtime"
       ],
       "project_sha256": "ab40ff816ef3e092269b1569d10733bb43acaa3b64d4e156dca0334b0dc817ca",
       "package_sha256": "9e0c1e26523d1a434330f0b1d039783a8031d77715cecb0e53e23b73d7b2e346",
@@ -4600,9 +2922,6 @@
       ],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_color_key_count": null,
@@ -4634,93 +2953,16 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_scroll_count": 0,
-      "expected_route_only_effect_count": 29,
       "expected_text_script_binding_count": 1,
       "required_text_script_binding_layer_ids": [
         150
       ],
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 276,
-      "expected_effect_stage_parsed_count": 276,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 60,
-        "layer-hidden": 200,
-        "active": 16
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 260,
-        "admitted-dedicated": 1,
-        "admitted-generic": 4,
-        "not-admitted": 11
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 260,
-        "complete": 5,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 11,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "84875c114e8ab0adef3929dc49dfc79d4670cbb199e1b4df0131d033ad7a09bf",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 276,
-      "expected_effect_runtime_disposition_group_count": 138,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 260,
-        "strict-dedicated": 1,
-        "strict-generic": 4,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 11,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 5,
-        "layer-aggregate": 0,
-        "none": 271
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 5,
-        "aggregate-contributor": 0,
-        "member": 11,
-        "none": 260
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 132,
-        "direct": 3,
-        "authored": 3,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "a46cb5f991a8f20a8997579a07a7c16b1cc8fc72406b001869ff45477a7cefb6",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         151,
         303,
         601
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 5,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 5,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3738202317",
@@ -4799,7 +3041,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -4817,91 +3058,12 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 4,
-      "expected_effect_stage_parsed_count": 4,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 4
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 2,
-        "admitted-generic": 2,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 4,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "899e3dd217449fafec1a1983b418df91d726b58eacb0a95e65a87295227b5d07",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 4,
-      "expected_effect_runtime_disposition_group_count": 1,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 2,
-        "strict-generic": 2,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 4,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 4,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "5c3733d56a38c5d2c78db4e2a91b41a630c8bdfa62760993035a33286c3199a3",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         16
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 4,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 4,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3742133044",
@@ -4983,7 +3145,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -5000,92 +3161,13 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
       "expected_authored_effect_graph_iris_inline_suffix_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 5,
-      "expected_effect_stage_parsed_count": 5,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 5
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 5,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 5,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "3010c76709cc74abf2d18b0de7165969970215a0c592307f55908076f417da56",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 5,
-      "expected_effect_runtime_disposition_group_count": 1,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 5,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 5,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 5,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "c3d47c37817bafe76b3e82538d28bf1477522d14935baed6a0f9f7b0d5be913f",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         17
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 5,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 5,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3743305891",
@@ -5095,7 +3177,6 @@
         "text_layers",
         "particle_layers",
         "strict_effect_runtime",
-        "route_only_effects",
         "verified_text_script_runtime"
       ],
       "project_sha256": "0d41bcedebbbd5cbf0874840b4fe753d3b1c3e98d1b93d541c28095495904403",
@@ -5177,9 +3258,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_color_key_count": null,
@@ -5206,96 +3284,19 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_scroll_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_text_script_binding_count": 3,
       "required_text_script_binding_layer_ids": [
         54,
         60,
         66
       ],
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 4,
-      "expected_effect_stage_parsed_count": 4,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 4
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 3,
-        "admitted-generic": 1,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 4,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "2adc21caa3bf4c2ed09abfb07f2ff092730c7c407c26426a73e8ec03426c3f1f",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 4,
-      "expected_effect_runtime_disposition_group_count": 4,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 3,
-        "strict-generic": 1,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 4,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 4,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 4,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "a33fe35956e2f81007aaf95e82da3f858475a17555b9dabbc39a8dee3090fbd0",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         23,
         54,
         60,
         66
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 4,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 4,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3747492842",
@@ -5391,7 +3392,6 @@
       "expected_resolved_material_graph_succeeded_layer_ids": [
         186
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -5408,92 +3408,13 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "hover_pointer_normalized": [
         0.0,
         0.0
       ],
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 13,
-      "expected_effect_stage_parsed_count": 13,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 1,
-        "layer-hidden": 0,
-        "active": 12
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 1,
-        "admitted-dedicated": 0,
-        "admitted-generic": 1,
-        "not-admitted": 11
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 1,
-        "complete": 1,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 11,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "e4f4ff38921140546f8d982c227b0f7760804dfe6d9b0910c43bcca590ad017a",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 13,
-      "expected_effect_runtime_disposition_group_count": 7,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 1,
-        "strict-dedicated": 0,
-        "strict-generic": 1,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 11,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 1,
-        "layer-aggregate": 0,
-        "none": 12
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 1,
-        "aggregate-contributor": 0,
-        "member": 11,
-        "none": 1
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 6,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "589996bfc86d23609c4ae319305d9ca57d41f4ea158865aba5e127b910388e57",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 1,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 1,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3750342273",
@@ -5582,7 +3503,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -5599,81 +3519,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 6,
-      "expected_effect_stage_parsed_count": 6,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 6
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 4,
-        "admitted-generic": 2,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 6,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "bbe6f44aa0e40225d9e2f853a522b1249f1eb48cef99236db2474e793042dc6d",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 6,
-      "expected_effect_runtime_disposition_group_count": 5,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 4,
-        "strict-generic": 2,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 6,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 6,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 5,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "171e523faa63ce4004355c3df465e26848f3172312dd0d288108e1da9ea87b8f",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         17,
         79,
@@ -5681,13 +3528,7 @@
         94,
         122
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 6,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 6,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3750813609",
@@ -5696,8 +3537,7 @@
         "image_layers",
         "solid_layers",
         "text_layers",
-        "particle_layers",
-        "route_only_effects"
+        "particle_layers"
       ],
       "project_sha256": "f02f742a134c9307cdf6240abb0f9592934dd0493af9be5be58163687f5dfbef",
       "package_sha256": "14bfb5cc00053d190c01a78d8aebc828fd08824f9d5ab4aac3499702fdd464fd",
@@ -5783,9 +3623,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [
-        358
-      ],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -5802,91 +3639,12 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 5,
-      "expected_effect_stage_parsed_count": 5,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 5
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 3,
-        "not-admitted": 2
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 3,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 2,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "a8606ba1717629cf1d7db24b309da1bc2d4ea37073359a65d1481b5476f4996d",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 5,
-      "expected_effect_runtime_disposition_group_count": 2,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 3,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 2,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 3,
-        "layer-aggregate": 0,
-        "none": 2
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 3,
-        "aggregate-contributor": 0,
-        "member": 2,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 1,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "4f97cf35ac9ad063b47eb0c7ae8c68a6f511e0b312e95eb1a77c1813ef672a88",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         57
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 3,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 3,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3757555836",
@@ -5974,7 +3732,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -5991,95 +3748,16 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "hover_pointer_normalized": [
         0.0,
         0.0
       ],
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 9,
-      "expected_effect_stage_parsed_count": 9,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 4,
-        "active": 5
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 4,
-        "admitted-dedicated": 2,
-        "admitted-generic": 3,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 4,
-        "complete": 5,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "d645ef68855ac94434516c072e89f692fb9a5ebc779b67fe29a6a4328b542c9c",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 9,
-      "expected_effect_runtime_disposition_group_count": 2,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 4,
-        "strict-dedicated": 2,
-        "strict-generic": 3,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 5,
-        "layer-aggregate": 0,
-        "none": 4
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 5,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 4
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 1,
-        "direct": 0,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "913d74afc99cb707a6785885d6e742d92348135782416c6d7bbceae450d69eac",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         69
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 5,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 5,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3765760121",
@@ -6089,7 +3767,6 @@
         "text_layers",
         "utility_layers",
         "strict_effect_runtime",
-        "route_only_effects",
         "verified_text_script_runtime"
       ],
       "project_sha256": "97dc2022c38b2c1be9aa061a032e0063f3f5b5c80f50cfed72c6cc4166b8fade",
@@ -6175,7 +3852,6 @@
       ],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -6192,81 +3868,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 12,
-      "expected_effect_stage_parsed_count": 12,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 5,
-        "active": 7
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 5,
-        "admitted-dedicated": 5,
-        "admitted-generic": 1,
-        "not-admitted": 1
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 5,
-        "complete": 6,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 1,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "f316996f4fc047b0f067cbd0836a9f1d9b1cbf703454b94baf2b83a2b1d81528",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 12,
-      "expected_effect_runtime_disposition_group_count": 11,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 5,
-        "strict-dedicated": 5,
-        "strict-generic": 1,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 1,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 6,
-        "layer-aggregate": 0,
-        "none": 6
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 6,
-        "aggregate-contributor": 0,
-        "member": 1,
-        "none": 5
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 5,
-        "direct": 1,
-        "authored": 5,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "a66d94dcb4486802784660c982a8baa32bc3003c852cabe7a2aa701a297762ea",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         68,
         74,
@@ -6274,13 +3877,7 @@
         82,
         187
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 6,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 6,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3766387484",
@@ -6374,7 +3971,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -6391,92 +3987,13 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 13,
-      "expected_effect_stage_parsed_count": 13,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 3,
-        "layer-hidden": 0,
-        "active": 10
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 3,
-        "admitted-dedicated": 0,
-        "admitted-generic": 10,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 3,
-        "complete": 10,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "5addd82585a0aeef8dc02c731361acdf764a11f371677e53af32bad3da96c1bd",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 13,
-      "expected_effect_runtime_disposition_group_count": 5,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 3,
-        "strict-dedicated": 0,
-        "strict-generic": 10,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 10,
-        "layer-aggregate": 0,
-        "none": 3
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 10,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 3
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 3,
-        "direct": 0,
-        "authored": 2,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "81a87fd1d6581bc460db0e1130a7a20f753b219c0bb0d7558dfc4c6cc5a06e46",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         17,
         80
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 10,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 10,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3766403294",
@@ -6484,8 +4001,7 @@
       "capabilities": [
         "image_layers",
         "text_layers",
-        "authored_effect_runtime",
-        "route_only_effects"
+        "authored_effect_runtime"
       ],
       "project_sha256": "7b0eb706d70941a1251e7c0658bfd30f81ab050c7aea2acd6435f4aaad86da6a",
       "package_sha256": "235c2f6dbefad3ae6ce973857507c58d19e9f2bb36d90896c9461417d1694320",
@@ -6560,7 +4076,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -6577,91 +4092,12 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 1,
-      "expected_effect_stage_parsed_count": 1,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 1
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 1,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 1,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "66456271bbf73e13d6c348cc2bd5d60c7bce298bcb55310db40d6108101ae7ab",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 1,
-      "expected_effect_runtime_disposition_group_count": 1,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 1,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 1,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 1,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "2bbc9769d63cf3280de39f9a6d5d3eec4be88f046be6634255a433a508ed1490",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         65
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 1,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 1,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3766415113",
@@ -6742,7 +4178,6 @@
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_resolved_material_graph_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -6759,89 +4194,15 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
-      "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 0,
-      "expected_effect_stage_parsed_count": 0,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 0
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 0,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 0,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 0,
-      "expected_effect_runtime_disposition_group_count": 0,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 0,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 0,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 0,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 0,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "2722e80a10ab5cb31b359a60258eabbd5bcf1c082e56aacce14e242ab493eb55"
+      "expected_authored_effect_graph_water_ripple_count": 0
     },
     {
       "id": "3767232084",
       "title": "谬因",
       "capabilities": [
         "image_layers",
-        "particle_layers",
-        "route_only_effects"
+        "particle_layers"
       ],
       "project_sha256": "0d285870eaa6aaffed8ef5269edab7ad788a7516c6360b127adaff2f85bd6009",
       "package_sha256": "cd92f71a0e2470b252d63a6826626709b022f046382796e8f610b5e291f44649",
@@ -6917,7 +4278,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -6939,91 +4299,12 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 7,
-      "expected_effect_stage_parsed_count": 7,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 7
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 1,
-        "admitted-generic": 6,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 7,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "5c23111571a3f27a8569f4ae4b90572b2b0e06094d4ae644c6fbc1b327768077",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 7,
-      "expected_effect_runtime_disposition_group_count": 1,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 1,
-        "strict-generic": 6,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 7,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 7,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "b74cf1a64950271c984e8b1c3a024dd9b37ad495c376ee38ebc7cba7c596b5c5",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         17
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 7,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 7,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3767343314",
@@ -7107,7 +4388,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -7127,81 +4407,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 3,
-      "expected_effect_stage_parsed_count": 3,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 3
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 0,
-        "not-admitted": 3
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 0,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 3,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "2d1d279e10e97c341e07778a2d13469b86acceac51a9759b4b58e24d3cb681cc",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 3,
-      "expected_effect_runtime_disposition_group_count": 1,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 0,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 3,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 0,
-        "layer-aggregate": 0,
-        "none": 3
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 0,
-        "aggregate-contributor": 0,
-        "member": 3,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 1,
-        "authored": 0,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "045d4a17107ac2b8ff7d442983bd0c95b6ed55c2e6311738ed9a24931d495911",
       "expected_resolved_material_graph_succeeded_layer_ids": []
     },
     {
@@ -7210,8 +4417,7 @@
       "capabilities": [
         "image_layers",
         "text_layers",
-        "solid_layers",
-        "route_only_effects"
+        "solid_layers"
       ],
       "project_sha256": "5c7854d4df58359a055e500f29310f0c2e2f7d046f0db0101b7495a1a5e7e7fa",
       "package_sha256": "238763955d0f8be246e357e6f4f89d757806fe3ed43bce04d8a4a4e69c8575aa",
@@ -7297,7 +4503,6 @@
         945,
         994
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -7314,91 +4519,12 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "requires_motion": true,
       "minimum_changed_ratio": 0.2,
       "maximum_flat_border_ratio": 0.5,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 39,
-      "expected_effect_stage_parsed_count": 39,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 7,
-        "layer-hidden": 6,
-        "active": 26
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 13,
-        "admitted-dedicated": 5,
-        "admitted-generic": 19,
-        "not-admitted": 2
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 13,
-        "complete": 24,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 2,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "3d0735aed0237dd1b884f14a5ebc6e36d92b6ad4db3def7f6b062de5cfd8f4b4",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 39,
-      "expected_effect_runtime_disposition_group_count": 8,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 13,
-        "strict-dedicated": 5,
-        "strict-generic": 19,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 2,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 24,
-        "layer-aggregate": 0,
-        "none": 15
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 24,
-        "aggregate-contributor": 0,
-        "member": 2,
-        "none": 13
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 1,
-        "direct": 2,
-        "authored": 5,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "d52fc1cdcd585f7f504d1708b3af2b9cf14e785585fa20690022eedde4ee1d31",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 24,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 24,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3768020435",
@@ -7490,7 +4616,6 @@
       "expected_resolved_material_graph_succeeded_layer_ids": [
         389
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -7507,88 +4632,9 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 3,
-      "expected_effect_stage_parsed_count": 3,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 3
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 1,
-        "not-admitted": 2
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 1,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 2,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "4fd7aed4a571a216a80daaba366e2958f098aa53853d3ea54e0d9c59b3cfb66e",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 3,
-      "expected_effect_runtime_disposition_group_count": 3,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 1,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 2,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 1,
-        "layer-aggregate": 0,
-        "none": 2
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 1,
-        "aggregate-contributor": 0,
-        "member": 2,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 2,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "f923ed1c63744683904ab4ada0ba9d62906232ea3b753f8774fe9385fe1d5ecf",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 1,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 1,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3768229922",
@@ -7679,7 +4725,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -7697,81 +4742,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 74,
-      "expected_effect_stage_parsed_count": 74,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 8,
-        "layer-hidden": 43,
-        "active": 23
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 51,
-        "admitted-dedicated": 0,
-        "admitted-generic": 15,
-        "not-admitted": 8
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 51,
-        "complete": 15,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 8,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "976181e512f6e646b257c889252e2cf7478330e6e377b09fbf4821dcec20caae",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 74,
-      "expected_effect_runtime_disposition_group_count": 32,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 51,
-        "strict-dedicated": 0,
-        "strict-generic": 15,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 8,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 15,
-        "layer-aggregate": 0,
-        "none": 59
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 15,
-        "aggregate-contributor": 0,
-        "member": 8,
-        "none": 51
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 14,
-        "direct": 8,
-        "authored": 10,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "7c6b904f9ba727ce02ea515e85dcc07c5d8470c0cd88ced4efd731da5f464ba2",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         85,
         107,
@@ -7784,13 +4756,7 @@
         654,
         668
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 15,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 15,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3768724269",
@@ -7892,7 +4858,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -7909,92 +4874,13 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 12,
-      "expected_effect_stage_parsed_count": 12,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 12
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 0,
-        "admitted-generic": 11,
-        "not-admitted": 1
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 11,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 1,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "29b1b08128970a4df153836524d67ded64b6423bde92b5999021f42f17c2eded",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 12,
-      "expected_effect_runtime_disposition_group_count": 3,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 0,
-        "strict-generic": 11,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 1,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 11,
-        "layer-aggregate": 0,
-        "none": 1
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 11,
-        "aggregate-contributor": 0,
-        "member": 1,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 1,
-        "authored": 2,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "ef832d811b8441d9e7c09001281dc289e5e5238d6a0aec0807a089f5515f1997",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         17,
         100
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 11,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 11,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3768903841",
@@ -8122,7 +5008,6 @@
         232,
         263
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -8141,88 +5026,9 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 18,
-      "expected_effect_stage_parsed_count": 18,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 4,
-        "layer-hidden": 0,
-        "active": 14
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 4,
-        "admitted-dedicated": 8,
-        "admitted-generic": 6,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 4,
-        "complete": 14,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "2490cf9c1764f7614d37b8f5b6b4e0becb394713872fdc2b15793ae21dfbdd03",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 18,
-      "expected_effect_runtime_disposition_group_count": 13,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 4,
-        "strict-dedicated": 8,
-        "strict-generic": 6,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 14,
-        "layer-aggregate": 0,
-        "none": 4
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 14,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 4
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 13,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "9e5b59bb9bb9a41c13bc4221de5deb8f55533a136e774fdd516013c0f3fafd0b",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 14,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 14,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3769364482",
@@ -8231,8 +5037,7 @@
         "image_layers",
         "text_layers",
         "particle_layers",
-        "utility_layers",
-        "route_only_effects"
+        "utility_layers"
       ],
       "project_sha256": "db5a5f198b4ecd98594ea810e848b5f53933c44f6b1686a7c05ac8b43198756b",
       "package_sha256": "4834846a21b24e8eb2fcf2ae8551609230aa8e6c192ad18cdbced6bbe53b3c88",
@@ -8313,9 +5118,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [
-        156
-      ],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -8335,93 +5137,14 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 13,
-      "expected_effect_stage_parsed_count": 13,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 13
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 6,
-        "admitted-generic": 0,
-        "not-admitted": 7
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 6,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 7,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "1c87a129bce597adf6e4a3050d10eee198e68b533acdbdb680d69efc8b6891c3",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 13,
-      "expected_effect_runtime_disposition_group_count": 5,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 6,
-        "strict-generic": 0,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 7,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 6,
-        "layer-aggregate": 0,
-        "none": 7
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 6,
-        "aggregate-contributor": 0,
-        "member": 7,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 2,
-        "authored": 3,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "bb0dddf8188290449080604ae3d0bd9d1ba43f0e5a8ef51ad8abbc1b9df10830",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         115,
         122,
         130
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 6,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 6,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3769688830",
@@ -8431,8 +5154,7 @@
         "text_layers",
         "solid_layers",
         "particle_layers",
-        "authored_effect_runtime",
-        "route_only_effects"
+        "authored_effect_runtime"
       ],
       "project_sha256": "136219067532a7c126f116fd65e26f0df1b6f3e21edad4e17b8ebb0f56778703",
       "package_sha256": "258685c29c84369e0092abfae29e60b410b7bc0636da3d612fb2c605363961d4",
@@ -8549,7 +5271,6 @@
         574,
         698
       ],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -8569,88 +5290,9 @@
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_scroll_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 59,
-      "expected_effect_stage_parsed_count": 59,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 1,
-        "layer-hidden": 0,
-        "active": 58
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 1,
-        "admitted-dedicated": 8,
-        "admitted-generic": 35,
-        "not-admitted": 15
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 1,
-        "complete": 43,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 15,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "ca3e0f32d09bdd5d21e7f9c12ff0e2220226f96abb7b16f91d4ef45bff06dc7a",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 59,
-      "expected_effect_runtime_disposition_group_count": 18,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 1,
-        "strict-dedicated": 8,
-        "strict-generic": 35,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 15,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 43,
-        "layer-aggregate": 0,
-        "none": 16
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 43,
-        "aggregate-contributor": 0,
-        "member": 15,
-        "none": 1
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 5,
-        "authored": 13,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "9c8e81f567a7764a567e4c1b4eb2789cd3f552ddede43226cbe28146be3524af",
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 43,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 43,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3769761761",
@@ -8660,8 +5302,7 @@
         "text_layers",
         "solid_layers",
         "particle_layers",
-        "authored_effect_runtime",
-        "route_only_effects"
+        "authored_effect_runtime"
       ],
       "project_sha256": "dbdd0ba7df26ace80075bfefaeffc016aa892f3283a74d7594b291d3727ab986",
       "package_sha256": "1c85fb80ef5c466ce6c3b9ec130b3013b6b76b93461b42c0c78f862952b463a0",
@@ -8754,7 +5395,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -8774,81 +5414,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 24,
-      "expected_effect_stage_parsed_count": 24,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 24
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 8,
-        "admitted-generic": 16,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 24,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "b4ab40a97900ac44f35d64bc5cd3a1e151314800c202a7f8d6e051173c132991",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 24,
-      "expected_effect_runtime_disposition_group_count": 7,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 8,
-        "strict-generic": 16,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 24,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 24,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 7,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "01b33b2bb710bd6ce5c38ec6dbe0fbb2bc1f31ba591cb2c5ba82b51016939738",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         17,
         517,
@@ -8858,13 +5425,7 @@
         547,
         559
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 24,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 24,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3770444459",
@@ -8952,7 +5513,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -8969,91 +5529,12 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 4,
-      "expected_effect_stage_parsed_count": 4,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 4
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 1,
-        "admitted-generic": 3,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 4,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "d86455055458a483f6940eadbfe57aa668e98a094967c939ef93b7ef449ae9aa",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 4,
-      "expected_effect_runtime_disposition_group_count": 1,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 1,
-        "strict-generic": 3,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 4,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 4,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 1,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "a1c547cef40d2ccbb82d2976b36e3f4cbd354538564f1b1c47cc1a3e9501dcb2",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         22
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 4,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 4,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     },
     {
       "id": "3770462923",
@@ -9062,7 +5543,6 @@
         "image_layers",
         "text_layers",
         "authored_effect_runtime",
-        "route_only_effects",
         "verified_text_script_runtime"
       ],
       "project_sha256": "e0646a55b2fdb7216d5c95207a2f340f52d43ab7980de44b4fc767d1688eea23",
@@ -9146,7 +5626,6 @@
       "required_utility_capture_succeeded_layer_ids": [],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
@@ -9163,93 +5642,14 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 0,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0,
-      "expected_effect_stage_admission_schema": 1,
-      "expected_effect_stage_descriptor_count": 5,
-      "expected_effect_stage_parsed_count": 5,
-      "expected_effect_stage_activity_counts": {
-        "author-disabled": 0,
-        "layer-hidden": 0,
-        "active": 5
-      },
-      "expected_effect_stage_strict_admission_counts": {
-        "inactive": 0,
-        "admitted-dedicated": 5,
-        "admitted-generic": 0,
-        "not-admitted": 0
-      },
-      "expected_effect_stage_coverage_counts": {
-        "inactive": 0,
-        "complete": 5,
-        "terminal-inline-prefix": 0,
-        "terminal-inline-suffix": 0,
-        "isolated-accepted": 0,
-        "isolated-omitted": 0,
-        "prefix-accepted": 0,
-        "prefix-omitted": 0,
-        "rejected-missing-graph": 0,
-        "rejected-ambiguous-graph": 0,
-        "rejected-chain": 0,
-        "rejected-graph-mismatch": 0,
-        "rejected-invariant": 0
-      },
-      "expected_effect_stage_admission_sha256": "3dac933aa3f0a00a85350197f318745cc320eaa9aafdd9c89736a1574d16450a",
-      "expected_effect_runtime_disposition_schema": 1,
-      "expected_effect_runtime_disposition_record_count": 5,
-      "expected_effect_runtime_disposition_group_count": 3,
-      "expected_effect_runtime_disposition_kind_counts": {
-        "inactive": 0,
-        "strict-dedicated": 5,
-        "strict-generic": 0,
-        "strict-inline-suffix": 0,
-        "omitted-by-strict-chain": 0,
-        "legacy-exact-inline": 0,
-        "legacy-exact-offscreen": 0,
-        "legacy-structural-member": 0,
-        "legacy-coalesced-inline": 0,
-        "legacy-coalesced-offscreen": 0,
-        "legacy-shadowed": 0,
-        "route-only-member": 0,
-        "composite-refused": 0,
-        "unsupported": 0,
-        "unattributed": 0
-      },
-      "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 5,
-        "layer-aggregate": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_role_counts": {
-        "owner": 5,
-        "aggregate-contributor": 0,
-        "member": 0,
-        "none": 0
-      },
-      "expected_effect_runtime_disposition_group_kind_counts": {
-        "inactive": 0,
-        "direct": 0,
-        "authored": 3,
-        "legacy-offscreen": 0,
-        "offscreen-passthrough": 0,
-        "composite-refused": 0
-      },
-      "expected_effect_runtime_disposition_sha256": "a8b610d7260a21f45de3ae5a61efbca37e1c4a093008ebf7abc5e4b24ed87363",
       "expected_resolved_material_graph_succeeded_layer_ids": [
         18,
         26,
         32
       ],
-      "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 5,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 5,
-      "expected_effect_execution_eligible_exact_gap_count": 0,
-      "expected_effect_execution_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
-      "expected_effect_execution_eligible_aggregate_gap_count": 0
+      "expected_effect_execution_schema": 1
     }
   ]
 }

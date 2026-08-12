@@ -286,13 +286,6 @@ struct SceneDiagnosticsReport {
     let capabilityProfile: SceneCapabilityProfile?
 }
 
-enum SceneInlineEffectRuntime {
-    static func summary(
-        for layer: SceneRenderDescriptor.Layer,
-        hasWaterMask: Bool
-    ) -> String? { nil }
-}
-
 @main
 enum Harness {
     static func main() throws {
@@ -546,13 +539,14 @@ class SceneTextRowLimitTests(unittest.TestCase):
         if hasattr(cls, "temporary_directory"):
             cls.temporary_directory.cleanup()
 
-    def test_default_loader_has_no_legacy_effect_runtime_authority(self) -> None:
+    def test_default_loader_has_no_unclaimed_effect_runtime_authority(self) -> None:
         source = TEXT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            "effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil },",
+            "effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }",
             source,
         )
         self.assertNotIn("SceneEffectRuntimePlanner", source)
+        self.assertNotIn("SceneInlineEffectRuntime", source)
         self.assertFalse(
             any("effect runtime" in message for message in self.result["messages"]),
             self.result["messages"],

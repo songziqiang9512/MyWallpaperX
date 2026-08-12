@@ -177,16 +177,16 @@ enum SceneBaseImageTextureLoad {
         let container = source.flatMap {
             loader.texContainer(from: url, source: $0)
         }
-        if let legacyReason = legacyReason(
+        if let specializedLoadReason = specializedLoadReason(
             url: url,
             container: container,
             usesPuppet: usesPuppet
         ) {
-            return legacyLoad(
+            return specializedLoad(
                 from: url,
                 source: source,
                 container: container,
-                reason: legacyReason,
+                reason: specializedLoadReason,
                 loader: loader,
                 spriteTextureLoader: spriteTextureLoader,
                 device: device
@@ -217,7 +217,7 @@ enum SceneBaseImageTextureLoad {
                     texture: candidate.texture,
                     candidate: nil,
                     animation: nil,
-                    message: "; base color legacy binding"
+                    message: "; base color specialized authored binding"
                         + " (unsupported candidate UV/sampler:"
                         + " \(candidate.diagnosticSummary))"
                 ))
@@ -231,7 +231,7 @@ enum SceneBaseImageTextureLoad {
         }
     }
 
-    private static func legacyReason(
+    private static func specializedLoadReason(
         url: URL,
         container: SceneTexContainer?,
         usesPuppet: Bool
@@ -257,7 +257,7 @@ enum SceneBaseImageTextureLoad {
         return nil
     }
 
-    private static func legacyLoad(
+    private static func specializedLoad(
         from url: URL,
         source: SceneTextureLoader.SourceKey?,
         container: SceneTexContainer?,
@@ -313,7 +313,7 @@ enum SceneBaseImageTextureLoad {
                 animation: container.flatMap {
                     SceneSpriteAnimation(frames: $0.spriteFrames)
                 },
-                message: "; base color legacy route (\(reason))"
+                message: "; base color specialized authored load (\(reason))"
                     + crossImageFallbackMessage
             ))
         case let failure:

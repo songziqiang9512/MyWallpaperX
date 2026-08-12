@@ -191,12 +191,12 @@ struct SceneUserPropertyTextureLoader {
                 }
             }
         }
-        let legacyPurposes: Set<SceneTextureLoadPurpose> = [
+        let directImagePurposes: Set<SceneTextureLoadPurpose> = [
             .premultipliedColor, .straightAlbedo, .preservedChannels,
         ]
         for identity in requestedIdentities.sorted(by: {
             $0.reportToken < $1.reportToken
-        }) where !legacyPurposes.contains(identity.purpose) {
+        }) where !directImagePurposes.contains(identity.purpose) {
             guard let url = urlsByPropertyKey[identity.propertyKey],
                   Self.supports(url: url) else { continue }
             switch loader.loadCandidate(

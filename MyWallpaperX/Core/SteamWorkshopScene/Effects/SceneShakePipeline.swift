@@ -234,8 +234,9 @@ struct SceneShakePipeline {
         audioPulse: Float?,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        // flow 只消费 `.rg` 通道：stock 语料是 RG88 容器，legacy 老编辑器包
-        // （`2131872317` 系）把同语义 flow 存成 ARGB8888，通道语义一致。
+        // flow 只消费 `.rg` 通道：stock 语料是 RG88 容器，v1 编辑器包
+        // Some authored packages store the same flow field as ARGB8888; the
+        // channel contract remains identical.
         validTexture(source, format: .bgra8Unorm, usage: .shaderRead)
             && validTexture(
                 flowMap,

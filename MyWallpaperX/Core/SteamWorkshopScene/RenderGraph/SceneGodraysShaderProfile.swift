@@ -4,7 +4,7 @@ import Foundation
 /// Godrays 的两组完整 shader 指纹。profile 只在四个 shader contract 全部精确匹配时成立。
 nonisolated enum SceneGodraysShaderProfile {
     case stock2842
-    case legacyDirectional
+    case directionalV1
 
     private struct StageFingerprint {
         let kind: SceneShaderContract.StageKind
@@ -86,7 +86,7 @@ nonisolated enum SceneGodraysShaderProfile {
             ]
         ),
         ProfileFingerprint(
-            profile: .legacyDirectional,
+            profile: .directionalV1,
             shaders: [
                 shader(
                     "effects/godrays_downsample2",

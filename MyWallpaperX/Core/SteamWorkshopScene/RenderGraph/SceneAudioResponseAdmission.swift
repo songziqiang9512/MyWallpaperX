@@ -13,8 +13,8 @@ import Foundation
 /// `audiobounds` 的 annotation 默认值——shake 为 `0.0 1.2`，pulse 为 `0.5 1.0`——
 /// 因此默认值由调用方传入，本类型不内置。
 ///
-/// 语料中这五个常量是**部分可选**的（`2419444134` 缺 frequencymin/max、
-/// `1937925563` 还缺 audioexponent），缺省一律按 annotation 填充。
+/// 这五个常量在 authored variants 中是**部分可选**的；缺省一律按
+/// annotation 填充。
 nonisolated enum SceneAudioResponseAdmission {
     /// 与各 effect 自身常量并存的 audio 常量键。
     nonisolated static let constantKeys = Set([

@@ -1,7 +1,7 @@
 import Foundation
 import Metal
 
-/// Shared byte-accounted residency for legacy offscreen targets and R4 chain
+/// Shared byte-accounted residency for graph target tables and ordered layer graphs
 /// transactions. R4 history entries retain only dynamically mapped tokens.
 final class SceneOffscreenTextureAllocationCache {
     private let byteBudget: Int
@@ -26,13 +26,13 @@ final class SceneOffscreenTextureAllocationCache {
 
     func commit(_ candidates: [Candidate]) -> Bool {
         locked {
-            guard let staged = stageLegacy(candidates) else { return false }
+            guard let staged = stageCandidates(candidates) else { return false }
             apply(staged)
             return true
         }
     }
 
-    private func stageLegacy(_ candidates: [Candidate]) -> Staged? {
+    private func stageCandidates(_ candidates: [Candidate]) -> Staged? {
         guard !candidates.isEmpty,
               Set(candidates.map(\.key)).count == candidates.count,
               candidates.allSatisfy({ $0.byteCost >= 0 && $0.keyMatchesAllocation }) else {
@@ -80,13 +80,13 @@ final class SceneOffscreenTextureAllocationCache {
         }.sorted { $0.1.lastAccess < $1.1.lastAccess }
         for victim in victims where total > byteBudget {
             values.removeValue(forKey: victim.0)
-            let chainKey: SceneGraphRenderTargetChainPlan.Key? = switch victim.1.allocation {
-            case .chain(let chain): chain.plan.key
+            let graphKey: SceneLayerGraphTargetPlan.Key? = switch victim.1.allocation {
+            case .layerGraph(let graph): graph.plan.key
             case .history(let history): history.plan.key
             default: nil
             }
-            if let chainKey, let history = victim.1.historyOnlyEntry() {
-                values[.history(chainKey, history.allocation.generation)] = history
+            if let graphKey, let history = victim.1.historyOnlyEntry() {
+                values[.history(graphKey, history.allocation.generation)] = history
                 total -= victim.1.byteCost - history.byteCost
             } else {
                 total -= victim.1.byteCost
@@ -111,7 +111,7 @@ extension SceneOffscreenTextureAllocationCache {
     typealias Token = SceneGraphExecutionState.PhysicalToken
     typealias PhysicalIdentity = SceneOffscreenTexturePhysicalIdentity
     typealias Candidate = SceneOffscreenTextureAllocationCandidate
-    typealias ChainReservation = SceneGraphChainAllocationReservation
+    typealias GraphReservation = SceneLayerGraphAllocationReservation
     typealias Staged = (values: [ResidentKey: Entry], access: UInt64)
 
     var residentAllocationCount: Int { locked { residents.count } }
@@ -141,11 +141,11 @@ extension SceneOffscreenTextureAllocationCache {
             entry.historyPins.removeValue(forKey: identity)
             residents.removeValue(forKey: key)
             switch key {
-            case .current(.chain), .current(.pair), .current(.sharedGraphPair):
+            case .current(.layerGraph), .current(.sharedGraphPair):
                 residents[key] = entry
-            case .history(let chainKey, _):
+            case .history(let graphKey, _):
                 if let history = entry.historyOnlyEntry() {
-                    residents[.history(chainKey, history.allocation.generation)] = history
+                    residents[.history(graphKey, history.allocation.generation)] = history
                 }
             case .retired(let generation):
                 if !entry.submissionPins.isEmpty { residents[key] = entry }
@@ -155,7 +155,7 @@ extension SceneOffscreenTextureAllocationCache {
                         residents[.history(value.plan.key, generation)] = history
                     }
                 } else if !entry.isResetInvalidated,
-                          case .chain = entry.allocation { residents[key] = entry }
+                          case .layerGraph = entry.allocation { residents[key] = entry }
             case .current:
                 break
             }
@@ -188,39 +188,38 @@ extension SceneOffscreenTextureAllocationCache {
     }
 
     nonisolated enum Key: Hashable {
-        case pair(width: Int, height: Int)
-        case authoredPair(width: Int, height: Int)
+        case composition(width: Int, height: Int)
         case sharedGraphPair(width: Int, height: Int)
         case graph(EffectKey)
-        case chain(SceneGraphRenderTargetChainPlan.Key)
+        case layerGraph(SceneLayerGraphTargetPlan.Key)
     }
 
     enum Allocation {
-        case pair(SceneOffscreenTexturePool.Pair, PhysicalIdentity)
+        case composition(MTLTexture, PhysicalIdentity)
         case sharedGraphPair(
             SceneOffscreenTexturePool.SharedGraphPair,
             PhysicalIdentity
         )
         case graph(SceneGraphRenderTargetLease)
-        case chain(SceneGraphRenderTargetChainAllocation)
+        case layerGraph(SceneLayerGraphTargetAllocation)
         case history(SceneGraphHistoryResidency)
 
         var generation: UInt64 {
             switch self {
-            case .pair(_, let identity): identity.generation
+            case .composition(_, let identity): identity.generation
             case .sharedGraphPair(_, let identity): identity.generation
             case .graph(let lease): lease.generation
-            case .chain(let chain): chain.generation
+            case .layerGraph(let graph): graph.generation
             case .history(let history): history.generation
             }
         }
 
         var textureCount: Int {
             switch self {
-            case .pair: 3
+            case .composition: 1
             case .sharedGraphPair: 2
             case .graph(let lease): lease.table.residentTextureCount
-            case .chain(let chain): chain.textureCount
+            case .layerGraph(let graph): graph.textureCount
             case .history(let history): history.textureCount
             }
         }
@@ -254,7 +253,7 @@ extension SceneOffscreenTextureAllocationCache {
         }
 
         func permitsOrderedSubmissionReuse(
-            for plan: SceneGraphRenderTargetChainPlan,
+            for plan: SceneLayerGraphTargetPlan,
             orderingContext: SceneGraphCommandQueueOrderingContext?
         ) -> Bool {
             guard let orderingContext,
@@ -266,11 +265,11 @@ extension SceneOffscreenTextureAllocationCache {
                   historyTokens.isEmpty,
                   plan.historyEffects.isEmpty,
                   plan.stages.allSatisfy({ $0.historyClosureIdentities.isEmpty }),
-                  case .chain(let chain) = allocation,
-                  chain.plan == plan,
-                  chain.historyEligibleTokensByEffect.isEmpty,
-                  chain.requiredHistoryTokenCountByEffect.isEmpty,
-                  chain.texturesBySlot.values.allSatisfy({
+                  case .layerGraph(let graph) = allocation,
+                  graph.plan == plan,
+                  graph.historyEligibleTokensByEffect.isEmpty,
+                  graph.requiredHistoryTokenCountByEffect.isEmpty,
+                  graph.texturesBySlot.values.allSatisfy({
                       $0.hazardTrackingMode != .untracked
                   }) else { return false }
             return submissionPins.values.allSatisfy { pin in
@@ -290,8 +289,8 @@ extension SceneOffscreenTextureAllocationCache {
             guard !tokens.isEmpty else { return nil }
             let history: SceneGraphHistoryResidency?
             switch allocation {
-            case .chain(let chain):
-                history = chain.historyResidency(
+            case .layerGraph(let graph):
+                history = graph.historyResidency(
                     tokensByEffect: historyTokensByEffect
                 )
             case .history(let current):
@@ -309,15 +308,15 @@ extension SceneOffscreenTextureAllocationCache {
 
     enum ResidentKey: Hashable {
         case current(Key)
-        case history(SceneGraphRenderTargetChainPlan.Key, UInt64)
+        case history(SceneLayerGraphTargetPlan.Key, UInt64)
         case retired(UInt64)
     }
 }
 
 extension SceneOffscreenTextureAllocationCache {
     func consumeRetired(
-        _ reservation: ChainReservation,
-        candidate: SceneGraphRenderTargetChainAllocation,
+        _ reservation: GraphReservation,
+        candidate: SceneLayerGraphTargetAllocation,
         values: inout [ResidentKey: Entry]
     ) -> Bool {
         guard let generation = reservation.consumedRetiredGeneration else {
@@ -327,7 +326,7 @@ extension SceneOffscreenTextureAllocationCache {
         guard let retired = values.removeValue(forKey: key),
               !retired.isPinned,
               !retired.isResetInvalidated,
-              case .chain(let old) = retired.allocation,
+              case .layerGraph(let old) = retired.allocation,
               old.generation == generation,
               old.plan.key == candidate.plan.key else { return false }
         guard let reusable = reservation.reusableAllocation else { return true }

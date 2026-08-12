@@ -34,15 +34,15 @@ extension SceneAuthoredProceduralNoisePlanner {
         for (key, value) in authored {
             guard values.updateValue(value, forKey: key.lowercased()) == nil else { return nil }
         }
-        let legacy = variant == .legacyWorleyColor
-        var keys = legacy ? legacyKeys : commonKeys
+        let isV1 = variant == .worleyColorV1
+        var keys = isV1 ? v1Keys : commonKeys
         if variant == .colorPerlinRGB { keys.formUnion(["colors min", "colors max"]) }
         if variant == .uvWorleyMix { keys.insert("sample shift amount") }
         guard values.count == keys.count, values.keys.allSatisfy(keys.contains),
               let scale = vector2(values["scale"], range: 0...3),
               scale.x > 0, scale.y > 0,
               let offset = vector2(values["offset"], range: -1...1),
-              let magnitude = legacy
+              let magnitude = isV1
                 ? scalar(values["magnitude"], range: 0...1).map(SIMD2.init(repeating:))
                 : vector2(values["magnitude"], range: 0...1),
               let thresholds = vector2(values["thresholds"], range: -1...2),
@@ -50,7 +50,7 @@ extension SceneAuthoredProceduralNoisePlanner {
               let opacity = scalar(values["opacity"], range: 0...1),
               let exponent = scalar(values["exponent"], range: 0...5),
               let fractalsValue = scalar(
-                  values["fractals"], range: legacy ? 1...10 : 1...5
+                  values["fractals"], range: isV1 ? 1...10 : 1...5
               ),
               fractalsValue.rounded() == fractalsValue,
               let fractalScale = scalar(values["fractal scaling"], range: 1...4),
@@ -64,10 +64,10 @@ extension SceneAuthoredProceduralNoisePlanner {
             return nil
         }
         let colorsMin = vector3(
-            values[legacy ? "color low" : "colors min"], range: 0...1
+            values[isV1 ? "color low" : "colors min"], range: 0...1
         ) ?? .zero
         let colorsMax = vector3(
-            values[legacy ? "color high" : "colors max"], range: 0...1
+            values[isV1 ? "color high" : "colors max"], range: 0...1
         ) ?? SIMD3(repeating: 1)
         let shiftAmount = scalar(values["sample shift amount"], range: 0...1) ?? 1
         let depthFade = scalar(values["depth fade"], range: 0...1) ?? 1
@@ -75,7 +75,7 @@ extension SceneAuthoredProceduralNoisePlanner {
         let p1 = vector2(values["point1"], range: -2...2) ?? SIMD2(1, 0)
         let p2 = vector2(values["point2"], range: -2...2) ?? SIMD2(1, 1)
         let p3 = vector2(values["point3"], range: -2...2) ?? SIMD2(0, 1)
-        guard !legacy || (
+        guard !isV1 || (
             simd_length_squared(p1 - p0) > 0.01
                 && simd_length_squared(p2 - p3) > 0.01
                 && simd_length_squared(p3 - p0) > 0.01
@@ -145,7 +145,7 @@ extension SceneAuthoredProceduralNoisePlanner {
         "thresholds offset", "animationspeed", "scrollirection", "scrollspeed",
     ])
 
-    private nonisolated static let legacyKeys = Set([
+    private nonisolated static let v1Keys = Set([
         "animationspeed", "color high", "color low", "depth fade", "exponent",
         "fractal influence", "fractal scaling", "fractals", "gradient", "magnitude",
         "offset", "opacity", "point0", "point1", "point2", "point3", "scale",

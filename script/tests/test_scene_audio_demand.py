@@ -23,13 +23,13 @@ FRAME_DRIVER_SOURCE = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
 FRAME_CONTEXT_SOURCE = SCENE_ROOT / "Runtime/SceneFrameContext.swift"
-CHAIN_RENDERER_SOURCE = SCENE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift"
+CHAIN_RENDERER_SOURCE = SCENE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift"
 SPECIALIZED_STAGE_SOURCE = (
     SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SpecializedStage.swift"
+    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift"
 )
 WORKSHOP_STAGE_SOURCE = (
-    SCENE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopStage.swift"
+    SCENE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WorkshopStage.swift"
 )
 WORKSHOP_AUDIO_BARS_PIPELINE_SOURCE = (
     SCENE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift"
@@ -67,8 +67,9 @@ def swift_body(source: str, signature: str) -> str:
 class SceneAudioDemandWiringTests(unittest.TestCase):
     def test_demand_is_driven_by_actual_consumers(self) -> None:
         source = DEMAND_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("$0.shake?.audio != nil", source)
-        self.assertIn("$0.workshopAudioBars != nil", source)
+        capability = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("plan.shake?.audio != nil", capability)
+        self.assertIn("plan.workshopAudioBars != nil", capability)
         self.assertIn(
             "resolvedMaterialExecutionCapabilities.hasAudioSpectrumConsumer",
             source,
@@ -91,7 +92,7 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
             "SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum("
         )
         rebuild_index = activate.index("guard rebuildSurfaces(")
-        self.assertIn("in: context.authoredEffectCatalog", activate[demand_index:])
+        self.assertNotIn("authoredEffectCatalog", activate[demand_index:])
         self.assertIn(
             "resolvedMaterialExecutionCapabilities:",
             activate[demand_index:],
@@ -389,13 +390,13 @@ class SceneShakeAudioContractTests(unittest.TestCase):
     def test_verified_legacy_shake_profile_accepts_audio(self) -> None:
         source = SHAKE_PLANNER_AUDIO_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            ".legacyUnconditionalPhase",
+            ".unconditionalPhaseV1",
             source,
             "legacy Shake 的同源 vertex 与真实 mode 1/3 语料已验证，可走共享 audio 求值",
         )
         self.assertNotRegex(
             source,
-            r"case \.legacyUnconditionalPhase:\s*\n\s*return false",
+            r"case \.unconditionalPhaseV1:\s*\n\s*return false",
         )
         self.assertIn(
             "isAudioCapableProfile: profile == .stock2842",

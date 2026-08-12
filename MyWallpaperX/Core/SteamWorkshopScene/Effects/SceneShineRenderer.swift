@@ -19,9 +19,6 @@ enum SceneShineRenderer {
               let secondHalf = targets.texture(for: plan.secondHalfTarget),
               SceneOffscreenEffectRenderer.captureSource(
                   sourceTexture: sourceTexture,
-                  waterMaskTexture: masks.water,
-                  foliageMaskTexture: masks.foliage,
-                  auxMaskTexture: masks.iris ?? masks.opacity,
                   target: targets.inputTexture,
                   sourceUniforms: sourceUniforms,
                   pipeline: sourcePipeline,

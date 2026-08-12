@@ -73,7 +73,6 @@ final class SceneDesktopWallpaperHost {
         )
         launchContext = context
         SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
-            in: context.authoredEffectCatalog,
             resolvedMaterialExecutionCapabilities:
                 context.resolvedMaterialExecutionCapabilities
         ))
@@ -254,7 +253,7 @@ final class SceneDesktopWallpaperHost {
             let frame = screen.frame
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.runtimeInput.renderDescriptor,
-                authoredEffectCatalog: launchContext.authoredEffectCatalog,
+                effectAdmissionCatalog: launchContext.effectAdmissionCatalog,
                 mediaThumbnailBindings: launchContext.mediaThumbnailBindings,
                 pipelineRepository: launchContext.pipelineRepository,
                 resolvedMaterialRuntime: launchContext.makeResolvedMaterialRuntime(),

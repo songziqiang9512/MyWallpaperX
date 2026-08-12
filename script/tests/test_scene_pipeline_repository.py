@@ -64,8 +64,6 @@ final class SceneXRayPipeline { init?(device: MTLDevice) {} }
 final class SceneBlendPipeline { init?(device: MTLDevice) {} }
 final class ScenePulsePipeline { init?(device: MTLDevice) {} }
 final class SceneShinePipeline { init?(device: MTLDevice) {} }
-final class SceneGradientColorPipeline { init?(device: MTLDevice) {} }
-final class ScenePerspectiveOpacityPipeline { init?(device: MTLDevice) {} }
 
 final class SceneTintPipeline {
     static let attempts = Counter()
@@ -87,14 +85,6 @@ final class SceneGodraysPipeline {
     init?(device: MTLDevice) {
         Self.attempts.increment()
         return nil
-    }
-}
-
-final class SceneBloomPipeline {
-    static let attempts = Counter()
-
-    init?(device: MTLDevice) {
-        Self.attempts.increment()
     }
 }
 
@@ -157,7 +147,6 @@ enum Harness {
         let second = SceneImageEffectPipelineRepository(device: device)
         let attemptsAfterConstruction = SceneTintPipeline.attempts.read()
             + SceneGodraysPipeline.attempts.read()
-            + SceneBloomPipeline.attempts.read()
 
         let firstValues = concurrentTint(first, count: 128)
         let firstIDs = Set(firstValues.map(ObjectIdentifier.init))
@@ -171,7 +160,6 @@ enum Harness {
             "tintAttemptsAcrossTwoRepositories": SceneTintPipeline.attempts.read(),
             "failedSuccesses": failedSuccesses,
             "failedAttempts": SceneGodraysPipeline.attempts.read(),
-            "unusedBloomAttempts": SceneBloomPipeline.attempts.read(),
             "deviceMatches": firstValues.allSatisfy {
                 $0.deviceRegistryID == device.registryID
             },
@@ -222,7 +210,6 @@ class ScenePipelineRepositoryTests(unittest.TestCase):
         self.assertEqual(result["tintAttemptsAcrossTwoRepositories"], 2)
         self.assertEqual(result["failedSuccesses"], 0)
         self.assertEqual(result["failedAttempts"], 1)
-        self.assertEqual(result["unusedBloomAttempts"], 0)
         self.assertTrue(result["deviceMatches"])
 
 

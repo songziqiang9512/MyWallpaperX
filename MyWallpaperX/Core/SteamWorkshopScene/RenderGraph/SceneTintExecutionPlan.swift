@@ -22,7 +22,7 @@ nonisolated struct SceneTintExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
-    /// 遮罩语义按指纹分流（stock 与 `g_BlendAlpha` 相乘、legacy 覆盖）。
+    /// 遮罩语义按指纹分流（stock 与 `g_BlendAlpha` 相乘、directional-v1 覆盖）。
     let shaderProfile: SceneTintShaderProfile
     let blendMode: Int
     let staticOrFallbackColor: SIMD3<Float>

@@ -7,12 +7,12 @@ nonisolated struct SceneObjectDependency: Codable, Equatable, Sendable {
 }
 
 nonisolated struct SceneObjectDependencies: Equatable, Sendable {
-    let legacyLayerIDs: [Int]
+    let flatLayerIDs: [Int]
     let authored: [SceneObjectDependency]
 
     nonisolated init(rawValue: Any?) {
         let values = rawValue as? [Any] ?? []
-        legacyLayerIDs = values.compactMap { $0 as? Int }
+        flatLayerIDs = values.compactMap { $0 as? Int }
         authored = values.compactMap { value in
             guard let root = value as? [String: Any],
                   let layerID = root["id"] as? Int else { return nil }

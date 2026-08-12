@@ -3,7 +3,7 @@ import simd
 
 extension SceneResolvedMaterialGraphExecutor {
     func validate(
-        capability: SceneResolvedMaterialExecutionCapabilityCatalog.ChainCapability,
+        capability: SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability,
         leases: [SceneGraphRenderTargetLease]
     ) -> Bool {
         let products = capability.admittedProducts

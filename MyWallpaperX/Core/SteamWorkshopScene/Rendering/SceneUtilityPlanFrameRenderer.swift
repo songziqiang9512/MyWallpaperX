@@ -39,9 +39,6 @@ enum SceneUtilityPlanFrameRenderer {
                 mouseNormalized: frameContext.pointer.current,
                 modelViewProjection: mvp
             )
-            let authoredEffectChain = renderer.authoredEffectChain(for: layer.id)
-            let suppressesLegacyEffectFallback = renderer.authoredEffectCatalog
-                .legacyEffectFallbackSuppressedLayerIDs.contains(layer.id)
             let requiresDependencyEffect = dependencyRuntime.requiresEffect(
                 for: layer.id
             )
@@ -68,17 +65,11 @@ enum SceneUtilityPlanFrameRenderer {
                     masks: renderer.effectMasks(
                         for: layer.id,
                         in: effectTextures
-                    ).authoredEffectResourcesOnly,
+                    ),
                     cursorUV: cursorUV ?? .zero,
                     pointerIsInside: frameContext.pointer.isInside && cursorUV != nil,
-                    authoredEffectChain: authoredEffectChain,
-                    suppressesLegacyEffectFallback:
-                        suppressesLegacyEffectFallback,
                     dynamicValues: frameContext.dynamicValues,
                     audioSpectrum: frameContext.audioSpectrum,
-                    blocksLegacyGaussianBlur: renderer.blocksLegacyGaussianBlur(
-                        for: layer.id
-                    ),
                     dependencyEffect: dependencyEffect,
                     pipeline: imagePipeline,
                     compositor: imageCompositor,

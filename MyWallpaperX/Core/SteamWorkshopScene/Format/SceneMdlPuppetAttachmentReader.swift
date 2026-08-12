@@ -60,7 +60,7 @@ enum SceneMdlPuppetAttachmentReadError: Error, CustomStringConvertible, Equatabl
 }
 
 // Restricted reader for the MDLS0004 bind skeleton and MDAT0001 attachment
-// blocks verified in the 3769688830 MDLV0023 asset. This does not interpret
+// blocks verified for the MDLV0023 container contract. This does not interpret
 // weights, constraints, or MDLA animation data.
 enum SceneMdlPuppetAttachmentReader {
     private static let mdlMagic = "MDLV0023"

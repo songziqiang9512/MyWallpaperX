@@ -1,7 +1,7 @@
 import Foundation
 import Metal
 
-/// Pure whole-frame residency simulation. It mirrors chain replacement,
+/// Pure whole-frame residency simulation. It mirrors graph replacement,
 /// history demotion, the two-generation ceiling, and LRU pressure before any
 /// Metal texture is allocated or any capability-owned layer is claimed.
 enum SceneOffscreenTextureFramePreflight {
@@ -12,7 +12,7 @@ enum SceneOffscreenTextureFramePreflight {
     }
 
     enum Location: Equatable {
-        case currentChain(SceneGraphRenderTargetChainPlan.Key)
+        case currentGraph(SceneLayerGraphTargetPlan.Key)
         case currentOther
         case retired
         case history
@@ -21,7 +21,7 @@ enum SceneOffscreenTextureFramePreflight {
     struct Resident {
         let id: Int
         var location: Location
-        var chainPlan: SceneGraphRenderTargetChainPlan?
+        var graphPlan: SceneLayerGraphTargetPlan?
         var history: SceneGraphHistoryResidency?
         var demotedHistory: SceneGraphHistoryResidency?
         var byteCost: Int
@@ -33,7 +33,7 @@ enum SceneOffscreenTextureFramePreflight {
         let existedBeforeFrame: Bool
         var requiredByFrame: Bool
 
-        var isFullChain: Bool { chainPlan != nil }
+        var isFullGraph: Bool { graphPlan != nil }
         var isTransientBlocker: Bool {
             existedBeforeFrame
                 && (submissionPinCount > 0 || isResetInvalidated)
@@ -41,7 +41,7 @@ enum SceneOffscreenTextureFramePreflight {
     }
 
     static func evaluate(
-        plans: [SceneGraphRenderTargetChainPlan],
+        plans: [SceneLayerGraphTargetPlan],
         residents: [Resident],
         byteBudget: Int
     ) -> Result {
@@ -79,26 +79,26 @@ enum SceneOffscreenTextureFramePreflight {
     }
 
     private static func apply(
-        _ plan: SceneGraphRenderTargetChainPlan,
+        _ plan: SceneLayerGraphTargetPlan,
         values: inout [Resident],
         nextID: Int,
         access: UInt64,
         byteBudget: Int
     ) -> Result? {
         let currentIDs = values.filter {
-            $0.location == .currentChain(plan.key)
+            $0.location == .currentGraph(plan.key)
         }.map(\.id)
         guard currentIDs.count <= 1 else {
             return .rejected(reasonCode: "frame-target-current-ambiguous")
         }
         let pinCounts = values.compactMap {
-            $0.chainPlan?.key == plan.key ? $0.submissionPinCount : nil
+            $0.graphPlan?.key == plan.key ? $0.submissionPinCount : nil
         }
         guard SceneResolvedMaterialInFlightCapacity.admitsNewSubmission(pinCounts)
         else { return blocked(values, byteBudget: byteBudget) }
         let currentID = currentIDs.first
         if let currentID, let index = index(of: currentID, in: values),
-           values[index].chainPlan == plan, plan.historyEffects.isEmpty,
+           values[index].graphPlan == plan, plan.historyEffects.isEmpty,
            (values[index].submissionPinCount == 0
             || values[index].permitsOrderedReuse) {
             values[index].submissionPinCount += 1
@@ -113,11 +113,11 @@ enum SceneOffscreenTextureFramePreflight {
                 && $0.submissionPinCount == 0
                 && $0.historyPinCount == 0
                 && !$0.isResetInvalidated
-                && $0.chainPlan?.key == plan.key
+                && $0.graphPlan?.key == plan.key
         }.sorted {
             ($0.lastAccess, $0.id) < ($1.lastAccess, $1.id)
         }
-        let reusable = idle.first { $0.chainPlan == plan }
+        let reusable = idle.first { $0.graphPlan == plan }
         let consumed = reusable ?? idle.first
         var replacementIDs = Set<Int>()
         if let currentID, let index = index(of: currentID, in: values),
@@ -126,7 +126,7 @@ enum SceneOffscreenTextureFramePreflight {
         }
         if let consumed { replacementIDs.insert(consumed.id) }
         let retainedCount = values.filter {
-            $0.isFullChain && $0.chainPlan?.key == plan.key
+            $0.isFullGraph && $0.graphPlan?.key == plan.key
                 && !replacementIDs.contains($0.id)
         }.count
         guard retainedCount < SceneResolvedMaterialInFlightCapacity.maximumSubmissions
@@ -163,8 +163,8 @@ enum SceneOffscreenTextureFramePreflight {
         }
         values.append(.init(
             id: nextID,
-            location: .currentChain(plan.key),
-            chainPlan: plan,
+            location: .currentGraph(plan.key),
+            graphPlan: plan,
             history: nil,
             demotedHistory: nil,
             byteCost: plan.residentByteCost,
@@ -192,7 +192,7 @@ enum SceneOffscreenTextureFramePreflight {
                     && !$0.requiredByFrame
                     && ($0.location == .currentOther
                         || $0.location == .retired
-                        || isCurrentChain($0.location))
+                        || isCurrentGraph($0.location))
             }.sorted {
                 ($0.lastAccess, $0.id) < ($1.lastAccess, $1.id)
             }
@@ -256,7 +256,7 @@ enum SceneOffscreenTextureFramePreflight {
     ) -> Resident {
         var result = value
         result.location = .history
-        result.chainPlan = nil
+        result.graphPlan = nil
         result.history = history
         result.demotedHistory = nil
         result.byteCost = history.byteCost
@@ -266,8 +266,8 @@ enum SceneOffscreenTextureFramePreflight {
         return result
     }
 
-    private static func isCurrentChain(_ location: Location) -> Bool {
-        guard case .currentChain = location else { return false }
+    private static func isCurrentGraph(_ location: Location) -> Bool {
+        guard case .currentGraph = location else { return false }
         return true
     }
 

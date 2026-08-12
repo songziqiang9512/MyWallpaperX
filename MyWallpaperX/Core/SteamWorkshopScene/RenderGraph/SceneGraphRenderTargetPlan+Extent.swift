@@ -122,13 +122,14 @@ nonisolated extension SceneGraphRenderTargetPlan {
 
     nonisolated static func permitsHistorySeed(
         _ identity: Graph.TextureIdentity,
-        legacyExecutionPlan: SceneAuthoredEffectExecutionPlan?,
+        stageExecutionPlan: SceneEffectStageExecutionPlan?,
         declarations: [Graph.TextureIdentity: Graph.RenderTarget]
     ) -> Bool {
         if declarations[identity]?.declaredUnique == true { return true }
-        // Quarantined legacy Cursor Ripple compatibility. Generic R4 clear/history
-        // admission must not depend on this authored name; migrate it in R5.
-        guard let cursorRipple = legacyExecutionPlan?.cursorRipple,
+        // The typed Cursor Ripple contract uses its second ping-pong target as
+        // the frame-to-frame history seed. The planner validates that exact
+        // topology before this target planner is allowed to preserve it.
+        guard let cursorRipple = stageExecutionPlan?.cursorRipple,
               identity.effect == cursorRipple.effectKey else {
             return false
         }

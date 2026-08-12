@@ -38,7 +38,7 @@ fragment float4 sceneTintFrag(
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
     float4 albedo = source.sample(linearClamp, input.texcoord);
     // 官方语义：遮罩是 ApplyBlending 的混合权重，不动 alpha 通道。
-    // stock 与 g_BlendAlpha 相乘；legacy 指纹覆盖 g_BlendAlpha。
+    // stock 与 g_BlendAlpha 相乘；directional-v1 指纹覆盖 g_BlendAlpha。
     float mask = u.colorAlpha.w;
     if (u.maskScaleFlags.z > 0.5) {
         float sampled = maskTexture.sample(

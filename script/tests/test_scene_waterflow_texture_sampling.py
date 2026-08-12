@@ -96,9 +96,6 @@ struct SceneImageLayerPipeline {}
 enum SceneOffscreenEffectRenderer {
     static func captureSource(
         sourceTexture: MTLTexture,
-        waterMaskTexture: MTLTexture?,
-        foliageMaskTexture: MTLTexture?,
-        auxMaskTexture: MTLTexture?,
         target: MTLTexture,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,

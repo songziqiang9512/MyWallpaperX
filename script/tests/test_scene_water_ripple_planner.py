@@ -3,8 +3,8 @@
 
 与 pulse 的关键差异，各有专门断言：
 - shader 源按 SceneWaterRippleShaderProfile 三指纹白名单准入：stock 2.8.42、
-  `legacyInvertedScroll`（1937925563/2131872317，scroll 基向量 vec2(0,-1)，
-  折算为 scrolldirection + π）、`legacyMaskCombo`（2470144420，数学同 stock，
+  `invertedScrollV1`（1937925563/2131872317，scroll 基向量 vec2(0,-1)，
+  折算为 scrolldirection + π）、`maskComboV1`（2470144420，数学同 stock，
   仅缺 PERSPECTIVE 分支）；
 - legacy 两族 effect.json 无 gizmos、实例常量只写非默认键（准入放宽为白名单
   键子集），1937925563 的 effect.json 变体无 replacementkey；
@@ -777,12 +777,12 @@ enum Harness {
                 && stockProfile!.expectsPerspectiveGizmos == true
                 && stockProfile!.acceptsMissingReplacementKey == false
                 && stockProfile!.allowsSparseConstants == false,
-            "invertedProfileResolved": invertedProfile == .legacyInvertedScroll
+            "invertedProfileResolved": invertedProfile == .invertedScrollV1
                 && invertedProfile!.scrollDirectionOffset == Float.pi
                 && invertedProfile!.expectsPerspectiveGizmos == false
                 && invertedProfile!.acceptsMissingReplacementKey == true
                 && invertedProfile!.allowsSparseConstants == true,
-            "maskComboProfileResolved": maskComboProfile == .legacyMaskCombo
+            "maskComboProfileResolved": maskComboProfile == .maskComboV1
                 && maskComboProfile!.scrollDirectionOffset == 0
                 && maskComboProfile!.expectsPerspectiveGizmos == false
                 && maskComboProfile!.acceptsMissingReplacementKey == false

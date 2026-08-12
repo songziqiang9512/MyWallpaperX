@@ -1,23 +1,22 @@
 import Foundation
 
 struct SceneEffectRuntimeDispositionCatalog {
-    typealias Admission = SceneAuthoredEffectStageAdmission
+    typealias Admission = SceneEffectStageAdmission
     typealias Disposition = SceneEffectStageRuntimeDisposition
     typealias EffectKey = SceneAuthoredEffectRenderPlan.EffectKey
     let dispositions: [Disposition]
     let routeGroups: [SceneEffectStaticRouteGroup]
     let descriptorIdentityConserved: Bool
     let groupIdentityConserved: Bool
-    let strictIdentityConserved: Bool
+    let admissionIdentityConserved: Bool
     let resolvedMaterialOwnershipConserved: Bool
     init(
         descriptor: SceneRenderDescriptor,
-        authoredCatalog: SceneAuthoredEffectExecutionCatalog,
-        resourcesByLayerID: [Int: SceneLegacyEffectResourceAvailability],
+        admissionCatalog: SceneEffectAdmissionCatalog,
         resolvedMaterialSubjects: [SceneEffectExactRuntimeSubject] = []
     ) {
         let admissionsByLayerID = Dictionary(
-            grouping: authoredCatalog.stageAdmissions,
+            grouping: admissionCatalog.stageAdmissions,
             by: \.key.layerID
         )
         let subjectsByLayerID = Dictionary(
@@ -43,7 +42,7 @@ struct SceneEffectRuntimeDispositionCatalog {
                             let admission = admissionByKey[subject.key] else {
                           return false
                       }
-                      switch admission.strictAdmission {
+                      switch admission.admission {
                       case .admittedGeneric:
                           return subject.family == "resolved-material"
                       case .admittedDedicated:
@@ -70,7 +69,6 @@ struct SceneEffectRuntimeDispositionCatalog {
                     kind: .inactive,
                     effectKeys: [],
                     ownerKeys: [],
-                    aggregateContributorKeys: [],
                     reasonCode: "no-active-effect"
                 ))
                 continue
@@ -90,65 +88,26 @@ struct SceneEffectRuntimeDispositionCatalog {
                 records.append(contentsOf: migrated)
                 groups.append(Self.routeGroup(
                     layerID: layer.id,
-                    kind: .authored,
+                    kind: .resolved,
                     dispositions: migrated,
                     reason: nil
                 ))
                 continue
             }
-            if authoredCatalog.chainsByLayerID[layer.id] != nil {
-                let strict = admissions.map(Self.strictDisposition)
-                records.append(contentsOf: strict)
-                groups.append(Self.routeGroup(
-                    layerID: layer.id,
-                    kind: .authored,
-                    dispositions: strict,
-                    reason: nil
-                ))
-                continue
-            }
-            if let rejection = authoredCatalog
-                .chainAdmissionsByLayerID[layer.id]?.rejection {
-                let rejected = admissions.map { admission in
-                    admission.activity == .active
-                        ? Self.rejectedDisposition(
-                            admission,
-                            reason: "authored-chain-\(rejection.code.rawValue)"
-                        )
-                        : Self.inactiveDisposition(admission)
-                }
-                records.append(contentsOf: rejected)
-                groups.append(Self.routeGroup(
-                    layerID: layer.id,
-                    kind: .direct,
-                    dispositions: rejected,
-                    reason: "authored-chain-rejected"
-                ))
-                continue
-            }
-            let legacy = SceneEffectRuntimePlanner.legacyPlanningDecision(
-                for: layer,
-                resources: resourcesByLayerID[layer.id] ?? .none,
-                blocksLegacyGaussianBlur: authoredCatalog
-                    .legacyGaussianBlurBlockedLayerIDs.contains(layer.id)
-            )
-            let legacyByKey = Dictionary(
-                uniqueKeysWithValues: legacy.dispositions.map { ($0.key, $0) }
-            )
-            let merged = admissions.map { admission in
+            let unsupported = admissions.map { admission in
                 admission.activity == .active
-                    ? legacyByKey[admission.key] ?? Self.unattributedDisposition(
+                    ? Self.rejectedDisposition(
                         admission,
-                        reason: "legacy-decision-key-missing"
+                        reason: "r5-no-runtime-owner"
                     )
                     : Self.inactiveDisposition(admission)
             }
-            records.append(contentsOf: merged)
+            records.append(contentsOf: unsupported)
             groups.append(Self.routeGroup(
                 layerID: layer.id,
-                kind: legacy.routeGroup.kind,
-                dispositions: merged,
-                reason: legacy.routeGroup.reasonCode
+                kind: .direct,
+                dispositions: unsupported,
+                reason: "r5-no-runtime-owner"
             ))
         }
 
@@ -156,17 +115,16 @@ struct SceneEffectRuntimeDispositionCatalog {
         routeGroups = groups.sorted { $0.layerID < $1.layerID }
         let dispositionKeys = dispositions.map(\.key)
         descriptorIdentityConserved = dispositionKeys.count
-                == authoredCatalog.descriptorEffectStageCount
+                == admissionCatalog.descriptorEffectStageCount
             && Set(dispositionKeys).count == dispositionKeys.count
-            && Set(dispositionKeys) == authoredCatalog.descriptorEffectStageKeys
+            && Set(dispositionKeys) == admissionCatalog.descriptorEffectStageKeys
         groupIdentityConserved = Self.groupsAreConserved(
             dispositions: dispositions,
             groups: routeGroups
         )
-        strictIdentityConserved = Self.strictMappingsAreConserved(
-            admissions: authoredCatalog.stageAdmissions,
+        admissionIdentityConserved = Self.admissionMappingsAreConserved(
+            admissions: admissionCatalog.stageAdmissions,
             dispositions: dispositions,
-            strictLayerIDs: Set(authoredCatalog.chainsByLayerID.keys),
             resolvedLayerIDs: resolvedLayerIDs
         )
     }
@@ -174,7 +132,7 @@ struct SceneEffectRuntimeDispositionCatalog {
     var reportLines: [String] {
         [
             "effectStageRuntimeDispositionSchema: 1",
-            "effectStageRuntimeRouteScope: effect-induced-static",
+            "effectStageRuntimeRouteScope: unified-effect-graph",
             "effectStageRuntimeDispositionCount: \(dispositions.count)",
             "effectStageRuntimeDispositionKindCounts: \(countMap(Disposition.Kind.allCases, keyPath: \.kind))",
             "effectStageRuntimeDispositionAttributionCounts: \(countMap(Disposition.Attribution.allCases, keyPath: \.attribution))",
@@ -183,23 +141,19 @@ struct SceneEffectRuntimeDispositionCatalog {
             "effectStaticRouteGroupKindCounts: \(groupCountMap())",
             "effectStageRuntimeDescriptorIdentityConserved: \(descriptorIdentityConserved)",
             "effectStageRuntimeGroupIdentityConserved: \(groupIdentityConserved)",
-            "effectStageRuntimeStrictIdentityConserved: \(strictIdentityConserved)",
+            "effectStageRuntimeAdmissionIdentityConserved: \(admissionIdentityConserved)",
             "effectStageRuntimeResolvedMaterialOwnershipConserved: \(resolvedMaterialOwnershipConserved)",
         ] + routeGroups.map(\.reportLine) + dispositions.map(\.reportLine)
     }
-    /// Projects only exact static owners for runtime evidence.  This is a
-    /// resource-backed telemetry view; it is deliberately not an admission
-    /// input and excludes aggregate, structural, omitted, and route-only
-    /// records.
+    /// Projects only exact static owners for runtime evidence.  This is an
+    /// admission-derived telemetry view; it is deliberately not an admission
+    /// input and excludes omitted records.
     var resolvedMaterialExecutionEvidenceSubjects:
         [SceneEffectExactRuntimeSubject] {
         dispositions.compactMap { disposition in
             guard disposition.attribution == .exactKey,
-                  disposition.kind == .strictDedicated
-                    || disposition.kind == .strictGeneric
-                    || disposition.kind == .strictInlineSuffix
-                    || disposition.kind == .legacyExactInline
-                    || disposition.kind == .legacyExactOffscreen,
+                  disposition.kind == .dedicated
+                    || disposition.kind == .program,
                   let family = disposition.family,
                   !family.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             else { return nil }
@@ -220,58 +174,15 @@ struct SceneEffectRuntimeDispositionCatalog {
             reasonCode: admission.activity.rawValue
         )
     }
-    private nonisolated static func strictDisposition(
-        _ admission: Admission
-    ) -> Disposition {
-        guard admission.activity == .active else {
-            return inactiveDisposition(admission)
-        }
-        switch admission.strictAdmission {
-        case .admittedDedicated:
-            return disposition(
-                admission,
-                kind: .strictDedicated,
-                family: admission.backendName,
-                role: .owner
-            )
-        case .admittedGeneric:
-            return disposition(
-                admission,
-                kind: .strictGeneric,
-                family: admission.profileName ?? admission.backendName,
-                role: .owner
-            )
-        case .notAdmitted where admission.coverage == .terminalInlineSuffix:
-            return disposition(
-                admission,
-                kind: .strictInlineSuffix,
-                family: "iris-inline",
-                role: .owner
-            )
-        case .notAdmitted:
-            return disposition(
-                admission,
-                kind: .omittedByStrictChain,
-                family: nil,
-                role: .member
-            )
-        case .inactive:
-            return unattributedDisposition(
-                admission,
-                reason: "active-strict-inactive"
-            )
-        }
-    }
-
     private nonisolated static func resolvedDisposition(
         _ admission: Admission,
         family: String?
     ) -> Disposition {
-        switch admission.strictAdmission {
+        switch admission.admission {
         case .admittedGeneric where family == "resolved-material":
             return disposition(
                 admission,
-                kind: .strictGeneric,
+                kind: .program,
                 family: family,
                 role: .owner,
                 reason: "resolved-material-capability-owner"
@@ -279,7 +190,7 @@ struct SceneEffectRuntimeDispositionCatalog {
         case .admittedDedicated where family == admission.backendName:
             return disposition(
                 admission,
-                kind: .strictDedicated,
+                kind: .dedicated,
                 family: family,
                 role: .owner
             )
@@ -354,9 +265,6 @@ struct SceneEffectRuntimeDispositionCatalog {
             kind: kind,
             effectKeys: active.map(\.key),
             ownerKeys: active.filter { $0.routeRole == .owner }.map(\.key),
-            aggregateContributorKeys: active.filter {
-                $0.routeRole == .aggregateContributor
-            }.map(\.key),
             reasonCode: reason
         )
     }

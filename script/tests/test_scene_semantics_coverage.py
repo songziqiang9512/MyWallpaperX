@@ -389,12 +389,10 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertEqual(image_blend_rule.get("scan_root"), "MyWallpaperX")
         self.assertNotIn("scope_files", image_blend_rule)
         for rule_id in (
-            "legacy-authored-chain-surface",
-            "legacy-authored-chain-render-call",
-            "legacy-authored-effect-telemetry",
-            "standalone-authored-render-call",
-            "legacy-authored-stage-frame-plan",
-            "legacy-authored-frame-batch-surface",
+            "base-layer-inline-effect-authority",
+            "heuristic-shared-effect-texture-loading",
+            "deprecated-direct-target-allocation",
+            "sample-specific-product-dispatch",
         ):
             rule = rules_by_id[rule_id]
             self.assertEqual(rule["baseline_occurrences"], 0)
@@ -402,7 +400,22 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             self.assertEqual(rule["completion_phase"], "r5")
             self.assertEqual(rule["allowed_files"], [])
             self.assertNotIn("scope_files", rule)
-        self.assertEqual(states, {"r4": "complete", "r5": "partial"})
+        self.assertNotIn(
+            "scan_root", rules_by_id["sample-specific-product-dispatch"]
+        )
+        r5_retirement_rules = [
+            rule for rule in rules
+            if rule.get("role") == "retirement"
+            and rule.get("completion_phase") == "r5"
+        ]
+        self.assertTrue(r5_retirement_rules)
+        for rule in r5_retirement_rules:
+            self.assertEqual(rule["baseline_occurrences"], 0)
+            self.assertEqual(rule["completion_target_occurrences"], 0)
+            self.assertEqual(rule["completion_phase"], "r5")
+            self.assertEqual(rule["allowed_files"], [])
+            self.assertNotIn("scope_files", rule)
+        self.assertEqual(states, {"r4": "complete", "r5": "complete"})
         violations = render_chain_authority_violations(
             SCENE_SOURCE_ROOT,
             rules,
@@ -446,6 +459,26 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         new_contract = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))[
             "render_chain_authority_ratchet"
         ]
+        rename_output = subprocess.run(
+            [
+                "git", "diff", "--name-status", "--find-renames=50%",
+                "HEAD", "--", "MyWallpaperX/Core/SteamWorkshopScene",
+            ],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        scene_prefix = "MyWallpaperX/Core/SteamWorkshopScene/"
+        renamed_scene_files: dict[str, str] = {}
+        for line in rename_output.splitlines():
+            fields = line.split("\t")
+            if len(fields) == 3 and fields[0].startswith("R"):
+                old_path, new_path = fields[1:]
+                if old_path.startswith(scene_prefix) and new_path.startswith(scene_prefix):
+                    renamed_scene_files[
+                        old_path.removeprefix(scene_prefix)
+                    ] = new_path.removeprefix(scene_prefix)
         old_states = old_contract.get("completion_state")
         if old_states is not None:
             new_states = new_contract["completion_state"]
@@ -463,11 +496,17 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 continue
             if int(new_rule["baseline_occurrences"]) > int(old_rule["baseline_occurrences"]):
                 violations.append(f"{rule_id}: baseline occurrence increased")
-            if not set(new_rule["allowed_files"]).issubset(old_rule["allowed_files"]):
+            renamed_allowed = {
+                renamed_scene_files.get(path, path)
+                for path in old_rule["allowed_files"]
+            }
+            if not set(new_rule["allowed_files"]).issubset(renamed_allowed):
                 violations.append(f"{rule_id}: allowed file set increased")
-            if not set(new_rule.get("scope_files", [])).issubset(
-                old_rule.get("scope_files", [])
-            ):
+            renamed_scope = {
+                renamed_scene_files.get(path, path)
+                for path in old_rule.get("scope_files", [])
+            }
+            if not set(new_rule.get("scope_files", [])).issubset(renamed_scope):
                 violations.append(f"{rule_id}: scope file set increased")
             old_role = old_rule.get("role")
             if old_role == "required" and new_rule.get("role") != "required":
@@ -485,12 +524,21 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                     violations.append(f"{rule_id}: completion target increased")
             reaches_retirement_target = (
                 old_rule.get("role") == "retirement"
-                and int(old_rule["baseline_occurrences"])
-                != int(old_rule["completion_target_occurrences"])
                 and int(new_rule["baseline_occurrences"])
-                == int(new_rule["completion_target_occurrences"])
+                    == int(new_rule["completion_target_occurrences"])
+                and not new_rule.get("allowed_files")
+                and not new_rule.get("scope_files")
+                and int(old_rule["baseline_occurrences"])
+                    >= int(new_rule["baseline_occurrences"])
             )
-            if not reaches_retirement_target:
+            definition_moved_without_authority_growth = (
+                old_rule.get("role") == "inventory"
+                and int(new_rule["baseline_occurrences"])
+                    == int(old_rule["baseline_occurrences"])
+                and set(new_rule["allowed_files"]) == renamed_allowed
+                and set(new_rule.get("scope_files", [])) == renamed_scope
+            )
+            if not reaches_retirement_target and not definition_moved_without_authority_growth:
                 for field in ("pattern", "start_marker", "end_marker"):
                     if new_rule.get(field) != old_rule.get(field):
                         violations.append(f"{rule_id}: {field} changed")

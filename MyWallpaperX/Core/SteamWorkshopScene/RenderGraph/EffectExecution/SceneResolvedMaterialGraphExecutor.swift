@@ -54,7 +54,7 @@ final class SceneResolvedMaterialGraphExecutor {
         fileprivate let commands: [Command]
     }
 
-    struct PreparedChain {
+    struct PreparedGraph {
         let stages: [PreparedStage]
         let finalTexture: MTLTexture
         let finalResource: SceneFrameTextureResource
@@ -83,7 +83,7 @@ final class SceneResolvedMaterialGraphExecutor {
     enum Command {
         case resource(SceneGraphResourcePassEncoder.PreparedCommand)
         case material(SceneResolvedMaterialPassEncoder.PreparedPass)
-        case dedicated(SceneAuthoredEffectChainRenderer.PreparedStage)
+        case dedicated(SceneEffectStageRenderer.PreparedStage)
     }
 
     typealias StageBoundaryObserver = (
@@ -129,7 +129,7 @@ final class SceneResolvedMaterialGraphExecutor {
         ],
         effectGeneration: UInt64,
         resetGeneration: UInt64
-    ) -> Result<PreparedChain, Failure> {
+    ) -> Result<PreparedGraph, Failure> {
         guard let capability = capabilities.resolve(token),
               validate(capability: capability, leases: leases),
               commandBuffer.status == .notEnqueued,
@@ -310,18 +310,18 @@ final class SceneResolvedMaterialGraphExecutor {
 
     /// `true` means every preflighted command was appended. Commit still waits
     /// for final compositor conservation and GPU completion.
-    func encode(_ chain: PreparedChain, commandBuffer: MTLCommandBuffer) -> Bool {
-        encodePreparedStages(chain, commandBuffer: commandBuffer, observer: nil)
+    func encode(_ preparedGraph: PreparedGraph, commandBuffer: MTLCommandBuffer) -> Bool {
+        encodePreparedStages(preparedGraph, commandBuffer: commandBuffer, observer: nil)
     }
 
     #if SCENE_GRAPH_TESTING
     func encode(
-        _ chain: PreparedChain,
+        _ preparedGraph: PreparedGraph,
         commandBuffer: MTLCommandBuffer,
         stageBoundaryObserver: @escaping StageBoundaryObserver
     ) -> Bool {
         encodePreparedStages(
-            chain,
+            preparedGraph,
             commandBuffer: commandBuffer,
             observer: stageBoundaryObserver
         )
@@ -329,18 +329,18 @@ final class SceneResolvedMaterialGraphExecutor {
     #endif
 
     private func encodePreparedStages(
-        _ chain: PreparedChain,
+        _ preparedGraph: PreparedGraph,
         commandBuffer: MTLCommandBuffer,
         observer: StageBoundaryObserver?
     ) -> Bool {
-        guard chain.ownerToken == ownerToken,
-              chain.resetGeneration == resetGeneration,
-              chain.queueIdentity == ObjectIdentifier(commandBuffer.commandQueue),
+        guard preparedGraph.ownerToken == ownerToken,
+              preparedGraph.resetGeneration == resetGeneration,
+              preparedGraph.queueIdentity == ObjectIdentifier(commandBuffer.commandQueue),
               commandBuffer.status == .notEnqueued else { return false }
-        guard encode(chain.sourceCommand, commandBuffer: commandBuffer) else {
+        guard encode(preparedGraph.sourceCommand, commandBuffer: commandBuffer) else {
             return false
         }
-        for (stageIndex, stage) in chain.stages.enumerated() {
+        for (stageIndex, stage) in preparedGraph.stages.enumerated() {
             for command in stage.commands {
                 guard encode(command, commandBuffer: commandBuffer) else {
                     return false
@@ -363,7 +363,7 @@ final class SceneResolvedMaterialGraphExecutor {
         case let .material(value):
             materialEncoder.encode(value, commandBuffer: commandBuffer)
         case let .dedicated(value):
-            SceneAuthoredEffectChainRenderer.encodePreparedStage(
+            SceneEffectStageRenderer.encodePreparedStage(
                 value,
                 commandBuffer: commandBuffer
             )

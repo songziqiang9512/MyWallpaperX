@@ -153,7 +153,7 @@ struct SceneDocumentLoader {
             ),
             utilityLayer: SceneUtilityLayer.parse(imagePath: imagePath, object: root),
             shape: stringValue(root["shape"])?.lowercased(),
-            dependencyLayerIDs: dependencies.legacyLayerIDs,
+            dependencyLayerIDs: dependencies.flatLayerIDs,
             authoredDependencies: dependencies.authored,
             parentID: root["parent"] as? Int,
             attachmentName: stringValue(root["attachment"]).flatMap { $0.isEmpty ? nil : $0 },

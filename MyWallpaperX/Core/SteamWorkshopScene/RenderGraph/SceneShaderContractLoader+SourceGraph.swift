@@ -24,7 +24,7 @@ extension SceneShaderContractLoader {
     ) -> [SceneShaderContract] {
         var groups: [String: (rootURL: URL, references: [String])] = [:]
         for reference in shaderReferences {
-            let rootURL = legacyRootURL(for: reference, resourceView: resourceView)
+            let rootURL = sourceRootURL(for: reference, resourceView: resourceView)
             let key = rootURL.standardizedFileURL.path
             if var group = groups[key] {
                 group.references.append(reference)
@@ -36,7 +36,7 @@ extension SceneShaderContractLoader {
 
         let contracts = groups.keys.sorted().flatMap { key in
             guard let group = groups[key] else { return [SceneShaderContract]() }
-            return loadLegacyProjection(
+            return loadRootStageProjection(
                 shaderReferences: group.references,
                 rootURL: group.rootURL
             )
@@ -69,7 +69,7 @@ extension SceneShaderContractLoader {
 
     /// Mirrors the pre-R2 AssetCatalog projection exactly: the first indexed
     /// vertex wins, then fragment, otherwise the primary project/package root.
-    nonisolated private func legacyRootURL(
+    nonisolated private func sourceRootURL(
         for reference: String,
         resourceView: SceneResourceView
     ) -> URL {

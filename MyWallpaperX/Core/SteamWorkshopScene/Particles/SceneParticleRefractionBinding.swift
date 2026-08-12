@@ -15,7 +15,7 @@ struct SceneParticleRefractionBinding {
 
     private enum NormalSource {
         case staticCandidate(SceneTextureCandidate)
-        case legacy(
+        case baseV1(
             texture: MTLTexture,
             usesParticleFrames: Bool,
             uvScale: SIMD2<Float>,
@@ -37,7 +37,7 @@ struct SceneParticleRefractionBinding {
         normalUVScale: SIMD2<Float>,
         normalSampling: SceneParticleTextureSampling
     ) {
-        normalSource = .legacy(
+        normalSource = .baseV1(
             texture: normalTexture,
             usesParticleFrames: normalUsesParticleFrames,
             uvScale: normalUVScale,
@@ -67,7 +67,7 @@ struct SceneParticleRefractionBinding {
         switch normalSource {
         case .staticCandidate(let candidate):
             return Self.resolve(candidate)
-        case let .legacy(texture, usesParticleFrames, uvScale, sampling):
+        case let .baseV1(texture, usesParticleFrames, uvScale, sampling):
             return NormalArguments(
                 texture: texture,
                 usesParticleFrames: usesParticleFrames,

@@ -585,7 +585,7 @@ class SceneLightShaftsRenderingTests(unittest.TestCase):
         self.assertIn("return drawResolvedDirectDrawQuad(", draw_body)
         self.assertTrue(draw_body.rstrip().endswith("return true\n    }"), draw_body)
         for retired_product_call in (
-            "authoredEffectChain(",
+            "SceneAuthoredEffectExecutionChain",
             "effectTextures.",
             "makeLightShaftsPipeline()",
             "SceneLightShaftsLayerRenderer.draw(",

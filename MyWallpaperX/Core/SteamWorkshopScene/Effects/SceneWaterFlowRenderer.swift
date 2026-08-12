@@ -16,9 +16,6 @@ enum SceneWaterFlowRenderer {
               targets.plan.logicalTargets.isEmpty,
               SceneOffscreenEffectRenderer.captureSource(
                   sourceTexture: sourceTexture,
-                  waterMaskTexture: masks.water,
-                  foliageMaskTexture: masks.foliage,
-                  auxMaskTexture: masks.iris ?? masks.opacity,
                   target: targets.inputTexture,
                   sourceUniforms: sourceUniforms,
                   pipeline: sourcePipeline,

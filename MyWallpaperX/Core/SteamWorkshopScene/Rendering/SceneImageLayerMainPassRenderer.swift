@@ -4,7 +4,6 @@ import simd
 enum SceneImageLayerMainPassRenderer {
     static func draw(
         texture: MTLTexture,
-        masks: SceneImageLayerMasks,
         mvp: simd_float4x4,
         uniforms: SceneLayerFragmentUniforms,
         dependencyTexture: MTLTexture?,
@@ -15,7 +14,6 @@ enum SceneImageLayerMainPassRenderer {
     ) -> Bool {
         SceneLayerColorBlendRenderer.draw(
             texture: texture,
-            masks: masks,
             mvp: mvp,
             uniforms: uniforms,
             dependencyTexture: dependencyTexture,

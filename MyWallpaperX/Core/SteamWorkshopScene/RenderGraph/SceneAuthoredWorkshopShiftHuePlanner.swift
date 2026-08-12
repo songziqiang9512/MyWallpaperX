@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-/// Exact workshop `2114826643/shift_hue` profile used by real Scene samples.
+/// Exact workshop `2114826643/shift_hue` effect contract.
 /// The shader's malformed speed annotation and implicit white mask are part of
 /// the admitted fingerprint; explicit masks and dynamic bindings remain closed.
 enum SceneAuthoredWorkshopShiftHuePlanner {

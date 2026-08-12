@@ -2,7 +2,7 @@ import Foundation
 import Metal
 
 /// Prepares one already-finalized material Program before any commands are
-/// encoded. A chain executor can therefore prepare every pass first and only
+/// encoded. A graph executor can therefore prepare every pass first and only
 /// start its command buffer after the complete transaction is admissible.
 final class SceneResolvedMaterialPassEncoder {
     enum PreparationFailure: Error, Equatable {

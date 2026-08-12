@@ -24,7 +24,7 @@ class SceneMetalView: NSView {
     let debugFrameCapture = SceneDebugFrameCapture()
 #endif
     init?(
-        renderDescriptor: SceneRenderDescriptor, authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
+        renderDescriptor: SceneRenderDescriptor, effectAdmissionCatalog: SceneEffectAdmissionCatalog,
         mediaThumbnailBindings: SceneMediaThumbnailBindingProgram = .empty,
         pipelineRepository: SceneImageEffectPipelineRepository, resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
         userPropertyTextureURLs: [String: URL] = [:],
@@ -32,7 +32,7 @@ class SceneMetalView: NSView {
     ) {
         guard let renderer = SceneMetalRenderer(
             renderDescriptor: renderDescriptor,
-            authoredEffectCatalog: authoredEffectCatalog,
+            effectAdmissionCatalog: effectAdmissionCatalog,
             pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
         ) else { return nil }
         self.metalDevice = renderer.device
@@ -57,7 +57,6 @@ class SceneMetalView: NSView {
         layer.device = renderer.device
         layer.pixelFormat = .bgra8Unorm
         layer.framebufferOnly = !renderDescriptor.requiresReadableFramebuffer(
-            authoredEffectCatalog: authoredEffectCatalog,
             resolvedMaterialLayerIDs: resolvedMaterialRuntime.executionLayerIDs
         )
 #if DEBUG
@@ -101,7 +100,7 @@ class SceneMetalView: NSView {
         var puppetRecomposeBytes = 0
         // 所有渲染层都要装载 effect 实例资源，mp4 payload 视频层也不能遗漏。
         func loadEffectTextures(for layer: SceneRenderDescriptor.Layer) -> SceneLayerEffectTextures {
-            let stages = renderer.effectTextureStages(for: layer.id)
+            let stages = renderer.dedicatedEffectResourceStages(for: layer.id)
             let textures = SceneLayerEffectTextureLoader.load(
                 for: layer,
                 stages: stages,
@@ -141,7 +140,7 @@ class SceneMetalView: NSView {
                     layer.id, name, color.x, color.y, color.z
                 )
                 message += effectTextures.message
-                if let effectSummary = renderer.effectRuntimeSummary(for: layer, hasWaterMask: effectTextures.waterMask != nil, hasFoliageMask: effectTextures.foliageMask != nil) {
+                if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
                     message += "; \(effectSummary)"
                 }
                 message += "; \(placementSummary)"
@@ -216,24 +215,8 @@ class SceneMetalView: NSView {
                 }
                 let effectTextures = loadEffectTextures(for: layer)
                 message += effectTextures.message
-                if let effectSummary = renderer.effectRuntimeSummary(
-                    for: layer,
-                    hasWaterRippleNormal: effectTextures.waterRippleNormal != nil,
-                    hasOpacityMask: effectTextures.opacityMask != nil,
-                    hasWaterMask: effectTextures.waterMask != nil,
-                    hasFoliageMask: effectTextures.foliageMask != nil
-                ) {
+                if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
                     message += "; \(effectSummary)"
-                }
-                if !renderer.authoredEffectCatalog
-                    .legacyEffectRuntimeExcludedLayerIDs.contains(layer.id),
-                   let inlineSummary = SceneInlineEffectRuntime.summary(
-                    for: layer,
-                    hasWaterMask: effectTextures.waterMask != nil,
-                    handlesWaterWaves: (renderer.authoredEffectChain(for: layer.id)?
-                        .waterWavesCount ?? 0) > 0
-                ) {
-                    message += "; \(inlineSummary)"
                 }
                 message += "; \(placementSummary)"
                 report.append(message)
@@ -247,9 +230,8 @@ class SceneMetalView: NSView {
             }
         }
         let effectOnlyLayers = renderer.renderDescriptor.layers.filter { layer in
-            let chain = renderer.authoredEffectChain(for: layer.id)
             return renderer.utilityCaptureLayerIDs.contains(layer.id)
-                || (layer.contentKind == "quad" && (chain?.lightShaftsCount ?? 0) > 0)
+                || !renderer.unifiedDedicatedEffectStages(for: layer.id).isEmpty
         }
         for layer in effectOnlyLayers {
             let effectTextures = loadEffectTextures(for: layer)
@@ -264,14 +246,13 @@ class SceneMetalView: NSView {
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,
             device: metalDevice,
-            effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) },
-            legacyEffectRuntimeExcludedLayerIDs: renderer.authoredEffectCatalog
-                .legacyEffectRuntimeExcludedLayerIDs
+            effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }
         )
         imageTextures.merge(textLoad.textures)
         // CoreText text layers also load resources for the selected effect stages.
         for layer in renderer.renderDescriptor.layers
-        where layer.contentKind == "text" && !renderer.effectTextureStages(for: layer.id).isEmpty {
+        where layer.contentKind == "text"
+            && !renderer.dedicatedEffectResourceStages(for: layer.id).isEmpty {
             let effectTextures = loadEffectTextures(for: layer)
             if !effectTextures.message.isEmpty {
                 report.append(
@@ -280,7 +261,7 @@ class SceneMetalView: NSView {
                 )
             }
         }
-        report.append(contentsOf: renderer.runtimeReportLines(effectTextures: loadedEffectTextures))
+        report.append(contentsOf: renderer.runtimeReportLines())
         dynamicTextTextures = SceneDynamicTextTextureStore(
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,

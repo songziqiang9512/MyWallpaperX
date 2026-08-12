@@ -28,7 +28,7 @@ struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
 
-struct SceneAuthoredEffectExecutionPlan {
+struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int

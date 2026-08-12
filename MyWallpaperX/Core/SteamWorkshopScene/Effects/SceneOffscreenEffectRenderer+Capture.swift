@@ -16,9 +16,6 @@ extension SceneOffscreenEffectRenderer {
 
     static func captureSource(
         sourceTexture: MTLTexture,
-        waterMaskTexture: MTLTexture?,
-        foliageMaskTexture: MTLTexture?,
-        auxMaskTexture: MTLTexture?,
         target: MTLTexture,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
@@ -31,10 +28,6 @@ extension SceneOffscreenEffectRenderer {
         pipeline.bind(encoder: encoder)
         pipeline.drawLayer(
             texture: sourceTexture,
-            shakeMaskTexture: nil,
-            waterMaskTexture: waterMaskTexture,
-            foliageMaskTexture: foliageMaskTexture,
-            auxMaskTexture: auxMaskTexture,
             mvp: fullTargetMVP,
             uniforms: sourceUniforms,
             encoder: encoder

@@ -111,8 +111,7 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         support = method_body(self.service, "private func supportsScenePropertyTarget(")
         self.assertIn(
             "supportsScenePropertyTarget(\n                    binding.target,\n"
-            "                    in: renderDescriptor,\n"
-            "                    authoredEffectCatalog: authoredEffectCatalog\n                )",
+            "                    in: renderDescriptor\n                )",
             context,
         )
         self.assertIn("case let .layerColor(layerID):", support)
@@ -174,28 +173,26 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         self.assertIn("where animationLayer.visibilityBinding != nil", consumers)
         self.assertIn("ScenePuppetAnimationPropertyTarget.visibility(", consumers)
 
-    def test_local_contrast_controls_require_the_strict_execution_catalog(self) -> None:
+    def test_effect_properties_validate_descriptor_identity_without_path_allowlists(self) -> None:
         context = method_body(self.service, "func scenePropertyContext(")
         support = method_body(self.service, "private func supportsScenePropertyTarget(")
-        self.assertIn("SceneAuthoredEffectExecutionCatalog(", context)
-        self.assertIn("shaderContracts: report.assetCatalog?.shaderContracts ?? []", context)
-        self.assertIn("case let .effectVisibility(_, _, effectPath):", support)
-        self.assertIn("case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath):", support)
-        self.assertEqual(support.count("Self.isStrictLocalContrastPath(effectPath)"), 2)
-        self.assertIn(
-            "if Self.isStrictLocalContrastPath(effectPath) {\n                return true",
-            support,
-        )
-        self.assertIn("authoredEffectCatalog.liveConsumerTargets.contains(.effectConstant(", support)
-        self.assertNotIn('(\"localcontrast\", [\"strength\"])', self.service)
+        self.assertNotIn("SceneAuthoredEffectExecutionCatalog", context)
+        self.assertIn("case let .effectVisibility(layerID, effectIndex, effectPath)", support)
+        self.assertIn("let .shaderValue(layerID, effectIndex, _, _, effectPath)", support)
+        self.assertIn("Self.hasAuthoredEffect(", support)
+        identity = method_body(self.service, "private static func hasAuthoredEffect(")
+        self.assertIn("layer.effects.indices.contains(effectIndex)", identity)
+        self.assertIn("layer.effects[effectIndex].file", identity)
+        self.assertNotIn("supportedNamesByPath", self.service)
+        self.assertNotIn("isStrictLocalContrastPath", self.service)
 
-    def test_authored_texture_properties_use_only_the_strict_execution_catalog(self) -> None:
+    def test_actionable_properties_come_from_typed_binding_targets(self) -> None:
         context = method_body(self.service, "func scenePropertyContext(")
         self.assertIn(
-            "actionableKeys.formUnion(authoredEffectCatalog.executedUserPropertyKeys)",
+            "document.userPropertyResolution.bindingReport.bindings.compactMap",
             context,
         )
-        self.assertNotIn("legacyEffectFallbackSuppressedLayerIDs", context)
+        self.assertNotIn("authoredEffectCatalog", context)
         self.assertNotIn("blendPlan", context)
         self.assertNotIn("SceneImageBlendRenderPlan", self.service)
 

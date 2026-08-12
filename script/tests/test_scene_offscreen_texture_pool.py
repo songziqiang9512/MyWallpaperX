@@ -24,7 +24,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable+Mapped.swift",
     SOURCE_ROOT / "RenderGraph/SceneLayerFullFramePairPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetChainPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneLayerGraphTargetPlan.swift",
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
@@ -51,7 +51,7 @@ struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
 
-struct SceneAuthoredEffectExecutionPlan {
+struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let renderGraph: SceneAuthoredEffectRenderPlan
     let materialNodeCount: Int
@@ -104,7 +104,7 @@ enum Harness {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
     struct Fixture {
-        let execution: SceneAuthoredEffectExecutionPlan
+        let execution: SceneEffectStageExecutionPlan
         let framebufferIdentities: [Graph.TextureIdentity]
     }
 
@@ -574,7 +574,7 @@ enum Harness {
 
     static func completedOrderedAllocation(
         allocator: ScenePersistentGraphTargetAllocator,
-        plan: SceneGraphRenderTargetChainPlan,
+        plan: SceneLayerGraphTargetPlan,
         queue: MTLCommandQueue
     ) -> (
         prepared: ScenePreparedPersistentGraphTargets,
@@ -599,153 +599,6 @@ enum Harness {
         guard let device = MTLCreateSystemDefaultDevice() else {
             print("{\"metalUnavailable\":true}")
             return
-        }
-
-        let first = fixture(effectIndex: 0)
-        let second = fixture(effectIndex: 1)
-        let third = fixture(effectIndex: 2)
-        let lruPool = SceneOffscreenTexturePool(
-            device: device,
-            maxDimension: 64,
-            residentByteBudget: 1_200
-        )
-        guard let firstLease = lruPool.graphTargetLease(
-            for: first.execution, requestedWidth: 8, requestedHeight: 8
-        ), let secondLease = lruPool.graphTargetLease(
-            for: second.execution, requestedWidth: 8, requestedHeight: 8
-        ), let firstHitLease = lruPool.graphTargetLease(
-            for: first.execution, requestedWidth: 8, requestedHeight: 8
-        ) else {
-            fatalError("initial graph cache allocation failed")
-        }
-        let firstTable = firstLease.table
-        let secondTable = secondLease.table
-        let firstHit = firstHitLease.table
-        let sameNameDifferentEffectsAreDistinct = firstTable.inputTexture !== secondTable.inputTexture
-            && firstTable.texture(for: first.framebufferIdentities[0])
-                !== secondTable.texture(for: second.framebufferIdentities[0])
-        guard let thirdLease = lruPool.graphTargetLease(
-            for: third.execution, requestedWidth: 8, requestedHeight: 8
-        ), let firstAfterEvictionLease = lruPool.graphTargetLease(
-            for: first.execution, requestedWidth: 8, requestedHeight: 8
-        ), let recreatedSecondLease = lruPool.graphTargetLease(
-            for: second.execution, requestedWidth: 8, requestedHeight: 8
-        ) else {
-            fatalError("LRU graph allocation failed")
-        }
-        _ = thirdLease
-        let firstAfterEviction = firstAfterEvictionLease.table
-        let recreatedSecond = recreatedSecondLease.table
-
-        let resizePool = SceneOffscreenTexturePool(
-            device: device,
-            maxDimension: 64,
-            residentByteBudget: 8_000
-        )
-        guard let beforeResizeLease = resizePool.graphTargetLease(
-            for: first.execution, requestedWidth: 8, requestedHeight: 8
-        ), let afterResizeLease = resizePool.graphTargetLease(
-            for: first.execution, requestedWidth: 16, requestedHeight: 8
-        ), let resizeHitLease = resizePool.graphTargetLease(
-            for: first.execution, requestedWidth: 16, requestedHeight: 8
-        ) else {
-            fatalError("resize graph allocation failed")
-        }
-        let beforeResize = beforeResizeLease.table
-        let afterResize = afterResizeLease.table
-        let resizeHit = resizeHitLease.table
-
-        let residentBudgetPool = SceneOffscreenTexturePool(
-            device: device,
-            maxDimension: 64,
-            residentByteBudget: 1_200
-        )
-        guard let residentBudgetOriginalLease = residentBudgetPool.graphTargetLease(
-            for: first.execution, requestedWidth: 8, requestedHeight: 8
-        ) else {
-            fatalError("resident budget fixture allocation failed")
-        }
-        let refusedResize = residentBudgetPool.graphTargets(
-            for: first.execution, requestedWidth: 32, requestedHeight: 16
-        ) == nil
-        guard let residentBudgetOriginalAgainLease = residentBudgetPool.graphTargetLease(
-            for: first.execution, requestedWidth: 8, requestedHeight: 8
-        ) else {
-            fatalError("resident budget failure removed original allocation")
-        }
-        let residentBudgetOriginal = residentBudgetOriginalLease.table
-        let residentBudgetOriginalAgain = residentBudgetOriginalAgainLease.table
-
-        let clampPool = SceneOffscreenTexturePool(
-            device: device,
-            maxDimension: 8,
-            residentByteBudget: 2_000
-        )
-        let precise = fixture(effectIndex: 3, precise: true)
-        let exactClampRejected = clampPool.graphTargets(
-            for: precise.execution, requestedWidth: 16, requestedHeight: 8
-        ) == nil
-        guard let clampedStandard = clampPool.graphTargets(
-            for: first.execution, requestedWidth: 16, requestedHeight: 8
-        ) else {
-            fatalError("standard clamp allocation failed")
-        }
-
-        let legacyPool = SceneOffscreenTexturePool(
-            device: device,
-            maxDimension: 64,
-            residentByteBudget: 1_000
-        )
-        guard let legacySmall = legacyPool.textures(width: 8, height: 8) else {
-            fatalError("legacy pair fixture allocation failed")
-        }
-        let legacyLargeRejected = legacyPool.textures(width: 16, height: 16) == nil
-        guard let legacySmallAgain = legacyPool.textures(width: 8, height: 8) else {
-            fatalError("legacy resident budget failure removed original allocation")
-        }
-        let legacyClampPool = SceneOffscreenTexturePool(
-            device: device,
-            maxDimension: 64,
-            residentByteBudget: 30_000
-        )
-        guard let legacyClamped = legacyClampPool.textures(width: 128, height: 64) else {
-            fatalError("legacy clamp allocation failed")
-        }
-        let legacyLRUPool = SceneOffscreenTexturePool(
-            device: device,
-            maxDimension: 64,
-            residentByteBudget: 3_300
-        )
-        guard let legacyFirstSmall = legacyLRUPool.textures(width: 8, height: 8),
-              legacyLRUPool.textures(width: 16, height: 16) != nil,
-              let legacyRecreatedSmall = legacyLRUPool.textures(width: 8, height: 8) else {
-            fatalError("legacy LRU allocation failed")
-        }
-
-        let formatPool = SceneOffscreenTexturePool(
-            device: device,
-            maxDimension: 64,
-            residentByteBudget: 8_000
-        )
-        let rgbaFixture = fixture(effectIndex: 0, framebufferFormat: "rgba8888")
-        guard let bgraLease = formatPool.graphTargetLease(
-            for: first.execution, requestedWidth: 8, requestedHeight: 8
-        ), let rgbaLease = formatPool.graphTargetLease(
-            for: rgbaFixture.execution, requestedWidth: 8, requestedHeight: 8
-        ), let rgbaHitLease = formatPool.graphTargetLease(
-            for: rgbaFixture.execution, requestedWidth: 8, requestedHeight: 8
-        ) else {
-            fatalError("format replacement fixture failed")
-        }
-        let bgraTable = bgraLease.table
-        let rgbaTable = rgbaLease.table
-        let rgbaHit = rgbaHitLease.table
-        guard let rgbaFramebuffer = rgbaTable.texture(
-            for: rgbaFixture.framebufferIdentities[0]
-        ), let bgraFramebuffer = bgraTable.texture(
-            for: first.framebufferIdentities[0]
-        ) else {
-            fatalError("format replacement fixture failed")
         }
 
         let sharedFBOFixtures: [Fixture] = (0..<6).map { offset in
@@ -778,7 +631,7 @@ enum Harness {
             )
         }
         guard sharedFBOPlans.count == sharedFBOFixtures.count,
-              sharedFBOPlans.allSatisfy({ $0.chainPlan.pairStorage == .shared }),
+              sharedFBOPlans.allSatisfy({ $0.graphPlan.pairStorage == .shared }),
               let sharedFBOPrepared = sharedFBOPool.preparePersistentGraphTargets(
                   framePlans: sharedFBOPlans
               ) else {
@@ -960,144 +813,24 @@ enum Harness {
         }
         orderedSharedPairBuffer.commit()
         orderedSharedPairBuffer.waitUntilCompleted()
-        let sharedPairBeforeIdempotentRelease = sharedPairOrderingPool.textures(
-            width: 8, height: 8
-        )?.primary
+        let orderedSharedPairKey = SceneOffscreenTextureAllocationCache.Key
+            .sharedGraphPair(width: 8, height: 8)
+        let sharedPairBeforeIdempotentRelease: MTLTexture? = {
+            guard case let .sharedGraphPair(pair, _) = sharedPairOrderingPool
+                .allocationCache.allocation(for: orderedSharedPairKey) else { return nil }
+            return pair.first
+        }()
         firstSharedPairCommit.releaseAll()
         firstSharedPairCommit.releaseAll()
         orderedSharedPairCommit.releaseAll()
         orderedSharedPairCommit.releaseAll()
-        let sharedPairAfterIdempotentRelease = sharedPairOrderingPool.textures(
-            width: 8, height: 8
-        )?.primary
+        let sharedPairAfterIdempotentRelease: MTLTexture? = {
+            guard case let .sharedGraphPair(pair, _) = sharedPairOrderingPool
+                .allocationCache.allocation(for: orderedSharedPairKey) else { return nil }
+            return pair.first
+        }()
         let sharedPairOrderedReuseAndReleaseStable =
             sharedPairBeforeIdempotentRelease === sharedPairAfterIdempotentRelease
-
-        let descriptorPool = SceneOffscreenTexturePool(
-            device: device,
-            maxDimension: 64,
-            residentByteBudget: 8_000
-        )
-        let descriptorFixture = fixture(
-            effectIndex: 40,
-            framebufferFormat: "rgba8888",
-            uniqueFirstTarget: true,
-            clearFirstTarget: true
-        )
-        guard let descriptorLease = descriptorPool.graphTargetLease(
-            for: descriptorFixture.execution,
-            requestedWidth: 8,
-            requestedHeight: 8
-        ), let inputDescriptor = descriptorLease.allocation.resources[
-            descriptorLease.table.plan.input
-        ]?.descriptor,
-        let outputDescriptor = descriptorLease.allocation.resources[
-            descriptorLease.table.plan.output
-        ]?.descriptor,
-        let uniqueDescriptor = descriptorLease.allocation.resources[
-            descriptorFixture.framebufferIdentities[0]
-        ]?.descriptor,
-        let ordinaryDescriptor = descriptorLease.allocation.resources[
-            descriptorFixture.framebufferIdentities[1]
-        ]?.descriptor else {
-            fatalError("lease descriptor fixture failed")
-        }
-        let descriptorTextureConsistency = descriptorLease.allocation.resources
-            .allSatisfy { identity, resource in
-                guard let texture = descriptorLease.texture(for: identity),
-                      texture === descriptorLease.texturesByToken[resource.token] else {
-                    return false
-                }
-                let expectedPixelFormat: MTLPixelFormat =
-                    resource.descriptor.format == .rgbaBackbuffer
-                        ? .bgra8Unorm
-                        : .rgba8Unorm
-                return texture.width == resource.descriptor.extent.width
-                    && texture.height == resource.descriptor.extent.height
-                    && texture.pixelFormat == expectedPixelFormat
-            }
-        let aliasToken = SceneGraphExecutionState.PhysicalToken(
-            rawValue: "deliberate-alias"
-        )
-        let aliasFailure: String
-        switch SceneGraphRenderTargetLease.make(
-            table: descriptorLease.table,
-            generation: descriptorLease.generation + 1,
-            tokenForTexture: { _ in aliasToken }
-        ) {
-        case .success:
-            aliasFailure = "success"
-        case .failure(let reason):
-            aliasFailure = reason.rawValue
-        }
-        let zeroGenerationFailure: String
-        switch SceneGraphRenderTargetLease.make(
-            table: descriptorLease.table,
-            generation: 0,
-            tokenForTexture: { _ in nil }
-        ) {
-        case .success:
-            zeroGenerationFailure = "success"
-        case .failure(let reason):
-            zeroGenerationFailure = reason.rawValue
-        }
-
-        let controlledAliasMapping = Dictionary(uniqueKeysWithValues: (
-            [descriptorLease.table.plan.input]
-                + descriptorLease.table.plan.logicalTargets.map(\.identity)
-                + [descriptorLease.table.plan.output]
-        ).compactMap { identity -> (Graph.TextureIdentity, MTLTexture)? in
-            if identity == descriptorLease.table.plan.output {
-                return (identity, descriptorLease.table.inputTexture)
-            }
-            return descriptorLease.table.texture(for: identity).map { (identity, $0) }
-        })
-        let controlledAliasResult = SceneGraphRenderTargetTable.makeMapped(
-            plan: descriptorLease.table.plan,
-            device: device,
-            texturesByIdentity: controlledAliasMapping,
-            fullFramePair: .init(
-                first: descriptorLease.table.inputTexture,
-                second: descriptorLease.table.outputTexture
-            ),
-            expectsInputOutputAlias: true
-        )
-        guard case .success(let controlledAliasTable) = controlledAliasResult else {
-            fatalError("controlled endpoint alias table failed")
-        }
-        let aliasPhysicalTextures = controlledAliasTable.orderedPhysicalTextures
-        let aliasTokens = Dictionary(uniqueKeysWithValues: aliasPhysicalTextures.enumerated().map {
-            (ObjectIdentifier($0.element), SceneGraphExecutionState.PhysicalToken(
-                rawValue: "controlled-alias-\($0.offset)"
-            ))
-        })
-        guard case .success(let controlledAliasLease) = SceneGraphRenderTargetLease.make(
-            table: controlledAliasTable,
-            generation: 900,
-            tokenForTexture: { aliasTokens[ObjectIdentifier($0)] }
-        ), let controlledAliasInput = controlledAliasLease.allocation.resources[
-            controlledAliasTable.plan.input
-        ], let controlledAliasOutput = controlledAliasLease.allocation.resources[
-            controlledAliasTable.plan.output
-        ] else { fatalError("controlled endpoint alias lease failed") }
-        let controlledAliasLeaseValid = controlledAliasInput.token
-                == controlledAliasOutput.token
-            && controlledAliasLease.fullFramePair.first
-                != controlledAliasLease.fullFramePair.second
-            && controlledAliasLease.texturesByToken.count
-                == controlledAliasTable.residentTextureCount
-        let controlledAliasPublicationValid: Bool
-        switch controlledAliasLease.fullFrameResource(
-            for: controlledAliasTable.plan.output,
-            member: .zero,
-            contentGeneration: 1,
-            fragmentColorRepresentation: .resolved(.premultipliedAlpha)
-        ) {
-        case .success(let resource):
-            controlledAliasPublicationValid = resource.isCompleteGraphResource
-        case .failure:
-            controlledAliasPublicationValid = false
-        }
 
         let rotationPool = SceneOffscreenTexturePool(
             device: device,
@@ -1120,7 +853,7 @@ enum Harness {
         let directBudgetPlans = targetPlans(
             directFixtures, width: 4_000, height: 4_000
         )
-        guard case .success(let directBudgetPlan) = SceneGraphRenderTargetChainPlan.make(
+        guard case .success(let directBudgetPlan) = SceneLayerGraphTargetPlan.make(
             plans: directBudgetPlans,
             pairPlan: directPairPlan,
             byteBudget: defaultBudget
@@ -1208,7 +941,7 @@ enum Harness {
         let persistentCommittedTextureCount = directBudgetPool.residentTextureCount
         let persistentCommittedBytes = directBudgetPool.residentByteCost
 
-        guard case .success(let inflightPlan) = SceneGraphRenderTargetChainPlan.make(
+        guard case .success(let inflightPlan) = SceneLayerGraphTargetPlan.make(
             plans: targetPlans(directFixtures, width: 8, height: 8),
             pairPlan: directPairPlan,
             byteBudget: 10_000
@@ -1263,8 +996,8 @@ enum Harness {
                 plans: [inflightPlan],
                 residents: [
                     .init(
-                        id: 0, location: .currentChain(inflightPlan.key),
-                        chainPlan: inflightPlan, history: nil,
+                        id: 0, location: .currentGraph(inflightPlan.key),
+                        graphPlan: inflightPlan, history: nil,
                         demotedHistory: nil,
                         byteCost: inflightPlan.residentByteCost,
                         submissionPinCount: 1, historyPinCount: 0,
@@ -1274,7 +1007,7 @@ enum Harness {
                     ),
                     .init(
                         id: 1, location: .retired,
-                        chainPlan: inflightPlan, history: nil,
+                        graphPlan: inflightPlan, history: nil,
                         demotedHistory: nil,
                         byteCost: inflightPlan.residentByteCost,
                         submissionPinCount: 1, historyPinCount: 0,
@@ -1284,7 +1017,7 @@ enum Harness {
                     ),
                     .init(
                         id: 2, location: .currentOther,
-                        chainPlan: nil, history: nil, demotedHistory: nil,
+                        graphPlan: nil, history: nil, demotedHistory: nil,
                         byteCost: 128, submissionPinCount: 2,
                         historyPinCount: 0, permitsOrderedReuse: true,
                         isResetInvalidated: false, lastAccess: 3,
@@ -1377,14 +1110,14 @@ enum Harness {
               ) else { fatalError("single-budget first allocation failed") }
         let attemptsBeforeBudgetRejection = oneSlotBudgetFactoryAttempts
         let pinnedOneSlotFramePreflightDefers =
-            oneSlotBudgetCache.preflightChains([inflightPlan])
+            oneSlotBudgetCache.preflightGraphs([inflightPlan])
                 == .temporarilyBlocked
         let pinnedSecondSlotBudgetFailsBeforeAllocation =
             oneSlotBudgetAllocator.prepare(plan: inflightPlan) == nil
             && oneSlotBudgetFactoryAttempts == attemptsBeforeBudgetRejection
         oneSlotCommit.submissionPin.release()
         let releasedOneSlotFramePreflightReady =
-            oneSlotBudgetCache.preflightChains([inflightPlan]) == .ready
+            oneSlotBudgetCache.preflightGraphs([inflightPlan]) == .ready
         oneSlotBudgetCache.reset()
 
         guard let orderedQueue = device.makeCommandQueue() else {
@@ -1406,7 +1139,7 @@ enum Harness {
         let orderedSecondContext = SceneGraphCommandQueueOrderingContext(
             commandBuffer: orderedSecondBuffer
         )
-        let orderedDryRunReady = orderedCache.preflightChains(
+        let orderedDryRunReady = orderedCache.preflightGraphs(
             [inflightPlan], orderingContext: orderedSecondContext
         ) == .ready
         guard let orderedSecondPrepared = orderedAllocator.prepare(
@@ -1427,17 +1160,17 @@ enum Harness {
         orderedCache.reset()
         let sharedResetRetainsOneInvalidatedGeneration =
             orderedCache.residentAllocationCount == 1
-            && orderedCache.preflightChains([inflightPlan])
+            && orderedCache.preflightGraphs([inflightPlan])
                 == .temporarilyBlocked
         orderedFirst.commit.submissionPin.release()
         let forwardReleasePreservesNewerPin =
             orderedCache.residentAllocationCount == 1
-            && orderedCache.preflightChains([inflightPlan])
+            && orderedCache.preflightGraphs([inflightPlan])
                 == .temporarilyBlocked
         orderedSecondCommit.submissionPin.release()
         let forwardFinalReleaseReturnsIdle =
             orderedCache.residentAllocationCount == 0
-            && orderedCache.preflightChains([inflightPlan]) == .ready
+            && orderedCache.preflightGraphs([inflightPlan]) == .ready
 
         let lateCommitCache = SceneOffscreenTextureAllocationCache(
             byteBudget: inflightPlan.residentByteCost
@@ -1473,7 +1206,7 @@ enum Harness {
             invalidOrderingFactoryAttempts += 1
             return device.makeTexture(descriptor: descriptor)
         }
-        let completedIdleContextRejected = lateCommitCache.preflightChains(
+        let completedIdleContextRejected = lateCommitCache.preflightGraphs(
             [inflightPlan], orderingContext: completedOrderingContext
         ) == .rejected(reasonCode: "frame-target-ordering-context-invalid")
             && invalidOrderingAllocator.prepare(
@@ -1482,7 +1215,7 @@ enum Harness {
             ) == nil
             && invalidOrderingFactoryAttempts == 0
         lateCommitCache.reset()
-        let completedEmptyContextRejected = lateCommitCache.preflightChains(
+        let completedEmptyContextRejected = lateCommitCache.preflightGraphs(
             [inflightPlan], orderingContext: completedOrderingContext
         ) == .rejected(reasonCode: "frame-target-ordering-context-invalid")
             && invalidOrderingAllocator.prepare(
@@ -1506,7 +1239,7 @@ enum Harness {
         let preparedContextA = SceneGraphCommandQueueOrderingContext(
             commandBuffer: preparedBufferA
         )
-        guard sameBufferBindingCache.preflightChains(
+        guard sameBufferBindingCache.preflightGraphs(
             [inflightPlan], orderingContext: preparedContextA
         ) == .ready,
               let preparedOnBufferA = sameBufferBindingAllocator.prepare(
@@ -1553,11 +1286,11 @@ enum Harness {
         reverseOrderedCommit.submissionPin.release()
         let reverseReleasePreservesOlderPin =
             reverseOrderedCache.residentAllocationCount == 1
-            && reverseOrderedCache.preflightChains([inflightPlan])
+            && reverseOrderedCache.preflightGraphs([inflightPlan])
                 == .temporarilyBlocked
         reverseOrderedFirst.commit.submissionPin.release()
         let reverseFinalReleaseReturnsIdle =
-            reverseOrderedCache.preflightChains([inflightPlan]) == .ready
+            reverseOrderedCache.preflightGraphs([inflightPlan]) == .ready
         reverseOrderedCache.reset()
 
         let thirdPinCache = SceneOffscreenTextureAllocationCache(
@@ -1594,7 +1327,7 @@ enum Harness {
         )
         let attemptsBeforeThirdPin = thirdPinFactoryAttempts
         let thirdPinRejectedBeforeAllocation =
-            thirdPinCache.preflightChains(
+            thirdPinCache.preflightGraphs(
                 [inflightPlan], orderingContext: thirdPinContext
             ) == .temporarilyBlocked
             && thirdPinAllocator.prepare(
@@ -1774,7 +1507,7 @@ enum Harness {
         )
         let pressureFixtures = [pressureFirst, pressureSecond, pressureThird]
         guard case .success(let pressurePlan) =
-            SceneGraphRenderTargetChainPlan.make(
+            SceneLayerGraphTargetPlan.make(
                 plans: targetPlans(pressureFixtures, width: 8, height: 8),
                 pairPlan: pairPlan(pressureFixtures),
                 byteBudget: 10_000
@@ -1788,17 +1521,17 @@ enum Harness {
             byteBudget: inflightPlan.residentByteCost
         )
         let aggregateFrameHardOverBudget =
-            aggregateFrameCache.preflightChains([inflightPlan, pressurePlan])
+            aggregateFrameCache.preflightGraphs([inflightPlan, pressurePlan])
                 == .rejected(reasonCode: "frame-target-byte-budget-exceeded")
         let aggregateFrameReadyAtExactBudget =
             SceneOffscreenTextureAllocationCache(
                 byteBudget: inflightPlan.residentByteCost * 2
-            ).preflightChains([inflightPlan, pressurePlan]) == .ready
+            ).preflightGraphs([inflightPlan, pressurePlan]) == .ready
 
         let mixedHistoryFixture = historySwapFixture(effectIndex: 56)
         let mixedHistoryFixtures = [mixedHistoryFixture]
         guard case .success(let mixedHistoryPlan) =
-            SceneGraphRenderTargetChainPlan.make(
+            SceneLayerGraphTargetPlan.make(
                 plans: targetPlans(mixedHistoryFixtures, width: 8, height: 8),
                 pairPlan: pairPlan(mixedHistoryFixtures),
                 byteBudget: 10_000
@@ -1826,7 +1559,7 @@ enum Harness {
         let mixedTransientFixture = directFixture(effectIndex: 57)
         let mixedTransientFixtures = [mixedTransientFixture]
         guard case .success(let mixedTransientPlan) =
-            SceneGraphRenderTargetChainPlan.make(
+            SceneLayerGraphTargetPlan.make(
                 plans: targetPlans(
                     mixedTransientFixtures, width: 4, height: 4
                 ),
@@ -1843,7 +1576,7 @@ enum Harness {
         let mixedIncomingFixture = directFixture(effectIndex: 58)
         let mixedIncomingFixtures = [mixedIncomingFixture]
         guard case .success(let mixedIncomingPlan) =
-            SceneGraphRenderTargetChainPlan.make(
+            SceneLayerGraphTargetPlan.make(
                 plans: targetPlans(
                     mixedIncomingFixtures, width: 11, height: 11
                 ),
@@ -1855,19 +1588,19 @@ enum Harness {
             && mixedIncomingPlan.residentByteCost <= mixedBudget
             && residualHistoryCost + mixedIncomingPlan.residentByteCost
                 > mixedBudget
-            && mixedCache.preflightChains([mixedIncomingPlan])
+            && mixedCache.preflightGraphs([mixedIncomingPlan])
                 == .rejected(
                     reasonCode: "frame-target-residency-unavailable"
                 )
         mixedTransientCommit.submissionPin.release()
         let mixedHistoryRemainsHardAfterTransientRelease =
-            mixedCache.preflightChains([mixedIncomingPlan])
+            mixedCache.preflightGraphs([mixedIncomingPlan])
                 == .rejected(
                     reasonCode: "frame-target-residency-unavailable"
                 )
         mixedHistoryCommit.historyPinsByEffect.values.forEach { $0.release() }
         let mixedFrameReadyAfterHistoryRelease =
-            mixedCache.preflightChains([mixedIncomingPlan]) == .ready
+            mixedCache.preflightGraphs([mixedIncomingPlan]) == .ready
         mixedCache.reset()
 
         let attemptsAfterPressure = idleLRUFactoryAttempts
@@ -1894,7 +1627,7 @@ enum Harness {
         let inflightHistoryFixtures = [inflightHistoryFixture]
         let inflightHistoryPairPlan = pairPlan(inflightHistoryFixtures)
         guard case .success(let inflightHistoryPlan) =
-            SceneGraphRenderTargetChainPlan.make(
+            SceneLayerGraphTargetPlan.make(
                 plans: targetPlans(inflightHistoryFixtures, width: 8, height: 8),
                 pairPlan: inflightHistoryPairPlan,
                 byteBudget: 10_000
@@ -2008,7 +1741,7 @@ enum Harness {
         let oversizedPlans = targetPlans([oversized], width: 4_096, height: 4_096)
         let oversizedPairPlan = pairPlan([oversized])
         let defaultBudgetFailure: String
-        switch SceneGraphRenderTargetChainPlan.make(
+        switch SceneLayerGraphTargetPlan.make(
             plans: oversizedPlans,
             pairPlan: oversizedPairPlan,
             byteBudget: defaultBudget
@@ -2016,7 +1749,7 @@ enum Harness {
         case .success: defaultBudgetFailure = "success"
         case .failure(let failure): defaultBudgetFailure = failure.rawValue
         }
-        guard case .success(let oversizedPlan) = SceneGraphRenderTargetChainPlan.make(
+        guard case .success(let oversizedPlan) = SceneLayerGraphTargetPlan.make(
             plans: oversizedPlans,
             pairPlan: oversizedPairPlan,
             byteBudget: Int.max
@@ -2045,7 +1778,7 @@ enum Harness {
             input: uniqueFirst.execution.renderGraph.finalOutput
         )
         let uniqueFixtures = [uniqueFirst, uniqueSecond]
-        guard case .success(let uniquePlan) = SceneGraphRenderTargetChainPlan.make(
+        guard case .success(let uniquePlan) = SceneLayerGraphTargetPlan.make(
             plans: targetPlans(uniqueFixtures, width: 8, height: 8),
             pairPlan: pairPlan(uniqueFixtures),
             byteBudget: defaultBudget
@@ -2071,7 +1804,7 @@ enum Harness {
             input: uniqueFirst.execution.renderGraph.finalOutput
         )
         guard case .success(let distinctNamePlan) =
-            SceneGraphRenderTargetChainPlan.make(
+            SceneLayerGraphTargetPlan.make(
                 plans: targetPlans(
                     [uniqueFirst, distinctNameSecond], width: 8, height: 8
                 ),
@@ -2110,7 +1843,7 @@ enum Harness {
             historyFixtures, width: 64, height: 64
         )
         guard case .success(let historyPhysicalPlan) =
-            SceneGraphRenderTargetChainPlan.make(
+            SceneLayerGraphTargetPlan.make(
                 plans: historyTargetPlans,
                 pairPlan: historyPairPlan,
                 byteBudget: 100_000
@@ -2177,16 +1910,6 @@ enum Harness {
         let historyClosureContractAligned = historyClosure1.count == 2
             && historyPhysicalPlan.historyEffects == Set([historyEffect])
         historyCommit1.submissionPin.release()
-        let pressureA = directFixture(effectIndex: 101)
-        let pressureB = directFixture(effectIndex: 102)
-        guard historyPool.graphTargetLease(
-            for: pressureA.execution, requestedWidth: 64, requestedHeight: 64
-        ) != nil, historyPool.graphTargetLease(
-            for: pressureB.execution, requestedWidth: 64, requestedHeight: 64
-        ) != nil else { fatalError("history pressure allocation failed") }
-        let historyPressureDemotedToClosure = historyPool.residentAllocationCount == 3
-            && historyPool.residentTextureCount == 6
-            && historyPool.residentByteCost == 98_304
         guard let historyMissingPrepared = historyPool.preparePersistentGraphTargets(
             admittedGraphs: historyGraphs,
             pairPlan: historyPairPlan,
@@ -2550,8 +2273,8 @@ enum Harness {
                     sharedResolvedPlanA, sharedResolvedPlanB,
                 ]) else { fatalError("resolved shared pair fixture failed") }
         let batchPlansShareOneHistoryFreePair =
-            sharedResolvedPlanA.chainPlan.pairStorage == .shared
-                && sharedResolvedPlanB.chainPlan.pairStorage == .shared
+            sharedResolvedPlanA.graphPlan.pairStorage == .shared
+                && sharedResolvedPlanB.graphPlan.pairStorage == .shared
                 && sharedResolvedPrepared.allSatisfy {
                     $0.leases.first?.fullFramePairGeneration
                         == sharedResolvedPrepared.first?.leases.first?
@@ -2646,7 +2369,7 @@ enum Harness {
             cache: materializationCache,
             textureFactory: { descriptor, _ in
                 materializationAttempts += 1
-                guard materializationAttempts <= failingPlanA.chainPlan.slots.count
+                guard materializationAttempts <= failingPlanA.graphPlan.slots.count
                 else { return nil }
                 return device.makeTexture(descriptor: descriptor)
             }
@@ -2654,7 +2377,7 @@ enum Harness {
         let materializationRevision = materializationCache.revision
         let secondMaterializationFailureHasZeroMutation =
             materializationAllocator.prepare(
-                plans: [failingPlanA.chainPlan, failingPlanB.chainPlan],
+                plans: [failingPlanA.graphPlan, failingPlanB.graphPlan],
                 orderingContext: failingContext
             ) == nil
                 && materializationCache.residentAllocationCount == 0
@@ -2859,66 +2582,6 @@ enum Harness {
 
         let result: [String: Any] = [
             "metalUnavailable": false,
-            "stableReuse": firstTable.inputTexture === firstHit.inputTexture
-                && firstTable.outputTexture === firstHit.outputTexture,
-            "stableLeaseGeneration": firstLease.generation == firstHitLease.generation,
-            "stableLeaseAllocation": firstLease.allocation == firstHitLease.allocation,
-            "effectIsolation": sameNameDifferentEffectsAreDistinct,
-            "lruKeptRecent": firstTable.inputTexture === firstAfterEviction.inputTexture,
-            "lruRecreatedOldest": secondTable.inputTexture !== recreatedSecond.inputTexture,
-            "lruKeptGeneration": firstLease.generation
-                == firstAfterEvictionLease.generation,
-            "lruRecreatedGenerationAdvanced": recreatedSecondLease.generation
-                > secondLease.generation,
-            "lruAllocationCount": lruPool.residentAllocationCount,
-            "lruTextureCount": lruPool.residentTextureCount,
-            "lruBytes": lruPool.residentByteCost,
-            "resizeReplaced": beforeResize.inputTexture !== afterResize.inputTexture,
-            "resizeStable": afterResize.inputTexture === resizeHit.inputTexture,
-            "resizeGenerationAdvanced": afterResizeLease.generation
-                > beforeResizeLease.generation,
-            "resizeHitGenerationStable": resizeHitLease.generation
-                == afterResizeLease.generation,
-            "resizeAllocationCount": resizePool.residentAllocationCount,
-            "resizeTextureCount": resizePool.residentTextureCount,
-            "resizeBytes": resizePool.residentByteCost,
-            "residentBudgetResizeRejected": refusedResize,
-            "residentBudgetPreservedIdentity": residentBudgetOriginal.inputTexture
-                === residentBudgetOriginalAgain.inputTexture,
-            "residentBudgetPreservedGeneration": residentBudgetOriginalLease.generation
-                == residentBudgetOriginalAgainLease.generation,
-            "residentBudgetAllocationCount": residentBudgetPool.residentAllocationCount,
-            "residentBudgetTextureCount": residentBudgetPool.residentTextureCount,
-            "residentBudgetBytes": residentBudgetPool.residentByteCost,
-            "exactClampRejected": exactClampRejected,
-            "standardClampSize": [
-                clampedStandard.inputTexture.width,
-                clampedStandard.inputTexture.height,
-            ],
-            "legacyLargeRejected": legacyLargeRejected,
-            "legacyPreservedIdentity": legacySmall.primary === legacySmallAgain.primary,
-            "legacyAllocationCount": legacyPool.residentAllocationCount,
-            "legacyTextureCount": legacyPool.residentTextureCount,
-            "legacyBytes": legacyPool.residentByteCost,
-            "legacyClampedSize": [
-                legacyClamped.primary.width,
-                legacyClamped.primary.height,
-            ],
-            "legacyEvictedAffordable": legacyFirstSmall.primary
-                !== legacyRecreatedSmall.primary,
-            "formatChangeReplaced": bgraTable.inputTexture !== rgbaTable.inputTexture,
-            "formatChangeStable": rgbaTable.inputTexture === rgbaHit.inputTexture,
-            "formatChangeGenerationAdvanced": rgbaLease.generation
-                > bgraLease.generation,
-            "formatChangeHitGenerationStable": rgbaHitLease.generation
-                == rgbaLease.generation,
-            "formatChangeInputOutputBGRA": rgbaTable.inputTexture.pixelFormat == .bgra8Unorm
-                && rgbaTable.outputTexture.pixelFormat == .bgra8Unorm,
-            "backbufferFramebufferBGRA": bgraFramebuffer.pixelFormat == .bgra8Unorm,
-            "formatChangeFramebufferRGBA": rgbaFramebuffer.pixelFormat == .rgba8Unorm,
-            "formatChangeAllocationCount": formatPool.residentAllocationCount,
-            "formatChangeTextureCount": formatPool.residentTextureCount,
-            "formatChangeBytes": formatPool.residentByteCost,
             "sharedFBOFramePairShared": sharedFBOFramePairShared,
             "sharedFBOFramebuffersDistinct": sharedFBOFramebuffersDistinct,
             "sharedFBOStateOwnsOnlyFBO": sharedFBOStateOwnsOnlyFBO,
@@ -2941,24 +2604,6 @@ enum Harness {
                 batchPrepareOnlyPublishesSharedPair,
             "sharedPairBudgetRejectsBeforeAllocation":
                 sharedPairBudgetRejectsBeforeAllocation,
-            "leaseDescriptorInputOutputContract": !inputDescriptor.isUnique
-                && inputDescriptor.format == .rgbaBackbuffer
-                && inputDescriptor.initialClear == nil
-                && !outputDescriptor.isUnique
-                && outputDescriptor.format == .rgbaBackbuffer
-                && outputDescriptor.initialClear == nil,
-            "leaseDescriptorUniqueContract": uniqueDescriptor.isUnique
-                && uniqueDescriptor.format == .rgba8888
-                && uniqueDescriptor.initialClear
-                    == .init(red: 0, green: 0, blue: 0, alpha: 0)
-                && !ordinaryDescriptor.isUnique
-                && ordinaryDescriptor.format == .rgba8888
-                && ordinaryDescriptor.initialClear == nil,
-            "leaseDescriptorTextureConsistency": descriptorTextureConsistency,
-            "leasePhysicalAliasFailure": aliasFailure,
-            "leaseZeroGenerationFailure": zeroGenerationFailure,
-            "controlledAliasLeaseValid": controlledAliasLeaseValid,
-            "controlledAliasPublicationValid": controlledAliasPublicationValid,
             "persistentPairSharedAcrossStages": persistentPairSharedAcrossStages,
             "persistentPairHasTwoPhysicalObjects": persistentPairHasTwoPhysicalObjects,
             "persistentStateProjectionExcludesPair":
@@ -3043,8 +2688,8 @@ enum Harness {
                 mixedFrameReadyAfterHistoryRelease,
             "inFlightHistoryPreservesPinnedSeed":
                 inFlightHistoryPreservesPinnedSeed,
-            "chainPlanNearBudgetBytes": directBudgetPlan.residentByteCost,
-            "chainPlanSlotCount": directBudgetPlan.slots.count,
+            "graphPlanNearBudgetBytes": directBudgetPlan.residentByteCost,
+            "graphPlanSlotCount": directBudgetPlan.slots.count,
             "chainPhysicalObjectCount": directPhysicalObjects.count,
             "chainStageHandoffContinuous": directStageHandoffContinuous,
             "typedStandardExtent": [standardExtent.width, standardExtent.height],
@@ -3061,7 +2706,6 @@ enum Harness {
             "historyClosureContractAligned": historyClosureContractAligned,
             "historyMissingTokenRejected": historyMissingTokenRejected,
             "historyExtraTokenRejected": historyExtraTokenRejected,
-            "historyPressureDemotedToClosure": historyPressureDemotedToClosure,
             "historyCopyOnWriteIsolated": historyCopyOnWriteIsolated,
             "partialGPUWritePreservedCommittedPixels":
                 partialGPUWritePreservedCommittedPixels,
@@ -3091,22 +2735,7 @@ enum Harness {
                 hardLimit: 4096, includesAuthoredShader: true
             ),
         ]
-        resizePool.reset()
-        var finalResult = result
-        finalResult["resetAllocationCount"] = resizePool.residentAllocationCount
-        finalResult["resetTextureCount"] = resizePool.residentTextureCount
-        finalResult["resetBytes"] = resizePool.residentByteCost
-        guard let afterResetLease = resizePool.graphTargetLease(
-            for: first.execution, requestedWidth: 16, requestedHeight: 8
-        ) else { fatalError("reset generation fixture failed") }
-        finalResult["resetGenerationAdvanced"] = afterResetLease.generation
-            > resizeHitLease.generation
-        finalResult["resetPhysicalTokensChanged"] = Set(
-            afterResetLease.allocation.resources.values.map(\.token)
-        ).isDisjoint(with: Set(
-            resizeHitLease.allocation.resources.values.map(\.token)
-        ))
-        let data = try JSONSerialization.data(withJSONObject: finalResult, options: [.sortedKeys])
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
 }
@@ -3154,42 +2783,6 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_reuses_same_effect_and_isolates_different_effects(self) -> None:
-        self.assertTrue(self.result["stableReuse"])
-        self.assertTrue(self.result["stableLeaseGeneration"])
-        self.assertTrue(self.result["stableLeaseAllocation"])
-        self.assertTrue(self.result["effectIsolation"])
-
-    def test_lru_evicts_the_oldest_graph_allocation_as_a_unit(self) -> None:
-        self.assertTrue(self.result["lruKeptRecent"])
-        self.assertTrue(self.result["lruRecreatedOldest"])
-        self.assertTrue(self.result["lruKeptGeneration"])
-        self.assertTrue(self.result["lruRecreatedGenerationAdvanced"])
-        self.assertEqual(self.result["lruAllocationCount"], 2)
-        self.assertEqual(self.result["lruTextureCount"], 8)
-        self.assertEqual(self.result["lruBytes"], 1_088)
-
-    def test_resize_atomically_replaces_one_effect_table(self) -> None:
-        self.assertTrue(self.result["resizeReplaced"])
-        self.assertTrue(self.result["resizeStable"])
-        self.assertTrue(self.result["resizeGenerationAdvanced"])
-        self.assertTrue(self.result["resizeHitGenerationStable"])
-        self.assertEqual(self.result["resizeAllocationCount"], 1)
-        self.assertEqual(self.result["resizeTextureCount"], 4)
-        self.assertEqual(self.result["resizeBytes"], 1_088)
-
-    def test_format_change_atomically_replaces_one_effect_table(self) -> None:
-        self.assertTrue(self.result["formatChangeReplaced"])
-        self.assertTrue(self.result["formatChangeStable"])
-        self.assertTrue(self.result["formatChangeGenerationAdvanced"])
-        self.assertTrue(self.result["formatChangeHitGenerationStable"])
-        self.assertTrue(self.result["formatChangeInputOutputBGRA"])
-        self.assertTrue(self.result["backbufferFramebufferBGRA"])
-        self.assertTrue(self.result["formatChangeFramebufferRGBA"])
-        self.assertEqual(self.result["formatChangeAllocationCount"], 1)
-        self.assertEqual(self.result["formatChangeTextureCount"], 4)
-        self.assertEqual(self.result["formatChangeBytes"], 544)
-
     def test_shared_fbo_graphs_share_pair_with_separate_residency(self) -> None:
         self.assertTrue(self.result["sharedFBOFramePairShared"])
         self.assertTrue(self.result["sharedFBOFramebuffersDistinct"])
@@ -3209,45 +2802,6 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         )
         self.assertTrue(self.result["batchPrepareOnlyPublishesSharedPair"])
         self.assertTrue(self.result["sharedPairBudgetRejectsBeforeAllocation"])
-
-    def test_resident_budget_failure_preserves_existing_cache_accounting(self) -> None:
-        self.assertTrue(self.result["residentBudgetResizeRejected"])
-        self.assertTrue(self.result["residentBudgetPreservedIdentity"])
-        self.assertTrue(self.result["residentBudgetPreservedGeneration"])
-        self.assertEqual(self.result["residentBudgetAllocationCount"], 1)
-        self.assertEqual(self.result["residentBudgetTextureCount"], 4)
-        self.assertEqual(self.result["residentBudgetBytes"], 544)
-
-    def test_precise_rejects_clamp_while_standard_uses_limited_extent(self) -> None:
-        self.assertTrue(self.result["exactClampRejected"])
-        self.assertEqual(self.result["standardClampSize"], [8, 4])
-
-    def test_legacy_pair_over_resident_budget_preserves_existing_pair(self) -> None:
-        self.assertTrue(self.result["legacyLargeRejected"])
-        self.assertTrue(self.result["legacyPreservedIdentity"])
-        self.assertEqual(self.result["legacyAllocationCount"], 1)
-        self.assertEqual(self.result["legacyTextureCount"], 3)
-        self.assertEqual(self.result["legacyBytes"], 768)
-
-    def test_legacy_pair_preserves_clamp_and_affordable_lru_behavior(self) -> None:
-        self.assertEqual(self.result["legacyClampedSize"], [64, 32])
-        self.assertTrue(self.result["legacyEvictedAffordable"])
-
-    def test_reset_clears_all_resident_accounting(self) -> None:
-        self.assertEqual(self.result["resetAllocationCount"], 0)
-        self.assertEqual(self.result["resetTextureCount"], 0)
-        self.assertEqual(self.result["resetBytes"], 0)
-        self.assertTrue(self.result["resetGenerationAdvanced"])
-        self.assertTrue(self.result["resetPhysicalTokensChanged"])
-
-    def test_lease_preserves_plan_descriptors_and_texture_bijection(self) -> None:
-        self.assertTrue(self.result["leaseDescriptorInputOutputContract"])
-        self.assertTrue(self.result["leaseDescriptorUniqueContract"])
-        self.assertTrue(self.result["leaseDescriptorTextureConsistency"])
-        self.assertEqual(self.result["leasePhysicalAliasFailure"], "physicalAlias")
-        self.assertEqual(self.result["leaseZeroGenerationFailure"], "invalidGeneration")
-        self.assertTrue(self.result["controlledAliasLeaseValid"])
-        self.assertTrue(self.result["controlledAliasPublicationValid"])
 
     def test_persistent_chain_uses_one_two_member_full_frame_pair(self) -> None:
         self.assertTrue(self.result["persistentPairSharedAcrossStages"])
@@ -3272,8 +2826,8 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["persistentRepeatedCommitRejected"])
         self.assertTrue(self.result["persistentSubmissionAndHistorySeparated"])
         self.assertTrue(self.result["chainStageHandoffContinuous"])
-        self.assertEqual(self.result["chainPlanNearBudgetBytes"], 128_000_000)
-        self.assertEqual(self.result["chainPlanSlotCount"], 2)
+        self.assertEqual(self.result["graphPlanNearBudgetBytes"], 128_000_000)
+        self.assertEqual(self.result["graphPlanSlotCount"], 2)
         self.assertEqual(self.result["chainPhysicalObjectCount"], 2)
         self.assertEqual(self.result["persistentGraphAllocationCount"], 1)
         self.assertEqual(self.result["persistentGraphTextureCount"], 2)
@@ -3356,7 +2910,6 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["historyClosureContractAligned"])
         self.assertTrue(self.result["historyMissingTokenRejected"])
         self.assertTrue(self.result["historyExtraTokenRejected"])
-        self.assertTrue(self.result["historyPressureDemotedToClosure"])
         self.assertTrue(self.result["historyCopyOnWriteIsolated"])
         self.assertTrue(self.result["partialGPUWritePreservedCommittedPixels"])
         self.assertTrue(self.result["gpuFailurePreservedCommittedHistory"])

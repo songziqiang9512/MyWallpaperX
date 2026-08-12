@@ -341,7 +341,7 @@ nonisolated struct SceneDependencyRenderPlan {
         guard executableUtilityConsumerLayerIDs.contains(layer.id),
               visibleEffects.count == 1,
               let effect = visibleEffects.first,
-              normalized(effect.file) == legacyProceduralNoisePath,
+              normalized(effect.file) == proceduralNoiseV1Path,
               effect.passes.count == 1,
               let pass = effect.passes.first,
               pass.passIndex == 0,
@@ -376,6 +376,6 @@ nonisolated struct SceneDependencyRenderPlan {
         return false
     }
 
-    private nonisolated static let legacyProceduralNoisePath =
+    private nonisolated static let proceduralNoiseV1Path =
         "effects/workshop/2924967132/procedural_noise/effect.json"
 }

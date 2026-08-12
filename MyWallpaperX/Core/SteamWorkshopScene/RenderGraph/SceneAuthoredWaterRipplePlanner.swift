@@ -12,9 +12,9 @@ nonisolated struct SceneWaterRippleExecutionPlan {
 /// 官方 `effects/waterripple` 的 fail-closed 准入器。
 ///
 /// shader 源按 [SceneWaterRippleShaderProfile](SceneWaterRippleShaderProfile.swift)
-/// 的逐指纹白名单准入：stock 2.8.42 之外另收两族 legacy 变体，effect.json 的
-/// gizmos/replacementkey 形态与实例常量键（legacy 只写非默认键）按 profile 分流，
-/// `legacyInvertedScroll` 的 scroll 基向量差异折算为 `scrolldirection + π` 进
+/// 的逐指纹白名单准入：stock 2.8.42 之外另收两族 v1 变体，effect.json 的
+/// gizmos/replacementkey 形态与实例常量键（v1 只写非默认键）按 profile 分流，
+/// `invertedScrollV1` 的 scroll 基向量差异折算为 `scrolldirection + π` 进
 /// runtimePlan，pipeline 与渲染层无感知。stock 准入面保持不变。
 enum SceneAuthoredWaterRipplePlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
@@ -73,7 +73,7 @@ enum SceneAuthoredWaterRipplePlanner {
         )
     }
 
-    /// `legacyInvertedScroll` 的 vert scroll 基向量是 `vec2(0,-1)`，rotateVec2
+    /// `invertedScrollV1` 的 vert scroll 基向量是 `vec2(0,-1)`，rotateVec2
     /// 线性旋转下与 stock 精确等价于 `scrolldirection + π`，在 plan 阶段折算，
     /// pipeline uniforms 保持 stock 语义。
     private nonisolated static func applying(
@@ -219,7 +219,7 @@ enum SceneAuthoredWaterRipplePlanner {
             }
     }
 
-    /// stock 语料实例始终写满 6 个常量键；legacy 编辑器只写非默认键，
+    /// stock 语料实例始终写满 6 个常量键；v1 编辑器只写非默认键，
     /// 缺失键由 SceneWaterRippleRuntimePlanner 的注解默认值补齐。
     private nonisolated static func validConstantKeys(
         _ keys: some Collection<String>,

@@ -16,7 +16,7 @@
     "RenderGraph": {
       "EffectExecution": {
         "file_globs": [
-          "SceneAuthoredEffectChainRenderer*.swift",
+          "SceneEffectStageRenderer*.swift",
           "SceneGraphResourcePassEncoder.swift",
           "SceneResolvedMaterialExecutionCapability*.swift",
           "SceneResolvedMaterialGraphExecutor*.swift",
@@ -34,7 +34,7 @@
   "render_chain_authority_ratchet": {
     "completion_state": {
       "r4": "complete",
-      "r5": "partial"
+      "r5": "complete"
     },
     "rules": [
       {
@@ -67,42 +67,27 @@
         "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "Rendering/SceneImageLayerCompositor.swift",
-          "Rendering/SceneUtilityLayerRuntimePlan.swift",
-          "Text/SceneTextTextureLoader.swift"
-        ],
         "allowed_files": []
       },
       {
         "id": "legacy-observation-authority",
         "role": "retirement",
-        "description": "Diagnostics and static disposition may observe the legacy planner but cannot grow new references.",
+        "description": "The retired legacy planner must not regain diagnostic or static-disposition observation authority.",
         "pattern": "SceneEffectRuntimePlanner\\.(?:legacyPlanningDecision|plan|runtimeSummary|offscreenPassCount)\\(",
-        "baseline_occurrences": 3,
+        "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "Rendering/SceneMetalRenderer+Diagnostics.swift",
-          "Runtime/SceneEffectRuntimeDispositionCatalog.swift"
-        ],
-        "allowed_files": [
-          "Rendering/SceneMetalRenderer+Diagnostics.swift",
-          "Runtime/SceneEffectRuntimeDispositionCatalog.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-authority-total",
         "role": "retirement",
         "description": "All external legacy planner references are frozen so a new product or observation owner cannot appear in another file.",
         "pattern": "SceneEffectRuntimePlanner\\.(?:legacyPlanningDecision|plan|runtimeSummary|offscreenPassCount)\\(",
-        "baseline_occurrences": 3,
+        "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
-        "allowed_files": [
-          "Rendering/SceneMetalRenderer+Diagnostics.swift",
-          "Runtime/SceneEffectRuntimeDispositionCatalog.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "main-pass-writers",
@@ -124,10 +109,10 @@
         "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
         "baseline_occurrences": 29,
         "scope_files": [
-          "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift"
+          "RenderGraph/SceneEffectProgramCompiler+DedicatedStages.swift"
         ],
         "allowed_files": [
-          "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift"
+          "RenderGraph/SceneEffectProgramCompiler+DedicatedStages.swift"
         ]
       },
       {
@@ -150,14 +135,14 @@
         "role": "inventory",
         "description": "Dedicated runtime backend cases are frozen until their execution owner is removed.",
         "pattern": "^        case [A-Za-z][A-Za-z0-9_]*\\(",
-        "start_marker": "extension SceneAuthoredEffectExecutionPlan {",
+        "start_marker": "extension SceneEffectStageExecutionPlan {",
         "end_marker": "    var gaussianBlur:",
         "baseline_occurrences": 29,
         "scope_files": [
-          "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
+          "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift"
         ],
         "allowed_files": [
-          "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
+          "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift"
         ]
       },
       {
@@ -246,10 +231,10 @@
         "allowed_files": []
       },
       {
-        "id": "legacy-authored-chain-product-dispatch",
+        "id": "retired-effect-chain-authority",
         "role": "retirement",
-        "description": "The product compositor must stop invoking the legacy authored whole-chain renderer before R4 completes.",
-        "pattern": "renderedTexture\\s*=\\s*renderLegacyAuthoredChain\\(",
+        "description": "The retired effect-chain owner, planner, catalog and compositor sentinel must never return to Scene product code.",
+        "pattern": "(?:SceneAuthoredEffectExecutionChain|SceneAuthoredEffectChainPlanner|SceneAuthoredEffectChainAdmission|SceneAuthoredEffectExecutionCatalog|authoredEffectChain|chainsByLayerID|legacy-authored-chain-product-dispatch)",
         "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
@@ -278,14 +263,11 @@
       {
         "id": "legacy-script-source-profile-selector",
         "role": "retirement",
-        "description": "Source and asset digests that choose fixed script behavior must be replaced by bounded typed interpreters before R4 completes.",
-        "pattern": "(?:switch\\s+(?:sourceSHA256|sha256)|profile\\([^\\n]*sourceSHA256|(?:rawSHA256|materialRawSHA256|canonicalSHA256|sourceSHA256)\\s*==\\s*[A-Za-z][A-Za-z0-9_]*SHA256)",
+        "description": "Retired fixed script compilers, verified-profile dispatch, and previous-media identity must not return anywhere in product Swift.",
+        "pattern": "(?:compileVerifiedProfile\\(|SceneTextureAnimationScriptCompiler|SceneMediaThumbnailTransitionCompiler|SceneScriptAudioBarsCompiler|\\$mediaPreviousThumbnail)",
         "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "Text/SceneTextScriptCompiler.swift"
-        ],
         "allowed_files": []
       },
       {
@@ -310,6 +292,26 @@
         "allowed_files": []
       },
       {
+        "id": "retired-effect-chain-render-surface",
+        "role": "retirement",
+        "description": "The unified executor must not regain a whole-chain renderer or standalone effect-chain entry.",
+        "pattern": "(?:renderLegacyAuthoredChain|SceneStandaloneAuthoredEffectRenderer|SceneAuthoredEffectExecutionChain)",
+        "baseline_occurrences": 0,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "allowed_files": []
+      },
+      {
+        "id": "legacy-authored-chain-product-dispatch",
+        "role": "retirement",
+        "description": "The product compositor must stop invoking the legacy authored whole-chain renderer before R4 completes.",
+        "pattern": "renderedTexture\\s*=\\s*renderLegacyAuthoredChain\\(",
+        "baseline_occurrences": 0,
+        "completion_phase": "r4",
+        "completion_target_occurrences": 0,
+        "allowed_files": []
+      },
+      {
         "id": "legacy-authored-chain-surface",
         "role": "retirement",
         "description": "R5 removes the legacy whole-chain compositor helper after its R4 product call is gone.",
@@ -324,6 +326,16 @@
         "role": "retirement",
         "description": "R5 removes the old whole-chain renderer call surface after GraphExecutor is the only product scheduler.",
         "pattern": "SceneAuthoredEffectChainRenderer\\.render\\(",
+        "baseline_occurrences": 0,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "allowed_files": []
+      },
+      {
+        "id": "stage-renderer-product-call",
+        "role": "retirement",
+        "description": "Only GraphExecutor-owned preparation may call the typed stage renderer; direct whole-stage render calls remain forbidden.",
+        "pattern": "SceneEffectStageRenderer\\.render\\(",
         "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
@@ -384,6 +396,46 @@
         "role": "retirement",
         "description": "R5 removes the old authored-chain frame-batch allocation and registration surface.",
         "pattern": "(?:prepareAndRegisterLegacyAuthoredBatch|prepareLegacyAuthoredFrameBatch|legacyAuthoredChainFramePlan)\\(",
+        "baseline_occurrences": 0,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "allowed_files": []
+      },
+      {
+        "id": "base-layer-inline-effect-authority",
+        "role": "retirement",
+        "description": "The base layer shader must remain a neutral source/dependency compositor and must not regain inline effect execution flags or parameter slots.",
+        "pattern": "(?:SceneEffectFlags|effectParams[0-9]|EFFECT_(?:FOLIAGE|WATER|IRIS|SHAKE|CHROMATIC))",
+        "baseline_occurrences": 0,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "allowed_files": []
+      },
+      {
+        "id": "heuristic-shared-effect-texture-loading",
+        "role": "retirement",
+        "description": "Effect resources must be resolved by typed descriptor identity rather than shared masks or path-fragment guessing.",
+        "pattern": "(?:resolveFirstTexture|resolveMaskedTexture|irisMasks|opacityMasks|waterMasks|foliageMasks|waterRippleNormals)",
+        "baseline_occurrences": 0,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "allowed_files": []
+      },
+      {
+        "id": "deprecated-direct-target-allocation",
+        "role": "retirement",
+        "description": "Render targets must be prepared and committed through the persistent graph transaction; standalone direct pool allocation APIs must not return.",
+        "pattern": "func\\s+(?:textures|graphTargets|graphTargetLease)\\s*\\(",
+        "baseline_occurrences": 0,
+        "completion_phase": "r5",
+        "completion_target_occurrences": 0,
+        "allowed_files": []
+      },
+      {
+        "id": "sample-specific-product-dispatch",
+        "role": "retirement",
+        "description": "Scene product behavior must be selected from typed authored contracts, never from sample, wallpaper or Workshop item identifiers.",
+        "pattern": "(?:sampleID|sampleId|wallpaperID|wallpaperId|workshopItemID)\\s*(?:==|!=|~=)",
         "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,

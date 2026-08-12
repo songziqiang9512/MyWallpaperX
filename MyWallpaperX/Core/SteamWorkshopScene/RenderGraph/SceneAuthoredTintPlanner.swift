@@ -7,7 +7,7 @@ import simd
 /// [SceneTintAssetProfile](SceneTintAssetProfile.swift) / [SceneTintShaderProfile]
 /// 的精确内容指纹准入。
 ///
-/// 槽位 1 遮罩按 shader 指纹分流：stock 语义先用 `g_BlendAlpha`，再乘遮罩 R；legacy
+/// 槽位 1 遮罩按 shader 指纹分流：stock 语义先用 `g_BlendAlpha`，再乘遮罩 R；mask-override-v1
 /// 语义由遮罩 R 覆盖。遮罩只作为 `ApplyBlending` 权重，不改 alpha 通道。
 enum SceneAuthoredTintPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
@@ -175,7 +175,7 @@ enum SceneAuthoredTintPlanner {
     /// 区分「拒绝」（nil）与「合法无遮罩」（`.path == nil`）。官方 tint.frag 的遮罩挂在
     /// 槽位 1（`g_Texture1`），编辑器按绑图在编译期自动置 `MASK`（E-MASK-SLOT-COMBO，
     /// 语料 0 次显式声明），语义为 `mask = g_BlendAlpha * tex.r`（stock）/ `tex.r` 覆盖
-    /// （legacy），是 `ApplyBlending` 的混合权重，不动 alpha 通道。
+    /// （mask-override-v1），是 `ApplyBlending` 的混合权重，不动 alpha 通道。
     private struct MaskResolution {
         let path: String?
     }
@@ -376,7 +376,7 @@ enum SceneAuthoredTintPlanner {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 
-    /// stock 与 legacy 两个指纹的 `[COMBO]` 注解逐字符一致，默认值不按 profile 分流。
+    /// stock 与 v1 两个指纹的 `[COMBO]` 注解逐字符一致，默认值不按 profile 分流。
     private nonisolated static let defaultBlendMode = 30
     private nonisolated static let defaultAlpha: Float = 1
 }

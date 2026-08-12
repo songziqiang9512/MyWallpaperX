@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneAuthoredEffectExecutionPlanner {
+extension SceneEffectStageExecutionPlanner {
     nonisolated enum PreciseBlurTopology: Equatable {
         case authoredIntermediate(horizontal: Graph.TextureIdentity, vertical: Graph.TextureIdentity)
         case fullFrameCompose

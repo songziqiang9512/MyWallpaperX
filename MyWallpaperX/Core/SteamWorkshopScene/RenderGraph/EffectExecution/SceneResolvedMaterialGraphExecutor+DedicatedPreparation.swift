@@ -79,7 +79,7 @@ extension SceneResolvedMaterialGraphExecutor {
                   generation: generation,
                   representation: .premultipliedAlpha
               ) else { return .dedicatedLeafRejected(reason: "graph-contract") }
-        let stagePreparation = SceneAuthoredEffectChainRenderer.prepareStage(
+        let stagePreparation = SceneEffectStageRenderer.prepareStage(
                   program.executionPlan,
                   sourceTexture: pair.resource.publication.texture,
                   targets: lease.table,
@@ -171,7 +171,7 @@ extension SceneResolvedMaterialGraphExecutor {
             }
         }
 
-        let stagePreparation = SceneAuthoredEffectChainRenderer.prepareStage(
+        let stagePreparation = SceneEffectStageRenderer.prepareStage(
             program.executionPlan,
             sourceTexture: pair.resource.publication.texture,
             targets: lease.table,
@@ -257,7 +257,7 @@ extension SceneResolvedMaterialGraphExecutor {
             return .dedicatedLeafRejected(reason: "graph-stage-output")
         }
 
-        let stagePreparation = SceneAuthoredEffectChainRenderer.prepareStage(
+        let stagePreparation = SceneEffectStageRenderer.prepareStage(
             program.executionPlan,
             sourceTexture: pair.resource.publication.texture,
             targets: lease.table,

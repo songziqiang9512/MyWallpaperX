@@ -16,9 +16,6 @@ enum SceneWaterWavesRenderer {
               targets.plan.logicalTargets.isEmpty,
               SceneOffscreenEffectRenderer.captureSource(
                   sourceTexture: sourceTexture,
-                  waterMaskTexture: nil,
-                  foliageMaskTexture: masks.foliage,
-                  auxMaskTexture: masks.iris ?? masks.opacity,
                   target: targets.inputTexture,
                   sourceUniforms: sourceUniforms,
                   pipeline: sourcePipeline,
@@ -46,7 +43,7 @@ enum SceneWaterWavesRenderer {
         pipeline: SceneWaterWavesPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
-        // plan.maskTexturePath == nil 是 legacy profile 的合法无遮罩形态（等价 mask=1）；
+        // plan.maskTexturePath == nil 是 v1 profile 的合法无遮罩形态（等价 mask=1）；
         // 声明了遮罩却取不到贴图时 matches 拒绝，不静默降级。
         guard resources.matches(plan),
               plan.maskTexturePath == nil || resources.mask != nil,

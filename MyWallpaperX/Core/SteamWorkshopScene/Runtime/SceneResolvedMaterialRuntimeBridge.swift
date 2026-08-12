@@ -236,10 +236,10 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     /// Returns dedicated leaf plans owned by the unified capability for a
     /// layer. This projection keeps resource loading on the same owner as
-    /// runtime admission and never consults the legacy authored catalog.
+    /// runtime admission.
     func dedicatedEffectStages(
         for layerID: Int
-    ) -> [SceneAuthoredEffectExecutionPlan] {
+    ) -> [SceneEffectStageExecutionPlan] {
         guard let claimed = capabilities.claim(layerID: layerID),
               let runtimeClaim = capabilities.resolve(claimed.token) else {
             return []
@@ -251,7 +251,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         executionEvidenceLock.lock()
         defer { executionEvidenceLock.unlock() }
         var lines = [
-            "resolved material execution evidence: schema=r4-static-disposition-v1"
+            "resolved material execution evidence: schema=effect-graph-disposition-v1"
                 + " subjects=\(executionEvidenceByKey.count)"
         ]
         lines += executionEvidenceIssues.keys.sorted().map {

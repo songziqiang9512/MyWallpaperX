@@ -45,7 +45,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         let layerID: Int
         let capabilityToken:
             SceneResolvedMaterialExecutionCapabilityCatalog.Token
-        let prepared: SceneResolvedMaterialGraphExecutor.PreparedChain
+        let prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
         let preparedDependencyEffect: SceneDependencyEffectInput?
         let commandBuffer: MTLCommandBuffer
         let committedBaseTails: [Graph.EffectKey: Tail]
@@ -204,7 +204,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         guard requests.allSatisfy({ request in
             let claim = request.claim
             guard request.targetPlan.token == claim.token,
-                  request.targetPlan.allocation.chainPlan.key.layerID
+                  request.targetPlan.allocation.graphPlan.key.layerID
                     == claim.layerID,
                   let capability = capabilities.resolve(claim.token),
                   capability.layerID == claim.layerID,
@@ -253,9 +253,9 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 let reason: String
                 switch result {
                 case let .failure(failure):
-                    reason = "whole-chain-preflight-\(failure.rawValue)"
+                    reason = "graph-preflight-\(failure.rawValue)"
                 case .success:
-                    reason = "whole-chain-preflight-result-invariant"
+                    reason = "graph-preflight-result-invariant"
                 }
                 emission = framePreparationFailureLocked(
                     candidates, reason: reason

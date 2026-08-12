@@ -6,7 +6,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         let layerID: Int
         let capabilityToken:
             SceneResolvedMaterialExecutionCapabilityCatalog.Token
-        let prepared: SceneResolvedMaterialGraphExecutor.PreparedChain
+        let prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
         let preparedDependencyEffect: SceneDependencyEffectInput?
         let commandBuffer: MTLCommandBuffer
         let committedBaseTails: [Graph.EffectKey: Tail]
@@ -15,12 +15,12 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     }
 
     func preparedEvidenceFitsLocked(
-        _ chains: [SceneResolvedMaterialGraphExecutor.PreparedChain]
+        _ preparedGraphs: [SceneResolvedMaterialGraphExecutor.PreparedGraph]
     ) -> Bool {
         var transitionCount = 0
         var nodeCount = 0
-        for chain in chains {
-            let stages = chain.stages
+        for preparedGraph in preparedGraphs {
+            let stages = preparedGraph.stages
             guard !stages.isEmpty,
                   stages.count <= Self.maximumTransitionsPerTransaction
             else { return false }
@@ -58,7 +58,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 
     func candidateIsCommitReadyLocked(
         targets: ScenePreparedPersistentGraphTargets,
-        prepared: SceneResolvedMaterialGraphExecutor.PreparedChain,
+        prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph,
         blueprint: CandidateBlueprint
     ) -> Bool {
         let effects = Set(prepared.stages.map(\.effect))
@@ -93,7 +93,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     func provisionalCandidateTailsLocked(
         blueprint: CandidateBlueprint,
         startingAt base: [Graph.EffectKey: Tail],
-        prepared: SceneResolvedMaterialGraphExecutor.PreparedChain
+        prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
     ) -> [Graph.EffectKey: Tail]? {
         var tails = base
         for value in prepared.stages {
@@ -119,7 +119,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         blueprint: CandidateBlueprint,
         startingAt base: [Graph.EffectKey: Tail],
         commit: Commit,
-        prepared: SceneResolvedMaterialGraphExecutor.PreparedChain
+        prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
     ) -> [Graph.EffectKey: Tail] {
         var tails = base
         for value in prepared.stages {

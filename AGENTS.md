@@ -36,7 +36,7 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 - 新增项目自有固定 MSL 使用 `.metal` 构建期编译；Workshop 作者 shader 才允许运行期编译，并须在 preparation/variant 阶段完成 cache、取消、预算、reflection 和 pipeline preflight，不在 encode 热路径首次同步编译。现有 Swift 字符串 shader 属于受控迁移债务，不在无性能证据时机械重写。
 - 性能结论必须区分首帧、稳态 frame time、hitch、内存、能耗和恢复；记录硬件、OS、显示器、构建/App 身份与样本。平均 FPS、非黑、进程存活或样本门通过不能单独证明性能闭环。
 - 仓库 Python 工具链固定为 3.12.x，本地与 CI 必须显式选择兼容解释器。当前 Swift 5 language mode 不作为性能缺陷；Swift 6 strict concurrency 只在 R4/R5 后按模块迁移。
-- 当前 R4/R5 未闭合时，不得把 VM、shader compiler 或 service 大迁移混入 owner 迁移批次。R4 先完成公共能力接管和旧 owner 撤权，R5 只删除残留；技术栈原型不得据此升级覆盖台账或取得隐式 execution owner。
+- R4/R5 已于 2026-08-12 完成公共能力接管、旧 owner 撤权和残留删除。后续 VM、shader compiler 或 service 原型仍不得据此升级覆盖台账或取得隐式 execution owner；任何新增产品执行面必须重新走公共 capability、失败关闭和运行证据门。
 
 ## 4. 实现流程
 
@@ -111,7 +111,7 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 | `Text` | 文字 descriptor、font、geometry、texture 与 dynamic text |
 | `Particles` | 粒子 definition、parser、simulation、pipeline、texture 与 trail |
 
-- 当前已落地的二级目录为 `RenderGraph/EffectExecution`，用于 authored-effect GPU execution 的完整 renderer 类型族；当前包括供统一 GraphExecutor 调用的 `SceneAuthoredEffectChainRenderer*` per-stage typed backend，不再包含 standalone/whole-chain 产品 renderer，其余类别目前仍平铺，三级源码目录保持受控。
+- 当前已落地的二级目录为 `RenderGraph/EffectExecution`，用于 authored-effect GPU execution 的完整 renderer 类型族；当前包括供统一 GraphExecutor 调用的 `SceneEffectStageRenderer*` per-stage typed backend，不再包含 standalone/whole-chain 产品 renderer，其余类别目前仍平铺，三级源码目录保持受控。
 - 同一主类型与其 extension 必须在同一目录；不得新增 `Misc`、`Common`、`Helpers` 等兜底目录，也不得为未来能力预建空目录。
 - 只有现有九类不能表达一组已经落地、具有共同生命周期或清晰依赖边界的多个文件时，才考虑新增一级目录。
 - 当目录密度、共同生命周期或职责边界表明有必要时，可灵活新增二级目录，不要求预先固定全局分组方案；同批同步本规则、布局 manifest、自动门、受影响文档链接和测试源码路径，并按完整类型族迁移。

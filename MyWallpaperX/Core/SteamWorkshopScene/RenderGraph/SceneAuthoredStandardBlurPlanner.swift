@@ -33,7 +33,7 @@ enum SceneAuthoredStandardBlurPlanner {
         graph: Graph,
         descriptor: SceneRenderDescriptor,
         inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneAuthoredEffectExecutionPlan? {
+    ) -> SceneEffectStageExecutionPlan? {
         guard graph.blockers.isEmpty,
               graph.effects.count == 1,
               graph.nodes.count == 4,
@@ -93,7 +93,7 @@ enum SceneAuthoredStandardBlurPlanner {
             return nil
         }
 
-        return SceneAuthoredEffectExecutionPlan(
+        return SceneEffectStageExecutionPlan(
             layerID: graph.layerID,
             renderGraph: graph,
             backend: .standardBlur(SceneStandardBlurPlan(

@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-/// Exact Workshop 3082978660 circular 64-band profile used by sample 3767460992.
+/// Exact Workshop 3082978660 circular 64-band effect contract.
 /// Other resolutions, shapes, styles, transforms, blend modes, and constants stay closed.
 enum SceneAuthoredWorkshopAudioBarsPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan

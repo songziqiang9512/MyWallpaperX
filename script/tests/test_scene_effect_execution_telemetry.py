@@ -27,7 +27,7 @@ GRAPH_COMPOSITION_SOURCE = (
 PLAN_BACKEND_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
-    "SceneAuthoredEffectExecutionPlan+Backend.swift"
+    "SceneEffectStageExecutionPlan+Backend.swift"
 )
 
 HARNESS = r'''
@@ -67,19 +67,19 @@ enum Harness {
         )
         failureThenSuccess.recordExact(
             identity: identityA, origin: .image, family: "Tint Family",
-            backend: "strict-generic", outcome: .failed(reasonCode: "pipeline-missing")
+            backend: "program", outcome: .failed(reasonCode: "pipeline-missing")
         )
         failureThenSuccess.recordExact(
             identity: identityA, origin: .image, family: "Tint Family",
-            backend: "strict-generic", outcome: .failed(reasonCode: "pipeline-missing")
+            backend: "program", outcome: .failed(reasonCode: "pipeline-missing")
         )
         failureThenSuccess.recordExact(
             identity: identityA, origin: .image, family: "Tint Family",
-            backend: "strict-generic", outcome: .encodedOutput
+            backend: "program", outcome: .encodedOutput
         )
         failureThenSuccess.recordExact(
             identity: identityA, origin: .image, family: "Tint Family",
-            backend: "strict-generic", outcome: .encodedOutput
+            backend: "program", outcome: .encodedOutput
         )
 
         let successThenFailure = telemetry.makeFrame(frameIndex: 2)
@@ -88,11 +88,11 @@ enum Harness {
         )
         successThenFailure.recordExact(
             identity: identityB, origin: .text, family: "Opacity",
-            backend: "strict-dedicated", outcome: .encodedOutput
+            backend: "dedicated", outcome: .encodedOutput
         )
         successThenFailure.recordExact(
             identity: identityB, origin: .text, family: "Opacity",
-            backend: "strict-dedicated", outcome: .failed(reasonCode: "late-failure")
+            backend: "dedicated", outcome: .failed(reasonCode: "late-failure")
         )
 
         let concurrentDuplicates = telemetry.makeFrame(frameIndex: 3)
@@ -102,7 +102,7 @@ enum Harness {
         DispatchQueue.concurrentPerform(iterations: 32) { _ in
             concurrentDuplicates.recordExact(
                 identity: identityC, origin: .quad, family: "Godrays",
-                backend: "strict-dedicated", outcome: .encodedOutput
+                backend: "dedicated", outcome: .encodedOutput
             )
         }
 
@@ -127,9 +127,10 @@ enum Harness {
         let hashTraceA = telemetry.makeFrame(frameIndex: 20)
         recordHashCohort(on: hashTraceA, reverse: false)
         guard let cohortA = hashTraceA.freeze() else { throw HarnessError.missingCohort }
-        let postFreezeAccepted = hashTraceA.recordAggregate(
-            layerID: 99, family: "Late", origin: .image,
-            backend: "none", outcome: .encodedOutput
+        let postFreezeAccepted = hashTraceA.recordExact(
+            identity: .init(layerID: 99, effectIndex: 0, descriptorID: "late"),
+            origin: .image, family: "Late", backend: "none",
+            outcome: .encodedOutput
         )
 
         let hashTraceB = telemetry.makeFrame(frameIndex: 21)
@@ -154,9 +155,12 @@ enum Harness {
         )
 
         let laterFrame = telemetry.makeFrame(frameIndex: 42)
-        laterFrame.recordAggregate(
-            layerID: 420, family: "IrisSuffix", origin: .utilityProject,
-            backend: "strict-inline-suffix", outcome: .encodedOutput
+        laterFrame.recordExact(
+            identity: .init(
+                layerID: 420, effectIndex: 0, descriptorID: "iris-suffix"
+            ),
+            origin: .utilityProject, family: "IrisSuffix",
+            backend: "program", outcome: .encodedOutput
         )
         let laterFrameCompletion = telemetry.reduceSharedCommandBufferStatus(
             for: laterFrame, status: .completed
@@ -188,7 +192,7 @@ enum Harness {
                 identity: SceneEffectExecutionIdentity(
                     layerID: 400, effectIndex: 6, descriptorID: "metal-completion"
                 ),
-                origin: .solid, family: "Opacity", backend: "strict-generic",
+                origin: .solid, family: "Opacity", backend: "program",
                 outcome: .encodedOutput
             )
             realObserved = metalTelemetry.observeSharedCommandBuffer(
@@ -231,26 +235,13 @@ enum Harness {
             {
                 trace.recordExact(
                     identity: identity, origin: .image, family: "Tint Space",
-                    backend: "strict-generic", outcome: .encodedOutput
+                    backend: "program", outcome: .encodedOutput
                 )
             },
             {
                 trace.recordExact(
                     identity: identity, origin: .image, family: "Tint Space",
-                    backend: "strict-generic", outcome: .failed(reasonCode: "late-error")
-                )
-            },
-            {
-                trace.recordAggregate(
-                    layerID: 21, family: "WaterRipple", origin: .solid,
-                    backend: "legacy-coalesced-offscreen",
-                    outcome: .failed(reasonCode: "normal-missing")
-                )
-            },
-            {
-                trace.recordAggregate(
-                    layerID: 21, family: "WaterRipple", origin: .solid,
-                    backend: "legacy-coalesced-offscreen", outcome: .encodedOutput
+                    backend: "program", outcome: .failed(reasonCode: "late-error")
                 )
             },
             {
@@ -269,7 +260,7 @@ enum Harness {
         (reverse ? operations.reversed() : operations).forEach { $0() }
         trace.recordExact(
             identity: identity, origin: .image, family: "Tint Space",
-            backend: "strict-generic", outcome: .encodedOutput
+            backend: "program", outcome: .encodedOutput
         )
     }
 
@@ -365,7 +356,7 @@ class SceneEffectExecutionTelemetryTests(unittest.TestCase):
                 r"^MWX DEBUG SCENE: schema=1 axis=effect-cpu-invocation "
                 r"frame=1 origin=image subject=effect layer=7 effect=2 "
                 r"descriptor=descriptor%20A family=Tint%20Family "
-                r"backend=strict-generic outcome=failed reason=pipeline-missing$"
+                r"backend=program outcome=failed reason=pipeline-missing$"
             ),
         )
 
@@ -383,9 +374,9 @@ class SceneEffectExecutionTelemetryTests(unittest.TestCase):
     def test_frozen_cohort_counts_unique_subjects_and_has_stable_hash(self) -> None:
         cohort_a = self.result["cohortA"]
         cohort_b = self.result["cohortB"]
-        self.assertEqual(cohort_a["attemptedEffects"], 2)
-        self.assertEqual(cohort_a["returnedOutputs"], 2)
-        self.assertEqual(cohort_a["failedInvocations"], 2)
+        self.assertEqual(cohort_a["attemptedEffects"], 1)
+        self.assertEqual(cohort_a["returnedOutputs"], 1)
+        self.assertEqual(cohort_a["failedInvocations"], 1)
         self.assertEqual(cohort_a["routeOperations"], 1)
         self.assertEqual(cohort_a["sha256"], cohort_b["sha256"])
         self.assertRegex(cohort_a["sha256"], r"^[0-9a-f]{64}$")
@@ -472,16 +463,10 @@ class SceneEffectExecutionTelemetryTests(unittest.TestCase):
         lines = [
             "effect|origin=image|subject=effect|layer=20|effect=3|"
             "descriptor=same%20descriptor|family=Tint%20Space|"
-            "backend=strict-generic|outcome=encoded-output|reason=-",
+            "backend=program|outcome=encoded-output|reason=-",
             "effect|origin=image|subject=effect|layer=20|effect=3|"
             "descriptor=same%20descriptor|family=Tint%20Space|"
-            "backend=strict-generic|outcome=failed|reason=late-error",
-            "effect|origin=solid|subject=aggregate|layer=21|effect=-|"
-            "descriptor=-|family=WaterRipple|backend=legacy-coalesced-offscreen|"
-            "outcome=encoded-output|reason=-",
-            "effect|origin=solid|subject=aggregate|layer=21|effect=-|"
-            "descriptor=-|family=WaterRipple|backend=legacy-coalesced-offscreen|"
-            "outcome=failed|reason=normal-missing",
+            "backend=program|outcome=failed|reason=late-error",
             "route|origin=utility-project|layer=22|operation=source-copy|"
             "outcome=encoded|reason=-",
             "route|origin=utility-project|layer=22|operation=source-copy|"

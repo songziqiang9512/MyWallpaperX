@@ -2,13 +2,6 @@ import Metal
 import simd
 
 struct SceneLayerEffectTextures {
-    let irisMask: MTLTexture?
-    let opacityMask: MTLTexture?
-    let waterMask: MTLTexture?
-    let waterUVScale: SIMD2<Float>
-    let foliageMask: MTLTexture?
-    let foliageUVScale: SIMD2<Float>
-    let waterRippleNormal: MTLTexture?
     let foliageSwayEffects: [String: SceneFoliageSwayEffectTextures]
     let waterRippleEffects: [String: SceneWaterRippleEffectTextures]
     let depthParallaxEffects: [String: SceneDepthParallaxEffectTextures]
@@ -31,13 +24,6 @@ struct SceneLayerEffectTextures {
 }
 
 struct SceneLayerEffectTextureStore {
-    var irisMasks: [Int: MTLTexture] = [:]
-    var opacityMasks: [Int: MTLTexture] = [:]
-    var waterMasks: [Int: MTLTexture] = [:]
-    var waterUVScales: [Int: SIMD2<Float>] = [:]
-    var foliageMasks: [Int: MTLTexture] = [:]
-    var foliageUVScales: [Int: SIMD2<Float>] = [:]
-    var waterRippleNormals: [Int: MTLTexture] = [:]
     var foliageSwayEffects: [String: SceneFoliageSwayEffectTextures] = [:]
     var waterRippleEffects: [String: SceneWaterRippleEffectTextures] = [:]
     var depthParallaxEffects: [String: SceneDepthParallaxEffectTextures] = [:]
@@ -58,13 +44,6 @@ struct SceneLayerEffectTextureStore {
     var xRayEffects: [Int: SceneXRayEffectTextures] = [:]
 
     mutating func merge(layerID: Int, textures: SceneLayerEffectTextures) {
-        irisMasks[layerID] = textures.irisMask
-        opacityMasks[layerID] = textures.opacityMask
-        waterMasks[layerID] = textures.waterMask
-        waterUVScales[layerID] = textures.waterUVScale
-        foliageMasks[layerID] = textures.foliageMask
-        foliageUVScales[layerID] = textures.foliageUVScale
-        waterRippleNormals[layerID] = textures.waterRippleNormal
         foliageSwayEffects.merge(textures.foliageSwayEffects) { _, incoming in incoming }
         waterRippleEffects.merge(textures.waterRippleEffects) { _, incoming in incoming }
         depthParallaxEffects.merge(textures.depthParallaxEffects) { _, incoming in

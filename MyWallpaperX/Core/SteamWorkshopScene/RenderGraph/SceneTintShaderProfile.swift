@@ -3,34 +3,34 @@ import Foundation
 
 /// Tint 的逐指纹 shader profile。
 ///
-/// 语料 45 样本携带 2 种 tint shader 源，vert 完全相同（`62b2f585…`），frag 两个版本：
+/// 已验证的 authored variants 携带 2 种 tint shader 源，vert 完全相同，frag 两个版本：
 /// - `stock2842`：2.8.42 原版；
-/// - `legacyMaskOverride`：历史版（样本 `1937925563` / `2131872317`，25 个可见实例），
+/// - `maskOverrideV1`：历史 shader revision，
 ///   与 stock 逐行 diff 只有两类差异：
-///   1. `g_Texture0`/`g_Texture1` 的注解元数据（legacy 多 `"material":"framebuffer"`、
+///   1. `g_Texture0`/`g_Texture1` 的注解元数据（mask-override-v1 多 `"material":"framebuffer"`、
 ///      `"material":"mask"`、mask `"default":"util/white"`），不进任何执行路径；
 ///   2. `#if MASK` 分支：stock 是 `mask *= tex(g_Texture1).r`（与 g_BlendAlpha 相乘），
-///      legacy 是 `mask = tex(g_Texture1).r`（覆盖 g_BlendAlpha）。
+///      mask-override-v1 是 `mask = tex(g_Texture1).r`（覆盖 g_BlendAlpha）。
 ///
 /// `BLENDMODE` 的 `[COMBO]` 注解两版逐字符一致（default 30）；无遮罩时两版 main
 /// 数学逐行相同（`mask = g_BlendAlpha` → `ApplyBlending` → `BLENDMODE == 0` 置 alpha=1，
 /// 无输出 clamp）。槽位 1 绑图（编辑器在编译期自动置 `MASK=1`，语料 0 次显式声明）时
-/// 两版 mask 语义分流：stock `mask = g_BlendAlpha * tex.r`，legacy `mask = tex.r` 覆盖。
+/// 两版 mask 语义分流：stock `mask = g_BlendAlpha * tex.r`，mask-override-v1 `mask = tex.r` 覆盖。
 /// 另一个已验证的 authored revision 只调整了注解/排版，执行语义仍归入 stock；shader
 /// identity 由 definition -> material 链推导，不用 Workshop ID 或资源名选择 profile。
 nonisolated enum SceneTintShaderProfile: Equatable {
     case stock2842
-    case legacyMaskOverride
+    case maskOverrideV1
 
-    /// `#if MASK` 分支语义：stock 将遮罩与 `g_BlendAlpha` 相乘，legacy 直接覆盖。
+    /// `#if MASK` 分支语义：stock 将遮罩与 `g_BlendAlpha` 相乘，mask-override-v1 直接覆盖。
     var maskMultipliesBlendAlpha: Bool {
         self == .stock2842
     }
 
-    /// legacy 包（`1937925563`）的 effect.json 缺 `replacementkey` 字段，其余字段与
+    /// 较早 authored package 的 effect.json 缺 `replacementkey` 字段，其余字段与
     /// stock 逐字段一致；stock 指纹保持必须携带。
     var acceptsMissingReplacementKey: Bool {
-        self == .legacyMaskOverride
+        self == .maskOverrideV1
     }
 
     private struct CanonicalShaderPayload: Encodable {
@@ -114,7 +114,7 @@ nonisolated enum SceneTintShaderProfile: Equatable {
             fragmentSHA256: "02b9397cec32de6f0d8caa2e1af7c07510752d474bd64048c9d78f55926973f1"
         ),
         Fingerprint(
-            profile: .legacyMaskOverride,
+            profile: .maskOverrideV1,
             fragmentSHA256: "98f97e9e9ed0c22e2216ccdfb50012274f7e9c944a9ea014eaddc45d606ea63a"
         ),
         // Verified Workshop revision: executable mask semantics match stock (`mask *= tex.r`).

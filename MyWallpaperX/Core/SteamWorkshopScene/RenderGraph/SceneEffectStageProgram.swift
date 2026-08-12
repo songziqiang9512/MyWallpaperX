@@ -15,12 +15,12 @@ nonisolated struct SceneEffectStageProgram {
     let stageGraph: SceneAuthoredEffectRenderPlan
     let selection: Selection
     let precedingProbes: [SceneEffectStageCompilerProbe]
-    let executionPlan: SceneAuthoredEffectExecutionPlan
+    let executionPlan: SceneEffectStageExecutionPlan
 
     init?(
         input: SceneEffectStageCompileInput,
         compilerBackend: SceneEffectStageCompilerBackend,
-        executionPlan: SceneAuthoredEffectExecutionPlan,
+        executionPlan: SceneEffectStageExecutionPlan,
         precedingProbes: [SceneEffectStageCompilerProbe] = []
     ) {
         guard let authoredOrdinal = input.authoredOrdinal,
@@ -64,7 +64,7 @@ nonisolated struct SceneEffectStageProgram {
 
     private nonisolated static func backendMatches(
         compilerBackend: SceneEffectStageCompilerBackend,
-        runtimeBackend: SceneAuthoredEffectExecutionPlan.Backend
+        runtimeBackend: SceneEffectStageExecutionPlan.Backend
     ) -> Bool {
         switch (compilerBackend, runtimeBackend) {
         case (.preciseGaussian, .preciseGaussian),
@@ -120,7 +120,7 @@ nonisolated enum SceneEffectStageCompileResult {
     case unsupported(SceneEffectStageCompileFailure)
 
     static func accepted(
-        _ executionPlan: SceneAuthoredEffectExecutionPlan,
+        _ executionPlan: SceneEffectStageExecutionPlan,
         compilerBackend: SceneEffectStageCompilerBackend,
         input: SceneEffectStageCompileInput,
         precedingProbes: [SceneEffectStageCompilerProbe] = []

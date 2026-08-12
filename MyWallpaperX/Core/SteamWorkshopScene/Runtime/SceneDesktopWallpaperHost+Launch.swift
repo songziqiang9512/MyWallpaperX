@@ -3,7 +3,7 @@ import Metal
 
 struct SceneDesktopWallpaperLaunchContext {
     let runtimeInput: SceneRuntimeInput
-    let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+    let effectAdmissionCatalog: SceneEffectAdmissionCatalog
     let resolvedMaterialCatalog: SceneResolvedMaterialRuntimeCatalog
     let resolvedMaterialExecutionCapabilities:
         SceneResolvedMaterialExecutionCapabilityCatalog
@@ -113,7 +113,7 @@ extension SceneDesktopWallpaperHost {
             ))
         }
         let dedicatedStageLeaves = runtimeInput.authoredEffectRenderPlans.flatMap {
-            SceneAuthoredEffectChainPlanner.compileDedicatedLeaves(
+            SceneEffectProgramCompiler.compileDedicatedLeaves(
                 graph: $0,
                 descriptor: runtimeInput.renderDescriptor,
                 shaderContracts: runtimeInput.shaderContracts
@@ -189,22 +189,13 @@ extension SceneDesktopWallpaperHost {
             )
         let resolvedMaterialSubjects = resolvedMaterialExecutionCapabilities
             .runtimeDispositionOwnerships.flatMap(\.subjects)
-        let authoredEffectCatalog = SceneAuthoredEffectExecutionCatalog(
+        let effectAdmissionCatalog = SceneEffectAdmissionCatalog(
             descriptor: runtimeInput.renderDescriptor,
             authoredPlans: runtimeInput.authoredEffectRenderPlans,
-            shaderContracts: runtimeInput.shaderContracts,
             resolvedMaterialSubjects: resolvedMaterialSubjects
         )
-        var timeOfDayEffectScriptConsumerTargets =
+        let timeOfDayEffectScriptConsumerTargets =
             resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets
-        timeOfDayEffectScriptConsumerTargets.formUnion(
-            authoredEffectCatalog.chainsByLayerID.keys.sorted().flatMap { layerID in
-                authoredEffectCatalog.chainsByLayerID[layerID]?
-                    .executionStages.compactMap {
-                        $0.blend?.dynamicMultiplyBinding?.definition.target
-                    } ?? []
-            }
-        )
         let timeOfDayEffectScriptProgram = SceneTimeOfDayEffectScriptProgram(
             bindings: timeOfDayEffectScriptCandidates.filter {
                 timeOfDayEffectScriptConsumerTargets.contains($0.definition.target)
@@ -227,7 +218,7 @@ extension SceneDesktopWallpaperHost {
         )
         try activate(SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,
-            authoredEffectCatalog: authoredEffectCatalog,
+            effectAdmissionCatalog: effectAdmissionCatalog,
             resolvedMaterialCatalog: resolvedMaterialCatalog,
             resolvedMaterialExecutionCapabilities:
                 resolvedMaterialExecutionCapabilities,
@@ -245,7 +236,6 @@ extension SceneDesktopWallpaperHost {
                 effectiveValues: runtimeInput.effectivePropertyValues,
                 activeConsumerTargets: Self.activeLiveConsumerTargets(
                     in: runtimeInput.renderDescriptor,
-                    authoredEffectCatalog: authoredEffectCatalog,
                     resolvedMaterialExecutionCapabilities:
                         resolvedMaterialExecutionCapabilities
                 )

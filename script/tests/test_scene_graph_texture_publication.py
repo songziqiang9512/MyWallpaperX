@@ -158,7 +158,7 @@ struct SceneCursorRippleExecutionPlan {
 
 struct SceneOpacityExecutionPlan {}
 
-struct SceneAuthoredEffectExecutionPlan {
+struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int

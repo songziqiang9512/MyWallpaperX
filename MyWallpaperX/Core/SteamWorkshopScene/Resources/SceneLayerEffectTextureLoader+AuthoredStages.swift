@@ -4,7 +4,7 @@ extension SceneLayerEffectTextureLoader {
     /// Derive per-instance resource requests only from stages that will execute.
     static func load(
         for layer: SceneRenderDescriptor.Layer,
-        stages: [SceneAuthoredEffectExecutionPlan],
+        stages: [SceneEffectStageExecutionPlan],
         resolver: SceneTexturePathResolver,
         loader: SceneTextureLoader,
         device: MTLDevice,

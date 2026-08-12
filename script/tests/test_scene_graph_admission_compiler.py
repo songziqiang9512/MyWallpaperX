@@ -56,7 +56,7 @@ struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
 
-struct SceneAuthoredEffectExecutionPlan {
+struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
@@ -320,7 +320,7 @@ enum Harness {
     }
 
     static func renderTargetPlan(_ graph: Graph) -> SceneGraphRenderTargetPlan {
-        let execution = SceneAuthoredEffectExecutionPlan(
+        let execution = SceneEffectStageExecutionPlan(
             layerID: layerID,
             materialNodeCount: graph.nodes.filter { $0.kind == .material }.count,
             logicalRenderTargetCount: graph.renderTargets.count,
