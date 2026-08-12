@@ -6,7 +6,7 @@
 >
 > 本页的 Timeline 与各 bounded consumer 历史基线保留在对应证据包；R3 provider/atomic material program 的现役状态见 [E-MATERIAL-PROGRAM](runtime-evidence-index.md#e-material-program)，精确全局当前状态见 [总覆盖台账](coverage-ledger.md)。
 >
-> 本专项的 direct text 定向门：`.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json`；全局正式门统一见 [运行证据索引](runtime-evidence-index.md)。
+> 本专项的 direct text 定向门：`scene-dynamic-text-targeted-213-final-20260723-1907`（历史本机产物已清理）；全局正式门统一见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把 Frame Context、动态目标、Timeline、用户属性、文字、光标、音频、媒体和纹理 provider 放在同一执行合同下。官方语义摘要见 [`runtime-systems-reference.md`](runtime-systems-reference.md)，等级口径见 [`coverage-ledger.md`](coverage-ledger.md)。
 

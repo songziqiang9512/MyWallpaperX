@@ -285,15 +285,15 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 
 - [21 个用户样本首轮评估（历史截图基线）](../scene-sample-assessment-2026-07-22.md)
 - [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md)
-- v16 结构基线：`.codex/scene-effect-graph-canonical-final-20260723/report.json`（canonical graph 身份，不等于 GPU 执行）
-- 运行证据分固定回归门与完整快照门；仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` 固定真实目录中 45 个具备 package 的可运行样本，`3770500543` 因缺 package 只记录在 source manifest。`.codex/scene-builtin-textures-full45-20260725/report.json` 与 `.codex/scene-builtin-textures-fixed13-v2-20260725/report.json` 只保留为 13-key built-in 阶段证据，不能覆盖现役结果。Puppet 旧单 clip 正向门与 v24 对照分别为 `.codex/scene-puppet-animation-20260725/targeted-v1/report.json`、`.codex/scene-puppet-animation-20260725/control-v24-v1/report.json`；当前 disjoint-additive 定向门为 `.codex/scene-puppet-disjoint-3769688830-20260802-v2/report.json`。当前实现基线、报告/App 身份与能力边界统一见 [运行证据索引](runtime-evidence-index.md)。
-- ordered scheduler 的 Shadow 前阶段证据：`.codex/scene-effect-chain-gated-final13-20260723/report.json`（基线 `b541867`、8 stage、0 real chain、legacy blocked 3）。该报告只说明当时 all-or-nothing chain 负门，不能反向覆盖上述 current Shadow 正门。
-- `.codex/scene-user-texture-final13-r2-20260723/report.json` 降为 format 17 file-property 阶段证据，不能反向覆盖上述当前矩阵或 App 身份。
-- file-backed property 定向门：`.codex/scene-user-texture-293-20260723-r1/`（隔离 `2938612768` 向 `newproperty25/26` 注入 200×200 PNG；两张纹理加载、image 44/44、static image blend 5/5，截图变化证明进入 renderer；不证明 system media、动态 current/previous thumbnail 或 WE 像素 parity）
-- provider fallback 定向门：`.codex/scene-texture-fallback-293-v3-20260723/report.json`（空 `scenetexture` 时 layers 775/875 回退作者 890/1174；775 只使用 authored-initial alpha）与 `.codex/scene-texture-fallback-290-20260723/report.json`（290 既有 graph/dependency 无回归）
-- standard Blur 正向门：`.codex/scene-standard-blur-alpha-290-20260723/report.json`（`2902406982` layer 530 GPU succeeded，utility capture layers 410/530）
-- standard Blur 负向门：`.codex/scene-standard-blur-alpha-negative-20260723/report.json`（`3723344874:348` 与 `3750813609:358` 阻断 legacy fallback）
-- precise 阶段证据：`.codex/scene-authored-precise-final13-20260723/report.json` 与 `.codex/scene-authored-precise-failclosed-related-20260723/report.json`（5 个成功层、layer 20 fallback 阻断与隐藏层不执行）
+- v16 结构基线：`scene-effect-graph-canonical-final-20260723`（历史本机产物已清理）（canonical graph 身份，不等于 GPU 执行）
+- 运行证据分固定回归门与完整快照门；仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` 固定真实目录中 45 个具备 package 的可运行样本，`3770500543` 因缺 package 只记录在 source manifest。`scene-builtin-textures-full45-20260725`（历史本机产物已清理） 与 `scene-builtin-textures-fixed13-v2-20260725`（历史本机产物已清理） 只保留为 13-key built-in 阶段证据，不能覆盖现役结果。Puppet 旧单 clip 正向门与 v24 对照分别为 `scene-puppet-animation-20260725/targeted-v1`（历史本机产物已清理）、`scene-puppet-animation-20260725/control-v24-v1`（历史本机产物已清理）；当前 disjoint-additive 定向门为 `.codex/scene-puppet-disjoint-3769688830-20260802-v2/report.json`。当前实现基线、报告/App 身份与能力边界统一见 [运行证据索引](runtime-evidence-index.md)。
+- ordered scheduler 的 Shadow 前阶段证据：`scene-effect-chain-gated-final13-20260723`（历史本机产物已清理）（基线 `b541867`、8 stage、0 real chain、legacy blocked 3）。该报告只说明当时 all-or-nothing chain 负门，不能反向覆盖上述 current Shadow 正门。
+- `scene-user-texture-final13-r2-20260723`（历史本机产物已清理） 降为 format 17 file-property 阶段证据，不能反向覆盖上述当前矩阵或 App 身份。
+- file-backed property 定向门：`scene-user-texture-293-20260723-r1`（历史本机产物已清理）（隔离 `2938612768` 向 `newproperty25/26` 注入 200×200 PNG；两张纹理加载、image 44/44、static image blend 5/5，截图变化证明进入 renderer；不证明 system media、动态 current/previous thumbnail 或 WE 像素 parity）
+- provider fallback 定向门：`scene-texture-fallback-293-v3-20260723`（历史本机产物已清理）（空 `scenetexture` 时 layers 775/875 回退作者 890/1174；775 只使用 authored-initial alpha）与 `scene-texture-fallback-290-20260723`（历史本机产物已清理）（290 既有 graph/dependency 无回归）
+- standard Blur 正向门：`scene-standard-blur-alpha-290-20260723`（历史本机产物已清理）（`2902406982` layer 530 GPU succeeded，utility capture layers 410/530）
+- standard Blur 负向门：`scene-standard-blur-alpha-negative-20260723`（历史本机产物已清理）（`3723344874:348` 与 `3750813609:358` 阻断 legacy fallback）
+- precise 阶段证据：`scene-authored-precise-final13-20260723`（历史本机产物已清理） 与 `scene-authored-precise-failclosed-related-20260723`（历史本机产物已清理）（5 个成功层、layer 20 fallback 阻断与隐藏层不执行）
 
 样本可证明 instance 如何引用 effect、texture、particle、script 和 user property。它们不能单独证明内置 shader 的全部默认算法。
 

@@ -39,21 +39,21 @@ Scene 已建立独立模块、PKGV/typed 内存运行输入、纹理解码、Met
 7. [Web Steam 代表样本基线](../web/regression/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md) 中的 Steam CDN 快照、响应式/多视口/联网能力和证据边界。
 8. 提交 `3a5ef15` 的远程字体硬失败恢复、慢响应、iframe、HTTP HEAD/Range 和 34 项完整门报告。
 9. 提交 `3b69614` 的纯信号测试、受控 `afplay` 双声道频率测试、音频需求生命周期、10 项固定门和 34 项完整门报告。
-10. 2026-07-21 的 Web 音频幅度回归测试：`884307090` 圆环/直线两种属性模式分别为 96 / A，`1509243786` 确定性频谱和真实 `afplay` 两次均为 100 / A；报告保存在 `.codex/web-audio-calibration-20260721/`。
-11. 2026-07-21 的系统中断恢复门：`1509243786` 在系统睡眠与显示器休眠重叠、部分唤醒、最终唤醒、锁屏/解锁后均按需停止和恢复采集；最终通过报告保存在 `.codex/web-system-state-final-20260721/results-pass2/`，首次失败口径报告也保留在同目录的 `results/` 供复核。
-12. 2026-07-21 的 CoreAudio 配置失效恢复门：突发三次失效合并为一次重建，单次失效触发第二次重建，三代监听与真实 PCM 均恢复且最终资源归零；最终报告保存在 `.codex/web-audio-restart-final-20260721/results-pass/`。首次立即重建触发 CoreAudio `!obj` 的失败报告保存在同目录的 `results/`，用于证明 1 秒 teardown settle window 的根因，而不是删除失败证据。
-13. 2026-07-21 的 file/directory 持久化门：生产更新、A/B/A 切换、外部 file/directory 实际改名、跨进程 bookmark 恢复、reset 和再次重启均通过；最终独立偏好域报告保存在 `.codex/web-property-persistence-final-20260721/results-suite-pass/`。
-14. 2026-07-21 的 Debug 偏好隔离门：`HOME/CFFIXED_USER_HOME` 不能隔离进程外 `cfprefsd`，现改为每次 App 启动显式传唯一 Debug suite 并由 scorer 校验、结束后删除；最新 10 项矩阵为 10A / 98.2 / 94.3%，报告保存在 `.codex/web-defaults-isolation-final-20260721/matrix-regression/`，10/10 suite 均已删除且标准偏好摘要未变化。
-15. 2026-07-21 的 Space/屏幕 observer 门：`NSWorkspace.activeSpaceDidChangeNotification` 改由 `NSWorkspace.shared.notificationCenter` 注册并从原 center 释放；default center 反向 0 次、两次 workspace 通知各 1 次、3 次屏幕参数通知合并为 1 次协调、stop 后回调为 0，最终报告保存在 `.codex/web-space-lifecycle-final-20260721/results-pass2/`。首轮 19 秒窗口在 `completed` 前约 0.4 秒结束的失败报告保存在 `results-pass/`，用于证明门禁时长修正，不删除失败证据。
-16. 2026-07-21 的截图证据身份门：benchmark 先严格验证并隔离复制签名 Debug App，运行后复核 bundle ID、Team ID、CDHash、版本和可执行文件 SHA-256；`3700131876` 在隔离 Workshop root/HOME 下取得 ready 与 after-interaction 的 WebView、Canvas、当前进程窗口三源快照，窗口截图肉眼确认非空。单样本结果为 92 / A、coverage 90.3%，既有 `properties.error` 仍按短板保留；报告保存在 `.codex/web-wallpaper-benchmark-capture-final-20260721/`。
-17. 2026-07-22 的当前 HEAD 34 项完整门：34/34 可运行，28A/6B，平均 96.3，coverage 94.7%，矩阵门失败；报告保存在 `.codex/web-full-final-20260722/`。
-18. 2026-07-22 的 9 项属性证据定向复跑：完全复现 4 个属性 B、3 个 coverage-only 失败和 2 个既有允许例外，排除长批次偶发；报告保存在 `.codex/web-full-targeted-retry-20260722/`。
-19. 2026-07-22 的当前最终 34 项完整门：32A/2B，平均 97.7，coverage 95.9%，矩阵门通过；报告保存在 `.codex/web-full-final-pass-20260722/`。
-20. 2026-07-22 的当前最终作者源码门：5A，平均 98.8，coverage 97.9%，矩阵门通过；报告保存在 `.codex/web-external-final-pass2-20260722/`。
-21. 2026-07-22 的当前最终 Steam CDN 门：3A，平均 98.0，coverage 94.8%，矩阵门通过；报告保存在 `.codex/web-steam-final-pass-20260722/`。
+10. 2026-07-21 的 Web 音频幅度回归测试：`884307090` 圆环/直线两种属性模式分别为 96 / A，`1509243786` 确定性频谱和真实 `afplay` 两次均为 100 / A；报告保存在 `web-audio-calibration-20260721`（历史本机产物已清理）。
+11. 2026-07-21 的系统中断恢复门：`1509243786` 在系统睡眠与显示器休眠重叠、部分唤醒、最终唤醒、锁屏/解锁后均按需停止和恢复采集；最终通过报告和首次失败口径报告当时分别保存在 `web-system-state-final-20260721/results-pass2` 与同目录的 `results/`，本机产物现已清理。
+12. 2026-07-21 的 CoreAudio 配置失效恢复门：突发三次失效合并为一次重建，单次失效触发第二次重建，三代监听与真实 PCM 均恢复且最终资源归零；最终报告和首次立即重建触发 CoreAudio `!obj` 的失败报告当时分别保存在 `web-audio-restart-final-20260721/results-pass` 与同目录的 `results/`，用于证明 1 秒 teardown settle window 的根因；本机产物现已清理。
+13. 2026-07-21 的 file/directory 持久化门：生产更新、A/B/A 切换、外部 file/directory 实际改名、跨进程 bookmark 恢复、reset 和再次重启均通过；最终独立偏好域报告保存在 `web-property-persistence-final-20260721/results-suite-pass`（历史本机产物已清理）。
+14. 2026-07-21 的 Debug 偏好隔离门：`HOME/CFFIXED_USER_HOME` 不能隔离进程外 `cfprefsd`，现改为每次 App 启动显式传唯一 Debug suite 并由 scorer 校验、结束后删除；最新 10 项矩阵为 10A / 98.2 / 94.3%，报告保存在 `web-defaults-isolation-final-20260721/matrix-regression`（历史本机产物已清理），10/10 suite 均已删除且标准偏好摘要未变化。
+15. 2026-07-21 的 Space/屏幕 observer 门：`NSWorkspace.activeSpaceDidChangeNotification` 改由 `NSWorkspace.shared.notificationCenter` 注册并从原 center 释放；default center 反向 0 次、两次 workspace 通知各 1 次、3 次屏幕参数通知合并为 1 次协调、stop 后回调为 0。最终报告和首轮 19 秒窗口在 `completed` 前约 0.4 秒结束的失败报告当时分别保存在 `web-space-lifecycle-final-20260721/results-pass2` 与 `results-pass/`，用于证明门禁时长修正；本机产物现已清理。
+16. 2026-07-21 的截图证据身份门：benchmark 先严格验证并隔离复制签名 Debug App，运行后复核 bundle ID、Team ID、CDHash、版本和可执行文件 SHA-256；`3700131876` 在隔离 Workshop root/HOME 下取得 ready 与 after-interaction 的 WebView、Canvas、当前进程窗口三源快照，窗口截图肉眼确认非空。单样本结果为 92 / A、coverage 90.3%，既有 `properties.error` 仍按短板保留；报告保存在 `web-wallpaper-benchmark-capture-final-20260721`（历史本机产物已清理）。
+17. 2026-07-22 的当前 HEAD 34 项完整门：34/34 可运行，28A/6B，平均 96.3，coverage 94.7%，矩阵门失败；报告保存在 `web-full-final-20260722`（历史本机产物已清理）。
+18. 2026-07-22 的 9 项属性证据定向复跑：完全复现 4 个属性 B、3 个 coverage-only 失败和 2 个既有允许例外，排除长批次偶发；报告保存在 `web-full-targeted-retry-20260722`（历史本机产物已清理）。
+19. 2026-07-22 的当前最终 34 项完整门：32A/2B，平均 97.7，coverage 95.9%，矩阵门通过；报告保存在 `web-full-final-pass-20260722`（历史本机产物已清理）。
+20. 2026-07-22 的当前最终作者源码门：5A，平均 98.8，coverage 97.9%，矩阵门通过；报告保存在 `web-external-final-pass2-20260722`（历史本机产物已清理）。
+21. 2026-07-22 的当前最终 Steam CDN 门：3A，平均 98.0，coverage 94.8%，矩阵门通过；报告保存在 `web-steam-final-pass-20260722`（历史本机产物已清理）。
 22. Scene 逐批实施与验收记录（2026-07-22 起的首批自动门到最新合成正确性批次）不再在本文逐条复制：批次索引见 [Scene 播放能力开发计划第 8 节](../scene/scene-capability-development-plan-2026-07-22.md)，逐项运行报告、矩阵 SHA 与签名身份见 [运行证据索引](../scene/semantics/runtime-evidence-index.md)，实现细节以对应提交为准。
 
-前序专项报告保存在 `.codex/web-closure-final-20260720/`；作者源码、Steam CDN、34 项历史基线、系统中断门、音频配置失效门、文件持久化门、偏好隔离矩阵和 Space/屏幕门报告分别保存在 `.codex/web-external-final-20260720/results/`、`.codex/web-steam-final-20260720/results/`、`.codex/web-full-final-20260720/results/`、`.codex/web-system-state-final-20260721/results-pass2/`、`.codex/web-audio-restart-final-20260721/results-pass/`、`.codex/web-property-persistence-final-20260721/results-suite-pass/`、`.codex/web-defaults-isolation-final-20260721/matrix-regression/` 和 `.codex/web-space-lifecycle-final-20260721/results-pass2/`；作者源码和 Steam 样本副本分别保存在 `.codex/web-external-representative-samples-20260722/` 与 `.codex/web-steam-representative-samples-20260720/`。这些目录被 Git 忽略，只作为本地复核证据保留到分支合并，不替代仓库内的矩阵定义和生产测试。
+前序专项报告当时保存在 `web-closure-final-20260720`；作者源码、Steam CDN、34 项历史基线、系统中断门、音频配置失效门、文件持久化门、偏好隔离矩阵和 Space/屏幕门报告当时分别保存在 `web-external-final-20260720/results`、`web-steam-final-20260720/results`、`web-full-final-20260720/results`、`web-system-state-final-20260721/results-pass2`、`web-audio-restart-final-20260721/results-pass`、`web-property-persistence-final-20260721/results-suite-pass`、`web-defaults-isolation-final-20260721/matrix-regression` 和 `web-space-lifecycle-final-20260721/results-pass2`；作者源码和 Steam 样本副本当时分别保存在 `web-external-representative-samples-20260722` 与 `web-steam-representative-samples-20260720`。这些 Git 忽略的本机复核产物现已清理；仓库内矩阵定义和生产测试继续作为可复现证据入口。
 
 本次 Web 固定矩阵结果：
 

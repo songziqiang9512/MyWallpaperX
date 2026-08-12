@@ -16,7 +16,6 @@
 - [Scene 解析到合成链路重构计划](scene-render-chain-refactor-plan-2026-08-03.md)：R0-R5 owner 收敛与旧链删除的完整实施记录。该计划已完成并转为历史快照，不再决定下一任务，也不覆盖能力等级或运行基线。
 
 - [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)：2026-07-22 至 2026-07-27 的实施顺序、样本和测试门。
-- [覆盖台账批次历史附录](semantics/coverage-ledger-history.md)：从现役台账页首迁出的逐批 checkpoint；只用于追溯，不覆盖当前等级与运行基线。
 
 以上文件只用于追溯当时的总体实施顺序、取舍与证据，不用于选择下一项任务。Timeline、Audio、Effect 与 Render Graph 的现役合同和剩余缺口已经进入对应专项表、总台账和运行证据索引。
 

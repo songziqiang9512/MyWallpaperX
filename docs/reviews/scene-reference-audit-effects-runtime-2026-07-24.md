@@ -461,7 +461,7 @@ g_Time = renderTime
 
 隔离缓存 Scene：
 
-`/Users/songziqiang/Documents/Development/MyWallpaperX/.codex/scene-legacy-compose-20260724/full26-results-pass3/runtime-homes/3750813609/Library/Caches/MyWallpaperX/SteamWorkshopScene/fe5e02873c21e0b8/scene.json`
+`scene-legacy-compose-20260724/full26-results-pass3/runtime-cache-scene`（历史本机产物已清理）
 
 Clock text object 包含：
 

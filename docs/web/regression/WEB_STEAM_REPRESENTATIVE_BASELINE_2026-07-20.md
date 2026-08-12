@@ -14,11 +14,11 @@
 - 三张人工抽查快照均非空且内容符合项目预期；
 - `3764966764` 显示实时价格、纪元、质押量和市值，本机当前网络/代理下 CoinGecko 请求成功。
 
-最终报告保存在 Git 忽略的 `.codex/web-steam-final-20260720/results/`，样本副本保存在 `.codex/web-steam-representative-samples-20260720/`，两者保留到分支合并。
+最终报告与样本副本当时分别保存在 Git 忽略的 `web-steam-final-20260720/results` 和 `web-steam-representative-samples-20260720`；两份本机产物现已清理。
 
 ## 2. 来源与固定快照
 
-样本通过 SteamCMD 复用本机已有 Steam 登录缓存下载。SteamCMD 先在隔离运行时副本内自更新，实际 Workshop 内容由 Steam 缓存保存；测试时再复制到 Git 忽略的 `.codex/web-steam-representative-samples-20260720/Web/<id>`，不直接运行用户的 MyWallpaperX Workshop 目录。
+样本通过 SteamCMD 复用本机已有 Steam 登录缓存下载。SteamCMD 先在隔离运行时副本内自更新，实际 Workshop 内容由 Steam 缓存保存；测试时再复制到批次专用的隔离 `Web/<id>` 目录，不直接运行用户的 MyWallpaperX Workshop 目录。该历史批次的本机副本已清理。
 
 | Workshop ID | 样本 | CDN 大小 | Workshop 更新时间 | 选择原因 |
 | --- | --- | ---: | --- | --- |

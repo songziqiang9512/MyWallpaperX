@@ -45,7 +45,7 @@ AudiOrbits 的作者 production webpack 配置要求本地 HTTPS 证书，准备
 
 ## 4. 最终结果
 
-本轮最终报告目录：`.codex/web-external-final-20260720/results/`。它是被 Git 忽略的本机证据，保留到分支合并，不属于版本控制资产。
+本轮最终报告当时保存在 Git 忽略的 `web-external-final-20260720/results`；该本机产物现已清理，不属于版本控制资产。
 
 | ID | 得分/等级 | Coverage | 视觉快照 | 结果 |
 | --- | ---: | ---: | ---: | --- |

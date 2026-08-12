@@ -47,7 +47,6 @@ Scene 文档按四层使用，后续开发不要从取证记录直接跳到“�
 |---|---|
 | Swift、Metal、C/C++、JavaScript 与 Python 的长期职责，VM/compiler/XPC 何时允许接入 | [技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md)；只规定路线与准入，不代表能力已实现 |
 | 当前系统大盘、主要缺口和下一批次是什么 | [官方语义与实现覆盖台账](coverage-ledger.md) |
-| 过去各能力批次当时跑过什么、边界是什么 | [覆盖台账批次历史附录](coverage-ledger-history.md)，只作历史追溯 |
 | 179 个官方页面逐页落到哪个稳定合同 anchor、哪些只属于编辑器或平台决策 | [官方页面逐页表](official-page-map.md) |
 | 16 个官方目录组如何路由到专项能力表 | [官方页面分组映射](official-page-crosswalk.md) |
 | 公共能力先后依赖、哪些系统必须共用底座 | [能力依赖图](capability-dependency-map.md) |
