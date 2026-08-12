@@ -26,10 +26,8 @@ struct SceneImageLayerCompositor {
         _ request: SceneImageLayerDrawRequest,
         pipeline: SceneImageLayerPipeline,
         mainPass: SceneMainPassEncoder,
-        frameTransaction: SceneSourceUpdateTransaction? = nil,
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
-        executionOrigin: SceneEffectExecutionOrigin = .image,
-        onLegacyAuthoredRouteSelected: (() -> Void)? = nil
+        executionOrigin: SceneEffectExecutionOrigin = .image
     ) -> Bool {
         guard request.resolvedMaterialFrameTargetPlan == nil
             || resolvedMaterialRuntime != nil else {
@@ -56,7 +54,6 @@ struct SceneImageLayerCompositor {
         let hasUnclaimedVisibleEffects = request.layer.effects.contains {
             $0.visible != false
         } && resolvedMaterialClaim == nil
-            && request.authoredEffectPlan == nil
             && !request.suppressesLegacyEffectFallback
         guard !hasUnclaimedVisibleEffects else {
             executionTrace?.recordRouteOperation(
@@ -89,7 +86,6 @@ struct SceneImageLayerCompositor {
         }
         let routesOffscreen = request.requiresSourceCopy
             || resolvedMaterialClaim != nil
-            || request.authoredEffectPlan != nil
             || request.authoredEffectChain != nil
             || request.suppressesLegacyEffectFallback
             || layerColorBlendMode > 0
@@ -99,7 +95,7 @@ struct SceneImageLayerCompositor {
             return rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "solid-offscreen-size-unavailable")
         }
-        let legacyChainConsumesDependency = request.authoredEffectChain != nil
+        let authoredChainConsumesDependency = request.authoredEffectChain != nil
             && dependencyEffect != nil
 
         guard let directUniforms = sourceFragmentUniforms(
@@ -136,35 +132,6 @@ struct SceneImageLayerCompositor {
                 case .failed:
                     return false
                 }
-            } else if let authoredPlan = request.authoredEffectPlan {
-                onLegacyAuthoredRouteSelected?()
-                guard let frameTables = request.legacyAuthoredFrameTables,
-                      frameTables.tables.count == 1 else {
-                    executionTrace?.recordRouteOperation(
-                        layerID: request.layer.id,
-                        origin: executionOrigin,
-                        operation: "standalone-authored-frame-tables",
-                        outcome: .failed(reasonCode: "frame-tables-unavailable")
-                    )
-                    return false
-                }
-                renderedTexture = mainPass.encodeOffscreen { commandBuffer -> MTLTexture? in
-                    SceneStandaloneAuthoredEffectRenderer.render(
-                        plan: authoredPlan,
-                        sourceTexture: request.texture,
-                        masks: masks,
-                        targets: frameTables.tables[0],
-                        dynamicValues: request.dynamicValues,
-                        localContrastStrength: request.localContrastStrength,
-                        sourceUniforms: directUniforms,
-                        audioSpectrum: request.audioSpectrum,
-                        sourcePipeline: pipeline,
-                        pipelines: authoredEffectPipelines,
-                        commandBuffer: commandBuffer,
-                        executionTrace: executionTrace,
-                        executionOrigin: executionOrigin
-                    )
-                }
             } else {
                 let dimensions = legacyOffscreenDimensions(for: request)
                 guard let textures = pool.textures(
@@ -187,7 +154,6 @@ struct SceneImageLayerCompositor {
             guard let finalTexture = renderedTexture ?? (
                 request.requiresSourceCopy
                     || resolvedMaterialClaim != nil
-                    || request.authoredEffectPlan != nil
                     || request.authoredEffectChain != nil
                     || request.suppressesLegacyEffectFallback
                     ? nil
@@ -201,7 +167,7 @@ struct SceneImageLayerCompositor {
                 alpha: request.finalCompositeAlpha ?? 1,
                 cursorUV: request.uniforms.cursorUV
             )
-            let dependencyConsumed = legacyChainConsumesDependency
+            let dependencyConsumed = authoredChainConsumesDependency
                 || graphExecutionTicket?.consumesExternalPrimaryDependency == true
             let finalUniforms = makeFragmentUniforms(
                 values: finalValues,
@@ -248,7 +214,6 @@ struct SceneImageLayerCompositor {
         }
         if request.requiresSourceCopy
             || resolvedMaterialClaim != nil
-            || request.authoredEffectPlan != nil
             || request.authoredEffectChain != nil
             || request.suppressesLegacyEffectFallback
             || (routesOffscreen && dependencyEffect != nil) {

@@ -34,9 +34,8 @@ WORKSHOP_STAGE_SOURCE = (
 WORKSHOP_AUDIO_BARS_PIPELINE_SOURCE = (
     SCENE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift"
 )
-COMPOSITOR_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
-LEGACY_AUTHORED_COMPOSITOR_SOURCE = (
-    SCENE_ROOT / "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
+FRAME_PREFLIGHT_SOURCE = (
+    SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
 )
 SHAKE_PIPELINE_SOURCE = SCENE_ROOT / "Effects/SceneShakePipeline.swift"
 SHAKE_PLANNER_AUDIO_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredShakePlanner+Audio.swift"
@@ -159,12 +158,11 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         )
         self.assertIn("spectrum: audioSpectrum", chain)
         self.assertIn("parameters: $0", chain)
-        compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8") \
-            + LEGACY_AUTHORED_COMPOSITOR_SOURCE.read_text(encoding="utf-8")
-        self.assertGreaterEqual(
-            compositor.count("audioSpectrum: request.audioSpectrum"),
-            2,
-            "chain 与 standalone 路径都必须收到同一帧频谱",
+        frame_preflight = FRAME_PREFLIGHT_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "audioSpectrum: frameContext.audioSpectrum",
+            frame_preflight,
+            "统一 GraphExecutor 的 dedicated inputs 必须收到同一帧频谱",
         )
 
     def test_spectrum_reaches_remaining_dedicated_workshop_audio_bars(self) -> None:

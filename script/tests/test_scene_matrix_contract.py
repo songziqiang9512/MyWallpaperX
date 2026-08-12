@@ -91,7 +91,7 @@ def resolved_material_graph_runtime(
             "complete_layer_ids": list(accepted_layer_ids),
             "unexpected_layer_ids": [],
         },
-        "layer_routes": {"legacy_conflict_layer_ids": []},
+        "layer_routes": {},
         "validation_failures": [],
     }
 
@@ -448,10 +448,6 @@ def r4_owner_authority_result(
     result = synthetic_result(sample_id)
     runtime = result["runtime"]
     runtime.update({
-        "authored_effect_graph_succeeded_layer_ids": (
-            [1] if has_effect_execution_demand else []
-        ),
-        "authored_effect_graph_failed_layer_ids": [],
         "authored_effect_graph_legacy_blur_blocked_layer_ids": [],
         "authored_effect_graph_chain_count": (
             1 if has_effect_execution_demand else 0

@@ -3020,7 +3020,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
 
         compact_compositor = "".join(compositor.split())
         self.assertIn(
-            "letdependencyConsumed=legacyChainConsumesDependency||"
+            "letdependencyConsumed=authoredChainConsumesDependency||"
             "graphExecutionTicket?.consumesExternalPrimaryDependency==true",
             compact_compositor,
         )
@@ -3071,7 +3071,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             view,
         )
 
-    def test_legacy_chain_is_rejected_before_only_remaining_legacy_route(self) -> None:
+    def test_legacy_chain_is_rejected_and_old_routes_are_absent(self) -> None:
         compositor = COMPOSITOR.read_text(encoding="utf-8")
         renderer = METAL_RENDERER.read_text(encoding="utf-8")
 
@@ -3090,45 +3090,17 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "return false",
             rejection_reason,
         )
-        legacy_standalone = compositor.index(
-            "} else if let authoredPlan = request.authoredEffectPlan",
-            rejection_return,
-        )
-        standalone_callback = compositor.index(
-            "onLegacyAuthoredRouteSelected?()",
-            legacy_standalone,
-        )
         self.assertLess(route, rejection_operation)
         self.assertLess(rejection_operation, rejection_reason)
         self.assertLess(rejection_reason, rejection_return)
-        self.assertLess(rejection_return, legacy_standalone)
-        self.assertLess(legacy_standalone, standalone_callback)
         self.assertNotIn("renderLegacyAuthoredChain(", compositor)
-        self.assertNotIn(
-            "onLegacyAuthoredRouteSelected?()",
-            compositor[route:legacy_standalone],
-        )
-        self.assertEqual(
-            compositor.count("onLegacyAuthoredRouteSelected?()"),
-            1,
-        )
-
-        route_flag = renderer.index("var selectedLegacyAuthoredRoute = false")
-        route_callback = renderer.index(
-            "onLegacyAuthoredRouteSelected:",
-            route_flag,
-        )
-        telemetry_guard = renderer.index(
-            "if selectedLegacyAuthoredRoute {",
-            route_callback,
-        )
-        telemetry_record = renderer.index(
-            "authoredEffectTelemetry.record(",
-            telemetry_guard,
-        )
-        self.assertLess(route_flag, route_callback)
-        self.assertLess(route_callback, telemetry_guard)
-        self.assertLess(telemetry_guard, telemetry_record)
+        product = compositor + renderer
+        self.assertNotIn("SceneStandaloneAuthoredEffectRenderer", product)
+        self.assertNotIn("onLegacyAuthoredRouteSelected", product)
+        self.assertNotIn("selectedLegacyAuthoredRoute", product)
+        self.assertNotIn("authoredEffectTelemetry", product)
+        self.assertNotIn("legacyAuthoredFrameTables", product)
+        self.assertNotIn("prepareAndRegisterLegacyAuthoredBatch", product)
 
     def test_frame_ordering_context_reaches_reserve_and_commit(self) -> None:
         frame_preflight = FRAME_PREFLIGHT.read_text(encoding="utf-8")

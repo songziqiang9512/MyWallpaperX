@@ -18,9 +18,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 LAUNCH_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 RENDERER_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
-LEGACY_BATCH_SOURCE = (
-    SCENE_ROOT / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
-)
 ADMISSION_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityAdmission.swift"
@@ -4258,7 +4255,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
     ) -> None:
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
         renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
-        legacy_batch = LEGACY_BATCH_SOURCE.read_text(encoding="utf-8")
         runtime_catalog = RUNTIME_CATALOG_SOURCE.read_text(encoding="utf-8")
         admission = ADMISSION_SOURCE.read_text(encoding="utf-8")
         capability = CAPABILITY_SOURCE.read_text(encoding="utf-8") \
@@ -4373,7 +4369,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertNotIn("specializedLayerIDs:", launch)
         self.assertNotIn("sceneScriptAudioBars", renderer)
         self.assertNotIn("renderSceneScriptAudioBars", renderer)
-        self.assertNotIn("sceneScriptAudioBars", legacy_batch)
         product_source = "\n".join(
             path.read_text(encoding="utf-8")
             for path in sorted(SCENE_ROOT.rglob("*.swift"))

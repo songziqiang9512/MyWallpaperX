@@ -19,7 +19,6 @@ struct SceneMetalRenderer {
     let dependencyRuntime: SceneDependencyFrameRuntime
     let textureRegistry = SceneFrameTextureRegistry()
     let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
-    let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
     private let effectExecutionTelemetry = SceneEffectExecutionTelemetry()
     init?(
         renderDescriptor: SceneRenderDescriptor,
@@ -138,14 +137,6 @@ struct SceneMetalRenderer {
             mainTarget: drawable.texture,
             commandBuffer: commandBuffer
         ) else { return }
-        guard let legacyAuthoredFrameTables = Self.prepareAndRegisterLegacyAuthoredBatch(
-            renderer: self, resolvedMaterialPlans: resolvedMaterialFrameTargetPlans,
-            offscreenTexturePool: offscreenTexturePool, imageTextures: imageTextures,
-            dynamicTextRenderSizes: dynamicTextRenderSizes, frameContext: frameContext,
-            worldFramesByLayerID: frameWorldFrames, cameraFrame: cameraFrame,
-            parallaxConfiguration: parallaxConfiguration, commandBuffer: commandBuffer,
-            compositor: imageCompositor, transaction: sourceUpdateTransaction
-        ) else { return }
         var stopsAfterClaimedFailure = false
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
@@ -160,11 +151,9 @@ struct SceneMetalRenderer {
                     worldFramesByLayerID: frameWorldFrames, cameraFrame: cameraFrame,
                     parallaxConfiguration: parallaxConfiguration, viewportSize: viewportSize,
                     time: time, mainPass: mainPass, commandBuffer: commandBuffer,
-                    frameTransaction: sourceUpdateTransaction,
                     effectExecutionTrace: effectExecutionTrace,
                     resolvedMaterialFrameTargetPlans:
-                        resolvedMaterialFrameTargetPlans,
-                    legacyAuthoredFrameTables: legacyAuthoredFrameTables) }
+                        resolvedMaterialFrameTargetPlans) }
             }
             if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
                 let providerModel = imageModelMatrix(
@@ -251,35 +240,23 @@ struct SceneMetalRenderer {
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: dependencyEffect,
-                    // A single-stage projection is already represented by the
-                    // chain. Do not publish it as a second product owner.
-                    authoredEffectPlan: nil,
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
                     authoredEffectChain: authoredEffectChain,
                     dynamicValues: frameContext.dynamicValues,
                     audioSpectrum: frameContext.audioSpectrum,
                     authoredShaderFrameInputs: .init(frameContext: frameContext)
                 )
-                request.legacyAuthoredFrameTables = legacyAuthoredFrameTables[layer.id]
                 request.suppressesLegacyEffectFallback =
                     suppressesLegacyEffectFallback
-                var selectedLegacyAuthoredRoute = false
                 let encoded = imageCompositor.draw(
                     request,
                     pipeline: imagePipeline,
                     mainPass: mainPass,
-                    frameTransaction: sourceUpdateTransaction,
                     executionTrace: effectExecutionTrace,
                     executionOrigin: Self.effectExecutionOrigin(
                         for: layer.contentKind
-                    ),
-                    onLegacyAuthoredRouteSelected: {
-                        selectedLegacyAuthoredRoute = true
-                    }
+                    )
                 )
-                if selectedLegacyAuthoredRoute {
-                    authoredEffectTelemetry.record(layerID: layer.id, encoded: encoded, on: commandBuffer)
-                }
                 dependencyRuntime.recordBindingIfRequired(
                     for: layer.id,
                     encoded: encoded,

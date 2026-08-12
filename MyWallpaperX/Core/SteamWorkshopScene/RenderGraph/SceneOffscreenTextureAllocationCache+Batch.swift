@@ -187,18 +187,6 @@ extension SceneOffscreenTextureAllocationCache {
     func commitAndPin(
         _ requests: [ScenePreparedPersistentGraphTargets.CommitRequest]
     ) -> [ScenePreparedPersistentGraphTargets.Commit]? {
-        commitAndPin(
-            requests,
-            legacySnapshot: nil,
-            sharedPairCandidates: []
-        )
-    }
-
-    func commitAndPin(
-        _ requests: [ScenePreparedPersistentGraphTargets.CommitRequest],
-        legacySnapshot: LegacyBatchSnapshot?,
-        sharedPairCandidates: [Candidate]
-    ) -> [ScenePreparedPersistentGraphTargets.Commit]? {
         locked {
             typealias Effective = (
                 request: ScenePreparedPersistentGraphTargets.CommitRequest,
@@ -209,9 +197,6 @@ extension SceneOffscreenTextureAllocationCache {
             guard !requests.isEmpty,
                   Set(requests.map(\.candidate.key)).count == requests.count,
                   requests.allSatisfy({ $0.cache === self }) else { return nil }
-            guard let pendingSharedPairs = pendingLegacySharedPairsLocked(
-                candidates: sharedPairCandidates, snapshot: legacySnapshot
-            ) else { return nil }
             var effective: [Effective] = []
             for request in requests {
                 let candidate = request.candidate
@@ -236,7 +221,7 @@ extension SceneOffscreenTextureAllocationCache {
                     guard let refreshed = reserveChainLocked(
                         plan: chain.plan,
                         orderingContext: original.orderingContext,
-                        pendingSharedPairs: pendingSharedPairs
+                        pendingSharedPairs: [:]
                     ), reservationStillMatches(original, refreshed) else {
                         return nil
                     }
@@ -246,11 +231,6 @@ extension SceneOffscreenTextureAllocationCache {
             }
             var next = residents
             var access = accessCounter
-            guard stageLegacySharedPairCandidatesLocked(
-                sharedPairCandidates,
-                values: &next,
-                access: &access
-            ) else { return nil }
             var pinRecords: [(
                 chain: SceneGraphRenderTargetChainAllocation,
                 submission: UUID,
@@ -382,10 +362,7 @@ extension SceneOffscreenTextureAllocationCache {
             guard evictToFit(
                 &next,
                 incomingCost: 0,
-                protected: Set(
-                    requests.map(\.candidate.key)
-                        + sharedPairCandidates.map(\.key)
-                )
+                protected: Set(requests.map(\.candidate.key))
             ) else { return nil }
             apply((next, access))
             return pinRecords.map(makeCommit)

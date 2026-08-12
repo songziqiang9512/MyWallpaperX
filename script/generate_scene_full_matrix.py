@@ -80,7 +80,6 @@ PRESERVED_KEYS = [
     "minimum_legacy_waterwaves_runtime_count",
     "minimum_live_changed_ratio",
     "minimum_particle_initial_live",
-    "required_authored_effect_graph_succeeded_layer_ids",
     "required_effect_files",
     "required_effectively_hidden_layer_ids",
     "required_effectively_visible_layer_ids",
@@ -118,11 +117,6 @@ PUPPET_ANIMATION_EXPECTATIONS = {
 }
 
 AUTHORED_EFFECT_GRAPH_CORE_EXPECTATIONS = (
-    (
-        "expected_authored_effect_graph_succeeded_layer_ids",
-        "authored_effect_graph_succeeded_layer_ids",
-        "sorted_layer_ids",
-    ),
     (
         "expected_authored_effect_graph_legacy_blur_blocked_layer_ids",
         "authored_effect_graph_legacy_blur_blocked_layer_ids",
@@ -369,16 +363,6 @@ def authored_effect_graph_runtime_values(
                 label=runtime_key,
             )
         values[matrix_key] = value
-
-    failed_layer_ids = _sorted_layer_ids(
-        runtime.get("authored_effect_graph_failed_layer_ids"),
-        sample_id=sample_id,
-        label="authored_effect_graph_failed_layer_ids",
-    )
-    if failed_layer_ids:
-        raise ValueError(
-            f"sample {sample_id} authored effect graph execution failed"
-        )
 
     optional_groups = {
         expectation.optional_group
@@ -930,7 +914,6 @@ def resolved_material_graph_execution_values(
     succeeded_layer_ids = layer_ids(execution.get("succeeded_layer_ids"))
     executor = execution.get("executor")
     observations = execution.get("graph_observations")
-    routes = execution.get("layer_routes")
     exact_backend = execution.get("exact_backend")
     if (
         not isinstance(accepted_count, int)
@@ -942,7 +925,6 @@ def resolved_material_graph_execution_values(
         or not isinstance(executor, dict)
         or executor.get("has_evidence") is not True
         or not isinstance(observations, dict)
-        or not isinstance(routes, dict)
         or not isinstance(exact_backend, dict)
         or exact_backend.get("backend") != RESOLVED_MATERIAL_GRAPH_BACKEND
     ):
@@ -954,13 +936,11 @@ def resolved_material_graph_execution_values(
     compositor_layer_ids = layer_ids(observations.get("compositor_consumed_layer_ids"))
     next_frame_layer_ids = layer_ids(observations.get("next_frame_layer_ids"))
     exact_layer_ids = layer_ids(exact_backend.get("complete_layer_ids"))
-    legacy_conflicts = layer_ids(routes.get("legacy_conflict_layer_ids"))
     if any(value is None for value in (
         gpu_layer_ids,
         compositor_layer_ids,
         next_frame_layer_ids,
         exact_layer_ids,
-        legacy_conflicts,
     )):
         raise ValueError(
             f"sample {result.get('id')} resolved material graph layer evidence invalid"
@@ -971,7 +951,6 @@ def resolved_material_graph_execution_values(
         .intersection(compositor_layer_ids)
         .intersection(next_frame_layer_ids)
         .intersection(exact_layer_ids)
-        .difference(legacy_conflicts)
     )
     if computed_succeeded != succeeded_layer_ids:
         raise ValueError(
@@ -990,7 +969,6 @@ def resolved_material_graph_execution_values(
             or any(executor.get(field) != 0 for field in zero_fields)
             or observations.get("observation_count") != 0
             or exact_backend.get("unexpected_layer_ids") != []
-            or legacy_conflicts
         ):
             raise ValueError(
                 f"sample {result.get('id')} resolved material graph zero contract invalid"
@@ -1208,7 +1186,6 @@ def matrix_sample(result, old):
         "required_utility_capture_succeeded_layer_ids": runtime["utility_capture_succeeded_layer_ids"],
         "required_named_target_capture_succeeded_layer_ids": runtime["named_target_capture_succeeded_layer_ids"],
         "required_named_target_binding_succeeded_layer_ids": runtime["named_target_binding_succeeded_layer_ids"],
-        "expected_authored_effect_graph_succeeded_layer_ids": runtime["authored_effect_graph_succeeded_layer_ids"],
         "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": runtime["authored_effect_graph_legacy_blur_blocked_layer_ids"],
         "expected_authored_effect_graph_chain_count": runtime["authored_effect_graph_chain_count"],
         "expected_authored_effect_graph_stage_count": runtime["authored_effect_graph_stage_count"],

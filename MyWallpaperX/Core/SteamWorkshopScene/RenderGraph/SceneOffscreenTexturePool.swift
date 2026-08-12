@@ -96,6 +96,48 @@ final class SceneOffscreenTexturePool {
         return pair
     }
 
+    private func pairCandidate(width: Int, height: Int) -> Candidate? {
+        let key = CacheKey.pair(width: width, height: height)
+        guard let byteCost = byteCost(
+            width: width,
+            height: height,
+            textureCount: 3
+        ), byteCost <= residentByteBudget else { return nil }
+        if let cached = allocationCache.allocation(for: key) {
+            guard case .pair = cached else { return nil }
+            return .init(key: key, allocation: cached, byteCost: byteCost)
+        }
+
+        let label = "pair:\(width)x\(height)"
+        guard let primary = makeTexture(
+            width: width,
+            height: height,
+            label: "SceneOffscreenA \(label)"
+        ), let secondary = makeTexture(
+            width: width,
+            height: height,
+            label: "SceneOffscreenB \(label)"
+        ), let tertiary = makeTexture(
+            width: width,
+            height: height,
+            label: "SceneOffscreenC \(label)"
+        ), let physicalIdentity = allocationCache.issuePhysicalIdentity(
+            textures: [primary, secondary, tertiary]
+        ) else { return nil }
+        return .init(
+            key: key,
+            allocation: .pair(
+                Pair(
+                    primary: primary,
+                    secondary: secondary,
+                    tertiary: tertiary
+                ),
+                physicalIdentity
+            ),
+            byteCost: byteCost
+        )
+    }
+
     func graphTargets(
         for executionPlan: SceneAuthoredEffectExecutionPlan,
         requestedWidth: Int,
@@ -120,41 +162,6 @@ final class SceneOffscreenTexturePool {
             requestedWidth: requestedWidth,
             requestedHeight: requestedHeight
         )?.first
-    }
-
-    func framePlanForPersistentGraphTargets(
-        for chain: SceneAuthoredEffectExecutionChain,
-        requestedWidth: Int,
-        requestedHeight: Int,
-        orderingContext: SceneGraphCommandQueueOrderingContext? = nil
-    ) -> ScenePersistentGraphTargetFramePlan? {
-        let stages = chain.executionStages
-        guard pixelFormat == .bgra8Unorm,
-              !usesPairOnlyLegacyTargets(for: chain),
-              let prepared = targetPlans(
-                  stages: stages,
-                  layerID: chain.layerID,
-                  validatesChainOrder: true,
-                  enforcesExactExtent: true,
-                  requestedWidth: requestedWidth,
-                  requestedHeight: requestedHeight
-              ), case .success(let pairPlan) = SceneLayerFullFramePairPlan.make(
-                  conditionPrunedGraphs: stages.map(\.renderGraph)
-              ), case .success(let chainPlan) = SceneGraphRenderTargetChainPlan.make(
-                  plans: prepared.plans,
-                  pairPlan: pairPlan,
-                  byteBudget: residentByteBudget,
-                  pairStorage: .shared
-              ), prepared.plans.last?.output == chain.renderGraph.finalOutput,
-              chainPlan.historyEffects.isEmpty,
-              chainPlan.stages.allSatisfy({
-                  $0.pairStep.inputMember != $0.pairStep.outputMember
-              }) else { return nil }
-        return .init(
-            residencyDomainID: residencyDomainID,
-            chainPlan: chainPlan,
-            orderingContext: orderingContext
-        )
     }
 
     /// Allocates effect-keyed candidates without publishing them to cache/LRU

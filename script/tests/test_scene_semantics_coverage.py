@@ -388,6 +388,21 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         image_blend_rule = rules_by_id["legacy-image-blend-product-owner"]
         self.assertEqual(image_blend_rule.get("scan_root"), "MyWallpaperX")
         self.assertNotIn("scope_files", image_blend_rule)
+        for rule_id in (
+            "legacy-authored-chain-surface",
+            "legacy-authored-chain-render-call",
+            "legacy-authored-effect-telemetry",
+            "standalone-authored-render-call",
+            "legacy-authored-stage-frame-plan",
+            "legacy-authored-frame-batch-surface",
+        ):
+            rule = rules_by_id[rule_id]
+            self.assertEqual(rule["baseline_occurrences"], 0)
+            self.assertEqual(rule["completion_target_occurrences"], 0)
+            self.assertEqual(rule["completion_phase"], "r5")
+            self.assertEqual(rule["allowed_files"], [])
+            self.assertNotIn("scope_files", rule)
+        self.assertEqual(states, {"r4": "complete", "r5": "partial"})
         violations = render_chain_authority_violations(
             SCENE_SOURCE_ROOT,
             rules,

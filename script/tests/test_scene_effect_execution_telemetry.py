@@ -19,15 +19,10 @@ SWIFT_SOURCES = [
     RUNTIME_ROOT / "SceneEffectExecutionFrameTrace.swift",
     RUNTIME_ROOT / "SceneEffectExecutionTelemetry.swift",
 ]
-CHAIN_RENDERER_SOURCE = (
+GRAPH_COMPOSITION_SOURCE = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/"
-    "SceneAuthoredEffectChainRenderer.swift"
-)
-STANDALONE_RENDERER_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/"
-    "SceneStandaloneAuthoredEffectRenderer.swift"
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/"
+    "SceneResolvedMaterialGraphComposition.swift"
 )
 PLAN_BACKEND_SOURCE = (
     REPOSITORY_ROOT
@@ -454,14 +449,14 @@ class SceneEffectExecutionTelemetryTests(unittest.TestCase):
         self.assertNotIn("stage gpu", joined)
         self.assertNotIn("succeeded", joined)
 
-    def test_dedicated_execution_uses_single_backend_identity(self) -> None:
-        chain = CHAIN_RENDERER_SOURCE.read_text(encoding="utf-8")
-        standalone = STANDALONE_RENDERER_SOURCE.read_text(encoding="utf-8")
+    def test_unified_execution_uses_single_backend_identity(self) -> None:
+        composition = GRAPH_COMPOSITION_SOURCE.read_text(encoding="utf-8")
         plan_backend = PLAN_BACKEND_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("family: stage.executionFamilyStableName", chain)
-        self.assertIn("backend: stage.backend.stableName", chain)
-        self.assertIn("family: plan.executionFamilyStableName", standalone)
-        self.assertIn("backend: plan.backend.stableName", standalone)
+        self.assertIn(
+            "family: runtime.executionEvidenceFamily(for: subject.key)",
+            composition,
+        )
+        self.assertIn('backend: "resolved-material-graph"', composition)
         self.assertIn("backend.stableName", plan_backend)
         self.assertNotIn("authoredShader", plan_backend)
 

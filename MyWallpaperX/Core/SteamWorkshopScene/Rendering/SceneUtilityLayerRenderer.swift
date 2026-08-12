@@ -24,11 +24,8 @@ enum SceneUtilityLayerRenderer {
         compositor: SceneImageLayerCompositor,
         offscreenTexturePool: SceneOffscreenTexturePool,
         mainPass: SceneMainPassEncoder,
-        frameTransaction: SceneSourceUpdateTransaction,
         resolvedMaterialFrameTargetPlan: SceneResolvedMaterialFrameTargetPlan? = nil,
-        executionTrace: SceneEffectExecutionFrameTrace? = nil,
-        onLegacyAuthoredRouteSelected: (() -> Void)? = nil,
-        legacyAuthoredFrameTables: SceneOffscreenTexturePool.LegacyAuthoredFrameTables? = nil
+        executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> Bool {
         guard plan.shouldCapture,
               let geometry = SceneCaptureGeometryResolver.resolve(
@@ -64,24 +61,18 @@ enum SceneUtilityLayerRenderer {
                     requiresSourceCopy: true,
                     finalCompositeAlpha: finalCompositeAlpha,
                     dependencyEffect: dependencyEffect,
-                    // Utility capture is owned by the chain when one exists;
-                    // a standalone plan would create a second product owner.
-                    authoredEffectPlan: nil,
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur,
                     authoredEffectChain: authoredEffectChain,
                     dynamicValues: dynamicValues,
                     audioSpectrum: audioSpectrum
                 )
-            request.legacyAuthoredFrameTables = legacyAuthoredFrameTables
             request.suppressesLegacyEffectFallback = suppressesLegacyEffectFallback
             return compositor.draw(
                 request,
                 pipeline: pipeline,
                 mainPass: mainPass,
-                frameTransaction: frameTransaction,
                 executionTrace: executionTrace,
-                executionOrigin: executionOrigin,
-                onLegacyAuthoredRouteSelected: onLegacyAuthoredRouteSelected
+                executionOrigin: executionOrigin
             )
         } ?? false
     }

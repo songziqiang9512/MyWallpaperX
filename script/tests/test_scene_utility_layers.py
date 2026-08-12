@@ -19,9 +19,6 @@ METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
 UTILITY_FRAME_RENDERER_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
 )
-LEGACY_BATCH_SOURCE = (
-    SOURCE_ROOT / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
-)
 DEPENDENCY_RUNTIME_SOURCE = SOURCE_ROOT / "RenderGraph/SceneDependencyFrameRuntime.swift"
 AUTHORED_CATALOG_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift"
@@ -269,7 +266,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
 
         compact_compositor = "".join(compositor.split())
         self.assertIn(
-            "letdependencyConsumed=legacyChainConsumesDependency||"
+            "letdependencyConsumed=authoredChainConsumesDependency||"
             "graphExecutionTicket?.consumesExternalPrimaryDependency==true",
             compact_compositor,
         )
@@ -284,53 +281,16 @@ class SceneUtilityLayerTests(unittest.TestCase):
             compact_compositor,
         )
 
-    def test_utility_authored_telemetry_follows_compositor_route_selection(self) -> None:
+    def test_utility_has_no_legacy_authored_route_or_telemetry(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
         frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
 
-        self.assertIn(
-            "onLegacyAuthoredRouteSelected: (() -> Void)? = nil",
-            utility_renderer,
-        )
-        self.assertIn(
-            "onLegacyAuthoredRouteSelected: onLegacyAuthoredRouteSelected",
-            utility_renderer,
-        )
-        route_flag = frame_renderer.index(
-            "var selectedLegacyAuthoredRoute = false"
-        )
-        callback = frame_renderer.index(
-            "onLegacyAuthoredRouteSelected:",
-            route_flag,
-        )
-        guard = frame_renderer.index(
-            "if selectedLegacyAuthoredRoute {",
-            callback,
-        )
-        record = frame_renderer.index(
-            "authoredEffectTelemetry.record(",
-            guard,
-        )
-        self.assertLess(route_flag, callback)
-        self.assertLess(callback, guard)
-        self.assertLess(guard, record)
-        self.assertNotIn("if authoredEffectChain != nil", frame_renderer)
-
-    def test_legacy_batch_utility_extent_matches_dispatch_geometry_inputs(self) -> None:
-        batch = LEGACY_BATCH_SOURCE.read_text(encoding="utf-8")
-        utility_extent = batch.split(
-            "private func utilityOffscreenSize(", maxsplit=1
-        )[1]
-        self.assertIn("let model = imageModelMatrix(", utility_extent)
-        self.assertIn("worldFramesByLayerID: worldFramesByLayerID", utility_extent)
-        self.assertIn("parallaxMouseNormalized: parallaxMouse", utility_extent)
-        self.assertIn("configuration: parallaxConfiguration", utility_extent)
-        self.assertIn("visibleHalfExtents: cameraFrame.coverHalfExtents", utility_extent)
-        self.assertIn("SceneCaptureGeometryResolver.resolve(", utility_extent)
-        self.assertNotIn(
-            "worldFramesByLayerID[layer.id] ?? matrix_identity_float4x4",
-            utility_extent,
-        )
+        combined = utility_renderer + frame_renderer
+        self.assertNotIn("onLegacyAuthoredRouteSelected", combined)
+        self.assertNotIn("selectedLegacyAuthoredRoute", combined)
+        self.assertNotIn("authoredEffectTelemetry", combined)
+        self.assertNotIn("legacyAuthoredFrameTables", combined)
+        self.assertIn("utilityCaptureTelemetry.record(", frame_renderer)
 
     def test_composition_capture_receives_named_dependency_atomically(self) -> None:
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")

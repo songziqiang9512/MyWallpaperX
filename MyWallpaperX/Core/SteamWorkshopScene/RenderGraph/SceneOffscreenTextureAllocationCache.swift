@@ -313,3 +313,36 @@ extension SceneOffscreenTextureAllocationCache {
         case retired(UInt64)
     }
 }
+
+extension SceneOffscreenTextureAllocationCache {
+    func consumeRetired(
+        _ reservation: ChainReservation,
+        candidate: SceneGraphRenderTargetChainAllocation,
+        values: inout [ResidentKey: Entry]
+    ) -> Bool {
+        guard let generation = reservation.consumedRetiredGeneration else {
+            return reservation.reusableAllocation == nil
+        }
+        let key = ResidentKey.retired(generation)
+        guard let retired = values.removeValue(forKey: key),
+              !retired.isPinned,
+              !retired.isResetInvalidated,
+              case .chain(let old) = retired.allocation,
+              old.generation == generation,
+              old.plan.key == candidate.plan.key else { return false }
+        guard let reusable = reservation.reusableAllocation else { return true }
+        return reusable.generation == generation
+            && candidate.generation != generation
+            && reusable.plan == candidate.plan
+            && old.plan == reusable.plan
+            && old.plan.slots
+                .filter { slot in
+                    if case .fullFrame = slot.kind { return false }
+                    return true
+                }
+                .allSatisfy { slot in
+                    old.texturesBySlot[slot.id]
+                        === candidate.texturesBySlot[slot.id]
+                }
+    }
+}

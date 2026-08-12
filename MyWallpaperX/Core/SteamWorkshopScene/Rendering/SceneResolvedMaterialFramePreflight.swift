@@ -359,7 +359,6 @@ extension SceneMetalRenderer {
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: nil,
-                    authoredEffectPlan: nil,
                     blocksLegacyGaussianBlur: false
                 )
                 guard let uniforms = imageCompositor.sourceFragmentUniforms(

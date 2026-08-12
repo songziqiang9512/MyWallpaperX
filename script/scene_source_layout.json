@@ -17,13 +17,12 @@
       "EffectExecution": {
         "file_globs": [
           "SceneAuthoredEffectChainRenderer*.swift",
-          "SceneStandaloneAuthoredEffectRenderer*.swift",
           "SceneGraphResourcePassEncoder.swift",
           "SceneResolvedMaterialExecutionCapability*.swift",
           "SceneResolvedMaterialGraphExecutor*.swift",
           "SceneResolvedMaterialPassEncoder.swift"
         ],
-        "responsibility": "Authored-effect GPU execution type families, including ordered chains, resolved material graphs, resource commands, and standalone plans."
+        "responsibility": "Authored-effect GPU execution type families, including ordered stages, resolved material graphs, and resource commands."
       }
     }
   },
@@ -315,27 +314,20 @@
         "role": "retirement",
         "description": "R5 removes the legacy whole-chain compositor helper after its R4 product call is gone.",
         "pattern": "renderLegacyAuthoredChain\\(",
-        "baseline_occurrences": 1,
+        "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
-        "allowed_files": [
-          "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-authored-chain-render-call",
         "role": "retirement",
         "description": "R5 removes the old whole-chain renderer call surface after GraphExecutor is the only product scheduler.",
         "pattern": "SceneAuthoredEffectChainRenderer\\.render\\(",
-        "baseline_occurrences": 1,
+        "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
-        ],
-        "allowed_files": [
-          "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-shader-fallback-graph",
@@ -374,59 +366,40 @@
         "role": "retirement",
         "description": "R5 removes the old authored-effect telemetry owner after all legacy product routes are gone.",
         "pattern": "authoredEffectTelemetry",
-        "baseline_occurrences": 6,
+        "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
-        "allowed_files": [
-          "Rendering/SceneMetalRenderer+EffectExecution.swift",
-          "Rendering/SceneMetalRenderer.swift",
-          "Rendering/SceneUtilityPlanFrameRenderer.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "standalone-authored-render-call",
         "role": "retirement",
         "description": "R5 removes the unreachable standalone authored renderer call surface.",
         "pattern": "SceneStandaloneAuthoredEffectRenderer\\.render\\(",
-        "baseline_occurrences": 1,
+        "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "Rendering/SceneImageLayerCompositor.swift"
-        ],
-        "allowed_files": [
-          "Rendering/SceneImageLayerCompositor.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-authored-stage-frame-plan",
         "role": "retirement",
         "description": "R5 removes the unreachable single-stage legacy frame-plan surface.",
         "pattern": "legacyAuthoredStageFramePlan\\(",
-        "baseline_occurrences": 1,
+        "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "RenderGraph/SceneOffscreenTexturePool+LegacyChain.swift"
-        ],
-        "allowed_files": [
-          "RenderGraph/SceneOffscreenTexturePool+LegacyChain.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-authored-frame-batch-surface",
         "role": "retirement",
         "description": "R5 removes the old authored-chain frame-batch allocation and registration surface.",
         "pattern": "(?:prepareAndRegisterLegacyAuthoredBatch|prepareLegacyAuthoredFrameBatch|legacyAuthoredChainFramePlan)\\(",
-        "baseline_occurrences": 9,
+        "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
-        "allowed_files": [
-          "RenderGraph/SceneOffscreenTexturePool+LegacyBatchResult.swift",
-          "RenderGraph/SceneOffscreenTexturePool+LegacyChain.swift",
-          "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift",
-          "Rendering/SceneMetalRenderer.swift"
-        ]
+        "allowed_files": []
       }
     ]
   }

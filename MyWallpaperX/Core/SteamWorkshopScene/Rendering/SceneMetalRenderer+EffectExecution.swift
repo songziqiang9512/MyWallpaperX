@@ -17,12 +17,10 @@ extension SceneMetalRenderer {
         time: Float,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
-        frameTransaction: SceneSourceUpdateTransaction,
         effectExecutionTrace: SceneEffectExecutionFrameTrace,
         resolvedMaterialFrameTargetPlans: [
             Int: SceneResolvedMaterialFrameTargetPlan
-        ] = [:],
-        legacyAuthoredFrameTables: [Int: SceneOffscreenTexturePool.LegacyAuthoredFrameTables] = [:]
+        ] = [:]
     ) {
         guard let plans = utilityPlansByTriggerLayerID[layerID],
               let imagePipeline, let offscreenTexturePool else { return }
@@ -32,7 +30,6 @@ extension SceneMetalRenderer {
             dependencyRuntime: dependencyRuntime,
             imageCompositor: imageCompositor,
             utilityCaptureTelemetry: utilityCaptureTelemetry,
-            authoredEffectTelemetry: authoredEffectTelemetry,
             effectTextures: effectTextures,
             imagePipeline: imagePipeline,
             offscreenTexturePool: offscreenTexturePool,
@@ -44,10 +41,8 @@ extension SceneMetalRenderer {
             time: time,
             mainPass: mainPass,
             commandBuffer: commandBuffer,
-            frameTransaction: frameTransaction,
             effectExecutionTrace: effectExecutionTrace,
-            resolvedMaterialFrameTargetPlans: resolvedMaterialFrameTargetPlans,
-            legacyAuthoredFrameTables: legacyAuthoredFrameTables
+            resolvedMaterialFrameTargetPlans: resolvedMaterialFrameTargetPlans
         )
     }
 

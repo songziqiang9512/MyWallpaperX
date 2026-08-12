@@ -168,9 +168,6 @@ UTILITY_LAYER_RE = re.compile(
 UTILITY_CAPTURE_EXECUTION_RE = re.compile(
     r"phase=utility-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
 )
-AUTHORED_EFFECT_GRAPH_EXECUTION_RE = re.compile(
-    r"phase=authored-effect-graph layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
-)
 AUTHORED_EFFECT_GRAPH_LEGACY_BLUR_BLOCKED_RE = re.compile(
     r"^authoredEffectGraphLegacyBlurBlockedLayerIDs: ?(?P<ids>[\d,]*)$",
     re.MULTILINE,
@@ -1429,10 +1426,6 @@ def utility_capture_execution_metrics(log_text: str) -> dict[str, Any]:
     return capture_execution_metrics(log_text, UTILITY_CAPTURE_EXECUTION_RE)
 
 
-def authored_effect_graph_execution_metrics(log_text: str) -> dict[str, Any]:
-    return capture_execution_metrics(log_text, AUTHORED_EFFECT_GRAPH_EXECUTION_RE)
-
-
 def resolved_material_graph_exact_backend_metrics(
     accepted_layer_ids: list[int],
     effect_execution: dict[str, Any],
@@ -1921,13 +1914,6 @@ def resolved_material_graph_execution_metrics(
             unexpected_exact_backend_layer_ids,
         )
     )
-    legacy_metrics = authored_effect_graph_execution_metrics(log_text)
-    legacy_layer_ids = set(legacy_metrics["succeeded_layer_ids"]).union(
-        legacy_metrics["failed_layer_ids"]
-    )
-    legacy_conflict_layer_ids = sorted(
-        accepted_layer_set.intersection(legacy_layer_ids)
-    )
     if missing_gpu_completed_layer_ids:
         capability_failures.append(
             "resolved material graph accepted layer GPU completion missing"
@@ -1971,10 +1957,6 @@ def resolved_material_graph_execution_metrics(
     if unexpected_exact_backend_layer_ids:
         capability_failures.append(
             "resolved material graph non-accepted layer exact backend observed"
-        )
-    if legacy_conflict_layer_ids:
-        capability_failures.append(
-            "resolved material graph accepted layer selected legacy authored route"
         )
     if accepted_count is not None and accepted_count > 0:
         if not executor_observations:
@@ -2038,7 +2020,6 @@ def resolved_material_graph_execution_metrics(
         .intersection(compositor_consumed_layer_ids)
         .intersection(next_frame_layer_ids)
         .intersection(exact_backend["complete_layer_ids"])
-        .difference(legacy_conflict_layer_ids)
     )
     execution_succeeded = bool(
         capability is not None
@@ -2053,7 +2034,6 @@ def resolved_material_graph_execution_metrics(
         and succeeded_layer_ids == accepted_layer_ids
         and not missing_layer_ids
         and not unexpected_layer_ids
-        and not legacy_conflict_layer_ids
         and not validation_failures
     )
     route_evidence_complete = bool(
@@ -2069,7 +2049,6 @@ def resolved_material_graph_execution_metrics(
         and route_evidence_complete
         and zero_executor_counters
         and graph_observations["observation_count"] == 0
-        and not legacy_conflict_layer_ids
         and not unexpected_layer_ids
         and not validation_failures
     )
@@ -2157,7 +2136,6 @@ def resolved_material_graph_execution_metrics(
             "unexpected_exact_backend_layer_ids": (
                 unexpected_exact_backend_layer_ids
             ),
-            "legacy_conflict_layer_ids": legacy_conflict_layer_ids,
         },
         "validation_failures": validation_failures,
     }
@@ -4234,7 +4212,6 @@ def capture_execution_metrics(
 
 def authored_effect_graph_failures(
     sample: dict[str, Any],
-    metrics: dict[str, Any],
     legacy_blur_blocked_layer_ids: list[int],
     local_contrast_count: int | None,
     chain_metrics: dict[str, int | None] | None = None,
@@ -4274,17 +4251,7 @@ def authored_effect_graph_failures(
     route_only_effect_count: int | None = None,
     opacity_layer_ids: list[int] | None = None,
 ) -> list[str]:
-    failures = [
-        f"authored effect graph layer {layer_id} failed"
-        for layer_id in metrics["failed_layer_ids"]
-    ]
-    succeeded = set(metrics["succeeded_layer_ids"])
-    expected = sample.get("expected_authored_effect_graph_succeeded_layer_ids")
-    if expected is not None and succeeded != set(expected):
-        failures.append("authored effect graph succeeded layer IDs mismatch")
-    for layer_id in sample.get("required_authored_effect_graph_succeeded_layer_ids", []):
-        if layer_id not in succeeded:
-            failures.append(f"authored effect graph layer {layer_id} should succeed")
+    failures: list[str] = []
     expected_blocked = sample.get(
         "expected_authored_effect_graph_legacy_blur_blocked_layer_ids"
     )
@@ -4721,7 +4688,6 @@ def run_sample(
     puppet_animation_runtime = puppet_animation_runtime_metrics(preview_text)
     utility_runtime = utility_runtime_metrics(preview_text)
     utility_capture_execution = utility_capture_execution_metrics(log_text)
-    authored_effect_graph_execution = authored_effect_graph_execution_metrics(log_text)
     authored_effect_graph_legacy_blur_blocked = (
         authored_effect_graph_legacy_blur_blocked_layer_ids(preview_text)
     )
@@ -4978,7 +4944,6 @@ def run_sample(
     failures.extend(utility_runtime_failures(sample, utility_runtime))
     failures.extend(authored_effect_graph_failures(
         sample,
-        authored_effect_graph_execution,
         authored_effect_graph_legacy_blur_blocked,
         authored_effect_graph_local_contrast,
         authored_effect_graph_chain,
@@ -5408,8 +5373,6 @@ def run_sample(
             "utility_layers": utility_runtime["layers"],
             "utility_capture_succeeded_layer_ids": utility_capture_execution["succeeded_layer_ids"],
             "utility_capture_failed_layer_ids": utility_capture_execution["failed_layer_ids"],
-            "authored_effect_graph_succeeded_layer_ids": authored_effect_graph_execution["succeeded_layer_ids"],
-            "authored_effect_graph_failed_layer_ids": authored_effect_graph_execution["failed_layer_ids"],
             "authored_effect_graph_legacy_blur_blocked_layer_ids": authored_effect_graph_legacy_blur_blocked,
             "authored_effect_graph_local_contrast_count": authored_effect_graph_local_contrast,
             "authored_effect_graph_opacity_count": authored_effect_graph_opacity,

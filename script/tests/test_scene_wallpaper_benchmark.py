@@ -1561,33 +1561,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(metrics["succeeded_layer_ids"], [530])
         self.assertEqual(metrics["failed_layer_ids"], [410, 530])
 
-    def test_authored_effect_graph_execution_is_a_strict_layer_gate(self) -> None:
-        metrics = benchmark.authored_effect_graph_execution_metrics(
-            "phase=authored-effect-graph layer=68 status=failed\n"
-            "phase=authored-effect-graph layer=68 status=succeeded\n"
-            "phase=authored-effect-graph layer=76 status=succeeded\n"
-        )
-        self.assertEqual(metrics["succeeded_layer_ids"], [68, 76])
-        self.assertEqual(metrics["failed_layer_ids"], [68])
-        self.assertIn(
-            "authored effect graph layer 68 failed",
-            benchmark.authored_effect_graph_failures(
-                {"expected_authored_effect_graph_succeeded_layer_ids": [68, 76]},
-                metrics,
-                [],
-                None,
-            ),
-        )
-        self.assertIn(
-            "authored effect graph succeeded layer IDs mismatch",
-            benchmark.authored_effect_graph_failures(
-                {"expected_authored_effect_graph_succeeded_layer_ids": [68]},
-                metrics,
-                [],
-                None,
-            ),
-        )
-
     def test_authored_effect_graph_legacy_blur_block_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphLegacyBlurBlockedLayerIDs: 20,36\n"
         blocked = benchmark.authored_effect_graph_legacy_blur_blocked_layer_ids(preview)
@@ -1595,7 +1568,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [20, 36]},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 blocked,
                 None,
             ),
@@ -1605,7 +1577,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph legacy blur blocked layer IDs mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [20]},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 blocked,
                 None,
             ),
@@ -1618,7 +1589,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_local_contrast_count": 2},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 count,
             ),
@@ -1628,7 +1598,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Local Contrast count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_local_contrast_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 count,
             ),
@@ -1641,7 +1610,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_workshop_shadow_count": 1},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 workshop_shadow_count=count,
@@ -1652,7 +1620,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Workshop Shadow count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_workshop_shadow_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 workshop_shadow_count=count,
@@ -1666,7 +1633,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_procedural_noise_count": 3},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 procedural_noise_count=count,
@@ -1677,7 +1643,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Procedural Noise count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_procedural_noise_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 procedural_noise_count=count,
@@ -1691,7 +1656,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_film_grain_count": 1},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 film_grain_count=count,
@@ -1702,7 +1666,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Film Grain count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_film_grain_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 film_grain_count=count,
@@ -1716,7 +1679,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_light_shafts_count": 2},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 light_shafts_count=count,
@@ -1727,7 +1689,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Light Shafts count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_light_shafts_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 light_shafts_count=count,
@@ -1742,7 +1703,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_shake_count": 3},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 shake_count=count,
@@ -1753,7 +1713,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Shake count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_shake_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 shake_count=count,
@@ -1768,7 +1727,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_water_flow_count": 2},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 water_flow_count=count,
@@ -1779,7 +1737,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Water Flow count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_water_flow_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 water_flow_count=count,
@@ -1794,7 +1751,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_water_waves_count": 4},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 water_waves_count=count,
@@ -1805,7 +1761,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Water Waves count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_water_waves_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 water_waves_count=count,
@@ -1820,7 +1775,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_water_caustics_count": 4},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 water_caustics_count=count,
@@ -1831,7 +1785,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Water Caustics count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_water_caustics_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 water_caustics_count=count,
@@ -1862,7 +1815,6 @@ utility layer 763: skippedHidden kind=composition
                     "expected_authored_effect_graph_cursor_ripple_isolated_count": 0,
                     "expected_authored_effect_graph_cursor_ripple_omitted_effects": [],
                 },
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 cursor_ripple_count=count,
@@ -1875,7 +1827,6 @@ utility layer 763: skippedHidden kind=composition
             "Cursor Ripple count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_cursor_ripple_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 cursor_ripple_count=count,
@@ -1885,7 +1836,6 @@ utility layer 763: skippedHidden kind=composition
             "isolated Cursor Ripple count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_cursor_ripple_isolated_count": 1},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 cursor_ripple_isolated_count=0,
@@ -1899,7 +1849,6 @@ utility layer 763: skippedHidden kind=composition
                         "layer=1,omitted=effects/blend/effect.json"
                     ]
                 },
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 cursor_ripple_omitted_effects=[],
@@ -1933,7 +1882,6 @@ utility layer 763: skippedHidden kind=composition
                     "expected_authored_effect_graph_shine_isolated_count": 0,
                     "expected_authored_effect_graph_shine_omitted_effects": [],
                 },
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 shine_count=4,
@@ -1946,7 +1894,6 @@ utility layer 763: skippedHidden kind=composition
             "Shine count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_shine_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 shine_count=4,
@@ -1956,7 +1903,6 @@ utility layer 763: skippedHidden kind=composition
             "isolated Shine count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_shine_isolated_count": 1},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 shine_isolated_count=0,
@@ -1970,7 +1916,6 @@ utility layer 763: skippedHidden kind=composition
                         "layer=59,omitted=effects/shake/effect.json"
                     ]
                 },
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 shine_omitted_effects=[],
@@ -2007,7 +1952,6 @@ utility layer 763: skippedHidden kind=composition
                     "expected_authored_effect_graph_depth_parallax_count": 4,
                     "expected_authored_effect_graph_iris_inline_suffix_count": 0,
                 },
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 foliage_sway_count=3,
@@ -2024,7 +1968,6 @@ utility layer 763: skippedHidden kind=composition
                 "expected_authored_effect_graph_depth_parallax_count": 0,
                 "expected_authored_effect_graph_iris_inline_suffix_count": 1,
             },
-            {"succeeded_layer_ids": [], "failed_layer_ids": []},
             [],
             None,
             foliage_sway_count=3,
@@ -2057,7 +2000,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_clipping_mask_count": 7},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 clipping_mask_count=count,
@@ -2068,7 +2010,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Clipping Mask count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_clipping_mask_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 clipping_mask_count=count,
@@ -2083,7 +2024,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_blend_count": 1},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 blend_count=count,
@@ -2094,7 +2034,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Blend count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_blend_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 blend_count=count,
@@ -2138,7 +2077,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 sample,
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 transform_count=count,
@@ -2149,7 +2087,6 @@ utility layer 763: skippedHidden kind=composition
         )
         failures = benchmark.authored_effect_graph_failures(
             sample,
-            {"succeeded_layer_ids": [], "failed_layer_ids": []},
             [],
             None,
             transform_count=1,
@@ -2259,7 +2196,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_authored_shader_count": 1},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 authored_shader_count=count,
@@ -2270,7 +2206,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph authored shader count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_authored_shader_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 authored_shader_count=count,
@@ -2285,7 +2220,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_scroll_count": 30},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 scroll_count=count,
@@ -2296,7 +2230,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Scroll count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_scroll_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 scroll_count=count,
@@ -2352,7 +2285,6 @@ utility layer 763: skippedHidden kind=composition
                         [365, 372, 647, 664],
                     "expected_route_only_effect_count": 3,
                 },
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 opacity_count=opacity_count,
@@ -2373,7 +2305,6 @@ utility layer 763: skippedHidden kind=composition
                 "expected_authored_effect_graph_opacity_layer_ids": [],
                 "expected_route_only_effect_count": 18,
             },
-            {"succeeded_layer_ids": [], "failed_layer_ids": []},
             [],
             None,
             opacity_count=opacity_count,
@@ -2419,7 +2350,6 @@ utility layer 763: skippedHidden kind=composition
                     "expected_authored_effect_graph_chain_count": 1,
                     "expected_authored_effect_graph_stage_count": 4,
                 },
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 metrics,
@@ -2434,7 +2364,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph chain count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_chain_count": 0},
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 metrics,
@@ -3842,7 +3771,6 @@ utility layer 763: skippedHidden kind=composition
             "unexpected_compositor_consumed_layer_ids": [],
             "unexpected_next_frame_layer_ids": [],
             "unexpected_exact_backend_layer_ids": [],
-            "legacy_conflict_layer_ids": [],
         })
         self.assertEqual(metrics["succeeded_layer_ids"], [68])
         self.assertEqual(
@@ -4200,8 +4128,6 @@ utility layer 763: skippedHidden kind=composition
             [68, 76],
         )
         self.assertEqual(metrics["layer_routes"]["missing_layer_ids"], [])
-        self.assertEqual(metrics["layer_routes"]["legacy_conflict_layer_ids"], [])
-
     def test_resolved_material_graph_execution_gate_rejects_bad_layer_routes(
         self,
     ) -> None:
@@ -4535,61 +4461,6 @@ utility layer 763: skippedHidden kind=composition
                         },
                     ),
                 )
-
-    def test_resolved_material_graph_execution_gate_rejects_legacy_route_conflicts(
-        self,
-    ) -> None:
-        preview_text = "\n".join([
-            "resolved material execution capabilities: "
-            "schema=r4-layer-capability-v2 candidates=2 accepted=2 "
-            "rejected=0 variantLimit=8",
-            "resolved material execution capability: "
-            "schema=r4-layer-route-v1 layer=68 status=accepted",
-            "resolved material execution capability: "
-            "schema=r4-layer-route-v1 layer=76 status=accepted",
-        ])
-        log_text = "\n".join([
-            "resolved material runtime audit: schema=r4-graph-executor-v1 "
-            "claimed=2 encoded=2 failures=0 deferred=0 pending=2 "
-            "gpuEncoded=2",
-            graph_execution_observation(
-                frame=10,
-                layer=68,
-                transaction="tx-68",
-                trigger="next-frame+first-success+compositor-consume+gpu-completed",
-                consumed=True,
-            ),
-            graph_execution_observation(
-                frame=11,
-                layer=76,
-                transaction="tx-76",
-                trigger="next-frame+first-success+compositor-consume+gpu-completed",
-                consumed=True,
-            ),
-            "phase=authored-effect-graph layer=68 status=succeeded",
-            "phase=authored-effect-graph layer=76 status=failed",
-        ])
-
-        disposition, exact_execution = resolved_graph_exact_evidence([68, 76])
-        metrics = benchmark.resolved_material_graph_execution_metrics(
-            preview_text,
-            log_text,
-            effect_execution=exact_execution,
-            static_disposition=disposition,
-        )
-
-        self.assertFalse(metrics["execution_succeeded"])
-        self.assertEqual(
-            metrics["layer_routes"]["legacy_conflict_layer_ids"],
-            [68, 76],
-        )
-        self.assertIn(
-            "resolved material graph accepted layer selected legacy authored route",
-            benchmark.resolved_material_graph_execution_failures(
-                metrics,
-                require_evidence=True,
-            ),
-        )
 
     def test_resolved_material_graph_execution_gate_rejects_unaccepted_layers(
         self,
@@ -4928,7 +4799,6 @@ utility layer 763: skippedHidden kind=composition
                     "expected_authored_effect_graph_pulse_count": 1,
                     "expected_authored_effect_graph_godrays_count": 12,
                 },
-                {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 tint_count=tint_count,
@@ -4945,7 +4815,6 @@ utility layer 763: skippedHidden kind=composition
                 "expected_authored_effect_graph_pulse_count": 0,
                 "expected_authored_effect_graph_godrays_count": 0,
             },
-            {"succeeded_layer_ids": [], "failed_layer_ids": []},
             [],
             None,
             tint_count=tint_count,

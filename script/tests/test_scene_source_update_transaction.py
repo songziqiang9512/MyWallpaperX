@@ -13,8 +13,6 @@ ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 RENDERER = SCENE / "Rendering/SceneMetalRenderer.swift"
 COMPOSITOR = SCENE / "Rendering/SceneImageLayerCompositor.swift"
-LEGACY_COMPOSITOR = SCENE / "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
-LEGACY_BATCH = SCENE / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
 TRANSACTION = SCENE / "Rendering/SceneSourceUpdateTransaction.swift"
 EFFECT_EXECUTION = SCENE / "Rendering/SceneMetalRenderer+EffectExecution.swift"
 UTILITY_PLAN = SCENE / "Rendering/SceneUtilityPlanFrameRenderer.swift"
@@ -187,7 +185,7 @@ enum Harness {
         self.assertLess(seal, transaction_arm)
         self.assertLess(transaction_arm, command_commit)
         self.assertLess(command_commit, did_submit)
-        self.assertIn("frameTransaction: sourceUpdateTransaction", source)
+        self.assertNotIn("frameTransaction: sourceUpdateTransaction", source)
         claimed_failure_stop = source.index(
             "request.resolvedMaterialFrameTargetPlan != nil"
         )
@@ -211,23 +209,18 @@ enum Harness {
         self.assertIn("private let lock = NSLock()", transaction_source)
 
         compositor = COMPOSITOR.read_text(encoding="utf-8")
-        compositor += LEGACY_COMPOSITOR.read_text(encoding="utf-8")
-        self.assertIn(
-            "frameTransaction: SceneSourceUpdateTransaction",
-            compositor,
-        )
+        self.assertNotIn("frameTransaction:", compositor)
         self.assertNotIn("frameTransaction.registerResolution(", compositor)
         self.assertNotIn(
             "commandBuffer.addCompletedHandler { _ in commit.releaseAll() }",
             compositor,
         )
-        legacy_batch = LEGACY_BATCH.read_text(encoding="utf-8")
-        self.assertEqual(legacy_batch.count("transaction.registerResolution("), 1)
-        self.assertIn("prepareAndRegisterLegacyAuthoredBatch(", source)
+        self.assertNotIn("prepareAndRegisterLegacyAuthoredBatch(", source)
+        self.assertNotIn("legacyAuthoredFrameTables", source)
         for path in (EFFECT_EXECUTION, UTILITY_PLAN, UTILITY_LAYER):
             utility_source = path.read_text(encoding="utf-8")
-            self.assertIn("frameTransaction: SceneSourceUpdateTransaction", utility_source)
-            self.assertIn("frameTransaction: frameTransaction", utility_source)
+            self.assertNotIn("frameTransaction: SceneSourceUpdateTransaction", utility_source)
+            self.assertNotIn("frameTransaction: frameTransaction", utility_source)
 
     def test_every_mutating_source_producer_registers_exact_rollback(self) -> None:
         view = VIEW.read_text(encoding="utf-8")

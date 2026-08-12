@@ -9,7 +9,6 @@ enum SceneUtilityPlanFrameRenderer {
         dependencyRuntime: SceneDependencyFrameRuntime,
         imageCompositor: SceneImageLayerCompositor,
         utilityCaptureTelemetry: SceneGPUCompletionTelemetry,
-        authoredEffectTelemetry: SceneGPUCompletionTelemetry,
         effectTextures: SceneLayerEffectTextureStore,
         imagePipeline: SceneImageLayerPipeline,
         offscreenTexturePool: SceneOffscreenTexturePool,
@@ -21,12 +20,10 @@ enum SceneUtilityPlanFrameRenderer {
         time: Float,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
-        frameTransaction: SceneSourceUpdateTransaction,
         effectExecutionTrace: SceneEffectExecutionFrameTrace,
         resolvedMaterialFrameTargetPlans: [
             Int: SceneResolvedMaterialFrameTargetPlan
-        ] = [:],
-        legacyAuthoredFrameTables: [Int: SceneOffscreenTexturePool.LegacyAuthoredFrameTables] = [:]
+        ] = [:]
     ) {
         for plan in plans {
             guard let layer = renderer.layersByID[plan.layerID] else { continue }
@@ -52,7 +49,6 @@ enum SceneUtilityPlanFrameRenderer {
                 for: layer.id,
                 textureRegistry: renderer.textureRegistry
             )
-            var selectedLegacyAuthoredRoute = false
             let captured: Bool
             if requiresDependencyEffect && dependencyEffect == nil {
                 dependencyRuntime.recordBindingFailure(for: layer.id)
@@ -88,14 +84,9 @@ enum SceneUtilityPlanFrameRenderer {
                     compositor: imageCompositor,
                     offscreenTexturePool: offscreenTexturePool,
                     mainPass: mainPass,
-                    frameTransaction: frameTransaction,
                     resolvedMaterialFrameTargetPlan:
                         resolvedMaterialFrameTargetPlans[layer.id],
-                    executionTrace: effectExecutionTrace,
-                    onLegacyAuthoredRouteSelected: {
-                        selectedLegacyAuthoredRoute = true
-                    },
-                    legacyAuthoredFrameTables: legacyAuthoredFrameTables[layer.id]
+                    executionTrace: effectExecutionTrace
                 )
             }
             utilityCaptureTelemetry.record(
@@ -108,13 +99,6 @@ enum SceneUtilityPlanFrameRenderer {
                 encoded: captured,
                 on: commandBuffer
             )
-            if selectedLegacyAuthoredRoute {
-                authoredEffectTelemetry.record(
-                    layerID: layer.id,
-                    encoded: captured,
-                    on: commandBuffer
-                )
-            }
         }
     }
 }

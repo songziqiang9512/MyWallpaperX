@@ -30,7 +30,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureResidency.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+SharedPair.swift",
-    SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+LegacyBatch.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+Batch.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureFramePreflight.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool+PersistentGraphTargets.swift",
@@ -46,8 +45,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
-    SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool+LegacyChain.swift",
-    SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool+LegacyBatchResult.swift",
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
     SOURCE_ROOT / "Resources/SceneTextureSlotBinding.swift",
@@ -107,8 +104,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift",
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SpecializedStage.swift",
-    SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneStandaloneAuthoredEffectRenderer.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+CursorRipple.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WaterRipple.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Rays.swift",
@@ -132,7 +127,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
     SOURCE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift",
-    SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerMainPassRenderer.swift",
     SOURCE_ROOT / "Runtime/SceneGPUCompletionTelemetry.swift",
@@ -1478,61 +1472,9 @@ struct SceneLocalContrastPlan {
     let staticOrFallbackStrength: Float
 }
 
-extension SceneImageLayerCompositor {
-    /// Exercises the retained legacy renderer as a unit-test surface without
-    /// granting it a product route through `draw`.
-    func drawLegacyAuthoredChainForTest(
-        _ request: SceneImageLayerDrawRequest,
-        pipeline: SceneImageLayerPipeline,
-        mainPass: SceneMainPassEncoder,
-        frameTransaction: SceneSourceUpdateTransaction
-    ) -> Bool {
-        guard let chain = request.authoredEffectChain,
-              let pool = request.offscreenTexturePool,
-              request.layer.colorBlendMode ?? 0 == 0,
-              let sourceUniforms = sourceFragmentUniforms(
-                  for: request,
-                  effectInputs: .neutral,
-                  routesOffscreen: true
-              ),
-              let finalTexture = renderLegacyAuthoredChain(
-                  chain,
-                  request: request,
-                  pool: pool,
-                  sourceUniforms: sourceUniforms,
-                  pipeline: pipeline,
-                  pipelines: authoredEffectPipelines,
-                  mainPass: mainPass,
-                  frameTransaction: frameTransaction,
-                  executionTrace: nil,
-                  executionOrigin: .image
-              ) else {
-            return false
-        }
-        let finalUniforms = makeFragmentUniforms(
-            values: SceneImageLayerUniformValues(
-                time: request.uniforms.time,
-                alpha: request.finalCompositeAlpha ?? 1,
-                cursorUV: request.uniforms.cursorUV
-            ),
-            effectInputs: .neutral,
-            textureFrame: .identity,
-            tint: SIMD3(repeating: 1),
-            foliageMaskUVScale: SIMD2(repeating: 1),
-            dependencyBlendMode: nil
-        )
-        return SceneImageLayerMainPassRenderer.draw(
-            texture: finalTexture,
-            masks: .empty,
-            mvp: request.mvp,
-            uniforms: finalUniforms,
-            dependencyTexture: nil,
-            layer: request.layer,
-            pipeline: pipeline,
-            colorBlendPipeline: nil,
-            mainPass: mainPass
-        )
-    }
+struct PreparedStageTargets {
+    let tables: [SceneGraphRenderTargetTable]
+    let commit: ScenePreparedPersistentGraphTargets.Commit
 }
 
 @main
@@ -1550,68 +1492,6 @@ enum Harness {
         name: String? = nil
     ) -> Graph.TextureIdentity {
         .init(kind: kind, layerID: layerID, effect: effect, name: name)
-    }
-
-    static func committedChainTargets(
-        pool: SceneOffscreenTexturePool,
-        chain: SceneAuthoredEffectExecutionChain,
-        width: Int,
-        height: Int
-    ) -> [SceneGraphRenderTargetTable]? {
-        if pool.usesPairOnlyLegacyTargets(for: chain) {
-            return pool.graphTargets(
-                for: chain,
-                requestedWidth: width,
-                requestedHeight: height
-            )
-        }
-        guard let commandBuffer = pool.device.makeCommandQueue()?.makeCommandBuffer(),
-              let framePlan = pool.framePlanForPersistentGraphTargets(
-                  for: chain,
-                  requestedWidth: width,
-                  requestedHeight: height,
-                  orderingContext: .init(commandBuffer: commandBuffer)
-              ), let prepared = pool.preparePersistentGraphTargets(
-                  framePlan: framePlan
-              ), let commit = prepared.commitAndPin(
-                  historyTokensByEffect: [:],
-                  commandBuffer: commandBuffer
-              ) else { return nil }
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed else {
-            commit.releaseAll()
-            return nil
-        }
-        commit.releaseAll()
-        return commit.leases.map(\.table)
-    }
-
-    static func legacyFrameTables(
-        pool: SceneOffscreenTexturePool,
-        chain: SceneAuthoredEffectExecutionChain,
-        width: Int,
-        height: Int,
-        commandBuffer: MTLCommandBuffer,
-        transaction: SceneSourceUpdateTransaction
-    ) -> SceneOffscreenTexturePool.LegacyAuthoredFrameTables? {
-        let ordering = SceneGraphCommandQueueOrderingContext(
-            commandBuffer: commandBuffer
-        )
-        guard let plan = pool.legacyAuthoredChainFramePlan(
-            for: chain,
-            requestedWidth: width,
-            requestedHeight: height,
-            orderingContext: ordering
-        ), let tables = pool.prepareLegacyAuthoredFrameBatch(
-            framePlans: [plan],
-            orderingContext: ordering
-        )?[chain.layerID] else { return nil }
-        transaction.registerResolution(
-            completed: { tables.commit.releaseAll() },
-            rollback: { tables.commit.releaseAll() }
-        )
-        return tables
     }
 
     static func submitFrame(
@@ -1923,7 +1803,6 @@ enum Harness {
                     requiresSourceCopy: true,
                     finalCompositeAlpha: 1,
                     dependencyEffect: nil,
-                    authoredEffectPlan: nil,
                     blocksLegacyGaussianBlur: false
                 ),
                 pipeline: pipeline,
@@ -1950,7 +1829,6 @@ enum Harness {
                     requiresSourceCopy: true,
                     finalCompositeAlpha: 1,
                     dependencyEffect: nil,
-                    authoredEffectPlan: nil,
                     blocksLegacyGaussianBlur: false
                 ),
                 pipeline: pipeline,
@@ -1997,19 +1875,6 @@ enum Harness {
         let darkenHalfAlpha = try dependencyBlendPixel(
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             blendMode: 5, alpha: 0.5
-        )
-        let authoredClippingMask = try authoredClippingMaskPixel(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
-        let authoredCompositionClippingMask = try authoredClippingMaskPixel(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor,
-            contentKind: "composition"
         )
         let resolvedClippingMaskPrepared = try resolvedClippingMaskPreparedEvidence(
             device: device,
@@ -2072,12 +1937,6 @@ enum Harness {
             scale: 0.45,
             blocksLegacyGaussianBlur: true
         )
-        let authoredExtentMismatchRefused = try authoredExtentMismatchIsRefused(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
         let authoredPreciseImpulse = try authoredPreciseBlurImpulseEvidence(
             device: device,
             queue: queue,
@@ -2104,19 +1963,13 @@ enum Harness {
             sourceSize: 16,
             maxDimension: 8
         )
-        let legacyWholeChainFullFrameCompose =
-            try legacyWholeChainFullFrameComposeEvidence(
+        let legacyChainProductRejection =
+            try legacyChainProductRejectionEvidence(
                 device: device,
                 queue: queue,
                 pipeline: pipeline,
                 compositor: compositor
             )
-        let authoredPreciseInterleave = try authoredPreciseInterleaveEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
         let authoredStandardCheckerboard = try authoredStandardBlurCheckerboardEvidence(
             device: device,
             queue: queue,
@@ -2145,63 +1998,7 @@ enum Harness {
             queue: queue,
             pipeline: pipeline
         )
-        let authoredTwoStageChain = try authoredTwoStageChainEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
-        let authoredOpacityLivePixels = try authoredOpacityLivePixels(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
-        let authoredOpacityMaskPixel = try authoredOpacityMaskPixels(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
-        let authoredBlendChainPixel = try authoredBlendChainPixel(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
-        let authoredWriteAlphaBlendChainPixel = try Self.authoredBlendChainPixel(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor,
-            writesAlpha: true,
-            alphaMultiply: 0.5
-        )
-        let authoredTransformChainPixel = try authoredTransformChainPixel(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
         let authoredBlendRuntimeSummary = authoredBlendRuntimeSummary()
-        let authoredTintChainPixels = try authoredTintChainPixels(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
-        let authoredFailedChain = try authoredFailedChainEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
-        let legacyUnsubmittedRollback = try legacyUnsubmittedRollbackEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
         let authoredStandardBlurOverridesLegacy = standardBlurOverridesLegacy()
         let standardBlurAlphaAwareDownsample = try alphaAwareDownsamplePixel(
             device: device,
@@ -2243,18 +2040,6 @@ enum Harness {
             sourceBGRA: [128, 128, 128, 128],
             dependencyBGRA: [0, 255, 0, 255]
         )
-        let solidMappedEffectExtent = try solidMappedEffectExtentEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
-        let xRayThreeTextureRoute = try xRayThreeTextureRouteEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
         let resolvedMaterialComposition = try resolvedMaterialCompositionEvidence(
             device: device,
             queue: queue,
@@ -2277,8 +2062,6 @@ enum Harness {
             "normalDependencyBGRA": normalDependency,
             "darkenDependencyBGRA": darkenDependency,
             "darkenHalfAlphaBGRA": darkenHalfAlpha,
-            "authoredClippingMaskBGRA": authoredClippingMask,
-            "authoredCompositionClippingMaskBGRA": authoredCompositionClippingMask,
             "resolvedClippingMaskPrepared": resolvedClippingMaskPrepared,
             "resolvedLegacyProceduralPrepared": resolvedLegacyProceduralPrepared,
             "solidTintBGRA": solidTint,
@@ -2307,28 +2090,17 @@ enum Harness {
             ],
             "preciseBlurIsPrecise": preciseBlur?.isPrecise ?? false,
             "blockedPreciseBlurIsNil": blockedPreciseBlur == nil,
-            "authoredExtentMismatchRefused": authoredExtentMismatchRefused,
             "authoredPreciseImpulse": authoredPreciseImpulse,
             "gaussianKernelPixels": gaussianKernelPixels,
             "authoredFullFrameComposeImpulse": authoredFullFrameComposeImpulse,
             "authoredFullFrameComposeScaled": authoredFullFrameComposeScaled,
-            "legacyWholeChainFullFrameCompose": legacyWholeChainFullFrameCompose,
-            "authoredPreciseInterleave": authoredPreciseInterleave,
+            "legacyChainProductRejection": legacyChainProductRejection,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredStandardCandidate": authoredStandardCandidate,
             "authoredLocalContrastPrepared": authoredLocalContrastPrepared,
             "authoredGodraysPrepared": authoredGodraysPrepared,
             "authoredShinePrepared": authoredShinePrepared,
-            "authoredTwoStageChain": authoredTwoStageChain,
-            "authoredOpacityLivePixels": authoredOpacityLivePixels,
-            "authoredOpacityMaskPixel": authoredOpacityMaskPixel,
-            "authoredBlendChainPixel": authoredBlendChainPixel,
-            "authoredWriteAlphaBlendChainPixel": authoredWriteAlphaBlendChainPixel,
-            "authoredTransformChainPixel": authoredTransformChainPixel,
             "authoredBlendRuntimeSummary": authoredBlendRuntimeSummary as Any,
-            "authoredTintChainPixels": authoredTintChainPixels,
-            "authoredFailedChain": authoredFailedChain,
-            "legacyUnsubmittedRollback": legacyUnsubmittedRollback,
             "authoredStandardBlurOverridesLegacy": authoredStandardBlurOverridesLegacy,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
             "standardBlurMaskPixels": standardBlurMaskPixels,
@@ -2345,8 +2117,6 @@ enum Harness {
             "gradientTopBGRA": standaloneGradientPixels[0],
             "gradientBottomBGRA": standaloneGradientPixels[1],
             "clippedGradientTopBGRA": clippedGradientPixels[0],
-            "solidMappedEffectExtent": solidMappedEffectExtent,
-            "xRayThreeTextureRoute": xRayThreeTextureRoute,
             "resolvedMaterialComposition": resolvedMaterialComposition,
             "filmGrain": filmGrain,
             "baseColorCandidate": baseColorCandidate,
@@ -2535,15 +2305,6 @@ enum Harness {
               ),
               let rejected = makeTexture(
                   device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ),
-              let effectfulReference = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ),
-              let effectfulAccepted = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ),
-              let effectfulRejected = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
               ) else {
             throw HarnessError.metalUnavailable
         }
@@ -2615,44 +2376,8 @@ enum Harness {
             ),
             target: rejected, queue: queue, pipeline: pipeline, compositor: compositor
         )
-        let effectfulReferenceEncoded = try drawBaseColor(
-            source: source, candidate: nil, target: effectfulReference,
-            queue: queue, pipeline: pipeline, compositor: compositor,
-            effectful: true
-        )
-        let effectfulCandidateEncoded = try drawBaseColor(
-            source: source, candidate: candidate, target: effectfulAccepted,
-            queue: queue, pipeline: pipeline, compositor: compositor,
-            effectful: true
-        )
-        let effectfulWrongPurposeRejected = try !drawBaseColor(
-            source: source,
-            candidate: textureCandidate(
-                texture: source, purpose: .normal, name: "effectful-wrong-purpose"
-            ),
-            target: effectfulRejected,
-            queue: queue, pipeline: pipeline, compositor: compositor,
-            effectful: true
-        )
-        let effectfulMismatchedTextureRejected = try !drawBaseColor(
-            source: source,
-            candidate: textureCandidate(
-                texture: other,
-                purpose: .premultipliedColor,
-                name: "effectful-wrong-texture"
-            ),
-            target: effectfulRejected,
-            queue: queue, pipeline: pipeline, compositor: compositor,
-            effectful: true
-        )
         let referenceBytes = try textureBytes(reference, queue: queue)
         let acceptedBytes = try textureBytes(accepted, queue: queue)
-        let effectfulReferenceBytes = try textureBytes(
-            effectfulReference, queue: queue
-        )
-        let effectfulAcceptedBytes = try textureBytes(
-            effectfulAccepted, queue: queue
-        )
         let pixels = stride(from: 0, to: acceptedBytes.count, by: 4).map {
             Array(acceptedBytes[$0 ..< ($0 + 4)])
         }
@@ -2669,13 +2394,6 @@ enum Harness {
             "nearestRejected": nearestRejected,
             "repeatRejected": repeatRejected,
             "clampBorderRejected": clampBorderRejected,
-            "effectfulReferenceEncoded": effectfulReferenceEncoded,
-            "effectfulCandidateEncoded": effectfulCandidateEncoded,
-            "effectfulMatchesLegacyPixels":
-                maxDifference(effectfulReferenceBytes, effectfulAcceptedBytes) <= 1,
-            "effectfulWrongPurposeRejected": effectfulWrongPurposeRejected,
-            "effectfulMismatchedTextureRejected":
-                effectfulMismatchedTextureRejected,
         ]
     }
 
@@ -2685,22 +2403,17 @@ enum Harness {
         target: MTLTexture,
         queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor,
-        effectful: Bool = false
+        compositor: SceneImageLayerCompositor
     ) throws -> Bool {
         guard let commandBuffer = queue.makeCommandBuffer() else {
             throw HarnessError.metalUnavailable
         }
-        let effectPlan = effectful ? authoredPreciseBlurPlan() : nil
-        let offscreenPool = effectful
-            ? SceneOffscreenTexturePool(device: source.device)
-            : nil
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
-        var request = SceneImageLayerDrawRequest(
+        let request = SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
                     contentKind: "image",
                     colorRGB: nil,
@@ -2715,23 +2428,13 @@ enum Harness {
                 uniforms: SceneImageLayerUniformValues(
                     time: 0, alpha: 1, cursorUV: .zero
                 ),
-                offscreenTexturePool: offscreenPool,
+                offscreenTexturePool: nil,
                 offscreenSize: nil,
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
                 dependencyEffect: nil,
-                authoredEffectPlan: effectPlan,
                 blocksLegacyGaussianBlur: false
             )
-        if let effectPlan, let offscreenPool {
-            request.legacyAuthoredFrameTables = try prepareStandaloneAuthoredTables(
-                plan: effectPlan,
-                pool: offscreenPool,
-                width: source.width,
-                height: source.height,
-                commandBuffer: commandBuffer
-            )
-        }
         let encoded = compositor.draw(
             request,
             pipeline: pipeline,
@@ -2743,7 +2446,6 @@ enum Harness {
         guard commandBuffer.status == .completed else {
             throw HarnessError.commandFailed
         }
-        request.legacyAuthoredFrameTables?.commit.releaseAll()
         return encoded
     }
 
@@ -2773,8 +2475,6 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
-        let frameTransaction = SceneSourceUpdateTransaction()
-        defer { frameTransaction.cancel() }
         let drew = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: layer,
@@ -2792,16 +2492,15 @@ enum Harness {
                 dependencyEffect: blendMode.map {
                     dependencyInput(blendMode: $0, texture: dependency)
                 },
-                authoredEffectPlan: nil,
                 blocksLegacyGaussianBlur: false
             ),
             pipeline: pipeline,
-            mainPass: mainPass,
-            frameTransaction: frameTransaction
+            mainPass: mainPass
         )
         guard drew else { throw HarnessError.drawRefused }
         mainPass.finishEnsuringClear()
-        submitFrame(commandBuffer, transaction: frameTransaction)
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return pixel(target, x: 4, y: 4)
     }
@@ -2832,85 +2531,6 @@ enum Harness {
         )
     }
 
-    static func authoredClippingMaskPixel(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor,
-        contentKind: String = "image"
-    ) throws -> [UInt8] {
-        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
-              let dependency = makeTexture(device: device, size: 8, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
-              ),
-              let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: [32, 64, 128, 128])
-        fill(dependency, bgra: [192, 32, 64, 255])
-        let layer = SceneRenderDescriptor.Layer(
-            contentKind: contentKind, colorRGB: nil, colorBlendMode: nil, effects: []
-        )
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: target,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        )
-        let frameTransaction = SceneSourceUpdateTransaction()
-        defer { frameTransaction.cancel() }
-        let chain = authoredClippingMaskChain()
-        guard let clipping = chain.executionStages.first?.clippingMask else {
-            throw HarnessError.drawRefused
-        }
-        let pool = SceneOffscreenTexturePool(device: device)
-        guard let frameTables = legacyFrameTables(
-            pool: pool,
-            chain: chain,
-            width: 8,
-            height: 8,
-            commandBuffer: commandBuffer,
-            transaction: frameTransaction
-        ) else { throw HarnessError.commandFailed }
-        let drew = compositor.drawLegacyAuthoredChainForTest(
-            SceneImageLayerDrawRequest(
-                layer: layer,
-                texture: source,
-                masks: .empty,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(
-                    time: 0, alpha: 1, cursorUV: .zero
-                ),
-                offscreenTexturePool: pool,
-                legacyAuthoredFrameTables: frameTables,
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: dependencyInput(
-                    consumerLayerID: clipping.layerID,
-                    providerLayerID: clipping.providerLayerID,
-                    effectID: clipping.effectKey.descriptorID,
-                    slotIndex: 1,
-                    blendMode: clipping.blendMode,
-                    frameEpoch: 1,
-                    texture: dependency
-                ),
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false,
-                authoredEffectChain: chain
-            ),
-            pipeline: pipeline,
-            mainPass: mainPass,
-            frameTransaction: frameTransaction
-        )
-        guard drew else { throw HarnessError.drawRefused }
-        mainPass.finishEnsuringClear()
-        submitFrame(commandBuffer, transaction: frameTransaction)
-        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
-        return pixel(target, x: 4, y: 4)
-    }
-
     static func resolvedClippingMaskPreparedEvidence(
         device: MTLDevice,
         queue: MTLCommandQueue,
@@ -2933,7 +2553,7 @@ enum Harness {
             throw HarnessError.drawRefused
         }
         let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let frameTables = try prepareStandaloneAuthoredTables(
+        let frameTables = try prepareStageTargets(
             plan: stage,
             pool: pool,
             width: size,
@@ -3059,7 +2679,7 @@ enum Harness {
             throw HarnessError.drawRefused
         }
         let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let frameTables = try prepareStandaloneAuthoredTables(
+        let frameTables = try prepareStageTargets(
             plan: stage,
             pool: pool,
             width: size,
@@ -3224,7 +2844,6 @@ enum Harness {
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
                 dependencyEffect: nil,
-                authoredEffectPlan: nil,
                 blocksLegacyGaussianBlur: false
             ),
             pipeline: pipeline,
@@ -3286,7 +2905,6 @@ enum Harness {
             requiresSourceCopy: false,
             finalCompositeAlpha: nil,
             dependencyEffect: nil,
-            authoredEffectPlan: nil,
             blocksLegacyGaussianBlur: false
         )
         request.suppressesLegacyEffectFallback = suppressesLegacyFallback
@@ -3401,91 +3019,6 @@ enum Harness {
         return [pixel(target, x: 4, y: 0), pixel(target, x: 4, y: 7)]
     }
 
-    static func solidMappedEffectExtentEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [String: Any] {
-        let width = 64
-        let height = 36
-        guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: width, usage: [.renderTarget, .shaderRead]
-              ),
-              let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: [255, 255, 255, 255])
-        let chain = authoredWorkshopGradientChain()
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: width)
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: target,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        )
-        let frameTransaction = SceneSourceUpdateTransaction()
-        defer { frameTransaction.cancel() }
-        guard let frameTables = legacyFrameTables(
-            pool: pool,
-            chain: chain,
-            width: width,
-            height: height,
-            commandBuffer: commandBuffer,
-            transaction: frameTransaction
-        ) else { throw HarnessError.commandFailed }
-        let drew = compositor.drawLegacyAuthoredChainForTest(
-            SceneImageLayerDrawRequest(
-                layer: SceneRenderDescriptor.Layer(
-                    contentKind: "solid", colorRGB: [1, 1, 1],
-                    colorBlendMode: nil, effects: []
-                ),
-                texture: source,
-                masks: .empty,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(
-                    time: 0, alpha: 1, cursorUV: .zero, tint: SIMD3(repeating: 1)
-                ),
-                offscreenTexturePool: pool,
-                legacyAuthoredFrameTables: frameTables,
-                offscreenSize: CGSize(width: CGFloat(width), height: CGFloat(height)),
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false,
-                authoredEffectChain: chain
-            ),
-            pipeline: pipeline,
-            mainPass: mainPass,
-            frameTransaction: frameTransaction
-        )
-        guard drew else { throw HarnessError.drawRefused }
-        mainPass.finishEnsuringClear()
-        submitFrame(commandBuffer, transaction: frameTransaction)
-        guard commandBuffer.status == .completed,
-              let table = frameTables.tables.first else {
-            throw HarnessError.commandFailed
-        }
-        let output = try textureBytes(table.outputTexture, queue: queue)
-        var colors = Set<UInt32>()
-        for offset in stride(from: 0, to: output.count, by: 4) {
-            colors.insert(
-                UInt32(output[offset])
-                    | UInt32(output[offset + 1]) << 8
-                    | UInt32(output[offset + 2]) << 16
-                    | UInt32(output[offset + 3]) << 24
-            )
-        }
-        return [
-            "encoded": true,
-            "sourceSize": [source.width, source.height],
-            "offscreenSize": [table.outputTexture.width, table.outputTexture.height],
-            "uniqueColorCount": colors.count,
-        ]
-    }
-
     static func gradientLayer(includesClipping: Bool) -> SceneRenderDescriptor.Layer {
         let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
             texturePaths: [],
@@ -3549,56 +3082,6 @@ enum Harness {
             hasWaterRippleNormal: false,
             blocksLegacyGaussianBlur: blocksLegacyGaussianBlur
         ).gaussianBlur
-    }
-
-    static func authoredExtentMismatchIsRefused(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> Bool {
-        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device,
-                  size: 8,
-                  usage: [.renderTarget, .shaderRead]
-              ),
-              let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: [0, 0, 255, 255])
-        let layer = SceneRenderDescriptor.Layer(
-            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
-        )
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: target,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        )
-        let encoded = compositor.draw(
-            SceneImageLayerDrawRequest(
-                layer: layer,
-                texture: source,
-                masks: .empty,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
-                offscreenTexturePool: SceneOffscreenTexturePool(device: device, maxDimension: 4),
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: authoredPreciseBlurPlan(),
-                blocksLegacyGaussianBlur: false
-            ),
-            pipeline: pipeline,
-            mainPass: mainPass
-        )
-        mainPass.finishEnsuringClear()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
-        return !encoded
     }
 
     static func authoredPreciseBlurImpulseEvidence(
@@ -3869,267 +3352,75 @@ enum Harness {
         ]
     }
 
-    static func legacyWholeChainFullFrameComposeEvidence(
+    static func legacyChainProductRejectionEvidence(
         device: MTLDevice,
         queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor
     ) throws -> [String: Any] {
-        let size = 8
-        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
+        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
               let target = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ), let referenceInput = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ), let referenceHorizontal = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ), let referenceOutput = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ), let blurPipeline = SceneGaussianBlurPipeline(device: device) else {
+                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
+              ), let commandBuffer = queue.makeCommandBuffer() else {
             throw HarnessError.metalUnavailable
         }
-        fillPremultipliedImpulse(source)
+        fill(source, bgra: [32, 64, 128, 255])
         let plan = authoredPreciseBlurPlan(layerID: 0, fullFrameCompose: true)
-        guard let blur = plan.gaussianBlur,
-              let referenceBuffer = queue.makeCommandBuffer(),
-              SceneOffscreenEffectRenderer.captureSource(
-                  sourceTexture: source,
-                  waterMaskTexture: nil,
-                  foliageMaskTexture: nil,
-                  auxMaskTexture: nil,
-                  target: referenceInput,
-                  sourceUniforms: .neutral(),
-                  pipeline: pipeline,
-                  commandBuffer: referenceBuffer
-              ), blurPipeline.encode(
-                  source: referenceInput,
-                  target: referenceHorizontal,
-                  step: SIMD2(
-                      blur.horizontalStep * blur.sampleResolutionScale / Float(size),
-                      0
-                  ),
-                  kernel: blur.kernel,
-                  commandBuffer: referenceBuffer
-              ), blurPipeline.encode(
-                  source: referenceHorizontal,
-                  target: referenceOutput,
-                  step: SIMD2(
-                      0,
-                      blur.verticalStep * blur.sampleResolutionScale / Float(size)
-                  ),
-                  kernel: blur.kernel,
-                  commandBuffer: referenceBuffer
-              ) else {
-            throw HarnessError.drawRefused
-        }
-        referenceBuffer.commit()
-        referenceBuffer.waitUntilCompleted()
-        guard referenceBuffer.status == .completed,
-              referenceBuffer.error == nil else {
-            throw HarnessError.commandFailed
-        }
-
         let chain = SceneAuthoredEffectExecutionChain(
             layerID: plan.layerID,
             renderGraph: plan.renderGraph,
             executionStages: [plan]
         )
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        guard let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        let transaction = SceneSourceUpdateTransaction()
-        defer { transaction.cancel() }
-        guard let frameTables = legacyFrameTables(
-            pool: pool,
-            chain: chain,
-            width: size,
-            height: size,
-            commandBuffer: commandBuffer,
-            transaction: transaction
-        ) else { throw HarnessError.drawRefused }
-        guard frameTables.tables.count == 1,
-              let table = frameTables.tables.first,
-              frameTables.commit.leases.count == 1,
-              let lease = frameTables.commit.leases.first else {
-            throw HarnessError.drawRefused
-        }
-        guard case let .success(pairPlan) = SceneLayerFullFramePairPlan.make(
-                  conditionPrunedGraphs: [plan.renderGraph]
-              ), pairPlan.effects.count == 1,
-              let pairStep = pairPlan.effects.first else {
-            throw HarnessError.drawRefused
-        }
-        let endpointUsesFirst = table.inputTexture === table.fullFramePair.first
-        let endpointUsesSecond = table.inputTexture === table.fullFramePair.second
-        guard endpointUsesFirst != endpointUsesSecond,
-              table.inputTexture === table.outputTexture,
-              let firstLeaseTexture = lease.texturesByToken[
-                  lease.fullFramePair.first
-              ], let secondLeaseTexture = lease.texturesByToken[
-                  lease.fullFramePair.second
-              ] else {
-            throw HarnessError.drawRefused
-        }
-        let intermediate = endpointUsesFirst
-            ? table.fullFramePair.second : table.fullFramePair.first
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: 8)
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
-        let layer = SceneRenderDescriptor.Layer(
-            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
-        )
-        let request = SceneImageLayerDrawRequest(
-            layer: layer,
-            texture: source,
-            masks: .empty,
-            textureFrame: .identity,
-            mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-            uniforms: SceneImageLayerUniformValues(
-                time: 0, alpha: 1, cursorUV: .zero
-            ),
-            offscreenTexturePool: pool,
-            legacyAuthoredFrameTables: frameTables,
-            offscreenSize: nil,
-            requiresSourceCopy: false,
-            finalCompositeAlpha: nil,
-            dependencyEffect: nil,
-            authoredEffectPlan: nil,
-            blocksLegacyGaussianBlur: false,
-            authoredEffectChain: chain,
-            dynamicValues: .empty(frameIndex: 29)
-        )
-        var selectedLegacyAuthoredRoute = false
-        let routeRecorder = ExactEvidenceLogRecorder()
-        let routeTrace = SceneEffectExecutionTelemetry(
-            logSink: { routeRecorder.append($0) }
+        let recorder = ExactEvidenceLogRecorder()
+        let trace = SceneEffectExecutionTelemetry(
+            logSink: { recorder.append($0) }
         ).makeFrame(frameIndex: 29)
-        let productRouteEncoded = compositor.draw(
-            request,
+        let encoded = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: SceneRenderDescriptor.Layer(
+                    contentKind: "image",
+                    colorRGB: nil,
+                    colorBlendMode: nil,
+                    effects: []
+                ),
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0, alpha: 1, cursorUV: .zero
+                ),
+                offscreenTexturePool: pool,
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                blocksLegacyGaussianBlur: false,
+                authoredEffectChain: chain,
+                dynamicValues: .empty(frameIndex: 29)
+            ),
             pipeline: pipeline,
             mainPass: mainPass,
-            frameTransaction: transaction,
-            executionTrace: routeTrace,
-            onLegacyAuthoredRouteSelected: {
-                selectedLegacyAuthoredRoute = true
-            }
-        )
-        let encoded = compositor.drawLegacyAuthoredChainForTest(
-            request,
-            pipeline: pipeline,
-            mainPass: mainPass,
-            frameTransaction: transaction
+            executionTrace: trace
         )
         mainPass.finishEnsuringClear()
-        submitFrame(commandBuffer, transaction: transaction)
-
-        let sourceBytes = try textureBytes(source, queue: queue)
-        let horizontalBytes = try textureBytes(intermediate, queue: queue)
-        let expectedHorizontalBytes = try textureBytes(
-            referenceHorizontal, queue: queue
-        )
-        let outputBytes = try textureBytes(table.outputTexture, queue: queue)
-        let expectedOutputBytes = try textureBytes(referenceOutput, queue: queue)
-        let mainBytes = try textureBytes(target, queue: queue)
-        let residentAllocationCount = pool.residentAllocationCount
-        let residentTextureCount = pool.residentTextureCount
-        pool.reset()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else {
+            throw HarnessError.commandFailed
+        }
         return [
             "encoded": encoded,
-            "gpuCompleted": commandBuffer.status == .completed
-                && commandBuffer.error == nil,
-            "productRouteRejected": !productRouteEncoded,
-            "productRouteEvidence": routeRecorder.lines,
-            "legacyAuthoredRouteSelected": selectedLegacyAuthoredRoute,
-            "executionStageCount": chain.executionStages.count,
-            "stageLogicalTargetCount": plan.logicalRenderTargetCount,
-            "tableLogicalTargetCount": table.plan.logicalTargets.count,
-            "inputOutputAliased": table.inputOutputAliased,
-            "inputAndOutputUseSameTexture": table.inputTexture === table.outputTexture,
-            "pairMembersDistinct": table.fullFramePair.first
-                !== table.fullFramePair.second,
-            "endpointUsesPairMember": endpointUsesFirst || endpointUsesSecond,
-            "intermediateUsesOtherPairMember": intermediate !== table.inputTexture,
-            "pairEndpointMembersAliased": pairStep.inputMember
-                == pairStep.outputMember,
-            "pairComposeTransitionCount": pairStep.composeTransitionCount,
-            "pairFullFrameOutputWriteCount": pairStep.fullFrameOutputWriteCount,
-            "tableResidentTextureCount": table.residentTextureCount,
-            "leaseTextureCount": lease.texturesByToken.count,
-            "leasePairTokensDistinct": lease.fullFramePair.first
-                != lease.fullFramePair.second,
-            "leasePairTexturesMapped": firstLeaseTexture === table.fullFramePair.first
-                && secondLeaseTexture === table.fullFramePair.second,
-            "residentAllocationCount": residentAllocationCount,
-            "residentTextureCount": residentTextureCount,
-            "horizontalMaxDelta": maxDifference(
-                horizontalBytes, expectedHorizontalBytes
-            ),
-            "outputMaxDelta": maxDifference(outputBytes, expectedOutputBytes),
-            "mainMaxDelta": maxDifference(mainBytes, expectedOutputBytes),
-            "horizontalToOutputDelta": maxDifference(
-                horizontalBytes, outputBytes
-            ),
-            "sourceToOutputDelta": maxDifference(sourceBytes, outputBytes),
-            "sourceHasMixedAlpha": hasMixedAlpha(sourceBytes),
-            "outputHasPixels": outputBytes.contains(where: { $0 != 0 }),
-            "outputIsPremultiplied": isPremultiplied(outputBytes),
-            "resetReleasedCompletedSubmission": pool.residentAllocationCount == 0,
-        ]
-    }
-
-    static func authoredPreciseInterleaveEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [String: Any] {
-        let size = 8
-        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
-              let baselineTarget = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ),
-              let copyTarget = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ),
-              let swapTarget = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ) else {
-            throw HarnessError.metalUnavailable
-        }
-        fillPremultipliedImpulse(source)
-        let layer = SceneRenderDescriptor.Layer(
-            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
-        )
-        let cases: [(MTLTexture, Graph.NodeKind?)] = [
-            (baselineTarget, nil),
-            (copyTarget, Graph.NodeKind.copy),
-            (swapTarget, Graph.NodeKind.swap),
-        ]
-        for (target, commandKind) in cases {
-            try drawAuthoredBlur(
-                source: source,
-                target: target,
-                layer: layer,
-                plan: authoredPreciseBlurPlan(commandKind: commandKind),
-                pool: SceneOffscreenTexturePool(device: device, maxDimension: size),
-                queue: queue,
-                pipeline: pipeline,
-                compositor: compositor
-            )
-        }
-        let baselineBytes = try textureBytes(baselineTarget, queue: queue)
-        let copyBytes = try textureBytes(copyTarget, queue: queue)
-        let swapBytes = try textureBytes(swapTarget, queue: queue)
-        return [
-            "copyMaxDelta": maxDifference(copyBytes, baselineBytes),
-            "swapMaxDelta": maxDifference(swapBytes, baselineBytes),
-            "copyHasPixels": copyBytes.contains(where: { $0 != 0 }),
-            "swapHasPixels": swapBytes.contains(where: { $0 != 0 }),
-            "copyIsPremultiplied": isPremultiplied(copyBytes),
-            "swapIsPremultiplied": isPremultiplied(swapBytes),
+            "exactEvidence": recorder.lines,
+            "targetPixel": pixel(target, x: 4, y: 4),
+            "residentAllocationCount": pool.residentAllocationCount,
+            "residentTextureCount": pool.residentTextureCount,
         ]
     }
 
@@ -4517,14 +3808,14 @@ enum Harness {
         let legacyPlan = authoredGodraysPlan(legacyDirectional: true)
         let stockPool = SceneOffscreenTexturePool(device: device, maxDimension: size)
         let legacyPool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let stockFrameTables = try prepareStandaloneAuthoredTables(
+        let stockFrameTables = try prepareStageTargets(
             plan: plan,
             pool: stockPool,
             width: size,
             height: size,
             commandBuffer: stockCommandBuffer
         )
-        let legacyFrameTables = try prepareStandaloneAuthoredTables(
+        let legacyFrameTables = try prepareStageTargets(
             plan: legacyPlan,
             pool: legacyPool,
             width: size,
@@ -4675,7 +3966,7 @@ enum Harness {
         fill(noise, bgra: [127, 127, 127, 255])
         let plan = authoredShinePlan()
         let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let frameTables = try prepareStandaloneAuthoredTables(
+        let frameTables = try prepareStageTargets(
             plan: plan,
             pool: pool,
             width: size,
@@ -4818,942 +4109,8 @@ enum Harness {
         )
     }
 
-    static func authoredTwoStageChainEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [String: Any] {
-        let size = 16
-        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ), let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fillPremultipliedCheckerboard(source)
-        let chain = authoredTwoStageBlurChain()
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: target,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        )
-        let frameTransaction = SceneSourceUpdateTransaction()
-        defer { frameTransaction.cancel() }
-        guard let frameTables = legacyFrameTables(
-            pool: pool,
-            chain: chain,
-            width: size,
-            height: size,
-            commandBuffer: commandBuffer,
-            transaction: frameTransaction
-        ) else { throw HarnessError.commandFailed }
-        guard compositor.drawLegacyAuthoredChainForTest(
-            SceneImageLayerDrawRequest(
-                layer: standardBlurLayer(),
-                texture: source,
-                masks: .empty,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(
-                    time: 3, alpha: 0.5, cursorUV: SIMD2(0.25, 0.75)
-                ),
-                offscreenTexturePool: pool,
-                legacyAuthoredFrameTables: frameTables,
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false,
-                authoredEffectChain: chain,
-                dynamicValues: .empty(frameIndex: 17)
-            ),
-            pipeline: pipeline,
-            mainPass: mainPass,
-            frameTransaction: frameTransaction
-        ) else {
-            throw HarnessError.drawRefused
-        }
-        mainPass.finishEnsuringClear()
-        submitFrame(commandBuffer, transaction: frameTransaction)
-        let tables = frameTables.tables
-        guard commandBuffer.status == .completed, tables.count == 2 else {
-            throw HarnessError.commandFailed
-        }
-
-        let sourceBytes = try textureBytes(source, queue: queue)
-        let firstInput = try textureBytes(tables[0].inputTexture, queue: queue)
-        let firstOutput = try textureBytes(tables[0].outputTexture, queue: queue)
-        let secondInput = try textureBytes(tables[1].inputTexture, queue: queue)
-        let secondOutput = try textureBytes(tables[1].outputTexture, queue: queue)
-        let mainOutput = try textureBytes(target, queue: queue)
-        let chainPairObjects = Set(tables.flatMap {
-            [
-                ObjectIdentifier($0.fullFramePair.first),
-                ObjectIdentifier($0.fullFramePair.second),
-            ]
-        })
-        let allocationCount = pool.residentAllocationCount
-        let textureCount = pool.residentTextureCount
-        pool.reset()
-        return [
-            "encoded": true,
-            "sourceToFirstInputDelta": maxDifference(sourceBytes, firstInput),
-            "firstOutputToSecondInputDelta": maxDifference(firstOutput, secondInput),
-            "firstToSecondOutputDelta": maxDifference(firstOutput, secondOutput),
-            "secondOutputToMainDelta": maxDifference(secondOutput, mainOutput),
-            "firstCaptureUsesDistinctAtom": source !== tables[0].inputTexture,
-            "secondCaptureAliasesPriorOutput": tables[0].outputTexture
-                === tables[1].inputTexture,
-            "chainPairPhysicalObjectCount": chainPairObjects.count,
-            "residentAllocationCount": allocationCount,
-            "residentTextureCount": textureCount,
-            "resetReleasedCompletedSubmission": pool.residentAllocationCount == 0,
-        ]
-    }
-
-    static func authoredOpacityLivePixels(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [[UInt8]] {
-        try [Float?.none, Float(0.2)].map { liveAlpha in
-            guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
-                  let target = makeTexture(
-                      device: device, size: 1, usage: [.renderTarget, .shaderRead]
-                  ), let commandBuffer = queue.makeCommandBuffer() else {
-                throw HarnessError.metalUnavailable
-            }
-            fill(source, bgra: [40, 80, 160, 200])
-            let mainPass = SceneMainPassEncoder(
-                commandBuffer: commandBuffer,
-                target: target,
-                clearColor: MTLClearColorMake(0, 0, 0, 0)
-            )
-            let frameTransaction = SceneSourceUpdateTransaction()
-            defer { frameTransaction.cancel() }
-            let chain = authoredOpacityChain()
-            let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
-            guard let frameTables = legacyFrameTables(
-                pool: pool,
-                chain: chain,
-                width: 1,
-                height: 1,
-                commandBuffer: commandBuffer,
-                transaction: frameTransaction
-            ) else { throw HarnessError.commandFailed }
-            let snapshot = SceneDynamicSnapshot(
-                strengthsByEffectIndex: [:],
-                opacitiesByEffectIndex: liveAlpha.map { [0: $0] } ?? [:]
-            )
-            guard compositor.drawLegacyAuthoredChainForTest(
-                SceneImageLayerDrawRequest(
-                    layer: SceneRenderDescriptor.Layer(
-                        contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
-                    ),
-                    texture: source,
-                    masks: .empty,
-                    textureFrame: .identity,
-                    mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                    uniforms: SceneImageLayerUniformValues(
-                        time: 0, alpha: 1, cursorUV: .zero
-                    ),
-                    offscreenTexturePool: pool,
-                    legacyAuthoredFrameTables: frameTables,
-                    offscreenSize: nil,
-                    requiresSourceCopy: false,
-                    finalCompositeAlpha: nil,
-                    dependencyEffect: nil,
-                    authoredEffectPlan: nil,
-                    blocksLegacyGaussianBlur: false,
-                    authoredEffectChain: chain,
-                    dynamicValues: snapshot
-                ),
-                pipeline: pipeline,
-                mainPass: mainPass,
-                frameTransaction: frameTransaction
-            ) else {
-                throw HarnessError.drawRefused
-            }
-            mainPass.finishEnsuringClear()
-            submitFrame(commandBuffer, transaction: frameTransaction)
-            guard commandBuffer.status == .completed else {
-                throw HarnessError.commandFailed
-            }
-            return pixel(target, x: 0, y: 0)
-        }
-    }
-
-    // authored opacity 必须由自己的 backend 消费 mask 和 alpha。可见 effect 若没有
-    // resolved claim 或 standalone authored plan，产品 compositor 必须拒绝，不得回落到旧
-    // capture renderer。声明了 mask 却不给贴图时，authored helper 也必须整段拒绝。
-    static func authoredOpacityMaskPixels(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [String: Any] {
-        var out: [String: Any] = [:]
-        let maskPath = "masks/opacity_mask"
-        let cases: [(
-            key: String,
-            chain: SceneAuthoredEffectExecutionChain?,
-            binds: Bool,
-            suppressesLegacyFallback: Bool,
-            requiresSourceCopy: Bool,
-            bindsDependency: Bool
-        )] = [
-            ("authored", authoredOpacityChain(alpha: 0.5, maskTexturePath: maskPath), true, false, false, false),
-            ("legacy", nil, false, false, false, false),
-            ("rejected", nil, false, true, false, false),
-            ("rejectedSourceCopy", nil, false, true, true, false),
-            ("rejectedDependency", nil, false, true, false, true),
-            ("missingMask", authoredOpacityChain(alpha: 0.5, maskTexturePath: maskPath), false, false, false, false),
-        ]
-        for item in cases {
-            guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
-                  let mask = makeTexture(device: device, size: 1, usage: .shaderRead),
-                  let dependency = makeTexture(
-                      device: device, size: 1, usage: .shaderRead
-                  ),
-                  let target = makeTexture(
-                      device: device, size: 1, usage: [.renderTarget, .shaderRead]
-                  ), let commandBuffer = queue.makeCommandBuffer() else {
-                throw HarnessError.metalUnavailable
-            }
-            fill(source, bgra: [40, 80, 160, 200])
-            fill(mask, bgra: [0, 0, 128, 255])
-            fill(dependency, bgra: [200, 10, 20, 255])
-            let mainPass = SceneMainPassEncoder(
-                commandBuffer: commandBuffer,
-                target: target,
-                clearColor: MTLClearColorMake(0, 0, 0, 0)
-            )
-            let frameTransaction = SceneSourceUpdateTransaction()
-            defer { frameTransaction.cancel() }
-            let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
-            let frameTables = item.chain.flatMap {
-                legacyFrameTables(
-                    pool: pool,
-                    chain: $0,
-                    width: 1,
-                    height: 1,
-                    commandBuffer: commandBuffer,
-                    transaction: frameTransaction
-                )
-            }
-            guard item.chain == nil || frameTables != nil else {
-                throw HarnessError.commandFailed
-            }
-            let effect = SceneRenderDescriptor.EffectDescriptor(
-                file: "effects/opacity/effect.json",
-                visible: true,
-                passes: [SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
-                    texturePaths: [maskPath],
-                    textureSlots: [nil, maskPath],
-                    combos: [:],
-                    constantShaderValues: ["alpha": .init(components: [0.5])]
-                )]
-            )
-            var request = SceneImageLayerDrawRequest(
-                    layer: SceneRenderDescriptor.Layer(
-                        contentKind: "image",
-                        colorRGB: nil,
-                        colorBlendMode: nil,
-                        effects: [effect]
-                    ),
-                    texture: source,
-                    masks: SceneImageLayerMasks(
-                        iris: nil,
-                        opacity: mask,
-                        water: nil,
-                        waterUVScale: SIMD2<Float>(repeating: 1),
-                        foliage: nil,
-                        foliageUVScale: SIMD2<Float>(repeating: 1),
-                        waterRippleNormal: nil,
-                        foliageSwayEffects: [:],
-                        waterRippleEffects: [:],
-                        depthParallaxEffects: [:],
-                        blendEffects: [:],
-                        shakeEffects: [:],
-                        filmGrainEffects: [:],
-                        standardBlurEffects: [:],
-                        waterFlowEffects: [:],
-                        waterWavesEffects: [:],
-                        waterCausticsEffects: [:],
-                        cursorRippleEffects: [:],
-                        opacityEffects: item.binds ? ["850#effect#0": SceneOpacityEffectTextures(
-                            mask: mask,
-                            maskUVScale: SIMD2<Float>(repeating: 1),
-                            maskPath: maskPath
-                        )] : [:],
-                        pulseEffects: [:],
-                        tintEffects: [:],
-                        godraysEffects: [:],
-                        shineEffects: [:],
-                        xRay: nil
-                    ),
-                    textureFrame: .identity,
-                    mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                    uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
-                    offscreenTexturePool: pool,
-                    legacyAuthoredFrameTables: frameTables,
-                    offscreenSize: nil,
-                    requiresSourceCopy: item.requiresSourceCopy,
-                    finalCompositeAlpha: nil,
-                    dependencyEffect: item.bindsDependency
-                        ? dependencyInput(
-                            consumerLayerID: 850,
-                            providerLayerID: 1,
-                            effectID: "850#effect#0",
-                            slotIndex: 1,
-                            blendMode: 0,
-                            frameEpoch: 1,
-                            texture: dependency
-                        )
-                        : nil,
-                    authoredEffectPlan: nil,
-                    blocksLegacyGaussianBlur: false,
-                    authoredEffectChain: item.chain,
-                    dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
-                )
-            request.suppressesLegacyEffectFallback =
-                item.suppressesLegacyFallback
-            var selectedLegacyAuthoredRoute = false
-            let routeRecorder = ExactEvidenceLogRecorder()
-            let routeTrace = SceneEffectExecutionTelemetry(
-                logSink: { routeRecorder.append($0) }
-            ).makeFrame(frameIndex: 850)
-            let encoded: Bool
-            if item.chain != nil {
-                encoded = compositor.drawLegacyAuthoredChainForTest(
-                    request,
-                    pipeline: pipeline,
-                    mainPass: mainPass,
-                    frameTransaction: frameTransaction
-                )
-            } else {
-                encoded = compositor.draw(
-                    request,
-                    pipeline: pipeline,
-                    mainPass: mainPass,
-                    frameTransaction: frameTransaction,
-                    executionTrace: routeTrace,
-                    onLegacyAuthoredRouteSelected: {
-                        selectedLegacyAuthoredRoute = true
-                    }
-                )
-            }
-            out["\(item.key)LegacyAuthoredRouteSelected"] =
-                selectedLegacyAuthoredRoute
-            out["\(item.key)RouteEvidence"] = routeRecorder.lines
-            if item.key == "legacy" {
-                out["legacyRefused"] = !encoded
-                mainPass.finishEnsuringClear()
-                submitFrame(commandBuffer, transaction: frameTransaction)
-                guard commandBuffer.status == .completed else {
-                    throw HarnessError.commandFailed
-                }
-                out["legacyTargetPixel"] = pixel(target, x: 0, y: 0)
-                continue
-            }
-            if item.key == "missingMask" {
-                out["missingMaskRefused"] = !encoded
-                continue
-            }
-            guard encoded else { throw HarnessError.drawRefused }
-            mainPass.finishEnsuringClear()
-            submitFrame(commandBuffer, transaction: frameTransaction)
-            guard commandBuffer.status == .completed else {
-                throw HarnessError.commandFailed
-            }
-            out[item.key] = pixel(target, x: 0, y: 0)
-        }
-        return out
-    }
-
-    static func authoredBlendChainPixel(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor,
-        writesAlpha: Bool = false,
-        alphaMultiply: Float = 1
-    ) throws -> [String: Any] {
-        let sourceBGRA: [UInt8] = [40, 80, 160, 200]
-        let blendBGRA: [UInt8] = [100, 20, 60, 128]
-        let multiply: Float = 0.5
-        guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
-              let blend = makeTexture(device: device, size: 1, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: 1, usage: [.renderTarget, .shaderRead]
-              ), let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.authoredBlendUnavailable
-        }
-        fill(source, bgra: sourceBGRA)
-        fill(blend, bgra: blendBGRA)
-        let blendCandidate = SceneTextureCandidate(
-            texture: blend,
-            identity: .builtIn(name: "authored-blend-fixture"),
-            generation: .immutable(revision: 1),
-            purpose: .premultipliedColor,
-            content: .color(.resolved(.premultipliedAlpha)),
-            physicalSize: CGSize(width: 1, height: 1),
-            mappedSize: CGSize(width: 1, height: 1),
-            uvTransform: .identity,
-            sampling: .linearClamp
-        )
-        let chain = authoredBlendChain(
-            multiply: multiply,
-            alphaMultiply: alphaMultiply,
-            writesAlpha: writesAlpha
-        )
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: target,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        )
-        let frameTransaction = SceneSourceUpdateTransaction()
-        defer { frameTransaction.cancel() }
-        guard let frameTables = legacyFrameTables(
-            pool: pool,
-            chain: chain,
-            width: 1,
-            height: 1,
-            commandBuffer: commandBuffer,
-            transaction: frameTransaction
-        ) else { throw HarnessError.commandFailed }
-        let encoded = compositor.drawLegacyAuthoredChainForTest(
-            SceneImageLayerDrawRequest(
-                layer: SceneRenderDescriptor.Layer(
-                    contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
-                ),
-                texture: source,
-                masks: authoredEffectMasks(blendEffects: [
-                    authoredBlendEffectID: SceneBlendEffectTextures(
-                        blendBinding: SceneTextureSlotBinding(
-                            slotIndex: 1,
-                            candidate: blendCandidate
-                        ),
-                        assetPath: authoredBlendAssetPath,
-                        propertyKey: nil
-                    ),
-                ]),
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
-                offscreenTexturePool: pool,
-                legacyAuthoredFrameTables: frameTables,
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false,
-                authoredEffectChain: chain,
-                dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
-            ),
-            pipeline: pipeline,
-            mainPass: mainPass,
-            frameTransaction: frameTransaction
-        )
-        guard encoded else { throw HarnessError.drawRefused }
-        mainPass.finishEnsuringClear()
-        submitFrame(commandBuffer, transaction: frameTransaction)
-        guard commandBuffer.status == .completed else {
-            throw HarnessError.commandFailed
-        }
-        guard let stageTargets = frameTables.tables.first else {
-            throw HarnessError.authoredBlendUnavailable
-        }
-        return [
-            "encoded": encoded,
-            "source": sourceBGRA,
-            "blend": blendBGRA,
-            "multiply": multiply,
-            "alphaMultiply": alphaMultiply,
-            "writesAlpha": writesAlpha,
-            "capturedSourcePixel": pixel(stageTargets.inputTexture, x: 0, y: 0),
-            "authoredPixel": pixel(stageTargets.outputTexture, x: 0, y: 0),
-            "mainPixel": pixel(target, x: 0, y: 0),
-        ]
-    }
-
-    static func authoredTransformChainPixel(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [String: Any] {
-        let sourceBGRA: [UInt8] = [40, 80, 160, 200]
-        guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: 1, usage: [.renderTarget, .shaderRead]
-              ), let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.baseTextureUnavailable
-        }
-        fill(source, bgra: sourceBGRA)
-        let chain = authoredTransformChain()
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: target,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        )
-        let frameTransaction = SceneSourceUpdateTransaction()
-        defer { frameTransaction.cancel() }
-        guard let frameTables = legacyFrameTables(
-            pool: pool,
-            chain: chain,
-            width: 1,
-            height: 1,
-            commandBuffer: commandBuffer,
-            transaction: frameTransaction
-        ) else { throw HarnessError.commandFailed }
-        let encoded = compositor.drawLegacyAuthoredChainForTest(
-            SceneImageLayerDrawRequest(
-                layer: SceneRenderDescriptor.Layer(
-                    contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
-                ),
-                texture: source,
-                masks: .empty,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(
-                    time: 0, alpha: 0.5, cursorUV: .zero
-                ),
-                offscreenTexturePool: pool,
-                legacyAuthoredFrameTables: frameTables,
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false,
-                authoredEffectChain: chain,
-                dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
-            ),
-            pipeline: pipeline,
-            mainPass: mainPass,
-            frameTransaction: frameTransaction
-        )
-        guard encoded else { throw HarnessError.drawRefused }
-        mainPass.finishEnsuringClear()
-        submitFrame(commandBuffer, transaction: frameTransaction)
-        guard commandBuffer.status == .completed else {
-            throw HarnessError.commandFailed
-        }
-        guard let stageTargets = frameTables.tables.first else {
-            throw HarnessError.baseTextureUnavailable
-        }
-        return [
-            "encoded": encoded,
-            "source": sourceBGRA,
-            "authoredPixel": pixel(stageTargets.outputTexture, x: 0, y: 0),
-            "mainPixel": pixel(target, x: 0, y: 0),
-        ]
-    }
-
-    // 官方 tint.frag：mode 0 走 `mix(A, B, o)` 并强制 alpha=1；mode 30 走
-    // `mix(A, max(A.r, A.g, A.b) * B, o)` 并保留源 alpha。两个模式共用同一条链，
-    // 用来证明 plan 里的 blendMode/color/alpha 真的进了 shader，而不是写死一个模式。
-    static func authoredTintChainPixels(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [[UInt8]] {
-        // 第三个 case 用 mode 0 + 半灰遮罩：官方语义 mask = g_BlendAlpha * tex.r，
-        // mix(A, B, 0.5) 且 mode 0 强制 alpha=1。
-        try [(0, false), (30, false), (0, true)].map { blendMode, masked in
-            guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
-                  let target = makeTexture(
-                      device: device, size: 1, usage: [.renderTarget, .shaderRead]
-                  ), let commandBuffer = queue.makeCommandBuffer() else {
-                throw HarnessError.metalUnavailable
-            }
-            fill(source, bgra: [40, 80, 160, 200])
-            var maskTexture: MTLTexture?
-            if masked {
-                guard let mask = makeTexture(device: device, size: 1, usage: .shaderRead) else {
-                    throw HarnessError.metalUnavailable
-                }
-                fill(mask, bgra: [128, 128, 128, 255])
-                maskTexture = mask
-            }
-            let mainPass = SceneMainPassEncoder(
-                commandBuffer: commandBuffer,
-                target: target,
-                clearColor: MTLClearColorMake(0, 0, 0, 0)
-            )
-            let frameTransaction = SceneSourceUpdateTransaction()
-            defer { frameTransaction.cancel() }
-            let chain = authoredTintChain(
-                blendMode: blendMode,
-                maskPath: masked ? "masks/tint_mask_test" : nil
-            )
-            let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
-            guard let frameTables = legacyFrameTables(
-                pool: pool,
-                chain: chain,
-                width: 1,
-                height: 1,
-                commandBuffer: commandBuffer,
-                transaction: frameTransaction
-            ) else { throw HarnessError.commandFailed }
-            guard compositor.drawLegacyAuthoredChainForTest(
-                SceneImageLayerDrawRequest(
-                    layer: SceneRenderDescriptor.Layer(
-                        contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
-                    ),
-                    texture: source,
-                    masks: authoredEffectMasks(
-                        tintMask: maskTexture,
-                        tintMaskPath: masked ? "masks/tint_mask_test" : nil
-                    ),
-                    textureFrame: .identity,
-                    mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                    uniforms: SceneImageLayerUniformValues(
-                        time: 0, alpha: 1, cursorUV: .zero
-                    ),
-                    offscreenTexturePool: pool,
-                    legacyAuthoredFrameTables: frameTables,
-                    offscreenSize: nil,
-                    requiresSourceCopy: false,
-                    finalCompositeAlpha: nil,
-                    dependencyEffect: nil,
-                    authoredEffectPlan: nil,
-                    blocksLegacyGaussianBlur: false,
-                    authoredEffectChain: chain,
-                    dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
-                ),
-                pipeline: pipeline,
-                mainPass: mainPass,
-                frameTransaction: frameTransaction
-            ) else {
-                throw HarnessError.drawRefused
-            }
-            mainPass.finishEnsuringClear()
-            submitFrame(commandBuffer, transaction: frameTransaction)
-            guard commandBuffer.status == .completed else {
-                throw HarnessError.commandFailed
-            }
-            return pixel(target, x: 0, y: 0)
-        }
-    }
-
-    static func authoredFailedChainEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [String: Any] {
-        let size = 16
-        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ), let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fillPremultipliedCheckerboard(source)
-        let chain = authoredFailingSecondStageChain()
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: target,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        )
-        let frameTransaction = SceneSourceUpdateTransaction()
-        defer { frameTransaction.cancel() }
-        guard let frameTables = legacyFrameTables(
-            pool: pool,
-            chain: chain,
-            width: size,
-            height: size,
-            commandBuffer: commandBuffer,
-            transaction: frameTransaction
-        ) else { throw HarnessError.commandFailed }
-        let encoded = compositor.drawLegacyAuthoredChainForTest(
-            SceneImageLayerDrawRequest(
-                layer: standardBlurLayer(),
-                texture: source,
-                masks: .empty,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(
-                    time: 0, alpha: 1, cursorUV: .zero
-                ),
-                offscreenTexturePool: pool,
-                legacyAuthoredFrameTables: frameTables,
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false,
-                authoredEffectChain: chain,
-                dynamicValues: .empty(frameIndex: 18)
-            ),
-            pipeline: pipeline,
-            mainPass: mainPass,
-            frameTransaction: frameTransaction
-        )
-        mainPass.finishEnsuringClear()
-        submitFrame(commandBuffer, transaction: frameTransaction)
-        let tables = frameTables.tables
-        guard commandBuffer.status == .completed, tables.count == 2 else {
-            throw HarnessError.commandFailed
-        }
-        let firstOutput = try textureBytes(tables[0].outputTexture, queue: queue)
-        let residentAllocationCount = pool.residentAllocationCount
-        pool.reset()
-        return [
-            "encoded": encoded,
-            "mainPixel": pixel(target, x: size / 2, y: size / 2),
-            "firstStageProducedPixels": firstOutput.contains(where: { $0 != 0 }),
-            "residentAllocationCount": residentAllocationCount,
-            "resetReleasedFailedSubmission": pool.residentAllocationCount == 0,
-        ]
-    }
-
-    static func legacyUnsubmittedRollbackEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [String: Any] {
-        let size = 8
-        guard let source = makeTexture(
-                  device: device, size: size, usage: .shaderRead
-              ), let target = makeTexture(
-                  device: device,
-                  size: size,
-                  usage: [.renderTarget, .shaderRead]
-              ), let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fillPremultipliedCheckerboard(source)
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let frameTransaction = SceneSourceUpdateTransaction()
-        defer { frameTransaction.cancel() }
-        let chain = authoredTwoStageBlurChain()
-        guard let frameTables = legacyFrameTables(
-            pool: pool,
-            chain: chain,
-            width: size,
-            height: size,
-            commandBuffer: commandBuffer,
-            transaction: frameTransaction
-        ) else { throw HarnessError.commandFailed }
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: target,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        )
-        let encoded = compositor.drawLegacyAuthoredChainForTest(
-            SceneImageLayerDrawRequest(
-                layer: standardBlurLayer(),
-                texture: source,
-                masks: .empty,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(
-                    time: 0, alpha: 1, cursorUV: .zero
-                ),
-                offscreenTexturePool: pool,
-                legacyAuthoredFrameTables: frameTables,
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false,
-                authoredEffectChain: chain,
-                dynamicValues: .empty(frameIndex: 20)
-            ),
-            pipeline: pipeline,
-            mainPass: mainPass,
-            frameTransaction: frameTransaction
-        )
-        mainPass.finishEnsuringClear()
-        let committedBeforeCancel = pool.residentAllocationCount == 2
-        frameTransaction.cancel()
-        frameTransaction.cancel()
-        pool.reset()
-        return [
-            "encoded": encoded,
-            "commandBufferWasNotSubmitted": commandBuffer.status == .notEnqueued,
-            "commitWasPinned": committedBeforeCancel,
-            "rollbackReleasedCommit": pool.residentAllocationCount == 0,
-        ]
-    }
-
-    static func xRayThreeTextureRouteEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [String: Any] {
-        let size = 16
-        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
-              let blend = makeTexture(device: device, size: size, usage: .shaderRead),
-              let opacity = makeTexture(device: device, size: size, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ),
-              let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: [0, 0, 255, 255])
-        fill(blend, bgra: [255, 0, 0, 255])
-        fill(opacity, bgra: [0, 0, 255, 255])
-
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        guard let textures = pool.textures(width: size, height: size) else {
-            throw HarnessError.metalUnavailable
-        }
-        let chain = xRayChain(layerID: 2998757800)
-        let poolTextures = [textures.primary, textures.secondary, textures.tertiary]
-        let resources = [source, blend, opacity]
-        let poolIsPairwiseDistinct = poolTextures.indices.allSatisfy { first in
-            poolTextures.indices.allSatisfy { second in
-                first == second || poolTextures[first] !== poolTextures[second]
-            }
-        }
-        let resourcesDoNotAliasPool = resources.allSatisfy { resource in
-            poolTextures.allSatisfy { resource !== $0 }
-        }
-        let resourcesArePairwiseDistinct = resources.indices.allSatisfy { first in
-            resources.indices.allSatisfy { second in
-                first == second || resources[first] !== resources[second]
-            }
-        }
-        let layer = SceneRenderDescriptor.Layer(
-            contentKind: "image",
-            colorRGB: nil,
-            colorBlendMode: nil,
-            effects: []
-        )
-        let masks = SceneImageLayerMasks(
-            iris: nil,
-            opacity: nil,
-            water: nil,
-            waterUVScale: SIMD2(repeating: 1),
-            foliage: nil,
-            foliageUVScale: SIMD2(repeating: 1),
-            waterRippleNormal: nil,
-            foliageSwayEffects: [:],
-            waterRippleEffects: [:],
-            depthParallaxEffects: [:],
-            blendEffects: [:],
-            shakeEffects: [:],
-            filmGrainEffects: [:],
-            standardBlurEffects: [:],
-            waterFlowEffects: [:],
-            waterWavesEffects: [:],
-            waterCausticsEffects: [:],
-            cursorRippleEffects: [:],
-            opacityEffects: [:],
-            pulseEffects: [:],
-            tintEffects: [:],
-            godraysEffects: [:],
-            shineEffects: [:],
-            xRay: SceneXRayEffectTextures(blend: blend, halo: nil, opacityMask: opacity)
-        )
-        let mainPass = SceneMainPassEncoder(
-            commandBuffer: commandBuffer,
-            target: target,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        )
-        let frameTransaction = SceneSourceUpdateTransaction()
-        defer { frameTransaction.cancel() }
-        guard let frameTables = legacyFrameTables(
-            pool: pool,
-            chain: chain,
-            width: size,
-            height: size,
-            commandBuffer: commandBuffer,
-            transaction: frameTransaction
-        ) else { throw HarnessError.commandFailed }
-        let graphTargets = frameTables.tables
-        guard graphTargets.count == 1 else { throw HarnessError.commandFailed }
-        let graphTextures = [
-            graphTargets[0].inputTexture,
-            graphTargets[0].outputTexture,
-        ]
-        let graphTargetsAreDistinct = graphTextures[0] !== graphTextures[1]
-        let graphTargetsDoNotAliasInputs = graphTextures.allSatisfy { graphTexture in
-            resources.allSatisfy { graphTexture !== $0 }
-        }
-        let graphTargetsDoNotAliasGenericPool = graphTextures.allSatisfy {
-            graphTexture in
-            poolTextures.allSatisfy { graphTexture !== $0 }
-        }
-        let encoded = compositor.drawLegacyAuthoredChainForTest(
-            SceneImageLayerDrawRequest(
-                layer: layer,
-                texture: source,
-                masks: masks,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(
-                    time: 0,
-                    alpha: 1,
-                    cursorUV: SIMD2(repeating: 0.5),
-                    cursorIsInside: true
-                ),
-                offscreenTexturePool: pool,
-                legacyAuthoredFrameTables: frameTables,
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: nil,
-                blocksLegacyGaussianBlur: false,
-                authoredEffectChain: chain,
-                dynamicValues: .empty(frameIndex: 19)
-            ),
-            pipeline: pipeline,
-            mainPass: mainPass,
-            frameTransaction: frameTransaction
-        )
-        mainPass.finishEnsuringClear()
-        submitFrame(commandBuffer, transaction: frameTransaction)
-        guard commandBuffer.status == .completed else {
-            throw HarnessError.commandFailed
-        }
-
-        let center = size / 2
-        let mainPixel = pixel(target, x: center, y: center)
-        let sourcePixel = pixel(source, x: center, y: center)
-        let blendPixel = pixel(blend, x: center, y: center)
-        let graphOutputBytes = try textureBytes(
-            graphTargets[0].outputTexture,
-            queue: queue
-        )
-        let graphOutputOffset = ((center * size) + center) * 4
-        let graphOutputPixel = Array(
-            graphOutputBytes[graphOutputOffset..<(graphOutputOffset + 4)]
-        )
-        return [
-            "encoded": encoded,
-            "poolIsPairwiseDistinct": poolIsPairwiseDistinct,
-            "resourcesDoNotAliasPool": resourcesDoNotAliasPool,
-            "resourcesArePairwiseDistinct": resourcesArePairwiseDistinct,
-            "graphTargetsAreDistinct": graphTargetsAreDistinct,
-            "graphTargetsDoNotAliasInputs": graphTargetsDoNotAliasInputs,
-            "graphTargetsDoNotAliasGenericPool": graphTargetsDoNotAliasGenericPool,
-            "mainPixel": mainPixel,
-            "sourcePixel": sourcePixel,
-            "blendPixel": blendPixel,
-            "mainMatchesGraphOutput": mainPixel == graphOutputPixel,
-        ]
-    }
-
+    // Resolved material composition remains the only product owner for the
+    // graph below; the runtime must execute the claim or fail closed.
     static func resolvedMaterialCompositionEvidence(
         device: MTLDevice,
         queue: MTLCommandQueue,
@@ -5802,7 +4159,6 @@ enum Harness {
             requiresSourceCopy: false,
             finalCompositeAlpha: nil,
             dependencyEffect: nil,
-            authoredEffectPlan: nil,
             blocksLegacyGaussianBlur: false
         )
 
@@ -5855,7 +4211,6 @@ enum Harness {
                 requiresSourceCopy: request.requiresSourceCopy,
                 finalCompositeAlpha: request.finalCompositeAlpha,
                 dependencyEffect: request.dependencyEffect,
-                authoredEffectPlan: request.authoredEffectPlan,
                 blocksLegacyGaussianBlur: request.blocksLegacyGaussianBlur
             )
         }
@@ -6137,29 +4492,37 @@ enum Harness {
         )
     }
 
-    static func prepareStandaloneAuthoredTables(
+    static func prepareStageTargets(
         plan: SceneAuthoredEffectExecutionPlan,
         pool: SceneOffscreenTexturePool,
         width: Int,
         height: Int,
         commandBuffer: MTLCommandBuffer
-    ) throws -> SceneOffscreenTexturePool.LegacyAuthoredFrameTables {
+    ) throws -> PreparedStageTargets {
         let orderingContext = SceneGraphCommandQueueOrderingContext(
             commandBuffer: commandBuffer
         )
-        guard let framePlan = pool.legacyAuthoredStageFramePlan(
-            for: plan,
+        guard case let .success(pairPlan) = SceneLayerFullFramePairPlan.make(
+                  conditionPrunedGraphs: [plan.renderGraph]
+              ), let framePlan = pool.framePlanForPersistentGraphTargets(
+            admittedGraphs: [plan.renderGraph],
+            pairPlan: pairPlan,
+            extentPolicy: .init(
+                maximumDimensionClass: .standard,
+                requiresExactInputExtent: plan.requiresExactInputExtent
+            ),
             requestedWidth: width,
             requestedHeight: height,
             orderingContext: orderingContext
-        ) else { throw HarnessError.drawRefused }
-        guard let frameTables = pool.prepareLegacyAuthoredFrameBatch(
-            framePlans: [framePlan],
-            orderingContext: orderingContext
-        ), let tables = frameTables[plan.layerID] else {
+        ), let prepared = pool.preparePersistentGraphTargets(
+            framePlan: framePlan
+        ), let commit = prepared.commitAndPin(
+            historyTokensByEffect: [:],
+            commandBuffer: commandBuffer
+        ) else {
             throw HarnessError.drawRefused
         }
-        return tables
+        return .init(tables: commit.leases.map { $0.table }, commit: commit)
     }
 
     static func drawAuthoredBlur(
@@ -6172,11 +4535,11 @@ enum Harness {
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
         masks: SceneImageLayerMasks = .empty
-    ) throws -> SceneOffscreenTexturePool.LegacyAuthoredFrameTables {
+    ) throws -> PreparedStageTargets {
         guard let commandBuffer = queue.makeCommandBuffer() else {
             throw HarnessError.metalUnavailable
         }
-        let frameTables = try prepareStandaloneAuthoredTables(
+        let frameTables = try prepareStageTargets(
             plan: plan,
             pool: pool,
             width: source.width,
@@ -6189,29 +4552,56 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
-        var request = SceneImageLayerDrawRequest(
-                layer: layer,
-                texture: source,
-                masks: masks,
-                textureFrame: .identity,
-                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(
-                    time: 0, alpha: 1, cursorUV: .zero
-                ),
-                offscreenTexturePool: pool,
-                offscreenSize: nil,
-                requiresSourceCopy: false,
-                finalCompositeAlpha: nil,
-                dependencyEffect: nil,
-                authoredEffectPlan: plan,
-                blocksLegacyGaussianBlur: false
-            )
-        request.legacyAuthoredFrameTables = frameTables
-        guard compositor.draw(
-            request,
-            pipeline: pipeline,
-            mainPass: mainPass
-        ) else {
+        guard let table = frameTables.tables.first,
+              SceneOffscreenEffectRenderer.captureSource(
+                  sourceTexture: source,
+                  waterMaskTexture: masks.water,
+                  foliageMaskTexture: masks.foliage,
+                  auxMaskTexture: masks.iris ?? masks.opacity,
+                  target: table.inputTexture,
+                  sourceUniforms: .neutral(),
+                  pipeline: pipeline,
+                  commandBuffer: commandBuffer
+              ), let output = SceneAuthoredEffectChainRenderer.renderStage(
+                  plan,
+                  sourceTexture: table.inputTexture,
+                  masks: masks,
+                  targets: table,
+                  dynamicValues: .empty(frameIndex: 1),
+                  sourceUniforms: .neutral(),
+                  pipeline: pipeline,
+                  pipelines: .init(
+                      repository: SceneImageEffectPipelineRepository(device: source.device)
+                  ),
+                  cursorUV: .zero,
+                  previousCursorUV: .zero,
+                  pointerIsInside: false,
+                  previousPointerIsInside: false,
+                  frameTime: 1 / 60,
+                  time: 0,
+                  audioSpectrum: .silent,
+                  dependencyEffect: nil,
+                  commandBuffer: commandBuffer
+              ), SceneImageLayerMainPassRenderer.draw(
+                  texture: output,
+                  masks: .empty,
+                  mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                  uniforms: compositor.makeFragmentUniforms(
+                      values: SceneImageLayerUniformValues(
+                          time: 0, alpha: 1, cursorUV: .zero
+                      ),
+                      effectInputs: .neutral,
+                      textureFrame: .identity,
+                      tint: SIMD3(repeating: 1),
+                      foliageMaskUVScale: SIMD2(repeating: 1),
+                      dependencyBlendMode: nil
+                  ),
+                  dependencyTexture: nil,
+                  layer: layer,
+                  pipeline: pipeline,
+                  colorBlendPipeline: nil,
+                  mainPass: mainPass
+              ) else {
             throw HarnessError.drawRefused
         }
         mainPass.finishEnsuringClear()
@@ -6590,83 +4980,6 @@ enum Harness {
         )
     }
 
-    static func authoredTwoStageBlurChain() -> SceneAuthoredEffectExecutionChain {
-        let layerID = 840
-        let first = authoredStandardBlurPlan(layerID: layerID)
-        let second = authoredStandardBlurPlan(
-            layerID: layerID,
-            effectIndex: 1,
-            input: first.renderGraph.finalOutput
-        )
-        let graph = Graph(
-            layerID: layerID,
-            effects: first.renderGraph.effects + second.renderGraph.effects,
-            renderTargets: first.renderGraph.renderTargets + second.renderGraph.renderTargets,
-            nodes: first.renderGraph.nodes + second.renderGraph.nodes,
-            finalOutput: second.renderGraph.finalOutput,
-            blockers: []
-        )
-        return SceneAuthoredEffectExecutionChain(
-            layerID: layerID,
-            renderGraph: graph,
-            executionStages: [first, second]
-        )
-    }
-
-    static func authoredWorkshopGradientChain() -> SceneAuthoredEffectExecutionChain {
-        let layerID = 845
-        let effectKey = Graph.EffectKey(
-            layerID: layerID,
-            effectIndex: 0,
-            descriptorID: "\(layerID)#effect#0"
-        )
-        let input = graphTexture(.layerSource, layerID: layerID)
-        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
-        let node = Graph.Node(
-            nodeIndex: 0,
-            effect: effectKey,
-            definitionPassIndex: 0,
-            materialOrdinal: 0,
-            instancePassIndex: 0,
-            kind: .material,
-            materialPath: "materials/workshop/gradient.json",
-            materialPassID: "materials/workshop/gradient.json#0",
-            target: output,
-            bindings: [],
-            commandSource: nil,
-            commandTarget: nil,
-            compose: nil,
-            conditions: nil
-        )
-        let effect = Graph.Effect(
-            key: effectKey,
-            definitionPath: "effects/workshop/gradient/effect.json",
-            input: input,
-            output: output,
-            nodeIndices: [0]
-        )
-        let graph = Graph(
-            layerID: layerID,
-            effects: [effect],
-            renderTargets: [],
-            nodes: [node],
-            finalOutput: output,
-            blockers: []
-        )
-        let stage = SceneAuthoredEffectExecutionPlan(
-            layerID: layerID,
-            renderGraph: graph,
-            backend: .workshopGradient(.init(layerID: layerID, renderGraph: graph)),
-            materialNodeCount: 1,
-            logicalRenderTargetCount: 0
-        )
-        return SceneAuthoredEffectExecutionChain(
-            layerID: layerID,
-            renderGraph: graph,
-            executionStages: [stage]
-        )
-    }
-
     static func authoredClippingMaskChain() -> SceneAuthoredEffectExecutionChain {
         let layerID = 846
         let effectKey = Graph.EffectKey(
@@ -6814,68 +5127,6 @@ enum Harness {
         )
     }
 
-    static func authoredOpacityChain(
-        alpha: Float = 1,
-        maskTexturePath: String? = nil
-    ) -> SceneAuthoredEffectExecutionChain {
-        let layerID = 850
-        let effectKey = Graph.EffectKey(
-            layerID: layerID,
-            effectIndex: 0,
-            descriptorID: "\(layerID)#effect#0"
-        )
-        let input = graphTexture(.layerSource, layerID: layerID)
-        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
-        let node = Graph.Node(
-            nodeIndex: 0,
-            effect: effectKey,
-            definitionPassIndex: 0,
-            materialOrdinal: 0,
-            instancePassIndex: 0,
-            kind: .material,
-            materialPath: "materials/effects/opacity.json",
-            materialPassID: "materials/effects/opacity.json#0",
-            target: output,
-            bindings: [],
-            commandSource: nil,
-            commandTarget: nil,
-            compose: nil,
-            conditions: nil
-        )
-        let effect = Graph.Effect(
-            key: effectKey,
-            definitionPath: "effects/opacity/effect.json",
-            input: input,
-            output: output,
-            nodeIndices: [0]
-        )
-        let graph = Graph(
-            layerID: layerID,
-            effects: [effect],
-            renderTargets: [],
-            nodes: [node],
-            finalOutput: output,
-            blockers: []
-        )
-        let stage = SceneAuthoredEffectExecutionPlan(
-            layerID: layerID,
-            renderGraph: graph,
-            backend: .opacity(SceneOpacityExecutionPlan(
-                staticOrFallbackAlpha: alpha,
-                liveEffectIndex: 0,
-                maskTexturePath: maskTexturePath,
-                effectKey: effectKey
-            )),
-            materialNodeCount: 1,
-            logicalRenderTargetCount: 0
-        )
-        return SceneAuthoredEffectExecutionChain(
-            layerID: layerID,
-            renderGraph: graph,
-            executionStages: [stage]
-        )
-    }
-
     static func authoredBlendChain(
         multiply: Float,
         alphaMultiply: Float = 1,
@@ -6970,60 +5221,6 @@ enum Harness {
         )
     }
 
-    static func authoredTransformChain() -> SceneAuthoredEffectExecutionChain {
-        let layerID = 852
-        let effectKey = Graph.EffectKey(
-            layerID: layerID,
-            effectIndex: 0,
-            descriptorID: "\(layerID)#effect#0"
-        )
-        let input = graphTexture(.layerSource, layerID: layerID)
-        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
-        let node = Graph.Node(
-            nodeIndex: 0,
-            effect: effectKey,
-            definitionPassIndex: 0,
-            materialOrdinal: 0,
-            instancePassIndex: 0,
-            kind: .material,
-            materialPath: "materials/effects/transform.json",
-            materialPassID: "materials/effects/transform.json#0",
-            target: output,
-            bindings: [],
-            commandSource: nil,
-            commandTarget: nil,
-            compose: nil,
-            conditions: nil
-        )
-        let effect = Graph.Effect(
-            key: effectKey,
-            definitionPath: "effects/transform/effect.json",
-            input: input,
-            output: output,
-            nodeIndices: [0]
-        )
-        let graph = Graph(
-            layerID: layerID,
-            effects: [effect],
-            renderTargets: [],
-            nodes: [node],
-            finalOutput: output,
-            blockers: []
-        )
-        let stage = SceneAuthoredEffectExecutionPlan(
-            layerID: layerID,
-            renderGraph: graph,
-            backend: .transform(SceneTransformExecutionPlan(renderGraph: graph)),
-            materialNodeCount: 1,
-            logicalRenderTargetCount: 0
-        )
-        return SceneAuthoredEffectExecutionChain(
-            layerID: layerID,
-            renderGraph: graph,
-            executionStages: [stage]
-        )
-    }
-
     static func authoredEffectMasks(
         blendEffects: [String: SceneBlendEffectTextures] = [:],
         tintMask: MTLTexture? = nil,
@@ -7060,96 +5257,6 @@ enum Harness {
             godraysEffects: godraysEffects,
             shineEffects: shineEffects,
             xRay: nil
-        )
-    }
-
-    static func authoredTintChain(
-        blendMode: Int,
-        maskPath: String? = nil
-    ) -> SceneAuthoredEffectExecutionChain {
-        let layerID = 851
-        let effectKey = Graph.EffectKey(
-            layerID: layerID,
-            effectIndex: 0,
-            descriptorID: "\(layerID)#effect#0"
-        )
-        let input = graphTexture(.layerSource, layerID: layerID)
-        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
-        let node = Graph.Node(
-            nodeIndex: 0,
-            effect: effectKey,
-            definitionPassIndex: 0,
-            materialOrdinal: 0,
-            instancePassIndex: 0,
-            kind: .material,
-            materialPath: "materials/effects/tint.json",
-            materialPassID: "materials/effects/tint.json#0",
-            target: output,
-            bindings: [],
-            commandSource: nil,
-            commandTarget: nil,
-            compose: nil,
-            conditions: nil
-        )
-        let effect = Graph.Effect(
-            key: effectKey,
-            definitionPath: "effects/tint/effect.json",
-            input: input,
-            output: output,
-            nodeIndices: [0]
-        )
-        let graph = Graph(
-            layerID: layerID,
-            effects: [effect],
-            renderTargets: [],
-            nodes: [node],
-            finalOutput: output,
-            blockers: []
-        )
-        let stage = SceneAuthoredEffectExecutionPlan(
-            layerID: layerID,
-            renderGraph: graph,
-            backend: .tint(SceneTintExecutionPlan(
-                effectKey: effectKey,
-                shaderProfile: .stock,
-                blendMode: blendMode,
-                staticOrFallbackColor: SIMD3<Float>(0, 0, 1),
-                staticOrFallbackAlpha: 1,
-                maskTexturePath: maskPath
-            )),
-            materialNodeCount: 1,
-            logicalRenderTargetCount: 0
-        )
-        return SceneAuthoredEffectExecutionChain(
-            layerID: layerID,
-            renderGraph: graph,
-            executionStages: [stage]
-        )
-    }
-
-    static func authoredFailingSecondStageChain() -> SceneAuthoredEffectExecutionChain {
-        let valid = authoredTwoStageBlurChain()
-        let first = valid.executionStages[0]
-        let second = valid.executionStages[1]
-        let duplicateTarget = second.renderGraph.renderTargets[0].texture
-        let invalidContrast = SceneLocalContrastPlan(
-            firstQuarterTarget: duplicateTarget,
-            secondQuarterTarget: duplicateTarget,
-            renderGraph: second.renderGraph,
-            staticOrFallbackStrength: 1
-        )
-        let failingSecond = SceneAuthoredEffectExecutionPlan(
-            layerID: second.layerID,
-            renderGraph: second.renderGraph,
-            backend: .localContrast(invalidContrast),
-            materialNodeCount: second.materialNodeCount,
-            logicalRenderTargetCount: second.logicalRenderTargetCount,
-            inputRole: second.inputRole
-        )
-        return SceneAuthoredEffectExecutionChain(
-            layerID: valid.layerID,
-            renderGraph: valid.renderGraph,
-            executionStages: [first, failingSecond]
         )
     }
 
@@ -7503,47 +5610,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertIn("sourceTexture = mainTarget", source)
         self.assertNotIn("frame-source-texture-unavailable", source)
 
-    def test_legacy_authored_commit_is_owned_by_the_frame_transaction(self) -> None:
-        compositor = (
-            SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
-        ).read_text(encoding="utf-8")
-        compositor += (
-            SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn(
-            "frameTransaction: SceneSourceUpdateTransaction",
-            compositor,
-        )
-        self.assertNotIn("frameTransaction.registerResolution(", compositor)
-        self.assertNotIn(
-            "commandBuffer.addCompletedHandler { _ in commit.releaseAll() }",
-            compositor,
-        )
-        coordinator = (
-            SOURCE_ROOT / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
-        ).read_text(encoding="utf-8")
-        self.assertEqual(coordinator.count("transaction.registerResolution("), 1)
-
-    def test_legacy_only_batch_abort_does_not_pollute_graph_executor(self) -> None:
-        source = (
-            SOURCE_ROOT / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn(
-            "case .deferred:\n"
-            "            guard !resolvedMaterialPlans.isEmpty else {\n"
-            "                _ = compositor.endResolvedMaterialFrame(on: commandBuffer)\n"
-            "                return nil\n"
-            "            }",
-            source,
-        )
-        self.assertIn(
-            "case let .rejected(reasonCode):\n"
-            "            if !resolvedMaterialPlans.isEmpty {\n"
-            "                compositor.recordResolvedMaterialFramePreflightFailure(reasonCode)\n"
-            "            }",
-            source,
-        )
-
     @classmethod
     def setUpClass(cls) -> None:
         if shutil.which("swiftc") is None:
@@ -7599,9 +5665,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertTrue(evidence["candidateEncoded"], evidence)
         self.assertTrue(evidence["matchesLegacyPixels"], evidence)
         self.assertTrue(evidence["fractionalPremultipliedPixelPreserved"], evidence)
-        self.assertTrue(evidence["effectfulReferenceEncoded"], evidence)
-        self.assertTrue(evidence["effectfulCandidateEncoded"], evidence)
-        self.assertTrue(evidence["effectfulMatchesLegacyPixels"], evidence)
         for key in (
             "wrongPurposeRejected",
             "mismatchedTextureRejected",
@@ -7609,8 +5672,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             "nearestRejected",
             "repeatRejected",
             "clampBorderRejected",
-            "effectfulWrongPurposeRejected",
-            "effectfulMismatchedTextureRejected",
         ):
             self.assertTrue(evidence[key], (key, evidence))
 
@@ -7706,14 +5767,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assert_pixel_close(self.result["darkenHalfAlphaBGRA"], [16, 16, 32, 64])
 
     def test_authored_clipping_stage_consumes_dependency_once(self) -> None:
-        self.assert_pixel_close(
-            self.result["authoredClippingMaskBGRA"],
-            self.result["normalDependencyBGRA"],
-        )
-        self.assert_pixel_close(
-            self.result["authoredCompositionClippingMaskBGRA"],
-            self.result["normalDependencyBGRA"],
-        )
         prepared = self.result["resolvedClippingMaskPrepared"]
         self.assertTrue(prepared["preparedStageEncoded"], prepared)
         self.assert_pixel_close(
@@ -7784,7 +5837,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             self.assertAlmostEqual(actual, expected, places=6)
         self.assertTrue(self.result["preciseBlurIsPrecise"])
         self.assertTrue(self.result["blockedPreciseBlurIsNil"])
-        self.assertTrue(self.result["authoredExtentMismatchRefused"])
 
     def test_precise_graph_blur_runs_horizontal_then_vertical_on_mixed_alpha(self) -> None:
         evidence = self.result["authoredPreciseImpulse"]
@@ -7850,57 +5902,23 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertTrue(evidence["outputHasPixels"])
         self.assertTrue(evidence["outputIsPremultiplied"])
 
-    def test_product_rejects_legacy_chain_while_retained_helper_encodes_compose(
+    def test_product_rejects_legacy_chain_without_allocating_or_encoding(
         self,
     ) -> None:
-        evidence = self.result["legacyWholeChainFullFrameCompose"]
-        self.assertTrue(evidence["productRouteRejected"], evidence)
-        self.assertFalse(evidence["legacyAuthoredRouteSelected"], evidence)
-        self.assertEqual(len(evidence["productRouteEvidence"]), 1, evidence)
+        evidence = self.result["legacyChainProductRejection"]
+        self.assertFalse(evidence["encoded"], evidence)
+        self.assertEqual(len(evidence["exactEvidence"]), 1, evidence)
         self.assertIn(
             "operation=legacy-authored-chain-product-dispatch",
-            evidence["productRouteEvidence"][0],
+            evidence["exactEvidence"][0],
         )
         self.assertIn(
             "reason=resolved-material-claim-unavailable",
-            evidence["productRouteEvidence"][0],
+            evidence["exactEvidence"][0],
         )
-        self.assertTrue(evidence["encoded"], evidence)
-        self.assertTrue(evidence["gpuCompleted"], evidence)
-        self.assertEqual(evidence["executionStageCount"], 1, evidence)
-        self.assertEqual(evidence["stageLogicalTargetCount"], 0, evidence)
-        self.assertEqual(evidence["tableLogicalTargetCount"], 0, evidence)
-        self.assertTrue(evidence["inputOutputAliased"], evidence)
-        self.assertTrue(evidence["inputAndOutputUseSameTexture"], evidence)
-        self.assertTrue(evidence["pairMembersDistinct"], evidence)
-        self.assertTrue(evidence["endpointUsesPairMember"], evidence)
-        self.assertTrue(evidence["intermediateUsesOtherPairMember"], evidence)
-        self.assertTrue(evidence["pairEndpointMembersAliased"], evidence)
-        self.assertEqual(evidence["pairComposeTransitionCount"], 1, evidence)
-        self.assertEqual(evidence["pairFullFrameOutputWriteCount"], 2, evidence)
-        self.assertEqual(evidence["tableResidentTextureCount"], 2, evidence)
-        self.assertEqual(evidence["leaseTextureCount"], 2, evidence)
-        self.assertTrue(evidence["leasePairTokensDistinct"], evidence)
-        self.assertTrue(evidence["leasePairTexturesMapped"], evidence)
-        self.assertEqual(evidence["residentTextureCount"], 2, evidence)
-        self.assertLessEqual(evidence["horizontalMaxDelta"], 1, evidence)
-        self.assertLessEqual(evidence["outputMaxDelta"], 1, evidence)
-        self.assertLessEqual(evidence["mainMaxDelta"], 2, evidence)
-        self.assertGreater(evidence["horizontalToOutputDelta"], 2, evidence)
-        self.assertGreater(evidence["sourceToOutputDelta"], 20, evidence)
-        self.assertTrue(evidence["sourceHasMixedAlpha"], evidence)
-        self.assertTrue(evidence["outputHasPixels"], evidence)
-        self.assertTrue(evidence["outputIsPremultiplied"], evidence)
-        self.assertTrue(evidence["resetReleasedCompletedSubmission"], evidence)
-
-    def test_precise_graph_interleaves_copy_and_swap_between_material_nodes(self) -> None:
-        evidence = self.result["authoredPreciseInterleave"]
-        self.assertLessEqual(evidence["copyMaxDelta"], 1, evidence)
-        self.assertLessEqual(evidence["swapMaxDelta"], 1, evidence)
-        self.assertTrue(evidence["copyHasPixels"])
-        self.assertTrue(evidence["swapHasPixels"])
-        self.assertTrue(evidence["copyIsPremultiplied"])
-        self.assertTrue(evidence["swapIsPremultiplied"])
+        self.assertEqual(evidence["targetPixel"], [0, 0, 0, 0], evidence)
+        self.assertEqual(evidence["residentAllocationCount"], 0, evidence)
+        self.assertEqual(evidence["residentTextureCount"], 0, evidence)
 
     def test_standard_graph_blur_runs_full_ping_pong_chain_on_mixed_alpha(self) -> None:
         evidence = self.result["authoredStandardCheckerboard"]
@@ -7986,225 +6004,11 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assert_pixel_close(mask_one, [100, 80, 40, 200], 1)
         self.assert_pixel_close(mask_half, [60, 60, 60, 150], 2)
 
-    def test_authored_effect_chain_runs_in_order_without_reapplying_layer_alpha(self) -> None:
-        evidence = self.result["authoredTwoStageChain"]
-        self.assertTrue(evidence["encoded"])
-        self.assertGreater(evidence["sourceToFirstInputDelta"], 20, evidence)
-        self.assertLessEqual(evidence["firstOutputToSecondInputDelta"], 1, evidence)
-        self.assertGreater(evidence["firstToSecondOutputDelta"], 1, evidence)
-        self.assertLessEqual(evidence["secondOutputToMainDelta"], 2, evidence)
-        self.assertTrue(evidence["firstCaptureUsesDistinctAtom"], evidence)
-        self.assertTrue(evidence["secondCaptureAliasesPriorOutput"], evidence)
-        self.assertEqual(evidence["chainPairPhysicalObjectCount"], 2, evidence)
-        self.assertEqual(evidence["residentAllocationCount"], 2, evidence)
-        self.assertEqual(evidence["residentTextureCount"], 4, evidence)
-        self.assertTrue(evidence["resetReleasedCompletedSubmission"], evidence)
-
-        capture_source = (
-            SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer+Capture.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn("sourceTexture === target", capture_source)
-        self.assertNotIn("sourceTexture.width == target.width", capture_source)
-
-    def test_solid_effect_chain_uses_mapped_extent_instead_of_one_pixel_provider(self) -> None:
-        evidence = self.result["solidMappedEffectExtent"]
-        self.assertTrue(evidence["encoded"])
-        self.assertEqual(evidence["sourceSize"], [1, 1])
-        self.assertEqual(evidence["offscreenSize"], [64, 36])
-        self.assertGreater(evidence["uniqueColorCount"], 8, evidence)
-
-    def test_chain_renderer_resolves_live_values_per_stage_and_neutralizes_recapture(self) -> None:
-        source = (SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn(
-            "masks: isFirstStage ? masks : masks.authoredEffectResourcesOnly",
-            source,
-        )
-        self.assertIn("sourceUniforms: isFirstStage ? sourceUniforms : .neutral()", source)
-        self.assertIn("stage.localContrastStrength(in: dynamicValues)", source)
-        opacity_source = (
-            SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Opacity.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn("stage.opacityAlpha(in: dynamicValues)", opacity_source)
-
-    def test_opacity_chain_consumes_live_snapshot_on_gpu(self) -> None:
-        authored, live = self.result["authoredOpacityLivePixels"]
-        self.assertLessEqual(max(abs(a - b) for a, b in zip(authored, [40, 80, 160, 200])), 1)
-        self.assertLessEqual(max(abs(a - b) for a, b in zip(live, [8, 16, 32, 40])), 1)
-
-    def test_opacity_mask_alpha_is_applied_exactly_once(self) -> None:
-        pixel = self.result["authoredOpacityMaskPixel"]
-        self.assertTrue(pixel["legacyRefused"], pixel)
-        self.assertFalse(pixel["legacyLegacyAuthoredRouteSelected"], pixel)
-        self.assertEqual(pixel["legacyTargetPixel"], [0, 0, 0, 0], pixel)
-        self.assertEqual(len(pixel["legacyRouteEvidence"]), 1, pixel)
-        self.assertIn(
-            "operation=legacy-effect-product-authority",
-            pixel["legacyRouteEvidence"][0],
-        )
-        self.assertIn(
-            "reason=unclaimed-visible-effects",
-            pixel["legacyRouteEvidence"][0],
-        )
-        # authored backend 仍必须只乘一次 mask=0.5 和 alpha=0.5。
-        self.assertLessEqual(
-            max(abs(a - b) for a, b in zip(pixel["authored"], [10, 20, 40, 50])),
-            1,
-            f"authored opacity dropped the mask: {pixel['authored']}",
-        )
-        self.assertLessEqual(
-            max(abs(a - b) for a, b in zip(pixel["rejected"], [40, 80, 160, 200])),
-            1,
-            f"rejected authored graph fell back to legacy opacity: {pixel['rejected']}",
-        )
-        self.assertLessEqual(
-            max(abs(a - b) for a, b in zip(
-                pixel["rejectedSourceCopy"], [40, 80, 160, 200]
-            )),
-            1,
-            "rejected authored graph failed neutral source-copy routing: "
-            f"{pixel['rejectedSourceCopy']}",
-        )
-        self.assertGreater(
-            max(abs(a - b) for a, b in zip(
-                pixel["rejectedDependency"], pixel["rejected"]
-            )),
-            10,
-            "rejected authored graph retired an independently admitted dependency: "
-            f"{pixel['rejectedDependency']}",
-        )
-        for key in ("rejected", "rejectedSourceCopy", "rejectedDependency"):
-            self.assertFalse(
-                pixel[f"{key}LegacyAuthoredRouteSelected"],
-                f"{key} selected a legacy authored route",
-            )
-        # 声明了遮罩但 opacityEffects 里没有对应贴图时必须整段拒绝：静默按无遮罩渲染
-        # 就是这次修的那类缺陷，会让语料里 108 个绑遮罩的 stock opacity pass 不声不响地失效。
-        self.assertTrue(pixel["missingMaskRefused"], pixel)
-
-    def test_authored_blend_chain_mixes_overlay_alpha_and_preserves_source_alpha(
-        self,
-    ) -> None:
-        evidence = self.result["authoredBlendChainPixel"]
-        source = evidence["source"]
-        blend = evidence["blend"]
-        weight = evidence["multiply"] * blend[3] / 255
-        self.assertTrue(all(channel <= source[3] for channel in source[:3]), evidence)
-        self.assertTrue(all(channel <= blend[3] for channel in blend[:3]), evidence)
-        expected = [
-            round(
-                (
-                    source[index] / source[3]
-                    + (blend[index] / blend[3] - source[index] / source[3])
-                    * weight
-                )
-                * source[3]
-            )
-            for index in range(3)
-        ] + [source[3]]
-        self.assertTrue(evidence["encoded"], evidence)
-        self.assertEqual(evidence["capturedSourcePixel"], source, evidence)
-        self.assertEqual(expected, [69, 68, 143, 200])
-        self.assertLessEqual(
-            max(
-                abs(actual - wanted)
-                for actual, wanted in zip(evidence["authoredPixel"], expected)
-            ),
-            1,
-            evidence,
-        )
-        self.assertEqual(evidence["authoredPixel"][3], source[3])
-        self.assert_pixel_close(evidence["mainPixel"], expected, 1)
-
-    def test_authored_blend_write_alpha_uses_overlay_alpha_and_stays_premultiplied(
-        self,
-    ) -> None:
-        evidence = self.result["authoredWriteAlphaBlendChainPixel"]
-        source = evidence["source"]
-        blend = evidence["blend"]
-        output_alpha = round(blend[3] * evidence["alphaMultiply"])
-        weight = evidence["multiply"] * blend[3] / 255
-        expected = [
-            round(
-                (
-                    source[index] / source[3]
-                    + (blend[index] / blend[3] - source[index] / source[3])
-                    * weight
-                )
-                * output_alpha
-            )
-            for index in range(3)
-        ] + [output_alpha]
-        self.assertTrue(evidence["encoded"], evidence)
-        self.assertTrue(evidence["writesAlpha"], evidence)
-        self.assertEqual(expected, [22, 22, 46, 64])
-        self.assert_pixel_close(evidence["authoredPixel"], expected, 1)
-        self.assert_pixel_close(evidence["mainPixel"], expected, 1)
-        self.assertTrue(
-            all(channel <= evidence["authoredPixel"][3] for channel in evidence["authoredPixel"][:3]),
-            evidence,
-        )
-
     def test_authored_blend_runtime_summary_is_not_route_only(self) -> None:
         self.assertEqual(
             self.result["authoredBlendRuntimeSummary"],
             "effect runtime blend-authored; 1 declared pass(es)",
         )
-
-    def test_identity_transform_applies_first_stage_source_uniforms_once(self) -> None:
-        evidence = self.result["authoredTransformChainPixel"]
-        expected = [20, 40, 80, 100]
-        self.assertTrue(evidence["encoded"], evidence)
-        self.assertEqual(evidence["source"], [40, 80, 160, 200], evidence)
-        self.assert_pixel_close(evidence["authoredPixel"], expected, 1)
-        self.assert_pixel_close(evidence["mainPixel"], expected, 1)
-
-    def test_tint_chain_routes_blend_mode_from_plan_on_gpu(self) -> None:
-        # 源 BGRA [40,80,160,200] → A_rgb=(0.6275,0.3137,0.1569)，tint color=(0,0,1)，o=1。
-        # mode 0 落到 `mix(A, B, o)` 并强制 alpha=1；mode 30 落到
-        # `mix(A, max(A.r,A.g,A.b) * B, o)`（0.6275×蓝）并保留源 alpha。两条结果不同，
-        # 证明 blendMode 是从 plan 走到 shader 的，不是写死一个模式。
-        mode0, mode30, mode0_masked = self.result["authoredTintChainPixels"]
-        self.assertLessEqual(max(abs(a - b) for a, b in zip(mode0, [255, 0, 0, 255])), 1)
-        self.assertLessEqual(max(abs(a - b) for a, b in zip(mode30, [160, 0, 0, 200])), 1)
-        # 半灰遮罩（0.502）必须在 straight RGB 上混合。源 premultiplied
-        # BGRA=(40,80,160), alpha=200 先解预乘为约 (51,102,204)，再与
-        # B=(255,0,0) 混合；mode 0 最终强制 alpha=255。
-        self.assertLessEqual(
-            max(abs(a - b) for a, b in zip(mode0_masked, [153, 51, 102, 255])),
-            2,
-        )
-
-    def test_failed_later_stage_never_composites_an_earlier_stage(self) -> None:
-        evidence = self.result["authoredFailedChain"]
-        self.assertFalse(evidence["encoded"])
-        self.assertTrue(evidence["firstStageProducedPixels"])
-        self.assertEqual(evidence["mainPixel"], [0, 0, 0, 0])
-        self.assertEqual(evidence["residentAllocationCount"], 2)
-        self.assertTrue(evidence["resetReleasedFailedSubmission"])
-
-    def test_unsubmitted_legacy_commit_rolls_back_with_the_frame(self) -> None:
-        evidence = self.result["legacyUnsubmittedRollback"]
-        self.assertTrue(evidence["encoded"], evidence)
-        self.assertTrue(evidence["commandBufferWasNotSubmitted"], evidence)
-        self.assertTrue(evidence["commitWasPinned"], evidence)
-        self.assertTrue(evidence["rollbackReleasedCommit"], evidence)
-
-    def test_xray_graph_target_route_has_no_alias_and_propagates_output(
-        self,
-    ) -> None:
-        evidence = self.result["xRayThreeTextureRoute"]
-        self.assertTrue(evidence["encoded"], evidence)
-        self.assertTrue(evidence["poolIsPairwiseDistinct"], evidence)
-        self.assertTrue(evidence["resourcesDoNotAliasPool"], evidence)
-        self.assertTrue(evidence["resourcesArePairwiseDistinct"], evidence)
-        self.assertTrue(evidence["graphTargetsAreDistinct"], evidence)
-        self.assertTrue(evidence["graphTargetsDoNotAliasInputs"], evidence)
-        self.assertTrue(evidence["graphTargetsDoNotAliasGenericPool"], evidence)
-        self.assertTrue(evidence["mainMatchesGraphOutput"], evidence)
-        self.assertNotEqual(evidence["mainPixel"], evidence["sourcePixel"], evidence)
-        self.assert_pixel_close(evidence["mainPixel"], evidence["blendPixel"], 2)
 
     def test_production_resolved_material_composition_executes_and_fails_closed(
         self,
