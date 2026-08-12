@@ -75,8 +75,7 @@ final class SceneDesktopWallpaperHost {
         SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
             in: context.authoredEffectCatalog,
             resolvedMaterialExecutionCapabilities:
-                context.resolvedMaterialExecutionCapabilities,
-            sceneScriptAudioBarsProgram: context.sceneScriptAudioBarsProgram
+                context.resolvedMaterialExecutionCapabilities
         ))
         guard rebuildSurfaces(
             resetClock: true,
@@ -256,7 +255,6 @@ final class SceneDesktopWallpaperHost {
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.runtimeInput.renderDescriptor,
                 authoredEffectCatalog: launchContext.authoredEffectCatalog,
-                sceneScriptAudioBarsProgram: launchContext.sceneScriptAudioBarsProgram,
                 mediaThumbnailBindings: launchContext.mediaThumbnailBindings,
                 pipelineRepository: launchContext.pipelineRepository,
                 resolvedMaterialRuntime: launchContext.makeResolvedMaterialRuntime(),
@@ -292,10 +290,6 @@ final class SceneDesktopWallpaperHost {
                 Self.appendTimeOfDayEffectScriptReport(
                     to: launchContext.logURL,
                     program: launchContext.timeOfDayEffectScriptProgram
-                )
-                Self.appendSceneScriptAudioBarsReport(
-                    to: launchContext.logURL,
-                    program: launchContext.sceneScriptAudioBarsProgram
                 )
                 wroteLog = true
             }

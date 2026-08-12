@@ -18,11 +18,11 @@
 
 `d83606bf` 再新增一个无 sample/layer/source-hash 准入的 **L3 bounded property-bound Blend update subset**：只接受完整 `script,user,value` wrapper、唯一 exported `update`、常数声明、有限四则算术、`engine.timeOfDay`、`WEMath.smoothStep` 与 `Math.max`，编译结果只能写回 typed Blend `multiply` target；1024 tokens、128 AST nodes、256 evaluation steps和 `0...2` consumer range 任一失败都保留 authored fallback。它用同一帧本地 wall date 驱动 `2134765860` 的清晨/正午切换，但不创建 `engine`/`WEMath` module object，不开放其他 target、statement、function、event 或通用 VM。
 
-两个额外的 **L3 bounded native audio profile** 按 raw source SHA-256 与完整 binding/property/layer/asset/shader/render-state 合同准入 `2241938645:282` 与 `3743305891:112` 的 64 段条形：复用 host 64 档 left/right，逐 bin 求算术平均，以同一纹理执行 64 次 renderer draw。未知或变异 profile 整体 fail closed；没有样本 ID/layer ID 分支。它不执行 JavaScript，64 个 renderer instance 也不是可枚举、排序、销毁的 Scene layer。
+`9a6a028` 曾以两个 **L3 bounded native audio profile** 按 raw source SHA-256 与完整 binding/property/layer/asset/shader/render-state 合同准入 `2241938645:282` 与 `3743305891:112` 的 64 段条形。B21已删除source/profile compiler、plan/verification、native geometry/renderer、host wiring与专用report；这些fixed SceneScript Audio Bars不再取得产品执行权。旧定向报告只说明B21前的准入与64-draw历史，不能证明现役owner、当前输出或视觉。
 
 `d5bff76e` 与 `9c70cf06` 曾建立 delayed-loop/time-of-day 两个 **L3 bounded native texture-animation profile**；它们的source SHA、compiler、playback plan、专用clock与wall-date sprite plumbing已在R4-B19全部退役。对应定向报告只说明B19前实现，不再证明现役profile owner、当前时序或视觉。`SceneTextureAnimationScriptDefinition`仍保真wrapper/source/properties/user/authored value，但所有TextureAnimation SceneScript均不执行；普通TEX atlas和cross-image multi-image继续按scene time与作者frame duration原生autoplay。
 
-Scene host 已有 16/32/64 档 left/right 频谱 snapshot，并由 stock effect、三个 exact Workshop Audio Bars profile与上述两个 native profile 按需驱动采集；这仍只是 renderer 输入/有界 consumer。当前没有 VM、`engine.registerAudioBuffers` bridge、`AudioBuffers`/Float32Array object identity 或脚本订阅，因此下表相关官方 API 全部保持 `L0`。
+Scene host 已有 16/32/64 档 left/right 频谱 snapshot，并由 stock effect及普通/Workshop Effect Audio Bars的现役Program/typed consumer按需驱动采集；这仍只是renderer输入/有界effect consumer。B21后没有任何SceneScript Audio Bars产品consumer，也没有VM、`engine.registerAudioBuffers` bridge、`AudioBuffers`/Float32Array object identity或脚本订阅，因此下表相关官方API全部保持`L0`。
 
 `2938612768:[165,454,626,629,924]` 的 Opacity 值来自未支持 SceneScript，当前 strict planner 仍必须拒绝；只有 `2902406982:[365,372,647,664]` 的 direct binding 是正门。粗粒度总表中的“Script presence L1”只表示发现能力；现役bounded Text AST与已退役fixed profile的历史边界见 [E-TEXT-SCRIPT](runtime-evidence-index.md#e-text-script)。
 
@@ -188,7 +188,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 |---|---|---:|---|---|
 | `IObject` | `getAnimation(name?)` 取当前 property 或命名动画 | `L0` | `N` | typed animation handle；缺失/重名/owner 销毁语义 |
 | `IThisPropertyObjectBase` | v2.8 中是只继承 `IObject` 的空 property-owner 基类 | `L0` | `I` 没有保留 owner 类型或绑定 property | binding compiler 根据 owner/property 生成具体 typed handle；不自行添加声明外成员 |
-| `thisLayer: ILayer` | 当前脚本 owner 的 layer handle | `L0` | `D` 只有整数 layer target；native Audio Bars renderer 不创建 handle | VM host identity、每实例 owner、跨层访问权限和失效门 |
+| `thisLayer: ILayer` | 当前脚本 owner 的 layer handle | `L0` | `D` 只有整数 layer target；B21已删除fixed native Audio Bars renderer，现役没有脚本layer handle | VM host identity、每实例 owner、跨层访问权限和失效门 |
 | `ILayer` transform | `origin`, `angles`, `scale`, `parallaxDepth`, `name`, `visible` | `L0` | `G` 确认 native visible setter 与 cursor state 分离：隐藏不会让 solid 退出 hit test，也不清 hover/capture；项目静态 renderer 字段仍无 JS bridge，`D/N` | getter/setter 类型、local/world 语义、同帧写回、parent effective visibility、只支持类型的 fail closed |
 | `ILayer` orientation | `getTransformMatrix`, `rotateObjectSpace`, `lookAt`, `lookAtYaw` | `L0` | `N` | 数学/坐标合同、parent 情况和 2D/3D fixture |
 | `ILayer` parenting | 两个 `setParent` overload、`getParent`, `getChildren` | `L0` | `G` 确认同步 parent/attachment resolution 与 mutation、adjustTransforms 的 world-to-new-local 重算、相同关系 no-op、parent getter 与 children snapshot；self/complexity guard 失败会解除旧 parent而不回滚；项目无 bridge，`N` | descendant cycle、缺失 identity/attachment、guard 含义、transactional safety policy、effective visibility/propagation 和销毁门 |

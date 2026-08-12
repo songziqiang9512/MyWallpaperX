@@ -13,7 +13,6 @@ struct SceneDesktopWallpaperLaunchContext {
     let timelineProgram: SceneTimelineProgram
     let textScriptProgram: SceneTextScriptProgram
     let timeOfDayEffectScriptProgram: SceneTimeOfDayEffectScriptProgram
-    let sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram
     let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
@@ -88,10 +87,6 @@ extension SceneDesktopWallpaperHost {
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor
         )
-        let sceneScriptAudioBarsProgram = SceneScriptAudioBarsCompiler.compile(
-            descriptor: runtimeInput.renderDescriptor,
-            shaderContracts: runtimeInput.shaderContracts
-        )
         typealias VisibilityOwner =
             SceneResolvedMaterialExecutionCapabilityAdmission
                 .DynamicEffectVisibilityOwner
@@ -153,10 +148,7 @@ extension SceneDesktopWallpaperHost {
                 authoredPlans: runtimeInput.authoredEffectRenderPlans,
                 dedicatedStagePrograms: dedicatedStageLeaves,
                 dynamicEffectVisibilityOwners:
-                    frameDrivenEffectVisibilityOwners,
-                specializedLayerIDs: Set(
-                    sceneScriptAudioBarsProgram.plans.map(\.layerID)
-                )
+                    frameDrivenEffectVisibilityOwners
             )
         let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
             descriptor: runtimeInput.renderDescriptor,
@@ -247,7 +239,6 @@ extension SceneDesktopWallpaperHost {
                 descriptor: runtimeInput.renderDescriptor
             ),
             timeOfDayEffectScriptProgram: timeOfDayEffectScriptProgram,
-            sceneScriptAudioBarsProgram: sceneScriptAudioBarsProgram,
             mediaThumbnailBindings: mediaThumbnailBindings,
             liveState: ScenePropertyLiveUpdateState(
                 program: runtimeInput.propertyBindingProgram,

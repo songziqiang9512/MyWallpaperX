@@ -17,6 +17,10 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 LAUNCH_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
+RENDERER_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
+LEGACY_BATCH_SOURCE = (
+    SCENE_ROOT / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
+)
 ADMISSION_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityAdmission.swift"
@@ -1569,13 +1573,11 @@ private func reportHas(_ catalog: Catalog, _ code: String) -> Bool {
 private func admissionRejects(
     _ descriptor: SceneRenderDescriptor,
     raw: Graph,
-    specializedLayerIDs: Set<Int> = [],
     reason: String
 ) -> Bool {
     let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
         descriptor: descriptor,
-        authoredPlans: [raw],
-        specializedLayerIDs: specializedLayerIDs
+        authoredPlans: [raw]
     )
     guard let candidate = candidates.first(where: { $0.layerID == layerID }) else {
         return false
@@ -1960,18 +1962,6 @@ private enum Harness {
             subjects: expectedDispositionSubjects
         )
         let foreignClaim = secondCatalog.claim(layerID: layerID)!
-        let specializedCandidates =
-            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
-                descriptor: desc,
-                authoredPlans: [raw],
-                specializedLayerIDs: [layerID]
-            )
-        let routeUnavailableCatalog = catalog(
-            descriptor: desc,
-            graphs: [raw],
-            materials: materialCatalog(graph: raw, omitNode: 1),
-            admissionCandidates: specializedCandidates
-        )
         let utilityCatalog = catalog(
             descriptor: descriptor(
                 contentKind: "composition",
@@ -2783,13 +2773,6 @@ private enum Harness {
                 "userPropertyLiveTarget":
                     validUserPropertyCatalog.liveConsumerTargets
                     == Set([dynamicTarget()]),
-                "routeUnavailable": reportHas(
-                    routeUnavailableCatalog,
-                    "execution-route-specialized-owner"
-                ) && routeUnavailableCatalog.claim(layerID: layerID) == nil
-                    && routeUnavailableCatalog.reportLines.first?.contains(
-                        "candidates=1 accepted=0 rejected=1"
-                    ) == true,
                 "hiddenParent": admissionRejects(
                     descriptor(parentVisible: false),
                     raw: raw,
@@ -2893,12 +2876,6 @@ private enum Harness {
                     ),
                     raw: raw,
                     reason: "execution-route-dependency-owner"
-                ),
-                "specializedOwner": admissionRejects(
-                    desc,
-                    raw: raw,
-                    specializedLayerIDs: [layerID],
-                    reason: "execution-route-specialized-owner"
                 ),
             ],
         ]
@@ -4280,6 +4257,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self,
     ) -> None:
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
+        renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
+        legacy_batch = LEGACY_BATCH_SOURCE.read_text(encoding="utf-8")
         runtime_catalog = RUNTIME_CATALOG_SOURCE.read_text(encoding="utf-8")
         admission = ADMISSION_SOURCE.read_text(encoding="utf-8")
         capability = CAPABILITY_SOURCE.read_text(encoding="utf-8") \
@@ -4389,14 +4368,18 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         visibility_owner_source = launch[:launch.index("let dedicatedStageLeaves =")]
         self.assertNotIn("case let .effectConstant", visibility_owner_source)
         self.assertIn('binding.targetKey == "visible"', launch)
-        self.assertEqual(
-            launch.count("SceneScriptAudioBarsCompiler.compile("),
-            1,
+        self.assertNotIn("SceneScriptAudioBarsCompiler.compile(", launch)
+        self.assertNotIn("sceneScriptAudioBarsProgram", launch)
+        self.assertNotIn("specializedLayerIDs:", launch)
+        self.assertNotIn("sceneScriptAudioBars", renderer)
+        self.assertNotIn("renderSceneScriptAudioBars", renderer)
+        self.assertNotIn("sceneScriptAudioBars", legacy_batch)
+        product_source = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted(SCENE_ROOT.rglob("*.swift"))
         )
-        self.assertIn(
-            "sceneScriptAudioBarsProgram: sceneScriptAudioBarsProgram",
-            launch,
-        )
+        self.assertNotIn("SceneScriptAudioBars", product_source)
+        self.assertNotIn("sceneScriptAudioBars", product_source)
         self.assertNotIn("executableLayerIDs", launch)
         self.assertNotIn("executableLayerIDs", capability)
         self.assertNotIn("SceneEffectRuntimeDispositionCatalog(", launch)
@@ -4412,9 +4395,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "layer.childLayerIDs.isEmpty",
             "SceneResolvedMaterialDependencyOwnershipCompiler",
             "guard let dependencyOwnership else",
-            "specializedLayerIDs.contains(layer.id)",
         ):
             self.assertIn(contract, admission)
+        self.assertNotIn("specializedLayerIDs", admission)
+        self.assertNotIn("execution-route-specialized-owner", admission)
         self.assertIn(
             "sourceRoute == .capturedMainTargetTexture",
             capability,
@@ -4434,11 +4418,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         ):
             self.assertIn(contract, dependency_ownership)
         self.assertNotIn("sampleID", dependency_ownership)
-        self.assertIn(
-            "specializedLayerIDs: Set(\n"
-            "                    sceneScriptAudioBarsProgram.plans.map(\\.layerID)",
-            launch,
-        )
         self.assertIn("case let .success(compiled):", capability)
         self.assertIn("stages: compiled.stages", capability)
         self.assertIn("runtimeDispositionOwnership(", capability)
@@ -4636,7 +4615,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "externalProceduralRejectsWrongInput": True,
                 "externalProceduralRequiresUtilitySupport": True,
                 "userPropertyLiveTarget": True,
-                "routeUnavailable": True,
                 "hiddenParent": True,
                 "unsupportedContent": True,
                 "utilityCapture": True,
@@ -4654,7 +4632,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "selfReferenceWrongSlot": True,
                 "selfReferenceExternalExtra": True,
                 "selfReferenceAuthoredExtra": True,
-                "specializedOwner": True,
             },
             payload,
         )

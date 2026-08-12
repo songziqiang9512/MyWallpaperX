@@ -110,12 +110,11 @@
         "role": "inventory",
         "description": "Direct main-pass encoder writers remain explicit while object and utility paths migrate to the frame scheduler.",
         "pattern": "(?:\\bmainPass|\\bframe\\.mainPass)\\.encoder\\(\\)",
-        "baseline_occurrences": 7,
+        "baseline_occurrences": 6,
         "allowed_files": [
           "Rendering/SceneLayerColorBlendPipeline.swift",
           "Rendering/SceneLightShaftsLayerRenderer.swift",
           "Rendering/SceneMetalRenderer+Particles.swift",
-          "Rendering/SceneScriptAudioBarsRenderer.swift",
           "Rendering/SceneSpotLightRuntime.swift"
         ]
       },
@@ -177,7 +176,7 @@
         "role": "inventory",
         "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
-        "baseline_occurrences": 208,
+        "baseline_occurrences": 201,
         "allowed_files": [
           "RenderGraph/SceneAuthoredBlendPlanner.swift",
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
@@ -217,8 +216,7 @@
           "RenderGraph/SceneWaterFlowShaderProfile.swift",
           "RenderGraph/SceneWaterRippleShaderProfile.swift",
           "RenderGraph/SceneWaterWavesAssetFamily.swift",
-          "RenderGraph/SceneWaterWavesShaderProfile.swift",
-          "Runtime/SceneScriptAudioBarsCompiler.swift"
+          "RenderGraph/SceneWaterWavesShaderProfile.swift"
         ]
       },
       {
@@ -226,7 +224,7 @@
         "role": "inventory",
         "description": "Numeric Workshop paths are frozen until source profiles become public typed capabilities.",
         "pattern": "workshop/[0-9]+",
-        "baseline_occurrences": 50,
+        "baseline_occurrences": 40,
         "allowed_files": [
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",
@@ -235,8 +233,7 @@
           "RenderGraph/SceneAuthoredWorkshopShiftHuePlanner.swift",
           "RenderGraph/SceneClippingMaskContract.swift",
           "RenderGraph/SceneDependencyRenderPlan.swift",
-          "RenderGraph/SceneProceduralNoiseShaderProfile.swift",
-          "Runtime/SceneScriptAudioBarsCompiler.swift"
+          "RenderGraph/SceneProceduralNoiseShaderProfile.swift"
         ]
       },
       {
@@ -284,31 +281,23 @@
         "role": "retirement",
         "description": "Source and asset digests that choose fixed script behavior must be replaced by bounded typed interpreters before R4 completes.",
         "pattern": "(?:switch\\s+(?:sourceSHA256|sha256)|profile\\([^\\n]*sourceSHA256|(?:rawSHA256|materialRawSHA256|canonicalSHA256|sourceSHA256)\\s*==\\s*[A-Za-z][A-Za-z0-9_]*SHA256)",
-        "baseline_occurrences": 3,
+        "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
         "scope_files": [
-          "Runtime/SceneScriptAudioBarsCompiler.swift",
           "Text/SceneTextScriptCompiler.swift"
         ],
-        "allowed_files": [
-          "Runtime/SceneScriptAudioBarsCompiler.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "numeric-workshop-runtime-dispatch",
         "role": "retirement",
-        "description": "SceneScript Audio Bars must stop choosing a fixed runtime profile from numeric Workshop asset paths before R4 completes.",
-        "pattern": "workshop/[0-9]+",
-        "baseline_occurrences": 10,
+        "description": "The retired fixed SceneScript Audio Bars runtime owner must not be reintroduced anywhere in Scene product code.",
+        "pattern": "SceneScriptAudioBars",
+        "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "Runtime/SceneScriptAudioBarsCompiler.swift"
-        ],
-        "allowed_files": [
-          "Runtime/SceneScriptAudioBarsCompiler.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-authored-chain-surface",

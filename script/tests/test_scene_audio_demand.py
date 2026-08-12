@@ -19,9 +19,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 DEMAND_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+AudioDemand.swift"
 HOST_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
-SCRIPT_AUDIO_BARS_PLAN_SOURCE = (
-    SCENE_ROOT / "Runtime/SceneScriptAudioBarsPlan.swift"
-)
 FRAME_DRIVER_SOURCE = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
@@ -73,16 +70,11 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         source = DEMAND_SOURCE.read_text(encoding="utf-8")
         self.assertIn("$0.shake?.audio != nil", source)
         self.assertIn("$0.workshopAudioBars != nil", source)
-        self.assertIn("sceneScriptAudioBarsProgram.hasAudioConsumer", source)
         self.assertIn(
             "resolvedMaterialExecutionCapabilities.hasAudioSpectrumConsumer",
             source,
         )
         self.assertIn("hasParticleAudioConsumer", source)
-        self.assertIn(
-            "plans.contains(where: \\.hasAudioConsumer)",
-            SCRIPT_AUDIO_BARS_PLAN_SOURCE.read_text(encoding="utf-8"),
-        )
         self.assertNotIn(
             "supportsAudioProcessing",
             source,
@@ -103,10 +95,6 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         self.assertIn("in: context.authoredEffectCatalog", activate[demand_index:])
         self.assertIn(
             "resolvedMaterialExecutionCapabilities:",
-            activate[demand_index:],
-        )
-        self.assertIn(
-            "sceneScriptAudioBarsProgram: context.sceneScriptAudioBarsProgram",
             activate[demand_index:],
         )
         self.assertLess(

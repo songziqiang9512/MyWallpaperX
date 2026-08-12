@@ -390,7 +390,7 @@ Scene 与 Web 音频合同不同：
 
 测试必须区分 provider 注册、频谱数值正确和最终 visual consumer 生效三层。
 
-MyWallpaperX 当前状态（见 [E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input)、[E-AUDIO-EFFECT](runtime-evidence-index.md#e-audio-effect)）：host-shared snapshot 同一次 FFT 生成 16/32/64 档 left/right 并每帧广播给所有 surface；采集按 consumer 存在性驱动，无消费者/暂停/锁屏/休眠停采并归零，失败输出稳定全零。consumer 包括 stock Shake/Pulse、三个 exact Workshop Audio Bars，以及两个 exact native property-script 64-band Audio Bars。后者仅在 geometry consumer 内按 `(left + right) / 2` 派生 average；没有 JS `AudioBuffers` object、Float32Array identity 或脚本订阅。粒子 audio 声明已保真解析但未执行，effect 与粒子两套 schema 不能互推。
+MyWallpaperX 当前状态（见 [E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input)、[E-AUDIO-EFFECT](runtime-evidence-index.md#e-audio-effect)）：host-shared snapshot 同一次 FFT 生成 16/32/64 档 left/right 并每帧广播给所有 surface；采集按 consumer 存在性驱动，无消费者/暂停/锁屏/休眠停采并归零，失败输出稳定全零。consumer 包括 stock Shake/Pulse与普通/Workshop Effect Audio Bars的统一Program或typed effect路径。B21已删除两个fixed native property-script 64-band Audio Bars consumer；项目仍没有 JS `AudioBuffers` object、Float32Array identity、脚本订阅或通用`average`桥。粒子 audio 声明已保真解析但未执行，effect 与粒子两套 schema 不能互推。
 
 三处未知必须继续标注：频率边界、幅度归一化与平滑策略官方均未公开；当前的 32 Hz→16 kHz 对数划分与 -60 dB 映射是工程选择，与 Web 侧的 64+64 合同互不适用；采集 30 Hz 与渲染 60 Hz 之间不插值。
 
@@ -489,7 +489,7 @@ Realtime Adapter              Offline Adapter
 1. D1-D4 的 property 子集已完成：稳定 target、v22 binding program、per-surface evaluation transaction/snapshot、原子 generation，以及 B0/direct text/X-Ray 真实 consumer；未迁移 target 继续使用 rebuild fallback。
 2. D6 ordered strict effect-chain 与十四类 strict backend 已完成受限执行，包含 `Blur Precise -> Shadow`、Water chain、pointer-driven X-Ray 与 `[Blur Precise, God Rays]` 正门；这些 profile 不升级通用 graph、Directional/COPYBG God Rays、官方 Shadow/lighting 或 authored shader。
 3. Provider Core 已为 dynamic text 与 bounded media cover闭合局部 generation/cancellation/last-ready；继续补通用 metadata/cancellation/teardown。nested/effectful provider 和通用 material consumer 放在 B1/B2 集成层，不能互相形成前置环。
-4. Direct dynamic text、bounded Timeline text width、X-Ray pointer、Timeline 的 **48/48** authored-host typed target 与作者 Bézier handle、16/32/64 audio 输入、两个 exact native 64-band profiles、bounded Particle Audio Response 与 bounded media cover 已完成；SceneScript core、Sound、通用 media、generic Combined/multiple camera path/3D camera 与其余 particle 动态能力继续按 D10 的真实依赖接入。Particle audio 的其余 consumer/组合继续要求公开语义、合法 corpus 或 Windows golden 支撑，不因共享 evaluator 存在而自动开放。
+4. Direct dynamic text、bounded Timeline text width、X-Ray pointer、Timeline 的 **48/48** authored-host typed target 与作者 Bézier handle、16/32/64 audio 输入、普通/Workshop Effect Audio Bars、bounded Particle Audio Response 与 bounded media cover 已完成；两个fixed native 64-band SceneScript profiles已由B21退役。SceneScript core、Sound、通用 media、generic Combined/multiple camera path/3D camera 与其余 particle 动态能力继续按 D10 的真实依赖接入。Particle audio 的其余 consumer/组合继续要求公开语义、合法 corpus 或 Windows golden 支撑，不因共享 evaluator 存在而自动开放。
 5. exact stock Opacity、Tint mask 与 stock Radial God Rays 子集已完成；下一批从能力开发计划按公共依赖、真实样本收益和 fail-closed 边界重新选择，不新增 effect-name 或样本 ID 近似。
 6. 广度闭合后用固定、扩展和新下载样本矩阵暴露冲突，再用 Windows golden 校准 effect、text、particle 和动态值精度；最后扩 Puppet/3D/Lighting 与离线编码产品层。
 

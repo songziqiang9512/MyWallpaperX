@@ -339,6 +339,16 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         rules = contract["rules"]
         ids = [rule["id"] for rule in rules]
         self.assertEqual(len(ids), len(set(ids)))
+        rules_by_id = {rule["id"]: rule for rule in rules}
+        for rule_id in (
+            "legacy-script-source-profile-selector",
+            "numeric-workshop-runtime-dispatch",
+        ):
+            rule = rules_by_id[rule_id]
+            self.assertEqual(rule["baseline_occurrences"], 0)
+            self.assertEqual(rule["completion_target_occurrences"], 0)
+            self.assertEqual(rule["completion_phase"], "r4")
+            self.assertEqual(rule["allowed_files"], [])
         for rule in rules:
             self.assertIn(rule["role"], {"required", "inventory", "retirement"})
             self.assertEqual(rule["allowed_files"], sorted(rule["allowed_files"]))

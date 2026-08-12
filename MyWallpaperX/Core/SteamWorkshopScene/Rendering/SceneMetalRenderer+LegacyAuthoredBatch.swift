@@ -5,8 +5,8 @@ import simd
 extension SceneMetalRenderer {
     /// Collects every legacy authored chain (visible image/solid/text
     /// layers + executable utility capture plans) that is NOT already
-    /// claimed by resolved-material or SceneScript Audio Bars, builds one
-    /// frame plan per chain, and aggregately reserves + commits them
+    /// claimed by resolved-material, builds one frame plan per chain,
+    /// and aggregately reserves + commits them
     /// against a single cache snapshot.
     ///
     /// Returns a **frame-local** `[layerID: LegacyAuthoredFrameTables]`
@@ -45,10 +45,6 @@ extension SceneMetalRenderer {
                 || layer.contentKind == "solid"
                 || layer.contentKind == "text"
             else { continue }
-            // SceneScript Audio Bars — not a legacy authored chain.
-            guard sceneScriptAudioBarsPlansByLayerID[layer.id] == nil else {
-                continue
-            }
             // Already claimed by resolved-material path.
             guard resolvedMaterialPlans[layer.id] == nil else { continue }
             guard imageTextures[layer.id] != nil else { continue }

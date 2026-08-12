@@ -110,17 +110,6 @@ OPTIONAL_RUNTIME_EXPECTATION_GROUPS = {
     },
 }
 
-SCENE_SCRIPT_AUDIO_BARS_EXPECTATIONS = {
-    "expected_scene_script_audio_bars_plan_count": "scene_script_audio_bars_plan_count",
-    "expected_scene_script_audio_bars_diagnostic_count": "scene_script_audio_bars_diagnostic_count",
-    "expected_scene_script_audio_bars_has_audio_consumer": "scene_script_audio_bars_has_audio_consumer",
-    "expected_scene_script_audio_bars_total_bar_count": "scene_script_audio_bars_total_bar_count",
-    "expected_scene_script_audio_bars_plan_layer_ids": "scene_script_audio_bars_plan_layer_ids",
-    "expected_scene_script_audio_bars_plans": "scene_script_audio_bars_plans",
-    "expected_scene_script_audio_bars_succeeded_layer_ids": "scene_script_audio_bars_succeeded_layer_ids",
-    "required_scene_script_audio_bars_succeeded_layer_ids": "scene_script_audio_bars_succeeded_layer_ids",
-}
-
 PUPPET_ANIMATION_EXPECTATIONS = {
     "expected_puppet_animation_layer_ids": "puppet_animation_layer_ids",
     "expected_puppet_disjoint_additive_layer_ids":
@@ -1182,20 +1171,17 @@ def capabilities(runtime):
         values.append("authored_effect_runtime")
     if runtime.get("route_only_effect_count", 0):
         values.append("route_only_effects")
-    if runtime.get("scene_script_audio_bars_plan_count", 0):
-        values.append("scene_script_audio_bars")
     return values
 
 
 def matrix_sample(result, old):
     runtime = result["runtime"]
     runtime_evidence = runtime["runtime_evidence"]
-    sample_capabilities = list(old.get("capabilities") or capabilities(runtime))
-    if (
-        runtime.get("scene_script_audio_bars_plan_count", 0)
-        and "scene_script_audio_bars" not in sample_capabilities
-    ):
-        sample_capabilities.append("scene_script_audio_bars")
+    sample_capabilities = [
+        capability
+        for capability in (old.get("capabilities") or capabilities(runtime))
+        if capability != "scene_script_audio_bars"
+    ]
     sample = {
         "id": result["id"],
         "title": result.get("title"),
@@ -1271,13 +1257,6 @@ def matrix_sample(result, old):
         if is_active:
             for matrix_key, runtime_key in expectations.items():
                 sample[matrix_key] = runtime[runtime_key]
-
-    has_scene_script_audio_bars_contract = bool(
-        runtime.get("scene_script_audio_bars_plan_count")
-    ) or any(key in old for key in SCENE_SCRIPT_AUDIO_BARS_EXPECTATIONS)
-    if has_scene_script_audio_bars_contract:
-        for expectation, metric in SCENE_SCRIPT_AUDIO_BARS_EXPECTATIONS.items():
-            sample[expectation] = runtime[metric]
 
     has_puppet_animation_contract = bool(
         runtime.get("puppet_animation_layer_ids")

@@ -56,8 +56,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         descriptor: SceneRenderDescriptor,
         authoredPlans: [Graph],
         dedicatedStagePrograms: [SceneEffectStageProgram] = [],
-        dynamicEffectVisibilityOwners: Set<DynamicEffectVisibilityOwner> = [],
-        specializedLayerIDs: Set<Int> = []
+        dynamicEffectVisibilityOwners: Set<DynamicEffectVisibilityOwner> = []
     ) -> [Candidate] {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
         let rawGroups = Dictionary(grouping: authoredPlans, by: \.layerID)
@@ -102,8 +101,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             switch executionSourceRoute(
                 layer,
                 visibleLayerIDs: visibleLayerIDs,
-                dependencyOwnership: dependencyOwnership,
-                specializedLayerIDs: specializedLayerIDs
+                dependencyOwnership: dependencyOwnership
             ) {
             case let .success(route):
                 sourceRoute = route
@@ -154,17 +152,13 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
     private static func executionSourceRoute(
         _ layer: SceneRenderDescriptor.Layer,
         visibleLayerIDs: Set<Int>,
-        dependencyOwnership: SceneResolvedMaterialDependencyOwnership?,
-        specializedLayerIDs: Set<Int>
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership?
     ) -> Result<SceneResolvedMaterialAdmittedLayer.SourceRoute, Failure> {
         guard visibleLayerIDs.contains(layer.id) else {
             return .failure(failure("execution-route-layer-hidden"))
         }
         guard let dependencyOwnership else {
             return .failure(failure("execution-route-dependency-owner"))
-        }
-        guard !specializedLayerIDs.contains(layer.id) else {
-            return .failure(failure("execution-route-specialized-owner"))
         }
         if let utility = layer.utilityLayer {
             let kindMatchesContent = switch (layer.contentKind, utility.kind) {

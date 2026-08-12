@@ -15,18 +15,15 @@ struct SceneMetalRenderer {
     let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     let utilityCaptureLayerIDs: Set<Int>
     let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
-    let sceneScriptAudioBarsPlansByLayerID: [Int: SceneScriptAudioBarsPlan]
     let spotLightRuntime: SceneSpotLightRuntime
     let dependencyRuntime: SceneDependencyFrameRuntime
     let textureRegistry = SceneFrameTextureRegistry()
     let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
     let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
-    private let sceneScriptAudioBarsTelemetry = SceneGPUCompletionTelemetry(phase: "scene-script-audio-bars")
     private let effectExecutionTelemetry = SceneEffectExecutionTelemetry()
     init?(
         renderDescriptor: SceneRenderDescriptor,
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
-        sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram = .empty,
         pipelineRepository: SceneImageEffectPipelineRepository,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge? = nil
     ) {
@@ -45,7 +42,6 @@ struct SceneMetalRenderer {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
         self.visibleLayerIDs = visibleLayerIDs
         self.authoredEffectCatalog = authoredEffectCatalog
-        self.sceneScriptAudioBarsPlansByLayerID = Dictionary(uniqueKeysWithValues: sceneScriptAudioBarsProgram.plans.map { ($0.layerID, $0) })
         self.spotLightRuntime = SceneSpotLightRuntime(descriptor: renderDescriptor, pipeline: pipelineRepository.spotLight())
         let resolvedMaterialLayerIDs = resolvedMaterialRuntime?.executionLayerIDs ?? []
         let executableUtilityConsumerLayerIDs = SceneUtilityLayerRuntimePlanner
@@ -119,7 +115,6 @@ struct SceneMetalRenderer {
         let viewportSize = frameContext.screenSize
         let time = Float(frameContext.sceneTime)
         let parallaxMouseNormalized = frameContext.cameraParallaxPosition
-        let camera = renderDescriptor.camera
         let parallaxConfiguration = parallaxConfiguration(
             cameraFrame: cameraFrame,
             viewportSize: viewportSize
@@ -192,18 +187,6 @@ struct SceneMetalRenderer {
             switch layer.contentKind {
             case "image", "solid", "text":
                 guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }
-                if let plan = sceneScriptAudioBarsPlansByLayerID[layer.id] {
-                    let encoded = renderSceneScriptAudioBars(
-                        plan: plan, layer: layer, texture: texture, pipeline: imagePipeline,
-                        frameContext: frameContext, sceneOrthoHeight: camera.orthoHeight,
-                        viewProjection: cameraFrame.orthographicViewProjection,
-                        mainPass: mainPass
-                    )
-                    sceneScriptAudioBarsTelemetry.record(
-                        layerID: layer.id, encoded: encoded, on: commandBuffer
-                    )
-                    continue
-                }
                 let authoredEffectChain = authoredEffectChain(for: layer.id)
                 let suppressesLegacyEffectFallback = authoredEffectCatalog
                     .legacyEffectFallbackSuppressedLayerIDs.contains(layer.id)

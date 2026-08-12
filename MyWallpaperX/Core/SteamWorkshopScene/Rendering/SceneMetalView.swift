@@ -25,7 +25,6 @@ class SceneMetalView: NSView {
 #endif
     init?(
         renderDescriptor: SceneRenderDescriptor, authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
-        sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram = .empty,
         mediaThumbnailBindings: SceneMediaThumbnailBindingProgram = .empty,
         pipelineRepository: SceneImageEffectPipelineRepository, resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
         userPropertyTextureURLs: [String: URL] = [:],
@@ -34,7 +33,6 @@ class SceneMetalView: NSView {
         guard let renderer = SceneMetalRenderer(
             renderDescriptor: renderDescriptor,
             authoredEffectCatalog: authoredEffectCatalog,
-            sceneScriptAudioBarsProgram: sceneScriptAudioBarsProgram,
             pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
         ) else { return nil }
         self.metalDevice = renderer.device
