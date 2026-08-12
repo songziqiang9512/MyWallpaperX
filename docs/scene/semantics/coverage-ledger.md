@@ -2,7 +2,7 @@
 
 > 状态：现役系统汇总；逐项等级以各专项能力表为准
 >
-> 最近核对：2026-08-12
+> 最近核对：2026-08-13
 >
 > 当前系统等级和主要缺口见本页总表；精确 App、矩阵、报告与逐批运行身份统一见 [运行证据索引](runtime-evidence-index.md)。逐批迁移过程只保留在已完成重构计划和运行证据索引中，不得用历史批次覆盖当前结论。
 
@@ -11,6 +11,8 @@
 ## 1. 口径
 
 现役架构口径只有一条：R4/R5 已完成，产品只保留统一 admission → Program/typed stage → GraphExecutor → compositor 执行链；全部旧 owner、whole-chain/standalone/frame-batch、legacy planner/runtime plan/decision/telemetry 与 shader fallback 均由全局零门禁止回引。后续工作是沿这条框架补公共语义和能力，不是恢复旧路线或为样本增加旁路。最新跨样本正式矩阵、当前签名身份与尚未消除的视觉债务只从[运行证据索引](runtime-evidence-index.md)读取。
+
+台账等级表示当前覆盖范围与证据强度，不表示开发优先级或用户收益。真实样本已有缺图、错误合成、黑窗或交互失败时，先修该样本第一个共享断裂边，并把同一可见结果需要的 texture selection、owner、Program、GPU、publication、compositor 与 next-frame 闭合；一个 `L1/L2` 基础项或某行“下一门”不能取代这条链，也不能据此把相互依赖的 consumer 拆成多个“已完成”批次。
 
 R0-R5 的逐批迁移过程已从现役台账移除；需要追溯时查[已完成的 Render Chain 重构计划](../scene-render-chain-refactor-plan-2026-08-03.md)和[运行证据索引](runtime-evidence-index.md)。历史 checkpoint 不再在现役页复制。
 
@@ -30,6 +32,8 @@ R0-R5 的逐批迁移过程已从现役台账移除；需要追溯时查[已完�
 因此，后续一般不再猜“这个能力是什么”；实现前先查上述合同。仍需研究的部分应明确标为私有格式/算法未知，不能用视觉近似反向定义官方语义。
 
 ## 3. 系统总表
+
+下表每行的“主要缺口 / 升级门”只定义该能力家族如何升级，不是按行执行的任务队列。批次仍须遵守公共依赖，但可为同一用户可见 correctness atom 跨行、跨 D 节点实施和验收；不得用局部等级提升代替 terminal composition 与目标 ROI。
 
 | 系统 | 当前级别 | 当前真实能力 | 主要缺口 / 升级门 | 批次 |
 |---|---|---|---|---|

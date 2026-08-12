@@ -26,6 +26,15 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 
 不得将 `recognized`、`wired`、`executed-degraded`、固定 strict profile、固定样本通过或静态参考材料表述为完整兼容或 Wallpaper Engine 视觉等价。官方/参考材料只可作为 clean-room 证据；不得复制其 payload、shader、纹理、JSON、二进制或算法表达，新增断言使用项目自有 fixture。
 
+### 2.1 用户可见 Scene 闭环与批次原子性
+
+- 真实样本出现缺图、合成纹理丢失、黑窗、交互无效或明显错误显示时，当前优先级由该样本实际 render chain 的**第一个断裂边**决定。必须沿 `asset/texture selection -> admission/owner -> Program/variant -> GPU encode -> publication -> compositor -> next frame -> 目标 ROI` 记录精确 layer/effect/pass/slot/target identity；文档分类、源码目录、能力等级和 occurrence 数只帮助界定语义与影响面，不能代替排程。
+- 一个 correctness atom 是恢复同一用户可见结果所需的最小公共闭环。相互依赖的 selection、admission、Program、render target、publication 与 composition 即使跨 `Resources`、`RenderGraph`、`Rendering` 或多个 D/L 节点，也必须同批实现和验收；不得把其中一段标成“显示已修复”后把真正 consumer 留到后续。基础工作只有在没有已知可见断链，或明确标为前置且不宣称用户收益时，才可独立提交。
+- 样本 ID、layer ID、资源路径和 hash 可以作为通用 typed identity、资源解析/缓存键、publication/ownership 键和诊断字段，但不得以某个特定样本、layer、路径或 hash 字面量决定 capability eligibility、算法选择或样本专用 dispatch。公共实现仍须按作者结构、typed identity、官方合同和 clean-room 证据准入，未知形态继续失败关闭。
+- 实现路径有疑问时，依次查现役语义/证据库、官方公开文档与 stock corpus、必要的本机官方客户端 clean-room Ghidra 取证，最后用 MirageWallpaper 交叉验证；参考项目不得覆盖官方证据。官方已证的解析顺序、资源身份、生命周期和合成路径是实现目标，证据仍不足时保持 unsupported，不以近似结果补空白。
+- 现有代码若采用了与已证官方路径冲突的 ownership、顺序或数据模型，应在该职责边界内替换错误模型和旧入口，不得继续叠加 sample workaround、兼容 flag 或下游补丁来维持错误架构。
+- fail-closed 必须保留，但报告要区分“提前拒绝坏层并保住其余已证画面”和“已经实现被拒绝层”。前者是故障隔离，不是该 effect、纹理或合成语义已支持。
+
 ## 3. 技术栈与架构边界
 
 [技术栈与架构路线边界](docs/architecture/technology-stack-boundaries.md) 是语言职责、跨语言/跨进程所有权、性能合同和候选依赖准入的唯一长期入口。最终产品主体为 Swift + AppKit，现有 SwiftUI 只作为 [0 SwiftUI 迁移计划](docs/architecture/appkit-migration-plan-2026-05-17.md)中的受控残留，不新增 SwiftUI 产品面或扩大 hosting bridge。Scene 主链保持 Swift + Metal：Swift 拥有产品语义、typed IR、资源/属性/生命周期和 GPU 调度，Metal/MSL 拥有 GPU 执行，Python 只用于测试与开发工具。
@@ -46,14 +55,16 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 
 - 预期行为、实际行为与可复现路径；
 - 根因归类：样本逻辑、框架实现、依赖、解析、缓存/构建产物或环境；
-- 是否属于公共逻辑并影响多个样本；
-- 受影响文件、样本和验证范围。
+- 第一个断裂边及其精确 identity，而不是只记录最终聚合错误；
+- 是否属于公共逻辑、影响哪些样本，以及恢复该结果所需的完整 correctness atom；
+- 受影响文件、样本、项目自有正反门和目标 ROI；若目标是官方等价，还要写明同相位官方 golden 或其他足以证明等价的证据。
 
-开始改动前给出简短计划：问题与根因假设、拟改位置、影响范围、验证样本及每步验收标准。优先修复共享逻辑，不得用样本 ID 分支、跳过校验、隐藏错误或放宽 fail-closed 行为制造通过。
+开始改动前给出简短计划：问题与根因假设、第一个断裂边、correctness atom、拟改位置、影响范围、验证样本及每步验收标准。优先修复共享逻辑，不得用样本 ID 分支、跳过校验、隐藏错误或放宽 fail-closed 行为制造通过。
 
 ### 实现与提交
 
-- 单次只处理一个相对独立的问题；完成后立即运行该问题的定向验证与合理的回归集合。
+- 单次只处理一个 correctness atom。编码循环先跑 inner 门；生产代码稳定后只做一次终审，再运行 integration/隔离样本并同步文档，不得在每条移动快照审计意见后反复跑完整验证。
+- 主代理必须实际落下本批公共生产代码、测试和整合；子代理只承担文件所有权明确的独立实现，或有界只读研究、稳定快照终审。不得用连续子代理审计代替主实现；连续两个审计周期仍未让目标可见链前进时，停止追加补丁，回到隔离样本重新确定第一个断裂边和批次边界。
 - 先确认改动被实际加载，再解释运行结果：检查构建产物、缓存、入口、配置和资源路径；必要时重建隔离运行环境。
 - 验证通过后才提交该问题。提交信息须说明问题、根因和验证；不混入无关改动。
 - 修改文档、规则或门禁时也保持独立提交边界，并验证链接、脚本或门禁合同，没有功能改动时不虚构运行验证。
@@ -72,7 +83,7 @@ python3 script/verify_scene_change.py --phase checkpoint --base HEAD --path <pat
 | --- | --- |
 | `inner` | 编码循环 | 受影响的单元/Swift harness；不构建、不启动 App、不跑矩阵 |
 | `checkpoint` | 一个独立问题准备提交 | 受影响测试；Swift 产品代码再跑代码健康与 `script/build_and_run.sh verify` |
-| `integration` | 公共 RenderGraph、资源、属性或运行时批次准备交付 | Scene 全量测试、代码健康、构建启动与受影响定向隔离样本 |
+| `integration` | 公共 RenderGraph、资源、属性或运行时批次准备交付 | Scene 全量测试、代码健康、构建启动与受影响定向隔离样本；可见修复还须验证完整 render chain 与 ROI |
 | `milestone` | 样本/矩阵变化、发布或里程碑 | 先按风险选择 fixed；仅在便宜证据仍不能排除风险时运行 full |
 
 目录迁移继续按布局/链接门、受路径影响测试、代码健康和 build verify 验证；首次改变布局合同再增加 Scene 全量测试。CI 没有私有 Workshop corpus 时可显式记录原因跳过运行样本，但不得把该结果写成运行证据。
@@ -86,6 +97,8 @@ python3 script/verify_scene_change.py --phase checkpoint --base HEAD --path <pat
 Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PATH` 与 `SWIFT_MODULECACHE_PATH` 指向 `/private/tmp` 下的专用目录，再区分环境失败与产品回归。
 
 每个新增 gate 必须在 `script/scene_validation_gates.json` 声明所保护风险、触发条件、成本、串行要求和退役条件。迁移期 occurrence/count ratchet 在迁移完成后必须删除或收敛为稳定架构不变量，不得永久保留阶段性快照数字。
+
+声称“恢复显示、纹理或合成”时，checkpoint/integration 必须同时有项目自有 synthetic 正反门和同一隔离真实样本证据。报告至少证明目标 layer/stage 的 GPU completed、精确 publication identity、terminal compositor consumed、next-frame 再成功，并在预先指定的 ROI 中出现可读的目标内容；全屏 non-black、进程存活、exit 0、loaded/route/claim 数或矩阵计数都不能替代该证据。声称 Wallpaper Engine 视觉等价还必须另有同相位官方 golden 和明确像素/时序容差。
 
 ## 6. Swift 代码健康
 
@@ -133,6 +146,7 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 
 - 并行写入前分配互不重叠的文件或主类型所有权；同一测试、矩阵和权威文档不得并发修改。
 - 静态扫描和彼此独立的测试模块可以并行；`script/build_and_run.sh`、共享 `.codex/DerivedData`、App runtime、benchmark、固定门和完整门必须串行。
+- 一个批次由主代理维护唯一断裂边、correctness atom 和稳定快照。只读代理必须基于明确快照一次性给出 PASS/BLOCK，不得在共享源码持续变化时循环追审；审计结论不能替代主代理阅读权威资料、实现代码和取得运行证据。
 - 一个共享批次只由一名整合者暂存和提交，禁止 `git add -A`。
 
 ## 10. 汇报

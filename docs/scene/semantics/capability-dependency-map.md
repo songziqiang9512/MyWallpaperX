@@ -2,11 +2,11 @@
 
 > 状态：现役架构入口
 >
-> 最近核对：2026-08-09
+> 最近核对：2026-08-13
 >
 > 本页只维护依赖与完成门；精确当前提交、报告和测试总数统一见 [总覆盖台账](coverage-ledger.md) 与 [运行证据索引](runtime-evidence-index.md)。
 >
-> 目的：先补公共底座，再扩 Effect、Particle、Text、Timeline、SceneScript 和高级对象；禁止为单个样本建立旁路。
+> 目的：以依赖图约束公共实现先后，以真实样本的第一个共享可见断裂边决定当前优先级；禁止为单个样本建立旁路。
 
 本文把 [总覆盖台账](coverage-ledger.md) 和各专项表中的能力整理成依赖图。它不改变任何能力等级，只回答“哪一层必须先稳定，后面的实现才不会反向推翻前面”。
 
@@ -32,6 +32,19 @@ D3 + D4 + D5 + D6 + D7 + D8
 ```
 
 `D9` 是通用 layer/effect/particle/text consumer；`D10` 是 Timeline、SceneScript、audio/media、dynamic text 和 particle event；`D11` 是 Puppet、lighting/HDR、3D、RGB 和 offline。后层可以与前层研究并行，但不能在前层合同未闭合时写产品执行旁路。
+
+### 1.1 开发排序与可见闭环
+
+依赖与优先级是两条轴：本图决定一个实现不能绕过哪些公共前置；隔离真实样本上最早的共享断裂边决定现在先做什么。从该边逆向取最小公共前置集合，并沿正向一直验收到 `GPU -> publication -> compositor -> next-frame -> 目标 ROI`，才构成一个用户可见 correctness atom。一个 atom 可以跨 D5/D6/D7/D9 和多个源码目录；“先补底座”不得被解释为逐节点勾选并把真正 consumer 无限后移。样本 identity 只定位证据，产品实现仍不得出现样本分支。
+
+面向初测版本，在同等证据与公共影响面下按下列顺序选择断裂边：
+
+1. asset/texture selection、typed publication 与基础图像可用性；
+2. effect、render target、named target、ordered compose 与 terminal publication；
+3. 已有可见 consumer 的 mouse/property/media provider，以及实际缺失的 particle consumer；
+4. 不阻塞当前画面的新语义广度、通用 VM 和高级对象。
+
+这只是当前优先级，不允许越过依赖，也不允许为追求非黑画面放宽 fail-closed。拒绝坏层以保住已证层属于故障隔离；只有被拒绝层自身也走完上述链并取得 ROI 证据，才算实现该能力。
 
 ## 2. 公共底座
 
@@ -178,7 +191,7 @@ Puppet、lighting/HDR、3D、RGB 和 offline 复用 D0-D10。Puppet 已有严格
 | F4 视觉精度 | 高频样本、样本封面方向性门与 Windows golden | `3194ac5` 已生成 preview reference、中心裁切截图、分项指标和并排图；只允许同一样本跨提交比较并人工复核。Windows golden 再验证局部区域、字体、颜色/alpha、时序和像素阈值 |
 | F5 高级能力 | SceneScript breadth、Puppet、HDR/light、3D、RGB、offline | 各系统独立 IR/runtime/lifecycle/product gate |
 
-F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，不按单个样本的视觉显眼程度决定；F3 先做广度，再进入 F4 精调。
+F0 完成后才开始下一轮代码。F1/F2 不得越过公共依赖，但当前批次由真实样本第一个共享断裂边及其可见收益决定；同一 correctness atom 可以跨 F1/F2/F3，不能因表格分波次而拆断。视觉显眼程度本身不是证据，目标 ROI 与完整链才是；F3 的非阻塞广度在已知基础显示断链之后。
 
 ## 5. 禁止的冲突路径
 
@@ -198,5 +211,5 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 1. 先查 [运行证据索引](runtime-evidence-index.md) 确认当前 baseline、45/13 两层门和未闭合边界；本依赖图不复制易漂移的实现 commit。下一代码批再按本图依赖与真实样本收益选择，不得从单个 strict profile 正门外推 generic shader、其他 Effect 或同类格式兼容。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
-4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。
+4. 只实现一个可独立验证的公共 correctness atom；它可以跨多个 D 节点，但必须对应同一可见结果。涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收；涉及显示修复时，必须同批取得 GPU、publication、terminal compositor、next-frame 与目标 ROI，目标样本和相关样本验证后单独提交。
 5. 更新专项表、总台账和证据索引，再进入下一项；带日期的计划只保留对应批次历史，不继续承担现役待办。
