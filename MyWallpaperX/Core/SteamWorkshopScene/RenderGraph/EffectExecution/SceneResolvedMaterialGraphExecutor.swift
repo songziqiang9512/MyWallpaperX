@@ -19,6 +19,8 @@ final class SceneResolvedMaterialGraphExecutor {
         case graphPublicationRejected
         case graphStructureRejected
         case materialFinalizerRejected(
+            stageIndex: Int,
+            effect: Graph.EffectKey,
             nodeIndex: Int,
             materialOrdinal: Int,
             failure: SceneResolvedMaterialFailure

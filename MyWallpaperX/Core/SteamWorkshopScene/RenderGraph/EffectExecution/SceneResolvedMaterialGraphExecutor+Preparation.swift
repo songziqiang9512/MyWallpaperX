@@ -110,6 +110,8 @@ extension SceneResolvedMaterialGraphExecutor {
                     program = value
                 case let .failure(failure):
                     return .materialFinalizerRejected(
+                        stageIndex: stageIndex,
+                        effect: node.effect,
                         nodeIndex: nodeIndex,
                         materialOrdinal: ordinal,
                         failure: failure

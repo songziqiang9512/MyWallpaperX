@@ -3048,6 +3048,12 @@ private enum Harness {
                         == "material-pass-encoder-rejected",
             "finalizerFailureIncludesBoundedSanitizedField":
                 Executor.Failure.materialFinalizerRejected(
+                    stageIndex: 1,
+                    effect: .init(
+                        layerID: 7,
+                        effectIndex: 4,
+                        descriptorID: "fixture-effect"
+                    ),
                     nodeIndex: 3,
                     materialOrdinal: 2,
                     failure: .init(
@@ -3056,7 +3062,9 @@ private enum Harness {
                         details: ["g_Test[0] bad/field"]
                     )
                 ).rawValue
-                    == "node-3-material-2-finalizer-uniform-"
+                    == "stage-1-layer-7-effect-4-descriptor-"
+                        + "6de7b3207797"
+                        + "-node-3-material-2-finalizer-uniform-"
                         + "uniformBindingInvalid-detail-g_Test_0__bad_field",
             "missingTemplateRejected": missingCapabilities.claim(ordinaryChain) == nil,
             "nonOverwriteRejectedBeforeFrame": nonOverwriteCapabilities.claim(

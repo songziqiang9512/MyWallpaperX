@@ -340,8 +340,12 @@ extension SceneResolvedMaterialGraphExecutor.Failure {
         case .historyRejected: "history-rejected"
         case .graphPublicationRejected: "graph-publication-rejected"
         case .graphStructureRejected: "graph-structure-rejected"
-        case let .materialFinalizerRejected(nodeIndex, ordinal, failure):
-            "node-\(nodeIndex)-material-\(ordinal)-finalizer-"
+        case let .materialFinalizerRejected(
+            stageIndex, effect, nodeIndex, ordinal, failure
+        ):
+            "stage-\(stageIndex)-layer-\(effect.layerID)-effect-\(effect.effectIndex)-"
+                + "descriptor-\(Self.descriptorDigest(effect.descriptorID))-"
+                + "node-\(nodeIndex)-material-\(ordinal)-finalizer-"
                 + "\(failure.phase.rawValue)-\(failure.code.rawValue)"
                 + Self.detailSuffix(failure.boundedDetails.first)
         case .materialPassEncoderRejected: "material-pass-encoder-rejected"
@@ -371,5 +375,9 @@ extension SceneResolvedMaterialGraphExecutor.Failure {
             }
         }
         return "-detail-" + String(characters)
+    }
+
+    private static func descriptorDigest(_ value: String) -> String {
+        String(SceneShaderStableDigest.hash(value).prefix(12))
     }
 }
