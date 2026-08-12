@@ -4962,24 +4962,7 @@ utility layer 763: skippedHidden kind=composition
         self.assertIsNone(benchmark.authored_effect_graph_pulse_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_godrays_count(""))
 
-    def test_image_blend_runtime_pins_planned_and_completed_consumers(self) -> None:
-        metrics = benchmark.image_blend_runtime_metrics(
-            "imageBlendPlannedCount: 1\n",
-            "phase=image-blend layer=1509 status=succeeded\n",
-        )
-        self.assertEqual(metrics["planned"], 1)
-        self.assertEqual(metrics["succeeded_layer_ids"], [1509])
-        self.assertEqual(
-            benchmark.image_blend_runtime_failures(
-                {
-                    "expected_image_blend_planned": 1,
-                    "required_image_blend_succeeded_layer_ids": [1509],
-                },
-                metrics,
-            ),
-            [],
-        )
-
+    def test_named_target_runtime_pins_completed_consumers(self) -> None:
         named_metrics = benchmark.named_target_capture_execution_metrics(
             "phase=named-target-capture layer=125 status=failed\n"
             "phase=named-target-capture layer=125 status=succeeded\n"

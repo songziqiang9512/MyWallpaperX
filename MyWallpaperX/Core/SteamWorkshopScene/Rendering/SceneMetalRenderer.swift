@@ -199,12 +199,6 @@ struct SceneMetalRenderer {
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     continue
                 }
-                let preparedTexture = dependencyRuntime.preparedSourceTexture(
-                    for: layer.id,
-                    sourceTexture: texture,
-                    textureRegistry: textureRegistry,
-                    mainPass: mainPass
-                )
                 let layerAlpha = SceneDynamicLayerValues.alpha(
                     layerID: layer.id, authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
@@ -227,8 +221,11 @@ struct SceneMetalRenderer {
                 )
                 var request = SceneImageLayerDrawRequest(
                     layer: layer,
-                    texture: preparedTexture,
-                    baseTextureCandidate: imageTextures.candidate(for: layer.id, matching: preparedTexture),
+                    texture: texture,
+                    baseTextureCandidate: imageTextures.candidate(
+                        for: layer.id,
+                        matching: texture
+                    ),
                     masks: effectMasks(for: layer.id, in: effectTextures),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
                     mvp: mvp,

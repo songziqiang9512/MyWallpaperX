@@ -244,7 +244,7 @@ Combo option 的显示 label 与 hidden value 是两个字段；binding、Displa
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
 | `texture` / observed `scenetexture` identity | `L1` | 两种 raw type 归一并保留 runtimeType | 只证明当前 parser 兼容归一，不宣称所有版本 schema 等价 |
-| PNG/JPEG picker/bookmark/provider | `L3` | security scope、decode、per-screen upload 和受限 static image-blend consumer；[E-PROVIDER](runtime-evidence-index.md#e-provider) | cancellation、更多格式和通用 material |
+| PNG/JPEG picker/bookmark/provider | `L3` | security scope、decode、per-screen upload，以及由现役authored-effect catalog授权的bounded Blend/property texture consumer；B22已删除独立ImageBlend plan/runtime及其额外property execution授权，见[E-PROVIDER](runtime-evidence-index.md#e-provider)与[E-R4-B22-INDEPENDENT-IMAGE-BLEND-RETIREMENT](runtime-evidence-index.md#e-r4-b22-independent-image-blend-retirement) | cancellation、更多格式和通用 material；普通authored Blend不外推generic consumer |
 | authored texture fallback | `L3 bounded` | 现役受限 consumer与R3 material contract只在选中property identity被生产者**显式发布为absent**时回退作者纹理；missing state、pending、unavailable、ready publication不完整或identity不匹配均失败关闭，不能把故障解释成“用户未选择”；[E-PROVIDER](runtime-evidence-index.md#e-provider)、[E-MATERIAL-PROGRAM](runtime-evidence-index.md#e-material-program) | 推广至image albedo/effect mask/particle/material GPU consumer，并补更多provider lifecycle门 |
 | generic image/video replacement targets | `L0` | effect mask、particle texture、video 和普通 albedo 没有通用 consumer | target/slot identity、自动尺寸映射、格式、generation 和 teardown |
 

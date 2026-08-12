@@ -123,6 +123,7 @@ def swift_without_comments(text: str) -> str:
 def render_chain_authority_violations(
     source_root: Path,
     rules: list[dict[str, object]],
+    repository_root: Path | None = None,
 ) -> list[str]:
     violations: list[str] = []
     all_sources = sorted(source_root.rglob("*.swift"))
@@ -131,17 +132,30 @@ def render_chain_authority_violations(
         pattern = re.compile(str(rule["pattern"]), re.MULTILINE)
         allowed_files = [str(value) for value in rule["allowed_files"]]
         scope_files = [str(value) for value in rule.get("scope_files", [])]
+        rule_source_root = source_root
+        scan_root = rule.get("scan_root")
+        if scan_root is not None:
+            if repository_root is None:
+                violations.append(
+                    f"{rule_id}: scan_root requires an explicit repository root"
+                )
+                continue
+            rule_source_root = repository_root / str(scan_root)
         sources = (
-            [source_root / relative for relative in scope_files]
+            [rule_source_root / relative for relative in scope_files]
             if scope_files
-            else all_sources
+            else (
+                sorted(rule_source_root.rglob("*.swift"))
+                if scan_root is not None
+                else all_sources
+            )
         )
         matches_by_file: dict[str, int] = {}
         for source in sources:
             if not source.is_file():
                 violations.append(f"{rule_id}: scope file is missing: {source}")
                 continue
-            relative = source.relative_to(source_root).as_posix()
+            relative = source.relative_to(rule_source_root).as_posix()
             searchable = swift_without_comments(source.read_text(encoding="utf-8"))
             start_marker = rule.get("start_marker")
             end_marker = rule.get("end_marker")
@@ -181,6 +195,7 @@ def render_chain_authority_violations(
 def render_chain_completion_violations(
     source_root: Path,
     layout: dict[str, object],
+    repository_root: Path | None = None,
 ) -> list[str]:
     contract = layout["render_chain_authority_ratchet"]
     assert isinstance(contract, dict)
@@ -189,7 +204,11 @@ def render_chain_completion_violations(
     assert isinstance(rules, list)
     assert isinstance(states, dict)
 
-    violations = render_chain_authority_violations(source_root, rules)
+    violations = render_chain_authority_violations(
+        source_root,
+        rules,
+        repository_root,
+    )
     r4_state = str(states.get("r4"))
     r5_state = str(states.get("r5"))
     if r5_state in {"partial", "complete"} and r4_state != "complete":
@@ -366,7 +385,14 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             else:
                 self.assertIn(rule["completion_phase"], {"r4", "r5"})
                 self.assertEqual(rule["completion_target_occurrences"], 0)
-        violations = render_chain_authority_violations(SCENE_SOURCE_ROOT, rules)
+        image_blend_rule = rules_by_id["legacy-image-blend-product-owner"]
+        self.assertEqual(image_blend_rule.get("scan_root"), "MyWallpaperX")
+        self.assertNotIn("scope_files", image_blend_rule)
+        violations = render_chain_authority_violations(
+            SCENE_SOURCE_ROOT,
+            rules,
+            REPOSITORY_ROOT,
+        )
         self.assertEqual(
             violations,
             [],
@@ -375,7 +401,11 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
     def test_render_chain_declared_completion_state_meets_targets(self) -> None:
         layout = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))
-        violations = render_chain_completion_violations(SCENE_SOURCE_ROOT, layout)
+        violations = render_chain_completion_violations(
+            SCENE_SOURCE_ROOT,
+            layout,
+            REPOSITORY_ROOT,
+        )
         self.assertEqual(
             violations,
             [],
@@ -472,9 +502,17 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 "baseline_occurrences": 1,
                 "allowed_files": ["Selector.swift"],
             },
+            {
+                "id": "product-wide",
+                "pattern": r"RETIRED_OWNER",
+                "baseline_occurrences": 0,
+                "allowed_files": [],
+                "scan_root": "Product",
+            },
         ]
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            (root / "Product").mkdir()
             (root / "Owner.swift").write_text(
                 "OWNER()\n// OWNER() is documentation only.\n",
                 encoding="utf-8",
@@ -487,7 +525,10 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 'let path = "workshop/123/effect.json"\n',
                 encoding="utf-8",
             )
-            self.assertEqual(render_chain_authority_violations(root, rules), [])
+            self.assertEqual(
+                render_chain_authority_violations(root, rules, root),
+                [],
+            )
 
             (root / "Unexpected.swift").write_text(
                 'OWNER()\nlet path = "workshop/456/effect.json"\n',
@@ -497,10 +538,17 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 "enum Recovery {\n    case iris\n    case shine\n}\n",
                 encoding="utf-8",
             )
-            violations = render_chain_authority_violations(root, rules)
+            (root / "Product/Unexpected.swift").write_text(
+                "RETIRED_OWNER\n",
+                encoding="utf-8",
+            )
+            violations = render_chain_authority_violations(root, rules, root)
             self.assertTrue(any(value.startswith("owner:") for value in violations))
             self.assertTrue(any(value.startswith("recovery:") for value in violations))
             self.assertTrue(any(value.startswith("selector:") for value in violations))
+            self.assertTrue(
+                any(value.startswith("product-wide:") for value in violations)
+            )
 
     def test_render_chain_completion_distinguishes_inventory_from_retirement(self) -> None:
         rules = [

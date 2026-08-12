@@ -172,24 +172,11 @@ UTILITY_OWNER_AUTHORITY_SCALAR_EXPECTATIONS = (
     ("expected_utility_named_target_gaps", "utility_named_target_gaps"),
 )
 
-IMAGE_BLEND_OWNER_AUTHORITY_EXPECTATIONS = (
-    (
-        "expected_image_blend_planned",
-        "image_blend_planned",
-        "required_image_blend_succeeded_layer_ids",
-        "image_blend_succeeded_layer_ids",
-        "image_blend_failed_layer_ids",
-        "image blend",
-    ),
-)
-
 R4_OWNER_AUTHORITY_FATAL_REPORT_FAILURES = frozenset({
     "utility layer runtime evidence missing",
     "utility capture execution below planned count",
     "named target capture execution below planned count",
     "named target binding execution below planned count",
-    "image blend runtime evidence missing",
-    "image blend execution below planned count",
 })
 
 R4_OWNER_AUTHORITY_PRESERVED_EXPECTATION_KEYS = frozenset({
@@ -210,10 +197,7 @@ R4_OWNER_AUTHORITY_EXPECTATION_KEYS = frozenset({
     *(expectation.matrix_key for expectation in RESOLVED_MATERIAL_GRAPH_EXPECTATIONS),
     *(
         matrix_key
-        for expectation in (
-            *UTILITY_OWNER_AUTHORITY_EXPECTATIONS,
-            *IMAGE_BLEND_OWNER_AUTHORITY_EXPECTATIONS,
-        )
+        for expectation in UTILITY_OWNER_AUTHORITY_EXPECTATIONS
         for matrix_key in (expectation[0], expectation[2])
     ),
     *(matrix_key for matrix_key, _ in UTILITY_OWNER_AUTHORITY_SCALAR_EXPECTATIONS),
@@ -461,10 +445,7 @@ def owner_authority_plan_execution_values(result: dict) -> dict:
         success_runtime_key,
         failure_runtime_key,
         label,
-    ) in (
-        *UTILITY_OWNER_AUTHORITY_EXPECTATIONS,
-        *IMAGE_BLEND_OWNER_AUTHORITY_EXPECTATIONS,
-    ):
+    ) in UTILITY_OWNER_AUTHORITY_EXPECTATIONS:
         planned = _nonnegative_integer(
             runtime.get(plan_runtime_key),
             sample_id=sample_id,
@@ -1227,8 +1208,6 @@ def matrix_sample(result, old):
         "required_utility_capture_succeeded_layer_ids": runtime["utility_capture_succeeded_layer_ids"],
         "required_named_target_capture_succeeded_layer_ids": runtime["named_target_capture_succeeded_layer_ids"],
         "required_named_target_binding_succeeded_layer_ids": runtime["named_target_binding_succeeded_layer_ids"],
-        "expected_image_blend_planned": runtime["image_blend_planned"],
-        "required_image_blend_succeeded_layer_ids": runtime["image_blend_succeeded_layer_ids"],
         "expected_authored_effect_graph_succeeded_layer_ids": runtime["authored_effect_graph_succeeded_layer_ids"],
         "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": runtime["authored_effect_graph_legacy_blur_blocked_layer_ids"],
         "expected_authored_effect_graph_chain_count": runtime["authored_effect_graph_chain_count"],

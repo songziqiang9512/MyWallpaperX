@@ -71,7 +71,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneFilmGrainPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
-    SOURCE_ROOT / "Rendering/SceneImageBlendPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
     SOURCE_ROOT / "Effects/SceneGradientColorPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBloomPipeline.swift",
@@ -1871,9 +1870,6 @@ enum Harness {
         guard let pipeline = SceneImageLayerPipeline(device: device) else {
             throw HarnessError.imagePipelineUnavailable
         }
-        guard let imageBlendPipeline = SceneImageBlendPipeline(device: device) else {
-            throw HarnessError.imageBlendPipelineUnavailable
-        }
         guard let compositor = SceneImageLayerCompositor(device: device) else {
             throw HarnessError.compositorUnavailable
         }
@@ -2231,23 +2227,6 @@ enum Harness {
             sampledWidth: 1415,
             sampledHeight: 2047
         )
-        let imageBlend = try imageBlendPixel(
-            device: device,
-            queue: queue,
-            pipeline: imageBlendPipeline,
-            multiply: 1
-        )
-        let halfImageBlend = try imageBlendPixel(
-            device: device,
-            queue: queue,
-            pipeline: imageBlendPipeline,
-            multiply: 0.5
-        )
-        let partialAlphaImageBlend = try partialAlphaImageBlendPixel(
-            device: device,
-            queue: queue,
-            pipeline: imageBlendPipeline
-        )
         let standaloneGradientPixels = try gradientPixels(
             device: device,
             queue: queue,
@@ -2363,9 +2342,6 @@ enum Harness {
             "unsupportedFoliageFlags": unsupportedFoliage.flags.rawValue,
             "mappedMaskScale": [mappedMaskScale.x, mappedMaskScale.y],
             "decodedMappedScale": [decodedMappedScale.x, decodedMappedScale.y],
-            "imageBlendBGRA": imageBlend,
-            "halfImageBlendBGRA": halfImageBlend,
-            "partialAlphaImageBlendBGRA": partialAlphaImageBlend,
             "gradientTopBGRA": standaloneGradientPixels[0],
             "gradientBottomBGRA": standaloneGradientPixels[1],
             "clippedGradientTopBGRA": clippedGradientPixels[0],
@@ -3321,71 +3297,6 @@ enum Harness {
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return pixel(target, x: 0, y: 0)
-    }
-
-    static func imageBlendPixel(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageBlendPipeline,
-        multiply: Float
-    ) throws -> [UInt8] {
-        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
-              let blend = makeTexture(device: device, size: 8, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
-              ),
-              let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: [0, 0, 0, 0])
-        fill(blend, bgra: [192, 32, 64, 255])
-        guard pipeline.encode(
-            source: source,
-            blend: blend,
-            target: target,
-            multiply: multiply,
-            alphaMultiply: 1,
-            writesAlpha: true,
-            commandBuffer: commandBuffer
-        ) else {
-            throw HarnessError.encoderUnavailable
-        }
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
-        return pixel(target, x: 4, y: 4)
-    }
-
-    static func partialAlphaImageBlendPixel(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageBlendPipeline
-    ) throws -> [UInt8] {
-        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
-              let blend = makeTexture(device: device, size: 8, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
-              ),
-              let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: [0, 0, 128, 128])
-        fill(blend, bgra: [128, 0, 0, 128])
-        guard pipeline.encode(
-            source: source,
-            blend: blend,
-            target: target,
-            multiply: 1,
-            alphaMultiply: 1,
-            writesAlpha: true,
-            commandBuffer: commandBuffer
-        ) else {
-            throw HarnessError.encoderUnavailable
-        }
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
-        return pixel(target, x: 4, y: 4)
     }
 
     static func gradientPixels(
@@ -7525,7 +7436,6 @@ enum Harness {
         case deviceUnavailable
         case queueUnavailable
         case imagePipelineUnavailable
-        case imageBlendPipelineUnavailable
         case compositorUnavailable
         case authoredBlendUnavailable
         case encoderUnavailable
@@ -7539,6 +7449,37 @@ enum Harness {
 
 
 class SceneFramebufferCaptureTests(unittest.TestCase):
+    def test_image_blend_product_owner_and_source_preparation_are_retired(
+        self,
+    ) -> None:
+        retired_paths = (
+            SOURCE_ROOT / "Rendering/SceneImageBlendRenderPlan.swift",
+            SOURCE_ROOT / "Rendering/SceneImageBlendRuntime.swift",
+            SOURCE_ROOT / "Rendering/SceneImageBlendPipeline.swift",
+        )
+        for path in retired_paths:
+            self.assertFalse(path.exists(), path)
+
+        product_root = REPOSITORY_ROOT / "MyWallpaperX"
+        product_source = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted(product_root.rglob("*.swift"))
+        )
+        for symbol in (
+            "SceneImageBlendRenderPlan",
+            "SceneImageBlendRuntime",
+            "SceneImageBlendPipeline",
+            "requiresSourcePreparation(",
+            "preparedSourceTexture(",
+        ):
+            self.assertNotIn(symbol, product_source)
+
+        dependency_runtime = (
+            SOURCE_ROOT / "RenderGraph/SceneDependencyFrameRuntime.swift"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("requiresSourcePreparation", dependency_runtime)
+        self.assertNotIn("preparedSourceTexture", dependency_runtime)
+
     def test_resolved_material_waits_for_base_source_before_runtime_begin(
         self,
     ) -> None:
@@ -8336,13 +8277,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
 
     def test_decoded_tex_does_not_reapply_removed_physical_padding(self) -> None:
         self.assertEqual(self.result["decodedMappedScale"], [1, 1])
-
-    def test_static_image_blend_writes_provider_color_and_alpha(self) -> None:
-        self.assert_pixel_close(self.result["imageBlendBGRA"], [192, 32, 64, 255])
-        self.assert_pixel_close(self.result["halfImageBlendBGRA"], [96, 16, 32, 128])
-        self.assert_pixel_close(
-            self.result["partialAlphaImageBlendBGRA"], [128, 0, 64, 192]
-        )
 
     def test_gradient_color_runs_before_dependency_clipping_and_preserves_alpha(self) -> None:
         self.assert_pixel_close(self.result["gradientTopBGRA"], [16, 0, 239, 255], 2)

@@ -430,7 +430,7 @@ Scene `Sound` 对象与 host spectrum provider 是两条合同。`mediaextension
 - color/alpha/format；
 - consumer slots。
 
-当前 v22 继承 typed registry 的 identity/status/resource generation/frame epoch。文件型第一切片仍只服务静态 image-blend；dynamic text 以 per-layer signature/generation、串行异步 raster、stale cancellation 和 last-ready fallback 消费同一生命周期边界。embedded MP4 已有 launch-scoped publication generation；bounded media cover现只保留current `$mediaThumbnail` content generation、旧request协作取消、pending last-ready与clear/failure fallback。B20已删除previous payload/identity/publication和fixed gradient transition consumer。它们尚未抽成所有provider共用的status/metadata/cancel/teardown，也不证明Texture Variants、通用video/material consumer、live system-media adapter或SceneScript可用。
+当前 v22 继承 typed registry 的 identity/status/resource generation/frame epoch。文件型第一切片继续服务由现役authored-effect catalog授权的bounded Blend/property texture consumer；B22已删除独立ImageBlend plan/runtime/pipeline、source preparation及额外property execution授权，registry selection数据面暂留为R5清理面，不再自行取得产品owner。dynamic text 以 per-layer signature/generation、串行异步 raster、stale cancellation 和 last-ready fallback 消费同一生命周期边界。embedded MP4 已有 launch-scoped publication generation；bounded media cover现只保留current `$mediaThumbnail` content generation、旧request协作取消、pending last-ready与clear/failure fallback。B20已删除previous payload/identity/publication和fixed gradient transition consumer。它们尚未抽成所有provider共用的status/metadata/cancel/teardown，也不证明Texture Variants、通用video/material consumer、live system-media adapter或SceneScript可用。
 
 ## 8. Puppet、3D 和 Lighting
 

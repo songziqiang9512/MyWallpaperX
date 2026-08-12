@@ -33,9 +33,9 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
     }
 }
 
-/// Transitional ordered selection used by the bounded Image Blend consumer.
-/// A producer must explicitly publish `absent` before resolution may advance
-/// to the next authored candidate.
+/// Transitional ordered selection retained for generic legacy provider
+/// resolution until R5 cleanup. A producer must explicitly publish `absent`
+/// before resolution may advance to the next authored candidate.
 nonisolated struct SceneFrameTextureSelection: Hashable {
     let candidates: [SceneFrameTextureIdentity]
 

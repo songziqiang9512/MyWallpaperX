@@ -13,7 +13,6 @@ final class SceneDependencyFrameRuntime {
 
     private let plan: SceneDependencyRenderPlan
     private let targetPool: SceneNamedRenderTargetPool
-    private let imageBlendRuntime: SceneImageBlendRuntime?
     private let captureTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-capture")
     private let bindingTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-binding")
     private var reservationFrameEpoch: UInt64?
@@ -31,13 +30,6 @@ final class SceneDependencyFrameRuntime {
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         )
         self.targetPool = SceneNamedRenderTargetPool(device: device)
-        self.imageBlendRuntime = SceneImageBlendRuntime(
-            plan: SceneImageBlendRenderPlan(
-                descriptor: descriptor,
-                visibleLayerIDs: visibleLayerIDs
-            ),
-            device: device
-        )
     }
 
     func requiresEffect(for consumerLayerID: Int) -> Bool {
@@ -46,10 +38,6 @@ final class SceneDependencyFrameRuntime {
 
     func requiresCapture(for providerLayerID: Int) -> Bool {
         plan.requiredProviderLayerIDs.contains(providerLayerID)
-    }
-
-    func requiresSourcePreparation(for consumerLayerID: Int) -> Bool {
-        imageBlendRuntime?.requiresPreparation(for: consumerLayerID) == true
     }
 
     func reserveEffectInput(
@@ -132,20 +120,6 @@ final class SceneDependencyFrameRuntime {
             frameEpoch: frameEpoch,
             texture: texture
         )
-    }
-
-    func preparedSourceTexture(
-        for consumerLayerID: Int,
-        sourceTexture: MTLTexture,
-        textureRegistry: SceneFrameTextureRegistry,
-        mainPass: SceneMainPassEncoder
-    ) -> MTLTexture {
-        imageBlendRuntime?.preparedTexture(
-            for: consumerLayerID,
-            sourceTexture: sourceTexture,
-            textureRegistry: textureRegistry,
-            mainPass: mainPass
-        ) ?? sourceTexture
     }
 
     func recordBindingIfRequired(

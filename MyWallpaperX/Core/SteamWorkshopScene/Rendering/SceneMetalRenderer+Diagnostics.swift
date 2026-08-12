@@ -8,10 +8,6 @@ extension SceneMetalRenderer {
             resolvedMaterialLayerIDs:
                 imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
         )
-        let imageBlendLines = SceneImageBlendRenderPlan(
-            descriptor: renderDescriptor,
-            visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
-        ).reportLines()
         let candidateCount = renderDescriptor.layers.filter {
             $0.contentKind == "spotLight"
         }.count
@@ -39,7 +35,7 @@ extension SceneMetalRenderer {
         )
         let dispositionLines = dispositionCatalog.reportLines
             + (imageCompositor.resolvedMaterialRuntime?.executionEvidenceReportLines ?? [])
-        return utilityLines + imageBlendLines + authoredEffectCatalog.reportLines
+        return utilityLines + authoredEffectCatalog.reportLines
             + dispositionLines
             + spotLightRuntime.reportLines(candidateCount: candidateCount)
     }

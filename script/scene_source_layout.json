@@ -34,8 +34,8 @@
   ],
   "render_chain_authority_ratchet": {
     "completion_state": {
-      "r4": "partial",
-      "r5": "not_started"
+      "r4": "complete",
+      "r5": "partial"
     },
     "rules": [
       {
@@ -297,6 +297,17 @@
         "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,
+        "allowed_files": []
+      },
+      {
+        "id": "legacy-image-blend-product-owner",
+        "role": "retirement",
+        "description": "The retired independent Image Blend plan and runtime owner must not be reintroduced anywhere in Scene product code.",
+        "pattern": "(?:SceneImageBlend(?:RenderPlan|Runtime|Pipeline)|requiresSourcePreparation\\(|preparedSourceTexture\\()",
+        "baseline_occurrences": 0,
+        "completion_phase": "r4",
+        "completion_target_occurrences": 0,
+        "scan_root": "MyWallpaperX",
         "allowed_files": []
       },
       {

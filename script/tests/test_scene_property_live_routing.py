@@ -189,14 +189,15 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         self.assertIn("authoredEffectCatalog.liveConsumerTargets.contains(.effectConstant(", support)
         self.assertNotIn('(\"localcontrast\", [\"strength\"])', self.service)
 
-    def test_authored_texture_properties_require_the_strict_execution_catalog(self) -> None:
+    def test_authored_texture_properties_use_only_the_strict_execution_catalog(self) -> None:
         context = method_body(self.service, "func scenePropertyContext(")
         self.assertIn(
             "actionableKeys.formUnion(authoredEffectCatalog.executedUserPropertyKeys)",
             context,
         )
         self.assertNotIn("legacyEffectFallbackSuppressedLayerIDs", context)
-        self.assertIn("actionableKeys.formUnion(blendPlan.executedUserPropertyKeys)", context)
+        self.assertNotIn("blendPlan", context)
+        self.assertNotIn("SceneImageBlendRenderPlan", self.service)
 
     def test_resolved_material_property_targets_remain_live_after_owner_transfer(self) -> None:
         consumers = method_body(self.live_consumers, "static func activeLiveConsumerTargets(")

@@ -476,9 +476,6 @@ def r4_owner_authority_result(
         "utility_named_target_gaps": 3,
         "named_target_binding_succeeded_layer_ids": [9],
         "named_target_binding_failed_layer_ids": [],
-        "image_blend_planned": 1,
-        "image_blend_succeeded_layer_ids": [10],
-        "image_blend_failed_layer_ids": [],
         "resolved_material_graph_execution": resolved_material_graph_runtime([1]),
     })
     if has_effect_execution_demand:
@@ -1192,9 +1189,6 @@ class SceneMatrixContractTests(unittest.TestCase):
             "authored_effect_graph_chain_count is invalid": lambda result: result[
                 "runtime"
             ].pop("authored_effect_graph_chain_count"),
-            "image_blend_succeeded_layer_ids is invalid": lambda result: result[
-                "runtime"
-            ].update({"image_blend_succeeded_layer_ids": [True]}),
             "utility capture execution failed": lambda result: result[
                 "runtime"
             ].update({"utility_capture_failed_layer_ids": [7]}),

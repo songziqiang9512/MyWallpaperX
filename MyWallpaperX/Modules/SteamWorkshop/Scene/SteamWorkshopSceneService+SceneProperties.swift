@@ -112,12 +112,7 @@ extension SteamWorkshopService {
                 ) ? binding.reference.key : nil
             }
         )
-        let blendPlan = SceneImageBlendRenderPlan(
-            descriptor: renderDescriptor,
-            visibleLayerIDs: Set(renderDescriptor.layers.map(\.id))
-        )
         actionableKeys.formUnion(authoredEffectCatalog.executedUserPropertyKeys)
-        actionableKeys.formUnion(blendPlan.executedUserPropertyKeys)
         let catalog = project.userProperties
         let context = SteamWorkshopScenePropertyContext(
             catalog: catalog,
