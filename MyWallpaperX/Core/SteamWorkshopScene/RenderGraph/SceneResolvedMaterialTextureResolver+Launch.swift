@@ -53,15 +53,15 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 }
                 if reachesFallback, let sampler {
                     switch sampler.defaultTexture {
-                    case let .asset(path):
+                    case let .asset(path) where sampler.readinessCombo == nil:
                         let reference = Template.TextureReference.asset(path)
                         guard sampler.purpose(for: reference) != nil else {
                             throw launchFailure(.texturePurposeUnproven, slot: index)
                         }
                         required |= bit
-                    case .internalTarget:
+                    case .internalTarget where sampler.readinessCombo == nil:
                         throw launchFailure(.textureBindingInvalid, slot: index)
-                    case nil:
+                    case .asset, .internalTarget, nil:
                         break
                     }
                     if sampler.usesGraphInputMaterialAlias,
@@ -76,7 +76,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     }
                 }
                 if required & bit == 0, hasOptionalSource {
-                    if sampler == nil {
+                    if sampler == nil || sampler?.readinessCombo != nil {
                         optional |= bit
                     } else {
                         required |= bit
@@ -184,15 +184,15 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 }
                 if let sampler {
                     switch sampler.defaultTexture {
-                    case let .asset(path):
+                    case let .asset(path) where sampler.readinessCombo == nil:
                         possible.formUnion(formats(
                             for: .asset(path),
                             sampler: sampler,
                             assetFormatFacts: assetFormatFacts
                         ))
-                    case .internalTarget:
+                    case .internalTarget where sampler.readinessCombo == nil:
                         possible.insert(nil)
-                    case nil:
+                    case .asset, .internalTarget, nil:
                         break
                     }
                     if sampler.usesGraphInputMaterialAlias {

@@ -44,6 +44,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
@@ -176,6 +177,30 @@ void main() {
     float mask = texSample2D(g_Texture3, v_TexCoord).r;
     color.a *= mask * g_Gain;
     gl_FragColor = color;
+}
+"""
+
+private let overlayAlphaBlendFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform float g_Multiply;
+uniform float g_AlphaMultiply;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return mix(base, (blend), opacity);
+}
+void main() {
+    vec4 base = texSample2D(g_Texture0, v_TexCoord);
+    vec4 overlay = texSample2D(g_Texture1, v_TexCoord);
+    float weight = g_Multiply * overlay.a;
+    base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight);
+    base.a = overlay.a * g_AlphaMultiply;
+    gl_FragColor = base;
 }
 """
 
@@ -1105,6 +1130,71 @@ private enum Harness {
             }
         }
 
+        let overlayBase = texture(
+            device: device,
+            width: 1,
+            height: 1,
+            fill: [128, 0, 0, 128]
+        )
+        let overlayData = texture(
+            device: device,
+            width: 1,
+            height: 1,
+            fill: [0, 255, 0, 64]
+        )
+        let overlayDataSlot = slot(
+            device: device,
+            index: 1,
+            texture: overlayData,
+            content: .data,
+            purpose: .preservedChannels,
+            sampling: .directImageFallback,
+            marker: 41
+        )
+        let overlayProgram = program(
+            device: device,
+            marker: 40,
+            outputSlot: 0,
+            slot0Texture: overlayBase,
+            fragmentSource: overlayAlphaBlendFragment,
+            additionalSlots: [overlayDataSlot],
+            uniformValues: [
+                "g_Multiply": bytes(Float(0.5)),
+                "g_AlphaMultiply": bytes(Float(0.5)),
+            ]
+        )
+        let overlayColorSlot = slot(
+            device: device,
+            index: 1,
+            texture: overlayData,
+            content: .color(.resolved(.premultipliedAlpha)),
+            purpose: .premultipliedColor,
+            sampling: .directImageFallback,
+            marker: 42
+        )
+        let overlayColorRejected = program(
+            device: device,
+            marker: 43,
+            outputSlot: 0,
+            slot0Texture: overlayBase,
+            fragmentSource: overlayAlphaBlendFragment,
+            additionalSlots: [overlayColorSlot],
+            uniformValues: [
+                "g_Multiply": bytes(Float(0.5)),
+                "g_AlphaMultiply": bytes(Float(0.5)),
+            ]
+        ) == nil
+        let overlayResult = render(
+            overlayProgram,
+            encoder: encoder,
+            queue: queue,
+            target: target(device: device, width: 1, height: 1)
+        )
+        let overlayBoundaryPixelsMatch = closePixels(
+            overlayResult.pixels,
+            [28, 4, 0, 32]
+        )
+
         let flowRate: Float = 0.33
         let flowMagnitude: Float = 0.45
         let flowFeather: Float = 0.159
@@ -1757,6 +1847,11 @@ private enum Harness {
             "maskedBoundaryGPUCompleted": maskedBoundaryGPUCompleted,
             "maskedBoundaryPixelsMatch": maskedBoundaryPixelsMatch,
             "secondColorRejected": secondColorRejected,
+            "overlayBoundaryPrepared": overlayResult.prepared,
+            "overlayBoundaryEncoded": overlayResult.encoded,
+            "overlayBoundaryGPUCompleted": overlayResult.completed,
+            "overlayBoundaryPixelsMatch": overlayBoundaryPixelsMatch,
+            "overlayColorRejectedUpstream": overlayColorRejected,
             "boundedFlow2DPrepared": flow2DAtTime.prepared
                 && flow2DAtOtherTime.prepared,
             "boundedFlow2DEncoded": flow2DAtTime.encoded

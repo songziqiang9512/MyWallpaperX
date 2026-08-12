@@ -64,6 +64,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
@@ -233,6 +234,7 @@ private func fragmentSource(
     arithmetic: Bool = false,
     audioSpectrum: Bool = false,
     maskedAlpha: Bool = false,
+    overlayAlphaBlend: Bool = false,
     optionalMask: Bool = false,
     stageLocalUniforms: Bool = false,
     runtimeLoop: Bool = false,
@@ -250,7 +252,16 @@ private func fragmentSource(
         ? #"// [COMBO] {"combo":"EXTRA","default":1}"#
         : ""
     let output: String
-    if maskedAlpha {
+    if overlayAlphaBlend {
+        output = """
+        vec4 base = texSample2D(g_Texture0, v_TexCoord);
+        vec4 overlay = texSample2D(g_Texture1, v_TexCoord);
+        float weight = g_Multiply * overlay.a;
+        base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight);
+        base.a = overlay.a * g_AlphaMultiply;
+        gl_FragColor = base;
+        """
+    } else if maskedAlpha {
         let mask = optionalMask
             ? """
             #if MASK
@@ -283,6 +294,24 @@ private func fragmentSource(
     }
     let alphaUniform = maskedAlpha
         ? "uniform float g_UserAlpha; // {\"material\":\"alpha\",\"default\":1.0}"
+        : ""
+    let overlayUniforms = overlayAlphaBlend
+        ? """
+        uniform float g_Multiply; // {"material":"multiply","default":0.5}
+        uniform float g_AlphaMultiply; // {"material":"alpha","default":0.5}
+        """
+        : ""
+    let overlayHelper = overlayAlphaBlend
+        ? """
+        vec3 ApplyBlending(
+            const int mode,
+            in vec3 base,
+            in vec3 blend,
+            in float opacity
+        ) {
+            return mix(base, (blend), opacity);
+        }
+        """
         : ""
     let audioUniforms = audioSpectrum
         ? """
@@ -325,9 +354,11 @@ private func fragmentSource(
     \(audioUniforms)
     uniform vec3 u_Tint;\(uniformAnnotation)
     \(alphaUniform)
+    \(overlayUniforms)
     uniform float g_Time; // {"default":99}
     \(stageLocalUniform)
     \(runtimeLoopUniform)
+    \(overlayHelper)
     void main() {
         \(stageLocalProbe)
         \(runtimeLoopProbe)
@@ -349,6 +380,7 @@ private func contract(
     arithmetic: Bool = false,
     audioSpectrum: Bool = false,
     maskedAlpha: Bool = false,
+    overlayAlphaBlend: Bool = false,
     optionalMask: Bool = false,
     deadMaskCoordinates: Bool = false,
     stageLocalUniforms: Bool = false,
@@ -396,6 +428,7 @@ private func contract(
                 arithmetic: arithmetic,
                 audioSpectrum: audioSpectrum,
                 maskedAlpha: maskedAlpha,
+                overlayAlphaBlend: overlayAlphaBlend,
                 optionalMask: optionalMask,
                 stageLocalUniforms: stageLocalUniforms,
                 runtimeLoop: runtimeLoop,
@@ -951,6 +984,31 @@ private func samplerPurposeToken(
     }
 }
 
+private func samplerReadinessSchemaToken(_ metadata: String) -> String {
+    let shader = contract(
+        revision: "sampler-readiness-schema",
+        samplerMetadata: metadata
+    )
+    guard case let .accepted(prepared) =
+            SceneAuthoredShaderPreparation.prepareShaderStages(
+                contract: shader,
+                combos: [:],
+                textureReadiness: [0: true]
+            ) else { return "preparation-failed" }
+    do {
+        guard let sampler = try SceneResolvedMaterialShaderSchema
+            .activeSamplers(prepared)[0] else { return "missing" }
+        let defaultToken: String = switch sampler.defaultTexture {
+        case .asset: "asset"
+        case .internalTarget: "internal"
+        case nil: "none"
+        }
+        return "\(sampler.readinessCombo ?? "none")|\(defaultToken)"
+    } catch {
+        return "schema-invalid"
+    }
+}
+
 private func implicitFramebufferProjectionToken(
     defaultAssetPath: String
 ) -> String {
@@ -1456,17 +1514,89 @@ private enum Harness {
                 && program.semanticIdentity.colorContract.fragmentOutput
                     == .premultipliedAlpha
         }()
-        let optionalMaskProgram = finalize(
-            shader: contract(
-                revision: "optional-mask-with-dead-coordinates",
-                secondSamplerMetadata:
-                    #"{"mode":"opacitymask","combo":"MASK"}"#,
-                maskedAlpha: true,
-                optionalMask: true,
-                deadMaskCoordinates: true
-            ),
+        let overlayPath = SceneVFSAssetPath("textures/overlay-data.tex")!
+        let overlayIdentity = SceneFrameTextureIdentity.asset(.init(
+            path: overlayPath,
+            purpose: .preservedChannels
+        ))
+        let overlayShader = contract(
+            revision: "overlay-alpha-blend",
+            secondSamplerMetadata: #"{"mode":"rgbmask"}"#,
+            overlayAlphaBlend: true
+        )
+        let overlayProgram = finalize(
+            shader: overlayShader,
             device: device,
             includePrimaryCandidate: false,
+            secondReference: .asset(overlayPath),
+            additionalEntries: [
+                overlayIdentity: readyStatus(
+                    device,
+                    identity: overlayIdentity,
+                    purpose: .preservedChannels,
+                    content: .data
+                ),
+            ],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let overlayDataTyped: Bool = {
+            guard case let .success(program) = overlayProgram,
+                  let overlay = program.textureSlots[1],
+                  overlay.expectedPurpose == .preservedChannels,
+                  overlay.resource.publication.candidate.purpose
+                    == .preservedChannels,
+                  case .data = overlay.resource.publication.candidate.content,
+                  case .straightAlpha(0) =
+                    program.semanticIdentity.shader.colorTransfer else {
+                return false
+            }
+            return program.frontendProgram.textureBindings.map(\.slot) == [0, 1]
+                && program.semanticIdentity.colorContract.fragmentOutput
+                    == .premultipliedAlpha
+        }()
+        let overlayColorAuxiliary = finalize(
+            shader: overlayShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(overlayPath),
+            additionalEntries: [
+                overlayIdentity: readyStatus(
+                    device,
+                    identity: overlayIdentity,
+                    purpose: .preservedChannels,
+                    content: .color(.resolved(.premultipliedAlpha))
+                ),
+            ],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let optionalDefaultPath = SceneVFSAssetPath(
+            "textures/optional-default-mask.tex"
+        )!
+        let optionalDefaultIdentity = SceneFrameTextureIdentity.asset(.init(
+            path: optionalDefaultPath,
+            purpose: .mask
+        ))
+        let optionalDefaultEntry = readyStatus(
+            device,
+            identity: optionalDefaultIdentity,
+            purpose: .mask,
+            content: .data
+        )
+        let optionalMaskShader = contract(
+            revision: "optional-mask-with-default",
+            secondSamplerMetadata:
+                #"{"mode":"opacitymask","combo":"MASK","default":"textures/optional-default-mask.tex"}"#,
+            maskedAlpha: true,
+            optionalMask: true,
+            deadMaskCoordinates: true
+        )
+        let optionalMaskProgram = finalize(
+            shader: optionalMaskShader,
+            device: device,
+            includePrimaryCandidate: false,
+            additionalEntries: [
+                optionalDefaultIdentity: optionalDefaultEntry,
+            ],
             uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
             implicitFramebufferIdentity: graphTexture()
         )
@@ -1482,18 +1612,12 @@ private enum Harness {
                 }
         }()
         let optionalMaskWithResource = finalize(
-            shader: contract(
-                revision: "optional-mask-with-ready-resource",
-                secondSamplerMetadata:
-                    #"{"mode":"opacitymask","combo":"MASK"}"#,
-                maskedAlpha: true,
-                optionalMask: true,
-                deadMaskCoordinates: true
-            ),
+            shader: optionalMaskShader,
             device: device,
             includePrimaryCandidate: false,
             secondReference: .asset(maskedPath),
             additionalEntries: [
+                optionalDefaultIdentity: optionalDefaultEntry,
                 maskedIdentity: readyStatus(
                     device,
                     identity: maskedIdentity,
@@ -1507,6 +1631,9 @@ private enum Harness {
         let optionalMaskWithResourceAccepted: Bool = {
             guard case let .success(program) = optionalMaskWithResource,
                   let mask = program.textureSlots[1],
+                  case let .asset(reference) = mask.reference,
+                  reference == maskedPath,
+                  mask.diagnosticSelectionProvenance == .authored(.instance),
                   mask.expectedPurpose == .mask,
                   case .data = mask.resource.publication.candidate.content else {
                 return false
@@ -1516,6 +1643,35 @@ private enum Harness {
                     $0.name == "g_Texture1Resolution"
                 }
         }()
+        let optionalMaskPending = finalize(
+            shader: optionalMaskShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                optionalDefaultIdentity: optionalDefaultEntry,
+                maskedIdentity: .pending,
+            ],
+            uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let optionalMaskWrongPurpose = finalize(
+            shader: optionalMaskShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                optionalDefaultIdentity: optionalDefaultEntry,
+                maskedIdentity: readyStatus(
+                    device,
+                    identity: maskedIdentity,
+                    purpose: .straightAlbedo,
+                    content: .color(.resolved(.straightAlpha))
+                ),
+            ],
+            uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
+            implicitFramebufferIdentity: graphTexture()
+        )
         let optionalUntypedMask = finalize(
             shader: contract(
                 revision: "optional-mask-with-untyped-resource",
@@ -2048,7 +2204,14 @@ private enum Harness {
             "maskedPending": failureToken(maskedPending),
             "maskedWrongPurpose": failureToken(maskedWrongPurpose),
             "maskedColorAuxiliary": failureToken(maskedColorAuxiliary),
+            "overlayColorAuxiliary": failureToken(overlayColorAuxiliary),
             "optionalUntypedMask": failureToken(optionalUntypedMask),
+            "optionalMaskPendingDoesNotUseDefault": failureToken(
+                optionalMaskPending
+            ),
+            "optionalMaskWrongPurposeDoesNotUseDefault": failureToken(
+                optionalMaskWrongPurpose
+            ),
         ]
 
         let result: [String: Any] = [
@@ -2069,6 +2232,7 @@ private enum Harness {
                 "userReferenceTyped": failureToken(propertyProgram) == "success",
                 "providerReferenceTyped": failureToken(providerProgram) == "success",
                 "maskedDynamicAlphaEncoded": maskedDynamicAlphaEncoded,
+                "overlayDataTyped": overlayDataTyped,
                 "optionalMaskWithoutResourceAccepted":
                     optionalMaskWithoutResourceAccepted,
                 "optionalMaskWithResourceAccepted":
@@ -2184,6 +2348,14 @@ private enum Harness {
                 "normalFormat": samplerPurposeToken(#"{"format":"normalmap"}"#),
                 "genericFormat": samplerPurposeToken(#"{"format":"rgba8"}"#),
                 "unknownMode": samplerPurposeToken(#"{"mode":"mystery"}"#),
+            ],
+            "samplerSchemaOrigin": [
+                "unmarkedReadiness": samplerReadinessSchemaToken(
+                    #"{"mode":"opacitymask","combo":"MASK","default":"textures/mask.tex"}"#
+                ),
+                "authoredMarker": samplerReadinessSchemaToken(
+                    #"[COMBO] {"combo":"AUTHORED","default":1}"#
+                ),
             ],
             "implicitFramebufferSchema": [
                 "registeredStockDefault": implicitFramebufferProjectionToken(
@@ -2334,6 +2506,12 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "authoredFailureDoesNotUseShaderDefault": (
                 "texture/resourceSnapshotUnresolved"
             ),
+            "optionalMaskPendingDoesNotUseDefault": (
+                "texture/resourceSnapshotUnresolved"
+            ),
+            "optionalMaskWrongPurposeDoesNotUseDefault": (
+                "texture/textureMetadataIncomplete"
+            ),
         }
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},
@@ -2386,6 +2564,15 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             },
         )
 
+    def test_only_unmarked_sampler_combo_becomes_readiness_schema(self) -> None:
+        self.assertEqual(
+            self.result["samplerSchemaOrigin"],
+            {
+                "unmarkedReadiness": "MASK|asset",
+                "authoredMarker": "none|none",
+            },
+        )
+
     def test_snapshot_identity_and_metadata_states_remain_distinct(self) -> None:
         expected = {
             "missingGraphIdentity": "texture/resourceSnapshotUnresolved",
@@ -2431,6 +2618,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "dataGraphInput": "texture/textureMetadataIncomplete",
             "arithmeticOutput": "color/colorContractUnproven",
             "maskedColorAuxiliary": "texture/textureMetadataIncomplete",
+            "overlayColorAuxiliary": "texture/textureMetadataIncomplete",
         }
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},

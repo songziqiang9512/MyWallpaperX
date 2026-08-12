@@ -40,6 +40,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
@@ -63,6 +64,14 @@ private func fragment(_ body: String) -> String {
         in float opacity
     ) {
         return mix(base, (blend), opacity);
+    }
+    vec3 AdditiveBlend(
+        const int mode,
+        in vec3 base,
+        in vec3 blend,
+        in float opacity
+    ) {
+        return base + blend * opacity;
     }
     float PreserveAlpha(float base, float changed, float opacity) {
         float preserved = base;
@@ -241,6 +250,88 @@ enum Harness {
                 "scene.rgb, scene.a), finalColor.rgb, weight); " +
                 "float alpha = weight; " +
                 "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "overlayAlphaBlend": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 overlay = texSample2D(g_Texture1, v_TexCoord); " +
+                "float mask = 1.0; " +
+                "float weight = mask * g_ScalarWeight * overlay.a; " +
+                "base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight); " +
+                "base.a = overlay.a * g_ScalarWeight; gl_FragColor = base;"
+            ),
+            "overlayAlphaBlendMetal": metal(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 overlay = texSample2D(g_Texture1, v_TexCoord); " +
+                "float mask = 1.0; " +
+                "float weight = mask * g_ScalarWeight * overlay.a; " +
+                "base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight); " +
+                "base.a = overlay.a * g_ScalarWeight; gl_FragColor = base;"
+            ),
+            "overlayAlphaBlendWrongHelper": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 overlay = texSample2D(g_Texture1, v_TexCoord); " +
+                "float weight = g_ScalarWeight * overlay.a; " +
+                "base.rgb = AdditiveBlend(0, base.rgb, overlay.rgb, weight); " +
+                "base.a = overlay.a * g_ScalarWeight; gl_FragColor = base;"
+            ),
+            "overlayAlphaBlendSameSlot": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 overlay = texSample2D(g_Texture0, v_TexCoord); " +
+                "float weight = g_ScalarWeight * overlay.a; " +
+                "base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight); " +
+                "base.a = overlay.a * g_ScalarWeight; gl_FragColor = base;"
+            ),
+            "overlayAlphaBlendWeightWithoutAlpha": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 overlay = texSample2D(g_Texture1, v_TexCoord); " +
+                "float weight = g_ScalarWeight * 0.5; " +
+                "base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight); " +
+                "base.a = overlay.a * g_ScalarWeight; gl_FragColor = base;"
+            ),
+            "overlayAlphaBlendNonzeroMode": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 overlay = texSample2D(g_Texture1, v_TexCoord); " +
+                "float weight = g_ScalarWeight * overlay.a; " +
+                "base.rgb = ApplyBlending(1, base.rgb, overlay.rgb, weight); " +
+                "base.a = overlay.a * g_ScalarWeight; gl_FragColor = base;"
+            ),
+            "overlayAlphaBlendBaseAlpha": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 overlay = texSample2D(g_Texture1, v_TexCoord); " +
+                "float weight = g_ScalarWeight * overlay.a; " +
+                "base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight); " +
+                "base.a = base.a * overlay.a; gl_FragColor = base;"
+            ),
+            "overlayAlphaBlendExtraSample": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 overlay = texSample2D(g_Texture1, v_TexCoord); " +
+                "float extra = texSample2D(g_Texture1, v_TexCoord * 0.5).r; " +
+                "float weight = extra * overlay.a; " +
+                "base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight); " +
+                "base.a = overlay.a * g_ScalarWeight; gl_FragColor = base;"
+            ),
+            "overlayAlphaBlendMultipleWrites": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 overlay = texSample2D(g_Texture1, v_TexCoord); " +
+                "float weight = g_ScalarWeight * overlay.a; " +
+                "base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight); " +
+                "base.rgb = overlay.rgb; " +
+                "base.a = overlay.a * g_ScalarWeight; gl_FragColor = base;"
+            ),
+            "overlayAlphaBlendConditionalAlpha": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 overlay = texSample2D(g_Texture1, v_TexCoord); " +
+                "float weight = g_ScalarWeight * overlay.a; " +
+                "base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight); " +
+                "if (g_ScalarWeight > 0.0) base.a = overlay.a * 0.5; " +
+                "gl_FragColor = base;"
+            ),
+            "overlayAlphaBlendOverlayMutation": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 overlay = texSample2D(g_Texture1, v_TexCoord); " +
+                "overlay.rgb *= 0.5; float weight = g_ScalarWeight * overlay.a; " +
+                "base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight); " +
+                "base.a = overlay.a * g_ScalarWeight; gl_FragColor = base;"
             ),
             "closedControlFlowStraightAlpha": transfer(
                 "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
@@ -594,6 +685,29 @@ class SceneShaderColorContractTests(unittest.TestCase):
         source = self.result["straightBlendMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+
+    def test_overlay_alpha_blend_reuses_the_bounded_straight_boundary(self) -> None:
+        self.assertEqual(self.result["overlayAlphaBlend"], "straight-slot:0")
+        source = self.result["overlayAlphaBlendMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertNotIn("mwxUnpremultiply(mwxTexture1.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+
+    def test_overlay_alpha_blend_stays_closed_without_the_exact_dataflow(self) -> None:
+        for key in (
+            "overlayAlphaBlendWrongHelper",
+            "overlayAlphaBlendWeightWithoutAlpha",
+            "overlayAlphaBlendNonzeroMode",
+            "overlayAlphaBlendBaseAlpha",
+            "overlayAlphaBlendExtraSample",
+            "overlayAlphaBlendMultipleWrites",
+            "overlayAlphaBlendConditionalAlpha",
+            "overlayAlphaBlendOverlayMutation",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
+        self.assertNotEqual(
+            self.result["overlayAlphaBlendSameSlot"], "straight-slot:0"
+        )
 
     def test_same_slot_scalar_mix_preserves_one_color_source(self) -> None:
         self.assertEqual(self.result["sameSlotScalarMix"], "slot:0")

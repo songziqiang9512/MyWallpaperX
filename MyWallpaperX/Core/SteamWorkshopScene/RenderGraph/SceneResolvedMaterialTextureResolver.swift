@@ -99,7 +99,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             }
         }
         for (slot, sampler) in samplers {
-            guard case .absent = result[slot] else { continue }
+            guard case .absent = result[slot],
+                  sampler.readinessCombo == nil else { continue }
             switch sampler.defaultTexture {
             case let .asset(path):
                 let reference = Template.TextureReference.asset(path)

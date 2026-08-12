@@ -25,6 +25,10 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         let mode: TextureMode
         let materialKey: String?
         let defaultTexture: DefaultTexture?
+        /// An unmarked sampler combo describes whether an authored texture is
+        /// actually bound. Its annotation default is not a binding/readiness
+        /// source and must not manufacture that fact.
+        let readinessCombo: String?
     }
 
     struct Uniform: Hashable {
@@ -154,7 +158,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             guard let slot = textureSlot(name) else { throw Issue.sampler(name) }
             let objects = declarations.flatMap { record in
                 record.annotations.compactMap { annotation -> [String: SceneShaderAnnotationValue]? in
-                    guard case let .object(object) = annotation.variantValue else {
+                    guard annotation.marker == nil,
+                          case let .object(object) = annotation.variantValue else {
                         return nil
                     }
                     return object
@@ -168,12 +173,17 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             )
             let material = try normalizedString(value("material", in: objects), name: name)
             let defaultTexture = try textureDefault(value("default", in: objects), name: name)
+            let readinessCombo = try normalizedString(
+                value("combo", in: objects),
+                name: name
+            )
             let schema = Sampler(
                 name: name,
                 slot: slot,
                 mode: mode,
                 materialKey: material,
-                defaultTexture: defaultTexture
+                defaultTexture: defaultTexture,
+                readinessCombo: readinessCombo
             )
             if let existing = result[slot], existing != schema {
                 throw Issue.sampler(name)

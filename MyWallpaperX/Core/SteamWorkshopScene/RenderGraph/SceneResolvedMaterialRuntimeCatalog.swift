@@ -281,6 +281,9 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             }
             guard projection.reachesDefault else { continue }
             for sampler in samplers[slotIndex] ?? [] {
+                // A combo-bearing annotation default is not an authored
+                // binding. The combo-off variant cannot consume it.
+                guard sampler.readinessCombo == nil else { continue }
                 guard case let .asset(path)? = sampler.defaultTexture else { continue }
                 let reference = Template.TextureReference.asset(path)
                 guard let purpose = sampler.purpose(for: reference) else {

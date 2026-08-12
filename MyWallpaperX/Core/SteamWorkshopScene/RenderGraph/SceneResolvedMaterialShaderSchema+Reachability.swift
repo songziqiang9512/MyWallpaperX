@@ -169,9 +169,12 @@ extension SceneResolvedMaterialShaderSchema {
             }
             if reachesDefault, let sampler {
                 switch sampler.defaultTexture {
-                case .asset: required |= bit
-                case .internalTarget: throw Issue.sampler(sampler.name)
-                case nil: break
+                case .asset where sampler.readinessCombo == nil:
+                    required |= bit
+                case .internalTarget where sampler.readinessCombo == nil:
+                    throw Issue.sampler(sampler.name)
+                case .asset, .internalTarget, nil:
+                    break
                 }
                 if sampler.usesGraphInputMaterialAlias,
                    implicitFramebufferIdentity != nil {

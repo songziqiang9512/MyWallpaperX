@@ -18,6 +18,11 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
         fragment: Unit,
         main: Unit.Function
     ) -> Int? {
+        if let slot = SceneAuthoredShaderOverlayAlphaBlendAnalyzer.analyze(
+            outputUses: outputUses, fragment: fragment, main: main
+        ) {
+            return slot
+        }
         let tokens = fragment.tokens
         guard outputUses.count == 1,
               let output = outputUses.first,
@@ -102,6 +107,10 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
             return nil
         }
         return slot
+    }
+
+    static func hasNormalBlendHelper(_ fragment: Unit) -> Bool {
+        blendHelper(fragment) == .normal
     }
 
     private static func blendHelper(_ fragment: Unit) -> BlendHelper? {
