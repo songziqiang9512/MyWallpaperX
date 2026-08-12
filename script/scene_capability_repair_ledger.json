@@ -39,7 +39,102 @@
     ],
     "sentinel_contract": "targeted_samples plus regression_gates are mandatory rerun sentinels for future changes to the family or its visible render chain"
   },
-  "families": [],
+  "families": [
+    {
+      "family_key": "shader/frag@1d391ff0fa121323",
+      "repair_state": "bounded-verified",
+      "runtime_proof_state": "visible-chain-closed",
+      "regression_protection_state": "targeted-runtime",
+      "root_cause": "The shared sampler schema recognized only framebuffer and previous as graph-input material aliases, so the official historical ui_editor_properties_framebuffer token on hidden g_Texture0 was treated as an unresolved texture binding before Program execution.",
+      "public_fix": "Preserve the authored hidden flag and map only the exact historical token on regular hidden g_Texture0 slot 0 to the current effect graph input, reusing the existing typed graph identity, publication, Program, GraphExecutor and compositor path.",
+      "commit": "3fa1499c",
+      "targeted_samples": [
+        "1553008362"
+      ],
+      "roi_evidence": [
+        "/private/tmp/mwx-historical-framebuffer-155-pass.xKJb3S/results/1553008362/scene-ready-window.png sha256=6cfcf93e0c2f67d91e687c88cbd4e27ec8cbf7fdf16471f82934aeb9fd78e39e full-window 3024x1964 restored authored image content from the prior uniform-gray frame",
+        "/private/tmp/mwx-historical-framebuffer-155-pass.xKJb3S/results/1553008362/scene-after-window.png sha256=2018290b99eb8359591b362425154c0de69e729ce66f4005f1fd5ed8e4ad55de full-window 3024x1964 retained visible content after animation"
+      ],
+      "remaining_boundaries": [
+        "The related 1636394814 mixed chain was rerun and no longer logged this texture-binding alias failure, but it remains NON-PASS at later dependency-owner and material-template-unsupported gates.",
+        "Other ui_editor_properties_* keys, non-slot-0 samplers, non-regular modes, label-only metadata and non-hidden declarations remain rejected.",
+        "The targeted run proves the visible MyWallpaperX chain, not Wallpaper Engine pixel or timing equivalence."
+      ],
+      "regression_gates": [
+        {
+          "kind": "synthetic-positive",
+          "reference": "script/tests/test_scene_resolved_material_graph_executor.py#historicalFramebufferAliasEncodesOnGPU"
+        },
+        {
+          "kind": "synthetic-negative",
+          "reference": "script/tests/test_scene_resolved_material_program_finalizer.py#historicalFramebufferWithoutHidden"
+        },
+        {
+          "kind": "targeted-runtime",
+          "reference": "/private/tmp/mwx-historical-framebuffer-155-pass.xKJb3S/report.json#1553008362"
+        }
+      ],
+      "events": [
+        {
+          "date": "2026-08-13",
+          "state": "bounded-verified",
+          "commit": "3fa1499c",
+          "evidence_refs": [
+            "/private/tmp/mwx-historical-framebuffer-155-pass.xKJb3S/report.json#1553008362",
+            "docs/scene/semantics/runtime-evidence-index.md#e-historical-framebuffer-material-alias"
+          ],
+          "notes": "The Water Waves stage and its three following Shake stages all used the same exact historical alias and completed GPU publication, terminal composition and next-frame execution."
+        }
+      ]
+    },
+    {
+      "family_key": "shader/frag@14c83a36961c3903",
+      "repair_state": "bounded-verified",
+      "runtime_proof_state": "visible-chain-closed",
+      "regression_protection_state": "targeted-runtime",
+      "root_cause": "The shared sampler schema recognized only framebuffer and previous as graph-input material aliases, so the official historical ui_editor_properties_framebuffer token on hidden g_Texture0 was treated as an unresolved texture binding before Program execution.",
+      "public_fix": "Preserve the authored hidden flag and map only the exact historical token on regular hidden g_Texture0 slot 0 to the current effect graph input, reusing the existing typed graph identity, publication, Program, GraphExecutor and compositor path.",
+      "commit": "3fa1499c",
+      "targeted_samples": [
+        "1553008362"
+      ],
+      "roi_evidence": [
+        "/private/tmp/mwx-historical-framebuffer-155-pass.xKJb3S/results/1553008362/scene-ready-window.png sha256=6cfcf93e0c2f67d91e687c88cbd4e27ec8cbf7fdf16471f82934aeb9fd78e39e full-window 3024x1964 restored authored image content from the prior uniform-gray frame",
+        "/private/tmp/mwx-historical-framebuffer-155-pass.xKJb3S/results/1553008362/scene-after-window.png sha256=2018290b99eb8359591b362425154c0de69e729ce66f4005f1fd5ed8e4ad55de full-window 3024x1964 retained visible content after animation"
+      ],
+      "remaining_boundaries": [
+        "The related 1636394814 mixed chain was rerun and no longer logged this texture-binding alias failure, but it remains NON-PASS at later dependency-owner and material-template-unsupported gates.",
+        "Other ui_editor_properties_* keys, non-slot-0 samplers, non-regular modes, label-only metadata and non-hidden declarations remain rejected.",
+        "The targeted run proves the visible MyWallpaperX chain, not Wallpaper Engine pixel or timing equivalence."
+      ],
+      "regression_gates": [
+        {
+          "kind": "synthetic-positive",
+          "reference": "script/tests/test_scene_resolved_material_graph_executor.py#historicalFramebufferAliasEncodesOnGPU"
+        },
+        {
+          "kind": "synthetic-negative",
+          "reference": "script/tests/test_scene_resolved_material_program_finalizer.py#unknownEditorMaterialAlias"
+        },
+        {
+          "kind": "targeted-runtime",
+          "reference": "/private/tmp/mwx-historical-framebuffer-155-pass.xKJb3S/report.json#1553008362"
+        }
+      ],
+      "events": [
+        {
+          "date": "2026-08-13",
+          "state": "bounded-verified",
+          "commit": "3fa1499c",
+          "evidence_refs": [
+            "/private/tmp/mwx-historical-framebuffer-155-pass.xKJb3S/report.json#1553008362",
+            "docs/scene/semantics/runtime-evidence-index.md#e-historical-framebuffer-material-alias"
+          ],
+          "notes": "The Water Waves stage and its three following Shake stages all used the same exact historical alias and completed GPU publication, terminal composition and next-frame execution."
+        }
+      ]
+    }
+  ],
   "schema_version": 1,
   "status_contract": {
     "regression_protection_state": [

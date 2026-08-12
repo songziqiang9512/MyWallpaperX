@@ -241,6 +241,9 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             manifest = stored["snapshot"]["generator"]["source_manifest"]
             self.assertEqual(set(manifest["files"]), set(census.GENERATOR_PATHS))
             self.assertEqual(manifest["sha256"], census.canonical_sha256(manifest["files"]))
+            generated_markdown = markdown.read_text(encoding="utf-8")
+            self.assertIn("| family | 修复 / 运行 / 回归状态 |", generated_markdown)
+            self.assertIn("_尚无已登记修复_", generated_markdown)
             self.assertEqual(census.verify(args), 0)
             snapshot_query = type("Args", (), {
                 "samples_root": samples, "stock_root": stock,
@@ -394,6 +397,31 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             }],
         }
         self.assertFalse(census.validate_repair_ledger(valid, {"effect/fixture@1"}))
+        rendered = census.render_markdown({
+            "summary": {
+                "discovered_sample_count": 0, "parsed_sample_count": 0,
+                "matrix_sample_count": 0, "matrix_coverage_state": "current-complete",
+                "added_since_matrix": [], "occurrence_count": 0, "family_count": 0,
+                "parameter_profile_count": 0, "schema_field_profile_count": 0,
+                "package_entry_count": 0, "package_unique_path_count": 0,
+                "package_byte_count": 0, "unclassified_count": 0,
+                "generic_or_unknown_family_count": 0,
+                "texture": {
+                    "physical_resource_count": 0, "physical_format_counts": {},
+                    "physical_feature_counts": {}, "use_occurrence_count": 0,
+                    "use_state_counts": {},
+                },
+                "object_kind_counts": {}, "visible_object_kind_counts": {},
+                "effect_instance_count": 0, "particle_layer_count": 0,
+                "dynamic_feature_counts": {},
+            },
+            "samples": [], "families": [], "occurrences": [],
+            "repair_ledger": valid,
+        })
+        self.assertIn("`effect/fixture@1`", rendered)
+        self.assertIn("`bounded-verified / visible-chain-closed / targeted-runtime`", rendered)
+        self.assertIn("public fix", rendered)
+        self.assertIn("official parity unproven", rendered)
         valid["families"][0]["repair_state"] = "complete"
         self.assertIn(
             "repair-state-invalid",

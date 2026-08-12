@@ -1220,7 +1220,45 @@ def render_markdown(census: dict[str, Any]) -> str:
         "",
         "`bounded-verified` 至少要求项目自有 synthetic 正例、反例、真实隔离样本 GPU→publication→compositor→next-frame→ROI 和明确剩余边界。`official-golden-equivalent` 还必须有同相位官方 golden 及像素/时序容差。只降低 rejection 数、只 non-black 或只加载资源不能写成修复完成。",
         "",
-        "当前 repair ledger 尚不把历史提交自动映射到新 family；需要逐族复核后登记，避免按 effect 名或路径把窄实现误写成通用支持。",
+        "当前已逐族复核并登记的修复见机器 repair ledger 与下方状态表；未列 family 继续保持 `untriaged`，不会因 effect 名、路径或相邻 family 已修而自动升级。",
+        "",
+    ]
+    repaired_families = sorted(
+        (
+            repair for repair in census["repair_ledger"].get("families", [])
+            if repair.get("repair_state", "untriaged") != "untriaged"
+        ),
+        key=lambda repair: repair["family_key"],
+    )
+    lines += [
+        "| family | 修复 / 运行 / 回归状态 | 公共修法 | 真实 sentinel | 剩余边界 |",
+        "|---|---|---|---|---|",
+    ]
+    for repair in repaired_families:
+        def markdown_cell(value: Any) -> str:
+            return str(value).replace("\n", " ").replace("|", "\\|")
+
+        status = " / ".join(
+            markdown_cell(repair[key])
+            for key in (
+                "repair_state",
+                "runtime_proof_state",
+                "regression_protection_state",
+            )
+        )
+        sentinels = ", ".join(
+            f"`{markdown_cell(value)}`" for value in repair.get("targeted_samples", [])
+        ) or "无"
+        boundaries = "；".join(
+            markdown_cell(value) for value in repair.get("remaining_boundaries", [])
+        )
+        lines.append(
+            f"| `{repair['family_key']}` | `{status}` (`{markdown_cell(repair.get('commit', ''))}`) | "
+            f"{markdown_cell(repair.get('public_fix', ''))} | {sentinels} | {boundaries} |"
+        )
+    if not repaired_families:
+        lines.append("| _尚无已登记修复_ | - | - | - | - |")
+    lines += [
         "",
         "## 7. 更新流程",
         "",

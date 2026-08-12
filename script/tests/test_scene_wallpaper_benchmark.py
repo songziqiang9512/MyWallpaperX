@@ -2065,7 +2065,7 @@ utility layer 763: skippedHidden kind=composition
         for metric, expected in expected_counts.items():
             self.assertEqual(sample[f"expected_{metric}"], expected)
 
-    def test_tracked_full_matrix_closes_transform_and_light_shafts_contracts(self) -> None:
+    def test_tracked_full_matrix_retires_legacy_effect_counts_only_with_owner_transfer(self) -> None:
         matrix = json.loads(
             (SCRIPT_DIR / "scene_wallpaper_full_sample_matrix.json").read_text(
                 encoding="utf-8"
@@ -2073,24 +2073,36 @@ utility layer 763: skippedHidden kind=composition
         )
         samples = matrix["samples"]
         self.assertEqual(len(samples), 45)
+        legacy_keys = {
+            "expected_authored_effect_graph_local_contrast_count",
+            "expected_authored_effect_graph_opacity_count",
+            "expected_authored_effect_graph_opacity_layer_ids",
+            "expected_authored_effect_graph_color_key_count",
+            "expected_authored_effect_graph_workshop_shadow_count",
+            "expected_authored_effect_graph_procedural_noise_count",
+            "expected_authored_effect_graph_film_grain_count",
+            "expected_authored_effect_graph_transform_count",
+            "expected_authored_effect_graph_transform_static_fallback_count",
+            "expected_authored_effect_graph_transform_static_fallback_diagnostics",
+            "expected_authored_effect_graph_light_shafts_count",
+            "expected_authored_effect_graph_shake_count",
+            "expected_authored_effect_graph_water_flow_count",
+            "expected_authored_effect_graph_water_waves_count",
+            "expected_authored_effect_graph_blend_count",
+            "expected_authored_effect_graph_authored_shader_count",
+            "expected_authored_effect_graph_foliage_sway_count",
+            "expected_authored_effect_graph_water_ripple_count",
+        }
         for sample in samples:
             with self.subTest(sample_id=sample["id"]):
-                self.assertIn(
-                    "expected_authored_effect_graph_transform_count",
-                    sample,
-                )
-                self.assertIn(
-                    "expected_authored_effect_graph_transform_static_fallback_count",
-                    sample,
-                )
-                self.assertIn(
-                    "expected_authored_effect_graph_transform_static_fallback_diagnostics",
-                    sample,
-                )
-                self.assertIn(
-                    "expected_authored_effect_graph_light_shafts_count",
-                    sample,
-                )
+                present = legacy_keys.intersection(sample)
+                self.assertIn(len(present), (0, len(legacy_keys)))
+                if not present:
+                    replacement = sample.get(
+                        "expected_resolved_material_graph_succeeded_layer_ids"
+                    )
+                    self.assertIsInstance(replacement, list)
+                    self.assertTrue(replacement)
 
     def test_authored_shader_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphAuthoredShaderCount: 1\n"
