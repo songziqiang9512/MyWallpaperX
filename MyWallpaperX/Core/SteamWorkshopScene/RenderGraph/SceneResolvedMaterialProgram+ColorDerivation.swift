@@ -25,7 +25,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                 graphRepresentations.insert(representation)
             case .color(.unresolved):
                 return nil
-            case .data:
+            case .scalarRedUnorm, .data:
                 continue
             }
         }
@@ -63,10 +63,12 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             fragmentOutput = .opaque
         case .premultipliedAlpha:
             guard textureSlots.compactMap({ $0 }).allSatisfy({ slot in
-                if case .data = slot.resource.publication.candidate.content {
+                switch slot.resource.publication.candidate.content {
+                case .scalarRedUnorm, .data:
                     return true
+                case .color:
+                    return false
                 }
-                return false
             }) else { return nil }
             fragmentOutput = .premultipliedAlpha
         case let .passthrough(slot):
@@ -133,10 +135,12 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
     ) -> Bool {
         textureSlots.enumerated().allSatisfy { index, texture in
             guard index != colorSlot, let texture else { return true }
-            if case .data = texture.resource.publication.candidate.content {
+            switch texture.resource.publication.candidate.content {
+            case .scalarRedUnorm, .data:
                 return true
+            case .color:
+                return false
             }
-            return false
         }
     }
 }

@@ -118,13 +118,17 @@ nonisolated enum SceneTextureResourceGeneration: Hashable, Sendable {
 
 nonisolated enum SceneTextureContent: Hashable, Sendable {
     case color(SceneShaderColorRepresentationResolution)
+    /// One normalized red component stored by a graph-owned R8 target.
+    /// Metal exposes unspecified sampled components as G=0, B=0, A=1, but
+    /// those backend defaults are not part of this scalar graph semantic.
+    case scalarRedUnorm
     case data
 
     var isResolved: Bool {
         switch self {
         case let .color(resolution):
             return resolution.isResolved
-        case .data:
+        case .scalarRedUnorm, .data:
             return true
         }
     }
@@ -241,6 +245,8 @@ private nonisolated extension SceneTextureContent {
             return "color/unresolved"
         case let .color(.resolved(representation)):
             return "color/\(representation.rawValue)"
+        case .scalarRedUnorm:
+            return "scalar-red-unorm"
         case .data:
             return "data"
         }

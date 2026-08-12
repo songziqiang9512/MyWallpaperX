@@ -29,6 +29,12 @@ EXECUTOR_SOURCE = SCENE_ROOT / (
 SWIFT_SOURCES = [
     *PUBLICATION_FIXTURE["SWIFT_SOURCES"],
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentKind.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentStorage.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Failure.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder.swift",
     RESOURCE_ENCODER_SOURCE,
     SCENE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
@@ -41,6 +47,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Material.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift",
@@ -49,6 +57,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
     EXECUTOR_SOURCE,
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Attachment.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift",
     SCENE_ROOT
@@ -526,7 +536,9 @@ private func fragmentSource(
     pass: Bool,
     internalDefault: Bool = false,
     frontendInvalid: Bool = false,
-    pixelTransform: Int? = nil
+    pixelTransform: Int? = nil,
+    scalarProducer: Bool = false,
+    scalarConsumer: String? = nil
 ) -> String {
     let annotation = pass ? "// [PASS] shadow shadowcasterdemo\n" : ""
     let sampler = internalDefault
@@ -535,7 +547,20 @@ private func fragmentSource(
     let varying = frontendInvalid
         ? "varying vec3 v_TexCoord;"
         : "varying vec2 v_TexCoord;"
-    let expression = if pixelTransform != nil {
+    let expression = if scalarProducer {
+        "gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0);"
+    } else if scalarConsumer == "red" {
+        "float scalar = texSample2D(g_Texture0, v_TexCoord).r;"
+            + " gl_FragColor = vec4(scalar, 0.0, 0.0, 1.0);"
+    } else if scalarConsumer == "green" {
+        "float scalar = texSample2D(g_Texture0, v_TexCoord).g;"
+            + " gl_FragColor = vec4(scalar, 0.0, 0.0, 1.0);"
+    } else if scalarConsumer == "alias" {
+        "vec4 sampled = texSample2D(g_Texture0, v_TexCoord);"
+            + " gl_FragColor = vec4(sampled.r, 0.0, 0.0, 1.0);"
+    } else if scalarConsumer == "whole" {
+        "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
+    } else if pixelTransform != nil {
         """
         vec4 color = texSample2D(g_Texture0, v_TexCoord);
         color.rgb = color.rgb.gbr;
@@ -832,7 +857,9 @@ private func shaderContract(
     frontendInvalid: Bool = false,
     pixelTransform: Int? = nil,
     implicitFramebuffer: Bool = false,
-    implicitFramebufferAnnotation: Bool = true
+    implicitFramebufferAnnotation: Bool = true,
+    scalarProducer: Bool = false,
+    scalarConsumer: String? = nil
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -871,7 +898,9 @@ private func shaderContract(
         pass: pass,
         internalDefault: internalDefault,
         frontendInvalid: frontendInvalid,
-        pixelTransform: pixelTransform
+        pixelTransform: pixelTransform,
+        scalarProducer: scalarProducer,
+        scalarConsumer: scalarConsumer
     )
     let stages = [
         stage(.vertex, path: "\(prefix).vert", source: vertexSource),
@@ -955,7 +984,9 @@ private func template(
     pass: Bool = false,
     internalDefault: Bool = false,
     overwrite: Bool = true,
-    frontendInvalid: Bool = false
+    frontendInvalid: Bool = false,
+    scalarProducer: Bool = false,
+    scalarConsumer: String? = nil
 ) -> Template {
     guard let target = node.target,
           let inputBinding = node.bindings.first,
@@ -976,7 +1007,9 @@ private func template(
         pass: pass,
         internalDefault: internalDefault,
         frontendInvalid: frontendInvalid,
-        pixelTransform: pixelTransform
+        pixelTransform: pixelTransform,
+        scalarProducer: scalarProducer,
+        scalarConsumer: scalarConsumer
     )
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     slots[slot] = .init(index: slot, candidates: [
@@ -1030,7 +1063,9 @@ private func catalog(
     frontendInvalidNodes: Set<Int> = [],
     omittedNodes: Set<Int> = [],
     demandIssueNodes: Set<Int> = [],
-    implicitFramebufferNodes: Set<Int> = []
+    implicitFramebufferNodes: Set<Int> = [],
+    scalarProducerNodes: Set<Int> = [],
+    scalarConsumerNodes: [Int: String] = [:]
 ) -> SceneResolvedMaterialRuntimeCatalog {
     var entries: [
         SceneResolvedMaterialRuntimeCatalog.Key:
@@ -1045,7 +1080,9 @@ private func catalog(
                 pass: passNodes.contains(node.nodeIndex),
                 internalDefault: internalDefaultNodes.contains(node.nodeIndex),
                 overwrite: !nonOverwriteNodes.contains(node.nodeIndex),
-                frontendInvalid: frontendInvalidNodes.contains(node.nodeIndex)
+                frontendInvalid: frontendInvalidNodes.contains(node.nodeIndex),
+                scalarProducer: scalarProducerNodes.contains(node.nodeIndex),
+                scalarConsumer: scalarConsumerNodes[node.nodeIndex]
             )
         entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
     }
@@ -1227,7 +1264,8 @@ private func makeSource(
     _ device: MTLDevice,
     width: Int = 1,
     height: Int = 1,
-    usage: MTLTextureUsage = .shaderRead
+    usage: MTLTextureUsage = .shaderRead,
+    bgra: [UInt8] = [0, 0, 255, 255]
 ) -> MTLTexture {
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(
         pixelFormat: .bgra8Unorm,
@@ -1238,15 +1276,8 @@ private func makeSource(
     descriptor.storageMode = .shared
     descriptor.usage = usage
     let texture = device.makeTexture(descriptor: descriptor)!
-    let red = [UInt8](
-        repeating: 0,
-        count: width * height * 4
-    ).enumerated().map { index, _ -> UInt8 in
-        switch index % 4 {
-        case 2, 3: 255
-        default: 0
-        }
-    }
+    precondition(bgra.count == 4)
+    let red = (0 ..< width * height).flatMap { _ in bgra }
     texture.replace(
         region: MTLRegionMake2D(0, 0, width, height),
         mipmapLevel: 0,
@@ -1380,6 +1411,53 @@ private func appendReadback(
             height: texture.height,
             depth: 1
         ),
+        to: destination,
+        destinationOffset: 0,
+        destinationBytesPerRow: bytesPerRow,
+        destinationBytesPerImage: bytesPerRow * texture.height
+    )
+    encoder.endEncoding()
+    return .init(
+        buffer: destination,
+        bytesPerRow: bytesPerRow,
+        width: texture.width,
+        height: texture.height
+    )
+}
+
+private struct ScalarReadback {
+    let buffer: MTLBuffer
+    let bytesPerRow: Int
+    let width: Int
+    let height: Int
+
+    var first: UInt8 {
+        buffer.contents().assumingMemoryBound(to: UInt8.self).pointee
+    }
+
+    var last: UInt8 {
+        let offset = (height - 1) * bytesPerRow + width - 1
+        return buffer.contents().advanced(by: offset)
+            .assumingMemoryBound(to: UInt8.self).pointee
+    }
+}
+
+private func appendScalarReadback(
+    _ texture: MTLTexture,
+    commandBuffer: MTLCommandBuffer
+) -> ScalarReadback? {
+    guard texture.pixelFormat == .r8Unorm else { return nil }
+    let bytesPerRow = 256
+    guard let destination = texture.device.makeBuffer(
+        length: bytesPerRow * texture.height,
+        options: .storageModeShared
+    ), let encoder = commandBuffer.makeBlitCommandEncoder() else { return nil }
+    encoder.copy(
+        from: texture,
+        sourceSlice: 0,
+        sourceLevel: 0,
+        sourceOrigin: .init(x: 0, y: 0, z: 0),
+        sourceSize: .init(width: texture.width, height: texture.height, depth: 1),
         to: destination,
         destinationOffset: 0,
         destinationBytesPerRow: bytesPerRow,
@@ -1943,6 +2021,203 @@ private enum Harness {
         )!
         let ordinaryPlan = requirePlan(ordinaryGraph)
         let ordinaryLease = makeLease(ordinaryPlan, device: device)
+
+        let scalarGraph = graph(
+            targets: [rawTarget(first, format: "r8")],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: output, read: first),
+            ]
+        )
+        let scalarChain = admittedGraph(scalarGraph)
+        let scalarCapabilities = capabilities(
+            scalarChain,
+            catalog: catalog(
+                for: scalarGraph,
+                scalarConsumerNodes: [1: "red"]
+            )
+        )
+        guard let scalarClaim = scalarCapabilities.claim(scalarChain) else {
+            fatalError("scalar capability rejected: \(scalarCapabilities.reportLines)")
+        }
+        let scalarExecutor = Executor(
+            device: device,
+            capabilities: scalarCapabilities
+        )!
+        let scalarLease = makeLease(requirePlan(scalarGraph), device: device)
+        guard let scalarTarget = scalarLease.texture(for: first),
+              fill(
+                  scalarTarget,
+                  color: MTLClearColorMake(1, 0, 0, 1),
+                  queue: queue
+              ), let scalarPreparationBuffer = queue.makeCommandBuffer() else {
+            fatalError("scalar preparation setup failed")
+        }
+        let scalarSource = makeSource(
+            device,
+            bgra: [191, 128, 64, 255]
+        )
+        let scalarPreparation = scalarExecutor.prepare(
+            token: scalarClaim.token,
+            leases: [scalarLease],
+            historyRehydrateCopiesByEffect: [:],
+            frame: frame(0),
+            sourceTexture: scalarSource,
+            sourceUniforms: .neutral(),
+            sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
+            commandBuffer: scalarPreparationBuffer,
+            previousStates: [:],
+            previousGraphResources: [:],
+            effectGeneration: 1,
+            resetGeneration: 1
+        )
+        guard case let .success(scalarPrepared) = scalarPreparation,
+              let scalarPrepareRead = appendScalarReadback(
+                  scalarTarget,
+                  commandBuffer: scalarPreparationBuffer
+              ) else {
+            fatalError("scalar preparation failed: \(failureCode(scalarPreparation))")
+        }
+        scalarPreparationBuffer.commit()
+        scalarPreparationBuffer.waitUntilCompleted()
+        let scalarPrepareHasNoWrite = scalarPreparationBuffer.status == .completed
+            && scalarPrepareRead.first == 255
+            && scalarPrepareRead.last == 255
+        let scalarStage = scalarPrepared.stages[0]
+        let scalarPublication = scalarStage.frameResources[first]
+        let scalarPublicationContract = scalarPrepared.stages.count == 1
+            && scalarStage.programCacheKeys.count == 2
+            && intentKinds(scalarPrepared) == ["material", "material"]
+            && scalarPublication?.publication.requestIdentity == .graph(first)
+            && scalarPublication?.publication.candidate.content == .scalarRedUnorm
+            && scalarPublication?.publication.candidate.purpose == .preservedChannels
+            && scalarPublication?.publication.candidate.pixelFormat == .r8Unorm
+            && scalarPublication?.publication.candidate.authoredFormat == nil
+            && scalarPublication?.publication.candidate.sampling == .directImageFallback
+            && scalarPrepared.finalResource.publication.candidate.content
+                != .scalarRedUnorm
+        guard let scalarEncodeBuffer = queue.makeCommandBuffer() else {
+            fatalError("scalar encode buffer unavailable")
+        }
+        let scalarEncoded = scalarExecutor.encode(
+            scalarPrepared,
+            commandBuffer: scalarEncodeBuffer
+        )
+        guard let scalarStorageRead = appendScalarReadback(
+                  scalarTarget,
+                  commandBuffer: scalarEncodeBuffer
+              ), let scalarFinalRead = appendReadback(
+                  scalarPrepared.finalTexture,
+                  commandBuffer: scalarEncodeBuffer
+              ) else { fatalError("scalar readback unavailable") }
+        scalarEncodeBuffer.commit()
+        scalarEncodeBuffer.waitUntilCompleted()
+        let scalarGPUCompleted = scalarEncoded
+            && scalarEncodeBuffer.status == .completed
+            && scalarEncodeBuffer.error == nil
+        let scalarRedStored = abs(Int(scalarStorageRead.first) - 64) <= 2
+            && abs(Int(scalarStorageRead.last) - 64) <= 2
+        let scalarTerminalMatches = matches(
+            scalarFinalRead.firstPixel,
+            [0, 0, 64, 255]
+        ) && matches(scalarFinalRead.lastPixel, [0, 0, 64, 255])
+        func scalarRejection(
+            _ candidateGraph: Graph,
+            consumers: [Int: String] = [:],
+            expectedCode: String = "r8-scalar-graph-unproven"
+        ) -> Bool {
+            let chain = admittedGraph(candidateGraph)
+            let candidateCapabilities = capabilities(
+                chain,
+                catalog: catalog(
+                    for: candidateGraph,
+                    scalarConsumerNodes: consumers
+                )
+            )
+            return candidateCapabilities.claim(chain) == nil
+                && candidateCapabilities.reportLines.contains {
+                    $0.contains("rejection: \(expectedCode) count=1")
+                }
+        }
+        func scalarConsumerGraph() -> Graph {
+            graph(
+                targets: [rawTarget(first, format: "r8")],
+                nodes: [
+                    material(0, ordinal: 0, target: first, read: input),
+                    material(1, ordinal: 1, target: output, read: first),
+                ]
+            )
+        }
+        let scalarGreenGraph = scalarConsumerGraph()
+        let scalarWholeGraph = scalarConsumerGraph()
+        let scalarAliasGraph = scalarConsumerGraph()
+        let scalarClearGraph = graph(
+            targets: [rawTarget(
+                first,
+                format: "r8",
+                clear: .string("0 0 0 0")
+            )],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: output, read: first),
+            ]
+        )
+        let scalarUniqueGraph = graph(
+            targets: [rawTarget(first, format: "r8", unique: true)],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: output, read: first),
+            ]
+        )
+        let scalarNoConsumerGraph = graph(
+            targets: [rawTarget(first, format: "r8")],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: output, read: input),
+            ]
+        )
+        let scalarMultipleWriterGraph = graph(
+            targets: [rawTarget(first, format: "r8")],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: first, read: input),
+                material(2, ordinal: 2, target: output, read: first),
+            ]
+        )
+        let scalarCopyGraph = graph(
+            targets: [
+                rawTarget(first, format: "r8"),
+                rawTarget(second, format: "r8"),
+            ],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                command(1, kind: .copy, source: first, target: second),
+                material(2, ordinal: 1, target: output, read: second),
+            ]
+        )
+        let scalarSwapGraph = graph(
+            targets: [
+                rawTarget(first, format: "r8", unique: true),
+                rawTarget(second, format: "r8", unique: true),
+            ],
+            nodes: [
+                material(0, ordinal: 0, target: second, read: first),
+                command(1, kind: .swap, source: first, target: second),
+                material(2, ordinal: 1, target: output, read: first),
+            ]
+        )
+        let scalarRepeatGraph = graph(
+            targets: [rawTarget(
+                first,
+                format: "r8",
+                uvs: .string("repeat")
+            )],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: output, read: first),
+            ]
+        )
 
         let implicitFramebufferGraph = graph(
             targets: [],
@@ -2817,6 +3092,62 @@ private enum Harness {
             "encodedOutputReadable": encodedOutputReadable,
             "sourceCaptureRendersAcrossFullTarget":
                 sourceCaptureCoversFullTarget,
+            "scalarCapabilityCarriesExactAttachmentKinds": {
+                guard let capability = scalarCapabilities.resolve(
+                    scalarClaim.token,
+                    for: scalarChain
+                ) else { return false }
+                return capability.material(for: scalarGraph.nodes[0])?
+                        .attachmentStorage == .scalarRedUnorm
+                    && capability.material(for: scalarGraph.nodes[1])?
+                        .attachmentStorage == .color
+            }(),
+            "scalarPrepareHasNoEncodingSideEffect": scalarPrepareHasNoWrite,
+            "scalarPublicationIsTypedAndComplete": scalarPublicationContract,
+            "scalarGraphEncoded": scalarEncoded,
+            "scalarGraphGPUCompleted": scalarGPUCompleted,
+            "scalarProducerStoresRedComponent": scalarRedStored,
+            "scalarDirectRedConsumerReachesColorTerminal": scalarTerminalMatches,
+            "scalarGreenConsumerRejectedBeforeFrame": scalarRejection(
+                scalarGreenGraph,
+                consumers: [1: "green"]
+            ),
+            "scalarWholeConsumerRejectedBeforeFrame": scalarRejection(
+                scalarWholeGraph,
+                consumers: [1: "whole"]
+            ),
+            "scalarAliasConsumerRejectedBeforeFrame": scalarRejection(
+                scalarAliasGraph,
+                consumers: [1: "alias"]
+            ),
+            "scalarClearRejectedBeforeFrame": scalarRejection(
+                scalarClearGraph,
+                consumers: [1: "red"]
+            ),
+            "scalarUniqueHistoryRejectedBeforeFrame": scalarRejection(
+                scalarUniqueGraph,
+                consumers: [1: "red"]
+            ),
+            "scalarNoConsumerRejectedBeforeFrame": scalarRejection(
+                scalarNoConsumerGraph
+            ),
+            "scalarMultipleWriterRejectedBeforeFrame": scalarRejection(
+                scalarMultipleWriterGraph,
+                consumers: [2: "red"]
+            ),
+            "scalarCopyRejectedBeforeFrame": scalarRejection(
+                scalarCopyGraph,
+                consumers: [2: "red"]
+            ),
+            "scalarSwapRejectedBeforeFrame": scalarRejection(
+                scalarSwapGraph,
+                consumers: [2: "red"]
+            ),
+            "scalarRepeatRejectedBeforeFrame": scalarRejection(
+                scalarRepeatGraph,
+                consumers: [1: "red"],
+                expectedCode: "admitted-graph-structure"
+            ),
             "orderedStagesPreparedTogether": chainedStagesPrepared,
             "orderedStagesEncodedTogether": chainedStagesEncoded,
             "orderedStagesGPUCompleted": chainedStagesGPUCompleted,

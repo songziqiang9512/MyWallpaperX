@@ -35,11 +35,13 @@ extension SceneResolvedMaterialProgram {
         let fragmentFunctionName: String
         let uniformFields: [UniformField]
         let textureSlots: [Int]
+        let textureChannelUses: [SceneAuthoredShaderProgram.TextureBinding.ChannelUse]
         let colorTransfer: ColorTransfer
     }
 
     enum TextureContentIdentity: Hashable {
         case data
+        case scalarRedUnorm
         case opaque
         case straightAlpha
         case premultipliedAlpha
@@ -204,6 +206,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
                 )
             },
             textureSlots: frontend.textureBindings.map(\.slot),
+            textureChannelUses: frontend.textureBindings.map(\.channelUse),
             colorTransfer: transfer
         )
     }
@@ -249,6 +252,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
     ) -> Program.TextureContentIdentity? {
         switch content {
         case .data: return .data
+        case .scalarRedUnorm: return .scalarRedUnorm
         case .color(.unresolved): return nil
         case .color(.resolved(.opaque)): return .opaque
         case .color(.resolved(.straightAlpha)): return .straightAlpha

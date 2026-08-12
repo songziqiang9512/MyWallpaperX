@@ -190,9 +190,13 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             repeating: nil,
             count: 8
         )
+        let frontendBindings = Dictionary(uniqueKeysWithValues:
+            frontend.textureBindings.map { ($0.slot, $0) }
+        )
         var deviceRegistryID: UInt64?
         for index in activeSlots {
             guard let slot = slots[index],
+                  let frontendBinding = frontendBindings[index],
                   slot.index == index,
                   SceneResolvedMaterialProgramIdentity.registryIdentity(
                       slot.registryIdentity,
@@ -216,6 +220,10 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                 return nil
             }
             let candidate = slot.resource.publication.candidate
+            if candidate.content == .scalarRedUnorm,
+               frontendBinding.channelUse != .redOnly {
+                return nil
+            }
             let exactIdentity = SceneResolvedMaterialProgramIdentity.exactTexture(slot)
             guard deviceRegistryID == nil || deviceRegistryID == exactIdentity.deviceRegistryID else {
                 return nil

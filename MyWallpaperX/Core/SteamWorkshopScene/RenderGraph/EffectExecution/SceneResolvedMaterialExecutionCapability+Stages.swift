@@ -109,11 +109,106 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 node: node,
                 producers: dynamicProducers
             ) else { return .failure(rejection("dynamic-uniform-unavailable")) }
-            materials[key] = .init(key: key, template: template, variants: variants)
+            guard let attachmentStorage = attachmentStorage(
+                for: node,
+                in: product.graph
+            ) else { return .failure(rejection("material-target-storage-unproven")) }
+            materials[key] = .init(
+                key: key,
+                template: template,
+                variants: variants,
+                attachmentStorage: attachmentStorage
+            )
         }
         guard !materials.isEmpty else {
             return .failure(rejection("material-capability-empty"))
         }
+        guard r8ScalarGraphIsExecutable(product.graph, materials: materials) else {
+            return .failure(rejection("r8-scalar-graph-unproven"))
+        }
         return .success(materials)
+    }
+
+    private static func attachmentStorage(
+        for node: Graph.Node,
+        in graph: Graph
+    ) -> SceneResolvedMaterialAttachmentKind? {
+        guard let target = node.target else { return nil }
+        switch target.kind {
+        case .effectOutput:
+            return .color
+        case .framebuffer:
+            let declarations = graph.renderTargets.filter { $0.texture == target }
+            guard declarations.count == 1,
+                  let descriptor = SceneGraphRenderTargetPlan.targetDescriptor(
+                      declarations[0],
+                      inputWidth: 1,
+                      inputHeight: 1
+                  ) else { return nil }
+            switch descriptor.format {
+            case .r8:
+                return .scalarRedUnorm
+            case .rgbaBackbuffer, .rgba8888:
+                return .color
+            }
+        case .layerSource, .unresolved:
+            return nil
+        }
+    }
+
+    /// R8 becomes a product capability only as one complete producer ->
+    /// scalar publication -> red-only consumer atom. Clear/history/commands
+    /// remain closed until their scalar lifecycle semantics are proven.
+    private static func r8ScalarGraphIsExecutable(
+        _ graph: Graph,
+        materials: [MaterialKey: MaterialCapability]
+    ) -> Bool {
+        let targets = graph.renderTargets.filter {
+            $0.format?.lowercased() == "r8"
+        }
+        guard !targets.isEmpty else { return true }
+        for target in targets {
+            guard let descriptor = SceneGraphRenderTargetPlan.targetDescriptor(
+                target,
+                inputWidth: 1,
+                inputHeight: 1
+            ), descriptor.format == .r8,
+              !descriptor.isUnique,
+              descriptor.initialClear == nil else { return false }
+            let writers = graph.nodes.filter {
+                $0.kind == .material && $0.target == target.texture
+            }
+            let readers = graph.nodes.filter { node in
+                node.kind == .material
+                    && node.bindings.contains { $0.texture == target.texture }
+            }
+            guard writers.count == 1,
+                  let writer = writers.first,
+                  materials[.init(
+                      effect: writer.effect,
+                      nodeIndex: writer.nodeIndex
+                  )]?.attachmentStorage == .scalarRedUnorm,
+                  !readers.isEmpty,
+                  readers.allSatisfy({ $0.nodeIndex > writer.nodeIndex }),
+                  graph.nodes.allSatisfy({ node in
+                      node.commandSource != target.texture
+                          && node.commandTarget != target.texture
+                  }) else { return false }
+            for reader in readers {
+                let bindings = reader.bindings.filter {
+                    $0.texture == target.texture
+                }
+                guard !bindings.isEmpty,
+                      bindings.allSatisfy({ binding in
+                          guard let slot = binding.slot,
+                                let material = materials[.init(
+                                    effect: reader.effect,
+                                    nodeIndex: reader.nodeIndex
+                                )] else { return false }
+                          return material.variants.provesRedOnlyConsumer(slot: slot)
+                      }) else { return false }
+            }
+        }
+        return true
     }
 }

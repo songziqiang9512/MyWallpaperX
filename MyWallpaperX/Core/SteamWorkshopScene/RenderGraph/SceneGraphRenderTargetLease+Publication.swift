@@ -72,6 +72,28 @@ extension SceneGraphRenderTargetLease {
         versionedResource: State.VersionedResource,
         fragmentColorRepresentation: SceneShaderColorRepresentationResolution
     ) -> Result<SceneFrameTextureResource, PublicationFailure> {
+        switch fragmentColorRepresentation {
+        case .resolved(.opaque),
+             .resolved(.premultipliedAlpha),
+             .resolved(.independentAlphaSignal):
+            break
+        case .resolved(.straightAlpha), .unresolved:
+            return .failure(.colorRepresentationUnresolved)
+        }
+        return graphResource(
+            for: logicalIdentity,
+            versionedResource: versionedResource,
+            storedContent: .color(fragmentColorRepresentation)
+        )
+    }
+
+    /// Publishes the storage content actually preserved by the attachment.
+    /// R8 is scalar data even when the producer Program has a color output.
+    func graphResource(
+        for logicalIdentity: Graph.TextureIdentity,
+        versionedResource: State.VersionedResource,
+        storedContent: SceneTextureContent
+    ) -> Result<SceneFrameTextureResource, PublicationFailure> {
         let framebuffers = framebufferAllocation
         guard logicalIdentity.kind == .framebuffer,
               framebuffers.resources[logicalIdentity] != nil else {
@@ -98,7 +120,10 @@ extension SceneGraphRenderTargetLease {
               physical.descriptor == versionedResource.descriptor else {
             return .failure(.descriptorMismatch)
         }
-        guard versionedResource.descriptor.format != .r8 else {
+        guard Self.storageContent(
+            storedContent,
+            matches: versionedResource.descriptor.format
+        ) else {
             return .failure(.storageSemanticUnavailable)
         }
         guard let texture = texturesByToken[versionedResource.token],
@@ -111,7 +136,7 @@ extension SceneGraphRenderTargetLease {
             allocationGeneration: generation,
             descriptor: versionedResource.descriptor,
             contentGeneration: versionedResource.contentGeneration,
-            fragmentColorRepresentation: fragmentColorRepresentation,
+            content: storedContent,
             texture: texture
         )
     }
@@ -157,7 +182,7 @@ extension SceneGraphRenderTargetLease {
             allocationGeneration: generation,
             descriptor: descriptor,
             contentGeneration: contentGeneration,
-            fragmentColorRepresentation: fragmentColorRepresentation,
+            content: .color(fragmentColorRepresentation),
             texture: texture
         )
     }
@@ -168,12 +193,19 @@ extension SceneGraphRenderTargetLease {
         allocationGeneration: UInt64,
         descriptor: State.ResourceDescriptor,
         contentGeneration: UInt64,
-        fragmentColorRepresentation: SceneShaderColorRepresentationResolution,
+        content: SceneTextureContent,
         texture: MTLTexture
     ) -> Result<SceneFrameTextureResource, PublicationFailure> {
-        guard allocationGeneration > 0,
-              case .resolved(let representation) = fragmentColorRepresentation,
-              representation != .straightAlpha else {
+        guard allocationGeneration > 0 else {
+            return .failure(.invalidGeneration)
+        }
+        let purpose: SceneTextureLoadPurpose
+        switch content {
+        case let .color(.resolved(representation)) where representation != .straightAlpha:
+            purpose = .premultipliedColor
+        case .scalarRedUnorm:
+            purpose = .preservedChannels
+        case .color, .data:
             return .failure(.colorRepresentationUnresolved)
         }
         let extent = descriptor.extent
@@ -185,8 +217,8 @@ extension SceneGraphRenderTargetLease {
                 physicalToken: token.rawValue
             )),
             generation: .provider(contentGeneration: contentGeneration),
-            purpose: .premultipliedColor,
-            content: .color(.resolved(representation)),
+            purpose: purpose,
+            content: content,
             physicalSize: size,
             mappedSize: size,
             uvTransform: .identity,
@@ -204,5 +236,20 @@ extension SceneGraphRenderTargetLease {
             return .failure(.publicationIncomplete)
         }
         return .success(result)
+    }
+
+    private static func storageContent(
+        _ content: SceneTextureContent,
+        matches format: Plan.TextureFormat
+    ) -> Bool {
+        switch (format, content) {
+        case (.r8, .scalarRedUnorm):
+            return true
+        case (.rgbaBackbuffer, .color(.resolved(let representation))),
+             (.rgba8888, .color(.resolved(let representation))):
+            return representation != .straightAlpha
+        default:
+            return false
+        }
     }
 }

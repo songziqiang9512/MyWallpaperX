@@ -7,6 +7,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Program = SceneResolvedMaterialProgram
     typealias Template = SceneResolvedMaterialTemplate
+    typealias ChannelUse = SceneAuthoredShaderProgram.TextureBinding.ChannelUse
 
     struct Resolution {
         let variant: SceneResolvedMaterialCompiledVariant
@@ -71,7 +72,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     private static func textureSelections(
         _ input: SceneResolvedMaterialFinalizationInput,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
+        channelUses: [Int: ChannelUse]
     ) throws -> [Selection] {
         var result = Array(repeating: Selection.absent, count: 8)
         for slot in input.template.textureSlots.compactMap({ $0 }) {
@@ -80,7 +82,9 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                 let purpose = selectionPurpose(
                     candidate.reference,
                     activeSampler: sampler,
-                    reachableSamplers: reachableSamplers[slot.index] ?? []
+                    reachableSamplers: reachableSamplers[slot.index] ?? [],
+                    channelUse: channelUses[slot.index],
+                    input: input
                 )
                 guard let selection = try referenceSelection(
                     candidate.reference,
@@ -164,6 +168,16 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         input: SceneResolvedMaterialFinalizationInput
     ) throws -> Selection? {
         guard let purpose else {
+            if case let .graph(identity) = reference {
+                guard case .absent? = input.textureSnapshot.lookup(.graph(identity)) else {
+                    return .reference(
+                        reference,
+                        purpose: nil,
+                        provenance: provenance
+                    )
+                }
+                return nil
+            }
             return .reference(
                 reference,
                 purpose: nil,
@@ -198,15 +212,18 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         _ input: SceneResolvedMaterialFinalizationInput,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
-        formatSlots: Set<Int>
+        formatSlots: Set<Int>,
+        channelUses: [Int: ChannelUse] = [:]
     ) throws -> SceneResolvedMaterialVariantKey {
-        guard formatSlots.allSatisfy((0 ..< 8).contains) else {
+        guard formatSlots.allSatisfy((0 ..< 8).contains),
+              channelUses.keys.allSatisfy((0 ..< 8).contains) else {
             throw failure(.identityInvariant, phase: .invariant)
         }
         let selections = try textureSelections(
             input,
             samplers: samplers,
-            reachableSamplers: reachableSamplers
+            reachableSamplers: reachableSamplers,
+            channelUses: channelUses
         )
         var mask: UInt8 = 0
         var formats = Array<SceneShaderTextureFormat?>(repeating: nil, count: 8)
@@ -216,15 +233,28 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             case .internalDefault:
                 throw failure(.textureBindingInvalid, slot: slot)
             case let .reference(reference, purpose, _):
-                guard let purpose else {
-                    throw failure(.texturePurposeUnproven, slot: slot)
+                let resolved: ResolvedResource
+                if let purpose {
+                    resolved = try readyResource(
+                        input,
+                        reference: reference,
+                        purpose: purpose,
+                        slot: slot
+                    )
+                } else {
+                    guard case let .graph(identity) = reference else {
+                        throw failure(.texturePurposeUnproven, slot: slot)
+                    }
+                    resolved = try readyGraphResource(
+                        input,
+                        identity: identity,
+                        slot: slot
+                    )
+                    guard resolved.resource.publication.candidate.content
+                            == .scalarRedUnorm else {
+                        throw failure(.texturePurposeUnproven, slot: slot)
+                    }
                 }
-                let resolved = try readyResource(
-                    input,
-                    reference: reference,
-                    purpose: purpose,
-                    slot: slot
-                )
                 mask |= UInt8(1) << UInt8(slot)
                 if formatSlots.contains(slot) {
                     formats[slot] = resolved.resource.publication.candidate
@@ -247,7 +277,12 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         let selections = try textureSelections(
             input,
             samplers: variant.activeSamplers,
-            reachableSamplers: reachableSamplers
+            reachableSamplers: reachableSamplers,
+            channelUses: Dictionary(uniqueKeysWithValues:
+                variant.frontendProgram.textureBindings.map {
+                    ($0.slot, $0.channelUse)
+                }
+            )
         )
         let bindingSlots = variant.frontendProgram.textureBindings.map(\.slot)
         guard Set(bindingSlots).count == bindingSlots.count else {
@@ -268,11 +303,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                     selections[binding.slot] else {
                 throw failure(.textureBindingInvalid, slot: binding.slot)
             }
-            guard let purpose = sampler.purpose(for: reference) else {
+            guard let purpose = selectedPurpose else {
                 throw failure(.texturePurposeUnproven, slot: binding.slot)
-            }
-            guard selectedPurpose == purpose else {
-                throw failure(.activeSamplerSchemaInvalid, slot: binding.slot)
             }
             let resolved = try readyResource(
                 input,
@@ -292,44 +324,37 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         return result
     }
 
-    private static func selectionPurpose(
-        _ reference: Template.TextureReference,
-        activeSampler: SceneResolvedMaterialShaderSchema.Sampler?,
-        reachableSamplers: Set<SceneResolvedMaterialShaderSchema.Sampler>
-    ) -> SceneTextureLoadPurpose? {
-        if let activeSampler {
-            return activeSampler.purpose(for: reference)
-        }
-        let purposes = reachableSamplers.compactMap { $0.purpose(for: reference) }
-        guard purposes.count == reachableSamplers.count,
-              Set(purposes).count == 1 else { return nil }
-        return purposes.first
-    }
-
-    private static func runtimeIdentity(
-        _ reference: Template.TextureReference,
-        purpose: SceneTextureLoadPurpose
-    ) throws -> SceneFrameTextureIdentity {
-        switch reference {
-        case let .asset(path):
-            return .asset(.init(path: path, purpose: purpose))
-        case let .userProperty(request):
-            guard let identity = SceneUserPropertyTextureIdentity(
-                propertyKey: request.key,
-                purpose: purpose
-            ) else { throw failure(.identityInvariant, phase: .invariant) }
-            return .materialUserProperty(identity)
-        case let .provider(.system(name)):
-            return .system(name)
-        case let .graph(graph):
-            return .graph(graph)
-        }
-    }
-
     private typealias ResolvedResource = (
         identity: SceneFrameTextureIdentity,
         resource: SceneFrameTextureResource
     )
+
+    /// Readiness is independent of a framebuffer's eventual color/data use.
+    /// The compiled frontend supplies that use before `textureSlots` binds the
+    /// resource and validates its exact purpose.
+    private static func readyGraphResource(
+        _ input: SceneResolvedMaterialFinalizationInput,
+        identity: Graph.TextureIdentity,
+        slot: Int
+    ) throws -> ResolvedResource {
+        let registryIdentity = SceneFrameTextureIdentity.graph(identity)
+        guard let status = input.textureSnapshot.lookup(registryIdentity) else {
+            throw failure(.resourceSnapshotUnresolved, slot: slot)
+        }
+        guard case let .ready(resource) = status else {
+            let code: Failure.Code = if case .incomplete = status {
+                .textureMetadataIncomplete
+            } else {
+                .resourceSnapshotUnresolved
+            }
+            throw failure(code, slot: slot)
+        }
+        guard resource.publication.requestIdentity == registryIdentity,
+              resource.publication.isComplete,
+              resource.publication.candidate.sampling.isResolvedForMaterialProgram
+        else { throw failure(.textureMetadataIncomplete, slot: slot) }
+        return (registryIdentity, resource)
+    }
 
     private static func readyResource(
         _ input: SceneResolvedMaterialFinalizationInput,

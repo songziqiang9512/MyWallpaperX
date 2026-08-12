@@ -115,10 +115,12 @@ extension SceneResolvedMaterialGraphExecutor {
                         failure: failure
                     )
                 }
-                let passPreparation = materialEncoder.prepareResult(
+                guard let passPreparation = prepareMaterialPass(
                     program: program,
-                    target: target
-                )
+                    material: material,
+                    target: target,
+                    descriptor: fboTarget?.resource.descriptor
+                ) else { return .graphStructureRejected }
                 guard case let .success(prepared) = passPreparation else {
                     guard case let .failure(failure) = passPreparation else {
                         return .materialPassEncoderRejected
@@ -143,7 +145,7 @@ extension SceneResolvedMaterialGraphExecutor {
                         lease: lease,
                         identity: fboTarget.identity,
                         resource: fboTarget.resource,
-                        representation: prepared.fragmentOutput
+                        content: prepared.storedContent
                     ) else { return .graphPublicationRejected }
                     publications[fboTarget.identity] = publication
                 } else {
@@ -351,10 +353,24 @@ extension SceneResolvedMaterialGraphExecutor {
         resource: State.VersionedResource,
         representation: SceneShaderColorRepresentation
     ) -> SceneFrameTextureResource? {
+        framebufferResource(
+            lease: lease,
+            identity: identity,
+            resource: resource,
+            content: .color(.resolved(representation))
+        )
+    }
+
+    func framebufferResource(
+        lease: SceneGraphRenderTargetLease,
+        identity: Graph.TextureIdentity,
+        resource: State.VersionedResource,
+        content: SceneTextureContent
+    ) -> SceneFrameTextureResource? {
         guard case let .success(publication) = lease.graphResource(
             for: identity,
             versionedResource: resource,
-            fragmentColorRepresentation: .resolved(representation)
+            storedContent: content
         ) else { return nil }
         return publication
     }

@@ -20,7 +20,8 @@
           "SceneGraphResourcePassEncoder.swift",
           "SceneResolvedMaterialExecutionCapability*.swift",
           "SceneResolvedMaterialGraphExecutor*.swift",
-          "SceneResolvedMaterialPassEncoder.swift"
+          "SceneResolvedMaterialAttachment*.swift",
+          "SceneResolvedMaterialPassEncoder*.swift"
         ],
         "responsibility": "Authored-effect GPU execution type families, including ordered stages, resolved material graphs, and resource commands."
       }

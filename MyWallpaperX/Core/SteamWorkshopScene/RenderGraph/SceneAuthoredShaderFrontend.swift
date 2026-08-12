@@ -180,7 +180,15 @@ nonisolated enum SceneAuthoredShaderFrontend {
                     }
                     if deadBindings.activeSamplerNames.contains(declaration.name),
                        textureNames.insert(declaration.name).inserted {
-                        textures.append(.init(name: declaration.name, slot: slot))
+                        textures.append(.init(
+                            name: declaration.name,
+                            slot: slot,
+                            channelUse: SceneAuthoredShaderTextureChannelAnalyzer.analyze(
+                                samplerName: declaration.name,
+                                vertex: vertex,
+                                fragment: fragment
+                            )
+                        ))
                     }
                     continue
                 }

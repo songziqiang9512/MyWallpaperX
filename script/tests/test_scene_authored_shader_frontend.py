@@ -30,6 +30,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderTextureChannelAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBuiltInVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
@@ -56,6 +57,7 @@ private struct HarnessOutput: Codable {
     let diagnosticCodes: [String]
     let staticLoopWork: Int?
     let textureSlots: [Int]?
+    let textureChannelUses: [String]?
     let uniformNames: [String]?
     let offscreenWidth: Int?
     let offscreenHeight: Int?
@@ -122,6 +124,9 @@ private struct AuthoredShaderFrontendHarness {
             diagnosticCodes: output.diagnostics.map { $0.code.rawValue },
             staticLoopWork: output.program?.staticLoopWork,
             textureSlots: output.program?.textureBindings.map(\.slot),
+            textureChannelUses: output.program?.textureBindings.map {
+                $0.channelUse.rawValue
+            },
             uniformNames: output.program?.uniformLayout.fields.map(\.name),
             offscreenWidth: output.program?.offscreenSize(
                 viewportSize: CGSize(width: 3840, height: 2160)
@@ -322,6 +327,47 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
                 )
                 self.assertNotIn("level(", compact_source)
                 self.assertIsNone(output.get("metalError"))
+
+    def test_texture_channel_use_proves_only_direct_red_samples(self):
+        red_only = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture1;
+            varying vec2 v_TexCoord;
+            void main() {
+                float first = texSample2D(g_Texture1, v_TexCoord).r;
+                float second = texture2D(g_Texture1, v_TexCoord * 0.5).r;
+                gl_FragColor = vec4(first + second, 0.0, 0.0, 1.0);
+            }
+            """,
+        )
+        self.assertEqual(red_only["textureSlots"], [1])
+        self.assertEqual(red_only["textureChannelUses"], ["redOnly"])
+
+        unproven_fragments = {
+            "green": "float value = texSample2D(g_Texture1, v_TexCoord).g;",
+            "rgb": "vec3 value = texSample2D(g_Texture1, v_TexCoord).rgb;",
+            "whole": "vec4 value = texSample2D(g_Texture1, v_TexCoord);",
+            "alias": (
+                "vec4 sampled = texSample2D(g_Texture1, v_TexCoord); "
+                "float value = sampled.r;"
+            ),
+        }
+        for name, statement in unproven_fragments.items():
+            with self.subTest(name=name):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    f"""
+                    uniform sampler2D g_Texture1;
+                    varying vec2 v_TexCoord;
+                    void main() {{
+                        {statement}
+                        gl_FragColor = vec4(1.0);
+                    }}
+                    """,
+                )
+                self.assertEqual(output["textureSlots"], [1])
+                self.assertEqual(output["textureChannelUses"], ["unproven"])
 
     def test_explicit_lod_texture_sample_rejects_unproven_forms(self):
         fixtures = {

@@ -57,6 +57,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderTextureChannelAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBuiltInVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
@@ -108,6 +109,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+GraphSelection.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+Launch.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramFinalizer.swift",
 ]
@@ -643,6 +645,59 @@ private enum Harness {
             fragmentColorRepresentation: .resolved(.opaque)
         ))
         let r8Physical = r8Lease.allocation.resources[first]!.versioned(14)
+        let r8ScalarResource = require(r8Lease.graphResource(
+            for: first,
+            versionedResource: r8Physical,
+            storedContent: .scalarRedUnorm
+        ))
+        let r8ScalarCandidate = r8ScalarResource.publication.candidate
+        let r8ScalarPublication = r8ScalarResource.isCompleteGraphResource
+            && r8ScalarCandidate.purpose == .preservedChannels
+            && r8ScalarCandidate.content == .scalarRedUnorm
+            && r8ScalarCandidate.pixelFormat == .r8Unorm
+            && r8ScalarCandidate.authoredFormat == nil
+            && r8ScalarCandidate.sampling == .directImageFallback
+        let r8ScalarCannotRewrapAsLayerSource =
+            r8ScalarResource.rewrappedForGraphIdentity(input) == nil
+        let r8ScalarCannotRewrapAsEffectOutput =
+            r8ScalarResource.rewrappedForGraphIdentity(output) == nil
+        let forgedR8AuthoredFormat = SceneFrameTextureResource(
+            publication: .init(
+                requestIdentity: r8ScalarResource.publication.requestIdentity,
+                candidate: .init(
+                    texture: r8ScalarCandidate.texture,
+                    identity: r8ScalarCandidate.identity,
+                    generation: r8ScalarCandidate.generation,
+                    purpose: r8ScalarCandidate.purpose,
+                    content: r8ScalarCandidate.content,
+                    physicalSize: r8ScalarCandidate.physicalSize,
+                    mappedSize: r8ScalarCandidate.mappedSize,
+                    uvTransform: r8ScalarCandidate.uvTransform,
+                    sampling: r8ScalarCandidate.sampling,
+                    authoredFormat: .r8
+                ),
+                contentGeneration: r8ScalarResource.publication.contentGeneration
+            ),
+            resourceGeneration: r8ScalarResource.resourceGeneration
+        )
+        let forgedR8ColorPurpose = SceneFrameTextureResource(
+            publication: .init(
+                requestIdentity: r8ScalarResource.publication.requestIdentity,
+                candidate: .init(
+                    texture: r8ScalarCandidate.texture,
+                    identity: r8ScalarCandidate.identity,
+                    generation: r8ScalarCandidate.generation,
+                    purpose: .premultipliedColor,
+                    content: r8ScalarCandidate.content,
+                    physicalSize: r8ScalarCandidate.physicalSize,
+                    mappedSize: r8ScalarCandidate.mappedSize,
+                    uvTransform: r8ScalarCandidate.uvTransform,
+                    sampling: r8ScalarCandidate.sampling
+                ),
+                contentGeneration: r8ScalarResource.publication.contentGeneration
+            ),
+            resourceGeneration: r8ScalarResource.resourceGeneration
+        )
         let r8PublicationFailure = failure(r8Lease.graphResource(
             for: first,
             versionedResource: r8Physical,
@@ -747,6 +802,11 @@ private enum Harness {
                 "programResolvedOverlay": programResolvedOverlay,
                 "aliasedEndpointPublication": aliasedEndpointPublication,
                 "nonIdempotentProviderResolvedOnce": nonIdempotentProviderResolvedOnce,
+            "r8ScalarPublication": r8ScalarPublication,
+            "r8ScalarCannotRewrapAsLayerSource":
+                r8ScalarCannotRewrapAsLayerSource,
+            "r8ScalarCannotRewrapAsEffectOutput":
+                r8ScalarCannotRewrapAsEffectOutput,
             ],
             "failures": [
                 "straight": straightFailure,
@@ -756,6 +816,10 @@ private enum Harness {
                 "wrongDescriptor": wrongDescriptorFailure,
                 "pairToken": pairTokenFailure,
                 "r8Publication": r8PublicationFailure,
+                "forgedR8AuthoredFormat": forgedR8AuthoredFormat
+                    .isCompleteGraphResource ? "accepted" : "rejected",
+                "forgedR8ColorPurpose": forgedR8ColorPurpose
+                    .isCompleteGraphResource ? "accepted" : "rejected",
                 "staticAlias": staticAliasFailure,
                 "wrongTexture": wrongTextureFailure,
                 "endpointViaFramebuffer": endpointViaFramebufferFailure,
@@ -858,6 +922,8 @@ class SceneGraphTexturePublicationTests(unittest.TestCase):
                 "wrongDescriptor": "descriptorMismatch",
                 "pairToken": "unknownPhysicalToken",
                 "r8Publication": "storageSemanticUnavailable",
+                "forgedR8AuthoredFormat": "rejected",
+                "forgedR8ColorPurpose": "rejected",
                 "staticAlias": "physicalAlias",
                 "wrongTexture": "textureMismatch",
                 "endpointViaFramebuffer": "invalidLogicalIdentity",

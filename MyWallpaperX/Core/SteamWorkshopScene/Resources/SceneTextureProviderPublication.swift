@@ -123,27 +123,42 @@ nonisolated struct SceneFrameTextureResource {
               !physicalToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               case .provider(let generation) = publication.candidate.generation,
               generation == resourceGeneration,
-              publication.candidate.purpose == .premultipliedColor,
               publication.candidate.physicalSize
                   == publication.candidate.mappedSize,
               publication.candidate.uvTransform == .identity,
               publication.candidate.sampling == .directImageFallback,
               publication.candidate.sampling.rawFlags == nil,
+              publication.candidate.authoredFormat == nil,
               publication.candidate.texture.usage.contains(.renderTarget),
-              publication.candidate.texture.mipmapLevelCount == 1,
-              let uvScale = publication.candidate.axisAlignedMappedUVScale(
-                  expectedPurpose: .premultipliedColor
-              ), uvScale.x == 1, uvScale.y == 1 else {
+              publication.candidate.texture.usage.contains(.shaderRead),
+              publication.candidate.texture.mipmapLevelCount == 1 else {
             return false
         }
         switch publication.candidate.content {
         case .color(.resolved(.opaque)),
              .color(.resolved(.premultipliedAlpha)),
              .color(.resolved(.independentAlphaSignal)):
-            return true
+            let format = publication.candidate.pixelFormat
+            return publication.candidate.purpose == .premultipliedColor
+                && (format == .bgra8Unorm || format == .rgba8Unorm)
+                && identityUVScale(expectedPurpose: .premultipliedColor)
+        case .scalarRedUnorm:
+            return request.kind == .framebuffer
+                && publication.candidate.purpose == .preservedChannels
+                && publication.candidate.pixelFormat == .r8Unorm
+                && identityUVScale(expectedPurpose: .preservedChannels)
         case .color(.resolved(.straightAlpha)), .color(.unresolved), .data:
             return false
         }
+    }
+
+    private func identityUVScale(
+        expectedPurpose: SceneTextureLoadPurpose
+    ) -> Bool {
+        guard let scale = publication.candidate.axisAlignedMappedUVScale(
+            expectedPurpose: expectedPurpose
+        ) else { return false }
+        return scale.x == 1 && scale.y == 1
     }
 }
 

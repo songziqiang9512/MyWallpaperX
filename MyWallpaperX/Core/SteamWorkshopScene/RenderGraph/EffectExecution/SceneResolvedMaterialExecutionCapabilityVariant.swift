@@ -65,6 +65,16 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         )
     }
 
+    func compiledChannelUses(for slot: Int) -> [ChannelUse]? {
+        guard (0 ..< 8).contains(slot) else { return nil }
+        lock.lock()
+        defer { lock.unlock() }
+        return entries.values.compactMap {
+            guard case let .ready(variant) = $0 else { return nil }
+            return variant.frontendProgram.textureBindings.first(where: { $0.slot == slot })?.channelUse
+        }
+    }
+
     /// Launch-envelope compilation is the authority for host audio demand.
     /// Raw source declarations are insufficient because inactive variants and
     /// rejected array shapes must not keep system audio capture alive.
@@ -264,12 +274,6 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         return .success(reached.sorted())
     }
 
-    func resolve(
-        _ input: SceneResolvedMaterialFinalizationInput
-    ) -> Result<Variant, Failure> {
-        resolveSelection(input).map(\.variant)
-    }
-
     func resolveSelection(
         _ input: SceneResolvedMaterialFinalizationInput
     ) -> Result<Selection, Failure> {
@@ -307,7 +311,12 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     input,
                     samplers: variant.activeSamplers,
                     reachableSamplers: reachableSamplers,
-                    formatSlots: textureFormatSlots
+                    formatSlots: textureFormatSlots,
+                    channelUses: Dictionary(uniqueKeysWithValues:
+                        variant.frontendProgram.textureBindings.map {
+                            ($0.slot, $0.channelUse)
+                        }
+                    )
                 )
                 if next == key {
                     return .success(.init(
@@ -387,14 +396,5 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             entries[key] = .failed(failure)
             throw failure
         }
-    }
-
-    static func failure(
-        _ code: Failure.Code,
-        phase: Failure.Phase = .texture,
-        slot: Int? = nil,
-        details: [String] = []
-    ) -> Failure {
-        .init(phase: phase, code: code, slot: slot, details: details)
     }
 }

@@ -46,22 +46,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
-    final class MaterialCapability {
-        let key: MaterialKey
-        let template: Template
-        let variants: SceneResolvedMaterialVariantCache
-
-        init(
-            key: MaterialKey,
-            template: Template,
-            variants: SceneResolvedMaterialVariantCache
-        ) {
-            self.key = key
-            self.template = template
-            self.variants = variants
-        }
-    }
-
     enum StageCapability {
         case resolved(
             product: SceneGraphAdmissionProduct,

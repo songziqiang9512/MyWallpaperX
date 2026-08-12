@@ -145,4 +145,13 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             }
         }
     }
+
+    static func failure(
+        _ code: Failure.Code,
+        phase: Failure.Phase = .texture,
+        slot: Int? = nil,
+        details: [String] = []
+    ) -> Failure {
+        .init(phase: phase, code: code, slot: slot, details: details)
+    }
 }

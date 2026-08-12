@@ -196,8 +196,16 @@ nonisolated enum SceneShaderColorTransfer: Equatable, Hashable, Sendable {
 
 nonisolated struct SceneAuthoredShaderProgram {
     struct TextureBinding: Equatable, Hashable, Sendable {
+        enum ChannelUse: String, Equatable, Hashable, Sendable {
+            /// Every active sample result is immediately projected to `.r`.
+            case redOnly
+            /// The bounded frontend cannot prove a single stored component.
+            case unproven
+        }
+
         let name: String
         let slot: Int
+        let channelUse: ChannelUse
     }
 
     let metalSource: String
@@ -207,6 +215,10 @@ nonisolated struct SceneAuthoredShaderProgram {
     let textureBindings: [TextureBinding]
     let staticLoopWork: Int
     let colorTransfer: SceneShaderColorTransfer
+
+    func channelUse(forTextureSlot slot: Int) -> TextureBinding.ChannelUse? {
+        textureBindings.first(where: { $0.slot == slot })?.channelUse
+    }
 
     init(
         metalSource: String,

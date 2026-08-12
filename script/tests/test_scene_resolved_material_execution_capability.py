@@ -65,9 +65,13 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentKind.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Material.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
     CAPABILITY_PROGRAM_FIRST_SOURCE,
@@ -86,9 +90,16 @@ PROGRAM_FINALIZER_FIXTURE = runpy.run_path(
 )
 ENVELOPE_SWIFT_SOURCES = [
     *PROGRAM_FINALIZER_FIXTURE["SWIFT_SOURCES"],
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentKind.swift",
+    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
+    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
+    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
     SCENE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Material.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
     CAPABILITY_PROGRAM_FIRST_SOURCE,
@@ -495,6 +506,10 @@ final class SceneResolvedMaterialVariantCache {
 
     var supportsTransparentDirectDraw: Bool { true }
     var hasAudioSpectrumConsumer: Bool { audioSpectrumConsumer }
+    func provesRedOnlyConsumer(slot: Int) -> Bool {
+        _ = slot
+        return false
+    }
 }
 '''
 
@@ -2922,6 +2937,9 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
 }
 
 struct SceneOpacityExecutionPlan {}
+struct SceneCursorRippleExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
 struct SceneProceduralNoiseExecutionPlan {
     enum Variant { case colorPerlinRGB, worleyColorV1 }
     let layerID: Int
@@ -2943,6 +2961,9 @@ struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 struct SceneEffectStageExecutionPlan {
     let logicalRenderTargetCount: Int
     let opacity: SceneOpacityExecutionPlan?
+    var layerID: Int { 0 }
+    var materialNodeCount: Int { 0 }
+    var cursorRipple: SceneCursorRippleExecutionPlan? { nil }
     var inputRole: SceneAuthoredEffectInputRole { .layerSource }
     var clippingMask: SceneClippingMaskExecutionPlan? { nil }
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
@@ -3756,6 +3777,14 @@ private enum EnvelopeHarness {
                 layerID: layerID
             ) != nil,
             "capacityFailure": rejection(capacityFailure),
+            "redOnlyChannelEnvelope": [
+                "allRed": SceneResolvedMaterialVariantCache
+                    .channelEnvelopeIsRedOnly([.redOnly, .redOnly]),
+                "mixed": SceneResolvedMaterialVariantCache
+                    .channelEnvelopeIsRedOnly([.redOnly, .unproven]),
+                "empty": SceneResolvedMaterialVariantCache
+                    .channelEnvelopeIsRedOnly([]),
+            ],
             "partialClaim": partialFailure.claim(layerID: layerID) != nil,
             "partialFailure": rejection(partialFailure),
             "partialSummary": summary(partialFailure),
@@ -4237,7 +4266,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
     ) -> None:
         variant_cache = VARIANT_CACHE_SOURCE.read_text(encoding="utf-8")
         reachability = SHADER_REACHABILITY_SOURCE.read_text(encoding="utf-8")
-        resolve_start = variant_cache.index("    func resolve(")
+        resolve_start = variant_cache.index("    func resolveSelection(")
         resolve_end = variant_cache.index(
             "    private func reachableSamplersLocked(", resolve_start
         )
@@ -4876,6 +4905,11 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn(
             "material-variant-envelope-capacity",
             payload["capacityFailure"],
+        )
+        self.assertEqual(
+            payload["redOnlyChannelEnvelope"],
+            {"allRed": True, "mixed": False, "empty": False},
+            payload,
         )
         self.assertFalse(payload["partialClaim"])
         self.assertIn(

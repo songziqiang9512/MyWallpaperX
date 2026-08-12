@@ -104,7 +104,9 @@ nonisolated struct SceneTextureSlotBinding {
             && valid(
                 content: candidate.content,
                 purpose: candidate.purpose,
-                identity: candidate.identity
+                identity: candidate.identity,
+                pixelFormat: candidate.pixelFormat,
+                authoredFormat: candidate.authoredFormat
             )
             && valid(candidate.uvTransform)
     }
@@ -112,7 +114,9 @@ nonisolated struct SceneTextureSlotBinding {
     private static func valid(
         content: SceneTextureContent,
         purpose: SceneTextureLoadPurpose,
-        identity: SceneTextureResourceIdentity
+        identity: SceneTextureResourceIdentity,
+        pixelFormat: MTLPixelFormat,
+        authoredFormat: SceneShaderTextureFormat?
     ) -> Bool {
         switch (purpose, content) {
         case (.premultipliedColor, .color(.resolved(.premultipliedAlpha))),
@@ -123,6 +127,11 @@ nonisolated struct SceneTextureSlotBinding {
         case (.premultipliedColor, .color(.resolved(.independentAlphaSignal))):
             guard case .provider(.graph) = identity else { return false }
             return true
+        case (.preservedChannels, .scalarRedUnorm):
+            guard case .provider(.graph) = identity else { return false }
+            return pixelFormat == .r8Unorm && authoredFormat == nil
+        case (_, .scalarRedUnorm):
+            return false
         case (.premultipliedColor, _), (.straightAlbedo, _):
             return false
         case (_, .data):

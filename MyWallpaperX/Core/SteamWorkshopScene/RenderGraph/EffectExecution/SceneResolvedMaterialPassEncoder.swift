@@ -5,36 +5,9 @@ import Metal
 /// encoded. A graph executor can therefore prepare every pass first and only
 /// start its command buffer after the complete transaction is admissible.
 final class SceneResolvedMaterialPassEncoder {
-    enum PreparationFailure: Error, Equatable {
-        case fragmentOutputRejected
-        case targetRejected
-        case uniformsRejected
-        case bindingsRejected
-        case compileStateKeyRejected
-        case renderStateRejected
-        case libraryCompilationRejected(diagnostic: String)
-        case vertexFunctionRejected
-        case fragmentFunctionRejected
-        case pipelineCompilationRejected(diagnostic: String)
-
-        var code: String {
-            switch self {
-            case .fragmentOutputRejected: "fragment-output"
-            case .targetRejected: "target"
-            case .uniformsRejected: "uniforms"
-            case .bindingsRejected: "bindings"
-            case .compileStateKeyRejected: "compile-state-key"
-            case .renderStateRejected: "render-state"
-            case .libraryCompilationRejected: "library-compilation"
-            case .vertexFunctionRejected: "vertex-function"
-            case .fragmentFunctionRejected: "fragment-function"
-            case .pipelineCompilationRejected: "pipeline-compilation"
-            }
-        }
-    }
-
     struct PreparedPass {
         let fragmentOutput: SceneShaderColorRepresentation
+        let storedContent: SceneTextureContent
         let bindingSlots: [Int]
         let bindingSamplings: [SceneTextureSampling]
         let uniformByteCount: Int
@@ -94,9 +67,45 @@ final class SceneResolvedMaterialPassEncoder {
         program: SceneResolvedMaterialProgram,
         target: MTLTexture
     ) -> Result<PreparedPass, PreparationFailure> {
-        guard let fragmentOutput = acceptedOutput(program.colorContract.fragmentOutput)
+        prepareAuthorizedResult(
+            program: program,
+            target: target,
+            attachmentStorage: .color
+        )
+    }
+
+    /// The storage kind must come from the admitted material capability. The
+    /// ordinary overload above deliberately authorizes color only.
+    func prepareResult(
+        program: SceneResolvedMaterialProgram,
+        target: MTLTexture,
+        attachmentStorage: SceneResolvedMaterialAttachmentKind
+    ) -> Result<PreparedPass, PreparationFailure> {
+        prepareAuthorizedResult(
+            program: program,
+            target: target,
+            attachmentStorage: attachmentStorage
+        )
+    }
+
+    private func prepareAuthorizedResult(
+        program: SceneResolvedMaterialProgram,
+        target: MTLTexture,
+        attachmentStorage: SceneResolvedMaterialAttachmentKind
+    ) -> Result<PreparedPass, PreparationFailure> {
+        guard let fragmentOutput = SceneResolvedMaterialAttachmentStorage
+            .acceptedColorOutput(program.colorContract.fragmentOutput)
         else { return .failure(.fragmentOutputRejected) }
-        guard validTarget(target) else { return .failure(.targetRejected) }
+        let storedContent = attachmentStorage.storedContent(
+            fragmentOutput: fragmentOutput
+        )
+        guard SceneResolvedMaterialAttachmentStorage.target(
+            target,
+            belongsTo: device,
+            stores: storedContent
+        ) else {
+            return .failure(.targetRejected)
+        }
         guard validUniforms(program) else { return .failure(.uniformsRejected) }
         guard let bindings = validatedBindings(program, target: target) else {
             return .failure(.bindingsRejected)
@@ -107,12 +116,18 @@ final class SceneResolvedMaterialPassEncoder {
             device: device
         ) else { return .failure(.compileStateKeyRejected) }
         let cached: (pipeline: MTLRenderPipelineState, generation: UInt64)
-        switch pipeline(for: key, program: program, target: target) {
+        switch pipeline(
+            for: key,
+            program: program,
+            target: target,
+            storedContent: storedContent
+        ) {
         case let .success(value): cached = value
         case let .failure(failure): return .failure(failure)
         }
         return .success(PreparedPass(
             fragmentOutput: fragmentOutput,
+            storedContent: storedContent,
             bindingSlots: bindings.map(\.slot),
             bindingSamplings: bindings.map(\.sampling),
             uniformByteCount: program.uniformBytes.count,
@@ -136,7 +151,11 @@ final class SceneResolvedMaterialPassEncoder {
               withLock({ pass.resetGeneration == resetGeneration }),
               commandBuffer.status == .notEnqueued,
               commandBuffer.commandQueue.device.registryID == device.registryID,
-              validTarget(pass.target),
+              SceneResolvedMaterialAttachmentStorage.target(
+                  pass.target,
+                  belongsTo: device,
+                  stores: pass.storedContent
+              ),
               pass.bindings.allSatisfy({ valid($0, target: pass.target) }) else {
             return false
         }
@@ -178,30 +197,6 @@ final class SceneResolvedMaterialPassEncoder {
         resetGeneration &+= 1
         compilationAttempts = 0
         failedPipelines = 0
-    }
-
-    private func acceptedOutput(
-        _ resolution: SceneShaderColorRepresentationResolution
-    ) -> SceneShaderColorRepresentation? {
-        switch resolution {
-        case .resolved(.opaque): return .opaque
-        case .resolved(.premultipliedAlpha): return .premultipliedAlpha
-        case .resolved(.independentAlphaSignal): return .independentAlphaSignal
-        case .resolved(.straightAlpha), .unresolved: return nil
-        }
-    }
-
-    private func validTarget(_ target: MTLTexture) -> Bool {
-        let supportedFormats: Set<MTLPixelFormat> = [.bgra8Unorm, .rgba8Unorm]
-        return target.device.registryID == device.registryID
-            && target.textureType == .type2D
-            && supportedFormats.contains(target.pixelFormat)
-            && target.width > 0
-            && target.height > 0
-            && target.mipmapLevelCount == 1
-            && target.sampleCount == 1
-            && target.usage.contains(.renderTarget)
-            && target.usage.contains(.shaderRead)
     }
 
     private func validUniforms(_ program: SceneResolvedMaterialProgram) -> Bool {
@@ -315,7 +310,8 @@ final class SceneResolvedMaterialPassEncoder {
     private func pipeline(
         for key: SceneResolvedMaterialProgram.MetalCompileStateKey,
         program: SceneResolvedMaterialProgram,
-        target: MTLTexture
+        target: MTLTexture,
+        storedContent: SceneTextureContent
     ) -> Result<
         (pipeline: MTLRenderPipelineState, generation: UInt64),
         PreparationFailure
@@ -358,7 +354,8 @@ final class SceneResolvedMaterialPassEncoder {
         descriptor.rasterSampleCount = 1
         descriptor.colorAttachments[0].pixelFormat = target.pixelFormat
         descriptor.colorAttachments[0].isBlendingEnabled = false
-        descriptor.colorAttachments[0].writeMask = .all
+        descriptor.colorAttachments[0].writeMask =
+            SceneResolvedMaterialAttachmentStorage.writeMask(for: storedContent)
         do {
             let pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
             entries[key] = .ready(pipeline)

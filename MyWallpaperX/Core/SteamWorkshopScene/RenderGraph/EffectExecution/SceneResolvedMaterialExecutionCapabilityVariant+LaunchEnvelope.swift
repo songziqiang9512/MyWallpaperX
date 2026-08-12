@@ -18,6 +18,25 @@ nonisolated struct SceneResolvedMaterialVariantKey: Hashable {
 }
 
 extension SceneResolvedMaterialVariantCache {
+    typealias ChannelUse = SceneAuthoredShaderProgram.TextureBinding.ChannelUse
+
+    func resolve(
+        _ input: SceneResolvedMaterialFinalizationInput
+    ) -> Result<Variant, Failure> {
+        resolveSelection(input).map(\.variant)
+    }
+
+    /// At least one launch-envelope variant must consume the slot, and every
+    /// consuming variant must observe only the stored red scalar.
+    func provesRedOnlyConsumer(slot: Int) -> Bool {
+        guard let uses = compiledChannelUses(for: slot) else { return false }
+        return Self.channelEnvelopeIsRedOnly(uses)
+    }
+
+    static func channelEnvelopeIsRedOnly(_ uses: [ChannelUse]) -> Bool {
+        !uses.isEmpty && uses.allSatisfy { $0 == .redOnly }
+    }
+
     struct Counters: Equatable {
         let cachedVariantCount: Int
         let shaderPreparationCount: Int

@@ -31,6 +31,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderTextureChannelAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBuiltInVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
@@ -58,6 +59,12 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+Derivation.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+ColorDerivation.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentKind.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentStorage.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Failure.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder.swift",
 ]
@@ -391,11 +398,19 @@ private func slot(
         registry = .asset(.init(path: path, purpose: purpose))
     }
     let generation = UInt64(marker)
+    let providerIdentity: SceneTextureResourceIdentity = if content == .scalarRedUnorm {
+        .provider(.graph(
+            allocationGeneration: generation,
+            physicalToken: "scalar-red-\(marker)"
+        ))
+    } else {
+        .provider(.video(layerID: marker, lifecycleEpoch: 1))
+    }
     let publication = SceneTextureProviderPublication(
         requestIdentity: registry,
         candidate: .init(
             texture: texture,
-            identity: .provider(.video(layerID: marker, lifecycleEpoch: 1)),
+            identity: providerIdentity,
             generation: .provider(contentGeneration: generation),
             purpose: purpose,
             content: content,
@@ -541,6 +556,17 @@ private func pixels(_ texture: MTLTexture) -> [UInt8] {
     texture.getBytes(
         &result,
         bytesPerRow: texture.width * 4,
+        from: MTLRegionMake2D(0, 0, texture.width, texture.height),
+        mipmapLevel: 0
+    )
+    return result
+}
+
+private func scalarPixels(_ texture: MTLTexture) -> [UInt8] {
+    var result = [UInt8](repeating: 0, count: texture.width * texture.height)
+    texture.getBytes(
+        &result,
+        bytesPerRow: texture.width,
         from: MTLRegionMake2D(0, 0, texture.width, texture.height),
         mipmapLevel: 0
     )
@@ -1514,6 +1540,111 @@ private enum Harness {
             program: baseline,
             target: r8Target
         ) == nil
+        let explicitScalarPreparation = encoder.prepareResult(
+            program: baseline,
+            target: r8Target,
+            attachmentStorage: .scalarRedUnorm
+        )
+        var scalarProducerEncoded = false
+        var scalarProducerCompleted = false
+        var scalarProducerRedStorage = false
+        if case let .success(prepared) = explicitScalarPreparation,
+           let command = queue.makeCommandBuffer() {
+            scalarProducerEncoded = encoder.encode(prepared, commandBuffer: command)
+            command.commit()
+            command.waitUntilCompleted()
+            scalarProducerCompleted = command.status == .completed
+                && command.error == nil
+            scalarProducerRedStorage = scalarPixels(r8Target) == [255, 0, 0, 255]
+        }
+        let scalarConsumerFragment = """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0;
+        void main() {
+            float scalar = texSample2D(g_Texture0, v_TexCoord).r;
+            gl_FragColor = vec4(scalar, scalar, scalar, 1.0);
+        }
+        """
+        let scalarConsumer = program(
+            device: device,
+            marker: 74,
+            outputSlot: 0,
+            slot0Texture: r8Target,
+            slot0Content: .scalarRedUnorm,
+            slot0Purpose: .preservedChannels,
+            fragmentSource: scalarConsumerFragment
+        )
+        let scalarOutput = target(device: device)
+        let scalarRoundTrip = render(
+            scalarConsumer,
+            encoder: encoder,
+            queue: queue,
+            target: scalarOutput
+        )
+        let scalarRoundTripExpected: [UInt8] = [
+            255, 255, 255, 255,
+            0, 0, 0, 255,
+            0, 0, 0, 255,
+            255, 255, 255, 255,
+        ]
+        let scalarWholeVectorRejectedUpstream = program(
+            device: device,
+            marker: 75,
+            outputSlot: 0,
+            slot0Texture: r8Target,
+            slot0Content: .scalarRedUnorm,
+            slot0Purpose: .preservedChannels,
+            fragmentSource: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0;
+            void main() {
+                gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+            }
+            """
+        ) == nil
+        let scalarGreenRejectedUpstream = program(
+            device: device,
+            marker: 76,
+            outputSlot: 0,
+            slot0Texture: r8Target,
+            slot0Content: .scalarRedUnorm,
+            slot0Purpose: .preservedChannels,
+            fragmentSource: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0;
+            void main() {
+                float scalar = texSample2D(g_Texture0, v_TexCoord).g;
+                gl_FragColor = vec4(scalar, scalar, scalar, 1.0);
+            }
+            """
+        ) == nil
+        let scalarAliasRejectedUpstream = program(
+            device: device,
+            marker: 77,
+            outputSlot: 0,
+            slot0Texture: r8Target,
+            slot0Content: .scalarRedUnorm,
+            slot0Purpose: .preservedChannels,
+            fragmentSource: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0;
+            void main() {
+                vec4 sampleValue = texSample2D(g_Texture0, v_TexCoord);
+                float scalar = sampleValue.r;
+                gl_FragColor = vec4(scalar, scalar, scalar, 1.0);
+            }
+            """
+        ) == nil
+        let scalarIntoColorTargetRejected: Bool
+        if case .failure(.targetRejected) = encoder.prepareResult(
+            program: baseline,
+            target: rgbaTarget,
+            attachmentStorage: .scalarRedUnorm
+        ) {
+            scalarIntoColorTargetRejected = true
+        } else {
+            scalarIntoColorTargetRejected = false
+        }
         let readOnlyTarget = target(device: device, usage: .shaderRead)
         let missingRenderTargetRejected = encoder.prepare(
             program: baseline,
@@ -1648,6 +1779,24 @@ private enum Harness {
                 == shimmer2DSourceBytes,
             "boundedShimmer2DDownLeftCentroid": boundedShimmer2DCentroid,
             "targetFormatRejected": formatRejected,
+            "scalarProducerPreparedExplicitly": {
+                if case let .success(prepared) = explicitScalarPreparation {
+                    return prepared.storedContent == .scalarRedUnorm
+                }
+                return false
+            }(),
+            "scalarProducerEncoded": scalarProducerEncoded,
+            "scalarProducerGPUCompleted": scalarProducerCompleted,
+            "scalarProducerStoresOnlyRed": scalarProducerRedStorage,
+            "scalarRedConsumerPrepared": scalarRoundTrip.prepared,
+            "scalarRedConsumerEncoded": scalarRoundTrip.encoded,
+            "scalarRedConsumerGPUCompleted": scalarRoundTrip.completed,
+            "scalarRedRoundTripMatches": scalarRoundTrip.pixels
+                == scalarRoundTripExpected,
+            "scalarWholeVectorRejectedUpstream": scalarWholeVectorRejectedUpstream,
+            "scalarGreenRejectedUpstream": scalarGreenRejectedUpstream,
+            "scalarAliasRejectedUpstream": scalarAliasRejectedUpstream,
+            "scalarIntoColorTargetRejected": scalarIntoColorTargetRejected,
             "missingRenderTargetRejected": missingRenderTargetRejected,
             "missingShaderReadRejected": missingShaderReadRejected,
             "inputUsageRejectedUpstream": inputUsageRejectedUpstream,
