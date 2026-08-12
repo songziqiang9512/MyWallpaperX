@@ -100,21 +100,21 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlpha(textureSlot: slot)
         }
+        if let slot = SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.analyze(
+            outputUses: outputUses, fragment: fragment, main: main
+        ) {
+            return .straightAlpha(textureSlot: slot)
+        }
         if let transfer = SceneAuthoredShaderIndependentAlphaAnalyzer.analyze(
-            outputUses: outputUses,
-            fragment: fragment,
-            main: main
+            outputUses: outputUses, fragment: fragment, main: main
         ) {
             return transfer
         }
         return isOpaqueVectorConstruction(expression) ? .opaque : .unresolved
     }
 
-    /// Proves the equivalent local form:
-    /// `vec4 color = sample(...); color.a <op>= ...; gl_FragColor = color;`.
-    /// The sampled RGB may be read but never written, and exactly one root-level
-    /// alpha write is required. The Metal emitter can therefore unpremultiply
-    /// the sampled slot before authored math and premultiply the final output.
+    /// Proves a sampled local with no RGB writes and one root alpha write.
+    /// The emitter applies the straight-color boundary around authored math.
     private static func mutatedStraightAlphaSlot(
         _ expression: ArraySlice<SceneAuthoredShaderToken>,
         outputAssignment: Int,

@@ -227,7 +227,8 @@ nonisolated struct SceneResolvedMaterialTemplate {
 /// One fully resolved material pass for one immutable resource/dynamic snapshot.
 nonisolated struct SceneResolvedMaterialProgram {
     enum HostUniform: Hashable {
-        case renderSize, modelViewProjection, effectTextureProjectionMatrix
+        case renderSize, modelViewProjection, layerModelMatrix
+        case effectTextureProjectionMatrix
         case effectTextureProjectionMatrixInverse
         case time, dayTime, frameTime
         case pointerPosition, pointerPositionLast, parallaxPosition, screen

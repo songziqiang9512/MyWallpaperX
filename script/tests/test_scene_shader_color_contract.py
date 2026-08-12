@@ -36,6 +36,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
@@ -51,7 +52,7 @@ SWIFT_SOURCES = [
 HARNESS = r'''
 import Foundation
 
-private func fragment(_ body: String) -> String {
+private func fragment(_ body: String, helpers: String = "") -> String {
     """
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0;
@@ -81,13 +82,14 @@ private func fragment(_ body: String) -> String {
         float replacement = changed;
         return mix(base, replacement, opacity);
     }
+    \(helpers)
     void main() {
         \(body)
     }
     """
 }
 
-private func program(_ body: String) -> SceneAuthoredShaderProgram? {
+private func program(_ body: String, helpers: String = "") -> SceneAuthoredShaderProgram? {
     let vertex = """
     attribute vec3 a_Position;
     attribute vec2 a_TexCoord;
@@ -99,12 +101,12 @@ private func program(_ body: String) -> SceneAuthoredShaderProgram? {
     """
     return SceneAuthoredShaderFrontend.compile(
         vertexSource: vertex,
-        fragmentSource: fragment(body)
+        fragmentSource: fragment(body, helpers: helpers)
     ).program
 }
 
-private func transfer(_ body: String) -> String {
-    let result = program(body)?.colorTransfer ?? .unresolved
+private func transfer(_ body: String, helpers: String = "") -> String {
+    let result = program(body, helpers: helpers)?.colorTransfer ?? .unresolved
     switch result {
     case .opaque: return "opaque"
     case .unresolved: return "unresolved"
@@ -217,6 +219,79 @@ enum Harness {
                 "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
                 "float mask = 0.5; " +
                 "gl_FragColor = vec4(color.rgb, color.a * mask);"
+            ),
+            "straightRGBFactoredAlpha": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float coverage = 0.5; " +
+                "float alpha = color.a * coverage * g_ScalarWeight; " +
+                "gl_FragColor = vec4(color.rgb, alpha);"
+            ),
+            "straightRGBFactoredAlphaMetal": metal(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float coverage = 0.5; " +
+                "float alpha = color.a * coverage * g_ScalarWeight; " +
+                "gl_FragColor = vec4(color.rgb, alpha);"
+            ),
+            "straightRGBSafeHelper": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float coverage = SafeCoverage(g_ScalarWeight); " +
+                "float alpha = color.a * coverage; " +
+                "gl_FragColor = vec4(color.rgb, alpha);",
+                helpers: "float SafeCoverage(float value) { " +
+                    "float scaled = value * 0.5; " +
+                    "return smoothstep(0.0, 1.0, scaled); }"
+            ),
+            "straightRGBReplacedAlpha": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float alpha = g_ScalarWeight * 0.5; " +
+                "gl_FragColor = vec4(color.rgb, alpha);"
+            ),
+            "straightRGBAdditiveAlpha": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float alpha = color.a * g_ScalarWeight + 0.1; " +
+                "gl_FragColor = vec4(color.rgb, alpha);"
+            ),
+            "straightRGBConditionalAlpha": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float factor = 0.5; if (g_ScalarWeight > 0.5) factor = 1.0; " +
+                "float alpha = color.a * factor; " +
+                "gl_FragColor = vec4(color.rgb, alpha);"
+            ),
+            "straightRGBExtraSample": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float factor = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "float alpha = color.a * factor; " +
+                "gl_FragColor = vec4(color.rgb, alpha);"
+            ),
+            "straightRGBMutatedColor": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "color.rgb *= 0.5; float alpha = color.a * g_ScalarWeight; " +
+                "gl_FragColor = vec4(color.rgb, alpha);"
+            ),
+            "straightRGBHiddenHelperSample": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float factor = HiddenSampleFactor(); " +
+                "float alpha = color.a * factor; " +
+                "gl_FragColor = vec4(color.rgb, alpha);",
+                helpers: "float HiddenSampleFactor() { " +
+                    "return texSample2D(g_Texture1, v_TexCoord).r; }"
+            ),
+            "straightRGBHiddenHelperConditional": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float factor = HiddenConditionalFactor(g_ScalarWeight); " +
+                "float alpha = color.a * factor; " +
+                "gl_FragColor = vec4(color.rgb, alpha);",
+                helpers: "float HiddenConditionalFactor(float value) { " +
+                    "if (value > 0.5) return 1.0; return value; }"
+            ),
+            "straightRGBHiddenHelperMutation": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float factor = g_ScalarWeight; " +
+                "float adjusted = HiddenMutatingFactor(factor); " +
+                "float alpha = color.a * adjusted; " +
+                "gl_FragColor = vec4(color.rgb, alpha);",
+                helpers: "float HiddenMutatingFactor(inout float value) { " +
+                    "value *= 0.5; return value; }"
             ),
             "straightBlendReplacement": transfer(
                 "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
@@ -685,6 +760,26 @@ class SceneShaderColorContractTests(unittest.TestCase):
         source = self.result["straightBlendMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+
+    def test_straight_rgb_with_factored_source_alpha_has_one_color_boundary(self) -> None:
+        self.assertEqual(
+            self.result["straightRGBFactoredAlpha"], "straight-slot:0"
+        )
+        self.assertEqual(self.result["straightRGBSafeHelper"], "straight-slot:0")
+        source = self.result["straightRGBFactoredAlphaMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+        for key in (
+            "straightRGBReplacedAlpha",
+            "straightRGBAdditiveAlpha",
+            "straightRGBConditionalAlpha",
+            "straightRGBExtraSample",
+            "straightRGBMutatedColor",
+            "straightRGBHiddenHelperSample",
+            "straightRGBHiddenHelperConditional",
+            "straightRGBHiddenHelperMutation",
+        ):
+            self.assertNotEqual(self.result[key], "straight-slot:0", key)
 
     def test_overlay_alpha_blend_reuses_the_bounded_straight_boundary(self) -> None:
         self.assertEqual(self.result["overlayAlphaBlend"], "straight-slot:0")

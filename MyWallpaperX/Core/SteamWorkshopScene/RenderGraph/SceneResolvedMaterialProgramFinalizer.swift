@@ -33,6 +33,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         template: SceneResolvedMaterialTemplate,
         renderSize: CGSize,
         modelViewProjection: simd_float4x4,
+        layerModelMatrix: simd_float4x4,
         effectTextureProjectionMatrixInverse: simd_float4x4,
         implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil
     ) -> SceneResolvedMaterialFinalizationInput {
@@ -41,6 +42,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
             frameSnapshot: self,
             renderSize: renderSize,
             modelViewProjection: modelViewProjection,
+            layerModelMatrix: layerModelMatrix,
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )
@@ -77,6 +79,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
     fileprivate let frameSnapshot: SceneResolvedMaterialFrameSnapshot
     let renderSize: CGSize
     let modelViewProjection: simd_float4x4
+    let layerModelMatrix: simd_float4x4
     let effectTextureProjectionMatrixInverse: simd_float4x4
     /// Current full-frame graph input for shader samplers that explicitly
     /// declare a `framebuffer` or `previous` material alias without an authored
@@ -99,6 +102,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
             renderSize: renderSize,
             screenSize: frameSnapshot.frameInputs.screenSize,
             modelViewProjection: modelViewProjection,
+            layerModelMatrix: layerModelMatrix,
             effectTextureProjectionMatrix:
                 effectTextureProjectionMatrixInverse.inverse,
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
@@ -120,21 +124,6 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
         )
     }
 
-    fileprivate init(
-        template: SceneResolvedMaterialTemplate,
-        frameSnapshot: SceneResolvedMaterialFrameSnapshot,
-        renderSize: CGSize,
-        modelViewProjection: simd_float4x4,
-        effectTextureProjectionMatrixInverse: simd_float4x4,
-        implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?
-    ) {
-        self.template = template
-        self.frameSnapshot = frameSnapshot
-        self.renderSize = renderSize
-        self.modelViewProjection = modelViewProjection
-        self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
-        self.implicitFramebufferIdentity = implicitFramebufferIdentity
-    }
 }
 
 nonisolated enum SceneResolvedMaterialProgramFinalizer {
@@ -256,7 +245,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         variant: SceneResolvedMaterialCompiledVariant,
         slots: [Program.TextureSlot?]
     ) throws -> [Program.ResolvedUniform] {
-        return try variant.frontendProgram.uniformLayout.fields.map { field in
+        try variant.frontendProgram.uniformLayout.fields.map { field in
             let schema = variant.activeUniforms[field.name]
             let keys = Set(schema?.materialKeys ?? [field.name])
             let declarations = input.template.uniformDeclarations.filter {
@@ -388,8 +377,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
     }
 
     private static func failure(
-        _ phase: Failure.Phase,
-        _ code: Failure.Code,
+        _ phase: Failure.Phase, _ code: Failure.Code,
         details: [String] = []
     ) -> Failure {
         .init(phase: phase, code: code, details: details)

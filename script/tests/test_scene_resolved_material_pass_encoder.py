@@ -40,6 +40,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
@@ -164,6 +165,18 @@ uniform float g_Gain;
 void main() {
     vec4 color = texSample2D(g_Texture0, v_TexCoord);
     gl_FragColor = vec4(color.rgb, color.a * g_Gain);
+}
+"""
+
+private let straightRGBFactoredAlphaFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform float g_Gain;
+void main() {
+    vec4 source = texSample2D(g_Texture0, v_TexCoord);
+    float coverage = g_Gain;
+    float alpha = source.a * coverage;
+    gl_FragColor = vec4(source.rgb, alpha);
 }
 """
 
@@ -1083,6 +1096,25 @@ private enum Harness {
                 && actual[2] <= actual[3]
         }
 
+        let factoredAlphaProgram = program(
+            device: device,
+            marker: 29,
+            outputSlot: 0,
+            slot0Texture: premultipliedPixel,
+            fragmentSource: straightRGBFactoredAlphaFragment,
+            gain: 0.5
+        )
+        let factoredAlphaResult = render(
+            factoredAlphaProgram,
+            encoder: encoder,
+            queue: queue,
+            target: target(device: device, width: 1, height: 1)
+        )
+        let factoredAlphaPixelsMatch = closePixels(
+            factoredAlphaResult.pixels,
+            [32, 16, 8, 64]
+        )
+
         let maskPixel = texture(
             device: device,
             width: 1,
@@ -1843,6 +1875,10 @@ private enum Harness {
             "straightBoundaryGPUCompleted": straightBoundaryGPUCompleted,
             "straightBoundaryPixelsMatch": straightBoundaryPixelsMatch,
             "straightBoundaryPremultiplied": straightBoundaryPremultiplied,
+            "factoredAlphaPrepared": factoredAlphaResult.prepared,
+            "factoredAlphaEncoded": factoredAlphaResult.encoded,
+            "factoredAlphaGPUCompleted": factoredAlphaResult.completed,
+            "factoredAlphaPixelsMatch": factoredAlphaPixelsMatch,
             "maskedBoundaryPrepared": maskedBoundaryPrepared,
             "maskedBoundaryGPUCompleted": maskedBoundaryGPUCompleted,
             "maskedBoundaryPixelsMatch": maskedBoundaryPixelsMatch,

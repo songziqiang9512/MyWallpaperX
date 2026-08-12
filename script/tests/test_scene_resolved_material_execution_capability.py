@@ -3108,6 +3108,7 @@ private func fragmentSource(
     invalidSamplerSlot: Bool = false,
     colorUnproven: Bool = false,
     alphaReplacement: Bool = false,
+    sourceAlphaFactor: Bool = false,
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
     maskedAlpha: Bool = false,
@@ -3156,7 +3157,11 @@ private func fragmentSource(
         """
     } else if alphaReplacement {
         output = "vec4 source = texSample2D(\(firstName), v_TexCoord);"
-            + " float alpha = source.a * 0.5;"
+            + " float alpha = 0.5;"
+            + " gl_FragColor = vec4(source.rgb, alpha);"
+    } else if sourceAlphaFactor {
+        output = "vec4 source = texSample2D(\(firstName), v_TexCoord);"
+            + " float coverage = 0.5; float alpha = source.a * coverage;"
             + " gl_FragColor = vec4(source.rgb, alpha);"
     } else if colorUnproven {
         output = "gl_FragColor = texSample2D(\(firstName), v_TexCoord) * 0.5;"
@@ -3202,6 +3207,7 @@ private func contract(
     invalidSamplerSlot: Bool = false,
     colorUnproven: Bool = false,
     alphaReplacement: Bool = false,
+    sourceAlphaFactor: Bool = false,
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
     maskedAlpha: Bool = false,
@@ -3237,6 +3243,7 @@ private func contract(
         invalidSamplerSlot: invalidSamplerSlot,
         colorUnproven: colorUnproven,
         alphaReplacement: alphaReplacement,
+        sourceAlphaFactor: sourceAlphaFactor,
         samplesSecond: samplesSecond,
         observesSecond: observesSecond,
         maskedAlpha: maskedAlpha,
@@ -3573,6 +3580,17 @@ private enum EnvelopeHarness {
                 shader: contract(
                     "typed-color-failure",
                     alphaReplacement: true
+                ),
+                slots: slots(primary: graphCandidate())
+            )
+        )
+        let sourceAlphaFactorPositive = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "source-alpha-factor-positive",
+                    sourceAlphaFactor: true
                 ),
                 slots: slots(primary: graphCandidate())
             )
@@ -3926,6 +3944,9 @@ private enum EnvelopeHarness {
             "samplerSchemaFailure": rejection(samplerSchemaFailure),
             "colorFailure": rejection(colorFailure),
             "typedColorFailure": rejection(typedColorFailure),
+            "sourceAlphaFactorClaim":
+                sourceAlphaFactorPositive.claim(layerID: layerID) != nil,
+            "sourceAlphaFactorFailure": rejection(sourceAlphaFactorPositive),
             "effectOutputTypedColorDeferredClaim":
                 effectOutputTypedColorDeferred.claim(layerID: layerID) != nil,
             "effectOutputTypedColorDeferredFailure": rejection(
@@ -5226,6 +5247,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
                 "SceneResolvedMaterialTextureResolver+LaunchColor.swift",
                 "SceneAuthoredShaderColorTransferAnalyzer.swift",
+                "SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
                 "SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
                 "SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
@@ -5319,6 +5341,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             payload["typedColorFailure"],
             payload,
         )
+        self.assertTrue(payload["sourceAlphaFactorClaim"], payload)
+        self.assertEqual(payload["sourceAlphaFactorFailure"], "", payload)
         self.assertTrue(payload["effectOutputTypedColorDeferredClaim"], payload)
         self.assertEqual(payload["effectOutputTypedColorDeferredFailure"], "", payload)
         self.assertIn(

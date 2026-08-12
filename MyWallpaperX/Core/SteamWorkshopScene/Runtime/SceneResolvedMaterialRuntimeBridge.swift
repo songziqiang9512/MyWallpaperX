@@ -79,6 +79,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let previousCursorUV: SIMD2<Float>
         let pointerIsInside: Bool
         let previousPointerIsInside: Bool
+        let layerModelMatrix: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let frameTime: Float
         let time: Float

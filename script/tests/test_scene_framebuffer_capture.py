@@ -199,6 +199,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let previousCursorUV: SIMD2<Float>
         let pointerIsInside: Bool
         let previousPointerIsInside: Bool
+        let layerModelMatrix: simd_float4x4 = matrix_identity_float4x4
         let frameTime: Float
         let time: Float
         let audioSpectrum: SceneAudioSpectrumSnapshot
@@ -5060,6 +5061,11 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         )
         self.assertIn("case .transparentDirectDraw:", source)
         self.assertIn("sourceTexture = nil", source)
+        self.assertIn(
+            "let layerModelMatrix = worldFramesByLayerID[layerID]",
+            source,
+        )
+        self.assertIn("layerModelMatrix: layerModelMatrix", source)
         self.assertIn(
             "var sourceUniforms: SceneLayerFragmentUniforms? = nil",
             source,

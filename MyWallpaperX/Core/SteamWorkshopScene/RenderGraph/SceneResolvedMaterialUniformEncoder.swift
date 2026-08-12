@@ -39,6 +39,8 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             return encodeSize(inputs.renderSize, type: type)
         case .modelViewProjection:
             return encodeMatrix(inputs.modelViewProjection, type: type)
+        case .layerModelMatrix:
+            return encodeMatrix(inputs.layerModelMatrix, type: type)
         case .effectTextureProjectionMatrix:
             return encodeMatrix(
                 inputs.effectTextureProjectionMatrix,

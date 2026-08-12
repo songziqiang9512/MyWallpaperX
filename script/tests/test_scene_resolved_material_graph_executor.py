@@ -215,6 +215,7 @@ struct AdmittedLayerGraph {
 final class SceneResolvedMaterialRuntimeBridge {
     struct DedicatedFrameInputs {
         let time: Float = 0
+        let layerModelMatrix = matrix_identity_float4x4
         let effectTextureProjectionMatrixInverse = matrix_identity_float4x4
     }
 }
@@ -2645,6 +2646,7 @@ private enum Harness {
                 template: cacheTemplate,
                 renderSize: CGSize(width: extent.width, height: extent.height),
                 modelViewProjection: Executor.fullTargetMVP(firstTexture),
+                layerModelMatrix: matrix_identity_float4x4,
                 effectTextureProjectionMatrixInverse: matrix_identity_float4x4
             )
         )
@@ -2676,6 +2678,7 @@ private enum Harness {
                 template: cacheTemplate,
                 renderSize: CGSize(width: extent.width, height: extent.height),
                 modelViewProjection: Executor.fullTargetMVP(firstTexture),
+                layerModelMatrix: matrix_identity_float4x4,
                 effectTextureProjectionMatrixInverse: matrix_identity_float4x4
             )
         )
@@ -2706,6 +2709,7 @@ private enum Harness {
             template: failingTemplate,
             renderSize: CGSize(width: extent.width, height: extent.height),
             modelViewProjection: Executor.fullTargetMVP(firstTexture),
+            layerModelMatrix: matrix_identity_float4x4,
             effectTextureProjectionMatrixInverse: matrix_identity_float4x4
         )
         let firstFailedVariant = failingVariantCache.resolve(failingInput)

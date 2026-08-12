@@ -236,7 +236,10 @@ extension SceneMetalRenderer {
         var result: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest] = []
         for layerID in renderDescriptor.renderOrderLayerIDs {
             guard let plan = plans[layerID] else { continue }
-            guard let layer = layersByID[layerID] else { return nil }
+            guard let layer = layersByID[layerID],
+                  let layerModelMatrix = worldFramesByLayerID[layerID] else {
+                return nil
+            }
             let route = imageCompositor.preflightResolvedMaterialClaim(
                 layerID: layerID
             )
@@ -381,6 +384,7 @@ extension SceneMetalRenderer {
                     pointerIsInside: frameContext.pointer.isInside && cursor != nil,
                     previousPointerIsInside:
                         frameContext.pointer.isInside && previousCursor != nil,
+                    layerModelMatrix: layerModelMatrix,
                     effectTextureProjectionMatrixInverse:
                         effectTextureProjectionMatrixInverse,
                     frameTime: Float(frameContext.frameTime),

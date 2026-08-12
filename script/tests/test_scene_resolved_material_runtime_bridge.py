@@ -781,6 +781,7 @@ extension SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs {
         previousCursorUV: .zero,
         pointerIsInside: false,
         previousPointerIsInside: false,
+        layerModelMatrix: .init(diagonal: .init(repeating: 1)),
         effectTextureProjectionMatrixInverse: .init(
             diagonal: .init(repeating: 1)
         ),

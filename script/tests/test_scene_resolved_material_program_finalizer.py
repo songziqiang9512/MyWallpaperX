@@ -60,6 +60,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
@@ -175,6 +176,7 @@ private typealias Template = SceneResolvedMaterialTemplate
 
 private let fixtureLayerID = 42
 private let effectProjectionInverse = simd_float4x4(diagonal: SIMD4(2, 3, 4, 5))
+private let layerModelMatrix = simd_float4x4(diagonal: SIMD4(6, 7, 8, 9))
 
 private func vertexSource(
     samplerMetadata: String?,
@@ -204,6 +206,7 @@ private func vertexSource(
     #if 1
     uniform mat4 g_EffectTextureProjectionMatrix;
     uniform mat4 g_EffectTextureProjectionMatrixInverse;
+    uniform mat4 g_LayerModelMatrix;
     uniform vec2 g_ParallaxPosition;
     #endif
     #endif
@@ -217,6 +220,7 @@ private func vertexSource(
     void main() {
         \(stageLocalProbe)
         mat4 forwardProjectionProbe = g_EffectTextureProjectionMatrix;
+        mat4 layerModelProbe = g_LayerModelMatrix;
         vec2 parallaxProbe = g_ParallaxPosition;
         v_TexCoord.xy = a_TexCoord;
         \(maskCoordinates)
@@ -769,6 +773,7 @@ private func uniformInputs() -> SceneAuthoredShaderUniformInputs {
         renderSize: CGSize(width: 640, height: 360),
         screenSize: CGSize(width: 1920, height: 1080),
         modelViewProjection: matrix_identity_float4x4,
+        layerModelMatrix: layerModelMatrix,
         effectTextureProjectionMatrix: effectProjectionInverse.inverse,
         effectTextureProjectionMatrixInverse: effectProjectionInverse,
         sceneTime: 2,
@@ -907,6 +912,7 @@ private func finalize(
             ),
             renderSize: CGSize(width: 640, height: 360),
             modelViewProjection: matrix_identity_float4x4,
+            layerModelMatrix: layerModelMatrix,
             effectTextureProjectionMatrixInverse: effectProjectionInverse,
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )
@@ -942,6 +948,7 @@ private func crossTemplateRuntimeLoopCacheToken(_ device: MTLDevice) -> String {
         template: mismatched,
         renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
+        layerModelMatrix: layerModelMatrix,
         effectTextureProjectionMatrixInverse: effectProjectionInverse,
         implicitFramebufferIdentity: nil
     )
@@ -2055,6 +2062,14 @@ private enum Harness {
             float(programA.uniformBytes, at: effectProjectionField.offset + component * 4)
                 == Float(index + 2)
         }
+        let layerModelField = programA.frontendProgram.uniformLayout.fields.first {
+            $0.name == "g_LayerModelMatrix"
+        }!
+        let layerModelEncoded = [0, 5, 10, 15].enumerated().allSatisfy {
+            index, component in
+            float(programA.uniformBytes, at: layerModelField.offset + component * 4)
+                == Float(index + 6)
+        }
         let forwardProjectionField = programA.frontendProgram.uniformLayout.fields.first {
             $0.name == "g_EffectTextureProjectionMatrix"
         }!
@@ -2327,6 +2342,7 @@ private enum Harness {
                     && programA.textureSlots.dropFirst().allSatisfy { $0 == nil },
                 "uniformLayoutCorrect": uniformLayoutCorrect,
                 "effectProjectionInverseEncoded": effectProjectionEncoded,
+                "layerModelMatrixEncoded": layerModelEncoded,
                 "effectProjectionEncoded": forwardProjectionEncoded,
                 "parallaxPositionEncoded": parallaxPositionEncoded,
                 "shaderUniformDefault": tintDefaultCorrect,
