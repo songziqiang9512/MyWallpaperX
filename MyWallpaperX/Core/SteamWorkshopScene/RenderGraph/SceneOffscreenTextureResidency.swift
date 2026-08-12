@@ -385,7 +385,9 @@ struct SceneLayerGraphTargetAllocation {
         let (pixels, pixelOverflow) = descriptor.extent.width
             .multipliedReportingOverflow(by: descriptor.extent.height)
         guard !pixelOverflow else { return nil }
-        let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(by: 4)
+        let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(
+            by: descriptor.format.logicalBytesPerPixel
+        )
         return byteOverflow ? nil : bytes
     }
 }

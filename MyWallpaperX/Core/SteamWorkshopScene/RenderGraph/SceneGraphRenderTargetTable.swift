@@ -256,18 +256,9 @@ struct SceneGraphRenderTargetTable {
         )
         guard !pixelOverflow else { return nil }
         let (byteCost, byteOverflow) = pixelCount.multipliedReportingOverflow(
-            by: bytesPerPixel(for: specification.format)
+            by: specification.format.logicalBytesPerPixel
         )
         return byteOverflow ? nil : byteCost
-    }
-
-    private static func bytesPerPixel(
-        for format: SceneGraphRenderTargetPlan.TextureFormat
-    ) -> Int {
-        switch format {
-        case .rgbaBackbuffer, .rgba8888:
-            return 4
-        }
     }
 
     private static func makeTexture(
@@ -277,7 +268,7 @@ struct SceneGraphRenderTargetTable {
         effect: Graph.EffectKey?
     ) -> MTLTexture? {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: pixelFormat(for: specification.format),
+            pixelFormat: specification.format.metalPixelFormat,
             width: specification.extent.width,
             height: specification.extent.height,
             mipmapped: false
@@ -289,17 +280,6 @@ struct SceneGraphRenderTargetTable {
         let name = specification.identity.name ?? specification.role
         texture?.label = "SceneGraphRT layer=\(layerID) effect=\(effectIndex) \(name) \(specification.format.rawValue)"
         return texture
-    }
-
-    private static func pixelFormat(
-        for format: SceneGraphRenderTargetPlan.TextureFormat
-    ) -> MTLPixelFormat {
-        switch format {
-        case .rgbaBackbuffer:
-            return .bgra8Unorm
-        case .rgba8888:
-            return .rgba8Unorm
-        }
     }
 
     private static func validExtent(
@@ -327,7 +307,7 @@ struct SceneGraphRenderTargetTable {
         specification: Specification
     ) -> Bool {
         texture.textureType == .type2D
-            && texture.pixelFormat == pixelFormat(for: specification.format)
+            && texture.pixelFormat == specification.format.metalPixelFormat
             && texture.width == specification.extent.width
             && texture.height == specification.extent.height
             && texture.mipmapLevelCount == 1

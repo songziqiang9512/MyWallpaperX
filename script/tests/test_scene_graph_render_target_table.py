@@ -18,6 +18,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetFormat.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable+Mapped.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
@@ -332,6 +333,20 @@ enum Harness {
                 )
             ]
         )
+        let r8Plan = TargetPlan.testingPlan(
+            layerID: 10,
+            input: input,
+            output: output,
+            inputExtent: .init(width: 1, height: 1),
+            logicalTargets: [
+                logicalTarget(
+                    quarterA, width: 1, height: 1,
+                    format: .r8,
+                    firstWrite: 0, lastWrite: 0, firstRead: nil, lastRead: nil,
+                    initialClear: .init(red: 0, green: 0, blue: 0, alpha: 0)
+                )
+            ]
+        )
 
         let exactBudget = 520
         guard case .success(let table) = TargetTable.make(
@@ -450,6 +465,34 @@ enum Harness {
                 count: 4
             )
         )
+
+        guard case .success(let r8Table) = TargetTable.make(
+            plan: r8Plan,
+            device: device,
+            byteBudget: 9
+        ), let r8Texture = r8Table.texture(for: quarterA),
+        let r8Queue = device.makeCommandQueue(),
+        let r8Readback = device.makeBuffer(length: 256, options: .storageModeShared),
+        let r8CommandBuffer = r8Queue.makeCommandBuffer(),
+        r8Table.encodeInitialTargetClear(commandBuffer: r8CommandBuffer),
+        let r8ReadbackEncoder = r8CommandBuffer.makeBlitCommandEncoder() else {
+            fatalError("r8 allocation or initialization failed")
+        }
+        r8ReadbackEncoder.copy(
+            from: r8Texture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: .init(x: 0, y: 0, z: 0),
+            sourceSize: .init(width: 1, height: 1, depth: 1),
+            to: r8Readback,
+            destinationOffset: 0,
+            destinationBytesPerRow: 256,
+            destinationBytesPerImage: 256
+        )
+        r8ReadbackEncoder.endEncoding()
+        r8CommandBuffer.commit()
+        r8CommandBuffer.waitUntilCompleted()
+        let r8InitialByte = r8Readback.contents().assumingMemoryBound(to: UInt8.self).pointee
 
         let textures = [
             table.inputTexture,
@@ -815,6 +858,14 @@ enum Harness {
                 historyTable.plan.logicalTargets[0].lifetime.requiresHistorySeed,
             "authoredClearBytesZero": initialClearBytes.allSatisfy { $0 == 0 },
             "authoredClearOneShot": repeatedClearBytes == [255, 0, 0, 255],
+            "r8ResidentBytes": r8Table.residentByteCost,
+            "r8ResidentCount": r8Table.residentTextureCount,
+            "r8PixelFormat": r8Texture.pixelFormat == .r8Unorm,
+            "r8InitialClearZero": r8CommandBuffer.status == .completed
+                && r8CommandBuffer.error == nil && r8InitialByte == 0,
+            "r8BudgetFailure": failure(TargetTable.make(
+                plan: r8Plan, device: device, byteBudget: 8
+            )),
             "textureContract": textures.allSatisfy {
                 $0.storageMode == .private
                     && $0.usage.contains(.renderTarget)
@@ -937,6 +988,13 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
         self.assertTrue(self.result["historyTargetPersistent"])
         self.assertTrue(self.result["authoredClearBytesZero"])
         self.assertTrue(self.result["authoredClearOneShot"])
+
+    def test_r8_uses_single_channel_storage_and_exact_logical_budget(self) -> None:
+        self.assertEqual(self.result["r8ResidentBytes"], 9)
+        self.assertEqual(self.result["r8ResidentCount"], 3)
+        self.assertTrue(self.result["r8PixelFormat"])
+        self.assertTrue(self.result["r8InitialClearZero"])
+        self.assertEqual(self.result["r8BudgetFailure"], "byteBudgetExceeded")
 
     def test_copy_blits_bytes_and_swap_exchanges_logical_bindings(self) -> None:
         self.assertTrue(self.result["copyBytesMatch"])

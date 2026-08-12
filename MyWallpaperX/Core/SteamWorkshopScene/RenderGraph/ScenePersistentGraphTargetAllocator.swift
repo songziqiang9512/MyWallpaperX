@@ -348,12 +348,8 @@ struct ScenePersistentGraphTargetAllocator {
     private func textureDescriptor(
         for value: GraphPlan.Descriptor
     ) -> MTLTextureDescriptor {
-        let pixelFormat: MTLPixelFormat = switch value.format {
-        case .rgbaBackbuffer: .bgra8Unorm
-        case .rgba8888: .rgba8Unorm
-        }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: pixelFormat,
+            pixelFormat: value.format.metalPixelFormat,
             width: value.extent.width,
             height: value.extent.height,
             mipmapped: false

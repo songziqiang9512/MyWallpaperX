@@ -281,7 +281,9 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
             let (pixels, pixelOverflow) = slot.descriptor.extent.width
                 .multipliedReportingOverflow(by: slot.descriptor.extent.height)
             guard !pixelOverflow else { return .failure(.byteCostOverflow) }
-            let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(by: 4)
+            let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(
+                by: slot.descriptor.format.logicalBytesPerPixel
+            )
             let (nextTotal, totalOverflow) = total.addingReportingOverflow(bytes)
             guard !byteOverflow, !totalOverflow else {
                 return .failure(.byteCostOverflow)

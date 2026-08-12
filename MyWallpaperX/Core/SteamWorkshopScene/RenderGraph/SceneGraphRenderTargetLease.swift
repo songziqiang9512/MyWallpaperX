@@ -199,12 +199,8 @@ struct SceneGraphRenderTargetLease {
         _ texture: MTLTexture,
         descriptor: State.ResourceDescriptor
     ) -> Bool {
-        let pixelFormat: MTLPixelFormat = switch descriptor.format {
-        case .rgbaBackbuffer: .bgra8Unorm
-        case .rgba8888: .rgba8Unorm
-        }
         return texture.textureType == .type2D
-            && texture.pixelFormat == pixelFormat
+            && texture.pixelFormat == descriptor.format.metalPixelFormat
             && texture.width == descriptor.extent.width
             && texture.height == descriptor.extent.height
             && texture.mipmapLevelCount == 1

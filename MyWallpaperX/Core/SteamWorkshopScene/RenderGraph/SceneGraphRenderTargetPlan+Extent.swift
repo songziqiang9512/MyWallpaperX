@@ -172,6 +172,7 @@ nonisolated extension SceneGraphRenderTargetPlan {
         _ authored: String?
     ) -> TextureFormat? {
         switch authored?.lowercased() {
+        case "r8": return .r8
         case "rgba_backbuffer": return .rgbaBackbuffer
         case "rgba8888": return .rgba8888
         default: return nil

@@ -4,6 +4,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
     enum TextureFormat: String {
+        case r8
         case rgbaBackbuffer
         case rgba8888
     }

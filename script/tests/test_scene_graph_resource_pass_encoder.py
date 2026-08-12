@@ -127,11 +127,12 @@ private func texture(
         return nil
     }
     if let fill {
+        let bytesPerPixel = format == .r8Unorm ? 1 : 4
         result.replace(
             region: MTLRegionMake2D(0, 0, width, height),
             mipmapLevel: 0,
             withBytes: fill,
-            bytesPerRow: width * 4
+            bytesPerRow: width * bytesPerPixel
         )
     }
     return result
@@ -158,13 +159,14 @@ private func target(
 }
 
 private func pixels(_ texture: MTLTexture) -> [UInt8] {
+    let bytesPerPixel = texture.pixelFormat == .r8Unorm ? 1 : 4
     var result = [UInt8](
         repeating: 0,
-        count: texture.width * texture.height * 4
+        count: texture.width * texture.height * bytesPerPixel
     )
     texture.getBytes(
         &result,
-        bytesPerRow: texture.width * 4,
+        bytesPerRow: texture.width * bytesPerPixel,
         from: MTLRegionMake2D(0, 0, texture.width, texture.height),
         mipmapLevel: 0
     )
@@ -400,6 +402,48 @@ private enum Harness {
         }
         let copyReadbackMatches = pixels(copyTarget) == sourceBytes
 
+        let r8Sentinel = [UInt8](repeating: 13, count: 4)
+        let r8ClearTarget = target(
+            device: device,
+            format: .r8Unorm,
+            fill: r8Sentinel
+        )
+        let preparedR8Clear = encoder.prepareInitialization(
+            target: r8ClearTarget,
+            clear: clear
+        )
+        var r8ClearEncoded = false
+        var r8ClearGPUCompleted = false
+        if let preparedR8Clear, let command = queue.makeCommandBuffer() {
+            r8ClearEncoded = encoder.encode(preparedR8Clear, commandBuffer: command)
+            r8ClearGPUCompleted = completed(command, encoded: r8ClearEncoded)
+        }
+        let r8ClearMatches = pixels(r8ClearTarget) == [255, 255, 255, 255]
+
+        let r8SourceBytes: [UInt8] = [1, 63, 129, 255]
+        let r8CopySource = texture(
+            device: device,
+            format: .r8Unorm,
+            usage: .shaderRead,
+            fill: r8SourceBytes
+        )!
+        let r8CopyTarget = target(
+            device: device,
+            format: .r8Unorm,
+            fill: r8Sentinel
+        )
+        let preparedR8Copy = encoder.prepareCopy(
+            source: r8CopySource,
+            target: r8CopyTarget
+        )
+        var r8CopyEncoded = false
+        var r8CopyGPUCompleted = false
+        if let preparedR8Copy, let command = queue.makeCommandBuffer() {
+            r8CopyEncoded = encoder.encode(preparedR8Copy, commandBuffer: command)
+            r8CopyGPUCompleted = completed(command, encoded: r8CopyEncoded)
+        }
+        let r8CopyMatches = pixels(r8CopyTarget) == r8SourceBytes
+
         let wrongExtent = texture(
             device: device,
             width: 1,
@@ -463,7 +507,7 @@ private enum Harness {
             source: copySource,
             target: mipTarget
         ) == nil
-        let unsupportedTarget = target(device: device, format: .r8Unorm)
+        let unsupportedTarget = target(device: device, format: .rg8Unorm)
         let unsupportedTargetFormatRejected = encoder.prepareInitialization(
             target: unsupportedTarget,
             clear: clear
@@ -614,6 +658,14 @@ private enum Harness {
             "copyCommandsAppended": copyCommandsAppended,
             "copyGPUCompleted": copyGPUCompleted,
             "copyReadbackMatches": copyReadbackMatches,
+            "r8ClearPrepared": preparedR8Clear?.kind == .initialization,
+            "r8ClearEncoded": r8ClearEncoded,
+            "r8ClearGPUCompleted": r8ClearGPUCompleted,
+            "r8ClearStoresRedChannel": r8ClearMatches,
+            "r8CopyPrepared": preparedR8Copy?.kind == .copy,
+            "r8CopyEncoded": r8CopyEncoded,
+            "r8CopyGPUCompleted": r8CopyGPUCompleted,
+            "r8CopyReadbackMatches": r8CopyMatches,
             "extentMismatchRejected": extentMismatchRejected,
             "formatMismatchRejected": formatMismatchRejected,
             "aliasRejected": aliasRejected,

@@ -18,6 +18,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetFormat.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState+Validation.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState+Identity.swift",
@@ -393,6 +394,7 @@ enum Harness {
     static func historySwapFixture(
         effectIndex: Int,
         namePrefix: String = "",
+        framebufferFormat: String = "rgba_backbuffer",
         extent: Graph.TargetExtent = .init(
             kind: .input,
             first: nil,
@@ -423,7 +425,7 @@ enum Harness {
             Graph.RenderTarget(
                 texture: history,
                 extent: extent,
-                format: "rgba_backbuffer",
+                format: framebufferFormat,
                 declaredUnique: true,
                 clear: nil,
                 uvs: nil,
@@ -432,7 +434,7 @@ enum Harness {
             Graph.RenderTarget(
                 texture: scratch,
                 extent: extent,
-                format: "rgba_backbuffer",
+                format: framebufferFormat,
                 declaredUnique: true,
                 clear: nil,
                 uvs: nil,
@@ -831,6 +833,112 @@ enum Harness {
         }()
         let sharedPairOrderedReuseAndReleaseStable =
             sharedPairBeforeIdempotentRelease === sharedPairAfterIdempotentRelease
+
+        let r8Fixture = fixture(effectIndex: 49, framebufferFormat: "r8")
+        let r8TargetPlans = targetPlans([r8Fixture], width: 8, height: 8)
+        let r8PairPlan = pairPlan([r8Fixture])
+        guard case .success(let r8GraphPlan) = SceneLayerGraphTargetPlan.make(
+            plans: r8TargetPlans,
+            pairPlan: r8PairPlan,
+            byteBudget: 520
+        ) else { fatalError("r8 graph plan rejected") }
+        let r8BudgetRejectsBeforeAllocation: Bool
+        switch SceneLayerGraphTargetPlan.make(
+            plans: r8TargetPlans,
+            pairPlan: r8PairPlan,
+            byteBudget: 519
+        ) {
+        case .failure(.byteBudgetExceeded):
+            r8BudgetRejectsBeforeAllocation = true
+        default:
+            r8BudgetRejectsBeforeAllocation = false
+        }
+        let r8Cache = SceneOffscreenTextureAllocationCache(byteBudget: 520)
+        var r8AllocatedFormats: [MTLPixelFormat] = []
+        let r8Allocator = ScenePersistentGraphTargetAllocator(
+            device: device,
+            cache: r8Cache
+        ) { descriptor, _ in
+            r8AllocatedFormats.append(descriptor.pixelFormat)
+            return device.makeTexture(descriptor: descriptor)
+        }
+        guard let r8Prepared = r8Allocator.prepare(plan: r8GraphPlan),
+              let r8Lease = r8Prepared.leases.first else {
+            fatalError("r8 persistent allocation failed")
+        }
+        let r8PersistentAllocationTyped = r8GraphPlan.residentByteCost == 520
+            && r8GraphPlan.historyByteCost == 0
+            && r8AllocatedFormats.filter({ $0 == .bgra8Unorm }).count == 2
+            && r8AllocatedFormats.filter({ $0 == .r8Unorm }).count == 2
+            && r8Fixture.framebufferIdentities.allSatisfy {
+                r8Lease.texture(for: $0)?.pixelFormat == .r8Unorm
+            }
+            && r8Lease.table.residentByteCost == 520
+
+        let r8HistoryFixture = historySwapFixture(
+            effectIndex: 106,
+            framebufferFormat: "r8",
+            extent: .init(kind: .absolute, first: 8, second: 8)
+        )
+        let r8HistoryPairPlan = pairPlan([r8HistoryFixture])
+        let r8HistoryGraphs = admittedGraphs([r8HistoryFixture])
+        let r8HistoryTargetPlans = targetPlans(
+            [r8HistoryFixture], width: 8, height: 8
+        )
+        guard case .success(let r8HistoryPlan) = SceneLayerGraphTargetPlan.make(
+            plans: r8HistoryTargetPlans,
+            pairPlan: r8HistoryPairPlan,
+            byteBudget: 768
+        ) else { fatalError("r8 history plan rejected") }
+        let r8HistoryPool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 768
+        )
+        guard let r8HistoryPrepared1 = r8HistoryPool
+            .preparePersistentGraphTargets(
+                admittedGraphs: r8HistoryGraphs,
+                pairPlan: r8HistoryPairPlan,
+                requestedWidth: 8,
+                requestedHeight: 8
+            ), let r8HistoryLease1 = r8HistoryPrepared1.leases.first,
+              let r8HistoryEffect = r8HistoryLease1.table.plan.output.effect,
+              let r8HistoryCommit1 = r8HistoryPrepared1.commitAndPin(
+                historyTokensByEffect: [
+                    r8HistoryEffect: Set(r8HistoryLease1.framebufferAllocation
+                        .resources.values.map(\.token))
+                ]
+              ) else { fatalError("r8 history first allocation failed") }
+        let r8HistoryCurrentCostExact = r8HistoryPlan.residentByteCost == 640
+            && r8HistoryPlan.historyByteCost == 128
+            && r8HistoryPool.residentByteCost == 640
+        r8HistoryCommit1.submissionPin.release()
+        guard let r8HistoryPrepared2 = r8HistoryPool
+            .preparePersistentGraphTargets(
+                admittedGraphs: r8HistoryGraphs,
+                pairPlan: r8HistoryPairPlan,
+                requestedWidth: 8,
+                requestedHeight: 8
+            ), let r8HistoryCopies = r8HistoryPrepared2
+                .historyRehydrateCopiesByEffect[r8HistoryEffect],
+              r8HistoryCopies.count == 2,
+              let r8HistoryCommit2 = r8HistoryPrepared2.commitAndPin(
+                historyTokensByEffect: [
+                    r8HistoryEffect: Set(r8HistoryCopies.map(\.targetToken))
+                ]
+              ) else { fatalError("r8 history rehydrate failed") }
+        let r8HistoryRetiredCostExact = r8HistoryPool.residentByteCost == 768
+            && r8HistoryCopies.allSatisfy {
+                $0.sourceTexture.pixelFormat == .r8Unorm
+                    && $0.targetTexture.pixelFormat == .r8Unorm
+            }
+        r8HistoryCommit1.historyPinsByEffect[r8HistoryEffect]?.release()
+        let r8HistoryReleaseRestoresCurrentCost =
+            r8HistoryPool.residentByteCost == 640
+        r8HistoryCommit2.releaseAll()
+        r8HistoryPool.reset()
+        let r8HistoryFinalReleaseClearsResidency =
+            r8HistoryPool.residentByteCost == 0
 
         let rotationPool = SceneOffscreenTexturePool(
             device: device,
@@ -2596,6 +2704,14 @@ enum Harness {
             "differentQueueSharedPairRejected": differentQueueSharedPairRejected,
             "sharedPairOrderedReuseAndReleaseStable":
                 sharedPairOrderedReuseAndReleaseStable,
+            "r8PersistentAllocationTyped": r8PersistentAllocationTyped,
+            "r8BudgetRejectsBeforeAllocation": r8BudgetRejectsBeforeAllocation,
+            "r8HistoryCurrentCostExact": r8HistoryCurrentCostExact,
+            "r8HistoryRetiredCostExact": r8HistoryRetiredCostExact,
+            "r8HistoryReleaseRestoresCurrentCost":
+                r8HistoryReleaseRestoresCurrentCost,
+            "r8HistoryFinalReleaseClearsResidency":
+                r8HistoryFinalReleaseClearsResidency,
             "batchPlansShareOneHistoryFreePair":
                 batchPlansShareOneHistoryFreePair,
             "sharedResolvedPublicationsUseChainGeneration":
@@ -2814,6 +2930,16 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertEqual(self.result["persistentPairResetAllocationCount"], 0)
         self.assertTrue(self.result["persistentPairResetGenerationAdvanced"])
         self.assertTrue(self.result["persistentPairResetTokensChanged"])
+
+    def test_r8_persistent_targets_use_single_channel_budget_and_allocation(self) -> None:
+        self.assertTrue(self.result["r8PersistentAllocationTyped"])
+        self.assertTrue(self.result["r8BudgetRejectsBeforeAllocation"])
+
+    def test_r8_history_retire_and_rehydrate_preserve_single_channel_budget(self) -> None:
+        self.assertTrue(self.result["r8HistoryCurrentCostExact"])
+        self.assertTrue(self.result["r8HistoryRetiredCostExact"])
+        self.assertTrue(self.result["r8HistoryReleaseRestoresCurrentCost"])
+        self.assertTrue(self.result["r8HistoryFinalReleaseClearsResidency"])
 
     def test_compose_parity_controls_only_endpoint_aliasing(self) -> None:
         self.assertEqual(self.result["composeEndpointAliases"], [False, True, False])

@@ -39,6 +39,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
     SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
+    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetFormat.swift",
     SCENE_ROOT / "RenderGraph/SceneLayerFullFramePairPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneGraphExecutionState.swift",
     SCENE_ROOT / "RenderGraph/SceneGraphExecutionState+Validation.swift",
@@ -218,11 +219,14 @@ private let second = Graph.TextureIdentity(
 )
 private let extent = Plan.PixelExtent(width: 2, height: 2)
 
-private func logical(_ identity: Graph.TextureIdentity) -> Plan.LogicalTarget {
+private func logical(
+    _ identity: Graph.TextureIdentity,
+    format: Plan.TextureFormat = .rgbaBackbuffer
+) -> Plan.LogicalTarget {
     .init(
         identity: identity,
         extent: extent,
-        format: .rgbaBackbuffer,
+        format: format,
         isUnique: false,
         lifetime: .init(
             firstWriteNodeIndex: 0,
@@ -234,20 +238,23 @@ private func logical(_ identity: Graph.TextureIdentity) -> Plan.LogicalTarget {
     )
 }
 
-private func targetPlan() -> Plan {
+private func targetPlan(format: Plan.TextureFormat = .rgbaBackbuffer) -> Plan {
     .testingPlan(
         layerID: layerID,
         input: input,
         output: output,
         inputExtent: extent,
-        logicalTargets: [logical(first), logical(second)]
+        logicalTargets: [logical(first, format: format), logical(second, format: format)]
     )
 }
 
-private func makeLease(_ device: MTLDevice) -> SceneGraphRenderTargetLease {
+private func makeLease(
+    _ device: MTLDevice,
+    format: Plan.TextureFormat = .rgbaBackbuffer
+) -> SceneGraphRenderTargetLease {
     let table: SceneGraphRenderTargetTable
     switch SceneGraphRenderTargetTable.make(
-        plan: targetPlan(), device: device, byteBudget: 1_024
+        plan: targetPlan(format: format), device: device, byteBudget: 1_024
     ) {
     case .success(let value): table = value
     case .failure(let failure):
@@ -438,6 +445,7 @@ private enum Harness {
             return
         }
         let lease = makeLease(device)
+        let r8Lease = makeLease(device, format: .r8)
         let aliasMapping: [Graph.TextureIdentity: MTLTexture] = [
             input: lease.table.inputTexture,
             first: lease.table.texture(for: first)!,
@@ -634,6 +642,12 @@ private enum Harness {
             ),
             fragmentColorRepresentation: .resolved(.opaque)
         ))
+        let r8Physical = r8Lease.allocation.resources[first]!.versioned(14)
+        let r8PublicationFailure = failure(r8Lease.graphResource(
+            for: first,
+            versionedResource: r8Physical,
+            fragmentColorRepresentation: .resolved(.opaque)
+        ))
 
         var aliasedResources = lease.allocation.resources
         aliasedResources[second] = lease.allocation.resources[first]
@@ -741,6 +755,7 @@ private enum Harness {
                 "unknownToken": unknownTokenFailure,
                 "wrongDescriptor": wrongDescriptorFailure,
                 "pairToken": pairTokenFailure,
+                "r8Publication": r8PublicationFailure,
                 "staticAlias": staticAliasFailure,
                 "wrongTexture": wrongTextureFailure,
                 "endpointViaFramebuffer": endpointViaFramebufferFailure,
@@ -842,6 +857,7 @@ class SceneGraphTexturePublicationTests(unittest.TestCase):
                 "unknownToken": "unknownPhysicalToken",
                 "wrongDescriptor": "descriptorMismatch",
                 "pairToken": "unknownPhysicalToken",
+                "r8Publication": "storageSemanticUnavailable",
                 "staticAlias": "physicalAlias",
                 "wrongTexture": "textureMismatch",
                 "endpointViaFramebuffer": "invalidLogicalIdentity",

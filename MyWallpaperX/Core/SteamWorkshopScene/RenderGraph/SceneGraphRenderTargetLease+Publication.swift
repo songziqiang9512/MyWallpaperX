@@ -60,6 +60,7 @@ extension SceneGraphRenderTargetLease {
         case textureMismatch
         case physicalAlias
         case pairMemberMismatch
+        case storageSemanticUnavailable
         case colorRepresentationUnresolved
         case publicationIncomplete
     }
@@ -96,6 +97,9 @@ extension SceneGraphRenderTargetLease {
               logical.descriptor == versionedResource.descriptor,
               physical.descriptor == versionedResource.descriptor else {
             return .failure(.descriptorMismatch)
+        }
+        guard versionedResource.descriptor.format != .r8 else {
+            return .failure(.storageSemanticUnavailable)
         }
         guard let texture = texturesByToken[versionedResource.token],
               Self.textureMatches(texture, descriptor: versionedResource.descriptor) else {

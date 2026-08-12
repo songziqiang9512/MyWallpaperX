@@ -705,13 +705,24 @@ enum Harness {
             input: input,
             output: output
         )
-        let unsupportedFormat = graph(
+        let r8 = graph(
             targets: [target(full, extent: inputExtent, format: "r8")],
             nodes: precise.nodes,
             key: key,
             input: input,
             output: output
         )
+        guard case .success(let r8Plan) = SceneGraphRenderTargetPlan.make(
+            executionPlan: .init(
+                layerID: 10,
+                materialNodeCount: 2,
+                logicalRenderTargetCount: 1
+            ),
+            graph: r8,
+            inputWidth: 256,
+            inputHeight: 256
+        ) else { fatalError("r8 fixture rejected") }
+        let unsupportedFormats = ["rg88", "r16f", "rg1616f", "unknown"]
         let priorKey = Graph.EffectKey(
             layerID: 10,
             effectIndex: 0,
@@ -734,6 +745,7 @@ enum Harness {
             ],
             "standardTargets": targetSummary(standardPlan),
             "rgba8888Targets": targetSummary(rgba8888Plan),
+            "r8Targets": targetSummary(r8Plan),
             "preciseInputExtent": [
                 precisePlan.inputExtent.width, precisePlan.inputExtent.height,
             ],
@@ -805,7 +817,15 @@ enum Harness {
             "duplicateFailure": failure(duplicate),
             "incompleteFailure": failure(incomplete),
             "uniqueFailure": failure(unique),
-            "unsupportedFormatFailure": failure(unsupportedFormat),
+            "unsupportedFormatFailures": unsupportedFormats.map { format in
+                failure(graph(
+                    targets: [target(full, extent: inputExtent, format: format)],
+                    nodes: precise.nodes,
+                    key: key,
+                    input: input,
+                    output: output
+                ), materialNodeCount: 2)
+            },
             "countMismatchFailure": failure(standard, materialNodeCount: 3),
             "roleMismatchFailure": failure(roleMismatch),
             "composedExtent": extentSummary(composedExtent),
@@ -926,6 +946,24 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
         self.assertEqual(
             [target["format"] for target in self.result["rgba8888Targets"]],
             ["rgba8888", "rgba8888"],
+        )
+
+    def test_r8_target_preserves_authored_format_and_extent(self) -> None:
+        self.assertEqual(
+            self.result["r8Targets"],
+            [
+                {
+                    "name": "full",
+                    "size": [256, 256],
+                    "format": "r8",
+                    "firstWrite": 0,
+                    "lastWrite": 0,
+                    "firstRead": 1,
+                    "lastRead": 1,
+                    "persistent": False,
+                    "historySeed": False,
+                }
+            ],
         )
 
     def test_read_before_first_write_requires_history(self) -> None:
@@ -1129,7 +1167,8 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
     def test_unsupported_descriptor_and_execution_mismatch_fail_closed(self) -> None:
         self.assertEqual(self.result["uniqueFailure"], "success")
         self.assertEqual(
-            self.result["unsupportedFormatFailure"], "unsupportedTargetDescriptor"
+            self.result["unsupportedFormatFailures"],
+            ["unsupportedTargetDescriptor"] * 4,
         )
         self.assertEqual(self.result["countMismatchFailure"], "executionMismatch")
         self.assertEqual(self.result["roleMismatchFailure"], "executionMismatch")
