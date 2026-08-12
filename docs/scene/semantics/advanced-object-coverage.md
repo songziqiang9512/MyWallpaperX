@@ -282,7 +282,7 @@ WaifuX 的可借鉴点是实时和 bake 共用核心，不是复制其实现。B
 ## 11. 开发顺序
 
 1. B0 live target program 已覆盖 layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target；这些 consumer 不升级 SceneScript、lighting 或高级对象。Timeline/SceneScript source IR 和其他 target 继续复用同一 per-surface transaction/snapshot。
-2. 下一批先闭合新增样本暴露的公共 blend/composition 与 Fire effect，再处理多余粒子和全局比例/裁切；generic compose、真实 history consumer 和高命中 effect 继续按共同依赖推进。
+2. 新能力只从本表的公共前置与现役证据缺口立项；blend/composition、Fire、generic compose、真实history consumer和高命中effect都必须先证明可复用合同，不沿用旧样本批次或样本ID排序。
 3. 再做 Puppet 的 mesh/bone/animation 最小闭环，然后 lighting/HDR；每项必须沿现有 author-enable 和 fail-closed 规则。
 4. 3D、自定义 shader、RGB 和 offline encoder 后置，但基础时钟、target、provider 和 graph 不能封死这些输入。
 5. 每个系统从 `L0` 升级时同时增加结构、执行、author-off、失败、teardown 和性能门，不能只新增 parser 字段。

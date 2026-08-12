@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -20,6 +21,8 @@ ALWAYS_KEEP = (
     CODEX_ROOT / "DerivedData",
     CODEX_ROOT / "scene_real_test_fixture.local.json",
 )
+REFERENCE_SCAN_PATHS = ("docs", "README.md", "AGENTS.md")
+CODEX_REFERENCE_PATTERN = re.compile(r"\.codex/[A-Za-z0-9._/-]+")
 
 
 def required_paths() -> tuple[list[Path], list[str]]:
@@ -31,6 +34,62 @@ def required_paths() -> tuple[list[Path], list[str]]:
     ]
     return [*ALWAYS_KEEP, *configured], [
         str(FIXTURE_CONFIG.relative_to(REPOSITORY_ROOT))
+    ]
+
+
+def tracked_reference_files(repository_root: Path) -> list[Path]:
+    completed = subprocess.run(
+        [
+            "/usr/bin/git",
+            "-C",
+            str(repository_root),
+            "ls-files",
+            "-z",
+            "--",
+            *REFERENCE_SCAN_PATHS,
+        ],
+        capture_output=True,
+        check=True,
+    )
+    return [
+        repository_root / relative.decode("utf-8")
+        for relative in completed.stdout.split(b"\0")
+        if relative
+    ]
+
+
+def codex_reference_paths(
+    files: list[Path],
+    repository_root: Path,
+    codex_root: Path,
+) -> list[Path]:
+    resolved_codex_root = codex_root.resolve()
+    references: set[Path] = set()
+    for file in files:
+        try:
+            text = file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for match in CODEX_REFERENCE_PATTERN.finditer(text):
+            relative = match.group(0).rstrip(".,;:!?，。；：！？")
+            candidate = (repository_root / relative).resolve()
+            if (
+                candidate == resolved_codex_root
+                or resolved_codex_root in candidate.parents
+            ):
+                references.add(candidate)
+    return sorted(references)
+
+
+def referenced_codex_paths(
+    files: list[Path],
+    repository_root: Path,
+    codex_root: Path,
+) -> list[Path]:
+    return [
+        path
+        for path in codex_reference_paths(files, repository_root, codex_root)
+        if path.exists()
     ]
 
 
@@ -70,27 +129,56 @@ def allocated_kib(path: Path) -> int:
 
 
 def inventory() -> dict[str, object]:
-    protected, keep_sources = required_paths()
+    runtime_protected, keep_sources = required_paths()
+    reference_files = tracked_reference_files(REPOSITORY_ROOT)
+    all_documented = codex_reference_paths(
+        reference_files,
+        REPOSITORY_ROOT,
+        CODEX_ROOT,
+    )
+    documented = [path for path in all_documented if path.exists()]
+    missing_documented = [path for path in all_documented if not path.exists()]
+    protected = list(dict.fromkeys([*runtime_protected, *documented]))
     kept, candidates = partition_entries(CODEX_ROOT, protected)
 
+    runtime_set = {path.resolve() for path in runtime_protected}
+    documented_set = {path.resolve() for path in documented}
+
     def describe(path: Path) -> dict[str, object]:
-        return {
+        item: dict[str, object] = {
             "path": str(path.relative_to(REPOSITORY_ROOT)),
             "allocated_kib": allocated_kib(path),
             "kind": "directory" if path.is_dir() else "file",
         }
+        resolved = path.resolve()
+        protections: list[str] = []
+        if resolved in runtime_set:
+            protections.append("runtime-required")
+        if resolved in documented_set:
+            protections.append("tracked-reference")
+        if protections:
+            item["protections"] = protections
+        return item
 
     kept_items = [describe(path) for path in kept]
     candidate_items = [describe(path) for path in candidates]
     return {
-        "schema_version": 1,
+        "schema_version": 3,
         "codex_root": str(CODEX_ROOT),
         "keep_sources": keep_sources,
+        "reference_scan_paths": list(REFERENCE_SCAN_PATHS),
+        "tracked_reference_file_count": len(reference_files),
+        "documented_reference_count": len(all_documented),
+        "documented_path_count": len(documented),
+        "missing_documented_paths": [
+            str(path.relative_to(REPOSITORY_ROOT)) for path in missing_documented
+        ],
         "kept": kept_items,
         "candidates": candidate_items,
         "summary": {
             "kept_count": len(kept_items),
             "candidate_count": len(candidate_items),
+            "missing_documented_path_count": len(missing_documented),
             "kept_kib": sum(int(item["allocated_kib"]) for item in kept_items),
             "candidate_kib": sum(
                 int(item["allocated_kib"]) for item in candidate_items

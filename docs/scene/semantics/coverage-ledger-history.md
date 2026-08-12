@@ -1,5 +1,7 @@
 # Scene 覆盖台账批次历史附录
 
+> 冻结历史页：本页所有“当前”“下一批”和阶段状态只表示对应条目写入时的现场。现役 R4/R5 已完成，当前能力、开发顺序、构建和运行身份必须回到[总覆盖台账](coverage-ledger.md)、[能力依赖图](capability-dependency-map.md)与[运行证据索引](runtime-evidence-index.md)核对；不得从本页恢复旧 owner、旧执行链或样本适配。
+
 > 状态：历史批次快照，不是当前能力或运行基线入口
 >
 > 本页于 2026-08-08 从 `coverage-ledger.md` 的页首迁出。以下内容保留各批次当时的代码、测试、隔离样本和证据边界；当前结论只以覆盖台账的系统表、专项能力表与 `runtime-evidence-index.md` 为准。

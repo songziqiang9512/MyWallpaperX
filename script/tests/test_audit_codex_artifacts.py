@@ -58,6 +58,45 @@ class AuditCodexArtifactsTests(unittest.TestCase):
             )
             self.assertEqual(sources, ["fixture.json"])
 
+    def test_referenced_codex_paths_keep_only_existing_exact_targets(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-codex-audit-") as directory:
+            root = Path(directory)
+            codex = root / ".codex"
+            report = codex / "formal-run/report.json"
+            runtime = codex / "formal-run/runtime-app"
+            report.parent.mkdir(parents=True)
+            report.write_text("{}", encoding="utf-8")
+            runtime.mkdir()
+            document = root / "evidence.md"
+            document.write_text(
+                "keep `.codex/formal-run/report.json`, "
+                "ignore `.codex/missing/report.json`.",
+                encoding="utf-8",
+            )
+
+            referenced = audit.referenced_codex_paths(
+                [document],
+                root,
+                codex,
+            )
+            self.assertEqual(referenced, [report.resolve()])
+            all_references = audit.codex_reference_paths(
+                [document],
+                root,
+                codex,
+            )
+            self.assertEqual(
+                all_references,
+                [
+                    report.resolve(),
+                    (codex / "missing/report.json").resolve(),
+                ],
+            )
+
+            kept, candidates = audit.partition_entries(codex, referenced)
+            self.assertEqual(kept, [report])
+            self.assertEqual(candidates, [runtime])
+
 
 if __name__ == "__main__":
     unittest.main()
