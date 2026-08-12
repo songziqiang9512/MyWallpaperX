@@ -138,8 +138,6 @@ nonisolated struct SceneShaderSourceGraph: Codable, Equatable, Sendable {
         case package
         case loose
         case stock
-        /// R1 compatibility projection when a caller has no VFS snapshot.
-        case legacyContract = "legacy-contract"
     }
 
     nonisolated enum ResourceFailure: String, Codable, Equatable, Sendable {

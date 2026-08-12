@@ -15,6 +15,12 @@ import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SHADER_PREPARATION_SOURCE = (
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPreparation.swift"
+)
+SHADER_PREPARATION_SUPPORT_SOURCE = (
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPreparation+Support.swift"
+)
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
@@ -62,8 +68,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrameInputs.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPreparation.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPreparation+Support.swift",
+    SHADER_PREPARATION_SOURCE,
+    SHADER_PREPARATION_SUPPORT_SOURCE,
     SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
@@ -345,7 +351,8 @@ private func contract(
     deadMaskCoordinates: Bool = false,
     stageLocalUniforms: Bool = false,
     runtimeLoop: Bool = false,
-    runtimeLoopEditorHints: Bool = false
+    runtimeLoopEditorHints: Bool = false,
+    includeSourceGraph: Bool = true
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -418,7 +425,7 @@ private func contract(
         stages: stages,
         diagnostics: [],
         canonicalSHA256: "fixture-contract-\(revision)",
-        sourceGraph: sourceGraph
+        sourceGraph: includeSourceGraph ? sourceGraph : nil
     )
 }
 
@@ -1058,6 +1065,24 @@ private func positiveDiagnostic(_ shader: SceneShaderContract) -> String {
         return "preparation=\(failure.phase.rawValue)/\(failure.code.rawValue)/\(failure.details)"
     case .notApplicable:
         return "preparation=not-applicable"
+    }
+}
+
+private func missingSourceGraphDiagnostic() -> String {
+    let shader = contract(
+        revision: "missing-source-graph",
+        includeSourceGraph: false
+    )
+    switch SceneAuthoredShaderPreparation.prepareShaderStages(
+        contract: shader,
+        combos: [:]
+    ) {
+    case .accepted:
+        return "accepted"
+    case let .rejected(failure):
+        return "\(failure.phase.rawValue)/\(failure.code.rawValue)/\(failure.details.count)"
+    case .notApplicable:
+        return "not-applicable"
     }
 }
 
@@ -2170,6 +2195,9 @@ private enum Harness {
                     defaultAssetPath: "textures/unknown-default.tex"
                 ),
             ],
+            "shaderPreparationBoundary": [
+                "missingSourceGraph": missingSourceGraphDiagnostic(),
+            ],
             "failures": failures,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -2246,6 +2274,27 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             [],
             self.result,
         )
+
+    def test_shader_preparation_requires_typed_source_graph(self) -> None:
+        self.assertEqual(
+            self.result["shaderPreparationBoundary"]["missingSourceGraph"],
+            "shader-preprocessor/shader-source-graph-missing/0",
+        )
+        product_sources = {
+            path: path.read_text(encoding="utf-8")
+            for path in SCENE_ROOT.rglob("*.swift")
+        }
+        for retired_token in (
+            "fallbackGraph(",
+            ".legacyContract",
+            "case legacyContract",
+        ):
+            offenders = [
+                str(path.relative_to(REPOSITORY_ROOT))
+                for path, source in product_sources.items()
+                if retired_token in source
+            ]
+            self.assertEqual(offenders, [], retired_token)
 
     def test_semantic_and_exact_identity_boundaries(self) -> None:
         self.assertEqual(

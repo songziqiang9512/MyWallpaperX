@@ -41,12 +41,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         textureReadiness: [Int: Bool] = [:],
         textureFormats: [Int: SceneShaderTextureFormat] = [:]
     ) -> SceneAuthoredShaderPreparationResult<SceneShaderPreparedProgram> {
-        let graph: SceneShaderSourceGraph
-        if let loadedGraph = contract.sourceGraph {
-            graph = loadedGraph
-        } else if contract.stages.allSatisfy({ $0.includes.isEmpty }) {
-            graph = fallbackGraph(for: contract)
-        } else {
+        guard let graph = contract.sourceGraph else {
             return .rejected(failure(
                 phase: .shaderPreprocessor,
                 code: .shaderSourceGraphMissing

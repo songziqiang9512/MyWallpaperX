@@ -334,32 +334,20 @@
         "role": "retirement",
         "description": "R5 removes the legacy shader fallback graph definition and call after full graph preparation owns the path.",
         "pattern": "fallbackGraph\\(",
-        "baseline_occurrences": 2,
+        "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "RenderGraph/SceneAuthoredShaderPreparation+Support.swift",
-          "RenderGraph/SceneAuthoredShaderPreparation.swift"
-        ],
-        "allowed_files": [
-          "RenderGraph/SceneAuthoredShaderPreparation+Support.swift",
-          "RenderGraph/SceneAuthoredShaderPreparation.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-shader-contract-provenance",
         "role": "retirement",
         "description": "R5 removes legacyContract provenance after the fallback graph is unreachable.",
         "pattern": "\\.legacyContract",
-        "baseline_occurrences": 2,
+        "baseline_occurrences": 0,
         "completion_phase": "r5",
         "completion_target_occurrences": 0,
-        "scope_files": [
-          "RenderGraph/SceneAuthoredShaderPreparation+Support.swift"
-        ],
-        "allowed_files": [
-          "RenderGraph/SceneAuthoredShaderPreparation+Support.swift"
-        ]
+        "allowed_files": []
       },
       {
         "id": "legacy-authored-effect-telemetry",
