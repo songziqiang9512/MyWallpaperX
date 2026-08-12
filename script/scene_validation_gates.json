@@ -146,6 +146,16 @@
       "modules": ["test_scene_material_program_census"]
     },
     {
+      "id": "capability-census",
+      "patterns": [
+        "script/scene_capability_census*.py",
+        "script/scene_capability_census_snapshot.json",
+        "script/scene_capability_repair_ledger.json",
+        "docs/scene/semantics/scene-corpus-capability-inventory.md"
+      ],
+      "modules": ["test_scene_capability_census"]
+    },
+    {
       "id": "validation-governance",
       "patterns": [
         "script/verify_scene_change.py",

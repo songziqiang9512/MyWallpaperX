@@ -1,0 +1,65 @@
+{
+  "entry_contract": {
+    "bounded_verified_requires": [
+      "root_cause",
+      "public_fix",
+      "commit",
+      "repair_state",
+      "runtime_proof_state",
+      "regression_protection_state",
+      "regression_gates",
+      "targeted_samples",
+      "roi_evidence",
+      "remaining_boundaries",
+      "events"
+    ],
+    "event_fields": [
+      "date",
+      "state",
+      "commit",
+      "evidence_refs",
+      "notes"
+    ],
+    "regression_gate_fields": [
+      "kind",
+      "reference"
+    ],
+    "regression_gate_kinds": [
+      "synthetic-positive",
+      "synthetic-negative",
+      "targeted-runtime",
+      "milestone"
+    ],
+    "identity_rule": "family_key must be minted by a census; historical entries may be not currently observed, while sample, layer, path and hash literals remain evidence only",
+    "official_equivalence_requires": [
+      "official_golden_refs",
+      "official_phase_identity",
+      "pixel_tolerance",
+      "timing_tolerance"
+    ],
+    "sentinel_contract": "targeted_samples plus regression_gates are mandatory rerun sentinels for future changes to the family or its visible render chain"
+  },
+  "families": [],
+  "schema_version": 1,
+  "status_contract": {
+    "regression_protection_state": [
+      "none",
+      "synthetic",
+      "targeted-runtime",
+      "milestone"
+    ],
+    "repair_state": [
+      "untriaged",
+      "diagnosed",
+      "in-progress",
+      "implemented",
+      "bounded-verified"
+    ],
+    "runtime_proof_state": [
+      "none",
+      "partial-chain",
+      "visible-chain-closed",
+      "official-golden-equivalent"
+    ]
+  }
+}

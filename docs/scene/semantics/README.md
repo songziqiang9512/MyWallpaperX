@@ -16,7 +16,7 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 4. Timeline、SceneScript、用户属性、鼠标、音频和媒体只更新作者绑定的目标；
 5. 不支持的局部语义应显式降级，不能用整层位移、全局水波或静态占位冒充支持；作者显式启用的 Scene Camera Shake 是独立的全局相机系统，不能与局部 effect 混同。
 
-运行证据使用两层矩阵：`script/scene_wallpaper_sample_matrix.json` 是固定回归 suite，按 digest 锁定 `script/scene_wallpaper_full_sample_matrix.json` 并只保存 13 个成员及其明确 override；加载时无损展开成既有矩阵合同。后者是当前真实 Scene 目录的完整快照门。日常改动按影响面跑定向门；fixed/full 只在 milestone 阶段按明确风险选择。现役结果和聚合缺口只在 [运行证据索引](runtime-evidence-index.md) 维护，专项表只链接该入口，避免重复数字随代码演进失真。用户可见回归的影响面由实际 render chain 决定，不由专题或源码目录决定；同一可见结果所依赖的 selection、Program、GPU、publication 与 composition 必须作为一个 correctness atom 闭合。
+运行证据使用两层矩阵：`script/scene_wallpaper_sample_matrix.json` 是固定回归 suite，按 digest 锁定 `script/scene_wallpaper_full_sample_matrix.json` 并只保存 13 个成员及其明确 override；加载时无损展开成既有矩阵合同。后者的目标是当前真实 Scene 目录完整快照；authored census 发现样本增删时立即降为待扩容 tracked baseline，完成独立 milestone 运行扩容前不得称完整。日常改动按影响面跑定向门；fixed/full 只在 milestone 阶段按明确风险选择。现役结果和聚合缺口只在 [运行证据索引](runtime-evidence-index.md) 维护，专项表只链接该入口，避免重复数字随代码演进失真。用户可见回归的影响面由实际 render chain 决定，不由专题或源码目录决定；同一可见结果所依赖的 selection、Program、GPU、publication 与 composition 必须作为一个 correctness atom 闭合。
 
 这直接解释了此前的主要错误：
 
@@ -47,6 +47,7 @@ Scene 文档按四层使用，后续开发不要从取证记录直接跳到“�
 |---|---|
 | Swift、Metal、C/C++、JavaScript 与 Python 的长期职责，VM/compiler/XPC 何时允许接入 | [技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md)；只规定路线与准入，不代表能力已实现 |
 | 当前系统大盘、主要缺口和下一批次是什么 | [官方语义与实现覆盖台账](coverage-ledger.md) |
+| 当前真实 Scene 样本声明了哪些纹理、Effect/Graph/FBO、粒子、动态输入和参数 family，某个公共修复影响哪些样本 | [全样本能力分类与修复台账](scene-corpus-capability-inventory.md)；它是 authored corpus 清单，不是运行支持等级 |
 | 真实样本缺图、错误合成、黑窗或交互不生效，当前先修哪一项 | 先从[运行证据索引](runtime-evidence-index.md)和隔离复现确定第一个失败 identity，再用[能力依赖图](capability-dependency-map.md)与对应专项合同收敛同一可见链；不得按目录或 `L1/L2` 列表挑任务 |
 | 179 个官方页面逐页落到哪个稳定合同 anchor、哪些只属于编辑器或平台决策 | [官方页面逐页表](official-page-map.md) |
 | 16 个官方目录组如何路由到专项能力表 | [官方页面分组映射](official-page-crosswalk.md) |
@@ -174,9 +175,10 @@ scene.json / scene.pkg / assets
 
 ## 7. 维护约定
 
-- 验证选择统一使用 `python3 script/verify_scene_change.py --phase <inner|checkpoint|integration|milestone>`；同一未变化源码已经由较高阶段覆盖的 gate 不重复运行，固定/完整矩阵必须写明升级原因。
+- 验证选择统一使用 `python3.12 script/verify_scene_change.py --phase <inner|checkpoint|integration|milestone>`；同一未变化源码已经由较高阶段覆盖的 gate 不重复运行，固定/完整矩阵必须写明升级原因。
 - 本目录记录稳定语义和实现合同，不记录单次调试流水账。
 - [覆盖台账](coverage-ledger.md) 只做系统摘要；Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象的专项能力表分别是其逐项等级事实来源。
+- [全样本能力分类与修复台账](scene-corpus-capability-inventory.md) 保存当前 corpus 的静态 family、参数和资源清单。新增/删除样本或按公共类型立项时先刷新它；family 覆盖数只用于界定影响面，不能覆盖运行证据或第一个可见断裂边。
 - 实现前必须先查 [能力依赖图](capability-dependency-map.md)，再进入对应专项表查看作者条件、代码、测试、运行证据和下一门；依赖图限制可采用的实现顺序，能力等级描述覆盖强度，二者都不是用户可见问题的工作队列。存在真实回归时，由第一个共享断裂边决定当前优先级，允许同一 correctness atom 跨多个 D 节点和源码目录；不能从同系统某个 `L3` 子集推断整套能力。
 - 资料入口完整性以 [179 页逐页表](official-page-map.md) 与自动门禁为准；16 组分组统计不能替代逐页映射。
 - 专项表不写「当前实现基线：`<commit>`」。当前基线、生产播放输入边界、签名身份和 Debug runtime evidence schema 只在 [运行证据索引](runtime-evidence-index.md) 维护；覆盖台账只做系统摘要，能力依赖图只维护前置关系，带日期的 plan/roadmap 只表示历史批次快照。专项表里出现的 commit 号一律理解为对应能力的历史落地提交。

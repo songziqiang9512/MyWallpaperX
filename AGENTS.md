@@ -19,6 +19,7 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 2. Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象专项表：逐项等级、代码、测试与缺口。
 3. [运行证据索引](docs/scene/semantics/runtime-evidence-index.md)：当前基线、样本、构建、签名和运行报告。
 4. [能力依赖图](docs/scene/semantics/capability-dependency-map.md)：公共前置能力与开发顺序。
+5. [全样本能力分类与修复台账](docs/scene/semantics/scene-corpus-capability-inventory.md)：真实 Scene 根的 authored 资源、Effect/Graph、纹理、粒子、动态输入和参数 family 清单；只回答 corpus 声明，不回答运行支持。
 
 带日期的 plan、roadmap 和 review 默认是批次快照；只有 `docs/README.md` 或专题入口明确列为“现役迁移目标/现役执行计划”的文件才可指导当前顺序，但仍不是能力或运行基线的权威入口。
 
@@ -34,6 +35,7 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 - 实现路径有疑问时，依次查现役语义/证据库、官方公开文档与 stock corpus、必要的本机官方客户端 clean-room Ghidra 取证，最后用 MirageWallpaper 交叉验证；参考项目不得覆盖官方证据。官方已证的解析顺序、资源身份、生命周期和合成路径是实现目标，证据仍不足时保持 unsupported，不以近似结果补空白。
 - 现有代码若采用了与已证官方路径冲突的 ownership、顺序或数据模型，应在该职责边界内替换错误模型和旧入口，不得继续叠加 sample workaround、兼容 flag 或下游补丁来维持错误架构。
 - fail-closed 必须保留，但报告要区分“提前拒绝坏层并保住其余已证画面”和“已经实现被拒绝层”。前者是故障隔离，不是该 effect、纹理或合成语义已支持。
+- 新增/删除真实 Scene 样本、准备按共享大类选下一项、或修复会改变 family/参数形态时，先刷新全样本 authored census，并用 `family_key` 统计影响样本；它只界定公共影响面，当前优先级仍由 fresh 隔离运行的第一个断裂边决定。修好一个 family 后必须在独立 repair ledger 记录根因、公共修法、commit、synthetic 正反门、真实样本 ROI 与剩余边界；后续触达其 selection/Program/publication/composition 依赖时必须重跑登记的 sentinel。不得用 frequency、family count 或静态 `resolved` 冒充运行支持。
 
 ## 3. 技术栈与架构边界
 
@@ -74,7 +76,7 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 按影响面选择最小充分集合，不默认全量运行。优先使用统一入口先解释、再执行；在脏工作区中用可重复的 `--path` 只声明本批拥有的文件：
 
 ```bash
-python3 script/verify_scene_change.py --phase checkpoint --base HEAD --path <path> --run
+python3.12 script/verify_scene_change.py --phase checkpoint --base HEAD --path <path> --run
 ```
 
 验证分为四级，同一份未变化源码已由较高一级覆盖的检查不得手工重复：
@@ -88,7 +90,7 @@ python3 script/verify_scene_change.py --phase checkpoint --base HEAD --path <pat
 
 目录迁移继续按布局/链接门、受路径影响测试、代码健康和 build verify 验证；首次改变布局合同再增加 Scene 全量测试。CI 没有私有 Workshop corpus 时可显式记录原因跳过运行样本，但不得把该结果写成运行证据。
 
-`script/scene_wallpaper_sample_matrix.json` 是固定回归门，`script/scene_wallpaper_full_sample_matrix.json` 是当前真实 Scene 目录的完整快照门。两者有重叠但不可互相替代，报告必须分别说明；部分样本或矩阵缺失不得写成 PASS。
+`script/scene_wallpaper_sample_matrix.json` 是固定回归门，`script/scene_wallpaper_full_sample_matrix.json` 的目标是覆盖当前真实 Scene 目录的完整快照门。若 authored corpus census 发现样本增删，后者立即降为待扩容的 tracked baseline，不得称为完整或写成 milestone PASS；新增样本须在独立 milestone 扩容批中用隔离运行建立期待后再纳入。两者有重叠但不可互相替代，报告必须分别说明；部分样本或矩阵缺失不得写成 PASS。
 
 固定门不是每次公共改动的默认步骤。只有改动同时影响多个固定样本可能共用的行为，且定向样本与模块测试不能充分覆盖该风险时才运行；运行前记录受影响的共享合同、所选固定样本和定向验证不足的原因。
 
@@ -105,7 +107,7 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 - 新增或未列入 `script/code_health_baseline.json` 的 Swift 文件不得超过 400 个物理行。不得压缩语句、删除合理空行或降低可读性规避限制。
 - 历史超限文件只能保持或缩小；触达时先判断能否按真实职责拆出独立声明或 extension。只有有复用、独立生命周期或可明显降低复杂度时才新增类型、协议、包装层或文件。
 - 拆分须保持行为、命名和访问边界。不得为跨文件访问批量放宽 `private`，也不得为满足行数机械切开强耦合流程。
-- 每份未变化的 Swift diff 在 checkpoint 前至少通过一次 `python3 script/check_code_health.py --check --base-ref HEAD`；`script/build_and_run.sh` 内的成功结果已满足同一源码版本，不再重复。文件缩短时先运行 `python3 script/check_code_health.py --ratchet-baseline`，再执行检查。
+- 每份未变化的 Swift diff 在 checkpoint 前至少通过一次 `python3.12 script/check_code_health.py --check --base-ref HEAD`；`script/build_and_run.sh` 内的成功结果已满足同一源码版本，不再重复。文件缩短时先运行 `python3.12 script/check_code_health.py --ratchet-baseline`，再执行检查。
 - 未经用户明确批准，不得新增历史例外、提高额度、移除源码根目录或提高 400 行阈值。新增 Swift 源码根目录、Tests 或 helper target 时必须纳入扫描；远端比较使用 `--base-ref <base-ref>`。
 
 ## 7. Scene 源码布局
@@ -138,7 +140,7 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 - 新的长期断言并入现有固定/完整矩阵或正式测试。定向 Scene 运行优先使用 `scene_wallpaper_benchmark.py --sample-id <id>`；不得为每轮测试留下新的 `.codex` matrix。
 - 正式测试不得硬编码带日期的 `.codex` runtime 路径。真实样本 fixture 统一由 `script/scene_real_test_fixture.json` 指向当前主线完整门。
 - benchmark 的隔离样本、副本、临时 `HOME` 和 `runtime-app-*` 只属于当次运行；PASS 后应由既有流程清理，FAIL 仅保留失败现场。检查完整沙箱时显式使用 `--keep-runtime` 或 `--keep-runtime-app`。
-- 产生过 `.codex` build、benchmark 或 runtime 产物的批次，收尾前运行 `python3 script/audit_codex_artifacts.py --fail-on-candidates`。对目标精确、已无 fixture/文档/测试/进程引用、且属于可重建或重复运行结果的无用残留，可无需再次询问直接删除。
+- 产生过 `.codex` build、benchmark 或 runtime 产物的批次，收尾前运行 `python3.12 script/audit_codex_artifacts.py --fail-on-candidates`。对目标精确、已无 fixture/文档/测试/进程引用、且属于可重建或重复运行结果的无用残留，可无需再次询问直接删除。
 - 删除后重跑审计，最终只报告实际删除范围、释放空间、保留例外和不可恢复性。归属不清、仍是唯一失败现场/运行证据/样本输入的候选只报告不删。禁止 `rm -rf .codex`、`git clean` 或按名称/日期模糊删除。
 - 只保留共享 `.codex/DerivedData`，不得长期留下单次能力验证的 `DerivedData-*`。
 

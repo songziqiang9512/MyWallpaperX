@@ -10,6 +10,7 @@
 - [运行证据索引](semantics/runtime-evidence-index.md)：当前生产输入边界、签名运行门和可复现证据。
 - [Scene 语义手册](semantics/README.md)：按格式、渲染图、属性、粒子、SceneScript 等问题进入专项合同。
 - [能力依赖图](semantics/capability-dependency-map.md)：公共前置能力和当前开发顺序。
+- [全样本能力分类与修复台账](semantics/scene-corpus-capability-inventory.md)：真实 Scene 根全部 authored 资源、Effect、纹理、粒子、动态输入和参数 family；用于按共享结构立项与防回归，不表示运行支持。
 
 ## 历史与已完成记录
 

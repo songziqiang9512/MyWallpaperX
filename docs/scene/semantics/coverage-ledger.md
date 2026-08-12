@@ -14,6 +14,8 @@
 
 台账等级表示当前覆盖范围与证据强度，不表示开发优先级或用户收益。真实样本已有缺图、错误合成、黑窗或交互失败时，先修该样本第一个共享断裂边，并把同一可见结果需要的 texture selection、owner、Program、GPU、publication、compositor 与 next-frame 闭合；一个 `L1/L2` 基础项或某行“下一门”不能取代这条链，也不能据此把相互依赖的 consumer 拆成多个“已完成”批次。
 
+真实 corpus 的 authored occurrence、公共结构 family、参数 profile 和修复事件统一见[全样本能力分类与修复台账](scene-corpus-capability-inventory.md)。该 census 用于回答“样本声明了什么、修一个公共结构会影响哪些样本”；本页继续回答“当前实现到什么等级”。两者不可互相推导：静态高频 family 不是开发优先级，`resolved/observed` 也不是运行支持。
+
 R0-R5 的逐批迁移过程已从现役台账移除；需要追溯时查[已完成的 Render Chain 重构计划](../scene-render-chain-refactor-plan-2026-08-03.md)和[运行证据索引](runtime-evidence-index.md)。历史 checkpoint 不再在现役页复制。
 
 ## 2. 官方资料覆盖

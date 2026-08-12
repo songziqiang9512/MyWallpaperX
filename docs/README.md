@@ -21,6 +21,7 @@
 - [scene/semantics/coverage-ledger.md](scene/semantics/coverage-ledger.md)：Scene 当前系统级摘要；新会话从这里定位系统，再进入专项能力表。
 - [scene/semantics/runtime-evidence-index.md](scene/semantics/runtime-evidence-index.md)：Scene 当前提交、正式运行门、签名身份与能力证据包。
 - [scene/semantics/capability-dependency-map.md](scene/semantics/capability-dependency-map.md)：Scene 公共依赖与当前开发顺序。
+- [scene/semantics/scene-corpus-capability-inventory.md](scene/semantics/scene-corpus-capability-inventory.md)：当前真实 Scene corpus 的 authored family/参数/资源清单与公共修复记录入口；不替代能力等级和运行证据。
 - [web/current-state.md](web/current-state.md)：Web 当前源码所有权、证据边界、发布缺口与下一门。
 - [web/README.md](web/README.md)：Web 稳定规范、现役状态与历史证据导航。
 - [architecture/appkit-migration-plan-2026-05-17.md](architecture/appkit-migration-plan-2026-05-17.md)：AppKit 迁移目标与当前 SwiftUI 残留。
