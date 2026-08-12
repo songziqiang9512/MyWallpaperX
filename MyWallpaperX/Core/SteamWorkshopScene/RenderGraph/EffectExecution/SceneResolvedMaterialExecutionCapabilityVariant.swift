@@ -117,10 +117,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             guard (0 ..< template.textureSlots.count).contains(slot) else {
                 return false
             }
-            if samplers.contains(where: {
-                $0.materialKey?.caseInsensitiveCompare("framebuffer")
-                    == .orderedSame
-            }) {
+            if samplers.contains(where: \.usesGraphInputMaterialAlias) {
                 return false
             }
             if template.textureSlots[slot]?.candidates.contains(where: {

@@ -859,6 +859,7 @@ private func shaderContract(
     pixelTransform: Int? = nil,
     implicitFramebuffer: Bool = false,
     implicitFramebufferAnnotation: Bool = true,
+    historicalFramebufferAlias: Bool = false,
     scalarProducer: Bool = false,
     scalarConsumer: String? = nil
 ) -> SceneShaderContract {
@@ -882,14 +883,23 @@ private func shaderContract(
         )
     }
     let prefix = "fixture/executor-\(nodeIndex)"
-    let fragment = implicitFramebuffer ? (implicitFramebufferAnnotation ? """
+    let explicitFramebufferFragment = historicalFramebufferAlias ? """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0; // {"material":"ui_editor_properties_framebuffer","hidden":true}
+    uniform vec4 g_Texture0Resolution;
+    void main() {
+        gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+    }
+    """ : """
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0; // {"material":"framebuffer","hidden":true}
     uniform vec4 g_Texture0Resolution;
     void main() {
         gl_FragColor = vec4(g_Texture0Resolution.xy * 0.0, 0.0, 1.0);
     }
-    """ : """
+    """
+    let fragment = implicitFramebuffer ? (implicitFramebufferAnnotation
+        ? explicitFramebufferFragment : """
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0;
     void main() {
@@ -940,7 +950,8 @@ private func shaderContract(
 }
 
 private func implicitFramebufferTemplate(
-    for node: Graph.Node
+    for node: Graph.Node,
+    historicalAlias: Bool = false
 ) -> Template {
     guard let target = node.target, node.bindings.isEmpty else {
         fatalError("implicit framebuffer fixture is incomplete")
@@ -949,7 +960,8 @@ private func implicitFramebufferTemplate(
         nodeIndex: node.nodeIndex,
         pass: false,
         implicitFramebuffer: true,
-        implicitFramebufferAnnotation: false
+        implicitFramebufferAnnotation: historicalAlias,
+        historicalFramebufferAlias: historicalAlias
     )
     return Template.validated(
         textureSlots: Array(repeating: nil, count: 8),
@@ -1065,6 +1077,7 @@ private func catalog(
     omittedNodes: Set<Int> = [],
     demandIssueNodes: Set<Int> = [],
     implicitFramebufferNodes: Set<Int> = [],
+    historicalFramebufferNodes: Set<Int> = [],
     scalarProducerNodes: Set<Int> = [],
     scalarConsumerNodes: [Int: String] = [:]
 ) -> SceneResolvedMaterialRuntimeCatalog {
@@ -1075,7 +1088,10 @@ private func catalog(
     for node in graph.nodes where node.kind == .material {
         guard !omittedNodes.contains(node.nodeIndex) else { continue }
         let value = implicitFramebufferNodes.contains(node.nodeIndex)
-            ? implicitFramebufferTemplate(for: node)
+            ? implicitFramebufferTemplate(
+                for: node,
+                historicalAlias: historicalFramebufferNodes.contains(node.nodeIndex)
+            )
             : template(
                 for: node,
                 pass: passNodes.contains(node.nodeIndex),
@@ -2264,6 +2280,66 @@ private enum Harness {
             resetGeneration: 1
         )
 
+        let historicalFramebufferCapabilities = capabilities(
+            implicitFramebufferChain,
+            catalog: catalog(
+                for: implicitFramebufferGraph,
+                implicitFramebufferNodes: [0],
+                historicalFramebufferNodes: [0]
+            )
+        )
+        let historicalFramebufferClaim = historicalFramebufferCapabilities.claim(
+            implicitFramebufferChain
+        )!
+        let historicalFramebufferExecutor = Executor(
+            device: device,
+            capabilities: historicalFramebufferCapabilities
+        )!
+        let historicalFramebufferLease = makeLease(
+            requireR4Plan(implicitFramebufferGraph),
+            device: device
+        )
+        guard let historicalFramebufferBuffer = queue.makeCommandBuffer() else {
+            fatalError("historical framebuffer buffer unavailable")
+        }
+        let historicalFramebufferPreparation = historicalFramebufferExecutor.prepare(
+            token: historicalFramebufferClaim.token,
+            leases: [historicalFramebufferLease],
+            historyRehydrateCopiesByEffect: [:],
+            frame: frame(0),
+            sourceTexture: source,
+            sourceUniforms: .neutral(),
+            sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
+            commandBuffer: historicalFramebufferBuffer,
+            previousStates: [:],
+            previousGraphResources: [:],
+            effectGeneration: 1,
+            resetGeneration: 1
+        )
+        var historicalFramebufferPublication = false
+        var historicalFramebufferEncoded = false
+        if case let .success(prepared) = historicalFramebufferPreparation {
+            historicalFramebufferPublication = prepared.stages.count == 1
+                && prepared.stages[0].effectOutputResource.publication.requestIdentity
+                    == .graph(output)
+                && prepared.stages[0].programCacheKeys.count == 1
+            historicalFramebufferEncoded = historicalFramebufferExecutor.encode(
+                prepared,
+                commandBuffer: historicalFramebufferBuffer
+            )
+            guard let readback = appendReadback(
+                prepared.finalTexture,
+                commandBuffer: historicalFramebufferBuffer
+            ) else { fatalError("historical framebuffer readback unavailable") }
+            historicalFramebufferBuffer.commit()
+            historicalFramebufferBuffer.waitUntilCompleted()
+            historicalFramebufferEncoded = historicalFramebufferEncoded
+                && historicalFramebufferBuffer.status == .completed
+                && historicalFramebufferBuffer.error == nil
+                && matches(readback.firstPixel, [0, 0, 255, 255])
+        }
+
         guard let unreadableCaptureBuffer = queue.makeCommandBuffer() else {
             fatalError("unreadable source capture buffer unavailable")
         }
@@ -3022,6 +3098,11 @@ private enum Harness {
             "ordinaryCanClaim": ordinaryCapabilities.claim(ordinaryChain) != nil,
             "implicitFramebufferStructuralInferenceBindsEffectInput":
                 failureCode(implicitFramebufferPreparation) == "success",
+            "historicalFramebufferAliasBindsEffectInput":
+                failureCode(historicalFramebufferPreparation) == "success",
+            "historicalFramebufferAliasPublishesTypedOutput":
+                historicalFramebufferPublication,
+            "historicalFramebufferAliasEncodesOnGPU": historicalFramebufferEncoded,
             "foreignCatalogTokenRejected": lateCapabilities.resolve(
                 ordinaryClaim.token
             ) == nil,

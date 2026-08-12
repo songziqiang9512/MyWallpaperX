@@ -24,6 +24,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         let slot: Int
         let mode: TextureMode
         let materialKey: String?
+        let isHidden: Bool
         let defaultTexture: DefaultTexture?
         /// An unmarked sampler combo describes whether an authored texture is
         /// actually bound. Its annotation default must not manufacture that
@@ -173,6 +174,11 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 name: name
             )
             let material = try normalizedString(value("material", in: objects), name: name)
+            let hidden = try value("hidden", in: objects)
+            guard hidden == nil || hidden?.boolValue != nil else {
+                throw Issue.sampler(name)
+            }
+            let isHidden = hidden?.boolValue == true
             let defaultTexture = try textureDefault(value("default", in: objects), name: name)
             let readinessCombo = try normalizedString(
                 value("combo", in: objects),
@@ -183,6 +189,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 slot: slot,
                 mode: mode,
                 materialKey: material,
+                isHidden: isHidden,
                 defaultTexture: defaultTexture,
                 readinessCombo: readinessCombo
             )

@@ -1296,6 +1296,16 @@ private enum Harness {
             includePrimaryCandidate: false,
             implicitFramebufferIdentity: graphTexture()
         )
+        let historicalFramebufferProgram = finalize(
+            shader: contract(
+                revision: "historical-framebuffer-material-alias",
+                samplerMetadata:
+                    #"{"material":"ui_editor_properties_framebuffer","hidden":true}"#
+            ),
+            device: device,
+            includePrimaryCandidate: false,
+            implicitFramebufferIdentity: graphTexture()
+        )
         let previousAliasProgram = finalize(
             shader: contract(
                 revision: "material-previous",
@@ -1326,6 +1336,14 @@ private enum Harness {
                   case let .graph(identity) = slot.reference else { return false }
             return identity == graphTexture()
                 && slot.diagnosticSelectionProvenance == .materialGraphInputAlias
+        }()
+        let historicalFramebufferTyped: Bool = {
+            guard case let .success(program) = historicalFramebufferProgram,
+                  let slot = program.textureSlots[0],
+                  case let .graph(identity) = slot.reference else { return false }
+            return identity == graphTexture()
+                && slot.diagnosticSelectionProvenance == .implicitFramebuffer
+                && slot.expectedPurpose == .premultipliedColor
         }()
         let stockNoisePath = SceneVFSAssetPath("util/noise")!
         let stockNoiseIdentity = SceneAssetTextureIdentity(
@@ -2114,6 +2132,36 @@ private enum Harness {
                 device: device,
                 includePrimaryCandidate: false
             )),
+            "historicalFramebufferWithoutHidden": failureToken(finalize(
+                shader: contract(
+                    revision: "historical-framebuffer-without-hidden",
+                    samplerMetadata:
+                        #"{"material":"ui_editor_properties_framebuffer"}"#
+                ),
+                device: device,
+                includePrimaryCandidate: false,
+                implicitFramebufferIdentity: graphTexture()
+            )),
+            "historicalFramebufferLabelOnly": failureToken(finalize(
+                shader: contract(
+                    revision: "historical-framebuffer-label-only",
+                    samplerMetadata:
+                        #"{"material":"source","label":"ui_editor_properties_framebuffer","hidden":true}"#
+                ),
+                device: device,
+                includePrimaryCandidate: false,
+                implicitFramebufferIdentity: graphTexture()
+            )),
+            "unknownEditorMaterialAlias": failureToken(finalize(
+                shader: contract(
+                    revision: "unknown-editor-material-alias",
+                    samplerMetadata:
+                        #"{"material":"ui_editor_properties_source","hidden":true}"#
+                ),
+                device: device,
+                includePrimaryCandidate: false,
+                implicitFramebufferIdentity: graphTexture()
+            )),
             "regularGraphSampler": failureToken(finalize(
                 shader: contract(revision: "regular-graph-sampler"),
                 device: device
@@ -2362,6 +2410,8 @@ private enum Harness {
                 "activeDefaultMaskAccepted": activeDefaultMaskAccepted,
                 "implicitFramebufferTyped": implicitFramebufferTyped,
                 "previousMaterialAliasTyped": previousAliasTyped,
+                "historicalFramebufferMaterialAliasTyped":
+                    historicalFramebufferTyped,
                 "stockDefaultProgramPreservesSnapshotAtoms":
                     stockDefaultProgramPreservesSnapshotAtoms,
                 "implicitFramebufferMaterialKeyCaseInsensitive":
@@ -2617,6 +2667,10 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "nonFramebufferDoesNotInject": "texture/textureBindingInvalid",
             "framebufferWithoutIdentity": "texture/textureBindingInvalid",
             "previousWithoutIdentity": "texture/textureBindingInvalid",
+            "historicalFramebufferWithoutHidden":
+                "texture/textureBindingInvalid",
+            "historicalFramebufferLabelOnly": "texture/textureBindingInvalid",
+            "unknownEditorMaterialAlias": "texture/textureBindingInvalid",
             "regularGraphSampler": "success",
             "customPurposeIgnored": "success",
             "unknownMode": "texture/activeSamplerSchemaInvalid",

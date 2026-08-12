@@ -62,6 +62,8 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
     nonisolated var usesGraphInputMaterialAlias: Bool {
         switch materialKey?.lowercased() {
         case "framebuffer", "previous": true
+        case "ui_editor_properties_framebuffer":
+            name == "g_Texture0" && slot == 0 && mode == .regular && isHidden
         default: false
         }
     }

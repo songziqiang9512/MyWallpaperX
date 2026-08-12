@@ -3807,6 +3807,30 @@ private enum EnvelopeHarness {
                 slots: slots()
             )
         )
+        let historicalImplicitPositive = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "historical-implicit-positive",
+                    firstMetadata:
+                        #"{"material":"ui_editor_properties_framebuffer","hidden":true}"#
+                ),
+                slots: slots()
+            )
+        )
+        let historicalImplicitWithoutHidden = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "historical-implicit-without-hidden",
+                    firstMetadata:
+                        #"{"material":"ui_editor_properties_framebuffer"}"#
+                ),
+                slots: slots()
+            )
+        )
         let implicitNegative = catalog(
             graph: unboundGraph,
             template: materialTemplate(
@@ -4020,6 +4044,15 @@ private enum EnvelopeHarness {
             "implicitPositiveCounters": counters(
                 implicitPositive,
                 graph: unboundGraph
+            ),
+            "historicalImplicitPositiveClaim":
+                historicalImplicitPositive.claim(layerID: layerID) != nil,
+            "historicalImplicitPositiveCounters": counters(
+                historicalImplicitPositive,
+                graph: unboundGraph
+            ),
+            "historicalImplicitWithoutHidden": rejection(
+                historicalImplicitWithoutHidden
             ),
             "implicitNegative": rejection(implicitNegative),
             "providerPositiveClaim": providerPositive.claim(layerID: layerID) != nil,
@@ -5418,6 +5451,15 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertEqual(
             payload["implicitPositiveCounters"],
             {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+        )
+        self.assertTrue(payload["historicalImplicitPositiveClaim"], payload)
+        self.assertEqual(
+            payload["historicalImplicitPositiveCounters"],
+            {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+        )
+        self.assertIn(
+            "material-variant-envelope-texture-binding",
+            payload["historicalImplicitWithoutHidden"],
         )
         self.assertIn(
             "material-variant-envelope-texture-binding",
