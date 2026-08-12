@@ -104,6 +104,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureSelection.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+GraphSelection.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+Launch.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramFinalizer.swift",
@@ -868,7 +869,8 @@ private func finalize(
     dynamicSource: SceneDynamicSource? = nil,
     renderState: SceneMaterialRenderState = state(),
     implicitFramebufferIdentity: Graph.TextureIdentity? = nil,
-    audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent
+    audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent,
+    variantCache: SceneResolvedMaterialVariantCache? = nil
 ) -> Result<Program, SceneResolvedMaterialFailure> {
     let frame = SceneResolvedMaterialFrameSnapshot.validated(
         textureSnapshot: snapshot(
@@ -890,24 +892,29 @@ private func finalize(
     case let .failure(failure):
         return .failure(failure)
     case let .success(frame):
-        return SceneResolvedMaterialProgramFinalizer.finalize(
-            frame.finalizationInput(
-                template: template(
-                    shader,
-                    slot: slot,
-                    candidateCount: candidateCount,
-                    includePrimaryCandidate: includePrimaryCandidate,
-                    secondReference: secondReference,
-                    secondCandidates: secondCandidates,
-                    uniformDeclarations: uniformDeclarations,
-                    renderState: renderState
-                ),
-                renderSize: CGSize(width: 640, height: 360),
-                modelViewProjection: matrix_identity_float4x4,
-                effectTextureProjectionMatrixInverse: effectProjectionInverse,
-                implicitFramebufferIdentity: implicitFramebufferIdentity
-            )
+        let input = frame.finalizationInput(
+            template: template(
+                shader,
+                slot: slot,
+                candidateCount: candidateCount,
+                includePrimaryCandidate: includePrimaryCandidate,
+                secondReference: secondReference,
+                secondCandidates: secondCandidates,
+                uniformDeclarations: uniformDeclarations,
+                renderState: renderState
+            ),
+            renderSize: CGSize(width: 640, height: 360),
+            modelViewProjection: matrix_identity_float4x4,
+            effectTextureProjectionMatrixInverse: effectProjectionInverse,
+            implicitFramebufferIdentity: implicitFramebufferIdentity
         )
+        if let variantCache {
+            return SceneResolvedMaterialProgramFinalizer.finalize(
+                input,
+                variantCache: variantCache
+            )
+        }
+        return SceneResolvedMaterialProgramFinalizer.finalize(input)
     }
 }
 
@@ -1594,9 +1601,6 @@ private enum Harness {
             shader: optionalMaskShader,
             device: device,
             includePrimaryCandidate: false,
-            additionalEntries: [
-                optionalDefaultIdentity: optionalDefaultEntry,
-            ],
             uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
             implicitFramebufferIdentity: graphTexture()
         )
@@ -1669,6 +1673,65 @@ private enum Harness {
                     content: .color(.resolved(.straightAlpha))
                 ),
             ],
+            uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let activeDefaultMaskShader = contract(
+            revision: "active-default-mask-with-presence-combo",
+            secondSamplerMetadata:
+                #"{"mode":"opacitymask","combo":"MASK","default":"textures/optional-default-mask.tex"}"#,
+            maskedAlpha: true
+        )
+        let activeDefaultUniforms = [
+            staticDeclaration("alpha", components: [0.5]),
+        ]
+        let activeDefaultTemplate = template(
+            activeDefaultMaskShader,
+            includePrimaryCandidate: false,
+            uniformDeclarations: activeDefaultUniforms
+        )
+        guard let activeDefaultMaskCache = SceneResolvedMaterialVariantCache(
+            template: activeDefaultTemplate,
+            maximumVariantCount: 8
+        ) else {
+            fatalError("active default fixture cache rejected")
+        }
+        let activeDefaultLaunch = activeDefaultMaskCache.precompileLaunchEnvelope(
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let activeDefaultLaunchMasks: [UInt8]? = switch activeDefaultLaunch {
+        case let .success(masks): masks
+        case .failure: nil
+        }
+        let activeDefaultMaskProgram = finalize(
+            shader: activeDefaultMaskShader,
+            device: device,
+            includePrimaryCandidate: false,
+            additionalEntries: [
+                optionalDefaultIdentity: optionalDefaultEntry,
+            ],
+            uniformDeclarations: activeDefaultUniforms,
+            implicitFramebufferIdentity: graphTexture(),
+            variantCache: activeDefaultMaskCache
+        )
+        let activeDefaultMaskAccepted: Bool = {
+            guard case let .success(program) = activeDefaultMaskProgram,
+                  let mask = program.textureSlots[1],
+                  case let .asset(reference) = mask.reference,
+                  reference == optionalDefaultPath,
+                  mask.diagnosticSelectionProvenance == .shaderDefault,
+                  mask.expectedPurpose == .mask,
+                  case .data = mask.resource.publication.candidate.content else {
+                return false
+            }
+            return program.frontendProgram.textureBindings.map(\.slot) == [0, 1]
+                && program.semanticIdentity.colorContract.fragmentOutput
+                    == .premultipliedAlpha
+        }()
+        let activeDefaultMaskMissing = finalize(
+            shader: activeDefaultMaskShader,
+            device: device,
+            includePrimaryCandidate: false,
             uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
             implicitFramebufferIdentity: graphTexture()
         )
@@ -2212,10 +2275,19 @@ private enum Harness {
             "optionalMaskWrongPurposeDoesNotUseDefault": failureToken(
                 optionalMaskWrongPurpose
             ),
+            "activeDefaultMaskMissing": failureToken(activeDefaultMaskMissing),
         ]
 
         let result: [String: Any] = [
             "metalAvailable": true,
+            "activeDefaultCache": [
+                "launchMasks": activeDefaultLaunchMasks?.map(Int.init) ?? [-1],
+                "failure": failureToken(activeDefaultMaskProgram),
+                "cached": activeDefaultMaskCache.counters.cachedVariantCount,
+                "prepared": activeDefaultMaskCache.counters.shaderPreparationCount,
+                "frontend": activeDefaultMaskCache.counters.frontendCompilationCount,
+                "capacity": activeDefaultMaskCache.counters.capacityRejectionCount,
+            ],
             "positive": [
                 "fixedEightSlots": programA.textureSlots.count == 8
                     && programA.textureSlots[0] != nil
@@ -2237,6 +2309,7 @@ private enum Harness {
                     optionalMaskWithoutResourceAccepted,
                 "optionalMaskWithResourceAccepted":
                     optionalMaskWithResourceAccepted,
+                "activeDefaultMaskAccepted": activeDefaultMaskAccepted,
                 "implicitFramebufferTyped": implicitFramebufferTyped,
                 "previousMaterialAliasTyped": previousAliasTyped,
                 "stockDefaultProgramPreservesSnapshotAtoms":
@@ -2448,6 +2521,18 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             [],
             self.result,
         )
+        self.assertEqual(
+            self.result["activeDefaultCache"],
+            {
+                "launchMasks": [1],
+                "failure": "success",
+                "cached": 1,
+                "prepared": 1,
+                "frontend": 1,
+                "capacity": 0,
+            },
+            self.result,
+        )
 
     def test_shader_preparation_requires_typed_source_graph(self) -> None:
         self.assertEqual(
@@ -2512,6 +2597,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "optionalMaskWrongPurposeDoesNotUseDefault": (
                 "texture/textureMetadataIncomplete"
             ),
+            "activeDefaultMaskMissing": "texture/resourceSnapshotUnresolved",
         }
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},

@@ -17,15 +17,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         var frontend: SceneAuthoredShaderProgram { variant.frontendProgram }
     }
 
-    private enum Selection: Hashable {
-        case absent
-        case reference(
-            Template.TextureReference,
-            purpose: SceneTextureLoadPurpose?,
-            provenance: Program.TextureSelectionProvenance
-        )
-        case internalDefault(String)
-    }
+    private typealias Selection = SceneResolvedMaterialTextureSelection.Entry
 
     static func resolve(
         _ input: SceneResolvedMaterialFinalizationInput
@@ -69,133 +61,6 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         )
     }
 
-    private static func textureSelections(
-        _ input: SceneResolvedMaterialFinalizationInput,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
-        channelUses: [Int: ChannelUse]
-    ) throws -> [Selection] {
-        var result = Array(repeating: Selection.absent, count: 8)
-        for slot in input.template.textureSlots.compactMap({ $0 }) {
-            let sampler = samplers[slot.index]
-            for candidate in slot.candidates.reversed() {
-                let purpose = selectionPurpose(
-                    candidate.reference,
-                    activeSampler: sampler,
-                    reachableSamplers: reachableSamplers[slot.index] ?? [],
-                    channelUse: channelUses[slot.index],
-                    input: input
-                )
-                guard let selection = try referenceSelection(
-                    candidate.reference,
-                    purpose: purpose,
-                    provenance: .authored(candidate.provenance),
-                    input: input
-                ) else {
-                    continue
-                }
-                result[slot.index] = selection
-                break
-            }
-        }
-        for (slot, sampler) in samplers {
-            guard case .absent = result[slot],
-                  sampler.readinessCombo == nil else { continue }
-            switch sampler.defaultTexture {
-            case let .asset(path):
-                let reference = Template.TextureReference.asset(path)
-                if let selection = try referenceSelection(
-                    reference,
-                    purpose: sampler.purpose(for: reference),
-                    provenance: .shaderDefault,
-                    input: input
-                ) {
-                    result[slot] = selection
-                }
-            case let .internalTarget(name): result[slot] = .internalDefault(name)
-            case nil: break
-            }
-        }
-        for (slot, sampler) in samplers {
-            guard case .absent = result[slot],
-                  sampler.usesGraphInputMaterialAlias,
-                  let identity = input.implicitFramebufferIdentity else {
-                continue
-            }
-            guard identity.kind == .layerSource
-                    || identity.kind == .effectOutput,
-                  identity.name == nil else {
-                throw failure(.textureReferenceInvalid, slot: slot)
-            }
-            let reference = Template.TextureReference.graph(identity)
-            if let selection = try referenceSelection(
-                reference,
-                purpose: sampler.purpose(for: reference),
-                provenance: sampler.materialKey?.caseInsensitiveCompare(
-                    "previous"
-                ) == .orderedSame ? .materialGraphInputAlias : .implicitFramebuffer,
-                input: input
-            ) {
-                result[slot] = selection
-            }
-        }
-        for slot in SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(template: input.template, samplers: samplers) {
-            guard case .absent = result[slot],
-                  let identity = input.implicitFramebufferIdentity,
-                  identity.kind == .layerSource || identity.kind == .effectOutput,
-                  identity.name == nil else {
-                throw failure(.textureReferenceInvalid, slot: slot)
-            }
-            let reference = Template.TextureReference.graph(identity)
-            if let selection = try referenceSelection(
-                reference,
-                purpose: samplers[slot]?.purpose(for: reference),
-                provenance: .implicitFramebuffer,
-                input: input
-            ) {
-                result[slot] = selection
-            }
-        }
-        return result
-    }
-
-    /// Only a producer's explicit absent fact means that this authored source
-    /// was not selected. Missing, pending, unavailable and unproven sources are
-    /// failures; they never authorize a lower-precedence candidate.
-    private static func referenceSelection(
-        _ reference: Template.TextureReference,
-        purpose: SceneTextureLoadPurpose?,
-        provenance: Program.TextureSelectionProvenance,
-        input: SceneResolvedMaterialFinalizationInput
-    ) throws -> Selection? {
-        guard let purpose else {
-            if case let .graph(identity) = reference {
-                guard case .absent? = input.textureSnapshot.lookup(.graph(identity)) else {
-                    return .reference(
-                        reference,
-                        purpose: nil,
-                        provenance: provenance
-                    )
-                }
-                return nil
-            }
-            return .reference(
-                reference,
-                purpose: nil,
-                provenance: provenance
-            )
-        }
-        let identity = try runtimeIdentity(reference, purpose: purpose)
-        guard case .absent? = input.textureSnapshot.lookup(identity) else {
-            return .reference(
-                reference,
-                purpose: purpose,
-                provenance: provenance
-            )
-        }
-        return nil
-    }
-
     static func readinessMask(
         _ input: SceneResolvedMaterialFinalizationInput,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
@@ -205,7 +70,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             input,
             samplers: samplers,
             reachableSamplers: reachableSamplers,
-            formatSlots: []
+            formatSlots: [],
+            allowPresenceIndependentDefaults: true
         ).readinessMask
     }
 
@@ -214,17 +80,19 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
         formatSlots: Set<Int>,
-        channelUses: [Int: ChannelUse] = [:]
+        channelUses: [Int: ChannelUse] = [:],
+        allowPresenceIndependentDefaults: Bool
     ) throws -> SceneResolvedMaterialVariantKey {
         guard formatSlots.allSatisfy((0 ..< 8).contains),
               channelUses.keys.allSatisfy((0 ..< 8).contains) else {
             throw failure(.identityInvariant, phase: .invariant)
         }
-        let selections = try textureSelections(
+        let selections = try SceneResolvedMaterialTextureSelection.resolve(
             input,
             samplers: samplers,
             reachableSamplers: reachableSamplers,
-            channelUses: channelUses
+            channelUses: channelUses,
+            allowPresenceIndependentDefaults: allowPresenceIndependentDefaults
         )
         var mask: UInt8 = 0
         var formats = Array<SceneShaderTextureFormat?>(repeating: nil, count: 8)
@@ -233,7 +101,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             case .absent: break
             case .internalDefault:
                 throw failure(.textureBindingInvalid, slot: slot)
-            case let .reference(reference, purpose, _):
+            case let .reference(reference, purpose, provenance):
                 let resolved: ResolvedResource
                 if let purpose {
                     resolved = try readyResource(
@@ -256,7 +124,12 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                         throw failure(.texturePurposeUnproven, slot: slot)
                     }
                 }
-                mask |= UInt8(1) << UInt8(slot)
+                if samplerReadinessIncludes(
+                    selectionProvenance: provenance,
+                    sampler: samplers[slot]
+                ) {
+                    mask |= UInt8(1) << UInt8(slot)
+                }
                 if formatSlots.contains(slot) {
                     formats[slot] = resolved.resource.publication.candidate
                         .authoredFormat
@@ -270,12 +143,21 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         return key
     }
 
+    private static func samplerReadinessIncludes(
+        selectionProvenance: Program.TextureSelectionProvenance,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler?
+    ) -> Bool {
+        guard selectionProvenance == .shaderDefault,
+              sampler?.readinessCombo != nil else { return true }
+        return false
+    }
+
     private static func textureSlots(
         _ input: SceneResolvedMaterialFinalizationInput,
         variant: SceneResolvedMaterialCompiledVariant,
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
     ) throws -> [Program.TextureSlot?] {
-        let selections = try textureSelections(
+        let selections = try SceneResolvedMaterialTextureSelection.resolve(
             input,
             samplers: variant.activeSamplers,
             reachableSamplers: reachableSamplers,
@@ -283,7 +165,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                 variant.frontendProgram.textureBindings.map {
                     ($0.slot, $0.channelUse)
                 }
-            )
+            ),
+            allowPresenceIndependentDefaults: true
         )
         let bindingSlots = variant.frontendProgram.textureBindings.map(\.slot)
         guard Set(bindingSlots).count == bindingSlots.count else {

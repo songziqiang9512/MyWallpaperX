@@ -198,17 +198,20 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         issues: inout Set<ResourceDemandIssue>
     ) {
         var samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+        let textureFormatSlots: Set<Int>
         do {
+            textureFormatSlots = try SceneResolvedMaterialTextureResolver
+                .launchTextureFormatSlots(template: template)
             samplers = try SceneResolvedMaterialShaderSchema.reachableSamplers(
                 template,
                 implicitFramebufferIdentity: implicitFramebufferIdentity
             )
-            // The readiness fixed point consults the unconditional seed before
-            // it reaches an active prepared variant. Its typed defaults must
-            // be present in the launch snapshot even when the stable variant
-            // later removes that sampler.
+            // Non-presence defaults participate before the fixed point. A
+            // combo-bearing default is demanded only when a stable prepared
+            // variant actually retains that sampler.
             for (slot, sampler) in try SceneResolvedMaterialShaderSchema
-                .unconditionalSamplers(template) {
+                .unconditionalSamplers(template)
+                where sampler.readinessCombo == nil {
                 samplers[slot, default: []].insert(sampler)
             }
         } catch {
@@ -281,9 +284,17 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             }
             guard projection.reachesDefault else { continue }
             for sampler in samplers[slotIndex] ?? [] {
-                // A combo-bearing annotation default is not an authored
-                // binding. The combo-off variant cannot consume it.
-                guard sampler.readinessCombo == nil else { continue }
+                if sampler.readinessCombo != nil {
+                    guard !textureFormatSlots.contains(slotIndex),
+                          SceneResolvedMaterialTextureResolver
+                            .presenceIndependentDefault(
+                                template: template,
+                                sampler: sampler,
+                                slot: slotIndex
+                            ) != nil else {
+                        continue
+                    }
+                }
                 guard case let .asset(path)? = sampler.defaultTexture else { continue }
                 let reference = Template.TextureReference.asset(path)
                 guard let purpose = sampler.purpose(for: reference) else {

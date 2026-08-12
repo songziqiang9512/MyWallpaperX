@@ -26,8 +26,9 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         let materialKey: String?
         let defaultTexture: DefaultTexture?
         /// An unmarked sampler combo describes whether an authored texture is
-        /// actually bound. Its annotation default is not a binding/readiness
-        /// source and must not manufacture that fact.
+        /// actually bound. Its annotation default must not manufacture that
+        /// presence fact, although an active combo-off sampler may consume the
+        /// typed default as a separate resource fallback.
         let readinessCombo: String?
     }
 

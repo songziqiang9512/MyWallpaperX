@@ -242,21 +242,17 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 }
                 let next = nextProjection.mask(optionalAvailability: availability)
                 if next == mask {
-                    guard let invalid = variants.lazy
-                        .flatMap(\.frontendProgram.textureBindings)
-                        .first(where: { mask & (1 << UInt8($0.slot)) == 0 }) else {
-                        if variants.contains(where: {
-                            $0.frontendProgram.colorTransfer == .unresolved
-                        }) {
-                            return .failure(.material(Self.failure(
-                                .colorContractUnproven, phase: .color)))
-                        }
-                        stable = true
-                        break
+                    if let failure = SceneResolvedMaterialTextureResolver
+                        .launchProgramFailure(
+                            template: template,
+                            variants: variants,
+                            readinessMask: mask,
+                            formatSlots: textureFormatSlots
+                        ) {
+                        return .failure(.material(failure))
                     }
-                    return .failure(.material(Self.failure(
-                        .textureBindingInvalid, slot: invalid.slot
-                    )))
+                    stable = true
+                    break
                 }
                 samplers = variant.activeSamplers
             }
@@ -291,12 +287,14 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             )
             var activeSamplers = seedSamplers
             var seen: Set<UInt8> = []
+            var hasPreparedActiveSamplers = false
             for _ in 0 ..< Self.maximumReadinessPasses {
                 let key = try SceneResolvedMaterialTextureResolver.variantKey(
                     input,
                     samplers: activeSamplers,
                     reachableSamplers: reachableSamplers,
-                    formatSlots: textureFormatSlots
+                    formatSlots: textureFormatSlots,
+                    allowPresenceIndependentDefaults: hasPreparedActiveSamplers
                 )
                 let mask = key.readinessMask
                 guard seen.insert(mask).inserted else {
@@ -316,7 +314,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         variant.frontendProgram.textureBindings.map {
                             ($0.slot, $0.channelUse)
                         }
-                    )
+                    ),
+                    allowPresenceIndependentDefaults: true
                 )
                 if next == key {
                     return .success(.init(
@@ -325,6 +324,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     ))
                 }
                 activeSamplers = variant.activeSamplers
+                hasPreparedActiveSamplers = true
             }
             throw Self.failure(
                 .shaderPreparationFailed,

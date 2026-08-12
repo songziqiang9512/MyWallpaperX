@@ -14,6 +14,62 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         }
     }
 
+    /// Presence combos describe an authored binding, not the resource finally
+    /// supplied to an active sampler. A prepared combo-off variant without an
+    /// authored candidate or graph-input alias may consume its typed asset
+    /// default. Launch admission separately keeps format-combo slots closed.
+    static func presenceIndependentDefault(
+        template: Template,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int
+    ) -> Template.TextureReference? {
+        guard sampler.slot == slot,
+              sampler.readinessCombo != nil,
+              !sampler.usesGraphInputMaterialAlias,
+              template.textureSlots.indices.contains(slot),
+              template.textureSlots[slot] == nil,
+              case let .asset(path)? = sampler.defaultTexture else {
+            return nil
+        }
+        let reference = Template.TextureReference.asset(path)
+        guard sampler.purpose(for: reference) != nil else { return nil }
+        return reference
+    }
+
+    /// Validates the prepared binding/color atoms shared by every stable
+    /// launch profile before the cache can authorize frame execution.
+    static func launchProgramFailure(
+        template: Template,
+        variants: [SceneResolvedMaterialCompiledVariant],
+        readinessMask: UInt8,
+        formatSlots: Set<Int>
+    ) -> Failure? {
+        for variant in variants {
+            for binding in variant.frontendProgram.textureBindings {
+                guard readinessMask & (1 << UInt8(binding.slot)) == 0 else {
+                    continue
+                }
+                guard !formatSlots.contains(binding.slot),
+                      let sampler = variant.activeSamplers[binding.slot],
+                      presenceIndependentDefault(
+                          template: template,
+                          sampler: sampler,
+                          slot: binding.slot
+                      ) != nil else {
+                    return .init(
+                        phase: .texture,
+                        code: .textureBindingInvalid,
+                        slot: binding.slot
+                    )
+                }
+            }
+        }
+        guard variants.contains(where: {
+            $0.frontendProgram.colorTransfer == .unresolved
+        }) else { return nil }
+        return .init(phase: .color, code: .colorContractUnproven)
+    }
+
     /// Projects runtime texture precedence without consulting a frame.
     static func launchReadinessProjection(
         template: Template,

@@ -3090,6 +3090,7 @@ private func fragmentSource(
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
     maskedAlpha: Bool = false,
+    unconditionalMaskedAlpha: Bool = false,
     transparentDirectDraw: Bool = false,
     audioDirectDraw: Bool = false
 ) -> String {
@@ -3118,12 +3119,18 @@ private func fragmentSource(
         #endif
         """
     } else if maskedAlpha {
-        output = """
-        vec4 color = texSample2D(\(firstName), v_TexCoord);
+        let mask = unconditionalMaskedAlpha ? """
+        float mask = texSample2D(g_Texture1, v_TexCoord).r;
+        color.a *= mask * 0.5;
+        """ : """
         #if MASK
         float mask = texSample2D(g_Texture1, v_TexCoord).r;
         color.a *= mask * 0.5;
         #endif
+        """
+        output = """
+        vec4 color = texSample2D(\(firstName), v_TexCoord);
+        \(mask)
         gl_FragColor = color;
         """
     } else if colorUnproven {
@@ -3172,6 +3179,7 @@ private func contract(
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
     maskedAlpha: Bool = false,
+    unconditionalMaskedAlpha: Bool = false,
     transparentDirectDraw: Bool = false,
     audioDirectDraw: Bool = false
 ) -> SceneShaderContract {
@@ -3205,6 +3213,7 @@ private func contract(
         samplesSecond: samplesSecond,
         observesSecond: observesSecond,
         maskedAlpha: maskedAlpha,
+        unconditionalMaskedAlpha: unconditionalMaskedAlpha,
         transparentDirectDraw: transparentDirectDraw,
         audioDirectDraw: audioDirectDraw
     )
@@ -3570,7 +3579,23 @@ private enum EnvelopeHarness {
                 graph: boundGraph,
                 shader: contract(
                     "masked-unconditional-without-binding",
-                    secondMetadata: maskMetadata
+                    secondMetadata: maskMetadata,
+                    maskedAlpha: true,
+                    unconditionalMaskedAlpha: true
+                ),
+                slots: slots(primary: graphCandidate())
+            )
+        )
+        let maskedFormatDefault = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "masked-format-default",
+                    secondMetadata:
+                        #"{"mode":"opacitymask","combo":"MASK","default":"textures/default-mask.tex","formatcombo":true}"#,
+                    maskedAlpha: true,
+                    unconditionalMaskedAlpha: true
                 ),
                 slots: slots(primary: graphCandidate())
             )
@@ -3784,6 +3809,19 @@ private enum EnvelopeHarness {
             "maskedUnconditionalWithoutBindingFailure": rejection(
                 maskedUnconditionalWithoutBinding
             ),
+            "maskedUnconditionalWithoutBindingCounters": counters(
+                maskedUnconditionalWithoutBinding,
+                graph: boundGraph
+            ),
+            "maskedUnconditionalWithoutBindingChannelUses":
+                compiledChannelUseCount(
+                    maskedUnconditionalWithoutBinding,
+                    graph: boundGraph,
+                    slot: 1
+                ),
+            "maskedFormatDefaultClaim":
+                maskedFormatDefault.claim(layerID: layerID) != nil,
+            "maskedFormatDefaultFailure": rejection(maskedFormatDefault),
             "maskedPositiveClaim": maskedPositive.claim(layerID: layerID) != nil,
             "maskedPositiveFailure": rejection(maskedPositive),
             "maskedPositiveCounters": counters(maskedPositive, graph: unboundGraph),
@@ -4039,19 +4077,33 @@ void main() {
 
 private func fragmentSource(
     defaultPath: String,
-    readinessCombo: String? = nil
+    readinessCombo: String? = nil,
+    conditionalReadinessUse: Bool = true,
+    graphInputAlias: Bool = false,
+    formatCombo: Bool = false
 ) -> String {
-    let samplerMetadata = readinessCombo.map {
-        #"{"mode":"rgbmask","default":"\#(defaultPath)","combo":"\#($0)"}"#
-    } ?? #"{"default":"\#(defaultPath)","require":{"MODE":1}}"#
-    let output = readinessCombo.map {
-        """
-        #if \($0)
+    let samplerMetadata: String
+    if graphInputAlias {
+        guard let readinessCombo else {
+            fatalError("graph-input alias fixture requires a presence combo")
+        }
+        samplerMetadata =
+            #"{"material":"framebuffer","default":"\#(defaultPath)","combo":"\#(readinessCombo)"}"#
+    } else {
+        samplerMetadata = readinessCombo.map { combo in
+            "{\"mode\":\"rgbmask\",\"default\":\"\(defaultPath)\","
+                + "\"combo\":\"\(combo)\""
+                + (formatCombo ? ",\"formatcombo\":true}" : "}")
+        } ?? #"{"default":"\#(defaultPath)","require":{"MODE":1}}"#
+    }
+    let output = readinessCombo.map { combo in
+        conditionalReadinessUse ? """
+        #if \(combo)
             gl_FragColor = texSample2D(g_Texture2, v_TexCoord);
         #else
             gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
         #endif
-        """
+        """ : "gl_FragColor = texSample2D(g_Texture2, v_TexCoord);"
     } ?? """
     #if MODE == 1
         gl_FragColor = texSample2D(g_Texture2, v_TexCoord);
@@ -4072,7 +4124,10 @@ private func fragmentSource(
 
 private func contract(
     defaultPath: String,
-    readinessCombo: String? = nil
+    readinessCombo: String? = nil,
+    conditionalReadinessUse: Bool = true,
+    graphInputAlias: Bool = false,
+    formatCombo: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -4100,7 +4155,10 @@ private func contract(
             path: "catalog/root.frag",
             source: fragmentSource(
                 defaultPath: defaultPath,
-                readinessCombo: readinessCombo
+                readinessCombo: readinessCombo,
+                conditionalReadinessUse: conditionalReadinessUse,
+                graphInputAlias: graphInputAlias,
+                formatCombo: formatCombo
             )
         ),
     ]
@@ -4213,6 +4271,65 @@ private enum Main {
                 implicitFramebufferIdentity: source()
             )
 
+        let activeOptionalCatalog = catalog(
+            graph: fixtureGraph,
+            contract: contract(
+                defaultPath: positivePath.value,
+                readinessCombo: "HAS_TEXTURE",
+                conditionalReadinessUse: false
+            )
+        )
+        let activeOptionalTemplate = template(
+            catalog: activeOptionalCatalog,
+            graph: fixtureGraph
+        )
+        let activeOptionalReachable = try SceneResolvedMaterialShaderSchema
+            .reachableSamplers(
+                activeOptionalTemplate,
+                implicitFramebufferIdentity: source()
+            )
+
+        let graphAliasDefaultPath = SceneVFSAssetPath(
+            "fixtures/catalog-demand-graph-alias-default"
+        )!
+        let graphAliasCatalog = catalog(
+            graph: fixtureGraph,
+            contract: contract(
+                defaultPath: graphAliasDefaultPath.value,
+                readinessCombo: "HAS_TEXTURE",
+                conditionalReadinessUse: false,
+                graphInputAlias: true
+            )
+        )
+        let graphAliasTemplate = template(
+            catalog: graphAliasCatalog,
+            graph: fixtureGraph
+        )
+        let graphAliasReachable = try SceneResolvedMaterialShaderSchema
+            .reachableSamplers(
+                graphAliasTemplate,
+                implicitFramebufferIdentity: source()
+            )
+
+        let formatDefaultCatalog = catalog(
+            graph: fixtureGraph,
+            contract: contract(
+                defaultPath: positivePath.value,
+                readinessCombo: "HAS_TEXTURE",
+                conditionalReadinessUse: false,
+                formatCombo: true
+            )
+        )
+        let formatDefaultTemplate = template(
+            catalog: formatDefaultCatalog,
+            graph: fixtureGraph
+        )
+        let formatDefaultReachable = try SceneResolvedMaterialShaderSchema
+            .reachableSamplers(
+                formatDefaultTemplate,
+                implicitFramebufferIdentity: source()
+            )
+
         let unknownPath = SceneVFSAssetPath(
             "fixtures/catalog-demand-unproven"
         )!
@@ -4262,6 +4379,30 @@ private enum Main {
                     optionalCatalog,
                     path: positivePath
                 ),
+            ],
+            "activeOptionalDefault": [
+                "reachableHasSlot2":
+                    !(activeOptionalReachable[2]?.isEmpty ?? true),
+                "hasTypedDemand": activeOptionalCatalog.assetDemands.contains(
+                    typedIdentity
+                ),
+                "issueCount": activeOptionalCatalog.resourceDemandIssues.count,
+            ],
+            "graphAliasDefault": [
+                "reachableHasSlot2":
+                    !(graphAliasReachable[2]?.isEmpty ?? true),
+                "demandCount": graphAliasCatalog.assetDemands.count,
+                "issueCount": graphAliasCatalog.resourceDemandIssues.count,
+                "hasPurposeIssue": hasPurposeIssue(
+                    graphAliasCatalog,
+                    path: graphAliasDefaultPath
+                ),
+            ],
+            "formatDefault": [
+                "reachableHasSlot2":
+                    !(formatDefaultReachable[2]?.isEmpty ?? true),
+                "demandCount": formatDefaultCatalog.assetDemands.count,
+                "issueCount": formatDefaultCatalog.resourceDemandIssues.count,
             ],
         ]
         let data = try JSONSerialization.data(
@@ -4771,7 +4912,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             payload,
         )
 
-    def test_catalog_preloads_unconditional_seed_defaults_without_promoting_reachability(
+    def test_catalog_demands_only_defaults_retained_by_active_variants(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory(
@@ -4850,6 +4991,34 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             },
             payload,
         )
+        self.assertEqual(
+            payload["activeOptionalDefault"],
+            {
+                "reachableHasSlot2": True,
+                "hasTypedDemand": True,
+                "issueCount": 0,
+            },
+            payload,
+        )
+        self.assertEqual(
+            payload["graphAliasDefault"],
+            {
+                "reachableHasSlot2": True,
+                "demandCount": 0,
+                "issueCount": 0,
+                "hasPurposeIssue": False,
+            },
+            payload,
+        )
+        self.assertEqual(
+            payload["formatDefault"],
+            {
+                "reachableHasSlot2": True,
+                "demandCount": 0,
+                "issueCount": 0,
+            },
+            payload,
+        )
 
     def test_launch_precompiles_the_static_texture_readiness_envelope(
         self,
@@ -4864,6 +5033,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneResolvedMaterialExecutionCapabilityVariant.swift",
                 "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
                 "SceneResolvedMaterialTextureResolver.swift",
+                "SceneResolvedMaterialTextureSelection.swift",
                 "SceneAuthoredShaderColorTransferAnalyzer.swift",
                 "SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
                 "SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
@@ -4981,10 +5151,20 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             payload,
         )
         self.assertEqual(payload["maskedDefaultAbsentChannelUses"], 0, payload)
-        self.assertFalse(payload["maskedUnconditionalWithoutBindingClaim"], payload)
+        self.assertTrue(payload["maskedUnconditionalWithoutBindingClaim"], payload)
+        self.assertEqual(payload["maskedUnconditionalWithoutBindingFailure"], "")
+        self.assertEqual(
+            payload["maskedUnconditionalWithoutBindingCounters"],
+            {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+            payload,
+        )
+        self.assertEqual(
+            payload["maskedUnconditionalWithoutBindingChannelUses"], 1, payload
+        )
+        self.assertFalse(payload["maskedFormatDefaultClaim"], payload)
         self.assertIn(
-            "material-variant-envelope-texture-binding",
-            payload["maskedUnconditionalWithoutBindingFailure"],
+            "material-variant-envelope-shader-preparation",
+            payload["maskedFormatDefaultFailure"],
             payload,
         )
         self.assertTrue(payload["maskedPositiveClaim"], payload)
