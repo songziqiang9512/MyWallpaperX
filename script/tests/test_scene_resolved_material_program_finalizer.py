@@ -107,6 +107,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureSelection.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+GraphSelection.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+Launch.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramFinalizer.swift",
 ]
 
@@ -1722,7 +1724,13 @@ private enum Harness {
             fatalError("active default fixture cache rejected")
         }
         let activeDefaultLaunch = activeDefaultMaskCache.precompileLaunchEnvelope(
-            implicitFramebufferIdentity: graphTexture()
+            implicitFramebufferIdentity: graphTexture(),
+            assetStates: [
+                SceneAssetTextureIdentity(
+                    path: optionalDefaultPath,
+                    purpose: .mask
+                ): .ready(.data),
+            ]
         )
         let activeDefaultLaunchMasks: [UInt8]? = switch activeDefaultLaunch {
         case let .success(masks): masks

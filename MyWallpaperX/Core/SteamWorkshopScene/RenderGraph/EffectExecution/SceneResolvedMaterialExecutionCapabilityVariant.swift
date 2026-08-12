@@ -133,11 +133,9 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         return true
     }
 
-    /// Compiles the fixed point for every bounded absent/ready profile before
-    /// a layer can own execution. The resulting entries are the same cache
-    /// objects consumed by per-frame finalization.
     func precompileLaunchEnvelope(
-        implicitFramebufferIdentity: Graph.TextureIdentity?
+        implicitFramebufferIdentity: Graph.TextureIdentity?,
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
     ) -> Result<[UInt8], LaunchEnvelopeFailure> {
         lock.lock()
         defer { lock.unlock() }
@@ -151,14 +149,12 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             var seen = Set<UInt8>()
             var stable = false
             for _ in 0 ..< Self.maximumReadinessPasses {
-                let projection: SceneResolvedMaterialTextureResolver
-                    .LaunchReadinessProjection
-                switch SceneResolvedMaterialTextureResolver
-                    .launchReadinessProjection(
-                        template: template,
-                        samplers: samplers,
-                        implicitFramebufferIdentity: implicitFramebufferIdentity
-                    ) {
+                let projection: SceneResolvedMaterialTextureResolver.LaunchReadinessProjection
+                switch SceneResolvedMaterialTextureResolver.launchReadinessProjection(
+                    template: template, samplers: samplers,
+                    implicitFramebufferIdentity: implicitFramebufferIdentity,
+                    assetStates: assetStates
+                ) {
                 case let .success(value): projection = value
                 case let .failure(failure):
                     return .failure(.material(failure))
@@ -178,7 +174,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         samplers: samplers,
                         readinessMask: mask,
                         formatSlots: textureFormatSlots,
-                        assetFormatFacts: assetFormatFacts
+                        assetFormatFacts: assetFormatFacts,
+                        assetStates: assetStates
                     ) {
                 case let .success(value): profiles = value
                 case let .failure(failure):
@@ -228,14 +225,12 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         reachableSamplers[slot, default: []].insert(sampler)
                     }
                 }
-                let nextProjection: SceneResolvedMaterialTextureResolver
-                    .LaunchReadinessProjection
-                switch SceneResolvedMaterialTextureResolver
-                    .launchReadinessProjection(
-                        template: template,
-                        samplers: variant.activeSamplers,
-                        implicitFramebufferIdentity: implicitFramebufferIdentity
-                    ) {
+                let nextProjection: SceneResolvedMaterialTextureResolver.LaunchReadinessProjection
+                switch SceneResolvedMaterialTextureResolver.launchReadinessProjection(
+                    template: template, samplers: variant.activeSamplers,
+                    implicitFramebufferIdentity: implicitFramebufferIdentity,
+                    assetStates: assetStates
+                ) {
                 case let .success(value): nextProjection = value
                 case let .failure(failure):
                     return .failure(.material(failure))
@@ -247,7 +242,9 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                             template: template,
                             variants: variants,
                             readinessMask: mask,
-                            formatSlots: textureFormatSlots
+                            formatSlots: textureFormatSlots,
+                            implicitFramebufferIdentity: implicitFramebufferIdentity,
+                            assetStates: assetStates
                         ) {
                         return .failure(.material(failure))
                     }

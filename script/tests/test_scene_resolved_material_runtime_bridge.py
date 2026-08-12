@@ -124,10 +124,12 @@ enum SceneShaderTextureFormat: UInt32 {
     case rgba8888 = 0
     var macroValue: Int { Int(rawValue) }
 }
+enum SceneTextureContent: Hashable { case data }
 struct SceneTextureCandidate {
     let purpose: SceneTextureLoadPurpose
     let complete: Bool
     let authoredFormat: SceneShaderTextureFormat?
+    let content: SceneTextureContent = .data
 }
 struct SceneTextureProviderPublication {
     let requestIdentity: SceneFrameTextureIdentity
@@ -137,6 +139,9 @@ struct SceneTextureProviderPublication {
 }
 enum SceneTextureProviderState {
     case ready(SceneTextureProviderPublication), absent, pending, unavailable
+}
+enum SceneAssetTextureLaunchState: Hashable {
+    case ready(SceneTextureContent), absent, pending, unavailable
 }
 struct SceneRenderDescriptor {}
 struct SceneResourceView { let urls: [String: URL] }
@@ -214,9 +219,25 @@ enum Harness {
             "goodMaskFormat": catalog.launchFormatFacts[goodMask.reportToken] ?? -999,
             "missingFormat": catalog.launchFormatFacts[missing.reportToken] ?? -999,
             "badFormat": catalog.launchFormatFacts[bad.reportToken] ?? -999,
+            "goodMaskLaunch": launchDisposition(catalog.launchStates[goodMask]),
+            "missingLaunch": launchDisposition(catalog.launchStates[missing]),
+            "badLaunch": launchDisposition(catalog.launchStates[bad]),
+            "incompleteLaunch": launchDisposition(catalog.launchStates[incomplete]),
         ]
         let data = try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    private static func launchDisposition(
+        _ state: SceneAssetTextureLaunchState?
+    ) -> String {
+        switch state {
+        case .ready(.data): return "ready-data"
+        case .absent: return "absent"
+        case .pending: return "pending"
+        case .unavailable: return "unavailable"
+        case nil: return "missing-state"
+        }
     }
 }
 '''
@@ -3333,6 +3354,10 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             self.assertEqual(result["goodMaskFormat"], 0)
             self.assertEqual(result["missingFormat"], -1)
             self.assertEqual(result["badFormat"], -2)
+            self.assertEqual(result["goodMaskLaunch"], "ready-data")
+            self.assertEqual(result["missingLaunch"], "absent")
+            self.assertEqual(result["badLaunch"], "unavailable")
+            self.assertEqual(result["incompleteLaunch"], "unavailable")
             self.assertIn("ready=2 absent=1", result["report"])
             self.assertIn("unavailable=2", result["report"])
 

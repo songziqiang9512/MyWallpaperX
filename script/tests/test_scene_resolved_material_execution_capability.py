@@ -121,6 +121,15 @@ CATALOG_DEMAND_SWIFT_SOURCES = [
 SUPPORT = r'''
 import Foundation
 
+struct SceneAssetTextureIdentity: Hashable {}
+enum SceneTextureContent: Hashable {}
+enum SceneAssetTextureLaunchState: Hashable {
+    case ready(SceneTextureContent)
+    case absent
+    case pending
+    case unavailable
+}
+
 struct SceneEffectDefinition {
     let relativePath: String
     let functions: SceneJSONValue?
@@ -502,9 +511,11 @@ final class SceneResolvedMaterialVariantCache {
     }
 
     func precompileLaunchEnvelope(
-        implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?
+        implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?,
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
     ) -> Result<[UInt8], LaunchEnvelopeFailure> {
         _ = implicitFramebufferIdentity
+        _ = assetStates
         return .success([1])
     }
 
@@ -3072,6 +3083,11 @@ private let effectKey = Graph.EffectKey(
     effectIndex: 0,
     descriptorID: "envelope"
 )
+private let previousEffectKey = Graph.EffectKey(
+    layerID: layerID,
+    effectIndex: -1,
+    descriptorID: "previous-envelope"
+)
 
 private let vertexSource = """
 attribute vec3 a_Position;
@@ -3091,6 +3107,7 @@ private func fragmentSource(
     frontendInvalid: Bool = false,
     invalidSamplerSlot: Bool = false,
     colorUnproven: Bool = false,
+    alphaReplacement: Bool = false,
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
     maskedAlpha: Bool = false,
@@ -3137,6 +3154,10 @@ private func fragmentSource(
         \(mask)
         gl_FragColor = color;
         """
+    } else if alphaReplacement {
+        output = "vec4 source = texSample2D(\(firstName), v_TexCoord);"
+            + " float alpha = source.a * 0.5;"
+            + " gl_FragColor = vec4(source.rgb, alpha);"
     } else if colorUnproven {
         output = "gl_FragColor = texSample2D(\(firstName), v_TexCoord) * 0.5;"
     } else if observesSecond {
@@ -3180,6 +3201,7 @@ private func contract(
     frontendInvalid: Bool = false,
     invalidSamplerSlot: Bool = false,
     colorUnproven: Bool = false,
+    alphaReplacement: Bool = false,
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
     maskedAlpha: Bool = false,
@@ -3214,6 +3236,7 @@ private func contract(
         frontendInvalid: frontendInvalid,
         invalidSamplerSlot: invalidSamplerSlot,
         colorUnproven: colorUnproven,
+        alphaReplacement: alphaReplacement,
         samplesSecond: samplesSecond,
         observesSecond: observesSecond,
         maskedAlpha: maskedAlpha,
@@ -3265,15 +3288,26 @@ private func output() -> Graph.TextureIdentity {
     )
 }
 
+private func previousOutput() -> Graph.TextureIdentity {
+    .init(
+        kind: .effectOutput,
+        layerID: layerID,
+        effect: previousEffectKey,
+        name: nil
+    )
+}
+
 private func graph(
     withPrimaryBinding: Bool,
-    materialCount: Int = 1
+    materialCount: Int = 1,
+    input: Graph.TextureIdentity? = nil
 ) -> Graph {
+    let graphInput = input ?? source()
     let bindings: [Graph.Binding] = withPrimaryBinding ? [
         .init(
             slot: 0,
             authoredName: "previous",
-            texture: source(),
+            texture: graphInput,
             conditions: nil
         ),
     ] : []
@@ -3300,7 +3334,7 @@ private func graph(
         effects: [.init(
             key: effectKey,
             definitionPath: "effects/envelope/effect.json",
-            input: source(),
+            input: graphInput,
             output: output(),
             nodeIndices: nodes.map(\.nodeIndex)
         )],
@@ -3340,17 +3374,23 @@ private func materialTemplate(
     combos: [Template.Combo] = []
 ) -> Template {
     let node = graph.nodes[nodeIndex]
+    let inputRole: Template.GraphTextureRole = switch graph.effects[0].input.kind {
+    case .layerSource: .layerSource
+    case .effectOutput: .effectOutput
+    case .framebuffer: .framebuffer
+    case .unresolved: .layerSource
+    }
     return Template.validated(
         textureSlots: slots,
         combos: combos,
         uniformDeclarations: [],
         renderState: state(),
         graphRole: .init(
-            effectInput: .layerSource,
+            effectInput: inputRole,
             effectOutput: .effectOutput,
             nodeTarget: .effectOutput,
             bindings: node.bindings.map {
-                .init(slot: $0.slot!, texture: .layerSource)
+                .init(slot: $0.slot!, texture: inputRole)
             }
         ),
         shaderContract: shader,
@@ -3379,17 +3419,27 @@ private func slots(
     return result
 }
 
+private func secondCandidates(
+    _ candidates: [Template.TextureCandidate]
+) -> [Template.TextureSlot?] {
+    var result = slots(primary: graphCandidate())
+    result[1] = .init(index: 1, candidates: candidates)
+    return result
+}
+
 private func catalog(
     graph: Graph,
     template: Template,
     maximumVariants: Int = 16,
-    sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture
+    sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture,
+    assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
 ) -> Catalog {
     catalog(
         graph: graph,
         templates: [graph.nodes[0].nodeIndex: template],
         maximumVariants: maximumVariants,
-        sourceRoute: sourceRoute
+        sourceRoute: sourceRoute,
+        assetStates: assetStates
     )
 }
 
@@ -3397,7 +3447,8 @@ private func catalog(
     graph: Graph,
     templates: [Int: Template],
     maximumVariants: Int = 16,
-    sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture
+    sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture,
+    assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
 ) -> Catalog {
     let entries = Dictionary(uniqueKeysWithValues: templates.map { nodeIndex, template in
         (
@@ -3424,6 +3475,7 @@ private func catalog(
             entries: entries,
             resourceDemandIssues: []
         ),
+        assetStates: assetStates,
         maximumVariantsPerMaterial: maximumVariants
     )
 }
@@ -3514,6 +3566,35 @@ private enum EnvelopeHarness {
                 slots: slots(primary: graphCandidate())
             )
         )
+        let typedColorFailure = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "typed-color-failure",
+                    alphaReplacement: true
+                ),
+                slots: slots(primary: graphCandidate())
+            )
+        )
+        let effectOutputGraph = graph(
+            withPrimaryBinding: true,
+            input: previousOutput()
+        )
+        let effectOutputTypedColorDeferred = catalog(
+            graph: effectOutputGraph,
+            template: materialTemplate(
+                graph: effectOutputGraph,
+                shader: contract(
+                    "effect-output-typed-color-deferred",
+                    alphaReplacement: true
+                ),
+                slots: slots(primary: .init(
+                    reference: .graph(previousOutput()),
+                    provenance: .explicitBinding
+                ))
+            )
+        )
         let purposeFailure = catalog(
             graph: boundGraph,
             template: materialTemplate(
@@ -3547,7 +3628,13 @@ private enum EnvelopeHarness {
                     observesSecond: true
                 ),
                 slots: slots(primary: graphCandidate())
-            )
+            ),
+            assetStates: [
+                .init(
+                    path: SceneVFSAssetPath("textures/default-flow.tex")!,
+                    purpose: .flow
+                ): .ready(.data),
+            ]
         )
         let authoredAssetPositive = catalog(
             graph: boundGraph,
@@ -3562,7 +3649,44 @@ private enum EnvelopeHarness {
                     primary: graphCandidate(),
                     second: assetCandidate("textures/normal.tex")
                 )
-            )
+            ),
+            assetStates: [
+                .init(
+                    path: SceneVFSAssetPath("textures/normal.tex")!,
+                    purpose: .normal
+                ): .ready(.data),
+            ]
+        )
+        let lowAsset = assetCandidate("textures/low-flow.tex")
+        let highAsset = assetCandidate("textures/high-flow.tex")
+        let precedenceTemplate = materialTemplate(
+            graph: boundGraph,
+            shader: contract(
+                "authored-asset-precedence",
+                secondMetadata: #"{"mode":"flowmask"}"#,
+                observesSecond: true
+            ),
+            slots: secondCandidates([lowAsset, highAsset])
+        )
+        let highAbsentUsesLow = catalog(
+            graph: boundGraph,
+            template: precedenceTemplate,
+            assetStates: [
+                .init(path: SceneVFSAssetPath("textures/low-flow.tex")!,
+                      purpose: .flow): .ready(.data),
+                .init(path: SceneVFSAssetPath("textures/high-flow.tex")!,
+                      purpose: .flow): .absent,
+            ]
+        )
+        let highUnavailableBlocksLow = catalog(
+            graph: boundGraph,
+            template: precedenceTemplate,
+            assetStates: [
+                .init(path: SceneVFSAssetPath("textures/low-flow.tex")!,
+                      purpose: .flow): .ready(.data),
+                .init(path: SceneVFSAssetPath("textures/high-flow.tex")!,
+                      purpose: .flow): .unavailable,
+            ]
         )
         let maskMetadata = #"{"mode":"opacitymask","combo":"MASK","default":"textures/default-mask.tex"}"#
         let maskedDefaultAbsent = catalog(
@@ -3588,7 +3712,13 @@ private enum EnvelopeHarness {
                     unconditionalMaskedAlpha: true
                 ),
                 slots: slots(primary: graphCandidate())
-            )
+            ),
+            assetStates: [
+                .init(
+                    path: SceneVFSAssetPath("textures/default-mask.tex")!,
+                    purpose: .mask
+                ): .ready(.data),
+            ]
         )
         let maskedFormatDefault = catalog(
             graph: boundGraph,
@@ -3614,7 +3744,13 @@ private enum EnvelopeHarness {
                     maskedAlpha: true
                 ),
                 slots: slots(second: assetCandidate("textures/mask.tex"))
-            )
+            ),
+            assetStates: [
+                .init(
+                    path: SceneVFSAssetPath("textures/mask.tex")!,
+                    purpose: .mask
+                ): .ready(.data),
+            ]
         )
         let maskedMissingConflict = catalog(
             graph: unboundGraph,
@@ -3737,12 +3873,24 @@ private enum EnvelopeHarness {
         let capacityTwoPositive = catalog(
             graph: boundGraph,
             template: twoVariantTemplate,
-            maximumVariants: 2
+            maximumVariants: 2,
+            assetStates: [
+                .init(
+                    path: SceneVFSAssetPath("textures/capacity-flow.tex")!,
+                    purpose: .flow
+                ): .ready(.data),
+            ]
         )
         let capacityFailure = catalog(
             graph: boundGraph,
             template: twoVariantTemplate,
-            maximumVariants: 1
+            maximumVariants: 1,
+            assetStates: [
+                .init(
+                    path: SceneVFSAssetPath("textures/capacity-flow.tex")!,
+                    purpose: .flow
+                ): .ready(.data),
+            ]
         )
         let partialGraph = graph(
             withPrimaryBinding: true,
@@ -3777,6 +3925,12 @@ private enum EnvelopeHarness {
             "frontendFailure": rejection(frontendFailure),
             "samplerSchemaFailure": rejection(samplerSchemaFailure),
             "colorFailure": rejection(colorFailure),
+            "typedColorFailure": rejection(typedColorFailure),
+            "effectOutputTypedColorDeferredClaim":
+                effectOutputTypedColorDeferred.claim(layerID: layerID) != nil,
+            "effectOutputTypedColorDeferredFailure": rejection(
+                effectOutputTypedColorDeferred
+            ),
             "purposeFailure": rejection(purposeFailure),
             "defaultPurposeFailure": rejection(defaultPurposeFailure),
             "staticAssetDefaultClaim": staticAssetDefaultPositive.claim(
@@ -3794,6 +3948,16 @@ private enum EnvelopeHarness {
             "authoredAssetCounters": counters(
                 authoredAssetPositive,
                 graph: boundGraph
+            ),
+            "highAbsentUsesLowClaim": highAbsentUsesLow.claim(
+                layerID: layerID
+            ) != nil,
+            "highAbsentUsesLowFailure": rejection(highAbsentUsesLow),
+            "highUnavailableBlocksLowClaim": highUnavailableBlocksLow.claim(
+                layerID: layerID
+            ) != nil,
+            "highUnavailableBlocksLowFailure": rejection(
+                highUnavailableBlocksLow
             ),
             "maskedDefaultAbsentClaim": maskedDefaultAbsent.claim(
                 layerID: layerID
@@ -5059,6 +5223,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
                 "SceneResolvedMaterialTextureResolver.swift",
                 "SceneResolvedMaterialTextureSelection.swift",
+                "SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
+                "SceneResolvedMaterialTextureResolver+LaunchColor.swift",
                 "SceneAuthoredShaderColorTransferAnalyzer.swift",
                 "SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
                 "SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
@@ -5149,6 +5315,13 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             payload["colorFailure"],
         )
         self.assertIn(
+            "material-variant-envelope-color-contract",
+            payload["typedColorFailure"],
+            payload,
+        )
+        self.assertTrue(payload["effectOutputTypedColorDeferredClaim"], payload)
+        self.assertEqual(payload["effectOutputTypedColorDeferredFailure"], "", payload)
+        self.assertIn(
             "material-variant-envelope-texture-purpose",
             payload["purposeFailure"],
         )
@@ -5167,6 +5340,14 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertEqual(
             payload["authoredAssetCounters"],
             {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+        )
+        self.assertTrue(payload["highAbsentUsesLowClaim"], payload)
+        self.assertEqual(payload["highAbsentUsesLowFailure"], "", payload)
+        self.assertFalse(payload["highUnavailableBlocksLowClaim"], payload)
+        self.assertIn(
+            "material-variant-envelope-texture-binding",
+            payload["highUnavailableBlocksLowFailure"],
+            payload,
         )
         self.assertTrue(payload["maskedDefaultAbsentClaim"], payload)
         self.assertEqual(payload["maskedDefaultAbsentFailure"], "")
@@ -5196,12 +5377,16 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertEqual(payload["maskedPositiveFailure"], "")
         self.assertEqual(
             payload["maskedPositiveCounters"],
-            {"cached": 2, "prepared": 2, "frontend": 2, "capacity": 0},
+            {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
             payload,
         )
         for key in ("maskedMissingConflict", "maskedPresentConflict"):
             self.assertIn(
-                "material-variant-envelope-shader-preparation",
+                (
+                    "material-variant-envelope-shader-preparation"
+                    if key == "maskedMissingConflict"
+                    else "material-variant-envelope-texture-binding"
+                ),
                 payload[key],
                 payload,
             )

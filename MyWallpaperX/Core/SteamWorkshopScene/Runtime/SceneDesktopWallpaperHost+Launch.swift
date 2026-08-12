@@ -207,6 +207,7 @@ extension SceneDesktopWallpaperHost {
                     sceneScriptTargets: provenSceneScriptValueTargets
                 ),
                 assetFormatFacts: materialAssetCatalog.launchFormatFacts,
+                assetStates: materialAssetCatalog.launchStates,
                 dedicatedStageFamilies: dedicatedStageFamilies,
                 dedicatedLeafKeys: dedicatedLeafKeys,
                 dedicatedGraphStageKeys: dedicatedGraphStageKeys,

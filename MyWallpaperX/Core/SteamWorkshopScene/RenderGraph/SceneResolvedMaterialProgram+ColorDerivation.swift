@@ -1,9 +1,16 @@
 import Foundation
 
 nonisolated extension SceneResolvedMaterialProgramDerivation {
-    struct ColorProjection {
+    struct ColorProjection: Hashable {
         let framebufferInput: SceneShaderColorRepresentation
         let fragmentOutput: SceneShaderColorRepresentation
+    }
+
+    /// The resource-independent color atom shared by launch admission and
+    /// exact frame finalization. Pixel formats never imply this semantic.
+    struct ColorTextureFact: Hashable {
+        let isGraphReference: Bool
+        let content: SceneTextureContent
     }
 
     static func hasResolvedColorContract(
@@ -17,10 +24,32 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         transfer: SceneShaderColorTransfer,
         textureSlots: [Program.TextureSlot?]
     ) -> ColorProjection? {
+        resolveColor(
+            transfer: transfer,
+            textureFacts: textureSlots.map { slot -> ColorTextureFact? in
+                guard let slot else { return nil }
+                let isGraphReference: Bool
+                if case .graph = slot.reference {
+                    isGraphReference = true
+                } else {
+                    isGraphReference = false
+                }
+                return .init(
+                    isGraphReference: isGraphReference,
+                    content: slot.resource.publication.candidate.content
+                )
+            }
+        )
+    }
+
+    static func resolveColor(
+        transfer: SceneShaderColorTransfer,
+        textureFacts: [ColorTextureFact?]
+    ) -> ColorProjection? {
+        guard textureFacts.count == 8 else { return nil }
         var graphRepresentations: Set<SceneShaderColorRepresentation> = []
-        for slot in textureSlots.compactMap({ $0 }) {
-            guard case .graph = slot.reference else { continue }
-            switch slot.resource.publication.candidate.content {
+        for fact in textureFacts.compactMap({ $0 }) where fact.isGraphReference {
+            switch fact.content {
             case let .color(.resolved(representation)):
                 graphRepresentations.insert(representation)
             case .color(.unresolved):
@@ -40,9 +69,9 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             signalSlot,
             colorSlot
         ) = transfer {
-            guard representation(slot: signalSlot, textureSlots: textureSlots)
+            guard representation(slot: signalSlot, textureFacts: textureFacts)
                     == .independentAlphaSignal,
-                  let color = representation(slot: colorSlot, textureSlots: textureSlots),
+                  let color = representation(slot: colorSlot, textureFacts: textureFacts),
                   color == .opaque || color == .premultipliedAlpha else {
                 return nil
             }
@@ -62,8 +91,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         case .opaque:
             fragmentOutput = .opaque
         case .premultipliedAlpha:
-            guard textureSlots.compactMap({ $0 }).allSatisfy({ slot in
-                switch slot.resource.publication.candidate.content {
+            guard textureFacts.compactMap({ $0 }).allSatisfy({ fact in
+                switch fact.content {
                 case .scalarRedUnorm, .data:
                     return true
                 case .color:
@@ -72,41 +101,41 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             }) else { return nil }
             fragmentOutput = .premultipliedAlpha
         case let .passthrough(slot):
-            guard (0 ..< textureSlots.count).contains(slot),
-                  let texture = textureSlots[slot] else {
+            guard textureFacts.indices.contains(slot),
+                  let fact = textureFacts[slot] else {
                 return nil
             }
             guard case let .color(.resolved(representation)) =
-                    texture.resource.publication.candidate.content else {
+                    fact.content else {
                 return nil
             }
             fragmentOutput = representation
         case let .straightAlphaPreserving(slot):
             guard let representation = representation(
-                slot: slot, textureSlots: textureSlots
+                slot: slot, textureFacts: textureFacts
             ), representation == .opaque || representation == .premultipliedAlpha else {
                 return nil
             }
             fragmentOutput = .premultipliedAlpha
         case let .straightAlpha(slot):
-            guard (0 ..< textureSlots.count).contains(slot),
-                  let texture = textureSlots[slot],
+            guard textureFacts.indices.contains(slot),
+                  let fact = textureFacts[slot],
                   case let .color(.resolved(representation)) =
-                    texture.resource.publication.candidate.content,
+                    fact.content,
                   representation == .opaque || representation == .premultipliedAlpha,
-                  auxiliarySlotsAreData(textureSlots, excluding: slot) else {
+                  auxiliarySlotsAreData(textureFacts, excluding: slot) else {
                 return nil
             }
             fragmentOutput = .premultipliedAlpha
         case let .independentAlphaSignal(slot):
             guard let representation = representation(
-                slot: slot, textureSlots: textureSlots
+                slot: slot, textureFacts: textureFacts
             ), representation == .opaque || representation == .premultipliedAlpha else {
                 return nil
             }
             fragmentOutput = .independentAlphaSignal
         case let .independentAlphaSignalPreserving(slot):
-            guard representation(slot: slot, textureSlots: textureSlots)
+            guard representation(slot: slot, textureFacts: textureFacts)
                     == .independentAlphaSignal else { return nil }
             fragmentOutput = .independentAlphaSignal
         case .independentAlphaSignalCompositing:
@@ -120,22 +149,22 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
 
     private static func representation(
         slot: Int,
-        textureSlots: [Program.TextureSlot?]
+        textureFacts: [ColorTextureFact?]
     ) -> SceneShaderColorRepresentation? {
-        guard textureSlots.indices.contains(slot),
-              let texture = textureSlots[slot],
+        guard textureFacts.indices.contains(slot),
+              let fact = textureFacts[slot],
               case let .color(.resolved(value)) =
-                texture.resource.publication.candidate.content else { return nil }
+                fact.content else { return nil }
         return value
     }
 
     private static func auxiliarySlotsAreData(
-        _ textureSlots: [Program.TextureSlot?],
+        _ textureFacts: [ColorTextureFact?],
         excluding colorSlot: Int
     ) -> Bool {
-        textureSlots.enumerated().allSatisfy { index, texture in
-            guard index != colorSlot, let texture else { return true }
-            switch texture.resource.publication.candidate.content {
+        textureFacts.enumerated().allSatisfy { index, fact in
+            guard index != colorSlot, let fact else { return true }
+            switch fact.content {
             case .scalarRedUnorm, .data:
                 return true
             case .color:

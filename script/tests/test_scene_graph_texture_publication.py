@@ -113,6 +113,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureSelection.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+GraphSelection.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+Launch.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramFinalizer.swift",
 ]
 

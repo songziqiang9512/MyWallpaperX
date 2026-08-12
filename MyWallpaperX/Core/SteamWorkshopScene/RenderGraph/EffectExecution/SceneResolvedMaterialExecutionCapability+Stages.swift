@@ -12,6 +12,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         demandIssueKeys: Set<MaterialKey>,
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         maximumVariantsPerMaterial: Int
     ) -> Result<CompiledStages, Rejection> {
         guard (1 ... 256).contains(maximumVariantsPerMaterial) else {
@@ -31,6 +32,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 demandIssueKeys: demandIssueKeys,
                 dynamicProducers: dynamicProducers,
                 assetFormatFacts: assetFormatFacts,
+                assetStates: assetStates,
                 existingKeys: Set(allMaterials.keys),
                 sourceRoute: admitted.sourceRoute,
                 maximumVariantsPerMaterial: maximumVariantsPerMaterial
@@ -56,6 +58,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         demandIssueKeys: Set<MaterialKey>,
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         existingKeys: Set<MaterialKey>,
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
         maximumVariantsPerMaterial: Int
@@ -88,7 +91,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return .failure(rejection("material-variant-envelope-sampler-schema"))
             }
             if case let .failure(failure) = variants.precompileLaunchEnvelope(
-                implicitFramebufferIdentity: effect.input
+                implicitFramebufferIdentity: effect.input,
+                assetStates: assetStates
             ) {
                 SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
                     .launchEnvelopeFailure(template: template, failure: failure)

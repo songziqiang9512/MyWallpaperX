@@ -36,45 +36,12 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         return reference
     }
 
-    /// Validates the prepared binding/color atoms shared by every stable
-    /// launch profile before the cache can authorize frame execution.
-    static func launchProgramFailure(
-        template: Template,
-        variants: [SceneResolvedMaterialCompiledVariant],
-        readinessMask: UInt8,
-        formatSlots: Set<Int>
-    ) -> Failure? {
-        for variant in variants {
-            for binding in variant.frontendProgram.textureBindings {
-                guard readinessMask & (1 << UInt8(binding.slot)) == 0 else {
-                    continue
-                }
-                guard !formatSlots.contains(binding.slot),
-                      let sampler = variant.activeSamplers[binding.slot],
-                      presenceIndependentDefault(
-                          template: template,
-                          sampler: sampler,
-                          slot: binding.slot
-                      ) != nil else {
-                    return .init(
-                        phase: .texture,
-                        code: .textureBindingInvalid,
-                        slot: binding.slot
-                    )
-                }
-            }
-        }
-        guard variants.contains(where: {
-            $0.frontendProgram.colorTransfer == .unresolved
-        }) else { return nil }
-        return .init(phase: .color, code: .colorContractUnproven)
-    }
-
     /// Projects runtime texture precedence without consulting a frame.
     static func launchReadinessProjection(
         template: Template,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        implicitFramebufferIdentity: Graph.TextureIdentity?
+        implicitFramebufferIdentity: Graph.TextureIdentity?,
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> Result<LaunchReadinessProjection, Failure> {
         do {
             guard template.textureSlots.count == 8,
@@ -92,29 +59,36 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     guard slot.index == index else {
                         throw launchFailure(.identityInvariant, phase: .invariant)
                     }
-                    for candidate in slot.candidates.reversed() {
-                        if let sampler,
-                           sampler.purpose(for: candidate.reference) == nil {
-                            throw launchFailure(.texturePurposeUnproven, slot: index)
-                        }
-                        switch candidate.reference {
-                        case .asset, .userProperty:
-                            hasOptionalSource = true
-                        case .provider, .graph:
-                            required |= bit
-                            reachesFallback = false
-                        }
-                        if !reachesFallback { break }
+                    switch try launchAuthoredReference(
+                        template: template,
+                        sampler: sampler,
+                        slot: index,
+                        assetStates: assetStates
+                    ) {
+                    case .selected:
+                        required |= bit
+                        reachesFallback = false
+                    case .none:
+                        break
+                    case .deferred:
+                        hasOptionalSource = true
                     }
                 }
                 if reachesFallback, let sampler {
                     switch sampler.defaultTexture {
                     case let .asset(path) where sampler.readinessCombo == nil:
                         let reference = Template.TextureReference.asset(path)
-                        guard sampler.purpose(for: reference) != nil else {
-                            throw launchFailure(.texturePurposeUnproven, slot: index)
+                        switch try launchAssetState(
+                            reference,
+                            sampler: sampler,
+                            assetStates: assetStates,
+                            slot: index
+                        ) {
+                        case .ready: required |= bit
+                        case .absent: break
+                        case .pending, .unavailable:
+                            throw launchFailure(.textureBindingInvalid, slot: index)
                         }
-                        required |= bit
                     case .internalTarget where sampler.readinessCombo == nil:
                         throw launchFailure(.textureBindingInvalid, slot: index)
                     case .asset, .internalTarget, nil:
@@ -208,7 +182,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         readinessMask: UInt8,
         formatSlots: Set<Int>,
-        assetFormatFacts: [String: Int]
+        assetFormatFacts: [String: Int],
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> Result<[[SceneShaderTextureFormat?]], Failure> {
         guard template.textureSlots.count == 8,
               formatSlots.allSatisfy((0 ..< 8).contains) else {
@@ -229,30 +204,49 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             } else {
                 var possible = Set<SceneShaderTextureFormat?>()
                 let sampler = samplers[slot]
-                if let textureSlot = template.textureSlots[slot] {
-                    for candidate in textureSlot.candidates {
-                        possible.formUnion(formats(
-                            for: candidate.reference,
-                            sampler: sampler,
-                            assetFormatFacts: assetFormatFacts
-                        ))
-                    }
+                let authored: LaunchAuthoredReference
+                do {
+                    authored = try launchAuthoredReference(
+                        template: template,
+                        sampler: sampler,
+                        slot: slot,
+                        assetStates: assetStates
+                    )
+                } catch let failure as Failure {
+                    return .failure(failure)
+                } catch {
+                    return .failure(launchFailure(
+                        .identityInvariant,
+                        phase: .invariant,
+                        slot: slot
+                    ))
                 }
-                if let sampler {
-                    switch sampler.defaultTexture {
-                    case let .asset(path) where sampler.readinessCombo == nil:
-                        possible.formUnion(formats(
-                            for: .asset(path),
-                            sampler: sampler,
-                            assetFormatFacts: assetFormatFacts
-                        ))
-                    case .internalTarget where sampler.readinessCombo == nil:
-                        possible.insert(nil)
-                    case .asset, .internalTarget, nil:
-                        break
-                    }
-                    if sampler.usesGraphInputMaterialAlias {
-                        possible.insert(nil)
+                switch authored {
+                case let .selected(reference):
+                    possible.formUnion(formats(
+                        for: reference,
+                        sampler: sampler,
+                        assetFormatFacts: assetFormatFacts
+                    ))
+                case .deferred:
+                    possible.insert(nil)
+                case .none:
+                    if let sampler {
+                        switch sampler.defaultTexture {
+                        case let .asset(path) where sampler.readinessCombo == nil:
+                            possible.formUnion(formats(
+                                for: .asset(path),
+                                sampler: sampler,
+                                assetFormatFacts: assetFormatFacts
+                            ))
+                        case .internalTarget where sampler.readinessCombo == nil:
+                            possible.insert(nil)
+                        case .asset, .internalTarget, nil:
+                            break
+                        }
+                        if sampler.usesGraphInputMaterialAlias {
+                            possible.insert(nil)
+                        }
                     }
                 }
                 if possible.isEmpty { possible.insert(nil) }

@@ -88,6 +88,23 @@ struct SceneMaterialAssetTextureCatalog {
         })
     }
 
+    var launchStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] {
+        Dictionary(uniqueKeysWithValues: states.map { identity, state in
+            let launchState: SceneAssetTextureLaunchState
+            switch state {
+            case let .ready(publication) where publication.isComplete:
+                launchState = .ready(publication.candidate.content)
+            case .ready, .unavailable:
+                launchState = .unavailable
+            case .absent:
+                launchState = .absent
+            case .pending:
+                launchState = .pending
+            }
+            return (identity, launchState)
+        })
+    }
+
     private nonisolated static func less(
         _ lhs: SceneAssetTextureIdentity,
         _ rhs: SceneAssetTextureIdentity

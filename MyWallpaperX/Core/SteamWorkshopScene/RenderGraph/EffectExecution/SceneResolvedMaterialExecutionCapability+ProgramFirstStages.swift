@@ -9,6 +9,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         demandIssueKeys: Set<MaterialKey>,
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         dedicatedStagePrograms: [SceneEffectStageProgram],
         dedicatedStageFamilies: [Graph.EffectKey: String],
         dedicatedLeafKeys: Set<Graph.EffectKey>,
@@ -40,6 +41,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 demandIssueKeys: demandIssueKeys,
                 dynamicProducers: dynamicProducers,
                 assetFormatFacts: assetFormatFacts,
+                assetStates: assetStates,
                 maximumVariantsPerMaterial: maximumVariantsPerMaterial
             )
             switch programResult {

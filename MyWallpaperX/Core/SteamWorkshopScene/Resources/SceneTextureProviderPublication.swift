@@ -92,6 +92,16 @@ nonisolated enum SceneTextureProviderState {
     case unavailable
 }
 
+/// Value-only launch view of an immutable asset provider state. Capability
+/// admission needs absence and failure provenance as well as ready content so
+/// it can apply the same candidate precedence as frame selection.
+nonisolated enum SceneAssetTextureLaunchState: Hashable {
+    case ready(SceneTextureContent)
+    case absent
+    case pending
+    case unavailable
+}
+
 nonisolated struct SceneFrameTextureResource {
     let publication: SceneTextureProviderPublication
     let resourceGeneration: UInt64
