@@ -43,6 +43,8 @@ enum Harness {
         let projected = transformedMVP * local
         let normalized = SIMD2(projected.x, projected.y) / projected.w
         let singular = SceneMatrix.scale(SIMD3(0, 1, 1))
+        let singularUnusedProjection = SceneLayerCursorGeometry
+            .effectProjectionInverse(singular, required: false)
         let inverseRestoresKnownPoint: Bool = {
             guard let inverse = SceneLayerCursorGeometry.inverseModelViewProjection(
                 transformedMVP
@@ -71,6 +73,17 @@ enum Harness {
             "inverseRestoresKnownPoint": inverseRestoresKnownPoint,
             "singularInverseRejected":
                 SceneLayerCursorGeometry.inverseModelViewProjection(singular) == nil,
+            "singularUnusedProjectionUsesIdentity":
+                singularUnusedProjection == matrix_identity_float4x4,
+            "singularRequiredProjectionRejected": SceneLayerCursorGeometry
+                .effectProjectionInverse(singular, required: true) == nil,
+            "invertibleRequiredProjectionMatchesStrictInverse":
+                SceneLayerCursorGeometry.effectProjectionInverse(
+                    transformedMVP,
+                    required: true
+                ) == SceneLayerCursorGeometry.inverseModelViewProjection(
+                    transformedMVP
+                ),
             "particleLocalPosition": triple(SceneParticlePointerProjection.localPosition(
                 mouseNormalized: normalized,
                 isInside: true,
@@ -164,6 +177,13 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
 
     def test_public_inverse_matches_layer_local_projection(self) -> None:
         self.assertTrue(self.result["inverseRestoresKnownPoint"])
+
+    def test_effect_projection_placeholder_requires_an_unobserved_matrix(self) -> None:
+        self.assertTrue(self.result["singularUnusedProjectionUsesIdentity"])
+        self.assertTrue(self.result["singularRequiredProjectionRejected"])
+        self.assertTrue(
+            self.result["invertibleRequiredProjectionMatchesStrictInverse"]
+        )
 
 
 if __name__ == "__main__":

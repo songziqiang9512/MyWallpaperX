@@ -231,6 +231,40 @@ void main() {
 }
 """
 
+private let conditionalShadowFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform float g_Border;
+uniform float g_Weight;
+uniform vec3 g_Shadow;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return mix(base, blend, opacity);
+}
+void main() {
+    vec4 base = texSample2D(g_Texture0, v_TexCoord);
+    vec4 offset = texSample2D(
+        g_Texture0, v_TexCoord + vec2(0.25, 0.0)
+    );
+    if (base.a > g_Border) {
+        gl_FragColor = base;
+    } else if (offset.a > 0.0) {
+        gl_FragColor.rgb = ApplyBlending(
+            30, base.rgb, g_Shadow, g_Weight
+        );
+        gl_FragColor.a = min(
+            1.0, base.a + offset.a * g_Weight
+        );
+    } else {
+        gl_FragColor = base;
+    }
+}
+"""
+
 private let wholeColorFilterFragment = """
 varying vec2 v_TexCoord;
 uniform sampler2D g_Texture0;
@@ -1419,6 +1453,50 @@ private enum Harness {
             [28, 4, 0, 32]
         )
 
+        // One row exercises all three authored branches with nearest sampling:
+        // opaque base passthrough, transparent base receiving an offset shadow,
+        // and a translucent base whose empty offset falls back unchanged.
+        let conditionalShadowSource = texture(
+            device: device,
+            width: 4,
+            height: 1,
+            fill: [
+                128, 0, 0, 255,
+                0, 0, 0, 0,
+                0, 64, 0, 128,
+                0, 0, 0, 0,
+            ]
+        )
+        let conditionalShadowProgram = program(
+            device: device,
+            marker: 44,
+            outputSlot: 0,
+            slot0Texture: conditionalShadowSource,
+            fragmentSource: conditionalShadowFragment,
+            uniformValues: [
+                "g_Border": bytes(Float(0.75)),
+                "g_Weight": bytes(Float(0.5)),
+                "g_Shadow": bytes(SIMD3<Float>(0, 0, 1)),
+            ],
+            slot0Sampling: .init(texFlags: 3),
+            slot0GraphKind: .layerSource
+        )
+        let conditionalShadowResult = render(
+            conditionalShadowProgram,
+            encoder: encoder,
+            queue: queue,
+            target: target(device: device, width: 4, height: 1)
+        )
+        let conditionalShadowPixelsMatch = closePixels(
+            conditionalShadowResult.pixels,
+            [
+                128, 0, 0, 255,
+                0, 0, 32, 64,
+                0, 64, 0, 128,
+                0, 0, 0, 0,
+            ]
+        )
+
         let filterInputBytes: [UInt8] = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 128, 64, 32, 128, 0, 0, 0, 0,
@@ -2190,6 +2268,10 @@ private enum Harness {
             "overlayBoundaryEncoded": overlayResult.encoded,
             "overlayBoundaryGPUCompleted": overlayResult.completed,
             "overlayBoundaryPixelsMatch": overlayBoundaryPixelsMatch,
+            "conditionalShadowPrepared": conditionalShadowResult.prepared,
+            "conditionalShadowEncoded": conditionalShadowResult.encoded,
+            "conditionalShadowGPUCompleted": conditionalShadowResult.completed,
+            "conditionalShadowPixelsMatch": conditionalShadowPixelsMatch,
             "wholeFilterPrepared": wholeFilterResult.prepared,
             "wholeFilterEncoded": wholeFilterResult.encoded,
             "wholeFilterGPUCompleted": wholeFilterResult.completed,

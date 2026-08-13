@@ -617,6 +617,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
+        let requiresInvertibleEffectTextureProjection: Bool = false
         var effectSubjectsAreConserved: Bool {
             let expected = admittedProducts.flatMap { $0.graph.effects.map(\.key) }
             return !expected.isEmpty && Set(expected).count == expected.count

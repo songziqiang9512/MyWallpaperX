@@ -270,6 +270,8 @@ struct SceneEffectPassSlot: Hashable {
 struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
+struct SceneDepthParallaxExecutionPlan {}
+struct SceneXRayExecutionPlan {}
 
 struct SceneOpacityExecutionPlan {}
 struct SceneProceduralNoiseExecutionPlan {
@@ -298,6 +300,8 @@ struct SceneEffectStageExecutionPlan {
     let inputRole: SceneAuthoredEffectInputRole
     let cursorRipple: SceneCursorRippleExecutionPlan?
     let opacity: SceneOpacityExecutionPlan?
+    var depthParallax: SceneDepthParallaxExecutionPlan? = nil
+    var xRay: SceneXRayExecutionPlan? = nil
     var clippingMask: SceneClippingMaskExecutionPlan? = nil
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil
     var supportsUnifiedLogicalTargetStage = false
@@ -529,6 +533,7 @@ final class SceneResolvedMaterialVariantCache {
     var supportsCapturedMainTargetTexture: Bool {
         capturedMainTargetTextureSupport
     }
+    var requiresInvertibleEffectTextureProjection: Bool { false }
     func provesRedOnlyConsumer(slot: Int) -> Bool {
         _ = slot
         return false
@@ -2940,6 +2945,8 @@ struct SceneOpacityExecutionPlan {}
 struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
+struct SceneDepthParallaxExecutionPlan {}
+struct SceneXRayExecutionPlan {}
 struct SceneProceduralNoiseExecutionPlan {
     enum Variant { case colorPerlinRGB, worleyColorV1 }
     let layerID: Int
@@ -2963,7 +2970,9 @@ struct SceneEffectStageExecutionPlan {
     let opacity: SceneOpacityExecutionPlan?
     var layerID: Int { 0 }
     var materialNodeCount: Int { 0 }
-    var cursorRipple: SceneCursorRippleExecutionPlan? { nil }
+    var cursorRipple: SceneCursorRippleExecutionPlan? = nil
+    var depthParallax: SceneDepthParallaxExecutionPlan? = nil
+    var xRay: SceneXRayExecutionPlan? = nil
     var inputRole: SceneAuthoredEffectInputRole { .layerSource }
     var clippingMask: SceneClippingMaskExecutionPlan? { nil }
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
@@ -3026,7 +3035,17 @@ enum SceneResolvedMaterialExecutionCapabilityAdmission {
     struct Candidate {
         let layerID: Int
         let result: Result<SceneResolvedMaterialAdmittedLayer, Failure>
-        let dedicatedStagePrograms: [SceneEffectStageProgram] = []
+        let dedicatedStagePrograms: [SceneEffectStageProgram]
+
+        init(
+            layerID: Int,
+            result: Result<SceneResolvedMaterialAdmittedLayer, Failure>,
+            dedicatedStagePrograms: [SceneEffectStageProgram] = []
+        ) {
+            self.layerID = layerID
+            self.result = result
+            self.dedicatedStagePrograms = dedicatedStagePrograms
+        }
     }
 }
 
@@ -3074,15 +3093,25 @@ private let previousEffectKey = Graph.EffectKey(
     descriptorID: "previous-envelope"
 )
 
-private let vertexSource = """
-attribute vec3 a_Position;
-attribute vec2 a_TexCoord;
-varying vec2 v_TexCoord;
-void main() {
-    v_TexCoord = a_TexCoord;
-    gl_Position = vec4(a_Position, 1.0);
+private func vertexSource(
+    matrixUniform: String? = nil,
+    usesMatrixUniform: Bool = true
+) -> String {
+    let declaration = matrixUniform.map { "uniform mat4 \($0);" } ?? ""
+    let position = (usesMatrixUniform ? matrixUniform : nil).map {
+        "mul(vec4(a_Position, 1.0), \($0))"
+    } ?? "vec4(a_Position, 1.0)"
+    return """
+    attribute vec3 a_Position;
+    attribute vec2 a_TexCoord;
+    varying vec2 v_TexCoord;
+    \(declaration)
+    void main() {
+        v_TexCoord = a_TexCoord;
+        gl_Position = \(position);
+    }
+    """
 }
-"""
 
 private func fragmentSource(
     comboMetadata: String? = nil,
@@ -3270,7 +3299,9 @@ private func contract(
     audioDirectDraw: Bool = false,
     opaqueSecondGraph: Bool = false,
     independentAlphaSignal: Bool = false,
-    variantMixedSource: Bool = false
+    variantMixedSource: Bool = false,
+    vertexMatrixUniform: String? = nil,
+    usesVertexMatrixUniform: Bool = true
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -3314,7 +3345,14 @@ private func contract(
         variantMixedSource: variantMixedSource
     )
     let stages = [
-        stage(.vertex, path: "\(revision)/root.vert", source: vertexSource),
+        stage(
+            .vertex,
+            path: "\(revision)/root.vert",
+            source: vertexSource(
+                matrixUniform: vertexMatrixUniform,
+                usesMatrixUniform: usesVertexMatrixUniform
+            )
+        ),
         stage(.fragment, path: "\(revision)/root.frag", source: fragment),
     ]
     return .init(
@@ -3591,6 +3629,47 @@ private func acceptedRouteCount(_ catalog: Catalog) -> Int {
     catalog.reportLines.filter { $0.contains("status=accepted") }.count
 }
 
+private func requiresInvertibleEffectTextureProjection(
+    _ catalog: Catalog
+) -> Bool? {
+    guard let claim = catalog.claim(layerID: layerID),
+          let capability = catalog.resolve(claim.token) else { return nil }
+    return capability.requiresInvertibleEffectTextureProjection
+}
+
+private func dedicatedCatalog(
+    graph: Graph,
+    pointerSensitive: Bool
+) -> Catalog {
+    let admitted = SceneResolvedMaterialAdmittedLayer(
+        layerID: layerID,
+        products: [.init(graph: graph)],
+        pairPlan: .init(),
+        dependencyOwnership: .none,
+        sourceRoute: .capturedLayerTexture
+    )
+    let program = SceneEffectStageProgram(
+        effectKey: effectKey,
+        stageGraph: graph,
+        executionPlan: .init(
+            logicalRenderTargetCount: 0,
+            opacity: pointerSensitive ? nil : .init(),
+            cursorRipple: pointerSensitive
+                ? .init(effectKey: effectKey) : nil
+        )
+    )
+    return .init(
+        admissionCandidates: [.init(
+            layerID: layerID,
+            result: .success(admitted),
+            dedicatedStagePrograms: [program]
+        )],
+        materialCatalog: .init(entries: [:], resourceDemandIssues: []),
+        dedicatedStageFamilies: [effectKey: "fixture-dedicated"],
+        dedicatedLeafKeys: [effectKey]
+    )
+}
+
 private func counters(_ catalog: Catalog, graph: Graph) -> [String: Int] {
     guard let claim = catalog.claim(layerID: layerID),
           let capability = catalog.resolve(claim.token),
@@ -3629,6 +3708,68 @@ private enum EnvelopeHarness {
                 slots: slots(primary: graphCandidate())
             )
         )
+        let modelViewProjectionOnly = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "model-view-projection-only",
+                    vertexMatrixUniform: "g_ModelViewProjectionMatrix"
+                ),
+                slots: slots(primary: graphCandidate())
+            )
+        )
+        let effectProjectionForward = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "effect-projection-forward",
+                    vertexMatrixUniform: "g_EffectTextureProjectionMatrix"
+                ),
+                slots: slots(primary: graphCandidate())
+            )
+        )
+        let unusedEffectProjectionDeclaration = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "effect-projection-unused",
+                    vertexMatrixUniform: "g_EffectTextureProjectionMatrix",
+                    usesVertexMatrixUniform: false
+                ),
+                slots: slots(primary: graphCandidate())
+            )
+        )
+        let effectProjectionInverse = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "effect-projection-inverse",
+                    vertexMatrixUniform:
+                        "g_EffectTextureProjectionMatrixInverse"
+                ),
+                slots: slots(primary: graphCandidate())
+            )
+        )
+        let ordinaryDedicatedProjectionRequirement = dedicatedCatalog(
+            graph: boundGraph,
+            pointerSensitive: false
+        )
+        let pointerDedicatedProjectionRequirement = dedicatedCatalog(
+            graph: boundGraph,
+            pointerSensitive: true
+        )
+        let uncompiledProjectionRequirement = SceneResolvedMaterialVariantCache(
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract("projection-uncompiled"),
+                slots: slots(primary: graphCandidate())
+            ),
+            maximumVariantCount: 16
+        )!.requiresInvertibleEffectTextureProjection
         let shaderFailure = catalog(
             graph: boundGraph,
             template: materialTemplate(
@@ -4302,6 +4443,34 @@ private enum EnvelopeHarness {
         let result: [String: Any] = [
             "positiveClaim": positive.claim(layerID: layerID) != nil,
             "positiveCounters": counters(positive, graph: boundGraph),
+            "effectProjectionRequirements": [
+                "resolvedWithoutMatrix":
+                    requiresInvertibleEffectTextureProjection(positive) == false,
+                "modelViewProjectionOnly":
+                    requiresInvertibleEffectTextureProjection(
+                        modelViewProjectionOnly
+                    ) == false,
+                "effectProjectionForward":
+                    requiresInvertibleEffectTextureProjection(
+                        effectProjectionForward
+                    ) == true,
+                "unusedEffectProjectionDeclaration":
+                    requiresInvertibleEffectTextureProjection(
+                        unusedEffectProjectionDeclaration
+                    ) == false,
+                "effectProjectionInverse":
+                    requiresInvertibleEffectTextureProjection(
+                        effectProjectionInverse
+                    ) == true,
+                "ordinaryDedicated": requiresInvertibleEffectTextureProjection(
+                    ordinaryDedicatedProjectionRequirement
+                ) == false,
+                "pointerDedicated": requiresInvertibleEffectTextureProjection(
+                    pointerDedicatedProjectionRequirement
+                ) == true,
+                "uncompiledResolvedCacheFailsClosed":
+                    uncompiledProjectionRequirement,
+            ],
             "shaderFailure": rejection(shaderFailure),
             "frontendFailure": rejection(frontendFailure),
             "samplerSchemaFailure": rejection(samplerSchemaFailure),
@@ -5799,6 +5968,20 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertEqual(
             payload["positiveCounters"],
             {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+            payload,
+        )
+        self.assertEqual(
+            payload["effectProjectionRequirements"],
+            {
+                "resolvedWithoutMatrix": True,
+                "modelViewProjectionOnly": True,
+                "effectProjectionForward": True,
+                "unusedEffectProjectionDeclaration": True,
+                "effectProjectionInverse": True,
+                "ordinaryDedicated": True,
+                "pointerDedicated": True,
+                "uncompiledResolvedCacheFailsClosed": True,
+            },
             payload,
         )
         self.assertIn(

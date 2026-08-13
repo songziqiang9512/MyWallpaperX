@@ -2073,7 +2073,7 @@ utility layer 763: skippedHidden kind=composition
         )
         samples = matrix["samples"]
         self.assertEqual(len(samples), 45)
-        legacy_keys = {
+        owner_transfer_keys = {
             "expected_authored_effect_graph_local_contrast_count",
             "expected_authored_effect_graph_opacity_count",
             "expected_authored_effect_graph_opacity_layer_ids",
@@ -2093,11 +2093,16 @@ utility layer 763: skippedHidden kind=composition
             "expected_authored_effect_graph_foliage_sway_count",
             "expected_authored_effect_graph_water_ripple_count",
         }
+        all_legacy_keys = {
+            expectation.matrix_key
+            for expectation in benchmark.AUTHORED_EFFECT_RUNTIME_EXPECTATIONS
+        }
         for sample in samples:
             with self.subTest(sample_id=sample["id"]):
-                present = legacy_keys.intersection(sample)
-                self.assertIn(len(present), (0, len(legacy_keys)))
+                present = owner_transfer_keys.intersection(sample)
+                self.assertIn(len(present), (0, len(owner_transfer_keys)))
                 if not present:
+                    self.assertFalse(all_legacy_keys.intersection(sample))
                     replacement = sample.get(
                         "expected_resolved_material_graph_succeeded_layer_ids"
                     )

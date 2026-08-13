@@ -54,6 +54,16 @@ enum SceneLayerCursorGeometry {
         return inverse
     }
 
+    /// Supplies identity only when the admitted execution graph has proven
+    /// that neither effect projection nor layer-local pointer data is read.
+    static func effectProjectionInverse(
+        _ modelViewProjection: simd_float4x4,
+        required: Bool
+    ) -> simd_float4x4? {
+        inverseModelViewProjection(modelViewProjection)
+            ?? (required ? nil : matrix_identity_float4x4)
+    }
+
     private static func localPoint(
         _ point: SIMD4<Float>,
         inverse: simd_float4x4

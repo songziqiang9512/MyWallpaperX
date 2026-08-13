@@ -1,5 +1,27 @@
 import Foundation
 
+extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability {
+    var requiresInvertibleEffectTextureProjection: Bool {
+        switch self {
+        case .resolved(_, let materials):
+            return materials.values.contains {
+                $0.variants.requiresInvertibleEffectTextureProjection
+            }
+        case .dedicated(_, let program, _):
+            let plan = program.executionPlan
+            return plan.cursorRipple != nil
+                || plan.depthParallax != nil
+                || plan.xRay != nil
+        }
+    }
+}
+
+extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
+    var requiresInvertibleEffectTextureProjection: Bool {
+        stages.contains(where: \.requiresInvertibleEffectTextureProjection)
+    }
+}
+
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
     struct CompiledStages {
         let stages: [StageCapability]

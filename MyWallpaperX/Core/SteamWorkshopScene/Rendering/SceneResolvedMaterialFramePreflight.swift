@@ -313,9 +313,10 @@ extension SceneMetalRenderer {
                 capturesMainTarget = false
             }
             guard let effectTextureProjectionMatrixInverse =
-                    SceneLayerCursorGeometry.inverseModelViewProjection(outputMVP) else {
-                return nil
-            }
+                    SceneLayerCursorGeometry.effectProjectionInverse(
+                        outputMVP,
+                        required: claim.requiresInvertibleEffectTextureProjection
+                    ) else { return nil }
             let cursor = SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: frameContext.pointer.current,
                 modelViewProjection: sourceMVP

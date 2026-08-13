@@ -105,6 +105,8 @@ nonisolated struct SceneResolvedMaterialNode {
 struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
+struct SceneDepthParallaxExecutionPlan {}
+struct SceneXRayExecutionPlan {}
 
 struct SceneOpacityExecutionPlan {}
 
@@ -115,6 +117,8 @@ struct SceneEffectStageExecutionPlan {
     let inputRole: SceneAuthoredEffectInputRole
     let cursorRipple: SceneCursorRippleExecutionPlan?
     let opacity: SceneOpacityExecutionPlan? = nil
+    var depthParallax: SceneDepthParallaxExecutionPlan? { nil }
+    var xRay: SceneXRayExecutionPlan? { nil }
 
     var supportsUnifiedLogicalTargetStage: Bool { false }
     var supportsUnifiedFullFrameComposeStage: Bool { false }

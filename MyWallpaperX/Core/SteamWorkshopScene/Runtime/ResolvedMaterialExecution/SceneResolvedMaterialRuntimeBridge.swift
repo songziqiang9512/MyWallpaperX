@@ -19,6 +19,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
+        let requiresInvertibleEffectTextureProjection: Bool
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
 
         fileprivate init(
@@ -28,6 +29,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             fullFrameExtentPolicy: SceneFullFrameExtentPolicy,
             dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
             sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
+            requiresInvertibleEffectTextureProjection: Bool,
             token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
         ) {
             self.layerID = layerID
@@ -36,6 +38,8 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.fullFrameExtentPolicy = fullFrameExtentPolicy
             self.dependencyOwnership = dependencyOwnership
             self.sourceRoute = sourceRoute
+            self.requiresInvertibleEffectTextureProjection =
+                requiresInvertibleEffectTextureProjection
             self.token = token
         }
     }
@@ -348,6 +352,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             fullFrameExtentPolicy: capability.fullFrameExtentPolicy,
             dependencyOwnership: capability.dependencyOwnership,
             sourceRoute: capability.sourceRoute,
+            requiresInvertibleEffectTextureProjection:
+                capability.requiresInvertibleEffectTextureProjection,
             token: claim.token
         )
         guard recordsClaim else { return .claimed(execution) }
