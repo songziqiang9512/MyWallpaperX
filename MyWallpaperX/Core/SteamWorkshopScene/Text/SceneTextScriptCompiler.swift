@@ -14,7 +14,19 @@ nonisolated enum SceneTextScriptCompiler {
         for layer in descriptor.layers where
             layer.contentKind == "text" && visibleLayerIDs.contains(layer.id) {
             guard let script = layer.textScript else { continue }
-            guard let program = SceneTextScriptSubsetCompiler.compile(script.source) else {
+            let configuration: SceneTextScriptProgram.Configuration
+            let profile: SceneTextScriptProgram.Profile
+            if let media = SceneTextMediaPropertiesCompiler.compile(script.source),
+               !media.hasEmptyInitializer || (layer.text ?? "").isEmpty {
+                configuration = .mediaProperties(field: media.field)
+                profile = .ecmaMediaPropertiesChangedSubset
+            } else if let program = SceneTextScriptSubsetCompiler.compile(script.source) {
+                configuration = .scriptSubset(
+                    program: program,
+                    properties: script.properties
+                )
+                profile = .ecmaTextUpdateSubset
+            } else {
                 diagnostics.append(.init(
                     layerID: layer.id,
                     code: .unknownProfile,
@@ -24,11 +36,8 @@ nonisolated enum SceneTextScriptCompiler {
             }
             bindings.append(.init(
                 layerID: layer.id,
-                profile: .ecmaTextUpdateSubset,
-                configuration: .scriptSubset(
-                    program: program,
-                    properties: script.properties
-                ),
+                profile: profile,
+                configuration: configuration,
                 definition: .init(
                     target: .text(layerID: layer.id, field: .content),
                     valueType: .string,

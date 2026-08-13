@@ -3,6 +3,7 @@ import Foundation
 
 extension DebugScenePlaybackRunner {
     static func publishRequestedMediaThumbnail(rootURL: URL) {
+        publishRequestedMediaProperties()
         guard let relativePath = argumentValue(
             after: "--mwx-debug-scene-media-thumbnail"
         ) else { return }
@@ -54,6 +55,33 @@ extension DebugScenePlaybackRunner {
                 playbackState
             )
         }
+    }
+
+    private static func publishRequestedMediaProperties() {
+        let title = argumentValue(after: "--mwx-debug-scene-media-title")
+        let artist = argumentValue(after: "--mwx-debug-scene-media-artist")
+        guard title != nil || artist != nil else { return }
+        guard let title, let artist else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=media-properties-rejected reason=incomplete"
+            )
+            return
+        }
+        guard SceneMediaThumbnailInbox.shared.publishMediaProperties(
+            title: title,
+            artist: artist
+        ) else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=media-properties-rejected reason=invalid"
+            )
+            return
+        }
+        NSLog(
+            "MWX DEBUG SCENE: phase=media-properties-published generation=%llu titleUTF8Bytes=%d artistUTF8Bytes=%d",
+            SceneMediaThumbnailInbox.shared.latest().propertiesGeneration,
+            title.utf8.count,
+            artist.utf8.count
+        )
     }
 
     static func scheduleRequestedMediaThumbnailSequence(rootURL: URL) {

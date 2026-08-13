@@ -139,9 +139,42 @@ private func metal(
     )?.metalSource ?? ""
 }
 
+private func conditionalShadowBody(
+    mode: Int = 30,
+    offsetSample: String = "texSample2D(g_Texture0, " +
+        "v_TexCoord + vec2(0.25, 0.0))",
+    prelude: String = "",
+    weight: String = "g_ScalarWeight",
+    alphaWeight: String? = nil,
+    blendExpression: String? = nil,
+    alphaExpression: String? = nil,
+    alphaOperation: String = "+",
+    shadowCondition: String = "offset.a > 0.0",
+    betweenBranches: String = "",
+    fallback: String = "base"
+) -> String {
+    let resolvedAlphaWeight = alphaWeight ?? weight
+    let resolvedBlend = blendExpression ??
+        "ApplyBlending(\(mode), base.rgb, g_Shadow, \(weight))"
+    let resolvedAlpha = alphaExpression ?? "offset.a * \(resolvedAlphaWeight)"
+    return "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+        "vec4 offset = \(offsetSample); \(prelude)" +
+        "if (base.a > g_Border) { gl_FragColor = base; } " +
+        "else if (\(shadowCondition)) { " +
+        "gl_FragColor.rgb = \(resolvedBlend); " +
+        "gl_FragColor.a = min(1.0, base.a \(alphaOperation) " +
+        "\(resolvedAlpha)); " +
+        "} \(betweenBranches)else { gl_FragColor = \(fallback); }"
+}
+
 @main
 enum Harness {
     static func main() throws {
+        let normalMaskOffShadow = conditionalShadowBody(
+            mode: 0,
+            prelude: "float mask = 1.0; ",
+            weight: "g_ScalarWeight * mask"
+        )
         let result: [String: String] = [
             "directTexture0": transfer(
                 "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
@@ -477,162 +510,111 @@ enum Harness {
                 "if (g_ScalarWeight > 0.0) base.a = overlay.a * 0.5; " +
                 "gl_FragColor = base;"
             ),
-            "conditionalShadow": transfer(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture0, " +
-                "v_TexCoord + vec2(0.25, 0.0)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.0) { " +
-                "gl_FragColor.rgb = ApplyBlending(30, base.rgb, " +
-                "g_Shadow, g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a + " +
-                "offset.a * g_ScalarWeight); " +
-                "} else { gl_FragColor = base; }"
-            ),
-            "conditionalShadowMetal": metal(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture0, " +
-                "v_TexCoord + vec2(0.25, 0.0)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.0) { " +
-                "gl_FragColor.rgb = ApplyBlending(30, base.rgb, " +
-                "g_Shadow, g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a + " +
-                "offset.a * g_ScalarWeight); " +
-                "} else { gl_FragColor = base; }"
-            ),
+            "conditionalShadow": transfer(conditionalShadowBody()),
+            "conditionalShadowMetal": metal(conditionalShadowBody()),
             "conditionalShadowModeThirtyHelper": transfer(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture0, " +
-                "v_TexCoord + vec2(0.25, 0.0)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.0) { " +
-                "gl_FragColor.rgb = ApplyBlending(30, base.rgb, " +
-                "g_Shadow, g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a + " +
-                "offset.a * g_ScalarWeight); " +
-                "} else { gl_FragColor = base; }",
+                conditionalShadowBody(),
                 blendReturns: "return mix(base, " +
                     "(CAST3(max(base.x, max(base.y, base.z))) * blend), " +
                     "opacity); return mix(base, (blend), opacity);"
             ),
             "conditionalShadowModeThirtyHelperMetal": metal(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture0, " +
-                "v_TexCoord + vec2(0.25, 0.0)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.0) { " +
-                "gl_FragColor.rgb = ApplyBlending(30, base.rgb, " +
-                "g_Shadow, g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a + " +
-                "offset.a * g_ScalarWeight); " +
-                "} else { gl_FragColor = base; }",
+                conditionalShadowBody(),
                 blendReturns: "return mix(base, " +
                     "(CAST3(max(base.x, max(base.y, base.z))) * blend), " +
                     "opacity); return mix(base, (blend), opacity);"
             ),
+            "conditionalShadowNormalMaskOff": transfer(normalMaskOffShadow),
+            "conditionalShadowNormalMaskOffMetal": metal(normalMaskOffShadow),
+            "conditionalShadowNormalMaskMutation": transfer(
+                conditionalShadowBody(
+                    mode: 0,
+                    prelude: "float mask = 1.0; mask *= g_ScalarWeight; ",
+                    weight: "g_ScalarWeight * mask"
+                )
+            ),
+            "conditionalShadowNormalMaskTexture": transfer(
+                conditionalShadowBody(
+                    mode: 0,
+                    prelude: "float mask = " +
+                        "texSample2D(g_Texture1, v_TexCoord).r; ",
+                    weight: "g_ScalarWeight * mask"
+                )
+            ),
+            "conditionalShadowNormalDifferentWeight": transfer(
+                conditionalShadowBody(
+                    mode: 0,
+                    prelude: "float mask = 1.0; ",
+                    weight: "g_ScalarWeight * mask",
+                    alphaWeight: "g_ScalarWeight * mask * 0.5"
+                )
+            ),
+            "conditionalShadowNormalVectorWeight": transfer(
+                conditionalShadowBody(
+                    mode: 0,
+                    prelude: "float mask = 1.0; ",
+                    weight: "g_VectorWeight.x * mask"
+                )
+            ),
+            "conditionalShadowNormalControlFlow": transfer(
+                conditionalShadowBody(
+                    mode: 0,
+                    prelude: "float mask = 1.0; " +
+                        "if (g_ScalarWeight > 0.5) { mask = 0.5; } ",
+                    weight: "g_ScalarWeight * mask"
+                )
+            ),
+            "conditionalShadowNormalWrongHelper": transfer(
+                conditionalShadowBody(
+                    mode: 0,
+                    prelude: "float mask = 1.0; ",
+                    weight: "g_ScalarWeight * mask"
+                ),
+                blendReturns: "return base + blend * opacity;"
+            ),
             "conditionalShadowWrongSlot": transfer(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture1, " +
-                "v_TexCoord + vec2(0.25, 0.0)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.0) { " +
-                "gl_FragColor.rgb = ApplyBlending(30, base.rgb, " +
-                "g_Shadow, g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a + " +
-                "offset.a * g_ScalarWeight); " +
-                "} else { gl_FragColor = base; }"
+                conditionalShadowBody(
+                    offsetSample: "texSample2D(g_Texture1, " +
+                        "v_TexCoord + vec2(0.25, 0.0))"
+                )
             ),
             "conditionalShadowExtraSample": transfer(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture0, " +
-                "v_TexCoord + vec2(0.25, 0.0)); " +
-                "vec4 extra = texSample2D(g_Texture0, " +
-                "v_TexCoord - vec2(0.25, 0.0)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.0) { " +
-                "gl_FragColor.rgb = ApplyBlending(30, base.rgb, " +
-                "g_Shadow, g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a + " +
-                "offset.a * g_ScalarWeight + extra.a); " +
-                "} else { gl_FragColor = base; }"
+                conditionalShadowBody(
+                    prelude: "vec4 extra = texSample2D(g_Texture0, " +
+                        "v_TexCoord - vec2(0.25, 0.0)); ",
+                    alphaExpression: "offset.a * g_ScalarWeight + extra.a"
+                )
             ),
             "conditionalShadowAlphaSubtract": transfer(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture0, " +
-                "v_TexCoord + vec2(0.25, 0.0)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.0) { " +
-                "gl_FragColor.rgb = ApplyBlending(30, base.rgb, " +
-                "g_Shadow, g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a - " +
-                "offset.a * g_ScalarWeight); " +
-                "} else { gl_FragColor = base; }"
+                conditionalShadowBody(alphaOperation: "-")
             ),
             "conditionalShadowDifferentAlphaWeight": transfer(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture0, " +
-                "v_TexCoord + vec2(0.25, 0.0)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.0) { " +
-                "gl_FragColor.rgb = ApplyBlending(30, base.rgb, " +
-                "g_Shadow, g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a + " +
-                "offset.a * (g_ScalarWeight * 0.5)); " +
-                "} else { gl_FragColor = base; }"
+                conditionalShadowBody(alphaWeight: "(g_ScalarWeight * 0.5)")
             ),
             "conditionalShadowWrongFallback": transfer(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture0, " +
-                "v_TexCoord + vec2(0.25, 0.0)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.0) { " +
-                "gl_FragColor.rgb = ApplyBlending(30, base.rgb, " +
-                "g_Shadow, g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a + " +
-                "offset.a * g_ScalarWeight); " +
-                "} else { gl_FragColor = offset; }"
+                conditionalShadowBody(fallback: "offset")
             ),
             "conditionalShadowMutatingHelper": transfer(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture0, " +
-                "v_TexCoord + vec2(0.25, 0.0)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.0) { " +
-                "gl_FragColor.rgb = MutatingShadow(base.rgb, g_Shadow, " +
-                "g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a + " +
-                "offset.a * g_ScalarWeight); " +
-                "} else { gl_FragColor = base; }",
+                conditionalShadowBody(
+                    blendExpression: "MutatingShadow(" +
+                        "base.rgb, g_Shadow, g_ScalarWeight)"
+                ),
                 helpers: "vec3 MutatingShadow(inout vec3 base, vec3 blend, " +
                     "float opacity) { base = blend; " +
                     "return mix(base, blend, opacity); }"
             ),
             "conditionalShadowExtraBranch": transfer(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture0, " +
-                "v_TexCoord + vec2(0.25, 0.0)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.5) { " +
-                "gl_FragColor.rgb = ApplyBlending(30, base.rgb, " +
-                "g_Shadow, g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a + " +
-                "offset.a * g_ScalarWeight); " +
-                "} else if (offset.a > 0.0) { " +
-                "gl_FragColor = offset; " +
-                "} else { gl_FragColor = base; }"
+                conditionalShadowBody(
+                    shadowCondition: "offset.a > 0.5",
+                    betweenBranches: "else if (offset.a > 0.0) { " +
+                        "gl_FragColor = offset; } "
+                )
             ),
             "conditionalShadowCoordinateMutation": transfer(
-                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
-                "vec4 offset = texSample2D(g_Texture0, " +
-                "vec2(base[0] *= base.a)); " +
-                "if (base.a > g_Border) { gl_FragColor = base; } " +
-                "else if (offset.a > 0.0) { " +
-                "gl_FragColor.rgb = ApplyBlending(30, base.rgb, " +
-                "g_Shadow, g_ScalarWeight); " +
-                "gl_FragColor.a = min(1.0, base.a + " +
-                "offset.a * g_ScalarWeight); " +
-                "} else { gl_FragColor = base; }"
+                conditionalShadowBody(
+                    offsetSample: "texSample2D(g_Texture0, " +
+                        "vec2(base[0] *= base.a))"
+                )
             ),
             "overlayAlphaBlendOverlayMutation": transfer(
                 "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
@@ -1267,6 +1249,14 @@ class SceneShaderColorContractTests(unittest.TestCase):
             mode_thirty_source,
         )
 
+        self.assertEqual(
+            self.result["conditionalShadowNormalMaskOff"],
+            "straight-slot:0",
+        )
+        normal_source = self.result["conditionalShadowNormalMaskOffMetal"]
+        self.assertEqual(normal_source.count("mwxUnpremultiply(mwxTexture0.sample"), 2)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", normal_source)
+
     def test_conditional_shadow_rejects_unproven_dataflow(self) -> None:
         for key in (
             "conditionalShadowWrongSlot",
@@ -1277,6 +1267,12 @@ class SceneShaderColorContractTests(unittest.TestCase):
             "conditionalShadowMutatingHelper",
             "conditionalShadowExtraBranch",
             "conditionalShadowCoordinateMutation",
+            "conditionalShadowNormalMaskMutation",
+            "conditionalShadowNormalMaskTexture",
+            "conditionalShadowNormalDifferentWeight",
+            "conditionalShadowNormalVectorWeight",
+            "conditionalShadowNormalControlFlow",
+            "conditionalShadowNormalWrongHelper",
         ):
             self.assertNotEqual(self.result[key], "straight-slot:0", key)
 

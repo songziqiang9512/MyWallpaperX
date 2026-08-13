@@ -1,16 +1,41 @@
 import Foundation
 import os.lock
 
-/// Producer-agnostic media artwork ingress. Encoded artwork and any official
-/// event-derived secondary color share one generation; playback has an
-/// independent generation because it can change without replacing artwork.
+/// Producer-agnostic media ingress. Artwork and its event-derived color share
+/// one generation; playback and title/artist properties each advance their own
+/// generation because either can change without replacing artwork.
 final class SceneMediaThumbnailInbox: @unchecked Sendable {
     struct Snapshot: Equatable, Sendable {
+        struct Properties: Equatable, Sendable {
+            let title: String
+            let artist: String
+        }
+
         let current: Data?
         let secondaryColor: SIMD3<Double>?
         let generation: UInt64
         let playbackState: Int?
         let playbackGeneration: UInt64
+        let properties: Properties?
+        let propertiesGeneration: UInt64
+
+        init(
+            current: Data?,
+            secondaryColor: SIMD3<Double>?,
+            generation: UInt64,
+            playbackState: Int?,
+            playbackGeneration: UInt64,
+            properties: Properties? = nil,
+            propertiesGeneration: UInt64 = 0
+        ) {
+            self.current = current
+            self.secondaryColor = secondaryColor
+            self.generation = generation
+            self.playbackState = playbackState
+            self.playbackGeneration = playbackGeneration
+            self.properties = properties
+            self.propertiesGeneration = propertiesGeneration
+        }
 
         static let empty = Snapshot(
             current: nil,
@@ -23,6 +48,7 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
 
     static let shared = SceneMediaThumbnailInbox()
     nonisolated static let maximumEncodedByteCount = 16 * 1_024 * 1_024
+    nonisolated static let maximumMediaPropertyUTF8ByteCount = 4 * 1_024
 
     private var lock = os_unfair_lock_s()
     private var snapshot = Snapshot.empty
@@ -54,7 +80,9 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             secondaryColor: secondaryColor,
             generation: snapshot.generation &+ 1,
             playbackState: snapshot.playbackState,
-            playbackGeneration: snapshot.playbackGeneration
+            playbackGeneration: snapshot.playbackGeneration,
+            properties: snapshot.properties,
+            propertiesGeneration: snapshot.propertiesGeneration
         )
         return true
     }
@@ -70,7 +98,31 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             secondaryColor: snapshot.secondaryColor,
             generation: snapshot.generation,
             playbackState: state,
-            playbackGeneration: snapshot.playbackGeneration &+ 1
+            playbackGeneration: snapshot.playbackGeneration &+ 1,
+            properties: snapshot.properties,
+            propertiesGeneration: snapshot.propertiesGeneration
+        )
+        return true
+    }
+
+    @discardableResult
+    func publishMediaProperties(title: String, artist: String) -> Bool {
+        guard Self.isValidMediaProperty(title),
+              Self.isValidMediaProperty(artist) else {
+            return false
+        }
+        let properties = Snapshot.Properties(title: title, artist: artist)
+        os_unfair_lock_lock(&lock)
+        defer { os_unfair_lock_unlock(&lock) }
+        guard snapshot.properties != properties else { return true }
+        snapshot = Snapshot(
+            current: snapshot.current,
+            secondaryColor: snapshot.secondaryColor,
+            generation: snapshot.generation,
+            playbackState: snapshot.playbackState,
+            playbackGeneration: snapshot.playbackGeneration,
+            properties: properties,
+            propertiesGeneration: snapshot.propertiesGeneration &+ 1
         )
         return true
     }
@@ -84,7 +136,9 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             secondaryColor: .zero,
             generation: snapshot.generation &+ 1,
             playbackState: snapshot.playbackState,
-            playbackGeneration: snapshot.playbackGeneration
+            playbackGeneration: snapshot.playbackGeneration,
+            properties: snapshot.properties,
+            propertiesGeneration: snapshot.propertiesGeneration
         )
     }
 
@@ -95,5 +149,17 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             && (0...1).contains(value.x)
             && (0...1).contains(value.y)
             && (0...1).contains(value.z)
+    }
+
+    nonisolated private static func isValidMediaProperty(
+        _ value: String
+    ) -> Bool {
+        guard let data = value.data(using: .utf8),
+              data.count <= maximumMediaPropertyUTF8ByteCount else {
+            return false
+        }
+        return !value.unicodeScalars.contains(where: {
+            CharacterSet.controlCharacters.contains($0)
+        })
     }
 }

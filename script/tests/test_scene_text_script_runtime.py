@@ -21,6 +21,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Text/SceneTextScriptSubsetProgram.swift",
     SOURCE_ROOT / "Text/SceneTextScriptSubsetCompiler.swift",
     SOURCE_ROOT / "Text/SceneTextScriptSubsetRuntime.swift",
+    SOURCE_ROOT / "Text/SceneTextMediaPropertiesCompiler.swift",
     SOURCE_ROOT / "Text/SceneTextScriptProgram.swift",
     SOURCE_ROOT / "Text/SceneTextScriptCompiler.swift",
     SOURCE_ROOT / "Text/SceneTextScriptRuntime.swift",
@@ -118,6 +119,23 @@ enum Harness {
             }
         }
         """
+        let mediaTitleSource = """
+        'use strict';
+        // Inert Workshop asset reference.
+        export let __workshopId = '3571866376';
+        /** @param {MediaPropertiesEvent} event */
+        export function mediaPropertiesChanged(event) {
+            thisLayer.text = event.title;
+        }
+        export function init(value) {
+            return "";
+        }
+        """
+        let mediaArtistSource = """
+        export function mediaPropertiesChanged(event) {
+            thisLayer.text = event.artist;
+        }
+        """
 
         let validProgram = SceneTextScriptCompiler.compile(
             descriptor: SceneRenderDescriptor(layers: [
@@ -205,6 +223,41 @@ enum Harness {
             ),
             timeZone: fixtureTimeZone
         )
+        let mediaProgram = SceneTextScriptCompiler.compile(
+            descriptor: SceneRenderDescriptor(layers: [
+                textLayer(
+                    id: 106,
+                    text: "",
+                    source: mediaTitleSource
+                ),
+                textLayer(
+                    id: 107,
+                    text: "authored-artist",
+                    source: mediaArtistSource
+                ),
+            ])
+        )
+        let mediaBeforeEvent = SceneTextScriptRuntime.values(
+            program: mediaProgram,
+            wallDate: fixtureDate,
+            timeZone: fixtureTimeZone
+        )
+        let mediaEventValues = SceneTextScriptRuntime.values(
+            program: mediaProgram,
+            wallDate: fixtureDate,
+            timeZone: fixtureTimeZone,
+            mediaProperties: .init(
+                title: "Bounded title",
+                artist: "Bounded artist",
+                generation: 1
+            )
+        )
+        let mediaClearValues = SceneTextScriptRuntime.values(
+            program: mediaProgram,
+            wallDate: fixtureDate,
+            timeZone: fixtureTimeZone,
+            mediaProperties: .init(title: "", artist: "", generation: 2)
+        )
 
         guard let priorityDefinition = validProgram.bindings.first(where: {
             $0.layerID == 101
@@ -274,6 +327,62 @@ enum Harness {
             return sharedState;
         }
         """
+        let mediaSideEffectSource = """
+        export function mediaPropertiesChanged(event) {
+            console.log(event.title);
+            thisLayer.text = event.title;
+        }
+        """
+        let mediaUnknownFieldSource = """
+        export function mediaPropertiesChanged(event) {
+            thisLayer.text = event.album;
+        }
+        """
+        let mediaOtherHookSource = """
+        export function mediaPlaybackChanged(event) {
+            thisLayer.text = event.title;
+        }
+        """
+        let mediaASISource = """
+        export function mediaPropertiesChanged(event) {
+            thisLayer.text = event.title
+        }
+        """
+        let mediaEscapeSource = #"""
+        export let __workshopId = '\x33';
+        export function mediaPropertiesChanged(event) {
+            thisLayer.text = event.title;
+        }
+        """#
+        let mediaShadowSource = """
+        export function mediaPropertiesChanged(event) {
+            let event = thisLayer;
+            thisLayer.text = event.title;
+        }
+        """
+        let malformedMediaProperties = SceneTextScriptDefinition.parse([
+            "script": mediaArtistSource,
+            "scriptproperties": "not-an-object",
+            "value": "authored",
+        ] as [String: Any])
+        let nullMediaProperties = SceneTextScriptDefinition.parse([
+            "script": mediaArtistSource,
+            "scriptproperties": NSNull(),
+            "value": "authored",
+        ] as [String: Any])
+        let arrayMediaProperties = SceneTextScriptDefinition.parse([
+            "script": mediaArtistSource,
+            "scriptproperties": ["not-an-object"],
+            "value": "authored",
+        ] as [String: Any])
+        let mediaInitWouldReplaceAuthoredSource = """
+        export function mediaPropertiesChanged(event) {
+            thisLayer.text = event.title;
+        }
+        export function init(value) {
+            return "";
+        }
+        """
 
         let payload: [String: Any] = [
             "bindingCount": validProgram.bindings.count,
@@ -296,6 +405,32 @@ enum Harness {
             "authoredValue": string(authoredResolution.snapshot[priorityTarget]?.value),
             "authoredSource": authoredResolution.snapshot[priorityTarget]?.source.rawValue
                 ?? "missing",
+            "mediaProperties": [
+                "bindingCount": mediaProgram.bindings.count,
+                "diagnosticCount": mediaProgram.diagnostics.count,
+                "profiles": mediaProgram.bindings.map(\.profile.rawValue),
+                "beforeTitle": string(
+                    mediaBeforeEvent[.text(layerID: 106, field: .content)]
+                ),
+                "beforeArtist": string(
+                    mediaBeforeEvent[.text(layerID: 107, field: .content)]
+                ),
+                "title": string(
+                    mediaEventValues[.text(layerID: 106, field: .content)]
+                ),
+                "artist": string(
+                    mediaEventValues[.text(layerID: 107, field: .content)]
+                ),
+                "clearedTitle": string(
+                    mediaClearValues[.text(layerID: 106, field: .content)]
+                ),
+                "clearedArtist": string(
+                    mediaClearValues[.text(layerID: 107, field: .content)]
+                ),
+                "malformedPropertiesRejected": malformedMediaProperties == nil,
+                "nullPropertiesRejected": nullMediaProperties == nil,
+                "arrayPropertiesRejected": arrayMediaProperties == nil,
+            ],
             "rejections": [
                 "loop": rejectionEvidence(id: 201, source: loopSource),
                 "statementBudget": rejectionEvidence(
@@ -317,6 +452,34 @@ enum Harness {
                 "runtimeBudget": rejectionEvidence(
                     id: 206,
                     source: runtimeBudgetSource
+                ),
+                "mediaSideEffect": rejectionEvidence(
+                    id: 207,
+                    source: mediaSideEffectSource
+                ),
+                "mediaUnknownField": rejectionEvidence(
+                    id: 208,
+                    source: mediaUnknownFieldSource
+                ),
+                "mediaOtherHook": rejectionEvidence(
+                    id: 209,
+                    source: mediaOtherHookSource
+                ),
+                "mediaASI": rejectionEvidence(
+                    id: 210,
+                    source: mediaASISource
+                ),
+                "mediaEscape": rejectionEvidence(
+                    id: 211,
+                    source: mediaEscapeSource
+                ),
+                "mediaShadow": rejectionEvidence(
+                    id: 212,
+                    source: mediaShadowSource
+                ),
+                "mediaInitWouldReplaceAuthored": rejectionEvidence(
+                    id: 213,
+                    source: mediaInitWouldReplaceAuthoredSource
                 ),
             ],
         ]
@@ -478,6 +641,30 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         self.assertEqual(self.payload["authoredValue"], "fallback-clock-24")
         self.assertEqual(self.payload["authoredSource"], "authored")
 
+    def test_media_properties_title_and_artist_hooks_execute(self) -> None:
+        evidence = self.payload["mediaProperties"]
+        self.assertEqual(evidence["bindingCount"], 2, evidence)
+        self.assertEqual(evidence["diagnosticCount"], 0, evidence)
+        self.assertEqual(
+            evidence["profiles"],
+            [
+                "ecmaMediaPropertiesChangedSubset",
+                "ecmaMediaPropertiesChangedSubset",
+            ],
+        )
+        self.assertEqual(evidence["title"], "Bounded title", evidence)
+        self.assertEqual(evidence["artist"], "Bounded artist", evidence)
+        self.assertTrue(evidence["malformedPropertiesRejected"], evidence)
+        self.assertTrue(evidence["nullPropertiesRejected"], evidence)
+        self.assertTrue(evidence["arrayPropertiesRejected"], evidence)
+
+    def test_media_properties_generation_and_empty_clear_are_distinct(self) -> None:
+        evidence = self.payload["mediaProperties"]
+        self.assertEqual(evidence["beforeTitle"], "missing", evidence)
+        self.assertEqual(evidence["beforeArtist"], "missing", evidence)
+        self.assertEqual(evidence["clearedTitle"], "", evidence)
+        self.assertEqual(evidence["clearedArtist"], "", evidence)
+
     def test_loop_and_statement_budget_fail_closed(self) -> None:
         self.assert_compile_rejected("loop")
         self.assert_compile_rejected("statementBudget")
@@ -495,6 +682,19 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         self.assertEqual(evidence["resolved"], evidence["authoredFallback"], evidence)
         self.assertEqual(evidence["source"], "authored", evidence)
         self.assertEqual(evidence["resolutionDiagnostics"], 0, evidence)
+
+    def test_unadmitted_media_properties_scripts_fail_closed(self) -> None:
+        for key in (
+            "mediaSideEffect",
+            "mediaUnknownField",
+            "mediaOtherHook",
+            "mediaASI",
+            "mediaEscape",
+            "mediaShadow",
+            "mediaInitWouldReplaceAuthored",
+        ):
+            with self.subTest(key=key):
+                self.assert_compile_rejected(key)
 
     def assert_compile_rejected(self, key: str) -> None:
         evidence = self.payload["rejections"][key]

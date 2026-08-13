@@ -64,7 +64,6 @@ SCENE_FIXTURE = {
             },
             "text": {
                 "script": "text-source",
-                "scriptproperties": {},
                 "value": "fallback text",
             },
             "visible": {
@@ -289,6 +288,7 @@ struct ObjectPayload: Codable {
     let hasInlineScript: Bool
     let displayScriptFields: [String]
     let bindings: [SceneScriptBindingDefinition]
+    let textScript: SceneTextScriptDefinition?
 }
 
 enum HarnessError: Error { case missingFixture }
@@ -304,7 +304,8 @@ enum Harness {
                 id: $0.id,
                 hasInlineScript: $0.hasInlineScript,
                 displayScriptFields: $0.displayScriptOwnership.fields,
-                bindings: $0.scriptBindings
+                bindings: $0.scriptBindings,
+                textScript: $0.textScript
             )
         }
         let encoder = JSONEncoder()
@@ -710,6 +711,8 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         self.assertIsNone(bindings["alpha"]["authoredValue"])
         self.assertEqual(bindings["text"]["authoredValue"], "fallback text")
         self.assertTrue(bindings["visible"]["authoredValue"])
+        self.assertEqual(self.objects[10]["textScript"]["source"], "text-source")
+        self.assertEqual(self.objects[10]["textScript"]["properties"], {})
 
     def test_nested_scripts_are_not_promoted_to_layer_property_bindings(self) -> None:
         self.assertTrue(self.objects[20]["hasInlineScript"])

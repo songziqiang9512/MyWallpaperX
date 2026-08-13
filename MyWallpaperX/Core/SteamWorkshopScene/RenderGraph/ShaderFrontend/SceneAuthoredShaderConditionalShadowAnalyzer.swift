@@ -42,13 +42,21 @@ nonisolated enum SceneAuthoredShaderConditionalShadowAnalyzer {
                   tokens: tokens
               ),
               definitions.count == 2,
+              let scalarOneDefinitions = scalarOneDefinitions(
+                  in: branches.prelude,
+                  main: main,
+                  tokens: tokens
+              ),
               let base = definitions.first,
               let reflected = definitions.last,
               base.name != reflected.name,
               base.slot == reflected.slot,
               exactStatements(
                   branches.prelude,
-                  starts: [base.nameIndex - 1, reflected.nameIndex - 1],
+                  starts: ([
+                      base.nameIndex - 1,
+                      reflected.nameIndex - 1,
+                  ] + scalarOneDefinitions.map { $0.nameIndex - 1 }).sorted(),
                   tokens: tokens
               ),
               sampleCalls(in: main.bodyRange, tokens: tokens) == [
@@ -81,7 +89,13 @@ nonisolated enum SceneAuthoredShaderConditionalShadowAnalyzer {
                   outputUses: outputUses,
                   base: base.name,
                   reflected: reflected.name,
+                  scalarOne: scalarOneDefinitions.first?.name,
                   fragment: fragment
+              ),
+              scalarOneIsExact(
+                  scalarOneDefinitions.first,
+                  main: main,
+                  tokens: tokens
               ),
               sampledValuesAreReadOnly(
                   [base.name, reflected.name],
@@ -131,6 +145,7 @@ nonisolated enum SceneAuthoredShaderConditionalShadowAnalyzer {
         outputUses: [Int],
         base: String,
         reflected: String,
+        scalarOne: String?,
         fragment: Unit
     ) -> Bool {
         let tokens = fragment.tokens
@@ -145,10 +160,15 @@ nonisolated enum SceneAuthoredShaderConditionalShadowAnalyzer {
               let blend = call(rgbExpression),
               blend.name == "ApplyBlending",
               blend.arguments.count == 4,
-              number(blend.arguments[0]) == 30,
+              let blendMode = number(blend.arguments[0]),
+              blendMode == 0 || blendMode == 30,
               member(blend.arguments[1], name: base, component: "rgb"),
               uniformColor(blend.arguments[2], fragment: fragment),
-              scalarExpression(blend.arguments[3], fragment: fragment),
+              scalarExpression(
+                  blend.arguments[3],
+                  scalarOne: scalarOne,
+                  fragment: fragment
+              ),
               let alphaExpression = SceneAuthoredShaderColorTransferAnalyzer
                 .assignmentExpression(after: alpha + 2, in: tokens, body: range),
               alphaUnion(
@@ -158,7 +178,7 @@ nonisolated enum SceneAuthoredShaderConditionalShadowAnalyzer {
                   weight: blend.arguments[3]
               ),
               exactStatements(range, starts: [rgb, alpha], tokens: tokens),
-              validBlendHelper(fragment) else {
+              validBlendHelper(fragment, mode: blendMode) else {
             return false
         }
         return true
@@ -242,16 +262,6 @@ nonisolated enum SceneAuthoredShaderConditionalShadowAnalyzer {
         }
     }
 
-    private static func scalarExpression(
-        _ expression: ArraySlice<Token>,
-        fragment: Unit
-    ) -> Bool {
-        let values = Array(strippingParentheses(expression))
-        guard values.count == 1 else { return false }
-        if number(values[...]) != nil { return true }
-        return scalarName(values[0].text, fragment: fragment, before: Int.max)
-    }
-
     private static func scalarName(
         _ name: String,
         fragment: Unit,
@@ -320,7 +330,7 @@ nonisolated enum SceneAuthoredShaderConditionalShadowAnalyzer {
         return true
     }
 
-    private static func validBlendHelper(_ fragment: Unit) -> Bool {
+    private static func validBlendHelper(_ fragment: Unit, mode: Double) -> Bool {
         let shadowedBuiltins: Set<String> = [
             "CAST3", "float3", "lerp", "max", "min", "mix", "vec3",
         ]
@@ -335,8 +345,11 @@ nonisolated enum SceneAuthoredShaderConditionalShadowAnalyzer {
               let returns = rootReturnExpressions(helper, fragment: fragment) else {
             return false
         }
-        return returns.count == 1
-            && simpleNormalBlend(returns[0], names: names)
+        if mode == 0 {
+            return returns.count == 1
+                && simpleNormalBlend(returns[0], names: names)
+        }
+        return returns.count == 1 && simpleNormalBlend(returns[0], names: names)
             || returns.count == 2
                 && modeThirtyTint(returns[0], names: names)
                 && simpleNormalBlend(returns[1], names: names)

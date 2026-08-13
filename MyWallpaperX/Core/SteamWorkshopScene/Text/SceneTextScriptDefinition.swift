@@ -11,9 +11,15 @@ nonisolated struct SceneTextScriptDefinition: Codable, Equatable, Sendable {
 
     nonisolated static func parse(_ value: Any?) -> SceneTextScriptDefinition? {
         guard let object = value as? [String: Any],
-              let source = object["script"] as? String,
-              let rawProperties = object["scriptproperties"] as? [String: Any] else {
+              let source = object["script"] as? String else {
             return nil
+        }
+        let rawProperties: [String: Any]
+        if let authoredProperties = object["scriptproperties"] {
+            guard let parsed = authoredProperties as? [String: Any] else { return nil }
+            rawProperties = parsed
+        } else {
+            rawProperties = [:]
         }
         var properties: [String: SceneJSONValue] = [:]
         for (key, value) in rawProperties {

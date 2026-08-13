@@ -250,14 +250,15 @@ void main() {
     vec4 offset = texSample2D(
         g_Texture0, v_TexCoord + vec2(0.25, 0.0)
     );
+    float mask = 1.0;
     if (base.a > g_Border) {
         gl_FragColor = base;
     } else if (offset.a > 0.0) {
         gl_FragColor.rgb = ApplyBlending(
-            30, base.rgb, g_Shadow, g_Weight
+            0, base.rgb, g_Shadow, g_Weight * mask
         );
         gl_FragColor.a = min(
-            1.0, base.a + offset.a * g_Weight
+            1.0, base.a + offset.a * g_Weight * mask
         );
     } else {
         gl_FragColor = base;
@@ -1453,9 +1454,8 @@ private enum Harness {
             [28, 4, 0, 32]
         )
 
-        // One row exercises all three authored branches with nearest sampling:
-        // opaque base passthrough, transparent base receiving an offset shadow,
-        // and a translucent base whose empty offset falls back unchanged.
+        // One row exercises opaque passthrough, offset shadow, and empty-offset
+        // fallback with nearest sampling.
         let conditionalShadowSource = texture(
             device: device,
             width: 4,

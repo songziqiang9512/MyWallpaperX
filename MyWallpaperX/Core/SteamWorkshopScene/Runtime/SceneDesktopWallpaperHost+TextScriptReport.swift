@@ -12,7 +12,12 @@ extension SceneDesktopWallpaperHost {
         let fixtureValues = SceneTextScriptRuntime.values(
             program: program,
             wallDate: fixtureDate,
-            timeZone: TimeZone(secondsFromGMT: 0)!
+            timeZone: TimeZone(secondsFromGMT: 0)!,
+            mediaProperties: .init(
+                title: "Fixture Media Title",
+                artist: "Fixture Media Artist",
+                generation: 1
+            )
         )
         for binding in program.bindings.sorted(by: { $0.layerID < $1.layerID }) {
             let value: String

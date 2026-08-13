@@ -167,6 +167,35 @@ let eventInbox = SceneMediaThumbnailInbox()
 let primaryColor = SIMD3(0.125, 0.5, 1.0)
 let replacementColor = SIMD3(0.75, 0.25, 0.5)
 let eventInitial = eventInbox.latest()
+let propertiesAccepted = eventInbox.publishMediaProperties(
+    title: "Fixture Song",
+    artist: "Fixture Artist"
+)
+let afterProperties = eventInbox.latest()
+let duplicatePropertiesAccepted = eventInbox.publishMediaProperties(
+    title: "Fixture Song",
+    artist: "Fixture Artist"
+)
+let afterDuplicateProperties = eventInbox.latest()
+let titleChangeAccepted = eventInbox.publishMediaProperties(
+    title: "Replacement Song",
+    artist: "Fixture Artist"
+)
+let afterTitleChange = eventInbox.latest()
+let artistChangeAccepted = eventInbox.publishMediaProperties(
+    title: "Replacement Song",
+    artist: "Replacement Artist"
+)
+let afterArtistChange = eventInbox.latest()
+let controlPropertyRejected = !eventInbox.publishMediaProperties(
+    title: "Line\nBreak",
+    artist: "Replacement Artist"
+)
+let oversizedPropertyRejected = !eventInbox.publishMediaProperties(
+    title: String(repeating: "界", count: 1_366),
+    artist: "Replacement Artist"
+)
+let afterInvalidProperties = eventInbox.latest()
 let imageColorAccepted = eventInbox.publish(a, secondaryColor: primaryColor)
 let afterImageColor = eventInbox.latest()
 let duplicateImageColorAccepted = eventInbox.publish(
@@ -211,6 +240,16 @@ eventInbox.clear()
 let afterEventClear = eventInbox.latest()
 eventInbox.clear()
 let afterDuplicateEventClear = eventInbox.latest()
+let emptyPropertiesAccepted = eventInbox.publishMediaProperties(
+    title: "",
+    artist: ""
+)
+let afterEmptyProperties = eventInbox.latest()
+let duplicateEmptyPropertiesAccepted = eventInbox.publishMediaProperties(
+    title: "",
+    artist: ""
+)
+let afterDuplicateEmptyProperties = eventInbox.latest()
 
 let result: [String: Any] = [
     "generation": third.generation,
@@ -245,9 +284,36 @@ let result: [String: Any] = [
     "clearedGeneration": cleared.generation,
     "clearedCurrent": cleared.current == nil,
     "eventInitialEmpty": eventInitial == .empty,
+    "propertiesAccepted": propertiesAccepted,
+    "propertiesGeneration": afterProperties.propertiesGeneration,
+    "propertiesPreserveOtherGenerations":
+        afterProperties.generation == 0
+        && afterProperties.playbackGeneration == 0,
+    "propertiesExact":
+        afterProperties.properties?.title == "Fixture Song"
+        && afterProperties.properties?.artist == "Fixture Artist",
+    "duplicatePropertiesAccepted": duplicatePropertiesAccepted,
+    "duplicatePropertiesStable": afterDuplicateProperties == afterProperties,
+    "titleChangeAccepted": titleChangeAccepted,
+    "titleChangeAtomic":
+        afterTitleChange.propertiesGeneration == 2
+        && afterTitleChange.properties?.title == "Replacement Song"
+        && afterTitleChange.properties?.artist == "Fixture Artist",
+    "artistChangeAccepted": artistChangeAccepted,
+    "artistChangeAtomic":
+        afterArtistChange.propertiesGeneration == 3
+        && afterArtistChange.properties?.title == "Replacement Song"
+        && afterArtistChange.properties?.artist == "Replacement Artist",
+    "controlPropertyRejected": controlPropertyRejected,
+    "oversizedPropertyRejected": oversizedPropertyRejected,
+    "invalidPropertiesPreserveSnapshot": afterInvalidProperties == afterArtistChange,
     "imageColorAccepted": imageColorAccepted,
     "imageColorGeneration": afterImageColor.generation,
     "imageColorPlaybackGeneration": afterImageColor.playbackGeneration,
+    "imageColorPreservesProperties":
+        afterImageColor.properties == afterArtistChange.properties
+        && afterImageColor.propertiesGeneration
+            == afterArtistChange.propertiesGeneration,
     "imageColorExact": afterImageColor.secondaryColor == primaryColor,
     "duplicateImageColorAccepted": duplicateImageColorAccepted,
     "duplicateImageColorGenerationStable":
@@ -283,7 +349,23 @@ let result: [String: Any] = [
     "eventClearPreservesPlayback":
         afterEventClear.playbackState == afterPaused.playbackState
         && afterEventClear.playbackGeneration == afterPaused.playbackGeneration,
+    "eventClearPreservesProperties":
+        afterEventClear.properties == afterArtistChange.properties
+        && afterEventClear.propertiesGeneration
+            == afterArtistChange.propertiesGeneration,
     "duplicateEventClearStable": afterDuplicateEventClear == afterEventClear,
+    "emptyPropertiesAccepted": emptyPropertiesAccepted,
+    "emptyPropertiesClearOldValues":
+        afterEmptyProperties.properties?.title == ""
+        && afterEmptyProperties.properties?.artist == "",
+    "emptyPropertiesGeneration": afterEmptyProperties.propertiesGeneration,
+    "emptyPropertiesPreserveOtherGenerations":
+        afterEmptyProperties.generation == afterEventClear.generation
+        && afterEmptyProperties.playbackGeneration
+            == afterEventClear.playbackGeneration,
+    "duplicateEmptyPropertiesAccepted": duplicateEmptyPropertiesAccepted,
+    "duplicateEmptyPropertiesStable":
+        afterDuplicateEmptyProperties == afterEmptyProperties,
 ]
 let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
 print(String(decoding: data, as: UTF8.self))
@@ -329,9 +411,23 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertEqual(result["clearedGeneration"], 6)
         self.assertTrue(result["clearedCurrent"])
         self.assertTrue(result["eventInitialEmpty"])
+        self.assertTrue(result["propertiesAccepted"])
+        self.assertEqual(result["propertiesGeneration"], 1)
+        self.assertTrue(result["propertiesPreserveOtherGenerations"])
+        self.assertTrue(result["propertiesExact"])
+        self.assertTrue(result["duplicatePropertiesAccepted"])
+        self.assertTrue(result["duplicatePropertiesStable"])
+        self.assertTrue(result["titleChangeAccepted"])
+        self.assertTrue(result["titleChangeAtomic"])
+        self.assertTrue(result["artistChangeAccepted"])
+        self.assertTrue(result["artistChangeAtomic"])
+        self.assertTrue(result["controlPropertyRejected"])
+        self.assertTrue(result["oversizedPropertyRejected"])
+        self.assertTrue(result["invalidPropertiesPreserveSnapshot"])
         self.assertTrue(result["imageColorAccepted"])
         self.assertEqual(result["imageColorGeneration"], 1)
         self.assertEqual(result["imageColorPlaybackGeneration"], 0)
+        self.assertTrue(result["imageColorPreservesProperties"])
         self.assertTrue(result["imageColorExact"])
         self.assertTrue(result["duplicateImageColorAccepted"])
         self.assertTrue(result["duplicateImageColorGenerationStable"])
@@ -361,7 +457,14 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertEqual(result["eventClearGeneration"], 4)
         self.assertTrue(result["eventClearColorIsZero"])
         self.assertTrue(result["eventClearPreservesPlayback"])
+        self.assertTrue(result["eventClearPreservesProperties"])
         self.assertTrue(result["duplicateEventClearStable"])
+        self.assertTrue(result["emptyPropertiesAccepted"])
+        self.assertTrue(result["emptyPropertiesClearOldValues"])
+        self.assertEqual(result["emptyPropertiesGeneration"], 4)
+        self.assertTrue(result["emptyPropertiesPreserveOtherGenerations"])
+        self.assertTrue(result["duplicateEmptyPropertiesAccepted"])
+        self.assertTrue(result["duplicateEmptyPropertiesStable"])
 
 
 if __name__ == "__main__":

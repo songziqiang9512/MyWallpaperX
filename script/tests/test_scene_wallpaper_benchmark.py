@@ -1296,6 +1296,71 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 )
                 self.assertEqual(invalid_command, ["MyWallpaperX"])
 
+    def test_media_properties_arguments_are_atomic_and_bounded(self) -> None:
+        command = ["MyWallpaperX"]
+        failures: list[str] = []
+        benchmark.append_media_properties_arguments(
+            command,
+            "春日歌",
+            "Fixture Artist 🎵",
+            failures,
+        )
+        self.assertEqual(failures, [])
+        self.assertEqual(command, [
+            "MyWallpaperX",
+            "--mwx-debug-scene-media-title",
+            "春日歌",
+            "--mwx-debug-scene-media-artist",
+            "Fixture Artist 🎵",
+        ])
+
+        empty_command = ["MyWallpaperX"]
+        empty_failures: list[str] = []
+        benchmark.append_media_properties_arguments(
+            empty_command,
+            "",
+            "",
+            empty_failures,
+        )
+        self.assertEqual(empty_failures, [])
+        self.assertEqual(empty_command[-4:], [
+            "--mwx-debug-scene-media-title",
+            "",
+            "--mwx-debug-scene-media-artist",
+            "",
+        ])
+
+        exact_limit_command = ["MyWallpaperX"]
+        exact_limit_failures: list[str] = []
+        benchmark.append_media_properties_arguments(
+            exact_limit_command,
+            "a" * (4 * 1_024),
+            "artist",
+            exact_limit_failures,
+        )
+        self.assertEqual(exact_limit_failures, [])
+        self.assertEqual(len(exact_limit_command), 5)
+
+        invalid_pairs = (
+            ("title", None, "media properties require title and artist together"),
+            (None, "artist", "media properties require title and artist together"),
+            (7, "artist", "invalid media properties"),
+            ("title\nline", "artist", "invalid media properties"),
+            ("界" * 1_366, "artist", "invalid media properties"),
+            ("\ud800", "artist", "invalid media properties"),
+        )
+        for title, artist, expected_failure in invalid_pairs:
+            invalid_command = ["MyWallpaperX"]
+            invalid_failures: list[str] = []
+            benchmark.append_media_properties_arguments(
+                invalid_command,
+                title,
+                artist,
+                invalid_failures,
+            )
+            self.assertEqual(invalid_failures, [expected_failure])
+            self.assertEqual(invalid_command, ["MyWallpaperX"])
+
     def test_media_thumbnail_sequence_stays_inside_isolated_sample(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-media-thumbnail-sequence-") as directory:
             runtime_sample = Path(directory)

@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
@@ -4022,6 +4023,43 @@ def append_media_thumbnail_argument(
     command.extend(arguments)
 
 
+def append_media_properties_arguments(
+    command: list[str],
+    title: Any,
+    artist: Any,
+    failures: list[str],
+) -> None:
+    if title is None and artist is None:
+        return
+    if title is None or artist is None:
+        failures.append("media properties require title and artist together")
+        return
+
+    values = (title, artist)
+    if not all(isinstance(value, str) for value in values):
+        failures.append("invalid media properties")
+        return
+    try:
+        encoded = [value.encode("utf-8", errors="strict") for value in values]
+    except UnicodeEncodeError:
+        failures.append("invalid media properties")
+        return
+    if any(len(value) > 4 * 1_024 for value in encoded) or any(
+        unicodedata.category(character) == "Cc"
+        for value in values
+        for character in value
+    ):
+        failures.append("invalid media properties")
+        return
+
+    command.extend([
+        "--mwx-debug-scene-media-title",
+        title,
+        "--mwx-debug-scene-media-artist",
+        artist,
+    ])
+
+
 def append_media_thumbnail_sequence_argument(
     command: list[str],
     sequence: Any,
@@ -4181,6 +4219,12 @@ def run_sample(
     property_overrides = sample.get("property_overrides")
     live_property_overrides = sample.get("live_property_overrides")
     append_property_arguments(command, property_overrides, live_property_overrides)
+    append_media_properties_arguments(
+        command,
+        sample.get("media_title"),
+        sample.get("media_artist"),
+        failures,
+    )
     append_media_thumbnail_argument(
         command,
         sample.get("media_thumbnail_path"),

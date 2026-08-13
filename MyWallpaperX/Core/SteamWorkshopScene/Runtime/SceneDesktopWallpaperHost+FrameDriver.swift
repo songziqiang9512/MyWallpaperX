@@ -108,15 +108,23 @@ extension SceneDesktopWallpaperHost {
         let timelineValues = SceneTimelineRuntime.values(
             program: launchContext.timelineProgram, sceneTime: timing.sceneTime
         )
+        let mediaInput = SceneMediaThumbnailInbox.shared.latest()
+        let mediaProperties = mediaInput.properties.map {
+            SceneTextMediaPropertiesSnapshot(
+                title: $0.title,
+                artist: $0.artist,
+                generation: mediaInput.propertiesGeneration
+            )
+        } ?? .empty
         let textScriptValues = SceneTextScriptRuntime.values(
             program: launchContext.textScriptProgram,
-            wallDate: timing.wallDate
+            wallDate: timing.wallDate,
+            mediaProperties: mediaProperties
         )
         let timeOfDayEffectScriptValues = SceneTimeOfDayEffectScriptRuntime.values(
             program: launchContext.timeOfDayEffectScriptProgram,
             wallDate: timing.wallDate
         )
-        let mediaInput = SceneMediaThumbnailInbox.shared.latest()
         let mediaPlaybackPlaceholderFadeValues =
             mediaPlaybackPlaceholderFadeRuntime.values(
                 playbackEventState: mediaInput.playbackState,

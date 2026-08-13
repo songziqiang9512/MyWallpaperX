@@ -4399,6 +4399,13 @@
         1003,
         1012
       ],
+      "media_title": "MWX Fixture Title",
+      "media_artist": "MWX Fixture Artist",
+      "expected_text_script_binding_count": 2,
+      "required_text_script_binding_layer_ids": [
+        1003,
+        1012
+      ],
       "expected_solid_candidates": 2,
       "required_solid_loaded_layer_ids": [
         831,
@@ -4426,29 +4433,13 @@
         20,
         79,
         945,
-        994
+        994,
+        1003,
+        1012
       ],
-      "expected_authored_effect_graph_local_contrast_count": 0,
-      "expected_authored_effect_graph_opacity_count": 0,
-      "expected_authored_effect_graph_opacity_layer_ids": [],
-      "expected_authored_effect_graph_color_key_count": null,
-      "expected_authored_effect_graph_workshop_shadow_count": 0,
-      "expected_authored_effect_graph_procedural_noise_count": 0,
-      "expected_authored_effect_graph_film_grain_count": 0,
-      "expected_authored_effect_graph_light_shafts_count": 0,
-      "expected_authored_effect_graph_shake_count": 0,
-      "expected_authored_effect_graph_water_flow_count": 0,
-      "expected_authored_effect_graph_water_waves_count": 0,
-      "expected_authored_effect_graph_blend_count": 0,
-      "expected_authored_effect_graph_transform_count": 0,
-      "expected_authored_effect_graph_transform_static_fallback_count": 0,
-      "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
-      "expected_authored_effect_graph_authored_shader_count": 0,
       "requires_motion": true,
       "minimum_changed_ratio": 0.2,
       "maximum_flat_border_ratio": 0.5,
-      "expected_authored_effect_graph_foliage_sway_count": 0,
-      "expected_authored_effect_graph_water_ripple_count": 0,
       "expected_effect_execution_schema": 1
     },
     {
