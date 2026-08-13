@@ -3109,6 +3109,7 @@ private func fragmentSource(
     colorUnproven: Bool = false,
     alphaReplacement: Bool = false,
     sourceAlphaFactor: Bool = false,
+    scalarAlphaAuxiliaries: Bool = false,
     wholeColorFilter: Bool = false,
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
@@ -3127,6 +3128,10 @@ private func fragmentSource(
     let secondDeclaration = conditionalSecond
         ? "#if EXTRA\n\(rawSecondDeclaration)\n#endif"
         : rawSecondDeclaration
+    let scalarDeclarations = scalarAlphaAuxiliaries ? """
+    uniform sampler2D g_Texture1; // {"default":"util/noise"}
+    uniform sampler2D g_Texture3; // {"mode":"opacitymask"}
+    """ : ""
     let output: String
     let helper: String
     if wholeColorFilter {
@@ -3174,6 +3179,19 @@ private func fragmentSource(
         output = "vec4 source = texSample2D(\(firstName), v_TexCoord);"
             + " float alpha = 0.5;"
             + " gl_FragColor = vec4(source.rgb, alpha);"
+    } else if scalarAlphaAuxiliaries {
+        output = """
+        vec4 sampled = texSample2D(g_Texture0, v_TexCoord);
+        vec4 color = sampled;
+        float pulse = 0.0;
+        float phase = texSample2D(g_Texture3, v_TexCoord).r * 6.0;
+        pulse = smoothstep(0.0, 1.0, sin(phase) * 0.5 + 0.5);
+        float noise = texSample2D(g_Texture1, v_TexCoord).r * 0.5;
+        pulse += noise;
+        pulse = pow(pulse, 1.0);
+        color.a *= pulse;
+        gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);
+        """
     } else if sourceAlphaFactor {
         output = "vec4 source = texSample2D(\(firstName), v_TexCoord);"
             + " float coverage = 0.5; float alpha = source.a * coverage;"
@@ -3211,6 +3229,7 @@ private func fragmentSource(
     uniform sampler2D \(firstName);\(firstAnnotation)
     \(audioDirectDraw ? "uniform float g_AudioSpectrum16Left[16];" : "")
     \(secondDeclaration)
+    \(scalarDeclarations)
     \(helper)
     void main() {
         \(output)
@@ -3229,6 +3248,7 @@ private func contract(
     colorUnproven: Bool = false,
     alphaReplacement: Bool = false,
     sourceAlphaFactor: Bool = false,
+    scalarAlphaAuxiliaries: Bool = false,
     wholeColorFilter: Bool = false,
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
@@ -3266,6 +3286,7 @@ private func contract(
         colorUnproven: colorUnproven,
         alphaReplacement: alphaReplacement,
         sourceAlphaFactor: sourceAlphaFactor,
+        scalarAlphaAuxiliaries: scalarAlphaAuxiliaries,
         wholeColorFilter: wholeColorFilter,
         samplesSecond: samplesSecond,
         observesSecond: observesSecond,
@@ -3450,7 +3471,8 @@ private func materialTemplate(
 
 private func slots(
     primary: Template.TextureCandidate? = nil,
-    second: Template.TextureCandidate? = nil
+    second: Template.TextureCandidate? = nil,
+    fourth: Template.TextureCandidate? = nil
 ) -> [Template.TextureSlot?] {
     var result = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     if let primary {
@@ -3458,6 +3480,9 @@ private func slots(
     }
     if let second {
         result[1] = .init(index: 1, candidates: [second])
+    }
+    if let fourth {
+        result[3] = .init(index: 3, candidates: [fourth])
     }
     return result
 }
@@ -3672,6 +3697,25 @@ private enum EnvelopeHarness {
                 ),
                 slots: slots(primary: graphCandidate())
             )
+        )
+        let scalarAlphaNoise = SceneVFSAssetPath("util/noise")!
+        let scalarAlphaMask = SceneVFSAssetPath("textures/pulse-mask.tex")!
+        let scalarAlphaAuxiliaryPositive = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "scalar-alpha-auxiliary-positive",
+                    scalarAlphaAuxiliaries: true
+                ),
+                slots: slots(
+                    fourth: assetCandidate(scalarAlphaMask.value)
+                )
+            ),
+            assetStates: [
+                .init(path: scalarAlphaNoise, purpose: .noise): .ready(.data),
+                .init(path: scalarAlphaMask, purpose: .mask): .ready(.data),
+            ]
         )
         let effectOutputGraph = graph(
             withPrimaryBinding: true,
@@ -4058,6 +4102,15 @@ private enum EnvelopeHarness {
             "sourceAlphaFactorClaim":
                 sourceAlphaFactorPositive.claim(layerID: layerID) != nil,
             "sourceAlphaFactorFailure": rejection(sourceAlphaFactorPositive),
+            "scalarAlphaAuxiliaryClaim":
+                scalarAlphaAuxiliaryPositive.claim(layerID: layerID) != nil,
+            "scalarAlphaAuxiliaryFailure": rejection(
+                scalarAlphaAuxiliaryPositive
+            ),
+            "scalarAlphaAuxiliaryCounters": counters(
+                scalarAlphaAuxiliaryPositive,
+                graph: unboundGraph
+            ),
             "effectOutputTypedColorDeferredClaim":
                 effectOutputTypedColorDeferred.claim(layerID: layerID) != nil,
             "effectOutputTypedColorDeferredFailure": rejection(
@@ -5369,6 +5422,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneAuthoredShaderColorTransferAnalyzer.swift",
                 "SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
                 "SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
+                "SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
+                "SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
                 "SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
                 "SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
@@ -5475,6 +5530,13 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         )
         self.assertTrue(payload["sourceAlphaFactorClaim"], payload)
         self.assertEqual(payload["sourceAlphaFactorFailure"], "", payload)
+        self.assertTrue(payload["scalarAlphaAuxiliaryClaim"], payload)
+        self.assertEqual(payload["scalarAlphaAuxiliaryFailure"], "", payload)
+        self.assertEqual(
+            payload["scalarAlphaAuxiliaryCounters"],
+            {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+            payload,
+        )
         self.assertTrue(payload["effectOutputTypedColorDeferredClaim"], payload)
         self.assertEqual(payload["effectOutputTypedColorDeferredFailure"], "", payload)
         self.assertIn(

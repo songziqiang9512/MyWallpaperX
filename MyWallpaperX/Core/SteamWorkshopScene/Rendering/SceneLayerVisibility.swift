@@ -8,6 +8,19 @@ enum SceneLayerVisibility {
         })
     }
 
+    nonisolated static func reportLines(
+        in descriptor: SceneRenderDescriptor
+    ) -> [String] {
+        descriptor.layers.compactMap { layer in
+            guard let ownership = layer.displayScriptOwnership,
+                  !ownership.isEmpty else { return nil }
+            return "scene layer display-state: layer=\(layer.id)"
+                + " fields=\(ownership.fields.joined(separator: ","))"
+                + " disposition=suppressed"
+                + " reason=unproven-inline-scenescript"
+        }
+    }
+
     nonisolated private static func isEffectivelyVisible(
         _ layer: SceneRenderDescriptor.Layer,
         layersByID: [Int: SceneRenderDescriptor.Layer]
@@ -15,7 +28,9 @@ enum SceneLayerVisibility {
         var current: SceneRenderDescriptor.Layer? = layer
         var visited: Set<Int> = []
         while let candidate = current {
-            guard candidate.visible != false, visited.insert(candidate.id).inserted else {
+            guard candidate.visible != false,
+                  candidate.displayScriptOwnership?.isEmpty != false,
+                  visited.insert(candidate.id).inserted else {
                 return false
             }
             current = candidate.parentID.flatMap { layersByID[$0] }

@@ -42,6 +42,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
@@ -181,6 +183,33 @@ void main() {
     float coverage = g_Gain;
     float alpha = source.a * coverage;
     gl_FragColor = vec4(source.rgb, alpha);
+}
+"""
+
+private let straightRGBScalarAlphaFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform sampler2D g_Texture3;
+uniform float g_Time;
+uniform float g_Amount;
+uniform float g_NoiseAmount;
+uniform float g_Power;
+void main() {
+    vec4 sampled = texSample2D(g_Texture0, v_TexCoord);
+    vec4 color = sampled;
+    float pulse = 0.0;
+    float phase = texSample2D(g_Texture3, v_TexCoord).r * 6.0;
+    pulse = smoothstep(
+        0.0, 1.0, sin(g_Time + phase) * 0.5 + 0.5
+    ) * g_Amount;
+    float noise = texSample2D(
+        g_Texture1, vec2(g_Time * 0.08, g_Time * 0.03)
+    ).r * g_NoiseAmount;
+    pulse += noise;
+    pulse = pow(pulse, g_Power);
+    color.a *= pulse;
+    gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);
 }
 """
 
@@ -1178,6 +1207,75 @@ private enum Harness {
             [32, 16, 8, 64]
         )
 
+        let scalarNoise = texture(
+            device: device,
+            width: 1,
+            height: 1,
+            fill: [128, 0, 0, 255]
+        )
+        let scalarNoiseSlot = slot(
+            device: device,
+            index: 1,
+            texture: scalarNoise,
+            content: .data,
+            purpose: .noise,
+            sampling: .init(texFlags: 3),
+            marker: 29
+        )
+        let scalarAlphaUniforms = [
+            "g_Time": bytes(Float(0)),
+            "g_Amount": bytes(Float(1)),
+            "g_NoiseAmount": bytes(Float(0.5)),
+            "g_Power": bytes(Float(1)),
+        ]
+        let scalarAlphaProgram = program(
+            device: device,
+            marker: 28,
+            outputSlot: 0,
+            slot0Texture: premultipliedPixel,
+            slot3Texture: texture(
+                device: device, width: 1, height: 1, fill: [0, 0, 0, 255]
+            ),
+            slot3Content: .data,
+            slot3Purpose: .mask,
+            fragmentSource: straightRGBScalarAlphaFragment,
+            additionalSlots: [scalarNoiseSlot],
+            uniformValues: scalarAlphaUniforms
+        )
+        let scalarAlphaResult = render(
+            scalarAlphaProgram,
+            encoder: encoder,
+            queue: queue,
+            target: target(device: device, width: 1, height: 1)
+        )
+        let scalarAlphaPixelsMatch = closePixels(
+            scalarAlphaResult.pixels,
+            [48, 24, 12, 96]
+        )
+        let scalarNoiseColorSlot = slot(
+            device: device,
+            index: 1,
+            texture: scalarNoise,
+            content: .color(.resolved(.premultipliedAlpha)),
+            purpose: .premultipliedColor,
+            sampling: .init(texFlags: 3),
+            marker: 30
+        )
+        let scalarAlphaColorAuxiliaryRejected = program(
+            device: device,
+            marker: 27,
+            outputSlot: 0,
+            slot0Texture: premultipliedPixel,
+            slot3Texture: texture(
+                device: device, width: 1, height: 1, fill: [0, 0, 0, 255]
+            ),
+            slot3Content: .data,
+            slot3Purpose: .mask,
+            fragmentSource: straightRGBScalarAlphaFragment,
+            additionalSlots: [scalarNoiseColorSlot],
+            uniformValues: scalarAlphaUniforms
+        ) == nil
+
         let maskPixel = texture(
             device: device,
             width: 1,
@@ -2040,6 +2138,11 @@ private enum Harness {
             "factoredAlphaEncoded": factoredAlphaResult.encoded,
             "factoredAlphaGPUCompleted": factoredAlphaResult.completed,
             "factoredAlphaPixelsMatch": factoredAlphaPixelsMatch,
+            "scalarAlphaPrepared": scalarAlphaResult.prepared,
+            "scalarAlphaEncoded": scalarAlphaResult.encoded,
+            "scalarAlphaGPUCompleted": scalarAlphaResult.completed,
+            "scalarAlphaPixelsMatch": scalarAlphaPixelsMatch,
+            "scalarAlphaColorAuxiliaryRejected": scalarAlphaColorAuxiliaryRejected,
             "maskedBoundaryPrepared": maskedBoundaryPrepared,
             "maskedBoundaryGPUCompleted": maskedBoundaryGPUCompleted,
             "maskedBoundaryPixelsMatch": maskedBoundaryPixelsMatch,

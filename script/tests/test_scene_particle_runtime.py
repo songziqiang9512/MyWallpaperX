@@ -121,6 +121,11 @@ import ImageIO
 import Metal
 import simd
 
+struct SceneLayerDisplayScriptOwnership: Codable {
+    let fields: [String]
+    var isEmpty: Bool { fields.isEmpty }
+}
+
 struct SceneRenderDescriptor: Codable {
     struct Layer: Codable {
         let id: Int
@@ -130,6 +135,7 @@ struct SceneRenderDescriptor: Codable {
         let particleInstanceOverride: SceneParticleInstanceOverride?
         let parentID: Int?
         let visible: Bool?
+        var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
         let alpha: Double?
     }
 

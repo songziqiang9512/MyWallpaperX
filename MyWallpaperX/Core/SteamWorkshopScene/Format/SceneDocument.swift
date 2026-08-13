@@ -94,7 +94,15 @@ struct SceneDocumentLoader {
         let root = propertyResolution.root
 
         let rawObjects = root["objects"] as? [[String: Any]] ?? []
-        let objects = rawObjects.compactMap(Self.parseObject)
+        let authoredObjects = sourceRoot["objects"] as? [[String: Any]] ?? []
+        let objects = rawObjects.enumerated().compactMap { index, object in
+            Self.parseObject(
+                object,
+                authoredRoot: authoredObjects.indices.contains(index)
+                    ? authoredObjects[index]
+                    : object
+            )
+        }
         let duplicateObjectIDs = Dictionary(grouping: objects, by: \.id)
             .compactMap { id, matches in matches.count > 1 ? id : nil }
             .sorted()
@@ -129,7 +137,10 @@ struct SceneDocumentLoader {
         return SceneDocument.CameraDescriptor(eye: eye, center: center, up: up)
     }
 
-    nonisolated private static func parseObject(_ root: [String: Any]) -> SceneDocument.SceneObject? {
+    nonisolated private static func parseObject(
+        _ root: [String: Any],
+        authoredRoot: [String: Any]
+    ) -> SceneDocument.SceneObject? {
         guard let id = root["id"] as? Int else { return nil }
         let effects = root["effects"] as? [[String: Any]] ?? []
         let parsedEffects = effects.compactMap(Self.parseEffect)
@@ -160,6 +171,7 @@ struct SceneDocumentLoader {
             puppetAnimationLayers: ScenePuppetAnimationLayer.parse(root["animationlayers"]),
             visible: visibleValue(root["visible"]),
             alpha: doubleValue(root["alpha"]),
+            displayScriptOwnership: .parse(authoredObject: authoredRoot),
             colorRGB: floatVector(root["color"]),
             colorBlendMode: root["colorBlendMode"] as? Int,
             brightness: doubleValue(root["brightness"]),

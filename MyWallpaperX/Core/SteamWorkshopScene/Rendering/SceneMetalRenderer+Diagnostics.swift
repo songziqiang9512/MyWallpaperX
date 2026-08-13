@@ -19,7 +19,8 @@ extension SceneMetalRenderer {
         )
         let dispositionLines = dispositionCatalog.reportLines
             + (imageCompositor.resolvedMaterialRuntime?.executionEvidenceReportLines ?? [])
-        return utilityLines + effectAdmissionCatalog.reportLines
+        return SceneLayerVisibility.reportLines(in: renderDescriptor)
+            + utilityLines + effectAdmissionCatalog.reportLines
             + dispositionLines
             + spotLightRuntime.reportLines(candidateCount: candidateCount)
     }

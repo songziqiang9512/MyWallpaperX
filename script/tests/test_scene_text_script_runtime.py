@@ -37,6 +37,7 @@ struct SceneRenderDescriptor {
         let contentKind: String
         let parentID: Int?
         let visible: Bool?
+        var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
         let text: String?
         let textScript: SceneTextScriptDefinition?
     }

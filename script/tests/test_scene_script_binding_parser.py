@@ -36,6 +36,7 @@ LAYER_SOURCES = [
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneObjectDependency.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
+    SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
 ]
 
 
@@ -97,6 +98,17 @@ SCENE_FIXTURE = {
                     "script": "particle-script",
                     "scriptproperties": {"channel": 1},
                 }
+            },
+        },
+        {
+            "id": 30,
+            "name": "Static display wrappers",
+            "image": "models/user/c.json",
+            "visible": {"value": True},
+            "alpha": {"value": 0.5},
+            "origin": {
+                "script": "non-display-script",
+                "value": "0 0 0",
             },
         },
     ],
@@ -275,6 +287,7 @@ struct SceneProject {
 struct ObjectPayload: Codable {
     let id: Int
     let hasInlineScript: Bool
+    let displayScriptFields: [String]
     let bindings: [SceneScriptBindingDefinition]
 }
 
@@ -290,6 +303,7 @@ enum Harness {
             ObjectPayload(
                 id: $0.id,
                 hasInlineScript: $0.hasInlineScript,
+                displayScriptFields: $0.displayScriptOwnership.fields,
                 bindings: $0.scriptBindings
             )
         }
@@ -439,7 +453,7 @@ enum Harness {
 LAYER_COMPATIBILITY_HARNESS = r'''
 import Foundation
 
-struct SceneRenderDescriptor {}
+struct SceneRenderDescriptor { let layers: [Layer] }
 struct SceneParticleInstanceOverride: Codable {}
 struct SceneUtilityLayer: Codable {}
 struct ScenePuppetAnimationLayer: Codable {}
@@ -489,7 +503,102 @@ enum Harness {
             SceneRenderDescriptor.Layer.self,
             from: Data(oldCache.utf8)
         )
-        print(layer.scriptBindings == nil ? "nil" : "present")
+        let layersJSON = """
+        [
+          {
+            "id": 1,
+            "layerIndex": 0,
+            "contentKind": "image",
+            "dependencyLayerIDs": [],
+            "authoredDependencies": [],
+            "childLayerIDs": [],
+            "puppetAnimationLayers": [],
+            "visible": true,
+            "disablesParallaxPropagation": false,
+            "timelines": [],
+            "timelineDiagnostics": [],
+            "particleTimelines": [],
+            "particleTimelineDiagnostics": [],
+            "hasInlineScript": false,
+            "effects": [],
+            "effectFiles": [],
+            "texturePaths": []
+          },
+          {
+            "id": 2,
+            "layerIndex": 1,
+            "contentKind": "image",
+            "dependencyLayerIDs": [],
+            "authoredDependencies": [],
+            "childLayerIDs": [3],
+            "puppetAnimationLayers": [],
+            "visible": true,
+            "displayScriptOwnership": {"visible": true, "alpha": false},
+            "disablesParallaxPropagation": false,
+            "timelines": [],
+            "timelineDiagnostics": [],
+            "particleTimelines": [],
+            "particleTimelineDiagnostics": [],
+            "hasInlineScript": true,
+            "effects": [],
+            "effectFiles": [],
+            "texturePaths": []
+          },
+          {
+            "id": 3,
+            "layerIndex": 2,
+            "contentKind": "image",
+            "dependencyLayerIDs": [],
+            "authoredDependencies": [],
+            "parentID": 2,
+            "childLayerIDs": [],
+            "puppetAnimationLayers": [],
+            "visible": true,
+            "disablesParallaxPropagation": false,
+            "timelines": [],
+            "timelineDiagnostics": [],
+            "particleTimelines": [],
+            "particleTimelineDiagnostics": [],
+            "hasInlineScript": false,
+            "effects": [],
+            "effectFiles": [],
+            "texturePaths": []
+          },
+          {
+            "id": 4,
+            "layerIndex": 3,
+            "contentKind": "image",
+            "dependencyLayerIDs": [],
+            "authoredDependencies": [],
+            "childLayerIDs": [],
+            "puppetAnimationLayers": [],
+            "visible": true,
+            "displayScriptOwnership": {"visible": false, "alpha": true},
+            "disablesParallaxPropagation": false,
+            "timelines": [],
+            "timelineDiagnostics": [],
+            "particleTimelines": [],
+            "particleTimelineDiagnostics": [],
+            "hasInlineScript": true,
+            "effects": [],
+            "effectFiles": [],
+            "texturePaths": []
+          }
+        ]
+        """
+        let layers = try JSONDecoder().decode(
+            [SceneRenderDescriptor.Layer].self,
+            from: Data(layersJSON.utf8)
+        )
+        let descriptor = SceneRenderDescriptor(layers: layers)
+        let payload: [String: Any] = [
+            "oldScriptBindingsMissing": layer.scriptBindings == nil,
+            "oldDisplayOwnershipMissing": layer.displayScriptOwnership == nil,
+            "visibleLayerIDs": SceneLayerVisibility.visibleLayerIDs(in: descriptor).sorted(),
+            "reportLines": SceneLayerVisibility.reportLines(in: descriptor),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
     }
 }
 '''
@@ -568,7 +677,7 @@ class SceneScriptBindingParserTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        cls.compatibility_result = compatibility.stdout.strip()
+        cls.visibility_result = json.loads(compatibility.stdout)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -609,6 +718,14 @@ class SceneScriptBindingParserTests(unittest.TestCase):
             binding["source"] for binding in self.objects[10]["bindings"]
         ]
         self.assertNotIn("must-not-be-promoted", sources)
+
+    def test_only_display_field_scripts_own_visibility_and_alpha(self) -> None:
+        self.assertEqual(
+            self.objects[10]["displayScriptFields"],
+            ["visible", "alpha"],
+        )
+        self.assertEqual(self.objects[20]["displayScriptFields"], [])
+        self.assertEqual(self.objects[30]["displayScriptFields"], [])
 
     def test_document_ir_preserves_all_thirteen_verified_target_shapes(self) -> None:
         bindings = self.generic["bindings"]
@@ -712,7 +829,20 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         )
 
     def test_descriptor_layer_decodes_old_cache_without_new_key(self) -> None:
-        self.assertEqual(self.compatibility_result, "nil")
+        self.assertTrue(self.visibility_result["oldScriptBindingsMissing"])
+        self.assertTrue(self.visibility_result["oldDisplayOwnershipMissing"])
+
+    def test_unproven_display_scripts_suppress_layers_and_descendants(self) -> None:
+        self.assertEqual(self.visibility_result["visibleLayerIDs"], [1])
+        self.assertEqual(
+            self.visibility_result["reportLines"],
+            [
+                "scene layer display-state: layer=2 fields=visible "
+                "disposition=suppressed reason=unproven-inline-scenescript",
+                "scene layer display-state: layer=4 fields=alpha "
+                "disposition=suppressed reason=unproven-inline-scenescript",
+            ],
+        )
 
 
 if __name__ == "__main__":

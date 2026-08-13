@@ -123,6 +123,7 @@ struct SceneRenderDescriptorBuilder {
                     puppetAnimationLayers: object.puppetAnimationLayers,
                     visible: object.visible,
                     alpha: object.alpha,
+                    displayScriptOwnership: object.displayScriptOwnership,
                     colorRGB: padVector(object.colorRGB, length: 3, fill: 1),
                     colorBlendMode: object.colorBlendMode,
                     brightness: object.brightness,

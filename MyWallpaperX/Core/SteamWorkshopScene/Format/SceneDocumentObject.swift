@@ -122,6 +122,7 @@ extension SceneDocument {
         let puppetAnimationLayers: [ScenePuppetAnimationLayer]
         let visible: Bool?
         let alpha: Double?
+        let displayScriptOwnership: SceneLayerDisplayScriptOwnership
         let colorRGB: [Float]?
         let colorBlendMode: Int?
         // 作者 `brightness`：layer 颜色乘数，随包 `razer_bedroom` 的 wave layer 用 3.0/4.0

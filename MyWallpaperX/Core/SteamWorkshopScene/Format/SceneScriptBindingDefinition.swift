@@ -1,5 +1,37 @@
 import Foundation
 
+/// Authored layer display fields whose value is owned by an inline SceneScript.
+///
+/// This is only a provenance fact. The parser does not interpret or execute the
+/// script, and malformed script payloads remain owned because their static
+/// fallback cannot safely authorize composition.
+nonisolated struct SceneLayerDisplayScriptOwnership: Codable, Equatable, Sendable {
+    let visible: Bool
+    let alpha: Bool
+
+    nonisolated var fields: [String] {
+        var result: [String] = []
+        if visible { result.append("visible") }
+        if alpha { result.append("alpha") }
+        return result
+    }
+
+    nonisolated var isEmpty: Bool { !visible && !alpha }
+
+    nonisolated static func parse(
+        authoredObject root: [String: Any]
+    ) -> SceneLayerDisplayScriptOwnership {
+        SceneLayerDisplayScriptOwnership(
+            visible: containsScriptMarker(root["visible"]),
+            alpha: containsScriptMarker(root["alpha"])
+        )
+    }
+
+    private nonisolated static func containsScriptMarker(_ value: Any?) -> Bool {
+        (value as? [String: Any])?.keys.contains("script") == true
+    }
+}
+
 /// Layer wrapper that may drive an authored texture animation.
 ///
 /// Parsing preserves the complete wrapper shape. No generic texture-animation

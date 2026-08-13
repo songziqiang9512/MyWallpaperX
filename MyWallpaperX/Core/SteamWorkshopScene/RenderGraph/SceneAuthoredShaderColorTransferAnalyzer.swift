@@ -105,6 +105,11 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlpha(textureSlot: slot)
         }
+        if let slot = SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.analyze(
+            outputUses: outputUses, fragment: fragment, main: main
+        ) {
+            return .straightAlpha(textureSlot: slot)
+        }
         if let slot = SceneAuthoredShaderStraightWholeColorFilterAnalyzer.analyze(
             outputUses: outputUses, fragment: fragment, main: main
         ) {

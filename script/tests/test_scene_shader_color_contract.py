@@ -38,6 +38,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
@@ -61,6 +63,7 @@ private func fragment(_ body: String, helpers: String = "") -> String {
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0;
     uniform sampler2D g_Texture1;
+    uniform sampler2D g_Texture3;
     uniform float g_ScalarWeight;
     vec3 ApplyBlending(
         const int mode,
@@ -245,6 +248,70 @@ enum Harness {
                 helpers: "float SafeCoverage(float value) { " +
                     "float scaled = value * 0.5; " +
                     "return smoothstep(0.0, 1.0, scaled); }"
+            ),
+            "straightRGBScalarAlpha": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "float phase = texSample2D(g_Texture3, v_TexCoord).r * 6.0; " +
+                "pulse = smoothstep(0.0, 1.0, " +
+                "sin(g_ScalarWeight + phase) * 0.5 + 0.5); " +
+                "float noise = texSample2D(g_Texture1, " +
+                "vec2(g_ScalarWeight * 0.08, g_ScalarWeight * 0.03)).r * 0.5; " +
+                "pulse += noise; pulse = pow(pulse, 1.0); " +
+                "color.a *= pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaMetal": metal(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "float phase = texSample2D(g_Texture3, v_TexCoord).r * 6.0; " +
+                "pulse = smoothstep(0.0, 1.0, " +
+                "sin(g_ScalarWeight + phase) * 0.5 + 0.5); " +
+                "float noise = texSample2D(g_Texture1, v_TexCoord).r * 0.5; " +
+                "pulse += noise; pulse = pow(pulse, 1.0); " +
+                "color.a *= pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaGreen": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "float phase = texSample2D(g_Texture3, v_TexCoord).g; " +
+                "float noise = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "pulse = phase + noise; color.a *= pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaRepeatedAux": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "float first = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "float second = texSample2D(g_Texture1, v_TexCoord * 0.5).r; " +
+                "pulse = first + second; color.a *= pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaRGBWrite": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "float phase = texSample2D(g_Texture3, v_TexCoord).r; " +
+                "float noise = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "pulse = phase + noise; color.rgb *= 0.5; color.a *= pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaReplacement": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "float phase = texSample2D(g_Texture3, v_TexCoord).r; " +
+                "float noise = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "pulse = phase + noise; color.a = pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaUnknownHelper": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "float phase = texSample2D(g_Texture3, v_TexCoord).r; " +
+                "float noise = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "pulse = SafeCoverage(phase + noise); color.a *= pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);",
+                helpers: "float SafeCoverage(float value) { return value; }"
             ),
             "straightRGBReplacedAlpha": transfer(
                 "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
@@ -891,6 +958,22 @@ class SceneShaderColorContractTests(unittest.TestCase):
             "straightRGBHiddenHelperMutation",
         ):
             self.assertNotEqual(self.result[key], "straight-slot:0", key)
+
+    def test_scalar_auxiliaries_can_only_modulate_sampled_alpha(self) -> None:
+        self.assertEqual(self.result["straightRGBScalarAlpha"], "straight-slot:0")
+        source = self.result["straightRGBScalarAlphaMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertNotIn("mwxUnpremultiply(mwxTexture1.sample", source)
+        self.assertNotIn("mwxUnpremultiply(mwxTexture3.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+        for key in (
+            "straightRGBScalarAlphaGreen",
+            "straightRGBScalarAlphaRepeatedAux",
+            "straightRGBScalarAlphaRGBWrite",
+            "straightRGBScalarAlphaReplacement",
+            "straightRGBScalarAlphaUnknownHelper",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
 
     def test_overlay_alpha_blend_reuses_the_bounded_straight_boundary(self) -> None:
         self.assertEqual(self.result["overlayAlphaBlend"], "straight-slot:0")

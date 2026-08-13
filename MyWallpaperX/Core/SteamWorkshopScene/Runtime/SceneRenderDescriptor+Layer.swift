@@ -21,6 +21,7 @@ extension SceneRenderDescriptor {
         let puppetAnimationLayers: [ScenePuppetAnimationLayer]
         let visible: Bool?
         let alpha: Double?
+        var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
         let colorRGB: [Float]?
         let colorBlendMode: Int?
         // 作者 `brightness` 颜色乘数；text 通道已在 CoreText 栅格化阶段消费同名 key。
