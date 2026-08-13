@@ -43,6 +43,8 @@ final class SceneDesktopWallpaperHost {
     var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
     var mediaPlaybackPlaceholderFadeRuntime =
         SceneMediaPlaybackPlaceholderFadeRuntime(program: .empty)
+    var mediaColorTransitionRuntime =
+        SceneMediaColorTransitionRuntime(program: .empty)
     var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
     var nextVideoProviderEpoch: UInt64 = 0
 #if DEBUG
@@ -76,6 +78,9 @@ final class SceneDesktopWallpaperHost {
         launchContext = context
         mediaPlaybackPlaceholderFadeRuntime = .init(
             program: context.mediaPlaybackPlaceholderFadeProgram
+        )
+        mediaColorTransitionRuntime = .init(
+            program: context.mediaColorTransitionProgram
         )
         SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
             resolvedMaterialExecutionCapabilities:

@@ -15,6 +15,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let timeOfDayEffectScriptProgram: SceneTimeOfDayEffectScriptProgram
     let mediaPlaybackPlaceholderFadeProgram:
         SceneMediaPlaybackPlaceholderFadeProgram
+    let mediaColorTransitionProgram: SceneMediaColorTransitionProgram
     let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
@@ -33,7 +34,10 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " reason=snapshot-lifecycle-unproven",
             "scene media placeholder fade: schema=bounded-playback-fade-v1"
                 + " bindings=\(mediaPlaybackPlaceholderFadeProgram.bindings.count)"
-                + " input=unavailable events=0 initialMode=authored-zero"
+                + " input=typed-inbox liveProvider=unavailable initialMode=stopped",
+            "scene media color transition: schema=bounded-secondary-color-v1"
+                + " bindings=\(mediaColorTransitionProgram.bindings.count)"
+                + " input=typed-inbox liveProvider=unavailable"
         ]
     }
 
@@ -160,13 +164,28 @@ extension SceneDesktopWallpaperHost {
         let mediaPlaybackPlaceholderFadeCandidateTargets = Set(
             mediaPlaybackPlaceholderFadeCandidates.bindings.map(\.definition.target)
         )
+        guard let mediaColorTransitionCandidates =
+                SceneMediaColorTransitionProgramCompiler.compile(
+                    descriptor: runtimeInput.renderDescriptor,
+                    scriptBindings: model.sceneDocument.scriptBindings
+                ) else {
+            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+        }
+        let mediaColorTransitionCandidateTargets = Set(
+            mediaColorTransitionCandidates.bindings.map(\.definition.target)
+        )
         guard timeOfDayEffectScriptCandidateTargets.isDisjoint(
             with: mediaPlaybackPlaceholderFadeCandidateTargets
+        ), timeOfDayEffectScriptCandidateTargets.isDisjoint(
+            with: mediaColorTransitionCandidateTargets
+        ), mediaPlaybackPlaceholderFadeCandidateTargets.isDisjoint(
+            with: mediaColorTransitionCandidateTargets
         ) else {
             throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
         }
         let provenSceneScriptValueTargets = timeOfDayEffectScriptCandidateTargets
             .union(mediaPlaybackPlaceholderFadeCandidateTargets)
+            .union(mediaColorTransitionCandidateTargets)
         let resolvedMaterialAdmissionCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: runtimeInput.renderDescriptor,
@@ -249,6 +268,16 @@ extension SceneDesktopWallpaperHost {
                 ) else {
             throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
         }
+        guard let mediaColorTransitionProgram =
+                SceneMediaColorTransitionProgram.validated(
+                    bindings: mediaColorTransitionCandidates.bindings.filter {
+                        sceneScriptConsumerTargets.contains(
+                            $0.definition.target
+                        )
+                    }
+                ) else {
+            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+        }
         let mediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings
@@ -269,6 +298,7 @@ extension SceneDesktopWallpaperHost {
             timeOfDayEffectScriptProgram: timeOfDayEffectScriptProgram,
             mediaPlaybackPlaceholderFadeProgram:
                 mediaPlaybackPlaceholderFadeProgram,
+            mediaColorTransitionProgram: mediaColorTransitionProgram,
             mediaThumbnailBindings: mediaThumbnailBindings,
             liveState: ScenePropertyLiveUpdateState(
                 program: runtimeInput.propertyBindingProgram,

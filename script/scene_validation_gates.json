@@ -85,7 +85,8 @@
     {
       "id": "properties",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Properties/**"],
-      "keywords": ["property", "dynamic"]
+      "keywords": ["property", "dynamic"],
+      "modules": ["test_scene_media_color_transition"]
     },
     {
       "id": "resources",

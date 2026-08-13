@@ -14,8 +14,10 @@ final class SceneMediaThumbnailCoordinator {
         textureStore = SceneMediaThumbnailTextureStore(device: device)
     }
 
-    func update() -> SceneMediaThumbnailTextureStore.Snapshot {
-        textureStore.update(from: SceneMediaThumbnailInbox.shared.latest())
+    func update(
+        from input: SceneMediaThumbnailInbox.Snapshot
+    ) -> SceneMediaThumbnailTextureStore.Snapshot {
+        textureStore.update(from: input)
         return textureStore.snapshot()
     }
 }

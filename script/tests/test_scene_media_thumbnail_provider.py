@@ -163,6 +163,55 @@ inbox.clear()
 store.update(from: inbox.latest())
 let cleared = waitFor(store, generation: 6)
 
+let eventInbox = SceneMediaThumbnailInbox()
+let primaryColor = SIMD3(0.125, 0.5, 1.0)
+let replacementColor = SIMD3(0.75, 0.25, 0.5)
+let eventInitial = eventInbox.latest()
+let imageColorAccepted = eventInbox.publish(a, secondaryColor: primaryColor)
+let afterImageColor = eventInbox.latest()
+let duplicateImageColorAccepted = eventInbox.publish(
+    a,
+    secondaryColor: primaryColor
+)
+let afterDuplicateImageColor = eventInbox.latest()
+let replacementColorAccepted = eventInbox.publish(
+    a,
+    secondaryColor: replacementColor
+)
+let afterReplacementColor = eventInbox.latest()
+let nanColorRejected = !eventInbox.publish(
+    b,
+    secondaryColor: SIMD3(.nan, 0.25, 0.5)
+)
+let negativeColorRejected = !eventInbox.publish(
+    b,
+    secondaryColor: SIMD3(-0.01, 0.25, 0.5)
+)
+let oversizedColorRejected = !eventInbox.publish(
+    b,
+    secondaryColor: SIMD3(0.75, 1.01, 0.5)
+)
+let emptyImageWithColorRejected = !eventInbox.publish(
+    Data(),
+    secondaryColor: replacementColor
+)
+let afterInvalidColors = eventInbox.latest()
+let playbackAccepted = eventInbox.publishPlaybackState(1)
+let afterPlayback = eventInbox.latest()
+let duplicatePlaybackAccepted = eventInbox.publishPlaybackState(1)
+let afterDuplicatePlayback = eventInbox.latest()
+let pausedAccepted = eventInbox.publishPlaybackState(2)
+let afterPaused = eventInbox.latest()
+let negativePlaybackRejected = !eventInbox.publishPlaybackState(-1)
+let oversizedPlaybackRejected = !eventInbox.publishPlaybackState(3)
+let afterInvalidPlayback = eventInbox.latest()
+let nextImageAccepted = eventInbox.publish(b, secondaryColor: primaryColor)
+let afterNextImage = eventInbox.latest()
+eventInbox.clear()
+let afterEventClear = eventInbox.latest()
+eventInbox.clear()
+let afterDuplicateEventClear = eventInbox.latest()
+
 let result: [String: Any] = [
     "generation": third.generation,
     "currentPixel": pixel(third.current?.texture),
@@ -195,6 +244,46 @@ let result: [String: Any] = [
     "failedCurrent": failed.current == nil,
     "clearedGeneration": cleared.generation,
     "clearedCurrent": cleared.current == nil,
+    "eventInitialEmpty": eventInitial == .empty,
+    "imageColorAccepted": imageColorAccepted,
+    "imageColorGeneration": afterImageColor.generation,
+    "imageColorPlaybackGeneration": afterImageColor.playbackGeneration,
+    "imageColorExact": afterImageColor.secondaryColor == primaryColor,
+    "duplicateImageColorAccepted": duplicateImageColorAccepted,
+    "duplicateImageColorGenerationStable":
+        afterDuplicateImageColor.generation == afterImageColor.generation,
+    "replacementColorAccepted": replacementColorAccepted,
+    "replacementColorGeneration": afterReplacementColor.generation,
+    "replacementColorExact": afterReplacementColor.secondaryColor == replacementColor,
+    "nanColorRejected": nanColorRejected,
+    "negativeColorRejected": negativeColorRejected,
+    "oversizedColorRejected": oversizedColorRejected,
+    "emptyImageWithColorRejected": emptyImageWithColorRejected,
+    "invalidColorsPreserveSnapshot": afterInvalidColors == afterReplacementColor,
+    "playbackAccepted": playbackAccepted,
+    "playbackState": afterPlayback.playbackState ?? -1,
+    "playbackGeneration": afterPlayback.playbackGeneration,
+    "playbackPreservesImageGeneration":
+        afterPlayback.generation == afterReplacementColor.generation,
+    "duplicatePlaybackAccepted": duplicatePlaybackAccepted,
+    "duplicatePlaybackGenerationStable":
+        afterDuplicatePlayback.playbackGeneration == afterPlayback.playbackGeneration,
+    "pausedAccepted": pausedAccepted,
+    "pausedState": afterPaused.playbackState ?? -1,
+    "pausedGeneration": afterPaused.playbackGeneration,
+    "negativePlaybackRejected": negativePlaybackRejected,
+    "oversizedPlaybackRejected": oversizedPlaybackRejected,
+    "invalidPlaybackPreservesSnapshot": afterInvalidPlayback == afterPaused,
+    "nextImageAccepted": nextImageAccepted,
+    "nextImageGeneration": afterNextImage.generation,
+    "nextImagePreservesPlaybackGeneration":
+        afterNextImage.playbackGeneration == afterPaused.playbackGeneration,
+    "eventClearGeneration": afterEventClear.generation,
+    "eventClearColorIsZero": afterEventClear.secondaryColor == .zero,
+    "eventClearPreservesPlayback":
+        afterEventClear.playbackState == afterPaused.playbackState
+        && afterEventClear.playbackGeneration == afterPaused.playbackGeneration,
+    "duplicateEventClearStable": afterDuplicateEventClear == afterEventClear,
 ]
 let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
 print(String(decoding: data, as: UTF8.self))
@@ -239,6 +328,40 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertTrue(result["failedCurrent"])
         self.assertEqual(result["clearedGeneration"], 6)
         self.assertTrue(result["clearedCurrent"])
+        self.assertTrue(result["eventInitialEmpty"])
+        self.assertTrue(result["imageColorAccepted"])
+        self.assertEqual(result["imageColorGeneration"], 1)
+        self.assertEqual(result["imageColorPlaybackGeneration"], 0)
+        self.assertTrue(result["imageColorExact"])
+        self.assertTrue(result["duplicateImageColorAccepted"])
+        self.assertTrue(result["duplicateImageColorGenerationStable"])
+        self.assertTrue(result["replacementColorAccepted"])
+        self.assertEqual(result["replacementColorGeneration"], 2)
+        self.assertTrue(result["replacementColorExact"])
+        self.assertTrue(result["nanColorRejected"])
+        self.assertTrue(result["negativeColorRejected"])
+        self.assertTrue(result["oversizedColorRejected"])
+        self.assertTrue(result["emptyImageWithColorRejected"])
+        self.assertTrue(result["invalidColorsPreserveSnapshot"])
+        self.assertTrue(result["playbackAccepted"])
+        self.assertEqual(result["playbackState"], 1)
+        self.assertEqual(result["playbackGeneration"], 1)
+        self.assertTrue(result["playbackPreservesImageGeneration"])
+        self.assertTrue(result["duplicatePlaybackAccepted"])
+        self.assertTrue(result["duplicatePlaybackGenerationStable"])
+        self.assertTrue(result["pausedAccepted"])
+        self.assertEqual(result["pausedState"], 2)
+        self.assertEqual(result["pausedGeneration"], 2)
+        self.assertTrue(result["negativePlaybackRejected"])
+        self.assertTrue(result["oversizedPlaybackRejected"])
+        self.assertTrue(result["invalidPlaybackPreservesSnapshot"])
+        self.assertTrue(result["nextImageAccepted"])
+        self.assertEqual(result["nextImageGeneration"], 3)
+        self.assertTrue(result["nextImagePreservesPlaybackGeneration"])
+        self.assertEqual(result["eventClearGeneration"], 4)
+        self.assertTrue(result["eventClearColorIsZero"])
+        self.assertTrue(result["eventClearPreservesPlayback"])
+        self.assertTrue(result["duplicateEventClearStable"])
 
 
 if __name__ == "__main__":

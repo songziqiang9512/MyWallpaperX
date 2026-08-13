@@ -100,6 +100,8 @@ extension SceneDesktopWallpaperHost {
                 \.definition
             ) + launchContext.mediaPlaybackPlaceholderFadeProgram.bindings.map(
                 \.definition
+            ) + launchContext.mediaColorTransitionProgram.bindings.map(
+                \.definition
             )
         )
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
@@ -114,10 +116,17 @@ extension SceneDesktopWallpaperHost {
             program: launchContext.timeOfDayEffectScriptProgram,
             wallDate: timing.wallDate
         )
+        let mediaInput = SceneMediaThumbnailInbox.shared.latest()
         let mediaPlaybackPlaceholderFadeValues =
             mediaPlaybackPlaceholderFadeRuntime.values(
+                playbackEventState: mediaInput.playbackState,
                 frameTime: timing.simulationFrameTime
             )
+        let mediaColorTransitionValues = mediaColorTransitionRuntime.values(
+            effectivePropertyValues: launchContext.liveState.effectiveValues,
+            mediaInput: mediaInput,
+            frameTime: timing.simulationFrameTime
+        )
         for surface in surfaces.values {
             guard !surface.metalView.shouldDeferResolvedMaterialFrame else {
                 continue
@@ -135,10 +144,14 @@ extension SceneDesktopWallpaperHost {
                 ).merging(
                     mediaPlaybackPlaceholderFadeValues,
                     uniquingKeysWith: { existing, _ in existing }
+                ).merging(
+                    mediaColorTransitionValues,
+                    uniquingKeysWith: { existing, _ in existing }
                 )
             ).snapshot
             surface.metalView.renderFrame(
-                timing: timing, dynamicValues: dynamicValues, audioSpectrum: audioSpectrum,
+                timing: timing, dynamicValues: dynamicValues, mediaInput: mediaInput,
+                audioSpectrum: audioSpectrum,
                 performanceTelemetry: Self.usesDebugEvidenceWindow
                     ? SceneFramePerformanceTelemetry.debugEvidence : nil
             )

@@ -6,7 +6,54 @@ extension DebugScenePlaybackRunner {
         guard let relativePath = argumentValue(
             after: "--mwx-debug-scene-media-thumbnail"
         ) else { return }
-        publishMediaThumbnail(relativePath: relativePath, rootURL: rootURL)
+        let secondaryColor: SIMD3<Double>?
+        if let payload = argumentValue(
+            after: "--mwx-debug-scene-media-secondary-color-json"
+        ) {
+            guard let parsed = normalizedColor(from: payload) else {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=media-thumbnail-rejected reason=secondary-color"
+                )
+                return
+            }
+            secondaryColor = parsed
+        } else {
+            secondaryColor = nil
+        }
+        let playbackState: Int?
+        if let rawState = argumentValue(
+            after: "--mwx-debug-scene-media-playback-state"
+        ) {
+            guard let parsed = Int(rawState), (0...2).contains(parsed) else {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=media-thumbnail-rejected reason=playback-state"
+                )
+                return
+            }
+            playbackState = parsed
+        } else {
+            playbackState = nil
+        }
+        guard publishMediaThumbnail(
+            relativePath: relativePath,
+            secondaryColor: secondaryColor,
+            rootURL: rootURL
+        ) else { return }
+        if let playbackState {
+            guard SceneMediaThumbnailInbox.shared.publishPlaybackState(
+                playbackState
+            ) else {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=media-playback-rejected state=%d",
+                    playbackState
+                )
+                return
+            }
+            NSLog(
+                "MWX DEBUG SCENE: phase=media-playback-published state=%d",
+                playbackState
+            )
+        }
     }
 
     static func scheduleRequestedMediaThumbnailSequence(rootURL: URL) {
@@ -58,28 +105,48 @@ extension DebugScenePlaybackRunner {
         }
     }
 
+    @discardableResult
     private static func publishMediaThumbnail(
         relativePath: String,
+        secondaryColor: SIMD3<Double>? = nil,
         rootURL: URL
-    ) {
+    ) -> Bool {
         let resolvedRootURL = rootURL.resolvingSymlinksInPath().standardizedFileURL
         let url = URL(fileURLWithPath: relativePath, relativeTo: resolvedRootURL)
             .resolvingSymlinksInPath().standardizedFileURL
-        guard url.path.hasPrefix(resolvedRootURL.path + "/"),
+        guard !(relativePath as NSString).isAbsolutePath,
+              url.path.hasPrefix(resolvedRootURL.path + "/"),
               ["png", "jpg", "jpeg"].contains(url.pathExtension.lowercased()),
               let data = try? Data(contentsOf: url, options: .mappedIfSafe),
-              SceneMediaThumbnailInbox.shared.publish(data) else {
+              SceneMediaThumbnailInbox.shared.publish(
+                  data,
+                  secondaryColor: secondaryColor
+              ) else {
             NSLog(
                 "MWX DEBUG SCENE: phase=media-thumbnail-rejected file=%@",
                 url.lastPathComponent
             )
-            return
+            return false
         }
         NSLog(
-            "MWX DEBUG SCENE: phase=media-thumbnail-published file=%@ bytes=%d",
+            "MWX DEBUG SCENE: phase=media-thumbnail-published file=%@ bytes=%d hasSecondaryColor=%@",
             url.lastPathComponent,
-            data.count
+            data.count,
+            secondaryColor == nil ? "false" : "true"
         )
+        return true
+    }
+
+    private static func normalizedColor(
+        from payload: String
+    ) -> SIMD3<Double>? {
+        guard let data = payload.data(using: .utf8),
+              let components = try? JSONDecoder().decode([Double].self, from: data),
+              components.count == 3,
+              components.allSatisfy({ $0.isFinite && (0...1).contains($0) }) else {
+            return nil
+        }
+        return SIMD3(components[0], components[1], components[2])
     }
 }
 #endif

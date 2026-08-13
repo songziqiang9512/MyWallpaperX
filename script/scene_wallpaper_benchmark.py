@@ -3963,8 +3963,15 @@ def append_media_thumbnail_argument(
     media_thumbnail_path: Any,
     runtime_sample: Path,
     failures: list[str],
+    *,
+    secondary_color: Any = None,
+    playback_state: Any = None,
 ) -> None:
     if media_thumbnail_path is None:
+        if secondary_color is not None or playback_state is not None:
+            failures.append(
+                "media thumbnail event requires isolated media thumbnail path"
+            )
         return
     media_thumbnail = Path(str(media_thumbnail_path))
     if (
@@ -3975,10 +3982,44 @@ def append_media_thumbnail_argument(
     ):
         failures.append("invalid isolated media thumbnail path")
         return
-    command.extend([
+    normalized_color: list[float] | None = None
+    if secondary_color is not None:
+        if (
+            not isinstance(secondary_color, list)
+            or len(secondary_color) != 3
+            or any(
+                isinstance(component, bool)
+                or not isinstance(component, (int, float))
+                or not math.isfinite(component)
+                or not 0 <= component <= 1
+                for component in secondary_color
+            )
+        ):
+            failures.append("invalid media thumbnail secondary color")
+            return
+        normalized_color = [float(component) for component in secondary_color]
+    if playback_state is not None and (
+        isinstance(playback_state, bool)
+        or not isinstance(playback_state, int)
+        or not 0 <= playback_state <= 2
+    ):
+        failures.append("invalid media thumbnail playback state")
+        return
+    arguments = [
         "--mwx-debug-scene-media-thumbnail",
         str(media_thumbnail),
-    ])
+    ]
+    if normalized_color is not None:
+        arguments.extend([
+            "--mwx-debug-scene-media-secondary-color-json",
+            json.dumps(normalized_color, separators=(",", ":")),
+        ])
+    if playback_state is not None:
+        arguments.extend([
+            "--mwx-debug-scene-media-playback-state",
+            str(playback_state),
+        ])
+    command.extend(arguments)
 
 
 def append_media_thumbnail_sequence_argument(
@@ -4145,6 +4186,8 @@ def run_sample(
         sample.get("media_thumbnail_path"),
         runtime_sample,
         failures,
+        secondary_color=sample.get("media_thumbnail_secondary_color"),
+        playback_state=sample.get("media_playback_state"),
     )
     append_media_thumbnail_sequence_argument(
         command,

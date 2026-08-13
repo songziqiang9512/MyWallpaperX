@@ -1196,18 +1196,105 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 "cover.png",
             ])
 
-            for invalid in ("../cover.png", "/tmp/cover.png", "cover.webp", "missing.png"):
+            event_command = ["MyWallpaperX"]
+            event_failures: list[str] = []
+            benchmark.append_media_thumbnail_argument(
+                event_command,
+                "cover.png",
+                runtime_sample,
+                event_failures,
+                secondary_color=[0.125, 0.5, 1],
+                playback_state=1,
+            )
+            self.assertEqual(event_failures, [])
+            self.assertEqual(event_command, [
+                "MyWallpaperX",
+                "--mwx-debug-scene-media-thumbnail",
+                "cover.png",
+                "--mwx-debug-scene-media-secondary-color-json",
+                "[0.125,0.5,1.0]",
+                "--mwx-debug-scene-media-playback-state",
+                "1",
+            ])
+
+            for invalid in (
+                "../cover.png",
+                "/tmp/cover.png",
+                str(runtime_sample / "cover.png"),
+                "cover.webp",
+                "missing.png",
+            ):
                 invalid_failures: list[str] = []
+                invalid_command = ["MyWallpaperX"]
                 benchmark.append_media_thumbnail_argument(
-                    [],
+                    invalid_command,
                     invalid,
                     runtime_sample,
                     invalid_failures,
+                    secondary_color=[0.1, 0.2, 0.3],
+                    playback_state=1,
                 )
                 self.assertEqual(
                     invalid_failures,
                     ["invalid isolated media thumbnail path"],
                 )
+                self.assertEqual(invalid_command, ["MyWallpaperX"])
+
+            missing_path_failures: list[str] = []
+            benchmark.append_media_thumbnail_argument(
+                [],
+                None,
+                runtime_sample,
+                missing_path_failures,
+                secondary_color=[0.1, 0.2, 0.3],
+            )
+            self.assertEqual(
+                missing_path_failures,
+                ["media thumbnail event requires isolated media thumbnail path"],
+            )
+
+            for invalid_color in (
+                "0.1 0.2 0.3",
+                [0.1, 0.2],
+                [0.1, 0.2, 0.3, 0.4],
+                [True, 0.2, 0.3],
+                [-0.1, 0.2, 0.3],
+                [0.1, 1.1, 0.3],
+                [0.1, float("nan"), 0.3],
+                [0.1, float("inf"), 0.3],
+            ):
+                invalid_command = ["MyWallpaperX"]
+                invalid_failures = []
+                benchmark.append_media_thumbnail_argument(
+                    invalid_command,
+                    "cover.png",
+                    runtime_sample,
+                    invalid_failures,
+                    secondary_color=invalid_color,
+                    playback_state=1,
+                )
+                self.assertEqual(
+                    invalid_failures,
+                    ["invalid media thumbnail secondary color"],
+                )
+                self.assertEqual(invalid_command, ["MyWallpaperX"])
+
+            for invalid_state in (-1, 3, 1.0, True, "1"):
+                invalid_command = ["MyWallpaperX"]
+                invalid_failures = []
+                benchmark.append_media_thumbnail_argument(
+                    invalid_command,
+                    "cover.png",
+                    runtime_sample,
+                    invalid_failures,
+                    secondary_color=[0.1, 0.2, 0.3],
+                    playback_state=invalid_state,
+                )
+                self.assertEqual(
+                    invalid_failures,
+                    ["invalid media thumbnail playback state"],
+                )
+                self.assertEqual(invalid_command, ["MyWallpaperX"])
 
     def test_media_thumbnail_sequence_stays_inside_isolated_sample(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-media-thumbnail-sequence-") as directory:

@@ -60,7 +60,7 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
            authored.userBinding == nil,
            authored.timeline == nil,
            authored.timelineDiagnostics.isEmpty,
-           authored.bindingKeys == ["script", "value"],
+           isProvenValueWrapper(authored.bindingKeys),
            provenSceneScriptValueTargets.contains(target) {
             return .value(.sceneScript)
         }
@@ -69,6 +69,11 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
                 ? .mediaThumbnailAnimationRestart
                 : .unprovenSceneScript
         )
+    }
+
+    private static func isProvenValueWrapper(_ keys: [String]) -> Bool {
+        keys == ["script", "value"]
+            || keys == ["script", "scriptproperties", "value"]
     }
 
     /// The existing control-only profile remains deliberately limited to the

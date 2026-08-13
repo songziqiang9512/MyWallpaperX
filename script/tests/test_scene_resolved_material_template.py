@@ -497,6 +497,20 @@ enum Harness {
             material(constants: ["g_Fade": boundedScriptValue]),
             provenSceneScriptValueTargets: [boundedScriptTarget]
         ))
+        let boundedPropertyScriptValue = SceneDocument.ShaderValue(
+            rawValue: "1 1 1",
+            valueKind: "binding",
+            components: [1, 1, 1],
+            scriptSource: "project-owned bounded media color source",
+            bindingKeys: ["script", "scriptproperties", "value"]
+        )
+        let boundedPropertyScriptUnproven = template(compile(material(constants: [
+            "g_Fade": boundedPropertyScriptValue,
+        ])))
+        let boundedPropertyScriptProven = template(compile(
+            material(constants: ["g_Fade": boundedPropertyScriptValue]),
+            provenSceneScriptValueTargets: [boundedScriptTarget]
+        ))
         let boundedScriptWrongTarget = template(compile(
             material(constants: ["g_Fade": boundedScriptValue]),
             provenSceneScriptValueTargets: [.effectConstant(
@@ -761,6 +775,20 @@ enum Harness {
                         && value.valueContributors == [.sceneScript]
                         && value.controlAttachments.isEmpty
                 } == true,
+            "boundedPropertyScriptNeedsExactProof": boundedPropertyScriptUnproven?
+                .uniformDeclarations.first.map { declaration in
+                    guard case let .dynamic(value) = declaration.value else { return false }
+                    return value.valueContributors.isEmpty
+                        && value.controlAttachments == [.unprovenSceneScript]
+                } == true,
+            "boundedPropertyScriptExactProofBecomesSoleValue":
+                boundedPropertyScriptProven?.uniformDeclarations.first.map {
+                    declaration in
+                    guard case let .dynamic(value) = declaration.value else { return false }
+                    return value.target == boundedScriptTarget
+                        && value.valueContributors == [.sceneScript]
+                        && value.controlAttachments.isEmpty
+                } == true,
             "observedPlayShapesRemainUnproven": [
                 playOnlyTimelineScript, directPlayTimelineScript,
                 extendedRestartScript,
@@ -939,6 +967,8 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "unknownScriptTypedUnproven",
             "boundedScriptNeedsExactProof",
             "boundedScriptExactProofBecomesSoleValue",
+            "boundedPropertyScriptNeedsExactProof",
+            "boundedPropertyScriptExactProofBecomesSoleValue",
         ])
 
     def test_vfs_and_shader_lexical_boundaries_match_production(self) -> None:

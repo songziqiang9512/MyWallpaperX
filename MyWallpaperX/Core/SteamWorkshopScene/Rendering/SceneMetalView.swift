@@ -295,6 +295,7 @@ class SceneMetalView: NSView {
 
     func renderFrame(
         timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
+        mediaInput: SceneMediaThumbnailInbox.Snapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) {
@@ -315,7 +316,7 @@ class SceneMetalView: NSView {
             frameContext: frameContext, cameraFrame: cameraFrame)
         dynamicTextTextures?.update(from: dynamicValues)
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
-        let mediaThumbnailSnapshot = mediaThumbnailCoordinator.update()
+        let mediaThumbnailSnapshot = mediaThumbnailCoordinator.update(from: mediaInput)
         let frameImageTextures = SceneFrameLayerTextureAssembly.make(
             base: imageTextures, dynamicText: dynamicTextSnapshot,
             mediaThumbnail: mediaThumbnailSnapshot, mediaBindings: mediaThumbnailCoordinator.program,

@@ -51,6 +51,10 @@ LIVE_CONSUMERS_SOURCE = (
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+LiveConsumers.swift"
 )
 VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift"
+MEDIA_THUMBNAIL_COORDINATOR_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMediaThumbnailCoordinator.swift"
+)
 VIEW_FRAME_CONTEXT_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView+FrameContext.swift"
@@ -417,14 +421,23 @@ class SceneFrameContextTests(unittest.TestCase):
         fade_position = frame_driver.index(
             "mediaPlaybackPlaceholderFadeRuntime.values(", render_position
         )
+        media_input_position = frame_driver.index(
+            "let mediaInput = SceneMediaThumbnailInbox.shared.latest()", render_position
+        )
         snapshot_position = frame_driver.index(
             "surface.evaluationTransaction.evaluate", broadcast_position
         )
         self.assertLess(fade_position, broadcast_position)
+        self.assertLess(media_input_position, fade_position)
         self.assertLess(broadcast_position, snapshot_position)
         self.assertEqual(
             frame_driver.count("mediaPlaybackPlaceholderFadeRuntime.values("), 1
         )
+        self.assertEqual(
+            frame_driver.count("SceneMediaThumbnailInbox.shared.latest()"), 1
+        )
+        self.assertIn("playbackEventState: mediaInput.playbackState", frame_driver)
+        self.assertIn("mediaInput: mediaInput", frame_driver)
         self.assertIn("frameTime: timing.simulationFrameTime", frame_driver)
         self.assertIn(
             "launchContext.mediaPlaybackPlaceholderFadeProgram.bindings", frame_driver
@@ -445,6 +458,68 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertNotIn("min(max(frameDelta, 0), 0.25)", particle_playback)
         self.assertNotIn("displayTimer", view)
         self.assertNotIn("renderStartTime", view)
+
+    def test_host_broadcasts_one_media_snapshot_to_every_surface(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        view = VIEW_SOURCE.read_text(encoding="utf-8")
+        coordinator = MEDIA_THUMBNAIL_COORDINATOR_SOURCE.read_text(
+            encoding="utf-8"
+        )
+        host_render = swift_body(frame_driver, "private func renderFrame()")
+        view_render = swift_body(view, "func renderFrame(")
+        coordinator_update = swift_body(coordinator, "func update(")
+
+        media_snapshot_declaration = (
+            "let mediaInput = SceneMediaThumbnailInbox.shared.latest()"
+        )
+        self.assertEqual(host_render.count(media_snapshot_declaration), 1)
+        self.assertEqual(
+            host_render.count("SceneMediaThumbnailInbox.shared.latest()"), 1
+        )
+        snapshot_position = host_render.index(media_snapshot_declaration)
+        color_runtime_position = host_render.index(
+            "mediaColorTransitionRuntime.values("
+        )
+        surface_loop_position = host_render.index("for surface in surfaces.values")
+        surface_render_position = host_render.index(
+            "surface.metalView.renderFrame(", surface_loop_position
+        )
+        self.assertLess(snapshot_position, color_runtime_position)
+        self.assertLess(color_runtime_position, surface_loop_position)
+        self.assertIn(
+            "mediaInput: mediaInput",
+            host_render[color_runtime_position:surface_loop_position],
+        )
+
+        surface_loop = host_render[surface_loop_position:]
+        self.assertNotIn(
+            "SceneMediaThumbnailInbox.shared.latest()", surface_loop
+        )
+        self.assertEqual(surface_loop.count("mediaInput: mediaInput"), 1)
+        self.assertGreater(
+            host_render.index("mediaInput: mediaInput", surface_render_position),
+            surface_render_position,
+        )
+
+        self.assertIn(
+            "mediaInput: SceneMediaThumbnailInbox.Snapshot", view
+        )
+        self.assertEqual(
+            view_render.count(
+                "mediaThumbnailCoordinator.update(from: mediaInput)"
+            ),
+            1,
+        )
+        self.assertNotIn("SceneMediaThumbnailInbox.shared", view)
+
+        self.assertIn(
+            "from input: SceneMediaThumbnailInbox.Snapshot", coordinator
+        )
+        self.assertEqual(
+            coordinator_update.count("textureStore.update(from: input)"), 1
+        )
+        self.assertNotIn("SceneMediaThumbnailInbox.shared", coordinator)
+        self.assertNotIn("func update()", coordinator)
 
     def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:
         report = HOST_TIME_OF_DAY_REPORT_SOURCE.read_text(encoding="utf-8")
