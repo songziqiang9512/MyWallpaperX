@@ -170,6 +170,7 @@ scene.json / scene.pkg / assets
 5. 正向样本、默认关闭反例和失败降级；
 6. 证据等级与仍未知项；
 7. 已知可见回归从资源选择到 next-frame 的完整链、第一个断裂边、目标 ROI 和成功观测。
+8. 官方合同之后的 MirageWallpaper 固定-revision 源码交叉检查：列出实际读取的模块/关键 symbol、`producer -> state/identity -> consumer -> frame order/lifecycle -> failure path` 与已知 divergence；专题总结、历史行号或第三方输出不能代替本批源码阅读。
 
 缺少其中任一项时，先补研究或标记 unsupported，不再靠整层动画和目测参数试错推进。
 
@@ -179,6 +180,7 @@ scene.json / scene.pkg / assets
 - 本目录记录稳定语义和实现合同，不记录单次调试流水账。
 - [覆盖台账](coverage-ledger.md) 只做系统摘要；Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象的专项能力表分别是其逐项等级事实来源。
 - [全样本能力分类与修复台账](scene-corpus-capability-inventory.md) 保存当前 corpus 的静态 family、参数和资源清单。新增/删除样本或按公共类型立项时先刷新它；family 覆盖数只用于界定影响面，不能覆盖运行证据或第一个可见断裂边。
+- 纹理/资源、Graph/FBO/composition、effect/shader、粒子和动态输入/SceneScript/交互均使用同一官方优先、Mirage 固定-revision 源码交叉检查规则；专项表只登记与该能力有关的模块、结构结论和 divergence，不在每张表复制一套治理文字。
 - 实现前必须先查 [能力依赖图](capability-dependency-map.md)，再进入对应专项表查看作者条件、代码、测试、运行证据和下一门；依赖图限制可采用的实现顺序，能力等级描述覆盖强度，二者都不是用户可见问题的工作队列。存在真实回归时，由第一个共享断裂边决定当前优先级，允许同一 correctness atom 跨多个 D 节点和源码目录；不能从同系统某个 `L3` 子集推断整套能力。
 - 资料入口完整性以 [179 页逐页表](official-page-map.md) 与自动门禁为准；16 组分组统计不能替代逐页映射。
 - 专项表不写「当前实现基线：`<commit>`」。当前基线、生产播放输入边界、签名身份和 Debug runtime evidence schema 只在 [运行证据索引](runtime-evidence-index.md) 维护；覆盖台账只做系统摘要，能力依赖图只维护前置关系，带日期的 plan/roadmap 只表示历史批次快照。专项表里出现的 commit 号一律理解为对应能力的历史落地提交。

@@ -296,7 +296,7 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 - [21 个用户样本首轮评估（历史截图基线）](../scene-sample-assessment-2026-07-22.md)
 - [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md)
 - v16 结构基线：`scene-effect-graph-canonical-final-20260723`（历史本机产物已清理）（canonical graph 身份，不等于 GPU 执行）
-- 运行证据分固定回归门与完整快照门；仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` 固定真实目录中 45 个具备 package 的可运行样本，`3770500543` 因缺 package 只记录在 source manifest。`scene-builtin-textures-full45-20260725`（历史本机产物已清理） 与 `scene-builtin-textures-fixed13-v2-20260725`（历史本机产物已清理） 只保留为 13-key built-in 阶段证据，不能覆盖现役结果。Puppet 旧单 clip 正向门与 v24 对照分别为 `scene-puppet-animation-20260725/targeted-v1`（历史本机产物已清理）、`scene-puppet-animation-20260725/control-v24-v1`（历史本机产物已清理）；当前 disjoint-additive 定向门为 `.codex/scene-puppet-disjoint-3769688830-20260802-v2/report.json`。当前实现基线、报告/App 身份与能力边界统一见 [运行证据索引](runtime-evidence-index.md)。
+- 运行证据分固定回归门与完整快照门；仓库 `script/scene_wallpaper_full_sample_matrix.json` 当前仍是45-member tracked baseline。2026-08-13 authored census已在真实根发现49个可解析样本，因此该矩阵状态为`pending-expansion`而不是当前完整快照；新增四项及静态清单见[全样本能力分类与修复台账](scene-corpus-capability-inventory.md)，是否曾单独运行不能由census推断。`3770500543`因缺 package 只保留在历史source manifest。`scene-builtin-textures-full45-20260725`（历史本机产物已清理） 与 `scene-builtin-textures-fixed13-v2-20260725`（历史本机产物已清理）只作旧阶段证据，不能覆盖现役结果。Puppet旧单clip正向门与v24对照分别为`scene-puppet-animation-20260725/targeted-v1`（历史本机产物已清理）、`scene-puppet-animation-20260725/control-v24-v1`（历史本机产物已清理）；当前disjoint-additive定向门为`.codex/scene-puppet-disjoint-3769688830-20260802-v2/report.json`。当前实现基线、报告/App身份与能力边界统一见[运行证据索引](runtime-evidence-index.md)。
 - ordered scheduler 的 Shadow 前阶段证据：`scene-effect-chain-gated-final13-20260723`（历史本机产物已清理）（基线 `b541867`、8 stage、0 real chain、legacy blocked 3）。该报告只说明当时 all-or-nothing chain 负门，不能反向覆盖上述 current Shadow 正门。
 - `scene-user-texture-final13-r2-20260723`（历史本机产物已清理） 降为 format 17 file-property 阶段证据，不能反向覆盖上述当前矩阵或 App 身份。
 - file-backed property 定向门：`scene-user-texture-293-20260723-r1`（历史本机产物已清理）（隔离 `2938612768` 向 `newproperty25/26` 注入 200×200 PNG；两张纹理加载、image 44/44、static image blend 5/5，截图变化证明进入 renderer；不证明 system media、动态 current/previous thumbnail 或 WE 像素 parity）
@@ -350,11 +350,15 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 ### 3.2 `laobamac/MirageWallpaper`
 
 - 仓库：https://github.com/laobamac/MirageWallpaper
-- 本轮本地固定 revision：`8893b25b3fb4abdd63d72e9fe31bdd59e765208a`（tag `v1.0.3`，2026-08-07）
+- 基础专题静态审查 revision：`8893b25b3fb4abdd63d72e9fe31bdd59e765208a`（tag `v1.0.3`，2026-08-07）；[专题正文](miragewallpaper-rendering-reference.md)的基础行号只属于该快照。
+- 近期有界增量 revision：`da4fa7b3ee33e9e94c59307f47098aa521f21aa6`；只覆盖各条证据明确列出的 family、模块与 symbol，不自动重证基础专题全文。
+- 2026-08-13 当前本机干净 checkout：`443777e29a8046615db6275f80ff816a4bad444b`；它已固定用于下一行的Pulse有界复核，对其他尚未逐family复核的类别只是一项候选revision，不能用当前HEAD机械替换旧快照或沿用旧行号。
+- 已完成的 `443777e29a8046615db6275f80ff816a4bad444b` 有界 family 复核：bounded Pulse material/composition，实际读取 `SceneCompiler.cpp`、`LayerEffectStack.cpp::ResolveEffect`、`SceneRenderPlanner.cpp::ToGraphPass`、`MaterialPass.cpp::CustomShaderPass`、`SceneUniformBinder.cpp::FrameBegin/UpdateUniforms`、`WallpaperEngineRuntime.cpp::on(RenderDraw)` 与 `PresentPass.cpp::FinPass`；它只交叉支持 authored material/slot/uniform → ordered effect/target → graph read/write → GPU pass → final present 的职责链，不能作为Pulse公式、alpha边界或像素真值。详见专题增量表。
 - 许可证：GPL-3.0；本项目只静态研究结构与行为边界，不复制源码、shader、纹理、payload、二进制或算法表达。
 - 定位：SwiftUI/AppKit 宿主 + 独立 C++20/Vulkan/MoltenVK Scene renderer。README 明确说明仍处早期，复杂作品可能存在 effect、脚本或材质差异。
 - 专题入口：[MirageWallpaper Scene 显示链路静态研究](miragewallpaper-rendering-reference.md)。该文档覆盖 frame order、TEX physical/mapped extent、slot/sampler、layer-local ping-pong、FBO/RenderGraph、render state、global Bloom、reflection、相机/fill、鼠标/SceneScript、文字、视频、粒子、surface/present，并把可借鉴结构与 Mirage 自身缺口分开记录。
 - 证据边界：等级 `D`。本轮未 build/run，没有 Mirage 与 Windows 的同步像素 golden；其项目自有 renderer 测试覆盖也不足以支撑兼容声明。文档中的静态链路不能更新 MyWallpaperX 覆盖等级。
+- 维护合同：每个新的 Scene family 结论都必须自行固定完整 revision，列出实际读取模块/关键 symbol、`producer -> state/identity -> consumer -> frame order/lifecycle -> failure path` 与 divergence；只写“Mirage 固定 revision”、只链接专题总结或拿当前 HEAD 覆盖历史快照，都不构成可审计交叉验证。
 
 确认的高价值结构：
 

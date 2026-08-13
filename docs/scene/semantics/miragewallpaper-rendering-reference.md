@@ -4,7 +4,7 @@
 >
 > 首次整理：2026-08-08
 >
-> 本轮固定快照：`laobamac/MirageWallpaper`，revision `8893b25b3fb4abdd63d72e9fe31bdd59e765208a`（tag `v1.0.3`，2026-08-07）
+> 基础静态审查快照：`laobamac/MirageWallpaper`，revision `8893b25b3fb4abdd63d72e9fe31bdd59e765208a`（tag `v1.0.3`，2026-08-07）；正文既有行号只属于该快照
 >
 > 证据等级：`D`（独立 GPL-3.0 开源播放器实现）
 
@@ -25,6 +25,20 @@ Mirage 不是 Wallpaper Engine 官方实现。它的 README 明确说明项目�
 - 本轮没有构建或运行 Mirage，也没有以其输出充当像素 golden。所有结论均为固定 revision 的静态源码审查；“疑似缺口”需后续黑盒或样本验证。
 
 下文源码路径均以 `<repo>/Reference Project/MirageWallpaper/` 为根。行号只对应上述固定 revision。
+
+### 1.1 增量复核与逐 family 使用合同
+
+基础快照保留一份完整、可复核的结构研究；后续不能为了追随当前 checkout 而机械替换 revision 或复用旧行号。每个 MyWallpaperX correctness atom 都须在实现前另选一个固定 revision，实际读取该 family 直接相关的 producer、typed state/identity、consumer、frame order/lifecycle 与 failure path，并在下表记录模块、结构结论和 divergence。引用以 `revision + path + symbol` 为主，行号只作该 revision 内的辅助定位。
+
+| 日期 / family | 固定 revision | 实际读取模块 / symbol | 结构结论 | divergence 与项目边界 |
+|---|---|---|---|---|
+| 2026-08-08 全链基础审查 | `8893b25b3fb4abdd63d72e9fe31bdd59e765208a` | 本文 §3 所列 texture/compiler/graph/pass/runtime/particle/surface 模块 | 建立本文 parse-to-present 基础检查表 | 只证明该第三方快照存在静态链；其缺口见 §13，不构成官方或 MyWallpaperX 能力事实 |
+| 2026-08-13 optional sampler / active default | `da4fa7b3ee33e9e94c59307f47098aa521f21aa6` | `ShaderAnnotations.cpp`、`SceneCompiler.cpp` 的 sampler annotation、material presence、preprocess 与 default 回填 | author presence 先决定 combo，prepared active slot 才消费 default | 只支持职责顺序；default/optional 的作者合同仍以官方 Shader Variables 为准，不复制 resolver 或 shader 实现 |
+| 2026-08-13 pointer / SceneScript click chain | `da4fa7b3ee33e9e94c59307f47098aa521f21aa6` | `MacDesktopHost.mm`、`WallpaperApp.cpp`、`WallpaperEngineRuntime.cpp`、`ScriptRuntime.cpp`、`World.cpp` 的 input、tick、hit/capture、mutation 与 graph-dirty symbols | host polling → edge retention → frame input → hit/capture → cursor callbacks → update → visibility/topology commit → graph rebuild → draw | atomic bit latch不保次数/顺序，world AABB hit-test过宽，solid gate/propagation与local coordinates未闭合，`destroyLayer`也不等同官方语义；只借职责与时序，不能当点击 golden |
+| 2026-08-13 bounded Pulse material/composition chain | `443777e29a8046615db6275f80ff816a4bad444b` | `SceneCompiler.cpp` 的 image-effect/material/target编译，`LayerEffectStack.cpp::ResolveEffect`，`SceneRenderPlanner.cpp::ToGraphPass`，`MaterialPass.cpp::CustomShaderPass`，`SceneUniformBinder.cpp::FrameBegin/UpdateUniforms`，`WallpaperEngineRuntime.cpp::on(RenderDraw)`，`PresentPass.cpp::FinPass` | authored material/slot/uniform → layer-local ordered effect/ping-pong → graph texture read/write/version → reflected shader resources/uniforms → offscreen RGBA target → final layer state → present | 只交叉支持资源身份、pass顺序、uniform更新、RGBA target与最终present的职责链；Mirage固定使用RGBA8 UNorm并有自己的blend/load-op/编译兼容选择，不证明Pulse scalar公式、alpha边界、Metal数值或官方像素/时序，本项目仍以官方/合法stock与项目自有GPU fixture为准 |
+| 2026-08-13 当前 checkout 观察 | `443777e29a8046615db6275f80ff816a4bad444b` | 只确认 §3 关键入口仍存在；相对 `da4fa7b`，粒子 geometry/subdivision 与 large-mesh upload/first-frame handling 已变化 | 为后续 texture/effect/particle/dynamic family 提供可固定候选 | 未逐 family 重证，不能把基础或 `da4fa7b` 的全部结论改署到当前 HEAD；触达粒子或 allocation/present 时必须重新读相关变更 |
+
+这项规则适用于纹理/资源/publication、RenderGraph/FBO/composition、effect/shader、粒子和动态输入/SceneScript/交互全部大类。Mirage 始终只是 GPL-3.0 等级 `D` 结构参考；官方合同优先，冲突时记录偏差并保持 unknown/fail-closed，不复制源码、shader、纹理、payload、常量组合、表达式、算法或测试资产。
 
 ## 2. 总体结论
 

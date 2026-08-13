@@ -228,6 +228,189 @@
           "notes": "Layer 116 completed GPU encoding, exact effect-output publication, terminal composition and next-frame execution; the central character became visibly readable while the second family occurrence remained contained at later unsupported stages."
         }
       ]
+    },
+    {
+      "family_key": "shader/frag@aa24ee494d79e460",
+      "repair_state": "bounded-verified",
+      "runtime_proof_state": "visible-chain-closed",
+      "regression_protection_state": "targeted-runtime",
+      "root_cause": "The shared shader frontend had no conservative color-transfer proof for the authored Pulse shape that keeps sampled RGB unchanged while multiplying the same sample alpha by a finite scalar graph fed by one to three direct red-channel data auxiliaries, so seven visible single-stage layers were rejected before Program ownership.",
+      "public_fix": "Recognize only that bounded straight-RGB/scalar-alpha dataflow, require one sampled color and alias, one alpha multiply, distinct direct .r auxiliary samples, the exact max(0, rgb) output and a small scalar grammar, then reuse the existing straight-alpha boundary and typed data/scalar auxiliary gate. Unknown helpers, RGB writes, alpha replacement, other channels and repeated auxiliaries remain rejected.",
+      "commit": "9977d585",
+      "targeted_samples": [
+        "3768229922"
+      ],
+      "roi_evidence": [
+        "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-ready-window.png sha256=fffd204ab8027adf619b6aeee4e826a652864c86275323e1b9d96a337b2b70a3 3024x1964 contains 98448 high-red pixels in bbox x=780...1756 y=0...808",
+        "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-after-window.png sha256=6c16304a8c1c31449797431c1e0b085fef3394b5b7b067fb7897e3611907a40c 3024x1964 retains 97849 high-red pixels in bbox x=783...1754 y=0...815 during the authored opening camera-rise phase"
+      ],
+      "remaining_boundaries": [
+        "The proof covers only the structural straight-RGB/scalar-alpha family; RGB modulation, alpha replacement, unknown helpers, other auxiliary channels and untyped auxiliary color remain rejected.",
+        "The screenshots are an opening camera-rise phase and prove same-sample visible output, not the final static composition or every dynamic effect.",
+        "Display SceneScript, the head-click toggle, shared state, the sixteen dependent overlay layers and Wallpaper Engine pixel or timing equivalence remain unimplemented."
+      ],
+      "regression_gates": [
+        {
+          "kind": "synthetic-positive",
+          "reference": "script/tests/test_scene_resolved_material_pass_encoder.py#test_program_is_prepared_and_encoded_atomically"
+        },
+        {
+          "kind": "synthetic-negative",
+          "reference": "script/tests/test_scene_shader_color_contract.py#test_scalar_auxiliaries_can_only_modulate_sampled_alpha"
+        },
+        {
+          "kind": "targeted-runtime",
+          "reference": "/private/tmp/mwx-pulse-display-pass2-376822/report.json#3768229922"
+        }
+      ],
+      "events": [
+        {
+          "date": "2026-08-13",
+          "state": "bounded-verified",
+          "commit": "9977d585",
+          "evidence_refs": [
+            "/private/tmp/mwx-pulse-display-pass2-376822/report.json#3768229922",
+            "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
+          ],
+          "notes": "Layers 225, 513, 516, 519, 522, 533 and 534 all obtained Program ownership, completed exact effect-output publication and GPU execution, were consumed by the compositor on the first frame, and succeeded again on the next frame."
+        }
+      ]
+    },
+    {
+      "family_key": "dynamic-input/scenescript@82ef17cb868c4f2e",
+      "repair_state": "implemented",
+      "runtime_proof_state": "partial-chain",
+      "regression_protection_state": "targeted-runtime",
+      "root_cause": "Property resolution discarded the authored provenance showing that visible was SceneScript-owned, so an unavailable script runtime could otherwise treat the fallback value as static display authority.",
+      "public_fix": "Preserve visible/alpha SceneScript ownership before value resolution and suppress the owned layer and descendants with an exact diagnostic until an executable script runtime can provide display authority. This is failure isolation only, not execution of the script family.",
+      "commit": "9977d585",
+      "targeted_samples": [
+        "3768229922"
+      ],
+      "roi_evidence": [
+        "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-preview.log records layer 397 fields=visible disposition=suppressed reason=unproven-inline-scenescript"
+      ],
+      "remaining_boundaries": [
+        "Layer 397 is a hidden controller that must keep ticking and map shared.clack to sixteen visual layers; its module, shared state, update callback and mutations are not executed.",
+        "The suppression protects static composition but provides no click interaction, dynamic overlay visibility or Wallpaper Engine equivalence."
+      ],
+      "regression_gates": [
+        {
+          "kind": "synthetic-positive",
+          "reference": "script/tests/test_scene_script_binding_parser.py#test_unproven_display_scripts_suppress_layers_and_descendants"
+        },
+        {
+          "kind": "synthetic-negative",
+          "reference": "script/tests/test_scene_script_binding_parser.py#test_only_display_field_scripts_own_visibility_and_alpha"
+        },
+        {
+          "kind": "targeted-runtime",
+          "reference": "/private/tmp/mwx-pulse-display-pass2-376822/report.json#3768229922"
+        }
+      ],
+      "events": [
+        {
+          "date": "2026-08-13",
+          "state": "implemented",
+          "commit": "9977d585",
+          "evidence_refs": [
+            "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-preview.log",
+            "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
+          ],
+          "notes": "The controller is now explicitly suppressed rather than granted static fallback authority; its actual SceneScript behavior remains unavailable."
+        }
+      ]
+    },
+    {
+      "family_key": "dynamic-input/scenescript@62583305de1f9a21",
+      "repair_state": "implemented",
+      "runtime_proof_state": "partial-chain",
+      "regression_protection_state": "targeted-runtime",
+      "root_cause": "Property resolution discarded the authored provenance showing that visible was SceneScript-owned, so an unavailable script runtime could otherwise treat the fallback value as static display authority.",
+      "public_fix": "Preserve visible/alpha SceneScript ownership before value resolution and suppress the owned layer and descendants with an exact diagnostic until an executable script runtime can provide display authority. This is failure isolation only, not execution of the script family.",
+      "commit": "9977d585",
+      "targeted_samples": [
+        "3768229922"
+      ],
+      "roi_evidence": [
+        "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-preview.log records layer 202 fields=visible disposition=suppressed reason=unproven-inline-scenescript"
+      ],
+      "remaining_boundaries": [
+        "Layer 202 is the authored head hit target and cursorClick producer; ordered pointer edges, solid-only hit testing, capture, shared.clack mutation, alpha blinking and user-property application are not implemented.",
+        "The suppression protects static composition but does not make the head clickable or show and hide the authored overlay."
+      ],
+      "regression_gates": [
+        {
+          "kind": "synthetic-positive",
+          "reference": "script/tests/test_scene_script_binding_parser.py#test_unproven_display_scripts_suppress_layers_and_descendants"
+        },
+        {
+          "kind": "synthetic-negative",
+          "reference": "script/tests/test_scene_script_binding_parser.py#test_only_display_field_scripts_own_visibility_and_alpha"
+        },
+        {
+          "kind": "targeted-runtime",
+          "reference": "/private/tmp/mwx-pulse-display-pass2-376822/report.json#3768229922"
+        }
+      ],
+      "events": [
+        {
+          "date": "2026-08-13",
+          "state": "implemented",
+          "commit": "9977d585",
+          "evidence_refs": [
+            "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-preview.log",
+            "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
+          ],
+          "notes": "The click-owner layer is now explicitly suppressed rather than granted static fallback authority; no pointer or script execution is claimed."
+        }
+      ]
+    },
+    {
+      "family_key": "dynamic-input/scenescript@c434d003fa58a779",
+      "repair_state": "implemented",
+      "runtime_proof_state": "partial-chain",
+      "regression_protection_state": "targeted-runtime",
+      "root_cause": "Property resolution discarded the authored provenance showing that visible was SceneScript-owned, so the unavailable lifecycle script's true fallback could be composited as a static opaque opening layer and obscure the already rendered scene.",
+      "public_fix": "Preserve visible/alpha SceneScript ownership before value resolution and suppress the owned layer and descendants with an exact diagnostic until an executable script runtime can provide display authority. This is failure isolation only, not execution of the opening lifecycle script.",
+      "commit": "9977d585",
+      "targeted_samples": [
+        "3768229922"
+      ],
+      "roi_evidence": [
+        "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-preview.log records layer 354 fields=visible disposition=suppressed reason=unproven-inline-scenescript",
+        "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-ready-window.png sha256=fffd204ab8027adf619b6aeee4e826a652864c86275323e1b9d96a337b2b70a3 exposes the opening camera-rise scene instead of allowing the opaque fallback layer to cover it"
+      ],
+      "remaining_boundaries": [
+        "Layer 354's authored fade, visible mutation and delayed destroy lifecycle are not executed; the correct official opening timing remains unknown in this runtime.",
+        "The exposed opening-phase composition is not proof of final-phase or Wallpaper Engine pixel and timing equivalence."
+      ],
+      "regression_gates": [
+        {
+          "kind": "synthetic-positive",
+          "reference": "script/tests/test_scene_script_binding_parser.py#test_unproven_display_scripts_suppress_layers_and_descendants"
+        },
+        {
+          "kind": "synthetic-negative",
+          "reference": "script/tests/test_scene_script_binding_parser.py#test_only_display_field_scripts_own_visibility_and_alpha"
+        },
+        {
+          "kind": "targeted-runtime",
+          "reference": "/private/tmp/mwx-pulse-display-pass2-376822/report.json#3768229922"
+        }
+      ],
+      "events": [
+        {
+          "date": "2026-08-13",
+          "state": "implemented",
+          "commit": "9977d585",
+          "evidence_refs": [
+            "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-preview.log",
+            "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
+          ],
+          "notes": "The opaque opening layer can no longer obtain static fallback display authority; its fade and destroy lifecycle remain unavailable."
+        }
+      ]
     }
   ],
   "schema_version": 1,

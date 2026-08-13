@@ -1101,6 +1101,23 @@ def render_markdown(census: dict[str, Any]) -> str:
     )
     domain_rows = Counter(item["domain"] for item in census["occurrences"])
     family_domains = Counter(item["domain"] for item in census["families"])
+    package_anomalies = [
+        (sample, diagnostic)
+        for sample in samples
+        for diagnostic in sample.get("diagnostics", [])
+        if diagnostic.get("code") == "duplicate-package-path"
+    ]
+    anomaly_lines = []
+    for sample, diagnostic in package_anomalies:
+        indices = "/".join(str(value) for value in diagnostic.get("entry_indices", []))
+        equality = "同字节" if diagnostic.get("content_equal") else "不同字节"
+        anomaly_lines.append(
+            f"样本 `{sample['sample_id']}` 的 `{diagnostic.get('path', 'unknown')}` "
+            f"entry重复（indices {indices}，{equality}；该包 "
+            f"{sample['package_entry_count']} entries / "
+            f"{sample['package_unique_path_count']} unique paths）"
+        )
+    anomaly_summary = "；".join(anomaly_lines) or "无"
     lines = [
         "# Scene 全样本能力分类与修复台账",
         "",
@@ -1114,7 +1131,7 @@ def render_markdown(census: dict[str, Any]) -> str:
         f"- tracked full-matrix baseline 当前覆盖 **{summary['matrix_sample_count']}** 个历史成员，状态为 `{summary['matrix_coverage_state']}`；本 census 新发现但未 join 运行证据的样本为 `{', '.join(summary['added_since_matrix']) or '无'}`，是否曾单独运行不能由静态扫描判断。",
         f"- 全量 authored census 共保存 **{summary['occurrence_count']}** 个 typed occurrence、**{summary['family_count']}** 个公共结构 family、**{summary['parameter_profile_count']}** 个参数 profile 与 **{summary['schema_field_profile_count']}** 个 JSON 字段 profile。",
         f"- 物理 corpus 共 **{summary['package_entry_count']}** 个 PKG entry / **{summary['package_unique_path_count']}** 个唯一路径，包体约 **{summary['package_byte_count'] / 1_000_000_000:.3f} GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 {summary['matrix_sample_count']}，期间不得称为当前完整快照门。",
-        "- 唯一 package anomaly 是样本 `3768724269` 的同路径同字节字体 entry 重复（indices 59/80）；两项都保留在物理 entry 守恒中，因此 3068 entries 对应 3067 unique paths，不是漏扫。",
+        f"- package anomaly：{anomaly_summary}；重复entry继续保留在物理守恒中，不是漏扫。",
         f"- 结构 fallback 记录为 **{summary['unclassified_count']}**，另有 **{summary['generic_or_unknown_family_count']}** 个 generic/unknown/unresolved family；两者都不是运行失败数。本 census 未 join 运行证据的样本，其第一 blocker 保持 `unknown`，不得从静态形态猜测。",
         "- 开发按“真实可见链第一断裂边覆盖的共享 family”排序；大类用于汇总，不允许把所有纹理、Effect 或粒子一次性做成巨型补丁。",
         "",
@@ -1125,6 +1142,7 @@ def render_markdown(census: dict[str, Any]) -> str:
         "3. `family_key` 只由公共语义形态生成；sample/layer/path/hash 只作 evidence identity，产品实现不得按具体值 dispatch。",
         "4. 所有参数以名称、类型、arity、范围、wrapper source 和结构签名记录；只保留 project title 元数据，不复制 layer 文字、shader、SceneScript、纹理、JSON 片段或二进制 payload。",
         "5. 修好一族后在 `scene_capability_repair_ledger.json` 记录根因、公共修法、commit、正反门、真实样本、ROI、剩余边界；重新扫描不会覆盖历史。",
+        "6. 每个 family 开批前先以官方资料界定作者合同，再实际读取 MirageWallpaper 固定 revision 的相关 producer/state/consumer/frame/failure 源码并记录 divergence；第三方总结不能代替本批源码审查，GPL 实现不能进入项目。",
         "",
         "## 3. 大类总览",
         "",
@@ -1265,8 +1283,9 @@ def render_markdown(census: dict[str, Any]) -> str:
         "1. 新增/删除样本后先只读运行 corpus census，确认 `discovered = parsed + failed`、occurrence 与 JSON leaf 守恒。",
         "2. authored census 一旦发现样本增删，tracked full-matrix baseline 立即标为 `pending-expansion`，不得再称完整；新样本的运行状态先记为本 census 未 join，随后用独立 milestone 扩容批建立运行期待并更新 matrix。",
         "3. 从 fresh 隔离报告提取可见链第一个断裂 family，按阻断样本数、缺图严重度、官方证据和可验证性选择一个 correctness atom。",
-        "4. 同批实现公共代码、synthetic 正反门、真实 ROI 门；再写 repair event 和专项文档，不建立样本专用分支。",
-        "5. `targeted_samples` 与 `regression_gates` 是后续必须重跑的 sentinel 合同；触达同 family 或它依赖的 selection/Program/publication/composition 时必须执行，不能用新的 aggregate count 覆盖旧视觉正证。",
+        "4. 先核对官方作者合同；随后固定 MirageWallpaper revision，实际读取该 family 的 producer、typed state/identity、consumer、frame order/lifecycle 与 failure path，并在专项资料记录模块和 divergence。只有总结链接或未绑定 hash 的‘参考实现类似’不算完成。",
+        "5. 同批实现公共代码、synthetic 正反门、真实 ROI 门；再写 repair event 和专项文档，不建立样本专用分支，也不复制第三方算法或 payload。",
+        "6. `targeted_samples` 与 `regression_gates` 是后续必须重跑的 sentinel 合同；触达同 family 或它依赖的 selection/Program/publication/composition 时必须执行，不能用新的 aggregate count 覆盖旧视觉正证。",
         "",
         "生成命令：",
         "",
