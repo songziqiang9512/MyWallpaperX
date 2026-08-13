@@ -43,6 +43,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer+Scalar.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
@@ -1936,6 +1938,53 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(output["offscreenWidth"], 3840)
         self.assertEqual(output["offscreenHeight"], 2160)
         self.assertGreater(output["staticLoopWork"], 1)
+
+    def test_uniform_rgb_scan_band_compiles_with_one_straight_boundary(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            uniform vec4 g_Texture0Resolution;
+            uniform float g_Time;
+            uniform vec3 u_BandColor;
+            uniform float u_Spacing;
+            uniform float u_Thickness;
+            uniform float u_Opacity;
+            uniform float u_Softness;
+            uniform float u_Speed;
+            varying vec2 v_TexCoord;
+            float bandMask(float pixelY) {
+                float spacing = max(floor(u_Spacing + 0.5), 1.0);
+                float thickness = clamp(
+                    floor(u_Thickness + 0.5), 0.0, spacing
+                );
+                float halfThickness = thickness * 0.5;
+                float cell = frac(pixelY / spacing) * spacing;
+                float distanceToBand = min(cell, spacing - cell);
+                float softness = max(u_Softness, 0.001);
+                float band = 1.0 - smoothstep(
+                    halfThickness, halfThickness + softness, distanceToBand
+                );
+                return band * step(0.001, thickness);
+            }
+            void main() {
+                vec4 source = texSample2D(g_Texture0, v_TexCoord.xy);
+                float height = max(g_Texture0Resolution.y, 1.0);
+                float pixelY = v_TexCoord.y * height + g_Time * u_Speed;
+                float mask = bandMask(pixelY);
+                float weight = saturate(mask * u_Opacity);
+                vec3 mixed = mix(source.rgb, u_BandColor, weight);
+                gl_FragColor = vec4(mixed, source.a);
+            }
+            """,
+        )
+        source = output["metalSource"]
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["textureSlots"], [0])
+        self.assertEqual(output["textureChannelUses"], ["unproven"])
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+        self.assertIsNone(output.get("metalError"))
 
 
 if __name__ == "__main__":

@@ -44,6 +44,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer+Scalar.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
@@ -165,6 +167,19 @@ uniform float g_Gain;
 void main() {
     vec4 color = texSample2D(g_Texture0, v_TexCoord);
     gl_FragColor = vec4(color.rgb, color.a * g_Gain);
+}
+"""
+
+private let scanlineUniformRGBMixFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform float g_Gain;
+uniform vec3 g_Tint;
+void main() {
+    vec4 source = texSample2D(g_Texture0, v_TexCoord);
+    float weight = saturate(g_Gain);
+    vec3 mixed = mix(source.rgb, g_Tint, weight);
+    gl_FragColor = vec4(mixed, source.a);
 }
 """
 
@@ -388,6 +403,12 @@ private func resolvedUniforms(
                 field: field,
                 source: .staticValue,
                 encodedValue: data(gain)
+            )
+        case "g_Tint":
+            return .init(
+                field: field,
+                source: .staticValue,
+                encodedValue: data(SIMD3<Float>(1, 0, 0.5))
             )
         case "mwxRenderSize":
             return .init(
@@ -712,6 +733,36 @@ private enum Harness {
             ))
         ) == nil
 
+        let scanlinePrepared = prepared(
+            revision: "scanline-uniform-rgb-mix",
+            fragment: scanlineUniformRGBMixFragment
+        )
+        let scanlineRole = Template.GraphRole(
+            effectInput: .layerSource,
+            effectOutput: .effectOutput,
+            nodeTarget: .effectOutput,
+            bindings: [.init(slot: 0, texture: .layerSource)]
+        )
+        let scanlinePremultiplied = assemble(
+            prepared: scanlinePrepared,
+            textureSlots: slots(textureSlot(
+                device: device,
+                marker: 40,
+                graphKind: .layerSource
+            )),
+            role: scanlineRole
+        )
+        let scanlineDataRejected = assemble(
+            prepared: scanlinePrepared,
+            textureSlots: slots(textureSlot(
+                device: device,
+                marker: 41,
+                content: .data,
+                graphKind: .layerSource
+            )),
+            role: scanlineRole
+        ) == nil
+
         let maskedPrepared = prepared(
             revision: "masked-alpha-boundary",
             fragment: maskedAlphaFragment
@@ -937,6 +988,15 @@ private enum Harness {
             "straightOpaqueAccepted": hasStraightAlphaBoundary(straightOpaque),
             "straightInputRejected": straightInputRejected,
             "straightDataRejected": straightDataRejected,
+            "scanlinePremultipliedLayerSourceAccepted":
+                hasStraightAlphaPreservingBoundary(scanlinePremultiplied)
+                && scanlinePremultiplied?.semanticIdentity.graphRole.effectInput
+                    == .layerSource
+                && scanlinePremultiplied?.semanticIdentity.graphRole.nodeTarget
+                    == .effectOutput
+                && scanlinePremultiplied?.semanticIdentity.colorContract
+                    .framebufferInput == .premultipliedAlpha,
+            "scanlineDataLayerSourceRejected": scanlineDataRejected,
             "maskedDataAccepted": hasStraightAlphaBoundary(maskedDataAccepted),
             "maskedColorRejected": maskedColorRejected,
             "opaqueAlphaAccepted": hasStraightAlphaPreservingBoundary(

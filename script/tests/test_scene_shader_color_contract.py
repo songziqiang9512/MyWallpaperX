@@ -40,6 +40,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer+Scalar.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
@@ -65,6 +67,9 @@ private func fragment(_ body: String, helpers: String = "") -> String {
     uniform sampler2D g_Texture1;
     uniform sampler2D g_Texture3;
     uniform float g_ScalarWeight;
+    uniform vec3 g_Tint;
+    uniform vec3 g_VectorWeight;
+    varying vec3 v_Tint;
     vec3 ApplyBlending(
         const int mode,
         in vec3 base,
@@ -101,8 +106,10 @@ private func program(_ body: String, helpers: String = "") -> SceneAuthoredShade
     attribute vec3 a_Position;
     attribute vec2 a_TexCoord;
     varying vec2 v_TexCoord;
+    varying vec3 v_Tint;
     void main() {
         v_TexCoord = a_TexCoord;
+        v_Tint = vec3(a_TexCoord, 0.0);
         gl_Position = vec4(a_Position, 1.0);
     }
     """
@@ -677,6 +684,93 @@ enum Harness {
                 "color.rgb = mix(color, shifted, mask); " +
                 "gl_FragColor = color;"
             ),
+            "scanlineUniformRGBMix": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float weight = saturate(g_ScalarWeight); " +
+                "vec3 mixed = mix(source.rgb, g_Tint, weight); " +
+                "gl_FragColor = vec4(mixed, source.a);"
+            ),
+            "scanlineUniformRGBMixMetal": metal(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float weight = saturate(g_ScalarWeight); " +
+                "vec3 mixed = mix(source.rgb, g_Tint, weight); " +
+                "gl_FragColor = vec4(mixed, source.a);"
+            ),
+            "scanlineUniformRGBMixDependencyDiamond": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord.xy); " +
+                "float origin = g_ScalarWeight; " +
+                "float left = saturate(origin); " +
+                "float right = saturate(origin); " +
+                "float weight = saturate(left * right); " +
+                "vec3 mixed = mix(source.rgb, g_Tint, weight); " +
+                "gl_FragColor = vec4(mixed, source.a);"
+            ),
+            "scanlineAlphaRewrite": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float weight = saturate(g_ScalarWeight); " +
+                "vec3 mixed = mix(source.rgb, g_Tint, weight); " +
+                "gl_FragColor = vec4(mixed, source.a * 0.5);"
+            ),
+            "scanlineSecondColorSample": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 second = texSample2D(g_Texture1, v_TexCoord); " +
+                "float weight = saturate(g_ScalarWeight); " +
+                "vec3 mixed = mix(source.rgb, second.rgb, weight); " +
+                "gl_FragColor = vec4(mixed, source.a);"
+            ),
+            "scanlineUnboundedWeight": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float weight = g_ScalarWeight; " +
+                "vec3 mixed = mix(source.rgb, g_Tint, weight); " +
+                "gl_FragColor = vec4(mixed, source.a);"
+            ),
+            "scanlineVectorWeight": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec3 weight = saturate(g_VectorWeight); " +
+                "vec3 mixed = mix(source.rgb, g_Tint, weight); " +
+                "gl_FragColor = vec4(mixed, source.a);"
+            ),
+            "scanlineVaryingTint": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float weight = saturate(g_ScalarWeight); " +
+                "vec3 mixed = mix(source.rgb, v_Tint, weight); " +
+                "gl_FragColor = vec4(mixed, source.a);"
+            ),
+            "scanlineCustomMix": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float weight = saturate(g_ScalarWeight); " +
+                "vec3 mixed = CustomMix(source.rgb, g_Tint, weight); " +
+                "gl_FragColor = vec4(mixed, source.a);",
+                helpers: "vec3 CustomMix(in vec3 base, in vec3 tint, " +
+                    "in float weight) { return mix(base, tint, weight); }"
+            ),
+            "scanlineMutatingWeightHelper": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float rawWeight = g_ScalarWeight; " +
+                "float weight = MutatingWeight(rawWeight); " +
+                "vec3 mixed = mix(source.rgb, g_Tint, weight); " +
+                "gl_FragColor = vec4(mixed, source.a);",
+                helpers: "float MutatingWeight(inout float value) { " +
+                    "value = saturate(value); return value; }"
+            ),
+            "scanlineShadowedSmoothstep": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float raw = smoothstep(0.0, 1.0, g_ScalarWeight); " +
+                "float weight = saturate(raw); " +
+                "vec3 mixed = mix(source.rgb, g_Tint, weight); " +
+                "gl_FragColor = vec4(mixed, source.a);",
+                helpers: "float smoothstep(float low, float high, float value) { " +
+                    "float sampled = texSample2D(g_Texture1, v_TexCoord).r; " +
+                    "return sampled * 4.0; }"
+            ),
+            "scanlineShadowedFloat4": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float weight = saturate(g_ScalarWeight); " +
+                "vec3 mixed = mix(source.rgb, g_Tint, weight); " +
+                "gl_FragColor = float4(mixed, source.a);",
+                helpers: "float4 float4(vec3 rgb, float alpha) { " +
+                    "return vec4(rgb, 0.5); }"
+            ),
             "alphaPreservingMetal": metal(
                 "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
                 "vec4 color = sampled; color.rgb = vec3(0.25); " +
@@ -867,6 +961,7 @@ class SceneShaderColorContractTests(unittest.TestCase):
         harness = temporary / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
         binary = temporary / "shader-color-transfer"
+        cls.binary = binary
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(temporary / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(temporary / "swift-cache")
@@ -1055,6 +1150,45 @@ class SceneShaderColorContractTests(unittest.TestCase):
         source = self.result["alphaPreservingRGBMixMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+
+    def test_scanline_uniform_rgb_mix_has_one_straight_color_boundary(self) -> None:
+        self.assertEqual(
+            self.result["scanlineUniformRGBMix"],
+            "straight-preserving-slot:0",
+        )
+        source = self.result["scanlineUniformRGBMixMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertNotIn("mwxUnpremultiply(mwxTexture1.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+        self.assertEqual(
+            self.result["scanlineUniformRGBMixDependencyDiamond"],
+            "straight-preserving-slot:0",
+        )
+        for _ in range(32):
+            completed = subprocess.run(
+                [str(self.binary)], check=True, capture_output=True, text=True
+            )
+            repeated = json.loads(completed.stdout)
+            self.assertEqual(
+                repeated["scanlineUniformRGBMixDependencyDiamond"],
+                "straight-preserving-slot:0",
+            )
+
+    def test_scanline_uniform_rgb_mix_rejects_unproven_shapes(self) -> None:
+        for key in (
+            "scanlineAlphaRewrite",
+            "scanlineSecondColorSample",
+            "scanlineUnboundedWeight",
+            "scanlineVectorWeight",
+            "scanlineCustomMix",
+            "scanlineMutatingWeightHelper",
+            "scanlineShadowedSmoothstep",
+            "scanlineShadowedFloat4",
+            "scanlineVaryingTint",
+        ):
+            self.assertNotEqual(
+                self.result[key], "straight-preserving-slot:0", key
+            )
 
     def test_independent_alpha_signal_is_bounded_and_composed_explicitly(self) -> None:
         self.assertEqual(self.result["independentSignal"], "signal-slot:0")

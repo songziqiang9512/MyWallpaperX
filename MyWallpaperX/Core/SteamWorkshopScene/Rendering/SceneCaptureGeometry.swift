@@ -40,7 +40,7 @@ enum SceneCaptureGeometryResolver {
               viewportSize.width > 0, viewportSize.height > 0 else {
             return nil
         }
-        guard kind == .composition else {
+        if kind == .fullscreen {
             return SceneCaptureGeometry(
                 sourceUV: .identity,
                 outputMVP: fullTargetMVP,

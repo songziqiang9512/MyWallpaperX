@@ -69,6 +69,10 @@ enum Harness {
             ],
             "fullscreenSize": [fullscreen.pixelSize.width, fullscreen.pixelSize.height],
             "fullscreenOutput": matrix(fullscreen.outputMVP),
+            "projectOrigin": vector(project.sourceUV.origin),
+            "projectXAxis": vector(project.sourceUV.xAxis),
+            "projectYAxis": vector(project.sourceUV.yAxis),
+            "projectSize": [project.pixelSize.width, project.pixelSize.height],
             "projectOutput": matrix(project.outputMVP),
             "invalidIsNil": invalid == nil,
             "projectedSize": projected.map { [$0.width, $0.height] } ?? [],
@@ -128,13 +132,19 @@ class SceneCaptureGeometryTests(unittest.TestCase):
             [1, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 1, 0, 0.5, -0.25, 0, 1],
         )
 
-    def test_project_and_fullscreen_use_identity_full_frame_geometry(self) -> None:
+    def test_fullscreen_uses_identity_viewport_geometry(self) -> None:
         self.assertEqual(self.result["fullscreenOrigin"], [0, 0])
         self.assertEqual(self.result["fullscreenAxes"], [1, 0, 0, 1])
         self.assertEqual(self.result["fullscreenSize"], [1000, 800])
         full_target = [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
         self.assertEqual(self.result["fullscreenOutput"], full_target)
-        self.assertEqual(self.result["projectOutput"], full_target)
+
+    def test_project_uses_wallpaper_aligned_projected_geometry(self) -> None:
+        self.assertEqual(self.result["projectOrigin"], [0.5, 0.5])
+        self.assertEqual(self.result["projectXAxis"], [0.5, 0])
+        self.assertEqual(self.result["projectYAxis"], [0, 0.25])
+        self.assertEqual(self.result["projectSize"], [500, 200])
+        self.assertEqual(self.result["projectOutput"], self.result["localOutput"])
 
     def test_degenerate_viewport_is_rejected(self) -> None:
         self.assertTrue(self.result["invalidIsNil"])

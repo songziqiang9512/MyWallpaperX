@@ -105,7 +105,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return .failure(rejection("direct-draw-source-dependent"))
             }
             if sourceRoute == .capturedMainTargetTexture,
-               !variants.hasAudioSpectrumConsumer {
+               !variants.supportsCapturedMainTargetTexture {
                 return .failure(rejection("utility-source-program-unsupported"))
             }
             guard dynamicUniformsAreExecutable(

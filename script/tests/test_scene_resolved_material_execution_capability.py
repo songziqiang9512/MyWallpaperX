@@ -497,6 +497,7 @@ final class SceneResolvedMaterialVariantCache {
     }
 
     private let audioSpectrumConsumer: Bool
+    private let capturedMainTargetTextureSupport: Bool
 
     init?(
         template: SceneResolvedMaterialTemplate,
@@ -508,6 +509,10 @@ final class SceneResolvedMaterialVariantCache {
         audioSpectrumConsumer = template.uniformDeclarations.contains {
             $0.name.hasPrefix("g_AudioSpectrum")
         }
+        capturedMainTargetTextureSupport =
+            template.graphRole.effectInput == .layerSource
+                && template.graphRole.bindings.count == 1
+                && template.graphRole.bindings[0].texture == .layerSource
     }
 
     func precompileLaunchEnvelope(
@@ -521,6 +526,9 @@ final class SceneResolvedMaterialVariantCache {
 
     var supportsTransparentDirectDraw: Bool { true }
     var hasAudioSpectrumConsumer: Bool { audioSpectrumConsumer }
+    var supportsCapturedMainTargetTexture: Bool {
+        capturedMainTargetTextureSupport
+    }
     func provesRedOnlyConsumer(slot: Int) -> Bool {
         _ = slot
         return false
@@ -1390,7 +1398,8 @@ private func descriptor(
     authoredDependencies: [Int] = [],
     parentVisible: Bool? = nil,
     namedReferences: [SceneDependencyRenderPlan.Reference] = [],
-    namedBindings: [SceneDependencyRenderPlan.Binding] = []
+    namedBindings: [SceneDependencyRenderPlan.Binding] = [],
+    singleEffect: Bool = false
 ) -> SceneRenderDescriptor {
     let firstPasses = (0 ..< 4).map {
         SceneRenderDescriptor.PassDescriptor(
@@ -1421,28 +1430,31 @@ private func descriptor(
         ))
     }
     let parentID = parentVisible == nil ? nil : layerID + 1
+    var effects: [SceneRenderDescriptor.EffectDescriptor] = [
+        .init(
+            id: firstKey.descriptorID,
+            file: "effects/first/effect.json",
+            visible: true,
+            passes: firstPasses
+        ),
+        .init(
+            id: "hidden-middle",
+            file: "effects/hidden/effect.json",
+            visible: false,
+            passes: []
+        ),
+    ]
+    if !singleEffect {
+        effects.append(.init(
+            id: secondKey.descriptorID,
+            file: "effects/second/effect.json",
+            visible: true,
+            passes: [.init(passIndex: 0, combos: ["MODE": 1])]
+        ))
+    }
     var layers: [SceneRenderDescriptor.Layer] = [.init(
             id: layerID,
-            effects: [
-                .init(
-                    id: firstKey.descriptorID,
-                    file: "effects/first/effect.json",
-                    visible: true,
-                    passes: firstPasses
-                ),
-                .init(
-                    id: "hidden-middle",
-                    file: "effects/hidden/effect.json",
-                    visible: false,
-                    passes: []
-                ),
-                .init(
-                    id: secondKey.descriptorID,
-                    file: "effects/second/effect.json",
-                    visible: true,
-                    passes: [.init(passIndex: 0, combos: ["MODE": 1])]
-                ),
-            ],
+            effects: effects,
             contentKind: contentKind,
             utilityLayer: utilityLayer.flatMap(SceneUtilityLayer.Kind.init)
                 .map(SceneUtilityLayer.init),
@@ -1989,37 +2001,18 @@ private enum Harness {
             subjects: expectedDispositionSubjects
         )
         let foreignClaim = secondCatalog.claim(layerID: layerID)!
-        let utilityCatalog = catalog(
+        let projectUtilityGraph = rawGraph(omitSecond: true)
+        let projectUtilityCatalog = catalog(
             descriptor: descriptor(
-                contentKind: "composition",
-                utilityLayer: "composition"
+                contentKind: "project",
+                utilityLayer: "project",
+                singleEffect: true
             ),
-            graphs: [raw],
-            materials: materialCatalog(
-                graph: raw,
-                omitNode: 1,
-                uniformsByNode: Dictionary(
-                    uniqueKeysWithValues: [0, 2, 3, 4].map { index in
-                        (index, [
-                            .init(
-                                name: "g_AudioSpectrum16Left",
-                                value: .staticExact
-                            ),
-                        ])
-                    }
-                )
-            )
+            graphs: [projectUtilityGraph],
+            materials: materialCatalog(graph: projectUtilityGraph, omitNode: 1)
         )
-        let utilityRoute = utilityCatalog.claim(layerID: layerID)
-            .flatMap { utilityCatalog.resolve($0.token)?.sourceRoute }
-        let nonAudioUtilityCatalog = catalog(
-            descriptor: descriptor(
-                contentKind: "composition",
-                utilityLayer: "composition"
-            ),
-            graphs: [raw],
-            materials: materialCatalog(graph: raw, omitNode: 1)
-        )
+        let utilityRoute = projectUtilityCatalog.claim(layerID: layerID)
+            .flatMap { projectUtilityCatalog.resolve($0.token)?.sourceRoute }
         let utilityPairGraph = pairOnlyGraph()
         let utilityPairDescriptor = descriptor(
             contentKind: "composition",
@@ -2041,10 +2034,7 @@ private enum Harness {
             admissionCandidates: utilityAdapterCandidates,
             materialCatalog: materialCatalog(
                 graph: utilityPairGraph,
-                omitNode: 1,
-                uniformsByNode: [0: [
-                    .init(name: "g_AudioSpectrum16Left", value: .staticExact),
-                ]]
+                omitNode: 1
             ),
             dedicatedStageFamilies: [secondKey: "opacity"],
             dedicatedLeafKeys: [secondKey]
@@ -2066,10 +2056,7 @@ private enum Harness {
             admissionCandidates: unsupportedUtilityAdapterCandidates,
             materialCatalog: materialCatalog(
                 graph: utilityPairGraph,
-                omitNode: 1,
-                uniformsByNode: [0: [
-                    .init(name: "g_AudioSpectrum16Left", value: .staticExact),
-                ]]
+                omitNode: 1
             ),
             dedicatedStageFamilies: [secondKey: "opacity"],
             dedicatedLeafKeys: [secondKey]
@@ -2811,10 +2798,8 @@ private enum Harness {
                     reason: "execution-route-content-kind"
                 ),
                 "utilityCapture": utilityRoute == .capturedMainTargetTexture,
-                "utilityNonAudioRejected": reportHas(
-                    nonAudioUtilityCatalog,
-                    "utility-source-program-unsupported"
-                ) && nonAudioUtilityCatalog.claim(layerID: layerID) == nil,
+                "projectUtilityNonAudioAccepted":
+                    projectUtilityCatalog.claim(layerID: layerID) != nil,
                 "utilityAdapterAccepted":
                     utilityAdapterCapability != nil,
                 "utilityAdapterContract": utilityAdapterCapability.map { capability in
@@ -3116,7 +3101,10 @@ private func fragmentSource(
     maskedAlpha: Bool = false,
     unconditionalMaskedAlpha: Bool = false,
     transparentDirectDraw: Bool = false,
-    audioDirectDraw: Bool = false
+    audioDirectDraw: Bool = false,
+    opaqueSecondGraph: Bool = false,
+    independentAlphaSignal: Bool = false,
+    variantMixedSource: Bool = false
 ) -> String {
     let comboAnnotation = comboMetadata.map { "// \($0)" } ?? ""
     let varyingType = frontendInvalid ? "vec3" : "vec2"
@@ -3147,7 +3135,31 @@ private func fragmentSource(
     } else {
         helper = ""
     }
-    if audioDirectDraw {
+    if variantMixedSource {
+        output = """
+        #if EXTRA
+        vec4 source = texSample2D(\(firstName), v_TexCoord);
+        float auxiliary = texSample2D(g_Texture1, v_TexCoord).r;
+        gl_FragColor = vec4(source.rgb * auxiliary, 1.0);
+        #else
+        gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0);
+        #endif
+        """
+    } else if independentAlphaSignal {
+        output = """
+        vec4 sample = texSample2D(\(firstName), v_TexCoord);
+        sample.rgb *= sample.a;
+        sample.a = 1.0;
+        gl_FragColor = sample * 0.5;
+        gl_FragColor.a *= 0.25;
+        """
+    } else if opaqueSecondGraph {
+        output = """
+        vec4 source = texSample2D(\(firstName), v_TexCoord);
+        float second = texSample2D(g_Texture1, v_TexCoord).r;
+        gl_FragColor = vec4(source.rgb * second, 1.0);
+        """
+    } else if audioDirectDraw {
         output = """
         float amplitude = g_AudioSpectrum16Left[0];
         gl_FragColor = vec4(amplitude, amplitude, amplitude, 1.0);
@@ -3255,7 +3267,10 @@ private func contract(
     maskedAlpha: Bool = false,
     unconditionalMaskedAlpha: Bool = false,
     transparentDirectDraw: Bool = false,
-    audioDirectDraw: Bool = false
+    audioDirectDraw: Bool = false,
+    opaqueSecondGraph: Bool = false,
+    independentAlphaSignal: Bool = false,
+    variantMixedSource: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -3293,7 +3308,10 @@ private func contract(
         maskedAlpha: maskedAlpha,
         unconditionalMaskedAlpha: unconditionalMaskedAlpha,
         transparentDirectDraw: transparentDirectDraw,
-        audioDirectDraw: audioDirectDraw
+        audioDirectDraw: audioDirectDraw,
+        opaqueSecondGraph: opaqueSecondGraph,
+        independentAlphaSignal: independentAlphaSignal,
+        variantMixedSource: variantMixedSource
     )
     let stages = [
         stage(.vertex, path: "\(revision)/root.vert", source: vertexSource),
@@ -3350,13 +3368,14 @@ private func previousOutput() -> Graph.TextureIdentity {
 
 private func graph(
     withPrimaryBinding: Bool,
+    withSecondGraphBinding: Bool = false,
     materialCount: Int = 1,
     input: Graph.TextureIdentity? = nil,
     nodeTarget: Graph.TextureIdentity? = nil
 ) -> Graph {
     let graphInput = input ?? source()
     let target = nodeTarget ?? output()
-    let bindings: [Graph.Binding] = withPrimaryBinding ? [
+    var bindings: [Graph.Binding] = withPrimaryBinding ? [
         .init(
             slot: 0,
             authoredName: "previous",
@@ -3364,6 +3383,14 @@ private func graph(
             conditions: nil
         ),
     ] : []
+    if withSecondGraphBinding {
+        bindings.append(.init(
+            slot: 1,
+            authoredName: "second-previous",
+            texture: graphInput,
+            conditions: nil
+        ))
+    }
     let nodes = (0 ..< materialCount).map { index in
         Graph.Node(
             nodeIndex: index,
@@ -3427,6 +3454,10 @@ private func assetCandidate(_ path: String) -> Template.TextureCandidate {
         reference: .asset(SceneVFSAssetPath(path)!),
         provenance: .instance
     )
+}
+
+private func userPropertyCandidate(_ key: String) -> Template.TextureCandidate {
+    .init(reference: .userProperty(.init(key: key)), provenance: .instance)
 }
 
 private func materialTemplate(
@@ -4013,6 +4044,173 @@ private enum EnvelopeHarness {
             ),
             sourceRoute: .transparentDirectDraw
         )
+        let capturedMainPositiveTemplate = materialTemplate(
+            graph: unboundGraph,
+            shader: contract(
+                "captured-main-positive",
+                firstMetadata: #"{"material":"framebuffer"}"#
+            ),
+            slots: slots()
+        )
+        let capturedMainPositive = catalog(
+            graph: unboundGraph,
+            template: capturedMainPositiveTemplate,
+            sourceRoute: .capturedMainTargetTexture
+        )
+        let capturedMainCompetingSource = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "captured-main-competing-source",
+                    firstMetadata: #"{"material":"framebuffer"}"#
+                ),
+                slots: slots(primary: userPropertyCandidate("capture-source"))
+            ),
+            sourceRoute: .capturedMainTargetTexture
+        )
+        let capturedMainWrongMode = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "captured-main-wrong-mode",
+                    firstMetadata:
+                        #"{"material":"framebuffer","mode":"depth"}"#
+                ),
+                slots: slots()
+            ),
+            sourceRoute: .capturedMainTargetTexture
+        )
+        let capturedMainDefaultSource = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "captured-main-default-source",
+                    firstMetadata:
+                        #"{"material":"framebuffer","default":"util/noise"}"#
+                ),
+                slots: slots()
+            ),
+            sourceRoute: .capturedMainTargetTexture,
+            assetStates: [
+                .init(
+                    path: SceneVFSAssetPath("util/noise")!,
+                    purpose: .noise
+                ): .absent,
+            ]
+        )
+        let capturedMainNoGraphInput = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "captured-main-no-graph-input",
+                    transparentDirectDraw: true
+                ),
+                slots: slots(),
+                combos: [.init(name: "DIRECTDRAW", value: 1)]
+            ),
+            sourceRoute: .capturedMainTargetTexture
+        )
+        let capturedMainWrongSource = catalog(
+            graph: effectOutputGraph,
+            template: materialTemplate(
+                graph: effectOutputGraph,
+                shader: contract("captured-main-wrong-source"),
+                slots: slots(primary: .init(
+                    reference: .graph(previousOutput()),
+                    provenance: .explicitBinding
+                ))
+            ),
+            sourceRoute: .capturedMainTargetTexture
+        )
+        let capturedMainUnresolvedColor = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "captured-main-unresolved-color",
+                    colorUnproven: true
+                ),
+                slots: slots(primary: graphCandidate())
+            ),
+            sourceRoute: .capturedMainTargetTexture
+        )
+        let capturedMainIndependentAlphaSignal = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "captured-main-independent-alpha-signal",
+                    firstMetadata: #"{"material":"framebuffer"}"#,
+                    independentAlphaSignal: true
+                ),
+                slots: slots()
+            ),
+            sourceRoute: .capturedMainTargetTexture
+        )
+        let secondGraphSourceGraph = graph(
+            withPrimaryBinding: true,
+            withSecondGraphBinding: true
+        )
+        let capturedMainSecondGraphSource = catalog(
+            graph: secondGraphSourceGraph,
+            template: materialTemplate(
+                graph: secondGraphSourceGraph,
+                shader: contract(
+                    "captured-main-second-graph-source",
+                    firstMetadata: #"{"material":"framebuffer"}"#,
+                    secondMetadata: #"{"material":"framebuffer"}"#,
+                    opaqueSecondGraph: true
+                ),
+                slots: slots(
+                    primary: graphCandidate(),
+                    second: graphCandidate()
+                )
+            ),
+            sourceRoute: .capturedMainTargetTexture
+        )
+        let variantMixedTemplate = materialTemplate(
+            graph: unboundGraph,
+            shader: contract(
+                "captured-main-variant-mixed",
+                firstMetadata: #"{"material":"framebuffer"}"#,
+                secondMetadata: #"{"mode":"flowmask","combo":"EXTRA"}"#,
+                variantMixedSource: true
+            ),
+            slots: slots(second: userPropertyCandidate("optional-flow"))
+        )
+        let capturedMainVariantMixed = catalog(
+            graph: unboundGraph,
+            template: variantMixedTemplate,
+            sourceRoute: .capturedMainTargetTexture
+        )
+        let variantMixedCache = SceneResolvedMaterialVariantCache(
+            template: variantMixedTemplate,
+            maximumVariantCount: 16
+        )!
+        let variantMixedEnvelopePrepared: Bool
+        let variantMixedEnvelopeFailure: String
+        switch variantMixedCache.precompileLaunchEnvelope(
+            implicitFramebufferIdentity: source()
+        ) {
+        case .success:
+            variantMixedEnvelopePrepared = true
+            variantMixedEnvelopeFailure = ""
+        case let .failure(failure):
+            variantMixedEnvelopePrepared = false
+            switch failure {
+            case .capacity:
+                variantMixedEnvelopeFailure = "capacity"
+            case let .material(material):
+                variantMixedEnvelopeFailure = ([
+                    material.phase.rawValue,
+                    material.code.rawValue,
+                ] + material.boundedDetails).joined(separator: ":")
+            }
+        }
         let capacityOnePositive = catalog(
             graph: boundGraph,
             template: materialTemplate(
@@ -4217,6 +4415,69 @@ private enum EnvelopeHarness {
                 layerID: layerID
             ) != nil,
             "directDrawSourceDependent": rejection(directDrawSourceDependent),
+            "capturedMainPositiveClaim": capturedMainPositive.claim(
+                layerID: layerID
+            ) != nil,
+            "capturedMainPositiveBindingsEmpty":
+                capturedMainPositiveTemplate.graphRole.bindings.isEmpty,
+            "capturedMainPositiveFailure": rejection(capturedMainPositive),
+            "capturedMainCompetingSourceClaim":
+                capturedMainCompetingSource.claim(layerID: layerID) != nil,
+            "capturedMainCompetingSourceFailure": rejection(
+                capturedMainCompetingSource
+            ),
+            "capturedMainWrongModeClaim": capturedMainWrongMode.claim(
+                layerID: layerID
+            ) != nil,
+            "capturedMainWrongModeFailure": rejection(capturedMainWrongMode),
+            "capturedMainDefaultSourceClaim": capturedMainDefaultSource.claim(
+                layerID: layerID
+            ) != nil,
+            "capturedMainDefaultSourceFailure": rejection(
+                capturedMainDefaultSource
+            ),
+            "capturedMainNoGraphInputClaim": capturedMainNoGraphInput.claim(
+                layerID: layerID
+            ) != nil,
+            "capturedMainNoGraphInputFailure": rejection(
+                capturedMainNoGraphInput
+            ),
+            "capturedMainWrongSourceClaim": capturedMainWrongSource.claim(
+                layerID: layerID
+            ) != nil,
+            "capturedMainWrongSourceFailure": rejection(capturedMainWrongSource),
+            "capturedMainUnresolvedColorClaim": capturedMainUnresolvedColor.claim(
+                layerID: layerID
+            ) != nil,
+            "capturedMainUnresolvedColorFailure": rejection(
+                capturedMainUnresolvedColor
+            ),
+            "capturedMainIndependentAlphaSignalClaim":
+                capturedMainIndependentAlphaSignal.claim(layerID: layerID) != nil,
+            "capturedMainIndependentAlphaSignalFailure": rejection(
+                capturedMainIndependentAlphaSignal
+            ),
+            "capturedMainSecondGraphSourceClaim":
+                capturedMainSecondGraphSource.claim(layerID: layerID) != nil,
+            "capturedMainSecondGraphSourceFailure": rejection(
+                capturedMainSecondGraphSource
+            ),
+            "capturedMainVariantMixedClaim": capturedMainVariantMixed.claim(
+                layerID: layerID
+            ) != nil,
+            "capturedMainVariantMixedFailure": rejection(capturedMainVariantMixed),
+            "capturedMainVariantMixedEnvelopePrepared":
+                variantMixedEnvelopePrepared,
+            "capturedMainVariantMixedEnvelopeFailure":
+                variantMixedEnvelopeFailure,
+            "capturedMainVariantMixedSupportsCapture":
+                variantMixedCache.supportsCapturedMainTargetTexture,
+            "capturedMainVariantMixedCounters": [
+                "cached": variantMixedCache.counters.cachedVariantCount,
+                "prepared": variantMixedCache.counters.shaderPreparationCount,
+                "frontend": variantMixedCache.counters.frontendCompilationCount,
+                "capacity": variantMixedCache.counters.capacityRejectionCount,
+            ],
             "capacityOneClaim": capacityOnePositive.claim(layerID: layerID) != nil,
             "capacityOneCounters": counters(
                 capacityOnePositive,
@@ -5063,7 +5324,11 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             capability,
         )
         self.assertIn(
-            "variants.hasAudioSpectrumConsumer",
+            "variants.supportsCapturedMainTargetTexture",
+            capability,
+        )
+        self.assertNotIn(
+            "!variants.hasAudioSpectrumConsumer",
             capability,
         )
         for contract in (
@@ -5277,7 +5542,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "hiddenParent": True,
                 "unsupportedContent": True,
                 "utilityCapture": True,
-                "utilityNonAudioRejected": True,
+                "projectUtilityNonAudioAccepted": True,
                 "utilityAdapterAccepted": True,
                 "utilityAdapterContract": True,
                 "utilityAdapterRejectsUnsupportedCapture": True,
@@ -5413,7 +5678,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneResolvedMaterialShaderSchema.swift",
                 "SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
                 "SceneStockTextureSemanticRegistry.swift",
+                "SceneAuthoredShaderUniformRGBMixAnalyzer.swift",
+                "SceneAuthoredShaderUniformRGBMixAnalyzer+Scalar.swift",
                 "SceneResolvedMaterialExecutionCapabilityVariant.swift",
+                "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
                 "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
                 "SceneResolvedMaterialTextureResolver.swift",
                 "SceneResolvedMaterialTextureSelection.swift",
@@ -5643,6 +5911,73 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn(
             "direct-draw-source-dependent",
             payload["directDrawSourceDependent"],
+        )
+        self.assertTrue(payload["capturedMainPositiveClaim"], payload)
+        self.assertTrue(payload["capturedMainPositiveBindingsEmpty"], payload)
+        self.assertEqual(payload["capturedMainPositiveFailure"], "", payload)
+        for claim_key, failure_key in (
+            (
+                "capturedMainCompetingSourceClaim",
+                "capturedMainCompetingSourceFailure",
+            ),
+            (
+                "capturedMainWrongModeClaim",
+                "capturedMainWrongModeFailure",
+            ),
+            (
+                "capturedMainDefaultSourceClaim",
+                "capturedMainDefaultSourceFailure",
+            ),
+            (
+                "capturedMainNoGraphInputClaim",
+                "capturedMainNoGraphInputFailure",
+            ),
+            (
+                "capturedMainWrongSourceClaim",
+                "capturedMainWrongSourceFailure",
+            ),
+            (
+                "capturedMainSecondGraphSourceClaim",
+                "capturedMainSecondGraphSourceFailure",
+            ),
+            (
+                "capturedMainIndependentAlphaSignalClaim",
+                "capturedMainIndependentAlphaSignalFailure",
+            ),
+            (
+                "capturedMainVariantMixedClaim",
+                "capturedMainVariantMixedFailure",
+            ),
+        ):
+            self.assertFalse(payload[claim_key], payload)
+            self.assertIn(
+                "utility-source-program-unsupported",
+                payload[failure_key],
+                payload,
+            )
+        self.assertFalse(payload["capturedMainUnresolvedColorClaim"], payload)
+        self.assertIn(
+            "material-variant-envelope-color-contract",
+            payload["capturedMainUnresolvedColorFailure"],
+            payload,
+        )
+        self.assertTrue(
+            payload["capturedMainVariantMixedEnvelopePrepared"],
+            payload,
+        )
+        self.assertEqual(
+            payload["capturedMainVariantMixedEnvelopeFailure"],
+            "",
+            payload,
+        )
+        self.assertFalse(
+            payload["capturedMainVariantMixedSupportsCapture"],
+            payload,
+        )
+        self.assertEqual(
+            payload["capturedMainVariantMixedCounters"],
+            {"cached": 3, "prepared": 3, "frontend": 3, "capacity": 0},
+            payload,
         )
         self.assertTrue(payload["capacityOneClaim"])
         self.assertEqual(

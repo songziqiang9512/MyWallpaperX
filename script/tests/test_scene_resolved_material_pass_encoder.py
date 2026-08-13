@@ -44,6 +44,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer+Scalar.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
@@ -183,6 +185,19 @@ void main() {
     float coverage = g_Gain;
     float alpha = source.a * coverage;
     gl_FragColor = vec4(source.rgb, alpha);
+}
+"""
+
+private let scanlineUniformRGBMixFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform float g_Weight;
+uniform vec3 g_Tint;
+void main() {
+    vec4 source = texSample2D(g_Texture0, v_TexCoord);
+    float weight = saturate(g_Weight);
+    vec3 mixed = mix(source.rgb, g_Tint, weight);
+    gl_FragColor = vec4(mixed, source.a);
 }
 """
 
@@ -1207,6 +1222,56 @@ private enum Harness {
             [32, 16, 8, 64]
         )
 
+        let scanlineUniforms = [
+            "g_Weight": bytes(Float(0.5)),
+            "g_Tint": bytes(SIMD3<Float>(1, 0, 0)),
+        ]
+        let scanlineProgram = program(
+            device: device,
+            marker: 31,
+            outputSlot: 0,
+            slot0Texture: premultipliedPixel,
+            fragmentSource: scanlineUniformRGBMixFragment,
+            uniformValues: scanlineUniforms,
+            slot0GraphKind: .layerSource
+        )
+        let scanlineResult = render(
+            scanlineProgram,
+            encoder: encoder,
+            queue: queue,
+            target: target(device: device, width: 1, height: 1)
+        )
+        // Stored source [64, 32, 16, 128] represents straight
+        // [0.5, 0.25, 0.125, 0.5]. A 50% mix with straight red produces
+        // [0.75, 0.125, 0.0625] before the final premultiply.
+        let scanlinePixelsMatch = closePixels(
+            scanlineResult.pixels,
+            [96, 16, 8, 128]
+        )
+
+        let scanlineIdentityProgram = program(
+            device: device,
+            marker: 32,
+            outputSlot: 0,
+            slot0Texture: premultipliedPixel,
+            fragmentSource: scanlineUniformRGBMixFragment,
+            uniformValues: [
+                "g_Weight": bytes(Float(0)),
+                "g_Tint": bytes(SIMD3<Float>(0, 1, 0)),
+            ],
+            slot0GraphKind: .layerSource
+        )
+        let scanlineIdentityResult = render(
+            scanlineIdentityProgram,
+            encoder: encoder,
+            queue: queue,
+            target: target(device: device, width: 1, height: 1)
+        )
+        let scanlineIdentityMatches = closePixels(
+            scanlineIdentityResult.pixels,
+            [64, 32, 16, 128]
+        )
+
         let scalarNoise = texture(
             device: device,
             width: 1,
@@ -2138,6 +2203,14 @@ private enum Harness {
             "factoredAlphaEncoded": factoredAlphaResult.encoded,
             "factoredAlphaGPUCompleted": factoredAlphaResult.completed,
             "factoredAlphaPixelsMatch": factoredAlphaPixelsMatch,
+            "scanlineUniformRGBMixPrepared": scanlineResult.prepared
+                && scanlineIdentityResult.prepared,
+            "scanlineUniformRGBMixEncoded": scanlineResult.encoded
+                && scanlineIdentityResult.encoded,
+            "scanlineUniformRGBMixGPUCompleted": scanlineResult.completed
+                && scanlineIdentityResult.completed,
+            "scanlineUniformRGBMixPixelsMatch": scanlinePixelsMatch,
+            "scanlineUniformRGBMixWeightZeroIdentity": scanlineIdentityMatches,
             "scalarAlphaPrepared": scalarAlphaResult.prepared,
             "scalarAlphaEncoded": scalarAlphaResult.encoded,
             "scalarAlphaGPUCompleted": scalarAlphaResult.completed,

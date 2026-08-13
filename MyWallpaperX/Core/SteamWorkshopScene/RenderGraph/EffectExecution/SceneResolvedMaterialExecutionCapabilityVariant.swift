@@ -75,29 +75,21 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         }
     }
 
-    /// Launch-envelope compilation is the authority for host audio demand.
-    /// Raw source declarations are insufficient because inactive variants and
-    /// rejected array shapes must not keep system audio capture alive.
-    var hasAudioSpectrumConsumer: Bool {
+    func launchEnvelopeCapabilitySnapshot() -> LaunchEnvelopeCapabilitySnapshot {
         lock.lock()
         defer { lock.unlock() }
-        return entries.values.contains { entry in
-            guard case .ready(let variant) = entry else { return false }
-            let activeTextureSlots = Set(
-                variant.frontendProgram.textureBindings.map(\.slot)
-            )
-            return variant.frontendProgram.uniformLayout.fields.contains { field in
-                switch SceneResolvedMaterialUniformEncoder.hostUniform(
-                    field,
-                    activeTextureSlots: activeTextureSlots
-                ) {
-                case .audioSpectrumLeft, .audioSpectrumRight:
-                    return true
-                default:
-                    return false
-                }
-            }
+        let variants = entries.values.compactMap { entry -> Variant? in
+            guard case let .ready(variant) = entry else { return nil }
+            return variant
         }
+        return .init(
+            template: template,
+            variants: variants,
+            allEntriesReady: variants.count == entries.count,
+            reachableSamplers: cachedReachableSamplers,
+            inputIdentity: cachedReachabilityIdentity,
+            hasCachedReachability: hasCachedReachability
+        )
     }
 
     /// A source-less object route is executable only when the authored
