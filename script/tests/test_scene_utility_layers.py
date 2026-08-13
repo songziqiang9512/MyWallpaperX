@@ -19,7 +19,9 @@ METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
 UTILITY_FRAME_RENDERER_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
 )
-DEPENDENCY_RUNTIME_SOURCE = SOURCE_ROOT / "RenderGraph/SceneDependencyFrameRuntime.swift"
+DEPENDENCY_RUNTIME_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyFrameRuntime.swift"
+)
 AUTHORED_CATALOG_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan.swift"
 )

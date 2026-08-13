@@ -5041,7 +5041,8 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             self.assertNotIn(symbol, product_source)
 
         dependency_runtime = (
-            SOURCE_ROOT / "RenderGraph/SceneDependencyFrameRuntime.swift"
+            SOURCE_ROOT
+            / "RenderGraph/LayerDependencies/SceneDependencyFrameRuntime.swift"
         ).read_text(encoding="utf-8")
         self.assertNotIn("requiresSourcePreparation", dependency_runtime)
         self.assertNotIn("preparedSourceTexture", dependency_runtime)

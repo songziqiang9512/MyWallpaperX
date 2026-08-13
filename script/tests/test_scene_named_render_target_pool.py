@@ -13,7 +13,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneNamedRenderTargetPool.swift"
+    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/LayerDependencies/SceneNamedRenderTargetPool.swift"
 )
 
 HARNESS_SOURCE = r'''

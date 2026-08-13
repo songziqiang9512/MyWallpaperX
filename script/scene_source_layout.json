@@ -49,6 +49,14 @@
         ],
         "responsibility": "Authored graph target lifecycle, from logical plans and execution state through allocation, residency, resource commands, and publication."
       },
+      "LayerDependencies": {
+        "file_globs": [
+          "SceneDependencyFrameRuntime.swift",
+          "SceneDependencyRenderPlan.swift",
+          "SceneNamedRenderTargetPool.swift"
+        ],
+        "responsibility": "Inter-layer dependency planning and frame-scoped named-target reservation, publication, and texture pooling; excludes authored-effect FBO/history and compositor behavior."
+      },
       "ShaderFrontend": {
         "file_globs": [
           "SceneAuthoredShader*Admission.swift",
@@ -262,13 +270,13 @@
         "pattern": "workshop/[0-9]+",
         "baseline_occurrences": 40,
         "allowed_files": [
+          "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopGradientPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopShadowPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopShiftHuePlanner.swift",
           "RenderGraph/SceneClippingMaskContract.swift",
-          "RenderGraph/SceneDependencyRenderPlan.swift",
           "RenderGraph/SceneProceduralNoiseShaderProfile.swift"
         ]
       },

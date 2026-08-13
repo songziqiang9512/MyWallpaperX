@@ -121,6 +121,26 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
+    def test_layer_dependency_change_selects_planning_pool_and_consumers(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
+                "LayerDependencies/SceneDependencyRenderPlan.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("layer-dependencies", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        for module in (
+            "test_scene_dependency_render_plan",
+            "test_scene_named_render_target_pool",
+            "test_scene_framebuffer_capture",
+            "test_scene_utility_layers",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, focused.command)
+
     def test_render_graph_checkpoint_reuses_build_wrapper_code_health(self) -> None:
         gates, groups = verify.build_plan(
             [
