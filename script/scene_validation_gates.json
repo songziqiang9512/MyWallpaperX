@@ -130,9 +130,10 @@
       "modules": ["test_scene_audio_spectrum_input"]
     },
     {
-      "id": "shader-frontend-source-set",
+      "id": "shader-source-set-conservation",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderFrontend/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/**",
         "script/scene_swift_source_sets.json",
         "script/scene_swift_source_sets.py"
       ],

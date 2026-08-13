@@ -53,6 +53,18 @@
           "SceneAuthoredShaderWholeVectorAffineParser.swift"
         ],
         "responsibility": "Bounded authored-shader frontend, including lexing, syntax and loop admission, typed semantic and color analysis, source translation, and Metal emission."
+      },
+      "ShaderPreparation": {
+        "file_globs": [
+          "SceneAuthoredShaderPreparation*.swift",
+          "SceneShaderDirective.swift",
+          "SceneShaderMacroExpansion.swift",
+          "SceneShaderMalformedMetadataAdmission.swift",
+          "SceneShaderPreprocessor*.swift",
+          "SceneShaderVariantEnvironment*.swift",
+          "SceneShaderVariantResolver*.swift"
+        ],
+        "responsibility": "Bounded authored-shader source preparation, including directive and macro preprocessing, variant environment and resolution, prepared-source production, and malformed-metadata admission; excludes ShaderContract, ShaderSourceGraph, FrameInputs, ShaderFrontend, and ResolvedMaterial lifecycles."
       }
     }
   },

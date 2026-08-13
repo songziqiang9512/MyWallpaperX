@@ -71,6 +71,9 @@ BASELINE_SOURCE_PATHS = (
 AUTHORED_SHADER_FRONTEND_SOURCES = scene_swift_source_relpaths(
     "authored_shader_frontend_implementation"
 )
+AUTHORED_SHADER_PREPARATION_SOURCES = scene_swift_source_relpaths(
+    "authored_shader_preparation_implementation"
+)
 
 CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneJSONValue.swift",
@@ -88,20 +91,7 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderContractLoader+SourceGraph.swift",
     *AUTHORED_SHADER_FRONTEND_SOURCES,
     "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureSampling.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantEnvironment.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantEnvironment+HostFacts.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderDirective.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderMalformedMetadataAdmission.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderMacroExpansion.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver+TextureFormat.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver+Schema.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver+SchemaSeed.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver+DisabledCombo.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderPreprocessor+Directive.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderPreprocessor.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderPreparation.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderPreparation+Support.swift",
+    *AUTHORED_SHADER_PREPARATION_SOURCES,
 )
 
 

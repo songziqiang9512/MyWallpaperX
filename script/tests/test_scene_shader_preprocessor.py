@@ -5,31 +5,26 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+sys.path.insert(0, str(REPO_ROOT / "script"))
+
+from scene_swift_source_sets import scene_swift_sources  # noqa: E402
+
+
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "Resources/SceneResourceIndex.swift",
     SCENE_ROOT / "Resources/SceneResourceView.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderMalformedMetadataAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderDirective.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderMacroExpansion.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment+HostFacts.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor+Directive.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+TextureFormat.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+Schema.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+SchemaSeed.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+DisabledCombo.swift",
+    *scene_swift_sources("shader_preprocessing_and_variant_implementation"),
     SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
     SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
 ]

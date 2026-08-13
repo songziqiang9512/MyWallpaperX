@@ -30,6 +30,7 @@ if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 from scene_real_test_fixture_config import load_fixture_config
+from scene_swift_source_sets import scene_swift_source_relpaths
 
 
 DEFAULT_FIXTURE = SCRIPT_PATH.with_name("scene_real_test_fixture.json")
@@ -38,6 +39,10 @@ DEFAULT_STOCK_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets"
 )
 REAL_WORKSHOP_ROOT = (Path.home() / "Movies/MyWallpaperX/创意工坊").resolve()
+
+AUTHORED_SHADER_PREPARATION_SOURCES = scene_swift_source_relpaths(
+    "authored_shader_preparation_implementation"
+)
 
 CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneJSONValue.swift",
@@ -68,23 +73,10 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialProgram.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialProgramIdentity.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialEffectIngress.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderMalformedMetadataAdmission.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialScriptBindingClassifier.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialTemplateCompiler.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectStageCompileModel.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantEnvironment.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantEnvironment+HostFacts.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderDirective.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderMacroExpansion.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver+TextureFormat.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver+Schema.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver+SchemaSeed.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver+DisabledCombo.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderPreprocessor+Directive.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderPreprocessor.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderPreparation.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderPreparation+Support.swift",
+    *AUTHORED_SHADER_PREPARATION_SOURCES,
 )
 
 

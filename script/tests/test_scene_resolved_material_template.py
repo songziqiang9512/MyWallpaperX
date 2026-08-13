@@ -20,7 +20,8 @@ TEXTURE_CANDIDATE_SOURCE = SCENE_ROOT / "Resources/SceneTextureCandidate.swift"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderMalformedMetadataAdmission.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneShaderMalformedMetadataAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",

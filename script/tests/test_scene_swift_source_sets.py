@@ -42,6 +42,34 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             {path.resolve() for path in frontend_directory.glob("*.swift")},
         )
 
+    def test_shader_preparation_sets_conserve_the_complete_type_family(self) -> None:
+        environment = scene_swift_source_relpaths("shader_variant_environment")
+        preprocessing = scene_swift_source_relpaths(
+            "shader_preprocessing_and_variant_implementation"
+        )
+        preparation = scene_swift_source_relpaths(
+            "authored_shader_preparation_implementation"
+        )
+
+        self.assertEqual(len(environment), 2)
+        self.assertEqual(len(preprocessing), 12)
+        self.assertEqual(preprocessing[:2], environment)
+        self.assertEqual(len(preparation), 14)
+        self.assertEqual(preparation[:12], preprocessing)
+        preparation_directory = (
+            REPOSITORY_ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation"
+        )
+        self.assertEqual(
+            {
+                path.resolve()
+                for path in scene_swift_sources(
+                    "authored_shader_preparation_implementation"
+                )
+            },
+            {path.resolve() for path in preparation_directory.glob("*.swift")},
+        )
+
     def test_frontend_consumers_use_the_canonical_source_set(self) -> None:
         consumers = [
             "script/scene_shader_preparation_census.py",
@@ -61,6 +89,35 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                     text,
                     "frontend implementation paths belong only in the canonical manifest",
                 )
+
+    def test_shader_preparation_consumers_use_the_canonical_source_set(self) -> None:
+        consumers = {
+            "authored_shader_preparation_implementation": [
+                "script/scene_shader_preparation_census.py",
+                "script/scene_material_program_census.py",
+                "script/tests/test_scene_graph_texture_publication.py",
+                "script/tests/test_scene_resolved_material_program_finalizer.py",
+            ],
+            "shader_preprocessing_and_variant_implementation": [
+                "script/tests/test_scene_shader_preprocessor.py",
+                "script/tests/test_scene_shader_variant_environment.py",
+            ],
+            "shader_variant_environment": [
+                "script/tests/test_scene_resolved_material_pass_encoder.py",
+                "script/tests/test_scene_resolved_material_program_derivation.py",
+            ],
+        }
+        for source_set, paths in consumers.items():
+            for relative in paths:
+                text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
+                with self.subTest(source_set=source_set, consumer=relative):
+                    self.assertIn(source_set, text)
+                    self.assertNotIn(
+                        "RenderGraph/ShaderPreparation/Scene",
+                        text,
+                        "shader preparation implementation paths belong only "
+                        "in the canonical manifest",
+                    )
 
     def test_loader_rejects_cycles_duplicates_unsafe_paths_and_missing_files(self) -> None:
         cases = {

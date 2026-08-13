@@ -80,18 +80,26 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("documentation", groups)
         self.assertIn("test_scene_semantics_coverage", gates[0].command)
 
-    def test_shader_frontend_change_selects_source_set_conservation(self) -> None:
-        gates, groups = verify.build_plan(
-            [
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
-                "ShaderFrontend/SceneAuthoredShaderFrontend.swift"
-            ],
-            arguments(),
-            self.registry,
+    def test_shader_source_changes_select_source_set_conservation(self) -> None:
+        paths = (
+            "ShaderFrontend/SceneAuthoredShaderFrontend.swift",
+            "ShaderPreparation/SceneAuthoredShaderPreparation.swift",
         )
-        self.assertIn("shader-frontend-source-set", groups)
-        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
-        self.assertIn("test_scene_swift_source_sets", focused.command)
+        for path in paths:
+            with self.subTest(path=path):
+                gates, groups = verify.build_plan(
+                    [
+                        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
+                        + path
+                    ],
+                    arguments(),
+                    self.registry,
+                )
+                self.assertIn("shader-source-set-conservation", groups)
+                focused = next(
+                    gate for gate in gates if gate.gate_id == "focused-tests"
+                )
+                self.assertIn("test_scene_swift_source_sets", focused.command)
 
     def test_render_graph_checkpoint_reuses_build_wrapper_code_health(self) -> None:
         gates, groups = verify.build_plan(

@@ -59,6 +59,42 @@
         "authored_shader_frontend_implementation"
       ],
       "sources": []
+    },
+    "shader_variant_environment": {
+      "description": "Host facts and immutable inputs used to resolve authored-shader variants.",
+      "includes": [],
+      "sources": [
+        "RenderGraph/ShaderPreparation/SceneShaderVariantEnvironment.swift",
+        "RenderGraph/ShaderPreparation/SceneShaderVariantEnvironment+HostFacts.swift"
+      ]
+    },
+    "shader_preprocessing_and_variant_implementation": {
+      "description": "Complete authored-shader directive, macro, preprocessing, and variant-resolution type family.",
+      "includes": [
+        "shader_variant_environment"
+      ],
+      "sources": [
+        "RenderGraph/ShaderPreparation/SceneShaderDirective.swift",
+        "RenderGraph/ShaderPreparation/SceneShaderMalformedMetadataAdmission.swift",
+        "RenderGraph/ShaderPreparation/SceneShaderMacroExpansion.swift",
+        "RenderGraph/ShaderPreparation/SceneShaderVariantResolver.swift",
+        "RenderGraph/ShaderPreparation/SceneShaderVariantResolver+TextureFormat.swift",
+        "RenderGraph/ShaderPreparation/SceneShaderVariantResolver+Schema.swift",
+        "RenderGraph/ShaderPreparation/SceneShaderVariantResolver+SchemaSeed.swift",
+        "RenderGraph/ShaderPreparation/SceneShaderVariantResolver+DisabledCombo.swift",
+        "RenderGraph/ShaderPreparation/SceneShaderPreprocessor+Directive.swift",
+        "RenderGraph/ShaderPreparation/SceneShaderPreprocessor.swift"
+      ]
+    },
+    "authored_shader_preparation_implementation": {
+      "description": "Complete authored-shader variant preprocessing and prepared-program assembly type family.",
+      "includes": [
+        "shader_preprocessing_and_variant_implementation"
+      ],
+      "sources": [
+        "RenderGraph/ShaderPreparation/SceneAuthoredShaderPreparation.swift",
+        "RenderGraph/ShaderPreparation/SceneAuthoredShaderPreparation+Support.swift"
+      ]
     }
   }
 }

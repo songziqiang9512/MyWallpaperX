@@ -21,12 +21,6 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
-SHADER_PREPARATION_SOURCE = (
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPreparation.swift"
-)
-SHADER_PREPARATION_SUPPORT_SOURCE = (
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPreparation+Support.swift"
-)
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
@@ -34,25 +28,12 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderMalformedMetadataAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment+HostFacts.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderDirective.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderMacroExpansion.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+TextureFormat.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+Schema.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+SchemaSeed.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+DisabledCombo.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor+Directive.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     *scene_swift_sources("authored_shader_frontend_implementation"),
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrameInputs.swift",
-    SHADER_PREPARATION_SOURCE,
-    SHADER_PREPARATION_SUPPORT_SOURCE,
+    *scene_swift_sources("authored_shader_preparation_implementation"),
     SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
