@@ -12,7 +12,7 @@
 
 - `docs/scene/semantics/coverage-ledger.md`
 - `docs/scene/semantics/capability-dependency-map.md`
-- `docs/scene/scene-capability-development-plan-2026-07-22.md`
+- `docs/scene/semantics/runtime-evidence-index.md`
 
 审查时 MyWallpaperX 位于：
 

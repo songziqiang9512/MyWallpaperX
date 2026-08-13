@@ -1,6 +1,6 @@
 # MyWallpaperX Web `project.json` 处理与本地化策略
 
-> 状态：现役稳定设计参考。本文规定原始声明、本地派生数据与本地化边界；当前实现、运行证据和未闭合项只查 [Web 现役状态](current-state.md)。
+> 状态：稳定合同。本文只规定原始声明、本地派生数据与本地化边界，不保存当前源码类型、文件路径或实现状态；运行证据、源码所有权和未闭合项只查 [Web 现役状态](current-state.md)。
 >
 > 文档目的：
 > 明确 `MyWallpaperX` 对 `Wallpaper Engine` Web 项目的 `project.json` 应如何处理，尤其是：
@@ -111,11 +111,11 @@
 - 运行在 Wallpaper Engine 自己的宿主里
 - 使用其自己的 Web runtime、属性面板和本地化体系
 
-而 `MyWallpaperX` 当前是：
+而 `MyWallpaperX` 的产品边界是：
 
 - macOS 宿主
 - 自己的 Web 宿主与桥接实现
-- 自己的 Swift / SwiftUI / AppKit 属性面板承载方式
+- 自己的 Swift + AppKit 属性面板承载方式
 
 因此不能假设原始文件的每个表现层语义都应原样照搬。
 
@@ -153,7 +153,7 @@
 
 ## 5. 推荐的数据分层
 
-`MyWallpaperX` 应采用三层模型。
+`MyWallpaperX` 应采用四层模型。
 
 ## 5.1 原始层：Raw Project Layer
 
@@ -174,13 +174,7 @@
 
 ## 5.2 解析层：Resolved Descriptor Layer
 
-把原始信息解析成 `MyWallpaperX` 自己的内部结构，例如：
-
-- `ResolvedWebProjectDescriptor`
-- `ResolvedWebEntry`
-- `ResolvedWebPropertySet`
-- `ResolvedWebLocalizationMap`
-- `ResolvedWebDependencyGraph`
+把原始信息解析成 `MyWallpaperX` 自己的 `ResolvedWebProjectDescriptor`。具体源码字段不属于本文合同。
 
 这一层的职责：
 
@@ -192,11 +186,7 @@
 
 ## 5.3 运行层：Runtime Model Layer
 
-在播放前，基于解析结果再生成当前会话的运行模型，例如：
-
-- `ResolvedWebRuntimeSession`
-- `ResolvedWebRuntimeProperties`
-- `ResolvedWebHostBridgePayload`
+在播放前，基于解析结果生成会话级 `ResolvedWebRuntimeModel`。
 
 这一层的职责：
 
@@ -205,7 +195,11 @@
 - 注入最终可运行的属性值
 - 注入入口 URL、资源根、目录桥接、FPS、pause 状态等
 
-这一层才是 `MyWallpaperX` 真正执行时依赖的配置层。
+这一层负责动态归一化，但不直接承担宿主执行。
+
+## 5.4 执行层：Playback Context Layer
+
+运行模型投影为最小 `ResolvedWebPlaybackContext` 后才交给宿主执行。这一层只携带入口、资源根、属性 payload 与实时桥接所需状态，不复制解析诊断或展示摘要。
 
 ---
 
@@ -278,12 +272,7 @@
 
 ### 7.1 统一原则
 
-应优先生成：
-
-- `resolvedEntryURL`
-- `resolvedResourceRoot`
-- `resolvedDependencyResourceRoots`
-- `resolvedPropertyPayload`
+应优先生成已解析入口、资源根、依赖资源根和属性 payload，具体字段名由[现役状态](current-state.md)指向的当前源码定义。
 
 而不是尝试把这些结果再回写成一个伪官方 `project.json`。
 
@@ -375,16 +364,11 @@
 
 ---
 
-## 10. 对 `MyWallpaperX` 代码结构的建议落点
+## 10. 实现职责落点
 
-结合当前职责边界，建议这样落：
+职责应按以下边界落位；具体文件与类型所有权只查[现役状态](current-state.md)，不在稳定合同中复制。
 
 ### 10.1 原始 `project.json` 读取与解析
-
-优先落点：
-
-- `MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryRecords.swift`
-- `MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidation.swift`
 
 职责：
 
@@ -393,10 +377,6 @@
 - 定位入口与依赖
 
 ### 10.2 属性归一化与本地化
-
-优先落点：
-
-- `MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebProperties.swift`
 
 职责：
 
@@ -407,23 +387,12 @@
 
 ### 10.3 运行时派生模型
 
-优先落点：
-
-- `MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift`
-- `MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebWallpaper.swift`
-- `MyWallpaperX/Core/SteamWorkshopWeb/Host/`
-
 职责：
 
 - 把解析结果转换成可执行的宿主桥接 payload
 - 注入 pause、fps、directory、file、audio、media 等运行态信息
 
 ### 10.4 原生 UI 展示
-
-优先落点：
-
-- `MyWallpaperX/Modules/SteamWorkshop/Web/UI/SteamWorkshopItemDetailWebSections.swift`
-- `MyWallpaperX/Modules/SteamWorkshop/Web/UI/SteamWorkshopActiveWebInspectorView.swift`
 
 职责：
 

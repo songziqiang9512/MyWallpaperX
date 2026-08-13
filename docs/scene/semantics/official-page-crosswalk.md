@@ -24,7 +24,7 @@
 
 | 官方目录集合 | 页面数 | 分类 | 能力落点 | 当前处理结论 |
 |---|---:|---|---|---|
-| Overview 与入门 | 6 | `ingest-required` + `editor-only` | [格式与 Render Graph](scene-format-and-render-graph.md)、[开发计划](../scene-capability-development-plan-2026-07-22.md) | 读取导出产物；不复刻编辑、发布 UI |
+| Overview 与入门 | 6 | `ingest-required` + `editor-only` | [格式与 Render Graph](scene-format-and-render-graph.md)、[能力依赖图](capability-dependency-map.md) | 读取导出产物；不复刻编辑、发布 UI |
 | Assets | 2 | `ingest-required` + `editor-only` | [格式与 Render Graph](scene-format-and-render-graph.md)、[来源索引](source-index.md) | 资源身份和依赖属于 runtime；资产分享 UI 不适用 |
 | Image Preparation | 3 | `editor-only` | [高级对象覆盖表](advanced-object-coverage.md) | 只影响作者素材制作；播放器消费最终图像/puppet 产物 |
 | Effects | 48 | `runtime-required` + `research-boundary` | [45 类 Effect 全表](effects-reference.md)、[总台账](coverage-ledger.md)、[Graph/Shader 覆盖表](render-graph-shader-coverage.md) | 45 类逐项记账；私有 shader 算法不冒充公开合同 |
@@ -38,7 +38,7 @@
 | Puppet Warp | 13 | `runtime-required` | [高级对象覆盖表](advanced-object-coverage.md) | mesh/bone/constraint/IK/interaction/animation 逐项建账 |
 | Models | 8 | `runtime-required` | [高级对象覆盖表](advanced-object-coverage.md) | model/camera/fog/animation/attachment/lighting/shader/simulation 分开建账 |
 | Lighting | 2 | `runtime-required` | [高级对象覆盖表](advanced-object-coverage.md) | 2D 与 3D lighting、shadow 和 HDR 不与 layer Bloom 混写 |
-| Performance | 3 | `runtime-required` + `platform-decision` | [高级对象覆盖表](advanced-object-coverage.md)、[开发计划](../scene-capability-development-plan-2026-07-22.md) | 分辨率、纹理和预算成为产品策略及回归门 |
+| Performance | 3 | `runtime-required` + `platform-decision` | [高级对象覆盖表](advanced-object-coverage.md)、[能力依赖图](capability-dependency-map.md) | 分辨率、纹理和预算成为产品策略及回归门 |
 | RGB | 1 | `platform-decision` | [高级对象覆盖表](advanced-object-coverage.md) | macOS 默认关闭；若无设备/授权集成则明确 fail-closed |
 
 目录计数：`6 + 2 + 3 + 48 + 3 + 10 + 4 + 9 + 3 + 58 + 6 + 13 + 8 + 2 + 3 + 1 = 179`。`lib.sceneScript.d.ts` v2.8 是第 180 个独立权威资源，不计入 `/en/scene/` 页面数，映射到 SceneScript API 覆盖表。
@@ -53,7 +53,7 @@
 | Live values | Timeline、User Properties、Audio/Media、Parallax | [运行输入与属性覆盖表](runtime-input-property-coverage.md) | authored -> property -> Timeline -> SceneScript |
 | Script | SceneScript、Timeline events | [SceneScript API 覆盖表](scenescript-api-coverage.md) | source/binding IR、每屏 VM、预算、事件顺序 |
 | 高级对象 | Puppet、Models、Lighting | [高级对象覆盖表](advanced-object-coverage.md) | 不以普通 image transform 或 layer Bloom 冒充 |
-| 产品策略 | Performance、RGB、Publishing、Mobile shader | [高级对象覆盖表](advanced-object-coverage.md)、[开发计划](../scene-capability-development-plan-2026-07-22.md) | macOS 决策、预算、生命周期和发布门 |
+| 产品策略 | Performance、RGB、Publishing、Mobile shader | [高级对象覆盖表](advanced-object-coverage.md)、[能力依赖图](capability-dependency-map.md) | macOS 决策、预算、生命周期和发布门 |
 
 ## 4. 完整性状态
 

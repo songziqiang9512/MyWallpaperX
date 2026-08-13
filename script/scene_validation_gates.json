@@ -178,7 +178,10 @@
     {
       "id": "documentation",
       "patterns": ["docs/**"],
-      "modules": ["test_scene_semantics_coverage"]
+      "modules": [
+        "test_document_role_index",
+        "test_scene_semantics_coverage"
+      ]
     },
     {
       "id": "semantics",

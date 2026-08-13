@@ -13,7 +13,7 @@
 ## 1. 稳定规范与运行模型
 
 - [wallpaper-engine-web-rules-reference-2026-04-14.md](wallpaper-engine-web-rules-reference-2026-04-14.md)：长期兼容规则。
-- [web-project-json-runtime-model-plan-2026-04-14.md](web-project-json-runtime-model-plan-2026-04-14.md)：仍由当前类型实现的 project/descriptor/runtime/context 分层合同。
+- [web-project-json-runtime-model-plan-2026-04-14.md](web-project-json-runtime-model-plan-2026-04-14.md)：project/descriptor/runtime/context 的稳定分层合同；当前类型与落点只查现役状态。
 - [web-project-json-localization-strategy-2026-04-14.md](web-project-json-localization-strategy-2026-04-14.md)：原始声明、本地派生数据与本地化边界。
 - [web-wallpaper-benchmark-standard.md](web-wallpaper-benchmark-standard.md)：长期运行证据与评分合同；不保存当前 PASS 数字。
 

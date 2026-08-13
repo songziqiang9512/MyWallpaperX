@@ -14,6 +14,8 @@
 
 冲突时按以下顺序裁决：当前代码/配置与可复现运行证据 -> `AGENTS.md` 工作规则 -> 长期技术规范 -> 专题当前状态/专项表 -> 稳定合同 -> 现役执行计划 -> 历史证据。代码存在只证明实现路径，用户可见能力与性能仍需相应运行证据。
 
+[文档角色索引](document-role-index.json)以机器可检查形式登记带日期文档和旧架构 memo 的角色、专题入口与现役权威；新增或重分类这些文件时必须同步索引，不能仅靠标题里的“当前”“计划”或“参考”推断角色。
+
 ## 当前事实入口
 
 - [architecture/technology-stack-boundaries.md](architecture/technology-stack-boundaries.md)：项目长期技术栈职责、跨语言/跨进程边界，以及 VM、shader compiler 和第三方 native 依赖的准入顺序；候选不等于现役能力。
@@ -55,9 +57,9 @@
 ## 使用规则
 
 - 判断框架结构时以代码和 `AGENTS.md` 为准；判断长期技术职责、性能和候选准入时看现役[技术栈与架构路线边界](architecture/technology-stack-boundaries.md)，`architecture/` 旧 memo 只作历史线索；判断 Scene 能力和闭环状态时看覆盖台账、专项表与运行证据索引。
-- Web 当前结论从[现役状态](web/current-state.md)进入；带日期的 Web plan、progress、roadmap 和 regression 只作历史证据，不能直接复用其“当前”或数字。
+- Web 当前结论从[现役状态](web/current-state.md)进入；带日期文档的用途按[文档角色索引](document-role-index.json)判断：`historical-evidence` 只作历史证据，`stable-contract` 只约束长期语义，两者都不能用正文里的“当前”或旧数字覆盖现役状态。
 - 专题下的 `regression/` 与 `reviews/` 下的文件主要用于查历史原因和证据，不反向覆盖当前规范。
 - 新增长期规范时放入对应专题目录；新增一次性样本回归或排障记录时放入该专题已有的 `regression/`，没有合适归属时先在对应专题建立清晰入口，不新设空泛归档目录。
 - 脚本统一放在仓库根目录的 `script/`，不要再新增 `scripts/`。
 - 文档描述与当前代码或运行门禁冲突时，以当前代码和最新可复现证据为准，并回补对应现役文档，不能只在旧 review 中追加新结论。
-- 新文档必须在专题入口归类；带日期文件默认是历史快照，若被列为现役迁移目标或现役执行计划，必须写明完成/退役条件。能力数字、报告路径和 commit 不复制到长期规范。
+- 新文档必须在专题入口归类；带日期文件默认是历史快照，只有在[文档角色索引](document-role-index.json)中明确登记后才能作为 `active-plan` 或 `stable-contract`。现役计划必须写明完成/退役条件，稳定合同必须指向当前状态权威；能力数字、报告路径和 commit 不复制到长期规范。

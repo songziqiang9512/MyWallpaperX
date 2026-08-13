@@ -294,7 +294,7 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 当前样本事实入口：
 
 - [21 个用户样本首轮评估（历史截图基线）](../scene-sample-assessment-2026-07-22.md)
-- [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md)
+- [全样本能力分类与修复台账](scene-corpus-capability-inventory.md)
 - v16 结构基线：`scene-effect-graph-canonical-final-20260723`（历史本机产物已清理）（canonical graph 身份，不等于 GPU 执行）
 - 运行证据分固定回归门与完整快照门；仓库 `script/scene_wallpaper_full_sample_matrix.json` 当前仍是45-member tracked baseline。2026-08-13 authored census已在真实根发现49个可解析样本，因此该矩阵状态为`pending-expansion`而不是当前完整快照；新增四项及静态清单见[全样本能力分类与修复台账](scene-corpus-capability-inventory.md)，是否曾单独运行不能由census推断。`3770500543`因缺 package 只保留在历史source manifest。`scene-builtin-textures-full45-20260725`（历史本机产物已清理） 与 `scene-builtin-textures-fixed13-v2-20260725`（历史本机产物已清理）只作旧阶段证据，不能覆盖现役结果。Puppet旧单clip正向门与v24对照分别为`scene-puppet-animation-20260725/targeted-v1`（历史本机产物已清理）、`scene-puppet-animation-20260725/control-v24-v1`（历史本机产物已清理）；当前disjoint-additive定向门为`.codex/scene-puppet-disjoint-3769688830-20260802-v2/report.json`。当前实现基线、报告/App身份与能力边界统一见[运行证据索引](runtime-evidence-index.md)。
 - ordered scheduler 的 Shadow 前阶段证据：`scene-effect-chain-gated-final13-20260723`（历史本机产物已清理）（基线 `b541867`、8 stage、0 real chain、legacy blocked 3）。该报告只说明当时 all-or-nothing chain 负门，不能反向覆盖上述 current Shadow 正门。

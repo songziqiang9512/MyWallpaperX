@@ -67,6 +67,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual([gate.gate_id for gate in gates], ["focused-tests"])
         self.assertIn("semantics", groups)
+        self.assertIn("test_document_role_index", gates[0].command)
         self.assertIn("test_scene_semantics_coverage", gates[0].command)
         self.assertIn("__scene_validation_no_scope_match__", gates[0].command)
 
@@ -78,6 +79,18 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual([gate.gate_id for gate in gates], ["focused-tests"])
         self.assertIn("documentation", groups)
+        self.assertIn("test_document_role_index", gates[0].command)
+        self.assertIn("test_scene_semantics_coverage", gates[0].command)
+
+    def test_document_role_index_change_selects_role_and_link_contracts(self) -> None:
+        gates, groups = verify.build_plan(
+            ["docs/document-role-index.json"],
+            arguments(),
+            self.registry,
+        )
+        self.assertEqual([gate.gate_id for gate in gates], ["focused-tests"])
+        self.assertIn("documentation", groups)
+        self.assertIn("test_document_role_index", gates[0].command)
         self.assertIn("test_scene_semantics_coverage", gates[0].command)
 
     def test_shader_source_changes_select_source_set_conservation(self) -> None:
