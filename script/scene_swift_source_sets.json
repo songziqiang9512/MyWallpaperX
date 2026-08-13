@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "source_root": "MyWallpaperX/Core/SteamWorkshopScene",
+  "sets": {
+    "authored_shader_frontend_support": {
+      "description": "Stable source-contract inputs required by the standalone authored-shader frontend.",
+      "includes": [],
+      "sources": [
+        "Format/SceneJSONValue.swift",
+        "RenderGraph/SceneShaderSourceGraph.swift",
+        "RenderGraph/SceneShaderContract.swift"
+      ]
+    },
+    "authored_shader_frontend_implementation": {
+      "description": "The complete bounded authored-shader lexer, syntax, semantic analysis, translation, and Metal emission type family.",
+      "includes": [],
+      "sources": [
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderLexer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderBoundedLoopAdmission.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderRuntimeLoopAdmission.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderStaticLoopAdmission.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderLoopAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderDeadBindingAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderTextureChannelAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderMetalSource.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderBuiltInVectorConversion.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderVectorConversion.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderFunctionSemantics.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderVaryingArrayEmitter.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderMetalEmitter.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderMetalEmitter+Translation.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderUniformRGBMixAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderUniformRGBMixAnalyzer+Scalar.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderWholeVectorAffineParser.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderFrontend.swift"
+      ]
+    },
+    "authored_shader_frontend_core": {
+      "description": "Complete standalone compilation boundary for the bounded authored-shader frontend.",
+      "includes": [
+        "authored_shader_frontend_support",
+        "authored_shader_frontend_implementation"
+      ],
+      "sources": []
+    }
+  }
+}

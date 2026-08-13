@@ -488,17 +488,9 @@ VideoLibraryToolbarController（主控，NSToolbarDelegate）
 - [ ] InspectorHost 开关通知与 `cardID` token 已接入
 - [ ] 跨模块调用遵循“通知 + 中转”零耦合规范
 
-### 8.3 文档维护制度
+### 8.3 历史维护制度（已冻结）
 
-以下变更发生时，必须同步维护本备忘录：
-- 新增/删除模块或子页面
-- 路由映射与 activeModule 归并规则变化
-- 通知协议（名称、payload、中转路径）变化
-- 菜单命令分发或 `validateMenuItem` 规则变化
-- 焦点接管机制变化
-- InspectorHost 通知、token 或焦点恢复规则变化
-
-若发生真实框架缺陷修复（非纯文档改写），同时在 `docs/framework-fix-archive.md` 追加 FIX 记录。
+以下同步要求只记录 2026-05-05 当时的工作方式，不再约束现役开发，也不再要求维护本备忘录或不存在的 framework fix archive。仍有参考价值的接入检查表必须先与当前代码及 [`technology-stack-boundaries.md`](technology-stack-boundaries.md) 核对；新的长期合同进入现役架构入口，具体模块行为由代码和对应测试维护。
 
 ---
 

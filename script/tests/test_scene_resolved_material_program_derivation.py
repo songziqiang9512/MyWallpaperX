@@ -9,12 +9,18 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
+
+from scene_swift_source_sets import scene_swift_sources  # noqa: E402
+
+
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
@@ -23,41 +29,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment+HostFacts.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLexer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBoundedLoopAdmission.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderRuntimeLoopAdmission.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderTextureChannelAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBuiltInVectorConversion.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFunctionSemantics.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer+Scalar.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderWholeVectorAffineParser.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
+    *scene_swift_sources("authored_shader_frontend_implementation"),
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",

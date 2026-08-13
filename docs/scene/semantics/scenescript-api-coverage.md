@@ -184,6 +184,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 
 ## 4. 对象与句柄 API
 
+<a id="41-通用-layer--scene"></a>
 ### 4.1 通用 layer / scene
 
 | API 面 | 官方成员与含义 | 等级 | 当前证据 | 缺口与验收门 |
@@ -256,6 +257,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | `MediaThumbnailEvent` | thumbnail presence 和 primary/secondary/tertiary/text/high-contrast colors | `L0` | 项目保留current `$mediaThumbnail` typed provider、通用visibility binding与last-ready/fallback store，但没有live producer、event DTO/dispatch或derived colors；B20已删除fixed previous-transition脚本旁路，`N` | 图像+颜色同generation、live producer、event ordering/owner lifecycle与无封面语义；typed纹理provider不等于SceneScript API |
 | `MediaTimelineEvent` | position/duration 秒值，播放时频繁发送 | `L0` | `N` | rate/seek/unknown duration、节流与时间单调性 |
 
+<a id="7-render--scene-property-api"></a>
 ## 7. Render / scene property API
 
 | API 面 | 官方成员与含义 | 等级 | 当前证据 | 缺口与验收门 |

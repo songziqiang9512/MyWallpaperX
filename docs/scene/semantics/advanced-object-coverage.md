@@ -48,6 +48,7 @@
 
 Utility composition 已是极窄的 `L3` 子集，不再写成完全缺失；`2974757317:914` 的 SceneScript alpha、`3768229922` 的 9 个隐藏 weighted profile、effectful/nested/child provider、任意 composition、RGB Composition 与 `_b` history 都没有因此闭合。
 
+<a id="3-puppet-warp"></a>
 ## 3. Puppet Warp 官方页面覆盖（13）
 
 本节逐页记录官方公开的作者行为和播放器必须消费的导出结果。Geometry 自动生成、权重绘制、Character Sheet 制作等属于编辑器工作流；MyWallpaperX 不需要复刻这些工具，但 Puppet IR 必须逐步保留其导出的 mesh、bone、weight、depth order、channel、constraint 和 animation 数据。官方页面没有公开 mesh/weight 序列化、deformation、IK、constraint、clipping 或 animation mixing 的数值算法，均保持 `algorithm unknown`，不能凭视觉近似写成已验证合同。
@@ -124,6 +125,7 @@ Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/I
 | <a id="op-model-shader"></a>[Stock Model Shaders](https://docs.wallpaperengine.io/en/scene/models/shader.html) | `runtime-required` + `stock-only` + `research-boundary` | **Fur**：albedo alpha mask、alpha-to-coverage、quality/detail/distance/occlusion。**Vegetation**：叶/干 material 分离、alpha-to-coverage、可选 no-cull/double-sided light、UV direction/mapping、wind/phase/speed/strength/tree size debug。**Chroma**：metallic/roughness、specular tint、front/back tint、pigmentation/exponent，可用 albedo alpha 排除 tint。页面未公开三个 stock shader 的算法/source/schema。 | `L0`：不得映射成 arbitrary custom shader；需三个独立 typed stock profile、完整 parameter/state/texture contract、unknown profile fail-closed 和合法 Windows pixel golden。 |
 | <a id="op-model-simulation"></a>[Simulation](https://docs.wallpaperengine.io/en/scene/models/simulation.html) | `runtime-required` + `research-boundary` | model bone 可用 presets 或 advanced constraints；示例 Bouncy Position 让 bone 跟随 animation motion 后回到 initial position，官方确认 simulation 与 animation 混合。solver、step、sleep 和混合顺序细节未公开。 | `L0`：无 3D solver；需 typed constraints、animation interaction、fixed/variable step、pause/reset、collision/sleep 和 deterministic fixture。 |
 
+<a id="5-lightinghdr-与全局后处理"></a>
 ## 5. Lighting 官方页面覆盖（2）与 HDR 边界
 
 ### 5.0 Lighting 系统硬限制（官方合同，2026-07-25 补充）

@@ -31,6 +31,7 @@ if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 from scene_real_test_fixture_config import load_fixture_config
+from scene_swift_source_sets import scene_swift_source_relpaths
 
 
 DEFAULT_FIXTURE = SCRIPT_PATH.with_name("scene_real_test_fixture.json")
@@ -67,6 +68,10 @@ BASELINE_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceIndex.swift",
 )
 
+AUTHORED_SHADER_FRONTEND_SOURCES = scene_swift_source_relpaths(
+    "authored_shader_frontend_implementation"
+)
+
 CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneJSONValue.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectRenderPlan.swift",
@@ -81,41 +86,7 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceIndex.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderContractLoader.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderContractLoader+SourceGraph.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderFrontendModel.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderLexer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderBoundedLoopAdmission.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderRuntimeLoopAdmission.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderSyntax.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderMetalSource.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderBuiltInVectorConversion.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderVectorConversion.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderFunctionSemantics.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderUniformRGBMixAnalyzer+Scalar.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderTextureChannelAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderWholeVectorAffineParser.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderFrontend.swift",
+    *AUTHORED_SHADER_FRONTEND_SOURCES,
     "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureSampling.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantEnvironment.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantEnvironment+HostFacts.swift",

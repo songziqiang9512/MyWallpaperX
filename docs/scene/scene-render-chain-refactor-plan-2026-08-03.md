@@ -636,7 +636,7 @@ sample declaration
 
 截至2026-08-12：**R4-A、R4-B1至B22完成产品owner迁移与撤权，B23-B25完成R5删除与最终证据收口**，阶段状态为 **R4 complete / R5 complete**。旧whole-chain/standalone/frame-batch、planner/runtime-plan/decision/inline telemetry、shader fallback/provenance、路径启发资源投影和直接target旁路已删除；GraphExecutor per-stage typed backend、frame preflight/persistent graph API、typed package/loose/stock VFS graph与authored静态诊断保留，缺少必要typed事实稳定失败关闭。现役bounded Text AST、普通TEX autoplay、current `$mediaThumbnail`、普通authored Blend、named dependency、普通/Workshop Effect Audio Bars及共享audio spectrum保持。B25没有benchmark/fixed/full，B22 full45 45/45 PASS与fixed13 12/13 NON-PASS仍是最新跨样本矩阵证据，`2938612768`视觉债务未闭合。后续只扩展统一框架；发现旧执行权、样本分支或第二资源/target路径即视为架构回归。
 
-## 9. 下一动作
+## 9. 历史动作与完成记录
 
 1. **已完成**：R0-C legacy direct/offscreen 实际编码点接入与 strict generic family 回连；pure reducer、legacy decision、framebuffer、authored execution、code health、App verify 与 Scene 全量均已重跑。
 2. **已完成**：同一 8 样本动态门完成两次 10 秒与一次 20 秒复核，保留首轮 6/8 失败证据；exact/aggregate gap、CPU/route failure 与 shared frame status 已分别解释。

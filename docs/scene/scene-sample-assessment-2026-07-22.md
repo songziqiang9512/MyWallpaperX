@@ -1,6 +1,6 @@
 # Scene 21 个用户样本能力与视觉评估（2026-07-22）
 
-> 本文保留 2026-07-22 的逐样本视觉基线，不再作为当前能力表。现役支持等级、官方能力缺口和下一公共依赖统一查 [Scene 官方语义与实现覆盖台账](semantics/coverage-ledger.md)；本页只有“当前增量覆盖”会随代码纠偏，历史截图表不重写。
+> 本文完整冻结为 2026-07-22 的逐样本视觉与当时增量基线，不再维护任何“当前”状态。现役支持等级、官方能力缺口和下一公共依赖统一查 [Scene 官方语义与实现覆盖台账](semantics/coverage-ledger.md)；下文所有“当前增量”均只表示该历史快照当时的记录。
 
 ## 结论
 
@@ -39,7 +39,7 @@
 - `3290491250` 的背景不正确且类似文字的图层显示不全；`3743305891` 下半部居中的文字图像不全；`3767343314` 当前画面错误偏左，正确构图应居中；`3768229922` 当前卡在首屏/载入界面，尚未进入正式画面。
 - 非 16:9 屏幕上的 cover 裁切仍是已知观感问题。用户已撤回“保持比例策略不变”的决定；该问题留作后续独立公共修复，不与 X-Ray、blend 或 Fire effect 批次混合。
 
-## 当前增量覆盖
+## 2026-07-22 当时记录的增量覆盖
 
 | 能力 | 当前已验证 | 仍未覆盖 |
 | --- | --- | --- |
@@ -74,7 +74,7 @@
 
 Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，layer 缺失 `parallaxDepth` 或两轴均为零时不产生逐层位移；composition 类型本身不隐含任何视差深度。位移归一化和 delay 曲线仍需 Windows golden 校准。
 
-## 五个重点样本的当前增量状态
+## 五个重点样本当时的增量状态
 
 - `2802243144`：`e505a9e` 已让未修改样本 layers `[41,64,115]` 的 exact stock Shake 与 Blur Precise 按作者前后顺序进入 GPU；succeeded `[41,64,115]`、failed `[]`、Shake 3、chains 3、stages 6，warm-run changed ratio 约 `0.00977...0.01031`。`particle/chromaticdot` 雪层 `[20,25]` 现为 2/2；系统时间/日期 producer、dynamic Shake/audio/noise/direction 和 Windows WE 时序/像素 parity 仍未闭合。
 - `3724289844`：当前 authored graph succeeded `[20,28,36]`、failed/blocked `[]`、stages 4、chains 1；layer `20` 的 exact `Blur Precise -> Shadow` 是首条真实 fully-supported strict chain，layers `28/36` 保持 precise Blur singleton。该 Shadow 只按完整 Workshop definition/material/ShaderContract/render-state/combo/static-parameter 合同准入，属于 exact Workshop `L3 executed-degraded`，不代表官方 45 项 Effect 表的通用 Shadow 或 generic shader。`common_blending` mode 0 无官方像素 oracle，当前没有 WE pixel-equivalence 结论。

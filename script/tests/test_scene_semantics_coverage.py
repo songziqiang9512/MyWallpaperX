@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
+import html
 import json
 import re
 import subprocess
@@ -14,10 +15,15 @@ from urllib.parse import unquote, urlsplit
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+DOCUMENTATION_ROOT = REPOSITORY_ROOT / "docs"
 SEMANTICS_ROOT = REPOSITORY_ROOT / "docs/scene/semantics"
 SCENE_SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SCENE_LAYOUT_PATH = REPOSITORY_ROOT / "script/scene_source_layout.json"
 INLINE_LINK_PATTERN = re.compile(r"!?\[[^\]]*\]\(([^)\n]+)\)")
+EXPLICIT_ANCHOR_PATTERN = re.compile(
+    r"<a\s+(?:[^>]*?\s)?id=[\"']([^\"']+)[\"'][^>]*>",
+    re.IGNORECASE,
+)
 
 
 def markdown_without_fenced_code(text: str) -> str:
@@ -47,6 +53,25 @@ def markdown_link_targets(text: str) -> list[str]:
             target = target.split(maxsplit=1)[0]
         targets.append(target)
     return targets
+
+
+def github_heading_slug(value: str) -> str:
+    """Return the stable ASCII/CJK subset used by our Markdown anchors."""
+
+    value = re.sub(r"<[^>]+>", "", html.unescape(value)).strip().lower()
+    value = re.sub(r"[^\w\-\u3400-\u9fff ]", "", value)
+    return re.sub(r"[ _]+", "-", value).strip("-")
+
+
+def markdown_anchors(text: str) -> set[str]:
+    anchors = set(EXPLICIT_ANCHOR_PATTERN.findall(text))
+    for line in markdown_without_fenced_code(text).splitlines():
+        match = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", line)
+        if match:
+            slug = github_heading_slug(match.group(1))
+            if slug:
+                anchors.add(slug)
+    return anchors
 
 
 def swift_without_comments(text: str) -> str:
@@ -662,9 +687,9 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             violations = render_chain_completion_violations(root, layout)
             self.assertIn("r5: cannot start before r4 is complete", violations)
 
-    def test_relative_markdown_links_in_semantics_directory_exist(self) -> None:
+    def test_relative_markdown_links_and_fragments_in_documentation_exist(self) -> None:
         missing: list[str] = []
-        for document in sorted(SEMANTICS_ROOT.glob("*.md")):
+        for document in sorted(DOCUMENTATION_ROOT.rglob("*.md")):
             text = document.read_text(encoding="utf-8")
             for target in markdown_link_targets(text):
                 parsed = urlsplit(target)
@@ -678,6 +703,15 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                     missing.append(
                         f"{document.relative_to(REPOSITORY_ROOT)} -> {target}"
                     )
+                    continue
+                fragment = unquote(parsed.fragment)
+                if fragment and resolved.is_file() and resolved.suffix == ".md":
+                    anchors = markdown_anchors(resolved.read_text(encoding="utf-8"))
+                    if fragment not in anchors:
+                        missing.append(
+                            f"{document.relative_to(REPOSITORY_ROOT)} -> {target} "
+                            "(missing fragment)"
+                        )
 
         self.assertEqual(missing, [], "Missing relative Markdown links:\n" + "\n".join(missing))
 

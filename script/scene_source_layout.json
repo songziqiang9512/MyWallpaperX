@@ -38,6 +38,21 @@
           "ScenePersistentGraphTargetAllocator.swift"
         ],
         "responsibility": "Authored graph target lifecycle, from logical plans and execution state through allocation, residency, resource commands, and publication."
+      },
+      "ShaderFrontend": {
+        "file_globs": [
+          "SceneAuthoredShader*Admission.swift",
+          "SceneAuthoredShader*Analyzer*.swift",
+          "SceneAuthoredShader*VectorConversion.swift",
+          "SceneAuthoredShaderFrontend*.swift",
+          "SceneAuthoredShaderFunctionSemantics.swift",
+          "SceneAuthoredShaderLexer.swift",
+          "SceneAuthoredShaderMetal*.swift",
+          "SceneAuthoredShaderSyntax.swift",
+          "SceneAuthoredShaderVaryingArrayEmitter.swift",
+          "SceneAuthoredShaderWholeVectorAffineParser.swift"
+        ],
+        "responsibility": "Bounded authored-shader frontend, including lexing, syntax and loop admission, typed semantic and color analysis, source translation, and Metal emission."
       }
     }
   },

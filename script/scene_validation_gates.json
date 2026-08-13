@@ -130,13 +130,32 @@
       "modules": ["test_scene_audio_spectrum_input"]
     },
     {
+      "id": "shader-frontend-source-set",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderFrontend/**",
+        "script/scene_swift_source_sets.json",
+        "script/scene_swift_source_sets.py"
+      ],
+      "modules": ["test_scene_swift_source_sets"]
+    },
+    {
+      "id": "documentation",
+      "patterns": ["docs/**"],
+      "modules": ["test_scene_semantics_coverage"]
+    },
+    {
       "id": "semantics",
       "patterns": [
         "AGENTS.md",
         "docs/scene/semantics/**",
-        "script/scene_source_layout.json"
+        "script/scene_source_layout.json",
+        "script/scene_swift_source_sets.json",
+        "script/scene_swift_source_sets.py"
       ],
-      "modules": ["test_scene_semantics_coverage"]
+      "modules": [
+        "test_scene_semantics_coverage",
+        "test_scene_swift_source_sets"
+      ]
     },
     {
       "id": "matrix",

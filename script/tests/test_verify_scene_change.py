@@ -70,6 +70,29 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("test_scene_semantics_coverage", gates[0].command)
         self.assertIn("__scene_validation_no_scope_match__", gates[0].command)
 
+    def test_non_scene_documentation_change_selects_repository_link_contract(self) -> None:
+        gates, groups = verify.build_plan(
+            ["docs/architecture/technology-stack-boundaries.md"],
+            arguments(),
+            self.registry,
+        )
+        self.assertEqual([gate.gate_id for gate in gates], ["focused-tests"])
+        self.assertIn("documentation", groups)
+        self.assertIn("test_scene_semantics_coverage", gates[0].command)
+
+    def test_shader_frontend_change_selects_source_set_conservation(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
+                "ShaderFrontend/SceneAuthoredShaderFrontend.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("shader-frontend-source-set", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_scene_swift_source_sets", focused.command)
+
     def test_render_graph_checkpoint_reuses_build_wrapper_code_health(self) -> None:
         gates, groups = verify.build_plan(
             [
