@@ -54,12 +54,16 @@ nonisolated struct SceneMediaPlaybackPlaceholderFadeRuntime {
             let plan = binding.plan
             let delta = plan.frameTimeScale * frameTime
             let candidate: Double
-            switch state.mode {
-            case .stopped:
+            switch (state.mode, plan.polarity) {
+            case (.stopped, .stoppedRise),
+                 (.playing, .activeRise),
+                 (.paused, .activeRise):
                 candidate = state.counter + delta
-            case .playing, .paused:
+            case (.stopped, .activeRise),
+                 (.playing, .stoppedRise),
+                 (.paused, .stoppedRise):
                 candidate = state.counter - delta
-            case .unknown:
+            case (.unknown, _):
                 candidate = state.counter
             }
             guard candidate.isFinite else { continue }

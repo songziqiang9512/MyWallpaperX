@@ -56,9 +56,13 @@ enum Harness {
     static func main() throws {
         let source = placeholderSource()
         let first = compile(source: source, target: firstTarget)
-        let second = compile(source: source, authored: 0.4, target: secondTarget)
+        let inverse = compile(
+            source: placeholderSource(stoppedOperator: "+", activeOperator: "-"),
+            authored: 0.4,
+            target: secondTarget
+        )
         let program = SceneMediaPlaybackPlaceholderFadeProgram.validated(
-            bindings: [first, second].compactMap { $0 }
+            bindings: [first, inverse].compactMap { $0 }
         )
 
         var runtime = SceneMediaPlaybackPlaceholderFadeRuntime(program: program!)
@@ -84,6 +88,22 @@ enum Harness {
             playbackEventState: 0, frameTime: -1
         ), firstTarget)
 
+        var inverseRuntime = SceneMediaPlaybackPlaceholderFadeRuntime(program: program!)
+        let inverseInitial = scalar(inverseRuntime.values(frameTime: 0), secondTarget)
+        let inverseStopped = scalar(inverseRuntime.values(frameTime: 0.75), secondTarget)
+        let inversePlaying = scalar(inverseRuntime.values(
+            playbackEventState: 1, frameTime: 0.1
+        ), secondTarget)
+        let inversePaused = scalar(inverseRuntime.values(
+            playbackEventState: 2, frameTime: 1
+        ), secondTarget)
+        let inverseUnknown = scalar(inverseRuntime.values(
+            playbackEventState: 99, frameTime: 10
+        ), secondTarget)
+        let inverseStoppedReset = scalar(inverseRuntime.values(
+            playbackEventState: 0, frameTime: 0
+        ), secondTarget)
+
         let duplicate = SceneMediaPlaybackPlaceholderFadeProgram.validated(
             bindings: [first, first].compactMap { $0 }
         )
@@ -96,8 +116,8 @@ enum Harness {
             source: source,
             target: .layer(layerID: 10, field: .alpha)
         )
-        let reverse = compile(source: placeholderSource(stoppedOperator: "-"))
-        let activeReverse = compile(source: placeholderSource(activeOperator: "+"))
+        let samePositive = compile(source: placeholderSource(stoppedOperator: "+"))
+        let sameNegative = compile(source: placeholderSource(activeOperator: "-"))
         let wrongMapping = compile(source: placeholderSource(playingMapping: 2))
         let wrongLowerBound = compile(source: placeholderSource(lowerOperator: ">"))
         let wrongUpperBound = compile(source: placeholderSource(upperBound: 0))
@@ -106,7 +126,9 @@ enum Harness {
 
         let result: [String: Any] = [
             "renamedCommentedASICompiled": first != nil,
-            "secondTargetCompiled": second != nil,
+            "inversePolarityCompiled": inverse != nil,
+            "activePolarityProjected": first?.plan == .activeRise,
+            "stoppedPolarityProjected": inverse?.plan == .stoppedRise,
             "programValidated": program?.bindings.count == 2,
             "initial": initial,
             "stoppedUnbounded": stoppedUnbounded,
@@ -117,6 +139,12 @@ enum Harness {
             "stoppedAdvance": stoppedAdvance,
             "eventBeforeUpdate": eventBeforeUpdate,
             "invalidDeltaFrozen": invalidDeltaFrozen,
+            "inverseInitial": inverseInitial,
+            "inverseStopped": inverseStopped,
+            "inversePlaying": inversePlaying,
+            "inversePaused": inversePaused,
+            "inverseUnknown": inverseUnknown,
+            "inverseStoppedReset": inverseStoppedReset,
             "duplicateRejected": duplicate == nil,
             "wrongWrapperRejected": wrongWrapper == nil,
             "userBindingRejected": userBound == nil,
@@ -124,8 +152,8 @@ enum Harness {
             "timelineDiagnosticRejected": timelineDiagnostic == nil,
             "authoredBoundsRejected": outOfBounds == nil,
             "wrongTargetRejected": wrongTarget == nil,
-            "reversePolarityRejected": reverse == nil,
-            "activeReverseRejected": activeReverse == nil,
+            "samePositivePolarityRejected": samePositive == nil,
+            "sameNegativePolarityRejected": sameNegative == nil,
             "eventMappingRejected": wrongMapping == nil,
             "lowerBoundRejected": wrongLowerBound == nil,
             "upperBoundRejected": wrongUpperBound == nil,
@@ -169,8 +197,8 @@ enum Harness {
     }
 
     static func placeholderSource(
-        stoppedOperator: String = "+",
-        activeOperator: String = "-",
+        stoppedOperator: String = "-",
+        activeOperator: String = "+",
         playingMapping: Int = 1,
         lowerOperator: String = "<",
         upperBound: Int = 1
@@ -479,17 +507,17 @@ enum ProgramCompilerHarness {
 
         export function update(authoredScalar) {
             if (playbackBranch == 0) {
-                scalarAccumulator = scalarAccumulator + (secondsPerFade * engine.frametime * 2)
+                scalarAccumulator = scalarAccumulator - (secondsPerFade * engine.frametime * 2)
                 if (scalarAccumulator < 0) {
                     scalarAccumulator = 0
                 }
             } else if (playbackBranch == 1) {
-                scalarAccumulator = scalarAccumulator - (secondsPerFade * engine.frametime * 2)
+                scalarAccumulator = scalarAccumulator + (secondsPerFade * engine.frametime * 2)
                 if (scalarAccumulator > 1) {
                     scalarAccumulator = 1
                 }
             } else if (playbackBranch == 2) {
-                scalarAccumulator = scalarAccumulator - (secondsPerFade * engine.frametime * 2)
+                scalarAccumulator = scalarAccumulator + (secondsPerFade * engine.frametime * 2)
                 if (scalarAccumulator > 1) {
                     scalarAccumulator = 1
                 }
@@ -567,21 +595,31 @@ class SceneMediaPlaybackPlaceholderFadeTests(unittest.TestCase):
 
     def test_project_owned_renamed_comment_and_asi_fixture_compiles(self) -> None:
         self.assertTrue(self.result["renamedCommentedASICompiled"])
-        self.assertTrue(self.result["secondTargetCompiled"])
+        self.assertTrue(self.result["inversePolarityCompiled"])
+        self.assertTrue(self.result["activePolarityProjected"])
+        self.assertTrue(self.result["stoppedPolarityProjected"])
         self.assertTrue(self.result["programValidated"])
 
     def test_runtime_preserves_authored_asymmetric_counter_semantics(self) -> None:
         self.assertEqual(self.result["initial"], 0)
-        self.assertEqual(self.result["stoppedUnbounded"], 1.5)
-        self.assertEqual(self.result["playingReset"], 1)
-        self.assertEqual(self.result["pausedUnbounded"], -1)
-        self.assertEqual(self.result["unknownFrozen"], -1)
-        self.assertEqual(self.result["stoppedReset"], 0)
+        self.assertEqual(self.result["stoppedUnbounded"], 0)
+        self.assertAlmostEqual(self.result["playingReset"], 0.2)
+        self.assertEqual(self.result["pausedUnbounded"], 1)
+        self.assertEqual(self.result["unknownFrozen"], 1)
+        self.assertEqual(self.result["stoppedReset"], 1)
 
     def test_event_is_applied_before_same_frame_update(self) -> None:
         self.assertEqual(self.result["stoppedAdvance"], 0.5)
-        self.assertEqual(self.result["eventBeforeUpdate"], 0)
-        self.assertEqual(self.result["invalidDeltaFrozen"], 0)
+        self.assertEqual(self.result["eventBeforeUpdate"], 1)
+        self.assertEqual(self.result["invalidDeltaFrozen"], 1)
+
+    def test_runtime_preserves_the_inverse_authored_polarity(self) -> None:
+        self.assertEqual(self.result["inverseInitial"], 0)
+        self.assertEqual(self.result["inverseStopped"], 1.5)
+        self.assertEqual(self.result["inversePlaying"], 1)
+        self.assertEqual(self.result["inversePaused"], -1)
+        self.assertEqual(self.result["inverseUnknown"], -1)
+        self.assertEqual(self.result["inverseStoppedReset"], 0)
 
     def test_non_profile_sources_and_ambiguous_programs_fail_closed(self) -> None:
         keys = [key for key in self.result if key.endswith("Rejected")]

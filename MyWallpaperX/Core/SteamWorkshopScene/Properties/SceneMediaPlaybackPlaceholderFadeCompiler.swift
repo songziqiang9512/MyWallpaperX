@@ -26,14 +26,14 @@ nonisolated enum SceneMediaPlaybackPlaceholderFadeCompiler {
             return nil
         }
         var parser = Parser(tokens: tokens)
-        guard parser.parseProgram() else { return nil }
+        guard let plan = parser.parseProgram() else { return nil }
         return SceneMediaPlaybackPlaceholderFadeBinding(
             definition: SceneDynamicTargetDefinition(
                 target: target,
                 valueType: .scalar,
                 authoredValue: .scalar(authored)
             ),
-            plan: .positivePlaceholder
+            plan: plan
         )
     }
 
@@ -147,7 +147,7 @@ nonisolated enum SceneMediaPlaybackPlaceholderFadeCompiler {
         let tokens: [Token]
         var index = 0
 
-        mutating func parseProgram() -> Bool {
+        mutating func parseProgram() -> SceneMediaPlaybackPlaceholderFadePlan? {
             guard string("use strict"), endStatement(),
                   let fade = declaration(number: 1),
                   let volume = declaration(number: 1),
@@ -158,14 +158,14 @@ nonisolated enum SceneMediaPlaybackPlaceholderFadeCompiler {
                   let mode = declaration(number: 0),
                   Set([fade, volume, unusedState, counter, mode]).count == 5,
                   mediaHook(mode: mode, globals: [fade, volume, unusedState, counter, mode]),
-                  updateHook(
+                  let stoppedAdds = updateHook(
                       fade: fade, volume: volume, counter: counter, mode: mode,
                       globals: [fade, volume, unusedState, counter, mode]
                   ),
                   index == tokens.count else {
-                return false
+                return nil
             }
-            return true
+            return stoppedAdds ? .stoppedRise : .activeRise
         }
 
         mutating func declaration(number expected: Double) -> String? {
@@ -198,32 +198,46 @@ nonisolated enum SceneMediaPlaybackPlaceholderFadeCompiler {
         mutating func updateHook(
             fade: String, volume: String, counter: String, mode: String,
             globals: [String]
-        ) -> Bool {
+        ) -> Bool? {
             guard identifier("export"), identifier("function"), identifier("update"),
                   symbol("("), let value = takeIdentifier(), !globals.contains(value),
-                  symbol(")"), symbol("{") else { return false }
+                  symbol(")"), symbol("{") else { return nil }
+            var operators: [Bool] = []
             for state in 0...2 {
                 if state == 0 {
-                    guard identifier("if") else { return false }
+                    guard identifier("if") else { return nil }
                 } else {
-                    guard identifier("else"), identifier("if") else { return false }
+                    guard identifier("else"), identifier("if") else { return nil }
                 }
                 guard symbol("("), identifier(mode), symbol("=="),
                       number(Double(state)), symbol(")"), symbol("{"),
-                      delta(counter: counter, fade: fade, adds: state == 0),
+                      let adds = delta(counter: counter, fade: fade),
                       bound(counter: counter, lower: state == 0),
-                      symbol("}") else { return false }
+                      symbol("}") else { return nil }
+                operators.append(adds)
             }
-            return identifier("return") && identifier(counter) && symbol("*")
-                && identifier(volume) && endStatement() && symbol("}")
+            guard operators.count == 3,
+                  operators[1] == operators[2],
+                  operators[0] != operators[1],
+                  identifier("return"), identifier(counter), symbol("*"),
+                  identifier(volume), endStatement(), symbol("}") else { return nil }
+            return operators[0]
         }
 
-        mutating func delta(counter: String, fade: String, adds: Bool) -> Bool {
-            identifier(counter) && symbol("=") && identifier(counter)
-                && symbol(adds ? "+" : "-") && symbol("(")
-                && identifier(fade) && symbol("*") && identifier("engine")
-                && symbol(".") && identifier("frametime") && symbol("*")
-                && number(2) && symbol(")") && endStatement()
+        mutating func delta(counter: String, fade: String) -> Bool? {
+            guard identifier(counter), symbol("="), identifier(counter) else { return nil }
+            let adds: Bool
+            if symbol("+") {
+                adds = true
+            } else if symbol("-") {
+                adds = false
+            } else {
+                return nil
+            }
+            guard symbol("("), identifier(fade), symbol("*"), identifier("engine"),
+                  symbol("."), identifier("frametime"), symbol("*"), number(2),
+                  symbol(")"), endStatement() else { return nil }
+            return adds
         }
 
         mutating func bound(counter: String, lower: Bool) -> Bool {

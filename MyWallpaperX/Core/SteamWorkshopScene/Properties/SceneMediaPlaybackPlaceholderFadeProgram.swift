@@ -25,34 +25,52 @@ nonisolated struct SceneMediaPlaybackPlaceholderFadeBinding: Equatable, Sendable
     let plan: SceneMediaPlaybackPlaceholderFadePlan
 }
 
-/// Exact constants and asymmetric post-update guards authored by the admitted
-/// positive-polarity stock profile. The counter is intentionally not UNorm-clamped.
+/// Exact constants, branch polarity, and asymmetric post-update guards authored
+/// by the admitted fade profile. The counter is intentionally not UNorm-clamped.
 nonisolated struct SceneMediaPlaybackPlaceholderFadePlan: Equatable, Sendable {
+    enum Polarity: Equatable, Sendable {
+        case stoppedRise
+        case activeRise
+    }
+
     let initialCounter: Double
     let frameTimeScale: Double
     let outputScale: Double
     let stoppedLowerReset: Double
     let activeUpperReset: Double
+    let polarity: Polarity
 
     private nonisolated init(
         initialCounter: Double,
         frameTimeScale: Double,
         outputScale: Double,
         stoppedLowerReset: Double,
-        activeUpperReset: Double
+        activeUpperReset: Double,
+        polarity: Polarity
     ) {
         self.initialCounter = initialCounter
         self.frameTimeScale = frameTimeScale
         self.outputScale = outputScale
         self.stoppedLowerReset = stoppedLowerReset
         self.activeUpperReset = activeUpperReset
+        self.polarity = polarity
     }
 
-    nonisolated static let positivePlaceholder = Self(
+    nonisolated static let stoppedRise = Self(
         initialCounter: 0,
         frameTimeScale: 2,
         outputScale: 1,
         stoppedLowerReset: 0,
-        activeUpperReset: 1
+        activeUpperReset: 1,
+        polarity: .stoppedRise
+    )
+
+    nonisolated static let activeRise = Self(
+        initialCounter: 0,
+        frameTimeScale: 2,
+        outputScale: 1,
+        stoppedLowerReset: 0,
+        activeUpperReset: 1,
+        polarity: .activeRise
     )
 }
