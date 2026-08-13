@@ -95,6 +95,87 @@
         "RenderGraph/ShaderPreparation/SceneAuthoredShaderPreparation.swift",
         "RenderGraph/ShaderPreparation/SceneAuthoredShaderPreparation+Support.swift"
       ]
+    },
+    "resolved_material_program_model": {
+      "description": "Shared immutable Program model, host schema, identity, and derivation boundary.",
+      "includes": [],
+      "sources": [
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialHostUniformSchema.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramIdentity.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram+Derivation.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram+ColorDerivation.swift"
+      ]
+    },
+    "resolved_material_uniform_encoding": {
+      "description": "Program host, static, and dynamic uniform byte encoding.",
+      "includes": [],
+      "sources": [
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialUniformEncoder.swift"
+      ]
+    },
+    "resolved_material_shader_schema": {
+      "description": "Active shader schema, loop-bound resolution, sampler purpose, and reachability.",
+      "includes": [],
+      "sources": [
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+Reachability.swift"
+      ]
+    },
+    "resolved_material_texture_finalization": {
+      "description": "Frame texture selection, launch resolution, color checks, and atomic Program finalization.",
+      "includes": [],
+      "sources": [
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureResolver.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureSelection.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureResolver+GraphSelection.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureResolver+Launch.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramFinalizer.swift"
+      ]
+    },
+    "resolved_material_variant_preparation": {
+      "description": "Launch variant preparation, captured-main targeting, envelope compilation, and diagnostics.",
+      "includes": [],
+      "sources": [
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapability+Diagnostics.swift"
+      ]
+    },
+    "resolved_material_frame_finalization": {
+      "description": "Complete standalone boundary from the immutable Program model through frame resource finalization.",
+      "includes": [
+        "resolved_material_program_model",
+        "resolved_material_uniform_encoding",
+        "resolved_material_shader_schema",
+        "resolved_material_variant_preparation",
+        "resolved_material_texture_finalization"
+      ],
+      "sources": []
+    },
+    "resolved_material_template_compilation": {
+      "description": "Authored material ingress, script binding classification, and immutable Template compilation.",
+      "includes": [],
+      "sources": [
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialEffectIngress.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialScriptBindingClassifier.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift"
+      ]
+    },
+    "resolved_material_program_all": {
+      "description": "Complete MaterialProgram producer lifecycle without RuntimeCatalog or GPU execution consumers.",
+      "includes": [
+        "resolved_material_template_compilation",
+        "resolved_material_frame_finalization"
+      ],
+      "sources": []
     }
   }
 }

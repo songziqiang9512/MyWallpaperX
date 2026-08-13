@@ -28,7 +28,14 @@
         "file_globs": [
           "SceneEffectStageRenderer*.swift",
           "SceneGraphResourcePassEncoder.swift",
-          "SceneResolvedMaterialExecutionCapability*.swift",
+          "SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
+          "SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
+          "SceneResolvedMaterialExecutionCapability+Material.swift",
+          "SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift",
+          "SceneResolvedMaterialExecutionCapability+Stages.swift",
+          "SceneResolvedMaterialExecutionCapability.swift",
+          "SceneResolvedMaterialExecutionCapabilityAdmission.swift",
+          "SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
           "SceneResolvedMaterialGraphExecutor*.swift",
           "SceneResolvedMaterialAttachment*.swift",
           "SceneResolvedMaterialPassEncoder*.swift"
@@ -60,10 +67,16 @@
       "MaterialProgram": {
         "file_globs": [
           "SceneResolvedMaterialEffectIngress.swift",
+          "SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant.swift",
           "SceneResolvedMaterialHostUniformSchema.swift",
           "SceneResolvedMaterialProgram+ColorDerivation.swift",
           "SceneResolvedMaterialProgram+Derivation.swift",
           "SceneResolvedMaterialProgram.swift",
+          "SceneResolvedMaterialProgramFinalizer.swift",
           "SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
           "SceneResolvedMaterialProgramIdentity.swift",
           "SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
@@ -72,9 +85,15 @@
           "SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
           "SceneResolvedMaterialShaderSchema.swift",
           "SceneResolvedMaterialTemplateCompiler.swift",
+          "SceneResolvedMaterialTextureResolver+GraphSelection.swift",
+          "SceneResolvedMaterialTextureResolver+Launch.swift",
+          "SceneResolvedMaterialTextureResolver+LaunchColor.swift",
+          "SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
+          "SceneResolvedMaterialTextureResolver.swift",
+          "SceneResolvedMaterialTextureSelection.swift",
           "SceneResolvedMaterialUniformEncoder.swift"
         ],
-        "responsibility": "Atomic resolved-material schema, template compilation, Program identity and derivation, ingress classification, loop bounds, and host uniform encoding; frame/resource finalization and texture resolution remain at the RenderGraph root for M1, RuntimeCatalog is excluded, and GPU execution remains in EffectExecution."
+        "responsibility": "Complete resolved-material producer lifecycle: ingress and Template compilation, schema and variant preparation, Program identity and derivation, texture selection and frame finalization, and uniform encoding; RuntimeCatalog and GPU execution consumers are excluded."
       },
       "ShaderFrontend": {
         "file_globs": [

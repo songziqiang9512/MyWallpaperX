@@ -169,6 +169,7 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderFrontend/**",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/**",
         "script/scene_swift_source_sets.json",
         "script/scene_swift_source_sets.py"
       ],

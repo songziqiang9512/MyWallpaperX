@@ -58,34 +58,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureProviderPublication.swift",
     SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "Resources/SceneFrameTextureRegistry.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialHostUniformSchema.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramIdentity.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram+Derivation.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram+ColorDerivation.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialUniformEncoder.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+Reachability.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureSelection.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+GraphSelection.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+Launch.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramFinalizer.swift",
+    *scene_swift_sources("resolved_material_frame_finalization"),
 ]
 
 

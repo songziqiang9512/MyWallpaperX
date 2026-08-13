@@ -70,6 +70,61 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             {path.resolve() for path in preparation_directory.glob("*.swift")},
         )
 
+    def test_material_program_sets_conserve_the_complete_producer_lifecycle(self) -> None:
+        model = scene_swift_source_relpaths("resolved_material_program_model")
+        uniform = scene_swift_source_relpaths(
+            "resolved_material_uniform_encoding"
+        )
+        schema = scene_swift_source_relpaths("resolved_material_shader_schema")
+        texture_finalization = scene_swift_source_relpaths(
+            "resolved_material_texture_finalization"
+        )
+        variant_preparation = scene_swift_source_relpaths(
+            "resolved_material_variant_preparation"
+        )
+        frame_finalization = scene_swift_source_relpaths(
+            "resolved_material_frame_finalization"
+        )
+        template_compilation = scene_swift_source_relpaths(
+            "resolved_material_template_compilation"
+        )
+        complete = scene_swift_source_relpaths("resolved_material_program_all")
+
+        self.assertEqual(len(model), 6)
+        self.assertEqual(len(uniform), 1)
+        self.assertEqual(len(schema), 4)
+        self.assertEqual(len(texture_finalization), 7)
+        self.assertEqual(len(variant_preparation), 5)
+        self.assertEqual(
+            frame_finalization,
+            (
+                *model,
+                *uniform,
+                *schema,
+                *variant_preparation,
+                *texture_finalization,
+            ),
+        )
+        self.assertEqual(len(frame_finalization), 23)
+        self.assertEqual(len(template_compilation), 3)
+        self.assertEqual(complete, (*template_compilation, *frame_finalization))
+        self.assertEqual(len(complete), 26)
+
+        material_program_directory = (
+            REPOSITORY_ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram"
+        )
+        self.assertEqual(
+            {
+                path.resolve()
+                for path in scene_swift_sources("resolved_material_program_all")
+            },
+            {
+                path.resolve()
+                for path in material_program_directory.glob("*.swift")
+            },
+        )
+
     def test_frontend_consumers_use_the_canonical_source_set(self) -> None:
         consumers = [
             "script/scene_shader_preparation_census.py",
@@ -118,6 +173,46 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                         "shader preparation implementation paths belong only "
                         "in the canonical manifest",
                     )
+
+    def test_material_program_consumers_use_the_canonical_source_sets(self) -> None:
+        consumers = {
+            "resolved_material_frame_finalization": [
+                "script/tests/test_scene_graph_texture_publication.py",
+                "script/tests/test_scene_resolved_material_program_finalizer.py",
+            ],
+            "resolved_material_program_model": [
+                "script/tests/test_scene_resolved_material_pass_encoder.py",
+                "script/tests/test_scene_resolved_material_program_derivation.py",
+            ],
+        }
+        for source_set, paths in consumers.items():
+            for relative in paths:
+                text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
+                with self.subTest(source_set=source_set, consumer=relative):
+                    self.assertIn(source_set, text)
+                    self.assertNotIn(
+                        "RenderGraph/MaterialProgram/SceneResolvedMaterial",
+                        text,
+                        "MaterialProgram implementation paths belong only "
+                        "in the canonical manifest",
+                    )
+
+    def test_material_program_indirect_consumers_inherit_canonical_fixtures(self) -> None:
+        inherited = {
+            "script/tests/test_scene_resolved_material_execution_capability.py": (
+                "runpy.run_path",
+                "test_scene_resolved_material_program_finalizer.py",
+            ),
+            "script/tests/test_scene_resolved_material_graph_executor.py": (
+                "runpy.run_path",
+                "test_scene_graph_texture_publication.py",
+            ),
+        }
+        for relative, markers in inherited.items():
+            text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
+            with self.subTest(consumer=relative):
+                for marker in markers:
+                    self.assertIn(marker, text)
 
     def test_loader_rejects_cycles_duplicates_unsafe_paths_and_missing_files(self) -> None:
         cases = {

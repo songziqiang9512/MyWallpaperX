@@ -151,7 +151,9 @@ class SceneValidationSelectionTests(unittest.TestCase):
             self.registry,
         )
         self.assertIn("material-program", groups)
+        self.assertIn("shader-source-set-conservation", groups)
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_scene_swift_source_sets", focused.command)
         for module in (
             "test_scene_effect_texture_purposes",
             "test_scene_graph_texture_publication",

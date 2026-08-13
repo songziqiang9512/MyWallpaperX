@@ -36,7 +36,7 @@ CAPABILITY_PROGRAM_FIRST_SOURCE = (
 )
 VARIANT_CACHE_SOURCE = (
     SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant.swift"
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant.swift"
 )
 SHADER_REACHABILITY_SOURCE = (
     SCENE_ROOT
