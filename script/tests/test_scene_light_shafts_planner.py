@@ -7,27 +7,27 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import sys
 from pathlib import Path
+
+
+SOURCE_SET_SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SOURCE_SET_SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_SET_SCRIPT_ROOT))
+
+from scene_swift_source_sets import scene_swift_sources
 
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+AUTHORED_EFFECT_PLANNING_SOURCES = scene_swift_sources(
+    "authored_effect_planning_support"
+)
 STOCK_EFFECT_ROOT = (
     ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/effects/lightshafts"
 )
 SOURCES = [
-    SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
-    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
-    SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
-    SCENE_ROOT / "Resources/SceneResourceView.swift",
-    SCENE_ROOT / "Resources/SceneResourceIndex.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+    *AUTHORED_EFFECT_PLANNING_SOURCES,
     SCENE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredLightShaftsPlanner.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredLightShaftsPlanner+AssetValidation.swift",

@@ -16,6 +16,7 @@ sys.path.insert(0, str(SCRIPT_ROOT))
 from scene_swift_source_sets import (  # noqa: E402
     SceneSwiftSourceSetError,
     scene_swift_source_relpaths,
+    scene_swift_source_relpaths_by_basename,
     scene_swift_sources,
 )
 
@@ -41,6 +42,117 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             )},
             {path.resolve() for path in frontend_directory.glob("*.swift")},
         )
+
+    def test_shader_contract_resolution_and_effect_planning_sets_conserve_order(self) -> None:
+        frontend_support = scene_swift_source_relpaths(
+            "authored_shader_frontend_support"
+        )
+        resolution = scene_swift_source_relpaths(
+            "shader_contract_resource_resolution"
+        )
+        planning = scene_swift_source_relpaths(
+            "authored_effect_planning_support"
+        )
+
+        self.assertEqual(len(resolution), 9)
+        self.assertEqual(resolution[:3], frontend_support)
+        self.assertEqual(
+            resolution[3:],
+            (
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceGraphBuilder.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceResolver.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceView.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceIndex.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+            ),
+        )
+        self.assertEqual(len(planning), 12)
+        self.assertEqual(
+            planning,
+            (
+                "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneJSONValue.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectDefinition.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredMaterialResolver.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContract.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceGraphBuilder.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceResolver.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceView.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceIndex.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+            ),
+        )
+        self.assertEqual(
+            set(planning),
+            set(resolution)
+            | {
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectDefinition.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredMaterialResolver.swift",
+            },
+        )
+
+    def test_shader_contract_and_effect_planning_consumers_use_canonical_sets(self) -> None:
+        resolution_consumers = [
+            "script/tests/test_scene_asset_catalog_resource_view.py",
+            "script/tests/test_scene_material_render_state.py",
+            "script/tests/test_scene_procedural_noise_profile.py",
+            "script/tests/test_scene_runtime_input.py",
+            "script/tests/test_scene_shader_contract.py",
+        ]
+        planning_consumers = [
+            "script/tests/test_scene_blend_planner.py",
+            "script/tests/test_scene_depth_parallax_planner.py",
+            "script/tests/test_scene_film_grain_planner.py",
+            "script/tests/test_scene_fisheye_zero_distortion_planner.py",
+            "script/tests/test_scene_foliage_sway_profile.py",
+            "script/tests/test_scene_godrays_planner.py",
+            "script/tests/test_scene_light_shafts_planner.py",
+            "script/tests/test_scene_opacity_planner.py",
+            "script/tests/test_scene_pulse_planner.py",
+            "script/tests/test_scene_shake_planner.py",
+            "script/tests/test_scene_shine_planner.py",
+            "script/tests/test_scene_tint_planner.py",
+            "script/tests/test_scene_transform_planner.py",
+            "script/tests/test_scene_water_ripple_planner.py",
+            "script/tests/test_scene_waterwaves_profile.py",
+            "script/tests/test_scene_workshop_shadow_planner.py",
+            "script/tests/test_scene_workshop_shift_hue_planner.py",
+        ]
+        for relative in resolution_consumers:
+            text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
+            with self.subTest(source_set="resolution", consumer=relative):
+                self.assertIn("shader_contract_resource_resolution", text)
+                self.assertNotIn("RenderGraph/ShaderContract/SceneShader", text)
+                self.assertNotIn("Resources/SceneShaderSource", text)
+                self.assertNotIn("Resources/SceneResourceView.swift", text)
+                self.assertNotIn("Resources/SceneResourceIndex.swift", text)
+
+        for relative in planning_consumers:
+            text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
+            with self.subTest(source_set="planning", consumer=relative):
+                self.assertIn("authored_effect_planning_support", text)
+                self.assertNotIn("RenderGraph/ShaderContract/SceneShader", text)
+                self.assertNotIn("Resources/SceneShaderSource", text)
+                self.assertNotIn("Resources/SceneResourceView.swift", text)
+                self.assertNotIn("Resources/SceneResourceIndex.swift", text)
+                self.assertNotIn("RenderGraph/SceneEffectDefinition.swift", text)
+                self.assertNotIn(
+                    "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
+                    text,
+                )
+                self.assertNotIn("RenderGraph/SceneAuthoredMaterialResolver.swift", text)
+
+        for relative in (
+            "script/scene_material_program_census.py",
+            "script/scene_shader_preparation_census.py",
+        ):
+            text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
+            with self.subTest(source_set="census", consumer=relative):
+                self.assertIn("authored_effect_planning_support", text)
 
     def test_shader_preparation_sets_conserve_the_complete_type_family(self) -> None:
         environment = scene_swift_source_relpaths("shader_variant_environment")
@@ -252,6 +364,39 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                             repository_root=root,
                             manifest_path=manifest,
                         )
+
+    def test_basename_lookup_rejects_ambiguous_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Scene/A").mkdir(parents=True)
+            (root / "Scene/B").mkdir(parents=True)
+            (root / "Scene/A/Shared.swift").write_text(
+                "struct A {}\n", encoding="utf-8"
+            )
+            (root / "Scene/B/Shared.swift").write_text(
+                "struct B {}\n", encoding="utf-8"
+            )
+            manifest = root / "ambiguous.json"
+            manifest.write_text(
+                json.dumps({
+                    "schema_version": 1,
+                    "source_root": "Scene",
+                    "sets": {
+                        "ambiguous": {
+                            "includes": [],
+                            "sources": ["A/Shared.swift", "B/Shared.swift"],
+                        }
+                    },
+                }),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(SceneSwiftSourceSetError):
+                scene_swift_source_relpaths_by_basename(
+                    "ambiguous",
+                    repository_root=root,
+                    manifest_path=manifest,
+                )
 
 
 if __name__ == "__main__":

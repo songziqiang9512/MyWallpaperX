@@ -17,19 +17,17 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from scene_real_test_fixtures import sample_cache_root
 
 
+from scene_swift_source_sets import scene_swift_sources
+
+
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES = scene_swift_sources(
+    "shader_contract_resource_resolution"
+)
 REAL_SAMPLE_CACHE = sample_cache_root("3767460992")
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SOURCE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
-    SOURCE_ROOT / "Resources/SceneShaderSourceResolver.swift",
-    SOURCE_ROOT / "Resources/SceneResourceView.swift",
-    SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+    *SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES,
     SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseShaderProfile.swift",
 ]
 

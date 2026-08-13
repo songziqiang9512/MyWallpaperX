@@ -17,8 +17,14 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from scene_real_test_fixtures import sample_cache_root
 
 
+from scene_swift_source_sets import scene_swift_sources
+
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+AUTHORED_EFFECT_PLANNING_SOURCES = scene_swift_sources(
+    "authored_effect_planning_support"
+)
 LEGACY_SAMPLE = sample_cache_root("2067939514")
 CURRENT_STOCK_SAMPLE = sample_cache_root("2134765860")
 SIBLING_SAMPLE = sample_cache_root("2419444134")
@@ -27,19 +33,9 @@ BUNDLE_STOCK = (
     / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/effects/blend"
 )
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
+    *AUTHORED_EFFECT_PLANNING_SOURCES[:2],
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
-    SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SOURCE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
-    SOURCE_ROOT / "Resources/SceneShaderSourceResolver.swift",
-    SOURCE_ROOT / "Resources/SceneResourceView.swift",
-    SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+    *AUTHORED_EFFECT_PLANNING_SOURCES[2:],
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Properties/SceneTimeOfDayEffectScriptProgram.swift",

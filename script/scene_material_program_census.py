@@ -30,7 +30,10 @@ if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 from scene_real_test_fixture_config import load_fixture_config
-from scene_swift_source_sets import scene_swift_source_relpaths
+from scene_swift_source_sets import (
+    scene_swift_source_relpaths,
+    scene_swift_source_relpaths_by_basename,
+)
 
 
 DEFAULT_FIXTURE = SCRIPT_PATH.with_name("scene_real_test_fixture.json")
@@ -43,26 +46,31 @@ REAL_WORKSHOP_ROOT = (Path.home() / "Movies/MyWallpaperX/创意工坊").resolve(
 AUTHORED_SHADER_PREPARATION_SOURCES = scene_swift_source_relpaths(
     "authored_shader_preparation_implementation"
 )
+AUTHORED_EFFECT_PLANNING_SOURCES = scene_swift_source_relpaths_by_basename(
+    "authored_effect_planning_support"
+)
 
 CURRENT_SOURCE_PATHS = (
-    "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneJSONValue.swift",
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneJSONValue.swift"],
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectTextureInput.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectDefinition.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneEffectDefinition.swift"],
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneAuthoredEffectRenderPlan.swift"],
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlanner.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlanner+Resolution.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredMaterialResolver.swift",
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneAuthoredMaterialResolver.swift"],
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneMaterialRenderState.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContract.swift",
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderSourceGraph.swift"],
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderContract.swift"],
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderFrontend/SceneAuthoredShaderLexer.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceGraphBuilder.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceResolver.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceView.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceIndex.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderSourceGraphBuilder.swift"],
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderSourceResolver.swift"],
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneResourceView.swift"],
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneResourceIndex.swift"],
+    AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderContractLoader.swift"],
+    AUTHORED_EFFECT_PLANNING_SOURCES[
+        "SceneShaderContractLoader+SourceGraph.swift"
+    ],
     "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureSampling.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureUVTransform.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureCandidate.swift",

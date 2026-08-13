@@ -9,29 +9,30 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import sys
 from pathlib import Path
+
+
+SOURCE_SET_SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SOURCE_SET_SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_SET_SCRIPT_ROOT))
+
+from scene_swift_source_sets import scene_swift_sources
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+AUTHORED_EFFECT_PLANNING_SOURCES = scene_swift_sources(
+    "authored_effect_planning_support"
+)
 STOCK_EFFECT_ROOT = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/effects/foliagesway"
 )
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    *AUTHORED_EFFECT_PLANNING_SOURCES[:1],
     SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
-    SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SOURCE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
-    SOURCE_ROOT / "Resources/SceneShaderSourceResolver.swift",
-    SOURCE_ROOT / "Resources/SceneResourceView.swift",
-    SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
-    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+    *AUTHORED_EFFECT_PLANNING_SOURCES[1:],
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "Effects/SceneFoliageSwayRuntimePlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneFoliageSwayShaderProfile.swift",

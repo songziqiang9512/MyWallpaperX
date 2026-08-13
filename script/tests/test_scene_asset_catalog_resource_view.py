@@ -7,29 +7,48 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import sys
 from pathlib import Path
+
+
+SOURCE_SET_SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SOURCE_SET_SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_SET_SCRIPT_ROOT))
+
+from scene_swift_source_sets import scene_swift_sources_by_basename
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES = scene_swift_sources_by_basename(
+    "shader_contract_resource_resolution"
+)
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneJSONValue.swift"],
     SCENE_ROOT / "Format/SceneCompatibilityContext.swift",
     SCENE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SCENE_ROOT / "Format/SceneProject.swift",
     SCENE_ROOT / "Properties/SceneUserProperty.swift",
     SCENE_ROOT / "Properties/SceneUserPropertyDefinitionParser.swift",
-    SCENE_ROOT / "Resources/SceneResourceIndex.swift",
-    SCENE_ROOT / "Resources/SceneResourceView.swift",
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneResourceIndex.swift"],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneResourceView.swift"],
     SCENE_ROOT / "Resources/SceneAssetCatalog.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
-    SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneShaderSourceGraph.swift"],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneShaderContract.swift"],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
+        "SceneShaderSourceGraphBuilder.swift"
+    ],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
+        "SceneShaderSourceResolver.swift"
+    ],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
+        "SceneShaderContractLoader.swift"
+    ],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
+        "SceneShaderContractLoader+SourceGraph.swift"
+    ],
 ]
 
 HARNESS = r'''

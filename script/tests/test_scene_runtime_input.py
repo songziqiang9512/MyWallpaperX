@@ -5,13 +5,24 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 
+SOURCE_SET_SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SOURCE_SET_SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_SET_SCRIPT_ROOT))
+
+from scene_swift_source_sets import scene_swift_sources_by_basename
+
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES = scene_swift_sources_by_basename(
+    "shader_contract_resource_resolution"
+)
 RUNTIME_INPUT_SOURCE = SCENE_ROOT / "Runtime/SceneRuntimeInput.swift"
 RUNTIME_MODEL_SOURCE = SCENE_ROOT / "Runtime/SceneRuntimeModel.swift"
 DIAGNOSTICS_SOURCE = SCENE_ROOT / "Runtime/SceneDiagnostics.swift"
@@ -23,10 +34,16 @@ PLAYBACK_SOURCE = (
     / "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+ScenePlayback.swift"
 )
 ASSET_CATALOG_SOURCE = SCENE_ROOT / "Resources/SceneAssetCatalog.swift"
-SHADER_CONTRACT_SOURCE = SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift"
-SHADER_CONTRACT_LOADER_SOURCE = SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader.swift"
+SHADER_CONTRACT_SOURCE = SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
+    "SceneShaderContract.swift"
+]
+SHADER_CONTRACT_LOADER_SOURCE = SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
+    "SceneShaderContractLoader.swift"
+]
 SHADER_CONTRACT_GRAPH_LOADER_SOURCE = (
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift"
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
+        "SceneShaderContractLoader+SourceGraph.swift"
+    ]
 )
 SWIFT_SOURCES = [
     SCENE_ROOT / "Properties/SceneUserProperty.swift",
@@ -36,13 +53,19 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Properties/ScenePropertyBindingProgram.swift",
     SCENE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     SCENE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",
-    SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneJSONValue.swift"],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
+        "SceneShaderSourceGraph.swift"
+    ],
     SHADER_CONTRACT_SOURCE,
-    SCENE_ROOT / "Resources/SceneResourceIndex.swift",
-    SCENE_ROOT / "Resources/SceneResourceView.swift",
-    SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
-    SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneResourceIndex.swift"],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneResourceView.swift"],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
+        "SceneShaderSourceResolver.swift"
+    ],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
+        "SceneShaderSourceGraphBuilder.swift"
+    ],
     SHADER_CONTRACT_LOADER_SOURCE,
     SHADER_CONTRACT_GRAPH_LOADER_SOURCE,
     RUNTIME_INPUT_SOURCE,

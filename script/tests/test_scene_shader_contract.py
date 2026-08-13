@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import sys
 from pathlib import Path
 import re
 import shutil
@@ -11,18 +12,20 @@ import textwrap
 import unittest
 
 
+SOURCE_SET_SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SOURCE_SET_SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_SET_SCRIPT_ROOT))
+
+from scene_swift_source_sets import scene_swift_sources
+
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES = scene_swift_sources(
+    "shader_contract_resource_resolution"
+)
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
-    SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
-    SCENE_ROOT / "Resources/SceneResourceView.swift",
-    SCENE_ROOT / "Resources/SceneResourceIndex.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+    *SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES,
 ]
 
 HARNESS = r"""

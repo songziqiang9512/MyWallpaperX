@@ -11,6 +11,38 @@
         "RenderGraph/ShaderContract/SceneShaderContract.swift"
       ]
     },
+    "shader_contract_resource_resolution": {
+      "description": "Shader contract schema, immutable source graph, resource views, and root/VFS contract loading boundary.",
+      "includes": [
+        "authored_shader_frontend_support"
+      ],
+      "sources": [
+        "Resources/SceneShaderSourceGraphBuilder.swift",
+        "Resources/SceneShaderSourceResolver.swift",
+        "Resources/SceneResourceView.swift",
+        "Resources/SceneResourceIndex.swift",
+        "RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
+        "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift"
+      ]
+    },
+    "authored_effect_planning_support": {
+      "description": "Standalone compile order for shared shader-contract resource resolution and authored effect planning inputs.",
+      "includes": [],
+      "sources": [
+        "Format/SceneJSONValue.swift",
+        "RenderGraph/SceneEffectDefinition.swift",
+        "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
+        "RenderGraph/SceneAuthoredMaterialResolver.swift",
+        "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+        "RenderGraph/ShaderContract/SceneShaderContract.swift",
+        "Resources/SceneShaderSourceGraphBuilder.swift",
+        "Resources/SceneShaderSourceResolver.swift",
+        "Resources/SceneResourceView.swift",
+        "Resources/SceneResourceIndex.swift",
+        "RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
+        "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift"
+      ]
+    },
     "authored_shader_frontend_implementation": {
       "description": "The complete bounded authored-shader lexer, syntax, semantic analysis, translation, and Metal emission type family.",
       "includes": [],

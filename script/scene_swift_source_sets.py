@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, TypeVar
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST_PATH = Path(__file__).with_name("scene_swift_source_sets.json")
+SourcePath = TypeVar("SourcePath", str, Path)
 
 
 class SceneSwiftSourceSetError(ValueError):
@@ -114,3 +115,45 @@ def scene_swift_sources(
             manifest_path=manifest_path,
         )
     )
+
+
+def _sources_by_basename(
+    set_name: str,
+    sources: tuple[SourcePath, ...],
+) -> dict[str, SourcePath]:
+    result = {Path(source).name: source for source in sources}
+    if len(result) != len(sources):
+        raise SceneSwiftSourceSetError(
+            f"{set_name}: expanded sources must have unique basenames"
+        )
+    return result
+
+
+def scene_swift_source_relpaths_by_basename(
+    set_name: str,
+    repository_root: Path = REPOSITORY_ROOT,
+    manifest_path: Path = DEFAULT_MANIFEST_PATH,
+) -> dict[str, str]:
+    """Expand one set into a basename-keyed relative-path lookup."""
+
+    sources = scene_swift_source_relpaths(
+        set_name,
+        repository_root=repository_root,
+        manifest_path=manifest_path,
+    )
+    return _sources_by_basename(set_name, sources)
+
+
+def scene_swift_sources_by_basename(
+    set_name: str,
+    repository_root: Path = REPOSITORY_ROOT,
+    manifest_path: Path = DEFAULT_MANIFEST_PATH,
+) -> dict[str, Path]:
+    """Expand one set into a basename-keyed absolute-path lookup."""
+
+    sources = scene_swift_sources(
+        set_name,
+        repository_root=repository_root,
+        manifest_path=manifest_path,
+    )
+    return _sources_by_basename(set_name, sources)
