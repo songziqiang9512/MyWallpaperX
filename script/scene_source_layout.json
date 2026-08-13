@@ -151,6 +151,20 @@
         ],
         "responsibility": "Bounded authored-shader source preparation, including directive and macro preprocessing, variant environment and resolution, prepared-source production, and malformed-metadata admission; excludes ShaderContract, ShaderSourceGraph, FrameInputs, ShaderFrontend, and ResolvedMaterial lifecycles."
       }
+    },
+    "Runtime": {
+      "ResolvedMaterialExecution": {
+        "file_globs": [
+          "SceneResolvedMaterialGraphObservationBuilder.swift",
+          "SceneResolvedMaterialRuntimeBridge.swift",
+          "SceneResolvedMaterialSubmissionCoordinator+Completion.swift",
+          "SceneResolvedMaterialSubmissionCoordinator+Execution.swift",
+          "SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift",
+          "SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift",
+          "SceneResolvedMaterialSubmissionCoordinator.swift"
+        ],
+        "responsibility": "Surface-scoped resolved-material execution lifecycle, from the runtime facade and atomic frame submission through target commit, ordered encoding, completion, rollback, epoch invalidation, and terminal graph observation; excludes scene-lifetime catalogs, generic graph telemetry, GPU executors, and Rendering consumers."
+      }
     }
   },
   "forbidden_directory_names": [

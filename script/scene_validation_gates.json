@@ -70,6 +70,19 @@
       "keywords": ["runtime", "frame_context", "performance"]
     },
     {
+      "id": "resolved-material-runtime-execution",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Runtime/ResolvedMaterialExecution/**"],
+      "modules": [
+        "test_scene_framebuffer_capture",
+        "test_scene_graph_execution_telemetry",
+        "test_scene_graph_texture_publication",
+        "test_scene_resolved_material_execution_capability",
+        "test_scene_resolved_material_graph_executor",
+        "test_scene_resolved_material_runtime_bridge",
+        "test_scene_utility_layers"
+      ]
+    },
+    {
       "id": "properties",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Properties/**"],
       "keywords": ["property", "dynamic"]

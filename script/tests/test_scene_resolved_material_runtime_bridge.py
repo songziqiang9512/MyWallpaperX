@@ -18,7 +18,8 @@ RUNTIME_CATALOG = (
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
 )
 RUNTIME_BRIDGE = (
-    SCENE_ROOT / "Runtime/SceneResolvedMaterialRuntimeBridge.swift"
+    SCENE_ROOT
+    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialRuntimeBridge.swift"
 )
 ASSET_CATALOG = (
     SCENE_ROOT / "Resources/SceneMaterialAssetTextureCatalog.swift"
@@ -68,28 +69,30 @@ HOST_FRAME_DRIVER = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
 SUBMISSION_COORDINATOR = (
-    SCENE_ROOT / "Runtime/SceneResolvedMaterialSubmissionCoordinator.swift"
+    SCENE_ROOT
+    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator.swift"
 )
 SUBMISSION_COMPLETION = (
     SCENE_ROOT
-    / "Runtime/SceneResolvedMaterialSubmissionCoordinator+Completion.swift"
+    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator+Completion.swift"
 )
 SUBMISSION_LIFECYCLE = (
     SCENE_ROOT
-    / "Runtime/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift"
+    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift"
 )
 SUBMISSION_FRAME_COMMIT = (
     SCENE_ROOT
-    / "Runtime/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift"
+    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift"
 )
 SUBMISSION_EXECUTION = (
     SCENE_ROOT
-    / "Runtime/SceneResolvedMaterialSubmissionCoordinator+Execution.swift"
+    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator+Execution.swift"
 )
 GRAPH_OBSERVATION = SCENE_ROOT / "Runtime/SceneGraphExecutionObservation.swift"
 GRAPH_TELEMETRY = SCENE_ROOT / "Runtime/SceneGraphExecutionTelemetry.swift"
 GRAPH_OBSERVATION_BUILDER = (
-    SCENE_ROOT / "Runtime/SceneResolvedMaterialGraphObservationBuilder.swift"
+    SCENE_ROOT
+    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialGraphObservationBuilder.swift"
 )
 SUBMISSION_SWIFT_SOURCES = [
     GRAPH_OBSERVATION,

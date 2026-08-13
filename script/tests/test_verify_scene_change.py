@@ -140,6 +140,32 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
+    def test_resolved_material_runtime_execution_selects_atomic_consumers(
+        self,
+    ) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
+                "ResolvedMaterialExecution/"
+                "SceneResolvedMaterialSubmissionCoordinator.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("resolved-material-runtime-execution", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        for module in (
+            "test_scene_framebuffer_capture",
+            "test_scene_graph_execution_telemetry",
+            "test_scene_graph_texture_publication",
+            "test_scene_resolved_material_execution_capability",
+            "test_scene_resolved_material_graph_executor",
+            "test_scene_resolved_material_runtime_bridge",
+            "test_scene_utility_layers",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, focused.command)
+
     def test_authored_graph_change_selects_ir_admission_and_executor_contracts(self) -> None:
         gates, groups = verify.build_plan(
             [
