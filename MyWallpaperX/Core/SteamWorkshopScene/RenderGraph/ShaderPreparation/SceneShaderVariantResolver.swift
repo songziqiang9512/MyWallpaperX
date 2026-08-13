@@ -283,17 +283,41 @@ nonisolated enum SceneShaderVariantResolver {
             } else {
                 if definitions[combo] != .undefined,
                    definitions[combo] != expected {
-                    throw Failure(
-                        code: .conflictingTextureReadiness,
-                        combo: combo,
-                        message: "Shader annotation default conflicts with texture readiness."
-                    )
+                    guard authoredZeroDefaultCanYieldToReadiness(
+                        combo,
+                        schemas: schemas,
+                        definition: definitions[combo],
+                        provenance: provenance[combo]
+                    ) else {
+                        throw Failure(
+                            code: .conflictingTextureReadiness,
+                            combo: combo,
+                            message: "Shader annotation default conflicts with texture readiness."
+                        )
+                    }
                 }
                 definitions[combo] = expected
                 provenance[combo] = .textureReadiness
             }
             validatedSlots[combo, default: []].formUnion(slots)
         }
+    }
+
+    private static func authoredZeroDefaultCanYieldToReadiness(
+        _ combo: String,
+        schemas: [Schema],
+        definition: SceneShaderMacroDefinition?,
+        provenance: SceneShaderComboProvenance?
+    ) -> Bool {
+        let authored = schemas.filter {
+            $0.combo == combo && $0.origin == .authoredCombo
+        }
+        return authored.count == 1
+            && authored[0].defaultValue == 0
+            && authored[0].requirements.isEmpty
+            && !authored[0].requireAny
+            && definition == .defined(.integer(0))
+            && provenance == .annotationDefault
     }
 
     private static func validateOptions(

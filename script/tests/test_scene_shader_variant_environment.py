@@ -517,6 +517,55 @@ private func runReadinessFixtures() throws -> [String] {
         "Conflicting slots selected one readiness value by iteration order."
     )
 
+    let authoredZeroPresence = makeStage(
+        """
+        // [COMBO] {"combo":"MASK","default":0}
+        uniform sampler2D g_Texture1; // {"combo":"MASK"}
+        """
+    )
+    let authoredZeroReady = try resolved(variant(
+        authoredZeroPresence,
+        readiness: [1: true]
+    ))
+    let authoredZeroReadyResolution = try resolution(authoredZeroReady, "MASK")
+    let authoredZeroMissing = try resolved(variant(
+        authoredZeroPresence,
+        readiness: [1: false]
+    ))
+    let authoredZeroMissingResolution = try resolution(authoredZeroMissing, "MASK")
+    try expect(
+        authoredZeroReadyResolution.binding.definition == .defined(.integer(1))
+            && authoredZeroReadyResolution.provenance == .textureReadiness
+            && authoredZeroReadyResolution.validatedTextureSlots == [1]
+            && authoredZeroMissingResolution.binding.definition == .undefined
+            && authoredZeroMissingResolution.provenance == .textureReadiness
+            && authoredZeroMissingResolution.validatedTextureSlots == [1],
+        "An exact authored zero fallback overrode the sampler presence fact."
+    )
+    let authoredZeroExplicitConflict = try failure(variant(
+        authoredZeroPresence,
+        explicit: ["MASK": 0],
+        readiness: [1: true]
+    ))
+    try expect(
+        authoredZeroExplicitConflict.code == .explicitTextureReadinessConflict,
+        "An explicit authored value was silently replaced by sampler presence."
+    )
+    let authoredNonzeroPresence = makeStage(
+        """
+        // [COMBO] {"combo":"MASK","default":1}
+        uniform sampler2D g_Texture1; // {"combo":"MASK"}
+        """
+    )
+    let authoredNonzeroFailure = try failure(variant(
+        authoredNonzeroPresence,
+        readiness: [1: false]
+    ))
+    try expect(
+        authoredNonzeroFailure.code == .conflictingTextureReadiness,
+        "A nonzero authored fallback was treated as a presence-neutral default."
+    )
+
     let authoredSampler = makeStage(
         "uniform sampler2D g_Texture3; // [COMBO] {\"combo\":\"AUTHORED\",\"default\":1}"
     )
