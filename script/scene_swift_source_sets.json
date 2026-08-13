@@ -7,8 +7,8 @@
       "includes": [],
       "sources": [
         "Format/SceneJSONValue.swift",
-        "RenderGraph/SceneShaderSourceGraph.swift",
-        "RenderGraph/SceneShaderContract.swift"
+        "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+        "RenderGraph/ShaderContract/SceneShaderContract.swift"
       ]
     },
     "authored_shader_frontend_implementation": {

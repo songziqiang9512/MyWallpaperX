@@ -23,10 +23,10 @@ PLAYBACK_SOURCE = (
     / "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+ScenePlayback.swift"
 )
 ASSET_CATALOG_SOURCE = SCENE_ROOT / "Resources/SceneAssetCatalog.swift"
-SHADER_CONTRACT_SOURCE = SCENE_ROOT / "RenderGraph/SceneShaderContract.swift"
-SHADER_CONTRACT_LOADER_SOURCE = SCENE_ROOT / "RenderGraph/SceneShaderContractLoader.swift"
+SHADER_CONTRACT_SOURCE = SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift"
+SHADER_CONTRACT_LOADER_SOURCE = SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader.swift"
 SHADER_CONTRACT_GRAPH_LOADER_SOURCE = (
-    SCENE_ROOT / "RenderGraph/SceneShaderContractLoader+SourceGraph.swift"
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift"
 )
 SWIFT_SOURCES = [
     SCENE_ROOT / "Properties/SceneUserProperty.swift",
@@ -37,7 +37,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     SCENE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
     SHADER_CONTRACT_SOURCE,
     SCENE_ROOT / "Resources/SceneResourceIndex.swift",
     SCENE_ROOT / "Resources/SceneResourceView.swift",

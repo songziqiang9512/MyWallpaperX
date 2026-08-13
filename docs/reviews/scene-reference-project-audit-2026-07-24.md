@@ -271,10 +271,10 @@ MyWallpaperX 已保存：
 
 证据：
 
-- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderContract.swift:3-77`
-- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderContract.swift:79-180`
-- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderContractLoader.swift:29-112`
-- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderContractLoader.swift:204-250`
+- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContract.swift:3-77`
+- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContract.swift:79-180`
+- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader.swift:29-112`
+- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader.swift:204-250`
 
 下一步应先建立真实 shader 合同测试：
 

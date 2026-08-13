@@ -154,6 +154,19 @@
       ]
     },
     {
+      "id": "shader-contract",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/**"],
+      "modules": [
+        "test_scene_asset_catalog_resource_view",
+        "test_scene_material_program_census",
+        "test_scene_runtime_input",
+        "test_scene_shader_contract",
+        "test_scene_shader_preparation_census",
+        "test_scene_shader_preprocessor",
+        "test_scene_swift_source_sets"
+      ]
+    },
+    {
       "id": "effects",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Effects/**"],
       "keywords": ["effect", "rendering", "planner"]
@@ -196,6 +209,7 @@
     {
       "id": "shader-source-set-conservation",
       "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/**",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderFrontend/**",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/**",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/**",

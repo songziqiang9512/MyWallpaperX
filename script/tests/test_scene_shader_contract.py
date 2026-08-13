@@ -15,14 +15,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
     SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
     SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
     SCENE_ROOT / "Resources/SceneResourceView.swift",
     SCENE_ROOT / "Resources/SceneResourceIndex.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderContractLoader+SourceGraph.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
 ]
 
 HARNESS = r"""

@@ -114,6 +114,32 @@ class SceneValidationSelectionTests(unittest.TestCase):
                 )
                 self.assertIn("test_scene_swift_source_sets", focused.command)
 
+    def test_shader_contract_change_selects_contract_vfs_and_census_consumers(
+        self,
+    ) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
+                "ShaderContract/SceneShaderContractLoader.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("shader-contract", groups)
+        self.assertIn("shader-source-set-conservation", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        for module in (
+            "test_scene_asset_catalog_resource_view",
+            "test_scene_material_program_census",
+            "test_scene_runtime_input",
+            "test_scene_shader_contract",
+            "test_scene_shader_preparation_census",
+            "test_scene_shader_preprocessor",
+            "test_scene_swift_source_sets",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, focused.command)
+
     def test_authored_graph_change_selects_ir_admission_and_executor_contracts(self) -> None:
         gates, groups = verify.build_plan(
             [

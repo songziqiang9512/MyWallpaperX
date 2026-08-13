@@ -115,6 +115,15 @@
         ],
         "responsibility": "Complete resolved-material producer lifecycle: ingress and Template compilation, schema and variant preparation, Program identity and derivation, texture selection and frame finalization, and uniform encoding; RuntimeCatalog and GPU execution consumers are excluded."
       },
+      "ShaderContract": {
+        "file_globs": [
+          "SceneShaderContract.swift",
+          "SceneShaderContractLoader+SourceGraph.swift",
+          "SceneShaderContractLoader.swift",
+          "SceneShaderSourceGraph.swift"
+        ],
+        "responsibility": "Loss-preserving shader contract and source-graph lifecycle, including schema, stage metadata parsing, immutable source-graph contracts, and root/VFS contract loading and projection; concrete VFS/resource resolution, preparation, frontend compilation, MaterialProgram production, and GPU execution are excluded."
+      },
       "ShaderFrontend": {
         "file_globs": [
           "SceneAuthoredShader*Admission.swift",

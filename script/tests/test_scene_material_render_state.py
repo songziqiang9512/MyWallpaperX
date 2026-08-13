@@ -22,12 +22,12 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneAssetCatalog.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
     SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
     SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
-    SCENE_ROOT / "RenderGraph/SceneShaderContractLoader+SourceGraph.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
 ]
 
 # SceneDocument 的完整图会拉入 particle/utility/puppet/text 全套，与 material pass 解析无关，
