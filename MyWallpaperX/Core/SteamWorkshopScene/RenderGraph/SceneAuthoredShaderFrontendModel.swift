@@ -186,6 +186,9 @@ nonisolated enum SceneShaderColorTransfer: Equatable, Hashable, Sendable {
     case passthrough(textureSlot: Int)
     case straightAlphaPreserving(textureSlot: Int)
     case straightAlpha(textureSlot: Int)
+    /// A single straight-RGBA source is filtered with bounded whole-vector
+    /// affine math, clamped to the UNorm attachment domain, then premultiplied.
+    case straightAlphaUNorm(textureSlot: Int)
     case independentAlphaSignal(textureSlot: Int)
     case independentAlphaSignalPreserving(textureSlot: Int)
     case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)

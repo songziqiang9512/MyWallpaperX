@@ -127,6 +127,15 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                 return nil
             }
             fragmentOutput = .premultipliedAlpha
+        case let .straightAlphaUNorm(slot):
+            guard textureFacts.indices.contains(slot),
+                  let fact = textureFacts[slot],
+                  case let .color(.resolved(representation)) = fact.content,
+                  representation == .opaque || representation == .premultipliedAlpha,
+                  auxiliarySlotsAreData(textureFacts, excluding: slot) else {
+                return nil
+            }
+            fragmentOutput = .premultipliedAlpha
         case let .independentAlphaSignal(slot):
             guard let representation = representation(
                 slot: slot, textureFacts: textureFacts

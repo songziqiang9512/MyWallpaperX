@@ -40,10 +40,14 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderWholeVectorAffineParser.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
@@ -184,6 +188,27 @@ void main() {
     vec4 color = sampled;
     color.rgb *= g_Gain;
     gl_FragColor = saturate(color);
+}
+"""
+
+private let wholeColorFilterFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform float g_Gain;
+vec4 Filter(vec2 uv, float mask) {
+    vec4 center = texSample2D(g_Texture0, uv);
+    vec4 left = texSample2D(g_Texture0, uv - vec2(0.1));
+    vec4 right = texSample2D(g_Texture0, uv + vec2(0.1));
+    vec4 average = (left + right) / 2;
+    vec4 filtered = (1 + mask) * center - mask * average;
+    return filtered;
+}
+void main() {
+    vec4 source = texSample2D(g_Texture0, v_TexCoord);
+    float mask = texSample2D(g_Texture1, v_TexCoord).r;
+    if (mask > 0.1) source = Filter(v_TexCoord, mask);
+    gl_FragColor = source;
 }
 """
 
@@ -473,6 +498,16 @@ private func hasStraightAlphaPreservingBoundary(_ program: Program?) -> Bool {
         == .premultipliedAlpha
 }
 
+private func hasStraightAlphaUNormBoundary(_ program: Program?) -> Bool {
+    guard let program,
+          case .straightAlphaUNorm(0) =
+            program.semanticIdentity.shader.colorTransfer else {
+        return false
+    }
+    return program.semanticIdentity.colorContract.fragmentOutput
+        == .premultipliedAlpha
+}
+
 @main
 private enum Harness {
     static func main() throws {
@@ -721,6 +756,57 @@ private enum Harness {
             textureSlots: slots(firstSlot)
         )
 
+        let wholeFilterPrepared = prepared(
+            revision: "whole-color-unorm-filter",
+            fragment: wholeColorFilterFragment
+        )
+        let wholeFilterAccepted = assemble(
+            prepared: wholeFilterPrepared,
+            textureSlots: slots(textureSlot(
+                device: device,
+                marker: 44,
+                graphKind: .layerSource
+            ), maskSlot),
+            role: .init(
+                effectInput: .layerSource,
+                effectOutput: .effectOutput,
+                nodeTarget: .effectOutput,
+                bindings: [.init(slot: 0, texture: .layerSource)]
+            )
+        )
+        let wholeFilterColorAuxiliaryRejected = assemble(
+            prepared: wholeFilterPrepared,
+            textureSlots: slots(textureSlot(
+                device: device,
+                marker: 45,
+                graphKind: .layerSource
+            ), textureSlot(
+                device: device,
+                slot: 1,
+                marker: 43,
+                expectedPurpose: .straightAlbedo,
+                publishedPurpose: .straightAlbedo,
+                content: .color(.resolved(.straightAlpha)),
+                reference: .asset(SceneVFSAssetPath("assets/filter-color.tex")!)
+            )),
+            role: .init(
+                effectInput: .layerSource,
+                effectOutput: .effectOutput,
+                nodeTarget: .effectOutput,
+                bindings: [.init(slot: 0, texture: .layerSource)]
+            )
+        ) == nil
+        let wholeFilterEffectOutputRejected = assemble(
+            prepared: wholeFilterPrepared,
+            textureSlots: slots(firstSlot, maskSlot),
+            role: graphRole(effectInput: .effectOutput)
+        ) == nil
+        let wholeFilterFramebufferRejected = assemble(
+            prepared: wholeFilterPrepared,
+            textureSlots: slots(firstSlot, maskSlot),
+            role: graphRole(effectInput: .layerSource)
+        ) == nil
+
         let twoSlotPrepared = prepared(
             revision: "two-color-inputs",
             fragment: """
@@ -856,6 +942,13 @@ private enum Harness {
             ),
             "opaqueAlphaPremultipliedAccepted":
                 hasStraightAlphaPreservingBoundary(opaqueAlphaPremultipliedAccepted),
+            "wholeFilterAccepted": hasStraightAlphaUNormBoundary(
+                wholeFilterAccepted
+            ),
+            "wholeFilterColorAuxiliaryRejected":
+                wholeFilterColorAuxiliaryRejected,
+            "wholeFilterEffectOutputRejected": wholeFilterEffectOutputRejected,
+            "wholeFilterFramebufferRejected": wholeFilterFramebufferRejected,
             "ambiguousFramebufferRepresentationRejected":
                 ambiguousFramebufferRepresentation,
             "independentSignalCompositeAccepted":

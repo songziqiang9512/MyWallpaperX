@@ -40,10 +40,14 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderWholeVectorAffineParser.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
@@ -217,6 +221,54 @@ void main() {
 }
 """
 
+private let wholeColorFilterFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform vec2 g_TexelSize;
+uniform float g_Strength;
+vec4 Sharpen(vec2 uv, float mask) {
+    vec4 center = texSample2D(g_Texture0, uv);
+    vec4 upperLeft = texSample2D(
+        g_Texture0, uv + g_TexelSize * vec2(-1.0, -1.0)
+    );
+    vec4 upper = texSample2D(
+        g_Texture0, uv + g_TexelSize * vec2(0.0, -1.0)
+    );
+    vec4 upperRight = texSample2D(
+        g_Texture0, uv + g_TexelSize * vec2(1.0, -1.0)
+    );
+    vec4 left = texSample2D(
+        g_Texture0, uv + g_TexelSize * vec2(-1.0, 0.0)
+    );
+    vec4 right = texSample2D(
+        g_Texture0, uv + g_TexelSize * vec2(1.0, 0.0)
+    );
+    vec4 lowerLeft = texSample2D(
+        g_Texture0, uv + g_TexelSize * vec2(-1.0, 1.0)
+    );
+    vec4 lower = texSample2D(
+        g_Texture0, uv + g_TexelSize * vec2(0.0, 1.0)
+    );
+    vec4 lowerRight = texSample2D(
+        g_Texture0, uv + g_TexelSize * vec2(1.0, 1.0)
+    );
+    vec4 lowpass = (
+        upperLeft + upperRight + lowerLeft + lowerRight
+        + 2.0 * (upper + left + right + lower) + 4.0 * center
+    ) / 16.0;
+    vec4 filtered = (1.0 + g_Strength * mask) * center
+        - g_Strength * mask * lowpass;
+    return filtered;
+}
+void main() {
+    vec4 source = texSample2D(g_Texture0, v_TexCoord);
+    float mask = texSample2D(g_Texture1, v_TexCoord);
+    if (mask > 0.1) source = Sharpen(v_TexCoord, mask);
+    gl_FragColor = source;
+}
+"""
+
 private let boundedFlowFragment = """
 varying vec2 v_TexCoord;
 uniform sampler2D g_Texture0;
@@ -349,17 +401,20 @@ private func state() -> SceneMaterialRenderState {
     )!
 }
 
-private func graphIdentity(_ marker: Int = 1) -> Graph.TextureIdentity {
+private func graphIdentity(
+    _ marker: Int = 1,
+    kind: Graph.TextureKind = .framebuffer
+) -> Graph.TextureIdentity {
     let effect = Graph.EffectKey(
         layerID: marker,
         effectIndex: marker,
         descriptorID: "descriptor-\(marker)"
     )
     return .init(
-        kind: .framebuffer,
+        kind: kind,
         layerID: marker,
-        effect: effect,
-        name: "framebuffer-\(marker)"
+        effect: kind == .layerSource ? nil : effect,
+        name: kind == .framebuffer ? "framebuffer-\(marker)" : nil
     )
 }
 
@@ -422,12 +477,13 @@ private func slot(
     content: SceneTextureContent,
     purpose: SceneTextureLoadPurpose,
     sampling: SceneTextureSampling,
-    marker: Int = 1
+    marker: Int = 1,
+    graphKind: Graph.TextureKind = .framebuffer
 ) -> Program.TextureSlot {
     let reference: Template.TextureReference
     let registry: SceneFrameTextureIdentity
     if index == 0 {
-        let identity = graphIdentity(marker)
+        let identity = graphIdentity(marker, kind: graphKind)
         reference = .graph(identity)
         registry = .graph(identity)
     } else {
@@ -528,7 +584,8 @@ private func program(
     malformedUniform: Bool = false,
     additionalSlots: [Program.TextureSlot] = [],
     uniformValues: [String: Data] = [:],
-    slot0Sampling: SceneTextureSampling = .directImageFallback
+    slot0Sampling: SceneTextureSampling = .directImageFallback,
+    slot0GraphKind: Graph.TextureKind = .framebuffer
 ) -> Program? {
     let shader = prepared(
         marker: "program-\(marker)",
@@ -545,7 +602,8 @@ private func program(
         content: slot0Content,
         purpose: slot0Purpose,
         sampling: slot0Sampling,
-        marker: marker
+        marker: marker,
+        graphKind: slot0GraphKind
     )
     let third = slot(
         device: device,
@@ -581,9 +639,14 @@ private func program(
         graphRole: .init(
             effectInput: .layerSource,
             effectOutput: .effectOutput,
-            nodeTarget: .framebuffer,
+            nodeTarget: slot0GraphKind == .layerSource
+                ? .effectOutput : .framebuffer,
             bindings: activeSlots.contains(0)
-                ? [.init(slot: 0, texture: .framebuffer)]
+                ? [.init(
+                    slot: 0,
+                    texture: slot0GraphKind == .layerSource
+                        ? .layerSource : .framebuffer
+                )]
                 : []
         )
     ))
@@ -1225,6 +1288,104 @@ private enum Harness {
         let overlayBoundaryPixelsMatch = closePixels(
             overlayResult.pixels,
             [28, 4, 0, 32]
+        )
+
+        let filterInputBytes: [UInt8] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 128, 64, 32, 128, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]
+        let filterInput = texture(
+            device: device,
+            width: 3,
+            height: 3,
+            fill: filterInputBytes
+        )
+        let whiteFilterMask = texture(
+            device: device,
+            width: 3,
+            height: 3,
+            fill: [UInt8](repeating: 255, count: 36)
+        )
+        let whiteFilterMaskSlot = slot(
+            device: device,
+            index: 1,
+            texture: whiteFilterMask,
+            content: .data,
+            purpose: .mask,
+            sampling: .init(texFlags: 3),
+            marker: 51
+        )
+        let wholeFilterProgram = program(
+            device: device,
+            marker: 50,
+            outputSlot: 0,
+            slot0Texture: filterInput,
+            fragmentSource: wholeColorFilterFragment,
+            additionalSlots: [whiteFilterMaskSlot],
+            uniformValues: [
+                "g_TexelSize": bytes(SIMD2<Float>(repeating: 1.0 / 3.0)),
+                "g_Strength": bytes(Float(1)),
+            ],
+            slot0Sampling: .init(texFlags: 3),
+            slot0GraphKind: .layerSource
+        )
+        let wholeFilterResult = render(
+            wholeFilterProgram,
+            encoder: encoder,
+            queue: queue,
+            target: target(device: device, width: 3, height: 3)
+        )
+        var wholeFilterExpected = [UInt8](repeating: 0, count: 36)
+        wholeFilterExpected.replaceSubrange(
+            16 ..< 20,
+            with: [UInt8(224), 196, 98, 224]
+        )
+        let wholeFilterPixelsMatch = closePixels(
+            wholeFilterResult.pixels,
+            wholeFilterExpected,
+            tolerance: 1
+        )
+
+        let blackFilterMask = texture(
+            device: device,
+            width: 3,
+            height: 3,
+            fill: [UInt8](repeating: 0, count: 36)
+        )
+        let blackFilterMaskSlot = slot(
+            device: device,
+            index: 1,
+            texture: blackFilterMask,
+            content: .data,
+            purpose: .mask,
+            sampling: .init(texFlags: 3),
+            marker: 53
+        )
+        let wholeFilterBlackMaskProgram = program(
+            device: device,
+            marker: 52,
+            outputSlot: 0,
+            slot0Texture: filterInput,
+            fragmentSource: wholeColorFilterFragment,
+            additionalSlots: [blackFilterMaskSlot],
+            uniformValues: [
+                "g_TexelSize": bytes(SIMD2<Float>(repeating: 1.0 / 3.0)),
+                "g_Strength": bytes(Float(1)),
+            ],
+            slot0Sampling: .init(texFlags: 3),
+            slot0GraphKind: .layerSource
+        )
+        let wholeFilterBlackMaskResult = render(
+            wholeFilterBlackMaskProgram,
+            encoder: encoder,
+            queue: queue,
+            target: target(device: device, width: 3, height: 3)
+        )
+        let wholeFilterBlackMaskIdentity = closePixels(
+            wholeFilterBlackMaskResult.pixels,
+            filterInputBytes,
+            tolerance: 1
         )
 
         let flowRate: Float = 0.33
@@ -1887,6 +2048,14 @@ private enum Harness {
             "overlayBoundaryEncoded": overlayResult.encoded,
             "overlayBoundaryGPUCompleted": overlayResult.completed,
             "overlayBoundaryPixelsMatch": overlayBoundaryPixelsMatch,
+            "wholeFilterPrepared": wholeFilterResult.prepared,
+            "wholeFilterEncoded": wholeFilterResult.encoded,
+            "wholeFilterGPUCompleted": wholeFilterResult.completed,
+            "wholeFilterPixelsMatch": wholeFilterPixelsMatch,
+            "wholeFilterBlackMaskPrepared": wholeFilterBlackMaskResult.prepared,
+            "wholeFilterBlackMaskEncoded": wholeFilterBlackMaskResult.encoded,
+            "wholeFilterBlackMaskGPUCompleted": wholeFilterBlackMaskResult.completed,
+            "wholeFilterBlackMaskIdentity": wholeFilterBlackMaskIdentity,
             "overlayColorRejectedUpstream": overlayColorRejected,
             "boundedFlow2DPrepared": flow2DAtTime.prepared
                 && flow2DAtOtherTime.prepared,

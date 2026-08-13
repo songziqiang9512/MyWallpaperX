@@ -36,10 +36,14 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderWholeVectorAffineParser.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
@@ -114,6 +118,7 @@ private func transfer(_ body: String, helpers: String = "") -> String {
     case .straightAlphaPreserving(let slot):
         return "straight-preserving-slot:\(slot)"
     case .straightAlpha(let slot): return "straight-slot:\(slot)"
+    case .straightAlphaUNorm(let slot): return "straight-unorm-slot:\(slot)"
     case .independentAlphaSignal(let slot): return "signal-slot:\(slot)"
     case .independentAlphaSignalPreserving(let slot):
         return "signal-preserving-slot:\(slot)"
@@ -123,8 +128,8 @@ private func transfer(_ body: String, helpers: String = "") -> String {
     }
 }
 
-private func metal(_ body: String) -> String {
-    program(body)?.metalSource ?? ""
+private func metal(_ body: String, helpers: String = "") -> String {
+    program(body, helpers: helpers)?.metalSource ?? ""
 }
 
 @main
@@ -480,6 +485,112 @@ enum Harness {
                 "vec4 shifted = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
                 "shifted.rgb *= 0.5; base = shifted; gl_FragColor = base;"
             ),
+            "wholeColorFilter": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord); " +
+                "if (mask > 0.1) source = Sharpen(v_TexCoord, mask); " +
+                "gl_FragColor = source;",
+                helpers: "uniform vec2 g_TexelSize; " +
+                    "uniform float g_Strength; " +
+                    "vec4 Sharpen(vec2 uv, float mask) { " +
+                    "vec4 center = texSample2D(g_Texture0, uv); " +
+                    "vec4 upperLeft = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(-1.0, -1.0)); " +
+                    "vec4 upper = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(0.0, -1.0)); " +
+                    "vec4 upperRight = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(1.0, -1.0)); " +
+                    "vec4 left = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(-1.0, 0.0)); " +
+                    "vec4 right = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(1.0, 0.0)); " +
+                    "vec4 lowerLeft = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(-1.0, 1.0)); " +
+                    "vec4 lower = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(0.0, 1.0)); " +
+                    "vec4 lowerRight = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(1.0, 1.0)); " +
+                    "vec4 lowpass = (upperLeft + upperRight + lowerLeft + " +
+                    "lowerRight + 2.0 * (upper + left + right + lower) + " +
+                    "4.0 * center) / 16.0; " +
+                    "vec4 filtered = (1.0 + g_Strength * mask) * center - " +
+                    "g_Strength * mask * lowpass; " +
+                    "return filtered; }"
+            ),
+            "wholeColorFilterMetal": metal(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord); " +
+                "if (mask > 0.1) source = Sharpen(v_TexCoord, mask); " +
+                "gl_FragColor = source;",
+                helpers: "uniform vec2 g_TexelSize; " +
+                    "uniform float g_Strength; " +
+                    "vec4 Sharpen(vec2 uv, float mask) { " +
+                    "vec4 center = texSample2D(g_Texture0, uv); " +
+                    "vec4 upperLeft = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(-1.0, -1.0)); " +
+                    "vec4 upper = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(0.0, -1.0)); " +
+                    "vec4 upperRight = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(1.0, -1.0)); " +
+                    "vec4 left = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(-1.0, 0.0)); " +
+                    "vec4 right = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(1.0, 0.0)); " +
+                    "vec4 lowerLeft = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(-1.0, 1.0)); " +
+                    "vec4 lower = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(0.0, 1.0)); " +
+                    "vec4 lowerRight = texSample2D(g_Texture0, " +
+                    "uv + g_TexelSize * vec2(1.0, 1.0)); " +
+                    "vec4 lowpass = (upperLeft + upperRight + lowerLeft + " +
+                    "lowerRight + 2.0 * (upper + left + right + lower) + " +
+                    "4.0 * center) / 16.0; " +
+                    "vec4 filtered = (1.0 + g_Strength * mask) * center - " +
+                    "g_Strength * mask * lowpass; " +
+                    "return filtered; }"
+            ),
+            "wholeColorFilterDifferentSlot": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "if (mask > 0.1) source = MixedFilter(v_TexCoord, mask); " +
+                "gl_FragColor = source;",
+                helpers: "vec4 MixedFilter(vec2 uv, float mask) { " +
+                    "vec4 center = texSample2D(g_Texture0, uv); " +
+                    "vec4 left = texSample2D(g_Texture1, uv - vec2(0.1)); " +
+                    "vec4 filtered = center - mask * left; return filtered; }"
+            ),
+            "wholeColorFilterComponentWrite": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "if (mask > 0.1) source = ComponentFilter(v_TexCoord, mask); " +
+                "gl_FragColor = source;",
+                helpers: "vec4 ComponentFilter(vec2 uv, float mask) { " +
+                    "vec4 center = texSample2D(g_Texture0, uv); " +
+                    "vec4 left = texSample2D(g_Texture0, uv - vec2(0.1)); " +
+                    "center.rgb -= left.rgb * mask; return center; }"
+            ),
+            "wholeColorFilterDynamicDivision": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "if (mask > 0.1) source = DividingFilter(v_TexCoord, mask); " +
+                "gl_FragColor = source;",
+                helpers: "vec4 DividingFilter(vec2 uv, float mask) { " +
+                    "vec4 center = texSample2D(g_Texture0, uv); " +
+                    "vec4 left = texSample2D(g_Texture0, uv - vec2(0.1)); " +
+                    "vec4 filtered = (center - left) / mask; return filtered; }"
+            ),
+            "wholeColorFilterHiddenMutation": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "Mutate(source); " +
+                "if (mask > 0.1) source = Filter(v_TexCoord, mask); " +
+                "gl_FragColor = source;",
+                helpers: "void Mutate(inout vec4 value) { value.a = 0.0; } " +
+                    "vec4 Filter(vec2 uv, float mask) { " +
+                    "vec4 center = texSample2D(g_Texture0, uv); " +
+                    "vec4 left = texSample2D(g_Texture0, uv - vec2(0.1)); " +
+                    "vec4 filtered = center - mask * left; return filtered; }"
+            ),
             "opaqueInputRGBTransform": transfer(
                 "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
                 "vec4 color = sampled; color.rgb = vec3(0.25); " +
@@ -824,6 +935,26 @@ class SceneShaderColorContractTests(unittest.TestCase):
         self.assertEqual(self.result["nestedSameSlotMixGraph"], "slot:0")
         self.assertEqual(self.result["nestedDifferentSlotMixGraph"], "unresolved")
         self.assertEqual(self.result["conditionalNestedMixGraph"], "unresolved")
+
+    def test_whole_rgba_affine_filter_uses_a_clamped_straight_boundary(self) -> None:
+        self.assertEqual(
+            self.result["wholeColorFilter"], "straight-unorm-slot:0"
+        )
+        source = self.result["wholeColorFilterMetal"]
+        self.assertEqual(
+            source.count("mwxUnpremultiply(mwxTexture0.sample"), 10
+        )
+        self.assertNotIn("mwxUnpremultiply(mwxTexture1.sample", source)
+        self.assertIn(
+            "return mwxSaturateAndPremultiply(mwxFragColor);", source
+        )
+        for key in (
+            "wholeColorFilterDifferentSlot",
+            "wholeColorFilterComponentWrite",
+            "wholeColorFilterDynamicDivision",
+            "wholeColorFilterHiddenMutation",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
 
     def test_rgb_only_local_flow_uses_a_straight_color_boundary(self) -> None:
         self.assertEqual(

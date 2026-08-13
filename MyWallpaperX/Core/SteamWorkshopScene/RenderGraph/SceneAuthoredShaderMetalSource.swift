@@ -151,6 +151,8 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         case .straightAlphaPreserving, .straightAlpha,
              .independentAlphaSignalCompositing:
             result = "mwxPremultiply(mwxFragColor)"
+        case .straightAlphaUNorm:
+            result = "mwxSaturateAndPremultiply(mwxFragColor)"
         default:
             result = "mwxFragColor"
         }
@@ -170,7 +172,8 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         for transfer: SceneShaderColorTransfer
     ) -> String {
         switch transfer {
-        case .straightAlphaPreserving, .straightAlpha, .independentAlphaSignal,
+        case .straightAlphaPreserving, .straightAlpha, .straightAlphaUNorm,
+             .independentAlphaSignal,
              .independentAlphaSignalCompositing:
             break
         default:
@@ -188,6 +191,11 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         float4 mwxPremultiply(float4 color) {
             const float alpha = saturate(color.a);
             return float4(color.rgb * alpha, alpha);
+        }
+
+        float4 mwxSaturateAndPremultiply(float4 color) {
+            const float4 straight = saturate(color);
+            return float4(straight.rgb * straight.a, straight.a);
         }
         """
     }

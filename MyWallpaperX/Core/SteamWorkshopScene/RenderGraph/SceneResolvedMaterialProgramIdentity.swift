@@ -22,6 +22,7 @@ extension SceneResolvedMaterialProgram {
             case passthrough(Int)
             case straightAlphaPreserving(Int)
             case straightAlpha(Int)
+            case straightAlphaUNorm(Int)
             case independentAlphaSignal(Int)
             case independentAlphaSignalPreserving(Int)
             case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)
@@ -178,6 +179,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         case let .straightAlphaPreserving(slot):
             transfer = .straightAlphaPreserving(slot)
         case let .straightAlpha(slot): transfer = .straightAlpha(slot)
+        case let .straightAlphaUNorm(slot): transfer = .straightAlphaUNorm(slot)
         case let .independentAlphaSignal(slot):
             transfer = .independentAlphaSignal(slot)
         case let .independentAlphaSignalPreserving(slot):

@@ -105,6 +105,11 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlpha(textureSlot: slot)
         }
+        if let slot = SceneAuthoredShaderStraightWholeColorFilterAnalyzer.analyze(
+            outputUses: outputUses, fragment: fragment, main: main
+        ) {
+            return .straightAlphaUNorm(textureSlot: slot)
+        }
         if let transfer = SceneAuthoredShaderIndependentAlphaAnalyzer.analyze(
             outputUses: outputUses, fragment: fragment, main: main
         ) {
@@ -211,12 +216,14 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         }
         let colorName = output[2].text
         let alpha = Array(output[(comma + 1)..<(output.count - 1)])
-        let colorUses = alpha.indices.filter { alpha[$0].text == colorName }
-        let alphaMembers = alpha.indices.filter {
-            $0 + 2 < alpha.count
-                && alpha[$0].kind == .identifier
-                && alpha[$0 + 1].text == "."
-                && alpha[$0 + 2].text == "a"
+        let colorUses = alpha.indices.filter { index in
+            alpha[index].text == colorName
+        }
+        let alphaMembers = alpha.indices.filter { index in
+            guard index + 2 < alpha.count else { return false }
+            return alpha[index].kind == .identifier
+                && alpha[index + 1].text == "."
+                && alpha[index + 2].text == "a"
         }
         guard colorUses.count == 1,
               let alphaUse = colorUses.first,
@@ -341,52 +348,6 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             return nil
         }
         return slot
-    }
-
-    private static func isOpaqueVectorConstruction(
-        _ expression: ArraySlice<SceneAuthoredShaderToken>
-    ) -> Bool {
-        let tokens = Array(expression)
-        guard tokens.count >= 6,
-              ["vec4", "float4"].contains(tokens[0].text),
-              tokens[1].text == "(",
-              tokens.last?.text == ")",
-              outerCallClosesAtEnd(tokens),
-              let comma = topLevelCommas(tokens).last,
-              comma + 2 == tokens.count - 1,
-              tokens[comma + 1].kind == .number,
-              Double(tokens[comma + 1].text) == 1 else {
-            return false
-        }
-        return true
-    }
-
-    private static func outerCallClosesAtEnd(
-        _ tokens: [SceneAuthoredShaderToken]
-    ) -> Bool {
-        var depth = 0
-        for index in 1..<tokens.count {
-            if tokens[index].text == "(" { depth += 1 }
-            if tokens[index].text == ")" {
-                depth -= 1
-                if depth == 0 { return index == tokens.count - 1 }
-                if depth < 0 { return false }
-            }
-        }
-        return false
-    }
-
-    private static func topLevelCommas(
-        _ tokens: [SceneAuthoredShaderToken]
-    ) -> [Int] {
-        var depth = 0
-        var result: [Int] = []
-        for index in tokens.indices {
-            if tokens[index].text == "(" { depth += 1 }
-            if tokens[index].text == ")" { depth -= 1 }
-            if tokens[index].text == ",", depth == 1 { result.append(index) }
-        }
-        return result
     }
 
     private static func textureSlot(_ name: String) -> Int? {

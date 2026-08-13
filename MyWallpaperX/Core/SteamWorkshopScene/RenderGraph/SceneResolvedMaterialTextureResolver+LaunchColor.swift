@@ -30,6 +30,16 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             guard variant.frontendProgram.colorTransfer != .unresolved else {
                 return failure(.colorContractUnproven, phase: .color)
             }
+            if case let .straightAlphaUNorm(slot) =
+                variant.frontendProgram.colorTransfer {
+                guard implicitFramebufferIdentity?.kind == .layerSource,
+                      template.graphRole.effectInput == .layerSource,
+                      template.graphRole.effectOutput == .effectOutput,
+                      template.graphRole.nodeTarget == .effectOutput,
+                      (0 ..< 8).contains(slot) else {
+                    return failure(.colorContractUnproven, phase: .color)
+                }
+            }
             guard implicitFramebufferIdentity?.kind == .layerSource else {
                 continue
             }
@@ -42,11 +52,30 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 assetStates: assetStates
             ) {
             case .unknownInternalGraph:
+                if case .straightAlphaUNorm =
+                    variant.frontendProgram.colorTransfer {
+                    return failure(.colorContractUnproven, phase: .color)
+                }
                 continue
             case .invalid:
                 return failure(.textureBindingInvalid)
             case .profiles(let value):
                 profiles = value
+            }
+            if case let .straightAlphaUNorm(slot) =
+                variant.frontendProgram.colorTransfer {
+                guard profiles.allSatisfy({ profile in
+                    guard profile.indices.contains(slot),
+                          let fact = profile[slot],
+                          fact.isGraphReference else { return false }
+                    return template.graphRole.bindings.isEmpty
+                        || (template.graphRole.bindings.count == 1
+                            && template.graphRole.bindings.contains {
+                                $0.slot == slot && $0.texture == .layerSource
+                            })
+                }) else {
+                    return failure(.colorContractUnproven, phase: .color)
+                }
             }
             guard profiles.allSatisfy({
                 SceneResolvedMaterialProgramDerivation.resolveColor(

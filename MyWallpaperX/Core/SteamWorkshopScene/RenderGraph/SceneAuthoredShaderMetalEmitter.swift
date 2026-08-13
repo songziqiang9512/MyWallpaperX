@@ -73,7 +73,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let unpremultipliedTextureSlot: Int?
         switch colorTransfer {
         case let .straightAlphaPreserving(slot), let .straightAlpha(slot),
-             let .independentAlphaSignal(slot):
+             let .straightAlphaUNorm(slot), let .independentAlphaSignal(slot):
             unpremultipliedTextureSlot = slot
         case let .independentAlphaSignalCompositing(_, colorSlot):
             unpremultipliedTextureSlot = colorSlot

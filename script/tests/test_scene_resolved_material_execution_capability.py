@@ -3109,6 +3109,7 @@ private func fragmentSource(
     colorUnproven: Bool = false,
     alphaReplacement: Bool = false,
     sourceAlphaFactor: Bool = false,
+    wholeColorFilter: Bool = false,
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
     maskedAlpha: Bool = false,
@@ -3127,6 +3128,20 @@ private func fragmentSource(
         ? "#if EXTRA\n\(rawSecondDeclaration)\n#endif"
         : rawSecondDeclaration
     let output: String
+    let helper: String
+    if wholeColorFilter {
+        helper = """
+        vec4 TestFilter(vec2 uv, float mask) {
+            vec4 center = texSample2D(g_Texture0, uv);
+            vec4 neighbor = texSample2D(g_Texture0, uv + vec2(0.25));
+            vec4 lowpass = (center + neighbor) / 2.0;
+            vec4 filtered = (1.0 + mask) * center - mask * lowpass;
+            return filtered;
+        }
+        """
+    } else {
+        helper = ""
+    }
     if audioDirectDraw {
         output = """
         float amplitude = g_AudioSpectrum16Left[0];
@@ -3163,6 +3178,11 @@ private func fragmentSource(
         output = "vec4 source = texSample2D(\(firstName), v_TexCoord);"
             + " float coverage = 0.5; float alpha = source.a * coverage;"
             + " gl_FragColor = vec4(source.rgb, alpha);"
+    } else if wholeColorFilter {
+        output = "vec4 source = texSample2D(g_Texture0, v_TexCoord);"
+            + " float mask = texSample2D(g_Texture1, v_TexCoord).r;"
+            + " if (mask > 0.1) source = TestFilter(v_TexCoord, mask);"
+            + " gl_FragColor = source;"
     } else if colorUnproven {
         output = "gl_FragColor = texSample2D(\(firstName), v_TexCoord) * 0.5;"
     } else if observesSecond {
@@ -3191,6 +3211,7 @@ private func fragmentSource(
     uniform sampler2D \(firstName);\(firstAnnotation)
     \(audioDirectDraw ? "uniform float g_AudioSpectrum16Left[16];" : "")
     \(secondDeclaration)
+    \(helper)
     void main() {
         \(output)
     }
@@ -3208,6 +3229,7 @@ private func contract(
     colorUnproven: Bool = false,
     alphaReplacement: Bool = false,
     sourceAlphaFactor: Bool = false,
+    wholeColorFilter: Bool = false,
     samplesSecond: Bool = true,
     observesSecond: Bool = false,
     maskedAlpha: Bool = false,
@@ -3244,6 +3266,7 @@ private func contract(
         colorUnproven: colorUnproven,
         alphaReplacement: alphaReplacement,
         sourceAlphaFactor: sourceAlphaFactor,
+        wholeColorFilter: wholeColorFilter,
         samplesSecond: samplesSecond,
         observesSecond: observesSecond,
         maskedAlpha: maskedAlpha,
@@ -3307,9 +3330,11 @@ private func previousOutput() -> Graph.TextureIdentity {
 private func graph(
     withPrimaryBinding: Bool,
     materialCount: Int = 1,
-    input: Graph.TextureIdentity? = nil
+    input: Graph.TextureIdentity? = nil,
+    nodeTarget: Graph.TextureIdentity? = nil
 ) -> Graph {
     let graphInput = input ?? source()
+    let target = nodeTarget ?? output()
     let bindings: [Graph.Binding] = withPrimaryBinding ? [
         .init(
             slot: 0,
@@ -3328,7 +3353,7 @@ private func graph(
             kind: .material,
             materialPath: "materials/envelope-\(index).json",
             materialPassID: "envelope-\(index)",
-            target: output(),
+            target: target,
             bindings: bindings,
             commandSource: nil,
             commandTarget: nil,
@@ -3345,7 +3370,17 @@ private func graph(
             output: output(),
             nodeIndices: nodes.map(\.nodeIndex)
         )],
-        renderTargets: [],
+        renderTargets: target.kind == .framebuffer ? [
+            .init(
+                texture: target,
+                extent: .init(kind: .input, first: nil, second: nil),
+                format: "rgba8888",
+                declaredUnique: false,
+                clear: nil,
+                uvs: nil,
+                conditions: nil
+            ),
+        ] : [],
         nodes: nodes,
         finalOutput: output(),
         blockers: []
@@ -3378,7 +3413,8 @@ private func materialTemplate(
     nodeIndex: Int = 0,
     shader: SceneShaderContract,
     slots: [Template.TextureSlot?],
-    combos: [Template.Combo] = []
+    combos: [Template.Combo] = [],
+    nodeTarget: Template.GraphTextureRole = .effectOutput
 ) -> Template {
     let node = graph.nodes[nodeIndex]
     let inputRole: Template.GraphTextureRole = switch graph.effects[0].input.kind {
@@ -3395,7 +3431,7 @@ private func materialTemplate(
         graphRole: .init(
             effectInput: inputRole,
             effectOutput: .effectOutput,
-            nodeTarget: .effectOutput,
+            nodeTarget: nodeTarget,
             bindings: node.bindings.map {
                 .init(slot: $0.slot!, texture: inputRole)
             }
@@ -3583,6 +3619,48 @@ private enum EnvelopeHarness {
                 ),
                 slots: slots(primary: graphCandidate())
             )
+        )
+        let wholeFilterShader = contract(
+            "whole-color-filter",
+            secondMetadata:
+                #"{"mode":"opacitymask","default":"textures/white-mask.tex"}"#,
+            wholeColorFilter: true
+        )
+        let wholeFilterAssetStates: [
+            SceneAssetTextureIdentity: SceneAssetTextureLaunchState
+        ] = [
+            .init(
+                path: SceneVFSAssetPath("textures/white-mask.tex")!,
+                purpose: .mask
+            ): .ready(.data),
+        ]
+        let wholeFilterPositive = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: wholeFilterShader,
+                slots: slots()
+            ),
+            assetStates: wholeFilterAssetStates
+        )
+        let wholeFilterInternalTarget = Graph.TextureIdentity(
+            kind: .framebuffer,
+            layerID: layerID,
+            effect: effectKey,
+            name: "internal"
+        )
+        let wholeFilterInternalGraph = graph(
+            withPrimaryBinding: false,
+            nodeTarget: wholeFilterInternalTarget
+        )
+        let wholeFilterInternalTargetFailure = catalog(
+            graph: wholeFilterInternalGraph,
+            template: materialTemplate(
+                graph: wholeFilterInternalGraph,
+                shader: wholeFilterShader,
+                slots: slots()
+            ),
+            assetStates: wholeFilterAssetStates
         )
         let sourceAlphaFactorPositive = catalog(
             graph: boundGraph,
@@ -3968,6 +4046,15 @@ private enum EnvelopeHarness {
             "samplerSchemaFailure": rejection(samplerSchemaFailure),
             "colorFailure": rejection(colorFailure),
             "typedColorFailure": rejection(typedColorFailure),
+            "wholeFilterClaim": wholeFilterPositive.claim(
+                layerID: layerID
+            ) != nil,
+            "wholeFilterFailure": rejection(wholeFilterPositive),
+            "wholeFilterInternalTargetClaim":
+                wholeFilterInternalTargetFailure.claim(layerID: layerID) != nil,
+            "wholeFilterInternalTargetFailure": rejection(
+                wholeFilterInternalTargetFailure
+            ),
             "sourceAlphaFactorClaim":
                 sourceAlphaFactorPositive.claim(layerID: layerID) != nil,
             "sourceAlphaFactorFailure": rejection(sourceAlphaFactorPositive),
@@ -5280,11 +5367,15 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
                 "SceneResolvedMaterialTextureResolver+LaunchColor.swift",
                 "SceneAuthoredShaderColorTransferAnalyzer.swift",
+                "SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
                 "SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
                 "SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
                 "SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
+                "SceneAuthoredShaderWholeVectorAffineParser.swift",
+                "SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
+                "SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",
                 "SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
                 "SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
                 "SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
@@ -5372,6 +5463,14 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn(
             "material-variant-envelope-color-contract",
             payload["typedColorFailure"],
+            payload,
+        )
+        self.assertTrue(payload["wholeFilterClaim"], payload)
+        self.assertEqual(payload["wholeFilterFailure"], "", payload)
+        self.assertFalse(payload["wholeFilterInternalTargetClaim"], payload)
+        self.assertIn(
+            "material-template-unsupported",
+            payload["wholeFilterInternalTargetFailure"],
             payload,
         )
         self.assertTrue(payload["sourceAlphaFactorClaim"], payload)

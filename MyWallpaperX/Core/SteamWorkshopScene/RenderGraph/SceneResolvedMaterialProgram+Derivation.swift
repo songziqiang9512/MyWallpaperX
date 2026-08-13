@@ -26,6 +26,11 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         frontend: SceneAuthoredShaderProgram
     ) -> Program.Derived? {
         guard validPreparedStages(input.preparedShader),
+              acceptsGraphRole(
+                  transfer: frontend.colorTransfer,
+                  role: input.graphRole,
+                  textureSlots: input.textureSlots
+              ),
               input.renderState.matchesFullscreenOverwrite(
                   alphaWriting: .unspecified
               ),
@@ -92,6 +97,25 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             semanticIdentity: semantic,
             exactIdentity: exact
         )
+    }
+
+    private static func acceptsGraphRole(
+        transfer: SceneShaderColorTransfer,
+        role: Template.GraphRole,
+        textureSlots: [Program.TextureSlot?]
+    ) -> Bool {
+        guard case let .straightAlphaUNorm(slot) = transfer else { return true }
+        guard role.effectInput == .layerSource,
+              role.effectOutput == .effectOutput,
+              role.nodeTarget == .effectOutput,
+              textureSlots.indices.contains(slot),
+              let texture = textureSlots[slot],
+              case let .graph(identity) = texture.reference,
+              identity.kind == .layerSource else { return false }
+        return role.bindings.isEmpty
+            || (role.bindings.count == 1 && role.bindings.contains {
+                $0.slot == slot && $0.texture == .layerSource
+            })
     }
 
     private struct TextureProjection {

@@ -126,6 +126,7 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
             targets.insert(type)
         }
         guard targets.count == 1, let target = targets.first else { return nil }
+        if target == .float { return "x" }
         return narrowingSuffix(from: .float4, to: target)
     }
 

@@ -39,10 +39,14 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter+Translation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderWholeVectorAffineParser.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
@@ -859,6 +863,23 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertIn("float3color=(mwxTexture0.sample", compact_texture_source)
         self.assertIn(")).xyz;", compact_texture_source)
         self.assertIsNone(texture_result.get("metalError"))
+
+        scalar_texture_result = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            varying vec2 v_TexCoord;
+            void main() {
+                float mask = texSample2D(g_Texture0, v_TexCoord);
+                gl_FragColor = vec4(mask, 0.0, 0.0, 1.0);
+            }
+            """,
+        )
+        compact_scalar_source = scalar_texture_result["metalSource"].replace(" ", "")
+        self.assertEqual(scalar_texture_result["diagnosticCodes"], [])
+        self.assertIn("floatmask=(mwxTexture0.sample", compact_scalar_source)
+        self.assertIn(")).x;", compact_scalar_source)
+        self.assertIsNone(scalar_texture_result.get("metalError"))
 
         assignment_result = self.compile(
             """
