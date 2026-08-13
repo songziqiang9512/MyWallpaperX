@@ -15,7 +15,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 HOST_SOURCE = SOURCE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "Format/SceneTexDataReader.swift",
     SOURCE_ROOT / "Format/SceneTexContainer.swift",
     SOURCE_ROOT / "Format/SceneBCTextureDecoder.swift",

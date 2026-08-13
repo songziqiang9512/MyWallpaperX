@@ -14,6 +14,16 @@
   ],
   "declared_second_level_directories": {
     "RenderGraph": {
+      "AuthoredGraph": {
+        "file_globs": [
+          "SceneAuthoredEffectRenderPlan.swift",
+          "SceneAuthoredEffectRenderPlanner.swift",
+          "SceneAuthoredEffectRenderPlanner+Resolution.swift",
+          "SceneGraphAdmissionCompiler.swift",
+          "SceneGraphConditionAdmission.swift"
+        ],
+        "responsibility": "Authored graph IR, structural planning, and graph/condition admission; excludes execution backends, target lifecycle, dependency scheduling, and GPU encoding."
+      },
       "EffectExecution": {
         "file_globs": [
           "SceneEffectStageRenderer*.swift",

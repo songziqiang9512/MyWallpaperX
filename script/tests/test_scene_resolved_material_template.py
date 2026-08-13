@@ -24,7 +24,7 @@ SWIFT_SOURCES = [
     / "RenderGraph/ShaderPreparation/SceneShaderMalformedMetadataAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialEffectIngress.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialScriptBindingClassifier.swift",

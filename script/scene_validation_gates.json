@@ -90,6 +90,16 @@
       "keywords": ["authored_effect", "graph", "offscreen", "resolved_material", "shader"]
     },
     {
+      "id": "authored-graph",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/**"],
+      "modules": [
+        "test_scene_effect_render_graph",
+        "test_scene_graph_admission_compiler",
+        "test_scene_resolved_material_execution_capability",
+        "test_scene_resolved_material_graph_executor"
+      ]
+    },
+    {
       "id": "effects",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Effects/**"],
       "keywords": ["effect", "rendering", "planner"]

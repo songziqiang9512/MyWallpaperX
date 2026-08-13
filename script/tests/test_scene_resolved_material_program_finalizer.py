@@ -29,7 +29,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     *scene_swift_sources("authored_shader_frontend_implementation"),
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrameInputs.swift",

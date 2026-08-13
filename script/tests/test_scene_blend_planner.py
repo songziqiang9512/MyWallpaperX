@@ -30,7 +30,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",

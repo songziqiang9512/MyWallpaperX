@@ -16,7 +16,7 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
     SCENE / "Runtime/SceneMediaThumbnailInbox.swift",
     SCENE / "Format/SceneJSONValue.swift",
-    SCENE / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SCENE / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE / "Resources/SceneTextureSampling.swift",
     SCENE / "Resources/SceneTextureUVTransform.swift",
     SCENE / "Resources/SceneTextureCandidate.swift",

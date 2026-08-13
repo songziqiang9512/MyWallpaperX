@@ -178,17 +178,17 @@ Image effect 执行包含：
 MyWallpaperX 已经有：
 
 - effect、texture、framebuffer 和 unresolved identity：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectRenderPlan.swift:3-22`
+  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift:3-22`
 - render target extent/format/unique/clear/UV/condition：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectRenderPlan.swift:24-46`
+  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift:24-46`
 - material/copy/swap node：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectRenderPlan.swift:55-77`
+  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift:55-77`
 - blocker 和 fail-closed graph：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectRenderPlan.swift:87-128`
+  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift:87-128`
 - author-order planner：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectRenderPlanner.swift:6-34`
+  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlanner.swift:6-34`
 - copy/swap 解析：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectRenderPlanner.swift:238-285`
+  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlanner.swift:238-285`
 - target lifetime、history seed 和 command plan：
   - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift:16-41`
 - material、instance、user texture、explicit bind 的覆盖链：

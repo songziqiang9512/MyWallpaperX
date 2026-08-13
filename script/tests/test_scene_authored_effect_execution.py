@@ -17,7 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectStageCompileModel.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",

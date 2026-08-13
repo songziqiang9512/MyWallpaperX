@@ -18,7 +18,7 @@ STOCK_EFFECT_ROOT = (
 SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",

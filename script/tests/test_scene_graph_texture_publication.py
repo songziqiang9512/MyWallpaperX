@@ -29,7 +29,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
     SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
     SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",

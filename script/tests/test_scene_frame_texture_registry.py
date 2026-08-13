@@ -17,7 +17,7 @@ BASE_IMAGE_SOURCE = SOURCE_ROOT / "Rendering/SceneBaseImageTextureLoad.swift"
 FRAME_ASSEMBLY_SOURCE = SOURCE_ROOT / "Rendering/SceneFrameLayerTextureAssembly.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",

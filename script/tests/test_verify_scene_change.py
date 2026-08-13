@@ -101,6 +101,26 @@ class SceneValidationSelectionTests(unittest.TestCase):
                 )
                 self.assertIn("test_scene_swift_source_sets", focused.command)
 
+    def test_authored_graph_change_selects_ir_admission_and_executor_contracts(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
+                "AuthoredGraph/SceneGraphAdmissionCompiler.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("authored-graph", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        for module in (
+            "test_scene_effect_render_graph",
+            "test_scene_graph_admission_compiler",
+            "test_scene_resolved_material_execution_capability",
+            "test_scene_resolved_material_graph_executor",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, focused.command)
+
     def test_render_graph_checkpoint_reuses_build_wrapper_code_health(self) -> None:
         gates, groups = verify.build_plan(
             [
