@@ -31996,7 +31996,65 @@
       "kind": "frag",
       "occurrence_count": 1,
       "repair": {
-        "repair_state": "untriaged"
+        "commit": "3df4a94d",
+        "corpus_observation_state": "observed",
+        "events": [
+          {
+            "commit": "3df4a94d",
+            "date": "2026-08-13",
+            "evidence_refs": [
+              "/private/tmp/mwx-scanline-release-376822.JODo2i/report.json#3768229922",
+              "/private/tmp/mwx-scanline-release-376822.JODo2i/results/3768229922/scene-ready-window.png",
+              "/private/tmp/mwx-scanline-release-376822.JODo2i/results/3768229922/scene-after-window.png"
+            ],
+            "notes": "Layer 205 completed GPU encoding, exact effectOutput publication, terminal compositor consumption and next-frame execution, and the predeclared ROI exposed the authored horizontal scan bands. Clean-room cross-check used MirageWallpaper revision 443777e29a8046615db6275f80ff816a4bad444b at ImageLayerSpec, SceneCompiler, LayerEffectStack, SceneRenderPlanner and VulkanFrameEngine only for source-target-effect-publication-compositor ordering and fullscreen-versus-object-size ownership. MyWallpaperX retains its own typed Program, geometry, budget and fail-closed implementation; no GPL source, shader, payload, constants or algorithm expression was copied.",
+            "state": "bounded-verified"
+          }
+        ],
+        "family_key": "shader/frag@60ed3f1823e61bb5",
+        "public_fix": "Recognize only the bounded single-source and uniform-RGB mix with preserved sampled alpha, require every launch-envelope variant to consume one exact captured layerSource Program with no competing authored or default texture source, and resolve composition and project capture with wallpaper-aligned projected geometry while keeping fullscreen capture screen-fixed. Unknown color flows, ambiguous sources and mixed launch envelopes remain fail closed.",
+        "regression_gates": [
+          {
+            "kind": "synthetic-positive",
+            "reference": "script/tests/test_scene_authored_shader_frontend.py#test_uniform_rgb_scan_band_compiles_with_one_straight_boundary"
+          },
+          {
+            "kind": "synthetic-positive",
+            "reference": "script/tests/test_scene_resolved_material_pass_encoder.py#test_program_is_prepared_and_encoded_atomically"
+          },
+          {
+            "kind": "synthetic-positive",
+            "reference": "script/tests/test_scene_capture_geometry.py#test_project_uses_wallpaper_aligned_projected_geometry"
+          },
+          {
+            "kind": "synthetic-negative",
+            "reference": "script/tests/test_scene_shader_color_contract.py#test_scanline_uniform_rgb_mix_rejects_unproven_shapes"
+          },
+          {
+            "kind": "synthetic-negative",
+            "reference": "script/tests/test_scene_resolved_material_execution_capability.py#test_launch_precompiles_the_static_texture_readiness_envelope"
+          },
+          {
+            "kind": "targeted-runtime",
+            "reference": "/private/tmp/mwx-scanline-release-376822.JODo2i/report.json#3768229922"
+          }
+        ],
+        "regression_protection_state": "targeted-runtime",
+        "remaining_boundaries": [
+          "The shader proof covers only one sampled source RGB mixed with one fragment-uniform RGB by a finite bounded scalar while preserving that sample's alpha; second color sources, alpha rewrites, varying tint, custom or shadowed builtins, unbounded weights and ambiguous source identities remain rejected.",
+          "The captured-main proof requires one exact layerSource identity across the complete launch envelope; competing graph candidates, authored defaults, non-regular samplers, wrong source modes, mixed variants and independent alpha signals remain rejected.",
+          "This repair does not implement the head-click SceneScript toggle, other dynamic overlay effects, unrelated particle families, or Wallpaper Engine pixel and timing equivalence."
+        ],
+        "repair_state": "bounded-verified",
+        "roi_evidence": [
+          "/private/tmp/mwx-scanline-release-376822.JODo2i/results/3768229922/scene-ready-window.png sha256=a1201f67b22264acf029775e49387e3ed24fc17906f80657e25cb00c1fdcafd2 3024x1964 shows the authored horizontal scan-band field in central inset ROI x=378...2645 y=245...1717; row high-pass RMS is 1.4800 with a 20.47 px dominant period versus the pre-fix capture RMS 0.8797 without that repeated band field",
+          "/private/tmp/mwx-scanline-release-376822.JODo2i/results/3768229922/scene-after-window.png sha256=09d09ce6c083ce0b5a3dbb78c9cb2c5ad0de615d75f453ea33adabf70894f846 3024x1964 retains the authored horizontal scan-band field in the same ROI on the next captured frame with row high-pass RMS 1.4823 and the same 20.47 px dominant period"
+        ],
+        "root_cause": "The shared authored-shader frontend had no conservative proof for one captured layer-source RGB value mixed with one fragment-uniform RGB value by a finite bounded scalar while preserving the exact sampled alpha, so the visible scan-band stage stopped before Program ownership. After that admission edge was restored, project utility capture was incorrectly resolved as screen-fixed fullscreen geometry, allocating a distinct viewport-sized target pair and exceeding the 128 MiB atomic frame-target budget instead of reusing wallpaper-aligned projected geometry.",
+        "runtime_proof_state": "visible-chain-closed",
+        "targeted_samples": [
+          "3768229922"
+        ]
       },
       "revision_count": 1,
       "sample_count": 1,
@@ -91873,6 +91931,67 @@
           "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-after-window.png sha256=6c16304a8c1c31449797431c1e0b085fef3394b5b7b067fb7897e3611907a40c 3024x1964 retains 97849 high-red pixels in bbox x=783...1754 y=0...815 during the authored opening camera-rise phase"
         ],
         "root_cause": "The shared shader frontend had no conservative color-transfer proof for the authored Pulse shape that keeps sampled RGB unchanged while multiplying the same sample alpha by a finite scalar graph fed by one to three direct red-channel data auxiliaries, so seven visible single-stage layers were rejected before Program ownership.",
+        "runtime_proof_state": "visible-chain-closed",
+        "targeted_samples": [
+          "3768229922"
+        ]
+      },
+      {
+        "commit": "3df4a94d",
+        "corpus_observation_state": "observed",
+        "events": [
+          {
+            "commit": "3df4a94d",
+            "date": "2026-08-13",
+            "evidence_refs": [
+              "/private/tmp/mwx-scanline-release-376822.JODo2i/report.json#3768229922",
+              "/private/tmp/mwx-scanline-release-376822.JODo2i/results/3768229922/scene-ready-window.png",
+              "/private/tmp/mwx-scanline-release-376822.JODo2i/results/3768229922/scene-after-window.png"
+            ],
+            "notes": "Layer 205 completed GPU encoding, exact effectOutput publication, terminal compositor consumption and next-frame execution, and the predeclared ROI exposed the authored horizontal scan bands. Clean-room cross-check used MirageWallpaper revision 443777e29a8046615db6275f80ff816a4bad444b at ImageLayerSpec, SceneCompiler, LayerEffectStack, SceneRenderPlanner and VulkanFrameEngine only for source-target-effect-publication-compositor ordering and fullscreen-versus-object-size ownership. MyWallpaperX retains its own typed Program, geometry, budget and fail-closed implementation; no GPL source, shader, payload, constants or algorithm expression was copied.",
+            "state": "bounded-verified"
+          }
+        ],
+        "family_key": "shader/frag@60ed3f1823e61bb5",
+        "public_fix": "Recognize only the bounded single-source and uniform-RGB mix with preserved sampled alpha, require every launch-envelope variant to consume one exact captured layerSource Program with no competing authored or default texture source, and resolve composition and project capture with wallpaper-aligned projected geometry while keeping fullscreen capture screen-fixed. Unknown color flows, ambiguous sources and mixed launch envelopes remain fail closed.",
+        "regression_gates": [
+          {
+            "kind": "synthetic-positive",
+            "reference": "script/tests/test_scene_authored_shader_frontend.py#test_uniform_rgb_scan_band_compiles_with_one_straight_boundary"
+          },
+          {
+            "kind": "synthetic-positive",
+            "reference": "script/tests/test_scene_resolved_material_pass_encoder.py#test_program_is_prepared_and_encoded_atomically"
+          },
+          {
+            "kind": "synthetic-positive",
+            "reference": "script/tests/test_scene_capture_geometry.py#test_project_uses_wallpaper_aligned_projected_geometry"
+          },
+          {
+            "kind": "synthetic-negative",
+            "reference": "script/tests/test_scene_shader_color_contract.py#test_scanline_uniform_rgb_mix_rejects_unproven_shapes"
+          },
+          {
+            "kind": "synthetic-negative",
+            "reference": "script/tests/test_scene_resolved_material_execution_capability.py#test_launch_precompiles_the_static_texture_readiness_envelope"
+          },
+          {
+            "kind": "targeted-runtime",
+            "reference": "/private/tmp/mwx-scanline-release-376822.JODo2i/report.json#3768229922"
+          }
+        ],
+        "regression_protection_state": "targeted-runtime",
+        "remaining_boundaries": [
+          "The shader proof covers only one sampled source RGB mixed with one fragment-uniform RGB by a finite bounded scalar while preserving that sample's alpha; second color sources, alpha rewrites, varying tint, custom or shadowed builtins, unbounded weights and ambiguous source identities remain rejected.",
+          "The captured-main proof requires one exact layerSource identity across the complete launch envelope; competing graph candidates, authored defaults, non-regular samplers, wrong source modes, mixed variants and independent alpha signals remain rejected.",
+          "This repair does not implement the head-click SceneScript toggle, other dynamic overlay effects, unrelated particle families, or Wallpaper Engine pixel and timing equivalence."
+        ],
+        "repair_state": "bounded-verified",
+        "roi_evidence": [
+          "/private/tmp/mwx-scanline-release-376822.JODo2i/results/3768229922/scene-ready-window.png sha256=a1201f67b22264acf029775e49387e3ed24fc17906f80657e25cb00c1fdcafd2 3024x1964 shows the authored horizontal scan-band field in central inset ROI x=378...2645 y=245...1717; row high-pass RMS is 1.4800 with a 20.47 px dominant period versus the pre-fix capture RMS 0.8797 without that repeated band field",
+          "/private/tmp/mwx-scanline-release-376822.JODo2i/results/3768229922/scene-after-window.png sha256=09d09ce6c083ce0b5a3dbb78c9cb2c5ad0de615d75f453ea33adabf70894f846 3024x1964 retains the authored horizontal scan-band field in the same ROI on the next captured frame with row high-pass RMS 1.4823 and the same 20.47 px dominant period"
+        ],
+        "root_cause": "The shared authored-shader frontend had no conservative proof for one captured layer-source RGB value mixed with one fragment-uniform RGB value by a finite bounded scalar while preserving the exact sampled alpha, so the visible scan-band stage stopped before Program ownership. After that admission edge was restored, project utility capture was incorrectly resolved as screen-fixed fullscreen geometry, allocating a distinct viewport-sized target pair and exceeding the 128 MiB atomic frame-target budget instead of reusing wallpaper-aligned projected geometry.",
         "runtime_proof_state": "visible-chain-closed",
         "targeted_samples": [
           "3768229922"
@@ -238531,12 +238650,12 @@
           "3770444459",
           "3770462923"
         ],
-        "sha256": "d21abc7d6936d21f947334124fdfb8c7f2fdb84e3c6517245613f23b8a18cf62",
+        "sha256": "91bde87240340ad1a2b2666bf5d3ead4d512484b98a187c69de86b68e0e49727",
         "state": "loaded"
       },
       "repair_ledger": {
         "relative_path": "script/scene_capability_repair_ledger.json",
-        "sha256": "e0ecc85c061c84555fd0bb83b17eceef5753640bfae661ce1e4026f73a471e83"
+        "sha256": "08a909871d1af65142cce43085e831b75fd81bb09f9717eb87474df7e3caa2cd"
       },
       "sample_id_manifest_sha256": "a7690c99cebc64053a557773c5b33d41764cb1022eebaaf34844b3ac6ed5a2d7",
       "sample_root_label": "Workshop/Scene",
@@ -238787,7 +238906,7 @@
       }
     },
     "determinism": {
-      "payload_sha256": "bd1bba2d5f97c5fbd530e37466fc867cef681178ff6ced5c807b3b9b225790e5",
+      "payload_sha256": "647ebb8fe6f997b7bf1f2e60e518449caf06552345d9b02b60a899ec3bc38b39",
       "sort_contract": "all IDs, paths, families, occurrences, profiles and diagnostics canonical"
     },
     "failures": [],
