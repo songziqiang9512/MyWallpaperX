@@ -57,6 +57,25 @@
         ],
         "responsibility": "Inter-layer dependency planning and frame-scoped named-target reservation, publication, and texture pooling; excludes authored-effect FBO/history and compositor behavior."
       },
+      "MaterialProgram": {
+        "file_globs": [
+          "SceneResolvedMaterialEffectIngress.swift",
+          "SceneResolvedMaterialHostUniformSchema.swift",
+          "SceneResolvedMaterialProgram+ColorDerivation.swift",
+          "SceneResolvedMaterialProgram+Derivation.swift",
+          "SceneResolvedMaterialProgram.swift",
+          "SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
+          "SceneResolvedMaterialProgramIdentity.swift",
+          "SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
+          "SceneResolvedMaterialScriptBindingClassifier.swift",
+          "SceneResolvedMaterialShaderSchema+Reachability.swift",
+          "SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
+          "SceneResolvedMaterialShaderSchema.swift",
+          "SceneResolvedMaterialTemplateCompiler.swift",
+          "SceneResolvedMaterialUniformEncoder.swift"
+        ],
+        "responsibility": "Atomic resolved-material schema, template compilation, Program identity and derivation, ingress classification, loop bounds, and host uniform encoding; frame/resource finalization and texture resolution remain at the RenderGraph root for M1, RuntimeCatalog is excluded, and GPU execution remains in EffectExecution."
+      },
       "ShaderFrontend": {
         "file_globs": [
           "SceneAuthoredShader*Admission.swift",

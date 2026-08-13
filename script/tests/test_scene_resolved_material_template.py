@@ -15,7 +15,7 @@ import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-PROGRAM_SOURCE = SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram.swift"
+PROGRAM_SOURCE = SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram.swift"
 TEXTURE_CANDIDATE_SOURCE = SCENE_ROOT / "Resources/SceneTextureCandidate.swift"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
@@ -26,9 +26,9 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialEffectIngress.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialScriptBindingClassifier.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTemplateCompiler.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialEffectIngress.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialScriptBindingClassifier.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift",
 ]
 
 

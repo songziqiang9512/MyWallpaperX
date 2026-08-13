@@ -141,6 +141,31 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
+    def test_material_program_change_selects_schema_program_and_executor_contracts(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
+                "MaterialProgram/SceneResolvedMaterialProgram.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("material-program", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        for module in (
+            "test_scene_effect_texture_purposes",
+            "test_scene_graph_texture_publication",
+            "test_scene_material_program_census",
+            "test_scene_resolved_material_execution_capability",
+            "test_scene_resolved_material_graph_executor",
+            "test_scene_resolved_material_pass_encoder",
+            "test_scene_resolved_material_program_derivation",
+            "test_scene_resolved_material_program_finalizer",
+            "test_scene_resolved_material_template",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, focused.command)
+
     def test_render_graph_checkpoint_reuses_build_wrapper_code_health(self) -> None:
         gates, groups = verify.build_plan(
             [

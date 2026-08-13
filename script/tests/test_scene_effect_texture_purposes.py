@@ -35,7 +35,7 @@ RIPPLE_RENDERER = EFFECT_ROOT / "SceneWaterRippleRenderer.swift"
 OFFSCREEN_RENDERER = EFFECT_ROOT / "SceneOffscreenEffectRenderer.swift"
 RESOLVED_TEMPLATE_COMPILER = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph"
+    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram"
     / "SceneResolvedMaterialTemplateCompiler.swift"
 )
 METAL_VIEW = (

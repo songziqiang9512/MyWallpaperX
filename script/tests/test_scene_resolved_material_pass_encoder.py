@@ -34,12 +34,12 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
     SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
     SCENE_ROOT / "Resources/SceneTextureProviderPublication.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialHostUniformSchema.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramIdentity.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+Derivation.swift",
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+ColorDerivation.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialHostUniformSchema.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramIdentity.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram+Derivation.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram+ColorDerivation.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentKind.swift",
     SCENE_ROOT

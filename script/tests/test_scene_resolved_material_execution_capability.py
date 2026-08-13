@@ -40,7 +40,7 @@ VARIANT_CACHE_SOURCE = (
 )
 SHADER_REACHABILITY_SOURCE = (
     SCENE_ROOT
-    / "RenderGraph/SceneResolvedMaterialShaderSchema+Reachability.swift"
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+Reachability.swift"
 )
 DEPENDENCY_OWNERSHIP_SOURCE = (
     SCENE_ROOT
