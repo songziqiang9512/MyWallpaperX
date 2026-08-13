@@ -112,7 +112,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WorkshopStage.swift",
     SOURCE_ROOT / "Rendering/SceneImageEffectPipelineRepository.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectPipelineSet.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectPipelineSet.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
     SOURCE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift",

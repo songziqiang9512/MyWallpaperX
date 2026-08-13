@@ -154,6 +154,29 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
+    def test_effect_execution_change_selects_stage_graph_and_encoder_contracts(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
+                "EffectExecution/SceneAuthoredEffectPipelineSet.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("effect-execution", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        for module in (
+            "test_scene_authored_effect_execution",
+            "test_scene_framebuffer_capture",
+            "test_scene_graph_resource_pass_encoder",
+            "test_scene_graph_texture_publication",
+            "test_scene_resolved_material_execution_capability",
+            "test_scene_resolved_material_graph_executor",
+            "test_scene_resolved_material_pass_encoder",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, focused.command)
+
     def test_material_program_change_selects_schema_program_and_executor_contracts(self) -> None:
         gates, groups = verify.build_plan(
             [
