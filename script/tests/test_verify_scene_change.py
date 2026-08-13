@@ -134,6 +134,32 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
+    def test_effect_compilation_change_selects_compile_admission_and_consumers(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
+                "EffectCompilation/SceneEffectStageCompiler.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("effect-compilation", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        for module in (
+            "test_scene_authored_effect_execution",
+            "test_scene_effect_execution_telemetry",
+            "test_scene_effect_render_graph",
+            "test_scene_framebuffer_capture",
+            "test_scene_graph_admission_compiler",
+            "test_scene_graph_texture_publication",
+            "test_scene_resolved_material_execution_capability",
+            "test_scene_resolved_material_graph_executor",
+            "test_scene_resolved_material_program_finalizer",
+            "test_scene_utility_layers",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, focused.command)
+
     def test_layer_dependency_change_selects_planning_pool_and_consumers(self) -> None:
         gates, groups = verify.build_plan(
             [

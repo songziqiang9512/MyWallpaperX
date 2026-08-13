@@ -26,7 +26,7 @@ GRAPH_COMPOSITION_SOURCE = (
 )
 PLAN_BACKEND_SOURCE = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
+    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/"
     "SceneEffectStageExecutionPlan+Backend.swift"
 )
 

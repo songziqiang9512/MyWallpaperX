@@ -75,7 +75,7 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialEffectIngress.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialScriptBindingClassifier.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectStageCompileModel.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
     *AUTHORED_SHADER_PREPARATION_SOURCES,
 )
 

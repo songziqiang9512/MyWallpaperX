@@ -53,7 +53,7 @@ RUNTIME_CATALOG_REPORT_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog+Report.swift"
 )
 EFFECT_BACKEND_SOURCE = (
-    SCENE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift"
+    SCENE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
 )
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",

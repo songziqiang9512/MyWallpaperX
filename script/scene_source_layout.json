@@ -24,6 +24,25 @@
         ],
         "responsibility": "Authored graph IR, structural planning, and graph/condition admission; excludes execution backends, target lifecycle, dependency scheduling, and GPU encoding."
       },
+      "EffectCompilation": {
+        "file_globs": [
+          "SceneAuthoredPreciseBlurPlanner+Topology.swift",
+          "SceneEffectAdmissionCatalog+Reporting.swift",
+          "SceneEffectAdmissionCatalog+ResolvedMaterial.swift",
+          "SceneEffectAdmissionCatalog.swift",
+          "SceneEffectProgramCompiler+DedicatedStages.swift",
+          "SceneEffectStageAdmission.swift",
+          "SceneEffectStageCompileModel.swift",
+          "SceneEffectStageCompiler.swift",
+          "SceneEffectStageDedicatedCandidateMatching.swift",
+          "SceneEffectStageDedicatedCompilers.swift",
+          "SceneEffectStageExecutionPlan+Backend.swift",
+          "SceneEffectStageExecutionPlan.swift",
+          "SceneEffectStageGraph.swift",
+          "SceneEffectStageProgram.swift"
+        ],
+        "responsibility": "Effect-stage compilation and admission lifecycle, from authored stage-graph slicing and dedicated candidate/backend compilation through stage Program/ExecutionPlan and whole-chain catalog/reporting; excludes complete effect-specific planner admission, MaterialProgram production, GPU encoding, and target/resource lifecycles."
+      },
       "EffectExecution": {
         "file_globs": [
           "SceneAuthoredEffectPipelineSet.swift",
@@ -208,10 +227,10 @@
         "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
         "baseline_occurrences": 29,
         "scope_files": [
-          "RenderGraph/SceneEffectProgramCompiler+DedicatedStages.swift"
+          "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
         ],
         "allowed_files": [
-          "RenderGraph/SceneEffectProgramCompiler+DedicatedStages.swift"
+          "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
         ]
       },
       {
@@ -223,10 +242,10 @@
         "end_marker": "nonisolated struct SceneEffectStageCompilerFailure",
         "baseline_occurrences": 29,
         "scope_files": [
-          "RenderGraph/SceneEffectStageCompileModel.swift"
+          "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
         ],
         "allowed_files": [
-          "RenderGraph/SceneEffectStageCompileModel.swift"
+          "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
         ]
       },
       {
@@ -238,10 +257,10 @@
         "end_marker": "    var gaussianBlur:",
         "baseline_occurrences": 29,
         "scope_files": [
-          "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift"
+          "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
         ],
         "allowed_files": [
-          "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift"
+          "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
         ]
       },
       {

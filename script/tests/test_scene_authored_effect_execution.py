@@ -18,29 +18,29 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectStageCompileModel.swift",
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectStageGraph.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectProgramCompiler+DedicatedStages.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectStageCompiler.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectAdmissionCatalog.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectAdmissionCatalog+ResolvedMaterial.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectStageProgram.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectStageAdmission.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageGraph.swift",
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift",
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageCompiler.swift",
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectAdmissionCatalog.swift",
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectAdmissionCatalog+ResolvedMaterial.swift",
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageProgram.swift",
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageAdmission.swift",
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift",
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneAuthoredPreciseBlurPlanner+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
     SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
 ]
 PROGRAM_COMPILER_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneEffectProgramCompiler+DedicatedStages.swift"
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
 )
 CHAIN_BACKEND_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift"
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
 )
 CHAIN_RENDERER_SOURCE = (
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift"

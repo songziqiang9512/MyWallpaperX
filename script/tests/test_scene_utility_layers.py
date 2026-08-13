@@ -23,7 +23,7 @@ DEPENDENCY_RUNTIME_SOURCE = (
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyFrameRuntime.swift"
 )
 AUTHORED_CATALOG_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan.swift"
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan.swift"
 )
 METAL_RENDERER_MASKS_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectMasks.swift"
@@ -38,7 +38,7 @@ FRAME_PREFLIGHT_SOURCE = (
 EFFECT_EXECUTION_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
 )
-BACKEND_SOURCE = SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift"
+BACKEND_SOURCE = SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
 CAPABILITY_PROGRAM_FIRST_SOURCE = (
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"

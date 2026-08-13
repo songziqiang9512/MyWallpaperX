@@ -78,7 +78,7 @@ AUTHORED_SHADER_PREPARATION_SOURCES = scene_swift_source_relpaths(
 CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneJSONValue.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectStageCompileModel.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredMaterialResolver.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneMaterialRenderState.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderSourceGraph.swift",
