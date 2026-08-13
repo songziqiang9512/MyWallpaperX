@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import io
+import json
+import subprocess
 import sys
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -117,7 +121,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("test_scene_shader_preparation_census", command)
         self.assertNotIn("test_scene_material_program_census", command)
 
-    def test_integration_replaces_focused_tests_and_requires_real_sample(self) -> None:
+    def test_integration_runs_scene_suite_and_requires_real_sample(self) -> None:
         gates, _ = verify.build_plan(
             ["MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTexture.swift"],
             arguments(phase="integration"),
@@ -144,7 +148,59 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertEqual(runtime.gate_id, "targeted-sample")
         self.assertIsNone(runtime.command)
         self.assertIsNone(runtime.unresolved)
+        self.assertEqual(runtime.status, "skipped")
         self.assertIn("CI has no private Workshop corpus", runtime.reason)
+
+        for gate in gates:
+            if gate.status == "planned":
+                gate.status = "passed"
+        payload = verify.validation_payload(
+            arguments(
+                phase="integration",
+                ci=True,
+                skip_runtime=True,
+                reason="CI has no private Workshop corpus",
+            ),
+            ["MyWallpaperX/Core/SteamWorkshopScene/Format/SceneProject.swift"],
+            {"format"},
+            gates,
+            execution="completed",
+        )
+        self.assertEqual(payload["validation_scope"], "structural-only")
+        self.assertFalse(payload["closure_complete"])
+
+    def test_all_scene_product_surfaces_trigger_integration_closure(self) -> None:
+        paths = [
+            "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRuntime.swift",
+            "MyWallpaperX/App/DebugScenePlaybackRunner+Performance.swift",
+            (
+                "MyWallpaperX/Modules/SteamWorkshop/Scene/"
+                "SteamWorkshopSceneService+ScenePlayback.swift"
+            ),
+            "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift",
+        ]
+        for path in paths:
+            with self.subTest(path=path):
+                gates, _ = verify.build_plan(
+                    [path],
+                    arguments(phase="integration"),
+                    self.registry,
+                )
+                gate_ids = [gate.gate_id for gate in gates]
+                self.assertIn("scene-all-tests", gate_ids)
+                self.assertIn("targeted-sample", gate_ids)
+
+    def test_integration_keeps_explicit_modules_alongside_scene_suite(self) -> None:
+        gates, groups = verify.build_plan(
+            ["MyWallpaperX/App/DebugScenePlaybackRunner.swift"],
+            arguments(phase="integration"),
+            self.registry,
+        )
+        self.assertIn("scene-debug-runner", groups)
+        self.assertEqual(gates[0].gate_id, "focused-tests")
+        self.assertEqual(gates[1].gate_id, "scene-all-tests")
+        self.assertIn("test_scene_wallpaper_benchmark", gates[0].command)
+        self.assertIn("__scene_validation_no_scope_match__", gates[0].command)
 
     def test_milestone_matrix_gate_requires_explicit_inputs(self) -> None:
         gates, _ = verify.build_plan(
@@ -176,6 +232,74 @@ class SceneValidationSelectionTests(unittest.TestCase):
         matrix = next(gate for gate in gates if gate.gate_id == "fixed13")
         self.assertIn("--sample-id", targeted.command)
         self.assertNotIn("--sample-id", matrix.command)
+        targeted_output = targeted.command[targeted.command.index("--output-dir") + 1]
+        matrix_output = matrix.command[matrix.command.index("--output-dir") + 1]
+        self.assertEqual(targeted_output, "reports/targeted")
+        self.assertEqual(matrix_output, "reports/fixed")
+        self.assertNotEqual(targeted_output, matrix_output)
+
+    def test_milestone_matrix_contract_without_tier_is_blocked(self) -> None:
+        gates, groups = verify.build_plan(
+            ["script/scene_wallpaper_benchmark.py"],
+            arguments(phase="milestone"),
+            self.registry,
+        )
+        self.assertIn("matrix", groups)
+        blocker = gates[-1]
+        self.assertEqual(blocker.gate_id, "matrix-tier-selection")
+        self.assertEqual(blocker.status, "blocked")
+        self.assertIn("matrix-tier", blocker.unresolved)
+
+        with patch.object(verify.subprocess, "run") as run:
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                return_code = verify.main(
+                    [
+                        "--phase",
+                        "milestone",
+                        "--path",
+                        "script/scene_wallpaper_benchmark.py",
+                        "--run",
+                    ]
+                )
+        self.assertEqual(return_code, 2)
+        run.assert_not_called()
+
+    def test_plan_json_marks_commands_as_not_executed(self) -> None:
+        output = io.StringIO()
+        with redirect_stdout(output):
+            return_code = verify.main(
+                [
+                    "--path",
+                    "docs/scene/semantics/coverage-ledger.md",
+                    "--format",
+                    "json",
+                ]
+            )
+        self.assertEqual(return_code, 0)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["execution"], "not-run")
+        self.assertFalse(payload["closure_complete"])
+        self.assertEqual(payload["gates"][0]["status"], "planned")
+        self.assertIsNone(payload["gates"][0]["return_code"])
+
+    def test_gate_execution_records_passed_and_failed_states(self) -> None:
+        passed = verify.Gate("passed", ("true",), "test", False)
+        failed = verify.Gate("failed", ("false",), "test", False)
+        with patch.object(
+            verify.subprocess,
+            "run",
+            side_effect=[
+                subprocess.CompletedProcess(("true",), 0),
+                subprocess.CompletedProcess(("false",), 9),
+            ],
+        ):
+            with redirect_stdout(io.StringIO()):
+                return_code = verify.run_gates([passed, failed])
+        self.assertEqual(return_code, 9)
+        self.assertEqual(passed.status, "passed")
+        self.assertEqual(passed.return_code, 0)
+        self.assertEqual(failed.status, "failed")
+        self.assertEqual(failed.return_code, 9)
 
     def test_explicit_paths_are_normalized_without_git_lookup(self) -> None:
         self.assertEqual(

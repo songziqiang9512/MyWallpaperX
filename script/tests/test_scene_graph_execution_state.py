@@ -13,17 +13,17 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 STATE_SOURCES = [
-    SCENE_ROOT / "RenderGraph/SceneGraphExecutionState.swift",
-    SCENE_ROOT / "RenderGraph/SceneGraphExecutionState+Validation.swift",
-    SCENE_ROOT / "RenderGraph/SceneGraphExecutionState+Identity.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphExecutionState.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphExecutionState+Validation.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphExecutionState+Identity.swift",
 ]
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
-    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
-    SCENE_ROOT / "RenderGraph/SceneLayerFullFramePairPlan.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneLayerFullFramePairPlan.swift",
     *STATE_SOURCES,
 ]
 

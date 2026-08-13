@@ -18,7 +18,7 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneLayerFullFramePairPlan.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneLayerFullFramePairPlan.swift",
 ]
 
 

@@ -18,13 +18,13 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlanner+Resolution.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
-    SOURCE_ROOT / "RenderGraph/SceneLayerFullFramePairPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState+Validation.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState+Identity.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneLayerFullFramePairPlan.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphExecutionState.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphExecutionState+Validation.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphExecutionState+Identity.swift",
 ]
 
 

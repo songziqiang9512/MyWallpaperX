@@ -1,157 +1,104 @@
 # MyWallpaperX 开发规则
 
-本文件只保留会影响实现、验证、提交或工作区安全的现役规则。能力等级、样本计数、报告路径和历史结论不在这里重复，以现役语义文档和运行证据为准。
+本文件只保存会改变实现、验证、提交或工作区安全的长期约束。能力数字、样本结论、运行报告、批次计划和历史迁移状态不在这里重复。
 
-## 1. 工作边界
+## 1. 工作与安全边界
 
-- 先确认用户要的是讨论、只读审查、诊断还是实现。只读任务不得修改、构建、生成缓存、暂存或提交。
-- 保留工作区已有改动；先读 `git status`、相关规则、现役文档和受影响代码。不得用 `git reset --hard`、`git checkout --`、`git clean` 或宽泛的暂存命令覆盖他人工作。
-- 只修改与当前目标直接相关的文件。发现计划外问题时，记录影响并单独决定是否纳入；不得顺手重构或清理。
-- 信息不足时先用本机代码、测试、样本和可验证资料补齐。对未验证结论明确标为推断。
+- 先区分讨论、只读审查、诊断和实现。只读任务不得修改、构建、生成缓存、暂存或提交；实现任务默认做到可验证结果。
+- 开工先读 `git status`，保留已有改动并确认本批文件所有权。禁止 `git reset --hard`、`git checkout --`、`git clean`、`git add -A` 和任何会覆盖他人工作的宽泛操作。
+- 真实 Scene 样本根 `~/Movies/MyWallpaperX/创意工坊/Scene` 只读。benchmark、属性注入和缓存操作只能使用隔离副本、隔离 Workshop root 与临时 `HOME`。
+- 只改当前目标的完整职责边界。可为了闭合该目标移动或重组整个类型族，但不得顺手清理无关代码；计划外问题记录后另行排程。
+- 删除历史材料、唯一失败现场或归属不明的生成物前必须先列出精确清单并取得确认。禁止对仓库根、`.codex` 根或真实样本根做递归清理。
 
-## 2. Scene 事实与证据
+## 2. 事实入口与证据边界
 
-真实创意工坊样本根 `~/Movies/MyWallpaperX/创意工坊/` 只读。任何 benchmark、属性注入、缓存操作或样本修改都必须在隔离副本中进行，并同时使用隔离的 Workshop root 与临时 `HOME`；不得直接改动、删除或清理真实样本。
+按问题读取最小入口，不全量扫描文档库：
 
-Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆盖现役事实：
+1. 全项目导航与冲突顺序：[`docs/README.md`](docs/README.md)；
+2. 长期语言、进程、依赖与所有权：[`docs/architecture/technology-stack-boundaries.md`](docs/architecture/technology-stack-boundaries.md)；
+3. Scene 合同导航：[`docs/scene/semantics/README.md`](docs/scene/semantics/README.md)；
+4. 当前能力与运行事实：[`coverage-ledger.md`](docs/scene/semantics/coverage-ledger.md) 和 [`runtime-evidence-index.md`](docs/scene/semantics/runtime-evidence-index.md)；
+5. authored corpus 影响面：[`scene-corpus-capability-inventory.md`](docs/scene/semantics/scene-corpus-capability-inventory.md)。它不证明运行支持。
 
-1. [总覆盖台账](docs/scene/semantics/coverage-ledger.md)：系统摘要与专项表入口。
-2. Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象专项表：逐项等级、代码、测试与缺口。
-3. [运行证据索引](docs/scene/semantics/runtime-evidence-index.md)：当前基线、样本、构建、签名和运行报告。
-4. [能力依赖图](docs/scene/semantics/capability-dependency-map.md)：公共前置能力与开发顺序。
-5. [全样本能力分类与修复台账](docs/scene/semantics/scene-corpus-capability-inventory.md)：真实 Scene 根的 authored 资源、Effect/Graph、纹理、粒子、动态输入和参数 family 清单；只回答 corpus 声明，不回答运行支持。
+带日期的 plan、review、roadmap 和旧报告默认是历史证据，只有现役入口明确链接时才参与当前工作。冲突时依次采用：当前代码与可复现运行证据、本文、长期架构合同、专题现役合同、历史材料。
 
-带日期的 plan、roadmap 和 review 默认是批次快照；只有 `docs/README.md` 或专题入口明确列为“现役迁移目标/现役执行计划”的文件才可指导当前顺序，但仍不是能力或运行基线的权威入口。
+官方公开合同优先。只有新增或改变作者语义、owner、frame order、生命周期或安全边界时，才需要重新核对官方/stock；现有固定证据足够覆盖本批时直接复用。MirageWallpaper 仅在官方材料不足或需要交叉核对完整 producer-to-consumer 链时读取固定 revision，且只借鉴职责、状态传播和顺序；不得复制其 GPL 源码、shader、资产、payload、常量组合、算法表达或测试数据。
 
-开始 Scene 任务时，先从 `docs/scene/semantics/README.md` 按问题类型进入专项表，再核对总覆盖台账与运行证据索引；排开发顺序时补读能力依赖图，涉及官方客户端或公开资料时补读 `source-index.md`。不得全量扫描文档库后凭文件名选任务，也不得从静态取证直接推导“已支持”。
+不得把 `recognized`、`wired`、静态 census、strict profile、路由计数、非黑截图或单个样本通过表述为完整兼容或 Wallpaper Engine 视觉等价。
 
-不得将 `recognized`、`wired`、`executed-degraded`、固定 strict profile、固定样本通过或静态参考材料表述为完整兼容或 Wallpaper Engine 视觉等价。官方/参考材料只可作为 clean-room 证据；不得复制其 payload、shader、纹理、JSON、二进制或算法表达，新增断言使用项目自有 fixture。
+## 3. Scene 修复流程
 
-### 2.1 用户可见 Scene 闭环与批次原子性
+### 3.1 修复前只确定首断边
 
-- 真实样本出现缺图、合成纹理丢失、黑窗、交互无效或明显错误显示时，当前优先级由该样本实际 render chain 的**第一个断裂边**决定。必须沿 `asset/texture selection -> admission/owner -> Program/variant -> GPU encode -> publication -> compositor -> next frame -> 目标 ROI` 记录精确 layer/effect/pass/slot/target identity；文档分类、源码目录、能力等级和 occurrence 数只帮助界定语义与影响面，不能代替排程。
-- 一个 correctness atom 是恢复同一用户可见结果所需的最小公共闭环。相互依赖的 selection、admission、Program、render target、publication 与 composition 即使跨 `Resources`、`RenderGraph`、`Rendering` 或多个 D/L 节点，也必须同批实现和验收；不得把其中一段标成“显示已修复”后把真正 consumer 留到后续。基础工作只有在没有已知可见断链，或明确标为前置且不宣称用户收益时，才可独立提交。
-- 样本 ID、layer ID、资源路径和 hash 可以作为通用 typed identity、资源解析/缓存键、publication/ownership 键和诊断字段，但不得以某个特定样本、layer、路径或 hash 字面量决定 capability eligibility、算法选择或样本专用 dispatch。公共实现仍须按作者结构、typed identity、官方合同和 clean-room 证据准入，未知形态继续失败关闭。
-- 每个 Scene correctness atom，无论属于纹理/资源/publication、RenderGraph/FBO/composition、effect/shader、粒子还是动态输入/SceneScript/交互，实现前都先用现役语义资料、官方公开文档与合法 stock corpus 确定作者合同；只有官方材料仍不足且会阻塞公共设计时，才做范围明确的官方客户端 clean-room Ghidra 复核。随后必须实际读取 MirageWallpaper 某一固定 revision 中与该 family 直接相关的 `producer -> typed state/identity -> consumer -> frame order/lifecycle -> failure path`；不得只引用参考专题总结、沿用其他 revision 的行号或从类名猜实现。
-- 每次 MirageWallpaper 交叉验证必须记录完整 revision、实际读取的模块/关键 symbol、只被其支持的结构结论，以及它与官方合同、真实样本或 MyWallpaperX 当前路径的 divergence。MirageWallpaper 只是 GPL-3.0 等级 `D` 参考：官方证据优先，冲突时记录偏差并保持 unknown/fail-closed；只可借鉴模块边界、状态传播、资源身份、生命周期、帧序与失败隔离，不得复制源码、shader、纹理、payload、常量组合、表达式、算法或测试资产。
-- 现有代码若采用了与已证官方路径冲突的 ownership、顺序或数据模型，应在该职责边界内替换错误模型和旧入口，不得继续叠加 sample workaround、兼容 flag 或下游补丁来维持错误架构。
-- fail-closed 必须保留，但报告要区分“提前拒绝坏层并保住其余已证画面”和“已经实现被拒绝层”。前者是故障隔离，不是该 effect、纹理或合成语义已支持。
-- 新增/删除真实 Scene 样本、准备按共享大类选下一项、或修复会改变 family/参数形态时，先刷新全样本 authored census，并用 `family_key` 统计影响样本；它只界定公共影响面，当前优先级仍由 fresh 隔离运行的第一个断裂边决定。修好一个 family 后必须在独立 repair ledger 记录根因、公共修法、commit、synthetic 正反门、真实样本 ROI 与剩余边界；后续触达其 selection/Program/publication/composition 依赖时必须重跑登记的 sentinel。不得用 frequency、family count 或静态 `resolved` 冒充运行支持。
+用户可见缺图、错误合成、黑窗、动态失效或交互失效时，先记录：
 
-## 3. 技术栈与架构边界
+- 预期、实际和可复现路径；
+- render chain 的第一个失败 identity（sample/layer/effect/pass/slot/target）；
+- 公共根因假设、预计影响 family 和尚未证明的后继；
+- 本批 tentative correctness atom、项目自有正反门和真实样本 sentinel/ROI。
 
-[技术栈与架构路线边界](docs/architecture/technology-stack-boundaries.md) 是语言职责、跨语言/跨进程所有权、性能合同和候选依赖准入的唯一长期入口。最终产品主体为 Swift + AppKit，现有 SwiftUI 只作为 [0 SwiftUI 迁移计划](docs/architecture/appkit-migration-plan-2026-05-17.md)中的受控残留，不新增 SwiftUI 产品面或扩大 hosting bridge。Scene 主链保持 Swift + Metal：Swift 拥有产品语义、typed IR、资源/属性/生命周期和 GPU 调度，Metal/MSL 拥有 GPU 执行，Python 只用于测试与开发工具。
+首断边之前不要求凭空证明尚未执行的所有下游阶段。静态推断必须标明，修复后用新运行结果继续追链。
 
-- C/C++ 只可进入有明确生态优势的 VM/compiler ABI 或经 profiling 证明的局部 kernel，不得接管 Scene 业务语义、样本路由或第二套 renderer；长期边界使用窄 typed C ABI 或版本化进程协议。
-- QuickJS-NG、JavaScriptCore、Slang、DXC、Metal Shader Converter、glslang、SPIRV-Cross 与 XPC 均是带准入门的候选，不是当前能力。新增依赖先做无产品执行权的项目自有 fixture / shadow 评估，完成预算、失败关闭、许可证、双架构、签名和发布门后，才能按公共 capability family 迁移。
-- 进程边界只用于故障、权限或资源隔离；compiler worker 可评估 XPC，需要拥有桌面窗口的 renderer 保持在 App 或可呈现窗口的 helper application。不得把 draw/pass/uniform/JS property access 等每帧细粒度操作改成 XPC 往返。
-- 新增项目自有固定 MSL 使用 `.metal` 构建期编译；Workshop 作者 shader 才允许运行期编译，并须在 preparation/variant 阶段完成 cache、取消、预算、reflection 和 pipeline preflight，不在 encode 热路径首次同步编译。现有 Swift 字符串 shader 属于受控迁移债务，不在无性能证据时机械重写。
-- 性能结论必须区分首帧、稳态 frame time、hitch、内存、能耗和恢复；记录硬件、OS、显示器、构建/App 身份与样本。平均 FPS、非黑、进程存活或样本门通过不能单独证明性能闭环。
-- 仓库 Python 工具链固定为 3.12.x，本地与 CI 必须显式选择兼容解释器。当前 Swift 5 language mode 不作为性能缺陷；Swift 6 strict concurrency 只在 R4/R5 后按模块迁移。
-- R4/R5 已于 2026-08-12 完成公共能力接管、旧 owner 撤权和残留删除。后续 VM、shader compiler 或 service 原型仍不得据此升级覆盖台账或取得隐式 execution owner；任何新增产品执行面必须重新走公共 capability、失败关闭和运行证据门。
+### 3.2 一个批次闭合一个用户结果
 
-## 4. 实现流程
+- correctness atom 是恢复同一公共用户结果所需的最小完整链，可以跨 `Resources`、`RenderGraph`、`Rendering`、Effect、粒子或动态输入目录；不得按源码目录或能力等级把 selection、Program、publication 和 compositor 人为拆成多个“已修复”批次。
+- sample/layer/path/hash 可作为 typed identity、资源/缓存/publication 键和诊断字段，但不得以特定字面量选择 capability、算法或产品 dispatch。
+- 未证明的 producer、texture、颜色、alpha、target 或生命周期继续 fail closed。提前拒绝坏层并保住其余画面是故障隔离，不是该层已经支持。
+- 只有 corpus fingerprint、census schema、family 解释发生变化，或现有快照无法回答影响面时才刷新全 corpus；普通 family 修复不把 census 当成前置仪式。
 
-### 修复前
+### 3.3 执行顺序
 
-对每个报错样本或用户可见问题，先确认：
+1. 主实现者落公共代码和 inner 正反门；
+2. 运行最小定向测试，确认改动实际被加载；
+3. 对可见或运行时改动运行定向 integration，按新首断边迭代到链稳定；
+4. 同步本 atom 必需的测试、matrix、ledger 和现役文档；
+5. 冻结 diff 后只做一次稳定快照终审；
+6. 运行提交门并提交单一职责批次。
 
-- 预期行为、实际行为与可复现路径；
-- 根因归类：样本逻辑、框架实现、依赖、解析、缓存/构建产物或环境；
-- 第一个断裂边及其精确 identity，而不是只记录最终聚合错误；
-- 是否属于公共逻辑、影响哪些样本，以及恢复该结果所需的完整 correctness atom；
-- 受影响文件、样本、项目自有正反门和目标 ROI；若目标是官方等价，还要写明同相位官方 golden 或其他足以证明等价的证据。
+不得在每条移动快照审计意见后反复重跑完整验证，也不得用连续子代理审计替代主实现。纯规则/历史整理可独立提交；与 correctness atom 同步的测试、matrix 和能力记录必须随该 atom 一起交付。
 
-开始改动前给出简短计划：问题与根因假设、第一个断裂边、correctness atom、拟改位置、影响范围、验证样本及每步验收标准。优先修复共享逻辑，不得用样本 ID 分支、跳过校验、隐藏错误或放宽 fail-closed 行为制造通过。
+## 4. 技术栈与代码职责
 
-### 实现与提交
+- 产品 UI 保持 Swift + AppKit；Scene 主链保持 Swift + Metal。Python 只用于测试和开发工具。候选 VM/compiler/XPC 必须按长期技术边界完成许可证、签名、预算、失败隔离与发布准入后才能取得产品执行权。
+- 新增固定 MSL 用 `.metal` 构建期编译；Workshop 作者 shader 才允许运行期编译，并在 preparation/variant 阶段完成 cache、取消、预算、reflection 和 pipeline preflight。
+- 一个文件表达一个凝聚职责；一个类型族放在同一职责目录。没有真实复用、独立生命周期或清晰依赖边界时不增加抽象、协议、wrapper 或目录。
+- 400 物理行是审查提醒，不是机械切割线。401–800 行的凝聚文件可以存在，但需要保持单一职责；新增文件不得超过 800 行。历史超过 800 行的文件不得增长，触达时优先按真实职责缩小。禁止压缩排版、删合理空行、批量放宽 `private` 或切断强耦合流程来过门。
 
-- 单次只处理一个 correctness atom。编码循环先跑 inner 门；生产代码稳定后只做一次终审，再运行 integration/隔离样本并同步文档，不得在每条移动快照审计意见后反复跑完整验证。
-- 主代理必须实际落下本批公共生产代码、测试和整合；子代理只承担文件所有权明确的独立实现，或有界只读研究、稳定快照终审。不得用连续子代理审计代替主实现；连续两个审计周期仍未让目标可见链前进时，停止追加补丁，回到隔离样本重新确定第一个断裂边和批次边界。
-- 先确认改动被实际加载，再解释运行结果：检查构建产物、缓存、入口、配置和资源路径；必要时重建隔离运行环境。
-- 验证通过后才提交该问题。提交信息须说明问题、根因和验证；不混入无关改动。
-- 修改文档、规则或门禁时也保持独立提交边界，并验证链接、脚本或门禁合同，没有功能改动时不虚构运行验证。
+Scene 分类根 `MyWallpaperX/Core/SteamWorkshopScene` 不直接放 Swift。一级职责为 `Format`、`Runtime`、`Properties`、`Resources`、`Rendering`、`RenderGraph`、`Effects`、`Text`、`Particles`。密集类型族应按完整生命周期迁移到语义明确的二级目录；禁止 `Misc`、`Common`、`Helpers` 等兜底目录，也不预建空目录。布局真值由 [`script/scene_source_layout.json`](script/scene_source_layout.json) 与自动测试维护。
 
-## 5. 验证选择
+现有 RenderGraph 二级职责：`EffectExecution` 负责统一 GraphExecutor 的 stage preparation/encoding/execution；`GraphTargets` 负责 authored graph target 的计划、状态、分配、驻留、资源命令与 publication。named layer target 不属于 authored effect FBO/history，不因名称相似并入 `GraphTargets`。
 
-按影响面选择最小充分集合，不默认全量运行。优先使用统一入口先解释、再执行；在脏工作区中用可重复的 `--path` 只声明本批拥有的文件：
+目录迁移批次默认只移动完整类型族并修正路径引用，不夹带功能行为变化；保持 Swift 内容和 `project.pbxproj` 无无关改动。首次建立新的二级职责需同步布局合同、受影响 standalone source lists、导航文档和迁移测试。
+
+## 5. 验证与可见证据
+
+统一入口：
 
 ```bash
-python3.12 script/verify_scene_change.py --phase checkpoint --base HEAD --path <path> --run
+python3.12 script/verify_scene_change.py --phase <inner|checkpoint|integration|milestone> --base HEAD --path <owned-path> --run
 ```
 
-验证分为四级，同一份未变化源码已由较高一级覆盖的检查不得手工重复：
+| 阶段 | 用途 | 最低要求 |
+| --- | --- | --- |
+| `inner` | 编码循环 | 受影响单元/Swift harness；不构建、不启动 App |
+| `checkpoint` | 结构或非可见批次准备提交 | 定向测试、代码健康；Swift 产品改动再 build verify |
+| `integration` | RenderGraph、资源、运行时或可见改动 | Scene 回归、build verify、定向隔离样本；可见声明必须闭合真实链 |
+| `milestone` | 样本集合、matrix 合同、发布或里程碑 | 按明确风险选择 fixed/full，不能惯性全跑 |
 
-| 阶段 | 使用时机 | 至少验证 |
-| --- | --- |
-| `inner` | 编码循环 | 受影响的单元/Swift harness；不构建、不启动 App、不跑矩阵 |
-| `checkpoint` | 一个独立问题准备提交 | 受影响测试；Swift 产品代码再跑代码健康与 `script/build_and_run.sh verify` |
-| `integration` | 公共 RenderGraph、资源、属性或运行时批次准备交付 | Scene 全量测试、代码健康、构建启动与受影响定向隔离样本；可见修复还须验证完整 render chain 与 ROI |
-| `milestone` | 样本/矩阵变化、发布或里程碑 | 先按风险选择 fixed；仅在便宜证据仍不能排除风险时运行 full |
+- gate 必须显式报告 `planned/running/passed/failed/skipped/blocked`。`--skip-runtime`、无命令或缺私有样本只能得到 structural-only/skipped，不能返回 integration 或 visible closure PASS。
+- integration 不得因选择 Scene 全量而丢弃显式映射的非 `test_scene_*` 模块；多个 benchmark 必须使用独立输出目录。未显式选择 fixed/full 时不得暗中声称 matrix 覆盖。
+- 声称恢复显示、纹理、合成、动态或交互时，必须同时有项目自有 synthetic 正反门和同一隔离真实样本证据：GPU completed、精确 publication identity、terminal compositor consumed、next-frame 成功，以及预先定义 ROI/事件断言。进程存活、exit 0、任意非黑像素、全屏 motion 或 route/claim 数不能替代它。
+- fixed matrix 是固定回归集；full matrix 只有与当前 corpus fingerprint 一致时才是完整快照。两者不可互相替代，普通解析/effect/资源改动默认不跑 full。
+- 新 gate 必须在 `script/scene_validation_gates.json` 记录风险、触发、成本、串行要求和退役条件。迁移期计数 ratchet 在迁移结束后删除或收敛为稳定不变量。
+- Swift/Metal 模块缓存受权限影响时，把 `CLANG_MODULE_CACHE_PATH` 与 `SWIFT_MODULECACHE_PATH` 指向 `/private/tmp` 专用目录后再区分环境与产品失败。
 
-目录迁移继续按布局/链接门、受路径影响测试、代码健康和 build verify 验证；首次改变布局合同再增加 Scene 全量测试。CI 没有私有 Workshop corpus 时可显式记录原因跳过运行样本，但不得把该结果写成运行证据。
+## 6. 并行、提交与工作区
 
-`script/scene_wallpaper_sample_matrix.json` 是固定回归门，`script/scene_wallpaper_full_sample_matrix.json` 的目标是覆盖当前真实 Scene 目录的完整快照门。若 authored corpus census 发现样本增删，后者立即降为待扩容的 tracked baseline，不得称为完整或写成 milestone PASS；新增样本须在独立 milestone 扩容批中用隔离运行建立期待后再纳入。两者有重叠但不可互相替代，报告必须分别说明；部分样本或矩阵缺失不得写成 PASS。
+- 并行写入前分配互不重叠的文件或主类型所有权；共享测试、matrix 和权威文档由一名整合者修改。静态扫描和独立测试可并行，build、App runtime、benchmark、fixed/full 必须串行。
+- 子代理适合有界研究、独立文件实现和冻结快照终审；主代理维护唯一首断边、correctness atom、整合和最终运行事实。
+- 提交只包含一个职责批次，信息写明问题、根因和实际验证。目录迁移与功能修复分开提交；禁止宽泛暂存。
+- `.codex` 是可重建工作区，不是源码或长期知识库。正式工具进入 `script/`，测试进入 `script/tests/`，一次性文件进入 `/private/tmp`。生成过 build/runtime 产物的批次收尾运行 `python3.12 script/audit_codex_artifacts.py --fail-on-candidates`，只清理精确归属且可重建的候选。
 
-固定门不是每次公共改动的默认步骤。只有改动同时影响多个固定样本可能共用的行为，且定向样本与模块测试不能充分覆盖该风险时才运行；运行前记录受影响的共享合同、所选固定样本和定向验证不足的原因。
+## 7. 汇报
 
-完整快照门是昂贵的里程碑核实，不得作为日常回归的惯性动作。除样本集合或完整矩阵合同变动、发布/里程碑收口外，只有预期影响跨样本且无法由定向样本、模块测试和固定门合理排除时才可运行；执行前必须说明该全量运行要核实的具体假设与替代验证为何不足。普通解析、effect、资源或公共运行时改动默认不跑完整快照。
-
-Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PATH` 与 `SWIFT_MODULECACHE_PATH` 指向 `/private/tmp` 下的专用目录，再区分环境失败与产品回归。
-
-每个新增 gate 必须在 `script/scene_validation_gates.json` 声明所保护风险、触发条件、成本、串行要求和退役条件。迁移期 occurrence/count ratchet 在迁移完成后必须删除或收敛为稳定架构不变量，不得永久保留阶段性快照数字。
-
-声称“恢复显示、纹理或合成”时，checkpoint/integration 必须同时有项目自有 synthetic 正反门和同一隔离真实样本证据。报告至少证明目标 layer/stage 的 GPU completed、精确 publication identity、terminal compositor consumed、next-frame 再成功，并在预先指定的 ROI 中出现可读的目标内容；全屏 non-black、进程存活、exit 0、loaded/route/claim 数或矩阵计数都不能替代该证据。声称 Wallpaper Engine 视觉等价还必须另有同相位官方 golden 和明确像素/时序容差。
-
-## 6. Swift 代码健康
-
-- 新增或未列入 `script/code_health_baseline.json` 的 Swift 文件不得超过 400 个物理行。不得压缩语句、删除合理空行或降低可读性规避限制。
-- 历史超限文件只能保持或缩小；触达时先判断能否按真实职责拆出独立声明或 extension。只有有复用、独立生命周期或可明显降低复杂度时才新增类型、协议、包装层或文件。
-- 拆分须保持行为、命名和访问边界。不得为跨文件访问批量放宽 `private`，也不得为满足行数机械切开强耦合流程。
-- 每份未变化的 Swift diff 在 checkpoint 前至少通过一次 `python3.12 script/check_code_health.py --check --base-ref HEAD`；`script/build_and_run.sh` 内的成功结果已满足同一源码版本，不再重复。文件缩短时先运行 `python3.12 script/check_code_health.py --ratchet-baseline`，再执行检查。
-- 未经用户明确批准，不得新增历史例外、提高额度、移除源码根目录或提高 400 行阈值。新增 Swift 源码根目录、Tests 或 helper target 时必须纳入扫描；远端比较使用 `--base-ref <base-ref>`。
-
-## 7. Scene 源码布局
-
-`MyWallpaperX/Core/SteamWorkshopScene` 是分类根目录，不直接放置 Swift 文件。`script/scene_source_layout.json` 是机器可读布局合同，`script/tests/test_scene_semantics_coverage.py` 强制执行。源码只可位于以下九个一级目录：
-
-| 目录 | 职责 |
-| --- | --- |
-| `Format` | Project、Document、PKG/TEX、JSON 与 interpretation |
-| `Runtime` | Host、frame context、runtime model、descriptor 与 diagnostics |
-| `Properties` | 用户属性、binding program、dynamic snapshot 与 live update |
-| `Resources` | asset/resource index、texture loader、path resolver 与 video source |
-| `Rendering` | Metal 核心、compositor、layer、camera、geometry 与 utility |
-| `RenderGraph` | authored effect graph、dependency、render target、offscreen pool 与 ShaderContract |
-| `Effects` | 具体 effect 的 pipeline、runtime plan 与 renderer |
-| `Text` | 文字 descriptor、font、geometry、texture 与 dynamic text |
-| `Particles` | 粒子 definition、parser、simulation、pipeline、texture 与 trail |
-
-- 当前已落地的二级目录为 `RenderGraph/EffectExecution`，用于 authored-effect GPU execution 的完整 renderer 类型族；当前包括供统一 GraphExecutor 调用的 `SceneEffectStageRenderer*` per-stage typed backend，不再包含 standalone/whole-chain 产品 renderer，其余类别目前仍平铺，三级源码目录保持受控。
-- 同一主类型与其 extension 必须在同一目录；不得新增 `Misc`、`Common`、`Helpers` 等兜底目录，也不得为未来能力预建空目录。
-- 只有现有九类不能表达一组已经落地、具有共同生命周期或清晰依赖边界的多个文件时，才考虑新增一级目录。
-- 当目录密度、共同生命周期或职责边界表明有必要时，可灵活新增二级目录，不要求预先固定全局分组方案；同批同步本规则、布局 manifest、自动门、受影响文档链接和测试源码路径，并按完整类型族迁移。
-- 移动 Scene 源码时保持 Swift 内容字节不变和 `project.pbxproj` 无无关改动，并按“验证选择”的目录迁移合同验证。
-
-## 8. `.codex` 工作区
-
-`.codex` 是本机生成物工作区，不是源码、正式测试脚本或长期归档目录：
-
-- 可复用的 Python/Swift/Shell 工具进入 `script/`，正式自动测试进入 `script/tests/`；一次性脚本使用 `mktemp -d`，任务结束前删除或整理为正式入口。
-- 新的长期断言并入现有固定/完整矩阵或正式测试。定向 Scene 运行优先使用 `scene_wallpaper_benchmark.py --sample-id <id>`；不得为每轮测试留下新的 `.codex` matrix。
-- 正式测试不得硬编码带日期的 `.codex` runtime 路径。真实样本 fixture 统一由 `script/scene_real_test_fixture.json` 指向当前主线完整门。
-- benchmark 的隔离样本、副本、临时 `HOME` 和 `runtime-app-*` 只属于当次运行；PASS 后应由既有流程清理，FAIL 仅保留失败现场。检查完整沙箱时显式使用 `--keep-runtime` 或 `--keep-runtime-app`。
-- 产生过 `.codex` build、benchmark 或 runtime 产物的批次，收尾前运行 `python3.12 script/audit_codex_artifacts.py --fail-on-candidates`。对目标精确、已无 fixture/文档/测试/进程引用、且属于可重建或重复运行结果的无用残留，可无需再次询问直接删除。
-- 删除后重跑审计，最终只报告实际删除范围、释放空间、保留例外和不可恢复性。归属不清、仍是唯一失败现场/运行证据/样本输入的候选只报告不删。禁止 `rm -rf .codex`、`git clean` 或按名称/日期模糊删除。
-- 只保留共享 `.codex/DerivedData`，不得长期留下单次能力验证的 `DerivedData-*`。
-
-## 9. 并行工作
-
-- 并行写入前分配互不重叠的文件或主类型所有权；同一测试、矩阵和权威文档不得并发修改。
-- 静态扫描和彼此独立的测试模块可以并行；`script/build_and_run.sh`、共享 `.codex/DerivedData`、App runtime、benchmark、固定门和完整门必须串行。
-- 一个批次由主代理维护唯一断裂边、correctness atom 和稳定快照。只读代理必须基于明确快照一次性给出 PASS/BLOCK，不得在共享源码持续变化时循环追审；审计结论不能替代主代理阅读权威资料、实现代码和取得运行证据。
-- 一个共享批次只由一名整合者暂存和提交，禁止 `git add -A`。
-
-## 10. 汇报
-
-过程更新简短说明正在处理的问题、已确认根因、拟改位置和下一步。最终仅报告：改动、影响范围、实际运行的验证与结果、是否提交，以及尚未消除的风险或未验证项。不要把静态检查、样本矩阵、路由计数或历史文档描述成超出其证据范围的结论。
+过程更新只说明当前首断边、正在修改的职责和下一门。最终只报告：实际改动、影响范围、运行过的验证及结果、是否提交、仍未消除或未验证的边界。任何结论不得超出证据等级。

@@ -16,17 +16,31 @@ from typing import Any, Sequence
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = Path(__file__).with_name("scene_validation_gates.json")
 PHASES = ("inner", "checkpoint", "integration", "milestone")
-SCENE_SOURCE_PREFIX = "MyWallpaperX/Core/SteamWorkshopScene/"
+GATE_STATUSES = {"planned", "skipped", "blocked", "passed", "failed"}
+SCENE_PRODUCT_PATTERNS = (
+    "MyWallpaperX/Core/SteamWorkshopScene/**",
+    "MyWallpaperX/App/DebugScenePlaybackRunner*.swift",
+    "MyWallpaperX/Modules/SteamWorkshop/Scene/**",
+    "MyWallpaperX/Core/Playback/*Scene*",
+)
 PRODUCT_PREFIXES = ("MyWallpaperX/", "MyWallpaperX.xcodeproj/")
 
 
-@dataclass(frozen=True)
+@dataclass
 class Gate:
     gate_id: str
     command: tuple[str, ...] | None
     reason: str
     serialized: bool
     unresolved: str | None = None
+    status: str = "planned"
+    return_code: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.unresolved and self.status == "planned":
+            self.status = "blocked"
+        if self.status not in GATE_STATUSES:
+            raise ValueError(f"invalid Scene validation gate status: {self.status}")
 
 
 def load_registry(path: Path = REGISTRY_PATH) -> dict[str, Any]:
@@ -112,11 +126,16 @@ def focused_test_command(
     return tuple(command)
 
 
+def is_scene_product_path(path: str) -> bool:
+    return any(fnmatch.fnmatch(path, pattern) for pattern in SCENE_PRODUCT_PATTERNS)
+
+
 def runtime_command(
     args: argparse.Namespace,
     matrix: str,
     *,
     selected_samples: bool,
+    output_subdirectory: str,
 ) -> tuple[str, ...] | None:
     if not args.sample_root or not args.output_dir:
         return None
@@ -130,7 +149,7 @@ def runtime_command(
         "--matrix",
         matrix,
         "--output-dir",
-        str(args.output_dir),
+        str(args.output_dir / output_subdirectory),
     ]
     if selected_samples:
         for sample_id in args.sample_id:
@@ -145,25 +164,30 @@ def build_plan(
 ) -> tuple[list[Gate], set[str]]:
     modules, keywords, groups = mapped_tests(paths, registry)
     phase_index = PHASES.index(args.phase)
-    scene_source = any(path.startswith(SCENE_SOURCE_PREFIX) for path in paths)
+    scene_product_change = any(is_scene_product_path(path) for path in paths)
     swift_change = any(path.endswith(".swift") for path in paths)
     product_change = any(path.startswith(PRODUCT_PREFIXES) for path in paths)
     build_required = phase_index >= 1 and product_change
     gates: list[Gate] = []
 
-    focused = focused_test_command(modules, keywords)
-    if focused is not None and not (phase_index >= 2 and scene_source):
+    focused_keywords = set() if phase_index >= 2 and scene_product_change else keywords
+    focused = focused_test_command(modules, focused_keywords)
+    if focused is not None:
         gates.append(Gate(
             "focused-tests",
             focused,
-            "changed paths map to focused executable test groups",
+            (
+                "explicitly mapped test modules remain required alongside Scene integration"
+                if phase_index >= 2 and scene_product_change
+                else "changed paths map to focused executable test groups"
+            ),
             False,
         ))
-    if phase_index >= 2 and scene_source:
+    if phase_index >= 2 and scene_product_change:
         gates.append(Gate(
             "scene-all-tests",
             (sys.executable, "-B", "script/run_scene_tests.py", "--scope", "scene"),
-            "integration of shared Scene source requires the complete executable suite",
+            "integration of a Scene product path requires the complete executable suite",
             False,
         ))
 
@@ -221,19 +245,21 @@ def build_plan(
             False,
         ))
 
-    if phase_index >= 2 and scene_source:
+    if phase_index >= 2 and scene_product_change:
         if args.skip_runtime:
             gates.append(Gate(
                 "targeted-sample",
                 None,
-                f"runtime gate explicitly unavailable: {args.reason}",
+                f"structural-only: runtime gate explicitly skipped: {args.reason}",
                 True,
+                status="skipped",
             ))
         else:
             command = runtime_command(
                 args,
                 "script/scene_wallpaper_full_sample_matrix.json",
                 selected_samples=True,
+                output_subdirectory="targeted",
             )
             unresolved = None
             if not args.sample_id:
@@ -248,13 +274,27 @@ def build_plan(
                 unresolved,
             ))
 
+    if args.phase == "milestone" and "matrix" in groups and not args.matrix_tier:
+        gates.append(Gate(
+            "matrix-tier-selection",
+            None,
+            "matrix or benchmark contract changes require an explicit milestone tier",
+            True,
+            "choose --matrix-tier fixed|full and provide --reason",
+        ))
+
     if args.phase == "milestone" and args.matrix_tier:
         matrix = (
             "script/scene_wallpaper_sample_matrix.json"
             if args.matrix_tier == "fixed"
             else "script/scene_wallpaper_full_sample_matrix.json"
         )
-        command = runtime_command(args, matrix, selected_samples=False)
+        command = runtime_command(
+            args,
+            matrix,
+            selected_samples=False,
+            output_subdirectory=args.matrix_tier,
+        )
         unresolved = None if command else "matrix gate requires --sample-root and --output-dir"
         gates.append(Gate(
             "fixed13" if args.matrix_tier == "fixed" else "full45",
@@ -264,6 +304,75 @@ def build_plan(
             unresolved,
         ))
     return gates, groups
+
+
+def run_gates(gates: Sequence[Gate]) -> int:
+    unresolved = [gate for gate in gates if gate.status == "blocked"]
+    if unresolved:
+        print("validation plan has unresolved required gates", file=sys.stderr)
+        return 2
+    for gate in gates:
+        if gate.status == "skipped":
+            continue
+        if gate.command is None:
+            gate.status = "blocked"
+            gate.unresolved = "required gate has no executable command"
+            print("validation plan has a required gate without a command", file=sys.stderr)
+            return 2
+        print(f"running {gate.gate_id}: {' '.join(gate.command)}", flush=True)
+        completed = subprocess.run(gate.command, cwd=ROOT)
+        gate.return_code = completed.returncode
+        if completed.returncode != 0:
+            gate.status = "failed"
+            return completed.returncode
+        gate.status = "passed"
+    return 0
+
+
+def validation_payload(
+    args: argparse.Namespace,
+    paths: Sequence[str],
+    groups: set[str],
+    gates: Sequence[Gate],
+    *,
+    execution: str,
+) -> dict[str, Any]:
+    closure_complete = (
+        execution == "completed"
+        and bool(gates)
+        and all(gate.status == "passed" for gate in gates)
+    )
+    return {
+        "phase": args.phase,
+        "base": args.base,
+        "paths": list(paths),
+        "groups": sorted(groups),
+        "execution": execution,
+        "validation_scope": "structural-only" if args.skip_runtime else "requested",
+        "closure_complete": closure_complete,
+        "gates": [asdict(gate) for gate in gates],
+    }
+
+
+def print_payload(payload: dict[str, Any], output_format: str) -> None:
+    if output_format == "json":
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    print(f"phase: {payload['phase']}")
+    print(f"execution: {payload['execution']}")
+    print(f"validation scope: {payload['validation_scope']}")
+    print(f"closure complete: {'yes' if payload['closure_complete'] else 'no'}")
+    print("paths:", ", ".join(payload["paths"]) if payload["paths"] else "(none)")
+    print("groups:", ", ".join(payload["groups"]) if payload["groups"] else "(none)")
+    for gate in payload["gates"]:
+        command = " ".join(gate["command"]) if gate["command"] else "(no command)"
+        detail = f"; BLOCKED: {gate['unresolved']}" if gate["unresolved"] else ""
+        if gate["status"] == "planned":
+            detail += "; not executed"
+        print(
+            f"- [{gate['status'].upper()}] {gate['gate_id']}: "
+            f"{command} — {gate['reason']}{detail}"
+        )
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -298,37 +407,36 @@ def main(argv: Sequence[str] | None = None) -> int:
     registry = load_registry()
     paths = changed_paths(args.base, args.path)
     gates, groups = build_plan(paths, args, registry)
-    payload = {
-        "phase": args.phase,
-        "base": args.base,
-        "paths": paths,
-        "groups": sorted(groups),
-        "gates": [asdict(gate) for gate in gates],
-    }
-    if args.format == "json":
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
-    else:
-        print(f"phase: {args.phase}")
-        print("paths:", ", ".join(paths) if paths else "(none)")
-        print("groups:", ", ".join(sorted(groups)) if groups else "(none)")
-        for gate in gates:
-            command = " ".join(gate.command) if gate.command else "(no command)"
-            suffix = f"; BLOCKED: {gate.unresolved}" if gate.unresolved else ""
-            print(f"- {gate.gate_id}: {command} — {gate.reason}{suffix}")
     if not args.run:
+        print_payload(
+            validation_payload(
+                args,
+                paths,
+                groups,
+                gates,
+                execution="not-run",
+            ),
+            args.format,
+        )
         return 0
-    unresolved = [gate for gate in gates if gate.unresolved]
-    if unresolved:
-        print("validation plan has unresolved required gates", file=sys.stderr)
-        return 2
-    for gate in gates:
-        if gate.command is None:
-            continue
-        print(f"running {gate.gate_id}: {' '.join(gate.command)}", flush=True)
-        completed = subprocess.run(gate.command, cwd=ROOT)
-        if completed.returncode != 0:
-            return completed.returncode
-    return 0
+    return_code = run_gates(gates)
+    if any(gate.status == "blocked" for gate in gates):
+        execution = "blocked"
+    elif any(gate.status == "failed" for gate in gates):
+        execution = "failed"
+    else:
+        execution = "completed"
+    print_payload(
+        validation_payload(
+            args,
+            paths,
+            groups,
+            gates,
+            execution=execution,
+        ),
+        args.format,
+    )
+    return return_code
 
 
 if __name__ == "__main__":

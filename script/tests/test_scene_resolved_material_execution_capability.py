@@ -60,11 +60,11 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneGraphConditionAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneGraphAdmissionCompiler.swift",
-    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
-    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
-    SCENE_ROOT / "RenderGraph/SceneLayerFullFramePairPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneLayerFullFramePairPlan.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
     SCENE_ROOT
@@ -95,10 +95,10 @@ ENVELOPE_SWIFT_SOURCES = [
     *PROGRAM_FINALIZER_FIXTURE["SWIFT_SOURCES"],
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentKind.swift",
-    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
-    SCENE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
-    SCENE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
     SCENE_ROOT

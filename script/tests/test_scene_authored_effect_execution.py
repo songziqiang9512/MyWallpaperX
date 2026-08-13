@@ -32,9 +32,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectStageExecutionPlan+Backend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
 ]
 PROGRAM_COMPILER_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneEffectProgramCompiler+DedicatedStages.swift"

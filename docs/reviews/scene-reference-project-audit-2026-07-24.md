@@ -190,7 +190,7 @@ MyWallpaperX 已经有：
 - copy/swap 解析：
   - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectRenderPlanner.swift:238-285`
 - target lifetime、history seed 和 command plan：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneGraphRenderTargetPlan.swift:16-41`
+  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift:16-41`
 - material、instance、user texture、explicit bind 的覆盖链：
   - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredMaterialResolver.swift:84-104`
 

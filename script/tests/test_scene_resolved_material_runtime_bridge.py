@@ -36,22 +36,22 @@ FRAME_PREFLIGHT = (
     SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
 )
 TARGET_ALLOCATOR = (
-    SCENE_ROOT / "RenderGraph/ScenePersistentGraphTargetAllocator.swift"
+    SCENE_ROOT / "RenderGraph/GraphTargets/ScenePersistentGraphTargetAllocator.swift"
 )
 TARGET_CACHE = (
-    SCENE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache.swift"
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureAllocationCache.swift"
 )
 TARGET_SHARED_PAIR = (
-    SCENE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+SharedPair.swift"
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureAllocationCache+SharedPair.swift"
 )
 TARGET_BATCH = (
-    SCENE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+Batch.swift"
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureAllocationCache+Batch.swift"
 )
 TARGET_PREFLIGHT = (
-    SCENE_ROOT / "RenderGraph/SceneOffscreenTexturePool+PersistentGraphTargets.swift"
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTexturePool+PersistentGraphTargets.swift"
 )
 OFFSCREEN_RESOLUTION_POLICY = (
-    SCENE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift"
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift"
 )
 DRAW_REQUEST = SCENE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift"
 UTILITY_FRAME_RENDERER = (

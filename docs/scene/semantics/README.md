@@ -187,5 +187,5 @@ scene.json / scene.pkg / assets
 - 新发现的字段先标证据等级和样本来源，再判断是否进入实现。
 - 官方文档或 `lib.sceneScript.d.ts` 版本变化时，更新 [资料来源与证据索引](source-index.md) 的核验日期和差异。
 - 第三方播放器与官方资料冲突时，记录其偏差，不修正文档去迎合第三方行为。
-- Scene 源码导航以根 `AGENTS.md` 的九类职责和 [`script/scene_source_layout.json`](../../../script/scene_source_layout.json) 为准。当前二级簇 `RenderGraph/EffectExecution` 收纳统一 GraphExecutor 使用的 typed stage preparation、encoding 与 renderer 类型族；不再包含旧 ordered whole-chain 或 standalone product owner。其他类别目前仍平铺，达到维护需要时可增加职责清晰的二级目录。目录调整必须同步布局 manifest、自动门、测试源码路径和文档代码链接。
+- Scene 源码导航以根 `AGENTS.md` 的九类职责和 [`script/scene_source_layout.json`](../../../script/scene_source_layout.json) 为准。`RenderGraph/EffectExecution` 收纳统一 GraphExecutor 使用的 typed stage preparation、encoding 与 renderer 类型族；`RenderGraph/GraphTargets` 收纳 authored graph target 的计划、状态、Metal 分配、驻留、资源命令与 publication。named layer target 属于另一身份和生命周期，不并入 effect FBO/history。后续目录只按完整类型族和清晰生命周期增加，迁移时同步布局 manifest、自动门、standalone source list 与现役链接。
 - `test_scene_semantics_coverage.py` 自动校验布局 manifest 与本目录相对 Markdown 链接，不复制或锁定动态基线、报告计数和路线结论。

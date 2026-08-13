@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce the Swift file-size ratchet recorded in code_health_baseline.json."""
+"""Report Swift files over the review limit and enforce the hard-limit ratchet."""
 
 from __future__ import annotations
 
@@ -39,12 +39,39 @@ def read_baseline_text(text: str, source: str) -> dict[str, Any]:
     except json.JSONDecodeError as error:
         raise ValueError(f"{source} is not valid JSON: {error}") from error
 
-    if baseline.get("schemaVersion") != 1:
-        raise ValueError(f"{source} must use schemaVersion 1")
+    schema_version = baseline.get("schemaVersion")
+    if (
+        not isinstance(schema_version, int)
+        or isinstance(schema_version, bool)
+        or schema_version not in (1, 2)
+    ):
+        raise ValueError(f"{source} must use schemaVersion 1 or 2")
 
-    line_limit = baseline.get("lineLimit")
-    if not isinstance(line_limit, int) or isinstance(line_limit, bool) or line_limit <= 0:
-        raise ValueError(f"{source} lineLimit must be a positive integer")
+    if schema_version == 1:
+        line_limit = baseline.get("lineLimit")
+        if not isinstance(line_limit, int) or isinstance(line_limit, bool) or line_limit <= 0:
+            raise ValueError(f"{source} lineLimit must be a positive integer")
+        review_line_limit = line_limit
+        hard_line_limit: int | None = None
+    else:
+        review_line_limit = baseline.get("reviewLineLimit")
+        hard_line_limit = baseline.get("hardLineLimit")
+        if (
+            not isinstance(review_line_limit, int)
+            or isinstance(review_line_limit, bool)
+            or review_line_limit <= 0
+        ):
+            raise ValueError(f"{source} reviewLineLimit must be a positive integer")
+        if (
+            not isinstance(hard_line_limit, int)
+            or isinstance(hard_line_limit, bool)
+            or hard_line_limit <= review_line_limit
+        ):
+            raise ValueError(
+                f"{source} hardLineLimit must be an integer greater than reviewLineLimit"
+            )
+        if "lineLimit" in baseline:
+            raise ValueError(f"{source} schemaVersion 2 must not contain lineLimit")
 
     source_roots = baseline.get("sourceRoots")
     if (
@@ -64,10 +91,20 @@ def read_baseline_text(text: str, source: str) -> dict[str, Any]:
         validate_repo_relative_path(path, source, expected_suffix=".swift")
         if not belongs_to_source_root(path, source_roots):
             raise ValueError(f"{source} legacy path is outside sourceRoots: {path}")
-        if not isinstance(allowance, int) or isinstance(allowance, bool) or allowance <= line_limit:
-            raise ValueError(f"{source} allowance for {path} must exceed lineLimit")
+        exception_floor = hard_line_limit if hard_line_limit is not None else review_line_limit
+        if (
+            not isinstance(allowance, int)
+            or isinstance(allowance, bool)
+            or allowance <= exception_floor
+        ):
+            limit_name = "hardLineLimit" if hard_line_limit is not None else "lineLimit"
+            raise ValueError(f"{source} allowance for {path} must exceed {limit_name}")
 
-    return baseline
+    normalized = dict(baseline)
+    normalized["reviewLineLimit"] = review_line_limit
+    normalized["hardLineLimit"] = hard_line_limit
+    normalized.pop("lineLimit", None)
+    return normalized
 
 
 def validate_repo_relative_path(value: Any, source: str, expected_suffix: str | None) -> None:
@@ -94,7 +131,10 @@ def load_current_baseline() -> dict[str, Any]:
         text = BASELINE_PATH.read_text(encoding="utf-8")
     except OSError as error:
         raise ValueError(f"cannot read {BASELINE_RELATIVE_PATH}: {error}") from error
-    return read_baseline_text(text, str(BASELINE_RELATIVE_PATH))
+    baseline = read_baseline_text(text, str(BASELINE_RELATIVE_PATH))
+    if baseline["schemaVersion"] != 2:
+        raise ValueError(f"{BASELINE_RELATIVE_PATH} must use schemaVersion 2")
+    return baseline
 
 
 def swift_line_counts(baseline: dict[str, Any]) -> dict[str, int]:
@@ -141,29 +181,68 @@ def swift_line_counts(baseline: dict[str, Any]) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
-def current_tree_problems(baseline: dict[str, Any], counts: dict[str, int]) -> list[tuple[str, str]]:
-    line_limit = baseline["lineLimit"]
+def current_tree_findings(
+    baseline: dict[str, Any], counts: dict[str, int]
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    review_line_limit = baseline["reviewLineLimit"]
+    hard_line_limit = baseline["hardLineLimit"]
     legacy_files: dict[str, int] = baseline["legacyFiles"]
-    problems: list[tuple[str, str]] = []
+    errors: list[tuple[str, str]] = []
+    warnings: list[tuple[str, str]] = []
 
     for path, allowance in legacy_files.items():
         count = counts.get(path)
         if count is None:
-            problems.append((path, "legacy entry is stale because the file no longer exists; ratchet the baseline"))
-        elif count <= line_limit:
-            problems.append((path, f"file is now {count} lines; remove its legacy entry with --ratchet-baseline"))
+            errors.append(
+                (path, "legacy entry is stale because the file no longer exists; ratchet the baseline")
+            )
+        elif count <= hard_line_limit:
+            errors.append(
+                (
+                    path,
+                    f"file is now {count} lines and no longer exceeds the {hard_line_limit}-line "
+                    "hard limit; remove its legacy entry with --ratchet-baseline",
+                )
+            )
         elif count < allowance:
-            problems.append(
-                (path, f"file shrank from {allowance} to {count} lines; lock in the improvement with --ratchet-baseline")
+            errors.append(
+                (
+                    path,
+                    f"file shrank from {allowance} to {count} lines; lock in the improvement "
+                    "with --ratchet-baseline",
+                )
             )
         elif count > allowance:
-            problems.append((path, f"file grew from its locked allowance {allowance} to {count} lines"))
+            errors.append((path, f"file grew from its locked allowance {allowance} to {count} lines"))
+        else:
+            warnings.append(
+                (
+                    path,
+                    f"file has {count} lines; it exceeds the {review_line_limit}-line review limit "
+                    f"and is locked to its historical allowance of {allowance}",
+                )
+            )
 
     for path, count in counts.items():
-        if count > line_limit and path not in legacy_files:
-            problems.append((path, f"new or unbaselined file has {count} lines; limit is {line_limit}"))
+        if path in legacy_files:
+            continue
+        if count > hard_line_limit:
+            errors.append(
+                (
+                    path,
+                    f"new or unbaselined file has {count} lines; hard limit is {hard_line_limit}",
+                )
+            )
+        elif count > review_line_limit:
+            warnings.append(
+                (
+                    path,
+                    f"file has {count} lines; review limit is {review_line_limit} "
+                    f"(hard limit is {hard_line_limit})",
+                )
+            )
 
-    return problems
+    return errors, warnings
 
 
 def baseline_at_ref(base_ref: str) -> tuple[dict[str, Any] | None, str | None]:
@@ -186,16 +265,38 @@ def baseline_at_ref(base_ref: str) -> tuple[dict[str, Any] | None, str | None]:
     )
     if result.returncode != 0:
         return None, f"{base_ref} predates the code-health baseline; historical expansion check skipped"
-    return read_baseline_text(result.stdout, f"{base_ref}:{BASELINE_RELATIVE_PATH}"), None
+    baseline = read_baseline_text(result.stdout, f"{base_ref}:{BASELINE_RELATIVE_PATH}")
+    if baseline["schemaVersion"] == 1:
+        return (
+            baseline,
+            f"{base_ref} uses schemaVersion 1; hardLineLimit history starts with schemaVersion 2",
+        )
+    return baseline, None
 
 
 def historical_problems(current: dict[str, Any], previous: dict[str, Any]) -> list[tuple[str, str]]:
     problems: list[tuple[str, str]] = []
     baseline_path = BASELINE_RELATIVE_PATH.as_posix()
 
-    if current["lineLimit"] > previous["lineLimit"]:
+    if current["reviewLineLimit"] > previous["reviewLineLimit"]:
         problems.append(
-            (baseline_path, f"lineLimit increased from {previous['lineLimit']} to {current['lineLimit']}")
+            (
+                baseline_path,
+                "reviewLineLimit increased from "
+                f"{previous['reviewLineLimit']} to {current['reviewLineLimit']}",
+            )
+        )
+
+    previous_hard_limit = previous.get("hardLineLimit")
+    if (
+        previous_hard_limit is not None
+        and current["hardLineLimit"] > previous_hard_limit
+    ):
+        problems.append(
+            (
+                baseline_path,
+                f"hardLineLimit increased from {previous_hard_limit} to {current['hardLineLimit']}",
+            )
         )
 
     removed_roots = sorted(set(previous["sourceRoots"]) - set(current["sourceRoots"]))
@@ -219,13 +320,19 @@ def escape_github(value: str) -> str:
     return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
 
-def emit_problem(path: str, message: str, output_format: str) -> None:
+def emit_finding(severity: str, path: str, message: str, output_format: str) -> None:
+    label = severity.upper()
     if output_format == "github":
         print(
-            f"::error file={escape_github(path)},line=1,title=Swift file health::{escape_github(message)}"
+            f"::{severity} file={escape_github(path)},line=1,title=Swift file health "
+            f"{label}::{escape_github(message)}"
         )
     else:
-        print(f"ERROR {path}: {message}", file=sys.stderr)
+        print(f"{label} {path}: {message}", file=sys.stderr)
+
+
+def emit_problem(path: str, message: str, output_format: str) -> None:
+    emit_finding("error", path, message, output_format)
 
 
 def emit_notice(message: str, output_format: str) -> None:
@@ -236,13 +343,13 @@ def emit_notice(message: str, output_format: str) -> None:
 
 
 def ratchet_baseline(baseline: dict[str, Any], counts: dict[str, int]) -> int:
-    line_limit = baseline["lineLimit"]
+    hard_line_limit = baseline["hardLineLimit"]
     legacy_files: dict[str, int] = baseline["legacyFiles"]
     blockers: list[tuple[str, str]] = []
 
     for path, count in counts.items():
         allowance = legacy_files.get(path)
-        if count > line_limit and allowance is None:
+        if count > hard_line_limit and allowance is None:
             blockers.append((path, f"cannot add a legacy exception for a {count}-line file"))
         elif allowance is not None and count > allowance:
             blockers.append((path, f"cannot ratchet a file that grew from {allowance} to {count} lines"))
@@ -255,7 +362,7 @@ def ratchet_baseline(baseline: dict[str, Any], counts: dict[str, int]) -> int:
     updated_legacy = {
         path: counts[path]
         for path in sorted(legacy_files)
-        if path in counts and counts[path] > line_limit
+        if path in counts and counts[path] > hard_line_limit
     }
     if updated_legacy == legacy_files:
         print("Code-health baseline is already at the current minimum.")
@@ -282,25 +389,29 @@ def main() -> int:
             return 2
         return ratchet_baseline(baseline, counts)
 
-    problems = current_tree_problems(baseline, counts)
+    errors, warnings = current_tree_findings(baseline, counts)
     if arguments.base_ref:
         try:
             previous, notice = baseline_at_ref(arguments.base_ref)
             if notice:
                 emit_notice(notice, arguments.format)
             if previous is not None:
-                problems.extend(historical_problems(baseline, previous))
+                errors.extend(historical_problems(baseline, previous))
         except ValueError as error:
-            problems.append((BASELINE_RELATIVE_PATH.as_posix(), str(error)))
+            errors.append((BASELINE_RELATIVE_PATH.as_posix(), str(error)))
 
-    if problems:
-        for path, message in problems:
-            emit_problem(path, message, arguments.format)
+    for path, message in warnings:
+        emit_finding("warning", path, message, arguments.format)
+    for path, message in errors:
+        emit_problem(path, message, arguments.format)
+    if errors:
         return 1
 
     print(
         f"Code health passed: {len(counts)} Swift files, "
-        f"{len(baseline['legacyFiles'])} locked legacy files, {baseline['lineLimit']}-line limit."
+        f"{len(baseline['legacyFiles'])} locked legacy files, "
+        f"{baseline['reviewLineLimit']}-line review limit, "
+        f"{baseline['hardLineLimit']}-line hard limit, {len(warnings)} warnings."
     )
     return 0
 

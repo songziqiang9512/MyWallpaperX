@@ -37,7 +37,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder.swift",
     RESOURCE_ENCODER_SOURCE,
-    SCENE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift",
     SCENE_ROOT / "RenderGraph/SceneGraphConditionAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneGraphAdmissionCompiler.swift",
     SCENE_ROOT

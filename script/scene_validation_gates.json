@@ -10,7 +10,7 @@
     },
     "scene-all-tests": {
       "risk": "A shared Scene contract breaks a consumer outside the focused test group.",
-      "trigger": "Integration or milestone validation for Scene product source changes.",
+      "trigger": "Integration or milestone validation for Scene core, playback runner, Workshop bridge, or Scene playback input changes.",
       "cost": "medium",
       "serialized": false,
       "retirement": "Retire only when dependency-aware coverage can prove the same cross-module risk with a smaller set."
@@ -31,10 +31,17 @@
     },
     "targeted-sample": {
       "risk": "Executable unit coverage passes while the affected real Scene path is visually or structurally broken.",
-      "trigger": "Integration validation for Scene product source changes.",
+      "trigger": "Integration validation for Scene core, playback runner, Workshop bridge, or Scene playback input changes.",
       "cost": "medium",
       "serialized": true,
       "retirement": "Retire only when an equally representative reproducible runtime corpus becomes mandatory elsewhere."
+    },
+    "matrix-tier-selection": {
+      "risk": "A matrix or benchmark contract change reaches milestone validation without declaring the corpus tier that must execute.",
+      "trigger": "Milestone validation for matrix or benchmark contract changes without --matrix-tier.",
+      "cost": "none",
+      "serialized": true,
+      "retirement": "Retire only when milestone tier selection is derived from an equally explicit reviewed contract."
     },
     "fixed13": {
       "risk": "A shared behavior regresses multiple stable representative samples.",
@@ -96,6 +103,31 @@
       "id": "particles",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Particles/**"],
       "keywords": ["particle"]
+    },
+    {
+      "id": "scene-debug-runner",
+      "patterns": ["MyWallpaperX/App/DebugScenePlaybackRunner*.swift"],
+      "modules": [
+        "test_scene_frame_context",
+        "test_scene_particle_audio_response",
+        "test_scene_performance_telemetry",
+        "test_scene_runtime_input",
+        "test_scene_wallpaper_benchmark"
+      ]
+    },
+    {
+      "id": "scene-workshop-bridge",
+      "patterns": ["MyWallpaperX/Modules/SteamWorkshop/Scene/**"],
+      "modules": [
+        "test_scene_property_live_routing",
+        "test_scene_property_live_update_state",
+        "test_scene_runtime_input"
+      ]
+    },
+    {
+      "id": "scene-playback-input",
+      "patterns": ["MyWallpaperX/Core/Playback/*Scene*"],
+      "modules": ["test_scene_audio_spectrum_input"]
     },
     {
       "id": "semantics",

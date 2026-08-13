@@ -15,14 +15,14 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetFormat.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable+Mapped.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
-    SOURCE_ROOT / "RenderGraph/SceneGraphNodeScheduler.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetFormat.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetTable.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetTable+Mapped.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphCommandRuntime.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphNodeScheduler.swift",
 ]
 
 
