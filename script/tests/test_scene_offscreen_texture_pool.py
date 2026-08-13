@@ -187,6 +187,7 @@ enum Harness {
         precise: Bool = false,
         framebufferNamePrefix: String = "",
         framebufferFormat: String = "rgba_backbuffer",
+        framebufferScale: Double = 4,
         uniqueFirstTarget: Bool = false,
         clearFirstTarget: Bool = false,
         input authoredInput: Graph.TextureIdentity? = nil
@@ -237,7 +238,11 @@ enum Harness {
                 name: "\(framebufferNamePrefix)sharedB"
             )
             identities = [quarterA, quarterB]
-            let scaled = Graph.TargetExtent(kind: .scale, first: 4, second: nil)
+            let scaled = Graph.TargetExtent(
+                kind: .scale,
+                first: framebufferScale,
+                second: nil
+            )
             targets = [quarterA, quarterB].enumerated().map { index, texture in
                 .init(
                     texture: texture,
@@ -602,6 +607,124 @@ enum Harness {
             print("{\"metalUnavailable\":true}")
             return
         }
+
+        let mebibyte = 1_024 * 1_024
+        let automaticBudgetFloor = SceneOffscreenTexturePool
+            .automaticResidentByteBudget(recommendedMaxWorkingSetSize: 0)
+        let automaticBudgetMiddle = SceneOffscreenTexturePool
+            .automaticResidentByteBudget(
+                recommendedMaxWorkingSetSize: UInt64(8) * 1_024 * 1_024 * 1_024
+            )
+        let automaticBudgetCeiling = SceneOffscreenTexturePool
+            .automaticResidentByteBudget(
+                recommendedMaxWorkingSetSize: UInt64(32) * 1_024 * 1_024 * 1_024
+            )
+        let automaticBudgetBoundsAreStable =
+            automaticBudgetFloor == 192 * mebibyte
+            && automaticBudgetMiddle == 256 * mebibyte
+            && automaticBudgetCeiling == 512 * mebibyte
+
+        let defaultBudgetPool = SceneOffscreenTexturePool(
+            device: device, maxDimension: 2_048
+        )
+        let expectedDeviceBudget = SceneOffscreenTexturePool
+            .automaticResidentByteBudget(
+                recommendedMaxWorkingSetSize: device.recommendedMaxWorkingSetSize
+            )
+        let defaultPoolUsesDeviceBudget =
+            defaultBudgetPool.residentByteBudget == expectedDeviceBudget
+            && defaultBudgetPool.allocationCache.preflightByteBudget
+                == expectedDeviceBudget
+        let explicit128Pool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 2_048,
+            residentByteBudget: 128 * mebibyte
+        )
+        let explicit128BudgetIsPreserved =
+            explicit128Pool.residentByteBudget == 128 * mebibyte
+            && explicit128Pool.allocationCache.preflightByteBudget
+                == 128 * mebibyte
+
+        func directChain(layerID: Int, count: Int) -> [Fixture] {
+            var result: [Fixture] = []
+            var input: Graph.TextureIdentity?
+            for effectIndex in 0..<count {
+                let next = directFixture(
+                    effectIndex: effectIndex,
+                    layerID: layerID,
+                    input: input
+                )
+                result.append(next)
+                input = next.execution.renderGraph.finalOutput
+            }
+            return result
+        }
+
+        let layer13First = directFixture(effectIndex: 0, layerID: 13)
+        let layer13Second = directFixture(
+            effectIndex: 1,
+            layerID: 13,
+            input: layer13First.execution.renderGraph.finalOutput
+        )
+        let layer13Quarter = fixture(
+            effectIndex: 2,
+            layerID: 13,
+            framebufferNamePrefix: "quarter-",
+            framebufferScale: 4,
+            input: layer13Second.execution.renderGraph.finalOutput
+        )
+        let layer13Fourth = directFixture(
+            effectIndex: 3,
+            layerID: 13,
+            input: layer13Quarter.execution.renderGraph.finalOutput
+        )
+        let layer13Half = fixture(
+            effectIndex: 4,
+            layerID: 13,
+            framebufferNamePrefix: "half-",
+            framebufferScale: 2,
+            input: layer13Fourth.execution.renderGraph.finalOutput
+        )
+        let sample302Chains: [([Fixture], Int, Int)] = [
+            ([
+                layer13First, layer13Second, layer13Quarter, layer13Fourth,
+                layer13Half,
+            ], 2_048, 1_211),
+            (directChain(layerID: 82, count: 1), 1_002, 982),
+            (directChain(layerID: 86, count: 1), 2_048, 1_782),
+            (directChain(layerID: 111, count: 6), 2_048, 1_887),
+            (directChain(layerID: 129, count: 2), 2_048, 1_152),
+            (directChain(layerID: 666, count: 1), 2_048, 1_330),
+        ]
+        let sample302Plans = sample302Chains.map { fixtures, width, height in
+            let plans = targetPlans(fixtures, width: width, height: height)
+            switch SceneLayerGraphTargetPlan.make(
+                plans: plans,
+                pairPlan: pairPlan(fixtures),
+                byteBudget: automaticBudgetFloor
+            ) {
+            case .success(let plan): return plan
+            case .failure(let failure):
+                fatalError("sample 302 target plan failed: \(failure.rawValue)")
+            }
+        }
+        let sample302RequiredBytes = sample302Plans.reduce(0) {
+            $0 + $1.residentByteCost
+        }
+        let sample302ShapeIsExact = sample302Plans.count == 6
+            && sample302Plans.reduce(0, { $0 + $1.stages.count }) == 16
+            && sample302RequiredBytes == 134_683_872
+        let sample302FitsAutomaticBudget = defaultBudgetPool.allocationCache
+            .preflightGraphs(sample302Plans) == .ready
+            && defaultBudgetPool.residentAllocationCount == 0
+            && defaultBudgetPool.residentTextureCount == 0
+            && defaultBudgetPool.residentByteCost == 0
+        let sample302Explicit128RejectedWithoutMutation =
+            explicit128Pool.allocationCache.preflightGraphs(sample302Plans)
+                == .rejected(reasonCode: "frame-target-byte-budget-exceeded")
+            && explicit128Pool.residentAllocationCount == 0
+            && explicit128Pool.residentTextureCount == 0
+            && explicit128Pool.residentByteCost == 0
 
         let sharedFBOFixtures: [Fixture] = (0..<6).map { offset in
             fixture(
@@ -2690,6 +2813,14 @@ enum Harness {
 
         let result: [String: Any] = [
             "metalUnavailable": false,
+            "automaticBudgetBoundsAreStable": automaticBudgetBoundsAreStable,
+            "defaultPoolUsesDeviceBudget": defaultPoolUsesDeviceBudget,
+            "explicit128BudgetIsPreserved": explicit128BudgetIsPreserved,
+            "sample302RequiredBytes": sample302RequiredBytes,
+            "sample302ShapeIsExact": sample302ShapeIsExact,
+            "sample302FitsAutomaticBudget": sample302FitsAutomaticBudget,
+            "sample302Explicit128RejectedWithoutMutation":
+                sample302Explicit128RejectedWithoutMutation,
             "sharedFBOFramePairShared": sharedFBOFramePairShared,
             "sharedFBOFramebuffersDistinct": sharedFBOFramebuffersDistinct,
             "sharedFBOStateOwnsOnlyFBO": sharedFBOStateOwnsOnlyFBO,
@@ -2898,6 +3029,17 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_automatic_budget_admits_302_shape_without_weakening_explicit_cap(self) -> None:
+        self.assertTrue(self.result["automaticBudgetBoundsAreStable"])
+        self.assertTrue(self.result["defaultPoolUsesDeviceBudget"])
+        self.assertTrue(self.result["explicit128BudgetIsPreserved"])
+        self.assertEqual(self.result["sample302RequiredBytes"], 134_683_872)
+        self.assertTrue(self.result["sample302ShapeIsExact"])
+        self.assertTrue(self.result["sample302FitsAutomaticBudget"])
+        self.assertTrue(
+            self.result["sample302Explicit128RejectedWithoutMutation"]
+        )
 
     def test_shared_fbo_graphs_share_pair_with_separate_residency(self) -> None:
         self.assertTrue(self.result["sharedFBOFramePairShared"])

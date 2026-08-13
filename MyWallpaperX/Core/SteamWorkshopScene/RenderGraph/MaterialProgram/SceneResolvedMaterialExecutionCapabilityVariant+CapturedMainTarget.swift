@@ -59,11 +59,15 @@ extension SceneResolvedMaterialVariantCache {
                 $0.mode == .regular && $0.defaultTexture == nil
             }
         }) else { return false }
-        let reachableAliasSlots = Set(reachable.compactMap { slot, samplers in
-            samplers.contains(where: \.usesGraphInputMaterialAlias) ? slot : nil
-        })
-        guard reachableAliasSlots.count == 1,
-              let reachableSlot = reachableAliasSlots.first,
+        let reachableSlots = snapshot.variants.compactMap {
+            capturedSourceSlot(
+                snapshot.template,
+                samplers: $0.activeSamplers
+            )
+        }
+        guard reachableSlots.count == snapshot.variants.count,
+              Set(reachableSlots).count == 1,
+              let reachableSlot = reachableSlots.first,
               let authoredSource = authoredSource(
                   snapshot.template,
                   inputIdentity: inputIdentity,
@@ -75,16 +79,10 @@ extension SceneResolvedMaterialVariantCache {
            slot != reachableSlot { return false }
 
         return snapshot.variants.allSatisfy { variant in
-            guard variant.activeSamplers.values
-                .filter(\.usesGraphInputMaterialAlias)
-                .allSatisfy({
-                    $0.mode == .regular && $0.defaultTexture == nil
-                }) else { return false }
-            let aliasSlots = variant.activeSamplers.compactMap { slot, sampler in
-                sampler.usesGraphInputMaterialAlias ? slot : nil
-            }
-            guard aliasSlots.count == 1,
-                  aliasSlots[0] == reachableSlot,
+            guard capturedSourceSlot(
+                    snapshot.template,
+                    samplers: variant.activeSamplers
+                  ) == reachableSlot,
                   variant.frontendProgram.textureBindings.filter({
                       $0.slot == reachableSlot
                   }).count == 1,
@@ -94,6 +92,25 @@ extension SceneResolvedMaterialVariantCache {
             }
             return true
         }
+    }
+
+    private func capturedSourceSlot(
+        _ template: Template,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+    ) -> Int? {
+        guard samplers.values.filter(\.usesGraphInputMaterialAlias).allSatisfy({
+            $0.mode == .regular && $0.defaultTexture == nil
+        }) else { return nil }
+        let aliases = samplers.compactMap { slot, sampler -> Int? in
+            guard sampler.usesGraphInputMaterialAlias else { return nil }
+            return slot
+        }
+        let implicit = SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
+            template: template,
+            samplers: samplers
+        )
+        let slots = Set(aliases).union(implicit)
+        return slots.count == 1 ? slots.first : nil
     }
 
     /// Distinguishes one explicit authored source slot from the historical

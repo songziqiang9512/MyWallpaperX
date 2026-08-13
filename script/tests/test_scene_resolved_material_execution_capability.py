@@ -4057,6 +4057,25 @@ private enum EnvelopeHarness {
             template: capturedMainPositiveTemplate,
             sourceRoute: .capturedMainTargetTexture
         )
+        let capturedMainImplicitTemplate = materialTemplate(
+            graph: unboundGraph,
+            shader: contract("captured-main-implicit"),
+            slots: slots()
+        )
+        let capturedMainImplicit = catalog(
+            graph: unboundGraph,
+            template: capturedMainImplicitTemplate,
+            sourceRoute: .capturedMainTargetTexture
+        )
+        let capturedMainImplicitCompetingSource = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract("captured-main-implicit-competing-source"),
+                slots: slots(primary: userPropertyCandidate("capture-source"))
+            ),
+            sourceRoute: .capturedMainTargetTexture
+        )
         let capturedMainCompetingSource = catalog(
             graph: unboundGraph,
             template: materialTemplate(
@@ -4421,6 +4440,21 @@ private enum EnvelopeHarness {
             "capturedMainPositiveBindingsEmpty":
                 capturedMainPositiveTemplate.graphRole.bindings.isEmpty,
             "capturedMainPositiveFailure": rejection(capturedMainPositive),
+            "capturedMainImplicitClaim": capturedMainImplicit.claim(
+                layerID: layerID
+            ) != nil,
+            "capturedMainImplicitBindingsEmpty":
+                capturedMainImplicitTemplate.graphRole.bindings.isEmpty,
+            "capturedMainImplicitFailure": rejection(capturedMainImplicit),
+            "capturedMainImplicitCounters": counters(
+                capturedMainImplicit,
+                graph: unboundGraph
+            ),
+            "capturedMainImplicitCompetingSourceClaim":
+                capturedMainImplicitCompetingSource.claim(layerID: layerID) != nil,
+            "capturedMainImplicitCompetingSourceFailure": rejection(
+                capturedMainImplicitCompetingSource
+            ),
             "capturedMainCompetingSourceClaim":
                 capturedMainCompetingSource.claim(layerID: layerID) != nil,
             "capturedMainCompetingSourceFailure": rejection(
@@ -5915,7 +5949,18 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertTrue(payload["capturedMainPositiveClaim"], payload)
         self.assertTrue(payload["capturedMainPositiveBindingsEmpty"], payload)
         self.assertEqual(payload["capturedMainPositiveFailure"], "", payload)
+        self.assertTrue(payload["capturedMainImplicitClaim"], payload)
+        self.assertTrue(payload["capturedMainImplicitBindingsEmpty"], payload)
+        self.assertEqual(payload["capturedMainImplicitFailure"], "", payload)
+        self.assertEqual(
+            payload["capturedMainImplicitCounters"],
+            {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+        )
         for claim_key, failure_key in (
+            (
+                "capturedMainImplicitCompetingSourceClaim",
+                "capturedMainImplicitCompetingSourceFailure",
+            ),
             (
                 "capturedMainCompetingSourceClaim",
                 "capturedMainCompetingSourceFailure",

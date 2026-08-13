@@ -29,6 +29,9 @@ extension SceneResolvedMaterialInFlightCapacity {
 }
 
 final class SceneOffscreenTexturePool {
+    private static let minimumAutomaticResidentByteBudget = 192 * 1_024 * 1_024
+    private static let maximumAutomaticResidentByteBudget = 512 * 1_024 * 1_024
+
     /// A neutral source-copy target used by structural composition. Effect
     /// stages never receive this surface; they use persistent graph targets.
     struct CompositionTarget {
@@ -60,14 +63,32 @@ final class SceneOffscreenTexturePool {
         device: MTLDevice,
         pixelFormat: MTLPixelFormat = .bgra8Unorm,
         maxDimension: Int = 4096,
-        residentByteBudget: Int = 128 * 1_024 * 1_024
+        residentByteBudget: Int? = nil
     ) {
         self.device = device
         self.pixelFormat = pixelFormat
         self.maxDimension = max(maxDimension, 1)
-        let normalizedBudget = max(residentByteBudget, 0)
+        let normalizedBudget = max(
+            residentByteBudget ?? Self.automaticResidentByteBudget(
+                recommendedMaxWorkingSetSize: device.recommendedMaxWorkingSetSize
+            ),
+            0
+        )
         self.residentByteBudget = normalizedBudget
         allocationCache = .init(byteBudget: normalizedBudget)
+    }
+
+    /// Chooses a conservative logical allocation ceiling for graph targets
+    /// from Metal's approximate total working-set guidance. No memory is
+    /// reserved until a frame plan actually needs it.
+    static func automaticResidentByteBudget(
+        recommendedMaxWorkingSetSize: UInt64
+    ) -> Int {
+        let proposed = min(
+            recommendedMaxWorkingSetSize / 32,
+            UInt64(maximumAutomaticResidentByteBudget)
+        )
+        return max(Int(proposed), minimumAutomaticResidentByteBudget)
     }
 
     func compositionTarget(
