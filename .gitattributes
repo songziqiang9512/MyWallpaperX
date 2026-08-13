@@ -1,0 +1,4 @@
+# Generated authored-corpus inventory. Keep normal Git diffs; this attribute
+# only lets repository browsers collapse generated changes by default.
+script/scene_capability_census_snapshot.json linguist-generated=true
+docs/scene/semantics/scene-corpus-capability-inventory.md linguist-generated=true

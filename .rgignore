@@ -1,0 +1,3 @@
+# Large generated census output remains tracked and directly queryable, but it
+# should not dominate routine repository-wide source searches.
+/script/scene_capability_census_snapshot.json
