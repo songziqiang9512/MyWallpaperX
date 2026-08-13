@@ -114,6 +114,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneImageEffectPipelineRepository.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectPipelineSet.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
+    SOURCE_ROOT / "Rendering/SceneCurrentMediaBaseDisplayAuthority.swift",
     SOURCE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift",
@@ -147,6 +148,7 @@ final class ExactEvidenceLogRecorder: @unchecked Sendable {
 }
 
 nonisolated enum SceneFrameTextureIdentity: Hashable {
+    case layerSource(Int)
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
 }
 
@@ -154,6 +156,20 @@ struct SceneTextureProviderPublication {
     let requestIdentity: SceneFrameTextureIdentity
     let candidate: SceneTextureCandidate
     let contentGeneration: UInt64
+
+    var texture: MTLTexture { candidate.texture }
+
+    var isComplete: Bool {
+        guard contentGeneration > 0 else { return false }
+        switch (candidate.identity, candidate.generation) {
+        case let (.provider(_), .provider(generation)):
+            return generation == contentGeneration
+        case (.file, .file), (.builtIn, .immutable):
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 struct SceneFrameTextureResource {
@@ -448,11 +464,19 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int = 0
         let contentKind: String
+        var visible: Bool? = nil
+        var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
         let colorRGB: [Float]?
         let colorBlendMode: Int?
         var brightness: Double? = nil
         let effects: [EffectDescriptor]
     }
+}
+
+struct SceneLayerDisplayScriptOwnership {
+    let visible: Bool
+    let alpha: Bool
+    var isEmpty: Bool { !visible && !alpha }
 }
 
 enum SceneClippingMaskProfile: String {
@@ -1978,6 +2002,12 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let currentMediaBaseDisplay = try currentMediaBaseDisplayEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
 
         let result: [String: Any] = [
             "drew": drew,
@@ -2018,6 +2048,7 @@ enum Harness {
             "resolvedMaterialComposition": resolvedMaterialComposition,
             "filmGrain": filmGrain,
             "baseColorCandidate": baseColorCandidate,
+            "currentMediaBaseDisplay": currentMediaBaseDisplay,
             "gpuCompletionTelemetry": telemetryEvidence,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -2344,6 +2375,255 @@ enum Harness {
             throw HarnessError.commandFailed
         }
         return encoded
+    }
+
+    static func currentMediaBaseDisplayEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let size = 8
+        guard let source = makeTexture(
+                  device: device, size: size, usage: .shaderRead
+              ),
+              let other = makeTexture(
+                  device: device, size: size, usage: .shaderRead
+              ),
+              let dependency = makeTexture(
+                  device: device, size: size, usage: .shaderRead
+              ) else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: [16, 32, 64, 128])
+        fill(other, bgra: [255, 255, 255, 255])
+        fill(dependency, bgra: [192, 24, 12, 255])
+
+        let visibleUnsupportedEffect = SceneRenderDescriptor.EffectDescriptor(
+            file: "effects/fixture/unclaimed/effect.json",
+            visible: true,
+            passes: []
+        )
+        func layer(
+            color: [Float]? = nil,
+            colorBlendMode: Int? = nil,
+            brightness: Double? = nil,
+            hasVisibleEffect: Bool = true
+        ) -> SceneRenderDescriptor.Layer {
+            SceneRenderDescriptor.Layer(
+                contentKind: "image",
+                colorRGB: color,
+                colorBlendMode: colorBlendMode,
+                brightness: brightness,
+                effects: hasVisibleEffect ? [visibleUnsupportedEffect] : []
+            )
+        }
+        func publication(
+            requestLayerID: Int = 0,
+            provider: SceneTextureProviderIdentity = .mediaThumbnailCurrent,
+            candidateGeneration: UInt64 = 11,
+            contentGeneration: UInt64 = 11,
+            purpose: SceneTextureLoadPurpose = .premultipliedColor,
+            content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
+            texture: MTLTexture = source
+        ) -> SceneTextureProviderPublication {
+            let dimensions = CGSize(width: texture.width, height: texture.height)
+            return SceneTextureProviderPublication(
+                requestIdentity: .layerSource(requestLayerID),
+                candidate: SceneTextureCandidate(
+                    texture: texture,
+                    identity: .provider(provider),
+                    generation: .provider(contentGeneration: candidateGeneration),
+                    purpose: purpose,
+                    content: content,
+                    physicalSize: dimensions,
+                    mappedSize: dimensions,
+                    uvTransform: .identity,
+                    sampling: .linearClamp
+                ),
+                contentGeneration: contentGeneration
+            )
+        }
+        func draw(
+            publication: SceneTextureProviderPublication?,
+            layer: SceneRenderDescriptor.Layer,
+            sourceTexture: MTLTexture = source,
+            mvp: simd_float4x4 = SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+            alpha: Float = 1,
+            tint: SIMD3<Float> = SIMD3(repeating: 1),
+            dependencyEffect: SceneDependencyEffectInput? = nil,
+            using drawCompositor: SceneImageLayerCompositor? = nil,
+            frameIndex: UInt64
+        ) throws -> [String: Any] {
+            guard let target = makeTexture(
+                      device: device,
+                      size: size,
+                      usage: [.renderTarget, .shaderRead]
+                  ), let commandBuffer = queue.makeCommandBuffer() else {
+                throw HarnessError.metalUnavailable
+            }
+            let pass = SceneMainPassEncoder(
+                commandBuffer: commandBuffer,
+                target: target,
+                clearColor: MTLClearColorMake(0, 0, 0, 0)
+            )
+            let recorder = ExactEvidenceLogRecorder()
+            let trace = SceneEffectExecutionTelemetry(
+                logSink: { recorder.append($0) }
+            ).makeFrame(frameIndex: frameIndex)
+            let outcome = (drawCompositor ?? compositor).drawOutcome(
+                SceneImageLayerDrawRequest(
+                    layer: layer,
+                    texture: sourceTexture,
+                    masks: .empty,
+                    textureFrame: .identity,
+                    mvp: mvp,
+                    uniforms: SceneImageLayerUniformValues(
+                        time: 0,
+                        alpha: alpha,
+                        cursorUV: .zero,
+                        tint: tint
+                    ),
+                    offscreenTexturePool: nil,
+                    offscreenSize: nil,
+                    requiresSourceCopy: false,
+                    finalCompositeAlpha: nil,
+                    dependencyEffect: dependencyEffect,
+                ),
+                explicitLayerSourcePublication: publication,
+                pipeline: pipeline,
+                mainPass: pass,
+                executionTrace: trace,
+                executionOrigin: .image
+            )
+            let outcomeName: String
+            switch outcome {
+            case .normal: outcomeName = "normal"
+            case .currentMediaBaseDisplay: outcomeName = "current-media-base-display"
+            case .failed: outcomeName = "failed"
+            }
+            pass.finishEnsuringClear()
+            commandBuffer.commit()
+            commandBuffer.waitUntilCompleted()
+            guard commandBuffer.status == .completed else {
+                throw HarnessError.commandFailed
+            }
+            return [
+                "outcome": outcomeName,
+                "encoded": outcome.encoded,
+                "consumedDependency": outcome.consumedDependency,
+                "topLeftBGRA": pixel(target, x: 0, y: 0),
+                "centerBGRA": pixel(target, x: 4, y: 4),
+                "bottomRightBGRA": pixel(target, x: 7, y: 7),
+                "trace": recorder.lines,
+            ]
+        }
+
+        var nextFrame = UInt64(801)
+        func run(
+            publication: SceneTextureProviderPublication?,
+            layer: SceneRenderDescriptor.Layer = layer(),
+            sourceTexture: MTLTexture = source,
+            mvp: simd_float4x4 = SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+            alpha: Float = 1,
+            tint: SIMD3<Float> = SIMD3(repeating: 1),
+            dependencyEffect: SceneDependencyEffectInput? = nil,
+            compositor: SceneImageLayerCompositor? = nil
+        ) throws -> [String: Any] {
+            defer { nextFrame += 1 }
+            return try draw(
+                publication: publication,
+                layer: layer,
+                sourceTexture: sourceTexture,
+                mvp: mvp,
+                alpha: alpha,
+                tint: tint,
+                dependencyEffect: dependencyEffect,
+                using: compositor,
+                frameIndex: nextFrame
+            )
+        }
+
+        let exact = publication()
+        let accepted = try run(publication: exact)
+        let nextFrameAccepted = try run(publication: exact)
+        let withDependency = try run(
+            publication: exact,
+            dependencyEffect: dependencyInput(texture: dependency)
+        )
+        let normalWithoutEffects = try run(
+            publication: exact,
+            layer: layer(hasVisibleEffect: false)
+        )
+        let claimedFailureCompositor = SceneImageLayerCompositor(
+            pipelineRepository: SceneImageEffectPipelineRepository(device: device),
+            resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge(
+                claimRejectionReason: "fixture-claimed-route-rejected"
+            )
+        )
+        let rejected: [String: Any] = [
+            "wrongProvider": try run(publication: publication(
+                provider: .dynamicText(layerID: 0)
+            )),
+            "wrongLayer": try run(publication: publication(requestLayerID: 1)),
+            "staleGeneration": try run(publication: publication(
+                candidateGeneration: 10, contentGeneration: 11
+            )),
+            "bare": try run(publication: nil),
+            "unresolvedColor": try run(publication: publication(
+                content: .color(.unresolved)
+            )),
+            "straightColor": try run(publication: publication(
+                content: .color(.resolved(.straightAlpha))
+            )),
+            "data": try run(publication: publication(content: .data)),
+            "wrongPurpose": try run(publication: publication(purpose: .normal)),
+            "wrongTexture": try run(
+                publication: publication(texture: other),
+                sourceTexture: source
+            ),
+            "partialAlpha": try run(publication: exact, alpha: 0.75),
+            "partialTint": try run(
+                publication: exact,
+                tint: SIMD3<Float>(1, 0.75, 1)
+            ),
+            "authoredTint": try run(
+                publication: exact,
+                layer: layer(color: [1, 0.75, 1])
+            ),
+            "malformedAuthoredTint": try run(
+                publication: exact,
+                layer: layer(color: [])
+            ),
+            "brightness": try run(
+                publication: exact,
+                layer: layer(brightness: 0.75)
+            ),
+            "layerColorBlend": try run(
+                publication: exact,
+                layer: layer(colorBlendMode: 1)
+            ),
+            "nonCover": try run(
+                publication: exact,
+                mvp: SceneMatrix.scale(SIMD3<Float>(1.9, 2, 1))
+            ),
+            "rotatedBoundingBox": try run(
+                publication: exact,
+                mvp: SceneMatrix.rotationZ(0.12)
+                    * SceneMatrix.scale(SIMD3<Float>(2, 2, 1))
+            ),
+            "claimedFailure": try run(
+                publication: exact,
+                compositor: claimedFailureCompositor
+            ),
+        ]
+        return [
+            "accepted": accepted,
+            "nextFrameAccepted": nextFrameAccepted,
+            "withDependency": withDependency,
+            "normalWithoutEffects": normalWithoutEffects,
+            "rejected": rejected,
+        ]
     }
 
     static func dependencyBlendPixel(
@@ -5139,6 +5419,71 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             "clampBorderRejected",
         ):
             self.assertTrue(evidence[key], (key, evidence))
+
+    def test_current_media_base_display_is_exact_full_canvas_gpu_degradation(self) -> None:
+        evidence = self.result["currentMediaBaseDisplay"]
+        for key in ("accepted", "nextFrameAccepted", "withDependency"):
+            accepted = evidence[key]
+            self.assertEqual(accepted["outcome"], "current-media-base-display", accepted)
+            self.assertTrue(accepted["encoded"], accepted)
+            self.assertFalse(accepted["consumedDependency"], accepted)
+            for pixel in ("topLeftBGRA", "centerBGRA", "bottomRightBGRA"):
+                self.assert_pixel_close(accepted[pixel], [16, 32, 64, 128])
+            self.assertTrue(
+                any(
+                    "operation=current-media-base-display-authority" in line
+                    and "outcome=encoded" in line
+                    for line in accepted["trace"]
+                ),
+                accepted,
+            )
+
+        ordinary = evidence["normalWithoutEffects"]
+        self.assertEqual(ordinary["outcome"], "normal", ordinary)
+        self.assertTrue(ordinary["encoded"], ordinary)
+        self.assertFalse(ordinary["consumedDependency"], ordinary)
+        self.assertFalse(
+            any("current-media-base-display-authority" in line for line in ordinary["trace"]),
+            ordinary,
+        )
+
+    def test_current_media_base_display_rejects_inexact_or_styled_routes(self) -> None:
+        rejected = self.result["currentMediaBaseDisplay"]["rejected"]
+        self.assertEqual(
+            set(rejected),
+            {
+                "wrongProvider",
+                "wrongLayer",
+                "staleGeneration",
+                "bare",
+                "unresolvedColor",
+                "straightColor",
+                "data",
+                "wrongPurpose",
+                "wrongTexture",
+                "partialAlpha",
+                "partialTint",
+                "authoredTint",
+                "malformedAuthoredTint",
+                "brightness",
+                "layerColorBlend",
+                "nonCover",
+                "rotatedBoundingBox",
+                "claimedFailure",
+            },
+        )
+        for key, result in rejected.items():
+            self.assertEqual(result["outcome"], "failed", (key, result))
+            self.assertFalse(result["encoded"], (key, result))
+            self.assertFalse(result["consumedDependency"], (key, result))
+            self.assertFalse(
+                any(
+                    "current-media-base-display-authority" in line
+                    and "outcome=encoded" in line
+                    for line in result["trace"]
+                ),
+                (key, result),
+            )
 
     def test_capture_telemetry_waits_for_gpu_completion(self) -> None:
         self.assertIn("phase=utility-capture layer=701 status=succeeded", self.stderr)

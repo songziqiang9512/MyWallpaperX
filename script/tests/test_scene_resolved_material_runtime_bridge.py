@@ -27,6 +27,9 @@ ASSET_CATALOG = (
 LAUNCH = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 TEXTURE_FRAME = SCENE_ROOT / "Rendering/SceneMetalRenderer+TextureFrame.swift"
 COMPOSITOR = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+CURRENT_MEDIA_BASE_DISPLAY_AUTHORITY = (
+    SCENE_ROOT / "Rendering/SceneCurrentMediaBaseDisplayAuthority.swift"
+)
 GRAPH_COMPOSITION = (
     SCENE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift"
 )
@@ -2885,6 +2888,9 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         diagnostics = RENDERER_DIAGNOSTICS.read_text(encoding="utf-8")
         frame_preflight = FRAME_PREFLIGHT.read_text(encoding="utf-8")
         compositor = COMPOSITOR.read_text(encoding="utf-8")
+        current_media_authority = CURRENT_MEDIA_BASE_DISPLAY_AUTHORITY.read_text(
+            encoding="utf-8"
+        )
         bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
 
         self.assertIn("static func executeClaimed(", composition)
@@ -2928,8 +2934,29 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             compositor,
         )
         self.assertIn(
-            "guard !resolvedMaterialRoute.isRejected else { return false }",
+            "guard !resolvedMaterialRoute.isRejected else { return .failed }",
             compositor,
+        )
+        self.assertIn(
+            "request.resolvedMaterialFrameTargetPlan == nil",
+            current_media_authority,
+        )
+        fallback_start = compositor.index("if hasUnclaimedVisibleEffects,")
+        fallback_end = compositor.index(
+            "guard !hasUnclaimedVisibleEffects else", fallback_start
+        )
+        current_media_fallback = compositor[fallback_start:fallback_end]
+        self.assertIn(
+            "case .unclaimed = resolvedMaterialRoute,",
+            current_media_fallback,
+        )
+        self.assertIn(
+            "return encoded ? .currentMediaBaseDisplay : .failed",
+            current_media_fallback,
+        )
+        self.assertNotIn(
+            ".normal(consumedDependency:",
+            current_media_fallback,
         )
         self.assertIn("case .notMigrated:\n            return .unclaimed", composition)
         self.assertIn("case rejected(reasonCode: String)", composition)
@@ -2957,12 +2984,12 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             compositor.count("rejectResolvedMaterialClaim(resolvedMaterialClaim"),
             7,
         )
-        self.assertIn("case .failed:\n                    return false", compositor)
+        self.assertIn("case .failed:\n                    return .failed", compositor)
         self.assertIn("switch resolvedMaterialRuntime.markComposite(", composition)
         self.assertIn("case let .failed(reasonCode):", composition)
         self.assertIn('operation: "final-composite"', composition)
         self.assertIn("consumeResolvedMaterialComposite(", compositor)
-        self.assertIn("return false", compositor)
+        self.assertIn("return .failed", compositor)
 
     def test_external_dependency_is_late_ready_and_composited_once(self) -> None:
         bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")

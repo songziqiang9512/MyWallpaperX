@@ -96,7 +96,12 @@
     {
       "id": "rendering",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Rendering/**"],
-      "keywords": ["rendering", "framebuffer", "image_layer", "capture"]
+      "keywords": ["rendering", "framebuffer", "image_layer", "capture"],
+      "modules": [
+        "test_scene_framebuffer_capture",
+        "test_scene_resolved_material_runtime_bridge",
+        "test_scene_source_update_transaction"
+      ]
     },
     {
       "id": "render-graph",

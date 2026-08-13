@@ -44,6 +44,19 @@ struct SceneBaseImageTextureSnapshot {
         return candidate
     }
 
+    func explicitLayerSourcePublication(
+        for layerID: Int,
+        matching texture: MTLTexture
+    ) -> SceneTextureProviderPublication? {
+        guard let publication = explicitLayerSources[layerID],
+              publication.texture === texture,
+              publication.requestIdentity == .layerSource(layerID),
+              publication.isComplete else {
+            return nil
+        }
+        return publication
+    }
+
 }
 
 struct SceneBaseImageTextureStore {

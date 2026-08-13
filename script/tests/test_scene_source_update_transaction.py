@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 RENDERER = SCENE / "Rendering/SceneMetalRenderer.swift"
 COMPOSITOR = SCENE / "Rendering/SceneImageLayerCompositor.swift"
+BASE_IMAGE_TEXTURE_LOAD = SCENE / "Rendering/SceneBaseImageTextureLoad.swift"
 TRANSACTION = SCENE / "Rendering/SceneSourceUpdateTransaction.swift"
 EFFECT_EXECUTION = SCENE / "Rendering/SceneMetalRenderer+EffectExecution.swift"
 UTILITY_PLAN = SCENE / "Rendering/SceneUtilityPlanFrameRenderer.swift"
@@ -189,7 +190,10 @@ enum Harness {
         claimed_failure_stop = source.index(
             "request.resolvedMaterialFrameTargetPlan != nil"
         )
-        self.assertGreater(claimed_failure_stop, source.index("let encoded ="))
+        draw_outcome = source.index(
+            "let drawOutcome = imageCompositor.drawOutcome("
+        )
+        self.assertGreater(claimed_failure_stop, draw_outcome)
         self.assertLess(claimed_failure_stop, source.index("mainPass.finishEnsuringClear()"))
         self.assertIn("break frameLayers", source)
         utility_defer = source.index("defer {")
@@ -221,6 +225,84 @@ enum Harness {
             utility_source = path.read_text(encoding="utf-8")
             self.assertNotIn("frameTransaction: SceneSourceUpdateTransaction", utility_source)
             self.assertNotIn("frameTransaction: frameTransaction", utility_source)
+
+    def test_renderer_wires_exact_current_media_publication_without_consuming_dependency(self) -> None:
+        source = RENDERER.read_text(encoding="utf-8")
+        compositor = COMPOSITOR.read_text(encoding="utf-8")
+        texture_load = BASE_IMAGE_TEXTURE_LOAD.read_text(encoding="utf-8")
+        snapshot = texture_load.split(
+            "struct SceneBaseImageTextureSnapshot", maxsplit=1
+        )[1].split("struct SceneBaseImageTextureStore", maxsplit=1)[0]
+
+        self.assertIn("func explicitLayerSourcePublication(", snapshot)
+        self.assertIn("publication.texture === texture", snapshot)
+        self.assertIn(
+            "publication.requestIdentity == .layerSource(layerID)", snapshot
+        )
+        self.assertIn("publication.isComplete", snapshot)
+
+        publication = source.index(
+            "let explicitLayerSourcePublication = imageTextures"
+        )
+        publication_lookup = source.index(
+            ".explicitLayerSourcePublication(", publication
+        )
+        authority_precheck = source.index(
+            "let canAttemptCurrentMediaBaseDisplay = imageCompositor",
+            publication_lookup,
+        )
+        missing_dependency_guard = source.index(
+            "if dependencyRuntime.requiresEffect(for: layer.id)",
+            authority_precheck,
+        )
+        draw_outcome = source.index(
+            "let drawOutcome = imageCompositor.drawOutcome(",
+            missing_dependency_guard,
+        )
+        binding_record = source.index(
+            "dependencyRuntime.recordBindingIfRequired(", draw_outcome
+        )
+        claimed_failure_stop = source.index(
+            "request.resolvedMaterialFrameTargetPlan != nil", binding_record
+        )
+
+        self.assertLess(publication, publication_lookup)
+        self.assertLess(publication_lookup, authority_precheck)
+        self.assertLess(authority_precheck, missing_dependency_guard)
+        self.assertLess(missing_dependency_guard, draw_outcome)
+        self.assertLess(draw_outcome, binding_record)
+        self.assertLess(binding_record, claimed_failure_stop)
+        self.assertIn(
+            "for: layer.id,\n                        matching: texture",
+            source[publication:authority_precheck],
+        )
+        self.assertIn(
+            "publication: explicitLayerSourcePublication",
+            source[authority_precheck:missing_dependency_guard],
+        )
+        self.assertIn(
+            "!canAttemptCurrentMediaBaseDisplay",
+            source[missing_dependency_guard:draw_outcome],
+        )
+        self.assertIn(
+            "explicitLayerSourcePublication: explicitLayerSourcePublication",
+            source[draw_outcome:binding_record],
+        )
+        self.assertIn(
+            "encoded: drawOutcome.consumedDependency",
+            source[binding_record:claimed_failure_stop],
+        )
+
+        outcome = compositor.split("enum DrawOutcome: Equatable", maxsplit=1)[1]
+        outcome = outcome.split(
+            "let authoredEffectPipelines:", maxsplit=1
+        )[0]
+        self.assertIn("case currentMediaBaseDisplay", outcome)
+        self.assertIn(
+            "guard case let .normal(consumedDependency) = self else",
+            outcome,
+        )
+        self.assertIn("return false", outcome)
 
     def test_every_mutating_source_producer_registers_exact_rollback(self) -> None:
         view = VIEW.read_text(encoding="utf-8")

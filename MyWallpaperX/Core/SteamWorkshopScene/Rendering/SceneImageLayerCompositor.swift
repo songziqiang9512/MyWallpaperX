@@ -2,6 +2,28 @@ import Metal
 import simd
 
 struct SceneImageLayerCompositor {
+    enum DrawOutcome: Equatable {
+        case normal(consumedDependency: Bool)
+        case currentMediaBaseDisplay
+        case failed
+
+        var encoded: Bool {
+            switch self {
+            case .normal, .currentMediaBaseDisplay:
+                return true
+            case .failed:
+                return false
+            }
+        }
+
+        var consumedDependency: Bool {
+            guard case let .normal(consumedDependency) = self else {
+                return false
+            }
+            return consumedDependency
+        }
+    }
+
     let authoredEffectPipelines: SceneAuthoredEffectPipelineSet
     private let colorBlendPipelineSlot: ScenePipelineSlot<SceneLayerColorBlendPipeline>
     let resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge?
@@ -29,6 +51,25 @@ struct SceneImageLayerCompositor {
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
         executionOrigin: SceneEffectExecutionOrigin = .image
     ) -> Bool {
+        drawOutcome(
+            request,
+            explicitLayerSourcePublication: nil,
+            pipeline: pipeline,
+            mainPass: mainPass,
+            executionTrace: executionTrace,
+            executionOrigin: executionOrigin
+        ).encoded
+    }
+
+    @discardableResult
+    func drawOutcome(
+        _ request: SceneImageLayerDrawRequest,
+        explicitLayerSourcePublication: SceneTextureProviderPublication?,
+        pipeline: SceneImageLayerPipeline,
+        mainPass: SceneMainPassEncoder,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil,
+        executionOrigin: SceneEffectExecutionOrigin = .image
+    ) -> DrawOutcome {
         guard request.resolvedMaterialFrameTargetPlan == nil
             || resolvedMaterialRuntime != nil else {
             executionTrace?.recordRouteOperation(
@@ -37,14 +78,50 @@ struct SceneImageLayerCompositor {
                 operation: "resolved-material-claim",
                 outcome: .failed(reasonCode: "resolved-material-runtime-unavailable")
             )
-            return false
+            return .failed
         }
         let resolvedMaterialRoute = resolvedMaterialClaim(for: request)
-        guard !resolvedMaterialRoute.isRejected else { return false }
+        guard !resolvedMaterialRoute.isRejected else { return .failed }
         let resolvedMaterialClaim = resolvedMaterialRoute.execution
         let hasUnclaimedVisibleEffects = request.layer.effects.contains {
             $0.visible != false
         } && resolvedMaterialClaim == nil
+        if hasUnclaimedVisibleEffects,
+           case .unclaimed = resolvedMaterialRoute,
+           canAttemptCurrentMediaBaseDisplay(
+               request,
+               publication: explicitLayerSourcePublication
+           ) {
+            guard let textureFrame = explicitLayerSourcePublication?
+                .candidate.uvTransform else {
+                return .failed
+            }
+            let uniforms = makeFragmentUniforms(
+                values: request.uniforms,
+                textureFrame: textureFrame,
+                tint: SIMD3<Float>(repeating: 1),
+                dependencyBlendMode: nil
+            )
+            let encoded = SceneImageLayerMainPassRenderer.draw(
+                texture: request.texture,
+                mvp: request.mvp,
+                uniforms: uniforms,
+                dependencyTexture: nil,
+                layer: request.layer,
+                pipeline: pipeline,
+                colorBlendPipeline: nil,
+                mainPass: mainPass
+            )
+            executionTrace?.recordRouteOperation(
+                layerID: request.layer.id,
+                origin: executionOrigin,
+                operation: "current-media-base-display-authority",
+                outcome: encoded
+                    ? .encoded
+                    : .failed(reasonCode: "main-pass-encode-failed")
+            )
+            return encoded ? .currentMediaBaseDisplay : .failed
+        }
         guard !hasUnclaimedVisibleEffects else {
             executionTrace?.recordRouteOperation(
                 layerID: request.layer.id,
@@ -52,7 +129,7 @@ struct SceneImageLayerCompositor {
                 operation: "unclaimed-effect-product-authority",
                 outcome: .failed(reasonCode: "unclaimed-visible-effects")
             )
-            return false
+            return .failed
         }
         let dependencyEffect = request.dependencyEffect
 
@@ -60,19 +137,21 @@ struct SceneImageLayerCompositor {
             ($0.slotIndex == 1 && ($0.blendMode == 0 || $0.blendMode == 5))
                 || ($0.slotIndex == 3 && $0.blendMode == 0)
         } ?? true) else {
-            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+            _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "dependency-input-invalid")
+            return .failed
         }
-        let masks = request.masks
         let layerColorBlendMode = request.layer.colorBlendMode ?? 0
         guard SceneLayerColorBlendRenderer.supports(layerColorBlendMode) else {
-            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+            _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "layer-color-blend-unsupported")
+            return .failed
         }
         let colorBlendPipeline = layerColorBlendMode == 0 ? nil : colorBlendPipelineSlot.resolve()
         guard layerColorBlendMode == 0 || colorBlendPipeline != nil else {
-            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+            _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "layer-color-blend-pipeline-unavailable")
+            return .failed
         }
         let routesOffscreen = request.requiresSourceCopy
             || resolvedMaterialClaim != nil
@@ -80,15 +159,17 @@ struct SceneImageLayerCompositor {
         guard !routesOffscreen
             || request.layer.contentKind != "solid"
             || request.offscreenSize != nil else {
-            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+            _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "solid-offscreen-size-unavailable")
+            return .failed
         }
         guard let directUniforms = sourceFragmentUniforms(
             for: request,
             routesOffscreen: routesOffscreen
         ) else {
-            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+            _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "base-texture-frame-invalid")
+            return .failed
         }
         if routesOffscreen,
            let pool = request.offscreenTexturePool {
@@ -96,10 +177,11 @@ struct SceneImageLayerCompositor {
             var graphExecutionTicket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket?
             if let claim = resolvedMaterialClaim {
                 guard let resolvedMaterialRuntime else {
-                    return rejectResolvedMaterialClaim(
+                    _ = rejectResolvedMaterialClaim(
                         resolvedMaterialClaim,
                         reasonCode: "resolved-material-runtime-unavailable"
                     )
+                    return .failed
                 }
                 switch executeResolvedMaterialClaim(
                     runtime: resolvedMaterialRuntime,
@@ -114,14 +196,14 @@ struct SceneImageLayerCompositor {
                 case let .encoded(texture, ticket):
                     (renderedTexture, graphExecutionTicket) = (texture, ticket)
                 case .failed:
-                    return false
+                    return .failed
                 }
             } else {
                 let dimensions = offscreenDimensions(for: request)
                 guard let target = pool.compositionTarget(
                     width: dimensions.width,
                     height: dimensions.height
-                ) else { return false }
+                ) else { return .failed }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer in
                     SceneOffscreenEffectRenderer.captureSource(
                         sourceTexture: request.texture,
@@ -138,8 +220,9 @@ struct SceneImageLayerCompositor {
                     ? nil
                     : request.texture
             ) else {
-                return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+                _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
                     reasonCode: "final-offscreen-texture-unavailable")
+                return .failed
             }
             let finalValues = SceneImageLayerUniformValues(
                 time: request.uniforms.time,
@@ -176,15 +259,18 @@ struct SceneImageLayerCompositor {
                     layerID: request.layer.id,
                     executionTrace: executionTrace,
                     executionOrigin: executionOrigin
-                ) else { return false }
+                ) else { return .failed }
             }
             return composited
+                ? .normal(consumedDependency: dependencyEffect != nil)
+                : .failed
         }
         if request.requiresSourceCopy
             || resolvedMaterialClaim != nil
             || (routesOffscreen && dependencyEffect != nil) {
-            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+            _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "offscreen-pool-unavailable")
+            return .failed
         }
         let rendered = SceneImageLayerMainPassRenderer.draw(
             texture: request.texture,
@@ -197,6 +283,18 @@ struct SceneImageLayerCompositor {
             mainPass: mainPass
         )
         return rendered
+            ? .normal(consumedDependency: dependencyEffect != nil)
+            : .failed
+    }
+
+    func canAttemptCurrentMediaBaseDisplay(
+        _ request: SceneImageLayerDrawRequest,
+        publication: SceneTextureProviderPublication?
+    ) -> Bool {
+        SceneCurrentMediaBaseDisplayAuthority.admits(
+            request,
+            publication: publication
+        )
     }
 
     func executeResolvedMaterialClaim(

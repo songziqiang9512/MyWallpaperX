@@ -178,11 +178,6 @@ struct SceneMetalRenderer {
                     for: layer.id,
                     textureRegistry: textureRegistry
                 )
-                if dependencyRuntime.requiresEffect(for: layer.id),
-                   dependencyEffect == nil {
-                    dependencyRuntime.recordBindingFailure(for: layer.id)
-                    continue
-                }
                 let layerAlpha = SceneDynamicLayerValues.alpha(
                     layerID: layer.id, authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
@@ -203,7 +198,7 @@ struct SceneMetalRenderer {
                     mouseNormalized: frameContext.pointer.previous,
                     modelViewProjection: mvp
                 )
-                var request = SceneImageLayerDrawRequest(
+                let request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: texture,
                     baseTextureCandidate: imageTextures.candidate(
@@ -239,8 +234,25 @@ struct SceneMetalRenderer {
                     audioSpectrum: frameContext.audioSpectrum,
                     authoredShaderFrameInputs: .init(frameContext: frameContext)
                 )
-                let encoded = imageCompositor.draw(
+                let explicitLayerSourcePublication = imageTextures
+                    .explicitLayerSourcePublication(
+                        for: layer.id,
+                        matching: texture
+                    )
+                let canAttemptCurrentMediaBaseDisplay = imageCompositor
+                    .canAttemptCurrentMediaBaseDisplay(
+                        request,
+                        publication: explicitLayerSourcePublication
+                    )
+                if dependencyRuntime.requiresEffect(for: layer.id),
+                   dependencyEffect == nil,
+                   !canAttemptCurrentMediaBaseDisplay {
+                    dependencyRuntime.recordBindingFailure(for: layer.id)
+                    continue
+                }
+                let drawOutcome = imageCompositor.drawOutcome(
                     request,
+                    explicitLayerSourcePublication: explicitLayerSourcePublication,
                     pipeline: imagePipeline,
                     mainPass: mainPass,
                     executionTrace: effectExecutionTrace,
@@ -250,10 +262,10 @@ struct SceneMetalRenderer {
                 )
                 dependencyRuntime.recordBindingIfRequired(
                     for: layer.id,
-                    encoded: encoded,
+                    encoded: drawOutcome.consumedDependency,
                     on: commandBuffer
                 )
-                if !encoded,
+                if !drawOutcome.encoded,
                    request.resolvedMaterialFrameTargetPlan != nil {
                     stopsAfterClaimedFailure = true
                     break frameLayers
