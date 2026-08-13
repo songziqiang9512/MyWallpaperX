@@ -133,6 +133,101 @@
           "notes": "The Water Waves stage and its three following Shake stages all used the same exact historical alias and completed GPU publication, terminal composition and next-frame execution."
         }
       ]
+    },
+    {
+      "family_key": "shader/frag@d2da7d15588b9990",
+      "repair_state": "bounded-verified",
+      "runtime_proof_state": "visible-chain-closed",
+      "regression_protection_state": "targeted-runtime",
+      "root_cause": "The launch gate could isolate the bad layer, but the shared shader frontend had no conservative proof for a single sampled straight-RGB value whose alpha is the same sample alpha multiplied by finite scalar coverage, so the visible rounded-mask layer remained unowned.",
+      "public_fix": "Recognize only the bounded single-sample straight-RGB and sampled-alpha-factor dataflow, reuse the existing straight-alpha boundary, provide the exact typed layer model matrix, and keep replacement, additive, conditional, multi-sample, helper side-effect and unknown-matrix forms fail closed.",
+      "commit": "ad78674d",
+      "targeted_samples": [
+        "3768724269"
+      ],
+      "roi_evidence": [
+        "/private/tmp/mwx-rounded-mask-sentinel.QI9Ruq/results/3768724269/scene-ready-window.png sha256=3a7a4ebab078fb49b0deb4af25fb355476e78663e64d4451a75199391d818b6a 3024x1964 retains the visible approximately 200x20 rounded strip in the fixed ROI x=1300...1650 y=1500...1620",
+        "/private/tmp/mwx-rounded-mask-sentinel.QI9Ruq/results/3768724269/scene-after-window.png sha256=a4b44e29720a2ed283bc05b2342bcf732efa50e012c3a7f22cd7dc3ce1de8ec4 3024x1964 retains the authored rounded strip on the next frame"
+      ],
+      "remaining_boundaries": [
+        "Alpha replacement, additive alpha, conditional or loop control flow, multiple samples, mask textures, hidden helper side effects and arbitrary matrices remain rejected.",
+        "This proof does not provide Drag-and-Drop SceneScript or mouse interaction and does not upgrade other rounded-mask revisions.",
+        "The targeted run proves the visible MyWallpaperX chain, not Wallpaper Engine pixel or timing equivalence."
+      ],
+      "regression_gates": [
+        {
+          "kind": "synthetic-positive",
+          "reference": "script/tests/test_scene_resolved_material_pass_encoder.py#factoredAlphaPixelsMatch"
+        },
+        {
+          "kind": "synthetic-negative",
+          "reference": "script/tests/test_scene_shader_color_contract.py#straightRGBHiddenHelperMutation"
+        },
+        {
+          "kind": "targeted-runtime",
+          "reference": "/private/tmp/mwx-rounded-mask-sentinel.QI9Ruq/report.json#3768724269"
+        }
+      ],
+      "events": [
+        {
+          "date": "2026-08-13",
+          "state": "bounded-verified",
+          "commit": "ad78674d",
+          "evidence_refs": [
+            "/private/tmp/mwx-rounded-mask-sentinel.QI9Ruq/report.json#3768724269",
+            "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-rgb-alpha-factor"
+          ],
+          "notes": "The updated tracked sentinel passed 1/1: layer 163 completed GPU encoding, exact effect-output publication, terminal composition and next-frame execution while layers 17 and 100 remained successful in the same atomic frame."
+        }
+      ]
+    },
+    {
+      "family_key": "shader/frag@436c998ccdbec6c2",
+      "repair_state": "bounded-verified",
+      "runtime_proof_state": "visible-chain-closed",
+      "regression_protection_state": "targeted-runtime",
+      "root_cause": "The shared shader frontend had no typed color contract for a bounded same-slot whole-RGBA affine neighborhood filter, so a single sharpen stage was rejected before Program ownership even though its graph input, mask asset, uniforms and render state were otherwise complete. The first GPU run also exposed that assigning an unswizzled texture sample to a scalar required an explicit component conversion.",
+      "public_fix": "Prove a strict same-slot whole-vector affine filter closure, unpremultiply every selected layer-source color sample, clamp the authored straight RGBA result to the UNorm boundary, premultiply once, and require the exact layerSource-to-effectOutput graph role. Auxiliary slots remain data or scalar only, and scalar texture samples use the shared explicit .x conversion rule.",
+      "commit": "e84c39b3",
+      "targeted_samples": [
+        "3290491250"
+      ],
+      "roi_evidence": [
+        "/private/tmp/mwx-sharpen-329-pass2.0UK8Uq/results/3290491250/scene-ready-window.png sha256=855d87013794812929aefd2912e9a8f8ed6ac9a3bcbb8b25ff0d1801475e6543 3024x1964 restores the central authored character in the fixed central ROI x=1100...1850 y=450...1850",
+        "/private/tmp/mwx-sharpen-329-pass2.0UK8Uq/results/3290491250/scene-after-window.png sha256=2c9ba88a1c8e726f6600f141265a0ec86bf961027e440d1efca0d7d100938ccc 3024x1964 retains the character on the next frame; directional preview similarity is advisory only"
+      ],
+      "remaining_boundaries": [
+        "Multiple color slots, component-wise color mutation, dynamic division, helper side effects, internal graph targets and ordinary effectOutput input remain rejected.",
+        "The related 3767343314 occurrence remains NON-PASS at later Water Ripple texture-purpose and Cursor Ripple history or render-state gates; no partial graph publication is claimed.",
+        "The targeted run proves the visible MyWallpaperX chain, not Wallpaper Engine pixel or timing equivalence."
+      ],
+      "regression_gates": [
+        {
+          "kind": "synthetic-positive",
+          "reference": "script/tests/test_scene_resolved_material_pass_encoder.py#wholeFilterPixelsMatch"
+        },
+        {
+          "kind": "synthetic-negative",
+          "reference": "script/tests/test_scene_shader_color_contract.py#wholeColorFilterDynamicDivision"
+        },
+        {
+          "kind": "targeted-runtime",
+          "reference": "/private/tmp/mwx-sharpen-329-pass2.0UK8Uq/report.json#3290491250"
+        }
+      ],
+      "events": [
+        {
+          "date": "2026-08-13",
+          "state": "bounded-verified",
+          "commit": "e84c39b3",
+          "evidence_refs": [
+            "/private/tmp/mwx-sharpen-329-pass2.0UK8Uq/report.json#3290491250",
+            "/private/tmp/mwx-sharpen-376-containment.6UQprb/report.json#3767343314",
+            "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-whole-color-unorm"
+          ],
+          "notes": "Layer 116 completed GPU encoding, exact effect-output publication, terminal composition and next-frame execution; the central character became visibly readable while the second family occurrence remained contained at later unsupported stages."
+        }
+      ]
     }
   ],
   "schema_version": 1,
