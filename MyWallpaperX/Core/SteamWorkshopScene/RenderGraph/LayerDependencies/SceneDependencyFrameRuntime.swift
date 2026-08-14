@@ -40,6 +40,10 @@ final class SceneDependencyFrameRuntime {
         plan.requiredProviderLayerIDs.contains(providerLayerID)
     }
 
+    func blocksStaticLayerSourcePassthrough(for layerID: Int) -> Bool {
+        plan.blocksStaticLayerSourcePassthrough(for: layerID)
+    }
+
     func reserveEffectInput(
         for binding: SceneDependencyRenderPlan.Binding,
         providerLayer: SceneRenderDescriptor.Layer,

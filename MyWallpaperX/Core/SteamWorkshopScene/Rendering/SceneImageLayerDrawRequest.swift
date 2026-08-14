@@ -62,12 +62,11 @@ struct SceneImageLayerMasks {
         )
     }
 
-    func hasCoverageOrOpacityTexture(
+    func blocksLayerSourcePassthrough(
         forVisibleEffects effects: [SceneRenderDescriptor.EffectDescriptor]
     ) -> Bool {
-        let effectIDs = Set(
-            effects.lazy.filter { $0.visible != false }.map(\.id)
-        )
+        let visibleEffects = effects.filter { $0.visible != false }
+        let effectIDs = Set(visibleEffects.map(\.id))
         guard !effectIDs.isEmpty else { return false }
         func hasValue<Value>(
             _ values: [String: Value],
@@ -77,9 +76,20 @@ struct SceneImageLayerMasks {
                 values[id].map(predicate) ?? false
             }
         }
-        return hasValue(opacityEffects) { $0.mask != nil }
+        let hasCoverageMutatingPulse = visibleEffects.contains { effect in
+            Self.normalized(effect.file) == "effects/pulse/effect.json"
+                && !Self.pulsePreservesSourceCoverage(effect)
+        }
+        let hasUnprovenPulseResource = effectIDs.contains { id in
+            guard pulseEffects[id] != nil else { return false }
+            return visibleEffects.first(where: { $0.id == id }).map {
+                !Self.pulsePreservesSourceCoverage($0)
+            } ?? true
+        }
+        return hasValue(opacityEffects) { _ in true }
             || hasValue(tintEffects) { $0.mask != nil }
-            || hasValue(pulseEffects) { $0.mask != nil }
+            || hasCoverageMutatingPulse
+            || hasUnprovenPulseResource
             || hasValue(foliageSwayEffects) { $0.maskBinding != nil }
             || hasValue(shakeEffects) { $0.maskBinding != nil }
             || hasValue(waterRippleEffects) { $0.maskBinding != nil }
@@ -92,6 +102,53 @@ struct SceneImageLayerMasks {
             || (xRay.map {
                 effectIDs.contains($0.effectID) && $0.opacityMask != nil
             } ?? false)
+    }
+
+    private static func pulsePreservesSourceCoverage(
+        _ effect: SceneRenderDescriptor.EffectDescriptor
+    ) -> Bool {
+        // Stock Pulse only preserves source coverage when its alpha branch is off.
+        guard normalized(effect.file) == "effects/pulse/effect.json",
+              effect.passes.count == 1,
+              let pass = effect.passes.first,
+              pass.passIndex == 0,
+              pass.userTextureInputs.isEmpty,
+              (2 ... 3).contains(pass.textureSlots.count),
+              pass.textureSlots[0] == nil,
+              pass.textureSlots[1].map(Self.normalized) == "util/noise",
+              pass.texturePaths.map(Self.normalized)
+                == pass.textureSlots.compactMap({ $0 }).map(Self.normalized),
+              let combos = normalizedPulseCombos(pass.combos),
+              (0 ... 3).contains(combos["AUDIOPROCESSING", default: 0]),
+              (0 ... SceneBlendModeShaderSource.maximumMode).contains(
+                  combos["BLENDMODE", default: 9]
+              ),
+              [0, 1].contains(combos["PULSECOLOR", default: 1]),
+              combos["PULSEALPHA", default: 0] == 0 else {
+            return false
+        }
+        return true
+    }
+
+    private static func normalizedPulseCombos(
+        _ authored: [String: Int]
+    ) -> [String: Int]? {
+        var result: [String: Int] = [:]
+        let allowed = Set([
+            "AUDIOPROCESSING", "BLENDMODE", "PULSEALPHA", "PULSECOLOR",
+        ])
+        for (key, value) in authored {
+            let normalizedKey = key.uppercased()
+            guard allowed.contains(normalizedKey), result[normalizedKey] == nil else {
+                return nil
+            }
+            result[normalizedKey] = value
+        }
+        return result
+    }
+
+    private nonisolated static func normalized(_ value: String) -> String {
+        value.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 }
 
@@ -174,6 +231,7 @@ struct SceneImageLayerDrawRequest {
     let finalCompositeAlpha: Float?
     let dependencyEffect: SceneDependencyEffectInput?
     var requiresDependencyEffect: Bool = false
+    var blocksStaticLayerSourcePassthrough: Bool = false
     var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var localContrastStrength: Float? = nil

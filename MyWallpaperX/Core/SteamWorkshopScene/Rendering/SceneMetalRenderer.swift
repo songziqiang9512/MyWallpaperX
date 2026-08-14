@@ -234,6 +234,10 @@ struct SceneMetalRenderer {
                     finalCompositeAlpha: nil,
                     dependencyEffect: dependencyEffect,
                     requiresDependencyEffect: requiresDependencyEffect,
+                    blocksStaticLayerSourcePassthrough:
+                        dependencyRuntime.blocksStaticLayerSourcePassthrough(
+                            for: layer.id
+                        ),
                     dynamicValues: frameContext.dynamicValues,
                     audioSpectrum: frameContext.audioSpectrum,
                     authoredShaderFrameInputs: .init(frameContext: frameContext)

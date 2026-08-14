@@ -211,6 +211,46 @@ enum Harness {
             descriptor: matrixDescriptor,
             visibleLayerIDs: matrixVisible
         )
+        let visibleNamedProvider = layer(100)
+        let visibleUnboundConsumer = consumer(
+            101,
+            provider: 100,
+            dependencies: [],
+            effectPath: "effects/blend/effect.json"
+        )
+        let hiddenNamedProvider = layer(110)
+        let hiddenNamedConsumer = consumer(
+            111,
+            provider: 110,
+            visible: false,
+            effectPath: "effects/blend/effect.json"
+        )
+        let selfReferenceConsumer = consumer(
+            120,
+            provider: 120,
+            dependencies: [],
+            effectPath: "effects/blend/effect.json"
+        )
+        let unreferencedProvider = layer(130)
+        let explicitDependencyProvider = layer(140)
+        let explicitDependencyConsumer = layer(141, dependencies: [140])
+        let dependencySafetyLayers = [
+            visibleNamedProvider,
+            visibleUnboundConsumer,
+            hiddenNamedProvider,
+            hiddenNamedConsumer,
+            selfReferenceConsumer,
+            unreferencedProvider,
+            explicitDependencyProvider,
+            explicitDependencyConsumer,
+        ]
+        let dependencySafetyPlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: dependencySafetyLayers,
+                renderOrderLayerIDs: dependencySafetyLayers.map(\.id)
+            ),
+            visibleLayerIDs: [100, 101, 110, 120, 130, 140, 141]
+        )
         let parsed = [
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42")?.variant.rawValue ?? "nil",
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42_a")?.variant.rawValue ?? "nil",
@@ -231,6 +271,17 @@ enum Harness {
             "issues": plan.issues.map { "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)" },
             "matrixBindingCount": matrixPlan.bindingsByConsumerLayerID.count,
             "matrixRequiredProviders": matrixPlan.requiredProviderLayerIDs.sorted(),
+            "staticPassthroughBlocks": [
+                "namedProvider": dependencySafetyPlan.blocksStaticLayerSourcePassthrough(for: 100),
+                "namedConsumer": dependencySafetyPlan.blocksStaticLayerSourcePassthrough(for: 101),
+                "hiddenNamedProvider": dependencySafetyPlan.blocksStaticLayerSourcePassthrough(for: 110),
+                "hiddenNamedConsumer": dependencySafetyPlan.blocksStaticLayerSourcePassthrough(for: 111),
+                "selfReference": dependencySafetyPlan.blocksStaticLayerSourcePassthrough(for: 120),
+                "unreferenced": dependencySafetyPlan.blocksStaticLayerSourcePassthrough(for: 130),
+                "explicitProvider": dependencySafetyPlan.blocksStaticLayerSourcePassthrough(for: 140),
+                "explicitConsumer": dependencySafetyPlan.blocksStaticLayerSourcePassthrough(for: 141),
+                "requiredProvidersEmpty": dependencySafetyPlan.requiredProviderLayerIDs.isEmpty,
+            ],
             "legacyNoiseBinding": [
                 "consumer": legacyNoiseBinding?.consumerLayerID ?? -1,
                 "provider": legacyNoiseBinding?.providerLayerID ?? -1,
@@ -521,6 +572,22 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
     def test_matrix_shape_keeps_hidden_consumer_out_of_runtime_liveness(self) -> None:
         self.assertEqual(self.result["matrixBindingCount"], 7)
         self.assertEqual(self.result["matrixRequiredProviders"], [10, 11, 12, 13, 14, 15])
+
+    def test_visible_dependency_edge_blocks_both_sides_from_static_passthrough(self) -> None:
+        self.assertEqual(
+            self.result["staticPassthroughBlocks"],
+            {
+                "namedProvider": True,
+                "namedConsumer": True,
+                "hiddenNamedProvider": False,
+                "hiddenNamedConsumer": False,
+                "selfReference": False,
+                "unreferenced": False,
+                "explicitProvider": True,
+                "explicitConsumer": True,
+                "requiredProvidersEmpty": True,
+            },
+        )
 
     def test_exact_legacy_procedural_dependency_is_typed_and_fail_closed(self) -> None:
         self.assertEqual(

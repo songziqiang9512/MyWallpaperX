@@ -42,8 +42,13 @@ nonisolated struct SceneDependencyRenderPlan {
     let requiredEffectConsumerLayerIDs: Set<Int>
     let bindingsByConsumerLayerID: [Int: Binding]
     let requiredProviderLayerIDs: Set<Int>
+    let staticLayerSourcePassthroughBlockedLayerIDs: Set<Int>
     let cyclicLayerIDs: Set<Int>
     let issues: [Issue]
+
+    nonisolated func blocksStaticLayerSourcePassthrough(for layerID: Int) -> Bool {
+        staticLayerSourcePassthroughBlockedLayerIDs.contains(layerID)
+    }
 
     nonisolated init(
         descriptor: SceneRenderDescriptor,
@@ -59,6 +64,15 @@ nonisolated struct SceneDependencyRenderPlan {
             layers: descriptor.layers,
             references: references
         )
+        var passthroughBlockedLayerIDs: Set<Int> = []
+        for consumerLayerID in visibleLayerIDs {
+            for providerLayerID in dependencyEdges[consumerLayerID] ?? [] {
+                passthroughBlockedLayerIDs.insert(consumerLayerID)
+                if layersByID[providerLayerID] != nil {
+                    passthroughBlockedLayerIDs.insert(providerLayerID)
+                }
+            }
+        }
         let cyclicLayerIDs = Self.cyclicLayerIDs(edges: dependencyEdges)
         var issues = Self.referenceIssues(references: references, layersByID: layersByID)
         var bindings: [Int: Binding] = [:]
@@ -109,6 +123,7 @@ nonisolated struct SceneDependencyRenderPlan {
         })
         self.bindingsByConsumerLayerID = bindings
         self.requiredProviderLayerIDs = Set(bindings.values.map(\.providerLayerID))
+        self.staticLayerSourcePassthroughBlockedLayerIDs = passthroughBlockedLayerIDs
         self.cyclicLayerIDs = cyclicLayerIDs
         self.issues = Array(Set(issues)).sorted {
             ($0.layerID, $0.kind.rawValue, $0.providerLayerID ?? -1)

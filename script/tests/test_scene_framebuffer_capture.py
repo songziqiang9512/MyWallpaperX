@@ -2438,6 +2438,36 @@ enum Harness {
                 effects: hasVisibleEffect ? [visibleUnsupportedEffect] : []
             )
         }
+        func pulsePass(
+            passIndex: Int = 0,
+            combos: [String: Int] = [:]
+        ) -> SceneRenderDescriptor.EffectDescriptor.PassDescriptor {
+            SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+                passIndex: passIndex,
+                texturePaths: ["util/noise", "fixture/pulse-mask"],
+                textureSlots: [nil, "util/noise", "fixture/pulse-mask"],
+                combos: combos,
+                constantShaderValues: [:]
+            )
+        }
+        func pulseLayer(
+            file: String = "effects/pulse/effect.json",
+            passIndices: [Int] = [0],
+            combos: [String: Int] = [:]
+        ) -> SceneRenderDescriptor.Layer {
+            SceneRenderDescriptor.Layer(
+                contentKind: "image",
+                colorRGB: nil,
+                colorBlendMode: nil,
+                effects: [.init(
+                    file: file,
+                    visible: true,
+                    passes: passIndices.map {
+                        pulsePass(passIndex: $0, combos: combos)
+                    }
+                )]
+            )
+        }
         func candidate(
             identity: SceneTextureResourceIdentity,
             generation: SceneTextureResourceGeneration,
@@ -2554,6 +2584,7 @@ enum Harness {
             tint: SIMD3<Float> = SIMD3(repeating: 1),
             dependencyEffect: SceneDependencyEffectInput? = nil,
             requiresDependencyEffect: Bool = false,
+            blocksStaticLayerSourcePassthrough: Bool = false,
             using drawCompositor: SceneImageLayerCompositor? = nil,
             frameIndex: UInt64
         ) throws -> [String: Any] {
@@ -2573,27 +2604,30 @@ enum Harness {
             let trace = SceneEffectExecutionTelemetry(
                 logSink: { recorder.append($0) }
             ).makeFrame(frameIndex: frameIndex)
-            let outcome = (drawCompositor ?? compositor).drawOutcome(
-                SceneImageLayerDrawRequest(
-                    layer: layer,
-                    texture: sourceTexture,
-                    baseTextureCandidate: baseTextureCandidate,
-                    masks: masks,
-                    textureFrame: .identity,
-                    mvp: mvp,
-                    uniforms: SceneImageLayerUniformValues(
-                        time: 0,
-                        alpha: alpha,
-                        cursorUV: .zero,
-                        tint: tint
-                    ),
-                    offscreenTexturePool: nil,
-                    offscreenSize: nil,
-                    requiresSourceCopy: false,
-                    finalCompositeAlpha: nil,
-                    dependencyEffect: dependencyEffect,
-                    requiresDependencyEffect: requiresDependencyEffect,
+            var request = SceneImageLayerDrawRequest(
+                layer: layer,
+                texture: sourceTexture,
+                baseTextureCandidate: baseTextureCandidate,
+                masks: masks,
+                textureFrame: .identity,
+                mvp: mvp,
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0,
+                    alpha: alpha,
+                    cursorUV: .zero,
+                    tint: tint
                 ),
+                offscreenTexturePool: nil,
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: dependencyEffect,
+                requiresDependencyEffect: requiresDependencyEffect,
+            )
+            request.blocksStaticLayerSourcePassthrough =
+                blocksStaticLayerSourcePassthrough
+            let outcome = (drawCompositor ?? compositor).drawOutcome(
+                request,
                 explicitLayerSourcePublication: publication,
                 pipeline: pipeline,
                 mainPass: pass,
@@ -2643,6 +2677,7 @@ enum Harness {
             tint: SIMD3<Float> = SIMD3(repeating: 1),
             dependencyEffect: SceneDependencyEffectInput? = nil,
             requiresDependencyEffect: Bool = false,
+            blocksStaticLayerSourcePassthrough: Bool = false,
             compositor: SceneImageLayerCompositor? = nil
         ) throws -> [String: Any] {
             defer { nextFrame += 1 }
@@ -2657,6 +2692,8 @@ enum Harness {
                 tint: tint,
                 dependencyEffect: dependencyEffect,
                 requiresDependencyEffect: requiresDependencyEffect,
+                blocksStaticLayerSourcePassthrough:
+                    blocksStaticLayerSourcePassthrough,
                 using: compositor,
                 frameIndex: nextFrame
             )
@@ -2664,6 +2701,58 @@ enum Harness {
 
         let exactStaticFile = publication(staticFileCandidate)
         let exactCurrentMedia = publication(currentMediaCandidate)
+        func pulseMasks(
+            effectID: String = "effects/pulse/effect.json"
+        ) -> SceneImageLayerMasks {
+            masks(pulseEffects: [
+                effectID: ScenePulseEffectTextures(
+                    noise: nil,
+                    mask: dependency,
+                    maskUVScale: SIMD2(repeating: 1),
+                    maskPath: "fixture/pulse-mask"
+                ),
+            ])
+        }
+        let exactPulseMasks = pulseMasks()
+        let pulseAlphaZeroCombos = [
+            "AUDIOPROCESSING": 0,
+            "BLENDMODE": 9,
+            "PULSEALPHA": 0,
+            "PULSECOLOR": 1,
+        ]
+        let pulseMaskDefaultAlpha = try run(
+            publication: exactCurrentMedia,
+            layer: pulseLayer(),
+            masks: exactPulseMasks
+        )
+        let pulseMaskAlphaZero = try run(
+            publication: exactCurrentMedia,
+            layer: pulseLayer(combos: pulseAlphaZeroCombos),
+            masks: exactPulseMasks
+        )
+        let pulseMaskAlphaZeroNextFrame = try run(
+            publication: exactCurrentMedia,
+            layer: pulseLayer(combos: pulseAlphaZeroCombos),
+            masks: exactPulseMasks
+        )
+        let pulseCurrentMediaWithStaticBlock = try run(
+            publication: exactCurrentMedia,
+            layer: pulseLayer(combos: pulseAlphaZeroCombos),
+            masks: exactPulseMasks,
+            blocksStaticLayerSourcePassthrough: true
+        )
+        let pulseStaticFileAlphaZero = try run(
+            publication: exactStaticFile,
+            layer: pulseLayer(combos: pulseAlphaZeroCombos),
+            baseTextureCandidate: staticFileCandidate,
+            masks: exactPulseMasks
+        )
+        let pulseStaticFileAlphaZeroNextFrame = try run(
+            publication: exactStaticFile,
+            layer: pulseLayer(combos: pulseAlphaZeroCombos),
+            baseTextureCandidate: staticFileCandidate,
+            masks: exactPulseMasks
+        )
         let accepted: [String: Any] = [
             "staticFilePartial": try run(
                 publication: exactStaticFile,
@@ -2686,6 +2775,12 @@ enum Harness {
                 mvp: SceneMatrix.translation(SIMD3<Float>(0.8, 0, 0))
                     * SceneMatrix.scale(SIMD3<Float>(1, 1, 1))
             ),
+            "pulseMaskDefaultAlpha": pulseMaskDefaultAlpha,
+            "pulseMaskAlphaZero": pulseMaskAlphaZero,
+            "pulseMaskAlphaZeroNextFrame": pulseMaskAlphaZeroNextFrame,
+            "pulseCurrentMediaWithStaticBlock": pulseCurrentMediaWithStaticBlock,
+            "pulseStaticFileAlphaZero": pulseStaticFileAlphaZero,
+            "pulseStaticFileAlphaZeroNextFrame": pulseStaticFileAlphaZeroNextFrame,
         ]
         let normalWithoutEffects = try run(
             publication: exactCurrentMedia,
@@ -2839,6 +2934,50 @@ enum Harness {
                 publication: exactCurrentMedia,
                 compositor: rejectedRouteCompositor
             ),
+            "pulseAlphaOneMasked": try run(
+                publication: exactCurrentMedia,
+                layer: pulseLayer(combos: ["PULSEALPHA": 1]),
+                masks: exactPulseMasks
+            ),
+            "pulseAlphaOneUnmasked": try run(
+                publication: exactCurrentMedia,
+                layer: pulseLayer(combos: ["PULSEALPHA": 1])
+            ),
+            "pulseInvalidCombo": try run(
+                publication: exactCurrentMedia,
+                layer: pulseLayer(combos: ["PULSEALPHA": 2])
+            ),
+            "pulseUnknownCombo": try run(
+                publication: exactCurrentMedia,
+                layer: pulseLayer(combos: ["UNKNOWN": 1])
+            ),
+            "pulseMissingPassMasked": try run(
+                publication: exactCurrentMedia,
+                layer: pulseLayer(passIndices: []),
+                masks: exactPulseMasks
+            ),
+            "pulseWrongPassMasked": try run(
+                publication: exactCurrentMedia,
+                layer: pulseLayer(passIndices: [1]),
+                masks: exactPulseMasks
+            ),
+            "pulseMultiplePassesMasked": try run(
+                publication: exactCurrentMedia,
+                layer: pulseLayer(passIndices: [0, 1]),
+                masks: exactPulseMasks
+            ),
+            "pulseWrongDefinitionMasked": try run(
+                publication: exactCurrentMedia,
+                layer: pulseLayer(file: "effects/fixture/pulse/effect.json"),
+                masks: pulseMasks(effectID: "effects/fixture/pulse/effect.json")
+            ),
+            "pulseStaticSourceConsumer": try run(
+                publication: exactStaticFile,
+                layer: pulseLayer(combos: pulseAlphaZeroCombos),
+                baseTextureCandidate: staticFileCandidate,
+                masks: exactPulseMasks,
+                blocksStaticLayerSourcePassthrough: true
+            ),
         ]
         let visibleEffectID = visibleUnsupportedEffect.id
         let maskedCases: [(String, SceneImageLayerMasks)] = [
@@ -2888,12 +3027,11 @@ enum Harness {
                     maskPath: "fixture/mask"
                 ),
             ])),
-            ("pulse", masks(pulseEffects: [
-                visibleEffectID: ScenePulseEffectTextures(
-                    noise: nil,
-                    mask: dependency,
+            ("opacity-missing-texture", masks(opacityEffects: [
+                visibleEffectID: SceneOpacityEffectTextures(
+                    mask: nil,
                     maskUVScale: SIMD2(repeating: 1),
-                    maskPath: "fixture/mask"
+                    maskPath: "fixture/missing"
                 ),
             ])),
             ("tint", masks(tintEffects: [
@@ -5745,6 +5883,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "currentMediaNextFrame",
                 "rotated",
                 "partiallyClipped",
+                "pulseMaskDefaultAlpha",
+                "pulseMaskAlphaZero",
+                "pulseMaskAlphaZeroNextFrame",
+                "pulseCurrentMediaWithStaticBlock",
+                "pulseStaticFileAlphaZero",
+                "pulseStaticFileAlphaZeroNextFrame",
             },
         )
         for key, result in accepted.items():
@@ -5767,6 +5911,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             "staticFileNextFrame",
             "currentMediaPartial",
             "currentMediaNextFrame",
+            "pulseMaskDefaultAlpha",
+            "pulseMaskAlphaZero",
+            "pulseMaskAlphaZeroNextFrame",
+            "pulseCurrentMediaWithStaticBlock",
+            "pulseStaticFileAlphaZero",
+            "pulseStaticFileAlphaZeroNextFrame",
         ):
             result = accepted[key]
             self.assert_pixel_close(result["centerBGRA"], [16, 32, 64, 128])
@@ -5829,6 +5979,15 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "layerColorBlend",
                 "claimed",
                 "rejected",
+                "pulseAlphaOneMasked",
+                "pulseAlphaOneUnmasked",
+                "pulseInvalidCombo",
+                "pulseUnknownCombo",
+                "pulseMissingPassMasked",
+                "pulseWrongPassMasked",
+                "pulseMultiplePassesMasked",
+                "pulseWrongDefinitionMasked",
+                "pulseStaticSourceConsumer",
                 "mask-foliageSway",
                 "mask-waterRipple",
                 "mask-shake",
@@ -5837,7 +5996,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "mask-waterCaustics",
                 "mask-cursorRipple",
                 "mask-opacity",
-                "mask-pulse",
+                "mask-opacity-missing-texture",
                 "mask-tint",
                 "mask-godrays",
                 "mask-shine",

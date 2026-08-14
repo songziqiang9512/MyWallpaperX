@@ -5,7 +5,7 @@ import simd
 /// has no runtime owner. The plan proves only that the exact layer source can
 /// enter the final layer composite; it does not claim or publish effect output.
 struct SceneLayerSourcePassthroughPlan {
-    enum SourceKind {
+    enum SourceKind: Equatable {
         case staticFile
         case currentMedia
     }
@@ -71,7 +71,7 @@ struct SceneLayerSourcePassthroughPlan {
               request.finalCompositeAlpha == nil,
               request.dependencyEffect == nil,
               !request.requiresDependencyEffect,
-              !request.masks.hasCoverageOrOpacityTexture(
+              !request.masks.blocksLayerSourcePassthrough(
                   forVisibleEffects: request.layer.effects
               ),
               (request.layer.colorBlendMode ?? 0) == 0,
@@ -98,6 +98,10 @@ struct SceneLayerSourcePassthroughPlan {
                   request: request,
                   publication: publication
               ),
+              // The media provider is already an explicit degraded display authority.
+              // Authored cross-layer roles only block static-file source fallback here.
+              sourceKind == .currentMedia
+                || !request.blocksStaticLayerSourcePassthrough,
               let geometry = projectedGeometry(for: request.mvp) else {
             return nil
         }
