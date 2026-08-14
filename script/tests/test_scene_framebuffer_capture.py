@@ -2713,6 +2713,49 @@ enum Harness {
                 ),
             ])
         }
+        func waterWavesPass(
+            passIndex: Int = 0,
+            combos: [String: Int] = [:],
+            maskPath: String? = "fixture/waterwaves-mask"
+        ) -> SceneRenderDescriptor.EffectDescriptor.PassDescriptor {
+            SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+                passIndex: passIndex,
+                texturePaths: maskPath.map { [$0] } ?? [],
+                textureSlots: [nil] + (maskPath.map { [$0] } ?? []),
+                combos: combos,
+                constantShaderValues: [:]
+            )
+        }
+        func waterWavesLayer(
+            file: String = "effects/waterwaves/effect.json",
+            passIndices: [Int] = [0],
+            combos: [String: Int] = [:],
+            maskPath: String? = "fixture/waterwaves-mask"
+        ) -> SceneRenderDescriptor.Layer {
+            SceneRenderDescriptor.Layer(
+                contentKind: "image",
+                colorRGB: nil,
+                colorBlendMode: nil,
+                effects: [.init(
+                    file: file,
+                    visible: true,
+                    passes: passIndices.map {
+                        waterWavesPass(
+                            passIndex: $0,
+                            combos: combos,
+                            maskPath: maskPath
+                        )
+                    }
+                )]
+            )
+        }
+        func waterWavesMasks(
+            effectID: String = "effects/waterwaves/effect.json"
+        ) -> SceneImageLayerMasks {
+            masks(waterWavesEffects: [
+                effectID: SceneWaterWavesEffectTextures(mask: dependency),
+            ])
+        }
         let exactPulseMasks = pulseMasks()
         let pulseAlphaZeroCombos = [
             "AUDIOPROCESSING": 0,
@@ -2753,6 +2796,18 @@ enum Harness {
             baseTextureCandidate: staticFileCandidate,
             masks: exactPulseMasks
         )
+        let waterWavesMaskStaticFile = try run(
+            publication: exactStaticFile,
+            layer: waterWavesLayer(),
+            baseTextureCandidate: staticFileCandidate,
+            masks: waterWavesMasks()
+        )
+        let waterWavesMaskStaticFileNextFrame = try run(
+            publication: exactStaticFile,
+            layer: waterWavesLayer(),
+            baseTextureCandidate: staticFileCandidate,
+            masks: waterWavesMasks()
+        )
         let accepted: [String: Any] = [
             "staticFilePartial": try run(
                 publication: exactStaticFile,
@@ -2781,6 +2836,9 @@ enum Harness {
             "pulseCurrentMediaWithStaticBlock": pulseCurrentMediaWithStaticBlock,
             "pulseStaticFileAlphaZero": pulseStaticFileAlphaZero,
             "pulseStaticFileAlphaZeroNextFrame": pulseStaticFileAlphaZeroNextFrame,
+            "waterWavesMaskStaticFile": waterWavesMaskStaticFile,
+            "waterWavesMaskStaticFileNextFrame":
+                waterWavesMaskStaticFileNextFrame,
         ]
         let normalWithoutEffects = try run(
             publication: exactCurrentMedia,
@@ -2977,6 +3035,75 @@ enum Harness {
                 baseTextureCandidate: staticFileCandidate,
                 masks: exactPulseMasks,
                 blocksStaticLayerSourcePassthrough: true
+            ),
+            "waterWavesNonStockDefinition": try run(
+                publication: exactStaticFile,
+                layer: waterWavesLayer(
+                    file: "effects/workshop/9/waterwaves/effect.json"
+                ),
+                baseTextureCandidate: staticFileCandidate,
+                masks: waterWavesMasks(
+                    effectID: "effects/workshop/9/waterwaves/effect.json"
+                )
+            ),
+            "waterWavesTimeOffset": try run(
+                publication: exactStaticFile,
+                layer: waterWavesLayer(combos: ["TIMEOFFSET": 1]),
+                baseTextureCandidate: staticFileCandidate,
+                masks: waterWavesMasks()
+            ),
+            "waterWavesPerspective": try run(
+                publication: exactStaticFile,
+                layer: waterWavesLayer(combos: ["PERSPECTIVE": 1]),
+                baseTextureCandidate: staticFileCandidate,
+                masks: waterWavesMasks()
+            ),
+            "waterWavesDualWaves": try run(
+                publication: exactStaticFile,
+                layer: waterWavesLayer(combos: ["DUALWAVES": 1]),
+                baseTextureCandidate: staticFileCandidate,
+                masks: waterWavesMasks()
+            ),
+            "waterWavesUnknownCombo": try run(
+                publication: exactStaticFile,
+                layer: waterWavesLayer(combos: ["UNKNOWN": 1]),
+                baseTextureCandidate: staticFileCandidate,
+                masks: waterWavesMasks()
+            ),
+            "waterWavesMultiplePassesMasked": try run(
+                publication: exactStaticFile,
+                layer: waterWavesLayer(passIndices: [0, 1]),
+                baseTextureCandidate: staticFileCandidate,
+                masks: waterWavesMasks()
+            ),
+            "waterWavesWrongPassMasked": try run(
+                publication: exactStaticFile,
+                layer: waterWavesLayer(passIndices: [1]),
+                baseTextureCandidate: staticFileCandidate,
+                masks: waterWavesMasks()
+            ),
+            "waterWavesStaticSourceConsumer": try run(
+                publication: exactStaticFile,
+                layer: waterWavesLayer(),
+                baseTextureCandidate: staticFileCandidate,
+                masks: waterWavesMasks(),
+                blocksStaticLayerSourcePassthrough: true
+            ),
+            "waterWavesWithOpacity": try run(
+                publication: exactStaticFile,
+                layer: waterWavesLayer(),
+                baseTextureCandidate: staticFileCandidate,
+                masks: masks(
+                    waterWavesEffects: waterWavesMasks().waterWavesEffects,
+                    opacityEffects: [
+                        "effects/waterwaves/effect.json":
+                            SceneOpacityEffectTextures(
+                                mask: dependency,
+                                maskUVScale: SIMD2(repeating: 1),
+                                maskPath: "fixture/mask"
+                            ),
+                    ]
+                )
             ),
         ]
         let visibleEffectID = visibleUnsupportedEffect.id
@@ -5889,6 +6016,8 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "pulseCurrentMediaWithStaticBlock",
                 "pulseStaticFileAlphaZero",
                 "pulseStaticFileAlphaZeroNextFrame",
+                "waterWavesMaskStaticFile",
+                "waterWavesMaskStaticFileNextFrame",
             },
         )
         for key, result in accepted.items():
@@ -5917,6 +6046,8 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             "pulseCurrentMediaWithStaticBlock",
             "pulseStaticFileAlphaZero",
             "pulseStaticFileAlphaZeroNextFrame",
+            "waterWavesMaskStaticFile",
+            "waterWavesMaskStaticFileNextFrame",
         ):
             result = accepted[key]
             self.assert_pixel_close(result["centerBGRA"], [16, 32, 64, 128])
@@ -5988,6 +6119,15 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "pulseMultiplePassesMasked",
                 "pulseWrongDefinitionMasked",
                 "pulseStaticSourceConsumer",
+                "waterWavesNonStockDefinition",
+                "waterWavesTimeOffset",
+                "waterWavesPerspective",
+                "waterWavesDualWaves",
+                "waterWavesUnknownCombo",
+                "waterWavesMultiplePassesMasked",
+                "waterWavesWrongPassMasked",
+                "waterWavesStaticSourceConsumer",
+                "waterWavesWithOpacity",
                 "mask-foliageSway",
                 "mask-waterRipple",
                 "mask-shake",

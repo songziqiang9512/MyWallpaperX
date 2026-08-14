@@ -64,10 +64,19 @@ nonisolated struct SceneDependencyRenderPlan {
             layers: descriptor.layers,
             references: references
         )
+        let xRayExemptConsumerLayerIDs = Set(visibleLayerIDs.compactMap { layerID -> Int? in
+            guard let layer = layersByID[layerID],
+                  Self.xRayEffectLocalProviderContract(for: layer) != nil else {
+                return nil
+            }
+            return layerID
+        })
         var passthroughBlockedLayerIDs: Set<Int> = []
         for consumerLayerID in visibleLayerIDs {
             for providerLayerID in dependencyEdges[consumerLayerID] ?? [] {
-                passthroughBlockedLayerIDs.insert(consumerLayerID)
+                if !xRayExemptConsumerLayerIDs.contains(consumerLayerID) {
+                    passthroughBlockedLayerIDs.insert(consumerLayerID)
+                }
                 if layersByID[providerLayerID] != nil {
                     passthroughBlockedLayerIDs.insert(providerLayerID)
                 }
@@ -167,6 +176,78 @@ nonisolated struct SceneDependencyRenderPlan {
         }
         return edges
     }
+
+    /// Typed consumer-side passthrough exemption: the only cross-layer input of a
+    /// visible image layer is the exact stock X-Ray effect's slot-1 blend texture
+    /// referencing one authored dependency's primary composite. The stock
+    /// `xray.frag` keeps `gl_FragColor.a` equal to the consumer's own composite
+    /// alpha and only blends the provider RGB inside the pointer halo, so the
+    /// provider input is effect-local to the skipped effect and cannot change the
+    /// consumer's own source coverage. The provider side stays blocked.
+    private nonisolated static func xRayEffectLocalProviderContract(
+        for layer: SceneRenderDescriptor.Layer
+    ) -> Reference? {
+        guard layer.contentKind == "image",
+              layer.visible != false,
+              layer.dependencyLayerIDs.count == 1,
+              let providerLayerID = layer.dependencyLayerIDs.first,
+              providerLayerID != layer.id else {
+            return nil
+        }
+        let visibleEffects = layer.effects.filter { $0.visible != false }
+        let xRayEffects = visibleEffects.filter {
+            normalized($0.file) == stockXRayEffectPath
+        }
+        guard xRayEffects.count == 1,
+              let effect = xRayEffects.first,
+              effect.passes.count == 1,
+              let pass = effect.passes.first,
+              pass.passIndex == 0,
+              pass.userTextureInputs.isEmpty,
+              normalizedXRayCombos(pass.combos) != nil,
+              pass.textureSlots.count == 3,
+              pass.textureSlots[0] == nil,
+              let blendPath = pass.textureSlots[1],
+              let blendReference = SceneNamedTextureReference.parse(blendPath),
+              blendReference.variant == .primary,
+              blendReference.providerLayerID == providerLayerID,
+              pass.textureSlots[2].flatMap(SceneNamedTextureReference.parse) == nil,
+              pass.texturePaths.map(normalized)
+                == pass.textureSlots.compactMap({ $0 }).map(normalized) else {
+            return nil
+        }
+        let layerReferences = references(in: [layer])
+        guard layerReferences.count == 1,
+              let onlyReference = layerReferences.first,
+              onlyReference.consumerLayerID == layer.id,
+              onlyReference.providerLayerID == providerLayerID,
+              onlyReference.slot.effectID == effect.id,
+              onlyReference.slot.passIndex == 0,
+              onlyReference.slot.slotIndex == 1,
+              onlyReference.variant == .primary else {
+            return nil
+        }
+        return onlyReference
+    }
+
+    private nonisolated static func normalizedXRayCombos(
+        _ authored: [String: Int]
+    ) -> [String: Int]? {
+        var result: [String: Int] = [:]
+        let allowed = Set(["BLENDMODE", "OPACITYMASK"])
+        for (key, value) in authored {
+            let normalizedKey = key.uppercased()
+            guard allowed.contains(normalizedKey),
+                  result[normalizedKey] == nil,
+                  value == 0 else {
+                return nil
+            }
+            result[normalizedKey] = value
+        }
+        return result
+    }
+
+    private nonisolated static let stockXRayEffectPath = "effects/xray/effect.json"
 
     private nonisolated static func cyclicLayerIDs(
         edges: [Int: Set<Int>]

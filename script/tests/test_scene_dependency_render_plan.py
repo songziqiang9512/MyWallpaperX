@@ -251,6 +251,44 @@ enum Harness {
             ),
             visibleLayerIDs: [100, 101, 110, 120, 130, 140, 141]
         )
+        let xRayProviderLayer = layer(200)
+        let xRayLayers: [SceneRenderDescriptor.Layer] = [
+            xRayProviderLayer,
+            xRayConsumer(201, provider: 200),
+            xRayConsumer(202, provider: 200, dependencies: [200, 7]),
+            xRayConsumer(203, provider: 200, combos: ["OPACITYMASK": 1]),
+            xRayConsumer(204, provider: 200, combos: ["BLENDMODE": 5]),
+            xRayConsumer(
+                205,
+                provider: 200,
+                file: "effects/workshop/9/xray/effect.json"
+            ),
+            xRayConsumer(
+                206,
+                provider: 200,
+                slots: [
+                    nil,
+                    "_rt_imageLayerComposite_200_a",
+                    "_rt_imageLayerComposite_200_b",
+                ]
+            ),
+            xRayConsumer(
+                207,
+                provider: 200,
+                slots: [nil, "_rt_imageLayerComposite_999_a", "particle/halo_6"]
+            ),
+            xRayConsumer(208, provider: 200, extraEffect: true),
+            xRayConsumer(209, provider: 200, passCount: 2),
+            xRayConsumer(211, provider: 200),
+            consumer(212, provider: 211),
+        ]
+        let xRayPlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: xRayLayers,
+                renderOrderLayerIDs: xRayLayers.map(\.id)
+            ),
+            visibleLayerIDs: Set(xRayLayers.map(\.id))
+        )
         let parsed = [
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42")?.variant.rawValue ?? "nil",
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42_a")?.variant.rawValue ?? "nil",
@@ -281,6 +319,20 @@ enum Harness {
                 "explicitProvider": dependencySafetyPlan.blocksStaticLayerSourcePassthrough(for: 140),
                 "explicitConsumer": dependencySafetyPlan.blocksStaticLayerSourcePassthrough(for: 141),
                 "requiredProvidersEmpty": dependencySafetyPlan.requiredProviderLayerIDs.isEmpty,
+            ],
+            "staticPassthroughXRayBlocks": [
+                "exemptConsumer": xRayPlan.blocksStaticLayerSourcePassthrough(for: 201),
+                "xRayProvider": xRayPlan.blocksStaticLayerSourcePassthrough(for: 200),
+                "extraDependency": xRayPlan.blocksStaticLayerSourcePassthrough(for: 202),
+                "opacityMaskCombo": xRayPlan.blocksStaticLayerSourcePassthrough(for: 203),
+                "blendModeCombo": xRayPlan.blocksStaticLayerSourcePassthrough(for: 204),
+                "nonStockDefinition": xRayPlan.blocksStaticLayerSourcePassthrough(for: 205),
+                "secondNamedSlot": xRayPlan.blocksStaticLayerSourcePassthrough(for: 206),
+                "mismatchedProvider": xRayPlan.blocksStaticLayerSourcePassthrough(for: 207),
+                "secondNamedReference": xRayPlan.blocksStaticLayerSourcePassthrough(for: 208),
+                "multiplePasses": xRayPlan.blocksStaticLayerSourcePassthrough(for: 209),
+                "exemptThenProvider": xRayPlan.blocksStaticLayerSourcePassthrough(for: 211),
+                "upperConsumer": xRayPlan.blocksStaticLayerSourcePassthrough(for: 212),
             ],
             "legacyNoiseBinding": [
                 "consumer": legacyNoiseBinding?.consumerLayerID ?? -1,
@@ -349,6 +401,88 @@ enum Harness {
             dependencyLayerIDs: dependencies ?? [provider],
             childLayerIDs: [],
             visible: visible,
+            effects: effects
+        )
+    }
+
+    static func xRayEffect(
+        id: String,
+        provider: Int,
+        combos: [String: Int] = [:],
+        slots: [String?]? = nil,
+        file: String = "effects/xray/effect.json",
+        passCount: Int = 1
+    ) -> SceneRenderDescriptor.EffectDescriptor {
+        let authoredSlots = slots
+            ?? [nil, "_rt_imageLayerComposite_\(provider)_a", "particle/halo_6"]
+        let authoredPaths = authoredSlots.compactMap { $0 }
+        let template = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            passIndex: 0,
+            texturePaths: authoredPaths,
+            textureSlots: authoredSlots,
+            userTextureInputs: [],
+            combos: combos,
+            constantShaderValues: [:]
+        )
+        return .init(
+            id: id,
+            file: file,
+            visible: true,
+            passes: (0 ..< passCount).map { index in
+                .init(
+                    passIndex: index,
+                    texturePaths: template.texturePaths,
+                    textureSlots: template.textureSlots,
+                    userTextureInputs: template.userTextureInputs,
+                    combos: template.combos,
+                    constantShaderValues: template.constantShaderValues
+                )
+            }
+        )
+    }
+
+    static func xRayConsumer(
+        _ id: Int,
+        provider: Int,
+        dependencies: [Int]? = nil,
+        combos: [String: Int] = [:],
+        slots: [String?]? = nil,
+        file: String = "effects/xray/effect.json",
+        passCount: Int = 1,
+        extraEffect: Bool = false
+    ) -> SceneRenderDescriptor.Layer {
+        var effects = [
+            xRayEffect(
+                id: "xray-\(id)",
+                provider: provider,
+                combos: combos,
+                slots: slots,
+                file: file,
+                passCount: passCount
+            ),
+        ]
+        if extraEffect {
+            effects.append(.init(
+                id: "extra-\(id)",
+                file: "effects/blend/effect.json",
+                visible: true,
+                passes: [.init(
+                    passIndex: 0,
+                    texturePaths: ["_rt_imageLayerComposite_\(provider)_a"],
+                    textureSlots: [nil, "_rt_imageLayerComposite_\(provider)_a"],
+                    userTextureInputs: [],
+                    combos: [:],
+                    constantShaderValues: [:]
+                )]
+            ))
+        }
+        return .init(
+            id: id,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: dependencies ?? [provider],
+            childLayerIDs: [],
+            visible: true,
             effects: effects
         )
     }
@@ -586,6 +720,27 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "explicitProvider": True,
                 "explicitConsumer": True,
                 "requiredProvidersEmpty": True,
+            },
+        )
+
+    def test_xray_consumer_passthrough_exemption_is_typed_and_provider_sided(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["staticPassthroughXRayBlocks"],
+            {
+                "exemptConsumer": False,
+                "xRayProvider": True,
+                "extraDependency": True,
+                "opacityMaskCombo": True,
+                "blendModeCombo": True,
+                "nonStockDefinition": True,
+                "secondNamedSlot": True,
+                "mismatchedProvider": True,
+                "secondNamedReference": True,
+                "multiplePasses": True,
+                "exemptThenProvider": True,
+                "upperConsumer": True,
             },
         )
 

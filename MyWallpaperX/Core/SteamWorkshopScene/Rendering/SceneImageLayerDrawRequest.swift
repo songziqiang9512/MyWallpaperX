@@ -86,15 +86,26 @@ struct SceneImageLayerMasks {
                 !Self.pulsePreservesSourceCoverage($0)
             } ?? true
         }
+        let hasCoverageMutatingWaterWaves = visibleEffects.contains { effect in
+            Self.normalized(effect.file) == "effects/waterwaves/effect.json"
+                && !Self.waterWavesPreservesSourceCoverage(effect)
+        }
+        let hasUnprovenWaterWavesResource = effectIDs.contains { id in
+            guard waterWavesEffects[id]?.mask != nil else { return false }
+            return visibleEffects.first(where: { $0.id == id }).map {
+                !Self.waterWavesPreservesSourceCoverage($0)
+            } ?? true
+        }
         return hasValue(opacityEffects) { _ in true }
             || hasValue(tintEffects) { $0.mask != nil }
             || hasCoverageMutatingPulse
             || hasUnprovenPulseResource
+            || hasCoverageMutatingWaterWaves
+            || hasUnprovenWaterWavesResource
             || hasValue(foliageSwayEffects) { $0.maskBinding != nil }
             || hasValue(shakeEffects) { $0.maskBinding != nil }
             || hasValue(waterRippleEffects) { $0.maskBinding != nil }
             || hasValue(standardBlurEffects) { $0.maskCandidate != nil }
-            || hasValue(waterWavesEffects) { $0.mask != nil }
             || hasValue(waterCausticsEffects) { $0.mask != nil }
             || hasValue(cursorRippleEffects) { $0.mask != nil }
             || hasValue(godraysEffects) { $0.mask != nil }
@@ -128,6 +139,45 @@ struct SceneImageLayerMasks {
             return false
         }
         return true
+    }
+
+    private static func waterWavesPreservesSourceCoverage(
+        _ effect: SceneRenderDescriptor.EffectDescriptor
+    ) -> Bool {
+        // Stock Water Waves only displaces the source resample. Its optional
+        // slot-1 mask scales that displacement, never the output alpha, so the
+        // skipped effect cannot remove source coverage.
+        guard normalized(effect.file) == "effects/waterwaves/effect.json",
+              effect.passes.count == 1,
+              let pass = effect.passes.first,
+              pass.passIndex == 0,
+              pass.userTextureInputs.isEmpty,
+              (1 ... 2).contains(pass.textureSlots.count),
+              pass.textureSlots[0] == nil,
+              pass.textureSlots.count == 1 || pass.textureSlots[1] != nil,
+              pass.texturePaths.map(Self.normalized)
+                == pass.textureSlots.compactMap({ $0 }).map(Self.normalized),
+              normalizedWaterWavesCombos(pass.combos) != nil else {
+            return false
+        }
+        return true
+    }
+
+    private static func normalizedWaterWavesCombos(
+        _ authored: [String: Int]
+    ) -> [String: Int]? {
+        var result: [String: Int] = [:]
+        let allowed = Set(["TIMEOFFSET", "PERSPECTIVE", "DUALWAVES"])
+        for (key, value) in authored {
+            let normalizedKey = key.uppercased()
+            guard allowed.contains(normalizedKey),
+                  result[normalizedKey] == nil,
+                  value == 0 else {
+                return nil
+            }
+            result[normalizedKey] = value
+        }
+        return result
     }
 
     private static func normalizedPulseCombos(

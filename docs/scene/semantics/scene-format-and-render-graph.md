@@ -364,7 +364,7 @@ apply scene post processing
 present or read back
 ```
 
-当整条effect route精确为`.unclaimed`时，当前产品还有一条与上述effect graph transaction分离的source-stage故障隔离路径。它只在不存在已授权/可执行typed dependency、source-copy、frame target或final-alpha，style中性，exact static-file或current-media publication atom完整，且有限authored quad与viewport有正面积交集时，才把原始source按作者几何直接交给普通final layer compositor。coverage/opacity资源默认阻断；exact stock Pulse单pass在`PULSEALPHA=0`时是唯一已证例外，其可选mask只属于被跳过effect的局部输入，不改变source coverage。`PULSEALPHA=1`有无loaded mask、非法pass/path/combo及任一typed Opacity entry仍阻断。visible authored dependency edge还会同时阻断static-file provider与consumer，hidden/self不阻断；current-media保留先前独立审查的authority。该路径不执行effect、不发布`effectOutput`、不消费authored dependency，也不把任何已执行前缀当作可恢复输出；记录`degraded-layer-source-passthrough`并强制benchmark为NON-PASS。因此strict chain的整链原子失败合同没有改变；`2241938645:68`只是基础source正向sentinel，`1636394814:24/195`继续作为X-Ray跨层负向sentinel。
+当整条effect route精确为`.unclaimed`时，当前产品还有一条与上述effect graph transaction分离的source-stage故障隔离路径。它只在不存在已授权/可执行typed dependency、source-copy、frame target或final-alpha，style中性，exact static-file或current-media publication atom完整，且有限authored quad与viewport有正面积交集时，才把原始source按作者几何直接交给普通final layer compositor。coverage/opacity资源默认阻断；已证例外是exact stock Pulse单pass在`PULSEALPHA=0`时、以及exact stock Water Waves单pass在`TIMEOFFSET/PERSPECTIVE/DUALWAVES`缺省/0时，其可选mask只属于被跳过effect的局部输入，不改变source coverage（Pulse alpha分支关闭；Water Waves slot-1 mask只缩放位移）。`PULSEALPHA=1`有无loaded mask、非法pass/path/combo及任一typed Opacity entry仍阻断。visible authored dependency edge还会同时阻断static-file provider与consumer，hidden/self不阻断；唯一consumer端豁免是exact stock X-Ray单pass的slot-1 provider composite输入（stock `xray.frag`保持consumer自身composite alpha），provider端仍一律阻断；current-media保留先前独立审查的authority。该路径不执行effect、不发布`effectOutput`、不消费authored dependency，也不把任何已执行前缀当作可恢复输出；记录`degraded-layer-source-passthrough`并强制benchmark为NON-PASS。因此strict chain的整链原子失败合同没有改变；`2241938645:68`只是基础source正向sentinel，`1636394814:195`只证明X-Ray consumer自身基础source可见，`1636394814:24`继续作为X-Ray跨层provider负向sentinel。
 
 HDR、video HDR 和 display-output 等最终路径应拥有 typed output-mode/transfer identity，不能隐含为一个统一 framebuffer conversion。
 
@@ -402,7 +402,7 @@ HDR、video HDR 和 display-output 等最终路径应拥有 typed output-mode/tr
 5. raw `unique` 只控制实例身份；history 由数据流判定并在 resize/switch/stop 后清零；
 6. optional texture 缺失时 combo 关闭，资源出现后选择正确 shader variant；
 7. 未声明/默认关闭 effect 不创建 pipeline 或 RT；
-8. strict chain 遇到 unsupported stage 时整链保持可诊断失败关闭，不合成任何前段结果；当前source-stage降级只输出精确source并保持NON-PASS，不发布effect或partial-prefix成功；exact Pulse的`PULSEALPHA=0`局部mask正门、`PULSEALPHA=1`/Opacity负门，以及visible跨层static provider+consumer双端阻断必须同时保留；通用 graph 后续若采用 passthrough，也不得改变后续 effect 顺序；
+8. strict chain 遇到 unsupported stage 时整链保持可诊断失败关闭，不合成任何前段结果；当前source-stage降级只输出精确source并保持NON-PASS，不发布effect或partial-prefix成功；exact Pulse的`PULSEALPHA=0`局部mask正门、`PULSEALPHA=1`/Opacity负门、exact stock Water Waves位移mask正门、exact stock X-Ray consumer端provider-input豁免及其provider端阻断，以及visible跨层static provider+consumer双端阻断必须同时保留；通用 graph 后续若采用 passthrough，也不得改变后续 effect 顺序；
 9. 同一输入、时间、随机种子下，实时捕获和离线 readback 结果一致。
 10. Shader source/raw hash/canonical identity 稳定；路径逃逸、无效 UTF-8、缺 stage和重复identity明确失败；畸形annotation保留raw/diagnostic，只有声明外comment-only `[COMBO]`能逐条证明其词法无条件合法counterpart同名且除坏`options`外顶层字段相同时才跳过，附着声明、conditional/conflicting/missing counterpart、其他fatal diagnostic与schema缺口仍失败；source contract不得被误报为compiled/executed。
 11. 多 effect chain 保持作者顺序、固定 effect 内 `previous`、effect 间 final output 推进、一次 layer alpha/mask/UV，以及整链 allocation/LRU/最终合成原子性。
