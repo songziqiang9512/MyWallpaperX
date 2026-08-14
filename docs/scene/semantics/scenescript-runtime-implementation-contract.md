@@ -35,13 +35,14 @@
 
 ### 2.1 与当前项目状态的关系
 
-本文把结构化随包文件和 Ghidra 证据提炼为**待实现合同**，不维护 MyWallpaperX 的能力等级。2026-07-31 的相关状态只作导航：
+本文把结构化随包文件和 Ghidra 证据提炼为**待实现合同**，不维护 MyWallpaperX 的能力等级。以下当前状态只作导航，准确等级仍以现役覆盖表与运行证据索引为准：
 
 | 能力面 | 当前边界 | 当前状态入口 |
 |---|---|---|
-| 通用 ECMAScript VM、module、owner/handle、event 与 timer | 未实现，保持 `L0`；property-bound text 只有项目自有、无循环 `update(value)` Date/string AST 子集，不是 VM | [SceneScript API 覆盖表](scenescript-api-coverage.md) |
-| 文档级 inline property wrapper | 正式取证五类位置可保真保存 scene/object/effect/pass owner、完整 target path、source/properties/authored fallback/JSON value type，局部 `L1`；nested/未知 owner 不提升，`script + user` 冲突 fail-closed | [SceneScript API 覆盖表 §2](scenescript-api-coverage.md#2-property-bound-核心合同) |
-| bounded text/audio execution | Text现役只保留按语法准入的无循环Date/string update AST，七个fixed native Text profile已于R4-B18退役；两个exact native Audio Bars profile又于R4-B21退役。现役没有fixed SceneScript audio执行，普通/Workshop Effect Audio Bars仍是独立effect consumer；bounded Text AST不执行通用JavaScript、不开放host API | [运行证据索引](runtime-evidence-index.md) |
+| 通用 ECMAScript VM、module、owner/handle、event 与 timer | 未实现，保持 `L0`；现役只有若干彼此独立的项目自有bounded typed projection，不创建VM、module、script instance、handle或通用event runtime | [SceneScript API 覆盖表](scenescript-api-coverage.md) |
+| 文档级 inline property wrapper | 正式取证五类位置可保真保存scene/object/effect/pass owner、完整target path、source/properties/authored fallback/JSON value type及可选`wrapperKeys`，局部`L1`；独立source evidence遍历所有string-valued inline script，但nested/未知owner只取得provenance/conflict rejection权，`script + user`冲突fail-closed | [SceneScript API 覆盖表 §2](scenescript-api-coverage.md#2-property-bound-核心合同) |
+| bounded typed execution | 现役分别有Text Date/string、time-of-day Blend、media placeholder fade与launch-origin startup typed producer；它们都不执行通用JavaScript。七个fixed native Text profile与两个exact native Audio Bars profile已于R4-B18/B21退役，普通/Workshop Effect Audio Bars仍是独立effect consumer | [运行证据索引](runtime-evidence-index.md) |
+| bounded launch-origin startup projection | 只对完整`shared=false` initializer + 1 master + followers `object.origin` cohort建立typed producer；每host frame在surface loop外推进一次，target collision与额外source writer失败关闭 | [E-BOUNDED-LAUNCH-ORIGIN-TRANSITION](runtime-evidence-index.md#e-bounded-launch-origin-transition) |
 | Timeline | 已有部分 target/evaluator 的 `L2-L3`，不能由此推导 SceneScript runtime | [覆盖台账 §6.1](coverage-ledger.md#61-timeline-与-scenescript) |
 
 后续实现时先从 API 覆盖表选择一个仍为 `L0/L1` 的能力，再使用本文相应合同建立自有 fixture；完成代码、测试和隔离运行证据后，才在覆盖表和运行证据索引升级状态。
@@ -237,7 +238,7 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 
 **对 MyWallpaperX 的作用**：这是当前随包证据中确认的 SceneScript 自定义属性声明通路。若要兼容使用该 builder 的脚本，需要支持双键命名，并保留 `_config.order`；是否还存在 native/editor 私有入口不由本文件证明。
 
-同一注入段还把全局 `shared` 初始化为空对象。它确认初始 identity，但不确认多脚本、跨 layer、跨 surface 或壁纸切换时的共享/销毁范围；这些生命周期仍需运行门。
+同一注入段还把全局 `shared` 初始化为空对象。它确认初始 identity，但不确认多脚本、跨 layer、跨 surface 或壁纸切换时的共享/销毁范围；这些生命周期仍需运行门。当前launch-origin能力只静态证明作者`shared=false` initializer及master/follower cohort，再编译为项目typed scene/host state；它不是这里所述mutable JavaScript `shared` object的实现。
 
 ## 7. 官方模块实现级语义（`JM`）
 

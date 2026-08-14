@@ -132,7 +132,7 @@
 
 ## 8. 对 MyWallpaperX 的规格与验收门
 
-`ScriptSource IR` 的五个字段可按本文建立候选合同：
+本文直接证明`ScriptSource IR`的五个官方静态输入字段；MyWallpaperX为精确wrapper shape admission另保留第六个实现字段`wrapperKeys`：
 
 | IR 字段 | 取值来源 |
 |---|---|
@@ -141,6 +141,9 @@
 | `target` | wrapper 所在的属性 key 及其完整 JSON 路径 |
 | `authoredValue` | wrapper 的 `value` |
 | `valueType` | 先保留 `value` 的 JSON 类型；字符串是否为向量还需结合 target/property schema，不能只凭空格模式猜测 |
+| `wrapperKeys` | 承载`script`的wrapper全部直接key排序后保留，用于精确shape admission；它是项目实现字段，不改变本页官方13处静态取证计数。旧cache缺字段时只允许兼容解码，不得凭缺失字段取得新的执行权 |
+
+另有独立`SceneScriptSourceEvidenceIR`遍历所有string-valued inline `script`，保存原始source、最近owner、完整target path与排序后的wrapper keys。它只提供provenance/conflict rejection，不等于可执行binding；nested/未知wrapper被记录是为了不漏掉writer或冲突，不因此获得target authorization。
 
 建议验收门：
 
@@ -149,10 +152,11 @@
 | wrapper 判定 | 分别识别 `script`、`user` 与裸字面量；两种绑定可在同一 `constantshadervalues` 内共存，但单个 wrapper 同时含两者时 fail closed |
 | 五类 target | 5 类路径均能正确定位 owner 与属性 key，`general` 级不可误挂到 object |
 | authoredValue | `"1 0 0"` 与 `"1.00000 0.00000 0.00000"` 解析为同一 Vec3；float32 往返精度 |
+| source evidence不越权 | nested/未知路径无损进入source evidence；同一bounded cohort若出现额外writer、owner/path/wrapper不一致则整cohort拒绝，source evidence本身不得生成runtime binding |
 | 调度 | 未导出 `update` 的实例不进入每帧队列；`applyUserProperties` 的具体初次/批次触发次数由 Windows 运行门锁定 |
 | 回退 | 脚本缺失、解析失败或求值异常时回退到 `authoredValue`，不使属性变为未定义 |
 
-注意本文只确定 target 的**静态形态**，不证明求值语义。脚本实际执行结果仍需 VM 实现后按 [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) 的行为表验证。
+注意本文只确定 target 的**静态形态**，不证明generic求值语义。通用脚本实际执行仍需VM按[SceneScript运行时实现层合同](scenescript-runtime-implementation-contract.md)验证；项目自有bounded typed projection必须另以完整shape、冲突拒绝、runtime接线与隔离证据逐项准入，当前launch-origin子集见[E-BOUNDED-LAUNCH-ORIGIN-TRANSITION](runtime-evidence-index.md#e-bounded-launch-origin-transition)。
 
 ## 9. 关联文档
 

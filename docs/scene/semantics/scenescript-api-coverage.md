@@ -1,6 +1,6 @@
 # SceneScript API 覆盖表（官方声明 v2.8）
 
-> 核验日期：2026-08-12
+> 核验日期：2026-08-14
 >
 > 官方基线：`lib.sceneScript.d.ts` **VERSION 2.8**，固定文档 revision `b26412295cbfd0ee5cdceff67e2c95069527aa1b`。
 >
@@ -10,7 +10,7 @@
 
 ## 1. 当前结论与评级口径
 
-通用 SceneScript 当前仍是 **L0 runtime**。项目没有 ECMAScript VM、通用 file/module loader、host object bridge、事件队列或 timer scheduler。文档级 property binding IR 现在可把 inline `source`、scene/object/effect/pass owner、完整 JSON target path、`scriptproperties`、authored fallback 与 JSON value type 保真，覆盖正式取证的五类位置，达到局部 `L1`；nested/未知 owner不会被错误提升，同wrapper的`script + user`冲突会诊断并拒绝。作者顶层`visible/alpha`的script ownership另在property resolution前保真；没有可执行runtime时，这些display-owned层及其descendants带`unproven-inline-scenescript`诊断失败关闭，普通bool/value wrapper与非display script不受影响。该行为只避免把fallback值误当静态显示授权，不执行脚本。既有layer顶层binding仍送入descriptor/cache，旧cache缺少新字段仍可解码；file/module、schema-resolved Vec/value type、runtime handle与通用生命周期仍未建立。
+通用 SceneScript 当前仍是 **L0 runtime**。项目没有 ECMAScript VM、通用 file/module loader、host object bridge、事件队列或 timer scheduler。文档级 property binding IR 现在可把 inline `source`、scene/object/effect/pass owner、完整 JSON target path、`scriptproperties`、authored fallback、JSON value type与排序后的可选`wrapperKeys`保真，覆盖正式取证的五类位置，达到局部 `L1`；旧cache缺`wrapperKeys`仍可解码。独立`SceneScriptSourceEvidenceIR`遍历所有string-valued inline `script`，保留最近owner、完整target path与wrapper keys，只用于provenance/conflict rejection；nested/未知位置不会因此取得executable binding authority，同wrapper的`script + user`冲突会诊断并拒绝。作者顶层`visible/alpha`的script ownership另在property resolution前保真；没有可执行runtime时，这些display-owned层及其descendants带`unproven-inline-scenescript`诊断失败关闭，普通bool/value wrapper与非display script不受影响。该行为只避免把fallback值误当静态显示授权，不执行脚本；file/module、schema-resolved generic Vec/value type、runtime handle与通用生命周期仍未建立。
 
 `8740737`及后续扩展曾建立与VM分离的七个fixed native Text profile；这些source SHA、Workshop命名profile、property配置、greeting shared-state消费与native formatter已在R4-B18全部退役。对应真实样本、截图与格式器报告只说明B18前历史实现，不再证明现役产品owner、当前文字输出或视觉。source identity现在只用于unsupported diagnostic，不选择产品执行。
 
@@ -20,13 +20,15 @@
 
 现役另有一个 **L3 bounded media-playback placeholder fade subset**：不按sample、layer、路径或source hash准入，只接受完整pass-owned effect-constant binding identity与严格的停止态递增、播放/暂停态递减脚本结构。项目自有parser把该结构编译成typed scalar producer；scene级runtime每帧只推进一次，先应用同帧可选事件再用shared simulation delta更新，结果经`.sceneScript` snapshot进入既有Opacity Program、GraphExecutor与compositor。内部counter保留作者不对称guard，不擅自夹到`0...1`。当前产品没有live macOS媒体provider，启动始终使用作者初始stopped状态且事件数为0；这项能力不等于执行JavaScript、实现通用media event或支持系统播放器联动。
 
+`9072bf8f`再建立一个独立的 **L3 bounded launch-origin startup projection**。它不执行JavaScript，也不创建module、script instance或mutable `shared` object；只对完整wrapper、精确owner/path/authored-origin、scriptproperties shape、唯一`shared=false` initializer以及1 master + followers结构建立typed `object.origin` producer。全量source evidence发现其他writer、未知wrapper或不完整cohort时整项拒绝。runtime为scene/host scope，在scene activate时重置、teardown时清空，每host frame在surface loop外只推进一次，再向各surface transaction合并同一批`.sceneScript`值；普通surface rebuild不重启动画，direct property/Timeline target碰撞使整项launch producer失败关闭。
+
 `9a6a028` 曾以两个 **L3 bounded native audio profile** 按 raw source SHA-256 与完整 binding/property/layer/asset/shader/render-state 合同准入 `2241938645:282` 与 `3743305891:112` 的 64 段条形。B21已删除source/profile compiler、plan/verification、native geometry/renderer、host wiring与专用report；这些fixed SceneScript Audio Bars不再取得产品执行权。旧定向报告只说明B21前的准入与64-draw历史，不能证明现役owner、当前输出或视觉。
 
 `d5bff76e` 与 `9c70cf06` 曾建立 delayed-loop/time-of-day 两个 **L3 bounded native texture-animation profile**；它们的source SHA、compiler、playback plan、专用clock与wall-date sprite plumbing已在R4-B19全部退役。对应定向报告只说明B19前实现，不再证明现役profile owner、当前时序或视觉。`SceneTextureAnimationScriptDefinition`仍保真wrapper/source/properties/user/authored value，但所有TextureAnimation SceneScript均不执行；普通TEX atlas和cross-image multi-image继续按scene time与作者frame duration原生autoplay。
 
 Scene host 已有 16/32/64 档 left/right 频谱 snapshot，并由 stock effect及普通/Workshop Effect Audio Bars的现役Program/typed consumer按需驱动采集；这仍只是renderer输入/有界effect consumer。B21后没有任何SceneScript Audio Bars产品consumer，也没有VM、`engine.registerAudioBuffers` bridge、`AudioBuffers`/Float32Array object identity或脚本订阅，因此下表相关官方API全部保持`L0`。
 
-`2938612768:79/165/454` 与 `2974757317:454/2130` 当前命中上述公共placeholder-fade结构并完成Program/GPU/compositor；同两样本的反向fade `626/629/924/2094`、metadata/angle/shared-state及其他媒体脚本仍拒绝。`2902406982:[365,372,647,664]` 的direct binding是另一条独立正门。`3768229922`中的display scripts `397/202/354`当前只取得provenance与失败关闭：397的hidden controller/update、202的cursorClick/shared toggle与alpha闪烁、354的开场fade/destroy均未执行，人物头部点击仍不能开关16层文字/红框遮罩。粗粒度总表中的“Script presence L1”只表示发现能力；failure-isolation与Pulse运行证据见 [E-AUTHORED-STRAIGHT-RGB-SCALAR-ALPHA](runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha)，bounded fade证据见 [E-MEDIA-PLAYBACK-PLACEHOLDER-FADE](runtime-evidence-index.md#e-media-playback-placeholder-fade)，bounded Text AST与已退役fixed profile的历史边界见 [E-TEXT-SCRIPT](runtime-evidence-index.md#e-text-script)。
+`2938612768:79/165/454` 与 `2974757317:454/2130` 当前命中上述公共placeholder-fade结构并完成Program/GPU/compositor；同两样本的反向fade `626/629/924/2094`、metadata/angle/shared-state及其他媒体脚本仍拒绝。`2974757317`的另一条独立launch-origin正门只覆盖initial-false启动/稳态的1 cohort / exact 13 layer `[187,449,454,568,626,1060,1200,1411,1424,1481,2011,2094,2130]`；inverse4 `[1018,1072,1083,1716]`不在本声明内，产品报告`interaction=unavailable`。`2902406982:[365,372,647,664]` 的direct binding是另一条独立正门。`3768229922`中的display scripts `397/202/354`当前只取得provenance与失败关闭：397的hidden controller/update、202的cursorClick/shared toggle与alpha闪烁、354的开场fade/destroy均未执行，人物头部点击仍不能开关16层文字/红框遮罩。粗粒度总表中的“Script presence L1”只表示发现能力；launch-origin证据见 [E-BOUNDED-LAUNCH-ORIGIN-TRANSITION](runtime-evidence-index.md#e-bounded-launch-origin-transition)，failure-isolation与Pulse运行证据见 [E-AUTHORED-STRAIGHT-RGB-SCALAR-ALPHA](runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha)，bounded fade证据见 [E-MEDIA-PLAYBACK-PLACEHOLDER-FADE](runtime-evidence-index.md#e-media-playback-placeholder-fade)，bounded Text AST与已退役fixed profile的历史边界见 [E-TEXT-SCRIPT](runtime-evidence-index.md#e-text-script)。
 
 等级沿用总覆盖台账：
 
@@ -156,10 +158,10 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 
 | API/合同 | 官方含义 | 等级 | 当前代码/测试证据 | 缺口与升级验收门 |
 |---|---|---:|---|---|
-| property-bound 实例 | 每份脚本绑定一个具体 property；通用逻辑通常绑定 layer visibility | `L1` | `I` 保真正式 13 处对应的五类 scene/object/effect/pass owner、完整 target path、inline source/properties/authored fallback/JSON value type；nested/未知 owner 不提升，`script + user` 冲突 fail-closed；未执行脚本 | 补 file/module、schema-resolved Vec/value type、runtime handle；重复/缺失 target 与 owner teardown 门 |
-| `init(value)` / `update(value)` 的 typed value | 入参是绑定 property 当前值；返回兼容值写回；无返回则保持原值 | text String / Blend、Opacity scalar 为 `L3 bounded`；generic `L0` | `D/F` 对唯一 exported text `update(value)` 的无循环 AST 写回 String；独立Blend子集只把exact time-of-day expression写回`multiply`；placeholder-fade子集只把严格media playback/update结构写回Opacity `alpha`。三者都无sample/layer/hash准入 | `init`、bool/Vec2/3/4、其他number target、无返回/错类型诊断、block scope/coercion/exception、通用owner生命周期 |
+| property-bound 实例 | 每份脚本绑定一个具体 property；通用逻辑通常绑定 layer visibility | `L1` | `I` 保真官方正式13处对应的五类 scene/object/effect/pass owner、完整target path、inline source/properties/authored fallback/JSON value type及可选`wrapperKeys`；独立source evidence又保真所有string-valued script wrapper，但nested/未知owner只提供拒绝证据，不提升为binding，`script + user`冲突fail-closed；IR/source evidence本身不执行脚本 | 补 file/module、schema-resolved generic Vec/value type、runtime handle；重复/缺失 target 与 owner teardown 门。官方13处与297 launch exact13是两项不同计数 |
+| `init(value)` / `update(value)` 的 typed value | 入参是绑定 property 当前值；返回兼容值写回；无返回则保持原值 | text String / Blend、Opacity scalar / launch-origin Vec3 为 `L3 bounded`；generic `L0` | `D/F` 对唯一 exported text `update(value)` 的无循环 AST 写回 String；独立Blend子集只把exact time-of-day expression写回`multiply`；placeholder-fade子集只把严格media playback/update结构写回Opacity `alpha`；launch-origin只把完整initializer/master/follower结构投影成typed `object.origin`值。四者都无sample/layer/hash dispatch，且都不创建JS instance | generic `init`、bool/Vec2/Vec4、其他number/Vec3 target、无返回/错类型诊断、block scope/coercion/exception、通用owner生命周期 |
 | 直接赋值其他 property | 脚本可通过 `thisLayer`/其他 handle 同时修改多个 property | `L0` | `D` 只有 Swift target，没有 JS handle setter | 同帧 mutation buffer；确定冲突顺序、失效 handle 和只读字段；原子提交到 snapshot |
-| source/module loader | 加载 inline 或 `.js` 源码及其 export/import | `L0` | `I` 只保存顶层 wrapper 的 inline source；没有 file/module loader 或 executable module graph | 规范化路径、UTF-8/大小限制、模块依赖图、循环/缺失/越界负向门 |
+| source/module loader | 加载 inline 或 `.js` 源码及其 export/import | `L0` | `I` binding IR保存已准入wrapper的inline source，独立source evidence遍历保存所有string-valued inline `script`；两者都不构成file/module loader或executable module graph | 规范化路径、UTF-8/大小限制、模块依赖图、循环/缺失/越界负向门 |
 | ECMAScript VM | 受控 ECMAScript 环境，无 DOM/Web/Node/shell/任意文件系统 | `L0` | `N` | 选定 VM；严格 global allowlist；网络/文件/进程逃逸测试 |
 | budget/error boundary | 每实例/每帧时间、指令、内存和 timer 有界；脚本错误不终止 renderer | `L3 bounded` for text/Blend subsets; generic `L0` | text parser/evaluator 固定 2048 tokens、128 statements、512 steps；Blend parser/evaluator 固定 1024 tokens、128 nodes、256 steps。语法/类型/值/预算失败均不覆盖 fallback；grammar 无 loop/回调/任意调用。`G` 确认官方另有耗时累计、单事件禁用和连续 watchdog | 通用 VM 的 wall-time/memory/recursion/OOM/exception/log throttle/instance fuse；本地 budget 不冒充官方 watchdog parity |
 | instance ownership | 每屏/每 scene 的实例隔离；switch/stop 必须销毁 | `L0` | `F` 已有 per-surface transaction/snapshot，但没有任何脚本实例 | 双屏 frame/time 相同但 pointer/size/result/generation 隔离；pause/resume、switch、stop 后无 timer/handle/provider residue |
@@ -169,10 +171,10 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | 事件/API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
 |---|---|---:|---|---|
 | `init(value)` | owner 创建后调用一次，返回绑定 property 初值 | `L0` | `G` 确认新 script record 尾插、`init` 同步执行；项目仍无实例，`N` | 每实例恰好一次；typed return、异常降级、callback mutation 与 budget |
-| `update(value)` | 每个渲染帧调用；动画应乘 `engine.frametime` | `L3 bounded` for text/time-of-day/fade subsets; generic `L0` | text与time-of-day子集按各自bounded AST求值；placeholder fade按scene级typed state消费shared simulation delta并广播同一snapshot，不创建JS instance。`G`的官方live record语义仍未实现 | 通用实例/owner、raw/effective delta parity、callback mutation、任意frametime表达式与VM teardown |
+| `update(value)` | 每个渲染帧调用；动画应乘 `engine.frametime` | `L3 bounded` for text/time-of-day/fade/launch-origin subsets; generic `L0` | text与time-of-day子集按各自bounded AST求值；placeholder fade与launch-origin按scene/host typed state消费shared simulation delta，在surface loop外每host frame只推进一次并广播同帧snapshot，不创建JS instance。launch-origin只覆盖initial-false启动/稳态，`G`的官方live record语义仍未实现 | 通用实例/owner、raw/effective delta parity、callback mutation、inverse4、任意frametime表达式与VM teardown |
 | `destroy()` | owner 销毁前调用 | `L0` | `G` 确认 destroy 请求排队，普通 update 后 drain，并按 `destroy → engine record removal → host record release` 执行；destroy callback 新 owner 已错过本轮 update但可能进入本帧 render preparation；项目仍无实例，`N` | switch/stop/动态删 layer 均恰好一次；destroy 内创建/timer/跨 handle/异常重入与 stop 后 residue |
 | `resizeScreen(size)` | 分辨率变化时调用；首次创建不会自动调用 | `L0` | `N` | resize 正例和 startup 反例；每屏 size、去重和事件顺序 |
-| `applyUserProperties(changed)` | 首次加载调用，之后只含变化键；使用 `hasOwnProperty` | `L0` | 现有属性系统不派发脚本事件；`D/N` | generation queue；初次全量/后续 delta、批量改动、类型和顺序测试 |
+| `applyUserProperties(changed)` | 首次加载调用，之后只含变化键；使用 `hasOwnProperty` | launch-origin startup projection `L3 bounded`; generic event `L0` | launch-origin只把启动时已有scriptproperties/current property值投影进typed plan；不调用callback，也不建立首次全量/后续delta事件队列。其余属性系统不派发脚本事件；`D/N` | generation queue；真实初次全量/后续delta、批量改动、类型、顺序与callback mutation测试 |
 | `applyGeneralSettings(changed)` | 首次及 app general setting 改变时调用，v2.8 当前主要是 language | `L0` | `N` | typed settings snapshot；初次/增量、未知键和多屏一致性 |
 | `cursorEnter` / `cursorLeave` | 指针进入/离开对象边界 | `L0` | `G` 确认 candidate snapshot、solid-only native hit test、hidden-solid 仍可 hover；visible toggle 不清状态，destroy 静默失效；项目无 dispatch，`N` | world/local/puppet transform、候选顺序、边界抖动、parent/visible mutation 与成对事件门 |
 | `cursorMove` | 指针移动时传 `CursorEvent` | `L0` | `G` 确认命中 owner 可接收 move，hidden-solid 仍参与；项目无 dispatch，`N` | world/local 坐标、帧内合并、不同 owner 事件顺序和多按钮 |
@@ -237,8 +239,8 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | `engine.screenResolution` / `canvasSize` | 每屏物理分辨率与 2D canvas/full wallpaper 尺寸 | `L0` | frame context 有 viewport，但无 JS bridge | scale factor、跨屏 canvas、resize 顺序和 pixel/point 门 |
 | `engine.userProperties` | 当前用户属性对象 | `L0` | 属性系统不暴露 VM object | typed snapshot、key normalization、首次/增量一致性 |
 | `engine.timeOfDay` | 24 小时归一化到 `[0,1]` | generic API `L0`；Blend subset `L3 bounded` | `G` 确认每帧从本地系统时间采样，与累计 scene runtime 分离；项目 `F` 现把 exact property-bound update grammar 中的该标识编译成 typed Blend multiply，按本地民用日秒逐帧求值，并用可注入 wall clock/固定时区 fixture 与 213 清晨/正午真实门验证；没有 JS global/object | 时区/DST、跨午夜长稳、同帧 Date 一致性、其他 owner/target、事件顺序、通用 VM 与 Windows 数值/像素 parity；bounded consumer 不替代 generic API |
-| `engine.frametime` / `runtime` | 上帧秒数（重绘可为 0）和scene累计运行时间 | generic API `L0`; fade delta consumer `L3 bounded` | `G`确认两者与engine tick/timer共用admitted/scaled/clamped effective delta；项目不建JS global，strict fade evaluator把同一shared simulation delta广播给所有surface | raw/effective数值parity、任意表达式、0 delta、switch/seek、runtime getter与Windows同帧多屏golden |
-| `shared` | 同 scene 脚本共享的 global object | `L0` | `N` | 每 scene/屏隔离、初始化顺序、销毁和并发 mutation 规则 |
+| `engine.frametime` / `runtime` | 上帧秒数（重绘可为 0）和scene累计运行时间 | generic API `L0`; fade/origin delta consumers `L3 bounded` | `G`确认两者与engine tick/timer共用admitted/scaled/clamped effective delta；项目不建JS global，strict fade与launch-origin evaluator在surface loop外各推进一次，再把同一shared simulation delta所得值广播给所有surface | raw/effective数值parity、任意表达式、0 delta、switch/seek、inverse4、runtime getter与Windows同帧多屏golden |
+| `shared` | 同 scene 脚本共享的 global object | initializer/cohort proof `L3 bounded`; mutable object `L0` | launch-origin只静态证明唯一`shared=false` initializer以及master/follower读写结构，并把结果编译为scene/host typed state；没有JS global/object identity或运行时mutation，`N` | mutable shared object、跨脚本mutation、每scene/屏隔离、初始化顺序、销毁和并发规则 |
 
 ## 6. Input、Audio 与 Media
 
