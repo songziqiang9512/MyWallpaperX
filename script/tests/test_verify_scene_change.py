@@ -222,6 +222,11 @@ class SceneValidationSelectionTests(unittest.TestCase):
             "test_scene_frame_context",
             "test_scene_launch_origin_transition",
             "test_scene_script_binding_parser",
+            "test_scene_solid_layers",
+            "test_scene_text_row_limit",
+            "test_scene_timeline_document",
+            "test_scene_timeline_runtime",
+            "test_scene_timeline_target_compiler",
         ):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
