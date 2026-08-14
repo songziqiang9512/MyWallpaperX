@@ -521,6 +521,44 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertNotIn("SceneMediaThumbnailInbox.shared", coordinator)
         self.assertNotIn("func update()", coordinator)
 
+    def test_host_advances_launch_origin_transition_once_before_surface_broadcast(self) -> None:
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        host_render = swift_body(frame_driver, "private func renderFrame()")
+
+        self.assertIn("launchOriginTransitionProgram", launch)
+        self.assertIn(
+            "SceneLaunchOriginTransitionProgramCompiler.compile(", launch
+        )
+        self.assertIn(
+            "scriptSourceEvidence: model.sceneDocument.scriptSourceEvidence",
+            launch,
+        )
+        self.assertIn(
+            "launchOriginTransitionTargets.isDisjoint", launch
+        )
+        self.assertIn("SceneLaunchOriginTransitionRuntime(program: .empty)", host)
+        self.assertIn(
+            "program: context.launchOriginTransitionProgram", host
+        )
+        self.assertIn(
+            "launchContext.launchOriginTransitionProgram.definitions",
+            host_render,
+        )
+        runtime_call = "launchOriginTransitionRuntime.values("
+        self.assertEqual(host_render.count(runtime_call), 1)
+        runtime_position = host_render.index(runtime_call)
+        surface_position = host_render.index("for surface in surfaces.values")
+        self.assertLess(runtime_position, surface_position)
+        self.assertIn(
+            "effectivePropertyValues: launchContext.liveState.effectiveValues",
+            host_render[runtime_position:surface_position],
+        )
+        surface_loop = host_render[surface_position:]
+        self.assertNotIn(runtime_call, surface_loop)
+        self.assertIn("launchOriginTransitionValues", surface_loop)
+
     def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:
         report = HOST_TIME_OF_DAY_REPORT_SOURCE.read_text(encoding="utf-8")
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

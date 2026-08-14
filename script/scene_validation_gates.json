@@ -65,6 +65,19 @@
       "keywords": ["pkg", "tex", "document", "runtime_input"]
     },
     {
+      "id": "scene-script-source-evidence",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneScriptBindingDefinition.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneScriptSourceEvidence.swift"
+      ],
+      "modules": [
+        "test_scene_frame_context",
+        "test_scene_launch_origin_transition",
+        "test_scene_script_binding_parser"
+      ]
+    },
+    {
       "id": "runtime",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Runtime/**"],
       "keywords": ["runtime", "frame_context", "performance"]
@@ -86,7 +99,10 @@
       "id": "properties",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Properties/**"],
       "keywords": ["property", "dynamic"],
-      "modules": ["test_scene_media_color_transition"]
+      "modules": [
+        "test_scene_launch_origin_transition",
+        "test_scene_media_color_transition"
+      ]
     },
     {
       "id": "resources",

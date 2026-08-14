@@ -134,6 +134,25 @@ nonisolated struct SceneScriptBindingIR: Codable, Equatable, Sendable {
     let properties: [String: SceneJSONValue]
     let authoredValue: SceneJSONValue?
     let valueType: SceneScriptBindingValueType
+    let wrapperKeys: [String]?
+
+    nonisolated init(
+        source: String,
+        owner: SceneScriptBindingOwner,
+        targetPath: [SceneScriptBindingPathComponent],
+        properties: [String: SceneJSONValue],
+        authoredValue: SceneJSONValue?,
+        valueType: SceneScriptBindingValueType,
+        wrapperKeys: [String]? = nil
+    ) {
+        self.source = source
+        self.owner = owner
+        self.targetPath = targetPath
+        self.properties = properties
+        self.authoredValue = authoredValue
+        self.valueType = valueType
+        self.wrapperKeys = wrapperKeys
+    }
 
     nonisolated var targetKey: String {
         guard case let .key(key) = targetPath.last else { return "" }
@@ -357,7 +376,8 @@ nonisolated enum SceneScriptBindingIRParser {
             targetPath: path,
             properties: properties,
             authoredValue: authoredValue,
-            valueType: .init(authoredValue: authoredValue)
+            valueType: .init(authoredValue: authoredValue),
+            wrapperKeys: wrapper.keys.sorted()
         ))
     }
 

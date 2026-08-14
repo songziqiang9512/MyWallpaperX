@@ -27,6 +27,7 @@ DOCUMENT_SOURCES = [
     SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
+    SOURCE_ROOT / "Format/SceneScriptSourceEvidence.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
 ]
@@ -115,6 +116,7 @@ SCENE_FIXTURE = {
 
 GENERIC_SCENE_FIXTURE = {
     "version": 3,
+    "script": "fixture-scene-root",
     "general": {
         "bloomstrength": {
             "script": "fixture-scene-general",
@@ -128,10 +130,19 @@ GENERIC_SCENE_FIXTURE = {
                 "script": "fixture-object-origin",
                 "value": "206.33000 57.95600 0.00000",
             },
+            "angles": {
+                "script": "fixture-invalid-properties",
+                "scriptproperties": "not-an-object",
+                "value": "0 0 0",
+            },
             "scale": {
                 "script": "fixture-conflicting-source",
                 "user": "fixture-scale",
                 "value": "1 1 1",
+            },
+            "size": {
+                "script": 42,
+                "value": "1920 1080",
             },
             "instanceoverride": {
                 "nested": {
@@ -142,6 +153,7 @@ GENERIC_SCENE_FIXTURE = {
         },
         {
             "id": 110,
+            "script": "fixture-object-root",
             "visible": {
                 "script": "fixture-object-visible",
                 "value": True,
@@ -149,6 +161,7 @@ GENERIC_SCENE_FIXTURE = {
             "effects": [
                 {
                     "id": 111,
+                    "script": "fixture-effect-root",
                     "visible": {
                         "script": "fixture-effect-visible",
                         "value": True,
@@ -156,6 +169,19 @@ GENERIC_SCENE_FIXTURE = {
                     "passes": [
                         {
                             "id": 112,
+                            "script": "fixture-pass-root",
+                            "metadata": {
+                                "items": [
+                                    {
+                                        "script": "fixture-duplicate-nested",
+                                        "value": 1,
+                                    },
+                                    {
+                                        "script": "fixture-duplicate-nested",
+                                        "value": 2,
+                                    },
+                                ]
+                            },
                             "constantshadervalues": {
                                 "a": {
                                     "script": "fixture-constant-a",
@@ -388,6 +414,7 @@ struct BindingPayload: Encodable {
     let properties: [String: SceneJSONValue]
     let authoredValue: SceneJSONValue?
     let valueType: String
+    let wrapperKeys: [String]
 
     init(_ binding: SceneScriptBindingIR) {
         source = binding.source
@@ -408,6 +435,7 @@ struct BindingPayload: Encodable {
         properties = binding.properties
         authoredValue = binding.authoredValue
         valueType = binding.valueType.rawValue
+        wrapperKeys = binding.wrapperKeys ?? []
     }
 }
 
@@ -426,9 +454,48 @@ struct DiagnosticPayload: Encodable {
     }
 }
 
+struct SourceEvidencePayload: Encodable {
+    let source: String
+    let ownerKind: String
+    let objectIndex: Int?
+    let objectID: Int?
+    let effectIndex: Int?
+    let effectID: Int?
+    let passIndex: Int?
+    let passID: Int?
+    let targetPath: [String]
+    let targetKey: String
+    let wrapperKeys: [String]
+
+    init(_ evidence: SceneScriptSourceEvidenceIR) {
+        source = evidence.source
+        ownerKind = evidence.owner.kind.rawValue
+        objectIndex = evidence.owner.objectIndex
+        objectID = evidence.owner.objectID
+        effectIndex = evidence.owner.effectIndex
+        effectID = evidence.owner.effectID
+        passIndex = evidence.owner.passIndex
+        passID = evidence.owner.passID
+        targetPath = evidence.targetPath.map {
+            switch $0 {
+            case let .key(key): key
+            case let .index(index): "[\(index)]"
+            }
+        }
+        targetKey = evidence.targetKey
+        wrapperKeys = evidence.wrapperKeys
+    }
+}
+
 struct Payload: Encodable {
     let bindings: [BindingPayload]
     let diagnostics: [DiagnosticPayload]
+    let sourceEvidence: [SourceEvidencePayload]
+    let invalidAuthoredBindingCount: Int
+    let invalidAuthoredDiagnostics: [DiagnosticPayload]
+    let invalidAuthoredSourceEvidence: [SourceEvidencePayload]
+    let mixedArraySourceEvidence: [SourceEvidencePayload]
+    let legacyWrapperKeysMissing: Bool
 }
 
 enum HarnessError: Error { case missingFixture }
@@ -439,9 +506,74 @@ enum Harness {
         guard CommandLine.arguments.count == 2 else { throw HarnessError.missingFixture }
         let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
         let document = try SceneDocumentLoader().load(from: sceneURL)
+        let legacyIR = try JSONDecoder().decode(
+            SceneScriptBindingIR.self,
+            from: Data("""
+            {
+              "source": "legacy",
+              "owner": {"kind": "object", "objectIndex": 0, "objectID": 9},
+              "targetPath": [{"key": {"_0": "origin"}}],
+              "properties": {},
+              "authoredValue": {"string": {"_0": "0 0 0"}},
+              "valueType": "string"
+            }
+            """.utf8)
+        )
+        let invalidAuthoredDocument: [String: Any] = [
+            "objects": [
+                [
+                    "id": 999,
+                    "origin": [
+                        "script": "fixture-invalid-authored",
+                        "value": Date(),
+                    ],
+                ] as [String: Any],
+            ],
+        ]
+        let invalidAuthored = SceneScriptBindingIRParser.parse(
+            document: invalidAuthoredDocument
+        )
+        let invalidAuthoredEvidence = SceneScriptSourceEvidenceCollector.collect(
+            document: invalidAuthoredDocument
+        )
+        let mixedArrayDocument: [String: Any] = [
+            "objects": [
+                ["malformed", ["script": "fixture-mixed-object"]],
+                [
+                    "id": 700,
+                    "effects": [
+                        ["malformed", ["script": "fixture-mixed-effect"]],
+                        [
+                            "id": 701,
+                            "passes": [
+                                ["malformed", ["script": "fixture-mixed-pass"]],
+                                [
+                                    "id": 702,
+                                    "metadata": [
+                                        "script": "fixture-valid-after-mixed"
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+        let mixedArrayEvidence = SceneScriptSourceEvidenceCollector.collect(
+            document: mixedArrayDocument
+        )
         let payload = Payload(
             bindings: document.scriptBindings.map(BindingPayload.init),
-            diagnostics: document.scriptBindingDiagnostics.map(DiagnosticPayload.init)
+            diagnostics: document.scriptBindingDiagnostics.map(DiagnosticPayload.init),
+            sourceEvidence: document.scriptSourceEvidence.map(SourceEvidencePayload.init),
+            invalidAuthoredBindingCount: invalidAuthored.bindings.count,
+            invalidAuthoredDiagnostics:
+                invalidAuthored.diagnostics.map(DiagnosticPayload.init),
+            invalidAuthoredSourceEvidence:
+                invalidAuthoredEvidence.map(SourceEvidencePayload.init),
+            mixedArraySourceEvidence:
+                mixedArrayEvidence.map(SourceEvidencePayload.init),
+            legacyWrapperKeysMissing: legacyIR.wrapperKeys == nil
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -807,6 +939,14 @@ class SceneScriptBindingParserTests(unittest.TestCase):
             "string",
         )
         self.assertEqual(
+            bindings["fixture-object-origin"]["wrapperKeys"],
+            ["script", "value"],
+        )
+        self.assertEqual(
+            bindings["fixture-constant-b"]["wrapperKeys"],
+            ["script", "scriptproperties", "value"],
+        )
+        self.assertEqual(
             bindings["fixture-constant-b"]["authoredValue"],
             "1 0 0",
         )
@@ -814,20 +954,196 @@ class SceneScriptBindingParserTests(unittest.TestCase):
             bindings["fixture-constant-c"]["authoredValue"],
             "1.00000 0.00000 0.00000",
         )
+        self.assertTrue(self.generic["legacyWrapperKeysMissing"])
+
+    def test_source_evidence_is_retained_before_binding_admission(self) -> None:
+        all_evidence = self.generic["sourceEvidence"]
+        evidence = {
+            entry["source"]: entry for entry in all_evidence
+        }
+        self.assertEqual(len(all_evidence), 22)
+        self.assertEqual(len(evidence), 21)
+
+        scene_root = evidence["fixture-scene-root"]
+        self.assertEqual(scene_root["ownerKind"], "scene")
+        self.assertEqual(scene_root["targetPath"], [])
+        self.assertEqual(scene_root["targetKey"], "")
+
+        object_root = evidence["fixture-object-root"]
+        self.assertEqual(object_root["ownerKind"], "object")
+        self.assertEqual(object_root["objectIndex"], 1)
+        self.assertEqual(object_root["objectID"], 110)
+        self.assertEqual(object_root["targetPath"], ["objects", "[1]"])
+
+        effect_root = evidence["fixture-effect-root"]
+        self.assertEqual(effect_root["ownerKind"], "effect")
+        self.assertEqual(effect_root["effectIndex"], 0)
+        self.assertEqual(effect_root["effectID"], 111)
+        self.assertEqual(
+            effect_root["targetPath"],
+            ["objects", "[1]", "effects", "[0]"],
+        )
+
+        pass_root = evidence["fixture-pass-root"]
+        self.assertEqual(pass_root["ownerKind"], "pass")
+        self.assertEqual(pass_root["passIndex"], 0)
+        self.assertEqual(pass_root["passID"], 112)
+        self.assertEqual(
+            pass_root["targetPath"],
+            ["objects", "[1]", "effects", "[0]", "passes", "[0]"],
+        )
+
+        duplicates = [
+            entry
+            for entry in all_evidence
+            if entry["source"] == "fixture-duplicate-nested"
+        ]
+        self.assertEqual(len(duplicates), 2)
+        self.assertEqual(
+            [entry["targetPath"] for entry in duplicates],
+            [
+                [
+                    "objects", "[1]", "effects", "[0]", "passes", "[0]",
+                    "metadata", "items", "[0]",
+                ],
+                [
+                    "objects", "[1]", "effects", "[0]", "passes", "[0]",
+                    "metadata", "items", "[1]",
+                ],
+            ],
+        )
+
+        valid = evidence["fixture-object-origin"]
+        self.assertEqual(valid["ownerKind"], "object")
+        self.assertEqual(valid["objectIndex"], 0)
+        self.assertEqual(valid["objectID"], 100)
+        self.assertEqual(valid["targetPath"], ["objects", "[0]", "origin"])
+        self.assertEqual(valid["targetKey"], "origin")
+        self.assertEqual(valid["wrapperKeys"], ["script", "value"])
+
+        conflicting = evidence["fixture-conflicting-source"]
+        self.assertEqual(conflicting["ownerKind"], "object")
+        self.assertEqual(conflicting["objectIndex"], 0)
+        self.assertEqual(conflicting["objectID"], 100)
+        self.assertEqual(
+            conflicting["targetPath"], ["objects", "[0]", "scale"]
+        )
+        self.assertEqual(conflicting["targetKey"], "scale")
+        self.assertEqual(
+            conflicting["wrapperKeys"],
+            ["script", "user", "value"],
+        )
+        invalid_properties = evidence["fixture-invalid-properties"]
+        self.assertEqual(invalid_properties["targetKey"], "angles")
+        self.assertEqual(
+            invalid_properties["wrapperKeys"],
+            ["script", "scriptproperties", "value"],
+        )
+        self.assertFalse(
+            any(entry["targetKey"] == "size" for entry in evidence.values())
+        )
+        nested = evidence["fixture-nested-unsupported-owner"]
+        self.assertEqual(nested["ownerKind"], "object")
+        self.assertEqual(nested["objectIndex"], 0)
+        self.assertEqual(nested["objectID"], 100)
+        self.assertEqual(
+            nested["targetPath"],
+            ["objects", "[0]", "instanceoverride", "nested"],
+        )
+        self.assertNotIn(
+            "fixture-nested-unsupported-owner",
+            {entry["source"] for entry in self.generic["bindings"]},
+        )
+
+        self.assertEqual(self.generic["invalidAuthoredBindingCount"], 0)
+        self.assertEqual(
+            self.generic["invalidAuthoredDiagnostics"],
+            [
+                {
+                    "code": "invalidAuthoredValue",
+                    "targetPath": ["objects", "[0]", "origin"],
+                }
+            ],
+        )
+        self.assertEqual(
+            self.generic["invalidAuthoredSourceEvidence"],
+            [
+                {
+                    "source": "fixture-invalid-authored",
+                    "ownerKind": "object",
+                    "objectIndex": 0,
+                    "objectID": 999,
+                    "targetPath": ["objects", "[0]", "origin"],
+                    "targetKey": "origin",
+                    "wrapperKeys": ["script", "value"],
+                }
+            ],
+        )
 
     def test_conflicting_and_nested_sources_fail_closed_without_misattachment(self) -> None:
         sources = {
             binding["source"] for binding in self.generic["bindings"]
         }
         self.assertNotIn("fixture-conflicting-source", sources)
+        self.assertNotIn("fixture-invalid-properties", sources)
         self.assertNotIn("fixture-nested-unsupported-owner", sources)
         self.assertEqual(
             self.generic["diagnostics"],
             [
                 {
+                    "code": "invalidProperties",
+                    "targetPath": ["objects", "[0]", "angles"],
+                },
+                {
                     "code": "conflictingSources",
                     "targetPath": ["objects", "[0]", "scale"],
-                }
+                },
+                {
+                    "code": "invalidSource",
+                    "targetPath": ["objects", "[0]", "size"],
+                },
+            ],
+        )
+
+    def test_mixed_structural_arrays_do_not_hide_source_evidence(self) -> None:
+        evidence = {
+            entry["source"]: entry
+            for entry in self.generic["mixedArraySourceEvidence"]
+        }
+        self.assertEqual(set(evidence), {
+            "fixture-mixed-object",
+            "fixture-mixed-effect",
+            "fixture-mixed-pass",
+            "fixture-valid-after-mixed",
+        })
+        self.assertEqual(evidence["fixture-mixed-object"]["ownerKind"], "scene")
+        self.assertEqual(
+            evidence["fixture-mixed-object"]["targetPath"],
+            ["objects", "[0]", "[1]"],
+        )
+        self.assertEqual(evidence["fixture-mixed-effect"]["ownerKind"], "object")
+        self.assertEqual(evidence["fixture-mixed-effect"]["objectIndex"], 1)
+        self.assertEqual(
+            evidence["fixture-mixed-effect"]["targetPath"],
+            ["objects", "[1]", "effects", "[0]", "[1]"],
+        )
+        self.assertEqual(evidence["fixture-mixed-pass"]["ownerKind"], "effect")
+        self.assertEqual(evidence["fixture-mixed-pass"]["effectIndex"], 1)
+        self.assertEqual(
+            evidence["fixture-mixed-pass"]["targetPath"],
+            [
+                "objects", "[1]", "effects", "[1]", "passes", "[0]", "[1]",
+            ],
+        )
+        valid = evidence["fixture-valid-after-mixed"]
+        self.assertEqual(valid["ownerKind"], "pass")
+        self.assertEqual(valid["passIndex"], 1)
+        self.assertEqual(valid["passID"], 702)
+        self.assertEqual(
+            valid["targetPath"],
+            [
+                "objects", "[1]", "effects", "[1]", "passes", "[1]",
+                "metadata",
             ],
         )
 

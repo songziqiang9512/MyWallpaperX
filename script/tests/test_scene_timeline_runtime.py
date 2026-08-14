@@ -35,6 +35,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneTimelineEvaluator.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
+    SOURCE_ROOT / "Format/SceneScriptSourceEvidence.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleInitializer.swift",
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",

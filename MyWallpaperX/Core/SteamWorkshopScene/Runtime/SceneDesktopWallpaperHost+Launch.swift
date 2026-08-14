@@ -16,6 +16,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let mediaPlaybackPlaceholderFadeProgram:
         SceneMediaPlaybackPlaceholderFadeProgram
     let mediaColorTransitionProgram: SceneMediaColorTransitionProgram
+    let launchOriginTransitionProgram: SceneLaunchOriginTransitionProgram
     let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
@@ -37,7 +38,12 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " input=typed-inbox liveProvider=unavailable initialMode=stopped",
             "scene media color transition: schema=bounded-secondary-color-v1"
                 + " bindings=\(mediaColorTransitionProgram.bindings.count)"
-                + " input=typed-inbox liveProvider=unavailable"
+                + " input=typed-inbox liveProvider=unavailable",
+            "scene launch origin transition: schema=bounded-shared-origin-v1"
+                + " cohorts=\(launchOriginTransitionProgram.cohorts.count)"
+                + " bindings=\(launchOriginTransitionProgram.bindings.count)"
+                + " layerIDs=\(launchOriginTransitionProgram.layerIDs)"
+                + " interaction=unavailable"
         ]
     }
 
@@ -99,6 +105,24 @@ extension SceneDesktopWallpaperHost {
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor
         )
+        let launchOriginTransitionProgram =
+            SceneLaunchOriginTransitionProgramCompiler.compile(
+                descriptor: runtimeInput.renderDescriptor,
+                scriptBindings: model.sceneDocument.scriptBindings,
+                scriptSourceEvidence: model.sceneDocument.scriptSourceEvidence
+            )
+        let launchOriginTransitionTargets = Set(
+            launchOriginTransitionProgram.definitions.map(\.target)
+        )
+        guard launchOriginTransitionTargets.count
+                == launchOriginTransitionProgram.definitions.count,
+              launchOriginTransitionTargets.isDisjoint(with: Set(
+            runtimeInput.propertyBindingProgram.definitions.map(\.target)
+        )), launchOriginTransitionTargets.isDisjoint(with: Set(
+            timelineProgram.bindings.map(\.target)
+        )) else {
+            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+        }
         typealias VisibilityOwner =
             SceneResolvedMaterialExecutionCapabilityAdmission
                 .DynamicEffectVisibilityOwner
@@ -299,6 +323,7 @@ extension SceneDesktopWallpaperHost {
             mediaPlaybackPlaceholderFadeProgram:
                 mediaPlaybackPlaceholderFadeProgram,
             mediaColorTransitionProgram: mediaColorTransitionProgram,
+            launchOriginTransitionProgram: launchOriginTransitionProgram,
             mediaThumbnailBindings: mediaThumbnailBindings,
             liveState: ScenePropertyLiveUpdateState(
                 program: runtimeInput.propertyBindingProgram,

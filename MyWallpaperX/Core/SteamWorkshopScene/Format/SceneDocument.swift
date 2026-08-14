@@ -36,6 +36,7 @@ struct SceneDocument {
     let objects: [SceneObject]
     let scriptBindings: [SceneScriptBindingIR]
     let scriptBindingDiagnostics: [SceneScriptBindingDiagnostic]
+    let scriptSourceEvidence: [SceneScriptSourceEvidenceIR]
     let userPropertyResolution: SceneUserPropertyResolution
 }
 
@@ -86,6 +87,9 @@ struct SceneDocumentLoader {
         // Script IR 必须读取作者原始 wrapper；property resolver 会按运行覆盖改写 `value`，
         // 不能让当前用户值冒充 authored fallback。
         let scriptBindings = SceneScriptBindingIRParser.parse(document: sourceRoot)
+        let scriptSourceEvidence = SceneScriptSourceEvidenceCollector.collect(
+            document: sourceRoot
+        )
         let propertyResolution = SceneUserPropertyDocumentResolver().resolve(
             root: sourceRoot,
             catalog: propertyCatalog,
@@ -126,6 +130,7 @@ struct SceneDocumentLoader {
             objects: objects,
             scriptBindings: scriptBindings.bindings,
             scriptBindingDiagnostics: scriptBindings.diagnostics,
+            scriptSourceEvidence: scriptSourceEvidence,
             userPropertyResolution: propertyResolution
         )
     }

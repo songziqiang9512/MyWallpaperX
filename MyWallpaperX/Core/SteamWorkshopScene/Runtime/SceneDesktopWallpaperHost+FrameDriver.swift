@@ -31,6 +31,7 @@ extension SceneDesktopWallpaperHost {
         surfaces.removeAll()
         if clearContext {
             SceneAudioSpectrumInbox.shared.setDemand(false)
+            launchOriginTransitionRuntime = .init(program: .empty)
             videoTextureSourceRegistry?.stop()
             videoTextureSourceRegistry = nil
             launchContext = nil
@@ -102,7 +103,7 @@ extension SceneDesktopWallpaperHost {
                 \.definition
             ) + launchContext.mediaColorTransitionProgram.bindings.map(
                 \.definition
-            )
+            ) + launchContext.launchOriginTransitionProgram.definitions
         )
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
         let timelineValues = SceneTimelineRuntime.values(
@@ -135,6 +136,9 @@ extension SceneDesktopWallpaperHost {
             mediaInput: mediaInput,
             frameTime: timing.simulationFrameTime
         )
+        let launchOriginTransitionValues = launchOriginTransitionRuntime.values(
+            effectivePropertyValues: launchContext.liveState.effectiveValues
+        )
         for surface in surfaces.values {
             guard !surface.metalView.shouldDeferResolvedMaterialFrame else {
                 continue
@@ -154,6 +158,9 @@ extension SceneDesktopWallpaperHost {
                     uniquingKeysWith: { existing, _ in existing }
                 ).merging(
                     mediaColorTransitionValues,
+                    uniquingKeysWith: { existing, _ in existing }
+                ).merging(
+                    launchOriginTransitionValues,
                     uniquingKeysWith: { existing, _ in existing }
                 )
             ).snapshot
