@@ -79,6 +79,7 @@
       "LayerDependencies": {
         "file_globs": [
           "SceneDependencyFrameRuntime.swift",
+          "SceneDependencyGraphAnalysis.swift",
           "SceneDependencyRenderPlan.swift",
           "SceneNamedRenderTargetPool.swift"
         ],

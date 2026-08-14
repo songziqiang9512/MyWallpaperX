@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 /// Builds the pure source-graph IR from the concrete Scene virtual filesystem.
@@ -20,18 +19,6 @@ nonisolated struct SceneShaderSourceGraphBuilder {
             self.maximumNodes = max(0, maximumNodes)
             self.maximumIncludeDepth = max(0, maximumIncludeDepth)
         }
-    }
-
-    private nonisolated struct DependencyNode: Encodable {
-        let virtualPath: String
-        let provenance: SceneShaderSourceGraph.Provenance
-        let rawSHA256: String
-        let byteCount: Int
-    }
-
-    private nonisolated struct DependencyPayload: Encodable {
-        let nodes: [DependencyNode]
-        let edges: [SceneShaderSourceGraph.Edge]
     }
 
     private nonisolated struct State {
@@ -318,29 +305,11 @@ nonisolated struct SceneShaderSourceGraphBuilder {
             nodes: nodes,
             edges: edges,
             diagnostics: diagnostics,
-            dependencySHA256: dependencyHash(nodes: nodes, edges: edges)
+            dependencySHA256: SceneShaderSourceGraph.dependencySHA256(
+                nodes: nodes,
+                edges: edges
+            )
         )
-    }
-
-    nonisolated private func dependencyHash(
-        nodes: [SceneShaderSourceGraph.Node],
-        edges: [SceneShaderSourceGraph.Edge]
-    ) -> String {
-        let payload = DependencyPayload(
-            nodes: nodes.map {
-                .init(
-                    virtualPath: $0.virtualPath,
-                    provenance: $0.provenance,
-                    rawSHA256: $0.rawSHA256,
-                    byteCount: $0.byteCount
-                )
-            },
-            edges: edges
-        )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let data = (try? encoder.encode(payload)) ?? Data()
-        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     nonisolated private func edgeOrder(

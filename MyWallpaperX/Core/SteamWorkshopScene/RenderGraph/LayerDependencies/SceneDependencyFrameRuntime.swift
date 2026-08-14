@@ -22,12 +22,14 @@ final class SceneDependencyFrameRuntime {
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
+        verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = [],
         device: MTLDevice
     ) {
         self.plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
             visibleLayerIDs: visibleLayerIDs,
-            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
+            verifiedXRayStageKeys: verifiedXRayStageKeys
         )
         self.targetPool = SceneNamedRenderTargetPool(device: device)
     }

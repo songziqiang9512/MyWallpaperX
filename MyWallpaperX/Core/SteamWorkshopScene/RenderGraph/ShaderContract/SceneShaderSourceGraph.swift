@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 nonisolated struct SceneShaderLexicalLine {
@@ -134,6 +135,18 @@ nonisolated enum SceneShaderMetadataIdentity {
 /// Diagnostics are a complete census; the preprocessor decides which include
 /// edges are active and therefore fatal for a particular variant.
 nonisolated struct SceneShaderSourceGraph: Codable, Equatable, Sendable {
+    private nonisolated struct DependencyNode: Encodable {
+        let virtualPath: String
+        let provenance: Provenance
+        let rawSHA256: String
+        let byteCount: Int
+    }
+
+    private nonisolated struct DependencyPayload: Encodable {
+        let nodes: [DependencyNode]
+        let edges: [Edge]
+    }
+
     nonisolated enum Provenance: String, Codable, Equatable, Hashable, Sendable {
         case package
         case loose
@@ -218,6 +231,33 @@ nonisolated struct SceneShaderSourceGraph: Codable, Equatable, Sendable {
     let edges: [Edge]
     let diagnostics: [Diagnostic]
     let dependencySHA256: String
+
+    nonisolated var recomputedDependencySHA256: String {
+        Self.dependencySHA256(nodes: nodes, edges: edges)
+    }
+
+    nonisolated static func dependencySHA256(
+        nodes: [Node],
+        edges: [Edge]
+    ) -> String {
+        let payload = DependencyPayload(
+            nodes: nodes.map {
+                .init(
+                    virtualPath: $0.virtualPath,
+                    provenance: $0.provenance,
+                    rawSHA256: $0.rawSHA256,
+                    byteCount: $0.byteCount
+                )
+            },
+            edges: edges
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let data = (try? encoder.encode(payload)) ?? Data()
+        return SHA256.hash(data: data).map {
+            String(format: "%02x", $0)
+        }.joined()
+    }
 
     nonisolated func node(at virtualPath: String) -> Node? {
         let identity = Self.identity(virtualPath)

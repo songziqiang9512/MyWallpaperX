@@ -259,10 +259,16 @@ extension SceneDesktopWallpaperHost {
             )
         let resolvedMaterialSubjects = resolvedMaterialExecutionCapabilities
             .runtimeDispositionOwnerships.flatMap(\.subjects)
+        let verifiedXRayStockIdentityKeys =
+            SceneAuthoredXRayPlanner.verifiedStockIdentityEffectKeys(
+                descriptor: runtimeInput.renderDescriptor,
+                shaderContracts: runtimeInput.shaderContracts
+            )
         let effectAdmissionCatalog = SceneEffectAdmissionCatalog(
             descriptor: runtimeInput.renderDescriptor,
             authoredPlans: runtimeInput.authoredEffectRenderPlans,
-            resolvedMaterialSubjects: resolvedMaterialSubjects
+            resolvedMaterialSubjects: resolvedMaterialSubjects,
+            verifiedXRayStageKeys: verifiedXRayStockIdentityKeys
         )
         let sceneScriptConsumerTargets =
             resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets

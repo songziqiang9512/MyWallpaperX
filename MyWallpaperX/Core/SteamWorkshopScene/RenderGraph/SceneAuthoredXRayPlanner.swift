@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 nonisolated struct SceneXRayExecutionPlan {
@@ -14,13 +13,6 @@ nonisolated struct SceneXRayExecutionPlan {
 
 enum SceneAuthoredXRayPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
-
-    private nonisolated struct CanonicalShaderPayload: Encodable {
-        let identity: String
-        let sourceKind: SceneShaderContract.SourceKind
-        let stages: [SceneShaderContract.Stage]
-        let diagnostics: [SceneShaderContract.Diagnostic]
-    }
 
     nonisolated static func plan(
         graph: Graph,
@@ -96,37 +88,7 @@ enum SceneAuthoredXRayPlanner {
         in descriptor: SceneRenderDescriptor,
         path: String
     ) -> Bool {
-        let matches = descriptor.effectDefinitions.filter {
-            normalized($0.relativePath) == normalized(path)
-        }
-        guard matches.count == 1, let definition = matches.first,
-              definition.version == 1,
-              definition.replacementKey == "xray",
-              definition.name == "ui_editor_effect_xray_title",
-              definition.description == "ui_editor_effect_xray_description",
-              definition.group == "interactive",
-              definition.performance == nil,
-              definition.previewPath == "preview/project.json",
-              definition.editable == nil,
-              definition.framebuffers.isEmpty,
-              definition.dependencies.map(normalized) == dependencies,
-              definition.functions == nil,
-              definition.gizmos == nil,
-              definition.extraFields.isEmpty,
-              definition.unknownFieldPaths.isEmpty,
-              definition.passes.count == 1,
-              let pass = definition.passes.first else {
-            return false
-        }
-        return pass.passIndex == 0
-            && normalized(pass.materialPath ?? "") == materialPath
-            && pass.target == nil
-            && pass.bindings.isEmpty
-            && pass.compose == nil
-            && pass.command == nil
-            && pass.source == nil
-            && pass.conditions == nil
-            && pass.extraFields.isEmpty
+        currentStockDefinitionMatches(descriptor: descriptor, path: path)
     }
 
     private nonisolated static func validNode(
@@ -151,23 +113,7 @@ enum SceneAuthoredXRayPlanner {
     private nonisolated static func validMaterialDescriptor(
         in descriptor: SceneRenderDescriptor
     ) -> Bool {
-        let matches = descriptor.materialPasses.filter {
-            normalized($0.id) == materialPassID
-        }
-        guard matches.count == 1, let material = matches.first else { return false }
-        return normalized(material.materialPath) == materialPath
-            && material.materialRawSHA256 == materialSHA256
-            && material.passIndex == 0
-            && normalized(material.shaderPath ?? "") == shaderIdentity
-            && material.texturePaths.isEmpty
-            && material.textureSlots.isEmpty
-            && material.userTextureInputs.isEmpty
-            && material.combos.isEmpty
-            && material.constantShaderValues.isEmpty
-            && material.blending?.lowercased() == "normal"
-            && material.depthTest?.lowercased() == "disabled"
-            && material.depthWrite?.lowercased() == "disabled"
-            && material.cullMode?.lowercased() == "nocull"
+        currentStockMaterialMatches(descriptor: descriptor)
     }
 
     private nonisolated static func validResolvedMaterial(
@@ -244,38 +190,7 @@ enum SceneAuthoredXRayPlanner {
     private nonisolated static func shaderContractMatches(
         _ contracts: [SceneShaderContract]
     ) -> Bool {
-        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
-        guard matches.count == 1, let contract = matches.first,
-              contract.sourceKind == .authoredSource,
-              contract.diagnostics.isEmpty,
-              contract.canonicalSHA256 == shaderCanonicalSHA256,
-              canonicalHash(contract) == shaderCanonicalSHA256,
-              contract.stages.count == 2 else {
-            return false
-        }
-        let expected: [(SceneShaderContract.StageKind, String, String)] = [
-            (.vertex, vertexPath, vertexSHA256),
-            (.fragment, fragmentPath, fragmentSHA256),
-        ]
-        return zip(contract.stages, expected).allSatisfy { stage, fingerprint in
-            stage.kind == fingerprint.0
-                && normalized(stage.relativePath) == fingerprint.1
-                && stage.rawSHA256 == fingerprint.2
-                && sha256(Data(stage.source.utf8)) == fingerprint.2
-        }
-    }
-
-    private nonisolated static func canonicalHash(_ contract: SceneShaderContract) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let payload = CanonicalShaderPayload(
-            identity: contract.identity,
-            sourceKind: contract.sourceKind,
-            stages: contract.stages,
-            diagnostics: contract.diagnostics
-        )
-        guard let data = try? encoder.encode(payload) else { return "" }
-        return sha256(data)
+        currentStockShaderContractMatches(contracts)
     }
 
     private nonisolated static func effectOutput(
@@ -288,10 +203,6 @@ enum SceneAuthoredXRayPlanner {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 
-    private nonisolated static func sha256(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-    }
-
     private nonisolated static func debugRejection(graph: Graph, reason: String) {
 #if DEBUG
         guard graph.effects.contains(where: {
@@ -301,26 +212,36 @@ enum SceneAuthoredXRayPlanner {
 #endif
     }
 
-    private nonisolated static let definitionPath = "effects/xray/effect.json"
+    nonisolated static let currentStockIdentityProfile = StockIdentityProfile(
+        version: 1,
+        replacementKey: "xray",
+        group: "interactive",
+        materialSemanticSHA256: stockMaterialSemanticSHA256,
+        shaderCanonicalSHA256:
+            "ae769d9b366c49d19957a5f9254bb113a0250c648e3df1e477160e407e652e00",
+        shaderDependencySHA256:
+            "085fdbac854d56bc33880f217065210dbb1d6d694da79ff4d66a7a86b7a911e9"
+    )
+    nonisolated static let legacyStockIdentityProfile = StockIdentityProfile(
+        version: nil,
+        replacementKey: nil,
+        group: "colorize",
+        materialSemanticSHA256: stockMaterialSemanticSHA256,
+        shaderCanonicalSHA256:
+            "2282ff824267047378841e0b504c1f20137f7527883d8de5914ea6ab942cd44e",
+        shaderDependencySHA256:
+            "86764cbeed420c09ca2d18eff1ba6ac217a5b14cdf8aaeba071f9cac089275c8"
+    )
+    nonisolated static let stockIdentityProfiles = [
+        currentStockIdentityProfile,
+        legacyStockIdentityProfile,
+    ]
     private nonisolated static let supportedContentKinds = Set([
         "image", "solid", "text", "composition", "project", "fullscreen",
     ])
-    private nonisolated static let materialPath = "materials/effects/xray.json"
-    private nonisolated static let materialPassID = "\(materialPath)#0"
-    private nonisolated static let materialSHA256 =
-        "79b16f1ff55144ad29c216ef7c80b825fb277d521e687cf46c15773a107b254f"
-    private nonisolated static let shaderIdentity = "effects/xray"
-    private nonisolated static let dependencies = [
-        materialPath,
-        "shaders/effects/xray.frag",
-        "shaders/effects/xray.vert",
-    ]
-    private nonisolated static let shaderCanonicalSHA256 =
-        "ae769d9b366c49d19957a5f9254bb113a0250c648e3df1e477160e407e652e00"
-    private nonisolated static let vertexPath = "shaders/effects/xray.vert"
-    private nonisolated static let vertexSHA256 =
-        "5d4e6a303e1d10b417b352dd2f06040ae8f2328dbd1ba3d3a666e5d572d90039"
-    private nonisolated static let fragmentPath = "shaders/effects/xray.frag"
-    private nonisolated static let fragmentSHA256 =
-        "d884d586e20bca2ecf2bef48280da1d4e226d1116010f642fe36de944c2e7525"
+    // Sorted minimal single-pass stock material with shader identity erased.
+    // Current/legacy X-Ray and Water Waves share this semantic JSON; an author
+    // override or unknown field changes the digest without coupling behavior.
+    private nonisolated static let stockMaterialSemanticSHA256 =
+        SceneWaterWavesAssetFamily.materialSemanticSHA256
 }

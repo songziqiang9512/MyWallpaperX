@@ -3,13 +3,15 @@ import Foundation
 nonisolated struct SceneEffectAdmissionCatalog {
     let stageAdmissions: [SceneEffectStageAdmission]
     let unifiedExecutionStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
+    let verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
     let descriptorEffectStageCount: Int
     let descriptorEffectStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
 
     init(
         descriptor: SceneRenderDescriptor,
         authoredPlans: [SceneAuthoredEffectRenderPlan],
-        resolvedMaterialSubjects: [SceneEffectExactRuntimeSubject] = []
+        resolvedMaterialSubjects: [SceneEffectExactRuntimeSubject] = [],
+        verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = []
     ) {
         let visible = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         descriptorEffectStageCount = descriptor.layers.reduce(0) {
@@ -24,6 +26,9 @@ nonisolated struct SceneEffectAdmissionCatalog {
                 )
             }
         })
+        self.verifiedXRayStageKeys = verifiedXRayStageKeys.intersection(
+            descriptorEffectStageKeys
+        )
         let grouped = Dictionary(grouping: authoredPlans, by: \.layerID)
         let resolvedKeysByLayerID = Self.validResolvedMaterialKeys(
             descriptor: descriptor,

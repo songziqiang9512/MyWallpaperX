@@ -12,9 +12,18 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+ADMISSION_CATALOG_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectAdmissionCatalog.swift"
+)
+DEPENDENCY_RUNTIME_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyFrameRuntime.swift"
+)
+METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+LAUNCH_SOURCE = SOURCE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SOURCE_ROOT / "RenderGraph/SceneClippingMaskContract.swift",
+    SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyGraphAnalysis.swift",
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
 ]
 
@@ -41,6 +50,13 @@ struct SceneDocument {
 struct SceneUtilityLayer {
     enum Kind { case composition, project, fullscreen }
     let kind: Kind
+}
+struct SceneAuthoredEffectRenderPlan {
+    struct EffectKey: Hashable {
+        let layerID: Int
+        let effectIndex: Int
+        let descriptorID: String
+    }
 }
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
@@ -287,7 +303,61 @@ enum Harness {
                 layers: xRayLayers,
                 renderOrderLayerIDs: xRayLayers.map(\.id)
             ),
-            visibleLayerIDs: Set(xRayLayers.map(\.id))
+            visibleLayerIDs: Set(xRayLayers.map(\.id)),
+            verifiedXRayStageKeys: Set(
+                [201, 202, 203, 204, 206, 207, 208, 209, 211].map {
+                    xRayKey(layerID: $0)
+                }
+            )
+        )
+        let exactXRayLayers = [
+            layer(220),
+            xRayConsumer(221, provider: 220),
+        ]
+        let exactXRayPlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: exactXRayLayers,
+                renderOrderLayerIDs: exactXRayLayers.map(\.id)
+            ),
+            visibleLayerIDs: Set(exactXRayLayers.map(\.id)),
+            verifiedXRayStageKeys: [xRayKey(layerID: 221)]
+        )
+        let missingProviderXRay = xRayConsumer(231, provider: 230)
+        let missingProviderXRayPlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: [missingProviderXRay],
+                renderOrderLayerIDs: [missingProviderXRay.id]
+            ),
+            visibleLayerIDs: [missingProviderXRay.id],
+            verifiedXRayStageKeys: [xRayKey(layerID: missingProviderXRay.id)]
+        )
+        let unverifiedStockPathLayers = [
+            layer(240),
+            xRayConsumer(241, provider: 240),
+        ]
+        let unverifiedStockPathPlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: unverifiedStockPathLayers,
+                renderOrderLayerIDs: unverifiedStockPathLayers.map(\.id)
+            ),
+            visibleLayerIDs: Set(unverifiedStockPathLayers.map(\.id))
+        )
+        let multiEffectXRayLayers = [
+            layer(250),
+            xRayConsumer(
+                251,
+                provider: 250,
+                localEffectsBefore: 1,
+                localEffectsAfter: 1
+            ),
+        ]
+        let multiEffectXRayPlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: multiEffectXRayLayers,
+                renderOrderLayerIDs: multiEffectXRayLayers.map(\.id)
+            ),
+            visibleLayerIDs: Set(multiEffectXRayLayers.map(\.id)),
+            verifiedXRayStageKeys: [xRayKey(layerID: 251, effectIndex: 1)]
         )
         let parsed = [
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42")?.variant.rawValue ?? "nil",
@@ -333,6 +403,20 @@ enum Harness {
                 "multiplePasses": xRayPlan.blocksStaticLayerSourcePassthrough(for: 209),
                 "exemptThenProvider": xRayPlan.blocksStaticLayerSourcePassthrough(for: 211),
                 "upperConsumer": xRayPlan.blocksStaticLayerSourcePassthrough(for: 212),
+            ],
+            "isolatedXRayPassthroughBlocks": [
+                "exactProvider": exactXRayPlan.blocksStaticLayerSourcePassthrough(for: 220),
+                "exactConsumer": exactXRayPlan.blocksStaticLayerSourcePassthrough(for: 221),
+                "missingProviderConsumer": missingProviderXRayPlan
+                    .blocksStaticLayerSourcePassthrough(for: 231),
+                "unverifiedStockPathProvider": unverifiedStockPathPlan
+                    .blocksStaticLayerSourcePassthrough(for: 240),
+                "unverifiedStockPathConsumer": unverifiedStockPathPlan
+                    .blocksStaticLayerSourcePassthrough(for: 241),
+                "multiEffectProvider": multiEffectXRayPlan
+                    .blocksStaticLayerSourcePassthrough(for: 250),
+                "multiEffectConsumer": multiEffectXRayPlan
+                    .blocksStaticLayerSourcePassthrough(for: 251),
             ],
             "legacyNoiseBinding": [
                 "consumer": legacyNoiseBinding?.consumerLayerID ?? -1,
@@ -449,9 +533,11 @@ enum Harness {
         slots: [String?]? = nil,
         file: String = "effects/xray/effect.json",
         passCount: Int = 1,
-        extraEffect: Bool = false
+        extraEffect: Bool = false,
+        localEffectsBefore: Int = 0,
+        localEffectsAfter: Int = 0
     ) -> SceneRenderDescriptor.Layer {
-        var effects = [
+        let xRay = [
             xRayEffect(
                 id: "xray-\(id)",
                 provider: provider,
@@ -461,6 +547,15 @@ enum Harness {
                 passCount: passCount
             ),
         ]
+        var effects = localEffects(
+            layerID: id,
+            count: localEffectsBefore,
+            suffix: "before"
+        ) + xRay + localEffects(
+            layerID: id,
+            count: localEffectsAfter,
+            suffix: "after"
+        )
         if extraEffect {
             effects.append(.init(
                 id: "extra-\(id)",
@@ -484,6 +579,39 @@ enum Harness {
             childLayerIDs: [],
             visible: true,
             effects: effects
+        )
+    }
+
+    static func localEffects(
+        layerID: Int,
+        count: Int,
+        suffix: String
+    ) -> [SceneRenderDescriptor.EffectDescriptor] {
+        (0 ..< count).map { index in
+            .init(
+                id: "local-\(layerID)-\(suffix)-\(index)",
+                file: "effects/tint/effect.json",
+                visible: true,
+                passes: [.init(
+                    passIndex: 0,
+                    texturePaths: [],
+                    textureSlots: [],
+                    userTextureInputs: [],
+                    combos: [:],
+                    constantShaderValues: [:]
+                )]
+            )
+        }
+    }
+
+    static func xRayKey(
+        layerID: Int,
+        effectIndex: Int = 0
+    ) -> SceneAuthoredEffectRenderPlan.EffectKey {
+        .init(
+            layerID: layerID,
+            effectIndex: effectIndex,
+            descriptorID: "xray-\(layerID)"
         )
     }
 
@@ -742,6 +870,59 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "exemptThenProvider": True,
                 "upperConsumer": True,
             },
+        )
+
+    def test_xray_passthrough_requires_verified_identity_and_existing_provider(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["isolatedXRayPassthroughBlocks"],
+            {
+                "exactProvider": True,
+                "exactConsumer": False,
+                "missingProviderConsumer": True,
+                "unverifiedStockPathProvider": True,
+                "unverifiedStockPathConsumer": True,
+                "multiEffectProvider": True,
+                "multiEffectConsumer": False,
+            },
+        )
+
+    def test_verified_xray_authority_flows_from_stock_identity_to_dependency_plan(
+        self,
+    ) -> None:
+        launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
+        catalog = ADMISSION_CATALOG_SOURCE.read_text(encoding="utf-8")
+        renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "SceneAuthoredXRayPlanner.verifiedStockIdentityEffectKeys(",
+            launch,
+        )
+        self.assertIn(
+            "descriptor: runtimeInput.renderDescriptor",
+            launch,
+        )
+        self.assertIn(
+            "shaderContracts: runtimeInput.shaderContracts",
+            launch,
+        )
+        self.assertIn(
+            "verifiedXRayStageKeys: verifiedXRayStockIdentityKeys",
+            launch,
+        )
+        self.assertIn(
+            "self.verifiedXRayStageKeys = verifiedXRayStageKeys.intersection(",
+            catalog,
+        )
+        self.assertIn(
+            "verifiedXRayStageKeys: effectAdmissionCatalog.verifiedXRayStageKeys",
+            renderer,
+        )
+        self.assertIn(
+            "verifiedXRayStageKeys: verifiedXRayStageKeys",
+            dependency_runtime,
         )
 
     def test_exact_legacy_procedural_dependency_is_typed_and_fail_closed(self) -> None:

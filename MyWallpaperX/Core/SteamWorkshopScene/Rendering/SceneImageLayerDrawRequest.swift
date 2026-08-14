@@ -86,22 +86,22 @@ struct SceneImageLayerMasks {
                 !Self.pulsePreservesSourceCoverage($0)
             } ?? true
         }
-        let hasCoverageMutatingWaterWaves = visibleEffects.contains { effect in
+        let hasWaterWavesOutsideDisplacementContract = visibleEffects.contains { effect in
             Self.normalized(effect.file) == "effects/waterwaves/effect.json"
-                && !Self.waterWavesPreservesSourceCoverage(effect)
+                && !Self.waterWavesUsesOnlyEffectLocalDisplacementInputs(effect)
         }
-        let hasUnprovenWaterWavesResource = effectIDs.contains { id in
+        let hasUnprovenWaterWavesDisplacementResource = effectIDs.contains { id in
             guard waterWavesEffects[id]?.mask != nil else { return false }
             return visibleEffects.first(where: { $0.id == id }).map {
-                !Self.waterWavesPreservesSourceCoverage($0)
+                !Self.waterWavesUsesOnlyEffectLocalDisplacementInputs($0)
             } ?? true
         }
         return hasValue(opacityEffects) { _ in true }
             || hasValue(tintEffects) { $0.mask != nil }
             || hasCoverageMutatingPulse
             || hasUnprovenPulseResource
-            || hasCoverageMutatingWaterWaves
-            || hasUnprovenWaterWavesResource
+            || hasWaterWavesOutsideDisplacementContract
+            || hasUnprovenWaterWavesDisplacementResource
             || hasValue(foliageSwayEffects) { $0.maskBinding != nil }
             || hasValue(shakeEffects) { $0.maskBinding != nil }
             || hasValue(waterRippleEffects) { $0.maskBinding != nil }
@@ -141,12 +141,11 @@ struct SceneImageLayerMasks {
         return true
     }
 
-    private static func waterWavesPreservesSourceCoverage(
+    private static func waterWavesUsesOnlyEffectLocalDisplacementInputs(
         _ effect: SceneRenderDescriptor.EffectDescriptor
     ) -> Bool {
-        // Stock Water Waves only displaces the source resample. Its optional
-        // slot-1 mask scales that displacement, never the output alpha, so the
-        // skipped effect cannot remove source coverage.
+        // The optional stock mask is an effect-local displacement input, not an
+        // independent opacity law. Skipping the effect also skips this mask.
         guard normalized(effect.file) == "effects/waterwaves/effect.json",
               effect.passes.count == 1,
               let pass = effect.passes.first,

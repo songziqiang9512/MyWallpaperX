@@ -53,23 +53,26 @@ nonisolated struct SceneDependencyRenderPlan {
     nonisolated init(
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
-        executableUtilityConsumerLayerIDs: Set<Int> = []
+        executableUtilityConsumerLayerIDs: Set<Int> = [],
+        verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = []
     ) {
         let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         let order = Dictionary(uniqueKeysWithValues: descriptor.renderOrderLayerIDs.enumerated().map {
             ($0.element, $0.offset)
         })
-        let references = Self.references(in: descriptor.layers)
-        let dependencyEdges = Self.dependencyEdges(
+        let references = SceneDependencyGraphAnalysis.references(in: descriptor.layers)
+        let dependencyEdges = SceneDependencyGraphAnalysis.dependencyEdges(
             layers: descriptor.layers,
             references: references
         )
-        let xRayExemptConsumerLayerIDs = Set(visibleLayerIDs.compactMap { layerID -> Int? in
-            guard let layer = layersByID[layerID],
-                  Self.xRayEffectLocalProviderContract(for: layer) != nil else {
-                return nil
-            }
-            return layerID
+        let availableLayerIDs = Set(layersByID.keys)
+        let xRayExemptConsumerLayerIDs = Set(visibleLayerIDs.filter { layerID in
+            guard let layer = layersByID[layerID] else { return false }
+            return SceneDependencyGraphAnalysis.xRayEffectLocalProviderContract(
+                for: layer,
+                verifiedStageKeys: verifiedXRayStageKeys,
+                availableLayerIDs: availableLayerIDs
+            ) != nil
         })
         var passthroughBlockedLayerIDs: Set<Int> = []
         for consumerLayerID in visibleLayerIDs {
@@ -82,8 +85,13 @@ nonisolated struct SceneDependencyRenderPlan {
                 }
             }
         }
-        let cyclicLayerIDs = Self.cyclicLayerIDs(edges: dependencyEdges)
-        var issues = Self.referenceIssues(references: references, layersByID: layersByID)
+        let cyclicLayerIDs = SceneDependencyGraphAnalysis.cyclicLayerIDs(
+            edges: dependencyEdges
+        )
+        var issues = SceneDependencyGraphAnalysis.referenceIssues(
+            references: references,
+            layersByID: layersByID
+        )
         var bindings: [Int: Binding] = [:]
 
         for layer in descriptor.layers where visibleLayerIDs.contains(layer.id) {
@@ -137,158 +145,6 @@ nonisolated struct SceneDependencyRenderPlan {
         self.issues = Array(Set(issues)).sorted {
             ($0.layerID, $0.kind.rawValue, $0.providerLayerID ?? -1)
                 < ($1.layerID, $1.kind.rawValue, $1.providerLayerID ?? -1)
-        }
-    }
-
-    private nonisolated static func references(
-        in layers: [SceneRenderDescriptor.Layer]
-    ) -> [Reference] {
-        layers.flatMap { layer in
-            layer.effects.filter { $0.visible != false }.flatMap { effect in
-                effect.passes.flatMap { pass in
-                    pass.textureSlots.enumerated().compactMap { slotIndex, path in
-                        guard let reference = SceneNamedTextureReference.parse(path) else { return nil }
-                        return Reference(
-                            consumerLayerID: layer.id,
-                            providerLayerID: reference.providerLayerID,
-                            slot: SceneEffectPassSlot(
-                                effectID: effect.id,
-                                passIndex: pass.passIndex,
-                                slotIndex: slotIndex
-                            ),
-                            variant: reference.variant
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private nonisolated static func dependencyEdges(
-        layers: [SceneRenderDescriptor.Layer],
-        references: [Reference]
-    ) -> [Int: Set<Int>] {
-        var edges = Dictionary(uniqueKeysWithValues: layers.map { layer in
-            (layer.id, Set(layer.dependencyLayerIDs.filter { $0 != layer.id }))
-        })
-        for reference in references where reference.consumerLayerID != reference.providerLayerID {
-            edges[reference.consumerLayerID, default: []].insert(reference.providerLayerID)
-        }
-        return edges
-    }
-
-    /// Typed consumer-side passthrough exemption: the only cross-layer input of a
-    /// visible image layer is the exact stock X-Ray effect's slot-1 blend texture
-    /// referencing one authored dependency's primary composite. The stock
-    /// `xray.frag` keeps `gl_FragColor.a` equal to the consumer's own composite
-    /// alpha and only blends the provider RGB inside the pointer halo, so the
-    /// provider input is effect-local to the skipped effect and cannot change the
-    /// consumer's own source coverage. The provider side stays blocked.
-    private nonisolated static func xRayEffectLocalProviderContract(
-        for layer: SceneRenderDescriptor.Layer
-    ) -> Reference? {
-        guard layer.contentKind == "image",
-              layer.visible != false,
-              layer.dependencyLayerIDs.count == 1,
-              let providerLayerID = layer.dependencyLayerIDs.first,
-              providerLayerID != layer.id else {
-            return nil
-        }
-        let visibleEffects = layer.effects.filter { $0.visible != false }
-        let xRayEffects = visibleEffects.filter {
-            normalized($0.file) == stockXRayEffectPath
-        }
-        guard xRayEffects.count == 1,
-              let effect = xRayEffects.first,
-              effect.passes.count == 1,
-              let pass = effect.passes.first,
-              pass.passIndex == 0,
-              pass.userTextureInputs.isEmpty,
-              normalizedXRayCombos(pass.combos) != nil,
-              pass.textureSlots.count == 3,
-              pass.textureSlots[0] == nil,
-              let blendPath = pass.textureSlots[1],
-              let blendReference = SceneNamedTextureReference.parse(blendPath),
-              blendReference.variant == .primary,
-              blendReference.providerLayerID == providerLayerID,
-              pass.textureSlots[2].flatMap(SceneNamedTextureReference.parse) == nil,
-              pass.texturePaths.map(normalized)
-                == pass.textureSlots.compactMap({ $0 }).map(normalized) else {
-            return nil
-        }
-        let layerReferences = references(in: [layer])
-        guard layerReferences.count == 1,
-              let onlyReference = layerReferences.first,
-              onlyReference.consumerLayerID == layer.id,
-              onlyReference.providerLayerID == providerLayerID,
-              onlyReference.slot.effectID == effect.id,
-              onlyReference.slot.passIndex == 0,
-              onlyReference.slot.slotIndex == 1,
-              onlyReference.variant == .primary else {
-            return nil
-        }
-        return onlyReference
-    }
-
-    private nonisolated static func normalizedXRayCombos(
-        _ authored: [String: Int]
-    ) -> [String: Int]? {
-        var result: [String: Int] = [:]
-        let allowed = Set(["BLENDMODE", "OPACITYMASK"])
-        for (key, value) in authored {
-            let normalizedKey = key.uppercased()
-            guard allowed.contains(normalizedKey),
-                  result[normalizedKey] == nil,
-                  value == 0 else {
-                return nil
-            }
-            result[normalizedKey] = value
-        }
-        return result
-    }
-
-    private nonisolated static let stockXRayEffectPath = "effects/xray/effect.json"
-
-    private nonisolated static func cyclicLayerIDs(
-        edges: [Int: Set<Int>]
-    ) -> Set<Int> {
-        enum VisitState { case visiting, visited }
-        var states: [Int: VisitState] = [:]
-        var stack: [Int] = []
-        var cyclic: Set<Int> = []
-
-        func visit(_ layerID: Int) {
-            if states[layerID] == .visited { return }
-            if states[layerID] == .visiting {
-                if let start = stack.firstIndex(of: layerID) {
-                    cyclic.formUnion(stack[start...])
-                }
-                return
-            }
-            states[layerID] = .visiting
-            stack.append(layerID)
-            for providerID in edges[layerID] ?? [] where edges[providerID] != nil {
-                visit(providerID)
-            }
-            _ = stack.popLast()
-            states[layerID] = .visited
-        }
-
-        for layerID in edges.keys { visit(layerID) }
-        return cyclic
-    }
-
-    private nonisolated static func referenceIssues(
-        references: [Reference],
-        layersByID: [Int: SceneRenderDescriptor.Layer]
-    ) -> [Issue] {
-        references.compactMap { reference in
-            guard layersByID[reference.providerLayerID] == nil else { return nil }
-            return Issue(
-                kind: .missingProvider,
-                layerID: reference.consumerLayerID,
-                providerLayerID: reference.providerLayerID
-            )
         }
     }
 
@@ -423,7 +279,7 @@ nonisolated struct SceneDependencyRenderPlan {
         return supportedProceduralNoiseReference(
             layer: layer,
             visibleEffects: visibleEffects,
-            references: references(in: [layer]),
+            references: SceneDependencyGraphAnalysis.references(in: [layer]),
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         ) != nil
     }
