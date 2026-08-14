@@ -72,6 +72,8 @@ PRESERVED_KEYS = [
     "maximum_flat_border_ratio",
     "property_overrides",
     "live_property_overrides",
+    "media_title",
+    "media_artist",
     "minimum_authored_opacity_runtime_count",
     "minimum_authored_parallax_layer_count",
     "minimum_live_changed_ratio",

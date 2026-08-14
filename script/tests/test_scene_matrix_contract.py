@@ -320,6 +320,20 @@ class SceneMatrixContractTests(unittest.TestCase):
                         set(old_sample).intersection(refreshed),
                     )
 
+    def test_media_property_inputs_are_preserved_together_verbatim(self) -> None:
+        inputs = {
+            "media_title": "春日歌",
+            "media_artist": "Fixture Artist 🎵",
+        }
+        refreshed = matrix_generator.matrix_sample(
+            synthetic_result(),
+            inputs,
+        )
+        self.assertEqual(
+            {key: refreshed[key] for key in inputs},
+            inputs,
+        )
+
     def test_unknown_matrix_key_fails_closed(self) -> None:
         with self.assertRaisesRegex(
             ValueError,
