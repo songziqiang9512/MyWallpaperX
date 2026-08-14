@@ -1,6 +1,6 @@
 # Scene Render Graph 与 Shader 覆盖矩阵
 
-> 核验日期：2026-08-13
+> 核验日期：2026-08-14
 >
 > 范围：Effect definition、material、render graph、FBO 与 Wallpaper Engine shader 合同。
 >
@@ -149,7 +149,7 @@
 | 类型 alias：`vec2/3/4`、`mat2/3/4x3/4`；函数 alias 另含 `mul`、`mod`、`fmod` | `L0` | 与 Syntax 中 alias 一并进入可版本化 symbol table。 |
 | 整数字面量默认尝试改成 float；`WEMOBILE_DISABLE_INTEGER_CONVERSION` 可关闭 | `L0` | 不能靠文本替换；需 token-aware rewrite 和 before/after fixture。 |
 | 平台分支用独立 `#ifdef HLSL` / `#ifdef GLSL`；`#elif` 不支持，`#else` 对未来 API 不稳 | `L0` | preprocessor 需与官方限制一致并输出明确诊断。 |
-| 移动端编译失败时移除所属 effect，壁纸继续运行 | `L0` | 对应 MyWallpaperX 的产品策略应是 per-effect fail-closed passthrough，而非整幅 wallpaper 黑屏。 |
+| 移动端编译失败时移除所属 effect，壁纸继续运行 | `L0` | MyWallpaperX尚未实现官方移动端的per-effect移除合同。当前只有更窄的source-stage故障隔离降级：route精确为`.unclaimed`，不存在已授权/可执行typed dependency、source-copy、frame target或final-alpha，也没有已加载mask或其他非中性合成责任，且exact static-file或current-media atom与authored quad全部闭合时，仅把source交给普通final layer compose。它不执行或发布effect output，记录`degraded-layer-source-passthrough`并使benchmark保持NON-PASS，不得用来提升本行等级或声称官方行为。 |
 
 <a id="op-shader-desaturation"></a>
 ### 4.6 Desaturation Tutorial

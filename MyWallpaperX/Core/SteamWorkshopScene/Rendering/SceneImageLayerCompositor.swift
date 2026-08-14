@@ -4,12 +4,12 @@ import simd
 struct SceneImageLayerCompositor {
     enum DrawOutcome: Equatable {
         case normal(consumedDependency: Bool)
-        case currentMediaBaseDisplay
+        case layerSourcePassthrough
         case failed
 
         var encoded: Bool {
             switch self {
-            case .normal, .currentMediaBaseDisplay:
+            case .normal, .layerSourcePassthrough:
                 return true
             case .failed:
                 return false
@@ -86,25 +86,20 @@ struct SceneImageLayerCompositor {
         let hasUnclaimedVisibleEffects = request.layer.effects.contains {
             $0.visible != false
         } && resolvedMaterialClaim == nil
-        if hasUnclaimedVisibleEffects,
-           case .unclaimed = resolvedMaterialRoute,
-           canAttemptCurrentMediaBaseDisplay(
-               request,
-               publication: explicitLayerSourcePublication
-           ) {
-            guard let textureFrame = explicitLayerSourcePublication?
-                .candidate.uvTransform else {
-                return .failed
-            }
+        if let passthroughPlan = SceneLayerSourcePassthroughPlan.make(
+            request: request,
+            publication: explicitLayerSourcePublication,
+            route: resolvedMaterialRoute
+        ) {
             let uniforms = makeFragmentUniforms(
                 values: request.uniforms,
-                textureFrame: textureFrame,
+                textureFrame: passthroughPlan.source.uvTransform,
                 tint: SIMD3<Float>(repeating: 1),
                 dependencyBlendMode: nil
             )
             let encoded = SceneImageLayerMainPassRenderer.draw(
-                texture: request.texture,
-                mvp: request.mvp,
+                texture: passthroughPlan.source.texture,
+                mvp: passthroughPlan.modelViewProjection,
                 uniforms: uniforms,
                 dependencyTexture: nil,
                 layer: request.layer,
@@ -115,12 +110,12 @@ struct SceneImageLayerCompositor {
             executionTrace?.recordRouteOperation(
                 layerID: request.layer.id,
                 origin: executionOrigin,
-                operation: "current-media-base-display-authority",
+                operation: "degraded-layer-source-passthrough",
                 outcome: encoded
                     ? .encoded
                     : .failed(reasonCode: "main-pass-encode-failed")
             )
-            return encoded ? .currentMediaBaseDisplay : .failed
+            return encoded ? .layerSourcePassthrough : .failed
         }
         guard !hasUnclaimedVisibleEffects else {
             executionTrace?.recordRouteOperation(
@@ -285,16 +280,6 @@ struct SceneImageLayerCompositor {
         return rendered
             ? .normal(consumedDependency: dependencyEffect != nil)
             : .failed
-    }
-
-    func canAttemptCurrentMediaBaseDisplay(
-        _ request: SceneImageLayerDrawRequest,
-        publication: SceneTextureProviderPublication?
-    ) -> Bool {
-        SceneCurrentMediaBaseDisplayAuthority.admits(
-            request,
-            publication: publication
-        )
     }
 
     func executeResolvedMaterialClaim(

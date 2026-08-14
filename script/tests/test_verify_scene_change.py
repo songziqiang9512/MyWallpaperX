@@ -187,6 +187,32 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
+    def test_layer_source_passthrough_selects_publication_and_gpu_contracts(
+        self,
+    ) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/Rendering/"
+                "SceneLayerSourcePassthroughPlan.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("layer-source-passthrough", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        for module in (
+            "test_scene_framebuffer_capture",
+            "test_scene_resolved_material_runtime_bridge",
+            "test_scene_source_update_transaction",
+            "test_scene_texture_candidate",
+            "test_scene_frame_texture_registry",
+            "test_scene_media_thumbnail_provider",
+            "test_scene_media_thumbnail_binding",
+            "test_scene_wallpaper_benchmark",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, focused.command)
+
     def test_properties_change_selects_origin_and_media_dynamic_contracts(self) -> None:
         gates, groups = verify.build_plan(
             [

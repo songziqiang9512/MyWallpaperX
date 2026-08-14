@@ -2854,6 +2854,54 @@ utility layer 763: skippedHidden kind=composition
             failures,
         )
 
+    def test_effect_execution_degraded_encoded_route_is_non_pass(self) -> None:
+        ordinary_route = effect_route_event(
+            frame=17,
+            origin="graph-executor",
+            layer=2,
+            operation="typed-stage",
+        )
+        ordinary_metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(17, [], [ordinary_route])
+        )
+        self.assertEqual(len(ordinary_metrics["encoded_route_operations"]), 1)
+        self.assertEqual(ordinary_metrics["degraded_route_operations"], [])
+        self.assertEqual(ordinary_metrics["failed_route_operations"], [])
+        self.assertEqual(
+            benchmark.effect_execution_failures(ordinary_metrics),
+            [],
+        )
+
+        degraded_route = effect_route_event(
+            frame=18,
+            origin="graph-executor",
+            layer=2,
+            operation="degraded-layer-source-passthrough",
+        )
+        degraded_metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(18, [], [degraded_route])
+        )
+        self.assertEqual(len(degraded_metrics["encoded_route_operations"]), 1)
+        self.assertEqual(
+            degraded_metrics["degraded_route_operations"],
+            degraded_metrics["encoded_route_operations"],
+        )
+        self.assertEqual(degraded_metrics["failed_route_operations"], [])
+        self.assertEqual(
+            benchmark.effect_execution_failures(degraded_metrics),
+            ["effect execution degraded layer source passthrough"],
+        )
+
+        malformed_metrics = benchmark.effect_execution_metrics(
+            "schema=1 axis=effect-route-operation frame=19 "
+            "origin=graph-executor layer=2 operation=typed-stage "
+            "outcome=encoded"
+        )
+        self.assertIn(
+            "effect execution route operation malformed",
+            malformed_metrics["validation_failures"],
+        )
+
 
     def test_resolved_material_graph_execution_gate_accepts_conserved_evidence(
         self,

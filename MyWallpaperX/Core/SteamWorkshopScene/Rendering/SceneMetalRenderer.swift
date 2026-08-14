@@ -178,6 +178,9 @@ struct SceneMetalRenderer {
                     for: layer.id,
                     textureRegistry: textureRegistry
                 )
+                let requiresDependencyEffect = dependencyRuntime.requiresEffect(
+                    for: layer.id
+                )
                 let layerAlpha = SceneDynamicLayerValues.alpha(
                     layerID: layer.id, authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
@@ -230,6 +233,7 @@ struct SceneMetalRenderer {
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: dependencyEffect,
+                    requiresDependencyEffect: requiresDependencyEffect,
                     dynamicValues: frameContext.dynamicValues,
                     audioSpectrum: frameContext.audioSpectrum,
                     authoredShaderFrameInputs: .init(frameContext: frameContext)
@@ -239,14 +243,8 @@ struct SceneMetalRenderer {
                         for: layer.id,
                         matching: texture
                     )
-                let canAttemptCurrentMediaBaseDisplay = imageCompositor
-                    .canAttemptCurrentMediaBaseDisplay(
-                        request,
-                        publication: explicitLayerSourcePublication
-                    )
-                if dependencyRuntime.requiresEffect(for: layer.id),
-                   dependencyEffect == nil,
-                   !canAttemptCurrentMediaBaseDisplay {
+                if request.requiresDependencyEffect,
+                   request.dependencyEffect == nil {
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     continue
                 }

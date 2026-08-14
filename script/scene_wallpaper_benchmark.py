@@ -3298,6 +3298,7 @@ def _empty_effect_execution_metrics() -> dict[str, Any]:
         "failed_exact_effects": [],
         "route_operations": [],
         "encoded_route_operations": [],
+        "degraded_route_operations": [],
         "failed_route_operations": [],
         "frames": [],
         "completed_frame_ids": [],
@@ -3594,6 +3595,11 @@ def effect_execution_metrics(
         json.dumps(route_identity(item), sort_keys=True): route_identity(item)
         for item in routes if item["outcome"] == "encoded"
     }
+    degraded_routes = {
+        key: route
+        for key, route in encoded_routes.items()
+        if route["operation"] == "degraded-layer-source-passthrough"
+    }
     failed_routes = {
         json.dumps(route_identity(item), sort_keys=True): route_identity(item)
         for item in routes if item["outcome"] == "failed"
@@ -3650,6 +3656,9 @@ def effect_execution_metrics(
         "route_operations": public_routes,
         "encoded_route_operations": [
             encoded_routes[key] for key in sorted(encoded_routes)
+        ],
+        "degraded_route_operations": [
+            degraded_routes[key] for key in sorted(degraded_routes)
         ],
         "failed_route_operations": [
             failed_routes[key] for key in sorted(failed_routes)
@@ -3725,6 +3734,8 @@ def effect_execution_failures(
             failures.append(expectation.failure_message)
     if metrics["failed_exact_effects"]:
         failures.append("effect execution CPU invocation failed")
+    if metrics.get("degraded_route_operations", []):
+        failures.append("effect execution degraded layer source passthrough")
     if metrics["failed_route_operations"]:
         failures.append("effect execution route operation failed")
     if metrics["failed_frame_ids"]:

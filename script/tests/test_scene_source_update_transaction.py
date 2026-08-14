@@ -226,7 +226,7 @@ enum Harness {
             self.assertNotIn("frameTransaction: SceneSourceUpdateTransaction", utility_source)
             self.assertNotIn("frameTransaction: frameTransaction", utility_source)
 
-    def test_renderer_wires_exact_current_media_publication_without_consuming_dependency(self) -> None:
+    def test_renderer_wires_exact_layer_source_publication_without_consuming_dependency(self) -> None:
         source = RENDERER.read_text(encoding="utf-8")
         compositor = COMPOSITOR.read_text(encoding="utf-8")
         texture_load = BASE_IMAGE_TEXTURE_LOAD.read_text(encoding="utf-8")
@@ -247,13 +247,9 @@ enum Harness {
         publication_lookup = source.index(
             ".explicitLayerSourcePublication(", publication
         )
-        authority_precheck = source.index(
-            "let canAttemptCurrentMediaBaseDisplay = imageCompositor",
-            publication_lookup,
-        )
         missing_dependency_guard = source.index(
-            "if dependencyRuntime.requiresEffect(for: layer.id)",
-            authority_precheck,
+            "if request.requiresDependencyEffect,",
+            publication_lookup,
         )
         draw_outcome = source.index(
             "let drawOutcome = imageCompositor.drawOutcome(",
@@ -267,23 +263,17 @@ enum Harness {
         )
 
         self.assertLess(publication, publication_lookup)
-        self.assertLess(publication_lookup, authority_precheck)
-        self.assertLess(authority_precheck, missing_dependency_guard)
+        self.assertLess(publication_lookup, missing_dependency_guard)
         self.assertLess(missing_dependency_guard, draw_outcome)
         self.assertLess(draw_outcome, binding_record)
         self.assertLess(binding_record, claimed_failure_stop)
         self.assertIn(
             "for: layer.id,\n                        matching: texture",
-            source[publication:authority_precheck],
+            source[publication:missing_dependency_guard],
         )
-        self.assertIn(
-            "publication: explicitLayerSourcePublication",
-            source[authority_precheck:missing_dependency_guard],
-        )
-        self.assertIn(
-            "!canAttemptCurrentMediaBaseDisplay",
-            source[missing_dependency_guard:draw_outcome],
-        )
+        self.assertIn("request.dependencyEffect == nil", source[
+            missing_dependency_guard:draw_outcome
+        ])
         self.assertIn(
             "explicitLayerSourcePublication: explicitLayerSourcePublication",
             source[draw_outcome:binding_record],
@@ -297,7 +287,7 @@ enum Harness {
         outcome = outcome.split(
             "let authoredEffectPipelines:", maxsplit=1
         )[0]
-        self.assertIn("case currentMediaBaseDisplay", outcome)
+        self.assertIn("case layerSourcePassthrough", outcome)
         self.assertIn(
             "guard case let .normal(consumedDependency) = self else",
             outcome,

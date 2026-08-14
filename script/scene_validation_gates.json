@@ -125,6 +125,27 @@
       ]
     },
     {
+      "id": "layer-source-passthrough",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneLayerSourcePassthroughPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerDrawRequest.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneBaseImageTextureLoad.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneFrameLayerTextureAssembly.swift"
+      ],
+      "modules": [
+        "test_scene_framebuffer_capture",
+        "test_scene_resolved_material_runtime_bridge",
+        "test_scene_source_update_transaction",
+        "test_scene_texture_candidate",
+        "test_scene_frame_texture_registry",
+        "test_scene_media_thumbnail_provider",
+        "test_scene_media_thumbnail_binding",
+        "test_scene_wallpaper_benchmark"
+      ]
+    },
+    {
       "id": "render-graph",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/**"],
       "keywords": ["authored_effect", "graph", "offscreen", "resolved_material", "shader"]

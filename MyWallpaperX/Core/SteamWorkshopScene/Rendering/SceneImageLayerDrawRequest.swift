@@ -61,6 +61,38 @@ struct SceneImageLayerMasks {
             xRay: xRay
         )
     }
+
+    func hasCoverageOrOpacityTexture(
+        forVisibleEffects effects: [SceneRenderDescriptor.EffectDescriptor]
+    ) -> Bool {
+        let effectIDs = Set(
+            effects.lazy.filter { $0.visible != false }.map(\.id)
+        )
+        guard !effectIDs.isEmpty else { return false }
+        func hasValue<Value>(
+            _ values: [String: Value],
+            _ predicate: (Value) -> Bool
+        ) -> Bool {
+            effectIDs.contains { id in
+                values[id].map(predicate) ?? false
+            }
+        }
+        return hasValue(opacityEffects) { $0.mask != nil }
+            || hasValue(tintEffects) { $0.mask != nil }
+            || hasValue(pulseEffects) { $0.mask != nil }
+            || hasValue(foliageSwayEffects) { $0.maskBinding != nil }
+            || hasValue(shakeEffects) { $0.maskBinding != nil }
+            || hasValue(waterRippleEffects) { $0.maskBinding != nil }
+            || hasValue(standardBlurEffects) { $0.maskCandidate != nil }
+            || hasValue(waterWavesEffects) { $0.mask != nil }
+            || hasValue(waterCausticsEffects) { $0.mask != nil }
+            || hasValue(cursorRippleEffects) { $0.mask != nil }
+            || hasValue(godraysEffects) { $0.mask != nil }
+            || hasValue(shineEffects) { $0.mask != nil }
+            || (xRay.map {
+                effectIDs.contains($0.effectID) && $0.opacityMask != nil
+            } ?? false)
+    }
 }
 
 struct SceneImageLayerUniformValues {
@@ -141,6 +173,7 @@ struct SceneImageLayerDrawRequest {
     let requiresSourceCopy: Bool
     let finalCompositeAlpha: Float?
     let dependencyEffect: SceneDependencyEffectInput?
+    var requiresDependencyEffect: Bool = false
     var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var localContrastStrength: Float? = nil

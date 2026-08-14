@@ -27,8 +27,8 @@ ASSET_CATALOG = (
 LAUNCH = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 TEXTURE_FRAME = SCENE_ROOT / "Rendering/SceneMetalRenderer+TextureFrame.swift"
 COMPOSITOR = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
-CURRENT_MEDIA_BASE_DISPLAY_AUTHORITY = (
-    SCENE_ROOT / "Rendering/SceneCurrentMediaBaseDisplayAuthority.swift"
+LAYER_SOURCE_PASSTHROUGH_PLAN = (
+    SCENE_ROOT / "Rendering/SceneLayerSourcePassthroughPlan.swift"
 )
 GRAPH_COMPOSITION = (
     SCENE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift"
@@ -2888,7 +2888,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         diagnostics = RENDERER_DIAGNOSTICS.read_text(encoding="utf-8")
         frame_preflight = FRAME_PREFLIGHT.read_text(encoding="utf-8")
         compositor = COMPOSITOR.read_text(encoding="utf-8")
-        current_media_authority = CURRENT_MEDIA_BASE_DISPLAY_AUTHORITY.read_text(
+        passthrough_plan = LAYER_SOURCE_PASSTHROUGH_PLAN.read_text(
             encoding="utf-8"
         )
         bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
@@ -2939,24 +2939,29 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         )
         self.assertIn(
             "request.resolvedMaterialFrameTargetPlan == nil",
-            current_media_authority,
+            passthrough_plan,
         )
-        fallback_start = compositor.index("if hasUnclaimedVisibleEffects,")
+        self.assertIn("guard case .unclaimed = route,", passthrough_plan)
+        self.assertIn("request.dependencyEffect == nil", passthrough_plan)
+        self.assertIn("!request.requiresDependencyEffect", passthrough_plan)
+        fallback_start = compositor.index(
+            "if let passthroughPlan = SceneLayerSourcePassthroughPlan.make("
+        )
         fallback_end = compositor.index(
             "guard !hasUnclaimedVisibleEffects else", fallback_start
         )
-        current_media_fallback = compositor[fallback_start:fallback_end]
+        source_passthrough = compositor[fallback_start:fallback_end]
         self.assertIn(
-            "case .unclaimed = resolvedMaterialRoute,",
-            current_media_fallback,
+            "route: resolvedMaterialRoute",
+            source_passthrough,
         )
         self.assertIn(
-            "return encoded ? .currentMediaBaseDisplay : .failed",
-            current_media_fallback,
+            "return encoded ? .layerSourcePassthrough : .failed",
+            source_passthrough,
         )
         self.assertNotIn(
             ".normal(consumedDependency:",
-            current_media_fallback,
+            source_passthrough,
         )
         self.assertIn("case .notMigrated:\n            return .unclaimed", composition)
         self.assertIn("case rejected(reasonCode: String)", composition)
