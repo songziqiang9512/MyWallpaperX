@@ -197,6 +197,65 @@ def validated_defines(payload: dict[str, Any]) -> dict[str, int]:
     return result
 
 
+def _used_varying_components(body: str, name: str, width: int) -> set[str]:
+    ordered = "xyzw"[:width]
+    aliases = dict(zip("rgba", "xyzw"))
+    used: set[str] = set()
+    for match in re.finditer(
+        rf"\b{re.escape(name)}\b(?P<swizzle>\.[xyzwrgba]{{1,4}})?",
+        body,
+    ):
+        swizzle = match.group("swizzle")
+        if swizzle is None:
+            return set(ordered)
+        used.update(aliases.get(component, component) for component in swizzle[1:])
+    return used
+
+
+def _prune_unused_varying_component_assignments(
+    vertex_body: str,
+    fragment_body: str,
+    varying_shapes: dict[str, tuple[str, int | None]],
+) -> tuple[str, int]:
+    pruned = 0
+    for name, (value_type, count) in varying_shapes.items():
+        width_match = re.fullmatch(r"vec([2-4])", value_type)
+        if count is not None or width_match is None:
+            continue
+        used = _used_varying_components(
+            fragment_body, name, int(width_match.group(1))
+        )
+        aliases = dict(zip("rgba", "xyzw"))
+        assignment = re.compile(
+            rf"^[ \t]*{re.escape(name)}\.(?P<swizzle>[xyzwrgba]{{1,4}})"
+            rf"\s*=\s*(?P<expression>[^;]*);[ \t]*$",
+            re.MULTILINE,
+        )
+
+        def replacement(match: re.Match[str]) -> str:
+            nonlocal pruned
+            assigned = {
+                aliases.get(component, component)
+                for component in match.group("swizzle")
+            }
+            expression = match.group("expression")
+            calls = re.findall(r"\b([A-Za-z_]\w*)\s*\(", expression)
+            if assigned & used or any(
+                call not in {"float", "int", "uint", "vec2", "vec3", "vec4"}
+                for call in calls
+            ):
+                return match.group(0)
+            if "++" in expression or "--" in expression:
+                return match.group(0)
+            if not re.fullmatch(r"[A-Za-z0-9_.,()\s+\-*/]+", expression):
+                return match.group(0)
+            pruned += 1
+            return ""
+
+        vertex_body = assignment.sub(replacement, vertex_body)
+    return vertex_body, pruned
+
+
 def normalize_wallpaper_engine_pair(
     stages: list[dict[str, str]],
     defines: dict[str, int],
@@ -325,6 +384,13 @@ def normalize_wallpaper_engine_pair(
     )
     if main_replacements != 1:
         raise HarnessFailure("normalization", "vertex-main")
+    vertex_body, varying_component_prunes = (
+        _prune_unused_varying_component_assignments(
+            vertex_body,
+            parsed["fragment"]["body"],
+            varying_shapes,
+        )
+    )
     parsed["vertex"]["body"] = vertex_body
 
     attribute_order = sorted(
@@ -334,9 +400,18 @@ def normalize_wallpaper_engine_pair(
     varying_order = sorted(varying_shapes)
     varying_spans = [varying_shapes[name][1] or 1 for name in varying_order]
     varying_locations = dict(zip(varying_order, [0, *accumulate(varying_spans)]))
+    active_uniform_names = {
+        name
+        for name in uniform_shapes
+        if any(
+            re.search(rf"\b{re.escape(name)}\b", parsed[stage]["body"])
+            for stage in ALLOWED_STAGES
+        )
+    }
     uniform_lines = [
         f"    {value_type} {name}{f'[{count}]' if count is not None else ''};"
         for name, (value_type, count) in sorted(uniform_shapes.items())
+        if name in active_uniform_names
     ]
     uniform_lines.append("    vec2 mwxRenderSize;")
     define_lines = [f"#define {name} {value}" for name, value in sorted(defines.items())]
@@ -392,6 +467,9 @@ def normalize_wallpaper_engine_pair(
     return normalized, {
         "dialect": "wallpaper-engine-glsl-like-v0",
         "uniformCount": len(uniform_shapes),
+        "activeUniformCount": len(active_uniform_names),
+        "inactiveUniformsPruned": len(uniform_shapes) - len(active_uniform_names),
+        "unusedVaryingComponentAssignmentsPruned": varying_component_prunes,
         "samplerSlots": sorted(sampler_slots.values()),
         "attributeCount": len(attribute_shapes),
         "varyingCount": len(varying_shapes),

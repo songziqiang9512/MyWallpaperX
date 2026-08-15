@@ -250,6 +250,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             colorTransfer = .opaque
         case ("premultiplied", nil):
             colorTransfer = .premultipliedAlpha
+        case let ("straight-alpha", slot?):
+            guard bindings.contains(where: { $0.slot == slot }) else { return nil }
+            colorTransfer = .straightAlpha(textureSlot: slot)
         default:
             return nil
         }

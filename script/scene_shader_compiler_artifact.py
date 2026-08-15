@@ -246,6 +246,57 @@ def _premultiplied_accumulator(
     return {"kind": "premultiplied"}
 
 
+def _premultiplied_alpha_attenuation(
+    fragment_msl: str,
+) -> tuple[str, dict[str, Any]] | None:
+    assignments = re.findall(
+        r"^[ \t]*out\.mwxFragColor\s*=.*;$", fragment_msl, re.MULTILINE
+    )
+    if len(assignments) != 1:
+        return None
+    output = re.fullmatch(
+        r"[ \t]*out\.mwxFragColor\s*=\s*(?P<name>[A-Za-z_]\w*)\s*;",
+        assignments[0],
+    )
+    if output is None:
+        return None
+    name = output.group("name")
+    escaped = re.escape(name)
+    declaration = re.findall(
+        rf"^[ \t]*float4\s+{escaped}\s*=\s*"
+        rf"g_Texture(?P<slot>[0-7])\.sample\([^;]+\)\s*;$",
+        fragment_msl,
+        re.MULTILINE,
+    )
+    attenuation = list(re.finditer(
+        rf"^(?P<indent>[ \t]*){escaped}\.w\s*\*=\s*"
+        rf"(?P<factor>[^;]+)\s*;$",
+        fragment_msl,
+        re.MULTILINE,
+    ))
+    if len(declaration) != 1 or len(attenuation) != 1:
+        return None
+    if len(re.findall(rf"\b{escaped}\b", fragment_msl)) != 3:
+        return None
+    factor = attenuation[0].group("factor")
+    if re.search(rf"\b{escaped}\b", factor):
+        return None
+    writes = re.findall(
+        rf"^\s*{escaped}(?:\.(?P<member>[xyzwrgba]{{1,4}}))?\s*(?:[+\-*/]?=)",
+        fragment_msl,
+        re.MULTILINE,
+    )
+    if writes != ["w"]:
+        return None
+    replacement = f"{attenuation[0].group('indent')}{name} *= {factor};"
+    transformed = (
+        fragment_msl[:attenuation[0].start()]
+        + replacement
+        + fragment_msl[attenuation[0].end():]
+    )
+    return transformed, {"kind": "straight-alpha", "slot": int(declaration[0])}
+
+
 def _passthrough_color_transfer(fragment_msl: str) -> dict[str, Any]:
     assignments = re.findall(r"^\s*out\.mwxFragColor\s*=.*;$", fragment_msl, re.MULTILINE)
     if len(assignments) != 1:
@@ -329,10 +380,23 @@ def build_program_artifact(
     if vertex_layout != fragment_layout:
         raise ArtifactFailure("uniform-stage-mismatch")
     uniform_layout = _aligned_uniform_layout(vertex_layout[0])
+    fragment_color_preparation = _premultiplied_alpha_attenuation(
+        msl_sources["fragment"]
+    )
+    prepared_fragment_msl = (
+        fragment_color_preparation[0]
+        if fragment_color_preparation is not None
+        else msl_sources["fragment"]
+    )
+    color_transfer = (
+        fragment_color_preparation[1]
+        if fragment_color_preparation is not None
+        else _passthrough_color_transfer(msl_sources["fragment"])
+    )
     vertex_msl = _normalize_uniform_struct(msl_sources["vertex"]).replace(
         "MWXUniforms", "MWXVertexUniforms"
     )
-    fragment_msl = _normalize_uniform_struct(msl_sources["fragment"]).replace(
+    fragment_msl = _normalize_uniform_struct(prepared_fragment_msl).replace(
         "MWXUniforms", "MWXFragmentUniforms"
     )
     if vertex_msl == msl_sources["vertex"] or fragment_msl == msl_sources["fragment"]:
@@ -358,6 +422,6 @@ def build_program_artifact(
             },
             "textureBindings": _texture_bindings(compiled_stages, metal_source),
             "staticLoopWork": static_loop_work,
-            "colorTransfer": _passthrough_color_transfer(msl_sources["fragment"]),
+            "colorTransfer": color_transfer,
         },
     }

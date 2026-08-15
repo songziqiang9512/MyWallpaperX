@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "selection-required",
-  "purpose": "Machine-readable contract for the seven low-cost Scene vertical slices. It does not claim that any case is currently selected or passing.",
+  "purpose": "Machine-readable contract for the seven low-cost Scene vertical slices. An approved case records a reproducible identity and oracle; approval alone does not claim that the Fast Scene Suite was executed or passed.",
   "allowedSelectionStates": [
     "selection-required",
     "approved",
@@ -55,9 +55,9 @@
     {
       "id": "v0-ordinary-optional-texture-combo",
       "lane": "V0",
-      "selectionState": "selection-required",
-      "fixtureIdentity": null,
-      "contentDigest": null,
+      "selectionState": "approved",
+      "fixtureIdentity": "isolated-real-derived:2902406982:layer-547:retain-effects-548+552-mask-present-or-548+652-texture-absent",
+      "contentDigest": "source-scene.pkg:sha256:57d26227f86014706887b5325ea84437c2b4d20d98fa03f46c6c3f53199459c4;derived-scene.json:sha256:b3232133fd33a63de43e3624fabbfa5ea85c9adec3ba55fba6b7ee52154d7697,13b5d71b9fc06264c63459d05de6a1616c573f4a8eec6e5f626c52a8dcb0ebd1",
       "authoredShape": [
         "one-ordinary-material-pass",
         "one-optional-authored-texture",
@@ -65,9 +65,9 @@
         "explicit-slot-hole-preservation"
       ],
       "expectedRoute": "typed resource readiness -> variant -> generic Program -> GraphExecutor -> compositor",
-      "firstBreakpoint": "must be recorded when a fixture is approved",
-      "positiveOracle": "Present and absent optional texture variants follow their declared combo/default and produce distinct predeclared ROI results.",
-      "negativeOracle": "Pending, stale, or invalid resource generation cannot bind a fabricated texture or poison unrelated effects.",
+      "firstBreakpoint": "The mask-present variant first reached Program but failed the host premultiplied color contract; after public alpha attenuation normalization, the texture-absent variant still demanded inactive g_Texture1Resolution from an unbound optional slot.",
+      "positiveOracle": "Both exact genericCompilerArtifact variants reach GPU completion, publication, terminal compositor and next-frame. In 3024x1964 captures, ROI x=907..1420/y=970..1097 has RGB mean <=1 for the authored mask-present variant and >=250 for the texture-absent variant; their difference is confined to that ROI and control x=0..799/y=900..1149 is identical.",
+      "negativeOracle": "A bad Metal-source digest produces one artifact-contract-rejected fallback for each exact variant and selects boundedSwift for the same Opacity node; GPU completion, terminal compositor and next-frame continue. Existing generation gates still reject pending, stale or mismatched texture publication instead of fabricating a binding.",
       "failureRadius": "affected variant or pass"
     },
     {

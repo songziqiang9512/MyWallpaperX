@@ -264,6 +264,8 @@ remaining_deviation_and_exit_condition:
 
 V0 第一批从能力台账登记的 `SceneEffectStageCompiler.resolveDedicatedStage -> noBackendAccepted` 断点开始：
 
+截至 2026-08-16，步骤 1–3 与步骤 7 的两个 Fast correctness atom 已闭合：one-pass Light Shafts 和 optional-texture Opacity present/absent 成员均已批准，并有 generic Program、GPU/compositor/next-frame、预登记 ROI 与坏 artifact 局部回滚证据。当前首断点转到步骤 4–6：把外部预生成 artifact 收敛为可重启、受预算约束的 preparation worker/cache，评估默认 generic-first，并把真实编译/Program失败只降级当前 effect 而非后续 layer suffix。bounded owner 撤权仍属于步骤 8，不能由两个 `prefer-generic` 正例提前宣告。
+
 1. V0-0 从隔离 corpus 为 Fast Scene Suite 前两类各批准一个成员；若选择成本阻塞编译 spike，先用同合同的代表内容推进，但不得声称 suite 已建立；
 2. 在独立 subprocess harness 建立 upstream shader backend spike；第一条普通 pass 能编译后再做有界 source census，按真实失败类别决定 normalization，不以全 corpus 报告阻塞首次出画面；
 3. 复用现有 source graph、preparation、slot/default/combo 和 Program ABI，绕开 effect-name matcher；

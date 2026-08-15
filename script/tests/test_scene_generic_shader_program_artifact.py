@@ -42,6 +42,7 @@ private struct Output: Codable {
 private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
     switch transfer {
     case .passthrough: return "passthrough"
+    case .straightAlpha: return "straightAlpha"
     case .premultipliedAlpha: return "premultipliedAlpha"
     case .opaque: return "opaque"
     default: return "other"
@@ -195,8 +196,8 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 }],
                 "staticLoopWork": 0,
                 "colorTransfer": (
-                    {"kind": "passthrough", "slot": 0}
-                    if color_transfer == "passthrough"
+                    {"kind": color_transfer, "slot": 0}
+                    if color_transfer in ("passthrough", "straight-alpha")
                     else {"kind": color_transfer}
                 ),
             },
@@ -294,6 +295,20 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             accepted, _, _, _ = self.run_harness(root, route="prefer-generic")
             self.assertEqual(accepted["status"], "accepted")
             self.assertEqual(accepted["colorTransfer"], "premultipliedAlpha")
+
+    def test_straight_alpha_artifact_maps_color_source_slot(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            first, _, cache, _ = self.run_harness(root, route="observe-only")
+            artifact = self.artifact(
+                first["requestKey"], color_transfer="straight-alpha"
+            )
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, _ = self.run_harness(root, route="prefer-generic")
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["colorTransfer"], "straightAlpha")
 
 
 if __name__ == "__main__":
