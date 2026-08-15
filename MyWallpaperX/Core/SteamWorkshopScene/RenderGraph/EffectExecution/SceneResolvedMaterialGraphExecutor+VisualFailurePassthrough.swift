@@ -1,10 +1,10 @@
 import Metal
 
 extension SceneResolvedMaterialGraphExecutor {
-    /// Preserves the previous current for one launch-time visual frontend
-    /// failure. This is an exact pair-member copy, not a fabricated shader
-    /// result. Resource, target, dependency and runtime failures never reach
-    /// this path.
+    /// Preserves the previous current for one launch-time visual shader
+    /// preparation/frontend failure. This is an exact pair-member copy, not a
+    /// fabricated shader result. Resource, target, dependency and runtime
+    /// failures never reach this path.
     func prepareVisualFailurePassthrough(
         reasonCode: String,
         transition: State.Transition,
@@ -16,7 +16,10 @@ extension SceneResolvedMaterialGraphExecutor {
         commands: inout [Command],
         programKeys: inout [String]
     ) -> Failure? {
-        guard reasonCode == "material-variant-envelope-frontend",
+        guard [
+            "material-variant-envelope-frontend",
+            "material-variant-envelope-shader-preparation",
+        ].contains(reasonCode),
               graph.effects.count == 1,
               graph.nodes.count == 1,
               graph.renderTargets.isEmpty,

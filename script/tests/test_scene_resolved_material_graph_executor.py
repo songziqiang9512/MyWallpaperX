@@ -26,6 +26,12 @@ RESOURCE_ENCODER_SOURCE = SCENE_ROOT / (
 EXECUTOR_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor.swift"
 )
+PROGRAM_FIRST_STAGES_SOURCE = SCENE_ROOT / (
+    "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+)
+VISUAL_FAILURE_PASSTHROUGH_SOURCE = SCENE_ROOT / (
+    "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
+)
 SWIFT_SOURCES = [
     *PUBLICATION_FIXTURE["SWIFT_SOURCES"],
     SCENE_ROOT
@@ -3481,6 +3487,23 @@ private enum Harness {
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
+    def test_visual_failure_passthrough_keeps_exact_launch_reason_allowlist(
+        self,
+    ) -> None:
+        for source in (
+            PROGRAM_FIRST_STAGES_SOURCE,
+            VISUAL_FAILURE_PASSTHROUGH_SOURCE,
+        ):
+            text = source.read_text(encoding="utf-8")
+            self.assertIn('"material-variant-envelope-frontend"', text)
+            self.assertIn(
+                '"material-variant-envelope-shader-preparation"',
+                text,
+            )
+            self.assertNotIn('"material-variant-envelope-texture"', text)
+            self.assertNotIn('"material-variant-envelope-target"', text)
+            self.assertNotIn('"material-variant-envelope-runtime-encode"', text)
+
     def test_production_executor_preflights_and_executes_atomic_graph(self) -> None:
         with tempfile.TemporaryDirectory(
             prefix="mwx-resolved-material-graph-executor-"

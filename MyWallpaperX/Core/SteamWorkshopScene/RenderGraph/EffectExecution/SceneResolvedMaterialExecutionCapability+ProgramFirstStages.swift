@@ -163,7 +163,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return .success(.init(stages: stages, materials: allMaterials))
     }
 
-    /// Only a launch-time shader frontend failure may become a visual no-op.
+    /// Only a launch-time shader preparation/frontend failure may become a
+    /// visual no-op.
     /// Resource, target, dependency, state and lifecycle failures remain hard
     /// rejections. The admitted effect must be one current-in/current-out leaf
     /// so an exact full-frame copy preserves the previous current without
@@ -174,7 +175,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         pairPlan: SceneLayerFullFramePairPlan,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership
     ) -> Bool {
-        guard failure.code == "material-variant-envelope-frontend",
+        guard [
+            "material-variant-envelope-frontend",
+            "material-variant-envelope-shader-preparation",
+        ].contains(failure.code),
               dependencyOwnership == .none,
               product.graph.effects.count == 1,
               product.graph.nodes.count == 1,
