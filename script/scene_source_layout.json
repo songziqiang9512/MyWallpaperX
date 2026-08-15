@@ -94,6 +94,7 @@
           "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant.swift",
+          "SceneResolvedMaterialGenericShaderArtifactCache.swift",
           "SceneResolvedMaterialHostUniformSchema.swift",
           "SceneResolvedMaterialProgram+ColorDerivation.swift",
           "SceneResolvedMaterialProgram+Derivation.swift",

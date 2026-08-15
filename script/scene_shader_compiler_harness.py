@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""Bounded observe-only glslang -> SPIR-V -> SPIRV-Cross MSL harness.
+"""Bounded glslang -> SPIR-V -> SPIRV-Cross MSL compiler harness.
 
-This tool never grants product execution ownership. It accepts already
-normalized project fixture or prepared authored GLSL, validates fixed compiler
-artifacts, performs stage-link and per-stage compilation in killable process
-groups, and writes one canonical JSON report only after MSL and Metal frontend
-preflight succeed.
+The default report remains observe-only. With explicit ``--artifact-output``
+the tool also emits an exact-source-keyed, development-gated Program artifact
+after combined MSL and Metal frontend preflight. The App independently validates
+that artifact and only attempts it under an explicit ``prefer-generic`` route;
+this tool does not enable a default or release product route.
 """
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import math
@@ -26,6 +25,13 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from scene_shader_compiler_artifact import (
+    ArtifactFailure,
+    build_program_artifact,
+    request_cache_key,
+)
+from scene_shader_compiler_cli import parse_args
 
 
 SCRIPT_ROOT = Path(__file__).resolve().parent
@@ -299,6 +305,24 @@ def normalize_wallpaper_engine_pair(
             sorted(missing_vertex_outputs),
         )
 
+    if "mwxRenderSize" in uniform_shapes:
+        raise HarnessFailure("normalization", "reserved-uniform", ["mwxRenderSize"])
+    vertex_body, main_replacements = re.subn(
+        r"\bvoid\s+main\s*\(\s*\)\s*\{",
+        """void main() {
+    const vec2 mwxCoordinates[4] = vec2[4](
+        vec2(0.0, 1.0), vec2(1.0, 1.0),
+        vec2(0.0, 0.0), vec2(1.0, 0.0));
+    vec2 a_TexCoord = mwxCoordinates[gl_VertexIndex];
+    vec2 mwxPosition = vec2(a_TexCoord.x, 1.0 - a_TexCoord.y);
+    vec3 a_Position = vec3((mwxPosition - vec2(0.5)) * mwxRenderSize, 0.0);""",
+        parsed["vertex"]["body"],
+        count=1,
+    )
+    if main_replacements != 1:
+        raise HarnessFailure("normalization", "vertex-main")
+    parsed["vertex"]["body"] = vertex_body
+
     attribute_order = sorted(
         attribute_shapes,
         key=lambda name: ({"a_Position": 0, "a_TexCoord": 1}.get(name, 2), name),
@@ -309,13 +333,7 @@ def normalize_wallpaper_engine_pair(
         value_type, count = uniform_shapes[name]
         suffix = f"[{count}]" if count is not None else ""
         uniform_lines.append(f"    {value_type} {name}{suffix};")
-    uniform_block = ""
-    if uniform_lines:
-        uniform_block = (
-            "layout(std140, set = 0, binding = 8) uniform MWXUniforms {\n"
-            + "\n".join(uniform_lines)
-            + "\n};\n"
-        )
+    uniform_lines.append("    vec2 mwxRenderSize;")
     sampler_lines = [
         f"layout(set = 0, binding = {slot}) uniform sampler2D {name};"
         for name, slot in sorted(sampler_slots.items(), key=lambda item: item[1])
@@ -333,13 +351,6 @@ def normalize_wallpaper_engine_pair(
     for stage in stages:
         stage_name = stage["stage"]
         interface: list[str] = []
-        if stage_name == "vertex":
-            for location, name in enumerate(attribute_order):
-                value_type, count = attribute_shapes[name]
-                suffix = f"[{count}]" if count is not None else ""
-                interface.append(
-                    f"layout(location = {location}) in {value_type} {name}{suffix};"
-                )
         for location, name in enumerate(varying_order):
             if name not in stage_varyings[stage_name]:
                 continue
@@ -351,6 +362,11 @@ def normalize_wallpaper_engine_pair(
             )
         if stage_name == "fragment":
             interface.append("layout(location = 0) out vec4 mwxFragColor;")
+        uniform_block = (
+            "layout(std140, set = 0, binding = 8) uniform MWXUniforms {\n"
+            + "\n".join(uniform_lines)
+            + "\n};\n"
+        )
         source = "\n".join([
             "#version 450",
             *define_lines,
@@ -510,7 +526,8 @@ def compile_request(
     metal_path: Path,
     limits: Limits,
     normalization: dict[str, Any],
-) -> dict[str, Any]:
+    artifact_requested: bool,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
     with tempfile.TemporaryDirectory(prefix="mwx-shader-compiler-") as directory:
         root = Path(directory)
         sources: dict[str, Path] = {}
@@ -556,6 +573,11 @@ def compile_request(
                 "--msl",
                 "--msl-version",
                 "20000",
+                "--msl-decoration-binding",
+                "--rename-entry-point",
+                stage["entryPoint"],
+                "mwxGenericVertex" if name == "vertex" else "mwxGenericFragment",
+                STAGE_SUFFIX[name],
                 "--output",
                 str(msl),
             ], limits, f"{name}-msl", working_directory=root)
@@ -601,7 +623,7 @@ def compile_request(
                     "metal": metal.duration_milliseconds,
                 },
             })
-        return {
+        report = {
             "schemaVersion": 1,
             "kind": "scene-shader-compiler-harness",
             "status": "passed",
@@ -642,6 +664,42 @@ def compile_request(
                 "no Program, GPU encode, publication, compositor, next-frame, or parity claim."
             ),
         }
+        artifact: dict[str, Any] | None = None
+        if artifact_requested:
+            try:
+                artifact = build_program_artifact(
+                    request_key=request_cache_key(request),
+                    backend_id="glslang-spirv-cross-msl-v1",
+                    compiled_stages=compiled,
+                    stage_sources={stage["stage"]: stage["source"] for stage in stages},
+                    msl_sources={
+                        stage["stage"]: (root / f"{stage['stage']}.metal").read_text(
+                            encoding="utf-8"
+                        )
+                        for stage in stages
+                    },
+                    maximum_artifact_bytes=limits.maximum_artifact_bytes,
+                )
+            except ArtifactFailure as error:
+                raise HarnessFailure("artifact", str(error)) from error
+            combined_msl = root / "program.metal"
+            combined_air = root / "program.air"
+            combined_msl.write_text(artifact["program"]["metalSource"], encoding="utf-8")
+            artifact_metal = run_command([
+                str(metal_path),
+                "-x",
+                "metal",
+                "-std=macos-metal2.4",
+                "-c",
+                str(combined_msl),
+                "-o",
+                str(combined_air),
+            ], limits, "artifact-metal", working_directory=root)
+            artifact["program"]["metalPreflight"] = {
+                **validate_artifact(combined_air, limits, "artifact-air"),
+                "durationMilliseconds": artifact_metal.duration_milliseconds,
+            }
+        return report, artifact
 
 
 def recorded_hashes(manifest: dict[str, Any], key: str) -> set[str]:
@@ -658,19 +716,8 @@ def recorded_hashes(manifest: dict[str, Any], key: str) -> set[str]:
     return hashes
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--request", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--glslang", required=True)
-    parser.add_argument("--spirv-cross", required=True)
-    parser.add_argument("--metal", required=True)
-    parser.add_argument("--dependency-manifest", type=Path, default=DEFAULT_MANIFEST)
-    return parser.parse_args()
-
-
 def main() -> int:
-    args = parse_args()
+    args = parse_args(__doc__, DEFAULT_MANIFEST)
     try:
         manifest = read_json(args.dependency_manifest, "manifest")
         if manifest.get("schemaVersion") != 1:
@@ -710,9 +757,18 @@ def main() -> int:
         metal = Path(args.metal).expanduser().resolve()
         if not metal.is_file() or not os.access(metal, os.X_OK):
             raise HarnessFailure("tool", "unavailable", ["metal", str(metal)])
-        report = compile_request(
-            request, stages, glslang, spirv_cross, metal, limits, normalization
+        report, artifact = compile_request(
+            request, stages, glslang, spirv_cross, metal, limits, normalization,
+            artifact_requested=args.artifact_output is not None,
         )
+        if args.artifact_output is not None:
+            if artifact is None:
+                raise HarnessFailure("artifact", "program-contract-unproven")
+            artifact_output = canonical_json(artifact)
+            if len(artifact_output) > limits.maximum_artifact_bytes:
+                raise HarnessFailure("artifact", "artifact-size")
+            args.artifact_output.parent.mkdir(parents=True, exist_ok=True)
+            args.artifact_output.write_bytes(artifact_output)
         output = canonical_json(report)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_bytes(output)

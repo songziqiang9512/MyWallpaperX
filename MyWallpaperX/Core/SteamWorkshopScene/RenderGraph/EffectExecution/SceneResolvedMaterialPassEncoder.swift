@@ -18,6 +18,7 @@ final class SceneResolvedMaterialPassEncoder {
         fileprivate let target: MTLTexture
         fileprivate let bindings: [Binding]
         fileprivate let uniformBytes: Data
+        fileprivate let uniformBufferIndex: Int
     }
 
     fileprivate struct Binding {
@@ -136,7 +137,8 @@ final class SceneResolvedMaterialPassEncoder {
             pipeline: cached.pipeline,
             target: target,
             bindings: bindings,
-            uniformBytes: program.uniformBytes
+            uniformBytes: program.uniformBytes,
+            uniformBufferIndex: program.frontendProgram.uniformBufferIndex
         ))
     }
 
@@ -175,8 +177,16 @@ final class SceneResolvedMaterialPassEncoder {
         if !pass.uniformBytes.isEmpty {
             pass.uniformBytes.withUnsafeBytes { bytes in
                 guard let baseAddress = bytes.baseAddress else { return }
-                encoder.setVertexBytes(baseAddress, length: bytes.count, index: 0)
-                encoder.setFragmentBytes(baseAddress, length: bytes.count, index: 0)
+                encoder.setVertexBytes(
+                    baseAddress,
+                    length: bytes.count,
+                    index: pass.uniformBufferIndex
+                )
+                encoder.setFragmentBytes(
+                    baseAddress,
+                    length: bytes.count,
+                    index: pass.uniformBufferIndex
+                )
             }
         }
         for binding in pass.bindings {
@@ -202,6 +212,7 @@ final class SceneResolvedMaterialPassEncoder {
     private func validUniforms(_ program: SceneResolvedMaterialProgram) -> Bool {
         let layout = program.frontendProgram.uniformLayout
         guard layout.byteSize == program.uniformBytes.count,
+              (0 ..< 31).contains(program.frontendProgram.uniformBufferIndex),
               layout.byteSize >= 0,
               layout.byteSize <= 4_096,
               layout.byteSize.isMultiple(of: 16),

@@ -66,6 +66,19 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             fragmentSource: prepared.fragment.source,
             runtimeLoopBounds: runtimeLoopBounds
         ) else { throw Issue.sampler("prepared-frontend") }
+        return try activeSamplers(prepared, activeNames: activeNames)
+    }
+
+    /// A validated compiler artifact already publishes its active reflection.
+    /// Reuse the same metadata projection without asking the bounded Swift
+    /// language frontend to parse the source a second time.
+    static func activeSamplers(
+        _ prepared: SceneShaderPreparedProgram,
+        activeNames: Set<String>
+    ) throws -> [Int: Sampler] {
+        guard activeNames.allSatisfy({ name in
+            name.hasPrefix("g_Texture") && Int(name.dropFirst(9)) != nil
+        }) else { throw Issue.sampler("active-reflection") }
         return try samplerSchemas(records(prepared).filter {
             $0.declaration.kind != .uniform
                 || !isSampler2D($0.declaration.type)

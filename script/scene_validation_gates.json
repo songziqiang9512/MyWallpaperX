@@ -204,6 +204,7 @@
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/**"],
       "modules": [
         "test_scene_effect_texture_purposes",
+        "test_scene_generic_shader_program_artifact",
         "test_scene_graph_texture_publication",
         "test_scene_material_program_census",
         "test_scene_resolved_material_execution_capability",
@@ -336,7 +337,7 @@
       "id": "shader-compiler-harness",
       "patterns": [
         "script/scene_shader_compiler_dependencies.json",
-        "script/scene_shader_compiler_harness.py",
+        "script/scene_shader_compiler_*.py",
         "script/fixtures/scene_shader_compiler/**"
       ],
       "modules": ["test_scene_shader_compiler_harness"]

@@ -198,6 +198,11 @@ nonisolated enum SceneShaderColorTransfer: Equatable, Hashable, Sendable {
 }
 
 nonisolated struct SceneAuthoredShaderProgram {
+    enum Backend: String, Equatable, Hashable, Sendable {
+        case boundedSwift
+        case genericCompilerArtifact
+    }
+
     struct TextureBinding: Equatable, Hashable, Sendable {
         enum ChannelUse: String, Equatable, Hashable, Sendable {
             /// Every active sample result is immediately projected to `.r`.
@@ -214,10 +219,12 @@ nonisolated struct SceneAuthoredShaderProgram {
     let metalSource: String
     let vertexFunctionName: String
     let fragmentFunctionName: String
+    let uniformBufferIndex: Int
     let uniformLayout: SceneAuthoredShaderUniformLayout
     let textureBindings: [TextureBinding]
     let staticLoopWork: Int
     let colorTransfer: SceneShaderColorTransfer
+    let backend: Backend
 
     func channelUse(forTextureSlot slot: Int) -> TextureBinding.ChannelUse? {
         textureBindings.first(where: { $0.slot == slot })?.channelUse
@@ -227,18 +234,22 @@ nonisolated struct SceneAuthoredShaderProgram {
         metalSource: String,
         vertexFunctionName: String,
         fragmentFunctionName: String,
+        uniformBufferIndex: Int = 0,
         uniformLayout: SceneAuthoredShaderUniformLayout,
         textureBindings: [TextureBinding],
         staticLoopWork: Int,
-        colorTransfer: SceneShaderColorTransfer
+        colorTransfer: SceneShaderColorTransfer,
+        backend: Backend = .boundedSwift
     ) {
         self.metalSource = metalSource
         self.vertexFunctionName = vertexFunctionName
         self.fragmentFunctionName = fragmentFunctionName
+        self.uniformBufferIndex = uniformBufferIndex
         self.uniformLayout = uniformLayout
         self.textureBindings = textureBindings
         self.staticLoopWork = staticLoopWork
         self.colorTransfer = colorTransfer
+        self.backend = backend
     }
 
     func offscreenSize(viewportSize: CGSize) -> CGSize? {

@@ -31,9 +31,11 @@ extension SceneResolvedMaterialProgram {
         }
 
         let frontendSchemaVersion: Int
+        let backend: SceneAuthoredShaderProgram.Backend
         let metalSource: String
         let vertexFunctionName: String
         let fragmentFunctionName: String
+        let uniformBufferIndex: Int
         let uniformFields: [UniformField]
         let textureSlots: [Int]
         let textureChannelUses: [SceneAuthoredShaderProgram.TextureBinding.ChannelUse]
@@ -196,9 +198,11 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         }
         return .init(
             frontendSchemaVersion: schemaVersion,
+            backend: frontend.backend,
             metalSource: frontend.metalSource,
             vertexFunctionName: frontend.vertexFunctionName,
             fragmentFunctionName: frontend.fragmentFunctionName,
+            uniformBufferIndex: frontend.uniformBufferIndex,
             uniformFields: frontend.uniformLayout.fields.map {
                 .init(
                     name: $0.name,

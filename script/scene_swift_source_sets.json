@@ -178,6 +178,7 @@
       "includes": [],
       "sources": [
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",

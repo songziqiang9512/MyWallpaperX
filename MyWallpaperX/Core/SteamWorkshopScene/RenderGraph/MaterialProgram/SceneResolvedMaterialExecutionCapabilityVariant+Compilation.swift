@@ -68,8 +68,31 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             fragmentSource: prepared.fragment.source,
             runtimeLoopBounds: runtimeLoopBounds
         )
-        guard frontendOutput.diagnostics.isEmpty,
-              let frontend = frontendOutput.program,
+        let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
+            vertexSource: prepared.vertex.source,
+            fragmentSource: prepared.fragment.source
+        )
+        let frontend: SceneAuthoredShaderProgram
+        let artifactFailure: [String]
+        switch artifactResolution {
+        case let .accepted(program, requestKey):
+            frontend = program
+            artifactFailure = ["generic-artifact-accepted", requestKey]
+        case let .unavailable(code, requestKey):
+            guard frontendOutput.diagnostics.isEmpty,
+                  let bounded = frontendOutput.program else {
+                throw failure(
+                    .shaderFrontendFailed,
+                    phase: .frontend,
+                    details: SceneResolvedMaterialExecutionCapabilityDiagnostics
+                        .frontendFailure(template: template, output: frontendOutput)
+                        + ["generic-artifact", code, requestKey]
+                )
+            }
+            frontend = bounded
+            artifactFailure = ["generic-artifact", code, requestKey]
+        }
+        guard
               SceneResolvedMaterialProgramDerivation.validPreparedStages(prepared),
               SceneResolvedMaterialProgramDerivation.uniqueAndValid(
                   frontend.uniformLayout
@@ -79,13 +102,14 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 phase: .frontend,
                 details: SceneResolvedMaterialExecutionCapabilityDiagnostics
                     .frontendFailure(template: template, output: frontendOutput)
+                    + artifactFailure
             )
         }
         let samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
         do {
             samplers = try SceneResolvedMaterialShaderSchema.activeSamplers(
                 prepared,
-                runtimeLoopBounds: runtimeLoopBounds
+                activeNames: Set(frontend.textureBindings.map(\.name))
             )
         } catch {
             throw failure(.activeSamplerSchemaInvalid)

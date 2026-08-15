@@ -206,7 +206,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(len(uniform), 1)
         self.assertEqual(len(schema), 4)
         self.assertEqual(len(texture_finalization), 7)
-        self.assertEqual(len(variant_preparation), 5)
+        self.assertEqual(len(variant_preparation), 6)
         self.assertEqual(
             frame_finalization,
             (
@@ -217,10 +217,10 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 23)
+        self.assertEqual(len(frame_finalization), 24)
         self.assertEqual(len(template_compilation), 3)
         self.assertEqual(complete, (*template_compilation, *frame_finalization))
-        self.assertEqual(len(complete), 26)
+        self.assertEqual(len(complete), 27)
 
         material_program_directory = (
             REPOSITORY_ROOT

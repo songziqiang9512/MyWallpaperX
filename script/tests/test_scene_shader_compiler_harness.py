@@ -30,7 +30,7 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
     def tools(self, root: Path, slow: bool = False) -> tuple[Path, Path, Path]:
-        delay = "import time; time.sleep(2)" if slow else ""
+        delay = "import time; time.sleep(4)" if slow else ""
         glslang = self.write_tool(root, "glslang", f"""
             import pathlib, sys
             if "--version" in sys.argv:
@@ -57,11 +57,36 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
             if "--version" in sys.argv:
                 print("Git commit: fake-cross-v1")
                 raise SystemExit(0)
+            stage = pathlib.Path(sys.argv[1]).stem
             output = pathlib.Path(sys.argv[sys.argv.index("--output") + 1])
             if "--reflect" in sys.argv:
-                output.write_text(json.dumps({"entryPoints": [{"name": "main"}]}), encoding="utf-8")
+                textures = [{"name": "g_Texture0", "binding": 0, "set": 0, "type": "sampler2D"}]
+                output.write_text(json.dumps({
+                    "types": {"_1": {"name": "MWXUniforms", "members": [
+                        {"name": "mwxRenderSize", "type": "vec2", "offset": 0}
+                    ]}},
+                    "ubos": [{"name": "MWXUniforms", "type": "_1", "block_size": 8, "set": 0, "binding": 8}],
+                    "textures": textures,
+                }), encoding="utf-8")
+            elif stage == "vertex":
+                output.write_text("\\n".join([
+                    "#include <metal_stdlib>",
+                    "using namespace metal;",
+                    "struct MWXUniforms { float2 mwxRenderSize; };",
+                    "vertex float4 mwxGenericVertex(constant MWXUniforms& uniforms [[buffer(8)]], uint vertexID [[vertex_id]]) { return float4(0.0); }",
+                ]), encoding="utf-8")
             else:
-                output.write_text("using namespace metal; kernel void main0() {}", encoding="utf-8")
+                output.write_text("\\n".join([
+                    "#include <metal_stdlib>",
+                    "using namespace metal;",
+                    "struct MWXUniforms { float2 mwxRenderSize; };",
+                    "struct Output { float4 mwxFragColor [[color(0)]]; };",
+                    "fragment Output mwxGenericFragment(constant MWXUniforms& uniforms [[buffer(8)]], texture2d<float> g_Texture0 [[texture(0)]]) {",
+                    "    Output out;",
+                    "    out.mwxFragColor = g_Texture0.sample(sampler(), float2(0.5));",
+                    "    return out;",
+                    "}",
+                ]), encoding="utf-8")
         """)
         metal = self.write_tool(root, "metal", """
             import pathlib, sys
@@ -112,9 +137,10 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
         output: Path,
         manifest: Path,
         tools: tuple[Path, Path, Path],
+        artifact_output: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
         glslang, cross, metal = tools
-        return subprocess.run([
+        command = [
             sys.executable,
             str(SCRIPT),
             "--request", str(request),
@@ -123,7 +149,10 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
             "--glslang", str(glslang),
             "--spirv-cross", str(cross),
             "--metal", str(metal),
-        ], text=True, capture_output=True, check=False)
+        ]
+        if artifact_output is not None:
+            command += ["--artifact-output", str(artifact_output)]
+        return subprocess.run(command, text=True, capture_output=True, check=False)
 
     def test_project_fixture_compiles_without_product_authority(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
@@ -143,6 +172,29 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
             self.assertIn("no Program", report["evidenceBoundary"])
             self.assertFalse((root / "vert.spv").exists())
             self.assertFalse((root / "frag.spv").exists())
+
+    def test_direct_sample_artifact_is_source_keyed_and_preflighted(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
+            root = Path(directory)
+            tools = self.tools(root)
+            manifest = self.manifest(root, tools[0], tools[1])
+            output = root / "report.json"
+            artifact_output = root / "artifact.json"
+            completed = self.run_harness(
+                FIXTURE, output, manifest, tools, artifact_output=artifact_output
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            artifact = json.loads(artifact_output.read_text(encoding="utf-8"))
+            self.assertEqual(artifact["kind"], "scene-generic-shader-program-artifact")
+            self.assertEqual(len(artifact["requestKey"]), 64)
+            self.assertEqual(artifact["routeState"], "prefer-generic")
+            self.assertEqual(artifact["program"]["colorTransfer"], {
+                "kind": "passthrough", "slot": 0
+            })
+            self.assertEqual(artifact["program"]["uniformLayout"]["byteSize"], 16)
+            self.assertEqual(artifact["program"]["metalPreflight"]["bytes"], 3)
+            self.assertIn("MWXVertexUniforms", artifact["program"]["metalSource"])
+            self.assertIn("MWXFragmentUniforms", artifact["program"]["metalSource"])
 
     def test_compiler_rejection_does_not_publish_report(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
@@ -221,7 +273,7 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
             root = Path(directory)
             tools = self.tools(root, slow=True)
-            manifest = self.manifest(root, tools[0], tools[1], timeout_ms=1000)
+            manifest = self.manifest(root, tools[0], tools[1], timeout_ms=2500)
             output = root / "report.json"
             completed = self.run_harness(FIXTURE, output, manifest, tools)
             self.assertEqual(completed.returncode, 2)
