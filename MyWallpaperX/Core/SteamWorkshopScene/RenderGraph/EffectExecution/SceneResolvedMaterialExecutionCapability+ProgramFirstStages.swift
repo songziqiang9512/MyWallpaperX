@@ -6,7 +6,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     static func compileProgramFirstStages(
         _ admitted: SceneResolvedMaterialAdmittedLayer,
         materialCatalog: SceneResolvedMaterialRuntimeCatalog,
-        demandIssueKeys: Set<MaterialKey>,
+        demandIssues: Set<SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue>,
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
@@ -72,7 +72,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             let programResult = compileStages(
                 singleStage,
                 materialCatalog: materialCatalog,
-                demandIssueKeys: demandIssueKeys,
+                demandIssues: demandIssues,
                 dynamicProducers: dynamicProducers,
                 assetFormatFacts: assetFormatFacts,
                 assetStates: assetStates,

@@ -475,6 +475,7 @@ struct SceneResolvedMaterialRuntimeCatalog {
 
     struct ResourceDemandIssue: Hashable {
         let key: Key
+        let slot: Int
     }
 
     let entries: [Key: Entry]
@@ -538,6 +539,7 @@ final class SceneResolvedMaterialVariantCache {
     }
 
     var supportsTransparentDirectDraw: Bool { true }
+    var launchEnvelopeActiveTextureSlots: Set<Int>? { [0] }
     var hasAudioSpectrumConsumer: Bool { audioSpectrumConsumer }
     var supportsCapturedMainTargetTexture: Bool {
         capturedMainTargetTextureSupport
@@ -1543,7 +1545,8 @@ private func materialCatalog(
     graph: Graph,
     omitNode: Int? = nil,
     uniformsByNode: [Int: [Template.UniformDeclaration]] = [:],
-    demandIssueNodes: Set<Int> = []
+    demandIssueNodes: Set<Int> = [],
+    demandIssueSlotsByNode: [Int: Set<Int>] = [:]
 ) -> SceneResolvedMaterialRuntimeCatalog {
     var entries: [
         SceneResolvedMaterialRuntimeCatalog.Key:
@@ -1559,12 +1562,15 @@ private func materialCatalog(
             )
         )
     }
-    let demandIssues = Set(graph.nodes.compactMap { node in
-        demandIssueNodes.contains(node.nodeIndex)
-            ? SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue(
-                key: .init(effect: node.effect, nodeIndex: node.nodeIndex)
+    let demandIssues = Set(graph.nodes.flatMap { node in
+        let slots = demandIssueSlotsByNode[node.nodeIndex]
+            ?? (demandIssueNodes.contains(node.nodeIndex) ? [0] : [])
+        return slots.map { slot in
+            SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue(
+                key: .init(effect: node.effect, nodeIndex: node.nodeIndex),
+                slot: slot
             )
-            : nil
+        }
     })
     return .init(entries: entries, resourceDemandIssues: demandIssues)
 }
@@ -2248,6 +2254,17 @@ private enum Harness {
         )
         let pairGraph = pairOnlyGraph()
         let pairDescriptor = pairOnlyDescriptor()
+        let inactiveDemandIssueCatalog = Catalog(
+            admissionCandidates:
+                SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                    descriptor: pairDescriptor,
+                    authoredPlans: [pairGraph]
+                ),
+            materialCatalog: materialCatalog(
+                graph: pairGraph,
+                demandIssueSlotsByNode: [0: [2]]
+            )
+        )
         let dedicatedBeforeResolvedCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: pairDescriptor,
@@ -2666,6 +2683,8 @@ private enum Harness {
                         programFirstCatalog,
                         "dedicated-leaf-unsupported"
                     ),
+                "inactiveResourceDemandDoesNotRevokeProgram":
+                    inactiveDemandIssueCatalog.claim(layerID: layerID) != nil,
                 "logicalTargetStageAccepted":
                     logicalCatalog.claim(layerID: layerID) != nil,
                 "logicalTargetStageRequiresAllowlist": reportHas(
@@ -3089,7 +3108,10 @@ struct SceneResolvedMaterialRuntimeCatalog {
         case failure(SceneResolvedMaterialFailure)
     }
 
-    struct ResourceDemandIssue: Hashable { let key: Key }
+    struct ResourceDemandIssue: Hashable {
+        let key: Key
+        let slot: Int
+    }
 
     let entries: [Key: Entry]
     let resourceDemandIssues: Set<ResourceDemandIssue>
@@ -3596,14 +3618,16 @@ private func catalog(
     template: Template,
     maximumVariants: Int = 16,
     sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture,
-    assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
+    assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
+    demandIssueSlots: Set<Int> = []
 ) -> Catalog {
     catalog(
         graph: graph,
         templates: [graph.nodes[0].nodeIndex: template],
         maximumVariants: maximumVariants,
         sourceRoute: sourceRoute,
-        assetStates: assetStates
+        assetStates: assetStates,
+        demandIssueSlots: demandIssueSlots
     )
 }
 
@@ -3612,7 +3636,8 @@ private func catalog(
     templates: [Int: Template],
     maximumVariants: Int = 16,
     sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture,
-    assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
+    assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
+    demandIssueSlots: Set<Int> = []
 ) -> Catalog {
     let entries = Dictionary(uniqueKeysWithValues: templates.map { nodeIndex, template in
         (
@@ -3637,7 +3662,14 @@ private func catalog(
         )],
         materialCatalog: .init(
             entries: entries,
-            resourceDemandIssues: []
+            resourceDemandIssues: Set(templates.keys.flatMap { nodeIndex in
+                demandIssueSlots.map { slot in
+                    SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue(
+                        key: .init(effect: effectKey, nodeIndex: nodeIndex),
+                        slot: slot
+                    )
+                }
+            })
         ),
         assetStates: assetStates,
         maximumVariantsPerMaterial: maximumVariants
@@ -3938,12 +3970,17 @@ private enum EnvelopeHarness {
             graph: boundGraph,
             template: materialTemplate(
                 graph: boundGraph,
-                shader: contract("purpose-failure", secondMetadata: "{}"),
+                shader: contract(
+                    "purpose-failure",
+                    secondMetadata: "{}",
+                    observesSecond: true
+                ),
                 slots: slots(
                     primary: graphCandidate(),
                     second: assetCandidate("textures/unproven.tex")
                 )
-            )
+            ),
+            demandIssueSlots: [1]
         )
         let defaultPurposeFailure = catalog(
             graph: boundGraph,
@@ -3951,10 +3988,12 @@ private enum EnvelopeHarness {
                 graph: boundGraph,
                 shader: contract(
                     "default-purpose-failure",
-                    secondMetadata: #"{"default":"textures/default.tex"}"#
+                    secondMetadata: #"{"default":"textures/default.tex"}"#,
+                    observesSecond: true
                 ),
                 slots: slots(primary: graphCandidate())
-            )
+            ),
+            demandIssueSlots: [1]
         )
         let staticAssetDefaultPositive = catalog(
             graph: boundGraph,
@@ -5740,6 +5779,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "fallbackDedicatedLeaf": True,
                 "emptyDedicatedLeafDoesNotUseDedicated": True,
                 "programFirstPrefersResolvedStage": True,
+                "inactiveResourceDemandDoesNotRevokeProgram": True,
                 "logicalTargetStageAccepted": True,
                 "logicalTargetStageRequiresAllowlist": True,
                 "logicalTargetStageRejectsHistory": True,

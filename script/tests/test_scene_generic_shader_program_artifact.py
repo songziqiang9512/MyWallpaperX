@@ -36,6 +36,16 @@ private struct Output: Codable {
     let uniformBufferIndex: Int?
     let uniformNames: [String]?
     let textureSlots: [Int]?
+    let colorTransfer: String?
+}
+
+private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
+    switch transfer {
+    case .passthrough: return "passthrough"
+    case .premultipliedAlpha: return "premultipliedAlpha"
+    case .opaque: return "opaque"
+    default: return "other"
+    }
 }
 
 @main
@@ -54,13 +64,14 @@ private struct GenericShaderArtifactHarness {
                 backend: program.backend.rawValue,
                 uniformBufferIndex: program.uniformBufferIndex,
                 uniformNames: program.uniformLayout.fields.map(\.name),
-                textureSlots: program.textureBindings.map(\.slot)
+                textureSlots: program.textureBindings.map(\.slot),
+                colorTransfer: colorTransferName(program.colorTransfer)
             )
         case let .unavailable(code, requestKey):
             result = .init(
                 status: "unavailable", code: code, requestKey: requestKey,
                 backend: nil, uniformBufferIndex: nil,
-                uniformNames: nil, textureSlots: nil
+                uniformNames: nil, textureSlots: nil, colorTransfer: nil
             )
         }
         let data = try JSONEncoder().encode(result)
@@ -148,7 +159,9 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         )
         return json.loads(completed.stdout), requests, cache, completed.stderr
 
-    def artifact(self, key: str) -> dict:
+    def artifact(
+        self, key: str, *, color_transfer: str = "passthrough"
+    ) -> dict:
         metal = """
 #include <metal_stdlib>
 using namespace metal;
@@ -181,7 +194,11 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                     "name": "g_Texture0", "slot": 0, "channelUse": "unproven"
                 }],
                 "staticLoopWork": 0,
-                "colorTransfer": {"kind": "passthrough", "slot": 0},
+                "colorTransfer": (
+                    {"kind": "passthrough", "slot": 0}
+                    if color_transfer == "passthrough"
+                    else {"kind": color_transfer}
+                ),
             },
         }
 
@@ -214,6 +231,7 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             self.assertEqual(accepted["uniformBufferIndex"], 8)
             self.assertEqual(accepted["uniformNames"], ["mwxRenderSize"])
             self.assertEqual(accepted["textureSlots"], [0])
+            self.assertEqual(accepted["colorTransfer"], "passthrough")
             self.assertIn(
                 "state=prefer-generic outcome=accepted reason=- ", accepted_log
             )
@@ -249,6 +267,33 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "outcome=fallback reason=artifact-contract-rejected", rejected_log
             )
             self.assertIn(f"request={first['requestKey']}", rejected_log)
+
+    def test_opaque_artifact_maps_to_opaque_program_contract(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            first, _, cache, _ = self.run_harness(root, route="observe-only")
+            artifact = self.artifact(first["requestKey"], color_transfer="opaque")
+            artifact["program"]["staticLoopWork"] = 4
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, _ = self.run_harness(root, route="prefer-generic")
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["colorTransfer"], "opaque")
+
+    def test_premultiplied_artifact_maps_to_program_contract(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            first, _, cache, _ = self.run_harness(root, route="observe-only")
+            artifact = self.artifact(
+                first["requestKey"], color_transfer="premultiplied"
+            )
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, _ = self.run_harness(root, route="prefer-generic")
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["colorTransfer"], "premultipliedAlpha")
 
 
 if __name__ == "__main__":

@@ -337,6 +337,7 @@ struct SceneResolvedMaterialRuntimeCatalog {
 
     struct ResourceDemandIssue: Hashable {
         let key: Key
+        let slot: Int
     }
 
     let entries: [Key: Entry]
@@ -1112,11 +1113,16 @@ private func catalog(
             )
         entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
     }
-    let issues = Set(demandIssueNodes.map {
-        SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue(
-            key: .init(effect: effect, nodeIndex: $0)
-        )
-    })
+    let issues: Set<SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue> =
+        Set(demandIssueNodes.map { nodeIndex in
+            let slot = graph.nodes.first(where: {
+                $0.nodeIndex == nodeIndex
+            })?.bindings.first?.slot ?? 0
+            return SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue(
+                key: .init(effect: effect, nodeIndex: nodeIndex),
+                slot: slot
+            )
+        })
     return .init(entries: entries, resourceDemandIssues: issues)
 }
 

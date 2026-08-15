@@ -22,6 +22,14 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             switch candidate.reference {
             case .asset:
                 guard let sampler else { return .deferred }
+                // Reachability is settled by the prepared Program fixed point.
+                // An unproven candidate purpose cannot be loaded yet, but it
+                // also cannot revoke a material before the compiler determines
+                // whether this sampler is active. Active uses still fail closed
+                // in launchProgramFailure and capability demand admission.
+                guard sampler.purpose(for: candidate.reference) != nil else {
+                    return .deferred
+                }
                 switch try launchAssetState(
                     candidate.reference,
                     sampler: sampler,

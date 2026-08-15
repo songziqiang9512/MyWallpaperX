@@ -145,7 +145,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         dedicatedFullFrameComposeStageKeys: Set<Graph.EffectKey> = [],
         maximumVariantsPerMaterial: Int = 16
     ) {
-        let demandIssues = Set(materialCatalog.resourceDemandIssues.map(\.key))
+        let demandIssues = materialCatalog.resourceDemandIssues
         candidateCount = admissionCandidates.count
         variantLimit = maximumVariantsPerMaterial
         var accepted: [Int: LayerCapability] = [:]
@@ -158,7 +158,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 switch Self.compileProgramFirstStages(
                     admitted,
                     materialCatalog: materialCatalog,
-                    demandIssueKeys: demandIssues,
+                    demandIssues: demandIssues,
                     dynamicProducers: dynamicProducers,
                     assetFormatFacts: assetFormatFacts,
                     assetStates: assetStates,

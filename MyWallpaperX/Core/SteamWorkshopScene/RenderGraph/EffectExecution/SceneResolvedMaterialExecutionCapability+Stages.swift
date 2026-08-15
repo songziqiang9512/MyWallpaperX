@@ -31,7 +31,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     static func compileStages(
         _ admitted: SceneResolvedMaterialAdmittedLayer,
         materialCatalog: SceneResolvedMaterialRuntimeCatalog,
-        demandIssueKeys: Set<MaterialKey>,
+        demandIssues: Set<SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue>,
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
@@ -51,7 +51,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             switch compileMaterials(
                 product,
                 materialCatalog: materialCatalog,
-                demandIssueKeys: demandIssueKeys,
+                demandIssues: demandIssues,
                 dynamicProducers: dynamicProducers,
                 assetFormatFacts: assetFormatFacts,
                 assetStates: assetStates,
@@ -77,7 +77,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     private static func compileMaterials(
         _ product: SceneGraphAdmissionProduct,
         materialCatalog: SceneResolvedMaterialRuntimeCatalog,
-        demandIssueKeys: Set<MaterialKey>,
+        demandIssues: Set<SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue>,
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
@@ -98,7 +98,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                         effect: effect,
                         key: key,
                         materialCatalog: materialCatalog,
-                        demandIssueKeys: demandIssueKeys,
                         existingKeys: existingKeys.union(materials.keys)
                     ) else {
                 return .failure(rejection("material-template-unsupported"))
@@ -120,6 +119,19 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     .launchEnvelopeFailure(template: template, failure: failure)
                 return .failure(rejection(
                     "material-variant-envelope-\(failure.kind.rawValue)"
+                ))
+            }
+            guard let activeTextureSlots = variants.launchEnvelopeActiveTextureSlots else {
+                return .failure(rejection("material-variant-envelope-invariant"))
+            }
+            let activeDemandIssues = demandIssues.filter {
+                $0.key == key && activeTextureSlots.contains($0.slot)
+            }
+            guard activeDemandIssues.isEmpty else {
+                SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
+                    .materialTemplateFailure(node: node, reason: "active-resource-demand")
+                return .failure(rejection(
+                    "material-variant-envelope-texture-purpose"
                 ))
             }
             if sourceRoute == .transparentDirectDraw,

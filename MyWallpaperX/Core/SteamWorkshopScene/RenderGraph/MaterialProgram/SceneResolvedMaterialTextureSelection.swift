@@ -24,10 +24,12 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
         channelUses: [Int: ChannelUse],
-        allowPresenceIndependentDefaults: Bool
+        allowPresenceIndependentDefaults: Bool,
+        restrictToSamplerSlots: Bool = false
     ) throws -> [Entry] {
         var result = Array(repeating: Entry.absent, count: 8)
-        for slot in input.template.textureSlots.compactMap({ $0 }) {
+        for slot in input.template.textureSlots.compactMap({ $0 })
+        where !restrictToSamplerSlots || samplers[slot.index] != nil {
             let sampler = samplers[slot.index]
             for candidate in slot.candidates.reversed() {
                 let purpose = Resolver.selectionPurpose(

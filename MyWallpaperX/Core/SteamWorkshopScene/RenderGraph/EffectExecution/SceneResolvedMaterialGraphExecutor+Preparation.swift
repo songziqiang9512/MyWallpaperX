@@ -138,6 +138,14 @@ extension SceneResolvedMaterialGraphExecutor {
                 }
                 commands.append(.material(prepared))
                 programKeys.append(program.preparedShader.cacheKey)
+                SceneResolvedMaterialGenericShaderArtifactCache.recordExecution(
+                    backend: program.frontendProgram.backend,
+                    layerID: node.effect.layerID,
+                    effectIndex: node.effect.effectIndex,
+                    descriptorID: node.effect.descriptorID,
+                    nodeIndex: nodeIndex,
+                    preparedKey: program.preparedShader.cacheKey
+                )
 
                 if let fboTarget {
                     guard node.target == fboTarget.identity,

@@ -31,6 +31,26 @@ TYPE_NAMES = {
     "mat4": "float4x4",
 }
 
+TYPE_ALIGNMENT = {
+    "int": 4, "uint": 4, "float": 4,
+    "int2": 8, "uint2": 8, "float2": 8, "float2x2": 8,
+    "int3": 16, "int4": 16, "uint3": 16, "uint4": 16,
+    "float3": 16, "float4": 16, "float3x3": 16, "float4x4": 16,
+}
+
+TYPE_BYTE_SIZE = {
+    "int": 4, "uint": 4, "float": 4,
+    "int2": 8, "uint2": 8, "float2": 8,
+    "int3": 16, "int4": 16, "uint3": 16, "uint4": 16,
+    "float3": 16, "float4": 16,
+    "float2x2": 16, "float3x3": 48, "float4x4": 64,
+}
+
+SPV_UNSAFE_ARRAY = re.compile(
+    r"template<typename T, size_t Num>\s+struct spvUnsafeArray\s*\{.*?\n\};",
+    re.DOTALL,
+)
+
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -100,6 +120,30 @@ def _uniform_layout(reflection: dict[str, Any]) -> tuple[list[dict[str, Any]], i
     return fields, byte_size
 
 
+def _aligned_uniform_layout(fields: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+    aligned: list[dict[str, Any]] = []
+    offset = 0
+    for field in fields:
+        value_type = field["type"]
+        alignment = TYPE_ALIGNMENT[value_type]
+        offset = (offset + alignment - 1) // alignment * alignment
+        aligned.append({**field, "offset": offset})
+        offset += TYPE_BYTE_SIZE[value_type]
+    return aligned, (offset + 15) // 16 * 16
+
+
+def _normalize_uniform_struct(msl: str) -> str:
+    pattern = re.compile(r"struct\s+MWXUniforms\s*\{(?P<body>.*?)\};", re.DOTALL)
+    matches = list(pattern.finditer(msl))
+    if len(matches) != 1:
+        raise ArtifactFailure("uniform-struct")
+    match = matches[0]
+    body = match.group("body")
+    for value_type in ("float3", "int3", "uint3"):
+        body = re.sub(rf"\bpacked_{value_type}\b", value_type, body)
+    return msl[:match.start("body")] + body + msl[match.end("body"):]
+
+
 def _sample_end(source: str, start: int) -> int | None:
     depth = 0
     for index in range(start, len(source)):
@@ -151,6 +195,57 @@ def _texture_bindings(compiled_stages: list[dict[str, Any]], msl: str) -> list[d
     ]
 
 
+def _premultiplied_accumulator(
+    fragment_msl: str, assignment: str
+) -> dict[str, Any] | None:
+    output = re.fullmatch(
+        r"\s*out\.mwxFragColor\s*=\s*(?P<name>[A-Za-z_]\w*)\s*;",
+        assignment,
+    )
+    if output is None:
+        return None
+    color = output.group("name")
+    helper = re.search(
+        r"float3\s+(?P<function>[A-Za-z_]\w*)\s*\(\s*int\s+\w+\s*,\s*"
+        r"thread\s+const\s+float3&\s*(?P<a>[A-Za-z_]\w*)\s*,\s*"
+        r"thread\s+const\s+float3&\s*(?P<b>[A-Za-z_]\w*)\s*,\s*"
+        r"thread\s+const\s+float&\s*(?P<coverage>[A-Za-z_]\w*)\s*\)\s*"
+        r"\{\s*return\s+(?P=a)\s*\+\s*\(\s*(?P=b)\s*\*\s*"
+        r"(?P=coverage)\s*\)\s*;\s*\}",
+        fragment_msl,
+        re.DOTALL,
+    )
+    if helper is None:
+        return None
+    function = re.escape(helper.group("function"))
+    name = re.escape(color)
+    flow = re.search(
+        rf"float4\s+{name}\s*=\s*float4\(\s*0(?:\.0+)?\s*\)\s*;.*?"
+        rf"float3\s+(?P<input>[A-Za-z_]\w*)\s*=\s*{name}\.xyz\s*;\s*"
+        rf"float3\s+(?P<source>[A-Za-z_]\w*)\s*=\s*[^;]+;\s*"
+        rf"float\s+(?P<factor>[A-Za-z_]\w*)\s*=\s*"
+        rf"(?P<coverage>[A-Za-z_]\w*)\s*;\s*"
+        rf"float3\s+(?P<result>[A-Za-z_]\w*)\s*=\s*{function}\(\s*31\s*,\s*"
+        rf"(?P=input)\s*,\s*(?P=source)\s*,\s*(?P=factor)\s*\)\s*;\s*"
+        rf"{name}\.x\s*=\s*(?P=result)\.x\s*;\s*"
+        rf"{name}\.y\s*=\s*(?P=result)\.y\s*;\s*"
+        rf"{name}\.z\s*=\s*(?P=result)\.z\s*;\s*"
+        rf"{name}\.w\s*=\s*fast::max\(\s*{name}\.w\s*,\s*"
+        rf"(?P=coverage)\s*\)\s*;.*?"
+        rf"out\.mwxFragColor\s*=\s*{name}\s*;",
+        fragment_msl,
+        re.DOTALL,
+    )
+    if flow is None:
+        return None
+    writes = re.findall(
+        rf"^\s*{name}\.(?P<member>[xyzw])\s*=", fragment_msl, re.MULTILINE
+    )
+    if writes != ["x", "y", "z", "w"]:
+        return None
+    return {"kind": "premultiplied"}
+
+
 def _passthrough_color_transfer(fragment_msl: str) -> dict[str, Any]:
     assignments = re.findall(r"^\s*out\.mwxFragColor\s*=.*;$", fragment_msl, re.MULTILINE)
     if len(assignments) != 1:
@@ -160,8 +255,58 @@ def _passthrough_color_transfer(fragment_msl: str) -> dict[str, Any]:
         assignments[0],
     )
     if match is None:
+        premultiplied = _premultiplied_accumulator(fragment_msl, assignments[0])
+        if premultiplied is not None:
+            return premultiplied
+        opaque = re.fullmatch(
+            r"\s*out\.mwxFragColor\s*=\s*float4\(.+,\s*1(?:\.0+)?\s*\);",
+            assignments[0],
+        )
+        if opaque is not None:
+            return {"kind": "opaque"}
         raise ArtifactFailure("color-transfer")
     return {"kind": "passthrough", "slot": int(match.group(1))}
+
+
+def _without_comments(source: str) -> str:
+    source = re.sub(r"/\*.*?\*/", " ", source, flags=re.DOTALL)
+    return re.sub(r"//[^\n]*", " ", source)
+
+
+def _static_loop_work(stage_sources: dict[str, str]) -> int:
+    total = 0
+    loop = re.compile(
+        r"\bfor\s*\(\s*int\s+(?P<name>[A-Za-z_]\w*)\s*=\s*0\s*;\s*"
+        r"(?P=name)\s*<\s*(?P<limit>\d+)\s*;\s*"
+        r"(?:(?:\+\+\s*(?P=name))|(?:(?P=name)\s*\+\+))\s*\)"
+    )
+    for source in stage_sources.values():
+        body = _without_comments(source)
+        for match in loop.finditer(body):
+            limit = int(match.group("limit"))
+            if not 1 <= limit <= 64:
+                raise ArtifactFailure("loop-bound")
+            total += limit
+        remainder = loop.sub("", body)
+        if re.search(r"\b(for|while|do)\b", remainder):
+            raise ArtifactFailure("loop-unbounded")
+    if total > 256:
+        raise ArtifactFailure("loop-budget")
+    return total
+
+
+def _deduplicate_stage_helpers(vertex_msl: str, fragment_msl: str) -> tuple[str, str]:
+    vertex_helper = SPV_UNSAFE_ARRAY.search(vertex_msl)
+    fragment_helper = SPV_UNSAFE_ARRAY.search(fragment_msl)
+    if vertex_helper is None or fragment_helper is None:
+        return vertex_msl, fragment_msl
+    if vertex_helper.group(0) != fragment_helper.group(0):
+        raise ArtifactFailure("stage-helper-conflict")
+    fragment_msl = (
+        fragment_msl[:fragment_helper.start()]
+        + fragment_msl[fragment_helper.end():]
+    )
+    return vertex_msl, fragment_msl
 
 
 def build_program_artifact(
@@ -175,8 +320,7 @@ def build_program_artifact(
 ) -> dict[str, Any]:
     if set(stage_sources) != {"vertex", "fragment"} or set(msl_sources) != set(stage_sources):
         raise ArtifactFailure("stage-pair")
-    if any(re.search(r"\b(for|while|do)\b", source) for source in stage_sources.values()):
-        raise ArtifactFailure("loop-unbounded")
+    static_loop_work = _static_loop_work(stage_sources)
     stages = {stage.get("stage"): stage for stage in compiled_stages}
     if set(stages) != {"vertex", "fragment"}:
         raise ArtifactFailure("compiled-pair")
@@ -184,12 +328,16 @@ def build_program_artifact(
     fragment_layout = _uniform_layout(stages["fragment"]["reflection"])
     if vertex_layout != fragment_layout:
         raise ArtifactFailure("uniform-stage-mismatch")
-    vertex_msl = msl_sources["vertex"].replace("MWXUniforms", "MWXVertexUniforms")
-    fragment_msl = msl_sources["fragment"].replace(
+    uniform_layout = _aligned_uniform_layout(vertex_layout[0])
+    vertex_msl = _normalize_uniform_struct(msl_sources["vertex"]).replace(
+        "MWXUniforms", "MWXVertexUniforms"
+    )
+    fragment_msl = _normalize_uniform_struct(msl_sources["fragment"]).replace(
         "MWXUniforms", "MWXFragmentUniforms"
     )
     if vertex_msl == msl_sources["vertex"] or fragment_msl == msl_sources["fragment"]:
         raise ArtifactFailure("uniform-struct-name")
+    vertex_msl, fragment_msl = _deduplicate_stage_helpers(vertex_msl, fragment_msl)
     metal_source = vertex_msl.rstrip() + "\n\n" + fragment_msl.lstrip()
     if len(metal_source.encode("utf-8")) > maximum_artifact_bytes:
         raise ArtifactFailure("metal-size")
@@ -205,9 +353,11 @@ def build_program_artifact(
             "vertexFunctionName": "mwxGenericVertex",
             "fragmentFunctionName": "mwxGenericFragment",
             "uniformBufferIndex": 8,
-            "uniformLayout": {"fields": vertex_layout[0], "byteSize": vertex_layout[1]},
+            "uniformLayout": {
+                "fields": uniform_layout[0], "byteSize": uniform_layout[1]
+            },
             "textureBindings": _texture_bindings(compiled_stages, metal_source),
-            "staticLoopWork": 0,
+            "staticLoopWork": static_loop_work,
             "colorTransfer": _passthrough_color_transfer(msl_sources["fragment"]),
         },
     }

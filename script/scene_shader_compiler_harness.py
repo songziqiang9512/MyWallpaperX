@@ -11,6 +11,7 @@ this tool does not enable a default or release product route.
 from __future__ import annotations
 
 import hashlib
+from itertools import accumulate
 import json
 import math
 import os
@@ -208,6 +209,7 @@ def normalize_wallpaper_engine_pair(
     stage_varyings: dict[str, set[str]] = {stage: set() for stage in ALLOWED_STAGES}
     scalar_texture_rewrites = 0
     boolean_combo_rewrites = 0
+    reserved_identifier_rewrites = 0
 
     for stage in stages:
         stage_name = stage["stage"]
@@ -266,7 +268,7 @@ def normalize_wallpaper_engine_pair(
                 if existing != shape:
                     raise HarnessFailure("normalization", "attribute-conflict", [name])
             elif storage == "varying":
-                if value_type not in VALUE_TYPES or count is not None:
+                if value_type not in VALUE_TYPES or (count is not None and count > 16):
                     raise HarnessFailure("normalization", "varying-type", [stage_name, name])
                 shape = (value_type, count)
                 existing = varying_shapes.setdefault(name, shape)
@@ -274,6 +276,8 @@ def normalize_wallpaper_engine_pair(
                     raise HarnessFailure("normalization", "varying-conflict", [name])
                 stage_varyings[stage_name].add(name)
         body = "\n".join(kept)
+        body, replacements = re.subn(r"\bsample\b", "mwx_sample", body)
+        reserved_identifier_rewrites += replacements
         if stage_name == "fragment":
             body = re.sub(r"\bgl_FragColor\b", "mwxFragColor", body)
             body, replacements = SCALAR_TEXTURE_ASSIGNMENT.subn(
@@ -328,20 +332,18 @@ def normalize_wallpaper_engine_pair(
         key=lambda name: ({"a_Position": 0, "a_TexCoord": 1}.get(name, 2), name),
     )
     varying_order = sorted(varying_shapes)
-    uniform_lines = []
-    for name in sorted(uniform_shapes):
-        value_type, count = uniform_shapes[name]
-        suffix = f"[{count}]" if count is not None else ""
-        uniform_lines.append(f"    {value_type} {name}{suffix};")
-    uniform_lines.append("    vec2 mwxRenderSize;")
-    sampler_lines = [
-        f"layout(set = 0, binding = {slot}) uniform sampler2D {name};"
-        for name, slot in sorted(sampler_slots.items(), key=lambda item: item[1])
+    varying_spans = [varying_shapes[name][1] or 1 for name in varying_order]
+    varying_locations = dict(zip(varying_order, [0, *accumulate(varying_spans)]))
+    uniform_lines = [
+        f"    {value_type} {name}{f'[{count}]' if count is not None else ''};"
+        for name, (value_type, count) in sorted(uniform_shapes.items())
     ]
+    uniform_lines.append("    vec2 mwxRenderSize;")
     define_lines = [f"#define {name} {value}" for name, value in sorted(defines.items())]
     compatibility_lines = [
         "#define mul(x, y) ((y) * (x))",
         "#define texSample2D texture",
+        *[f"#define CAST{count}(x) vec{count}(x)" for count in range(2, 5)],
         "#define frac fract",
         "#define saturate(x) clamp((x), 0.0, 1.0)",
         "#define atan2 atan",
@@ -351,14 +353,20 @@ def normalize_wallpaper_engine_pair(
     for stage in stages:
         stage_name = stage["stage"]
         interface: list[str] = []
-        for location, name in enumerate(varying_order):
+        active_sampler_lines = [
+            f"layout(set = 0, binding = {slot}) uniform sampler2D {name};"
+            for name, slot in sorted(sampler_slots.items(), key=lambda item: item[1])
+            if re.search(rf"\b{re.escape(name)}\b", parsed[stage_name]["body"])
+        ]
+        for name in varying_order:
             if name not in stage_varyings[stage_name]:
                 continue
             value_type, count = varying_shapes[name]
             suffix = f"[{count}]" if count is not None else ""
             direction = "out" if stage_name == "vertex" else "in"
             interface.append(
-                f"layout(location = {location}) {direction} {value_type} {name}{suffix};"
+                f"layout(location = {varying_locations[name]}) "
+                f"{direction} {value_type} {name}{suffix};"
             )
         if stage_name == "fragment":
             interface.append("layout(location = 0) out vec4 mwxFragColor;")
@@ -372,7 +380,7 @@ def normalize_wallpaper_engine_pair(
             *define_lines,
             *compatibility_lines,
             uniform_block.rstrip(),
-            *sampler_lines,
+            *active_sampler_lines,
             *interface,
             parsed[stage_name]["body"],
         ]).strip() + "\n"
@@ -390,6 +398,7 @@ def normalize_wallpaper_engine_pair(
         "defineCount": len(defines),
         "scalarTextureChannelRewrites": scalar_texture_rewrites,
         "booleanComboTernaryRewrites": boolean_combo_rewrites,
+        "reservedIdentifierRewrites": reserved_identifier_rewrites,
     }
 
 

@@ -46,7 +46,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
 
             struct ColorTransfer: Decodable {
                 let kind: String
-                let slot: Int
+                let slot: Int?
             }
 
             let metalSource: String
@@ -77,6 +77,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     private final class RouteTelemetry: @unchecked Sendable {
         private let lock = NSLock()
         private var counts: [String: Int] = [:]
+        private var executedIdentities = Set<String>()
 
         func record(outcome: String, reason: String, requestKey: String) {
             let count = lock.withLock {
@@ -91,6 +92,32 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 reason,
                 requestKey,
                 count
+            )
+        }
+
+        func recordExecution(
+            backend: SceneAuthoredShaderProgram.Backend,
+            layerID: Int,
+            effectIndex: Int,
+            descriptorID: String,
+            nodeIndex: Int,
+            preparedKey: String
+        ) {
+            let identity = [
+                String(layerID), String(effectIndex), descriptorID,
+                String(nodeIndex), backend.rawValue, preparedKey,
+            ].joined(separator: "|")
+            guard lock.withLock({ executedIdentities.insert(identity).inserted }) else {
+                return
+            }
+            NSLog(
+                "MWX generic shader execution state=prefer-generic layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@",
+                layerID,
+                effectIndex,
+                descriptorID,
+                nodeIndex,
+                backend.rawValue,
+                preparedKey
             )
         }
     }
@@ -138,6 +165,26 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         return .unavailable(code: code, requestKey: requestKey)
     }
 
+    static func recordExecution(
+        backend: SceneAuthoredShaderProgram.Backend,
+        layerID: Int,
+        effectIndex: Int,
+        descriptorID: String,
+        nodeIndex: Int,
+        preparedKey: String
+    ) {
+        guard ProcessInfo.processInfo.environment[routeEnvironment] == "prefer-generic"
+        else { return }
+        routeTelemetry.recordExecution(
+            backend: backend,
+            layerID: layerID,
+            effectIndex: effectIndex,
+            descriptorID: descriptorID,
+            nodeIndex: nodeIndex,
+            preparedKey: preparedKey
+        )
+    }
+
     private static func program(
         _ artifact: Artifact,
         expectedKey: String
@@ -151,7 +198,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         guard raw.vertexFunctionName == "mwxGenericVertex",
               raw.fragmentFunctionName == "mwxGenericFragment",
               raw.uniformBufferIndex == 8,
-              raw.staticLoopWork == 0,
+              (0 ... 256).contains(raw.staticLoopWork),
               !raw.metalSource.isEmpty,
               raw.metalSource.utf8.count <= 1_024 * 1_024,
               sha256(Data(raw.metalSource.utf8)) == raw.metalSourceSHA256 else {
@@ -191,9 +238,19 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         }
         guard bindings.count == raw.textureBindings.count,
               bindings.map(\.slot) == bindings.map(\.slot).sorted(),
-              Set(bindings.map(\.slot)).count == bindings.count,
-              raw.colorTransfer.kind == "passthrough",
-              bindings.contains(where: { $0.slot == raw.colorTransfer.slot }) else {
+              Set(bindings.map(\.slot)).count == bindings.count else {
+            return nil
+        }
+        let colorTransfer: SceneShaderColorTransfer
+        switch (raw.colorTransfer.kind, raw.colorTransfer.slot) {
+        case let ("passthrough", slot?):
+            guard bindings.contains(where: { $0.slot == slot }) else { return nil }
+            colorTransfer = .passthrough(textureSlot: slot)
+        case ("opaque", nil):
+            colorTransfer = .opaque
+        case ("premultiplied", nil):
+            colorTransfer = .premultipliedAlpha
+        default:
             return nil
         }
         return .init(
@@ -204,7 +261,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             uniformLayout: layout,
             textureBindings: bindings,
             staticLoopWork: raw.staticLoopWork,
-            colorTransfer: .passthrough(textureSlot: raw.colorTransfer.slot),
+            colorTransfer: colorTransfer,
             backend: .genericCompilerArtifact
         )
     }

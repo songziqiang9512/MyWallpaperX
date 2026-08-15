@@ -2,7 +2,7 @@
 
 > 状态：现役 current capability 唯一系统摘要；逐项合同与专题内等级由各专项能力表维护
 >
-> 最近核对：2026-08-15
+> 最近核对：2026-08-16
 >
 > 当前系统能力、主要缺口和明确待办只由本页汇总；唯一执行顺序见 [Scene 兼容执行路线](../scene-compatibility-roadmap.md)，精确 App、矩阵、报告与运行身份统一见 [运行证据索引](runtime-evidence-index.md)。路线只拥有 V0-V5 顺序，不复制或改写 current capability；逐批迁移过程只从[统一历史索引](../../history/README.md)追溯，不得覆盖当前结论。
 
@@ -10,7 +10,7 @@
 
 ## 1. 口径
 
-现役产品只保留 admission → Program/typed stage → GraphExecutor → compositor 主链；普通 authored stage 仍主要依赖 bounded Swift frontend/dedicated candidate，耗尽后会以 `noBackendAccepted` 结束，这仍是当前扩面首断点。2026-08-16 的固定 glslang → SPIR-V → SPIRV-Cross MSL 独立 harness 已从 `observe-only` compiler spike 前进到一个开发环境显式开启、按 exact prepared-source key 加载的 `genericCompilerArtifact` Program 切片：隔离 `1553008362:12#effect#0` Water Waves 已由该 backend 实际完成 GPU、publication、terminal compositor 与 next-frame；同链其余三个普通 Program 以 typed `artifact-missing` 回到 bounded frontend，损坏摘要则以 `artifact-contract-rejected` 局部回退并保留整条四 effect 输出。该证据严格记为一条 bounded `S4` route slice，不完成 V0：目标 effect 在切换前已由 bounded frontend 执行，artifact 仍由外部开发 harness 预生成、产品默认路由未开启，Fast Suite 成员、此前未执行 ordinary effect、launch preparation pipeline cache、bundled worker/发行依赖及旧 owner 撤权均未闭合。下一批继续以当前未执行 ordinary effect 的首个共享 dialect/resource/color 断点扩张同一 backend，不增加 effect 名称 matcher。已完成的 R4/R5 owner 迁移只是稳定不变量，不再决定开发顺序。
+现役产品只保留 admission → Program/typed stage → GraphExecutor → compositor 主链；普通 authored stage 仍主要依赖 bounded Swift frontend/dedicated candidate，耗尽后会以 `noBackendAccepted` 结束。2026-08-16 的固定 glslang → SPIR-V → SPIRV-Cross MSL 独立 harness 已形成开发环境显式开启、按 exact prepared-source key 加载的 `genericCompilerArtifact` Program 切片：除既有 `1553008362:12#effect#0` Water Waves route 正证外，隔离 `3747492842:168#effect#0` Light Shafts 从 `unified-capability-unavailable` 进入同一共享 Program/GraphExecutor，并由 generic backend 实际完成 encode、GPU completion、publication、terminal compositor 与 next-frame。该批把 resource-demand 拒绝从整 material key 收窄到编译后真正 active 的 sampler slot，inactive optional texture 不再撤销 owner；launch/final fixed point 也只对 active Program sampler 形成 exact variant。两份真实 prepared-source artifact 同时命中时目标 node 记录 `genericCompilerArtifact`，同时损坏时均以 typed `artifact-contract-rejected` 回到 `boundedSwift` 且目标层和其他 layer 继续可见。`v0-ordinary-one-pass` 因此已登记一个 approved 真实成员并取得 bounded `S4` 正反证，但 V0 仍未完成：第二个 optional texture/combo 成员仍是 `selection-required`，artifact 仍由外部开发 harness 预生成、产品默认 route/launch preparation worker与发行依赖未闭合，bounded owner 也尚未撤权。下一批继续 V0 的 active/absent optional texture + combo 固定点和未见组合门，不增加 effect/sample/path matcher。已完成的 R4/R5 owner 迁移只是稳定不变量，不再决定开发顺序。
 
 本页是系统级 current capability 的唯一摘要入口；专项表拥有逐项字段、边界、代码/测试证据和下一门。各专项沿用的 `L0-L4` 只在该专题自己的定义下解释：不同专项的同名 `L` 不可横向比较、求和、排序。`S0-S5` 只由[运行证据索引](runtime-evidence-index.md)定义，表达精确 code/App/fixture/ROI identity 的证据闭合深度，不表达能力宽度；`S0` 只是无已保存证据，不是优先级。任何 `L` 都不得批量映射为 `S`，一条 `S4` 也不得外推整个 family 已可见。需要系统结论时读取本页，需要逐项结论时沿本页链接进入对应专项；路线不得复制一份平行 current 表。
 

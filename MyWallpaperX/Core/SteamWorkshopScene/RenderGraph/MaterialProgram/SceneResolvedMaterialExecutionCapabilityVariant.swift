@@ -92,6 +92,20 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         )
     }
 
+    /// Exact sampler slots consumed by at least one successfully precompiled
+    /// launch variant. Resource-demand diagnostics for declarations outside
+    /// this set cannot affect product execution and must not revoke the whole
+    /// material owner.
+    var launchEnvelopeActiveTextureSlots: Set<Int>? {
+        let snapshot = launchEnvelopeCapabilitySnapshot()
+        guard snapshot.allEntriesReady, !snapshot.variants.isEmpty else {
+            return nil
+        }
+        return Set(snapshot.variants.flatMap {
+            $0.frontendProgram.textureBindings.map(\.slot)
+        })
+    }
+
     /// A source-less object route is executable only when the authored
     /// variant explicitly selects DIRECTDRAW and the complete launch envelope
     /// proves that no active sampler can consume the graph input.
@@ -271,6 +285,40 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             let reachableSamplers = try reachableSamplersLocked(
                 implicitFramebufferIdentity: input.implicitFramebufferIdentity
             )
+            if hasCachedReachability,
+               cachedReachabilityIdentity == input.implicitFramebufferIdentity {
+                let matches = entries.compactMap { key, entry -> Variant? in
+                    guard case let .ready(variant) = entry else { return nil }
+                    do {
+                        let resolvedKey = try SceneResolvedMaterialTextureResolver
+                            .variantKey(
+                                input,
+                                samplers: variant.activeSamplers,
+                                reachableSamplers: reachableSamplers,
+                                formatSlots: textureFormatSlots,
+                                channelUses: Dictionary(uniqueKeysWithValues:
+                                    variant.frontendProgram.textureBindings.map {
+                                        ($0.slot, $0.channelUse)
+                                    }
+                                ),
+                                allowPresenceIndependentDefaults: true,
+                                restrictToSamplerSlots: true
+                            )
+                        return resolvedKey == key ? variant : nil
+                    } catch {
+                        return nil
+                    }
+                }
+                if matches.count == 1, let variant = matches.first {
+                    return .success(.init(
+                        variant: variant,
+                        reachableSamplers: reachableSamplers
+                    ))
+                }
+                guard matches.isEmpty else {
+                    throw Self.failure(.identityInvariant, phase: .invariant)
+                }
+            }
             var activeSamplers = seedSamplers
             var seen: Set<UInt8> = []
             var hasPreparedActiveSamplers = false

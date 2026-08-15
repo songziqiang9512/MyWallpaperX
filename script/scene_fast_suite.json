@@ -37,9 +37,9 @@
     {
       "id": "v0-ordinary-one-pass",
       "lane": "V0",
-      "selectionState": "selection-required",
-      "fixtureIdentity": null,
-      "contentDigest": null,
+      "selectionState": "approved",
+      "fixtureIdentity": "isolated-real:3747492842:layer-168:effect-0:effects/lightshafts/effect.json",
+      "contentDigest": "scene.pkg:sha256:d8e5e9cfc910151a158f34ade2482543f4024f661fda2474cc72d1362547af72",
       "authoredShape": [
         "image-or-composition-layer",
         "one-ordinary-material-pass",
@@ -47,9 +47,9 @@
         "vertex-and-fragment-author-shader"
       ],
       "expectedRoute": "author source -> generic compiler -> Program -> GraphExecutor -> effect current -> compositor",
-      "firstBreakpoint": "must be recorded when a fixture is approved",
-      "positiveOracle": "The effect changes a predeclared ROI in the authored direction and the exact generic Program route reaches the next frame.",
-      "negativeOracle": "A compile or pipeline failure preserves the pre-effect current and does not remove unrelated layers.",
+      "firstBreakpoint": "Inactive optional texture purpose rejected the whole material before the active Program sampler projection, leaving descriptor 168#effect#169 unified-capability-unavailable.",
+      "positiveOracle": "The exact genericCompilerArtifact node reaches GPU completion, publication, terminal compositor and next-frame; relative to the paired pre-admission 3024x1964 capture, central-rays ROI x=900..1850/y=380..1250 gains at least 30 mean luminance levels while left-control ROI x=100..800/y=650..1250 changes by less than 1.",
+      "negativeOracle": "Contract rejection for both exact prepared-source artifacts selects boundedSwift for the same node; it still reaches next-frame and leaves unrelated layers visible.",
       "failureRadius": "current effect or pass"
     },
     {

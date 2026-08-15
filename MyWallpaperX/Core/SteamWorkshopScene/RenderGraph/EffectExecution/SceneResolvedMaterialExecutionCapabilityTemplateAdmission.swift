@@ -12,13 +12,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityTemplateAdmission {
         effect: Graph.Effect,
         key: Key,
         materialCatalog: SceneResolvedMaterialRuntimeCatalog,
-        demandIssueKeys: Set<Key>,
         existingKeys: Set<Key>
     ) -> Template? {
-        guard !demandIssueKeys.contains(key) else {
-            diagnose(node, reason: "resource-demand")
-            return nil
-        }
         guard let entry = materialCatalog.entry(for: node) else {
             diagnose(node, reason: "catalog-missing")
             return nil

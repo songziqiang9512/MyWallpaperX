@@ -71,7 +71,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             samplers: samplers,
             reachableSamplers: reachableSamplers,
             formatSlots: [],
-            allowPresenceIndependentDefaults: true
+            allowPresenceIndependentDefaults: true,
+            restrictToSamplerSlots: true
         ).readinessMask
     }
 
@@ -81,7 +82,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
         formatSlots: Set<Int>,
         channelUses: [Int: ChannelUse] = [:],
-        allowPresenceIndependentDefaults: Bool
+        allowPresenceIndependentDefaults: Bool,
+        restrictToSamplerSlots: Bool = false
     ) throws -> SceneResolvedMaterialVariantKey {
         guard formatSlots.allSatisfy((0 ..< 8).contains),
               channelUses.keys.allSatisfy((0 ..< 8).contains) else {
@@ -92,7 +94,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             samplers: samplers,
             reachableSamplers: reachableSamplers,
             channelUses: channelUses,
-            allowPresenceIndependentDefaults: allowPresenceIndependentDefaults
+            allowPresenceIndependentDefaults: allowPresenceIndependentDefaults,
+            restrictToSamplerSlots: restrictToSamplerSlots
         )
         var mask: UInt8 = 0
         var formats = Array<SceneShaderTextureFormat?>(repeating: nil, count: 8)
@@ -166,7 +169,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                     ($0.slot, $0.channelUse)
                 }
             ),
-            allowPresenceIndependentDefaults: true
+            allowPresenceIndependentDefaults: true,
+            restrictToSamplerSlots: true
         )
         let bindingSlots = variant.frontendProgram.textureBindings.map(\.slot)
         guard Set(bindingSlots).count == bindingSlots.count else {

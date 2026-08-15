@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the bounded observe-only upstream shader compiler harness."""
+"""Tests for the bounded upstream shader compiler and Program artifact harness."""
 
 from __future__ import annotations
 
@@ -14,6 +14,11 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
+
+from scene_shader_compiler_artifact import ArtifactFailure, build_program_artifact
+
+
 SCRIPT = REPOSITORY_ROOT / "script/scene_shader_compiler_harness.py"
 FIXTURE = REPOSITORY_ROOT / "script/fixtures/scene_shader_compiler/ordinary_one_pass.json"
 WE_FIXTURE = REPOSITORY_ROOT / "script/fixtures/scene_shader_compiler/wallpaper_engine_one_pass.json"
@@ -195,6 +200,168 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
             self.assertEqual(artifact["program"]["metalPreflight"]["bytes"], 3)
             self.assertIn("MWXVertexUniforms", artifact["program"]["metalSource"])
             self.assertIn("MWXFragmentUniforms", artifact["program"]["metalSource"])
+
+    def test_fixed_loop_and_opaque_output_form_bounded_artifact(self) -> None:
+        reflection = {
+            "types": {"_1": {"members": [
+                {"name": "mwxRenderSize", "type": "vec2", "offset": 0}
+            ]}},
+            "ubos": [{
+                "type": "_1", "block_size": 8, "set": 0, "binding": 8
+            }],
+            "textures": [{"name": "g_Texture0", "binding": 0}],
+        }
+        stages = [
+            {"stage": "vertex", "reflection": reflection},
+            {"stage": "fragment", "reflection": reflection},
+        ]
+        helper = """template<typename T, size_t Num>
+struct spvUnsafeArray
+{
+    T elements[Num ? Num : 1];
+};
+"""
+        vertex_msl = helper + "struct MWXUniforms { float2 mwxRenderSize; };"
+        fragment_msl = helper + """struct MWXUniforms { float2 mwxRenderSize; };
+fragment void f() {
+    out.mwxFragColor = float4(lightMap * strength, 1.0);
+    g_Texture0.sample(s, uv);
+}
+"""
+        artifact = build_program_artifact(
+            request_key="a" * 64,
+            backend_id="glslang-spirv-cross-msl-v1",
+            compiled_stages=stages,
+            stage_sources={
+                "vertex": "void main() {}",
+                "fragment": "for (int i = 0; i < 4; ++i) { value += i; }",
+            },
+            msl_sources={"vertex": vertex_msl, "fragment": fragment_msl},
+            maximum_artifact_bytes=1_024_000,
+        )
+        self.assertEqual(artifact["program"]["staticLoopWork"], 4)
+        self.assertEqual(artifact["program"]["colorTransfer"], {"kind": "opaque"})
+        self.assertEqual(artifact["program"]["metalSource"].count("struct spvUnsafeArray"), 1)
+        with self.assertRaisesRegex(ArtifactFailure, "loop-unbounded"):
+            build_program_artifact(
+                request_key="b" * 64,
+                backend_id="glslang-spirv-cross-msl-v1",
+                compiled_stages=stages,
+                stage_sources={
+                    "vertex": "void main() {}",
+                    "fragment": "for (int i = 0; i < limit; ++i) { value += i; }",
+                },
+                msl_sources={"vertex": vertex_msl, "fragment": fragment_msl},
+                maximum_artifact_bytes=1_024_000,
+            )
+
+    def test_zero_accumulator_with_shared_coverage_is_premultiplied(self) -> None:
+        reflection = {
+            "types": {"_1": {"members": [
+                {"name": "color", "type": "vec3", "offset": 0},
+                {"name": "strength", "type": "float", "offset": 12},
+                {"name": "mwxRenderSize", "type": "vec2", "offset": 16},
+            ]}},
+            "ubos": [{
+                "type": "_1", "block_size": 24, "set": 0, "binding": 8
+            }],
+            "textures": [{"name": "g_Texture1", "binding": 1}],
+        }
+        stages = [
+            {"stage": "vertex", "reflection": reflection},
+            {"stage": "fragment", "reflection": reflection},
+        ]
+        vertex_msl = """struct MWXUniforms
+{
+    packed_float3 color;
+    float strength;
+    float2 mwxRenderSize;
+};"""
+        fragment_msl = """struct MWXUniforms
+{
+    packed_float3 color;
+    float strength;
+    float2 mwxRenderSize;
+};
+float3 ApplyBlending(int mode, thread const float3& A, thread const float3& B,
+                     thread const float& opacity) {
+    return A + (B * opacity);
+}
+fragment void f() {
+    float4 albedo = float4(0.0);
+    float coverage = g_Texture1.sample(s, uv).x;
+    float3 param = albedo.xyz;
+    float3 param_1 = color * intensity;
+    float param_2 = coverage;
+    float3 result = ApplyBlending(31, param, param_1, param_2);
+    albedo.x = result.x;
+    albedo.y = result.y;
+    albedo.z = result.z;
+    albedo.w = fast::max(albedo.w, coverage);
+    out.mwxFragColor = albedo;
+}
+"""
+        kwargs = {
+            "request_key": "c" * 64,
+            "backend_id": "glslang-spirv-cross-msl-v1",
+            "compiled_stages": stages,
+            "stage_sources": {
+                "vertex": "void main() {}", "fragment": "void main() {}"
+            },
+            "msl_sources": {"vertex": vertex_msl, "fragment": fragment_msl},
+            "maximum_artifact_bytes": 1_024_000,
+        }
+        artifact = build_program_artifact(**kwargs)
+        self.assertEqual(
+            artifact["program"]["colorTransfer"], {"kind": "premultiplied"}
+        )
+        self.assertEqual(
+            [field["offset"] for field in artifact["program"]["uniformLayout"]["fields"]],
+            [0, 16, 24],
+        )
+        self.assertEqual(artifact["program"]["uniformLayout"]["byteSize"], 32)
+        self.assertNotIn("packed_float3", artifact["program"]["metalSource"])
+        kwargs["msl_sources"] = {
+            "vertex": vertex_msl,
+            "fragment": fragment_msl.replace(
+                "fast::max(albedo.w, coverage)",
+                "fast::max(albedo.w, unrelated)",
+            ),
+        }
+        with self.assertRaisesRegex(ArtifactFailure, "color-transfer"):
+            build_program_artifact(**kwargs)
+
+    def test_varying_array_reserves_each_interface_location(self) -> None:
+        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
+
+        normalized, _ = normalize_wallpaper_engine_pair([
+            {
+                "stage": "vertex", "entryPoint": "main",
+                "source": """attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec2 samples[4];
+varying vec2 base;
+void main() { gl_Position = vec4(a_Position, 1.0); }
+""",
+            },
+            {
+                "stage": "fragment", "entryPoint": "main",
+                "source": """varying vec2 samples[4];
+varying vec2 base;
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+void main() { vec4 sample; gl_FragColor = texture(g_Texture0, base); }
+""",
+            },
+        ], {})
+        for stage in normalized:
+            self.assertIn("location = 0", stage["source"])
+            self.assertIn("location = 1", stage["source"])
+            self.assertNotIn("location = 2", stage["source"])
+            self.assertIn("#define CAST3(x) vec3(x)", stage["source"])
+        self.assertIn("vec4 mwx_sample", normalized[1]["source"])
+        self.assertIn("uniform sampler2D g_Texture0", normalized[1]["source"])
+        self.assertNotIn("uniform sampler2D g_Texture1", normalized[1]["source"])
 
     def test_compiler_rejection_does_not_publish_report(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
