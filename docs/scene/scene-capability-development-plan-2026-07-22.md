@@ -4,7 +4,7 @@
 >
 > 文档状态：截至 2026-07-27 的实施批次快照；当前 baseline、矩阵报告、签名身份和运行边界只查 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md)。
 >
-> 阅读约定：正文中的“当前”“已完成”和待办均以 2026-07-27 收口时点为准，不代表当前 HEAD；下一任务从专项覆盖表和 [`semantics/capability-dependency-map.md`](semantics/capability-dependency-map.md) 选择。
+> 阅读约定：正文中的“当前”“已完成”和待办均以 2026-07-27 收口时点为准，不代表当前 HEAD；下一任务只从现役[Scene 通用执行重构计划](scene-generic-execution-refactor-plan-2026-08-15.md)选择。专项覆盖表与[`semantics/capability-dependency-map.md`](semantics/capability-dependency-map.md)只提供事实和依赖，正文中的 strict profile / coverage-first 指令不得继续执行。
 >
 > 最近更新：2026-07-27（实现基线 `a77b875`；生产播放把原始项目目录交给宿主并在内存构建 `SceneRuntimeInput`，Debug runtime evidence schema 1 不参与播放；`0ff96e0` 的十四类 strict effect backend、stock Radial God Rays、Timeline 28/48 typed target 与 Scene audio 16 档 consumer 均保留。当前完整门 `.codex/scene-runtime-input-full45-20260727/results/report.json` 为 45/45，固定门 `/private/tmp/mwx-scene-runtime-input-fixed13-20260727-v1/report.json` 为 13/13；58 份 runtime evidence 均为 schema 1，旧解释 JSON/preview log residue 0。精确哈希、App 身份和边界见运行证据索引。）
 >

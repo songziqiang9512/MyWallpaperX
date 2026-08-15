@@ -1,16 +1,16 @@
 # Scene 公共能力依赖图与实施门
 
-> 状态：现役架构入口
+> 状态：现役依赖参考
 >
-> 最近核对：2026-08-13
+> 最近核对：2026-08-15
 >
 > 本页只维护依赖与完成门；精确当前提交、报告和测试总数统一见 [总覆盖台账](coverage-ledger.md) 与 [运行证据索引](runtime-evidence-index.md)。
 >
-> 目的：以依赖图约束公共实现先后，以真实样本的第一个共享可见断裂边决定当前优先级；禁止为单个样本建立旁路。
+> 目的：表达通用执行单元之间不可绕过的前置关系。当前批次、产品 owner 迁移和停止项由[Scene 通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)决定；本图不是逐节点实施队列。
 
-本文把 [总覆盖台账](coverage-ledger.md) 和各专项表中的能力整理成依赖图。它不改变任何能力等级，只回答“哪一层必须先稳定，后面的实现才不会反向推翻前面”。
+本文把 [总覆盖台账](coverage-ledger.md) 和各专项表中的能力整理成依赖图。它不改变任何能力等级，只回答“一个通用 compiler、VM、graph 或 executor 在执行某类输入时依赖哪些公共状态”。前置合同可以在同一可回滚批次中按实际消费面闭合，不要求先把整层所有语义逐项证明完毕。
 
-[全样本能力分类与修复台账](scene-corpus-capability-inventory.md) 提供另一条正交轴：某个公共结构 family 在真实 corpus 中覆盖多少样本与可见 occurrence。依赖图限制可采用的实现顺序，fresh 隔离样本的第一个断裂边决定当前优先级，family 覆盖度只用于在同一断裂边上选择受益面更大的公共修法；三者不得合并成按数量机械排序的工作队列。
+[全样本能力分类与修复台账](scene-corpus-capability-inventory.md) 提供另一条正交轴：某个公共结构 family 在真实 corpus 中覆盖多少样本与可见 occurrence。依赖图用于发现旁路和缺失前置，corpus 用于估计受益面，隔离样本用于定位失败；三者都不能覆盖现役计划，也不能合并成按名称或数量机械排序的专用工作队列。
 
 ## 1. 依赖图
 
@@ -35,18 +35,17 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 `D9` 是通用 layer/effect/particle/text consumer；`D10` 是 Timeline、SceneScript、audio/media、dynamic text 和 particle event；`D11` 是 Puppet、lighting/HDR、3D、RGB 和 offline。后层可以与前层研究并行，但不能在前层合同未闭合时写产品执行旁路。
 
-### 1.1 开发排序与可见闭环
+### 1.1 如何使用本图
 
-依赖与优先级是两条轴：本图决定一个实现不能绕过哪些公共前置；隔离真实样本上最早的共享断裂边决定现在先做什么。从该边逆向取最小公共前置集合，并沿正向一直验收到 `GPU -> publication -> compositor -> next-frame -> 目标 ROI`，才构成一个用户可见 correctness atom。一个 atom 可以跨 D5/D6/D7/D9 和多个源码目录；“先补底座”不得被解释为逐节点勾选并把真正 consumer 无限后移。样本 identity 只定位证据，产品实现仍不得出现样本分支。
+依赖与优先级是两条轴：本图决定实现不能绕过哪些公共前置，现役计划决定当前先迁移哪个产品 owner。隔离真实样本的首个失败 identity 用于定位缺失 primitive，但不自动决定架构；优先选择能让未见内容受益、并能局部降级的通用 compiler/VM/graph/executor 修法。样本 identity 只定位证据，产品实现不得出现样本分支。
 
-面向初测版本，在同等证据与公共影响面下按下列顺序选择断裂边：
+一个批次可以跨多个 D 节点和源码目录，只需闭合本批实际消费的 identity、order、resource、target、budget 与 lifecycle。涉及 GPU 或可见输出时验证到 `GPU -> publication -> compositor -> next-frame`；只有声称具体 fidelity 回归恢复时才要求目标 ROI/事件断言。未知 optional 语义可保真、告警或局部 passthrough，安全与状态完整性风险仍 hard fail。
 
-1. asset/texture selection、typed publication 与基础图像可用性；
-2. effect、render target、named target、ordered compose 与 terminal publication；
-3. 已有可见 consumer 的 mouse/property/media provider，以及实际缺失的 particle consumer；
-4. 不阻塞当前画面的新语义广度、通用 VM 和高级对象。
+本图不得被用于：
 
-这只是当前优先级，不允许越过依赖，也不允许为追求非黑画面放宽 fail-closed。拒绝坏层以保住已证层属于故障隔离；只有被拒绝层自身也走完上述链并取得 ROI 证据，才算实现该能力。
+- 要求 D0-D8 所有字段全部达到某等级后才允许 D9 通用执行；
+- 从某个 `L3 bounded` 子集推导新的 exact planner、renderer 或 admission catalog；
+- 以 rejection 数、strict profile 或单样本闭环代替 corpus 广度、故障隔离和产品运行证据。
 
 ## 2. 公共底座
 
@@ -182,25 +181,18 @@ Particle breadth 的 bounded Position Offset Random 子集由 `968d86eb` 在同�
 
 Puppet、lighting/HDR、3D、RGB 和 offline 复用 D0-D10。Puppet 已有严格单 clip 与 bind-referenced/disjoint-bone additive clips 的 fixed-step CPU LBS 子集，typed animation visibility 复用 D2/D4 snapshot；它仍必须复用统一 frame context、geometry、texture lifetime 和 fail-closed 路由，不代表冲突 animation mixing/权重、动态 attachment 或完整高级对象支持。其他系统在 light/shader/fixed-time consumer 不存在时必须保持 `L0-L2`，不能用普通 image transform、layer Bloom 或 Debug PNG readback 冒充执行。
 
-## 4. Coverage-first 实施波次
+## 4. 与现役迁移波次的关系
 
-| 波次 | 内容 | 退出门 |
-|---|---|---|
-| F0 语义治理 | 179 页面、45 Effect、Particle、SceneScript、Graph/Shader、输入、对象和平台表 | 每项有唯一落点、单值等级、依赖、未知项和验收门 |
-| F1 身份与输入底座 | D1-D5 | 稳定 wire schema、binding program、source IR、provider generation、pause/stop |
-| F2 通用执行底座 | D6-D9 | scheduler、RT lifetime、material/shader contract、坐标空间和 fail-closed profile registry |
-| F3 常用能力广度 | Timeline、dynamic text、Particle、45 Effect family、audio/media | 每族至少一个完整正向、作者关闭、失败、lifecycle 和真实样本门 |
-| F4 视觉精度 | 高频样本、样本封面方向性门与 Windows golden | `3194ac5` 已生成 preview reference、中心裁切截图、分项指标和并排图；只允许同一样本跨提交比较并人工复核。Windows golden 再验证局部区域、字体、颜色/alpha、时序和像素阈值 |
-| F5 高级能力 | SceneScript breadth、Puppet、HDR/light、3D、RGB、offline | 各系统独立 IR/runtime/lifecycle/product gate |
+历史的 Coverage-first F0-F5 排序已经停止作为实施路线。当前 G0-G5 波次统一见[Scene 通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)：先治理与基线，再迁移通用 shader/material、Effect/FBO graph、SceneScript VM、粒子组件解释器和高级 primitive。
 
-F0 完成后才开始下一轮代码。F1/F2 不得越过公共依赖，但当前批次由真实样本第一个共享断裂边及其可见收益决定；同一 correctness atom 可以跨 F1/F2/F3，不能因表格分波次而拆断。视觉显眼程度本身不是证据，目标 ROI 与完整链才是；F3 的非阻塞广度在已知基础显示断链之后。
+本页 D0-D11 只用于检查每个 G 波次实际消费的前置，允许在同一可回滚批次中跨层闭合。不得要求一个 D 层所有专项条目完成后才开始下游通用执行，也不得从当前表格的 bounded 状态反推新的专用 owner。
 
 ## 5. 禁止的冲突路径
 
 1. 不在各 renderer 内分别计算 user property、Timeline 或 SceneScript 优先级。
 2. 不为 Effect、Particle、Video 分别建立互不兼容的时钟、pause 或 fixed-step 语义。
 3. 不把 layer/named/effect/history/system/media texture 塞进同一个无作用域字符串 key。
-4. 不用文件名包含关系直接宣称 Effect 支持；文件名只能用于明确注册、完整条件匹配且 fail-closed 的 profile。
+4. 不用文件名、effect 名称、路径、hash 或 exact stock identity 选择产品算法；固定 identity 只用于资源解析、缓存、provenance、诊断和回归。
 5. 不把 effect-local UV 变形写成 object transform，也不把 Camera Parallax 当成所有鼠标交互。
 6. 不在没有 shader annotation/slot contract 时自动绑定空白纹理并启用 optional combo。
 7. 不在通用 RT lifecycle 之前单独给 Motion Blur、Cursor Ripple 或 Fluid 保存私有 history。
@@ -210,8 +202,8 @@ F0 完成后才开始下一轮代码。F1/F2 不得越过公共依赖，但当�
 
 ## 6. 下次会话的决策顺序
 
-1. 先查 [运行证据索引](runtime-evidence-index.md) 确认当前 baseline、45/13 两层门和未闭合边界；本依赖图不复制易漂移的实现 commit。下一代码批再按本图依赖与真实样本收益选择，不得从单个 strict profile 正门外推 generic shader、其他 Effect 或同类格式兼容。
-2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
-3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
-4. 只实现一个可独立验证的公共 correctness atom；它可以跨多个 D 节点，但必须对应同一可见结果。涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收；涉及显示修复时，必须同批取得 GPU、publication、terminal compositor、next-frame 与目标 ROI，目标样本和相关样本验证后单独提交。
-5. 更新专项表、总台账和证据索引，再进入下一项；带日期的计划只保留对应批次历史，不继续承担现役待办。
+1. 先查[通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)确定当前 G 波次、停止项和可回滚边界。
+2. 查[覆盖台账](coverage-ledger.md)、对应专项表和[运行证据索引](runtime-evidence-index.md)，确认当前 owner、已有正反例和未验证边界；它们提供事实，不决定专用实现方法。
+3. 用本图检查本批实际消费的 identity、order、resource、target、budget 和 lifecycle 前置，不为尚未消费的未知项预建 admission。
+4. 只实现一个可独立回滚的通用 primitive 批次；至少用一个未见内容或新组合证明没有名称/hash dispatch，并验证局部失败不扩大为整场拒绝。
+5. 只有能力等级、产品 owner、matrix 合同或现役运行事实变化时才更新相应专项表、总台账和证据索引；微小内部改动不做全库文档同步。

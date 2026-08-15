@@ -1,6 +1,6 @@
 # MyWallpaperX 文档入口
 
-这个目录按“长期规范、当前状态、稳定合同、历史证据”分工。同一事实只允许一个现役权威入口；标题或正文中的“当前”不能覆盖本页标明的文档角色。Scene 的 R0-R5 重构计划已经完成，目前没有仍在执行的 Scene 迁移计划；后续能力扩展从专项覆盖表和能力依赖图立项，不再续写旧批次路线。
+这个目录按“长期规范、当前状态、现役执行计划、稳定合同、历史证据”分工。同一事实只允许一个现役权威入口；标题或正文中的“当前”不能覆盖本页标明的文档角色。Scene 的 R0-R5 owner 收敛计划已经完成，当前转入“通用编译器、VM、RenderGraph 与统一 executor”路线；迁移顺序由现役[Scene 通用执行重构计划](scene/scene-generic-execution-refactor-plan-2026-08-15.md)决定，专项覆盖表和能力依赖图不再充当逐项专用实现队列。
 
 ## 文档角色与裁决顺序
 
@@ -19,10 +19,11 @@
 ## 当前事实入口
 
 - [architecture/technology-stack-boundaries.md](architecture/technology-stack-boundaries.md)：项目长期技术栈职责、跨语言/跨进程边界，以及 VM、shader compiler 和第三方 native 依赖的准入顺序；候选不等于现役能力。
+- [scene/scene-generic-execution-refactor-plan-2026-08-15.md](scene/scene-generic-execution-refactor-plan-2026-08-15.md)：Scene 现役迁移顺序、停止项、失败分级、快速回滚与退役条件；它决定怎么迁移，不覆盖当前能力事实。
 - [scene/README.md](scene/README.md)：Scene 专题入口；区分现役台账、专项合同、公开参考和历史快照。
 - [scene/semantics/coverage-ledger.md](scene/semantics/coverage-ledger.md)：Scene 当前系统级摘要；新会话从这里定位系统，再进入专项能力表。
 - [scene/semantics/runtime-evidence-index.md](scene/semantics/runtime-evidence-index.md)：Scene 当前提交、正式运行门、签名身份与能力证据包。
-- [scene/semantics/capability-dependency-map.md](scene/semantics/capability-dependency-map.md)：Scene 公共依赖与当前开发顺序。
+- [scene/semantics/capability-dependency-map.md](scene/semantics/capability-dependency-map.md)：Scene 公共依赖关系；用于阻止旁路，不决定当前批次或要求逐节点闭合。
 - [scene/semantics/scene-corpus-capability-inventory.md](scene/semantics/scene-corpus-capability-inventory.md)：当前真实 Scene corpus 的 authored family/参数/资源清单与公共修复记录入口；不替代能力等级和运行证据。
 - [web/current-state.md](web/current-state.md)：Web 当前源码所有权、证据边界、发布缺口与下一门。
 - [web/README.md](web/README.md)：Web 稳定规范、现役状态与历史证据导航。
@@ -33,7 +34,7 @@
 
 - [scene/semantics/README.md](scene/semantics/README.md)：现役语义手册索引；按系统进入专项能力表。
 - [scene/semantics/official-page-map.md](scene/semantics/official-page-map.md)：179 个官方 Scene 页面逐页映射到唯一合同 anchor、分类和产品决策；这是资料完整性门。
-- [scene/semantics/capability-dependency-map.md](scene/semantics/capability-dependency-map.md)：公共依赖层与实施波次；用于避免属性、脚本、粒子、Provider 和 Render Graph 相互绕开或重复实现。
+- [scene/semantics/capability-dependency-map.md](scene/semantics/capability-dependency-map.md)：公共依赖层；用于避免属性、脚本、粒子、Provider 和 Render Graph 相互绕开或重复实现，不作为现役任务队列。
 
 ## 历史参考
 
@@ -44,7 +45,7 @@
 
 ## 已完成实施计划
 
-- [scene/scene-render-chain-refactor-plan-2026-08-03.md](scene/scene-render-chain-refactor-plan-2026-08-03.md)：Scene R0-R5 owner 收敛与旧链删除的已完成实施记录；当前能力、下一任务和运行基线继续以专项台账、能力依赖图和运行证据索引为准。
+- [scene/scene-render-chain-refactor-plan-2026-08-03.md](scene/scene-render-chain-refactor-plan-2026-08-03.md)：Scene R0-R5 owner 收敛与旧链删除的已完成实施记录；当前能力看专项台账和运行证据，当前迁移顺序看通用执行重构计划。
 
 ## 目录分类
 
@@ -56,7 +57,7 @@
 
 ## 使用规则
 
-- 判断框架结构时以代码和 `AGENTS.md` 为准；判断长期技术职责、性能和候选准入时看现役[技术栈与架构路线边界](architecture/technology-stack-boundaries.md)，`architecture/` 旧 memo 只作历史线索；判断 Scene 能力和闭环状态时看覆盖台账、专项表与运行证据索引。
+- 判断框架结构时以代码和 `AGENTS.md` 为准；判断长期技术职责、性能和依赖准入时看现役[技术栈与架构路线边界](architecture/technology-stack-boundaries.md)，判断 Scene 当前迁移顺序看[通用执行重构计划](scene/scene-generic-execution-refactor-plan-2026-08-15.md)，判断能力和闭环状态看覆盖台账、专项表与运行证据索引。
 - Web 当前结论从[现役状态](web/current-state.md)进入；带日期文档的用途按[文档角色索引](document-role-index.json)判断：`historical-evidence` 只作历史证据，`stable-contract` 只约束长期语义，两者都不能用正文里的“当前”或旧数字覆盖现役状态。
 - 专题下的 `regression/` 与 `reviews/` 下的文件主要用于查历史原因和证据，不反向覆盖当前规范。
 - 新增长期规范时放入对应专题目录；新增一次性样本回归或排障记录时放入该专题已有的 `regression/`，没有合适归属时先在对应专题建立清晰入口，不新设空泛归档目录。

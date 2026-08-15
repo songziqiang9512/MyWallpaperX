@@ -4,7 +4,7 @@
 >
 > 首次整理：2026-07-22
 >
-> 目标：先确定 Wallpaper Engine Scene 的作者语义和执行合同，再实现、调参和做样本验收。
+> 目标：保真作者声明与关键执行合同，并让通用 compiler、VM、RenderGraph 和 executor 以可诊断降级覆盖尽可能多的未见内容。
 
 ## 1. 先说结论
 
@@ -16,7 +16,7 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 4. Timeline、SceneScript、用户属性、鼠标、音频和媒体只更新作者绑定的目标；
 5. 不支持的局部语义应显式降级，不能用整层位移、全局水波或静态占位冒充支持；作者显式启用的 Scene Camera Shake 是独立的全局相机系统，不能与局部 effect 混同。
 
-运行证据使用两层矩阵：`script/scene_wallpaper_sample_matrix.json` 是固定回归 suite，按 digest 锁定 `script/scene_wallpaper_full_sample_matrix.json` 并只保存 13 个成员及其明确 override；加载时无损展开成既有矩阵合同。后者的目标是当前真实 Scene 目录完整快照；authored census 发现样本增删时立即降为待扩容 tracked baseline，完成独立 milestone 运行扩容前不得称完整。日常改动按影响面跑定向门；fixed/full 只在 milestone 阶段按明确风险选择。现役结果和聚合缺口只在 [运行证据索引](runtime-evidence-index.md) 维护，专项表只链接该入口，避免重复数字随代码演进失真。用户可见回归的影响面由实际 render chain 决定，不由专题或源码目录决定；同一可见结果所依赖的 selection、Program、GPU、publication 与 composition 必须作为一个 correctness atom 闭合。
+运行证据使用两层矩阵：`script/scene_wallpaper_sample_matrix.json` 是固定回归 suite，按 digest 锁定 `script/scene_wallpaper_full_sample_matrix.json` 并只保存 13 个成员及其明确 override；加载时无损展开成既有矩阵合同。后者的目标是当前真实 Scene 目录完整快照；authored census 发现样本增删时立即降为待扩容 tracked baseline，完成独立 milestone 运行扩容前不得称完整。日常改动按影响面跑定向门；fixed/full 只在 milestone 阶段按明确风险选择。现役结果和聚合缺口只在 [运行证据索引](runtime-evidence-index.md) 维护，专项表只链接该入口，避免重复数字随代码演进失真。用户可见回归仍按真实 render chain 定位，但当前迁移优先级与批次边界由[通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)决定：优先修公共 primitive，并验证失败只影响预期执行单元，不再把每个已知 family 变成一条专用完整准入链。
 
 这直接解释了此前的主要错误：
 
@@ -46,9 +46,10 @@ Scene 文档按四层使用，后续开发不要从取证记录直接跳到“�
 | 问题 | 先看 |
 |---|---|
 | Swift、Metal、C/C++、JavaScript 与 Python 的长期职责，VM/compiler/XPC 何时允许接入 | [技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md)；只规定路线与准入，不代表能力已实现 |
+| 当前 Scene 为什么转向通用执行、下一波次做什么、什么专用路线不得再扩张 | [Scene 通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)；只决定迁移顺序，不覆盖能力事实 |
 | 当前系统大盘、主要缺口和下一批次是什么 | [官方语义与实现覆盖台账](coverage-ledger.md) |
 | 当前真实 Scene 样本声明了哪些纹理、Effect/Graph/FBO、粒子、动态输入和参数 family，某个公共修复影响哪些样本 | [全样本能力分类与修复台账](scene-corpus-capability-inventory.md)；它是 authored corpus 清单，不是运行支持等级 |
-| 真实样本缺图、错误合成、黑窗或交互不生效，当前先修哪一项 | 先从[运行证据索引](runtime-evidence-index.md)和隔离复现确定第一个失败 identity，再用[能力依赖图](capability-dependency-map.md)与对应专项合同收敛同一可见链；不得按目录或 `L1/L2` 列表挑任务 |
+| 真实样本缺图、错误合成、黑窗或交互不生效，当前先修哪一项 | 从[运行证据索引](runtime-evidence-index.md)和隔离复现确定第一个失败 identity，再用[能力依赖图](capability-dependency-map.md)定位公共前置；按现役计划选择能让未见内容受益、且可局部降级的通用 primitive，不按目录、`L1/L2` 或已知 effect 名称挑任务 |
 | 179 个官方页面逐页落到哪个稳定合同 anchor、哪些只属于编辑器或平台决策 | [官方页面逐页表](official-page-map.md) |
 | 16 个官方目录组如何路由到专项能力表 | [官方页面分组映射](official-page-crosswalk.md) |
 | 公共能力先后依赖、哪些系统必须共用底座 | [能力依赖图](capability-dependency-map.md) |
@@ -130,7 +131,7 @@ Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范�
 - `previous`、原始 layer、scene background、named target、临时 RT 和跨帧 history RT 必须是不同资源身份。
 - `compose`、copy/swap command、显式 `bind` 和 pass `target` 必须进入 Render Graph，不能丢成编辑器元数据；command 不消耗实例 material-pass ordinal。
 
-### 4.3 不支持必须可见
+### 4.3 失败必须分级且可见
 
 每个对象、effect、pass、RT 和 texture slot 至少要能输出以下状态之一：
 
@@ -142,6 +143,8 @@ Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范�
 - `compile-or-pipeline-failed`
 
 “成功启动”“非黑帧”和“route-only”不能记为视觉支持。
+
+状态不等于一律整层拒绝：安全/预算/identity/target hazard/lifecycle 错误 hard fail；单个 shader、pass、optional provider、script binding 或 particle system 失败默认 `degraded-passthrough`，保留可安全执行的 base layer 与其他对象；可选输入缺失使用作者默认或关闭 combo；未消费的未知非关键 metadata 保真并告警。任何 fallback 都必须带稳定诊断，不能静默换成语义不同的算法。
 
 ## 5. 统一运行模型
 
@@ -159,20 +162,19 @@ scene.json / scene.pkg / assets
 
 实时播放与离线烘焙应共用 Scene IR、时钟推进、资源注册表、效果图和绘制器，只替换输入源、时钟策略与输出目标。否则两条路径会在字体、粒子、随机数、音频和 effect history 上持续漂移。
 
-## 6. 下一阶段的实现门
+## 6. 通用执行实现门
 
-继续改代码前，目标能力必须先在本专题中具备：
+继续改代码前，只需把本批真正会消费的合同闭合到足以安全执行，而不是预先穷举整个作者语义空间：
 
-1. 明确的作者启用条件；
-2. 输入资源和 texture slot 含义；
-3. pass、RT、history、compose/copy/swap 的执行要求；
-4. 动态 uniform/provider 和生命周期；
-5. 正向样本、默认关闭反例和失败降级；
-6. 证据等级与仍未知项；
-7. 已知可见回归从资源选择到 next-frame 的完整链、第一个断裂边、目标 ROI 和成功观测。
-8. 官方合同之后的 MirageWallpaper 固定-revision 源码交叉检查：列出实际读取的模块/关键 symbol、`producer -> state/identity -> consumer -> frame order/lifecycle -> failure path` 与已知 divergence；专题总结、历史行号或第三方输出不能代替本批源码阅读。
+1. 写明新增或扩展的通用 primitive，以及未见内容如何自动受益；
+2. 保留本批所需的作者启用条件、source/pass order、resource/slot/target identity 和 lifecycle；
+3. 区分 hard fail、局部 passthrough、作者默认和 preserve-with-warning；
+4. 提供项目自有正反 fixture，并至少包含一个未见内容或新组合，证明不是名称/hash dispatch；
+5. compiler、VM 或 graph 接受输入后仍由 reflection/ABI/resource/target/budget 门校验，不能把 parse success 当视觉支持；
+6. 涉及 GPU 或可见输出时运行代表隔离样本，证明 GPU、publication、terminal compositor、next-frame 和局部失败隔离；只有声称具体 fidelity 修复时才强制预定义 ROI/事件断言；
+7. 写明旧专用 owner/fallback、取得产品执行权的开关或范围，以及稳定后的撤销条件。
 
-缺少其中任一项时，先补研究或标记 unsupported，不再靠整层动画和目测参数试错推进。
+官方材料足以定义本批消费合同就直接实现。MirageWallpaper 等第三方源码只在官方材料不足、需要交叉检查 producer-to-consumer 结构时读取固定 revision；它不是每批前置门，也不能提供算法真值。未知但不会破坏安全或状态完整性的可选语义可以带诊断进入受控执行，不再因为缺少逐项证明自动整层 `unsupported`。
 
 ## 7. 维护约定
 
@@ -180,12 +182,12 @@ scene.json / scene.pkg / assets
 - 本目录记录稳定语义和实现合同，不记录单次调试流水账。
 - [覆盖台账](coverage-ledger.md) 只做系统摘要；Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象的专项能力表分别是其逐项等级事实来源。
 - [全样本能力分类与修复台账](scene-corpus-capability-inventory.md) 保存当前 corpus 的静态 family、参数和资源清单。新增/删除样本或按公共类型立项时先刷新它；family 覆盖数只用于界定影响面，不能覆盖运行证据或第一个可见断裂边。
-- 纹理/资源、Graph/FBO/composition、effect/shader、粒子和动态输入/SceneScript/交互均使用同一官方优先、Mirage 固定-revision 源码交叉检查规则；专项表只登记与该能力有关的模块、结构结论和 divergence，不在每张表复制一套治理文字。
-- 实现前必须先查 [能力依赖图](capability-dependency-map.md)，再进入对应专项表查看作者条件、代码、测试、运行证据和下一门；依赖图限制可采用的实现顺序，能力等级描述覆盖强度，二者都不是用户可见问题的工作队列。存在真实回归时，由第一个共享断裂边决定当前优先级，允许同一 correctness atom 跨多个 D 节点和源码目录；不能从同系统某个 `L3` 子集推断整套能力。
+- 纹理/资源、Graph/FBO/composition、effect/shader、粒子和动态输入/SceneScript/交互均以官方公开合同和项目 corpus 为主；Mirage 固定 revision 只在官方材料不足时作结构交叉检查，专项表不复制治理文字。
+- 实现顺序先看[通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)，再用[能力依赖图](capability-dependency-map.md)检查公共前置，并进入对应专项表核对当前事实。依赖图不是工作队列，专项表的 `L3 bounded` 也不是继续扩张专用 owner 的理由。
 - 资料入口完整性以 [179 页逐页表](official-page-map.md) 与自动门禁为准；16 组分组统计不能替代逐页映射。
 - 专项表不写「当前实现基线：`<commit>`」。当前基线、生产播放输入边界、签名身份和 Debug runtime evidence schema 只在 [运行证据索引](runtime-evidence-index.md) 维护；覆盖台账只做系统摘要，能力依赖图只维护前置关系，带日期的 plan/roadmap 只表示历史批次快照。专项表里出现的 commit 号一律理解为对应能力的历史落地提交。
 - 新发现的字段先标证据等级和样本来源，再判断是否进入实现。
 - 官方文档或 `lib.sceneScript.d.ts` 版本变化时，更新 [资料来源与证据索引](source-index.md) 的核验日期和差异。
 - 第三方播放器与官方资料冲突时，记录其偏差，不修正文档去迎合第三方行为。
-- Scene 源码导航以根 `AGENTS.md` 的九类职责和 [`script/scene_source_layout.json`](../../../script/scene_source_layout.json) 为准。`Runtime/ResolvedMaterialExecution` 收纳 surface-scoped runtime façade 与从 claim/preflight、target commit、ordered encode/compositor ticket consumption 到 completion、rollback、epoch invalidation 和 terminal graph observation 的原子提交生命周期，排除 scene-lifetime RuntimeCatalog、通用 graph telemetry、RenderGraph GPU executor 和 Rendering consumer。`RenderGraph/AuthoredGraph` 收纳 authored graph IR、结构规划与 graph/condition admission，明确排除 execution backend、target 生命周期、dependency 调度和 GPU encoding；`RenderGraph/EffectCompilation` 收纳从 authored stage graph 切片、dedicated candidate/backend 编译、stage Program/ExecutionPlan 到全链 admission catalog/reporting 的编译与准入生命周期，排除 effect-specific planner 的完整准入实现、MaterialProgram 生产、GPU encoding 和 target/resource 生命周期；`RenderGraph/EffectExecution` 收纳 launch-scoped effect pipeline view，以及统一 GraphExecutor 使用的 typed stage preparation、encoding 与 renderer 类型族；`RenderGraph/GraphTargets` 收纳 authored graph target 的计划、状态、Metal 分配、驻留、资源命令与 publication；`RenderGraph/LayerDependencies` 收纳跨 layer dependency plan、按帧 named target reservation/publication 与 named texture pool，其 named target 不属于 authored effect FBO/history；`RenderGraph/MaterialProgram` 收纳从 ingress、Template compilation、schema/variant preparation 到 Program identity/derivation、texture selection、frame finalization 与 uniform encoding 的完整 producer lifecycle，RuntimeCatalog 不并入，GPU execution consumer 仍属于 `EffectExecution`；`RenderGraph/ShaderContract` 收纳 loss-preserving shader contract/schema、stage metadata 解析、immutable source-graph contract 与 root/VFS contract loading/projection，排除 `Resources` 中的具体 VFS/resource resolution、preparation、frontend、MaterialProgram 和 GPU execution；`RenderGraph/ShaderFrontend` 收纳有界作者 shader 的 lexer、syntax、semantic/color analysis、translation 与 Metal source emission；`RenderGraph/ShaderPreparation` 收纳 directive/macro 预处理、variant 环境与解析、prepared source 产生及畸形 metadata 准入。`ShaderContract`、FrameInputs、`ShaderFrontend` 和 resolved Program 保留在各自生命周期，不并入 `ShaderPreparation`。后续目录只按完整类型族和清晰生命周期增加，迁移时同步布局 manifest、自动门、共享 source set 与现役链接。
+- Scene 源码导航以根 `AGENTS.md` 和 [`script/scene_source_layout.json`](../../../script/scene_source_layout.json) 为准。新代码应把 authored source/metadata、统一 Program、通用 graph compilation、target/publication 生命周期和 GraphExecutor 保持为清晰职责；现有 bounded `ShaderFrontend`、dedicated candidate/admission 和 effect-specific planner 只作迁移期 oracle，不作为新 family 的目录或所有权模板。目录变化按完整类型族迁移，并同步布局 manifest、自动门、共享 source set 与现役链接。
 - `test_scene_semantics_coverage.py` 自动校验布局 manifest 与本目录相对 Markdown 链接，不复制或锁定动态基线、报告计数和路线结论。

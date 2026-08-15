@@ -92,10 +92,16 @@
       "entrypoint": "docs/scene/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
+        "docs/scene/scene-generic-execution-refactor-plan-2026-08-15.md",
         "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md",
-        "docs/scene/semantics/capability-dependency-map.md"
+        "docs/scene/semantics/runtime-evidence-index.md"
       ]
+    },
+    {
+      "path": "docs/scene/scene-generic-execution-refactor-plan-2026-08-15.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/README.md",
+      "retirementCondition": "通用 shader/material compiler、RenderGraph compiler/executor、SceneScript VM 和粒子组件解释器均取得产品执行权，产品不再以 exact effect/source/sample/path/hash 做 capability admission，被替代的专用 owner 已删除或隔离为非产品 oracle，并由 fixed/full、故障隔离与性能基线共同验证后，将本文转为 historical-evidence。"
     },
     {
       "path": "docs/scene/scene-render-chain-refactor-plan-2026-08-03.md",
@@ -103,9 +109,9 @@
       "entrypoint": "docs/scene/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
+        "docs/scene/scene-generic-execution-refactor-plan-2026-08-15.md",
         "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md",
-        "docs/scene/semantics/capability-dependency-map.md"
+        "docs/scene/semantics/runtime-evidence-index.md"
       ]
     },
     {

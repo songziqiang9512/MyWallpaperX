@@ -26,9 +26,9 @@ Mirage 不是 Wallpaper Engine 官方实现。它的 README 明确说明项目�
 
 下文源码路径均以 `<repo>/Reference Project/MirageWallpaper/` 为根。行号只对应上述固定 revision。
 
-### 1.1 增量复核与逐 family 使用合同
+### 1.1 增量复核与按需使用合同
 
-基础快照保留一份完整、可复核的结构研究；后续不能为了追随当前 checkout 而机械替换 revision 或复用旧行号。每个 MyWallpaperX correctness atom 都须在实现前另选一个固定 revision，实际读取该 family 直接相关的 producer、typed state/identity、consumer、frame order/lifecycle 与 failure path，并在下表记录模块、结构结论和 divergence。引用以 `revision + path + symbol` 为主，行号只作该 revision 内的辅助定位。
+基础快照保留一份完整、可复核的结构研究；后续不能为了追随当前 checkout 而机械替换 revision 或复用旧行号。MyWallpaperX 实现默认先使用官方公开合同、项目 corpus 和现有固定证据；只有这些材料不足以解释 producer-to-consumer 结构或需要核对第三方架构差异时，才为相关问题另选固定 revision，读取直接相关的 producer、typed state/identity、consumer、frame order/lifecycle 与 failure path，并在下表记录模块、结构结论和 divergence。引用以 `revision + path + symbol` 为主，行号只作该 revision 内的辅助定位。
 
 | 日期 / family | 固定 revision | 实际读取模块 / symbol | 结构结论 | divergence 与项目边界 |
 |---|---|---|---|---|
@@ -38,7 +38,7 @@ Mirage 不是 Wallpaper Engine 官方实现。它的 README 明确说明项目�
 | 2026-08-13 bounded Pulse material/composition chain | `443777e29a8046615db6275f80ff816a4bad444b` | `SceneCompiler.cpp` 的 image-effect/material/target编译，`LayerEffectStack.cpp::ResolveEffect`，`SceneRenderPlanner.cpp::ToGraphPass`，`MaterialPass.cpp::CustomShaderPass`，`SceneUniformBinder.cpp::FrameBegin/UpdateUniforms`，`WallpaperEngineRuntime.cpp::on(RenderDraw)`，`PresentPass.cpp::FinPass` | authored material/slot/uniform → layer-local ordered effect/ping-pong → graph texture read/write/version → reflected shader resources/uniforms → offscreen RGBA target → final layer state → present | 只交叉支持资源身份、pass顺序、uniform更新、RGBA target与最终present的职责链；Mirage固定使用RGBA8 UNorm并有自己的blend/load-op/编译兼容选择，不证明Pulse scalar公式、alpha边界、Metal数值或官方像素/时序，本项目仍以官方/合法stock与项目自有GPU fixture为准 |
 | 2026-08-13 当前 checkout 观察 | `443777e29a8046615db6275f80ff816a4bad444b` | 只确认 §3 关键入口仍存在；相对 `da4fa7b`，粒子 geometry/subdivision 与 large-mesh upload/first-frame handling 已变化 | 为后续 texture/effect/particle/dynamic family 提供可固定候选 | 未逐 family 重证，不能把基础或 `da4fa7b` 的全部结论改署到当前 HEAD；触达粒子或 allocation/present 时必须重新读相关变更 |
 
-这项规则适用于纹理/资源/publication、RenderGraph/FBO/composition、effect/shader、粒子和动态输入/SceneScript/交互全部大类。Mirage 始终只是 GPL-3.0 等级 `D` 结构参考；官方合同优先，冲突时记录偏差并保持 unknown/fail-closed，不复制源码、shader、纹理、payload、常量组合、表达式、算法或测试资产。
+Mirage 始终只是 GPL-3.0 等级 `D` 结构参考，不是每个纹理、graph、effect、粒子或 SceneScript 批次的强制前置，也不决定 MyWallpaperX 的产品 admission。官方合同优先；冲突时记录偏差，并按本项目的安全 hard-fail、局部视觉 fail-soft 策略处理 unknown，不复制源码、shader、纹理、payload、常量组合、表达式、算法或测试资产。
 
 ## 2. 总体结论
 

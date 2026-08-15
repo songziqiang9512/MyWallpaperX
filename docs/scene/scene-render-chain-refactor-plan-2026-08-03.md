@@ -6,7 +6,7 @@
 >
 > 事实边界：本文记录问题假设、迁移顺序、验收门和进度，不是当前能力等级或运行基线的权威入口。能力事实仍以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md)、专项覆盖表和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 为准。
 >
-> 工作分支：`codex/scene-capability-baseline`。计划建立快照为`896cbb1b`；R0-R3分别由`a1d469f3`、`9d655ce2`、`57cc94dc`、`588faf40`闭合，B22完成R4产品owner退役，B23-B25完成R5纯删除与最终证据收口。本文不再作为待办队列；现役能力、缺口和后续开发顺序只从语义台账、运行证据索引与能力依赖图进入。B25不刷新矩阵，最新签名App跨样本里程碑仍是B22 full45 **45/45 PASS**与fixed13 **12/13 NON-PASS**；架构完成不覆盖`2938612768`视觉债务，也不证明视觉或性能等价。
+> 工作分支：`codex/scene-capability-baseline`。计划建立快照为`896cbb1b`；R0-R3分别由`a1d469f3`、`9d655ce2`、`57cc94dc`、`588faf40`闭合，B22完成R4产品owner退役，B23-B25完成R5纯删除与最终证据收口。本文不再作为待办队列；现役能力与缺口查语义台账和运行证据，后续开发顺序只看现役[Scene 通用执行重构计划](scene-generic-execution-refactor-plan-2026-08-15.md)。B25不刷新矩阵，最新签名App跨样本里程碑仍是B22 full45 **45/45 PASS**与fixed13 **12/13 NON-PASS**；架构完成不覆盖`2938612768`视觉债务，也不证明视觉或性能等价。
 
 ## 0. 快速接手
 
