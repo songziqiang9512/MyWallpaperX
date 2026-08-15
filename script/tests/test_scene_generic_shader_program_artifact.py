@@ -135,7 +135,13 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.build_directory.cleanup()
 
-    def run_harness(self, root: Path, *, route: str, fragment: str = FRAGMENT):
+    def run_harness(
+        self,
+        root: Path,
+        *,
+        route: str | None,
+        fragment: str = FRAGMENT,
+    ):
         vertex_path = root / "fixture.vert"
         fragment_path = root / "fixture.frag"
         vertex_path.write_text(textwrap.dedent(VERTEX), encoding="utf-8")
@@ -146,10 +152,13 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         cache.mkdir(exist_ok=True)
         environment = os.environ.copy()
         environment.update({
-            "MWX_SCENE_GENERIC_SHADER_ROUTE": route,
             "MWX_SCENE_GENERIC_SHADER_REQUESTS": str(requests),
             "MWX_SCENE_GENERIC_SHADER_CACHE": str(cache),
         })
+        if route is None:
+            environment.pop("MWX_SCENE_GENERIC_SHADER_ROUTE", None)
+        else:
+            environment["MWX_SCENE_GENERIC_SHADER_ROUTE"] = route
         completed = subprocess.run(
             [str(self.binary), str(vertex_path), str(fragment_path)],
             cwd=REPOSITORY_ROOT,
@@ -237,6 +246,36 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "state=prefer-generic outcome=accepted reason=- ", accepted_log
             )
             self.assertIn("count=1", accepted_log)
+
+            default_accepted, _, _, default_log = self.run_harness(
+                root, route=None
+            )
+            self.assertEqual(default_accepted["status"], "accepted")
+            self.assertEqual(
+                default_accepted["backend"], "genericCompilerArtifact"
+            )
+            self.assertIn(
+                "state=prefer-generic outcome=accepted reason=- ",
+                default_log,
+            )
+
+            disabled, _, _, disabled_log = self.run_harness(
+                root, route="disable-generic"
+            )
+            self.assertEqual(disabled["status"], "unavailable")
+            self.assertEqual(disabled["code"], "route-disabled")
+            self.assertIn(
+                "state=disable-generic outcome=fallback "
+                "reason=route-disabled ",
+                disabled_log,
+            )
+
+            invalid, _, _, invalid_log = self.run_harness(
+                root, route="unknown-route"
+            )
+            self.assertEqual(invalid["status"], "unavailable")
+            self.assertEqual(invalid["code"], "route-invalid")
+            self.assertNotIn("outcome=accepted", invalid_log)
 
             changed, _, _, changed_log = self.run_harness(
                 root,

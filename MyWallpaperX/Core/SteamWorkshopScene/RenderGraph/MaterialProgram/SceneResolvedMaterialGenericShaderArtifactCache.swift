@@ -74,12 +74,28 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     private static let maximumArtifactBytes = 2 * 1_024 * 1_024
     private static let routeTelemetry = RouteTelemetry()
 
+    private enum RouteState: String {
+        case preferGeneric = "prefer-generic"
+        case observeOnly = "observe-only"
+        case disableGeneric = "disable-generic"
+
+        static func resolve(_ rawValue: String?) -> RouteState? {
+            guard let rawValue else { return .preferGeneric }
+            return RouteState(rawValue: rawValue)
+        }
+    }
+
     private final class RouteTelemetry: @unchecked Sendable {
         private let lock = NSLock()
         private var counts: [String: Int] = [:]
         private var executedIdentities = Set<String>()
 
-        func record(outcome: String, reason: String, requestKey: String) {
+        func record(
+            state: RouteState,
+            outcome: String,
+            reason: String,
+            requestKey: String
+        ) {
             let count = lock.withLock {
                 let identity = "\(outcome):\(reason)"
                 let updated = counts[identity, default: 0] + 1
@@ -87,7 +103,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 return updated
             }
             NSLog(
-                "MWX generic shader route state=prefer-generic outcome=%@ reason=%@ request=%@ count=%d",
+                "MWX generic shader route state=%@ outcome=%@ reason=%@ request=%@ count=%d",
+                state.rawValue,
                 outcome,
                 reason,
                 requestKey,
@@ -96,6 +113,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         }
 
         func recordExecution(
+            state: RouteState,
             backend: SceneAuthoredShaderProgram.Backend,
             layerID: Int,
             effectIndex: Int,
@@ -111,7 +129,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 return
             }
             NSLog(
-                "MWX generic shader execution state=prefer-generic layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@",
+                "MWX generic shader execution state=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@",
+                state.rawValue,
                 layerID,
                 effectIndex,
                 descriptorID,
@@ -130,38 +149,80 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             vertexSource: vertexSource,
             fragmentSource: fragmentSource
         )
+        let environment = ProcessInfo.processInfo.environment
+        guard let routeState = RouteState.resolve(environment[routeEnvironment]) else {
+            return .unavailable(code: "route-invalid", requestKey: key)
+        }
+        guard routeState != .disableGeneric else {
+            routeTelemetry.record(
+                state: routeState,
+                outcome: "fallback",
+                reason: "route-disabled",
+                requestKey: key
+            )
+            return .unavailable(code: "route-disabled", requestKey: key)
+        }
         exportRequest(
             key: key,
             vertexSource: vertexSource,
             fragmentSource: fragmentSource
         )
-        let environment = ProcessInfo.processInfo.environment
-        guard environment[routeEnvironment] == "prefer-generic" else {
+        guard routeState == .preferGeneric else {
             return .unavailable(code: "route-observe-only", requestKey: key)
         }
         guard let rawRoot = environment[cacheEnvironment],
               let root = validatedDirectory(rawRoot) else {
-            return fallback(code: "cache-unavailable", requestKey: key)
+            return fallback(
+                state: routeState,
+                code: "cache-unavailable",
+                requestKey: key
+            )
         }
         let artifactURL = root.appendingPathComponent("\(key).json", isDirectory: false)
         guard let data = regularFileData(artifactURL) else {
-            return fallback(code: "artifact-missing", requestKey: key)
+            return fallback(
+                state: routeState,
+                code: "artifact-missing",
+                requestKey: key
+            )
         }
         let artifact: Artifact
         do {
             artifact = try JSONDecoder().decode(Artifact.self, from: data)
         } catch {
-            return fallback(code: "artifact-invalid-json", requestKey: key)
+            return fallback(
+                state: routeState,
+                code: "artifact-invalid-json",
+                requestKey: key
+            )
         }
         guard let program = program(artifact, expectedKey: key) else {
-            return fallback(code: "artifact-contract-rejected", requestKey: key)
+            return fallback(
+                state: routeState,
+                code: "artifact-contract-rejected",
+                requestKey: key
+            )
         }
-        routeTelemetry.record(outcome: "accepted", reason: "-", requestKey: key)
+        routeTelemetry.record(
+            state: routeState,
+            outcome: "accepted",
+            reason: "-",
+            requestKey: key
+        )
         return .accepted(program: program, requestKey: key)
     }
 
-    private static func fallback(code: String, requestKey: String) -> Resolution {
-        routeTelemetry.record(outcome: "fallback", reason: code, requestKey: requestKey)
+    private static func fallback(
+        state: RouteState,
+        code: String,
+        requestKey: String
+    ) -> Resolution {
+        routeTelemetry.record(
+            state: state,
+            outcome: "fallback",
+            reason: code,
+            requestKey: requestKey
+        )
         return .unavailable(code: code, requestKey: requestKey)
     }
 
@@ -173,9 +234,12 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         nodeIndex: Int,
         preparedKey: String
     ) {
-        guard ProcessInfo.processInfo.environment[routeEnvironment] == "prefer-generic"
-        else { return }
+        let environment = ProcessInfo.processInfo.environment
+        guard RouteState.resolve(environment[routeEnvironment]) == .preferGeneric else {
+            return
+        }
         routeTelemetry.recordExecution(
+            state: .preferGeneric,
             backend: backend,
             layerID: layerID,
             effectIndex: effectIndex,
