@@ -41,6 +41,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Failure.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Warmup.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder.swift",
     RESOURCE_ENCODER_SOURCE,
     SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift",
@@ -54,6 +56,8 @@ SWIFT_SOURCES = [
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Material.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+PipelineWarmup.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
     SCENE_ROOT
@@ -2162,6 +2166,9 @@ private enum Harness {
             device: device,
             capabilities: ordinaryCapabilities
         )!
+        let ordinaryWarmupReport = ordinaryExecutor.pipelineWarmupReport
+        let ordinaryAttemptsAfterWarmup = ordinaryExecutor.materialEncoder
+            .pipelineCompilationAttemptCount
         let ordinaryPlan = requirePlan(ordinaryGraph)
         let ordinaryLease = makeLease(ordinaryPlan, device: device)
 
@@ -2664,6 +2671,10 @@ private enum Harness {
             ordinaryClaim.token,
             for: ordinaryChain
         )!
+        let ordinaryAttemptsAfterFirstPreparation = ordinaryExecutor.materialEncoder
+            .pipelineCompilationAttemptCount
+        let ordinaryWarmupHitsAfterFirstPreparation = ordinaryExecutor.materialEncoder
+            .launchWarmupHitCount
         let compilerCountsAfterFirst = compilerCounts(ordinaryCapability)
         preparationBuffer.commit()
         preparationBuffer.waitUntilCompleted()
@@ -3298,6 +3309,19 @@ private enum Harness {
                 admittedGraph(oversizedLogicalGraph), catalog: catalog(for: oversizedLogicalGraph)
             ).claim(admittedGraph(oversizedLogicalGraph)) == nil,
             "prepareHasNoEncodingSideEffect": prepareHasNoEncodingSideEffect,
+            "launchWarmupPreparesEveryUniqueOrdinaryPipeline":
+                ordinaryWarmupReport.plannedPlanCount == 2
+                    && ordinaryWarmupReport.uniqueKeyCount > 0
+                    && ordinaryWarmupReport.readyKeyCount
+                        == ordinaryWarmupReport.uniqueKeyCount
+                    && ordinaryWarmupReport.failedKeyCount == 0
+                    && ordinaryWarmupReport.compilationAttemptCount
+                        == ordinaryWarmupReport.uniqueKeyCount
+                    && ordinaryAttemptsAfterWarmup
+                        == ordinaryWarmupReport.uniqueKeyCount,
+            "firstFrameConsumesLaunchWarmupWithoutMetalCompilation":
+                ordinaryAttemptsAfterFirstPreparation == ordinaryAttemptsAfterWarmup
+                    && ordinaryWarmupHitsAfterFirstPreparation > 0,
             "unreadableSourceCaptureRejectedDuringPreflight":
                 failureCode(unreadableCapturePreparation)
                     == Executor.Failure.captureRejected.rawValue,

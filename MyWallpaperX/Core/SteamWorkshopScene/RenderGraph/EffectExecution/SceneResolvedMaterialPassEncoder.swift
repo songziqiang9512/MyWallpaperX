@@ -28,23 +28,34 @@ final class SceneResolvedMaterialPassEncoder {
         let sampling: SceneTextureSampling
     }
 
-    private enum PipelineEntry {
-        case ready(MTLRenderPipelineState)
-        case failed(PreparationFailure)
+    enum PipelineOrigin: Equatable {
+        case launchWarmup
+        case framePreparation
     }
 
-    private let device: MTLDevice
+    enum PipelineEntry {
+        case ready(MTLRenderPipelineState, origin: PipelineOrigin)
+        case failed(PreparationFailure, origin: PipelineOrigin)
+    }
+
+    let device: MTLDevice
     private let samplers: SceneTextureSamplerStateSet
     private let ownerToken = UUID()
-    private let lock = NSLock()
-    private var entries: [SceneResolvedMaterialProgram.MetalCompileStateKey: PipelineEntry] = [:]
-    private var resetGeneration: UInt64 = 0
-    private var compilationAttempts = 0
-    private var failedPipelines = 0
+    let lock = NSLock()
+    var entries: [SceneResolvedMaterialProgram.MetalCompileStateKey: PipelineEntry] = [:]
+    var resetGeneration: UInt64 = 0
+    var compilationAttempts = 0
+    var failedPipelines = 0
+    var launchWarmupHits = 0
+    var launchWarmupFailureHits = 0
+    var consumedLaunchWarmupKeys = Set<SceneResolvedMaterialProgram.MetalCompileStateKey>()
+    var consumedLaunchWarmupFailureKeys = Set<SceneResolvedMaterialProgram.MetalCompileStateKey>()
 
     var cachedPipelineCount: Int { withLock { entries.count } }
     var pipelineCompilationAttemptCount: Int { withLock { compilationAttempts } }
     var failedPipelineCount: Int { withLock { failedPipelines } }
+    var launchWarmupHitCount: Int { withLock { launchWarmupHits } }
+    var launchWarmupFailureHitCount: Int { withLock { launchWarmupFailureHits } }
 
     init?(device: MTLDevice) {
         guard let samplers = SceneTextureSamplerStateSet(device: device) else {
@@ -111,21 +122,37 @@ final class SceneResolvedMaterialPassEncoder {
         guard let bindings = validatedBindings(program, target: target) else {
             return .failure(.bindingsRejected)
         }
+        let writeMask = SceneResolvedMaterialAttachmentStorage.writeMask(
+            for: storedContent
+        )
         guard let key = program.metalCompileStateKey(
             attachmentPixelFormat: target.pixelFormat,
             sampleCount: target.sampleCount,
+            colorWriteMask: writeMask,
             device: device
         ) else { return .failure(.compileStateKeyRejected) }
-        let cached: (pipeline: MTLRenderPipelineState, generation: UInt64)
+        let cached: (
+            pipeline: MTLRenderPipelineState,
+            generation: UInt64,
+            origin: PipelineOrigin
+        )
         switch pipeline(
             for: key,
-            program: program,
-            target: target,
-            storedContent: storedContent
+            frontend: program.frontendProgram,
+            renderState: program.renderState,
+            pixelFormat: target.pixelFormat,
+            sampleCount: target.sampleCount,
+            writeMask: writeMask,
+            origin: .framePreparation
         ) {
         case let .success(value): cached = value
         case let .failure(failure): return .failure(failure)
         }
+        recordLaunchWarmupConsumption(
+            key: key,
+            origin: cached.origin,
+            preparedKey: program.preparedShader.cacheKey
+        )
         return .success(PreparedPass(
             fragmentOutput: fragmentOutput,
             storedContent: storedContent,
@@ -207,6 +234,10 @@ final class SceneResolvedMaterialPassEncoder {
         resetGeneration &+= 1
         compilationAttempts = 0
         failedPipelines = 0
+        launchWarmupHits = 0
+        launchWarmupFailureHits = 0
+        consumedLaunchWarmupKeys.removeAll(keepingCapacity: true)
+        consumedLaunchWarmupFailureKeys.removeAll(keepingCapacity: true)
     }
 
     private func validUniforms(_ program: SceneResolvedMaterialProgram) -> Bool {
@@ -318,31 +349,50 @@ final class SceneResolvedMaterialPassEncoder {
             && ObjectIdentifier(binding.texture) != ObjectIdentifier(target)
     }
 
-    private func pipeline(
+    func pipeline(
         for key: SceneResolvedMaterialProgram.MetalCompileStateKey,
-        program: SceneResolvedMaterialProgram,
-        target: MTLTexture,
-        storedContent: SceneTextureContent
+        frontend: SceneAuthoredShaderProgram,
+        renderState: SceneMaterialRenderState,
+        pixelFormat: MTLPixelFormat,
+        sampleCount: Int,
+        writeMask: MTLColorWriteMask,
+        origin: PipelineOrigin
     ) -> Result<
-        (pipeline: MTLRenderPipelineState, generation: UInt64),
+        (
+            pipeline: MTLRenderPipelineState,
+            generation: UInt64,
+            origin: PipelineOrigin
+        ),
         PreparationFailure
     > {
         lock.lock()
         defer { lock.unlock() }
         if let entry = entries[key] {
             switch entry {
-            case let .ready(pipeline): return .success((pipeline, resetGeneration))
-            case let .failed(failure): return .failure(failure)
+            case let .ready(pipeline, entryOrigin):
+                return .success((pipeline, resetGeneration, entryOrigin))
+            case let .failed(failure, entryOrigin):
+                if entryOrigin == .launchWarmup,
+                   consumedLaunchWarmupFailureKeys.insert(key).inserted {
+                    launchWarmupFailureHits += 1
+                    NSLog(
+                        "MWX resolved material pipeline consumption phase=frame-preparation source=launch-warmup outcome=negative-cache reason=%@ attempts=%d hits=%d",
+                        failure.code,
+                        compilationAttempts,
+                        launchWarmupFailureHits
+                    )
+                }
+                return .failure(failure)
             }
         }
         compilationAttempts += 1
-        guard program.renderState.matchesFullscreenOverwrite(
+        guard renderState.matchesFullscreenOverwrite(
             alphaWriting: .unspecified
-        ) else { return cacheFailure(.renderStateRejected, for: key) }
+        ) else { return cacheFailure(.renderStateRejected, for: key, origin: origin) }
         let library: MTLLibrary
         do {
             library = try device.makeLibrary(
-                source: program.frontendProgram.metalSource,
+                source: frontend.metalSource,
                 options: nil
             )
         } catch {
@@ -350,51 +400,59 @@ final class SceneResolvedMaterialPassEncoder {
                 diagnostic: String(describing: error)
             )
             NSLog("MWX resolved material Metal library rejection: %@", String(describing: error))
-            return cacheFailure(failure, for: key)
+            return cacheFailure(failure, for: key, origin: origin)
         }
         guard let vertex = library.makeFunction(
-            name: program.frontendProgram.vertexFunctionName
-        ) else { return cacheFailure(.vertexFunctionRejected, for: key) }
+            name: frontend.vertexFunctionName
+        ) else {
+            return cacheFailure(.vertexFunctionRejected, for: key, origin: origin)
+        }
         guard let fragment = library.makeFunction(
-            name: program.frontendProgram.fragmentFunctionName
-        ) else { return cacheFailure(.fragmentFunctionRejected, for: key) }
+            name: frontend.fragmentFunctionName
+        ) else {
+            return cacheFailure(.fragmentFunctionRejected, for: key, origin: origin)
+        }
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.label = "Scene resolved material pass"
         descriptor.vertexFunction = vertex
         descriptor.fragmentFunction = fragment
-        descriptor.rasterSampleCount = 1
-        descriptor.colorAttachments[0].pixelFormat = target.pixelFormat
+        descriptor.rasterSampleCount = sampleCount
+        descriptor.colorAttachments[0].pixelFormat = pixelFormat
         descriptor.colorAttachments[0].isBlendingEnabled = false
-        descriptor.colorAttachments[0].writeMask =
-            SceneResolvedMaterialAttachmentStorage.writeMask(for: storedContent)
+        descriptor.colorAttachments[0].writeMask = writeMask
         do {
             let pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
-            entries[key] = .ready(pipeline)
-            return .success((pipeline, resetGeneration))
+            entries[key] = .ready(pipeline, origin: origin)
+            return .success((pipeline, resetGeneration, origin))
         } catch {
             let failure = PreparationFailure.pipelineCompilationRejected(
                 diagnostic: String(describing: error)
             )
             NSLog("MWX resolved material Metal pipeline rejection: %@", String(describing: error))
-            return cacheFailure(failure, for: key)
+            return cacheFailure(failure, for: key, origin: origin)
         }
     }
 
-    private func cacheFailure(
+    func cacheFailure(
         _ failure: PreparationFailure,
-        for key: SceneResolvedMaterialProgram.MetalCompileStateKey
+        for key: SceneResolvedMaterialProgram.MetalCompileStateKey,
+        origin: PipelineOrigin = .framePreparation
     ) -> Result<
-        (pipeline: MTLRenderPipelineState, generation: UInt64),
+        (
+            pipeline: MTLRenderPipelineState,
+            generation: UInt64,
+            origin: PipelineOrigin
+        ),
         PreparationFailure
     > {
         if entries[key] == nil {
-            entries[key] = .failed(failure)
+            entries[key] = .failed(failure, origin: origin)
             failedPipelines += 1
         }
         return .failure(failure)
     }
 
-    private func withLock<T>(_ body: () -> T) -> T {
+    func withLock<T>(_ body: () -> T) -> T {
         lock.lock()
         defer { lock.unlock() }
         return body()

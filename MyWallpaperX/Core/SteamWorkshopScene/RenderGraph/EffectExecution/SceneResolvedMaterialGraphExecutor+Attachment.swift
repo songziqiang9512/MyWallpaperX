@@ -8,16 +8,19 @@ extension SceneResolvedMaterialGraphExecutor {
         descriptor: State.ResourceDescriptor?
     ) -> Result<SceneResolvedMaterialPassEncoder.PreparedPass,
         SceneResolvedMaterialPassEncoder.PreparationFailure>? {
-        let matches = switch (material.attachmentStorage, descriptor?.format) {
-        case (.scalarRedUnorm, .r8),
-             (.color, .rgbaBackbuffer),
-             (.color, .rgba8888),
-             (.color, nil):
+        let matches = switch (material.targetFormat, descriptor?.format) {
+        case (.r8, .r8),
+             (.rgbaBackbuffer, .rgbaBackbuffer),
+             (.rgba8888, .rgba8888),
+             (.rgbaBackbuffer, nil):
             true
         default:
             false
         }
-        guard matches else { return nil }
+        guard matches,
+              target.pixelFormat == material.targetFormat.metalPixelFormat else {
+            return nil
+        }
         return materialEncoder.prepareResult(
             program: program,
             target: target,

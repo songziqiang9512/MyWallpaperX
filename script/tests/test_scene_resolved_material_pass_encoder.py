@@ -42,6 +42,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Failure.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Warmup.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder.swift",
 ]
 
@@ -2199,6 +2201,52 @@ private enum Harness {
             target: rgbaTarget
         )
 
+        let warmupEncoder = SceneResolvedMaterialPassEncoder(device: device)!
+        let warmupPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
+            identity: "fixture:baseline",
+            preparedKey: baseline.preparedShader.cacheKey,
+            frontend: baseline.frontendProgram,
+            renderState: baseline.renderState,
+            frontendSchemaVersion:
+                baseline.semanticIdentity.shader.frontendSchemaVersion,
+            pixelFormat: .rgba8Unorm,
+            writeMask: .all,
+            device: device
+        )!
+        let warmupReport = warmupEncoder.warmup([warmupPlan, warmupPlan])
+        let attemptsAfterWarmup = warmupEncoder.pipelineCompilationAttemptCount
+        let warmupPrepared = warmupEncoder.prepare(
+            program: baseline,
+            target: rgbaTarget
+        )
+        let launchWarmupConsumedWithoutCompile = warmupPrepared != nil
+            && warmupEncoder.pipelineCompilationAttemptCount == attemptsAfterWarmup
+            && warmupEncoder.launchWarmupHitCount == 1
+
+        let invalidWarmupEncoder = SceneResolvedMaterialPassEncoder(device: device)!
+        let invalidWarmupPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
+            identity: "fixture:invalid",
+            preparedKey: invalidMetal.preparedShader.cacheKey,
+            frontend: invalidMetal.frontendProgram,
+            renderState: invalidMetal.renderState,
+            frontendSchemaVersion:
+                invalidMetal.semanticIdentity.shader.frontendSchemaVersion,
+            pixelFormat: .rgba8Unorm,
+            writeMask: .all,
+            device: device
+        )!
+        let invalidWarmupReport = invalidWarmupEncoder.warmup([invalidWarmupPlan])
+        let invalidAttemptsAfterWarmup =
+            invalidWarmupEncoder.pipelineCompilationAttemptCount
+        let invalidWarmupNegativeCached = invalidWarmupEncoder.prepare(
+            program: invalidMetal,
+            target: rgbaTarget
+        ) == nil
+            && invalidWarmupEncoder.pipelineCompilationAttemptCount
+                == invalidAttemptsAfterWarmup
+            && invalidWarmupEncoder.failedPipelineCount == 1
+            && invalidWarmupEncoder.launchWarmupFailureHitCount == 1
+
         var crossDeviceExercised = false
         var crossDeviceRejected = true
         if let other = MTLCopyAllDevices().first(where: {
@@ -2329,6 +2377,21 @@ private enum Harness {
             "resetClearsCache": resetClearedCache,
             "resetInvalidatesPreparedPass": stalePreparedRejected,
             "prepareAfterReset": preparedAfterReset != nil,
+            "launchWarmupDeduplicatesPhysicalKey":
+                warmupReport.plannedPlanCount == 2
+                && warmupReport.uniqueKeyCount == 1
+                && warmupReport.readyKeyCount == 1
+                && warmupReport.failedKeyCount == 0
+                && warmupReport.compilationAttemptCount == 1,
+            "launchWarmupConsumedWithoutFrameCompile":
+                launchWarmupConsumedWithoutCompile,
+            "launchWarmupFailureNegativeCached":
+                invalidWarmupReport.uniqueKeyCount == 1
+                && invalidWarmupReport.readyKeyCount == 0
+                && invalidWarmupReport.failedKeyCount == 1
+                && invalidWarmupReport.failures.first?.reasonCode
+                    == "library-compilation"
+                && invalidWarmupNegativeCached,
             "crossDeviceRejectedWhenAvailable": crossDeviceRejected,
         ]
         let payload: [String: Any] = [

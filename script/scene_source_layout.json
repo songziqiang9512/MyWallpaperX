@@ -51,6 +51,7 @@
           "SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
           "SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
           "SceneResolvedMaterialExecutionCapability+Material.swift",
+          "SceneResolvedMaterialExecutionCapability+PipelineWarmup.swift",
           "SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift",
           "SceneResolvedMaterialExecutionCapability+Stages.swift",
           "SceneResolvedMaterialExecutionCapability.swift",

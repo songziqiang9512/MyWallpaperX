@@ -188,6 +188,29 @@ enum SceneResolvedMaterialProgramDerivation {
     ) -> SceneResolvedMaterialProgram.Derived? {
         nil
     }
+
+    static func uniqueAndValid(
+        _ layout: SceneAuthoredShaderUniformLayout
+    ) -> Bool {
+        guard layout.byteSize >= 0,
+              layout.byteSize <= 4_096,
+              layout.byteSize.isMultiple(of: 16),
+              Set(layout.fields.map(\.name)).count == layout.fields.count else {
+            return false
+        }
+        var end = 0
+        for field in layout.fields {
+            guard !field.name.isEmpty,
+                  field.offset >= end,
+                  field.offset.isMultiple(of: field.type.alignment),
+                  field.arrayCount.map({ (1 ... 64).contains($0) }) ?? true,
+                  field.offset <= layout.byteSize - field.storageByteSize else {
+                return false
+            }
+            end = field.offset + field.storageByteSize
+        }
+        return end <= layout.byteSize
+    }
 }
 
 private struct InputManifest: Decodable {

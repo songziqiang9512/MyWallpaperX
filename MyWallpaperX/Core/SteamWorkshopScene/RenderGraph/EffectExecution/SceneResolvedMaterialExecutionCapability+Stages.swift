@@ -149,7 +149,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 node: node,
                 producers: dynamicProducers
             ) else { return .failure(rejection("dynamic-uniform-unavailable")) }
-            guard let attachmentStorage = attachmentStorage(
+            guard let attachment = attachment(
                 for: node,
                 in: product.graph
             ) else { return .failure(rejection("material-target-storage-unproven")) }
@@ -157,7 +157,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 key: key,
                 template: template,
                 variants: variants,
-                attachmentStorage: attachmentStorage
+                attachmentStorage: attachment.storage,
+                targetFormat: attachment.format
             )
         }
         guard !materials.isEmpty else {
@@ -169,14 +170,17 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return .success(materials)
     }
 
-    private static func attachmentStorage(
+    private static func attachment(
         for node: Graph.Node,
         in graph: Graph
-    ) -> SceneResolvedMaterialAttachmentKind? {
+    ) -> (
+        storage: SceneResolvedMaterialAttachmentKind,
+        format: SceneGraphRenderTargetPlan.TextureFormat
+    )? {
         guard let target = node.target else { return nil }
         switch target.kind {
         case .effectOutput:
-            return .color
+            return (.color, .rgbaBackbuffer)
         case .framebuffer:
             let declarations = graph.renderTargets.filter { $0.texture == target }
             guard declarations.count == 1,
@@ -187,9 +191,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                   ) else { return nil }
             switch descriptor.format {
             case .r8:
-                return .scalarRedUnorm
+                return (.scalarRedUnorm, .r8)
             case .rgbaBackbuffer, .rgba8888:
-                return .color
+                return (.color, descriptor.format)
             }
         case .layerSource, .unresolved:
             return nil

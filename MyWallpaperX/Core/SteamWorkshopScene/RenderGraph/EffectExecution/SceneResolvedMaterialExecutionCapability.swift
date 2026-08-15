@@ -268,6 +268,12 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         Set(capabilitiesByLayerID.keys)
     }
 
+    var launchPipelineWarmupCapabilities: [LayerCapability] {
+        capabilitiesByLayerID.keys.sorted().compactMap {
+            capabilitiesByLayerID[$0]
+        }
+    }
+
     /// Dynamic uniforms owned by an admitted resolved graph remain live
     /// property consumers.
     var liveConsumerTargets: Set<SceneDynamicTarget> {

@@ -95,6 +95,7 @@ final class SceneResolvedMaterialGraphExecutor {
     let device: MTLDevice
     let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
     let materialEncoder: SceneResolvedMaterialPassEncoder
+    let pipelineWarmupReport: SceneResolvedMaterialPassEncoder.WarmupReport
     private let ownerToken = UUID()
     var resourceEncoder: SceneGraphResourcePassEncoder?
     private var queueIdentity: ObjectIdentifier?
@@ -111,6 +112,10 @@ final class SceneResolvedMaterialGraphExecutor {
         self.device = device
         self.capabilities = capabilities
         self.materialEncoder = materialEncoder
+        pipelineWarmupReport = materialEncoder.warmup(
+            capabilities.launchPipelineWarmupPlans(device: device)
+        )
+        pipelineWarmupReport.reportLines.forEach { NSLog("%@", $0) }
     }
 
     func prepare(

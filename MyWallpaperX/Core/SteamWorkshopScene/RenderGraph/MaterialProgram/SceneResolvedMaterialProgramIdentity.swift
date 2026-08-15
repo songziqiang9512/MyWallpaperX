@@ -146,9 +146,9 @@ extension SceneResolvedMaterialProgram {
     struct MetalCompileStateKey: Hashable {
         let shader: ShaderSemanticIdentity
         let renderState: RenderStateIdentity
-        let fragmentOutput: ColorRepresentationIdentity
         let attachmentPixelFormatRawValue: UInt
         let sampleCount: Int
+        let colorWriteMaskRawValue: UInt
         let deviceRegistryID: UInt64
     }
 }
@@ -350,22 +350,55 @@ extension SceneResolvedMaterialProgram {
     func metalCompileStateKey(
         attachmentPixelFormat: MTLPixelFormat,
         sampleCount: Int,
+        colorWriteMask: MTLColorWriteMask = .all,
         device: MTLDevice
     ) -> MetalCompileStateKey? {
         guard attachmentPixelFormat != .invalid,
               sampleCount > 0,
+              !colorWriteMask.isEmpty,
               exactIdentity.textureSlots.compactMap({ $0 }).allSatisfy({
                   $0.deviceRegistryID == device.registryID
               }) else {
             return nil
         }
-        return .init(
-            shader: semanticIdentity.shader,
-            renderState: semanticIdentity.renderState,
-            fragmentOutput: semanticIdentity.colorContract.fragmentOutput,
+        return SceneResolvedMaterialProgramIdentity.metalCompileStateKey(
+            frontend: frontendProgram,
+            renderState: renderState,
+            frontendSchemaVersion: semanticIdentity.shader.frontendSchemaVersion,
             attachmentPixelFormatRawValue: attachmentPixelFormat.rawValue,
             sampleCount: sampleCount,
+            colorWriteMaskRawValue: colorWriteMask.rawValue,
             deviceRegistryID: device.registryID
+        )
+    }
+}
+
+extension SceneResolvedMaterialProgramIdentity {
+    static func metalCompileStateKey(
+        frontend: SceneAuthoredShaderProgram,
+        renderState: SceneMaterialRenderState,
+        frontendSchemaVersion: Int,
+        attachmentPixelFormatRawValue: UInt,
+        sampleCount: Int,
+        colorWriteMaskRawValue: UInt,
+        deviceRegistryID: UInt64
+    ) -> Program.MetalCompileStateKey? {
+        guard frontendSchemaVersion == SceneShaderVariantEnvironment.frontendSchemaVersion,
+              attachmentPixelFormatRawValue != MTLPixelFormat.invalid.rawValue,
+              sampleCount > 0,
+              colorWriteMaskRawValue != MTLColorWriteMask().rawValue,
+              deviceRegistryID != 0,
+              renderState.matchesFullscreenOverwrite(alphaWriting: .unspecified),
+              SceneResolvedMaterialProgramDerivation.uniqueAndValid(
+                  frontend.uniformLayout
+              ) else { return nil }
+        return .init(
+            shader: shader(frontend, schemaVersion: frontendSchemaVersion),
+            renderState: self.renderState(renderState),
+            attachmentPixelFormatRawValue: attachmentPixelFormatRawValue,
+            sampleCount: sampleCount,
+            colorWriteMaskRawValue: colorWriteMaskRawValue,
+            deviceRegistryID: deviceRegistryID
         )
     }
 }
