@@ -2374,6 +2374,22 @@ private enum Harness {
             "inputUsageRejectedUpstream": inputUsageRejectedUpstream,
             "uniformMismatchRejectedUpstream": malformedUniformRejectedUpstream,
             "pipelineFailureNegativeCached": failureNegativeCached,
+            "effectLocalPreEncodeFailureAllowlistIsNarrow": [
+                SceneResolvedMaterialPassEncoder.PreparationFailure
+                    .libraryCompilationRejected(diagnostic: "fixture"),
+                .vertexFunctionRejected,
+                .fragmentFunctionRejected,
+                .pipelineCompilationRejected(diagnostic: "fixture"),
+            ].allSatisfy { $0.effectLocalPreEncodeReasonCode != nil }
+                && [
+                    SceneResolvedMaterialPassEncoder.PreparationFailure
+                        .fragmentOutputRejected,
+                    .targetRejected,
+                    .uniformsRejected,
+                    .bindingsRejected,
+                    .compileStateKeyRejected,
+                    .renderStateRejected,
+                ].allSatisfy { $0.effectLocalPreEncodeReasonCode == nil },
             "resetClearsCache": resetClearedCache,
             "resetInvalidatesPreparedPass": stalePreparedRejected,
             "prepareAfterReset": preparedAfterReset != nil,

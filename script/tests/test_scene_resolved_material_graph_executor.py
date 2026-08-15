@@ -1949,6 +1949,7 @@ private enum Harness {
         var chainedStagesEncoded = false
         var chainedStagesGPUCompleted = false
         var chainedStagePixelsPreserved = false
+        var chainedMiddleProgramKey: String?
         var pixelChainFailure = "setup"
         let pixelClaim = pixelCapabilities.claim(pixelChain)
         let pixelCapability = pixelClaim.flatMap {
@@ -2002,6 +2003,7 @@ private enum Harness {
                     === prepared.stages[2]
                         .effectOutputResource.publication.texture {
                 chainedStagesPrepared = true
+                chainedMiddleProgramKey = prepared.stages[1].programCacheKeys.first
                 var observedStageIndices: [Int] = []
                 var stageReadbacks: [Readback] = []
                 chainedStagesEncoded = executor.encode(
@@ -2043,6 +2045,86 @@ private enum Harness {
             }
         } else if pixelCapability != nil && pixelLeases == nil {
             pixelChainFailure = "leases"
+        }
+
+        var rendererFailurePassthroughPrepared = false
+        var rendererFailurePassthroughEncoded = false
+        var rendererFailurePassthroughGPUCompleted = false
+        var rendererFailurePreservesPreviousAndContinuesSuffix = false
+        if let claim = pixelClaim,
+           let capability = pixelCapability,
+           let failedKey = chainedMiddleProgramKey,
+           let leases = makeChainedLeases(capability, device: device, generation: 19),
+           let executor = Executor(device: device, capabilities: pixelCapabilities),
+           let command = queue.makeCommandBuffer() {
+            executor.materialEncoder.installTestingPreparationFailure(
+                .libraryCompilationRejected(diagnostic: "fixture"),
+                preparedKey: failedKey
+            )
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(3),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 3,
+                resetGeneration: 3
+            )
+            if case let .success(prepared) = preparation,
+               prepared.stages.count == 3,
+               prepared.stages[1].programCacheKeys == [
+                    "visual-failure-passthrough:"
+                        + "material-pass-preparation-library-compilation"
+               ],
+               prepared.stages[1].effectLocalFailureReasonCode
+                    == "material-pass-preparation-library-compilation" {
+                rendererFailurePassthroughPrepared = true
+                var observedStageIndices: [Int] = []
+                var stageReadbacks: [Readback] = []
+                rendererFailurePassthroughEncoded = executor.encode(
+                    prepared,
+                    commandBuffer: command,
+                    stageBoundaryObserver: { stageIndex, transition, buffer in
+                        guard let readback = appendReadback(
+                            transition.effectOutputResource.publication.texture,
+                            commandBuffer: buffer
+                        ) else { return false }
+                        observedStageIndices.append(stageIndex)
+                        stageReadbacks.append(readback)
+                        return true
+                    }
+                )
+                if rendererFailurePassthroughEncoded,
+                   let finalReadback = appendReadback(
+                       prepared.finalTexture,
+                       commandBuffer: command
+                   ) {
+                    command.commit()
+                    command.waitUntilCompleted()
+                    rendererFailurePassthroughGPUCompleted =
+                        command.status == .completed && command.error == nil
+                    let expectedPixels: [[UInt8]] = [
+                        [255, 0, 0, 255],
+                        [255, 0, 0, 255],
+                        [0, 255, 0, 255],
+                    ]
+                    rendererFailurePreservesPreviousAndContinuesSuffix =
+                        observedStageIndices == [0, 1, 2]
+                        && stageReadbacks.count == 3
+                        && zip(stageReadbacks, expectedPixels).allSatisfy {
+                            matches($0.firstPixel, $1)
+                                && matches($0.lastPixel, $1)
+                        }
+                        && matches(finalReadback.firstPixel, expectedPixels[2])
+                        && matches(finalReadback.lastPixel, expectedPixels[2])
+                }
+            }
         }
 
         let passthroughCapabilities = capabilities(
@@ -3408,6 +3490,14 @@ private enum Harness {
                 visualFailurePreservesPreviousAndContinuesSuffix,
             "visualFrontendFailurePassthroughIsTypedAndCounted":
                 visualFailurePassthroughIsTypedAndCounted,
+            "rendererFailurePassthroughPrepared":
+                rendererFailurePassthroughPrepared,
+            "rendererFailurePassthroughEncoded":
+                rendererFailurePassthroughEncoded,
+            "rendererFailurePassthroughGPUCompleted":
+                rendererFailurePassthroughGPUCompleted,
+            "rendererFailurePreservesPreviousAndContinuesSuffix":
+                rendererFailurePreservesPreviousAndContinuesSuffix,
             "ordinaryComposeRotatesWithinEffectAndReturnsTerminalZero":
                 failureCode(composePreparation) == "success"
                     && composePublicationContract

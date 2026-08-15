@@ -50,6 +50,9 @@ final class SceneResolvedMaterialPassEncoder {
     var launchWarmupFailureHits = 0
     var consumedLaunchWarmupKeys = Set<SceneResolvedMaterialProgram.MetalCompileStateKey>()
     var consumedLaunchWarmupFailureKeys = Set<SceneResolvedMaterialProgram.MetalCompileStateKey>()
+    #if SCENE_GRAPH_TESTING
+    var testingPreparationFailuresByPreparedKey: [String: PreparationFailure] = [:]
+    #endif
 
     var cachedPipelineCount: Int { withLock { entries.count } }
     var pipelineCompilationAttemptCount: Int { withLock { compilationAttempts } }
@@ -122,6 +125,13 @@ final class SceneResolvedMaterialPassEncoder {
         guard let bindings = validatedBindings(program, target: target) else {
             return .failure(.bindingsRejected)
         }
+        #if SCENE_GRAPH_TESTING
+        if let failure = withLock({
+            testingPreparationFailuresByPreparedKey[program.preparedShader.cacheKey]
+        }) {
+            return .failure(failure)
+        }
+        #endif
         let writeMask = SceneResolvedMaterialAttachmentStorage.writeMask(
             for: storedContent
         )
@@ -168,6 +178,17 @@ final class SceneResolvedMaterialPassEncoder {
             uniformBufferIndex: program.frontendProgram.uniformBufferIndex
         ))
     }
+
+    #if SCENE_GRAPH_TESTING
+    func installTestingPreparationFailure(
+        _ failure: PreparationFailure,
+        preparedKey: String
+    ) {
+        withLock {
+            testingPreparationFailuresByPreparedKey[preparedKey] = failure
+        }
+    }
+    #endif
 
     /// `true` means the render commands were appended. GPU completion remains
     /// the transaction owner's responsibility; this method never reports a

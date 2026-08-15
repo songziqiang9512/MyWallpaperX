@@ -14,12 +14,18 @@ extension SceneResolvedMaterialGraphExecutor {
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
-        programKeys: inout [String]
+        programKeys: inout [String],
+        effectLocalFailureReasonCode: inout String?,
+        rejection: Failure = .graphStructureRejected
     ) -> Failure? {
         guard [
             "material-variant-envelope-frontend",
             "material-variant-envelope-shader-preparation",
             "material-variant-envelope-color-contract",
+            "material-pass-preparation-library-compilation",
+            "material-pass-preparation-vertex-function",
+            "material-pass-preparation-fragment-function",
+            "material-pass-preparation-pipeline-compilation",
         ].contains(reasonCode),
               graph.effects.count == 1,
               graph.nodes.count == 1,
@@ -70,7 +76,7 @@ extension SceneResolvedMaterialGraphExecutor {
                   generation: generation,
                   representation: pair.representation
               ) else {
-            return .graphStructureRejected
+            return rejection
         }
         commands.append(.resource(copy))
         publications[pairStep.outputIdentity] = publication
@@ -80,6 +86,36 @@ extension SceneResolvedMaterialGraphExecutor {
             representation: pair.representation
         )
         programKeys.append("visual-failure-passthrough:\(reasonCode)")
+        effectLocalFailureReasonCode = reasonCode
+        if reasonCode.hasPrefix("material-pass-preparation-") {
+            recordEffectLocalRendererFallback(
+                reasonCode: reasonCode,
+                effect: effect.key
+            )
+        }
         return nil
+    }
+
+    private func recordEffectLocalRendererFallback(
+        reasonCode: String,
+        effect: Graph.EffectKey
+    ) {
+        let identity = "\(effect.layerID):\(effect.effectIndex):"
+            + "\(effect.descriptorID):\(reasonCode)"
+        effectLocalFallbackLock.lock()
+        let count = effectLocalFallbackCounts[identity, default: 0] + 1
+        effectLocalFallbackCounts[identity] = count
+        effectLocalFallbackLock.unlock()
+        guard count & (count - 1) == 0 else { return }
+        NSLog(
+            "MWX resolved material renderer fallback phase=frame-preparation"
+                + " outcome=effect-local-passthrough reason=%@"
+                + " layer=%d effect=%d descriptor=%@ count=%d",
+            reasonCode,
+            effect.layerID,
+            effect.effectIndex,
+            effect.descriptorID,
+            count
+        )
     }
 }

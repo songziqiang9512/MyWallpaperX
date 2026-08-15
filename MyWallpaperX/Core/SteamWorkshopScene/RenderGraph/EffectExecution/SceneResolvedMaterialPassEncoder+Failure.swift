@@ -27,5 +27,22 @@ extension SceneResolvedMaterialPassEncoder {
             case .pipelineCompilationRejected: "pipeline-compilation"
             }
         }
+
+        var effectLocalPreEncodeReasonCode: String? {
+            switch self {
+            case .libraryCompilationRejected,
+                 .vertexFunctionRejected,
+                 .fragmentFunctionRejected,
+                 .pipelineCompilationRejected:
+                "material-pass-preparation-\(code)"
+            case .fragmentOutputRejected,
+                 .targetRejected,
+                 .uniformsRejected,
+                 .bindingsRejected,
+                 .compileStateKeyRejected,
+                 .renderStateRejected:
+                nil
+            }
+        }
     }
 }

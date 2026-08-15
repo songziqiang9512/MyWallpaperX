@@ -60,7 +60,18 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 epoch: executionEpoch,
                 finalTextureIdentity: ObjectIdentifier(ledger.prepared.finalTexture),
                 consumesExternalPrimaryDependency:
-                    consumesExternalPrimaryDependency
+                    consumesExternalPrimaryDependency,
+                effectFailures: ledger.prepared.stages.compactMap { stage in
+                    guard let reasonCode = stage.effectLocalFailureReasonCode else {
+                        return nil
+                    }
+                    return .init(
+                        layerID: stage.effect.layerID,
+                        effectIndex: stage.effect.effectIndex,
+                        descriptorID: stage.effect.descriptorID,
+                        reasonCode: reasonCode
+                    )
+                }
             )
         )
         lock.unlock()

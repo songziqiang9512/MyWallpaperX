@@ -19,7 +19,8 @@ extension SceneResolvedMaterialGraphExecutor {
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
-        programKeys: inout [String]
+        programKeys: inout [String],
+        effectLocalFailureReasonCode: inout String?
     ) -> Failure? {
         if case let .visualFailurePassthrough(_, reasonCode) = stageCapability {
             return prepareVisualFailurePassthrough(
@@ -31,7 +32,8 @@ extension SceneResolvedMaterialGraphExecutor {
                 pair: &pair,
                 publications: &publications,
                 commands: &commands,
-                programKeys: &programKeys
+                programKeys: &programKeys,
+                effectLocalFailureReasonCode: &effectLocalFailureReasonCode
             )
         }
         if case let .dedicated(_, program, _) = stageCapability {
@@ -141,12 +143,29 @@ extension SceneResolvedMaterialGraphExecutor {
                     guard case let .failure(failure) = passPreparation else {
                         return .materialPassEncoderRejected
                     }
-                    return .materialPassPreparationRejected(
+                    let rejection = Failure.materialPassPreparationRejected(
                         stageIndex: stageIndex,
                         nodeIndex: nodeIndex,
                         materialOrdinal: ordinal,
                         programKey: program.preparedShader.cacheKey,
                         failure: failure
+                    )
+                    guard let reasonCode = failure.effectLocalPreEncodeReasonCode else {
+                        return rejection
+                    }
+                    return prepareVisualFailurePassthrough(
+                        reasonCode: reasonCode,
+                        transition: transition,
+                        graph: graph,
+                        pairStep: pairStep,
+                        lease: lease,
+                        pair: &pair,
+                        publications: &publications,
+                        commands: &commands,
+                        programKeys: &programKeys,
+                        effectLocalFailureReasonCode:
+                            &effectLocalFailureReasonCode,
+                        rejection: rejection
                     )
                 }
                 commands.append(.material(prepared))

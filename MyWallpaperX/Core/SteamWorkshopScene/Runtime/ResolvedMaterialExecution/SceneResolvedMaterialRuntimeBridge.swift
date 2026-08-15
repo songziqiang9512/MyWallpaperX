@@ -56,9 +56,17 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 
     struct ExecutionTicket: Hashable {
+        struct EffectFailure: Hashable {
+            let layerID: Int
+            let effectIndex: Int
+            let descriptorID: String
+            let reasonCode: String
+        }
+
         let identity, epoch: UInt64
         let finalTextureIdentity: ObjectIdentifier
         let consumesExternalPrimaryDependency: Bool
+        let effectFailures: [EffectFailure]
     }
 
     enum ExecutionResult {
@@ -253,12 +261,19 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     func executionEvidenceOutcome(
         for subject: ExactEffectSubject,
-        claim: ClaimedExecution
+        claim: ClaimedExecution,
+        ticket: ExecutionTicket
     ) -> ExecutionEvidenceOutcome {
         guard let runtimeClaim = capabilities.resolve(claim.token),
               let stage = runtimeClaim.stages.first(where: {
                   $0.subject?.key == subject.key
-              }), let reason = stage.visualFailureReasonCode else {
+              }) else { return .encodedOutput }
+        let dynamicReason = ticket.effectFailures.first {
+            $0.layerID == subject.key.layerID
+                && $0.effectIndex == subject.key.effectIndex
+                && $0.descriptorID == subject.key.descriptorID
+        }?.reasonCode
+        guard let reason = dynamicReason ?? stage.visualFailureReasonCode else {
             return .encodedOutput
         }
         return .failed(

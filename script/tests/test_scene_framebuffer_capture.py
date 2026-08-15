@@ -374,10 +374,12 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     func executionEvidenceOutcome(
         for subject: ExactEffectSubject,
-        claim: ClaimedExecution
+        claim: ClaimedExecution,
+        ticket: ExecutionTicket
     ) -> ExecutionEvidenceOutcome {
         _ = subject
         _ = claim
+        _ = ticket
         return .encodedOutput
     }
 

@@ -47,6 +47,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let pairStep: Pair.EffectStep
         let transition: State.Transition
         let programCacheKeys: [String]
+        let effectLocalFailureReasonCode: String?
         /// Complete readable FBO publications for this frame's candidate.
         let frameResources: [Graph.TextureIdentity: SceneFrameTextureResource]
         /// History-only publications allowed to survive in a committed tail.
@@ -101,6 +102,8 @@ final class SceneResolvedMaterialGraphExecutor {
     private var queueIdentity: ObjectIdentifier?
     private var resetGeneration: UInt64 = 0
     private var pairContentGeneration: UInt64 = 0
+    let effectLocalFallbackLock = NSLock()
+    var effectLocalFallbackCounts: [String: Int] = [:]
 
     init?(
         device: MTLDevice,
@@ -244,6 +247,7 @@ final class SceneResolvedMaterialGraphExecutor {
             stageCommands.append(contentsOf: history.commands.map(Command.resource))
 
             var programKeys: [String] = []
+            var effectLocalFailureReasonCode: String?
             if let failure = prepare(
                 stageIndex: index,
                 transition: transition,
@@ -261,7 +265,8 @@ final class SceneResolvedMaterialGraphExecutor {
                 pair: &pair,
                 publications: &publications,
                 commands: &stageCommands,
-                programKeys: &programKeys
+                programKeys: &programKeys,
+                effectLocalFailureReasonCode: &effectLocalFailureReasonCode
             ) {
                 return .failure(failure)
             }
@@ -284,6 +289,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 pairStep: pairStep,
                 transition: transition,
                 programCacheKeys: programKeys,
+                effectLocalFailureReasonCode: effectLocalFailureReasonCode,
                 frameResources: frameResources,
                 persistentResources: persistentResources,
                 effectOutputResource: final,

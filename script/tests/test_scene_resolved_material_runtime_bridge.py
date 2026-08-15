@@ -820,6 +820,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let persistentResources: [Graph.TextureIdentity: SceneFrameTextureResource]
         let effectOutputResource: SceneFrameTextureResource
         let programCacheKeys: [String]
+        let effectLocalFailureReasonCode: String?
     }
     struct PreparedGraph {
         let stages: [PreparedStage]
@@ -1048,7 +1049,8 @@ private func makeObservationTransition(
         frameResources: [:],
         persistentResources: [:],
         effectOutputResource: resource,
-        programCacheKeys: ["fixture-program"]
+        programCacheKeys: ["fixture-program"],
+        effectLocalFailureReasonCode: nil
     )
 }
 
@@ -1132,7 +1134,8 @@ private func makeAtomicPrepared(
         frameResources: [:],
         persistentResources: [:],
         effectOutputResource: resource,
-        programCacheKeys: ["atomic-program-\(layerID)"]
+        programCacheKeys: ["atomic-program-\(layerID)"],
+        effectLocalFailureReasonCode: nil
     )
     return .init(
         stages: [transition],
@@ -2232,7 +2235,14 @@ enum Harness {
                case let .failed(reasonCode) = passthroughBridge
                 .executionEvidenceOutcome(
                     for: passthroughSubject,
-                    claim: passthroughClaim
+                    claim: passthroughClaim,
+                    ticket: .init(
+                        identity: 0,
+                        epoch: 0,
+                        finalTextureIdentity: ObjectIdentifier(device),
+                        consumesExternalPrimaryDependency: false,
+                        effectFailures: []
+                    )
                 ) {
                 results["visualFailurePassthroughKeepsFailedTelemetry"] =
                     passthroughSubject.family == "visual-failure-passthrough"
@@ -2240,6 +2250,29 @@ enum Harness {
                         + "material-variant-envelope-frontend"
             } else {
                 results["visualFailurePassthroughKeepsFailedTelemetry"] = false
+            }
+
+            if case let .failed(reasonCode) = bridge.executionEvidenceOutcome(
+                for: fallback7,
+                claim: claim7,
+                ticket: .init(
+                    identity: 1,
+                    epoch: 1,
+                    finalTextureIdentity: ObjectIdentifier(device),
+                    consumesExternalPrimaryDependency: false,
+                    effectFailures: [.init(
+                        layerID: key7.layerID,
+                        effectIndex: key7.effectIndex,
+                        descriptorID: key7.descriptorID,
+                        reasonCode: "material-pass-preparation-library-compilation"
+                    )]
+                )
+            ) {
+                results["dynamicRendererPassthroughKeepsFailedTelemetry"] =
+                    reasonCode == "effect-local-passthrough-"
+                        + "material-pass-preparation-library-compilation"
+            } else {
+                results["dynamicRendererPassthroughKeepsFailedTelemetry"] = false
             }
 
             bridge.installExecutionEvidence([
@@ -2433,7 +2466,8 @@ enum Harness {
                 identity: 1,
                 epoch: coordinator.executionEpoch,
                 finalTextureIdentity: ObjectIdentifier(texture),
-                consumesExternalPrimaryDependency: false
+                consumesExternalPrimaryDependency: false,
+                effectFailures: []
             )
             let firstOutcome = coordinator.markComposite(
                 ticket, texture: texture, consumed: true
@@ -3377,6 +3411,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "executionEvidenceOverridesFallbackFamily",
                 "missingExecutionEvidenceKeepsFallbackIsolated",
                 "visualFailurePassthroughKeepsFailedTelemetry",
+                "dynamicRendererPassthroughKeepsFailedTelemetry",
                 "malformedExecutionEvidenceDropsOnlyInvalidKey",
                 "emptyExecutionFamilyDropsOnlyInvalidKey",
                 "invalidCapabilityTokenRejectsWithoutLegacyFallback",

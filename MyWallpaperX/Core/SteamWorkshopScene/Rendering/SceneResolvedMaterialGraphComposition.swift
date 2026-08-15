@@ -87,7 +87,8 @@ enum SceneResolvedMaterialGraphComposition {
                 let outcome: SceneEffectCPUInvocationOutcome
                 switch runtime.executionEvidenceOutcome(
                     for: subject,
-                    claim: claim
+                    claim: claim,
+                    ticket: ticket
                 ) {
                 case .encodedOutput:
                     outcome = .encodedOutput
