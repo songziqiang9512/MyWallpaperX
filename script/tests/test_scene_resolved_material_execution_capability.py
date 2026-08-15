@@ -38,6 +38,10 @@ VARIANT_CACHE_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant.swift"
 )
+VARIANT_COMPILATION_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
+)
 SHADER_REACHABILITY_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+Reachability.swift"
@@ -5432,6 +5436,31 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertNotIn("prepareShaderStages", resolve_body)
         self.assertNotIn(".bootstrapSamplers(", resolve_body)
         self.assertIn("static func bootstrapSamplers(", reachability)
+
+    def test_generic_artifact_is_the_first_and_only_frontend_owner_on_hit(
+        self,
+    ) -> None:
+        source = VARIANT_COMPILATION_SOURCE.read_text(encoding="utf-8")
+        resolve_start = source.index(
+            "let artifactResolution = "
+            "SceneResolvedMaterialGenericShaderArtifactCache.resolve("
+        )
+        switch_start = source.index("switch artifactResolution", resolve_start)
+        accepted_start = source.index("case let .accepted", switch_start)
+        unavailable_start = source.index("case let .unavailable", accepted_start)
+        switch_end = source.index("        guard\n", unavailable_start)
+        accepted = source[accepted_start:unavailable_start]
+        unavailable = source[unavailable_start:switch_end]
+
+        self.assertLess(resolve_start, switch_start)
+        self.assertNotIn("onBoundedFrontendCompilation()", accepted)
+        self.assertNotIn("SceneAuthoredShaderFrontend.compile(", accepted)
+        self.assertIn("onBoundedFrontendCompilation()", unavailable)
+        self.assertIn("SceneAuthoredShaderFrontend.compile(", unavailable)
+        self.assertLess(
+            unavailable.index("onBoundedFrontendCompilation()"),
+            unavailable.index("SceneAuthoredShaderFrontend.compile("),
+        )
 
     def test_launch_uses_one_admitted_batch_for_templates_demands_and_claims(
         self,

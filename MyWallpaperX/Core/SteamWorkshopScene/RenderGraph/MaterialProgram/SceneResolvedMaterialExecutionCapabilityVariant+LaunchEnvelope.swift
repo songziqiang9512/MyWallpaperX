@@ -67,6 +67,7 @@ extension SceneResolvedMaterialVariantCache {
     struct Counters: Equatable {
         let cachedVariantCount: Int
         let shaderPreparationCount: Int
+        /// Bounded Swift frontend invocations; generic artifact hits do not increment.
         let frontendCompilationCount: Int
         let capacityRejectionCount: Int
     }

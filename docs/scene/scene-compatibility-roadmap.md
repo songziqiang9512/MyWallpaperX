@@ -264,7 +264,7 @@ remaining_deviation_and_exit_condition:
 
 V0 第一批从能力台账登记的 `SceneEffectStageCompiler.resolveDedicatedStage -> noBackendAccepted` 断点开始：
 
-截至 2026-08-16，步骤 1–3 与步骤 7 的两个 Fast correctness atom 已闭合：one-pass Light Shafts 和 optional-texture Opacity present/absent 成员均已批准，并有 generic Program、GPU/compositor/next-frame、预登记 ROI 与坏 artifact 局部回滚证据。当前首断点转到步骤 4–6：把外部预生成 artifact 收敛为可重启、受预算约束的 preparation worker/cache，评估默认 generic-first，并把真实编译/Program失败只降级当前 effect 而非后续 layer suffix。bounded owner 撤权仍属于步骤 8，不能由两个 `prefer-generic` 正例提前宣告。
+截至 2026-08-16，步骤 1–3 与步骤 7 的两个 Fast correctness atom 已闭合：one-pass Light Shafts 和 optional-texture Opacity present/absent 成员均已批准，并有 generic Program、GPU/compositor/next-frame、预登记 ROI 与坏 artifact 局部回滚证据。显式 `prefer-generic` 下的 variant compilation 也已先解析 generic artifact：命中时不再调用 bounded Swift frontend，missing/rejected 时才以 typed reason 调用一次 bounded fallback；这只闭合步骤 4 与步骤 5 的已命中切片，不代表产品默认 route 已切换。当前首断点仍在步骤 4–6：把外部预生成 artifact 收敛为可重启、受预算约束的 preparation worker/cache，评估并落实默认 generic-first，并把真实编译/Program失败只降级当前 effect 而非后续 layer suffix。bounded owner 撤权仍属于步骤 8，不能由两个 `prefer-generic` 正例或一次 owner 优先级修正提前宣告。
 
 1. V0-0 从隔离 corpus 为 Fast Scene Suite 前两类各批准一个成员；若选择成本阻塞编译 spike，先用同合同的代表内容推进，但不得声称 suite 已建立；
 2. 在独立 subprocess harness 建立 upstream shader backend spike；第一条普通 pass 能编译后再做有界 source census，按真实失败类别决定 normalization，不以全 corpus 报告阻塞首次出画面；

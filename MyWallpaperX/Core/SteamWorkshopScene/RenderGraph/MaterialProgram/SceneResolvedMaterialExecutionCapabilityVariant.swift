@@ -422,7 +422,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             let variant = try Self.compile(
                 template: template,
                 variantKey: key,
-                onFrontendCompilation: { frontendCompilations += 1 }
+                onBoundedFrontendCompilation: { frontendCompilations += 1 }
             )
             entries[key] = .ready(variant)
             return variant

@@ -34,7 +34,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     static func compile(
         template: Template,
         variantKey: SceneResolvedMaterialVariantKey,
-        onFrontendCompilation: () -> Void
+        onBoundedFrontendCompilation: () -> Void
     ) throws -> Variant {
         let readinessMask = variantKey.readinessMask
         let readiness = Dictionary(uniqueKeysWithValues: (0 ..< 8).map {
@@ -58,38 +58,41 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         case .notApplicable:
             throw failure(.identityInvariant, phase: .invariant)
         }
-        onFrontendCompilation()
-        let runtimeLoopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
-            template: template,
-            prepared: prepared
-        )
-        let frontendOutput = SceneAuthoredShaderFrontend.compile(
-            vertexSource: prepared.vertex.source,
-            fragmentSource: prepared.fragment.source,
-            runtimeLoopBounds: runtimeLoopBounds
-        )
         let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: prepared.vertex.source,
             fragmentSource: prepared.fragment.source
         )
         let frontend: SceneAuthoredShaderProgram
+        let boundedOutput: SceneAuthoredShaderFrontendOutput?
         let artifactFailure: [String]
         switch artifactResolution {
         case let .accepted(program, requestKey):
             frontend = program
+            boundedOutput = nil
             artifactFailure = ["generic-artifact-accepted", requestKey]
         case let .unavailable(code, requestKey):
-            guard frontendOutput.diagnostics.isEmpty,
-                  let bounded = frontendOutput.program else {
+            onBoundedFrontendCompilation()
+            let runtimeLoopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
+                template: template,
+                prepared: prepared
+            )
+            let output = SceneAuthoredShaderFrontend.compile(
+                vertexSource: prepared.vertex.source,
+                fragmentSource: prepared.fragment.source,
+                runtimeLoopBounds: runtimeLoopBounds
+            )
+            guard output.diagnostics.isEmpty,
+                  let bounded = output.program else {
                 throw failure(
                     .shaderFrontendFailed,
                     phase: .frontend,
                     details: SceneResolvedMaterialExecutionCapabilityDiagnostics
-                        .frontendFailure(template: template, output: frontendOutput)
+                        .frontendFailure(template: template, output: output)
                         + ["generic-artifact", code, requestKey]
                 )
             }
             frontend = bounded
+            boundedOutput = output
             artifactFailure = ["generic-artifact", code, requestKey]
         }
         guard
@@ -100,9 +103,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             throw failure(
                 .shaderFrontendFailed,
                 phase: .frontend,
-                details: SceneResolvedMaterialExecutionCapabilityDiagnostics
-                    .frontendFailure(template: template, output: frontendOutput)
-                    + artifactFailure
+                details: (boundedOutput.map {
+                    SceneResolvedMaterialExecutionCapabilityDiagnostics
+                        .frontendFailure(template: template, output: $0)
+                } ?? []) + artifactFailure
             )
         }
         let samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
