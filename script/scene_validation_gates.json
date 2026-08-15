@@ -338,9 +338,16 @@
       "patterns": [
         "script/scene_shader_compiler_dependencies.json",
         "script/scene_shader_compiler_*.py",
-        "script/fixtures/scene_shader_compiler/**"
+        "script/fixtures/scene_shader_compiler/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderCompiler*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift"
       ],
-      "modules": ["test_scene_shader_compiler_harness"]
+      "modules": [
+        "test_scene_generic_shader_compiler_process",
+        "test_scene_shader_compiler_harness",
+        "test_scene_shader_compiler_product_manifest"
+      ]
     },
     {
       "id": "shader-census",

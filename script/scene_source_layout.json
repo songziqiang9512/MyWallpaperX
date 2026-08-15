@@ -88,6 +88,7 @@
       },
       "MaterialProgram": {
         "file_globs": [
+          "SceneResolvedMaterialGenericShaderProgramArtifact.swift",
           "SceneResolvedMaterialEffectIngress.swift",
           "SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
@@ -116,7 +117,7 @@
           "SceneResolvedMaterialTextureSelection.swift",
           "SceneResolvedMaterialUniformEncoder.swift"
         ],
-        "responsibility": "Complete resolved-material producer lifecycle: ingress and Template compilation, schema and variant preparation, Program identity and derivation, texture selection and frame finalization, and uniform encoding; RuntimeCatalog and GPU execution consumers are excluded."
+        "responsibility": "Complete resolved-material producer lifecycle: ingress and Template compilation, generic compiler artifact validation, schema and variant preparation, Program identity and derivation, texture selection and frame finalization, and uniform encoding; RuntimeCatalog and GPU execution consumers are excluded."
       },
       "ShaderContract": {
         "file_globs": [
@@ -145,6 +146,7 @@
       "ShaderPreparation": {
         "file_globs": [
           "SceneAuthoredShaderPreparation*.swift",
+          "SceneGenericShader*.swift",
           "SceneShaderDirective.swift",
           "SceneShaderMacroExpansion.swift",
           "SceneShaderMalformedMetadataAdmission.swift",
@@ -152,7 +154,7 @@
           "SceneShaderVariantEnvironment*.swift",
           "SceneShaderVariantResolver*.swift"
         ],
-        "responsibility": "Bounded authored-shader source preparation, including directive and macro preprocessing, variant environment and resolution, prepared-source production, and malformed-metadata admission; excludes ShaderContract, ShaderSourceGraph, FrameInputs, ShaderFrontend, and ResolvedMaterial lifecycles."
+        "responsibility": "Bounded authored-shader source preparation, including directive and macro preprocessing, variant environment and resolution, prepared-source production, signed generic compiler helper resolution/process isolation/artifact lowering, and malformed-metadata admission; excludes ShaderContract, ShaderSourceGraph, FrameInputs, ShaderFrontend, ResolvedMaterial Program validation, and GPU execution."
       }
     },
     "Runtime": {

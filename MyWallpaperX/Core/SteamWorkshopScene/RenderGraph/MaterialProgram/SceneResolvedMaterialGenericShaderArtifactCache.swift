@@ -1,8 +1,8 @@
-import CryptoKit
 import Foundation
 
-/// Development-gated preparation cache for Program artifacts produced by the
-/// separately killable shader compiler harness. No compiler runs in the App.
+/// Product preparation cache for exact-source-keyed generic Program artifacts.
+/// Cache misses may invoke the separately killable bundled compiler worker;
+/// malformed or failed output remains an effect-local typed fallback.
 nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     enum Resolution {
         case accepted(program: SceneAuthoredShaderProgram, requestKey: String)
@@ -23,56 +23,12 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         let stages: [Stage]
     }
 
-    private struct Artifact: Decodable {
-        struct Program: Decodable {
-            struct UniformLayout: Decodable {
-                struct Field: Decodable {
-                    let name: String
-                    let authoredName: String
-                    let type: String
-                    let offset: Int
-                    let arrayCount: Int?
-                }
-
-                let fields: [Field]
-                let byteSize: Int
-            }
-
-            struct TextureBinding: Decodable {
-                let name: String
-                let slot: Int
-                let channelUse: String
-            }
-
-            struct ColorTransfer: Decodable {
-                let kind: String
-                let slot: Int?
-            }
-
-            let metalSource: String
-            let metalSourceSHA256: String
-            let vertexFunctionName: String
-            let fragmentFunctionName: String
-            let uniformBufferIndex: Int
-            let uniformLayout: UniformLayout
-            let textureBindings: [TextureBinding]
-            let staticLoopWork: Int
-            let colorTransfer: ColorTransfer
-        }
-
-        let schemaVersion: Int
-        let kind: String
-        let backendID: String
-        let requestKey: String
-        let routeState: String
-        let program: Program
-    }
-
     private static let routeEnvironment = "MWX_SCENE_GENERIC_SHADER_ROUTE"
     private static let cacheEnvironment = "MWX_SCENE_GENERIC_SHADER_CACHE"
     private static let requestEnvironment = "MWX_SCENE_GENERIC_SHADER_REQUESTS"
     private static let maximumArtifactBytes = 2 * 1_024 * 1_024
     private static let routeTelemetry = RouteTelemetry()
+    private static let compilationCoordinator = CompilationCoordinator()
 
     private enum RouteState: String {
         case preferGeneric = "prefer-generic"
@@ -141,6 +97,35 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         }
     }
 
+    private final class CompilationCoordinator: @unchecked Sendable {
+        private let condition = NSCondition()
+        private var active = Set<String>()
+        private var completed: [String: Result<URL, SceneGenericShaderCompiler.Failure>] = [:]
+
+        func perform(
+            key: String,
+            operation: () -> Result<URL, SceneGenericShaderCompiler.Failure>
+        ) -> Result<URL, SceneGenericShaderCompiler.Failure> {
+            condition.lock()
+            while active.contains(key) {
+                condition.wait()
+            }
+            if let result = completed[key] {
+                condition.unlock()
+                return result
+            }
+            active.insert(key)
+            condition.unlock()
+            let result = operation()
+            condition.lock()
+            completed[key] = result
+            active.remove(key)
+            condition.broadcast()
+            condition.unlock()
+            return result
+        }
+    }
+
     static func resolve(
         vertexSource: String,
         fragmentSource: String
@@ -170,8 +155,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         guard routeState == .preferGeneric else {
             return .unavailable(code: "route-observe-only", requestKey: key)
         }
-        guard let rawRoot = environment[cacheEnvironment],
-              let root = validatedDirectory(rawRoot) else {
+        guard let root = cacheDirectory(environment: environment) else {
             return fallback(
                 state: routeState,
                 code: "cache-unavailable",
@@ -179,16 +163,43 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             )
         }
         let artifactURL = root.appendingPathComponent("\(key).json", isDirectory: false)
-        guard let data = regularFileData(artifactURL) else {
+        var data = regularFileData(artifactURL)
+        if data == nil {
+            let compilation = compilationCoordinator.perform(key: key) {
+                if regularFileData(artifactURL) != nil {
+                    return .success(artifactURL)
+                }
+                return SceneGenericShaderCompiler.compile(
+                    requestKey: key,
+                    vertexSource: vertexSource,
+                    fragmentSource: fragmentSource,
+                    cacheRoot: root
+                )
+            }
+            switch compilation {
+            case .success:
+                data = regularFileData(artifactURL)
+            case let .failure(failure):
+                return fallback(
+                    state: routeState,
+                    code: compilerFallbackCode(failure),
+                    requestKey: key
+                )
+            }
+        }
+        guard let data else {
             return fallback(
                 state: routeState,
-                code: "artifact-missing",
+                code: "compiler-publication-missing",
                 requestKey: key
             )
         }
-        let artifact: Artifact
+        let artifact: SceneGenericShaderProgramArtifact
         do {
-            artifact = try JSONDecoder().decode(Artifact.self, from: data)
+            artifact = try JSONDecoder().decode(
+                SceneGenericShaderProgramArtifact.self,
+                from: data
+            )
         } catch {
             return fallback(
                 state: routeState,
@@ -196,7 +207,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 requestKey: key
             )
         }
-        guard let program = program(artifact, expectedKey: key) else {
+        guard let program = artifact.makeProgram(expectedKey: key) else {
             return fallback(
                 state: routeState,
                 code: "artifact-contract-rejected",
@@ -247,110 +258,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             nodeIndex: nodeIndex,
             preparedKey: preparedKey
         )
-    }
-
-    private static func program(
-        _ artifact: Artifact,
-        expectedKey: String
-    ) -> SceneAuthoredShaderProgram? {
-        guard artifact.schemaVersion == 1,
-              artifact.kind == "scene-generic-shader-program-artifact",
-              artifact.backendID == "glslang-spirv-cross-msl-v1",
-              artifact.requestKey == expectedKey,
-              artifact.routeState == "prefer-generic" else { return nil }
-        let raw = artifact.program
-        guard raw.vertexFunctionName == "mwxGenericVertex",
-              raw.fragmentFunctionName == "mwxGenericFragment",
-              raw.uniformBufferIndex == 8,
-              (0 ... 256).contains(raw.staticLoopWork),
-              !raw.metalSource.isEmpty,
-              raw.metalSource.utf8.count <= 1_024 * 1_024,
-              sha256(Data(raw.metalSource.utf8)) == raw.metalSourceSHA256 else {
-            return nil
-        }
-        let fields = raw.uniformLayout.fields.compactMap { field ->
-            SceneAuthoredShaderUniformLayout.Field? in
-            guard let type = SceneAuthoredShaderValueType(rawValue: field.type) else {
-                return nil
-            }
-            return .init(
-                name: field.name,
-                authoredName: field.authoredName,
-                stage: nil,
-                type: type,
-                arrayCount: field.arrayCount,
-                offset: field.offset
-            )
-        }
-        let layout = SceneAuthoredShaderUniformLayout(
-            fields: fields,
-            byteSize: raw.uniformLayout.byteSize
-        )
-        guard fields.count == raw.uniformLayout.fields.count,
-              valid(layout),
-              fields.contains(where: {
-                  $0.name == "mwxRenderSize" && $0.type == .float2
-              }) else { return nil }
-        let bindings = raw.textureBindings.compactMap { binding ->
-            SceneAuthoredShaderProgram.TextureBinding? in
-            guard binding.name == "g_Texture\(binding.slot)",
-                  (0 ..< 8).contains(binding.slot),
-                  let channelUse = SceneAuthoredShaderProgram.TextureBinding.ChannelUse(
-                      rawValue: binding.channelUse
-                  ) else { return nil }
-            return .init(name: binding.name, slot: binding.slot, channelUse: channelUse)
-        }
-        guard bindings.count == raw.textureBindings.count,
-              bindings.map(\.slot) == bindings.map(\.slot).sorted(),
-              Set(bindings.map(\.slot)).count == bindings.count else {
-            return nil
-        }
-        let colorTransfer: SceneShaderColorTransfer
-        switch (raw.colorTransfer.kind, raw.colorTransfer.slot) {
-        case let ("passthrough", slot?):
-            guard bindings.contains(where: { $0.slot == slot }) else { return nil }
-            colorTransfer = .passthrough(textureSlot: slot)
-        case ("opaque", nil):
-            colorTransfer = .opaque
-        case ("premultiplied", nil):
-            colorTransfer = .premultipliedAlpha
-        case let ("straight-alpha", slot?):
-            guard bindings.contains(where: { $0.slot == slot }) else { return nil }
-            colorTransfer = .straightAlpha(textureSlot: slot)
-        default:
-            return nil
-        }
-        return .init(
-            metalSource: raw.metalSource,
-            vertexFunctionName: raw.vertexFunctionName,
-            fragmentFunctionName: raw.fragmentFunctionName,
-            uniformBufferIndex: raw.uniformBufferIndex,
-            uniformLayout: layout,
-            textureBindings: bindings,
-            staticLoopWork: raw.staticLoopWork,
-            colorTransfer: colorTransfer,
-            backend: .genericCompilerArtifact
-        )
-    }
-
-    private static func valid(_ layout: SceneAuthoredShaderUniformLayout) -> Bool {
-        guard (0 ... 4_096).contains(layout.byteSize),
-              layout.byteSize.isMultiple(of: 16),
-              Set(layout.fields.map(\.name)).count == layout.fields.count else {
-            return false
-        }
-        var occupied = Set<Int>()
-        for field in layout.fields {
-            let end = field.offset + field.storageByteSize
-            guard field.offset >= 0,
-                  field.offset.isMultiple(of: field.type.alignment),
-                  end <= layout.byteSize,
-                  (field.offset ..< end).allSatisfy({ !occupied.contains($0) }) else {
-                return false
-            }
-            occupied.formUnion(field.offset ..< end)
-        }
-        return true
     }
 
     private static func requestKey(
@@ -418,6 +325,59 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         return url
     }
 
+    private static func cacheDirectory(
+        environment: [String: String]
+    ) -> URL? {
+        if let rawRoot = environment[cacheEnvironment] {
+            return validatedDirectory(rawRoot)
+        }
+        guard let caches = FileManager.default.urls(
+            for: .cachesDirectory,
+            in: .userDomainMask
+        ).first else { return nil }
+        let root = caches
+            .appendingPathComponent("com.songziqiang.MyWallpaperX", isDirectory: true)
+            .appendingPathComponent("SceneGenericShaderPrograms-v1", isDirectory: true)
+            .standardizedFileURL
+        do {
+            try FileManager.default.createDirectory(
+                at: root,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+        } catch {
+            return nil
+        }
+        return validatedDirectory(root.path)
+    }
+
+    private static func compilerFallbackCode(
+        _ failure: SceneGenericShaderCompiler.Failure
+    ) -> String {
+        switch failure {
+        case let .configuration(reason):
+            return "compiler-configuration-\(sanitize(reason))"
+        case let .normalization(reason):
+            return "compiler-normalization-\(sanitize(reason))"
+        case .workspace:
+            return "compiler-workspace"
+        case let .tool(reason):
+            return "compiler-tool-\(sanitize(reason))"
+        case let .artifact(reason):
+            return "compiler-artifact-\(sanitize(reason))"
+        case .publication:
+            return "compiler-publication"
+        }
+    }
+
+    private static func sanitize(_ value: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        return value.unicodeScalars.map { allowed.contains($0) ? String($0) : "-" }
+            .joined()
+            .prefix(96)
+            .lowercased()
+    }
+
     private static func regularFileData(_ url: URL) -> Data? {
         let values = try? url.resourceValues(forKeys: [
             .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey,
@@ -430,6 +390,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     }
 
     private static func sha256(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        SceneGenericShaderProgramArtifact.sha256(data)
     }
 }

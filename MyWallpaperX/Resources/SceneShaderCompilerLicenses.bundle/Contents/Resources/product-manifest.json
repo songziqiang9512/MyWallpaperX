@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "backendID": "glslang-spirv-cross-msl-v1",
+  "productExecutionAuthorized": true,
+  "helpers": {
+    "glslang": {
+      "fileName": "glslang",
+      "revision": "168d452a4f460d24b588fed08477a81c44ee27a1",
+      "versionProbeContains": "Glslang Version: 11:16.4.0",
+      "versionProbeExitCode": 0,
+      "sourceArtifactSHA256": "406066c25b9ac11ba62218adf3a86f8055daffd55ee4ca426195395c630b4d34"
+    },
+    "spirvCross": {
+      "fileName": "spirv-cross",
+      "revision": "6c09849fe88c48eaed08413aa022aaa136a3a057",
+      "sourceDateEpoch": 1783341812,
+      "versionProbeContains": "Git commit: vulkan-sdk-1.4.357.0",
+      "versionProbeExitCode": 1,
+      "sourceArtifactSHA256": "f57729d19fd9080fb54ae8bfbd2ef46729e490f630e4aaeb2e64cb1f61b37c6b"
+    }
+  },
+  "limits": {
+    "maximumStageSourceBytes": 524288,
+    "maximumDiagnosticBytes": 65536,
+    "maximumArtifactBytes": 16777216,
+    "maximumResidentBytes": 536870912,
+    "timeoutMilliseconds": 5000
+  }
+}

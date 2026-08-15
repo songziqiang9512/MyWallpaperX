@@ -19,6 +19,7 @@
       ],
       "build": {
         "generator": "CMake",
+        "sourceDateEpoch": 1783341812,
         "arguments": [
           "-DCMAKE_BUILD_TYPE=Release",
           "-DENABLE_OPT=OFF",
@@ -62,9 +63,9 @@
       "architecture": "arm64",
       "toolchain": "Apple clang 21.0.0; CMake 4.1.0; macOS SDK 26.5",
       "glslangSHA256": "406066c25b9ac11ba62218adf3a86f8055daffd55ee4ca426195395c630b4d34",
-      "spirvCrossSHA256": "1d7fdf4a837df9691c896a3b201277ba18950f67bb9c72f84c7efa6a2d735632",
-      "scope": "local development harness only; binaries are not distributed or authorized for product execution"
+      "spirvCrossSHA256": "f57729d19fd9080fb54ae8bfbd2ef46729e490f630e4aaeb2e64cb1f61b37c6b",
+      "scope": "reproducible source artifacts used by the bundled product helpers; product execution remains separately authorized by the signed bundle manifest"
     }
   ],
-  "exitCondition": "Replace observe-only CLI artifacts with a reproducible bundled worker, or retire this backend with corpus failure evidence before another backend is evaluated."
+  "exitCondition": "Keep the development harness observe-only; product execution authority belongs only to the signed bundled-helper manifest and validated product cache path."
 }

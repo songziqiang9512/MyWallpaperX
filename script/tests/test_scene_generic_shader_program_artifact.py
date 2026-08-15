@@ -22,6 +22,13 @@ from scene_swift_source_sets import scene_swift_sources
 SWIFT_SOURCES = [
     *scene_swift_sources("authored_shader_frontend_support"),
     SCENE_ROOT / "RenderGraph/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
+    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerBundle.swift",
+    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
+    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompiler.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
 ]
 
@@ -121,6 +128,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
                 "-parse-as-library",
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness),
+                "-framework", "Security",
                 "-o",
                 str(cls.binary),
             ],
@@ -283,10 +291,15 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 fragment=FRAGMENT + "\n// distinct prepared source\n",
             )
             self.assertEqual(changed["status"], "unavailable")
-            self.assertEqual(changed["code"], "artifact-missing")
+            self.assertEqual(
+                changed["code"],
+                "compiler-configuration-licensebundleunavailable",
+            )
             self.assertNotEqual(changed["requestKey"], accepted["requestKey"])
             self.assertIn(
-                "outcome=fallback reason=artifact-missing", changed_log
+                "outcome=fallback "
+                "reason=compiler-configuration-licensebundleunavailable",
+                changed_log,
             )
 
     def test_corrupt_metal_digest_fails_closed(self):

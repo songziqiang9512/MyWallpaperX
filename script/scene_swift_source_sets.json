@@ -131,11 +131,23 @@
         "RenderGraph/ShaderPreparation/SceneAuthoredShaderPreparation+Support.swift"
       ]
     },
+    "generic_shader_compiler_preparation_implementation": {
+      "description": "Signed generic shader helper resolution, isolated execution, source normalization, and artifact lowering.",
+      "includes": [],
+      "sources": [
+        "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerBundle.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderCompiler.swift"
+      ]
+    },
     "resolved_material_program_model": {
       "description": "Shared immutable Program model, host schema, identity, and derivation boundary.",
       "includes": [],
       "sources": [
         "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialHostUniformSchema.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramIdentity.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramIdentity+ExactTexture.swift",

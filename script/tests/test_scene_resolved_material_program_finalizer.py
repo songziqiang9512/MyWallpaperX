@@ -34,6 +34,7 @@ SWIFT_SOURCES = [
     *scene_swift_sources("authored_shader_frontend_implementation"),
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrameInputs.swift",
     *scene_swift_sources("authored_shader_preparation_implementation"),
+    *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
     SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",

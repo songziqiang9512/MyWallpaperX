@@ -162,12 +162,16 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         preparation = scene_swift_source_relpaths(
             "authored_shader_preparation_implementation"
         )
+        generic_compiler = scene_swift_source_relpaths(
+            "generic_shader_compiler_preparation_implementation"
+        )
 
         self.assertEqual(len(environment), 2)
         self.assertEqual(len(preprocessing), 12)
         self.assertEqual(preprocessing[:2], environment)
         self.assertEqual(len(preparation), 14)
         self.assertEqual(preparation[:12], preprocessing)
+        self.assertEqual(len(generic_compiler), 5)
         preparation_directory = (
             REPOSITORY_ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation"
@@ -175,9 +179,11 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(
             {
                 path.resolve()
-                for path in scene_swift_sources(
-                    "authored_shader_preparation_implementation"
+                for source_set in (
+                    "authored_shader_preparation_implementation",
+                    "generic_shader_compiler_preparation_implementation",
                 )
+                for path in scene_swift_sources(source_set)
             },
             {path.resolve() for path in preparation_directory.glob("*.swift")},
         )
@@ -202,7 +208,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         complete = scene_swift_source_relpaths("resolved_material_program_all")
 
-        self.assertEqual(len(model), 6)
+        self.assertEqual(len(model), 7)
         self.assertEqual(len(uniform), 1)
         self.assertEqual(len(schema), 4)
         self.assertEqual(len(texture_finalization), 7)
@@ -217,10 +223,10 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 24)
+        self.assertEqual(len(frame_finalization), 25)
         self.assertEqual(len(template_compilation), 3)
         self.assertEqual(complete, (*template_compilation, *frame_finalization))
-        self.assertEqual(len(complete), 27)
+        self.assertEqual(len(complete), 28)
 
         material_program_directory = (
             REPOSITORY_ROOT
@@ -272,6 +278,10 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "shader_variant_environment": [
                 "script/tests/test_scene_resolved_material_pass_encoder.py",
                 "script/tests/test_scene_resolved_material_program_derivation.py",
+            ],
+            "generic_shader_compiler_preparation_implementation": [
+                "script/tests/test_scene_graph_texture_publication.py",
+                "script/tests/test_scene_resolved_material_program_finalizer.py",
             ],
         }
         for source_set, paths in consumers.items():
