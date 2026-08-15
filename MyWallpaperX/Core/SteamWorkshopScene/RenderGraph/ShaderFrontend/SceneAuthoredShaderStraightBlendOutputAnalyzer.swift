@@ -109,6 +109,77 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
         return slot
     }
 
+    /// Proves a generated straight-RGB flow that uses one sampled color as
+    /// the blend base and copies that sample's alpha to the output unchanged.
+    /// Auxiliary texture reads are limited to scalar channels, so only the
+    /// sampled color slot needs an unpremultiply boundary.
+    static func analyzeAlphaPreservingGeneratedRGB(
+        outputUses: [Int],
+        fragment: Unit,
+        main: Unit.Function
+    ) -> Int? {
+        let tokens = fragment.tokens
+        guard outputUses.count == 1,
+              let output = outputUses.first,
+              rootAssignment(output, tokens: tokens, body: main.bodyRange),
+              let outputExpression = SceneAuthoredShaderColorTransferAnalyzer
+                .assignmentExpression(after: output, in: tokens, body: main.bodyRange),
+              let outputArguments = callArguments(
+                outputExpression, function: ["vec4", "float4"], count: 2
+              ), let color = identifier(outputArguments[0]),
+              let alpha = identifier(outputArguments[1]),
+              let colorDefinition = uniqueDefinition(
+                color, types: ["vec3", "float3"], before: output,
+                tokens: tokens, body: main.bodyRange
+              ), let alphaDefinition = uniqueDefinition(
+                alpha, types: ["float"], before: output,
+                tokens: tokens, body: main.bodyRange
+              ), let colorWrite = uniqueAssignment(
+                color, after: colorDefinition, before: output,
+                tokens: tokens, body: main.bodyRange
+              ), let blendExpression = SceneAuthoredShaderColorTransferAnalyzer
+                .assignmentExpression(after: colorWrite, in: tokens, body: main.bodyRange),
+              let blendArguments = callArguments(
+                blendExpression, function: ["ApplyBlending"], count: 4
+              ), member(blendArguments[2], name: color, component: "rgb"),
+              let baseArguments = callArguments(
+                blendArguments[1], function: ["mix", "lerp"], count: 3
+              ), member(baseArguments[0], name: color, component: "rgb"),
+              let sample = memberName(baseArguments[1], component: "rgb"),
+              member(baseArguments[2], name: sample, component: "a"),
+              let alphaExpression = SceneAuthoredShaderColorTransferAnalyzer
+                .assignmentExpression(
+                    after: alphaDefinition, in: tokens, body: main.bodyRange
+                ), member(alphaExpression, name: sample, component: "a"),
+              blendHelper(fragment) == .normal,
+              helperFunctionsDoNotSampleTextures(fragment, excluding: main),
+              let slot = uniqueSampleSlotAllowingScalarAuxiliaries(
+                sample, before: output, tokens: tokens, body: main.bodyRange
+              ) else {
+            return nil
+        }
+        guard exactUses(
+                sample,
+                expected: [
+                    baseArguments[1].startIndex,
+                    baseArguments[2].startIndex,
+                    alphaExpression.startIndex,
+                ],
+                afterDefinitionBefore: output,
+                tokens: tokens,
+                body: main.bodyRange
+              ), exactUses(
+                alpha,
+                expected: [outputArguments[1].startIndex],
+                afterDefinitionBefore: outputExpression.endIndex,
+                tokens: tokens,
+                body: main.bodyRange
+              ) else {
+            return nil
+        }
+        return slot
+    }
+
     static func hasNormalBlendHelper(_ fragment: Unit) -> Bool {
         blendHelper(fragment) == .normal
     }
@@ -179,6 +250,73 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
             ["texSample2D", "texture2D"].contains(tokens[$0].text)
         }
         return samples.count == 1 ? slot : nil
+    }
+
+    private static func uniqueSampleSlotAllowingScalarAuxiliaries(
+        _ name: String,
+        before boundary: Int,
+        tokens: [Token],
+        body: Range<Int>
+    ) -> Int? {
+        guard let definition = uniqueDefinition(
+            name, types: ["vec4", "float4"], before: boundary,
+            tokens: tokens, body: body
+        ), let expression = SceneAuthoredShaderColorTransferAnalyzer
+            .assignmentExpression(after: definition, in: tokens, body: body),
+              let slot = SceneAuthoredShaderColorTransferAnalyzer
+                .directTextureSampleSlot(expression) else {
+            return nil
+        }
+        var colorSamples: [Int] = []
+        for index in body where index < boundary
+            && ["texSample2D", "texture2D"].contains(tokens[index].text) {
+            guard index + 1 < boundary, tokens[index + 1].text == "(",
+                  let closing = matchingClose(
+                    opening: index + 1, before: boundary, tokens: tokens
+                  ) else { return nil }
+            let scalarRead = closing + 2 < boundary
+                && tokens[closing + 1].text == "."
+                && ["r", "g", "b", "a", "x", "y", "z", "w"]
+                    .contains(tokens[closing + 2].text)
+            if scalarRead { continue }
+            guard let sampledSlot = SceneAuthoredShaderColorTransferAnalyzer
+                .directTextureSampleSlot(tokens[index...closing]) else {
+                return nil
+            }
+            colorSamples.append(sampledSlot)
+        }
+        return colorSamples == [slot] ? slot : nil
+    }
+
+    private static func helperFunctionsDoNotSampleTextures(
+        _ fragment: Unit,
+        excluding main: Unit.Function
+    ) -> Bool {
+        let tokens = fragment.tokens
+        return fragment.functions.allSatisfy { function in
+            function.name == main.name || !function.bodyRange.contains(where: {
+                ["texSample2D", "texture2D"].contains(tokens[$0].text)
+            })
+        }
+    }
+
+    private static func matchingClose(
+        opening: Int,
+        before boundary: Int,
+        tokens: [Token]
+    ) -> Int? {
+        var depth = 0
+        for index in opening..<boundary {
+            switch tokens[index].text {
+            case "(": depth += 1
+            case ")":
+                depth -= 1
+                if depth == 0 { return index }
+            default: break
+            }
+            guard depth >= 0 else { return nil }
+        }
+        return nil
     }
 
     private static func uniqueDefinition(

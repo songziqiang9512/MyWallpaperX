@@ -103,13 +103,26 @@ nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
 final class SceneAudioSpectrumInbox: @unchecked Sendable {
     static let shared = SceneAudioSpectrumInbox()
 
+    /// At the expected 30 Hz producer cadence this permits eight missed
+    /// publications. A stopped tap therefore becomes silence before a frozen
+    /// spectrum can read as an authored static wave, without inventing motion.
+    private static let maximumSnapshotAge: TimeInterval = 8.0 / 30.0
+
     private var lock = os_unfair_lock_s()
     private var snapshot = SceneAudioSpectrumSnapshot.silent
     private var nextGeneration: UInt64 = 1
+    private var publishedAtUptime: TimeInterval?
     private var demanded = false
     private var demandObserver: ((Bool) -> Void)?
+    private let uptime: @Sendable () -> TimeInterval
 
-    init() {}
+    init(
+        uptime: @escaping @Sendable () -> TimeInterval = {
+            ProcessInfo.processInfo.systemUptime
+        }
+    ) {
+        self.uptime = uptime
+    }
 
     /// 是否有 Scene 消费者需要频谱。没有消费者时不应请求采集。
     var isDemanded: Bool {
@@ -120,8 +133,26 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
 
     /// 当前最近一帧快照。无数据时返回稳定零输入。
     func latest() -> SceneAudioSpectrumSnapshot {
+        let now = uptime()
         os_unfair_lock_lock(&lock)
         defer { os_unfair_lock_unlock(&lock) }
+        if let publishedAtUptime,
+           now >= publishedAtUptime,
+           now - publishedAtUptime >= Self.maximumSnapshotAge {
+            if !snapshot.isSilent {
+                snapshot = SceneAudioSpectrumSnapshot(
+                    left: SceneAudioSpectrumSnapshot.silent.left,
+                    right: SceneAudioSpectrumSnapshot.silent.right,
+                    left32: SceneAudioSpectrumSnapshot.silent.left32,
+                    right32: SceneAudioSpectrumSnapshot.silent.right32,
+                    left64: SceneAudioSpectrumSnapshot.silent.left64,
+                    right64: SceneAudioSpectrumSnapshot.silent.right64,
+                    generation: nextGeneration
+                )
+                nextGeneration &+= 1
+            }
+            self.publishedAtUptime = nil
+        }
         return snapshot
     }
 
@@ -168,6 +199,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
             right64: right64,
             generation: generation
         )
+        publishedAtUptime = uptime()
         os_unfair_lock_unlock(&lock)
     }
 
@@ -185,6 +217,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
         self.demanded = demanded
         if !demanded {
             snapshot = .silent
+            publishedAtUptime = nil
         }
         let observer = demandObserver
         os_unfair_lock_unlock(&lock)
@@ -202,6 +235,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
     func clearSnapshot() {
         os_unfair_lock_lock(&lock)
         snapshot = .silent
+        publishedAtUptime = nil
         os_unfair_lock_unlock(&lock)
     }
 
@@ -210,6 +244,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
     func reset() {
         os_unfair_lock_lock(&lock)
         snapshot = .silent
+        publishedAtUptime = nil
         nextGeneration = 1
         let wasDemanded = demanded
         demanded = false

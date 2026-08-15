@@ -84,7 +84,9 @@ class SceneMetalView: NSView {
     func loadImageLayers(
         from cacheDirectory: URL, resourceView: SceneResourceView,
         videoSourceRegistry: SceneVideoTextureSourceRegistry,
-        spriteTextureLoader: SceneMultiImageSpriteTextureLoader, logURL: URL? = nil
+        spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
+        initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+        logURL: URL? = nil
     ) {
         let loader = SceneTextureLoader()
         let resolver = SceneTexturePathResolver(
@@ -278,7 +280,8 @@ class SceneMetalView: NSView {
             layerImage: SceneParticleLayerImageEmitterCompiler.compile(
                 descriptor: renderer.renderDescriptor, texturesByLayerID: imageTextures.textures,
                 animatedSourceLayerIDs: Set(loadedSpriteAnimations.keys)
-            )
+            ),
+            initialDynamicValues: initialDynamicValues
         )
         if let particlePlayback {
             report.append(contentsOf: particlePlayback.loadReportLines(descriptor: renderer.renderDescriptor))

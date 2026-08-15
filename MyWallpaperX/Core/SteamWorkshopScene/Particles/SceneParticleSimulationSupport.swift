@@ -142,37 +142,77 @@ nonisolated enum SceneParticleSimulationMath {
         return direction / directionLength * random.value(minimumSpeed, maximumSpeed)
     }
 
+    @inline(__always)
     private static func gradientNoise(_ point: SIMD3<Double>, seed: UInt64) -> Double {
         let baseX = Int(floor(point.x))
         let baseY = Int(floor(point.y))
         let baseZ = Int(floor(point.z))
-        let local = SIMD3(point.x - Double(baseX), point.y - Double(baseY), point.z - Double(baseZ))
-        let fade = SIMD3(noiseFade(local.x), noiseFade(local.y), noiseFade(local.z))
-        var corners = Array(repeating: 0.0, count: 8)
-        for z in 0...1 {
-            for y in 0...1 {
-                for x in 0...1 {
-                    let offset = SIMD3(local.x - Double(x), local.y - Double(y), local.z - Double(z))
-                    let gradient = noiseGradient(baseX + x, baseY + y, baseZ + z, seed: seed)
-                    corners[x + y * 2 + z * 4] = gradient.x * offset.x
-                        + gradient.y * offset.y + gradient.z * offset.z
-                }
-            }
-        }
+        let localX = point.x - Double(baseX)
+        let localY = point.y - Double(baseY)
+        let localZ = point.z - Double(baseZ)
+        let fadeX = noiseFade(localX)
+        let fadeY = noiseFade(localY)
+        let fadeZ = noiseFade(localZ)
+
+        // This is a per-particle, per-fixed-step hot path. Eight heap-backed
+        // corner arrays made a stock 1,000-particle field dominate the host
+        // frame. Publish each gradient dot directly into scalar locals so the
+        // coherent field and interpolation order remain unchanged.
+        let c000 = noiseGradientDot(
+            baseX, baseY, baseZ, seed: seed,
+            offsetX: localX, offsetY: localY, offsetZ: localZ
+        )
+        let c100 = noiseGradientDot(
+            baseX + 1, baseY, baseZ, seed: seed,
+            offsetX: localX - 1, offsetY: localY, offsetZ: localZ
+        )
+        let c010 = noiseGradientDot(
+            baseX, baseY + 1, baseZ, seed: seed,
+            offsetX: localX, offsetY: localY - 1, offsetZ: localZ
+        )
+        let c110 = noiseGradientDot(
+            baseX + 1, baseY + 1, baseZ, seed: seed,
+            offsetX: localX - 1, offsetY: localY - 1, offsetZ: localZ
+        )
+        let c001 = noiseGradientDot(
+            baseX, baseY, baseZ + 1, seed: seed,
+            offsetX: localX, offsetY: localY, offsetZ: localZ - 1
+        )
+        let c101 = noiseGradientDot(
+            baseX + 1, baseY, baseZ + 1, seed: seed,
+            offsetX: localX - 1, offsetY: localY, offsetZ: localZ - 1
+        )
+        let c011 = noiseGradientDot(
+            baseX, baseY + 1, baseZ + 1, seed: seed,
+            offsetX: localX, offsetY: localY - 1, offsetZ: localZ - 1
+        )
+        let c111 = noiseGradientDot(
+            baseX + 1, baseY + 1, baseZ + 1, seed: seed,
+            offsetX: localX - 1, offsetY: localY - 1, offsetZ: localZ - 1
+        )
         let lower = noiseLerp(
-            noiseLerp(corners[0], corners[1], fade.x),
-            noiseLerp(corners[2], corners[3], fade.x),
-            fade.y
+            noiseLerp(c000, c100, fadeX),
+            noiseLerp(c010, c110, fadeX),
+            fadeY
         )
         let upper = noiseLerp(
-            noiseLerp(corners[4], corners[5], fade.x),
-            noiseLerp(corners[6], corners[7], fade.x),
-            fade.y
+            noiseLerp(c001, c101, fadeX),
+            noiseLerp(c011, c111, fadeX),
+            fadeY
         )
-        return noiseLerp(lower, upper, fade.z)
+        return noiseLerp(lower, upper, fadeZ)
     }
 
-    private static func noiseGradient(_ x: Int, _ y: Int, _ z: Int, seed: UInt64) -> SIMD3<Double> {
+    @inline(__always)
+    private static func noiseGradientDot(
+        _ x: Int,
+        _ y: Int,
+        _ z: Int,
+        seed: UInt64,
+        offsetX: Double,
+        offsetY: Double,
+        offsetZ: Double
+    ) -> Double {
         var hash = seed
         hash ^= UInt64(bitPattern: Int64(x)) &* 0x9E3779B185EBCA87
         hash ^= UInt64(bitPattern: Int64(y)) &* 0xC2B2AE3D27D4EB4F
@@ -180,22 +220,22 @@ nonisolated enum SceneParticleSimulationMath {
         hash ^= hash >> 29
         hash &*= 0x9FB21C651E98DF25
         hash ^= hash >> 32
-        let signs = SIMD3(
-            (hash & 1) == 0 ? 1.0 : -1.0,
-            (hash & 2) == 0 ? 1.0 : -1.0,
-            (hash & 4) == 0 ? 1.0 : -1.0
-        )
+        let signX = (hash & 1) == 0 ? 1.0 : -1.0
+        let signY = (hash & 2) == 0 ? 1.0 : -1.0
+        let signZ = (hash & 4) == 0 ? 1.0 : -1.0
         switch Int((hash >> 3) % 3) {
-        case 0: return SIMD3(signs.x, signs.y, 0)
-        case 1: return SIMD3(signs.x, 0, signs.z)
-        default: return SIMD3(0, signs.y, signs.z)
+        case 0: return signX * offsetX + signY * offsetY
+        case 1: return signX * offsetX + signZ * offsetZ
+        default: return signY * offsetY + signZ * offsetZ
         }
     }
 
+    @inline(__always)
     private static func noiseFade(_ value: Double) -> Double {
         value * value * value * (value * (value * 6 - 15) + 10)
     }
 
+    @inline(__always)
     private static func noiseLerp(_ first: Double, _ second: Double, _ amount: Double) -> Double {
         first + (second - first) * amount
     }

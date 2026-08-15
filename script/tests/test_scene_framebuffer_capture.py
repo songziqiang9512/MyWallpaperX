@@ -215,6 +215,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         let previousCursorUV: SIMD2<Float>
         let pointerIsInside: Bool
         let previousPointerIsInside: Bool
+        let pointerMovement: Float
+        let primaryButtonIsDown: Bool
         let layerModelMatrix: simd_float4x4 = matrix_identity_float4x4
         let frameTime: Float
         let time: Float
@@ -233,6 +235,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
         let layerID: Int
         let admittedGraphs: [SceneAuthoredEffectRenderPlan]
+        let targetExecutionPlans: [SceneEffectStageExecutionPlan?]
         let pairPlan: SceneLayerFullFramePairPlan
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
@@ -610,6 +613,7 @@ struct SceneBlendExecutionPlan {
     let writesAlpha: Bool
     let assetTexturePath: String
     let userPropertyKey: String?
+    let dependencyProviderLayerID: Int?
 
     func resolvedMultiply(in snapshot: SceneDynamicSnapshot) -> Float {
         multiply
@@ -883,6 +887,14 @@ struct SceneLightShaftsEffectTextures {
         }
     }
 
+    var supportsUnifiedHistoryTargetStage: Bool {
+        guard case .cursorRipple = backend else { return false }
+        return logicalRenderTargetCount == 2
+            && renderGraph.nodes.count == 3
+            && renderGraph.renderTargets.count == 2
+            && renderGraph.renderTargets.allSatisfy { !$0.declaredUnique }
+    }
+
     var supportsUnifiedFullFrameComposeStage: Bool {
         guard case .preciseGaussian = backend,
               logicalRenderTargetCount == 0,
@@ -1063,6 +1075,8 @@ enum SceneCursorRippleRenderer {
         previousCursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         previousPointerIsInside: Bool,
+        pointerMovement: Float,
+        primaryButtonIsDown: Bool,
         frameTime: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -2865,6 +2879,7 @@ enum Harness {
                     token: .init(rawValue: 91),
                     layerID: 0,
                     admittedGraphs: [claimedGraph],
+                    targetExecutionPlans: [],
                     pairPlan: claimedPairPlan,
                     fullFrameExtentPolicy: .standard,
                     sourceRoute: .capturedLayerTexture,
@@ -3352,6 +3367,8 @@ enum Harness {
                     previousCursorUV: .zero,
                     pointerIsInside: false,
                     previousPointerIsInside: false,
+                    pointerMovement: 0,
+                    primaryButtonIsDown: false,
                     frameTime: 1 / 60,
                     time: 0,
                     audioSpectrum: .silent,
@@ -3478,6 +3495,8 @@ enum Harness {
                     previousCursorUV: .zero,
                     pointerIsInside: false,
                     previousPointerIsInside: false,
+                    pointerMovement: 0,
+                    primaryButtonIsDown: false,
                     frameTime: 1 / 60,
                     time: 0,
                     audioSpectrum: .silent,
@@ -3847,6 +3866,8 @@ enum Harness {
             previousCursorUV: .zero,
             pointerIsInside: false,
             previousPointerIsInside: false,
+            pointerMovement: 0,
+            primaryButtonIsDown: false,
             frameTime: 1 / 60,
             time: 0,
             audioSpectrum: .silent,
@@ -4010,6 +4031,8 @@ enum Harness {
             previousCursorUV: .zero,
             pointerIsInside: false,
             previousPointerIsInside: false,
+            pointerMovement: 0,
+            primaryButtonIsDown: false,
             frameTime: 1 / 60,
             time: 0,
             audioSpectrum: .silent,
@@ -4156,6 +4179,8 @@ enum Harness {
                 previousCursorUV: .zero,
                 pointerIsInside: false,
                 previousPointerIsInside: false,
+                pointerMovement: 0,
+                primaryButtonIsDown: false,
                 frameTime: 1 / 60,
                 time: 0,
                 audioSpectrum: .silent,
@@ -4254,6 +4279,8 @@ enum Harness {
                     previousCursorUV: .zero,
                     pointerIsInside: false,
                     previousPointerIsInside: false,
+                    pointerMovement: 0,
+                    primaryButtonIsDown: false,
                     frameTime: 1 / 60,
                     time: 0,
                     audioSpectrum: .silent,
@@ -4363,6 +4390,8 @@ enum Harness {
                     previousCursorUV: .zero,
                     pointerIsInside: false,
                     previousPointerIsInside: false,
+                    pointerMovement: 0,
+                    primaryButtonIsDown: false,
                     frameTime: 1 / 60,
                     time: 0,
                     audioSpectrum: .silent,
@@ -4501,6 +4530,8 @@ enum Harness {
                     previousCursorUV: .zero,
                     pointerIsInside: false,
                     previousPointerIsInside: false,
+                    pointerMovement: 0,
+                    primaryButtonIsDown: false,
                     frameTime: 1 / 60,
                     time: 0,
                     audioSpectrum: .silent,
@@ -4625,6 +4656,7 @@ enum Harness {
             token: .init(rawValue: 1),
             layerID: graph.layerID,
             admittedGraphs: [graph],
+            targetExecutionPlans: [],
             pairPlan: pairPlan,
             fullFrameExtentPolicy: .standard,
             sourceRoute: .capturedLayerTexture,
@@ -4993,6 +5025,7 @@ enum Harness {
                   conditionPrunedGraphs: [plan.renderGraph]
               ), let framePlan = pool.framePlanForPersistentGraphTargets(
             admittedGraphs: [plan.renderGraph],
+            targetExecutionPlans: [plan],
             pairPlan: pairPlan,
             extentPolicy: .init(
                 maximumDimensionClass: .standard,
@@ -5061,6 +5094,8 @@ enum Harness {
                   previousCursorUV: .zero,
                   pointerIsInside: false,
                   previousPointerIsInside: false,
+                  pointerMovement: 0,
+                  primaryButtonIsDown: false,
                   frameTime: 1 / 60,
                   time: 0,
                   audioSpectrum: .silent,

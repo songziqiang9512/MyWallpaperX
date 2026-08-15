@@ -26,6 +26,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "Properties/SceneAudioScaledValueScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Format/SceneScriptSourceEvidence.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
@@ -165,6 +166,20 @@ SCENE_FIXTURE = {
             "padding": 32,
             "horizontalalign": "center",
             "verticalalign": "center",
+        },
+        {
+            "id": 100,
+            "name": "padding is total geometry growth",
+            "text": "AAAA BBBB",
+            "font": "systemfont_arial",
+            "pointsize": 12,
+            "color": "1 1 1",
+            "size": "330 140",
+            "padding": 32,
+            "horizontalalign": "left",
+            "verticalalign": "top",
+            "limitrows": True,
+            "maxrows": 1,
         },
     ],
 }
@@ -326,7 +341,7 @@ enum Harness {
             device: device
         )
         let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
-        let ids = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+        let ids = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
         var style: [String: Any] = [:]
         var ink: [String: Any] = [:]
         for id in ids {
@@ -633,8 +648,16 @@ class SceneTextRowLimitTests(unittest.TestCase):
         padded = self.result["ink"]["90"]
         self.assertEqual(padded["size"], [196, 126])
         self.assertGreater(padded["count"], 0)
-        self.assertGreaterEqual(padded["minX"], 32)
-        self.assertLessEqual(padded["maxX"], 163)
+        self.assertGreaterEqual(padded["minX"], 16)
+        self.assertLessEqual(padded["maxX"], 179)
+
+    def test_padding_is_total_geometry_growth_not_a_per_edge_inset(self) -> None:
+        # 50 px Arial 的 "AAAA BBBB" 约 290 px 宽。330 px 外框减去作者
+        # padding=32 后仍有 298 px，必须保留完整一行；若错误地每边各扣 32，
+        # 只剩 266 px，maxrows=1 会把第二个词整段裁掉。
+        padded = self.result["ink"]["100"]
+        self.assertEqual(len(padded["rowRanges"]), 1)
+        self.assertGreater(padded["maxX"], 270)
 
     def test_dynamic_text_expands_only_when_width_is_not_authored_limited(self) -> None:
         self.assertGreater(self.result["dynamicRenderSizes"]["auto"][0], 400)

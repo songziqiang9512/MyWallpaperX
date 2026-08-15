@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated extension SceneParticleSimulator {
-    mutating func applyControlPointForce(
+    func applyControlPointForce(
         _ value: SceneParticleOperator,
         duration: Double
     ) {
@@ -28,6 +28,16 @@ nonisolated extension SceneParticleSimulator {
         var result = offset
         if let point = definition.controlPoints.first(where: { $0.id == identity }) {
             result += SceneParticleSimulationMath.vector(point.offset, fallback: .zero)
+            // Pointer-linked control points have no authored static position. A missing
+            // or outside pointer must disable this force instead of attracting particles
+            // to the system origin.
+            if point.hasBoundedPointerInput {
+                guard let dynamic = dynamicControlPoints[identity], dynamic.isFinite else {
+                    return nil
+                }
+                result += dynamic
+                return result.isFinite ? result : nil
+            }
         }
         if let dynamic = dynamicControlPoints[identity] {
             result += dynamic
@@ -48,4 +58,8 @@ nonisolated extension SceneParticleSimulator {
             life, value.startTime, value.endTime
         )
     }
+}
+
+private nonisolated extension SIMD3 where Scalar == Double {
+    var isFinite: Bool { x.isFinite && y.isFinite && z.isFinite }
 }

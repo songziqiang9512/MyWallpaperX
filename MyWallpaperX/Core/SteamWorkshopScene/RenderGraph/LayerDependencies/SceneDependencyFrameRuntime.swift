@@ -5,6 +5,7 @@ import simd
 final class SceneDependencyFrameRuntime {
     private struct EffectTargetReservation {
         let providerLayerID: Int
+        let kind: SceneDependencyRenderPlan.Binding.Kind
         let texture: MTLTexture
         let width: Int
         let height: Int
@@ -49,6 +50,8 @@ final class SceneDependencyFrameRuntime {
     func reserveEffectInput(
         for binding: SceneDependencyRenderPlan.Binding,
         providerLayer: SceneRenderDescriptor.Layer,
+        providerTexture: MTLTexture?,
+        providerCandidate: SceneTextureCandidate?,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
         frameEpoch: UInt64
@@ -56,13 +59,13 @@ final class SceneDependencyFrameRuntime {
         guard frameEpoch > 0,
               binding.providerLayerID == providerLayer.id,
               plan.bindingsByConsumerLayerID[binding.consumerLayerID] == binding,
-              let geometry = SceneCaptureGeometryResolver.resolve(
-                  kind: providerLayer.utilityLayer?.kind ?? .composition,
+              let extent = Self.captureExtent(
+                  binding: binding,
+                  providerLayer: providerLayer,
+                  providerTexture: providerTexture,
+                  providerCandidate: providerCandidate,
                   layerMVP: layerMVP,
                   viewportSize: viewportSize
-              ), let extent = Self.normalizedExtent(
-                  width: Int(geometry.pixelSize.width.rounded(.up)),
-                  height: Int(geometry.pixelSize.height.rounded(.up))
               ) else {
             return nil
         }
@@ -72,6 +75,7 @@ final class SceneDependencyFrameRuntime {
         if let reservation = reservationsByProviderLayerID[providerLayer.id] {
             guard reservation.frameEpoch == frameEpoch,
                   reservation.providerLayerID == providerLayer.id,
+                  reservation.kind == binding.kind,
                   reservation.width == extent.width,
                   reservation.height == extent.height else {
                 return nil
@@ -88,6 +92,7 @@ final class SceneDependencyFrameRuntime {
             }
             reservationsByProviderLayerID[providerLayer.id] = EffectTargetReservation(
                 providerLayerID: providerLayer.id,
+                kind: binding.kind,
                 texture: reservedTexture,
                 width: extent.width,
                 height: extent.height,
@@ -145,6 +150,8 @@ final class SceneDependencyFrameRuntime {
     @discardableResult
     func captureProviderIfRequired(
         layer: SceneRenderDescriptor.Layer,
+        sourceTexture: MTLTexture?,
+        sourceCandidate: SceneTextureCandidate?,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
         pipeline: SceneImageLayerPipeline,
@@ -162,14 +169,18 @@ final class SceneDependencyFrameRuntime {
         if reservation == nil, textureRegistry.texture(for: identity) != nil {
             return true
         }
-        let captureKind = layer.utilityLayer?.kind ?? .composition
-        guard let geometry = SceneCaptureGeometryResolver.resolve(
-                  kind: captureKind,
+        let providerBindings = plan.bindingsByConsumerLayerID.values.filter {
+            $0.providerLayerID == layer.id
+        }
+        guard let binding = providerBindings.first,
+              providerBindings.allSatisfy({ $0.kind == binding.kind }),
+              let extent = Self.captureExtent(
+                  binding: binding,
+                  providerLayer: layer,
+                  providerTexture: sourceTexture,
+                  providerCandidate: sourceCandidate,
                   layerMVP: layerMVP,
                   viewportSize: viewportSize
-              ), let extent = Self.normalizedExtent(
-                  width: Int(geometry.pixelSize.width.rounded(.up)),
-                  height: Int(geometry.pixelSize.height.rounded(.up))
               ) else {
             captureTelemetry.recordFailure(layerID: layer.id)
             return false
@@ -178,6 +189,7 @@ final class SceneDependencyFrameRuntime {
         if let reservation {
             guard reservation.frameEpoch == frameEpoch,
                   reservation.providerLayerID == layer.id,
+                  reservation.kind == binding.kind,
                   reservation.width == extent.width,
                   reservation.height == extent.height,
                   reservation.texture.width == extent.width,
@@ -205,37 +217,69 @@ final class SceneDependencyFrameRuntime {
             target = pooledTarget
         }
 
-        var didObserveCommandBuffer = false
-        let encoded = mainPass.withReadableTarget { sourceTexture, commandBuffer in
-            didObserveCommandBuffer = true
-            let descriptor = MTLRenderPassDescriptor()
-            descriptor.colorAttachments[0].texture = target
-            descriptor.colorAttachments[0].loadAction = .clear
-            descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
-            descriptor.colorAttachments[0].storeAction = .store
-            guard let encoder = commandBuffer.makeRenderCommandEncoder(
-                descriptor: descriptor
-            ) else {
-                captureTelemetry.record(layerID: layer.id, encoded: false, on: commandBuffer)
+        let encoded: Bool
+        switch binding.kind {
+        case .imageLayerBlend:
+            guard let sourceTexture,
+                  let sourceCandidate,
+                  Self.isExactImageProviderCandidate(
+                      sourceCandidate,
+                      matching: sourceTexture
+                  ) else {
+                captureTelemetry.recordFailure(layerID: layer.id)
                 return false
             }
-            var uniforms = SceneLayerFragmentUniforms.neutral()
-            uniforms.textureFrame0 = geometry.sourceUV.uniform0
-            uniforms.textureFrame1 = geometry.sourceUV.uniform1
-            pipeline.bind(encoder: encoder)
-            pipeline.drawLayer(
-                texture: sourceTexture,
-                dependencyTexture: nil,
-                mvp: Self.fullTargetMVP,
-                uniforms: uniforms,
-                encoder: encoder
-            )
-            encoder.endEncoding()
-            captureTelemetry.record(layerID: layer.id, encoded: true, on: commandBuffer)
-            return true
-        } ?? false
-        if !didObserveCommandBuffer {
-            captureTelemetry.recordFailure(layerID: layer.id)
+            encoded = mainPass.encodeOffscreen { commandBuffer in
+                var uniforms = SceneLayerFragmentUniforms.neutral()
+                uniforms.textureFrame0 = sourceCandidate.uvTransform.uniform0
+                uniforms.textureFrame1 = sourceCandidate.uvTransform.uniform1
+                let didEncode = SceneOffscreenEffectRenderer.captureSource(
+                    sourceTexture: sourceTexture,
+                    target: target,
+                    sourceUniforms: uniforms,
+                    pipeline: pipeline,
+                    commandBuffer: commandBuffer
+                )
+                captureTelemetry.record(
+                    layerID: layer.id,
+                    encoded: didEncode,
+                    on: commandBuffer
+                )
+                return didEncode
+            }
+        case .clippingMask, .proceduralNoiseLayer:
+            guard let utility = layer.utilityLayer,
+                  let geometry = SceneCaptureGeometryResolver.resolve(
+                      kind: utility.kind,
+                      layerMVP: layerMVP,
+                      viewportSize: viewportSize
+                  ) else {
+                captureTelemetry.recordFailure(layerID: layer.id)
+                return false
+            }
+            var didObserveCommandBuffer = false
+            encoded = mainPass.withReadableTarget { mainTexture, commandBuffer in
+                didObserveCommandBuffer = true
+                var uniforms = SceneLayerFragmentUniforms.neutral()
+                uniforms.textureFrame0 = geometry.sourceUV.uniform0
+                uniforms.textureFrame1 = geometry.sourceUV.uniform1
+                let didEncode = SceneOffscreenEffectRenderer.captureSource(
+                    sourceTexture: mainTexture,
+                    target: target,
+                    sourceUniforms: uniforms,
+                    pipeline: pipeline,
+                    commandBuffer: commandBuffer
+                )
+                captureTelemetry.record(
+                    layerID: layer.id,
+                    encoded: didEncode,
+                    on: commandBuffer
+                )
+                return didEncode
+            } ?? false
+            if !didObserveCommandBuffer {
+                captureTelemetry.recordFailure(layerID: layer.id)
+            }
         }
         if encoded {
             textureRegistry.set(.ready(target), for: identity)
@@ -282,5 +326,57 @@ final class SceneDependencyFrameRuntime {
         )
     }
 
-    private static let fullTargetMVP = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))
+    private static func captureExtent(
+        binding: SceneDependencyRenderPlan.Binding,
+        providerLayer: SceneRenderDescriptor.Layer,
+        providerTexture: MTLTexture?,
+        providerCandidate: SceneTextureCandidate?,
+        layerMVP: simd_float4x4,
+        viewportSize: CGSize
+    ) -> (width: Int, height: Int)? {
+        switch binding.kind {
+        case .imageLayerBlend:
+            guard binding.providerLayerID == providerLayer.id,
+                  let providerTexture,
+                  let providerCandidate,
+                  isExactImageProviderCandidate(
+                      providerCandidate,
+                      matching: providerTexture
+                  ) else { return nil }
+            return normalizedExtent(
+                width: providerTexture.width,
+                height: providerTexture.height
+            )
+        case .clippingMask, .proceduralNoiseLayer:
+            guard let utility = providerLayer.utilityLayer,
+                  let geometry = SceneCaptureGeometryResolver.resolve(
+                      kind: utility.kind,
+                      layerMVP: layerMVP,
+                      viewportSize: viewportSize
+                  ) else { return nil }
+            return normalizedExtent(
+                width: Int(geometry.pixelSize.width.rounded(.up)),
+                height: Int(geometry.pixelSize.height.rounded(.up))
+            )
+        }
+    }
+
+    private static func isExactImageProviderCandidate(
+        _ candidate: SceneTextureCandidate,
+        matching texture: MTLTexture
+    ) -> Bool {
+        guard candidate.texture === texture,
+              candidate.purpose == .premultipliedColor,
+              candidate.content.isResolved,
+              candidate.sampling == .linearClamp,
+              candidate.axisAlignedMappedUVScale(
+                  expectedPurpose: .premultipliedColor
+              ) == SIMD2(repeating: 1),
+              texture.textureType == .type2D,
+              texture.sampleCount == 1,
+              texture.usage.contains(.shaderRead) else {
+            return false
+        }
+        return true
+    }
 }

@@ -16,7 +16,7 @@ extension SceneParticleSimulator {
         _ value: SceneParticleOperator,
         _ index: Int,
         _ operatorIndex: Int,
-        life: Double,
+        age: Double,
         sizeDefaults: Bool = false
     ) -> Double {
         let minimum = SceneParticleSimulationMath.scalar(
@@ -41,7 +41,7 @@ extension SceneParticleSimulator {
             operatorIndex,
             1
         )
-        let wave = (cos(2 * .pi * frequency * life + phase) + 1) * 0.5
+        let wave = (cos(frequency * age + phase) + 1) * 0.5
         return minimum + (maximum - minimum) * wave
     }
 
@@ -80,7 +80,7 @@ extension SceneParticleSimulator {
         return generator.value(first, second)
     }
 
-    nonisolated mutating func positionOscillation(
+    nonisolated func positionOscillation(
         _ value: SceneParticleOperator,
         particleIndex: Int,
         operatorIndex: Int,
@@ -130,10 +130,9 @@ extension SceneParticleSimulator {
         lifetime: Double,
         duration: Double
     ) -> SIMD3<Double> {
+        let previousAge = max(age - duration, 0)
         let currentLife = min(max(age / max(lifetime, 1e-12), 0), 1)
-        let previousLife = min(max(
-            (age - duration) / max(lifetime, 1e-12), 0
-        ), 1)
+        let previousLife = min(max(previousAge / max(lifetime, 1e-12), 0), 1)
         let currentBlend = operatorBlend(value, currentLife)
         let previousBlend = operatorBlend(value, previousLife)
         var result = SIMD3<Double>.zero
@@ -141,12 +140,8 @@ extension SceneParticleSimulator {
             let phase = oscillation.phase[component]
             let frequency = oscillation.frequency[component]
             let baseline = cos(phase)
-            let currentWave = cos(
-                2 * .pi * frequency * currentLife + phase
-            ) - baseline
-            let previousWave = cos(
-                2 * .pi * frequency * previousLife + phase
-            ) - baseline
+            let currentWave = cos(frequency * age + phase) - baseline
+            let previousWave = cos(frequency * previousAge + phase) - baseline
             result[component] = oscillation.scale[component] * mask[component]
                 * (currentWave * currentBlend - previousWave * previousBlend)
         }

@@ -260,6 +260,13 @@ extension SceneMetalRenderer {
                 guard let reservedInput = dependencyRuntime.reserveEffectInput(
                     for: binding,
                     providerLayer: providerLayer,
+                    providerTexture: imageTextures[binding.providerLayerID],
+                    providerCandidate: imageTextures[binding.providerLayerID].flatMap {
+                        imageTextures.candidate(
+                            for: binding.providerLayerID,
+                            matching: $0
+                        )
+                    },
                     layerMVP: providerMVP,
                     viewportSize: frameContext.screenSize,
                     frameEpoch: textureRegistry.frameEpoch
@@ -385,6 +392,11 @@ extension SceneMetalRenderer {
                     pointerIsInside: frameContext.pointer.isInside && cursor != nil,
                     previousPointerIsInside:
                         frameContext.pointer.isInside && previousCursor != nil,
+                    pointerMovement: simd_length(
+                        frameContext.pointer.current - frameContext.pointer.previous
+                    ) * 0.5,
+                    primaryButtonIsDown:
+                        frameContext.pointer.isPrimaryButtonDown,
                     layerModelMatrix: layerModelMatrix,
                     effectTextureProjectionMatrixInverse:
                         effectTextureProjectionMatrixInverse,

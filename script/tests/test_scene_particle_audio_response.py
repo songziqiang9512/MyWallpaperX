@@ -257,15 +257,24 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
     def test_isolated_runtime_fixture_reuses_the_shared_inbox(self) -> None:
         source = DEBUG_FIXTURE_SOURCE.read_text(encoding="utf-8")
         self.assertIn("SceneAudioSpectrumInbox.shared.publish", source)
-        self.assertIn("leftValue", source)
-        self.assertIn("rightValue", source)
-        self.assertIn("left32: Array(repeating: leftValue, count: 32)", source)
-        self.assertIn("right32: Array(repeating: rightValue, count: 32)", source)
-        self.assertIn("left64: Array(repeating: leftValue, count: 64)", source)
-        self.assertIn("right64: Array(repeating: rightValue, count: 64)", source)
-        self.assertIn("frame.isMultiple(of: 2)", source)
+        self.assertIn("SystemAudioSceneSpectrumAnalyzer()", source)
+        self.assertIn("analyzer.analyze(", source)
+        self.assertIn("fixturePCM(frame: frame", source)
+        self.assertNotIn("fixtureSpectrum(", source)
+        self.assertIn("static let publicationRate: Float = 30", source)
+        self.assertIn("let overallEnvelope = 0.68", source)
+        self.assertIn("let toneCount = 24", source)
+        self.assertIn("let firstCluster = exp(", source)
+        self.assertIn("let secondCluster = exp(", source)
+        self.assertIn("firstPulse * firstPulse", source)
+        self.assertIn("secondPulse * secondPulse", source)
+        self.assertIn("frame.isMultiple(of: 30)", source)
         self.assertIn(
             '--mwx-debug-scene-audio-spectrum-fixture',
+            BENCHMARK_SOURCE.read_text(encoding="utf-8"),
+        )
+        self.assertIn(
+            '--mwx-debug-scene-audio-silence-fixture',
             BENCHMARK_SOURCE.read_text(encoding="utf-8"),
         )
 

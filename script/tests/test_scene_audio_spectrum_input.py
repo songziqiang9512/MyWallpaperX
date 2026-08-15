@@ -4,7 +4,8 @@
 覆盖三段：
   1. `SceneAudioSpectrumSnapshot` 的形状与非法值归零；
   2. `SceneAudioSpectrumInbox` 的发布/代际/需求生命周期；
-  3. `SystemAudioSceneSpectrumAnalyzer` 的 16/64 频段输出、静音零输入与确定性。
+  3. `SystemAudioSceneSpectrumAnalyzer` 的官方 64-band identity、16/32 投影、
+     平台可视响应、快起慢落包络、静音零输入与确定性。
 
 这里只验证输入管线本身。A0 阶段没有任何 effect / particle 消费者，
 因此不存在渲染侧断言。
@@ -35,9 +36,16 @@ SERVICE_SOURCE = (
 ENGINE_SPECTRUM_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioSpectrum.swift"
 )
+DEBUG_FIXTURE_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+AudioSpectrum.swift"
+)
 
 HARNESS = r'''
 import Foundation
+
+final class TestUptimeClock: @unchecked Sendable {
+    var now: TimeInterval = 0
+}
 
 @main
 enum Harness {
@@ -165,6 +173,23 @@ enum Harness {
         inbox.reset()
         let afterReset = inbox.latest()
 
+        let staleClock = TestUptimeClock()
+        let staleInbox = SceneAudioSpectrumInbox(uptime: { staleClock.now })
+        staleInbox.setDemand(true)
+        staleClock.now = 10
+        staleInbox.publish(
+            left: ones,
+            right: twos,
+            left32: ones32,
+            right32: twos32,
+            left64: ones64,
+            right64: twos64
+        )
+        staleClock.now += 0.25
+        let beforeDeadline = staleInbox.latest()
+        staleClock.now += 0.02
+        let afterDeadline = staleInbox.latest()
+
         return [
             "initialIsSilent": initial.isSilent,
             "initialGeneration": initial.generation,
@@ -185,20 +210,23 @@ enum Harness {
             "generationBeforeReset": generationBeforeReset,
             "afterResetGeneration": afterReset.generation,
             "afterResetIsSilent": afterReset.isSilent,
+            "beforeStaleDeadlineIsSilent": beforeDeadline.isSilent,
+            "afterStaleDeadlineIsSilent": afterDeadline.isSilent,
+            "staleRevocationGeneration": afterDeadline.generation,
         ]
     }
 
     // MARK: - Analyzer
 
     static func analyzerChecks() -> [String: Any] {
-        guard let analyzer = SystemAudioSceneSpectrumAnalyzer() else {
+        guard SystemAudioSceneSpectrumAnalyzer() != nil else {
             return ["available": false]
         }
         let bandCount = SystemAudioSceneSpectrumAnalyzer.bandCount
         let frameCount = 4_096
 
         let silence = Array(repeating: Float(0), count: frameCount)
-        let silent = analyzer.analyze(
+        let silent = analyzeFresh(
             signedChannels: [silence, silence],
             sampleRate: sampleRate
         )
@@ -210,38 +238,75 @@ enum Harness {
             frameCount: frameCount,
             amplitude: 0.05
         )
-        let stereo = analyzer.analyze(
+        let noiseFloorTone = sineWave(
+            frequency: 440,
+            frameCount: frameCount,
+            amplitude: 0.002
+        )
+        let stereo = analyzeFresh(
             signedChannels: [toneA, toneB],
             sampleRate: sampleRate
         )
-        let quiet = analyzer.analyze(
+        let quiet = analyzeFresh(
             signedChannels: [quietToneA],
             sampleRate: sampleRate
         )
-        let repeated = analyzer.analyze(
+        let noiseFloor = analyzeFresh(
+            signedChannels: [noiseFloorTone],
+            sampleRate: sampleRate
+        )
+        let repeated = analyzeFresh(
             signedChannels: [toneA, toneB],
             sampleRate: sampleRate
         )
-        let mono = analyzer.analyze(signedChannels: [toneA], sampleRate: sampleRate)
+        let mono = analyzeFresh(signedChannels: [toneA], sampleRate: sampleRate)
 
-        let invalidRate = analyzer.analyze(
+        let invalidRate = analyzeFresh(
             signedChannels: [toneA, toneB],
             sampleRate: 0
         )
-        let empty = analyzer.analyze(signedChannels: [], sampleRate: sampleRate)
+        let empty = analyzeFresh(signedChannels: [], sampleRate: sampleRate)
 
         var withNaN = toneA
         withNaN[10] = .nan
         withNaN[11] = .infinity
-        let sanitizedTone = analyzer.analyze(
+        let sanitizedTone = analyzeFresh(
             signedChannels: [withNaN],
             sampleRate: sampleRate
         )
 
         // 直流偏置不应把能量堆到最低频段。
         let biased = toneA.map { $0 + 0.5 }
-        let biasedResult = analyzer.analyze(
+        let biasedResult = analyzeFresh(
             signedChannels: [biased],
+            sampleRate: sampleRate
+        )
+
+        let envelopeAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+        let attackFirst = envelopeAnalyzer.analyze(
+            signedChannels: [toneA],
+            sampleRate: sampleRate
+        )
+        let attackSecond = envelopeAnalyzer.analyze(
+            signedChannels: [toneA],
+            sampleRate: sampleRate
+        )
+        let releaseFirst = envelopeAnalyzer.analyze(
+            signedChannels: [silence],
+            sampleRate: sampleRate
+        )
+        let releaseSecond = envelopeAnalyzer.analyze(
+            signedChannels: [silence],
+            sampleRate: sampleRate
+        )
+
+        let primingAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+        let firstPartial = primingAnalyzer.analyze(
+            signedChannels: [sineWave(frequency: 440, frameCount: 1_000)],
+            sampleRate: sampleRate
+        )
+        let secondPartial = primingAnalyzer.analyze(
+            signedChannels: [sineWave(frequency: 440, frameCount: 1_200)],
             sampleRate: sampleRate
         )
 
@@ -266,6 +331,17 @@ enum Harness {
             "stereoRight32PeakBand": peakBand(stereo.right32),
             "loudPeak": stereo.left.max() ?? 0,
             "quietPeak": quiet.left.max() ?? 0,
+            "noiseFloorPeak": noiseFloor.left.max() ?? 0,
+            "attackFirstPeak": attackFirst.left64.max() ?? 0,
+            "attackSecondPeak": attackSecond.left64.max() ?? 0,
+            "releaseFirstPeak": releaseFirst.left64.max() ?? 0,
+            "releaseSecondPeak": releaseSecond.left64.max() ?? 0,
+            "left16DerivedFrom64": averageResample(stereo.left64, count: 16)
+                == stereo.left,
+            "left32DerivedFrom64": averageResample(stereo.left64, count: 32)
+                == stereo.left32,
+            "firstPartialSilent": firstPartial.left.allSatisfy { $0 == 0 },
+            "secondPartialNonZero": secondPartial.left.contains { $0 > 0 },
             "deterministic": repeated.left == stereo.left
                 && repeated.right == stereo.right
                 && repeated.left32 == stereo.left32
@@ -292,6 +368,16 @@ enum Harness {
         ]
     }
 
+    static func analyzeFresh(
+        signedChannels: [[Float]],
+        sampleRate: Float
+    ) -> SystemAudioSceneSpectrumAnalyzer.Levels {
+        SystemAudioSceneSpectrumAnalyzer()!.analyze(
+            signedChannels: signedChannels,
+            sampleRate: sampleRate
+        )
+    }
+
     static func sineWave(
         frequency: Float,
         frameCount: Int,
@@ -310,6 +396,14 @@ enum Harness {
             bestIndex = index
         }
         return bestIndex
+    }
+
+    static func averageResample(_ values: [Float], count: Int) -> [Float] {
+        let stride = values.count / count
+        return (0 ..< count).map { outputIndex in
+            let start = outputIndex * stride
+            return values[start ..< start + stride].reduce(0, +) / Float(stride)
+        }
     }
 }
 '''
@@ -436,6 +530,22 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertEqual(inbox["afterResetGeneration"], 0)
         self.assertTrue(inbox["afterResetIsSilent"])
 
+    def test_stale_snapshot_fails_closed_instead_of_freezing(self) -> None:
+        inbox = self.result["inbox"]
+        self.assertFalse(
+            inbox["beforeStaleDeadlineIsSilent"],
+            "正常采集间隔内不得误清仍有效的频谱",
+        )
+        self.assertTrue(
+            inbox["afterStaleDeadlineIsSilent"],
+            "producer 停止发布后必须归零，不能留下被 Scroll 平移的静态波形",
+        )
+        self.assertGreater(
+            inbox["staleRevocationGeneration"],
+            1,
+            "stale 撤销必须有独立代际，便于消费者区分最后活动帧与归零帧",
+        )
+
     # MARK: analyzer
 
     def test_analyzer_is_available_and_emits_sixteen_bands(self) -> None:
@@ -454,6 +564,7 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
             analyzer["stereoLeft64PeakBand"],
             analyzer["stereoRight64PeakBand"],
         )
+        self.assertTrue(analyzer["left16DerivedFrom64"])
 
     def test_analyzer_emits_thirty_two_bands_from_the_same_fft(self) -> None:
         analyzer = self.result["analyzer"]
@@ -464,6 +575,7 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
             analyzer["stereoLeft32PeakBand"],
             analyzer["stereoRight32PeakBand"],
         )
+        self.assertTrue(analyzer["left32DerivedFrom64"])
 
     def test_silence_produces_a_stable_zero_spectrum(self) -> None:
         analyzer = self.result["analyzer"]
@@ -476,19 +588,23 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
 
     def test_tones_land_in_the_expected_low_to_high_bands(self) -> None:
         analyzer = self.result["analyzer"]
-        # 频段按 32 Hz -> 16 kHz 对数划分（ratio=500）：
-        # band b 的下沿为 32 * 500^(b/16)，440 Hz 落在 band 6（328.9~485 Hz），
-        # 5 kHz 落在 band 13（4989~7364 Hz）。
+        # 官方 producer 先以 sqrt-like 曲线映射到 64 档，再对相邻档求平均：
+        # 440 Hz 落在 64 档的 10（投影后 16 档的 2），5 kHz 落在 64 档的 37
+        #（投影后 16 档的 9）。这同时锁住 producer 与投影方向。
         self.assertEqual(
             analyzer["stereoLeftPeakBand"],
-            6,
-            "440 Hz 必须落在对数划分下的第 6 段",
+            2,
+            "440 Hz 必须落在官方 64-to-16 投影下的第 2 段",
         )
         self.assertEqual(
             analyzer["stereoRightPeakBand"],
-            13,
+            9,
             "5 kHz 必须落在更高频段，证明频段顺序由低到高",
         )
+        self.assertEqual(analyzer["stereoLeft64PeakBand"], 10)
+        self.assertEqual(analyzer["stereoRight64PeakBand"], 37)
+        self.assertEqual(analyzer["stereoLeft32PeakBand"], 5)
+        self.assertEqual(analyzer["stereoRight32PeakBand"], 18)
         self.assertLess(
             analyzer["stereoLeftPeakBand"],
             analyzer["stereoRightPeakBand"],
@@ -499,7 +615,43 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
 
     def test_scene_dynamic_range_separates_quiet_and_loud_bands(self) -> None:
         analyzer = self.result["analyzer"]
-        self.assertGreater(analyzer["loudPeak"] - analyzer["quietPeak"], 0.3)
+        self.assertGreater(analyzer["loudPeak"], analyzer["quietPeak"])
+        self.assertGreater(
+            analyzer["loudPeak"],
+            0.31,
+            "正常 PCM 必须经过项目既有根压缩进入作者 shader 的可见高度区间",
+        )
+        self.assertGreater(
+            analyzer["quietPeak"],
+            0.05,
+            "普通弱音必须经过可视响应后仍能驱动作者波形，不能缩成不可见细线",
+        )
+
+    def test_near_silent_input_remains_bounded_below_normal_audio(self) -> None:
+        analyzer = self.result["analyzer"]
+        self.assertGreaterEqual(analyzer["noiseFloorPeak"], 0)
+        self.assertLess(
+            analyzer["noiseFloorPeak"],
+            analyzer["quietPeak"],
+            "接近门限的输入不能比正常弱音更强",
+        )
+
+    def test_visual_envelope_attacks_quickly_and_releases_monotonically(self) -> None:
+        analyzer = self.result["analyzer"]
+        self.assertGreater(analyzer["attackFirstPeak"], 0)
+        self.assertGreater(analyzer["attackSecondPeak"], analyzer["attackFirstPeak"])
+        self.assertLess(analyzer["releaseFirstPeak"], analyzer["attackSecondPeak"])
+        self.assertLess(analyzer["releaseSecondPeak"], analyzer["releaseFirstPeak"])
+        self.assertGreater(
+            analyzer["releaseSecondPeak"],
+            0,
+            "尾音应连续衰减而不是每个采集 tick 硬切闪烁",
+        )
+
+    def test_first_partial_window_fails_closed_until_primed(self) -> None:
+        analyzer = self.result["analyzer"]
+        self.assertTrue(analyzer["firstPartialSilent"])
+        self.assertTrue(analyzer["secondPartialNonZero"])
 
     def test_analysis_is_deterministic_for_the_same_input(self) -> None:
         self.assertTrue(
@@ -527,15 +679,15 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertTrue(analyzer["sanitizedToneFinite"])
         self.assertEqual(
             analyzer["sanitizedTonePeakBand"],
-            6,
+            2,
             "个别非有限采样被置零后，主频段判定仍应成立",
         )
 
-    def test_dc_bias_does_not_pile_energy_into_the_lowest_band(self) -> None:
+    def test_dc_bias_remains_finite_and_bounded(self) -> None:
         self.assertEqual(
             self.result["analyzer"]["biasedPeakBand"],
-            6,
-            "去直流后带偏置的信号仍应在原频段出现峰值",
+            0,
+            "官方 producer 跳过 DC bin，但不私自减均值；偏置应落在最低可见档",
         )
 
 
@@ -554,14 +706,26 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
 
     def test_service_clears_scene_levels_on_stop_and_failure(self) -> None:
         source = SERVICE_SOURCE.read_text(encoding="utf-8")
-        self.assertEqual(
+        self.assertGreaterEqual(
             source.count("clearSceneLevels()"),
             5,
-            "消费者切换、采集停止、FFT 不可用与采集失败四处都必须调用统一归零入口",
+            "消费者切换、采集停止、FFT 不可用与采集失败都必须调用统一归零入口",
         )
         self.assertIn("count: SystemAudioSceneSpectrumAnalyzer.bandCount", source)
         self.assertIn("count: SystemAudioSceneSpectrumAnalyzer.mediumBandCount", source)
         self.assertIn("count: SystemAudioSceneSpectrumAnalyzer.extendedBandCount", source)
+        self.assertIn(
+            "sceneAnalyzer?.reset()",
+            source,
+            "停止或撤销 consumer 时必须丢弃未完成分析窗，不能跨 capture 混入旧数据",
+        )
+
+    def test_inbox_owns_the_stale_snapshot_fail_closed_boundary(self) -> None:
+        source = SNAPSHOT_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("maximumSnapshotAge", source)
+        self.assertIn("publishedAtUptime", source)
+        self.assertIn("now - publishedAtUptime", source)
+        self.assertNotIn("sin(", source, "stale 处理不得生成时间驱动的假波形")
 
     def test_engine_routes_scene_levels_into_the_inbox(self) -> None:
         source = ENGINE_SPECTRUM_SOURCE.read_text(encoding="utf-8")
@@ -572,6 +736,16 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
         self.assertIn("left32: left32", source)
         self.assertIn("SceneAudioSpectrumInbox.shared.isDemanded", source)
         self.assertIn("sceneEnabled: sceneCaptureRequested", source)
+
+    def test_debug_fixture_exclusively_owns_the_scene_inbox(self) -> None:
+        source = ENGINE_SPECTRUM_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("debugSceneFixtureOwnsInbox", source)
+        self.assertIn('"--mwx-debug-scene-audio-spectrum-fixture"', source)
+        self.assertIn('"--mwx-debug-scene-audio-silence-fixture"', source)
+        self.assertIn("&& !debugSceneFixtureOwnsInbox", source)
+        fixture = DEBUG_FIXTURE_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("MWX DEBUG SCENE AUDIO: mode=silence", fixture)
+        self.assertIn("SceneAudioSpectrumInbox.shared.clearSnapshot()", fixture)
 
     def test_engine_stops_scene_capture_under_system_interruptions(self) -> None:
         source = ENGINE_SPECTRUM_SOURCE.read_text(encoding="utf-8")

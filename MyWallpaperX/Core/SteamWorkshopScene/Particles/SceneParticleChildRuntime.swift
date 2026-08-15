@@ -86,10 +86,15 @@ final class SceneParticleChildRuntime {
         by frameDelta: TimeInterval,
         spawnEvents: [SceneParticleState],
         deathEvents: [SceneParticleState],
-        parentParticles: [SceneParticleState]
+        parentParticles: [SceneParticleState],
+        pointerLocalPosition: SIMD3<Double>? = nil
     ) -> SceneParticleChildAdvanceResult {
         var limitations: Set<String> = []
-        let parentFrames = advanceDepthOne(by: frameDelta, rootParticles: parentParticles)
+        let parentFrames = advanceDepthOne(
+            by: frameDelta,
+            rootParticles: parentParticles,
+            pointerLocalPosition: pointerLocalPosition
+        )
         spawn(
             from: spawnEvents, trigger: .spawn, depth: 1, parentPath: nil,
             scopeID: nil, parentOrigin: .zero, limitations: &limitations
@@ -102,7 +107,12 @@ final class SceneParticleChildRuntime {
             parentParticles, depth: 1, parentPath: nil,
             scopeID: nil, parentOrigin: .zero, limitations: &limitations
         )
-        advanceDepthTwo(by: frameDelta, parentFrames: parentFrames, limitations: &limitations)
+        advanceDepthTwo(
+            by: frameDelta,
+            parentFrames: parentFrames,
+            pointerLocalPosition: pointerLocalPosition,
+            limitations: &limitations
+        )
 
         var batches: [SceneParticleDrawBatch] = []
         var failures: [String] = []
@@ -141,7 +151,8 @@ final class SceneParticleChildRuntime {
     /// event frames that feed nested children, before completed systems are recycled.
     private func advanceDepthOne(
         by frameDelta: TimeInterval,
-        rootParticles: [SceneParticleState]
+        rootParticles: [SceneParticleState],
+        pointerLocalPosition: SIMD3<Double>?
     ) -> [SceneParticleChildParentFrame] {
         let parentsByID: [UInt64: SceneParticleState] = templates.contains {
             $0.depth == 1 && $0.trigger == .follow
@@ -158,7 +169,13 @@ final class SceneParticleChildRuntime {
                 systems[index].origin = parent.position
                 systems[index].simulator.updateFollowEventColor(parent.color)
             }
-            systems[index].simulator.advance(by: frameDelta)
+            systems[index].simulator.advance(
+                by: frameDelta,
+                dynamicControlPoints: pointerControlPoints(
+                    for: systems[index],
+                    pointerLocalPosition: pointerLocalPosition
+                )
+            )
             let births = systems[index].simulator.consumeBirthEvents()
             let deaths = systems[index].simulator.consumeDeathEvents()
             updateWorldSpaceOrigins(systemAt: index, births: births, deaths: deaths)
@@ -182,6 +199,7 @@ final class SceneParticleChildRuntime {
     private func advanceDepthTwo(
         by frameDelta: TimeInterval,
         parentFrames: [SceneParticleChildParentFrame],
+        pointerLocalPosition: SIMD3<Double>?,
         limitations: inout Set<String>
     ) {
         guard !nestedParentPaths.isEmpty else { return }
@@ -210,7 +228,13 @@ final class SceneParticleChildRuntime {
                 systems[index].origin = parent.origin + particle.position
                 systems[index].simulator.updateFollowEventColor(particle.color)
             }
-            systems[index].simulator.advance(by: frameDelta)
+            systems[index].simulator.advance(
+                by: frameDelta,
+                dynamicControlPoints: pointerControlPoints(
+                    for: systems[index],
+                    pointerLocalPosition: pointerLocalPosition
+                )
+            )
             let births = systems[index].simulator.consumeBirthEvents()
             let deaths = systems[index].simulator.consumeDeathEvents()
             updateWorldSpaceOrigins(systemAt: index, births: births, deaths: deaths)
@@ -241,6 +265,22 @@ final class SceneParticleChildRuntime {
                 && $0.simulator.simulationTime + 1e-12 >= ($0.emissionCompletionTime ?? .infinity)
                 && $0.simulator.particles.isEmpty
         }
+    }
+
+    /// The frame producer supplies a pointer in the root layer's local space. Child
+    /// particles simulate before their authored scale is applied at instance assembly,
+    /// so convert through the same child origin/scale frame before exposing CP values.
+    private func pointerControlPoints(
+        for system: SceneParticleChildSystem,
+        pointerLocalPosition: SIMD3<Double>?
+    ) -> [Int: SIMD3<Double>] {
+        guard let template = templates.first(where: { $0.index == system.templateIndex }) else {
+            return [:]
+        }
+        let childLocalPosition = pointerLocalPosition.map {
+            template.transform.inversePosition($0 - system.origin)
+        }
+        return template.definition.pointerControlPointValues(at: childLocalPosition)
     }
 
     private func spawn(

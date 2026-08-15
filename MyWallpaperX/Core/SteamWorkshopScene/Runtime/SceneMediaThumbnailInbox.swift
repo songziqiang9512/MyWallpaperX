@@ -12,6 +12,7 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
         }
 
         let current: Data?
+        let primaryColor: SIMD3<Double>?
         let secondaryColor: SIMD3<Double>?
         let generation: UInt64
         let playbackState: Int?
@@ -21,6 +22,7 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
 
         init(
             current: Data?,
+            primaryColor: SIMD3<Double>? = nil,
             secondaryColor: SIMD3<Double>?,
             generation: UInt64,
             playbackState: Int?,
@@ -29,6 +31,7 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             propertiesGeneration: UInt64 = 0
         ) {
             self.current = current
+            self.primaryColor = primaryColor
             self.secondaryColor = secondaryColor
             self.generation = generation
             self.playbackState = playbackState
@@ -39,6 +42,7 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
 
         static let empty = Snapshot(
             current: nil,
+            primaryColor: nil,
             secondaryColor: nil,
             generation: 0,
             playbackState: nil,
@@ -64,19 +68,23 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
     @discardableResult
     func publish(
         _ encodedImage: Data,
+        primaryColor: SIMD3<Double>? = nil,
         secondaryColor: SIMD3<Double>? = nil
     ) -> Bool {
         guard !encodedImage.isEmpty,
               encodedImage.count <= Self.maximumEncodedByteCount,
+              primaryColor.map(Self.isNormalizedColor) != false,
               secondaryColor.map(Self.isNormalizedColor) != false else {
             return false
         }
         os_unfair_lock_lock(&lock)
         defer { os_unfair_lock_unlock(&lock) }
         guard snapshot.current != encodedImage
+                || snapshot.primaryColor != primaryColor
                 || snapshot.secondaryColor != secondaryColor else { return true }
         snapshot = Snapshot(
             current: encodedImage,
+            primaryColor: primaryColor,
             secondaryColor: secondaryColor,
             generation: snapshot.generation &+ 1,
             playbackState: snapshot.playbackState,
@@ -95,6 +103,7 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
         guard snapshot.playbackState != state else { return true }
         snapshot = Snapshot(
             current: snapshot.current,
+            primaryColor: snapshot.primaryColor,
             secondaryColor: snapshot.secondaryColor,
             generation: snapshot.generation,
             playbackState: state,
@@ -117,6 +126,7 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
         guard snapshot.properties != properties else { return true }
         snapshot = Snapshot(
             current: snapshot.current,
+            primaryColor: snapshot.primaryColor,
             secondaryColor: snapshot.secondaryColor,
             generation: snapshot.generation,
             playbackState: snapshot.playbackState,
@@ -133,6 +143,7 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
         guard snapshot.current != nil else { return }
         snapshot = Snapshot(
             current: nil,
+            primaryColor: .zero,
             secondaryColor: .zero,
             generation: snapshot.generation &+ 1,
             playbackState: snapshot.playbackState,

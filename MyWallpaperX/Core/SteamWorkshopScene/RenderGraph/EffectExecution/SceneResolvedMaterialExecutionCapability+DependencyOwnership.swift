@@ -70,6 +70,10 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
                 binding.slot.passIndex == 0
                     && binding.slot.slotIndex == 3
                     && binding.blendMode == 0
+            case .imageLayerBlend:
+                binding.slot.passIndex == 0
+                    && binding.slot.slotIndex == 1
+                    && binding.blendMode == 0
             }
             guard supportedBinding,
                   binding.consumerLayerID == layer.id,

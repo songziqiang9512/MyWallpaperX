@@ -415,7 +415,8 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn(
             "var evaluationTransaction = SceneSurfaceEvaluationTransaction()", host
         )
-        self.assertIn("let timing = sceneClock.advance", frame_driver)
+        self.assertIn("let advancedTiming = sceneClock.advance", frame_driver)
+        self.assertIn("let timing = advancedTiming", frame_driver)
         render_position = frame_driver.index("private func renderFrame()")
         broadcast_position = frame_driver.index("for surface in surfaces.values", render_position)
         fade_position = frame_driver.index(
@@ -521,7 +522,7 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertNotIn("SceneMediaThumbnailInbox.shared", coordinator)
         self.assertNotIn("func update()", coordinator)
 
-    def test_host_advances_launch_origin_transition_once_before_surface_broadcast(self) -> None:
+    def test_each_surface_owns_and_advances_its_launch_origin_transition(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
         launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
@@ -538,26 +539,39 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn(
             "launchOriginTransitionTargets.isDisjoint", launch
         )
-        self.assertIn("SceneLaunchOriginTransitionRuntime(program: .empty)", host)
         self.assertIn(
-            "program: context.launchOriginTransitionProgram", host
+            "var launchOriginTransitionRuntime: SceneLaunchOriginTransitionRuntime",
+            host,
+        )
+        self.assertIn(
+            "launchOriginTransitionRuntime = .init(\n"
+            "                program: launchOriginTransitionProgram",
+            host,
+        )
+        self.assertIn(
+            "launchOriginTransitionProgram:\n"
+            "                    launchContext.launchOriginTransitionProgram",
+            host,
         )
         self.assertIn(
             "launchContext.launchOriginTransitionProgram.definitions",
             host_render,
         )
-        runtime_call = "launchOriginTransitionRuntime.values("
+        runtime_call = "surface.launchOriginTransitionRuntime.values("
         self.assertEqual(host_render.count(runtime_call), 1)
         runtime_position = host_render.index(runtime_call)
         surface_position = host_render.index("for surface in surfaces.values")
-        self.assertLess(runtime_position, surface_position)
+        self.assertGreater(runtime_position, surface_position)
         self.assertIn(
-            "effectivePropertyValues: launchContext.liveState.effectiveValues",
-            host_render[runtime_position:surface_position],
+            "effectivePropertyValues:\n"
+            "                        launchContext.liveState.effectiveValues",
+            host_render[runtime_position:],
         )
         surface_loop = host_render[surface_position:]
-        self.assertNotIn(runtime_call, surface_loop)
+        self.assertEqual(surface_loop.count(runtime_call), 1)
+        self.assertIn("surface.launchOriginTransitionRuntime.currentValues(", surface_loop)
         self.assertIn("launchOriginTransitionValues", surface_loop)
+        self.assertIn("commonSceneScriptValues", surface_loop)
 
     def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:
         report = HOST_TIME_OF_DAY_REPORT_SOURCE.read_text(encoding="utf-8")
@@ -602,12 +616,15 @@ class SceneFrameContextTests(unittest.TestCase):
         ]
         self.assertTrue(
             paused_guard_positions,
-            "startFrameDriver must reject a paused Scene before creating a Timer",
+            "startFrameDriver must reject a paused Scene before scheduling",
         )
         self.assertLess(
             min(paused_guard_positions),
-            start_driver.index("Timer(timeInterval:"),
+            start_driver.index("let initialDeadline"),
         )
+        self.assertIn("scheduleFrameDriver(", start_driver)
+        arm_driver = swift_body(frame_driver, "private func armFrameDriver(")
+        self.assertIn("Timer(timeInterval: delay, repeats: false)", arm_driver)
 
         rebuild = swift_body(
             host, "private func rebuildSurfaces("
@@ -618,6 +635,33 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("let remainsPaused = sceneClock.isPaused", rebuild)
         self.assertIn("if remainsPaused {", rebuild)
         self.assertIn("sceneClock.pause(hostTime: hostTime)", rebuild)
+
+    def test_busy_history_frame_retries_before_advancing_scene_clock(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        render = swift_body(frame_driver, "private func renderFrame()")
+        schedule = swift_body(
+            frame_driver, "private func scheduleFrameDriver("
+        )
+        self.assertIn("sceneFrameInterval / 8.0", frame_driver)
+        self.assertIn("sceneBusyFrameRetryInterval = max(", frame_driver)
+        self.assertIn("0.001,", frame_driver)
+        self.assertIn("surfaces.values.allSatisfy", render)
+        self.assertIn("return .busy", render)
+        self.assertLess(
+            render.index("surfaces.values.allSatisfy"),
+            render.index("sceneClock.advance("),
+        )
+        self.assertLess(
+            render.index("return .busy"),
+            render.index("recordDriverCallback()"),
+        )
+        self.assertIn("case .busy:", schedule)
+        self.assertIn(
+            "nextDeadline = now + sceneBusyFrameRetryInterval",
+            schedule,
+        )
+        self.assertIn("case .rendered:", schedule)
+        self.assertIn("scheduledDeadline + sceneFrameInterval", schedule)
 
     def test_global_playback_control_delegates_active_scene_state(self) -> None:
         playback_control = PLAYBACK_CONTROL_SOURCE.read_text(encoding="utf-8")

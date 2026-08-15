@@ -80,6 +80,7 @@
         "file_globs": [
           "SceneDependencyFrameRuntime.swift",
           "SceneDependencyGraphAnalysis.swift",
+          "SceneImageLayerBlendDependencyContract.swift",
           "SceneDependencyRenderPlan.swift",
           "SceneNamedRenderTargetPool.swift"
         ],

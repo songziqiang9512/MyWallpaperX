@@ -363,6 +363,7 @@ final class SystemAudioSpectrumService: NSObject {
     }
 
     private func clearSceneLevels() {
+        sceneAnalyzer?.reset()
         onSceneLevels?(
             Self.clearedSceneLevels,
             Self.clearedSceneLevels,
@@ -372,6 +373,7 @@ final class SystemAudioSpectrumService: NSObject {
             Self.clearedExtendedSceneLevels
         )
     }
+
 }
 
 private extension SystemAudioSpectrumService {

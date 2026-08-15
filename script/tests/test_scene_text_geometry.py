@@ -175,9 +175,9 @@ class SceneTextGeometryTests(unittest.TestCase):
         self.assertEqual(self.result["rasterLayout"], {
             "width": 100,
             "height": 50,
-            "padding": 10,
-            "contentWidth": 80,
-            "contentHeight": 30,
+            "padding": 5,
+            "contentWidth": 90,
+            "contentHeight": 40,
         })
 
     def test_screen_anchor_defaults_to_none_and_unwraps_property_values(self) -> None:

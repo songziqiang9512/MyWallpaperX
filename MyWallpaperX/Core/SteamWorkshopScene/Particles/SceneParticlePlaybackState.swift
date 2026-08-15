@@ -13,7 +13,8 @@ final class SceneParticlePlaybackState {
         device: MTLDevice,
         resourceView: SceneResourceView? = nil,
         textureLoader: SceneTextureLoader = SceneTextureLoader(),
-        layerImage: SceneParticleLayerImageEmitterCompilation = .empty
+        layerImage: SceneParticleLayerImageEmitterCompilation = .empty,
+        initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     ) {
         guard let pipeline = SceneParticleMetalPipeline(device: device) else { return nil }
         self.pipeline = pipeline
@@ -25,7 +26,8 @@ final class SceneParticlePlaybackState {
             textureLoader: textureLoader,
             layerImageEmissionMaps: layerImage.mapsByLayerID,
             initialDiagnostics: layerImage.diagnostics,
-            staticWorldSpaceFrames: descriptor.staticParticleWorldSpaceFrames
+            staticWorldSpaceFrames: descriptor.staticParticleWorldSpaceFrames,
+            initialDynamicValues: initialDynamicValues
         )
         self.batches = runtime.advance(by: 0)
     }

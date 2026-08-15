@@ -21,6 +21,7 @@ extension SceneDesktopWallpaperHost {
             )
             frameTimer?.invalidate()
             frameTimer = nil
+            frameDriverDeadline = nil
         } else {
             guard sceneClock.isPaused else { return }
             sceneClock.resume(hostTime: hostTime)

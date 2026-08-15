@@ -77,6 +77,12 @@ enum Harness {
             age: 3.75, lifetime: 10, sequenceMultiplier: 2,
             particleID: 7, blendsFrames: false
         )!
+        let prepared = SceneParticleSpriteFrameSelector.select(
+            mode: .sequence, frameDurations: [1, 1, 2],
+            frameEndTimes: [1, 2, 4], totalDuration: 4,
+            age: 3.75, lifetime: 10, sequenceMultiplier: 2,
+            particleID: 7, blendsFrames: true
+        )!
         let reverse = SceneParticleSpriteFrameSelector.select(
             mode: .sequence, frameDurations: [1, 1, 2],
             age: 2.5, lifetime: 10, sequenceMultiplier: -1,
@@ -136,6 +142,7 @@ enum Harness {
             "uniformStride": MemoryLayout<SceneParticleLayerUniforms>.stride,
             "uniformOffsets": uniformOffsets(),
             "sequence": selection(sequence),
+            "preparedTimeline": selection(prepared),
             "noBlend": selection(noBlend),
             "reverse": selection(reverse),
             "randomIndices": random.map(\.currentIndex),
@@ -168,15 +175,16 @@ enum Harness {
                 translucent.sourceAlpha == .one,
                 translucent.destinationAlpha == .oneMinusSourceAlpha,
             ],
-            // additive 源因子取 sourceAlpha:shader 输出已是 premultiplied,再乘一次
-            // 粒子 alpha 对齐官方 CPU premultiply + (SRC_ALPHA, ONE) 的 additive 合同
-            //(官方 genericparticle.frag 输出 straight,作者靠 alpha 调 additive 强度)。
+            // 官方 genericparticle 上传 straight RGB/alpha 并以 SRC_ALPHA, ONE
+            // 合成。当前 Metal 主链在 shader 边界已经 premultiply，所以等价
+            // 合同是 ONE, ONE；不能再次乘 sourceAlpha 形成 alpha²。
             "additiveBlend": [
-                additive.sourceRGB == .sourceAlpha,
+                additive.sourceRGB == .one,
                 additive.destinationRGB == .one,
                 additive.sourceAlpha == .one,
                 additive.destinationAlpha == .oneMinusSourceAlpha,
             ],
+            "additiveFractionalAlphaPixel": additiveFractionalAlphaPixel(),
             "metalDraw": renderSmokeTest(),
             "spriteAspectBounds": spriteBounds(
                 currentAspect: 2, nextAspect: 2, frameMix: 0
@@ -354,6 +362,75 @@ enum Harness {
         return submitted && completed && command.status == .completed && instances.count == 2
     }
 
+    private static func additiveFractionalAlphaPixel() -> [Int] {
+        let size = 8
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else { return [] }
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
+        )
+        inputDescriptor.usage = .shaderRead
+        inputDescriptor.storageMode = .shared
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm, width: size, height: size, mipmapped: false
+        )
+        outputDescriptor.usage = .renderTarget
+        outputDescriptor.storageMode = .shared
+        guard let input = device.makeTexture(descriptor: inputDescriptor),
+              let output = device.makeTexture(descriptor: outputDescriptor) else { return [] }
+        var white: [UInt8] = [255, 255, 255, 255]
+        input.replace(
+            region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+            withBytes: &white, bytesPerRow: 4
+        )
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: [
+            SceneParticleGPUInstance(
+                position: .zero,
+                size: 2,
+                rotation: .zero,
+                color: SIMD3(repeating: 1),
+                alpha: 0.25
+            ),
+        ]) else { return [] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else {
+            return []
+        }
+        pipeline.draw(
+            texture: input,
+            instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: SceneMatrix.identity(),
+                basis: SceneParticleOrientation.screen.basis(
+                    cameraRight: SIMD3(1, 0, 0),
+                    cameraUp: SIMD3(0, 1, 0),
+                    cameraForward: SIMD3(0, 0, -1)
+                )
+            ),
+            renderState: particleState(.additive),
+            colorSampling: .directImageFallback,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        guard instances.markSubmitted(on: command), commitAndWait(command) else { return [] }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        output.getBytes(
+            &pixel,
+            bytesPerRow: size * 4,
+            from: MTLRegionMake2D(size / 2, size / 2, 1, 1),
+            mipmapLevel: 0
+        )
+        return pixel.map(Int.init)
+    }
+
     private static func instanceBufferSlotTest() -> [String: Any] {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
@@ -443,7 +520,9 @@ enum Harness {
                 particles: [SceneParticleRopeTrailParticle(
                     id: 1,
                     position: SIMD3(point.x, point.y, 0),
-                    size: 0.12,
+                    // GPU records expose half the authored particle size. Keep
+                    // this raster contract's historical on-screen thickness.
+                    size: 0.24,
                     color: SIMD3(repeating: 1),
                     alpha: 1
                 )],
@@ -1360,7 +1439,9 @@ enum Harness {
         guard instances.update(device: device, instances: [
             SceneParticleGPUInstance(
                 position: .zero,
-                size: 0.0625,
+                // Preserve the intended four-pixel minification footprint
+                // after the authored-size to GPU-half-size conversion.
+                size: 0.125,
                 rotation: .zero,
                 color: SIMD3(repeating: 1),
                 alpha: 1
@@ -1619,6 +1700,7 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["sequence"]["current"], 2)
         self.assertEqual(self.result["sequence"]["next"], 0)
         self.assertAlmostEqual(self.result["sequence"]["mix"], 0.5, places=6)
+        self.assertEqual(self.result["preparedTimeline"], self.result["sequence"])
         self.assertEqual(self.result["noBlend"], {"current": 2, "next": 2, "mix": 0})
         self.assertEqual(self.result["reverse"], self.result["sequence"])
         self.assertGreater(len(set(self.result["randomIndices"])), 1)
@@ -1652,6 +1734,13 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["translucentBlend"], [True, True, True, True])
         self.assertEqual(self.result["additiveBlend"], [True, True, True, True])
         self.assertTrue(self.result["metalDraw"])
+
+    def test_additive_fractional_alpha_is_applied_once(self) -> None:
+        pixel = self.result["additiveFractionalAlphaPixel"]
+        if not pixel:
+            self.skipTest("Metal offscreen draw is unavailable")
+        for channel in pixel:
+            self.assertAlmostEqual(channel, 64, delta=2)
 
     def test_non_square_sprite_geometry_tracks_current_and_blended_frame_aspect(self) -> None:
         wide = self.result["spriteAspectBounds"]

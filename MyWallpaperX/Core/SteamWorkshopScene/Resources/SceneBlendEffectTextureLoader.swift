@@ -158,7 +158,8 @@ enum SceneBlendEffectTextureLoader {
               pass.textureSlots[0] == nil,
               let assetPath = pass.textureSlots[1],
               !assetPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              pass.texturePaths == [assetPath] else {
+              pass.texturePaths == [assetPath],
+              SceneNamedTextureReference.parse(assetPath) == nil else {
             return nil
         }
         if pass.userTextureInputs.isEmpty {

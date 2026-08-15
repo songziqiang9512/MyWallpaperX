@@ -573,6 +573,7 @@ struct SceneDependencyRenderPlan {
         enum Kind: Hashable {
             case clippingMask
             case proceduralNoiseLayer
+            case imageLayerBlend
         }
 
         let consumerLayerID: Int
@@ -788,6 +789,8 @@ extension SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs {
         previousCursorUV: .zero,
         pointerIsInside: false,
         previousPointerIsInside: false,
+        pointerMovement: 0,
+        primaryButtonIsDown: false,
         layerModelMatrix: .init(diagonal: .init(repeating: 1)),
         effectTextureProjectionMatrixInverse: .init(
             diagonal: .init(repeating: 1)

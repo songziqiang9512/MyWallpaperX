@@ -28,13 +28,47 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             guard let effect = product.graph.effects.first else {
                 return .failure(rejection("stage-effect-identity-missing"))
             }
+            // The renderer captures the layer/main target exactly once into
+            // the pair member identified by baseCaptureIdentity. Every later
+            // effect consumes the preceding effect output already resident in
+            // that pair, so it must not be required to prove the original
+            // layer source route again.
+            let stageSourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute =
+                effect.input == admitted.pairPlan.baseCaptureIdentity
+                    ? admitted.sourceRoute
+                    : .capturedLayerTexture
             let singleStage = SceneResolvedMaterialAdmittedLayer(
                 layerID: admitted.layerID,
                 products: [product],
                 pairPlan: admitted.pairPlan,
                 dependencyOwnership: admitted.dependencyOwnership,
-                sourceRoute: admitted.sourceRoute
+                sourceRoute: stageSourceRoute
             )
+            if let program = externallyOwnedImageBlendProgram(
+                for: effect.key,
+                ownership: admitted.dependencyOwnership,
+                programsByKey: programsByKey
+            ) {
+                let pairLeaf = dedicatedLeafKeys.contains(effect.key)
+                    && program.executionPlan.logicalRenderTargetCount == 0
+                    && product.graph.nodes.count == 1
+                    && product.graph.renderTargets.isEmpty
+                guard pairLeaf,
+                      program.effectKey == effect.key,
+                      program.stageGraph.effects.first?.key == effect.key,
+                      dedicatedDynamicTargetsAreExecutable(
+                          program,
+                          producers: dynamicProducers
+                      ) else {
+                    return .failure(rejection("dedicated-leaf-unsupported"))
+                }
+                stages.append(.dedicated(
+                    product: product,
+                    program: program,
+                    family: dedicatedStageFamilies[effect.key] ?? "dedicated-leaf"
+                ))
+                continue
+            }
             let programResult = compileStages(
                 singleStage,
                 materialCatalog: materialCatalog,
@@ -62,7 +96,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     && product.graph.nodes.count == 1
                     && product.graph.renderTargets.isEmpty
                 let logicalTargetStage = dedicatedGraphStageKeys.contains(effect.key)
-                    && program.executionPlan.supportsUnifiedLogicalTargetStage
+                    && (program.executionPlan.supportsUnifiedLogicalTargetStage
+                        || program.executionPlan.supportsUnifiedHistoryTargetStage)
                     && program.executionPlan.logicalRenderTargetCount > 0
                     && product.graph.nodes.count > 1
                     && product.graph.renderTargets.count
@@ -80,12 +115,20 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     && pairStep?.composeTransitionCount == 1
                     && pairStep?.fullFrameOutputWriteCount == 2
                     && pairStep?.inputMember == pairStep?.outputMember
+                let identityMatches = program.effectKey == effect.key
+                    && program.stageGraph.effects.first?.key == effect.key
+                let dynamicTargetsExecutable = dedicatedDynamicTargetsAreExecutable(
+                    program,
+                    producers: dynamicProducers
+                )
+                let sourceRouteExecutable =
+                    stageSourceRoute != .capturedMainTargetTexture
+                    || ((pairLeaf || logicalTargetStage)
+                        && program.executionPlan.supportsUtilityCapture)
                 guard pairLeaf || logicalTargetStage || fullFrameComposeStage,
-                      program.effectKey == effect.key,
-                      program.stageGraph.effects.first?.key == effect.key,
-                      admitted.sourceRoute != .capturedMainTargetTexture
-                        || ((pairLeaf || logicalTargetStage)
-                            && program.executionPlan.supportsUtilityCapture) else {
+                      identityMatches,
+                      dynamicTargetsExecutable,
+                      sourceRouteExecutable else {
                     return .failure(rejection("dedicated-leaf-unsupported"))
                 }
                 stages.append(.dedicated(
@@ -106,6 +149,45 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             return .failure(rejection("execution-stage-conservation"))
         }
         return .success(.init(stages: stages, materials: allMaterials))
+    }
+
+    /// Dedicated stages consume the same launch-scoped producer catalog as
+    /// Program-backed materials. A typed plan may retain a dynamic target, but
+    /// it cannot obtain execution ownership until exactly one proven producer
+    /// family publishes that target.
+    private static func dedicatedDynamicTargetsAreExecutable(
+        _ program: SceneEffectStageProgram,
+        producers: DynamicProducerCatalog
+    ) -> Bool {
+        let userTargets = Set(producers.userProperties.map(\.target))
+        let available = userTargets
+            .union(producers.timelineTargets)
+            .union(producers.sceneScriptTargets)
+        return program.executionPlan.liveConsumerTargets.isSubset(of: available)
+    }
+
+    private static func externallyOwnedImageBlendProgram(
+        for effectKey: Graph.EffectKey,
+        ownership: SceneResolvedMaterialDependencyOwnership,
+        programsByKey: [Graph.EffectKey: [SceneEffectStageProgram]]
+    ) -> SceneEffectStageProgram? {
+        guard case let .externalPrimary(binding) = ownership,
+              binding.kind == .imageLayerBlend,
+              binding.consumerLayerID == effectKey.layerID,
+              binding.slot.effectID == effectKey.descriptorID,
+              binding.slot.passIndex == 0,
+              binding.slot.slotIndex == 1,
+              binding.blendMode == 0,
+              let programs = programsByKey[effectKey],
+              programs.count == 1,
+              let program = programs.first,
+              let blend = program.executionPlan.blend,
+              blend.layerID == binding.consumerLayerID,
+              blend.effectKey == effectKey,
+              blend.dependencyProviderLayerID == binding.providerLayerID else {
+            return nil
+        }
+        return program
     }
 
     private static func dependencyOwnershipMatches(
@@ -131,9 +213,20 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     || plan.dependencySlotIndex != nil else { return nil }
             return (program, plan)
         }
+        let imageBlendDependencyStages = stages.compactMap { stage -> (
+            program: SceneEffectStageProgram,
+            plan: SceneBlendExecutionPlan
+        )? in
+            guard case let .dedicated(_, program, _) = stage,
+                  let plan = program.executionPlan.blend,
+                  plan.dependencyProviderLayerID != nil else { return nil }
+            return (program, plan)
+        }
         switch ownership {
         case .none, .graphInternal:
-            return clippingStages.isEmpty && proceduralDependencyStages.isEmpty
+            return clippingStages.isEmpty
+                && proceduralDependencyStages.isEmpty
+                && imageBlendDependencyStages.isEmpty
 
         case let .externalPrimary(binding):
             guard binding.consumerLayerID == layerID else { return false }
@@ -142,6 +235,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 guard binding.slot.slotIndex == 1,
                       clippingStages.count == 1,
                       proceduralDependencyStages.isEmpty,
+                      imageBlendDependencyStages.isEmpty,
                       let clipping = clippingStages.first else { return false }
                 let program = clipping.program
                 let plan = clipping.plan
@@ -162,6 +256,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                       binding.slot.slotIndex == 3,
                       binding.blendMode == 0,
                       clippingStages.isEmpty,
+                      imageBlendDependencyStages.isEmpty,
                       proceduralDependencyStages.count == 1,
                       let procedural = proceduralDependencyStages.first else {
                     return false
@@ -177,6 +272,29 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     && plan.variant == .worleyColorV1
                     && plan.dependencyProviderLayerID == binding.providerLayerID
                     && plan.dependencySlotIndex == binding.slot.slotIndex
+                    && plan.renderGraph.effects.count == 1
+                    && plan.renderGraph.nodes.count == 1
+                    && plan.renderGraph.renderTargets.isEmpty
+                    && plan.renderGraph.nodes.first?.instancePassIndex
+                        == binding.slot.passIndex
+            case .imageLayerBlend:
+                guard binding.slot.passIndex == 0,
+                      binding.slot.slotIndex == 1,
+                      binding.blendMode == 0,
+                      clippingStages.isEmpty,
+                      proceduralDependencyStages.isEmpty,
+                      imageBlendDependencyStages.count == 1,
+                      let blend = imageBlendDependencyStages.first else {
+                    return false
+                }
+                let program = blend.program
+                let plan = blend.plan
+                return program.effectKey == plan.effectKey
+                    && program.stageGraph.effects.first?.key == plan.effectKey
+                    && plan.layerID == layerID
+                    && plan.effectKey.layerID == layerID
+                    && plan.effectKey.descriptorID == binding.slot.effectID
+                    && plan.dependencyProviderLayerID == binding.providerLayerID
                     && plan.renderGraph.effects.count == 1
                     && plan.renderGraph.nodes.count == 1
                     && plan.renderGraph.renderTargets.isEmpty

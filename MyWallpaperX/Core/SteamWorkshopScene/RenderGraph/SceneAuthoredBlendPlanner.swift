@@ -7,6 +7,7 @@ enum SceneAuthoredBlendPlanner {
     private struct TextureSelection {
         let assetPath: String
         let propertyKey: String?
+        let dependencyProviderLayerID: Int?
     }
 
     private struct Multiply {
@@ -81,7 +82,8 @@ enum SceneAuthoredBlendPlanner {
             writesAlpha: writesAlpha,
             dynamicMultiplyBinding: multiply.dynamicBinding,
             assetTexturePath: selection.assetPath,
-            userPropertyKey: selection.propertyKey
+            userPropertyKey: selection.propertyKey,
+            dependencyProviderLayerID: selection.dependencyProviderLayerID
         )
     }
 
@@ -194,7 +196,11 @@ enum SceneAuthoredBlendPlanner {
               ) != nil else {
             return false
         }
-        return SceneNamedTextureReference.parse(path) == nil
+        if SceneNamedTextureReference.parse(path) == nil {
+            return true
+        }
+        return SceneImageLayerBlendDependencyContract.declaration(for: descriptor)
+            != nil
     }
 
     private nonisolated static func validUserTextureInputs(
@@ -217,11 +223,24 @@ enum SceneAuthoredBlendPlanner {
               slot.candidates[0].provenance == .instance,
               case .asset(let assetPath) = slot.candidates[0].source,
               !assetPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              SceneNamedTextureReference.parse(assetPath) == nil else {
+              !assetPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
         }
+        if let reference = SceneNamedTextureReference.parse(assetPath) {
+            guard reference.variant == .primary,
+                  slot.candidates.count == 1 else { return nil }
+            return TextureSelection(
+                assetPath: assetPath,
+                propertyKey: nil,
+                dependencyProviderLayerID: reference.providerLayerID
+            )
+        }
         guard slot.candidates.count == 2 else {
-            return TextureSelection(assetPath: assetPath, propertyKey: nil)
+            return TextureSelection(
+                assetPath: assetPath,
+                propertyKey: nil,
+                dependencyProviderLayerID: nil
+            )
         }
         let propertyCandidate = slot.candidates[1]
         guard propertyCandidate.provenance == .userTexture,
@@ -230,7 +249,11 @@ enum SceneAuthoredBlendPlanner {
               texturePropertyKeys.contains(input.value) else {
             return nil
         }
-        return TextureSelection(assetPath: assetPath, propertyKey: input.value)
+        return TextureSelection(
+            assetPath: assetPath,
+            propertyKey: input.value,
+            dependencyProviderLayerID: nil
+        )
     }
 
     private nonisolated static func validRenderState(

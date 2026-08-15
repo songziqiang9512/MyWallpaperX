@@ -87,6 +87,11 @@ enum DebugScenePlaybackRunner {
                 model: model,
                 to: evidenceDirectory
             )
+            if let evidenceDirectory {
+                scheduleAudioScaledValueEvidence(
+                    outputDirectory: evidenceDirectory
+                )
+            }
 
             let snapshot = SceneDesktopWallpaperHost.shared.debugSnapshot()
             let imageLayerCount = model.renderDescriptor.layers.filter(\.isImageRenderable).count
@@ -110,8 +115,10 @@ enum DebugScenePlaybackRunner {
                     setPointerOutside()
                     schedulePointerSnapshots(
                         outputDirectory: evidenceDirectory,
-                        hoverPointer: hoverPointer
+                        hoverPointer: hoverPointer,
+                        stationaryEntry: requestedHoverPointerStationaryEntry
                     )
+                    schedulePeriodicSnapshots(outputDirectory: evidenceDirectory)
                 } else {
                     scheduleSnapshots(outputDirectory: evidenceDirectory)
                 }
@@ -153,6 +160,49 @@ enum DebugScenePlaybackRunner {
         return outputURL
     }
 
+    private static func scheduleAudioScaledValueEvidence(
+        outputDirectory: URL
+    ) {
+        let delay = min(
+            max(2, requestedAfterSnapshotDelay + 0.25),
+            requestedDuration - 0.75
+        )
+        guard delay > 0 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            let snapshot = SceneDesktopWallpaperHost.shared
+                .debugAudioScaledValueSnapshot()
+            guard !snapshot.bindings.isEmpty else { return }
+            let outputURL = outputDirectory.appendingPathComponent(
+                "scene-audio-scaled-value-evidence.json"
+            )
+            do {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                try encoder.encode(snapshot).write(to: outputURL, options: [.atomic])
+                let bindings = snapshot.bindings.map {
+                    let value = $0.effectiveValue.map { String($0) }
+                        .joined(separator: ":")
+                    let particleCount = $0.liveParticleCount.map(String.init) ?? "-"
+                    return "\($0.layerID):\($0.target):\(value):"
+                        + particleCount
+                }.joined(separator: ",")
+                NSLog(
+                    "MWX DEBUG SCENE: phase=audio-scaled-value frame=%llu audioGeneration=%llu silent=%@ bindings=%@ evidence=%@",
+                    snapshot.frameIndex,
+                    snapshot.audioGeneration,
+                    snapshot.audioWasSilent ? "true" : "false",
+                    bindings,
+                    outputURL.path
+                )
+            } catch {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=audio-scaled-value-failed error=%@",
+                    error.localizedDescription
+                )
+            }
+        }
+    }
+
     private static func scheduleStop(after duration: TimeInterval) {
         DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
             let before = SceneDesktopWallpaperHost.shared.debugSnapshot()
@@ -175,37 +225,63 @@ enum DebugScenePlaybackRunner {
                 requestSnapshot(reason: reason, outputDirectory: outputDirectory)
             }
         }
-        guard ProcessInfo.processInfo.arguments.contains(
-            "--mwx-debug-scene-periodic-snapshots"
-        ) else { return }
-        var delay: TimeInterval = 5
-        while delay < requestedDuration - 1 {
-            let reason = "t\(Int(delay))"
+        schedulePeriodicSnapshots(outputDirectory: outputDirectory)
+    }
+
+    private static func schedulePeriodicSnapshots(outputDirectory: URL) {
+        guard let interval = requestedPeriodicSnapshotInterval else { return }
+        var delay = max(1.5, interval)
+        var index = 0
+        while delay < requestedDuration - 0.5 {
+            let reason = String(format: "series-%04d", index)
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 requestSnapshot(reason: reason, outputDirectory: outputDirectory)
             }
-            delay += 5
+            delay += interval
+            index += 1
         }
     }
 
     private static func schedulePointerSnapshots(
         outputDirectory: URL,
-        hoverPointer: SIMD2<Float>
+        hoverPointer: SIMD2<Float>,
+        stationaryEntry: Bool
     ) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             requestSnapshot(reason: "before", outputDirectory: outputDirectory)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                if stationaryEntry {
+                    holdPointer(at: hoverPointer)
+                    scheduleHoverSnapshot(
+                        outputDirectory: outputDirectory,
+                        after: 0.28
+                    )
+                } else {
+                    movePointer(to: hoverPointer)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                        holdPointer(at: hoverPointer)
+                        scheduleHoverSnapshot(
+                            outputDirectory: outputDirectory,
+                            after: 0.2
+                        )
+                    }
+                }
+            }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
-            setPointer(hoverPointer)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+    }
+
+    private static func scheduleHoverSnapshot(
+        outputDirectory: URL,
+        after delay: TimeInterval
+    ) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             requestSnapshot(reason: "hover", outputDirectory: outputDirectory)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
-            setPointerOutside()
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-            requestSnapshot(reason: "after", outputDirectory: outputDirectory)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                setPointerOutside()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    requestSnapshot(reason: "after", outputDirectory: outputDirectory)
+                }
+            }
         }
     }
 
@@ -231,7 +307,28 @@ enum DebugScenePlaybackRunner {
         }
     }
 
-    private static func setPointer(_ normalized: SIMD2<Float>) {
+    private static func movePointer(to normalized: SIMD2<Float>) {
+        let approach: Float = normalized.x >= 0 ? -0.08 : 0.08
+        let previous = SIMD2<Float>(
+            min(max(normalized.x + approach, -1), 1),
+            normalized.y
+        )
+        SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init(
+            current: normalized,
+            previous: previous,
+            isInside: true,
+            isPrimaryButtonDown: false
+        ))
+        NSLog(
+            "MWX DEBUG SCENE: phase=pointer-state state=move x=%.6f y=%.6f previousX=%.6f previousY=%.6f",
+            normalized.x,
+            normalized.y,
+            previous.x,
+            previous.y
+        )
+    }
+
+    private static func holdPointer(at normalized: SIMD2<Float>) {
         SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init(
             current: normalized,
             previous: normalized,
@@ -239,7 +336,7 @@ enum DebugScenePlaybackRunner {
             isPrimaryButtonDown: false
         ))
         NSLog(
-            "MWX DEBUG SCENE: phase=pointer-state state=hover x=%.6f y=%.6f",
+            "MWX DEBUG SCENE: phase=pointer-state state=hold x=%.6f y=%.6f",
             normalized.x,
             normalized.y
         )
@@ -289,6 +386,20 @@ enum DebugScenePlaybackRunner {
         return min(max(delay, 1.1), requestedDuration - 0.5)
     }
 
+    private static var requestedPeriodicSnapshotInterval: TimeInterval? {
+        if let raw = argumentValue(
+            after: "--mwx-debug-scene-periodic-snapshot-interval"
+        ),
+           let interval = TimeInterval(raw),
+           interval.isFinite,
+           interval >= 0.08 {
+            return min(interval, 10)
+        }
+        return ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-periodic-snapshots"
+        ) ? 5 : nil
+    }
+
     private static var requestedHoverPointer: SIMD2<Float>? {
         guard let payload = argumentValue(
             after: "--mwx-debug-scene-hover-pointer-json"
@@ -305,6 +416,12 @@ enum DebugScenePlaybackRunner {
             return nil
         }
         return SIMD2(Float(x), Float(y))
+    }
+
+    private static var requestedHoverPointerStationaryEntry: Bool {
+        ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-hover-pointer-stationary-entry"
+        )
     }
 
     private static func isIsolatedSampleRoot(_ rootURL: URL) -> Bool {

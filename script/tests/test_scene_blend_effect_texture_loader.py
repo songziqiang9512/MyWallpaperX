@@ -25,6 +25,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
     SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
+    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SCENE_ROOT / "Resources/SceneBlendEffectTextureLoader.swift",
 ]

@@ -164,6 +164,10 @@ struct SceneMetalRenderer {
                 )
                 _ = dependencyRuntime.captureProviderIfRequired(
                     layer: layer,
+                    sourceTexture: imageTextures[layer.id],
+                    sourceCandidate: imageTextures[layer.id].flatMap {
+                        imageTextures.candidate(for: layer.id, matching: $0)
+                    },
                     layerMVP: cameraFrame.orthographicViewProjection * providerModel,
                     viewportSize: viewportSize,
                     pipeline: imagePipeline,

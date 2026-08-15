@@ -8,18 +8,37 @@ nonisolated enum SceneLaunchOriginTransitionProgramCompiler {
         scriptBindings: [SceneScriptBindingIR],
         scriptSourceEvidence: [SceneScriptSourceEvidenceIR]
     ) -> SceneLaunchOriginTransitionProgram {
-        let exemptOriginEvidence = originEvidenceIdentities(
+        let originEvidence = originEvidenceIdentities(
             descriptor: descriptor,
             scriptBindings: scriptBindings
         )
+        var scalarCandidates: [String: [ScalarCandidate]] = [:]
+        var invalidScalarFlags: Set<String> = []
+        for binding in scriptBindings where isPassScalar(binding) {
+            guard let syntax = SceneSharedBooleanEffectScalarSyntax.parse(
+                binding.source
+            ) else { continue }
+            guard let candidate = projectScalar(
+                binding,
+                syntax: syntax,
+                descriptor: descriptor
+            ) else {
+                invalidScalarFlags.insert(syntax.sharedFlag)
+                continue
+            }
+            scalarCandidates[syntax.sharedFlag, default: []].append(candidate)
+        }
+        let scalarEvidence = scalarCandidates.values.flatMap { candidates in
+            candidates.map(\.evidenceIdentity)
+        }
         let initializers = initializerFacts(
             scriptSourceEvidence,
             descriptor: descriptor,
-            exemptOriginEvidence: exemptOriginEvidence
+            exemptEvidence: originEvidence + scalarEvidence
         )
         guard !initializers.hasUnattributedMalformed else { return .empty }
         var candidates: [String: [Candidate]] = [:]
-        var invalidFlags = initializers.invalidFlags
+        var invalidFlags = initializers.invalidFlags.union(invalidScalarFlags)
 
         for binding in scriptBindings where isObjectOrigin(binding) {
             guard let syntax = SceneLaunchOriginTransitionSyntax.parse(binding.source) else {
@@ -48,15 +67,19 @@ nonisolated enum SceneLaunchOriginTransitionProgramCompiler {
                 continue
             }
             let masters = group.filter { $0.binding.role == .master }
+            let scalars = scalarCandidates[flag, default: []]
             guard masters.count == 1,
                   group.contains(where: { $0.binding.role == .follower }),
-                  Set(group.map(\.binding.definition.target)).count == group.count else {
+                  Set(group.map(\.binding.definition.target)).count == group.count,
+                  Set(scalars.map(\.binding.definition.target)).count
+                    == scalars.count else {
                 continue
             }
             cohorts.append(SceneLaunchOriginTransitionCohort(
                 sharedFlag: flag,
                 masterTarget: masters[0].binding.definition.target,
-                bindings: group.sorted(by: candidateOrder).map(\.binding)
+                bindings: group.sorted(by: candidateOrder).map(\.binding),
+                scalarBindings: scalars.sorted(by: scalarCandidateOrder).map(\.binding)
             ))
         }
         return SceneLaunchOriginTransitionProgram.validated(cohorts: cohorts) ?? .empty
@@ -65,6 +88,15 @@ nonisolated enum SceneLaunchOriginTransitionProgramCompiler {
     private struct Candidate {
         let objectIndex: Int
         let binding: SceneLaunchOriginTransitionBinding
+    }
+
+    private struct ScalarCandidate {
+        let objectIndex: Int
+        let effectIndex: Int
+        let passIndex: Int
+        let name: String
+        let binding: SceneSharedBooleanEffectScalarBinding
+        let evidenceIdentity: OriginEvidenceIdentity
     }
 
     private struct InitializerFacts {
@@ -89,11 +121,11 @@ nonisolated enum SceneLaunchOriginTransitionProgramCompiler {
     private static func initializerFacts(
         _ evidence: [SceneScriptSourceEvidenceIR],
         descriptor: SceneRenderDescriptor,
-        exemptOriginEvidence: [OriginEvidenceIdentity]
+        exemptEvidence: [OriginEvidenceIdentity]
     ) -> InitializerFacts {
         var result = InitializerFacts()
         for item in evidence {
-            if exemptOriginEvidence.contains(where: { $0.matches(item) }) { continue }
+            if exemptEvidence.contains(where: { $0.matches(item) }) { continue }
             let hasExactIdentity = isExactInitializerCandidate(
                 item,
                 descriptor: descriptor
@@ -247,6 +279,82 @@ nonisolated enum SceneLaunchOriginTransitionProgramCompiler {
         )
     }
 
+    private static func projectScalar(
+        _ source: SceneScriptBindingIR,
+        syntax: SceneSharedBooleanEffectScalarSyntax.Profile,
+        descriptor: SceneRenderDescriptor
+    ) -> ScalarCandidate? {
+        guard source.owner.kind == .pass,
+              source.wrapperKeys == ["script", "value"],
+              source.properties.isEmpty,
+              source.valueType == .number,
+              let authored = source.authoredValue?.numberValue,
+              authored.isFinite,
+              (0...1).contains(authored),
+              let objectIndex = source.owner.objectIndex,
+              let layerID = source.owner.objectID,
+              let effectIndex = source.owner.effectIndex,
+              let passIndex = source.owner.passIndex,
+              descriptor.layers.indices.contains(objectIndex),
+              descriptor.layers[objectIndex].id == layerID,
+              descriptor.layers[objectIndex].layerIndex == objectIndex,
+              descriptor.layers[objectIndex].effects.indices.contains(effectIndex) else {
+            return nil
+        }
+        let effect = descriptor.layers[objectIndex].effects[effectIndex]
+        guard effect.effectID == source.owner.effectID,
+              effect.passes.indices.contains(passIndex) else { return nil }
+        let pass = effect.passes[passIndex]
+        let name = source.targetKey
+        guard pass.passIndex == passIndex,
+              pass.id == source.owner.passID,
+              !name.isEmpty,
+              source.targetPath == effectConstantPath(
+                  objectIndex: objectIndex,
+                  effectIndex: effectIndex,
+                  passIndex: passIndex,
+                  name: name
+              ),
+              let value = pass.constantShaderValues[name],
+              value.valueKind.localizedLowercase == "binding",
+              value.userBinding == nil,
+              value.timeline == nil,
+              value.timelineDiagnostics.isEmpty,
+              value.scriptSource == source.source,
+              value.bindingKeys.sorted() == ["script", "value"],
+              value.components?.count == 1,
+              value.components?.first?.bitPattern == authored.bitPattern else {
+            return nil
+        }
+        let target = SceneDynamicTarget.effectConstant(
+            layerID: layerID,
+            effectIndex: effectIndex,
+            passIndex: passIndex,
+            name: name
+        )
+        return ScalarCandidate(
+            objectIndex: objectIndex,
+            effectIndex: effectIndex,
+            passIndex: passIndex,
+            name: name,
+            binding: SceneSharedBooleanEffectScalarBinding(
+                definition: SceneDynamicTargetDefinition(
+                    target: target,
+                    valueType: .scalar,
+                    authoredValue: .scalar(authored)
+                ),
+                trueValue: syntax.trueValue,
+                falseValue: syntax.falseValue
+            ),
+            evidenceIdentity: OriginEvidenceIdentity(
+                source: source.source,
+                owner: source.owner,
+                targetPath: source.targetPath,
+                wrapperKeys: source.wrapperKeys ?? []
+            )
+        )
+    }
+
     private static func vectorInput(
         _ properties: [String: SceneJSONValue],
         names: [String]
@@ -306,6 +414,10 @@ nonisolated enum SceneLaunchOriginTransitionProgramCompiler {
         binding.owner.kind == .object && binding.targetKey == "origin"
     }
 
+    private static func isPassScalar(_ binding: SceneScriptBindingIR) -> Bool {
+        binding.owner.kind == .pass && binding.valueType == .number
+    }
+
     private static func objectPath(
         index: Int,
         key: String
@@ -313,8 +425,32 @@ nonisolated enum SceneLaunchOriginTransitionProgramCompiler {
         [.key("objects"), .index(index), .key(key)]
     }
 
+    private static func effectConstantPath(
+        objectIndex: Int,
+        effectIndex: Int,
+        passIndex: Int,
+        name: String
+    ) -> [SceneScriptBindingPathComponent] {
+        [
+            .key("objects"), .index(objectIndex),
+            .key("effects"), .index(effectIndex),
+            .key("passes"), .index(passIndex),
+            .key("constantshadervalues"), .key(name),
+        ]
+    }
+
     private static func candidateOrder(_ lhs: Candidate, _ rhs: Candidate) -> Bool {
         if lhs.binding.role != rhs.binding.role { return lhs.binding.role == .master }
         return lhs.objectIndex < rhs.objectIndex
+    }
+
+    private static func scalarCandidateOrder(
+        _ lhs: ScalarCandidate,
+        _ rhs: ScalarCandidate
+    ) -> Bool {
+        if lhs.objectIndex != rhs.objectIndex { return lhs.objectIndex < rhs.objectIndex }
+        if lhs.effectIndex != rhs.effectIndex { return lhs.effectIndex < rhs.effectIndex }
+        if lhs.passIndex != rhs.passIndex { return lhs.passIndex < rhs.passIndex }
+        return lhs.name < rhs.name
     }
 }

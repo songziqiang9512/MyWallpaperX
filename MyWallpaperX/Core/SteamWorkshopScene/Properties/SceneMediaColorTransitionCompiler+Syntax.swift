@@ -4,6 +4,7 @@ nonisolated enum SceneMediaColorTransitionSyntax {
     nonisolated struct Result: Equatable, Sendable {
         let defaultTopColor: SIMD3<Double>
         let duration: TimeInterval
+        let thumbnailColorChannel: SceneMediaThumbnailColorChannel
     }
 
     nonisolated static func parse(_ source: String) -> Result? {
@@ -171,7 +172,7 @@ nonisolated enum SceneMediaColorTransitionSyntax {
                   let oldColor = propertyReferenceDeclaration("let", property.name),
                   let timer = referenceDeclaration("let", duration),
                   Set([property.name, duration, state, newColor, oldColor, timer]).count == 6,
-                  thumbnailHook(
+                  let thumbnailColorChannel = thumbnailHook(
                       timer: timer, oldColor: oldColor, newColor: newColor,
                       globals: [property.name, duration, state, newColor, oldColor, timer]
                   ),
@@ -185,7 +186,11 @@ nonisolated enum SceneMediaColorTransitionSyntax {
                       globals: [property.name, duration, state, newColor, oldColor, timer]
                   ),
                   index == tokens.count else { return nil }
-            return Result(defaultTopColor: property.defaultColor, duration: 1)
+            return Result(
+                defaultTopColor: property.defaultColor,
+                duration: 1,
+                thumbnailColorChannel: thumbnailColorChannel
+            )
         }
 
         mutating func propertyDeclaration() -> (name: String, defaultColor: SIMD3<Double>)? {
@@ -248,14 +253,20 @@ nonisolated enum SceneMediaColorTransitionSyntax {
 
         mutating func thumbnailHook(
             timer: String, oldColor: String, newColor: String, globals: [String]
-        ) -> Bool {
+        ) -> SceneMediaThumbnailColorChannel? {
             guard function("mediaThumbnailChanged"), let event = takeBindingIdentifier(),
                   !globals.contains(event), symbol(")"), symbol("{"),
                   assignment(timer, number: 0),
                   assignment(oldColor, identifier: newColor),
                   identifier(newColor), symbol("="), identifier(event), symbol("."),
-                  identifier("secondaryColor"), endStatement(), symbol("}") else { return false }
-            return true
+                  let member = takeIdentifier(), endStatement(), symbol("}") else {
+                return nil
+            }
+            switch member {
+            case "primaryColor": return .primary
+            case "secondaryColor": return .secondary
+            default: return nil
+            }
         }
 
         mutating func playbackHook(state: String, globals: [String]) -> Bool {

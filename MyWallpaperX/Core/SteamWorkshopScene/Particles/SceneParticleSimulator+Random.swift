@@ -1,7 +1,7 @@
 import Foundation
 
 extension SceneParticleSimulator {
-    nonisolated mutating func randomScalar(
+    nonisolated func randomScalar(
         _ value: SceneParticleInitializer, defaults: (Double, Double)
     ) -> Double {
         randomValue(
@@ -11,7 +11,7 @@ extension SceneParticleSimulator {
         )
     }
 
-    nonisolated mutating func randomVector(
+    nonisolated func randomVector(
         _ value: SceneParticleInitializer,
         defaults: (SIMD3<Double>, SIMD3<Double>)
     ) -> SIMD3<Double> {
@@ -24,7 +24,7 @@ extension SceneParticleSimulator {
         )
     }
 
-    nonisolated mutating func randomColor(
+    nonisolated func randomColor(
         _ value: SceneParticleInitializer,
         defaults: (SIMD3<Double>, SIMD3<Double>)
     ) -> SIMD3<Double> {
@@ -33,7 +33,7 @@ extension SceneParticleSimulator {
         return minimum + (maximum - minimum) * randomFactor(exponent: value.exponent)
     }
 
-    nonisolated mutating func randomColorFromList(
+    nonisolated func randomColorFromList(
         _ value: SceneParticleInitializer
     ) -> SIMD3<Double>? {
         guard let colors = value.boundedColorList else { return nil }
@@ -41,7 +41,7 @@ extension SceneParticleSimulator {
         return colors[index]
     }
 
-    nonisolated mutating func randomHSVColor(
+    nonisolated func randomHSVColor(
         _ value: SceneParticleInitializer
     ) -> SIMD3<Double>? {
         guard let plan = value.boundedHSVColor else { return nil }
@@ -60,7 +60,7 @@ extension SceneParticleSimulator {
         )
     }
 
-    private nonisolated mutating func randomValue(
+    private nonisolated func randomValue(
         _ first: Double,
         _ second: Double,
         exponent: Double?
@@ -69,7 +69,7 @@ extension SceneParticleSimulator {
         return lower + randomFactor(exponent: exponent) * (max(first, second) - lower)
     }
 
-    private nonisolated mutating func randomFactor(exponent: Double?) -> Double {
+    private nonisolated func randomFactor(exponent: Double?) -> Double {
         let factor = random.unit()
         guard let exponent, exponent.isFinite, exponent >= 0 else { return factor }
         return pow(factor, exponent)
@@ -84,7 +84,7 @@ extension SceneParticleSimulator {
         return generator.value(first, second)
     }
 
-    nonisolated mutating func randomSphereOffset(
+    nonisolated func randomSphereOffset(
         _ emitter: SceneParticleEmitter
     ) -> SIMD3<Double> {
         let directions = SceneParticleSimulationMath.vector(
@@ -127,7 +127,7 @@ extension SceneParticleSimulator {
         return result
     }
 
-    nonisolated mutating func randomBoxOffset(
+    nonisolated func randomBoxOffset(
         _ emitter: SceneParticleEmitter
     ) -> SIMD3<Double> {
         let minimum = SceneParticleSimulationMath.vector(
@@ -147,7 +147,7 @@ extension SceneParticleSimulator {
         ) * direction
     }
 
-    private nonisolated mutating func randomBoxComponent(
+    private nonisolated func randomBoxComponent(
         _ rawMinimum: Double,
         _ rawMaximum: Double
     ) -> Double {

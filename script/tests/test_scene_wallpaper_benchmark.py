@@ -523,19 +523,169 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                         {"hover_pointer_normalized": value}
                     )
 
+    def test_hover_pointer_stationary_entry_accepts_only_boolean(self) -> None:
+        self.assertFalse(benchmark.hover_pointer_stationary_entry({}))
+        self.assertTrue(benchmark.hover_pointer_stationary_entry({
+            "hover_pointer_stationary_entry": True
+        }))
+        for value in (0, 1, "true", None):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    benchmark.hover_pointer_stationary_entry({
+                        "hover_pointer_stationary_entry": value
+                    })
+
     def test_debug_runner_sequences_before_hover_and_after_frames(self) -> None:
         source = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("--mwx-debug-scene-hover-pointer-json", source)
+        self.assertIn("--mwx-debug-scene-hover-pointer-stationary-entry", source)
         self.assertIn("--mwx-debug-scene-after-snapshot-delay", source)
+        self.assertIn("--mwx-debug-scene-periodic-snapshot-interval", source)
+        self.assertIn('String(format: "series-%04d", index)', source)
+        self.assertIn("interval >= 0.08", source)
+        self.assertIn(
+            "schedulePeriodicSnapshots(outputDirectory: evidenceDirectory)",
+            source,
+        )
         before = source.index('requestSnapshot(reason: "before"')
-        hover_state = source.index("setPointer(hoverPointer)", before)
-        hover = source.index('requestSnapshot(reason: "hover"', hover_state)
+        move_state = source.index("movePointer(to: hoverPointer)", before)
+        hold_state = source.index("holdPointer(at: hoverPointer)", move_state)
+        hover = source.index('reason: "hover"', hold_state)
         outside = source.index("setPointerOutside()", hover)
-        after = source.index('requestSnapshot(reason: "after"', outside)
-        self.assertLess(before, hover_state)
-        self.assertLess(hover_state, hover)
+        after = source.index('reason: "after"', outside)
+        self.assertLess(before, move_state)
+        self.assertLess(move_state, hold_state)
+        self.assertLess(hold_state, hover)
         self.assertLess(hover, outside)
         self.assertLess(outside, after)
+        self.assertIn("previous: previous", source)
+        self.assertIn("state=move", source)
+        self.assertIn("state=hold", source)
+
+    def test_cursor_ripple_persistence_accepts_expansion_and_decay_after_exit(
+        self,
+    ) -> None:
+        def row(
+            *, active: int, bounds: str, maximum: int, inside: bool,
+            movement: float,
+        ) -> str:
+            return (
+                "MWX DEBUG SCENE: phase=cursor-ripple-state layer=68 effect=0 "
+                "descriptor=68%23effect%230 status=completed width=256 height=256 "
+                f"output=ObjectIdentifier(0x1) activePixels={active} "
+                f"bounds={bounds} max={maximum} sum={active * maximum} "
+                "current=0.500000,0.500000 previous=0.400000,0.500000 "
+                f"inside={'true' if inside else 'false'} previousInside=true "
+                f"movement={movement:.6f} mask=false frameTime=0.016667"
+            )
+
+        log_text = "\n".join([
+            row(active=600, bounds="90,120,125,136", maximum=190,
+                inside=True, movement=0.04),
+            row(active=900, bounds="86,116,129,140", maximum=184,
+                inside=True, movement=0),
+            row(active=1300, bounds="82,112,133,144", maximum=176,
+                inside=False, movement=0),
+            row(active=1900, bounds="76,106,139,150", maximum=160,
+                inside=False, movement=0),
+            row(active=2600, bounds="70,100,145,156", maximum=142,
+                inside=False, movement=0),
+        ])
+        metrics = benchmark.cursor_ripple_persistence_metrics(log_text)
+        self.assertTrue(metrics["accepted"])
+        self.assertEqual(metrics["record_count"], 5)
+        self.assertEqual(metrics["selected"]["post_exit_nonzero_frames"], 3)
+        self.assertTrue(metrics["selected"]["expanded_width"])
+        self.assertTrue(metrics["selected"]["expanded_height"])
+        self.assertTrue(metrics["selected"]["peak_decayed"])
+        self.assertEqual(
+            benchmark.cursor_ripple_persistence_failures(metrics, True),
+            [],
+        )
+
+    def test_cursor_ripple_persistence_rejects_missing_movement_injection(
+        self,
+    ) -> None:
+        log_text = (
+            "MWX DEBUG SCENE: phase=cursor-ripple-state layer=68 effect=0 "
+            "descriptor=68%23effect%230 status=completed width=256 height=256 "
+            "output=ObjectIdentifier(0x1) activePixels=12 bounds=1,1,3,4 "
+            "max=20 sum=100 current=0.5,0.5 previous=0.5,0.5 "
+            "inside=true previousInside=true movement=0.000000 mask=false"
+        )
+        metrics = benchmark.cursor_ripple_persistence_metrics(log_text)
+        self.assertFalse(metrics["accepted"])
+        self.assertEqual(
+            benchmark.cursor_ripple_persistence_failures(metrics, True),
+            ["cursor ripple movement injection evidence missing"],
+        )
+
+    def test_cursor_ripple_persistence_rejects_immediate_disappearance(self) -> None:
+        injection = (
+            "MWX DEBUG SCENE: phase=cursor-ripple-state layer=68 effect=0 "
+            "descriptor=68%23effect%230 status=completed width=256 height=256 "
+            "output=ObjectIdentifier(0x1) activePixels=600 bounds=90,120,125,136 "
+            "max=190 sum=114000 current=0.5,0.5 previous=0.4,0.5 "
+            "inside=true previousInside=true movement=0.040000 mask=false"
+        )
+        vanished = (
+            "MWX DEBUG SCENE: phase=cursor-ripple-state layer=68 effect=0 "
+            "descriptor=68%23effect%230 status=completed width=256 height=256 "
+            "output=ObjectIdentifier(0x1) activePixels=0 bounds=256,256,-1,-1 "
+            "max=0 sum=0 current=0.5,0.5 previous=0.5,0.5 "
+            "inside=false previousInside=true movement=0.000000 mask=false"
+        )
+        metrics = benchmark.cursor_ripple_persistence_metrics(
+            "\n".join([injection, vanished, vanished, vanished])
+        )
+        failures = benchmark.cursor_ripple_persistence_failures(metrics, True)
+        self.assertIn(
+            "cursor ripple disappeared before three post-exit GPU frames",
+            failures,
+        )
+        self.assertIn(
+            "cursor ripple extent did not expand after pointer exit",
+            failures,
+        )
+
+    def test_cursor_ripple_visible_output_must_persist_expand_and_decay(self) -> None:
+        def row(
+            *, changed: int, bounds: str, maximum: int, inside: bool,
+            movement: float,
+        ) -> str:
+            return (
+                "MWX DEBUG SCENE: phase=cursor-ripple-visible layer=68 effect=0 "
+                "descriptor=68%23effect%230 status=completed width=1168 height=1168 "
+                f"changedPixels={changed} bounds={bounds} max={maximum} "
+                f"sum={changed * maximum} current=0.500000,0.500000 "
+                "previous=0.400000,0.500000 "
+                f"inside={'true' if inside else 'false'} previousInside=true "
+                f"movement={movement:.6f}"
+            )
+
+        log_text = "\n".join([
+            row(changed=800, bounds="420,500,560,540", maximum=190,
+                inside=True, movement=0.04),
+            row(changed=1200, bounds="400,480,580,560", maximum=174,
+                inside=False, movement=0),
+            row(changed=1900, bounds="370,450,610,590", maximum=158,
+                inside=False, movement=0),
+            row(changed=2600, bounds="330,410,650,630", maximum=140,
+                inside=False, movement=0),
+            row(changed=1000, bounds="300,380,680,660", maximum=80,
+                inside=False, movement=0),
+        ])
+        metrics = benchmark.cursor_ripple_visible_metrics(log_text)
+        self.assertTrue(metrics["accepted"])
+        self.assertEqual(metrics["selected"]["post_exit_nonzero_frames"], 4)
+        self.assertTrue(metrics["selected"]["visible_sum_decayed"])
+        self.assertEqual(benchmark.cursor_ripple_visible_failures(metrics, True), [])
+
+        missing = benchmark.cursor_ripple_visible_metrics("")
+        self.assertEqual(
+            benchmark.cursor_ripple_visible_failures(missing, True),
+            ["cursor ripple visible output evidence missing"],
+        )
 
     def test_copy_sample_requires_project_and_package(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-") as directory:
@@ -1203,6 +1353,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 "cover.png",
                 runtime_sample,
                 event_failures,
+                primary_color=[1, 0.25, 0],
                 secondary_color=[0.125, 0.5, 1],
                 playback_state=1,
             )
@@ -1211,6 +1362,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 "MyWallpaperX",
                 "--mwx-debug-scene-media-thumbnail",
                 "cover.png",
+                "--mwx-debug-scene-media-primary-color-json",
+                "[1.0,0.25,0.0]",
                 "--mwx-debug-scene-media-secondary-color-json",
                 "[0.125,0.5,1.0]",
                 "--mwx-debug-scene-media-playback-state",
@@ -1611,6 +1764,61 @@ particle skipped transparent: 1
                 "particle layer 202 should be loaded",
                 "particle refract loaded count mismatch",
             ],
+        )
+
+    def test_audio_scaled_value_evidence_joins_typed_targets_and_live_batches(self) -> None:
+        preview = (
+            "scene audio scaled value: schema=bounded-audio-scaled-value-v1 "
+            "bindings=3 rejectedParticleLayerIDs=[1991, 85705] "
+            "rejectedScaleLayerIDs=[9002] resolution=16\n"
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "scene-audio-scaled-value-evidence.json"
+            path.write_text(json.dumps({
+                "schemaVersion": 1,
+                "frameIndex": 420,
+                "audioGeneration": 7,
+                "audioWasSilent": True,
+                "bindings": [
+                    {"layerID": 31057, "target": "particle.rate",
+                     "effectiveValue": [1.6],
+                     "liveParticleCount": 502},
+                    {"layerID": 1314, "target": "layer.scale",
+                     "effectiveValue": [0.8, 0.8, 0.8],
+                     "liveParticleCount": None},
+                    {"layerID": 5944, "target": "particle.rate",
+                     "effectiveValue": [0.8],
+                     "liveParticleCount": 239},
+                ],
+            }), encoding="utf-8")
+            metrics = benchmark.audio_scaled_value_evidence_metrics(preview, path)
+        self.assertTrue(metrics["has_evidence"])
+        self.assertEqual(metrics["expected_binding_count"], 3)
+        self.assertEqual(metrics["rejected_particle_layer_ids"], [1991, 85705])
+        self.assertEqual(metrics["rejected_scale_layer_ids"], [9002])
+        self.assertEqual(metrics["frame_index"], 420)
+        self.assertTrue(metrics["audio_was_silent"])
+        self.assertEqual(
+            metrics["bindings"],
+            [
+                {"layer_id": 1314, "target": "layer.scale",
+                 "effective_value": [0.8, 0.8, 0.8],
+                 "live_particle_count": None},
+                {"layer_id": 5944, "target": "particle.rate",
+                 "effective_value": [0.8],
+                 "live_particle_count": 239},
+                {"layer_id": 31057, "target": "particle.rate",
+                 "effective_value": [1.6],
+                 "live_particle_count": 502},
+            ],
+        )
+        self.assertEqual(metrics["failures"], [])
+
+        missing = benchmark.audio_scaled_value_evidence_metrics(
+            preview, Path("/definitely/missing/audio-scaled-value.json")
+        )
+        self.assertEqual(
+            missing["failures"], ["audio scaled value evidence missing"]
         )
 
     def test_utility_runtime_fixture_preserves_distinct_dispositions(self) -> None:
@@ -3780,6 +3988,21 @@ utility layer 763: skippedHidden kind=composition
         finally:
             sys.argv = old_argv
         self.assertTrue(args.require_graph_execution)
+
+    def test_cursor_ripple_persistence_can_be_required_from_cli(self) -> None:
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "scene_wallpaper_benchmark.py",
+                "--app", "/tmp/MyWallpaperX",
+                "--sample-root", "/tmp/samples",
+                "--output-dir", "/tmp/results",
+                "--require-cursor-ripple-persistence",
+            ]
+            args = benchmark.parse_args()
+        finally:
+            sys.argv = old_argv
+        self.assertTrue(args.require_cursor_ripple_persistence)
 
 
     def test_effect_execution_matrix_contract_is_optional_and_stable_only(self) -> None:

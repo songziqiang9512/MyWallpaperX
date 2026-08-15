@@ -65,7 +65,10 @@ enum Harness {
 
     static func main() throws {
         let binding = compile()
-        let second = compile(target: otherTarget)
+        let second = compile(
+            source: mediaColorSource(colorChannel: "primaryColor"),
+            target: otherTarget
+        )
         let program = SceneMediaColorTransitionProgram.validated(
             bindings: [binding, second].compactMap { $0 }
         )
@@ -77,6 +80,7 @@ enum Harness {
             frameTime: 0
         ), target)
         let activeThumbnail = mediaInput(
+            primaryColor: SIMD3(0.2, 0.9, 0.4),
             color: SIMD3(0.9, 0.7, 0.3), generation: 1,
             playbackState: 1, playbackGeneration: 1
         )
@@ -100,6 +104,11 @@ enum Harness {
             mediaInput: activeThumbnail,
             frameTime: 0
         ), target)
+        let primaryCompleted = vector(runtime.values(
+            effectivePropertyValues: initialUserValues,
+            mediaInput: activeThumbnail,
+            frameTime: 0
+        ), otherTarget)
         let stoppedFallback = vector(runtime.values(
             effectivePropertyValues: initialUserValues,
             mediaInput: mediaInput(
@@ -220,6 +229,13 @@ enum Harness {
         let wrongZeroOperator = compile(source: mediaColorSource(
             zeroOperator: "!="
         ))
+        let unsupportedPaletteMember = compile(source: mediaColorSource(
+            colorChannel: "tertiaryColor"
+        ))
+        let authoredWrapperOverride = compile(
+            rawValue: "1 1 1",
+            components: [1, 1, 1]
+        )
         let escapedBlackLiteral = compile(
             source: mediaColorSource().replacingOccurrences(
                 of: "\"0 0 0\"",
@@ -248,6 +264,7 @@ enum Harness {
             "firstHalfStep": firstHalfStep,
             "midpoint": midpoint,
             "completed": completed,
+            "primaryCompleted": primaryCompleted,
             "stoppedFallback": stoppedFallback,
             "liveUserFallback": liveUserFallback,
             "zeroColorFallback": zeroColorFallback,
@@ -280,6 +297,8 @@ enum Harness {
             "wrongInterpolationRejected": wrongInterpolation == nil,
             "wrongTimerOperatorRejected": wrongTimerOperator == nil,
             "wrongZeroOperatorRejected": wrongZeroOperator == nil,
+            "unsupportedPaletteMemberRejected": unsupportedPaletteMember == nil,
+            "authoredWrapperOverrideCompiled": authoredWrapperOverride != nil,
             "escapedBlackLiteralRejected": escapedBlackLiteral == nil,
             "extraHookRejected": extraHook == nil,
             "malformedSourceRejected": malformedSource == nil,
@@ -294,6 +313,7 @@ enum Harness {
 
     static func compile(
         source: String = mediaColorSource(),
+        rawValue: String = "0.2 0.4 0.6",
         keys: [String] = ["script", "scriptproperties", "value"],
         user: String? = nil,
         timeline: Int? = nil,
@@ -305,7 +325,7 @@ enum Harness {
     ) -> SceneMediaColorTransitionBinding? {
         SceneMediaColorTransitionCompiler.compile(
             value: SceneDocument.ShaderValue(
-                rawValue: "0.2 0.4 0.6",
+                rawValue: rawValue,
                 valueKind: valueKind,
                 userBinding: user,
                 components: components,
@@ -343,6 +363,7 @@ enum Harness {
     }
 
     static func mediaInput(
+        primaryColor: SIMD3<Double>? = nil,
         color: SIMD3<Double>?,
         generation: UInt64,
         playbackState: Int?,
@@ -350,6 +371,7 @@ enum Harness {
     ) -> SceneMediaThumbnailInbox.Snapshot {
         SceneMediaThumbnailInbox.Snapshot(
             current: nil,
+            primaryColor: primaryColor,
             secondaryColor: color,
             generation: generation,
             playbackState: playbackState,
@@ -364,7 +386,8 @@ enum Harness {
         updateHook: String = "update",
         interpolationMethod: String = "subtract",
         timerOperator: String = "+=",
-        zeroOperator: String = "=="
+        zeroOperator: String = "==",
+        colorChannel: String = "secondaryColor"
     ) -> String {
         """
         "use strict"
@@ -381,7 +404,7 @@ enum Harness {
         export function \(thumbnailHook)(thumbnailUpdate) {
             elapsedSeconds = 0
             outgoingTint = incomingTint
-            incomingTint = thumbnailUpdate.secondaryColor
+            incomingTint = thumbnailUpdate.\(colorChannel)
         }
 
         export function \(playbackHook)(playbackUpdate) {
@@ -526,7 +549,7 @@ enum ProgramCompilerHarness {
             descriptor: descriptor,
             bindings: [makeBinding(source: mediaColorSource() + "\n")]
         )
-        let propertyPayloadMismatch = compile(
+        let propertyPayloadOverride = compile(
             descriptor: descriptor,
             bindings: [makeBinding(properties: [
                 "topColor": .object([
@@ -558,7 +581,7 @@ enum ProgramCompilerHarness {
             "passIDMismatchRejected": passIDMismatch?.bindings.isEmpty == true,
             "targetPathMismatchRejected": pathMismatch?.bindings.isEmpty == true,
             "sourceMismatchRejected": sourceMismatch?.bindings.isEmpty == true,
-            "propertyPayloadMismatchRejected": propertyPayloadMismatch?.bindings.isEmpty == true,
+            "propertyPayloadOverrideCompiled": propertyPayloadOverride?.bindings.count == 1,
             "authoredMismatchRejected": authoredMismatch?.bindings.isEmpty == true,
             "valueTypeMismatchRejected": typeMismatch?.bindings.isEmpty == true,
             "duplicateExactTargetRejected": duplicateTarget == nil,
@@ -774,6 +797,7 @@ class SceneMediaColorTransitionTests(unittest.TestCase):
         self.assertTrue(self.result["programValidated"])
         self.assertTrue(self.result["exactVectorTarget"])
         self.assertTrue(self.result["vectorValueType"])
+        self.assertTrue(self.result["authoredWrapperOverrideCompiled"])
 
     def test_no_event_and_stopped_state_use_live_user_top_color(self) -> None:
         self.assert_vector("initial", [0.1, 0.3, 0.5])
@@ -788,6 +812,7 @@ class SceneMediaColorTransitionTests(unittest.TestCase):
         self.assert_vector("firstHalfStep", [0.1, 0.3, 0.5])
         self.assert_vector("midpoint", [0.5, 0.5, 0.4])
         self.assert_vector("completed", [0.9, 0.7, 0.3])
+        self.assert_vector("primaryCompleted", [0.2, 0.9, 0.4])
 
     def test_unknown_or_nonfinite_events_do_not_mutate_safe_state(self) -> None:
         self.assert_vector("unknownEventFallback", [0.1, 0.3, 0.5])
@@ -802,10 +827,11 @@ class SceneMediaColorTransitionTests(unittest.TestCase):
     def test_program_compiler_projects_only_lossless_pass_owned_ir(self) -> None:
         self.assertTrue(self.program_result["validPassOwnedCompiled"])
         self.assertTrue(self.program_result["exactTargetProjected"])
+        self.assertTrue(self.program_result["propertyPayloadOverrideCompiled"])
         rejected = [
             key for key in self.program_result if key.endswith("Rejected")
         ]
-        self.assertEqual(len(rejected), 11)
+        self.assertEqual(len(rejected), 10)
         self.assertTrue(
             all(self.program_result[key] for key in rejected), rejected
         )

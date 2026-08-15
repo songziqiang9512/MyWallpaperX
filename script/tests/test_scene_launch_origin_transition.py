@@ -21,6 +21,7 @@ SOURCES = [
     SCENE / "Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
     SCENE / "Properties/SceneLaunchOriginTransitionCompiler+SyntaxBody.swift",
     SCENE / "Properties/SceneLaunchOriginTransitionCompiler+Syntax.swift",
+    SCENE / "Properties/SceneSharedBooleanEffectScalarSyntax.swift",
     SCENE / "Properties/SceneLaunchOriginTransitionCompiler.swift",
     SCENE / "Properties/SceneLaunchOriginTransitionRuntime.swift",
 ]
@@ -29,14 +30,29 @@ import Foundation
 enum SceneJSONValue: Equatable {
     case bool(Bool), number(Double), string(String), object([String: SceneJSONValue])
     var boolValue: Bool? { if case let .bool(value) = self { value } else { nil } }
+    var numberValue: Double? { if case let .number(value) = self { value } else { nil } }
     var stringValue: String? { if case let .string(value) = self { value } else { nil } }
 }
-enum SceneScriptBindingValueType { case boolean, string }
+enum SceneScriptBindingValueType: Equatable { case boolean, number, string }
 enum SceneScriptBindingPathComponent: Equatable { case key(String), index(Int) }
 struct SceneScriptBindingOwner: Equatable {
-    enum Kind: Equatable { case object }
+    enum Kind: Equatable { case object, pass }
     let kind: Kind
     let objectIndex: Int?, objectID: Int?
+    let effectIndex: Int?, effectID: Int?, passIndex: Int?, passID: Int?
+    init(
+        kind: Kind, objectIndex: Int?, objectID: Int?,
+        effectIndex: Int? = nil, effectID: Int? = nil,
+        passIndex: Int? = nil, passID: Int? = nil
+    ) {
+        self.kind = kind
+        self.objectIndex = objectIndex
+        self.objectID = objectID
+        self.effectIndex = effectIndex
+        self.effectID = effectID
+        self.passIndex = passIndex
+        self.passID = passID
+    }
 }
 struct SceneScriptBindingIR {
     let source: String, owner: SceneScriptBindingOwner
@@ -52,9 +68,39 @@ struct SceneScriptSourceEvidenceIR {
     var targetKey: String { if case let .key(key) = targetPath.last { key } else { "" } }
 }
 struct SceneRenderDescriptor {
+    struct ShaderValue {
+        let valueKind: String
+        let userBinding: String? = nil
+        let timeline: Int? = nil
+        let timelineDiagnostics: [String] = []
+        let scriptSource: String?
+        let bindingKeys: [String]
+        let components: [Double]?
+    }
+    struct EffectPass {
+        let id: Int?
+        let passIndex: Int
+        let constantShaderValues: [String: ShaderValue]
+    }
+    struct Effect {
+        let effectID: Int?
+        let passes: [EffectPass]
+    }
     struct Layer {
         let id: Int, layerIndex: Int
         let visible: Bool?, origin: String?, originXYZ: [Float]?
+        let effects: [Effect]
+        init(
+            id: Int, layerIndex: Int, visible: Bool?, origin: String?,
+            originXYZ: [Float]?, effects: [Effect] = []
+        ) {
+            self.id = id
+            self.layerIndex = layerIndex
+            self.visible = visible
+            self.origin = origin
+            self.originXYZ = originXYZ
+            self.effects = effects
+        }
     }
     let layers: [Layer]
 }
@@ -76,6 +122,32 @@ enum Harness {
         let bad = atomicRuntime.values(effectivePropertyValues: [
             "xian": .bool(false), "liveY": .string("bad")
         ])
+        var clickRuntime = SceneLaunchOriginTransitionRuntime(program: valid)
+        let clickInitial = clickRuntime.currentValues(effectivePropertyValues: trigger)
+        let clickPressed = clickRuntime.values(
+            clickedOwnerLayerIDs: [10], primaryButtonIsDown: true,
+            effectivePropertyValues: trigger
+        )
+        let clickHeld = clickRuntime.values(
+            clickedOwnerLayerIDs: [10], primaryButtonIsDown: true,
+            effectivePropertyValues: trigger
+        )
+        let clickReleasedOutside = clickRuntime.values(
+            clickedOwnerLayerIDs: [], primaryButtonIsDown: false,
+            effectivePropertyValues: trigger
+        )
+        let clickOutside = clickRuntime.values(
+            clickedOwnerLayerIDs: [], primaryButtonIsDown: true,
+            effectivePropertyValues: trigger
+        )
+        _ = clickRuntime.values(
+            clickedOwnerLayerIDs: [], primaryButtonIsDown: false,
+            effectivePropertyValues: trigger
+        )
+        let clickToggledBack = clickRuntime.values(
+            clickedOwnerLayerIDs: [10], primaryButtonIsDown: true,
+            effectivePropertyValues: trigger
+        )
         let missingInitializer = compile(bindings: Array(fixture().dropFirst()))
         let extraWrapper = compile(bindings: fixture(wrapperKeys: ["extra", "script", "scriptproperties", "value"]))
         let nilWrapper = compile(bindings: fixture(wrapperKeys: nil))
@@ -190,6 +262,13 @@ enum Harness {
             "missingTrigger": vector(missingTrigger, master),
             "atomicBadMaster": vector(bad, master),
             "atomicBadFollower": vector(bad, follower),
+            "scalarBindingCount": valid.scalarBindings.count,
+            "clickInitialAlpha": scalar(clickInitial),
+            "clickPressedAlpha": scalar(clickPressed),
+            "clickHeldAlpha": scalar(clickHeld),
+            "clickReleasedOutsideAlpha": scalar(clickReleasedOutside),
+            "clickOutsideAlpha": scalar(clickOutside),
+            "clickToggledBackAlpha": scalar(clickToggledBack),
             "missingInitializerRejected": missingInitializer.bindings.isEmpty,
             "extraWrapperRejected": extraWrapper.bindings.isEmpty,
             "nilWrapperRejected": nilWrapper.bindings.isEmpty,
@@ -232,7 +311,23 @@ enum Harness {
         let descriptor = SceneRenderDescriptor(layers: [
             .init(id: 20, layerIndex: 0, visible: true, origin: nil, originXYZ: nil),
             .init(id: 10, layerIndex: 1, visible: nil, origin: "100 500 0", originXYZ: [100, 500, 0]),
-            .init(id: 11, layerIndex: 2, visible: nil, origin: "300 700 0", originXYZ: [300, 700, 0]),
+            .init(
+                id: 11, layerIndex: 2, visible: nil,
+                origin: "300 700 0", originXYZ: [300, 700, 0],
+                effects: [.init(
+                    effectID: 30,
+                    passes: [.init(
+                        id: 31,
+                        passIndex: 0,
+                        constantShaderValues: ["alpha": .init(
+                            valueKind: "binding",
+                            scriptSource: scalarSource(),
+                            bindingKeys: ["script", "value"],
+                            components: [1]
+                        )]
+                    )]
+                )]
+            ),
             .init(id: 12, layerIndex: 3, visible: nil, origin: "500 900 0", originXYZ: [500, 900, 0]),
         ])
         let evidence = bindings.map { SceneScriptSourceEvidenceIR(source: $0.source, owner: $0.owner, targetPath: $0.targetPath, wrapperKeys: $0.wrapperKeys ?? []) } + extraEvidence
@@ -257,7 +352,24 @@ enum Harness {
             binding(index: 2, id: followerID, key: "origin", source: followerSource,
                     properties: properties(base: [300, 400, 0], end: [300, 700, 0]),
                     value: .string("300 700 0"), type: .string, keys: wrapperKeys),
+            scalarBinding(),
         ]
+    }
+    static func scalarBinding() -> SceneScriptBindingIR {
+        .init(
+            source: scalarSource(),
+            owner: .init(
+                kind: .pass, objectIndex: 2, objectID: 11,
+                effectIndex: 0, effectID: 30, passIndex: 0, passID: 31
+            ),
+            targetPath: [
+                .key("objects"), .index(2), .key("effects"), .index(0),
+                .key("passes"), .index(0), .key("constantshadervalues"),
+                .key("alpha"),
+            ],
+            properties: [:], authoredValue: .number(1), valueType: .number,
+            wrapperKeys: ["script", "value"]
+        )
     }
     static func binding(
         index: Int, id: Int, key: String, source: String,
@@ -319,8 +431,18 @@ enum Harness {
         guard case let .vector3(x, y, z)? = values[target] else { return [] }
         return [x, y, z]
     }
+    static func scalar(_ values: [SceneDynamicTarget: SceneDynamicValue]) -> Double {
+        let target = SceneDynamicTarget.effectConstant(
+            layerID: 11, effectIndex: 0, passIndex: 0, name: "alpha"
+        )
+        guard case let .scalar(value)? = values[target] else { return -1 }
+        return value
+    }
     static func edit(_ source: String, _ old: String, _ new: String) -> String { source.replacingOccurrences(of: old, with: new) }
     static func initializerSource() -> String { "'use strict'; shared={panel:false,other:true};" }
+    static func scalarSource() -> String {
+        "'use strict'; export function update(value){if(shared.panel){value=0;}else{value=1;}return value;}"
+    }
     static func masterSource() -> String { transitionSource(master: true) }
     static func followerSource() -> String { transitionSource(master: false) }
     static func transitionSource(
@@ -383,6 +505,15 @@ class SceneLaunchOriginTransitionTests(unittest.TestCase):
         self.assertEqual(self.result["followerFirst"], [300, 670, 0])
         self.assertEqual(self.result["masterSecond"], [100, 443, 0])
         self.assertEqual(self.result["followerSecond"], [300, 643, 0])
+
+    def test_click_edge_toggles_surface_state_and_exact_scalar_consumer(self) -> None:
+        self.assertEqual(self.result["scalarBindingCount"], 1)
+        self.assertEqual(self.result["clickInitialAlpha"], 1)
+        self.assertEqual(self.result["clickPressedAlpha"], 0)
+        self.assertEqual(self.result["clickHeldAlpha"], 0)
+        self.assertEqual(self.result["clickReleasedOutsideAlpha"], 0)
+        self.assertEqual(self.result["clickOutsideAlpha"], 0)
+        self.assertEqual(self.result["clickToggledBackAlpha"], 1)
 
     def test_bad_live_value_freezes_the_whole_cohort_atomically(self) -> None:
         self.assertEqual(self.result["atomicBeforeBad"], self.result["atomicBadMaster"])

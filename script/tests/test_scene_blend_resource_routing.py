@@ -15,6 +15,7 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneResourceIndex.swift",
     SCENE_ROOT / "Resources/SceneResourceView.swift",
+    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "Resources/SceneTexturePathResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SCENE_ROOT / "Resources/SceneBlendEffectTextureLoader.swift",

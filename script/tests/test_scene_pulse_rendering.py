@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """pulse pipeline 的 GPU 像素门与资源 matches 门。
 
-覆盖官方 pulse.frag `AUDIOPROCESSING == 0` 语义的四个可观察维度：
+覆盖官方 pulse.frag 时间与音频分支的五个可观察维度：
 - 时间驱动：同参数不同 g_Time 出不同像素；
+- 音频驱动：显式 audio pulse 覆盖时间分支，且 GPU uniform ABI 不串到 noise UV；
 - 逐指纹 profile：stock 与 legacy 的相位语义在同参数下产生不同 pulse；
 - PULSECOLOR / PULSEALPHA / MASK 各自的像素路径；
 - 输入校验（bounds、blendMode、尺寸）与纹理缺失时的 fail-closed matches()。
@@ -101,7 +102,8 @@ enum Harness {
         pulseColor: Bool = true,
         pulseAlpha: Bool = false,
         saturatesOutput: Bool = false,
-        maskUVScale: SIMD2<Float> = SIMD2(repeating: 1)
+        maskUVScale: SIMD2<Float> = SIMD2(repeating: 1),
+        audioPulse: Float? = nil
     ) -> ScenePulsePipeline.Inputs {
         .init(
             time: time,
@@ -121,7 +123,7 @@ enum Harness {
             pulseAlpha: pulseAlpha,
             saturatesOutput: saturatesOutput,
             maskUVScale: maskUVScale,
-            audioPulse: nil
+            audioPulse: audioPulse
         )
     }
 
@@ -193,6 +195,21 @@ enum Harness {
         let legacyZero = render(
             input: base,
             inputs: inputs(phaseOffset: 0, noiseUVScale: SIMD2(1, 0.333)),
+            device: device, queue: queue, pipeline: pipeline
+        )
+
+        // audio 分支必须完全覆盖时间分支。这里 time 对应时间 pulse=1，但显式
+        // audioPulse=0 必须保持原图；此门会捕获 Swift/Metal audio/noiseUVScale ABI 互换。
+        let audioZeroOverridesTime = render(
+            input: base,
+            inputs: inputs(time: Float.pi, audioPulse: 0),
+            device: device, queue: queue, pipeline: pipeline
+        )
+        // 作者音频响应 0.2：additive(9) 只把红通道从 0.5 推到 0.6，不得走
+        // 时间 pulse=1 的饱和路径。
+        let audioPointTwo = render(
+            input: base,
+            inputs: inputs(time: Float.pi, audioPulse: 0.2),
             device: device, queue: queue, pipeline: pipeline
         )
 
@@ -270,6 +287,16 @@ enum Harness {
                     Array(legacyZero.output[0 ..< 4]),
                     Array(stockZero.output[0 ..< 4]),
                     tolerance: 3
+                ),
+            "audioOverridesTime": audioZeroOverridesTime.encoded
+                && nearlyEqual(
+                    Array(audioZeroOverridesTime.output[0 ..< 4]),
+                    [128, 64, 0, 255]
+                ),
+            "audioAmountRemainsBounded": audioPointTwo.encoded
+                && nearlyEqual(
+                    Array(audioPointTwo.output[0 ..< 4]),
+                    [153, 64, 0, 255], tolerance: 3
                 ),
             "pulseAlphaZero": alphaZero.encoded
                 && nearlyEqual(Array(alphaZero.output[0 ..< 4]), [0, 0, 0, 0]),

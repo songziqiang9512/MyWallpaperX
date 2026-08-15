@@ -399,7 +399,7 @@ class SceneShakeAudioContractTests(unittest.TestCase):
             r"case \.unconditionalPhaseV1:\s*\n\s*return false",
         )
         self.assertIn(
-            "isAudioCapableProfile: profile == .stock2842",
+            "isAudioCapableProfile: profile.isAudioCapable",
             PULSE_CONSTANTS_SOURCE.read_text(encoding="utf-8"),
             "两个 legacy Pulse 指纹同样继续拒绝 audio",
         )

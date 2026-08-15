@@ -1098,7 +1098,10 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
         assembly = FRAME_ASSEMBLY_SOURCE.read_text(encoding="utf-8")
         self.assertIn("requestIdentity: .layerSource(layerID)", base)
         self.assertIn("publication.requestIdentity == .layerSource(layerID)", base)
-        self.assertIn("for: .layerSource(layerID)", assembly)
+        self.assertIn("publications[layerID] = publication", assembly)
+        self.assertIn("publications[layerID] = frame.publication", assembly)
+        self.assertIn("explicitLayerSources: publications", assembly)
+        self.assertNotIn("textures[layerID] = mediaThumbnail", assembly)
 
 
 if __name__ == "__main__":

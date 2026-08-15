@@ -105,7 +105,8 @@ enum Harness {
 
     static func makeTable(
         device: MTLDevice,
-        intermediateFormat: TargetPlan.TextureFormat = .rgba8888
+        intermediateFormat: TargetPlan.TextureFormat = .rgba8888,
+        nodeOffset: Int = 0
     ) -> TargetTable {
         let plan = TargetPlan.testingPlan(
             layerID: layerID,
@@ -116,18 +117,18 @@ enum Harness {
                 logicalTarget(
                     identity: quarterAIdentity,
                     format: intermediateFormat,
-                    firstWrite: 0,
-                    lastWrite: 2,
-                    firstRead: 1,
-                    lastRead: 3
+                    firstWrite: nodeOffset,
+                    lastWrite: nodeOffset + 2,
+                    firstRead: nodeOffset + 1,
+                    lastRead: nodeOffset + 3
                 ),
                 logicalTarget(
                     identity: quarterBIdentity,
                     format: intermediateFormat,
-                    firstWrite: 1,
-                    lastWrite: 1,
-                    firstRead: 2,
-                    lastRead: 2
+                    firstWrite: nodeOffset + 1,
+                    lastWrite: nodeOffset + 1,
+                    firstRead: nodeOffset + 2,
+                    lastRead: nodeOffset + 2
                 ),
             ]
         )
@@ -270,9 +271,10 @@ enum Harness {
         device: MTLDevice,
         queue: MTLCommandQueue,
         pipeline: SceneLocalContrastPipeline,
-        input: [UInt8]
+        input: [UInt8],
+        nodeOffset: Int = 0
     ) -> [String: Any] {
-        let table = makeTable(device: device)
+        let table = makeTable(device: device, nodeOffset: nodeOffset)
         guard let quarterA = table.texture(for: quarterAIdentity),
               let quarterB = table.texture(for: quarterBIdentity),
               let command = queue.makeCommandBuffer(),
@@ -281,6 +283,7 @@ enum Harness {
                 targets: table,
                 quarterAIdentity: quarterAIdentity,
                 quarterBIdentity: quarterBIdentity,
+                nodeIndices: (nodeOffset..<(nodeOffset + 4)).map { $0 },
                 strength: strength,
                 pipeline: pipeline,
                 commandBuffer: command
@@ -395,6 +398,7 @@ enum Harness {
                 targets: table,
                 quarterAIdentity: foreignIdentity,
                 quarterBIdentity: quarterBIdentity,
+                nodeIndices: [0, 1, 2, 3],
                 strength: 1,
                 pipeline: pipeline,
                 commandBuffer: command
@@ -403,6 +407,7 @@ enum Harness {
                 targets: table,
                 quarterAIdentity: quarterBIdentity,
                 quarterBIdentity: quarterAIdentity,
+                nodeIndices: [0, 1, 2, 3],
                 strength: 1,
                 pipeline: pipeline,
                 commandBuffer: secondCommand
@@ -411,6 +416,7 @@ enum Harness {
                 targets: wrongFormatTable,
                 quarterAIdentity: quarterAIdentity,
                 quarterBIdentity: quarterBIdentity,
+                nodeIndices: [0, 1, 2, 3],
                 strength: 1,
                 pipeline: pipeline,
                 commandBuffer: thirdCommand
@@ -419,6 +425,7 @@ enum Harness {
                 targets: table,
                 quarterAIdentity: quarterAIdentity,
                 quarterBIdentity: quarterBIdentity,
+                nodeIndices: [0, 1, 2, 3],
                 strength: .nan,
                 pipeline: pipeline,
                 commandBuffer: fourthCommand
@@ -455,6 +462,14 @@ enum Harness {
             pipeline: pipeline,
             input: inputBGRA
         )
+        let shifted = runRenderer(
+            strength: 0.32,
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            input: inputBGRA,
+            nodeOffset: 2
+        )
         let stages = runStages(
             strength: 0.32,
             device: device,
@@ -467,6 +482,7 @@ enum Harness {
             "input": logicalRGBA(inputBGRA, format: .bgra8Unorm),
             "zero": zero,
             "fractional": fractional,
+            "shifted": shifted,
             "full": full,
             "stages": stages,
             "rejections": rejectionChecks(device: device, queue: queue, pipeline: pipeline),
@@ -529,6 +545,9 @@ class SceneLocalContrastRenderingTests(unittest.TestCase):
         self.assertEqual(stages["horizontal"], fractional["quarterB"])
         self.assertNotEqual(stages["downsample"], stages["horizontal"])
         self.assertNotEqual(stages["horizontal"], stages["vertical"])
+
+    def test_accepts_typed_stage_node_identities_shifted_by_prior_effects(self) -> None:
+        self.assertEqual(self.result["shifted"], self.result["fractional"])
 
     def test_stage_outputs_match_the_stock_default_kernel_golden(self) -> None:
         expected = {

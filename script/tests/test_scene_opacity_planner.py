@@ -69,6 +69,30 @@ struct SceneDocument {
         let valueKind: String
         let userBinding: String?
         let components: [Double]?
+        let timeline: Int?
+        let timelineDiagnostics: [String]
+        let scriptSource: String?
+        let bindingKeys: [String]
+
+        init(
+            rawValue: String,
+            valueKind: String,
+            userBinding: String?,
+            components: [Double]?,
+            timeline: Int? = nil,
+            timelineDiagnostics: [String] = [],
+            scriptSource: String? = nil,
+            bindingKeys: [String] = []
+        ) {
+            self.rawValue = rawValue
+            self.valueKind = valueKind
+            self.userBinding = userBinding
+            self.components = components
+            self.timeline = timeline
+            self.timelineDiagnostics = timelineDiagnostics
+            self.scriptSource = scriptSource
+            self.bindingKeys = bindingKeys
+        }
     }
 }
 
@@ -129,6 +153,8 @@ enum Harness {
         var alpha = 0.4
         var alphaKind = "number"
         var userBinding: String?
+        var scriptSource: String?
+        var bindingKeys: [String] = []
         var includesAlpha = true
         var extraInstanceConstant = false
         var instanceCombos: [String: Int] = [:]
@@ -169,13 +195,17 @@ enum Harness {
     static func value(
         _ components: [Double],
         kind: String,
-        binding: String? = nil
+        binding: String? = nil,
+        scriptSource: String? = nil,
+        bindingKeys: [String] = []
     ) -> SceneDocument.ShaderValue {
         .init(
             rawValue: components.map { String($0) }.joined(separator: " "),
             valueKind: kind,
             userBinding: binding,
-            components: components
+            components: components,
+            scriptSource: scriptSource,
+            bindingKeys: bindingKeys
         )
     }
 
@@ -185,7 +215,9 @@ enum Harness {
             result["alpha"] = value(
                 [options.alpha],
                 kind: options.alphaKind,
-                binding: options.userBinding
+                binding: options.userBinding,
+                scriptSource: options.scriptSource,
+                bindingKeys: options.bindingKeys
             )
         }
         if options.extraInstanceConstant {
@@ -467,6 +499,33 @@ enum Harness {
             definitions: [targetDefinition],
             userValues: [target: .scalar(1.5)]
         ).snapshot
+        var sceneScriptOptions = Options()
+        sceneScriptOptions.alphaKind = "binding"
+        sceneScriptOptions.scriptSource =
+            "'use strict'; export function update(value){if(shared.panel){value=0;}else{value=1;}return value;}"
+        sceneScriptOptions.bindingKeys = ["script", "value"]
+        let sceneScriptPlan = SceneAuthoredOpacityPlanner.plan(
+            graph: graph(),
+            descriptor: descriptor(sceneScriptOptions),
+            shaderContracts: contracts
+        )!
+        let sceneScriptTarget = sceneScriptPlan.liveAlphaTarget!
+        let sceneScriptDefinition = SceneDynamicTargetDefinition(
+            target: sceneScriptTarget,
+            valueType: .scalar,
+            authoredValue: .scalar(0.4)
+        )
+        let authoredOnlySnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 3,
+            generation: 3,
+            definitions: [sceneScriptDefinition]
+        ).snapshot
+        let sceneScriptSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 4,
+            generation: 4,
+            definitions: [sceneScriptDefinition],
+            sceneScriptValues: [sceneScriptTarget: .scalar(0)]
+        ).snapshot
 
         var prior = GraphOptions(); prior.priorInput = true
         var blocker = GraphOptions(); blocker.blocker = true
@@ -529,7 +588,8 @@ enum Harness {
             "canonicalContract": contracts.first?.canonicalSHA256
                 == "89d4ee2fed510c7a81a1d1e8d0d0a353798b607fbe3d637c836fb47efb0c1cd2",
             "staticAccepted": staticPlan.staticOrFallbackAlpha == 0.4
-                && staticPlan.directAlphaBinding == nil,
+                && staticPlan.directAlphaBinding == nil
+                && staticPlan.requiredSceneScriptAlphaTarget == nil,
             "endpointsAccepted": accepted(descriptorOptions: alphaZero, contracts: contracts)
                 && accepted(descriptorOptions: alphaOne, contracts: contracts),
             "directBindingAccepted": direct.propertyKey == "newproperty50"
@@ -537,6 +597,14 @@ enum Harness {
                 && direct.passIndex == 0 && direct.constantName == "alpha",
             "snapshotApplied": boundPlan.resolvedAlpha(in: liveSnapshot) == 0.75,
             "snapshotFallback": boundPlan.resolvedAlpha(in: invalidSnapshot) == 0.4,
+            "sceneScriptAccepted": sceneScriptPlan.requiredSceneScriptAlphaTarget
+                == sceneScriptTarget,
+            "sceneScriptRequiresProducer": sceneScriptPlan.resolvedAlpha(
+                in: authoredOnlySnapshot
+            ) == nil,
+            "sceneScriptApplied": sceneScriptPlan.resolvedAlpha(
+                in: sceneScriptSnapshot
+            ) == 0,
             "candidateDetected": SceneAuthoredOpacityPlanner.containsCandidate(graph: graph()),
             "priorInputAccepted": accepted(
                 graphOptions: prior, contracts: contracts, role: .priorEffectOutput

@@ -14,6 +14,8 @@ extension SceneEffectStageRenderer {
         previousCursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         previousPointerIsInside: Bool,
+        pointerMovement: Float,
+        primaryButtonIsDown: Bool,
         frameTime: Float,
         time: Float,
         audioSpectrum: SceneAudioSpectrumSnapshot,
@@ -78,6 +80,8 @@ targets: targets,
                 cursorUV: cursorUV, previousCursorUV: previousCursorUV,
                 pointerIsInside: pointerIsInside,
                 previousPointerIsInside: previousPointerIsInside,
+                pointerMovement: pointerMovement,
+                primaryButtonIsDown: primaryButtonIsDown,
                 frameTime: frameTime, commandBuffer: commandBuffer
             )
         case .foliageSway(let foliage):
@@ -133,6 +137,7 @@ targets: targets, dynamicValues: dynamicValues,
 targets: targets,
                 dynamicValues: dynamicValues, sourceUniforms: sourceUniforms,
                 sourcePipeline: pipeline, blendPipeline: blendPipeline,
+                dependencyEffect: dependencyEffect,
                 commandBuffer: commandBuffer
             )
         case .tint(let tint):

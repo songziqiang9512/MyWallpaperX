@@ -60,6 +60,34 @@ LIVE_PROPERTY_UPDATE_RE = re.compile(
     r"windowsBefore=(?P<windows_before>[\d,]*) windowsAfter=(?P<windows_after>[\d,]*) "
     r"keys=(?P<keys>[^\n]*)"
 )
+CURSOR_RIPPLE_STATE_RE = re.compile(
+    r"phase=cursor-ripple-state layer=(?P<layer>-?\d+) "
+    r"effect=(?P<effect>-?\d+) descriptor=(?P<descriptor>\S+) "
+    r"status=completed width=(?P<width>\d+) height=(?P<height>\d+) "
+    r"output=(?P<output>\S+) activePixels=(?P<active>\d+) "
+    r"bounds=(?P<minimum_x>-?\d+),(?P<minimum_y>-?\d+),"
+    r"(?P<maximum_x>-?\d+),(?P<maximum_y>-?\d+) "
+    r"max=(?P<maximum>\d+) sum=(?P<sum>\d+) "
+    rf"current=(?P<current_x>{FLOAT_PATTERN}),(?P<current_y>{FLOAT_PATTERN}) "
+    rf"previous=(?P<previous_x>{FLOAT_PATTERN}),(?P<previous_y>{FLOAT_PATTERN}) "
+    r"inside=(?P<inside>true|false) "
+    r"previousInside=(?P<previous_inside>true|false) "
+    rf"movement=(?P<movement>{FLOAT_PATTERN}) "
+)
+CURSOR_RIPPLE_VISIBLE_RE = re.compile(
+    r"phase=cursor-ripple-visible layer=(?P<layer>-?\d+) "
+    r"effect=(?P<effect>-?\d+) descriptor=(?P<descriptor>\S+) "
+    r"status=completed width=(?P<width>\d+) height=(?P<height>\d+) "
+    r"changedPixels=(?P<changed>\d+) "
+    r"bounds=(?P<minimum_x>-?\d+),(?P<minimum_y>-?\d+),"
+    r"(?P<maximum_x>-?\d+),(?P<maximum_y>-?\d+) "
+    r"max=(?P<maximum>\d+) sum=(?P<sum>\d+) "
+    rf"current=(?P<current_x>{FLOAT_PATTERN}),(?P<current_y>{FLOAT_PATTERN}) "
+    rf"previous=(?P<previous_x>{FLOAT_PATTERN}),(?P<previous_y>{FLOAT_PATTERN}) "
+    r"inside=(?P<inside>true|false) "
+    r"previousInside=(?P<previous_inside>true|false) "
+    rf"movement=(?P<movement>{FLOAT_PATTERN})"
+)
 LOADED_RE = re.compile(r"^loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 TEXT_LOADED_RE = re.compile(r"^text loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 TEXT_LAYER_OK_RE = re.compile(r'^text layer (?P<id>\d+) .*: OK ', re.MULTILINE)
@@ -130,6 +158,14 @@ PARTICLE_SKIPPED_TRANSPARENT_RE = re.compile(
     re.MULTILINE,
 )
 PARTICLE_LAYER_OK_RE = re.compile(r'^particle layer (?P<id>\d+) .*: OK ', re.MULTILINE)
+AUDIO_SCALED_VALUE_PROGRAM_RE = re.compile(
+    r"^scene audio scaled value: schema=bounded-audio-scaled-value-v1 "
+    r"bindings=(?P<bindings>\d+) "
+    r"rejectedParticleLayerIDs=\[(?P<rejected_particle>[^\]]*)\] "
+    r"rejectedScaleLayerIDs=\[(?P<rejected_scale>[^\]]*)\] "
+    r"resolution=16$",
+    re.MULTILINE,
+)
 SOLID_LAYER_COUNT_RE = re.compile(r"^solidLayerCount: (?P<count>\d+)$", re.MULTILINE)
 SOLID_LAYER_OK_RE = re.compile(
     r'^layer (?P<id>\d+) .*: OK procedural solid(?:\s|$)',
@@ -642,7 +678,12 @@ def load_matrix(path: Path) -> dict[str, Any]:
     for sample in payload["samples"]:
         if not isinstance(sample, dict):
             raise ValueError(f"invalid Scene matrix sample: {path}")
-        hover_pointer_normalized(sample)
+        hover_pointer = hover_pointer_normalized(sample)
+        stationary_entry = hover_pointer_stationary_entry(sample)
+        if stationary_entry and hover_pointer is None:
+            raise ValueError(
+                "hover_pointer_stationary_entry requires hover_pointer_normalized"
+            )
     return payload
 
 
@@ -683,6 +724,13 @@ def hover_pointer_normalized(
     if not math.isfinite(x) or not math.isfinite(y) or not (-1 <= x <= 1 and -1 <= y <= 1):
         raise ValueError("hover_pointer_normalized must stay within [-1, 1]")
     return (x, y)
+
+
+def hover_pointer_stationary_entry(sample: dict[str, Any]) -> bool:
+    raw = sample.get("hover_pointer_stationary_entry", False)
+    if type(raw) is not bool:
+        raise ValueError("hover_pointer_stationary_entry must be a boolean")
+    return raw
 
 
 def scene_package_path(source: Path) -> Path | None:
@@ -1189,6 +1237,118 @@ def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
         if skipped_transparent_match else 0,
         "loaded_layer_ids": [int(match.group("id")) for match in PARTICLE_LAYER_OK_RE.finditer(preview_text)],
     }
+
+
+def audio_scaled_value_evidence_metrics(
+    preview_text: str,
+    evidence_path: Path,
+) -> dict[str, Any]:
+    program_match = AUDIO_SCALED_VALUE_PROGRAM_RE.search(preview_text)
+    expected_count = int(program_match.group("bindings")) if program_match else 0
+    rejected_particle_layer_ids = []
+    rejected_scale_layer_ids = []
+    if program_match:
+        rejected_particle_layer_ids = [
+            int(value.strip())
+            for value in program_match.group("rejected_particle").split(",")
+            if value.strip()
+        ]
+        rejected_scale_layer_ids = [
+            int(value.strip())
+            for value in program_match.group("rejected_scale").split(",")
+            if value.strip()
+        ]
+    result: dict[str, Any] = {
+        "has_evidence": False,
+        "schema_version": None,
+        "expected_binding_count": expected_count,
+        "rejected_particle_layer_ids": rejected_particle_layer_ids,
+        "rejected_scale_layer_ids": rejected_scale_layer_ids,
+        "frame_index": None,
+        "audio_generation": None,
+        "audio_was_silent": None,
+        "bindings": [],
+        "failures": [],
+    }
+    if expected_count == 0 and not evidence_path.is_file():
+        return result
+    if not evidence_path.is_file():
+        result["failures"].append("audio scaled value evidence missing")
+        return result
+    try:
+        payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        result["failures"].append(f"audio scaled value evidence unreadable: {error}")
+        return result
+    result["has_evidence"] = True
+    result["schema_version"] = payload.get("schemaVersion")
+    result["frame_index"] = payload.get("frameIndex")
+    result["audio_generation"] = payload.get("audioGeneration")
+    result["audio_was_silent"] = payload.get("audioWasSilent")
+    bindings = payload.get("bindings")
+    if result["schema_version"] != 1:
+        result["failures"].append("audio scaled value schema mismatch")
+    if type(result["frame_index"]) is not int or result["frame_index"] <= 0:
+        result["failures"].append("audio scaled value frame identity invalid")
+    if type(result["audio_generation"]) is not int:
+        result["failures"].append("audio scaled value generation invalid")
+    if type(result["audio_was_silent"]) is not bool:
+        result["failures"].append("audio scaled value silence identity invalid")
+    if not isinstance(bindings, list):
+        result["failures"].append("audio scaled value bindings malformed")
+        return result
+    normalized = []
+    identities = []
+    for binding in bindings:
+        if not isinstance(binding, dict):
+            result["failures"].append("audio scaled value binding malformed")
+            continue
+        layer_id = binding.get("layerID")
+        target = binding.get("target")
+        values = binding.get("effectiveValue")
+        live_count = binding.get("liveParticleCount")
+        if type(layer_id) is not int:
+            result["failures"].append("audio scaled value layer identity invalid")
+            continue
+        expected_components = {"particle.rate": 1, "layer.scale": 3}.get(target)
+        if expected_components is None:
+            result["failures"].append("audio scaled value target identity invalid")
+            continue
+        if (
+            not isinstance(values, list)
+            or len(values) != expected_components
+            or any(
+                not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
+                for value in values
+            )
+        ):
+            result["failures"].append("audio scaled value value invalid")
+            continue
+        if target == "particle.rate":
+            if type(live_count) is not int or live_count < 0:
+                result["failures"].append("audio scaled value live count invalid")
+                continue
+        elif live_count is not None:
+            result["failures"].append("audio scaled value non-particle count invalid")
+            continue
+        identities.append((layer_id, target))
+        normalized.append({
+            "layer_id": layer_id,
+            "target": target,
+            "effective_value": [float(value) for value in values],
+            "live_particle_count": live_count,
+        })
+    if len(normalized) != expected_count:
+        result["failures"].append("audio scaled value binding count mismatch")
+    if len(set(identities)) != len(identities):
+        result["failures"].append("audio scaled value target identity duplicated")
+    result["bindings"] = sorted(
+        normalized, key=lambda item: (item["layer_id"], item["target"])
+    )
+    result["failures"] = list(dict.fromkeys(result["failures"]))
+    return result
 
 
 def solid_runtime_metrics(preview_text: str) -> dict[str, Any]:
@@ -3976,11 +4136,16 @@ def append_media_thumbnail_argument(
     runtime_sample: Path,
     failures: list[str],
     *,
+    primary_color: Any = None,
     secondary_color: Any = None,
     playback_state: Any = None,
 ) -> None:
     if media_thumbnail_path is None:
-        if secondary_color is not None or playback_state is not None:
+        if (
+            primary_color is not None
+            or secondary_color is not None
+            or playback_state is not None
+        ):
             failures.append(
                 "media thumbnail event requires isolated media thumbnail path"
             )
@@ -3994,22 +4159,33 @@ def append_media_thumbnail_argument(
     ):
         failures.append("invalid isolated media thumbnail path")
         return
-    normalized_color: list[float] | None = None
-    if secondary_color is not None:
+    def normalized_palette_color(
+        value: Any,
+        member: str,
+    ) -> list[float] | None:
+        if value is None:
+            return None
         if (
-            not isinstance(secondary_color, list)
-            or len(secondary_color) != 3
+            not isinstance(value, list)
+            or len(value) != 3
             or any(
                 isinstance(component, bool)
                 or not isinstance(component, (int, float))
                 or not math.isfinite(component)
                 or not 0 <= component <= 1
-                for component in secondary_color
+                for component in value
             )
         ):
-            failures.append("invalid media thumbnail secondary color")
-            return
-        normalized_color = [float(component) for component in secondary_color]
+            failures.append(f"invalid media thumbnail {member} color")
+            return None
+        return [float(component) for component in value]
+
+    normalized_primary = normalized_palette_color(primary_color, "primary")
+    if primary_color is not None and normalized_primary is None:
+        return
+    normalized_secondary = normalized_palette_color(secondary_color, "secondary")
+    if secondary_color is not None and normalized_secondary is None:
+        return
     if playback_state is not None and (
         isinstance(playback_state, bool)
         or not isinstance(playback_state, int)
@@ -4021,10 +4197,15 @@ def append_media_thumbnail_argument(
         "--mwx-debug-scene-media-thumbnail",
         str(media_thumbnail),
     ]
-    if normalized_color is not None:
+    if normalized_primary is not None:
+        arguments.extend([
+            "--mwx-debug-scene-media-primary-color-json",
+            json.dumps(normalized_primary, separators=(",", ":")),
+        ])
+    if normalized_secondary is not None:
         arguments.extend([
             "--mwx-debug-scene-media-secondary-color-json",
-            json.dumps(normalized_color, separators=(",", ":")),
+            json.dumps(normalized_secondary, separators=(",", ":")),
         ])
     if playback_state is not None:
         arguments.extend([
@@ -4173,6 +4354,238 @@ def live_property_output_failures(
     return []
 
 
+def _cursor_ripple_propagation_metrics(
+    log_text: str,
+    pattern: re.Pattern[str],
+    pixel_group: str,
+) -> dict[str, Any]:
+    grouped: dict[tuple[int, int, str], list[dict[str, Any]]] = {}
+    for match in pattern.finditer(log_text):
+        minimum_x = int(match.group("minimum_x"))
+        minimum_y = int(match.group("minimum_y"))
+        maximum_x = int(match.group("maximum_x"))
+        maximum_y = int(match.group("maximum_y"))
+        active_pixels = int(match.group(pixel_group))
+        row = {
+            "active_pixels": active_pixels,
+            "bounds": [minimum_x, minimum_y, maximum_x, maximum_y],
+            "bounds_width": (
+                maximum_x - minimum_x + 1 if active_pixels > 0 else 0
+            ),
+            "bounds_height": (
+                maximum_y - minimum_y + 1 if active_pixels > 0 else 0
+            ),
+            "maximum_channel": int(match.group("maximum")),
+            "channel_sum": int(match.group("sum")),
+            "inside": match.group("inside") == "true",
+            "previous_inside": match.group("previous_inside") == "true",
+            "movement": float(match.group("movement")),
+        }
+        identity = (
+            int(match.group("layer")),
+            int(match.group("effect")),
+            match.group("descriptor"),
+        )
+        grouped.setdefault(identity, []).append(row)
+
+    candidates: list[dict[str, Any]] = []
+    for (layer, effect, descriptor), rows in grouped.items():
+        injection_index = next((
+            index
+            for index, row in enumerate(rows)
+            if row["inside"]
+            and row["movement"] > 0
+            and row["active_pixels"] > 0
+        ), None)
+        if injection_index is None:
+            candidates.append({
+                "layer": layer,
+                "effect": effect,
+                "descriptor": descriptor,
+                "record_count": len(rows),
+                "injection_found": False,
+                "accepted": False,
+            })
+            continue
+        injection = rows[injection_index]
+        exit_index = next((
+            index
+            for index in range(injection_index + 1, len(rows))
+            if not rows[index]["inside"]
+        ), None)
+        post_exit_rows = rows[exit_index:] if exit_index is not None else []
+        consecutive_nonzero = 0
+        for row in post_exit_rows:
+            if row["active_pixels"] <= 0:
+                break
+            consecutive_nonzero += 1
+        maximum_post_exit_width = max(
+            (row["bounds_width"] for row in post_exit_rows),
+            default=0,
+        )
+        maximum_post_exit_height = max(
+            (row["bounds_height"] for row in post_exit_rows),
+            default=0,
+        )
+        final = post_exit_rows[-1] if post_exit_rows else None
+        expanded_width = maximum_post_exit_width > injection["bounds_width"]
+        expanded_height = maximum_post_exit_height > injection["bounds_height"]
+        peak_decay_ratio = (
+            final["maximum_channel"] / injection["maximum_channel"]
+            if final is not None and injection["maximum_channel"] > 0
+            else None
+        )
+        peak_decayed = peak_decay_ratio is not None and peak_decay_ratio <= 0.8
+        persisted_after_exit = consecutive_nonzero >= 3
+        candidates.append({
+            "layer": layer,
+            "effect": effect,
+            "descriptor": descriptor,
+            "record_count": len(rows),
+            "injection_found": True,
+            "injection_record_index": injection_index,
+            "injection_active_pixels": injection["active_pixels"],
+            "injection_bounds": injection["bounds"],
+            "injection_bounds_width": injection["bounds_width"],
+            "injection_bounds_height": injection["bounds_height"],
+            "injection_maximum_channel": injection["maximum_channel"],
+            "exit_record_index": exit_index,
+            "post_exit_nonzero_frames": consecutive_nonzero,
+            "maximum_post_exit_active_pixels": max(
+                (row["active_pixels"] for row in post_exit_rows),
+                default=0,
+            ),
+            "maximum_post_exit_channel_sum": max(
+                (row["channel_sum"] for row in post_exit_rows),
+                default=0,
+            ),
+            "maximum_post_exit_bounds_width": maximum_post_exit_width,
+            "maximum_post_exit_bounds_height": maximum_post_exit_height,
+            "final_active_pixels": final["active_pixels"] if final else 0,
+            "final_maximum_channel": final["maximum_channel"] if final else 0,
+            "final_channel_sum": final["channel_sum"] if final else 0,
+            "final_peak_ratio": peak_decay_ratio,
+            "settled_to_zero": final is not None and final["active_pixels"] == 0,
+            "expanded_width": expanded_width,
+            "expanded_height": expanded_height,
+            "persisted_after_exit": persisted_after_exit,
+            "peak_decayed": peak_decayed,
+            "accepted": (
+                persisted_after_exit
+                and expanded_width
+                and expanded_height
+                and peak_decayed
+            ),
+        })
+
+    selected = next(
+        (candidate for candidate in candidates if candidate["accepted"]),
+        max(
+            candidates,
+            key=lambda candidate: (
+                candidate.get("post_exit_nonzero_frames", 0),
+                candidate.get("maximum_post_exit_active_pixels", 0),
+            ),
+            default=None,
+        ),
+    )
+    return {
+        "has_evidence": bool(grouped),
+        "record_count": sum(len(rows) for rows in grouped.values()),
+        "candidate_count": len(candidates),
+        "accepted": selected is not None and selected["accepted"],
+        "selected": selected,
+        "candidates": candidates,
+    }
+
+
+def cursor_ripple_persistence_metrics(log_text: str) -> dict[str, Any]:
+    return _cursor_ripple_propagation_metrics(
+        log_text,
+        CURSOR_RIPPLE_STATE_RE,
+        "active",
+    )
+
+
+def cursor_ripple_visible_metrics(log_text: str) -> dict[str, Any]:
+    metrics = _cursor_ripple_propagation_metrics(
+        log_text,
+        CURSOR_RIPPLE_VISIBLE_RE,
+        "changed",
+    )
+    for candidate in metrics["candidates"]:
+        peak = candidate.get("maximum_post_exit_channel_sum", 0)
+        final = candidate.get("final_channel_sum", 0)
+        ratio = final / peak if peak > 0 else None
+        candidate["visible_sum_decay_ratio"] = ratio
+        candidate["visible_sum_decayed"] = ratio is not None and ratio <= 0.8
+        candidate["accepted"] = (
+            candidate.get("persisted_after_exit", False)
+            and candidate.get("expanded_width", False)
+            and candidate.get("expanded_height", False)
+            and candidate["visible_sum_decayed"]
+        )
+    metrics["selected"] = next(
+        (candidate for candidate in metrics["candidates"] if candidate["accepted"]),
+        max(
+            metrics["candidates"],
+            key=lambda candidate: (
+                candidate.get("post_exit_nonzero_frames", 0),
+                candidate.get("maximum_post_exit_active_pixels", 0),
+            ),
+            default=None,
+        ),
+    )
+    metrics["accepted"] = (
+        metrics["selected"] is not None and metrics["selected"]["accepted"]
+    )
+    return metrics
+
+
+def cursor_ripple_persistence_failures(
+    metrics: dict[str, Any],
+    require_evidence: bool,
+) -> list[str]:
+    if not require_evidence:
+        return []
+    if not metrics["has_evidence"]:
+        return ["cursor ripple GPU state evidence missing"]
+    selected = metrics["selected"]
+    if selected is None or not selected.get("injection_found", False):
+        return ["cursor ripple movement injection evidence missing"]
+    failures: list[str] = []
+    if not selected["persisted_after_exit"]:
+        failures.append("cursor ripple disappeared before three post-exit GPU frames")
+    if not selected["expanded_width"] or not selected["expanded_height"]:
+        failures.append("cursor ripple extent did not expand after pointer exit")
+    if not selected["peak_decayed"]:
+        failures.append("cursor ripple peak did not decay by twenty percent after exit")
+    return failures
+
+
+def cursor_ripple_visible_failures(
+    metrics: dict[str, Any],
+    require_evidence: bool,
+) -> list[str]:
+    if not require_evidence:
+        return []
+    if not metrics["has_evidence"]:
+        return ["cursor ripple visible output evidence missing"]
+    selected = metrics["selected"]
+    if selected is None or not selected.get("injection_found", False):
+        return ["cursor ripple visible movement injection evidence missing"]
+    failures: list[str] = []
+    if not selected["persisted_after_exit"]:
+        failures.append(
+            "cursor ripple visible output disappeared before three post-exit GPU frames"
+        )
+    if not selected["expanded_width"] or not selected["expanded_height"]:
+        failures.append("cursor ripple visible output did not expand after pointer exit")
+    if not selected["visible_sum_decayed"]:
+        failures.append("cursor ripple visible output did not decay after pointer exit")
+    return failures
+
+
 def run_sample(
     runtime_binary: Path,
     sample_root: Path,
@@ -4181,10 +4594,13 @@ def run_sample(
     runtime_root: Path,
     duration: float,
     after_snapshot_delay: float | None,
+    periodic_snapshot_interval: float | None = None,
     audio_spectrum_fixture: bool = False,
+    audio_spectrum_silence_fixture: bool = False,
     require_effect_stage_admission: bool = False,
     require_effect_execution: bool = False,
     require_graph_execution: bool = False,
+    require_cursor_ripple_persistence: bool = False,
 ) -> dict[str, Any]:
     sample_id = str(sample["id"])
     source = sample_root / "Scene" / sample_id
@@ -4225,8 +4641,21 @@ def run_sample(
             "--mwx-debug-scene-after-snapshot-delay",
             str(after_snapshot_delay),
         ])
-    if audio_spectrum_fixture or sample.get("audio_spectrum_fixture") is True:
+    if periodic_snapshot_interval is not None:
+        command.extend([
+            "--mwx-debug-scene-periodic-snapshot-interval",
+            str(periodic_snapshot_interval),
+        ])
+    sample_audio_fixture = sample.get("audio_spectrum_fixture") is True
+    sample_silence_fixture = sample.get("audio_spectrum_silence_fixture") is True
+    if (audio_spectrum_fixture or sample_audio_fixture) and (
+        audio_spectrum_silence_fixture or sample_silence_fixture
+    ):
+        failures.append("audio spectrum PCM and silence fixtures are mutually exclusive")
+    elif audio_spectrum_fixture or sample_audio_fixture:
         command.append("--mwx-debug-scene-audio-spectrum-fixture")
+    elif audio_spectrum_silence_fixture or sample_silence_fixture:
+        command.append("--mwx-debug-scene-audio-silence-fixture")
     property_overrides = sample.get("property_overrides")
     live_property_overrides = sample.get("live_property_overrides")
     append_property_arguments(command, property_overrides, live_property_overrides)
@@ -4241,6 +4670,7 @@ def run_sample(
         sample.get("media_thumbnail_path"),
         runtime_sample,
         failures,
+        primary_color=sample.get("media_thumbnail_primary_color"),
         secondary_color=sample.get("media_thumbnail_secondary_color"),
         playback_state=sample.get("media_playback_state"),
     )
@@ -4251,6 +4681,7 @@ def run_sample(
         failures,
     )
     hover_pointer = hover_pointer_normalized(sample)
+    hover_pointer_stationary = hover_pointer_stationary_entry(sample)
     if hover_pointer is not None:
         command.extend([
             "--mwx-debug-scene-hover-pointer-json",
@@ -4259,9 +4690,13 @@ def run_sample(
                 separators=(",", ":"),
             ),
         ])
+        if hover_pointer_stationary:
+            command.append("--mwx-debug-scene-hover-pointer-stationary-entry")
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
+    if require_cursor_ripple_persistence:
+        environment["MYWALLPAPERX_SCENE_DEBUG_CURSOR_RIPPLE_EVIDENCE"] = "1"
     timed_out = False
     with app_log.open("w", encoding="utf-8") as log_handle:
         process = subprocess.Popen(
@@ -4297,6 +4732,8 @@ def run_sample(
     )
     performance = performance_metrics(log_text, surface_count)
     live_property_update = live_property_update_metrics(log_text)
+    cursor_ripple_persistence = cursor_ripple_persistence_metrics(log_text)
+    cursor_ripple_visible = cursor_ripple_visible_metrics(log_text)
     loaded_match = LOADED_RE.search(preview_text)
     loaded = int(loaded_match.group("loaded")) if loaded_match else 0
     total = int(loaded_match.group("total")) if loaded_match else 0
@@ -4428,6 +4865,13 @@ def run_sample(
     named_target_capture_execution = named_target_capture_execution_metrics(log_text)
     named_target_binding_execution = named_target_binding_execution_metrics(log_text)
     particle_runtime = particle_runtime_metrics(preview_text)
+    audio_scaled_value_evidence_path = (
+        result_dir / "scene-audio-scaled-value-evidence.json"
+    )
+    audio_scaled_value = audio_scaled_value_evidence_metrics(
+        preview_text,
+        audio_scaled_value_evidence_path,
+    )
     camera_match = CAMERA_RE.search(preview_text)
     camera_shake_match = CAMERA_SHAKE_RE.search(preview_text)
     initial_reason = "before" if hover_pointer is not None else "ready"
@@ -4486,6 +4930,7 @@ def run_sample(
     elif not math.isfinite(startup_ready_ms) or startup_ready_ms < 0:
         failures.append("invalid startup ready elapsed evidence")
     failures.extend(performance_failures(performance))
+    failures.extend(audio_scaled_value["failures"])
     if runtime_evidence_match is None:
         failures.append("missing runtime evidence path")
     elif runtime_evidence_path.resolve() != (
@@ -4502,13 +4947,26 @@ def run_sample(
         live_property_overrides,
         live_property_update,
     ))
+    failures.extend(cursor_ripple_persistence_failures(
+        cursor_ripple_persistence,
+        require_evidence=require_cursor_ripple_persistence,
+    ))
+    failures.extend(cursor_ripple_visible_failures(
+        cursor_ripple_visible,
+        require_evidence=require_cursor_ripple_persistence,
+    ))
     if "phase=snapshot-failed" in log_text:
         failures.append("window snapshot failed")
     if hover_pointer is not None:
         if log_text.count("phase=pointer-state state=outside") != 2:
             failures.append("pointer outside transition evidence mismatch")
-        if "phase=pointer-state state=hover" not in log_text:
-            failures.append("pointer hover transition evidence missing")
+        if hover_pointer_stationary:
+            if "phase=pointer-state state=move" in log_text:
+                failures.append("stationary pointer unexpectedly injected movement")
+        elif "phase=pointer-state state=move" not in log_text:
+            failures.append("pointer movement transition evidence missing")
+        if "phase=pointer-state state=hold" not in log_text:
+            failures.append("pointer stationary transition evidence missing")
     if camera_match is None or camera_match.group("projection") != "cover":
         failures.append("camera projection evidence missing")
     expected_parallax = sample.get("expected_camera_parallax")
@@ -4891,6 +5349,8 @@ def run_sample(
         "capabilities": sample.get("capabilities", []),
         "audio_spectrum_fixture": audio_spectrum_fixture
             or sample.get("audio_spectrum_fixture") is True,
+        "audio_spectrum_silence_fixture": audio_spectrum_silence_fixture
+            or sample.get("audio_spectrum_silence_fixture") is True,
         "property_overrides": property_overrides if isinstance(property_overrides, dict) else {},
         "live_property_overrides": (
             live_property_overrides if isinstance(live_property_overrides, dict) else {}
@@ -4908,6 +5368,10 @@ def run_sample(
             "app_log": str(app_log),
             "preview_log": str(preview_log),
             "runtime_evidence": str(runtime_evidence_path),
+            "audio_scaled_value_evidence": (
+                str(audio_scaled_value_evidence_path)
+                if audio_scaled_value["has_evidence"] else None
+            ),
             "sample_root_residue": sample_root_residue,
             "ready_snapshot": str(ready_snapshot),
             "hover_snapshot": str(hover_snapshot) if hover_pointer is not None else None,
@@ -4930,6 +5394,9 @@ def run_sample(
             "hover_pointer_normalized": (
                 list(hover_pointer) if hover_pointer is not None else None
             ),
+            "hover_pointer_stationary_entry": hover_pointer_stationary,
+            "cursor_ripple_persistence": cursor_ripple_persistence,
+            "cursor_ripple_visible": cursor_ripple_visible,
             "live_property_update": live_property_update,
             "loaded_textures": loaded,
             "texture_candidates": total,
@@ -5040,6 +5507,7 @@ def run_sample(
             "particle_skipped_hidden": particle_runtime["skipped_hidden"],
             "particle_skipped_transparent": particle_runtime["skipped_transparent"],
             "particle_loaded_layer_ids": particle_runtime["loaded_layer_ids"],
+            "audio_scaled_value": audio_scaled_value,
             "camera_projection": camera_match.group("projection") if camera_match else None,
             "camera_parallax": camera_match.group("parallax") == "true" if camera_match else None,
             "camera_parallax_amount": float(camera_match.group("amount")) if camera_match else None,
@@ -5155,9 +5623,19 @@ def parse_args() -> argparse.Namespace:
         help="seconds after launch to capture the non-hover after frame",
     )
     parser.add_argument(
+        "--periodic-snapshot-interval",
+        type=float,
+        help="capture a continuous Scene series at this interval in seconds",
+    )
+    parser.add_argument(
         "--audio-spectrum-fixture",
         action="store_true",
-        help="publish a varying asymmetric 16-band fixture through the shared Scene inbox",
+        help="publish deterministic PCM through the product Scene analyzer and shared inbox",
+    )
+    parser.add_argument(
+        "--audio-spectrum-silence-fixture",
+        action="store_true",
+        help="give the debug producer exclusive ownership and hold the Scene inbox at zero",
     )
     parser.add_argument(
         "--require-effect-stage-admission",
@@ -5180,11 +5658,26 @@ def parse_args() -> argparse.Namespace:
             "claimed and encoded on the GPU without executor failures"
         ),
     )
+    parser.add_argument(
+        "--require-cursor-ripple-persistence",
+        action="store_true",
+        help=(
+            "fail selected samples unless a moving pointer injects a GPU ripple "
+            "that expands and decays for at least three frames after exit"
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.audio_spectrum_fixture and args.audio_spectrum_silence_fixture:
+        print(
+            "Scene benchmark precondition failed: audio spectrum PCM and silence "
+            "fixtures are mutually exclusive",
+            file=sys.stderr,
+        )
+        return 2
     duration = max(args.duration, 7)
     if args.after_snapshot_delay is not None and (
         not math.isfinite(args.after_snapshot_delay)
@@ -5194,6 +5687,17 @@ def main() -> int:
         print(
             "Scene benchmark precondition failed: after snapshot delay must be "
             "finite, greater than 1, and less than duration",
+            file=sys.stderr,
+        )
+        return 2
+    if args.periodic_snapshot_interval is not None and (
+        not math.isfinite(args.periodic_snapshot_interval)
+        or args.periodic_snapshot_interval < 0.08
+        or args.periodic_snapshot_interval > 10
+    ):
+        print(
+            "Scene benchmark precondition failed: periodic snapshot interval must "
+            "be finite and between 0.08 and 10 seconds",
             file=sys.stderr,
         )
         return 2
@@ -5222,10 +5726,15 @@ def main() -> int:
             runtime_root=runtime_root,
             duration=duration,
             after_snapshot_delay=args.after_snapshot_delay,
+            periodic_snapshot_interval=args.periodic_snapshot_interval,
             audio_spectrum_fixture=args.audio_spectrum_fixture,
+            audio_spectrum_silence_fixture=args.audio_spectrum_silence_fixture,
             require_effect_stage_admission=args.require_effect_stage_admission,
             require_effect_execution=args.require_effect_execution,
             require_graph_execution=args.require_graph_execution,
+            require_cursor_ripple_persistence=(
+                args.require_cursor_ripple_persistence
+            ),
         )
         for sample in matrix["samples"]
     ]

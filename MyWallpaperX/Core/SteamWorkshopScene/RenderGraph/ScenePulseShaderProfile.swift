@@ -76,6 +76,12 @@ nonisolated enum ScenePulseShaderProfile: Equatable {
         }
     }
 
+    /// The stock profile contains the exact 16-band left/right/average
+    /// response path. The older v1 profiles have no proven audio contract.
+    var isAudioCapable: Bool {
+        self == .stock2842
+    }
+
     static func resolve(_ contracts: [SceneShaderContract]) -> ScenePulseShaderProfile? {
         let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
         guard matches.count == 1, let contract = matches.first,

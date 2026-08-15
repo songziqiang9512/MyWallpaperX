@@ -14,6 +14,11 @@ protocol SceneSpriteTexturePlayback: AnyObject {
 struct SceneSpriteAnimation {
     let frames: [SceneTexContainer.SpriteFrame]
     let duration: Float
+    /// Immutable playback timeline shared by every particle using this texture.
+    /// Particle assembly must not rebuild/map the same authored frame durations
+    /// once per live particle and once per rendered frame.
+    let frameDurations: [Float]
+    let frameEndTimes: [Float]
     private let frameAspectRatios: [Float]
     private let texturePlayback: SceneSpriteTexturePlayback?
 
@@ -28,7 +33,13 @@ struct SceneSpriteAnimation {
             return nil
         }
         self.frames = frames
-        self.duration = frames.reduce(0) { $0 + Self.effectiveDuration($1.duration) }
+        frameDurations = frames.map { Self.effectiveDuration($0.duration) }
+        var elapsed: Float = 0
+        frameEndTimes = frameDurations.map { value in
+            elapsed += value
+            return elapsed
+        }
+        duration = elapsed
         frameAspectRatios = frames.map {
             Self.frameAspectRatio(
                 for: $0,

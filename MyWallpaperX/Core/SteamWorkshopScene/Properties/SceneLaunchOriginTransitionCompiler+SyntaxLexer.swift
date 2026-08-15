@@ -133,11 +133,16 @@ nonisolated enum SceneLaunchOriginTransitionLexer {
                 }
                 token = .string(String(characters[start..<index])); index += 1
             } else {
+                let three = index + 2 < characters.count
+                    ? String(characters[index...index + 2]) : ""
                 let two = index + 1 < characters.count
                     ? String(characters[index...index + 1]) : ""
-                if ["==", "!="].contains(two) { token = .symbol(two); index += 2 }
+                if three == "===" { token = .symbol(three); index += 3 }
+                else if ["==", "!=", "+=", "-="].contains(two) {
+                    token = .symbol(two); index += 2
+                }
                 else {
-                    guard "(){};.*+-/=<>:,".contains(character) else {
+                    guard "(){}[]?;.*+-/=<>:,".contains(character) else {
                         return .init(tokens: result, complete: false)
                     }
                     token = .symbol(String(character)); index += 1

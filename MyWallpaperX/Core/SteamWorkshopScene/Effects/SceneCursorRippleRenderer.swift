@@ -14,22 +14,25 @@ enum SceneCursorRippleRenderer {
         previousCursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         previousPointerIsInside: Bool,
+        pointerMovement: Float,
+        primaryButtonIsDown: Bool,
         frameTime: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         let buffer1 = framebuffer(plan, name: "_rt_EightBuffer1")
         let buffer2 = framebuffer(plan, name: "_rt_EightBuffer2")
+        let sourceIsInstalled = targets.inputTexture === sourceTexture
         guard let resources = masks.cursorRippleEffects[plan.effectKey.descriptorID],
               resources.matches(plan),
               let intermediate = targets.texture(for: buffer1),
               let history = targets.texture(for: buffer2),
               targets.plan.logicalTargets.count == 2,
-              SceneOffscreenEffectRenderer.captureSource(
-                  sourceTexture: sourceTexture,
-                  target: targets.inputTexture,
-                  sourceUniforms: sourceUniforms,
-                  pipeline: sourcePipeline,
-                  commandBuffer: commandBuffer
+              sourceIsInstalled || SceneOffscreenEffectRenderer.captureSource(
+                sourceTexture: sourceTexture,
+                target: targets.inputTexture,
+                sourceUniforms: sourceUniforms,
+                pipeline: sourcePipeline,
+                commandBuffer: commandBuffer
               ),
               cursorRipplePipeline.encode(
                   history: history,
@@ -43,6 +46,8 @@ enum SceneCursorRippleRenderer {
                   previousCursorUV: previousCursorUV,
                   pointerIsInside: pointerIsInside,
                   previousPointerIsInside: previousPointerIsInside,
+                  pointerMovement: pointerMovement,
+                  primaryButtonIsDown: primaryButtonIsDown,
                   frameTime: frameTime,
                   commandBuffer: commandBuffer
               ) else {

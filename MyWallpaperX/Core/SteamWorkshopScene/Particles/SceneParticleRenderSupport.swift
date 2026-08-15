@@ -34,6 +34,8 @@ nonisolated enum SceneParticleSpriteFrameSelector {
     static func select(
         mode: SceneParticleSpriteAnimationMode,
         frameDurations: [Float],
+        frameEndTimes: [Float]? = nil,
+        totalDuration authoredTotalDuration: Float? = nil,
         age: Float,
         lifetime: Float,
         sequenceMultiplier: Float = 1,
@@ -41,8 +43,12 @@ nonisolated enum SceneParticleSpriteFrameSelector {
         blendsFrames: Bool
     ) -> SceneParticleSpriteFrameSelection? {
         guard !frameDurations.isEmpty else { return nil }
-        let durations = frameDurations.map(effectiveDuration)
-        let total = durations.reduce(0, +)
+        let hasPreparedTimeline = frameEndTimes?.count == frameDurations.count
+            && authoredTotalDuration?.isFinite == true
+            && (authoredTotalDuration ?? 0) > 0
+        let total = hasPreparedTimeline
+            ? authoredTotalDuration ?? 0
+            : frameDurations.reduce(0) { $0 + effectiveDuration($1) }
         guard total > 0, total.isFinite else {
             return SceneParticleSpriteFrameSelection(currentIndex: 0, nextIndex: 0, mix: 0)
         }
@@ -55,17 +61,40 @@ nonisolated enum SceneParticleSpriteFrameSelector {
         elapsed *= total
 
         let allowsBlend = blendsFrames && mode == .sequence
-        for index in durations.indices {
-            if elapsed < durations[index] || index == durations.index(before: durations.endIndex) {
-                let next = (index + 1) % durations.count
-                let blend = allowsBlend ? min(max(elapsed / durations[index], 0), 1) : 0
+        if hasPreparedTimeline, let frameEndTimes {
+            var lower = 0
+            var upper = frameEndTimes.count
+            while lower < upper {
+                let middle = lower + (upper - lower) / 2
+                if elapsed < frameEndTimes[middle] {
+                    upper = middle
+                } else {
+                    lower = middle + 1
+                }
+            }
+            let index = min(lower, frameDurations.count - 1)
+            let frameStart = index == 0 ? 0 : frameEndTimes[index - 1]
+            let duration = max(frameEndTimes[index] - frameStart, Float.leastNonzeroMagnitude)
+            let next = (index + 1) % frameDurations.count
+            let blend = allowsBlend ? min(max((elapsed - frameStart) / duration, 0), 1) : 0
+            return SceneParticleSpriteFrameSelection(
+                currentIndex: index,
+                nextIndex: allowsBlend ? next : index,
+                mix: blend
+            )
+        }
+        for index in frameDurations.indices {
+            let duration = effectiveDuration(frameDurations[index])
+            if elapsed < duration || index == frameDurations.index(before: frameDurations.endIndex) {
+                let next = (index + 1) % frameDurations.count
+                let blend = allowsBlend ? min(max(elapsed / duration, 0), 1) : 0
                 return SceneParticleSpriteFrameSelection(
                     currentIndex: index,
                     nextIndex: allowsBlend ? next : index,
                     mix: blend
                 )
             }
-            elapsed -= durations[index]
+            elapsed -= duration
         }
         return nil
     }
@@ -263,7 +292,12 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
         let currentAspect = Self.validAspect(currentFrameAspect) ? currentFrameAspect : 1
         let authoredNextAspect = nextFrameAspect ?? currentAspect
         let followingAspect = Self.validAspect(authoredNextAspect) ? authoredNextAspect : currentAspect
-        positionAndSize = SIMD4(position.x, position.y, position.z, size)
+        // Wallpaper Engine's generic particle vertex stream publishes half of
+        // the authored particle size. Its stock vertex shader then expands the
+        // quad around the center with `(uv - 0.5)`. Keep the authored value in
+        // the simulator for operators/collision, and apply this geometry-only
+        // conversion at the final GPU record boundary.
+        positionAndSize = SIMD4(position.x, position.y, position.z, size * 0.5)
         rotationAndAlpha = SIMD4(rotation.x, rotation.y, rotation.z, alpha)
         colorAndFrameMix = SIMD4(color.x, color.y, color.z, min(max(frameMix, 0), 1))
         frame0A = SIMD4(

@@ -181,6 +181,7 @@ enum SceneOffscreenEffectRenderer {
             targets: targets,
             quarterAIdentity: plan.firstQuarterTarget,
             quarterBIdentity: plan.secondQuarterTarget,
+            nodeIndices: plan.renderGraph.nodes.map(\.nodeIndex),
             strength: strength,
             pipeline: localContrastPipeline,
             commandBuffer: commandBuffer

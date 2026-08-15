@@ -128,6 +128,7 @@ enum SceneResolvedMaterialGraphComposition {
                     == request.claim.fullFrameExtentPolicy,
                   let allocation = pool.framePlanForPersistentGraphTargets(
                       admittedGraphs: request.claim.admittedGraphs,
+                      targetExecutionPlans: request.claim.targetExecutionPlans,
                       pairPlan: request.claim.pairPlan,
                       extentPolicy: request.fullFrameExtentPolicy,
                       requestedWidth: request.requestedWidth,

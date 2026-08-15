@@ -17,7 +17,7 @@ extension SceneRenderDescriptor {
         let effectID: Int?
         let name: String?
         let file: String
-        let visible: Bool?
+        var visible: Bool?
         let passes: [PassDescriptor]
     }
 

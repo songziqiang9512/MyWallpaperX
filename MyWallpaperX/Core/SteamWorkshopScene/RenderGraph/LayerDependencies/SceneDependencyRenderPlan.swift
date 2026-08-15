@@ -12,6 +12,7 @@ nonisolated struct SceneDependencyRenderPlan {
         enum Kind: Hashable {
             case clippingMask
             case proceduralNoiseLayer
+            case imageLayerBlend
         }
 
         let consumerLayerID: Int
@@ -178,6 +179,14 @@ nonisolated struct SceneDependencyRenderPlan {
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         ) {
             contract = (reference, 0, .proceduralNoiseLayer)
+        } else if let declaration = supportedImageLayerBlendDeclaration(
+            in: visibleEffects
+        ), references.count == 1, let reference = references.first,
+           reference.slot.effectID == declaration.effectID,
+           reference.slot.passIndex == declaration.passIndex,
+           reference.slot.slotIndex == declaration.slotIndex,
+           reference.providerLayerID == declaration.providerLayerID {
+            contract = (reference, declaration.blendMode, .imageLayerBlend)
         } else {
             contract = nil
         }
@@ -216,11 +225,18 @@ nonisolated struct SceneDependencyRenderPlan {
             ))
             return nil
         }
-        let providerKindIsSupported = contract.kind == .clippingMask
-            ? provider.utilityLayer?.kind == .composition
-            : provider.contentKind == "solid"
+        let providerKindIsSupported = switch contract.kind {
+        case .clippingMask:
+            provider.utilityLayer?.kind == .composition
+        case .proceduralNoiseLayer:
+            provider.contentKind == "solid"
                 && hasNoUtilityLayer(provider)
                 && provider.visible == false
+        case .imageLayerBlend:
+            provider.contentKind == "image"
+                && hasNoUtilityLayer(provider)
+                && provider.visible == false
+        }
         guard providerKindIsSupported,
               provider.effects.allSatisfy({ $0.visible == false }),
               provider.childLayerIDs.isEmpty,
@@ -276,6 +292,9 @@ nonisolated struct SceneDependencyRenderPlan {
         if visibleEffects.compactMap(SceneClippingMaskContract.declaration).count == 1 {
             return true
         }
+        if supportedImageLayerBlendDeclaration(in: visibleEffects) != nil {
+            return true
+        }
         return supportedProceduralNoiseReference(
             layer: layer,
             visibleEffects: visibleEffects,
@@ -315,6 +334,15 @@ nonisolated struct SceneDependencyRenderPlan {
             return nil
         }
         return reference
+    }
+
+    private static func supportedImageLayerBlendDeclaration(
+        in visibleEffects: [SceneRenderDescriptor.EffectDescriptor]
+    ) -> SceneImageLayerBlendDependencyDeclaration? {
+        let declarations = visibleEffects.compactMap(
+            SceneImageLayerBlendDependencyContract.declaration
+        )
+        return declarations.count == 1 ? declarations[0] : nil
     }
 
     private nonisolated static func normalized(_ value: String) -> String {

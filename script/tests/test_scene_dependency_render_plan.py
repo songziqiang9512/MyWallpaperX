@@ -23,6 +23,8 @@ LAUNCH_SOURCE = SOURCE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SOURCE_ROOT / "RenderGraph/SceneClippingMaskContract.swift",
+    SOURCE_ROOT
+    / "RenderGraph/LayerDependencies/SceneImageLayerBlendDependencyContract.swift",
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyGraphAnalysis.swift",
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
 ]
@@ -365,6 +367,7 @@ enum Harness {
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42_b")?.variant.rawValue ?? "nil",
         ]
         let legacyNoiseBinding = plan.bindingsByConsumerLayerID[31]
+        let imageBlend = imageBlendBinding()
         let result: [String: Any] = [
             "parsedVariants": parsed,
             "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
@@ -437,6 +440,25 @@ enum Harness {
                 "wrongSlot": proceduralBinding(slotIndex: 2) == nil,
                 "wrongCombos": proceduralBinding(extraCombos: ["BLENDMODE": 5]) == nil,
                 "extraReference": proceduralBinding(extraReference: true) == nil,
+            ],
+            "imageBlendBinding": [
+                "consumer": imageBlend?.consumerLayerID ?? -1,
+                "provider": imageBlend?.providerLayerID ?? -1,
+                "effect": imageBlend?.slot.effectID ?? "",
+                "pass": imageBlend?.slot.passIndex ?? -1,
+                "slot": imageBlend?.slot.slotIndex ?? -1,
+                "blend": imageBlend?.blendMode ?? -1,
+                "imageBlend": imageBlend?.kind == .imageLayerBlend,
+            ],
+            "imageBlendRejects": [
+                "visibleProvider": imageBlendBinding(providerVisible: true) == nil,
+                "effectfulProvider": imageBlendBinding(providerEffectful: true) == nil,
+                "wrongProviderKind": imageBlendBinding(providerContentKind: "solid") == nil,
+                "secondary": imageBlendBinding(variantSuffix: "b") == nil,
+                "userTextureOverride": imageBlendBinding(userTextureOverride: true) == nil,
+                "extraReference": imageBlendBinding(extraReference: true) == nil,
+                "transformed": imageBlendBinding(extraCombos: ["TRANSFORMUV": 1]) == nil,
+                "partialStrength": imageBlendBinding(multiply: 0.5) == nil,
             ],
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -761,6 +783,76 @@ enum Harness {
             executableUtilityConsumerLayerIDs: [consumerID]
         ).bindingsByConsumerLayerID[consumerID]
     }
+
+    static func imageBlendBinding(
+        providerVisible: Bool? = false,
+        providerContentKind: String = "image",
+        providerEffectful: Bool = false,
+        variantSuffix: String = "a",
+        userTextureOverride: Bool = false,
+        extraReference: Bool = false,
+        dependencyMismatch: Bool = false,
+        extraCombos: [String: Int] = [:],
+        multiply: Double = 1
+    ) -> SceneDependencyRenderPlan.Binding? {
+        let providerID = 300
+        let consumerID = 301
+        let providerEffects: [SceneRenderDescriptor.EffectDescriptor] = providerEffectful
+            ? [.init(
+                id: "provider-effect",
+                file: "effects/tint/effect.json",
+                visible: true,
+                passes: []
+            )] : []
+        let provider = SceneRenderDescriptor.Layer(
+            id: providerID,
+            contentKind: providerContentKind,
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: providerVisible,
+            effects: providerEffects
+        )
+        let primary = "_rt_imageLayerComposite_\(providerID)_\(variantSuffix)"
+        let extra = "_rt_imageLayerComposite_299_a"
+        var slots: [String?] = [nil, primary]
+        if extraReference { slots.append(extra) }
+        var combos = ["BLENDMODE": 0]
+        combos.merge(extraCombos) { _, new in new }
+        let blend = SceneRenderDescriptor.EffectDescriptor(
+            id: "image-blend",
+            file: "effects/blend/effect.json",
+            visible: true,
+            passes: [.init(
+                passIndex: 0,
+                texturePaths: extraReference ? [primary, extra] : [primary],
+                textureSlots: slots,
+                userTextureInputs: userTextureOverride ? [nil, 1] : [],
+                combos: combos,
+                constantShaderValues: [
+                    "multiply": .init(components: [multiply]),
+                    "alpha": .init(components: [1]),
+                ]
+            )]
+        )
+        let consumer = SceneRenderDescriptor.Layer(
+            id: consumerID,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: dependencyMismatch ? [299] : [providerID],
+            childLayerIDs: [],
+            visible: true,
+            effects: [blend]
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [provider, consumer],
+            renderOrderLayerIDs: [providerID, consumerID]
+        )
+        return SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: [consumerID]
+        ).bindingsByConsumerLayerID[consumerID]
+    }
 }
 '''
 
@@ -939,6 +1031,21 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             },
         )
         self.assertTrue(all(self.result["legacyNoiseRejects"].values()))
+
+    def test_exact_plain_image_blend_dependency_is_typed_and_fail_closed(self) -> None:
+        self.assertEqual(
+            self.result["imageBlendBinding"],
+            {
+                "consumer": 301,
+                "provider": 300,
+                "effect": "image-blend",
+                "pass": 0,
+                "slot": 1,
+                "blend": 0,
+                "imageBlend": True,
+            },
+        )
+        self.assertTrue(all(self.result["imageBlendRejects"].values()))
 
 if __name__ == "__main__":
     unittest.main()

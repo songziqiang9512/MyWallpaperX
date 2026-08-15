@@ -10,7 +10,8 @@ extension SceneRenderDescriptor {
         let imagePath: String?
         let particlePath: String?
         var spotLight: SceneSpotLightDefinition? = nil
-        let particleInstanceOverride: SceneParticleInstanceOverride?
+        var particleInstanceOverride: SceneParticleInstanceOverride?
+        var particleRateAudioScript: SceneAudioScaledValueScriptDefinition? = nil
         let utilityLayer: SceneUtilityLayer?
         let dependencyLayerIDs: [Int]
         var authoredDependencies: [SceneObjectDependency] = []
@@ -19,7 +20,7 @@ extension SceneRenderDescriptor {
         let attachmentName: String?
         let parentAttachmentBindFrame: [Float]?
         let puppetAnimationLayers: [ScenePuppetAnimationLayer]
-        let visible: Bool?
+        var visible: Bool?
         let alpha: Double?
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
         let colorRGB: [Float]?
@@ -31,6 +32,8 @@ extension SceneRenderDescriptor {
         let origin: String?
         let size: String?
         let scale: String?
+        var scaleHasScript: Bool? = nil
+        var scaleAudioScript: SceneAudioScaledValueScriptDefinition? = nil
         let angles: String?
         // Numeric transform fields parsed from the corresponding string fields.
         // originXYZ: world-space center (3 floats, defaults to [0,0,0]).
@@ -58,7 +61,7 @@ extension SceneRenderDescriptor {
         var scriptBindings: [SceneScriptBindingDefinition]? = nil
         var textureAnimationScripts: [SceneTextureAnimationScriptDefinition]? = nil
         let hasInlineScript: Bool
-        let effects: [EffectDescriptor]
+        var effects: [EffectDescriptor]
         let effectFiles: [String]
         let texturePaths: [String]
 

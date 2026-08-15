@@ -14,6 +14,8 @@ enum SceneEffectStageRenderer {
         previousCursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         previousPointerIsInside: Bool,
+        pointerMovement: Float,
+        primaryButtonIsDown: Bool,
         frameTime: Float,
         time: Float,
         audioSpectrum: SceneAudioSpectrumSnapshot,
@@ -137,6 +139,8 @@ targets: targets, dynamicValues: dynamicValues,
                 previousCursorUV: previousCursorUV,
                 pointerIsInside: pointerIsInside,
                 previousPointerIsInside: previousPointerIsInside,
+                pointerMovement: pointerMovement,
+                primaryButtonIsDown: primaryButtonIsDown,
                 frameTime: frameTime, time: time, audioSpectrum: audioSpectrum,
                 dependencyEffect: dependencyEffect, commandBuffer: commandBuffer
             )

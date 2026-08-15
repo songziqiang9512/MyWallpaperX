@@ -70,16 +70,16 @@ nonisolated enum SceneAuthoredCursorRipplePlanner {
                   instance.passes[1].constantShaderValues,
                   exactKeys: ["rippledecay", "ripplespeed"],
                   key: "rippledecay",
-                  range: 0...1
+                  range: 0...4
               ),
               let speed = scalar(
                   instance.passes[1].constantShaderValues,
                   exactKeys: ["rippledecay", "ripplespeed"],
                   key: "ripplespeed",
-                  range: 0...1
+                  range: 0...2
               ),
               let strength = scalarPass(
-                  instance.passes[2], index: 2, key: "ripplestrength", range: 0...1
+                  instance.passes[2], index: 2, key: "ripplestrength", range: 0...5
               ),
               validResolvedNodes(
                   graph.nodes,

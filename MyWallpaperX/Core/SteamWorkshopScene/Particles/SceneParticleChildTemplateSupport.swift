@@ -44,6 +44,10 @@ struct SceneParticleChildTransform: Equatable {
         value * scale
     }
 
+    func inversePosition(_ value: SIMD3<Double>) -> SIMD3<Double> {
+        value / scale
+    }
+
     func velocity(_ value: SIMD3<Double>) -> SIMD3<Double> {
         value * scale
     }

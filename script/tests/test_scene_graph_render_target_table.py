@@ -141,7 +141,6 @@ enum Harness {
         ), let upload = device.makeBuffer(length: 16, options: .storageModeShared),
         let readback = device.makeBuffer(length: 16, options: .storageModeShared),
         let commandBuffer = queue.makeCommandBuffer(),
-        table.encodeInitialTargetClear(commandBuffer: commandBuffer),
         let uploadEncoder = commandBuffer.makeBlitCommandEncoder() else {
             fatalError("scheduler setup failed")
         }
@@ -365,134 +364,19 @@ enum Harness {
             plan: historyPlan,
             device: device,
             byteBudget: 64
-        ), let historyTexture = historyTable.texture(for: quarterA),
-        let historyQueue = device.makeCommandQueue(),
-        let historyReadback = device.makeBuffer(length: 16, options: .storageModeShared),
-        let historyCommandBuffer = historyQueue.makeCommandBuffer(),
-        historyTable.encodeInitialTargetClear(commandBuffer: historyCommandBuffer),
-        let historyReadbackEncoder = historyCommandBuffer.makeBlitCommandEncoder() else {
-            fatalError("history initialization setup failed")
-        }
-        historyReadbackEncoder.copy(
-            from: historyTexture,
-            sourceSlice: 0,
-            sourceLevel: 0,
-            sourceOrigin: .init(x: 0, y: 0, z: 0),
-            sourceSize: .init(width: 2, height: 2, depth: 1),
-            to: historyReadback,
-            destinationOffset: 0,
-            destinationBytesPerRow: 8,
-            destinationBytesPerImage: 16
-        )
-        historyReadbackEncoder.endEncoding()
-        historyCommandBuffer.commit()
-        historyCommandBuffer.waitUntilCompleted()
-        let historyBytes = [UInt8](
-            UnsafeBufferPointer(
-                start: historyReadback.contents().assumingMemoryBound(to: UInt8.self),
-                count: 16
-            )
-        )
-        guard case .success(let authoredClearTable) = TargetTable.make(
+        ), historyTable.texture(for: quarterA) != nil,
+        case .success(let authoredClearTable) = TargetTable.make(
             plan: authoredClearPlan,
             device: device,
             byteBudget: 12
-        ), let authoredClearTexture = authoredClearTable.texture(for: quarterA),
-        let authoredClearQueue = device.makeCommandQueue(),
-        let initialReadback = device.makeBuffer(length: 4, options: .storageModeShared),
-        let initialCommandBuffer = authoredClearQueue.makeCommandBuffer(),
-        authoredClearTable.encodeInitialTargetClear(commandBuffer: initialCommandBuffer),
-        let initialReadbackEncoder = initialCommandBuffer.makeBlitCommandEncoder() else {
-            fatalError("authored clear initialization setup failed")
-        }
-        initialReadbackEncoder.copy(
-            from: authoredClearTexture,
-            sourceSlice: 0,
-            sourceLevel: 0,
-            sourceOrigin: .init(x: 0, y: 0, z: 0),
-            sourceSize: .init(width: 1, height: 1, depth: 1),
-            to: initialReadback,
-            destinationOffset: 0,
-            destinationBytesPerRow: 4,
-            destinationBytesPerImage: 4
-        )
-        initialReadbackEncoder.endEncoding()
-        initialCommandBuffer.commit()
-        initialCommandBuffer.waitUntilCompleted()
-        let initialClearBytes = [UInt8](
-            UnsafeBufferPointer(
-                start: initialReadback.contents().assumingMemoryBound(to: UInt8.self),
-                count: 4
-            )
-        )
-
-        guard let secondReadback = device.makeBuffer(length: 4, options: .storageModeShared),
-              let secondCommandBuffer = authoredClearQueue.makeCommandBuffer() else {
-            fatalError("authored clear one-shot setup failed")
-        }
-        let overwriteDescriptor = MTLRenderPassDescriptor()
-        overwriteDescriptor.colorAttachments[0].texture = authoredClearTexture
-        overwriteDescriptor.colorAttachments[0].loadAction = .clear
-        overwriteDescriptor.colorAttachments[0].storeAction = .store
-        overwriteDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(1, 0, 0, 1)
-        guard let overwriteEncoder = secondCommandBuffer.makeRenderCommandEncoder(
-            descriptor: overwriteDescriptor
-        ) else {
-            fatalError("authored clear overwrite encoder failed")
-        }
-        overwriteEncoder.endEncoding()
-        guard authoredClearTable.encodeInitialTargetClear(commandBuffer: secondCommandBuffer),
-              let secondReadbackEncoder = secondCommandBuffer.makeBlitCommandEncoder() else {
-            fatalError("authored clear repeated initialization failed")
-        }
-        secondReadbackEncoder.copy(
-            from: authoredClearTexture,
-            sourceSlice: 0,
-            sourceLevel: 0,
-            sourceOrigin: .init(x: 0, y: 0, z: 0),
-            sourceSize: .init(width: 1, height: 1, depth: 1),
-            to: secondReadback,
-            destinationOffset: 0,
-            destinationBytesPerRow: 4,
-            destinationBytesPerImage: 4
-        )
-        secondReadbackEncoder.endEncoding()
-        secondCommandBuffer.commit()
-        secondCommandBuffer.waitUntilCompleted()
-        let repeatedClearBytes = [UInt8](
-            UnsafeBufferPointer(
-                start: secondReadback.contents().assumingMemoryBound(to: UInt8.self),
-                count: 4
-            )
-        )
-
-        guard case .success(let r8Table) = TargetTable.make(
+        ), authoredClearTable.texture(for: quarterA) != nil,
+        case .success(let r8Table) = TargetTable.make(
             plan: r8Plan,
             device: device,
             byteBudget: 9
-        ), let r8Texture = r8Table.texture(for: quarterA),
-        let r8Queue = device.makeCommandQueue(),
-        let r8Readback = device.makeBuffer(length: 256, options: .storageModeShared),
-        let r8CommandBuffer = r8Queue.makeCommandBuffer(),
-        r8Table.encodeInitialTargetClear(commandBuffer: r8CommandBuffer),
-        let r8ReadbackEncoder = r8CommandBuffer.makeBlitCommandEncoder() else {
-            fatalError("r8 allocation or initialization failed")
+        ), let r8Texture = r8Table.texture(for: quarterA) else {
+            fatalError("target metadata allocation failed")
         }
-        r8ReadbackEncoder.copy(
-            from: r8Texture,
-            sourceSlice: 0,
-            sourceLevel: 0,
-            sourceOrigin: .init(x: 0, y: 0, z: 0),
-            sourceSize: .init(width: 1, height: 1, depth: 1),
-            to: r8Readback,
-            destinationOffset: 0,
-            destinationBytesPerRow: 256,
-            destinationBytesPerImage: 256
-        )
-        r8ReadbackEncoder.endEncoding()
-        r8CommandBuffer.commit()
-        r8CommandBuffer.waitUntilCompleted()
-        let r8InitialByte = r8Readback.contents().assumingMemoryBound(to: UInt8.self).pointee
 
         let textures = [
             table.inputTexture,
@@ -853,16 +737,17 @@ enum Harness {
                 && table.outputTexture.pixelFormat == .bgra8Unorm,
             "framebufferFormats": quarterATexture.pixelFormat == .rgba8Unorm
                 && quarterBTexture.pixelFormat == .rgba8Unorm,
-            "historyClearBytesZero": historyBytes.allSatisfy { $0 == 0 },
             "historyTargetPersistent":
                 historyTable.plan.logicalTargets[0].lifetime.requiresHistorySeed,
-            "authoredClearBytesZero": initialClearBytes.allSatisfy { $0 == 0 },
-            "authoredClearOneShot": repeatedClearBytes == [255, 0, 0, 255],
+            "authoredClearMetadataPreserved":
+                authoredClearTable.plan.logicalTargets[0].initialClear
+                    == authoredClearPlan.logicalTargets[0].initialClear,
             "r8ResidentBytes": r8Table.residentByteCost,
             "r8ResidentCount": r8Table.residentTextureCount,
             "r8PixelFormat": r8Texture.pixelFormat == .r8Unorm,
-            "r8InitialClearZero": r8CommandBuffer.status == .completed
-                && r8CommandBuffer.error == nil && r8InitialByte == 0,
+            "r8ClearMetadataPreserved":
+                r8Table.plan.logicalTargets[0].initialClear
+                    == r8Plan.logicalTargets[0].initialClear,
             "r8BudgetFailure": failure(TargetTable.make(
                 plan: r8Plan, device: device, byteBudget: 8
             )),
@@ -984,16 +869,23 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
         self.assertTrue(self.result["inputOutputFormat"])
         self.assertTrue(self.result["framebufferFormats"])
         self.assertTrue(self.result["textureContract"])
-        self.assertTrue(self.result["historyClearBytesZero"])
         self.assertTrue(self.result["historyTargetPersistent"])
-        self.assertTrue(self.result["authoredClearBytesZero"])
-        self.assertTrue(self.result["authoredClearOneShot"])
+        self.assertTrue(self.result["authoredClearMetadataPreserved"])
+
+    def test_target_table_does_not_encode_initialization_outside_transaction(self) -> None:
+        table_source = SWIFT_SOURCES[6].read_text(encoding="utf-8")
+        topology_source = (
+            SOURCE_ROOT
+            / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("encodeInitialTargetClear", table_source)
+        self.assertNotIn("encodeInitialTargetClear", topology_source)
 
     def test_r8_uses_single_channel_storage_and_exact_logical_budget(self) -> None:
         self.assertEqual(self.result["r8ResidentBytes"], 9)
         self.assertEqual(self.result["r8ResidentCount"], 3)
         self.assertTrue(self.result["r8PixelFormat"])
-        self.assertTrue(self.result["r8InitialClearZero"])
+        self.assertTrue(self.result["r8ClearMetadataPreserved"])
         self.assertEqual(self.result["r8BudgetFailure"], "byteBudgetExceeded")
 
     def test_copy_blits_bytes_and_swap_exchanges_logical_bindings(self) -> None:

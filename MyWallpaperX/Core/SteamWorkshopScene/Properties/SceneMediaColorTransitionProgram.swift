@@ -25,9 +25,17 @@ nonisolated struct SceneMediaColorTransitionBinding: Equatable, Sendable {
     let plan: SceneMediaColorTransitionPlan
 }
 
+/// Exact `MediaThumbnailEvent` palette member consumed by one admitted script.
+/// Other event colors remain unsupported until their own bounded profiles exist.
+nonisolated enum SceneMediaThumbnailColorChannel: Equatable, Sendable {
+    case primary
+    case secondary
+}
+
 /// Exact author inputs retained by the admitted transition profile.
 nonisolated struct SceneMediaColorTransitionPlan: Equatable, Sendable {
     let userPropertyKey: String
     let authoredTopColor: SIMD3<Double>
     let duration: TimeInterval
+    let thumbnailColorChannel: SceneMediaThumbnailColorChannel
 }

@@ -2010,6 +2010,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             self.assertIn(backend_name, leaf_body)
         self.assertNotIn("yieldsToResolvedMaterialProgram", backend)
         self.assertNotIn(".spin", backend)
+
         self.assertIn(".workshopAudioBars", leaf_body)
         self.assertIn("case .waterFlow(let plan):", topology)
         self.assertIn("inputs.masks.waterFlowEffects[", topology)

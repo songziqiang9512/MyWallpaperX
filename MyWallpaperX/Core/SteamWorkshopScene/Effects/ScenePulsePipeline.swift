@@ -128,8 +128,8 @@ struct ScenePulsePipeline {
         var boundsMaskScale: SIMD4<Float>
         var timeSpeedPhaseAmount: SIMD4<Float>
         var noiseSpeedAmountPower: SIMD4<Float>
-        var noiseUVScale: SIMD4<Float>
         var audio: SIMD4<Float>
+        var noiseUVScale: SIMD4<Float>
         var blendMode: Int32
         var pulseColor: Int32
         var pulseAlpha: Int32
@@ -199,14 +199,14 @@ struct ScenePulsePipeline {
             noiseSpeedAmountPower: SIMD4(
                 inputs.noiseSpeed, inputs.noiseAmount, inputs.power, inputs.phaseOffset
             ),
-            noiseUVScale: SIMD4(
-                inputs.noiseUVScale.x, inputs.noiseUVScale.y, 0, 0
-            ),
             audio: SIMD4(
                 inputs.audioPulse ?? 0,
                 inputs.audioPulse == nil ? 0 : 1,
                 0,
                 0
+            ),
+            noiseUVScale: SIMD4(
+                inputs.noiseUVScale.x, inputs.noiseUVScale.y, 0, 0
             ),
             blendMode: Int32(inputs.blendMode),
             pulseColor: inputs.pulseColor ? 1 : 0,

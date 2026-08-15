@@ -137,11 +137,28 @@ extension WallpaperEngine {
         let webCaptureRequested = captureAllowed
             && currentPlaybackContentKind == .web
             && currentWebAudioSpectrumRequested
+#if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        let debugScenePCMOwnsInbox = arguments.contains(
+            "--mwx-debug-scene-audio-spectrum-fixture"
+        )
+        let debugSceneSilenceOwnsInbox = arguments.contains(
+            "--mwx-debug-scene-audio-silence-fixture"
+        )
+        let debugSceneFixtureOwnsInbox = debugScenePCMOwnsInbox
+            || debugSceneSilenceOwnsInbox
+#else
+        let debugScenePCMOwnsInbox = false
+        let debugSceneSilenceOwnsInbox = false
+        let debugSceneFixtureOwnsInbox = false
+#endif
         // Scene 不走 daemon session，因此不参与 currentPlaybackContentKind 判定；
         // 需求完全由 Scene runtime 侧的消费者声明决定。
         let sceneCaptureRequested = captureAllowed
             && SceneAudioSpectrumInbox.shared.isDemanded
-        if !sceneCaptureRequested {
+            && !debugSceneFixtureOwnsInbox
+        if !SceneAudioSpectrumInbox.shared.isDemanded
+            || debugSceneSilenceOwnsInbox {
             SceneAudioSpectrumInbox.shared.clearSnapshot()
         }
         systemAudioSpectrumService.setConsumers(

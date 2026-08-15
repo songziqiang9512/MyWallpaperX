@@ -12,6 +12,7 @@ nonisolated struct SceneBlendExecutionPlan {
     let dynamicMultiplyBinding: SceneTimeOfDayEffectScriptBinding?
     let assetTexturePath: String
     let userPropertyKey: String?
+    let dependencyProviderLayerID: Int?
 
     nonisolated var executedUserPropertyKeys: Set<String> {
         Set([userPropertyKey].compactMap { $0 })

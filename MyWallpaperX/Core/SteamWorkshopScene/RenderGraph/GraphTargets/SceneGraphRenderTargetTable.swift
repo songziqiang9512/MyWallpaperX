@@ -29,13 +29,6 @@ struct SceneGraphRenderTargetTable {
     let residentByteCost: Int
 
     private let texturesByIdentity: [Graph.TextureIdentity: MTLTexture]
-    private let initializationState: InitializationState
-
-    private final class InitializationState {
-        var needsInitialInitialization = true
-        var clearInFlight = false
-    }
-
     var residentTextureCount: Int {
         orderedPhysicalTextures.count
     }
@@ -63,7 +56,6 @@ struct SceneGraphRenderTargetTable {
         self.inputOutputAliased = inputOutputAliased
         self.residentByteCost = residentByteCost
         self.texturesByIdentity = texturesByIdentity
-        initializationState = InitializationState()
     }
 
     func texture(for identity: Graph.TextureIdentity) -> MTLTexture? {
@@ -72,44 +64,6 @@ struct SceneGraphRenderTargetTable {
 
     func makeCommandRuntime() -> SceneGraphCommandRuntime? {
         SceneGraphCommandRuntime(plan: plan, texturesByIdentity: texturesByIdentity)
-    }
-
-    func encodeInitialTargetClear(commandBuffer: MTLCommandBuffer) -> Bool {
-        let targets = plan.logicalTargets.filter {
-            $0.lifetime.requiresHistorySeed || $0.initialClear != nil
-        }
-        guard !targets.isEmpty else { return true }
-        guard initializationState.needsInitialInitialization,
-              !initializationState.clearInFlight else {
-            return true
-        }
-
-        for target in targets {
-            guard let texture = texturesByIdentity[target.identity] else { return false }
-            let descriptor = MTLRenderPassDescriptor()
-            descriptor.colorAttachments[0].texture = texture
-            descriptor.colorAttachments[0].loadAction = .clear
-            descriptor.colorAttachments[0].storeAction = .store
-            let clear = target.initialClear ?? .init(red: 0, green: 0, blue: 0, alpha: 0)
-            descriptor.colorAttachments[0].clearColor = MTLClearColorMake(
-                clear.red,
-                clear.green,
-                clear.blue,
-                clear.alpha
-            )
-            guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {
-                return false
-            }
-            encoder.endEncoding()
-        }
-        initializationState.clearInFlight = true
-        commandBuffer.addCompletedHandler { [initializationState] buffer in
-            initializationState.clearInFlight = false
-            if buffer.status == .completed {
-                initializationState.needsInitialInitialization = false
-            }
-        }
-        return true
     }
 
     static func make(

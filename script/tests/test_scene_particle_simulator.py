@@ -73,6 +73,15 @@ enum Harness {
         var budgeted = simulator(maximumCountJSON, seed: 1, step: 0.1, particleBudget: 2)
         budgeted.advance(by: 0.1)
         let prewarmed = simulator(prewarmJSON, seed: 1, step: 0.1)
+        let halfRateOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"rate":0.5}"#)
+        )
+        let prewarmedAtInitialHalfRate = simulator(
+            prewarmJSON,
+            initialOverride: halfRateOverride,
+            seed: 1,
+            step: 0.1
+        )
 
         var death = simulator(deathJSON, seed: 1, step: 0.1)
         death.advance(by: 0.2)
@@ -917,6 +926,7 @@ enum Harness {
             "maxCount": capped.particles.count,
             "budgetCount": budgeted.particles.count,
             "prewarmCount": prewarmed.particles.count,
+            "prewarmInitialHalfRateCount": prewarmedAtInitialHalfRate.particles.count,
             "prewarmTime": prewarmed.simulationTime,
             "prewarmBirthEvents": prewarmed.birthEvents.count,
             "deathEventCount": deathEvents.count,
@@ -1272,6 +1282,7 @@ enum Harness {
     private static func simulator(
         _ source: String,
         override: SceneParticleInstanceOverride? = nil,
+        initialOverride: SceneParticleInstanceOverride? = nil,
         seed: UInt64,
         step: Double,
         particleBudget: Int? = nil,
@@ -1282,6 +1293,7 @@ enum Harness {
         return SceneParticleSimulator(
             definition: definition,
             instanceOverride: override,
+            initialDynamicInstanceOverride: initialOverride,
             seed: seed,
             fixedTimeStep: step,
             particleBudget: particleBudget,
@@ -2095,6 +2107,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["maxCount"], 3)
         self.assertEqual(self.results["budgetCount"], 2)
         self.assertEqual(self.results["prewarmCount"], 10)
+        self.assertEqual(self.results["prewarmInitialHalfRateCount"], 5)
         self.assertAlmostEqual(self.results["prewarmTime"], 1.0)
 
     def test_rate_instantaneous_duration_and_one_per_frame(self) -> None:
@@ -2316,15 +2329,15 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["operatorColor"], [0.975, 0.9875, 1])
         self.assertEqual(self.results["operatorRotation"], [0, 0, 0.25])
         self.assertLess(self.results["operatorPosition"][0], 0)
-        quarter_wave = (math.cos(math.pi / 8) + 1) * 0.5
-        half_wave = (math.cos(math.pi / 4) + 1) * 0.5
+        age_one_wave = (math.cos(0.25) + 1) * 0.5
+        age_two_wave = (math.cos(0.5) + 1) * 0.5
         self.assertAlmostEqual(
             self.results["quarterLifeOscillationAlpha"],
-            0.2 + 0.8 * quarter_wave,
+            0.2 + 0.8 * age_one_wave,
         )
         self.assertAlmostEqual(
             self.results["halfLifeOscillationAlpha"],
-            0.2 + 0.8 * half_wave,
+            0.2 + 0.8 * age_two_wave,
         )
         self.assertAlmostEqual(
             self.results["fineHalfLifeOscillationAlpha"],
@@ -2332,22 +2345,26 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         )
         self.assertAlmostEqual(
             self.results["halfLifeOscillationSize"],
-            10 * (0.5 + 0.5 * half_wave),
+            10 * (0.5 + 0.5 * age_two_wave),
         )
         self.assertAlmostEqual(
             self.results["fineHalfLifeOscillationSize"],
             self.results["halfLifeOscillationSize"],
         )
-        self.assertEqual(
-            self.results["quarterLifeOscillationPosition"],
-            [-16, -4, 0],
-        )
-        self.assertEqual(
+        expected_age_two = [8 * (math.cos(4) - 1), 2 * (math.cos(4) - 1), 0]
+        for actual, expected in zip(
+            self.results["quarterLifeOscillationPosition"], expected_age_two
+        ):
+            self.assertAlmostEqual(actual, expected, places=10)
+        self.assertNotEqual(
             self.results["longQuarterLifeOscillationPosition"],
             self.results["quarterLifeOscillationPosition"],
         )
-        for component in self.results["halfLifeOscillationPosition"]:
-            self.assertAlmostEqual(component, 0, places=10)
+        for actual, same_age_long in zip(
+            self.results["halfLifeOscillationPosition"],
+            self.results["longQuarterLifeOscillationPosition"],
+        ):
+            self.assertAlmostEqual(actual, same_age_long, places=10)
         for coarse, fine in zip(
             self.results["halfLifeOscillationPosition"],
             self.results["fineHalfLifeOscillationPosition"],

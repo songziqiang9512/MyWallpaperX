@@ -15,6 +15,9 @@ final class SceneResolvedMaterialRuntimeBridge {
     struct ClaimedExecution {
         let layerID: Int
         let admittedGraphs: [Graph]
+        /// Stage-aligned target semantics. A non-nil entry is accepted only
+        /// after the same dedicated typed program won capability ownership.
+        let targetExecutionPlans: [SceneEffectStageExecutionPlan?]
         let pairPlan: SceneLayerFullFramePairPlan
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
@@ -25,6 +28,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         fileprivate init(
             layerID: Int,
             admittedGraphs: [Graph],
+            targetExecutionPlans: [SceneEffectStageExecutionPlan?],
             pairPlan: SceneLayerFullFramePairPlan,
             fullFrameExtentPolicy: SceneFullFrameExtentPolicy,
             dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
@@ -34,6 +38,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         ) {
             self.layerID = layerID
             self.admittedGraphs = admittedGraphs
+            self.targetExecutionPlans = targetExecutionPlans
             self.pairPlan = pairPlan
             self.fullFrameExtentPolicy = fullFrameExtentPolicy
             self.dependencyOwnership = dependencyOwnership
@@ -83,6 +88,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         let previousCursorUV: SIMD2<Float>
         let pointerIsInside: Bool
         let previousPointerIsInside: Bool
+        let pointerMovement: Float
+        let primaryButtonIsDown: Bool
         let layerModelMatrix: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let frameTime: Float
@@ -348,6 +355,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         let execution = Bridge.ClaimedExecution(
             layerID: layerID,
             admittedGraphs: capability.admittedProducts.map(\.graph),
+            targetExecutionPlans: capability.stages.map(\.dedicatedExecutionPlan),
             pairPlan: capability.pairPlan,
             fullFrameExtentPolicy: capability.fullFrameExtentPolicy,
             dependencyOwnership: capability.dependencyOwnership,

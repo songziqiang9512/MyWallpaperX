@@ -1,8 +1,8 @@
 import Foundation
 
-/// A fail-closed projection of authored album-cover bindings onto layer sources.
-/// Current covers use a normal full-strength replacement; unsupported media
-/// identities and event-driven transitions remain unexecuted.
+/// Retained launch surface for system media textures. Album-cover effects must
+/// consume those textures through their authored material slots; they are never
+/// allowed to replace the owning layer source.
 nonisolated struct SceneMediaThumbnailBindingProgram {
     static let currentIdentity = "$mediaThumbnail"
 
@@ -32,135 +32,94 @@ enum SceneMediaThumbnailBindingCompiler {
         descriptor: SceneRenderDescriptor,
         scriptBindings: [SceneScriptBindingIR]
     ) -> SceneMediaThumbnailBindingProgram {
-        let mediaVisibilityEffects = Set(scriptBindings.compactMap { binding -> EffectOwner? in
+        _ = descriptor
+        _ = scriptBindings
+        return .empty
+    }
+}
+
+/// Exact initial-state projection for the two stock album-cover visibility
+/// scripts observed in legal Workshop assets. The system starts without a
+/// published thumbnail, so these effects are inactive until a future unified
+/// dynamic-topology owner supports their event lifecycle.
+nonisolated enum SceneInitialMediaEffectVisibilityProjection {
+    struct EffectOwner: Hashable {
+        let layerID: Int
+        let effectIndex: Int
+    }
+
+    static func initiallyInactiveOwners(
+        scriptBindings: [SceneScriptBindingIR],
+        sourceEvidence: [SceneScriptSourceEvidenceIR] = []
+    ) -> Set<EffectOwner> {
+        var owners = Set<EffectOwner>(scriptBindings.compactMap { binding -> EffectOwner? in
             guard binding.owner.kind == .effect,
                   binding.targetKey == "visible",
                   binding.valueType == .boolean,
-                  binding.properties.isEmpty,
-                  isHasThumbnailVisibilitySource(binding.source),
+                  isSupportedVisibilitySource(binding.source),
                   let layerID = binding.owner.objectID,
                   let effectIndex = binding.owner.effectIndex else {
                 return nil
             }
             return EffectOwner(layerID: layerID, effectIndex: effectIndex)
         })
+        owners.formUnion(sourceEvidence.compactMap { evidence -> EffectOwner? in
+            guard evidence.owner.kind == .effect,
+                  evidence.targetKey == "visible",
+                  evidence.wrapperKeys == ["script", "user", "value"],
+                  isSupportedVisibilitySource(evidence.source),
+                  let layerID = evidence.owner.objectID,
+                  let effectIndex = evidence.owner.effectIndex else {
+                return nil
+            }
+            return EffectOwner(layerID: layerID, effectIndex: effectIndex)
+        })
+        return owners
+    }
 
-        var layerIDs = Set<Int>()
-        for layer in descriptor.layers where layer.isImageRenderable {
-            for (effectIndex, effect) in layer.effects.enumerated() {
-                guard effect.visible != false
-                        || mediaVisibilityEffects.contains(.init(
-                            layerID: layer.id,
-                            effectIndex: effectIndex
-                        )),
-                      isCurrentThumbnailReplacement(effect) else {
-                    continue
-                }
-                layerIDs.insert(layer.id)
+    static func apply(
+        to descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR],
+        sourceEvidence: [SceneScriptSourceEvidenceIR] = []
+    ) -> SceneRenderDescriptor {
+        let owners = initiallyInactiveOwners(
+            scriptBindings: scriptBindings,
+            sourceEvidence: sourceEvidence
+        )
+        guard !owners.isEmpty else { return descriptor }
+        var projected = descriptor
+        for layerIndex in projected.layers.indices {
+            let layerID = projected.layers[layerIndex].id
+            for effectIndex in projected.layers[layerIndex].effects.indices
+                where owners.contains(.init(layerID: layerID, effectIndex: effectIndex)) {
+                projected.layers[layerIndex].effects[effectIndex].visible = false
             }
         }
-        return SceneMediaThumbnailBindingProgram(currentLayerIDs: layerIDs)
+        return projected
     }
 
-    private nonisolated struct EffectOwner: Hashable {
-        let layerID: Int
-        let effectIndex: Int
-    }
-
-    private nonisolated static func isCurrentThumbnailReplacement(
-        _ effect: SceneRenderDescriptor.EffectDescriptor
-    ) -> Bool {
-        let path = normalized(effect.file)
-        guard path == "effects/blend/effect.json" || path.hasSuffix("/blend/effect.json"),
-              effect.passes.count == 1,
-              let pass = effect.passes.first,
-              pass.textureSlots.count == 2,
-              pass.textureSlots[0] == nil,
-              pass.textureSlots[1]?.isEmpty == false,
-              pass.userTextureInputs.count == 2,
-              pass.userTextureInputs[0] == nil,
-              pass.userTextureInputs[1] == SceneEffectTextureInput(
-                  kind: .system,
-                  value: SceneMediaThumbnailBindingProgram.currentIdentity
-              ),
-              normalizedCombos(pass.combos) != nil,
-              isFullStrength(pass.constantShaderValues) else {
-            return false
-        }
-        return true
-    }
-
-    private nonisolated static func normalizedCombos(_ source: [String: Int]) -> [String: Int]? {
-        let allowed = Set([
-            "BLENDMODE", "TRANSFORMUV", "TRANSFORMREPEAT", "WRITEALPHA",
-            "NUMBLENDTEXTURES", "OPACITYMASK",
-        ])
-        var result: [String: Int] = [:]
-        for (key, value) in source {
-            guard result.updateValue(value, forKey: key.uppercased()) == nil else { return nil }
-        }
-        guard result.keys.allSatisfy(allowed.contains),
-              result["BLENDMODE", default: 0] == 0,
-              result["TRANSFORMUV", default: 0] == 0,
-              (0...2).contains(result["TRANSFORMREPEAT", default: 0]),
-              result["NUMBLENDTEXTURES", default: 1] == 1,
-              result["OPACITYMASK", default: 0] == 0,
-              (0...1).contains(result["WRITEALPHA", default: 0]) else {
-            return nil
-        }
-        return result
-    }
-
-    private nonisolated static func isFullStrength(
-        _ constants: [String: SceneDocument.ShaderValue]
-    ) -> Bool {
-        guard constants.keys.allSatisfy({
-            ["multiply", "alpha", "blendangle", "blendoffset", "blendscale"]
-                .contains($0.lowercased())
-        }) else { return false }
-        return scalar(named: "multiply", in: constants, default: 1) == 1
-            && scalar(named: "alpha", in: constants, default: 1) == 1
-    }
-
-    private nonisolated static func scalar(
-        named name: String,
-        in constants: [String: SceneDocument.ShaderValue],
-        default defaultValue: Double
-    ) -> Double? {
-        guard let value = constants.first(where: {
-            $0.key.caseInsensitiveCompare(name) == .orderedSame
-        })?.value else { return defaultValue }
-        guard value.userBinding == nil,
-              let components = value.components,
-              components.count == 1,
-              let result = components.first,
-              result.isFinite else { return nil }
-        return result
-    }
-
-    private nonisolated static func isHasThumbnailVisibilitySource(_ source: String) -> Bool {
-        let withoutBlocks = source.replacingOccurrences(
+    private static func isSupportedVisibilitySource(_ source: String) -> Bool {
+        let compact = source.replacingOccurrences(
             of: #"/\*[\s\S]*?\*/"#,
             with: "",
             options: .regularExpression
-        )
-        let withoutLines = withoutBlocks.replacingOccurrences(
+        ).replacingOccurrences(
             of: #"//[^\n\r]*"#,
             with: "",
             options: .regularExpression
-        )
-        let compact = withoutLines.replacingOccurrences(
+        ).replacingOccurrences(
             of: #"\s+"#,
             with: "",
             options: .regularExpression
         )
-        return compact.range(
-            of: #"exportfunctionmediaThumbnailChanged\(([A-Za-z_$][A-Za-z0-9_$]*)\)\{thisObject\.visible=\1\.hasThumbnail;?\}"#,
+        let body = compact.replacingOccurrences(
+            of: #"^['\"]usestrict['\"];?"#,
+            with: "",
             options: .regularExpression
-        ) != nil
-    }
-
-    private nonisolated static func normalized(_ value: String) -> String {
-        value.replacingOccurrences(of: "\\", with: "/").lowercased()
+        )
+        let direct = #"^exportfunctionmediaThumbnailChanged\(([A-Za-z_$][A-Za-z0-9_$]*)\)\{thisObject\.visible=\1\.hasThumbnail;?\}$"#
+        let timed = #"^varlastHideEvent;?exportfunctionmediaThumbnailChanged\(([A-Za-z_$][A-Za-z0-9_$]*)\)\{if\(lastHideEvent\)\{lastHideEvent\(\);lastHideEvent=undefined;?\}thisObject\.visible=\1\.hasThumbnail;if\(\1\.hasThumbnail\)\{lastHideEvent=engine\.setTimeout\(\(\)=>\{thisObject\.visible=false;?\},1000\);?\}\}$"#
+        return body.range(of: direct, options: .regularExpression) != nil
+            || body.range(of: timed, options: .regularExpression) != nil
     }
 }

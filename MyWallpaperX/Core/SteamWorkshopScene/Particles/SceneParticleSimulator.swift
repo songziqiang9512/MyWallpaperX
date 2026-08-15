@@ -1,6 +1,12 @@
 import Foundation
 
-nonisolated struct SceneParticleSimulator: Sendable {
+/// One mutable simulator owns one persistent authored particle-system instance.
+///
+/// Keep this as reference identity: layer and child runtime containers are value
+/// records that are frequently traversed or copied while retaining the same live
+/// system. Making the simulator itself a value copied its particle buffers through
+/// those records and forced Array COW checks throughout every operator hot path.
+nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     let fixedTimeStep: Double
     let maximumParticleCount: Int
     let diagnostics: [SceneParticleSimulationDiagnostic]
@@ -30,6 +36,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     nonisolated init(
         definition: SceneParticleDefinition,
         instanceOverride: SceneParticleInstanceOverride? = nil,
+        initialDynamicInstanceOverride: SceneParticleInstanceOverride? = nil,
         seed: UInt64 = 0,
         fixedTimeStep: Double = 1.0 / 60.0,
         particleBudget: Int? = nil,
@@ -41,7 +48,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     ) {
         self.definition = definition
         self.instanceOverride = instanceOverride
-        self.activeInstanceOverride = instanceOverride
+        self.activeInstanceOverride = initialDynamicInstanceOverride ?? instanceOverride
         self.emissionDeadline = emissionDeadline
         self.layerImageEmissionMap = layerImageEmissionMap
         self.worldSpaceFrame = worldSpaceFrame
@@ -68,7 +75,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         deathEvents.removeAll(keepingCapacity: true)
     }
 
-    nonisolated mutating func advance(
+    nonisolated func advance(
         by duration: Double,
         dynamicControlPoints: [Int: SIMD3<Double>] = [:],
         dynamicInstanceOverride: SceneParticleInstanceOverride? = nil,
@@ -87,26 +94,26 @@ nonisolated struct SceneParticleSimulator: Sendable {
         if accumulator < 0 { accumulator = 0 }
     }
 
-    nonisolated mutating func consumeBirthEvents() -> [SceneParticleState] {
+    nonisolated func consumeBirthEvents() -> [SceneParticleState] {
         defer { birthEvents.removeAll(keepingCapacity: true) }
         return birthEvents
     }
 
-    nonisolated mutating func consumeDeathEvents() -> [SceneParticleState] {
+    nonisolated func consumeDeathEvents() -> [SceneParticleState] {
         defer { deathEvents.removeAll(keepingCapacity: true) }
         return deathEvents
     }
 
-    nonisolated mutating func consumeStepSnapshots() -> [SceneParticleStepSnapshot] {
+    nonisolated func consumeStepSnapshots() -> [SceneParticleStepSnapshot] {
         stepSnapshotRecorder?.consume() ?? []
     }
 
-    nonisolated mutating func updateFollowEventColor(_ color: SIMD3<Double>) {
+    nonisolated func updateFollowEventColor(_ color: SIMD3<Double>) {
         guard case .follow = eventColorContext else { return }
         eventColorContext = .follow(color)
     }
 
-    private nonisolated mutating func warmUp(duration: Double) {
+    private nonisolated func warmUp(duration: Double) {
         guard duration > 0 else { return }
         let count = min(max(Int(ceil(duration / fixedTimeStep)), 1), 240)
         let stepDuration = duration / Double(count)
@@ -116,7 +123,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         }
     }
 
-    private nonisolated mutating func step(by duration: Double) {
+    private nonisolated func step(by duration: Double) {
         for index in definition.emitters.indices { emit(index: index, duration: duration) }
         normalizedLives.removeAll(keepingCapacity: true)
         normalizedLives.reserveCapacity(particles.count)
@@ -146,7 +153,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         stepSnapshotRecorder?.record(duration: duration, particles: particles)
     }
 
-    private nonisolated mutating func emit(index: Int, duration: Double) {
+    private nonisolated func emit(index: Int, duration: Double) {
         let emitter = definition.emitters[index]
         if case .unsupported = emitter.kind { return }
         guard let audioScale = emissionAudioScale(for: emitter) else { return }
@@ -188,7 +195,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         }
     }
 
-    private nonisolated mutating func makeParticle(
+    private nonisolated func makeParticle(
         _ emitter: SceneParticleEmitter
     ) -> SceneParticleState? {
         guard let frame = definition.emitterControlPointFrame(
@@ -233,7 +240,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         return particle.lifetime > 0 ? particle : nil
     }
 
-    private nonisolated mutating func apply(
+    private nonisolated func apply(
         _ value: SceneParticleOperator,
         operatorIndex: Int,
         duration: Double
@@ -293,7 +300,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
                     value,
                     index,
                     operatorIndex,
-                    life: normalizedLives[index]
+                    age: particles[index].age
                 )
                 particles[index].alpha *= 1 + (factor - 1)
                     * operatorBlend(value, normalizedLives[index])
@@ -304,7 +311,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
                     value,
                     index,
                     operatorIndex,
-                    life: normalizedLives[index],
+                    age: particles[index].age,
                     sizeDefaults: true
                 )
                 particles[index].size *= 1 + (factor - 1)

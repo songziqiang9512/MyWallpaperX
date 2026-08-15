@@ -5,17 +5,17 @@
 
 import Accelerate
 
-/// Scene 侧 16/32/64 频段频谱分析。
+/// Wallpaper Engine Scene 侧音频频谱 producer。
 ///
-/// 与 `SystemAudioWebSpectrumAnalyzer` 刻意分开实现：Web 壁纸走固定 64+64 频段并叠加
-/// 为兼容 Wallpaper Engine Web 运行时而调出的增益/指数常量，Scene 的 stock shader
-/// stock 合同是 16 频段，严格 Workshop consumer 另需 32/64 频段；三者都从同一次 FFT
-/// 取左右分离、正值、由低到高的快照。Web 与 Scene 两套数值合同互不适用。合并成一个可参数化
-/// 的分析器会让任一侧的调参隐式影响另一侧，因此这里保留独立实现而不是抽公共层。
+/// 官方 `AudioProcessor` 一次产生左右各 64 个 peak band：输入先经过近似 Hann
+/// 窗，FFT bin 以 `pow(progress, 0.500999987) * 64` 映射到 band；16/32 档是同一份
+/// 64 档快照的降采样视图。官方线性 FFT 输出与 macOS 归一化 tap 的最终视觉响度并非
+/// 同一合同，因此 band identity 后仍需项目自己的有界可视响应与时间平滑。
 ///
-/// 未知项：官方没有公开 16 频段的频率边界、幅度归一化与平滑策略。下面的频率范围与
-/// dB 映射是本项目的工程选择，只保证「正值、低到高、静音为零、同输入同输出」，
-/// 不构成与 Wallpaper Engine 的数值等价。
+/// 官方 WASAPI 的分析窗会随采样率变化（44.1 kHz 时 1920 frames，最低保持该长度），
+/// 同时只消费 640 个频率 bin。macOS 的系统 tap 回调边界不同，因此这里用滚动窗口聚合
+/// 相同时间跨度，再用零填充 radix-2 FFT 取得同一频率范围；FFT backend 的差异不改变
+/// 官方 band identity、线性幅度或 fail-closed 边界。
 final class SystemAudioSceneSpectrumAnalyzer {
     static let bandCount = SceneAudioSpectrumSnapshot.bandCount
     static let mediumBandCount = SceneAudioSpectrumSnapshot.mediumBandCount
@@ -30,41 +30,54 @@ final class SystemAudioSceneSpectrumAnalyzer {
         let right64: [Float]
     }
 
-    /// 频段下沿。低于此频率的分量并入首段。
-    private let minimumFrequency: Float = 32
-    /// 频段上沿，同时受 Nyquist 限制。
-    private let maximumFrequency: Float = 16000
-    /// 映射到 0 的幅度下限。Scene 的 16 档直接驱动 Shake/Pulse 位移，过低的
-    /// noise floor 会把音乐中绝大多数频段压到相近的高位；-60 dB 保留弱频段与
-    /// 主频段的可见差异。Web 壁纸继续使用自己的独立数值合同。
-    private let minimumDecibels: Float = -60
+    private static let fftSize = 4096
+    private static let fftHalfSize = fftSize / 2
+    private static let officialReferenceSampleRate: Float = 44_100
+    private static let officialWindowFrameCount: Float = 64 * 30
+    private static let officialFrequencyBinCount: Float = 64 * 10
+    private static let officialCurveExponent: Float = 0.5009999871253967
+    private static let officialInputScale: Float = 0.001
+    /// 沿用项目既有 Scene 响应下限：低于 -60 dBFS 的 tap 底噪稳定归零，以上保留
+    /// 可见动态。它是 macOS producer 的平台适配，不冒充 Windows 私有增益常量。
+    private static let minimumResponseDecibels: Float = -60
+    /// 复用项目频带频谱已有的 0.74 根压缩，把正常音乐的中段动态抬到作者 shader
+    /// 可见区间，同时保留上述 -60 dB 硬门和 0...1 上界。这里只改变幅度响应，
+    /// 不改变官方频带索引，也不使用参考项目的频带表或常数组合。
+    private static let visualCompressionExponent: Float = 0.74
+    /// 复用项目已有系统频谱的快起/慢落包络。采集以约 30 Hz 发布，因此这两个系数
+    /// 分别让真实起音及时出现、尾音连续衰减；它们不生成任何无输入周期信号。
+    private static let attackMix: Float = 0.66
+    private static let releaseRetention: Float = 0.84
+    private static let settledSilenceThreshold: Float = 0.000_1
 
-    private let fftSize = 4096
     private let log2FFTSize: vDSP_Length
     private let fftSetup: FFTSetup
-    private let hannWindow: [Float]
-    private let amplitudeScale: Float
+    private var rollingChannels: [[Float]] = []
+    private var rollingSampleRate: Float = 0
+    private var cachedWindow: [Float] = []
+    private var smoothedLeft64 = Array(repeating: Float(0), count: extendedBandCount)
+    private var smoothedRight64 = Array(repeating: Float(0), count: extendedBandCount)
 
     init?() {
-        let log2Size = vDSP_Length(log2(Float(fftSize)))
+        let log2Size = vDSP_Length(log2(Float(Self.fftSize)))
         guard let setup = vDSP_create_fftsetup(log2Size, FFTRadix(kFFTRadix2)) else {
             return nil
         }
         log2FFTSize = log2Size
         fftSetup = setup
-
-        var window = Array(repeating: Float(0), count: fftSize)
-        vDSP_hann_window(&window, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
-        hannWindow = window
-        amplitudeScale = 2 / max(window.reduce(0, +), 1)
     }
 
     deinit {
         vDSP_destroy_fftsetup(fftSetup)
     }
 
-    /// 返回 (left, right)。单声道输入时右声道复制左声道，与 stock shader
-    /// `AUDIOPROCESSING=3` 的左右平均语义保持一致（平均值等于该单声道）。
+    /// capture teardown / consumer revoke 时清空未完成窗口，避免重新启用后混入旧音频。
+    func reset() {
+        resetRollingState()
+    }
+
+    /// 单声道输入复制到左右两侧，使官方 `AUDIOPROCESSING=3` 的左右平均仍等于
+    /// 该声道。空输入、非法采样率和未填满首个官方时间窗都稳定归零。
     func analyze(
         _ frame: SystemAudioCapturedFrame,
         sampleRate: Float
@@ -76,113 +89,143 @@ final class SystemAudioSceneSpectrumAnalyzer {
         signedChannels: [[Float]],
         sampleRate: Float
     ) -> Levels {
-        guard let leftChannel = signedChannels.first else {
+        guard sampleRate.isFinite, sampleRate > 0,
+              let leftInput = signedChannels.first,
+              !leftInput.isEmpty
+        else {
+            resetRollingState()
             return Self.zeroLevels
         }
-        let left = levels(for: leftChannel, sampleRate: sampleRate)
-        guard signedChannels.count > 1 else {
-            return Levels(
-                left: left.base,
-                right: left.base,
-                left32: left.medium,
-                right32: left.medium,
-                left64: left.extended,
-                right64: left.extended
+
+        let channelInputs = Array(signedChannels.prefix(2))
+        let windowCount = officialWindowCount(sampleRate: sampleRate)
+        guard windowCount > 1, windowCount <= Self.fftSize else {
+            resetRollingState()
+            return Self.zeroLevels
+        }
+        prepareRollingState(
+            channelCount: channelInputs.count,
+            sampleRate: sampleRate
+        )
+        for channelIndex in channelInputs.indices {
+            appendSanitized(
+                channelInputs[channelIndex],
+                to: &rollingChannels[channelIndex],
+                maximumCount: windowCount
             )
         }
-        let right = levels(for: signedChannels[1], sampleRate: sampleRate)
+        guard rollingChannels.allSatisfy({ $0.count == windowCount }) else {
+            return Self.zeroLevels
+        }
+
+        let rawLeft64 = officialBands(
+            for: rollingChannels[0],
+            sampleRate: sampleRate
+        )
+        let rawRight64: [Float]
+        if rollingChannels.count > 1 {
+            rawRight64 = officialBands(
+                for: rollingChannels[1],
+                sampleRate: sampleRate
+            )
+        } else {
+            rawRight64 = rawLeft64
+        }
+        smoothedLeft64 = Self.visualLevels(
+            rawLeft64,
+            previous: smoothedLeft64
+        )
+        smoothedRight64 = Self.visualLevels(
+            rawRight64,
+            previous: smoothedRight64
+        )
         return Levels(
-            left: left.base,
-            right: right.base,
-            left32: left.medium,
-            right32: right.medium,
-            left64: left.extended,
-            right64: right.extended
+            left: Self.averageResample(smoothedLeft64, count: Self.bandCount),
+            right: Self.averageResample(smoothedRight64, count: Self.bandCount),
+            left32: Self.averageResample(smoothedLeft64, count: Self.mediumBandCount),
+            right32: Self.averageResample(smoothedRight64, count: Self.mediumBandCount),
+            left64: smoothedLeft64,
+            right64: smoothedRight64
         )
     }
 
-    private func levels(
+    private func officialWindowCount(sampleRate: Float) -> Int {
+        let rateScale = max(1, sampleRate / Self.officialReferenceSampleRate)
+        return Int(rateScale * Self.officialWindowFrameCount)
+    }
+
+    private func prepareRollingState(channelCount: Int, sampleRate: Float) {
+        let rateChanged = abs(rollingSampleRate - sampleRate) > 0.5
+        guard rateChanged || rollingChannels.count != channelCount else { return }
+        rollingSampleRate = sampleRate
+        rollingChannels = Array(repeating: [], count: channelCount)
+    }
+
+    private func appendSanitized(
+        _ input: [Float],
+        to rolling: inout [Float],
+        maximumCount: Int
+    ) {
+        if input.count >= maximumCount {
+            rolling = input.suffix(maximumCount).map { $0.isFinite ? $0 : 0 }
+            return
+        }
+        rolling.append(contentsOf: input.map { $0.isFinite ? $0 : 0 })
+        if rolling.count > maximumCount {
+            rolling.removeFirst(rolling.count - maximumCount)
+        }
+    }
+
+    private func officialBands(
         for samples: [Float],
         sampleRate: Float
-    ) -> (base: [Float], medium: [Float], extended: [Float]) {
-        guard !samples.isEmpty, sampleRate.isFinite, sampleRate > 64 else {
-            return (Self.zeroBands, Self.zeroMediumBands, Self.zeroExtendedBands)
-        }
-
-        let magnitudes = magnitudeSpectrum(for: samples)
-        let nyquist = sampleRate * 0.5
-        let upperBound = min(maximumFrequency, nyquist)
-        let binWidth = sampleRate / Float(fftSize)
-        guard upperBound > minimumFrequency, binWidth > 0 else {
-            return (Self.zeroBands, Self.zeroMediumBands, Self.zeroExtendedBands)
-        }
-        return (
-            bandLevels(magnitudes, upperBound: upperBound, binWidth: binWidth, count: Self.bandCount),
-            bandLevels(
-                magnitudes,
-                upperBound: upperBound,
-                binWidth: binWidth,
-                count: Self.mediumBandCount
-            ),
-            bandLevels(
-                magnitudes,
-                upperBound: upperBound,
-                binWidth: binWidth,
-                count: Self.extendedBandCount
-            )
-        )
-    }
-
-    private func bandLevels(
-        _ magnitudes: [Float],
-        upperBound: Float,
-        binWidth: Float,
-        count: Int
     ) -> [Float] {
-        var levels = Array(repeating: Float(0), count: count)
-        let ratio = upperBound / minimumFrequency
-        for band in 0 ..< count {
-            let lowerProgress = Float(band) / Float(count)
-            let upperProgress = Float(band + 1) / Float(count)
-            let lowerFrequency = minimumFrequency * pow(ratio, lowerProgress)
-            let upperFrequency = minimumFrequency * pow(ratio, upperProgress)
-            // bin 0 是直流分量，恒定跳过。
-            let lowerBin = max(1, Int(floor(lowerFrequency / binWidth)))
-            let upperBin = min(
-                magnitudes.count,
-                max(lowerBin + 1, Int(ceil(upperFrequency / binWidth)))
-            )
-            guard lowerBin < upperBin else { continue }
+        let magnitudes = magnitudeSpectrum(for: samples)
+        let sourceBinWidth = sampleRate / Float(samples.count)
+        let maximumFrequency = sourceBinWidth * Self.officialFrequencyBinCount
+        let fftBinWidth = sampleRate / Float(Self.fftSize)
+        let maximumFFTBin = min(
+            magnitudes.count - 1,
+            max(1, Int(floor(maximumFrequency / fftBinWidth)))
+        )
+        guard maximumFFTBin > 1 else { return Self.zeroExtendedBands }
 
-            var peak: Float = 0
-            for bin in lowerBin ..< upperBin where magnitudes[bin].isFinite {
-                peak = max(peak, magnitudes[bin])
+        var peaks = Self.zeroExtendedBands
+        var currentBand = 0
+        for fftBin in 1 ... maximumFFTBin {
+            let progress = Float(fftBin - 1) / Float(maximumFFTBin - 1)
+            let mappedBand = min(
+                Self.extendedBandCount - 1,
+                max(0, Int(pow(progress, Self.officialCurveExponent)
+                    * Float(Self.extendedBandCount)))
+            )
+            // 官方限制 band identity 每个 FFT bin 最多前进一档，避免低频曲线跳档。
+            currentBand = min(mappedBand, currentBand + 1)
+            let magnitude = magnitudes[fftBin]
+            if magnitude.isFinite {
+                peaks[currentBand] = max(peaks[currentBand], magnitude)
             }
-            levels[band] = normalizedLevel(forAmplitude: peak)
         }
-        return levels
+
+        let linearScale = Self.officialInputScale
+            * (Self.officialFrequencyBinCount / (Float(samples.count) * 0.5))
+        for index in peaks.indices {
+            let scaled = peaks[index] * linearScale
+            peaks[index] = scaled.isFinite && scaled > 0 ? scaled : 0
+        }
+        return peaks
     }
 
     private func magnitudeSpectrum(for samples: [Float]) -> [Float] {
-        let sampleCount = min(samples.count, fftSize)
-        let sourceStart = samples.count - sampleCount
-        let tail = samples[sourceStart...].map { $0.isFinite ? $0 : 0 }
-        // 去直流：麦克风/回环采集常带固定偏置，不减均值会把能量堆到最低频段。
-        let mean = tail.reduce(0, +) / Float(tail.count)
-
-        var input = Array(repeating: Float(0), count: fftSize)
-        let destinationStart = fftSize - sampleCount
-        for index in tail.indices {
-            input[destinationStart + index] = tail[index] - mean
+        let window = officialWindow(count: samples.count)
+        var input = Array(repeating: Float(0), count: Self.fftSize)
+        for index in samples.indices {
+            input[index] = samples[index] * window[index]
         }
 
-        var windowed = Array(repeating: Float(0), count: fftSize)
-        vDSP_vmul(input, 1, hannWindow, 1, &windowed, 1, vDSP_Length(fftSize))
-
-        let halfSize = fftSize / 2
-        var real = Array(repeating: Float(0), count: halfSize)
-        var imaginary = Array(repeating: Float(0), count: halfSize)
-        windowed.withUnsafeMutableBufferPointer { inputPointer in
+        var real = Array(repeating: Float(0), count: Self.fftHalfSize)
+        var imaginary = Array(repeating: Float(0), count: Self.fftHalfSize)
+        input.withUnsafeMutableBufferPointer { inputPointer in
             real.withUnsafeMutableBufferPointer { realPointer in
                 imaginary.withUnsafeMutableBufferPointer { imaginaryPointer in
                     var split = DSPSplitComplex(
@@ -191,9 +234,15 @@ final class SystemAudioSceneSpectrumAnalyzer {
                     )
                     inputPointer.baseAddress!.withMemoryRebound(
                         to: DSPComplex.self,
-                        capacity: halfSize
+                        capacity: Self.fftHalfSize
                     ) { complexPointer in
-                        vDSP_ctoz(complexPointer, 2, &split, 1, vDSP_Length(halfSize))
+                        vDSP_ctoz(
+                            complexPointer,
+                            2,
+                            &split,
+                            1,
+                            vDSP_Length(Self.fftHalfSize)
+                        )
                     }
                     vDSP_fft_zrip(
                         fftSetup,
@@ -206,31 +255,91 @@ final class SystemAudioSceneSpectrumAnalyzer {
             }
         }
 
-        var magnitudes = Array(repeating: Float(0), count: halfSize)
-        for bin in 0 ..< halfSize {
-            magnitudes[bin] = hypot(real[bin], imaginary[bin]) * amplitudeScale
+        var magnitudes = Array(repeating: Float(0), count: Self.fftHalfSize)
+        for bin in magnitudes.indices {
+            magnitudes[bin] = hypot(real[bin], imaginary[bin])
         }
         return magnitudes
     }
 
-    private func normalizedLevel(forAmplitude amplitude: Float) -> Float {
-        guard amplitude.isFinite, amplitude > 0 else { return 0 }
-        let decibels = 20 * log10(amplitude)
-        guard decibels.isFinite else { return 0 }
-        let normalized = (decibels - minimumDecibels) / -minimumDecibels
-        return min(1, max(0, normalized))
+    private func officialWindow(count: Int) -> [Float] {
+        if cachedWindow.count == count { return cachedWindow }
+        guard count > 1 else { return Array(repeating: 0, count: count) }
+        let inverseSpan = 1 / Float(count - 1)
+        let center = Self.officialCurveExponent
+        let edgeAmplitude = 1 - center
+        cachedWindow = (0 ..< count).map { index in
+            let phase = 2 * Float.pi * Float(index) * inverseSpan
+            return center - cos(phase) * edgeAmplitude
+        }
+        return cachedWindow
+    }
+
+    private static func averageResample(_ values: [Float], count: Int) -> [Float] {
+        guard values.count == extendedBandCount,
+              count > 0,
+              extendedBandCount.isMultiple(of: count)
+        else {
+            return Array(repeating: 0, count: count)
+        }
+        let stride = extendedBandCount / count
+        return (0 ..< count).map { outputIndex in
+            let start = outputIndex * stride
+            let end = start + stride
+            return values[start ..< end].reduce(0, +) / Float(stride)
+        }
+    }
+
+    private static func visualLevels(
+        _ linearLevels: [Float],
+        previous: [Float]
+    ) -> [Float] {
+        guard linearLevels.count == extendedBandCount,
+              previous.count == extendedBandCount
+        else {
+            return zeroExtendedBands
+        }
+        return zip(linearLevels, previous).map { linear, prior in
+            let target = visualResponse(for: linear)
+            let next: Float
+            if target >= prior {
+                next = prior * (1 - attackMix) + target * attackMix
+            } else {
+                next = max(target, prior * releaseRetention)
+            }
+            guard next.isFinite, next >= settledSilenceThreshold else { return 0 }
+            return min(1, max(0, next))
+        }
+    }
+
+    private static func visualResponse(for linearLevel: Float) -> Float {
+        guard linearLevel.isFinite, linearLevel > 0 else { return 0 }
+        let decibels = 20 * log10(linearLevel)
+        guard decibels.isFinite, decibels > minimumResponseDecibels else { return 0 }
+        let normalized = min(
+            1,
+            max(0, (decibels - minimumResponseDecibels) / -minimumResponseDecibels)
+        )
+        return pow(normalized, visualCompressionExponent)
+    }
+
+    private func resetRollingState() {
+        rollingSampleRate = 0
+        rollingChannels.removeAll(keepingCapacity: true)
+        smoothedLeft64 = Self.zeroExtendedBands
+        smoothedRight64 = Self.zeroExtendedBands
     }
 
     private static var zeroBands: [Float] {
         Array(repeating: 0, count: bandCount)
     }
 
-    private static var zeroExtendedBands: [Float] {
-        Array(repeating: 0, count: extendedBandCount)
-    }
-
     private static var zeroMediumBands: [Float] {
         Array(repeating: 0, count: mediumBandCount)
+    }
+
+    private static var zeroExtendedBands: [Float] {
+        Array(repeating: 0, count: extendedBandCount)
     }
 
     private static var zeroLevels: Levels {

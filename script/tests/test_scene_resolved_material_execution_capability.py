@@ -222,6 +222,7 @@ struct SceneDependencyRenderPlan {
         enum Kind: Hashable {
             case clippingMask
             case proceduralNoiseLayer
+            case imageLayerBlend
         }
 
         let consumerLayerID: Int
@@ -291,6 +292,12 @@ struct SceneClippingMaskExecutionPlan {
     let providerLayerID: Int
     let blendMode: Int
 }
+struct SceneBlendExecutionPlan {
+    let layerID: Int
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let dependencyProviderLayerID: Int?
+}
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 
 struct SceneEffectStageExecutionPlan {
@@ -304,7 +311,9 @@ struct SceneEffectStageExecutionPlan {
     var xRay: SceneXRayExecutionPlan? = nil
     var clippingMask: SceneClippingMaskExecutionPlan? = nil
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil
+    var blend: SceneBlendExecutionPlan? = nil
     var supportsUnifiedLogicalTargetStage = false
+    var supportsUnifiedHistoryTargetStage = false
     var supportsUnifiedFullFrameComposeStage = false
     var supportsUtilityCapture = true
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
@@ -2046,7 +2055,7 @@ private enum Harness {
         )
         let utilityAdapterCapability = utilityAdapterCatalog.claim(layerID: layerID)
             .flatMap { utilityAdapterCatalog.resolve($0.token) }
-        let unsupportedUtilityAdapterCandidates =
+        let downstreamUtilityAdapterCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: utilityPairDescriptor,
                 authoredPlans: [utilityPairGraph],
@@ -2057,14 +2066,19 @@ private enum Harness {
                     opacity: true
                 )]
             )
-        let unsupportedUtilityAdapterCatalog = Catalog(
-            admissionCandidates: unsupportedUtilityAdapterCandidates,
+        let downstreamUtilityAdapterCatalog = Catalog(
+            admissionCandidates: downstreamUtilityAdapterCandidates,
             materialCatalog: materialCatalog(
                 graph: utilityPairGraph,
                 omitNode: 1
             ),
             dedicatedStageFamilies: [secondKey: "opacity"],
             dedicatedLeafKeys: [secondKey]
+        )
+        let resolvedUtilityChainCatalog = catalog(
+            descriptor: utilityPairDescriptor,
+            graphs: [utilityPairGraph],
+            materials: materialCatalog(graph: utilityPairGraph)
         )
         let omitted = rawGraph(omitSecond: true)
         let omittedCatalog = catalog(
@@ -2817,10 +2831,12 @@ private enum Harness {
                             $0.effect == firstKey
                         }
                 } ?? false,
-                "utilityAdapterRejectsUnsupportedCapture": reportHas(
-                    unsupportedUtilityAdapterCatalog,
-                    "dedicated-leaf-unsupported"
-                ) && unsupportedUtilityAdapterCatalog.claim(layerID: layerID) == nil,
+                "downstreamUtilityAdapterAcceptedWithoutSourceCapture":
+                    downstreamUtilityAdapterCatalog.claim(layerID: layerID) != nil,
+                "resolvedUtilityChainAccepted":
+                    resolvedUtilityChainCatalog.claim(layerID: layerID).flatMap {
+                        resolvedUtilityChainCatalog.resolve($0.token)
+                    }?.stages.count == 2,
                 "utilityKindMismatch": admissionRejects(
                     descriptor(utilityLayer: "composition"),
                     raw: raw,
@@ -2910,7 +2926,9 @@ ENVELOPE_SUPPORT = PROGRAM_FINALIZER_FIXTURE["SUPPORT"] + r'''
 
 enum SceneDependencyRenderPlan {
     struct Binding: Hashable {
-        enum Kind: Hashable { case clippingMask, proceduralNoiseLayer }
+        enum Kind: Hashable {
+            case clippingMask, proceduralNoiseLayer, imageLayerBlend
+        }
         let consumerLayerID: Int
         let providerLayerID: Int
         let slot: SceneEffectPassSlot
@@ -2963,6 +2981,12 @@ struct SceneClippingMaskExecutionPlan {
     let providerLayerID: Int
     let blendMode: Int
 }
+struct SceneBlendExecutionPlan {
+    let layerID: Int
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let dependencyProviderLayerID: Int?
+}
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 
 struct SceneEffectStageExecutionPlan {
@@ -2976,7 +3000,9 @@ struct SceneEffectStageExecutionPlan {
     var inputRole: SceneAuthoredEffectInputRole { .layerSource }
     var clippingMask: SceneClippingMaskExecutionPlan? { nil }
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
+    var blend: SceneBlendExecutionPlan? { nil }
     var supportsUnifiedLogicalTargetStage = false
+    var supportsUnifiedHistoryTargetStage = false
     var supportsUnifiedFullFrameComposeStage = false
     var supportsUtilityCapture = true
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
@@ -3012,6 +3038,7 @@ struct SceneLayerFullFramePairPlan {
         let outputMember: Int
     }
 
+    let baseCaptureIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity
     let effects: [EffectStep] = []
 }
 
@@ -3599,7 +3626,7 @@ private func catalog(
     let admitted = SceneResolvedMaterialAdmittedLayer(
         layerID: layerID,
         products: [.init(graph: graph)],
-        pairPlan: .init(),
+        pairPlan: .init(baseCaptureIdentity: graph.effects[0].input),
         dependencyOwnership: .none,
         sourceRoute: sourceRoute
     )
@@ -3644,7 +3671,7 @@ private func dedicatedCatalog(
     let admitted = SceneResolvedMaterialAdmittedLayer(
         layerID: layerID,
         products: [.init(graph: graph)],
-        pairPlan: .init(),
+        pairPlan: .init(baseCaptureIdentity: graph.effects[0].input),
         dependencyOwnership: .none,
         sourceRoute: .capturedLayerTexture
     )
@@ -5322,24 +5349,32 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("pairStep?.composeTransitionCount == 1", program_first)
         self.assertIn("pairStep?.fullFrameOutputWriteCount == 2", program_first)
         self.assertIn(
-            "admitted.sourceRoute != .capturedMainTargetTexture",
+            "effect.input == admitted.pairPlan.baseCaptureIdentity",
             program_first,
         )
+        self.assertIn("sourceRoute: stageSourceRoute", program_first)
         captured_route_start = program_first.index(
-            "admitted.sourceRoute != .capturedMainTargetTexture"
+            "let sourceRouteExecutable ="
         )
-        captured_route_end = program_first.index(" else {", captured_route_start)
+        captured_route_end = program_first.index(
+            "guard pairLeaf || logicalTargetStage || fullFrameComposeStage,",
+            captured_route_start,
+        )
         captured_route_guard = program_first[
             captured_route_start:captured_route_end
         ]
         captured_route_compact = "".join(captured_route_guard.split())
         self.assertIn(
-            "admitted.sourceRoute!=.capturedMainTargetTexture"
+            "stageSourceRoute!=.capturedMainTargetTexture"
             "||((pairLeaf||logicalTargetStage)"
             "&&program.executionPlan.supportsUtilityCapture)",
             captured_route_compact,
         )
         self.assertNotIn("fullFrameComposeStage", captured_route_guard)
+        self.assertIn(
+            "dynamicTargetsExecutable,\n                      sourceRouteExecutable else",
+            program_first[captured_route_end:],
+        )
 
     def test_runtime_variant_resolution_starts_from_launch_envelope_seed(
         self,
@@ -5748,7 +5783,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "projectUtilityNonAudioAccepted": True,
                 "utilityAdapterAccepted": True,
                 "utilityAdapterContract": True,
-                "utilityAdapterRejectsUnsupportedCapture": True,
+                "downstreamUtilityAdapterAcceptedWithoutSourceCapture": True,
+                "resolvedUtilityChainAccepted": True,
                 "utilityKindMismatch": True,
                 "utilityChildren": True,
                 "legacyDependency": True,

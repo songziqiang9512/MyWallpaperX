@@ -51,7 +51,9 @@ extension SceneParticleRuntime {
         guard let animation,
               let selection = SceneParticleSpriteFrameSelector.select(
                 mode: SceneParticleSpriteAnimationMode(authoredValue: definition.animationMode),
-                frameDurations: animation.frames.map(\.duration),
+                frameDurations: animation.frameDurations,
+                frameEndTimes: animation.frameEndTimes,
+                totalDuration: animation.duration,
                 age: age,
                 lifetime: lifetime,
                 sequenceMultiplier: Float(definition.sequenceMultiplier ?? 1),

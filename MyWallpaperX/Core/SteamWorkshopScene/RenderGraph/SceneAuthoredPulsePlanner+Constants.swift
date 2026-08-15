@@ -50,7 +50,7 @@ extension SceneAuthoredPulsePlanner {
         _ authored: [String: Int],
         profile: ScenePulseShaderProfile
     ) -> ResolvedCombos? {
-        guard validAuthoredCombos(authored, allowsAudio: profile == .stock2842),
+        guard validAuthoredCombos(authored, allowsAudio: profile.isAudioCapable),
               let combos = normalizedCombos(authored)
         else {
             return nil
@@ -80,7 +80,7 @@ extension SceneAuthoredPulsePlanner {
             comboValue: comboValue ?? 0,
             constants: constants,
             defaultBounds: SIMD2(0.5, 1),
-            isAudioCapableProfile: profile == .stock2842
+            isAudioCapableProfile: profile.isAudioCapable
         )
     }
 

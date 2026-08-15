@@ -18,14 +18,10 @@ enum SceneFrameLayerTextureAssembly {
                 publications[layerID] = publication
             }
         }
-        if let current = mediaThumbnail?.current {
-            for layerID in mediaBindings.currentLayerIDs where textures[layerID] != nil {
-                textures[layerID] = current.texture
-                publications[layerID] = current.publication(
-                    for: .layerSource(layerID)
-                )
-            }
-        }
+        // System media remains a separate provider. Authored material slots may
+        // consume it, but it must never overwrite a layer-source publication.
+        _ = mediaThumbnail
+        _ = mediaBindings
         for (layerID, source) in videoSources {
             guard let frame = source.currentFrame(for: timing) else { continue }
             textures[layerID] = frame.texture

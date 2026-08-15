@@ -17,6 +17,7 @@ nonisolated enum SceneMediaColorTransitionCompiler {
               source.utf8.count <= 16_384,
               case .effectConstant = target,
               let outerColor = vector3(value.rawValue),
+              isNormalizedColor(outerColor),
               let components = value.components,
               components.count == 3,
               components.allSatisfy(\.isFinite),
@@ -28,9 +29,9 @@ nonisolated enum SceneMediaColorTransitionCompiler {
               !userPropertyKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               case let .string(propertyValue)? = topColor["value"],
               let authoredTopColor = vector3(propertyValue),
-              sameBits(authoredTopColor, outerColor),
+              isNormalizedColor(authoredTopColor),
               let syntax = SceneMediaColorTransitionSyntax.parse(source),
-              sameBits(syntax.defaultTopColor, authoredTopColor) else {
+              isNormalizedColor(syntax.defaultTopColor) else {
             return nil
         }
         return SceneMediaColorTransitionBinding(
@@ -46,7 +47,8 @@ nonisolated enum SceneMediaColorTransitionCompiler {
             plan: SceneMediaColorTransitionPlan(
                 userPropertyKey: userPropertyKey,
                 authoredTopColor: authoredTopColor,
-                duration: syntax.duration
+                duration: syntax.duration,
+                thumbnailColorChannel: syntax.thumbnailColorChannel
             )
         )
     }
@@ -68,5 +70,13 @@ nonisolated enum SceneMediaColorTransitionCompiler {
         lhs.x.bitPattern == rhs.x.bitPattern
             && lhs.y.bitPattern == rhs.y.bitPattern
             && lhs.z.bitPattern == rhs.z.bitPattern
+    }
+
+    private nonisolated static func isNormalizedColor(
+        _ value: SIMD3<Double>
+    ) -> Bool {
+        (0...1).contains(value.x)
+            && (0...1).contains(value.y)
+            && (0...1).contains(value.z)
     }
 }

@@ -31,7 +31,7 @@ struct SceneRenderDescriptor: Codable {
 
     let entryPath: String
     let camera: CameraDescriptor
-    let layers: [Layer]
+    var layers: [Layer]
     let rootLayerIDs: [Int]
     let renderOrderLayerIDs: [Int]
     let renderOrderPolicy: String
@@ -109,6 +109,7 @@ struct SceneRenderDescriptorBuilder {
                     particlePath: object.particlePath,
                     spotLight: object.spotLight,
                     particleInstanceOverride: object.particleInstanceOverride,
+                    particleRateAudioScript: object.particleRateAudioScript,
                     utilityLayer: object.utilityLayer,
                     dependencyLayerIDs: object.dependencyLayerIDs,
                     authoredDependencies: object.authoredDependencies,
@@ -131,6 +132,8 @@ struct SceneRenderDescriptorBuilder {
                     origin: object.origin,
                     size: object.size,
                     scale: object.scale,
+                    scaleHasScript: object.scaleHasScript,
+                    scaleAudioScript: object.scaleAudioScript,
                     angles: object.angles,
                     originXYZ: padVector(parseVector(object.origin), length: 3, fill: 0),
                     sizeWH: padVector(parseVector(object.size), length: 2, fill: 0),

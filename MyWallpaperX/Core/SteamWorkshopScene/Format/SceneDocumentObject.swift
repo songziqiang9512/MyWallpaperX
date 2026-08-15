@@ -113,6 +113,7 @@ extension SceneDocument {
         let particlePath: String?
         var spotLight: SceneSpotLightDefinition? = nil
         let particleInstanceOverride: SceneParticleInstanceOverride?
+        var particleRateAudioScript: SceneAudioScaledValueScriptDefinition? = nil
         let utilityLayer: SceneUtilityLayer?
         let shape: String?
         let dependencyLayerIDs: [Int]
@@ -134,6 +135,8 @@ extension SceneDocument {
         let origin: String?
         let size: String?
         let scale: String?
+        var scaleHasScript: Bool? = nil
+        var scaleAudioScript: SceneAudioScaledValueScriptDefinition? = nil
         let angles: String?
         let parallaxDepth: String?
         let disablesParallaxPropagation: Bool

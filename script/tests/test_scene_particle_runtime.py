@@ -122,8 +122,12 @@ import Metal
 import simd
 
 struct SceneLayerDisplayScriptOwnership: Codable {
-    let fields: [String]
-    var isEmpty: Bool { fields.isEmpty }
+    let visible: Bool
+    let alpha: Bool
+    var fields: [String] {
+        (visible ? ["visible"] : []) + (alpha ? ["alpha"] : [])
+    }
+    var isEmpty: Bool { !visible && !alpha }
 }
 
 struct SceneRenderDescriptor: Codable {
@@ -320,6 +324,10 @@ enum Harness {
             try printJSON(syntheticDynamicControlPoint())
         case "dynamic-instance-override-synthetic":
             try printJSON(syntheticDynamicInstanceOverride())
+        case "velocity-defaults-synthetic":
+            try printJSON(syntheticVelocityDefaults())
+        case "child-pointer-control-point-synthetic":
+            try printJSON(syntheticChildPointerControlPoint())
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -333,6 +341,100 @@ enum Harness {
             RuntimeEvidence.self,
             from: Data(contentsOf: evidenceURL)
         ).runtimeInput.renderDescriptor
+    }
+
+    private static func syntheticVelocityDefaults() throws -> [String: Any] {
+        func velocity(minimum: Any?, maximum: Any?) -> [Double] {
+            var velocity: [String: Any] = ["name": "velocityrandom"]
+            if let minimum { velocity["min"] = minimum }
+            if let maximum { velocity["max"] = maximum }
+            let definition = SceneParticleDefinitionParser().parse(root: [
+                "material": "materials/unused.json",
+                "maxcount": 1,
+                "emitter": [[
+                    "name": "sphererandom", "rate": 0, "instantaneous": 1,
+                    "distancemin": 0, "distancemax": 0,
+                ]],
+                "initializer": [
+                    ["name": "lifetimerandom", "min": 10, "max": 10],
+                    velocity,
+                ],
+                "renderer": [["name": "sprite"]],
+            ])
+            var simulator = SceneParticleSimulator(definition: definition, seed: 7)
+            simulator.advance(by: 1.0 / 60.0)
+            guard let value = simulator.particles.first?.velocity else { return [] }
+            return [value.x, value.y, value.z]
+        }
+        return [
+            "maximumOnly": velocity(minimum: nil, maximum: [0, 100, 0]),
+            "minimumOnly": velocity(minimum: [0, -100, 0], maximum: nil),
+            "omitted": velocity(minimum: nil, maximum: nil),
+        ]
+    }
+
+    private static func syntheticChildPointerControlPoint() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-particle-child-pointer-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle(
+            "particles/root.json", material: "materials/shared.json",
+            lifetime: 1, rate: 0, instantaneous: 1,
+            children: [[
+                "name": "particles/child.json", "type": "eventfollow",
+                "maxcount": 1, "scale": "2.5 2.5 1",
+            ]], under: directory
+        )
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 1,
+            "controlpoint": [["id": 1, "flags": 1, "offset": "0 0 0"]],
+            "emitter": [[
+                "name": "sphererandom", "rate": 0, "instantaneous": 1,
+                "distancemin": 0, "distancemax": 0,
+            ]],
+            "initializer": [["name": "lifetimerandom", "min": 1, "max": 1]],
+            "operator": [
+                [
+                    "name": "controlpointattract", "controlpoint": 1,
+                    "origin": "0 0 0", "scale": 60, "threshold": 5,
+                ],
+                ["name": "movement"],
+            ],
+            "renderer": [["name": "sprite"]],
+        ], to: directory.appendingPathComponent("particles/child.json"))
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(18, "particles/root.json")],
+            renderOrderLayerIDs: [18],
+            materialPasses: [.init(
+                materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                texturePaths: ["shared.png"], blending: "additive"
+            )]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        func velocity(pointer: SIMD3<Double>?) -> [Float] {
+            let runtime = SceneParticleRuntime(
+                descriptor: descriptor, cacheDirectory: directory, device: device
+            )
+            var batches: [SceneParticleDrawBatch] = []
+            for _ in 0..<2 {
+                batches = runtime.advance(
+                    by: 1.0 / 60.0,
+                    pointerLocalPositions: pointer.map { [18: $0] } ?? [:]
+                )
+            }
+            guard let value = batches.first(where: {
+                $0.particlePath == "particles/child.json"
+            })?.instances.first?.velocityAndTrail else { return [] }
+            return [value.x, value.y, value.z]
+        }
+        return [
+            "outside": velocity(pointer: nil),
+            // Root-local x=10 becomes child-local x=4 through authored scale 2.5,
+            // which is inside threshold 5. Without that frame conversion it is outside.
+            "insideScaled": velocity(pointer: SIMD3(10, 0, 0)),
+        ]
     }
 
     private static func realSample(
@@ -1159,13 +1261,23 @@ enum Harness {
         var headCount = 0
         var trailCount = 0
         var trailBatchCount = 0
+        var headY: [Float] = []
+        var headSize: [Float] = []
+        var trailY: [Float] = []
+        var trailSize: [Float] = []
+        var trailVelocityY: [Float] = []
         for batch in batches {
             if batch.particlePath.hasSuffix("matrix_code_copy1.json") {
                 headCount += batch.instances.count
+                headY.append(contentsOf: batch.instances.map(\.positionAndSize.y))
+                headSize.append(contentsOf: batch.instances.map(\.positionAndSize.w))
             }
             if batch.particlePath.hasSuffix("matrix_trail_copy1.json") {
                 trailCount += batch.instances.count
                 trailBatchCount += 1
+                trailY.append(contentsOf: batch.instances.map(\.positionAndSize.y))
+                trailSize.append(contentsOf: batch.instances.map(\.positionAndSize.w))
+                trailVelocityY.append(contentsOf: batch.instances.map(\.velocityAndTrail.y))
             }
         }
         let staticRejections = runtime.diagnostics.filter {
@@ -1176,6 +1288,11 @@ enum Harness {
             "headCount": headCount,
             "trailCount": trailCount,
             "trailBatchCount": trailBatchCount,
+            "headYRange": [headY.min() ?? 0, headY.max() ?? 0],
+            "headSizeRange": [headSize.min() ?? 0, headSize.max() ?? 0],
+            "trailYRange": [trailY.min() ?? 0, trailY.max() ?? 0],
+            "trailSizeRange": [trailSize.min() ?? 0, trailSize.max() ?? 0],
+            "trailVelocityYRange": [trailVelocityY.min() ?? 0, trailVelocityY.max() ?? 0],
             "staticRejections": staticRejections.count,
             "activeLayerIDs": runtime.activeLayerIDs,
             "nestedBudgetDetails": runtime.diagnostics.compactMap { value in
@@ -2453,7 +2570,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(set(result["childCullStates"]), {"back"})
         self.assertEqual(result["staticChildInstanceCount"], 4)
         self.assertEqual(result["staticChildOrigins"][:3], [[0, 0, 0], [0, 0, 0], [1, 2, 3]])
-        self.assertEqual(result["scaledStaticInstance"]["size"], [16])
+        self.assertEqual(result["scaledStaticInstance"]["size"], [8])
         self.assertEqual(result["scaledStaticInstance"]["velocity"], [8, 0, 0])
         self.assertTrue(result["staticChildScaleBounded"])
         # 内置纹理尺寸已对齐官方 .tex 的 imageWidth/imageHeight，非方形纹理不再按方形近似。
@@ -2532,6 +2649,24 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         )
         self.assertIn("builtInTextureUnavailable", kinds)
 
+    def test_velocity_random_uses_official_zero_for_each_omitted_endpoint(self) -> None:
+        result = self.run_harness("velocity-defaults-synthetic")
+        maximum_only = result["maximumOnly"]
+        minimum_only = result["minimumOnly"]
+        self.assertEqual([maximum_only[0], maximum_only[2]], [0, 0])
+        self.assertGreaterEqual(maximum_only[1], 0)
+        self.assertLessEqual(maximum_only[1], 100)
+        self.assertEqual([minimum_only[0], minimum_only[2]], [0, 0])
+        self.assertGreaterEqual(minimum_only[1], -100)
+        self.assertLessEqual(minimum_only[1], 0)
+        self.assertEqual(result["omitted"], [0, 0, 0])
+
+    def test_child_pointer_control_point_uses_child_local_scale_and_fails_closed_outside(self) -> None:
+        result = self.run_harness("child-pointer-control-point-synthetic")
+        self.assertEqual(result["outside"], [0, 0, 0])
+        self.assertAlmostEqual(result["insideScaled"][0], 2.5, places=5)
+        self.assertEqual(result["insideScaled"][1:], [0, 0])
+
     def test_runtime_consumes_each_surface_snapshot_then_restores_authored_fallback(self) -> None:
         result = self.run_harness("dynamic-control-point-synthetic")
         self.assertEqual(result["activeLayerIDs"], [90])
@@ -2545,11 +2680,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["zeroCount"], 0)
         self.assertEqual(result["dynamicCount"], 2)
         self.assertAlmostEqual(result["dynamicAlpha"], 0.25)
-        self.assertAlmostEqual(result["dynamicSize"], 24)
+        self.assertAlmostEqual(result["dynamicSize"], 12)
         self.assertEqual(result["dynamicColor"], [0.25, 1, 0.0625])
         self.assertEqual(result["fallbackCount"], 3)
         self.assertAlmostEqual(result["fallbackAlpha"], 0)
-        self.assertAlmostEqual(result["fallbackSize"], 8)
+        self.assertAlmostEqual(result["fallbackSize"], 4)
         self.assertEqual(result["fallbackColor"], [1, 1, 1])
 
     def test_rope_trail_runtime_builds_multisegment_batches_and_fails_closed(self) -> None:
@@ -2685,11 +2820,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         result = self.run_harness("eventfollow-synthetic")
         self.assertEqual(result["childCounts"], [0, 1, 2, 0, 0, 0])
         self.assertEqual(result["childPositions"], [2, 2])
-        self.assertEqual(result["childSizes"], [20, 20])
+        self.assertEqual(result["childSizes"], [10, 10])
         self.assertEqual(result["boundedCounts"], [0, 1, 1, 1, 0, 0])
         self.assertEqual(len(result["boundedSizes"]), 3)
         for size in result["boundedSizes"]:
-            self.assertAlmostEqual(size, 1.6, places=5)
+            self.assertAlmostEqual(size, 0.8, places=5)
         self.assertEqual(result["budgetCounts"], [0, 64, 128, 192, 256, 320])
         self.assertEqual(result["childUnsupportedLayers"], [])
         self.assertIn(
@@ -2765,6 +2900,14 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["headCount"], 43)
         self.assertGreaterEqual(result["trailCount"], 43)
         self.assertEqual(result["trailBatchCount"], 1)
+        self.assertEqual(result["headSizeRange"], [50, 50])
+        self.assertEqual(result["trailSizeRange"], [50, 50])
+        self.assertLess(result["headYRange"][1], -250)
+        self.assertGreater(result["trailYRange"][0], result["headYRange"][1])
+        self.assertGreaterEqual(
+            result["trailYRange"][1] - result["trailYRange"][0], 240
+        )
+        self.assertEqual(result["trailVelocityYRange"], [100, 100])
         self.assertEqual(result["staticRejections"], 0)
         self.assertEqual(result["nestedBudgetDetails"], [])
 

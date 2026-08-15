@@ -16,6 +16,21 @@ final class SceneDesktopWallpaperHost {
         let surfaceCount: Int
         let windowNumbers: [Int]
     }
+
+    struct DebugAudioScaledValueBindingSnapshot: Encodable {
+        let layerID: Int
+        let target: String
+        let effectiveValue: [Double]
+        let liveParticleCount: Int?
+    }
+
+    struct DebugAudioScaledValueSnapshot: Encodable {
+        let schemaVersion = 1
+        let frameIndex: UInt64
+        let audioGeneration: UInt64
+        let audioWasSilent: Bool
+        let bindings: [DebugAudioScaledValueBindingSnapshot]
+    }
 #endif
 
     private final class HostWindow: NSWindow {
@@ -27,10 +42,23 @@ final class SceneDesktopWallpaperHost {
         let window: NSWindow
         let metalView: SceneMetalView
         var evaluationTransaction = SceneSurfaceEvaluationTransaction()
+        var launchOriginTransitionRuntime: SceneLaunchOriginTransitionRuntime
+        var hoverOriginTransitionRuntime: SceneHoverOriginTransitionRuntime
 
-        init(window: NSWindow, metalView: SceneMetalView) {
+        init(
+            window: NSWindow,
+            metalView: SceneMetalView,
+            launchOriginTransitionProgram: SceneLaunchOriginTransitionProgram,
+            hoverOriginTransitionProgram: SceneHoverOriginTransitionProgram
+        ) {
             self.window = window
             self.metalView = metalView
+            launchOriginTransitionRuntime = .init(
+                program: launchOriginTransitionProgram
+            )
+            hoverOriginTransitionRuntime = .init(
+                program: hoverOriginTransitionProgram
+            )
         }
     }
 
@@ -38,6 +66,7 @@ final class SceneDesktopWallpaperHost {
     var launchContext: SceneDesktopWallpaperLaunchContext?
     private var observers: [NSObjectProtocol] = []
     var frameTimer: Timer?
+    var frameDriverDeadline: CFTimeInterval?
     var screenReconciliationWorkItem: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
     var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
@@ -45,12 +74,18 @@ final class SceneDesktopWallpaperHost {
         SceneMediaPlaybackPlaceholderFadeRuntime(program: .empty)
     var mediaColorTransitionRuntime =
         SceneMediaColorTransitionRuntime(program: .empty)
-    var launchOriginTransitionRuntime =
-        SceneLaunchOriginTransitionRuntime(program: .empty)
+    var sharedLayerAlphaRuntime =
+        SceneSharedLayerAlphaRuntime(program: .empty)
+    var audioScaledValueRuntime =
+        SceneAudioScaledValueRuntime(program: .empty)
     var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
     var nextVideoProviderEpoch: UInt64 = 0
 #if DEBUG
     var debugPointerOverride: SceneSurfacePointerState?
+    var debugAudioScaledValueValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    var debugAudioScaledValueFrameIndex: UInt64 = 0
+    var debugAudioScaledValueGeneration: UInt64 = 0
+    var debugAudioScaledValueWasSilent = true
 #endif
 
     var activeRecordID: String? { launchContext?.recordID }
@@ -78,18 +113,29 @@ final class SceneDesktopWallpaperHost {
             epoch: nextVideoProviderEpoch
         )
         launchContext = context
+#if DEBUG
+        debugAudioScaledValueValues = [:]
+        debugAudioScaledValueFrameIndex = 0
+        debugAudioScaledValueGeneration = 0
+        debugAudioScaledValueWasSilent = true
+#endif
         mediaPlaybackPlaceholderFadeRuntime = .init(
             program: context.mediaPlaybackPlaceholderFadeProgram
         )
         mediaColorTransitionRuntime = .init(
             program: context.mediaColorTransitionProgram
         )
-        launchOriginTransitionRuntime = .init(
-            program: context.launchOriginTransitionProgram
+        sharedLayerAlphaRuntime = .init(
+            program: context.sharedLayerAlphaProgram
+        )
+        audioScaledValueRuntime = .init(
+            program: context.audioScaledValueProgram
         )
         SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
             resolvedMaterialExecutionCapabilities:
-                context.resolvedMaterialExecutionCapabilities
+                context.resolvedMaterialExecutionCapabilities,
+            hasParticleAudioConsumer:
+                !context.audioScaledValueProgram.bindings.isEmpty
         ))
         guard rebuildSurfaces(
             resetClock: true,
@@ -140,6 +186,60 @@ final class SceneDesktopWallpaperHost {
         DebugSnapshot(
             surfaceCount: surfaces.count,
             windowNumbers: surfaces.values.map { $0.window.windowNumber }.sorted()
+        )
+    }
+
+    func debugAudioScaledValueSnapshot() -> DebugAudioScaledValueSnapshot {
+        let liveCounts = surfaces.values.reduce(into: [Int: Int]()) { result, surface in
+            guard let batches = surface.metalView.particlePlayback?.batches else { return }
+            for batch in batches {
+                result[batch.layerID, default: 0] += batch.instances.count
+            }
+        }
+        let bindings = launchContext?.audioScaledValueProgram.bindings.compactMap {
+            binding -> DebugAudioScaledValueBindingSnapshot? in
+            let layerID: Int
+            let target: String
+            let liveParticleCount: Int?
+            switch binding.definition.target {
+            case let .particle(id, .rate):
+                layerID = id
+                target = "particle.rate"
+                liveParticleCount = liveCounts[id, default: 0]
+            case let .layer(id, .scale):
+                layerID = id
+                target = "layer.scale"
+                liveParticleCount = nil
+            default:
+                return nil
+            }
+            guard let value = debugAudioScaledValueValues[
+                binding.definition.target
+            ] else { return nil }
+            let components: [Double]
+            switch value {
+            case let .scalar(scalar):
+                components = [scalar]
+            case let .vector3(x, y, z):
+                components = [x, y, z]
+            default:
+                return nil
+            }
+            return DebugAudioScaledValueBindingSnapshot(
+                layerID: layerID,
+                target: target,
+                effectiveValue: components,
+                liveParticleCount: liveParticleCount
+            )
+        }.sorted {
+            if $0.layerID != $1.layerID { return $0.layerID < $1.layerID }
+            return $0.target < $1.target
+        } ?? []
+        return DebugAudioScaledValueSnapshot(
+            frameIndex: debugAudioScaledValueFrameIndex,
+            audioGeneration: debugAudioScaledValueGeneration,
+            audioWasSilent: debugAudioScaledValueWasSilent,
+            bindings: bindings
         )
     }
 
@@ -261,6 +361,19 @@ final class SceneDesktopWallpaperHost {
 
         teardownSurfaces(clearContext: false, reason: teardownReason)
 
+        let initialAudioScaledValueValues =
+            SceneAudioScaledValueRuntime.initialValues(
+                program: launchContext.audioScaledValueProgram
+            )
+        let initialParticleDynamicValues = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 0,
+            generation: 0,
+            definitions: launchContext.audioScaledValueProgram.definitions,
+            userValues: [:],
+            timelineValues: [:],
+            sceneScriptValues: initialAudioScaledValueValues
+        ).snapshot
+
         var created = false
         var wroteLog = false
         for screen in screens {
@@ -282,7 +395,8 @@ final class SceneDesktopWallpaperHost {
                     from: launchContext.cacheDirectory,
                     resourceView: launchContext.resourceView,
                     videoSourceRegistry: videoTextureSourceRegistry,
-                    spriteTextureLoader: launchContext.spriteTextureLoader
+                    spriteTextureLoader: launchContext.spriteTextureLoader,
+                    initialDynamicValues: initialParticleDynamicValues
                 )
             } else {
                 metalView.loadImageLayers(
@@ -290,6 +404,7 @@ final class SceneDesktopWallpaperHost {
                     resourceView: launchContext.resourceView,
                     videoSourceRegistry: videoTextureSourceRegistry,
                     spriteTextureLoader: launchContext.spriteTextureLoader,
+                    initialDynamicValues: initialParticleDynamicValues,
                     logURL: launchContext.logURL
                 )
                 launchContext.appendResolvedMaterialStartupReport()
@@ -332,7 +447,11 @@ final class SceneDesktopWallpaperHost {
             }
             surfaces[screenID] = Surface(
                 window: window,
-                metalView: metalView
+                metalView: metalView,
+                launchOriginTransitionProgram:
+                    launchContext.launchOriginTransitionProgram,
+                hoverOriginTransitionProgram:
+                    launchContext.hoverOriginTransitionProgram
             )
             created = true
         }

@@ -24,16 +24,27 @@ nonisolated struct SceneOpacityExecutionPlan {
     let renderGraph: SceneAuthoredEffectRenderPlan
     let staticOrFallbackAlpha: Float
     let directAlphaBinding: DirectAlphaBinding?
+    /// Exact bounded SceneScript producer. Unlike a user-property binding, a
+    /// missing or wrongly-owned frame value is not allowed to fall back to the
+    /// authored scalar because that would silently invert authored UI state.
+    let requiredSceneScriptAlphaTarget: SceneDynamicTarget?
     /// 官方 `opacity.frag` 的 `#if MASK` 分支读 `g_Texture1`，槽位由实例是否绑图决定。
     /// nil 表示这个实例没绑遮罩，渲染时只乘 alpha。
     let maskTexturePath: String?
 
     nonisolated var liveAlphaTarget: SceneDynamicTarget? {
-        directAlphaBinding?.dynamicTarget
+        directAlphaBinding?.dynamicTarget ?? requiredSceneScriptAlphaTarget
     }
 
-    nonisolated func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
-        guard let target = liveAlphaTarget,
+    nonisolated func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float? {
+        if let target = requiredSceneScriptAlphaTarget {
+            guard let resolved = snapshot[target],
+                  resolved.source == .sceneScript,
+                  case .scalar(let rawValue) = resolved.value else { return nil }
+            let value = Float(rawValue)
+            return value.isFinite && (0...1).contains(value) ? value : nil
+        }
+        guard let target = directAlphaBinding?.dynamicTarget,
               case .scalar(let rawValue) = snapshot[target]?.value else {
             return staticOrFallbackAlpha
         }
@@ -100,6 +111,7 @@ enum SceneAuthoredOpacityPlanner {
             renderGraph: graph,
             staticOrFallbackAlpha: alpha.value,
             directAlphaBinding: alpha.binding,
+            requiredSceneScriptAlphaTarget: alpha.sceneScriptTarget,
             maskTexturePath: maskTexturePath(
                 in: layer.effects[effect.key.effectIndex].passes
             )
@@ -279,7 +291,11 @@ enum SceneAuthoredOpacityPlanner {
     private nonisolated static func alpha(
         from constants: [String: SceneDocument.ShaderValue],
         effect: Graph.EffectKey
-    ) -> (value: Float, binding: SceneOpacityExecutionPlan.DirectAlphaBinding?)? {
+    ) -> (
+        value: Float,
+        binding: SceneOpacityExecutionPlan.DirectAlphaBinding?,
+        sceneScriptTarget: SceneDynamicTarget?
+    )? {
         guard constants.count == 1,
               let entry = constants.first,
               entry.key.lowercased() == "alpha",
@@ -293,11 +309,21 @@ enum SceneAuthoredOpacityPlanner {
 
         let floatValue = Float(component)
         guard floatValue.isFinite else { return nil }
+        let target = SceneDynamicTarget.effectConstant(
+            layerID: effect.layerID,
+            effectIndex: effect.effectIndex,
+            passIndex: 0,
+            name: "alpha"
+        )
         let binding: SceneOpacityExecutionPlan.DirectAlphaBinding?
+        let sceneScriptTarget: SceneDynamicTarget?
         if let propertyKey = entry.value.userBinding?
             .trimmingCharacters(in: .whitespacesAndNewlines) {
             guard !propertyKey.isEmpty,
-                  entry.value.valueKind.lowercased() == "binding" else {
+                  entry.value.valueKind.lowercased() == "binding",
+                  entry.value.scriptSource == nil,
+                  entry.value.timeline == nil,
+                  entry.value.timelineDiagnostics.isEmpty else {
                 return nil
             }
             binding = .init(
@@ -307,11 +333,25 @@ enum SceneAuthoredOpacityPlanner {
                 passIndex: 0,
                 constantName: "alpha"
             )
-        } else {
-            guard entry.value.valueKind.lowercased() == "number" else { return nil }
+            sceneScriptTarget = nil
+        } else if entry.value.scriptSource != nil {
+            guard entry.value.valueKind.lowercased() == "binding",
+                  entry.value.timeline == nil,
+                  entry.value.timelineDiagnostics.isEmpty,
+                  entry.value.bindingKeys.sorted() == ["script", "value"] else {
+                return nil
+            }
             binding = nil
+            sceneScriptTarget = target
+        } else {
+            guard entry.value.valueKind.lowercased() == "number",
+                  entry.value.timeline == nil,
+                  entry.value.timelineDiagnostics.isEmpty,
+                  entry.value.bindingKeys.isEmpty else { return nil }
+            binding = nil
+            sceneScriptTarget = nil
         }
-        return (floatValue, binding)
+        return (floatValue, binding, sceneScriptTarget)
     }
 
     private nonisolated static func shaderContractMatches(

@@ -7,6 +7,20 @@ extension DebugScenePlaybackRunner {
         guard let relativePath = argumentValue(
             after: "--mwx-debug-scene-media-thumbnail"
         ) else { return }
+        let primaryColor: SIMD3<Double>?
+        if let payload = argumentValue(
+            after: "--mwx-debug-scene-media-primary-color-json"
+        ) {
+            guard let parsed = normalizedColor(from: payload) else {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=media-thumbnail-rejected reason=primary-color"
+                )
+                return
+            }
+            primaryColor = parsed
+        } else {
+            primaryColor = nil
+        }
         let secondaryColor: SIMD3<Double>?
         if let payload = argumentValue(
             after: "--mwx-debug-scene-media-secondary-color-json"
@@ -37,6 +51,7 @@ extension DebugScenePlaybackRunner {
         }
         guard publishMediaThumbnail(
             relativePath: relativePath,
+            primaryColor: primaryColor,
             secondaryColor: secondaryColor,
             rootURL: rootURL
         ) else { return }
@@ -136,6 +151,7 @@ extension DebugScenePlaybackRunner {
     @discardableResult
     private static func publishMediaThumbnail(
         relativePath: String,
+        primaryColor: SIMD3<Double>? = nil,
         secondaryColor: SIMD3<Double>? = nil,
         rootURL: URL
     ) -> Bool {
@@ -148,6 +164,7 @@ extension DebugScenePlaybackRunner {
               let data = try? Data(contentsOf: url, options: .mappedIfSafe),
               SceneMediaThumbnailInbox.shared.publish(
                   data,
+                  primaryColor: primaryColor,
                   secondaryColor: secondaryColor
               ) else {
             NSLog(
@@ -157,9 +174,10 @@ extension DebugScenePlaybackRunner {
             return false
         }
         NSLog(
-            "MWX DEBUG SCENE: phase=media-thumbnail-published file=%@ bytes=%d hasSecondaryColor=%@",
+            "MWX DEBUG SCENE: phase=media-thumbnail-published file=%@ bytes=%d hasPrimaryColor=%@ hasSecondaryColor=%@",
             url.lastPathComponent,
             data.count,
+            primaryColor == nil ? "false" : "true",
             secondaryColor == nil ? "false" : "true"
         )
         return true

@@ -216,7 +216,7 @@ enum SceneAuthoredPulsePlanner {
         return pass.passIndex == 0
             && validInstanceTextureSlots(paths: pass.texturePaths, slots: pass.textureSlots)
             && pass.userTextureInputs.isEmpty
-            && validAuthoredCombos(pass.combos, allowsAudio: profile == .stock2842)
+            && validAuthoredCombos(pass.combos, allowsAudio: profile.isAudioCapable)
     }
 
     private nonisolated static func validResolvedMaterial(

@@ -1,7 +1,7 @@
 import Foundation
 
 extension SceneParticleSimulator {
-    nonisolated mutating func applyInitializers(to particle: inout SceneParticleState) {
+    nonisolated func applyInitializers(to particle: inout SceneParticleState) {
         for initializer in definition.initializers {
             switch initializer.kind {
             case .lifetime:
@@ -9,9 +9,13 @@ extension SceneParticleSimulator {
             case .size:
                 particle.size = randomScalar(initializer, defaults: (0, 20))
             case .velocity:
+                // Wallpaper Engine initializes both authored velocity vectors to zero before
+                // reading the optional `min` and `max` fields. Keep a missing endpoint at that
+                // public engine default; inventing a symmetric range changes one-sided authored
+                // profiles such as `max: "0 100 0"` into bidirectional motion.
                 particle.velocity += randomVector(
                     initializer,
-                    defaults: (SIMD3(-32, -32, 0), SIMD3(32, 32, 0))
+                    defaults: (.zero, .zero)
                 )
             case .color:
                 particle.color = randomColor(

@@ -167,6 +167,16 @@ struct SceneDocumentLoader {
             particleInstanceOverride: SceneParticleDefinitionParser().parseInstanceOverride(
                 root["instanceoverride"]
             ),
+            particleRateAudioScript: {
+                let authoredOverride = authoredRoot["instanceoverride"]
+                    as? [String: Any]
+                let resolvedOverride = root["instanceoverride"]
+                    as? [String: Any]
+                return SceneAudioScaledValueScriptDefinition.parse(
+                    authoredWrapper: authoredOverride?["rate"],
+                    resolvedWrapper: resolvedOverride?["rate"]
+                )
+            }(),
             utilityLayer: SceneUtilityLayer.parse(imagePath: imagePath, object: root),
             shape: stringValue(root["shape"])?.lowercased(),
             dependencyLayerIDs: dependencies.flatLayerIDs,
@@ -184,6 +194,12 @@ struct SceneDocumentLoader {
             origin: stringValue(root["origin"]),
             size: stringValue(root["size"]),
             scale: stringValue(root["scale"]),
+            scaleHasScript: (authoredRoot["scale"] as? [String: Any])?["script"]
+                is String,
+            scaleAudioScript: SceneAudioScaledValueScriptDefinition.parse(
+                authoredWrapper: authoredRoot["scale"],
+                resolvedWrapper: root["scale"]
+            ),
             angles: stringValue(root["angles"]),
             parallaxDepth: stringValue(root["parallaxDepth"]),
             disablesParallaxPropagation: visibleValue(root["disablepropagation"]) ?? false,

@@ -37,6 +37,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     *AUTHORED_EFFECT_PLANNING_SOURCES[2:],
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
+    SOURCE_ROOT
+    / "RenderGraph/LayerDependencies/SceneImageLayerBlendDependencyContract.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Properties/SceneTimeOfDayEffectScriptProgram.swift",
     SOURCE_ROOT / "Properties/SceneTimeOfDayEffectScriptCompiler.swift",
@@ -439,6 +441,12 @@ enum Harness {
         var system = Options(); system.propertyKind = .system
         var undeclared = Options(); undeclared.declaredProperty = false
         var named = Options(); named.asset = "_rt_imageLayerComposite_1_a"
+        var namedDependency = named; namedDependency.propertyKey = nil
+        let namedDependencyPlan = SceneAuthoredBlendPlanner.plan(
+            graph: graph(),
+            descriptor: descriptor(namedDependency),
+            shaderContracts: contracts
+        )
         var paths = Options(); paths.texturePathsMatch = false
         var mode = Options(); mode.blendMode = 1
         var invalidWriteAlpha = Options(); invalidWriteAlpha.writeAlpha = 2
@@ -488,6 +496,11 @@ enum Harness {
                 $0.writesAlpha && $0.alphaMultiply == 0.5
             } ?? false,
             "assetFallbackAccepted": accepted(options: assetOnly, contracts: contracts),
+            "namedDependencyAccepted": namedDependencyPlan.map {
+                $0.dependencyProviderLayerID == 1
+                    && $0.userPropertyKey == nil
+                    && $0.assetTexturePath == "_rt_imageLayerComposite_1_a"
+            } ?? false,
             "priorAccepted": accepted(
                 contracts: contracts,
                 priorInput: true,

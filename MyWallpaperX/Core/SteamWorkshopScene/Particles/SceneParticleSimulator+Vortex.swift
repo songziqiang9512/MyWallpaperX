@@ -4,7 +4,7 @@ nonisolated extension SceneParticleSimulator {
     /// Applies a bounded classic vortex as tangential acceleration in particle-local space.
     /// Positive speed follows the right-hand rule around the authored axis; negative speed
     /// reverses it. This is a project-owned clean-room numeric contract, not a Windows golden.
-    mutating func applyVortex(
+    func applyVortex(
         _ value: SceneParticleOperator,
         duration: Double
     ) {

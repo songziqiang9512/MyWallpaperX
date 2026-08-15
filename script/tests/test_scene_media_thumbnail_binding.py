@@ -40,19 +40,19 @@ struct SceneRenderDescriptor {
             let constantShaderValues: [String: SceneDocument.ShaderValue]
         }
         let file: String
-        let visible: Bool?
+        var visible: Bool?
         let passes: [PassDescriptor]
     }
     struct Layer {
         let id: Int
         let contentKind: String
-        let effects: [EffectDescriptor]
+        var effects: [EffectDescriptor]
         var isImageRenderable: Bool { contentKind == "image" || contentKind == "solid" }
     }
-    let layers: [Layer]
+    var layers: [Layer]
 }
 
-enum SceneJSONValue: Equatable {}
+enum SceneJSONValue: Equatable { case bool(Bool) }
 enum SceneScriptBindingValueType { case boolean, number }
 struct SceneScriptBindingOwner {
     enum Kind { case effect, object }
@@ -66,6 +66,12 @@ struct SceneScriptBindingIR {
     let properties: [String: SceneJSONValue]
     let valueType: SceneScriptBindingValueType
     let targetKey: String
+}
+struct SceneScriptSourceEvidenceIR {
+    let source: String
+    let owner: SceneScriptBindingOwner
+    let targetKey: String
+    let wrapperKeys: [String]
 }
 
 func effect(
@@ -91,27 +97,67 @@ func effect(
 }
 
 let visibilitySource = """
-// comments and exported metadata do not change the event contract
-export let metadata = 'fixture';
+// comments do not change the exact stock event contract
+'use strict';
 export function mediaThumbnailChanged(event) {
     thisObject.visible = event.hasThumbnail;
 }
 """
-let binding = SceneScriptBindingIR(
+let directBinding = SceneScriptBindingIR(
     source: visibilitySource,
     owner: .init(kind: .effect, objectID: 20, effectIndex: 0),
+    properties: ["unrelatedUserCondition": .bool(true)],
+    valueType: .boolean,
+    targetKey: "visible"
+)
+let timedBinding = SceneScriptBindingIR(
+    source: """
+    var lastHideEvent;
+    export function mediaThumbnailChanged(event) {
+        if (lastHideEvent) {
+            lastHideEvent();
+            lastHideEvent = undefined;
+        }
+        thisObject.visible = event.hasThumbnail;
+        if (event.hasThumbnail) {
+            lastHideEvent = engine.setTimeout(() => {
+                thisObject.visible = false;
+            }, 1000);
+        }
+    }
+    """,
+    owner: .init(kind: .effect, objectID: 30, effectIndex: 0),
     properties: [:],
     valueType: .boolean,
     targetKey: "visible"
+)
+let unsupportedBinding = SceneScriptBindingIR(
+    source: visibilitySource + "\nexport let metadata = 'different topology';",
+    owner: .init(kind: .effect, objectID: 40, effectIndex: 0),
+    properties: [:],
+    valueType: .boolean,
+    targetKey: "visible"
+)
+let combinedEvidence = SceneScriptSourceEvidenceIR(
+    source: visibilitySource,
+    owner: .init(kind: .effect, objectID: 40, effectIndex: 0),
+    targetKey: "visible",
+    wrapperKeys: ["script", "user", "value"]
+)
+let unsupportedCombinedEvidence = SceneScriptSourceEvidenceIR(
+    source: visibilitySource,
+    owner: .init(kind: .effect, objectID: 50, effectIndex: 0),
+    targetKey: "visible",
+    wrapperKeys: ["script", "user", "value", "unknown"]
 )
 let descriptor = SceneRenderDescriptor(layers: [
     .init(id: 10, contentKind: "image", effects: [effect()]),
     .init(
         id: 20,
         contentKind: "solid",
-        effects: [effect(path: "effects/workshop/fixture/blend/effect.json", visible: false)]
+        effects: [effect(path: "effects/workshop/fixture/blend/effect.json", visible: true)]
     ),
-    .init(id: 30, contentKind: "solid", effects: [effect(visible: false)]),
+    .init(id: 30, contentKind: "solid", effects: [effect(visible: true)]),
     .init(id: 40, contentKind: "image", effects: [effect(identity: "$unclaimedMediaTexture")]),
     .init(id: 50, contentKind: "image", effects: [effect(multiply: 0.5)]),
     .init(id: 60, contentKind: "image", effects: [effect(path: "effects/color/effect.json")]),
@@ -119,12 +165,20 @@ let descriptor = SceneRenderDescriptor(layers: [
 ])
 let program = SceneMediaThumbnailBindingCompiler.compile(
     descriptor: descriptor,
-    scriptBindings: [binding]
+    scriptBindings: [directBinding, timedBinding, unsupportedBinding]
+)
+let projected = SceneInitialMediaEffectVisibilityProjection.apply(
+    to: descriptor,
+    scriptBindings: [directBinding, timedBinding, unsupportedBinding],
+    sourceEvidence: [combinedEvidence, unsupportedCombinedEvidence]
 )
 let result: [String: Any] = [
     "accepted": program.currentLayerIDs.sorted(),
     "hasConsumers": program.hasConsumers,
     "report": program.reportLines(),
+    "projected": Dictionary(uniqueKeysWithValues: projected.layers.map {
+        (String($0.id), $0.effects[0].visible as Any)
+    }),
 ]
 let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
 print(String(decoding: data, as: UTF8.self))
@@ -146,15 +200,19 @@ class SceneMediaThumbnailBindingTests(unittest.TestCase):
                 cwd=ROOT,
             )
             result = json.loads(subprocess.check_output([str(binary)], text=True))
-        self.assertEqual(result["accepted"], [10, 20])
-        self.assertTrue(result["hasConsumers"])
+        self.assertEqual(result["accepted"], [])
+        self.assertFalse(result["hasConsumers"])
         self.assertEqual(
             result["report"],
             [
-                "mediaThumbnailCurrentBindingCount: 2",
-                "mediaThumbnailCurrentBindingLayerIDs: 10,20",
+                "mediaThumbnailCurrentBindingCount: 0",
+                "mediaThumbnailCurrentBindingLayerIDs: ",
             ],
         )
+        self.assertFalse(result["projected"]["20"])
+        self.assertFalse(result["projected"]["30"])
+        self.assertFalse(result["projected"]["40"])
+        self.assertTrue(result["projected"]["50"])
 
     def test_launch_uses_current_binding_compiler_without_transition_owner(self) -> None:
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")

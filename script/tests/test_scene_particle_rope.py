@@ -362,7 +362,7 @@ class SceneParticleRopeTests(unittest.TestCase):
         topology = self.result["topology"]
         self.assertEqual(topology["count"], 2)
         self.assertEqual(topology["positions"], [[5, 0], [15, 5]])
-        self.assertEqual(topology["sizes"], [3, 5])
+        self.assertEqual(topology["sizes"], [1.5, 2.5])
         self.assertEqual(topology["displacements"], [[10, 0], [10, 10]])
         self.assertEqual(topology["uvRanges"], [[0, 0.5], [0.5, 1]])
         self.assertTrue(topology["uvContinuous"])

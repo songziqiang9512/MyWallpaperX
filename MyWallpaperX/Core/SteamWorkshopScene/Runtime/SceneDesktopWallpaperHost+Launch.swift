@@ -16,7 +16,11 @@ struct SceneDesktopWallpaperLaunchContext {
     let mediaPlaybackPlaceholderFadeProgram:
         SceneMediaPlaybackPlaceholderFadeProgram
     let mediaColorTransitionProgram: SceneMediaColorTransitionProgram
+    let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let launchOriginTransitionProgram: SceneLaunchOriginTransitionProgram
+    let hoverOriginTransitionProgram: SceneHoverOriginTransitionProgram
+    let audioScaledValueProgram: SceneAudioScaledValueProgram
+    let propertyVectorScriptProgram: ScenePropertyVectorScriptProgram
     let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
@@ -36,14 +40,37 @@ struct SceneDesktopWallpaperLaunchContext {
             "scene media placeholder fade: schema=bounded-playback-fade-v1"
                 + " bindings=\(mediaPlaybackPlaceholderFadeProgram.bindings.count)"
                 + " input=typed-inbox liveProvider=unavailable initialMode=stopped",
-            "scene media color transition: schema=bounded-secondary-color-v1"
+            "scene media color transition: schema=bounded-thumbnail-palette-v2"
                 + " bindings=\(mediaColorTransitionProgram.bindings.count)"
                 + " input=typed-inbox liveProvider=unavailable",
+            "scene shared layer alpha: schema=bounded-shared-alpha-v1"
+                + " flags=\(sharedLayerAlphaProgram.initialFlags.keys.sorted())"
+                + " bindings=\(sharedLayerAlphaProgram.bindings.count)"
+                + " layerIDs=\(sharedLayerAlphaProgram.layerIDs)"
+                + " interaction=unavailable",
             "scene launch origin transition: schema=bounded-shared-origin-v1"
                 + " cohorts=\(launchOriginTransitionProgram.cohorts.count)"
                 + " bindings=\(launchOriginTransitionProgram.bindings.count)"
+                + " scalarBindings=\(launchOriginTransitionProgram.scalarBindings.count)"
                 + " layerIDs=\(launchOriginTransitionProgram.layerIDs)"
-                + " interaction=unavailable"
+                + " interaction=cursor-click",
+            "scene hover origin transition: schema=bounded-hover-origin-v1"
+                + " cohorts=\(hoverOriginTransitionProgram.cohorts.count)"
+                + " owners=\(hoverOriginTransitionProgram.ownerLayerIDs)"
+                + " bindings=\(hoverOriginTransitionProgram.bindings.count)"
+                + " layerIDs=\(hoverOriginTransitionProgram.layerIDs)"
+                + " interaction=cursor-enter-leave",
+            "scene audio scaled value: schema=bounded-audio-scaled-value-v1"
+                + " bindings=\(audioScaledValueProgram.bindings.count)"
+                + " rejectedParticleLayerIDs="
+                + "\(audioScaledValueProgram.rejectedParticleLayerIDs)"
+                + " rejectedScaleLayerIDs="
+                + "\(audioScaledValueProgram.rejectedScaleLayerIDs)"
+                + " resolution=16",
+            "scene property vector scripts: schema=bounded-property-vector-v1"
+                + " bindings=\(propertyVectorScriptProgram.bindings.count)"
+                + " scaleLayerIDs="
+                + "\(Array(propertyVectorScriptProgram.admittedScaleLayerIDs).sorted())"
         ]
     }
 
@@ -114,13 +141,59 @@ extension SceneDesktopWallpaperHost {
         let launchOriginTransitionTargets = Set(
             launchOriginTransitionProgram.definitions.map(\.target)
         )
+        let hoverOriginTransitionProgram =
+            SceneHoverOriginTransitionProgramCompiler.compile(
+                descriptor: runtimeInput.renderDescriptor,
+                scriptBindings: model.sceneDocument.scriptBindings,
+                scriptSourceEvidence: model.sceneDocument.scriptSourceEvidence
+            )
+        let hoverOriginTransitionTargets = Set(
+            hoverOriginTransitionProgram.definitions.map(\.target)
+        )
+        let audioScaledValueTargets = Set(
+            model.audioScaledValueProgram.definitions.map(\.target)
+        )
+        let propertyVectorScriptTargets = Set(
+            model.propertyVectorScriptProgram.definitions.map(\.target)
+        )
         guard launchOriginTransitionTargets.count
                 == launchOriginTransitionProgram.definitions.count,
+              hoverOriginTransitionTargets.count
+                == hoverOriginTransitionProgram.definitions.count,
+              audioScaledValueTargets.count
+                == model.audioScaledValueProgram.definitions.count,
+              propertyVectorScriptTargets.count
+                == model.propertyVectorScriptProgram.definitions.count,
+              hoverOriginTransitionTargets.isDisjoint(
+                with: launchOriginTransitionTargets
+              ),
               launchOriginTransitionTargets.isDisjoint(with: Set(
             runtimeInput.propertyBindingProgram.definitions.map(\.target)
         )), launchOriginTransitionTargets.isDisjoint(with: Set(
             timelineProgram.bindings.map(\.target)
-        )) else {
+        )), hoverOriginTransitionTargets.isDisjoint(with: Set(
+            runtimeInput.propertyBindingProgram.definitions.map(\.target)
+        )), hoverOriginTransitionTargets.isDisjoint(with: Set(
+            timelineProgram.bindings.map(\.target)
+        )), audioScaledValueTargets.isDisjoint(with: Set(
+            runtimeInput.propertyBindingProgram.definitions.map(\.target)
+        )), audioScaledValueTargets.isDisjoint(with: Set(
+            timelineProgram.bindings.map(\.target)
+        )), audioScaledValueTargets.isDisjoint(
+            with: launchOriginTransitionTargets
+        ), audioScaledValueTargets.isDisjoint(
+            with: hoverOriginTransitionTargets
+        ), propertyVectorScriptTargets.isDisjoint(with: Set(
+            runtimeInput.propertyBindingProgram.definitions.map(\.target)
+        )), propertyVectorScriptTargets.isDisjoint(with: Set(
+            timelineProgram.bindings.map(\.target)
+        )), propertyVectorScriptTargets.isDisjoint(
+            with: launchOriginTransitionTargets
+        ), propertyVectorScriptTargets.isDisjoint(
+            with: hoverOriginTransitionTargets
+        ), propertyVectorScriptTargets.isDisjoint(
+            with: audioScaledValueTargets
+        ) else {
             throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
         }
         typealias VisibilityOwner =
@@ -130,6 +203,11 @@ extension SceneDesktopWallpaperHost {
         // live-state rejects atomically and the service relaunches the Scene.
         // Admission only blocks frame-driven topology changes here.
         var frameDrivenEffectVisibilityOwners = Set<VisibilityOwner>()
+        let initiallyInactiveMediaOwners =
+            SceneInitialMediaEffectVisibilityProjection.initiallyInactiveOwners(
+                scriptBindings: model.sceneDocument.scriptBindings,
+                sourceEvidence: model.sceneDocument.scriptSourceEvidence
+            )
         for binding in timelineProgram.bindings {
             guard case let .effectVisibility(layerID, effectIndex) =
                     binding.definition.target else { continue }
@@ -142,7 +220,11 @@ extension SceneDesktopWallpaperHost {
             guard binding.owner.kind == .effect,
                   binding.targetKey == "visible",
                   let layerID = binding.owner.objectID,
-                  let effectIndex = binding.owner.effectIndex else { continue }
+                  let effectIndex = binding.owner.effectIndex,
+                  !initiallyInactiveMediaOwners.contains(.init(
+                      layerID: layerID,
+                      effectIndex: effectIndex
+                  )) else { continue }
             frameDrivenEffectVisibilityOwners.insert(.init(
                 layerID: layerID,
                 effectIndex: effectIndex
@@ -164,7 +246,9 @@ extension SceneDesktopWallpaperHost {
             $0.executionPlan.backend.supportsUnifiedPairLeaf ? $0.effectKey : nil
         })
         let dedicatedGraphStageKeys = Set(dedicatedStageLeaves.compactMap {
-            $0.executionPlan.supportsUnifiedLogicalTargetStage ? $0.effectKey : nil
+            ($0.executionPlan.supportsUnifiedLogicalTargetStage
+                || $0.executionPlan.supportsUnifiedHistoryTargetStage)
+                ? $0.effectKey : nil
         })
         let dedicatedFullFrameComposeStageKeys = Set(
             dedicatedStageLeaves.compactMap {
@@ -204,12 +288,27 @@ extension SceneDesktopWallpaperHost {
             with: mediaColorTransitionCandidateTargets
         ), mediaPlaybackPlaceholderFadeCandidateTargets.isDisjoint(
             with: mediaColorTransitionCandidateTargets
+        ), launchOriginTransitionTargets.isDisjoint(
+            with: timeOfDayEffectScriptCandidateTargets
+        ), launchOriginTransitionTargets.isDisjoint(
+            with: mediaPlaybackPlaceholderFadeCandidateTargets
+        ), launchOriginTransitionTargets.isDisjoint(
+            with: mediaColorTransitionCandidateTargets
+        ), audioScaledValueTargets.isDisjoint(
+            with: timeOfDayEffectScriptCandidateTargets
+        ), audioScaledValueTargets.isDisjoint(
+            with: mediaPlaybackPlaceholderFadeCandidateTargets
+        ), audioScaledValueTargets.isDisjoint(
+            with: mediaColorTransitionCandidateTargets
         ) else {
             throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
         }
         let provenSceneScriptValueTargets = timeOfDayEffectScriptCandidateTargets
             .union(mediaPlaybackPlaceholderFadeCandidateTargets)
             .union(mediaColorTransitionCandidateTargets)
+            .union(launchOriginTransitionProgram.scalarBindings.map {
+                $0.definition.target
+            })
         let resolvedMaterialAdmissionCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: runtimeInput.renderDescriptor,
@@ -329,7 +428,11 @@ extension SceneDesktopWallpaperHost {
             mediaPlaybackPlaceholderFadeProgram:
                 mediaPlaybackPlaceholderFadeProgram,
             mediaColorTransitionProgram: mediaColorTransitionProgram,
+            sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             launchOriginTransitionProgram: launchOriginTransitionProgram,
+            hoverOriginTransitionProgram: hoverOriginTransitionProgram,
+            audioScaledValueProgram: model.audioScaledValueProgram,
+            propertyVectorScriptProgram: model.propertyVectorScriptProgram,
             mediaThumbnailBindings: mediaThumbnailBindings,
             liveState: ScenePropertyLiveUpdateState(
                 program: runtimeInput.propertyBindingProgram,

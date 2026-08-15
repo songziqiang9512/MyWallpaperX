@@ -65,6 +65,8 @@ extension SceneEffectStageRenderer {
         previousCursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         previousPointerIsInside: Bool,
+        pointerMovement: Float,
+        primaryButtonIsDown: Bool,
         frameTime: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -81,6 +83,8 @@ extension SceneEffectStageRenderer {
             previousCursorUV: previousCursorUV,
             pointerIsInside: pointerIsInside,
             previousPointerIsInside: previousPointerIsInside,
+            pointerMovement: pointerMovement,
+            primaryButtonIsDown: primaryButtonIsDown,
             frameTime: frameTime,
             commandBuffer: commandBuffer
         )

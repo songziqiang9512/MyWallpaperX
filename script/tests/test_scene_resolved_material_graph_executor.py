@@ -96,10 +96,17 @@ struct SceneClippingMaskExecutionPlan {
     let providerLayerID: Int
     let blendMode: Int
 }
+struct SceneBlendExecutionPlan {
+    let layerID: Int
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let dependencyProviderLayerID: Int?
+}
 
 extension SceneEffectStageExecutionPlan {
     var clippingMask: SceneClippingMaskExecutionPlan? { nil }
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
+    var blend: SceneBlendExecutionPlan? { nil }
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
     var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
     var workshopAudioBars: SceneOpacityExecutionPlan? { nil }
@@ -169,7 +176,9 @@ struct SceneDependencyRenderPlan {
     }
 
     struct Binding: Hashable {
-        enum Kind: Hashable { case clippingMask, proceduralNoiseLayer }
+        enum Kind: Hashable {
+            case clippingMask, proceduralNoiseLayer, imageLayerBlend
+        }
         let consumerLayerID: Int
         let providerLayerID: Int
         let slot: SceneEffectPassSlot

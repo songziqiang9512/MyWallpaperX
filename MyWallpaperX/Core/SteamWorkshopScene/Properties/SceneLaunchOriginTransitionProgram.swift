@@ -1,7 +1,7 @@
 import Foundation
 
-/// A launch-only, data-only projection of one bounded authored origin cohort.
-/// It carries no JavaScript execution or interaction authority.
+/// Data-only projection of one bounded cursor-click origin cohort plus exact
+/// pass scalar consumers of the same shared flag. It carries no JavaScript VM.
 nonisolated struct SceneLaunchOriginTransitionProgram: Equatable, Sendable {
     let cohorts: [SceneLaunchOriginTransitionCohort]
 
@@ -12,7 +12,11 @@ nonisolated struct SceneLaunchOriginTransitionProgram: Equatable, Sendable {
     }
 
     nonisolated var definitions: [SceneDynamicTargetDefinition] {
-        bindings.map(\.definition)
+        bindings.map(\.definition) + scalarBindings.map(\.definition)
+    }
+
+    nonisolated var scalarBindings: [SceneSharedBooleanEffectScalarBinding] {
+        cohorts.flatMap(\.scalarBindings)
     }
 
     nonisolated var layerIDs: [Int] {
@@ -28,7 +32,10 @@ nonisolated struct SceneLaunchOriginTransitionProgram: Equatable, Sendable {
         cohorts: [SceneLaunchOriginTransitionCohort]
     ) -> Self? {
         let flags = cohorts.map(\.sharedFlag)
-        let targets = cohorts.flatMap(\.bindings).map(\.definition.target)
+        let targets = cohorts.flatMap {
+            $0.bindings.map(\.definition.target)
+                + $0.scalarBindings.map(\.definition.target)
+        }
         guard Set(flags).count == flags.count,
               Set(targets).count == targets.count,
               cohorts.allSatisfy(\.isValid) else {
@@ -42,6 +49,7 @@ nonisolated struct SceneLaunchOriginTransitionCohort: Equatable, Sendable {
     let sharedFlag: String
     let masterTarget: SceneDynamicTarget
     let bindings: [SceneLaunchOriginTransitionBinding]
+    let scalarBindings: [SceneSharedBooleanEffectScalarBinding]
 
     fileprivate nonisolated var isValid: Bool {
         !sharedFlag.isEmpty
@@ -49,7 +57,18 @@ nonisolated struct SceneLaunchOriginTransitionCohort: Equatable, Sendable {
             && bindings.filter { $0.role == .master }.count == 1
             && bindings.contains { $0.definition.target == masterTarget && $0.role == .master }
             && Set(bindings.map(\.definition.target)).count == bindings.count
+            && Set(scalarBindings.map(\.definition.target)).count
+                == scalarBindings.count
+            && Set(bindings.map(\.definition.target)).isDisjoint(
+                with: Set(scalarBindings.map(\.definition.target))
+            )
     }
+}
+
+nonisolated struct SceneSharedBooleanEffectScalarBinding: Equatable, Sendable {
+    let definition: SceneDynamicTargetDefinition
+    let trueValue: Double
+    let falseValue: Double
 }
 
 nonisolated struct SceneLaunchOriginTransitionBinding: Equatable, Sendable {

@@ -233,12 +233,14 @@ class SceneUtilityLayerTests(unittest.TestCase):
 
         compact_program = "".join(program_first.split())
         start = compact_program.index(
-            "guardpairLeaf||logicalTargetStage||fullFrameComposeStage,"
+            "letsourceRouteExecutable="
         )
-        end = compact_program.index("stages.append(.dedicated", start)
+        end = compact_program.index(
+            "guardpairLeaf||logicalTargetStage||fullFrameComposeStage,", start
+        )
         captured_main_gate = compact_program[start:end]
         self.assertIn(
-            "admitted.sourceRoute!=.capturedMainTargetTexture||"
+            "stageSourceRoute!=.capturedMainTargetTexture||"
             "((pairLeaf||logicalTargetStage)&&"
             "program.executionPlan.supportsUtilityCapture)",
             captured_main_gate,
@@ -247,6 +249,10 @@ class SceneUtilityLayerTests(unittest.TestCase):
             "fullFrameComposeStage)&&"
             "program.executionPlan.supportsUtilityCapture",
             captured_main_gate,
+        )
+        self.assertIn(
+            "dynamicTargetsExecutable,sourceRouteExecutableelse",
+            compact_program[end:],
         )
 
         compact_compositor = "".join(compositor.split())

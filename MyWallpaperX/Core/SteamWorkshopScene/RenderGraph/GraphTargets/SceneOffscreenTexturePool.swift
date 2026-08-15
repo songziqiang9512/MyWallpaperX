@@ -129,6 +129,7 @@ final class SceneOffscreenTexturePool {
     /// residency. The coordinator commits and pins only after graph preflight.
     func preparePersistentGraphTargets(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
+        targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
@@ -137,6 +138,7 @@ final class SceneOffscreenTexturePool {
         guard pixelFormat == .bgra8Unorm,
               let prepared = persistentTargetPlans(
                   admittedGraphs: admittedGraphs,
+                  targetExecutionPlans: targetExecutionPlans,
                   pairPlan: pairPlan,
                   extentPolicy: extentPolicy,
                   requestedWidth: requestedWidth,
@@ -153,6 +155,7 @@ final class SceneOffscreenTexturePool {
 
     func persistentTargetPlans(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
+        targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
@@ -160,6 +163,8 @@ final class SceneOffscreenTexturePool {
     ) -> (plans: [SceneGraphRenderTargetPlan], width: Int, height: Int)? {
         guard !admittedGraphs.isEmpty,
               admittedGraphs.count == pairPlan.effects.count,
+              (targetExecutionPlans.isEmpty
+                || targetExecutionPlans.count == admittedGraphs.count),
               admittedGraphs.allSatisfy({ $0.layerID == pairPlan.layerID }) else {
             return nil
         }
@@ -175,13 +180,25 @@ final class SceneOffscreenTexturePool {
             let (graph, pairStep) = values
             let inputRole: SceneAuthoredEffectInputRole = index == 0
                 ? .layerSource : .priorEffectOutput
+            let targetExecutionPlan = targetExecutionPlans.isEmpty
+                ? nil : targetExecutionPlans[index]
+            let planResult = targetExecutionPlan.map {
+                SceneGraphRenderTargetPlan.make(
+                    executionPlan: $0,
+                    graph: graph,
+                    inputWidth: size.0,
+                    inputHeight: size.1
+                )
+            } ?? SceneGraphRenderTargetPlan.make(
+                graph: graph,
+                inputRole: inputRole,
+                inputWidth: size.0,
+                inputHeight: size.1
+            )
             guard graph.effects.first?.key == pairStep.effect,
-                  case .success(let plan) = SceneGraphRenderTargetPlan.make(
-                      graph: graph,
-                      inputRole: inputRole,
-                      inputWidth: size.0,
-                      inputHeight: size.1
-                  ), plan.input == pairStep.inputIdentity,
+                  case .success(let plan) = planResult,
+                  plan.inputRole == inputRole,
+                  plan.input == pairStep.inputIdentity,
                   plan.output == pairStep.outputIdentity else { return nil }
             plans.append(plan)
         }

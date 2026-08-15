@@ -1,7 +1,32 @@
 import AppKit
 import QuartzCore
 
+private let sceneFrameInterval: TimeInterval = 1.0 / 60.0
+private let sceneBusyFrameRetryInterval = max(
+    0.001,
+    sceneFrameInterval / 8.0
+)
+
+private enum SceneFrameDriverAttempt {
+    case rendered
+    case busy
+    case inactive
+}
+
 extension SceneDesktopWallpaperHost {
+#if DEBUG
+    static let debugSceneTimeOverride: TimeInterval? = {
+        guard usesDebugEvidenceWindow,
+              let rawValue = ProcessInfo.processInfo.environment[
+                "MYWALLPAPERX_SCENE_DEBUG_SCENE_TIME"
+              ],
+              let value = TimeInterval(rawValue),
+              value.isFinite,
+              value >= 0 else { return nil }
+        return value
+    }()
+#endif
+
     func teardownSurfaces(
         clearContext: Bool,
         reason: SceneGraphExecutionResetReason
@@ -23,6 +48,7 @@ extension SceneDesktopWallpaperHost {
         }
         frameTimer?.invalidate()
         frameTimer = nil
+        frameDriverDeadline = nil
         for surface in surfaces.values {
             surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)
             surface.window.orderOut(nil)
@@ -31,7 +57,14 @@ extension SceneDesktopWallpaperHost {
         surfaces.removeAll()
         if clearContext {
             SceneAudioSpectrumInbox.shared.setDemand(false)
-            launchOriginTransitionRuntime = .init(program: .empty)
+            sharedLayerAlphaRuntime = .init(program: .empty)
+            audioScaledValueRuntime = .init(program: .empty)
+#if DEBUG
+            debugAudioScaledValueValues = [:]
+            debugAudioScaledValueFrameIndex = 0
+            debugAudioScaledValueGeneration = 0
+            debugAudioScaledValueWasSilent = true
+#endif
             videoTextureSourceRegistry?.stop()
             videoTextureSourceRegistry = nil
             launchContext = nil
@@ -43,6 +76,8 @@ extension SceneDesktopWallpaperHost {
 
     func startFrameDriver() {
         frameTimer?.invalidate()
+        frameTimer = nil
+        frameDriverDeadline = nil
 #if DEBUG
         if Self.usesDebugEvidenceWindow {
             NSLog(
@@ -51,28 +86,79 @@ extension SceneDesktopWallpaperHost {
             )
         }
 #endif
-        guard !sceneClock.isPaused else {
-            frameTimer = nil
-            return
-        }
-        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-            self?.renderFrame()
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        frameTimer = timer
+        guard !sceneClock.isPaused else { return }
+        let initialDeadline = CACurrentMediaTime()
+        let attempt = renderFrame()
+        scheduleFrameDriver(
+            after: attempt,
+            scheduledDeadline: initialDeadline
+        )
 #if DEBUG
         if Self.usesDebugEvidenceWindow {
             NSLog(
                 "MWX DEBUG SCENE: phase=frame-driver-ready timer=%@",
-                timer.isValid ? "active" : "inactive"
+                frameTimer?.isValid == true ? "active" : "inactive"
             )
         }
 #endif
-        renderFrame()
     }
 
-    private func renderFrame() {
-        guard let launchContext else { return }
+    private func scheduleFrameDriver(
+        after attempt: SceneFrameDriverAttempt,
+        scheduledDeadline: CFTimeInterval
+    ) {
+        guard launchContext != nil, !sceneClock.isPaused else {
+            frameTimer?.invalidate()
+            frameTimer = nil
+            frameDriverDeadline = nil
+            return
+        }
+        let now = CACurrentMediaTime()
+        let nextDeadline: CFTimeInterval
+        switch attempt {
+        case .rendered:
+            var cadenceDeadline = scheduledDeadline + sceneFrameInterval
+            while cadenceDeadline <= now {
+                cadenceDeadline += sceneFrameInterval
+            }
+            nextDeadline = cadenceDeadline
+        case .busy:
+            // History-bearing graphs remain single-frame-in-flight. A short
+            // retry prevents a slight overrun from losing a full 60 Hz slot.
+            nextDeadline = now + sceneBusyFrameRetryInterval
+        case .inactive:
+            frameTimer?.invalidate()
+            frameTimer = nil
+            frameDriverDeadline = nil
+            return
+        }
+        armFrameDriver(at: nextDeadline)
+    }
+
+    private func armFrameDriver(at deadline: CFTimeInterval) {
+        frameTimer?.invalidate()
+        frameDriverDeadline = deadline
+        let delay = max(0.000_001, deadline - CACurrentMediaTime())
+        let timer = Timer(timeInterval: delay, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.frameTimer = nil
+            let attempt = self.renderFrame()
+            self.scheduleFrameDriver(
+                after: attempt,
+                scheduledDeadline: deadline
+            )
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        frameTimer = timer
+    }
+
+    private func renderFrame() -> SceneFrameDriverAttempt {
+        guard let launchContext, !surfaces.isEmpty else { return .inactive }
+        guard surfaces.values.allSatisfy({
+            !$0.metalView.shouldDeferResolvedMaterialFrame
+        }) else {
+            return .busy
+        }
 #if DEBUG
         if Self.usesDebugEvidenceWindow {
             SceneFramePerformanceTelemetry.debugEvidence.recordDriverCallback()
@@ -84,7 +170,28 @@ extension SceneDesktopWallpaperHost {
 #else
         let wallDate = Date()
 #endif
-        let timing = sceneClock.advance(hostTime: CACurrentMediaTime(), wallDate: wallDate)
+        let advancedTiming = sceneClock.advance(
+            hostTime: CACurrentMediaTime(),
+            wallDate: wallDate
+        )
+#if DEBUG
+        let timing: SceneFrameTiming
+        if let sceneTime = Self.debugSceneTimeOverride {
+            timing = SceneFrameTiming(
+                frameIndex: advancedTiming.frameIndex,
+                hostTime: advancedTiming.hostTime,
+                sceneTime: sceneTime,
+                rawFrameTime: advancedTiming.rawFrameTime,
+                simulationFrameTime: advancedTiming.simulationFrameTime,
+                droppedFrameTime: advancedTiming.droppedFrameTime,
+                wallDate: advancedTiming.wallDate
+            )
+        } else {
+            timing = advancedTiming
+        }
+#else
+        let timing = advancedTiming
+#endif
 #if DEBUG
         if Self.usesDebugEvidenceWindow {
             SceneFramePerformanceTelemetry.debugEvidence.recordFrameDelta(
@@ -103,7 +210,11 @@ extension SceneDesktopWallpaperHost {
                 \.definition
             ) + launchContext.mediaColorTransitionProgram.bindings.map(
                 \.definition
-            ) + launchContext.launchOriginTransitionProgram.definitions
+            ) + launchContext.sharedLayerAlphaProgram.definitions
+                + launchContext.launchOriginTransitionProgram.definitions
+                + launchContext.hoverOriginTransitionProgram.definitions
+                + launchContext.audioScaledValueProgram.definitions
+                + launchContext.propertyVectorScriptProgram.definitions
         )
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
         let timelineValues = SceneTimelineRuntime.values(
@@ -136,31 +247,112 @@ extension SceneDesktopWallpaperHost {
             mediaInput: mediaInput,
             frameTime: timing.simulationFrameTime
         )
-        let launchOriginTransitionValues = launchOriginTransitionRuntime.values(
+        let sharedLayerAlphaValues = sharedLayerAlphaRuntime.values(
+            effectivePropertyValues: launchContext.liveState.effectiveValues,
+            frameTime: timing.simulationFrameTime
+        )
+        let audioScaledValueValues = audioScaledValueRuntime.values(
+            audioSpectrum: audioSpectrum,
+            frameTime: timing.simulationFrameTime
+        )
+        let propertyVectorScriptValues = ScenePropertyVectorScriptRuntime.values(
+            program: launchContext.propertyVectorScriptProgram,
             effectivePropertyValues: launchContext.liveState.effectiveValues
         )
+#if DEBUG
+        if Self.usesDebugEvidenceWindow {
+            debugAudioScaledValueValues = audioScaledValueValues
+            debugAudioScaledValueFrameIndex = timing.frameIndex
+            debugAudioScaledValueGeneration = audioSpectrum.generation
+            debugAudioScaledValueWasSilent = audioSpectrum.isSilent
+        }
+#endif
+        let commonSceneScriptValues = textScriptValues.merging(
+            timeOfDayEffectScriptValues,
+            uniquingKeysWith: { textValue, _ in textValue }
+        ).merging(
+            mediaPlaybackPlaceholderFadeValues,
+            uniquingKeysWith: { existing, _ in existing }
+        ).merging(
+            mediaColorTransitionValues,
+            uniquingKeysWith: { existing, _ in existing }
+        ).merging(
+            sharedLayerAlphaValues,
+            uniquingKeysWith: { existing, _ in existing }
+        ).merging(
+            audioScaledValueValues,
+            uniquingKeysWith: { existing, _ in existing }
+        ).merging(
+            propertyVectorScriptValues,
+            uniquingKeysWith: { existing, _ in existing }
+        )
         for surface in surfaces.values {
-            guard !surface.metalView.shouldDeferResolvedMaterialFrame else {
-                continue
-            }
 #if DEBUG
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
+            let currentLaunchOriginTransitionValues =
+                surface.launchOriginTransitionRuntime.currentValues(
+                    effectivePropertyValues:
+                        launchContext.liveState.effectiveValues
+                )
+            let preliminarySceneScriptValues = commonSceneScriptValues.merging(
+                currentLaunchOriginTransitionValues,
+                uniquingKeysWith: { existing, _ in existing }
+            )
+            let needsInteractionSnapshot =
+                !launchContext.launchOriginTransitionProgram.cohorts.isEmpty
+                || !launchContext.hoverOriginTransitionProgram.cohorts.isEmpty
+            let preliminary: SceneDynamicSnapshot? = needsInteractionSnapshot
+                ? SceneDynamicSnapshotResolver().resolve(
+                    frameIndex: timing.frameIndex,
+                    generation: 0,
+                    definitions: definitions,
+                    userValues: launchContext.liveState.userValues,
+                    timelineValues: timelineValues,
+                    sceneScriptValues: preliminarySceneScriptValues
+                ).snapshot
+                : nil
+            let clickedOwners = preliminary.map {
+                surface.metalView.launchOriginInteractionOwnerLayerIDs(
+                    program: launchContext.launchOriginTransitionProgram,
+                    timing: timing,
+                    dynamicValues: $0
+                )
+            } ?? []
+            let launchOriginTransitionValues =
+                surface.launchOriginTransitionRuntime.values(
+                    clickedOwnerLayerIDs: clickedOwners,
+                    primaryButtonIsDown:
+                        surface.metalView.pointerState.isPrimaryButtonDown,
+                    effectivePropertyValues:
+                        launchContext.liveState.effectiveValues
+                )
+            let hoverOriginTransitionValues: [SceneDynamicTarget: SceneDynamicValue]
+            if let preliminary,
+               !launchContext.hoverOriginTransitionProgram.cohorts.isEmpty {
+                let hovered = surface.metalView.hoveredOriginOwnerLayerIDs(
+                    program: launchContext.hoverOriginTransitionProgram,
+                    timing: timing,
+                    dynamicValues: preliminary
+                )
+                hoverOriginTransitionValues =
+                    surface.hoverOriginTransitionRuntime.values(
+                        hoveredOwnerLayerIDs: hovered,
+                        effectivePropertyValues:
+                            launchContext.liveState.effectiveValues
+                    )
+            } else {
+                hoverOriginTransitionValues = [:]
+            }
             let dynamicValues = surface.evaluationTransaction.evaluate(
                 frameIndex: timing.frameIndex, definitions: definitions,
                 userValues: launchContext.liveState.userValues,
                 timelineValues: timelineValues,
-                sceneScriptValues: textScriptValues.merging(
-                    timeOfDayEffectScriptValues,
-                    uniquingKeysWith: { textValue, _ in textValue }
-                ).merging(
-                    mediaPlaybackPlaceholderFadeValues,
-                    uniquingKeysWith: { existing, _ in existing }
-                ).merging(
-                    mediaColorTransitionValues,
-                    uniquingKeysWith: { existing, _ in existing }
-                ).merging(
+                sceneScriptValues: commonSceneScriptValues.merging(
                     launchOriginTransitionValues,
+                    uniquingKeysWith: { existing, _ in existing }
+                ).merging(
+                    hoverOriginTransitionValues,
                     uniquingKeysWith: { existing, _ in existing }
                 )
             ).snapshot
@@ -178,6 +370,7 @@ extension SceneDesktopWallpaperHost {
             }
 #endif
         }
+        return .rendered
     }
 
     func updateMouseLocations() {

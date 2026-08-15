@@ -24,6 +24,19 @@ extension SceneResolvedMaterialGraphExecutor {
             let graph = products[index].graph
             let step = pairPlan.effects[index]
             let lease = leases[index]
+            let targetPlanResult = capability.stages[index].dedicatedExecutionPlan.map {
+                SceneGraphRenderTargetPlan.make(
+                    executionPlan: $0,
+                    graph: graph,
+                    inputWidth: lease.table.plan.inputExtent.width,
+                    inputHeight: lease.table.plan.inputExtent.height
+                )
+            } ?? SceneGraphRenderTargetPlan.make(
+                graph: graph,
+                inputRole: index == 0 ? .layerSource : .priorEffectOutput,
+                inputWidth: lease.table.plan.inputExtent.width,
+                inputHeight: lease.table.plan.inputExtent.height
+            )
             let role: SceneAuthoredEffectInputRole = index == 0
                 ? .layerSource : .priorEffectOutput
             guard graph.effects.count == 1,
@@ -37,12 +50,9 @@ extension SceneResolvedMaterialGraphExecutor {
                   lease.fullFramePair.second == first.fullFramePair.second,
                   lease.table.fullFramePair.first === zero,
                   lease.table.fullFramePair.second === one,
-                  case let .success(expected) = SceneGraphRenderTargetPlan.make(
-                      graph: graph,
-                      inputRole: role,
-                      inputWidth: lease.table.plan.inputExtent.width,
-                      inputHeight: lease.table.plan.inputExtent.height
-                  ), expected == lease.table.plan,
+                  case let .success(expected) = targetPlanResult,
+                  expected.inputRole == role,
+                  expected == lease.table.plan,
                   lease.framebufferAllocation.resources.count
                     == lease.table.plan.logicalTargets.count else { return false }
         }

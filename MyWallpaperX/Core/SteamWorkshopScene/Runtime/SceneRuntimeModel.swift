@@ -8,6 +8,9 @@ struct SceneRuntimeModel {
     let resourceIndex: SceneResourceIndex
     let capabilityProfile: SceneCapabilityProfile
     let renderDescriptor: SceneRenderDescriptor
+    let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
+    let audioScaledValueProgram: SceneAudioScaledValueProgram
+    let propertyVectorScriptProgram: ScenePropertyVectorScriptProgram
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
     let runtimeInput: SceneRuntimeInput
     let diagnostics: SceneDiagnosticsReport
@@ -95,8 +98,46 @@ struct SceneRuntimeModelBuilder {
             report: sceneDocument.userPropertyResolution.bindingReport,
             catalog: project.userProperties
         )
+        guard let sharedLayerAlphaProgram =
+                SceneSharedLayerAlphaProgramCompiler.compile(
+                    descriptor: renderDescriptor,
+                    scriptBindings: sceneDocument.scriptBindings,
+                    scriptSourceEvidence: sceneDocument.scriptSourceEvidence
+                ) else {
+            throw BuildError.missingRenderDescriptor
+        }
+        let audioScaledValueProgram = SceneAudioScaledValueProgramCompiler.compile(
+            descriptor: renderDescriptor
+        )
+        let propertyVectorScriptProgram =
+            ScenePropertyVectorScriptProgramCompiler.compile(
+                descriptor: renderDescriptor,
+                scriptBindings: sceneDocument.scriptBindings
+            )
+        let sharedAlphaProjectedDescriptor = SceneSharedLayerAlphaProjection.apply(
+            program: sharedLayerAlphaProgram,
+            to: renderDescriptor
+        )
+        let displayProjectedDescriptor = SceneIdentityDisplayScriptProjection.apply(
+            to: sharedAlphaProjectedDescriptor,
+            sourceEvidence: sceneDocument.scriptSourceEvidence
+        )
+        let mediaProjectedDescriptor = SceneInitialMediaEffectVisibilityProjection.apply(
+            to: displayProjectedDescriptor,
+            scriptBindings: sceneDocument.scriptBindings,
+            sourceEvidence: sceneDocument.scriptSourceEvidence
+        )
+        let audioProjectedDescriptor = SceneAudioScaledValueProjection.apply(
+            program: audioScaledValueProgram,
+            to: mediaProjectedDescriptor
+        )
+        let runtimeDescriptor = SceneScriptedLayerTransformProjection.apply(
+            audioScaledValueProgram: audioScaledValueProgram,
+            propertyVectorScriptProgram: propertyVectorScriptProgram,
+            to: audioProjectedDescriptor
+        )
         let runtimeInput = SceneRuntimeInput(
-            renderDescriptor: renderDescriptor,
+            renderDescriptor: runtimeDescriptor,
             propertyBindingProgram: compilation.program,
             effectivePropertyValues: project.userProperties.effectiveValues(
                 overrides: propertyOverrides
@@ -112,6 +153,9 @@ struct SceneRuntimeModelBuilder {
             resourceIndex: diagnostics.resourceIndex,
             capabilityProfile: capabilityProfile,
             renderDescriptor: runtimeInput.renderDescriptor,
+            sharedLayerAlphaProgram: sharedLayerAlphaProgram,
+            audioScaledValueProgram: audioScaledValueProgram,
+            propertyVectorScriptProgram: propertyVectorScriptProgram,
             authoredEffectRenderPlans: runtimeInput.authoredEffectRenderPlans,
             runtimeInput: runtimeInput,
             diagnostics: diagnostics

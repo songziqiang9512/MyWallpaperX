@@ -88,11 +88,19 @@ nonisolated struct SceneMediaColorTransitionRuntime {
     ) {
         if input.generation != consumedThumbnailGeneration {
             consumedThumbnailGeneration = input.generation
-            let color = input.secondaryColor.flatMap {
-                Self.isNormalizedColor($0) ? $0 : nil
-            } ?? .zero
-            for target in states.keys {
+            for binding in bindings {
+                let target = binding.definition.target
                 guard var state = states[target] else { continue }
+                let eventColor: SIMD3<Double>?
+                switch binding.plan.thumbnailColorChannel {
+                case .primary:
+                    eventColor = input.primaryColor
+                case .secondary:
+                    eventColor = input.secondaryColor
+                }
+                let color = eventColor.flatMap {
+                    Self.isNormalizedColor($0) ? $0 : nil
+                } ?? .zero
                 state.oldColor = state.newColor
                 state.newColor = color
                 state.timer = 0

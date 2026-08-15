@@ -35,11 +35,17 @@ extension SceneEffectStageRenderer {
             && stage.renderGraph.renderTargets.count == stage.logicalRenderTargetCount
             && targets.plan.logicalTargets.count == stage.logicalRenderTargetCount
             && stage.renderGraph.renderTargets.allSatisfy { !$0.declaredUnique }
+        let historyTargetStage = stage.supportsUnifiedHistoryTargetStage
+            && stage.logicalRenderTargetCount > 0
+            && stage.renderGraph.renderTargets.count == stage.logicalRenderTargetCount
+            && targets.plan.logicalTargets.count == stage.logicalRenderTargetCount
+            && stage.renderGraph.renderTargets.allSatisfy { !$0.declaredUnique }
         let fullFrameComposeStage = stage.supportsUnifiedFullFrameComposeStage
             && stage.logicalRenderTargetCount == 0
             && stage.renderGraph.renderTargets.isEmpty
             && targets.plan.logicalTargets.isEmpty
-        guard pairLeaf || logicalTargetStage || fullFrameComposeStage else {
+        guard pairLeaf || logicalTargetStage || historyTargetStage
+                || fullFrameComposeStage else {
             return .rejected(reason: "backend-unsupported")
         }
         let resolvedSampleExtent = sourceSampleExtent ?? SIMD2<Float>(
@@ -91,28 +97,55 @@ extension SceneEffectStageRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         let inputs = prepared.inputs
-        guard prepared.targets.encodeInitialTargetClear(commandBuffer: commandBuffer),
-              let output = renderStage(
-                  prepared.stage,
-                  sourceTexture: prepared.sourceTexture,
-                  masks: inputs.masks,
-                  targets: prepared.targets,
-                  dynamicValues: inputs.dynamicValues,
-                  sourceUniforms: .neutral(),
-                  pipeline: prepared.sourcePipeline,
-                  pipelines: inputs.pipelines,
-                  cursorUV: inputs.cursorUV,
-                  previousCursorUV: inputs.previousCursorUV,
-                  pointerIsInside: inputs.pointerIsInside,
-                  previousPointerIsInside: inputs.previousPointerIsInside,
-                  frameTime: inputs.frameTime,
-                  time: prepared.time,
-                  audioSpectrum: inputs.audioSpectrum,
-                  dependencyEffect: inputs.dependencyEffect,
-                  preciseBlurSampleExtent: prepared.sourceSampleExtent,
-                  commandBuffer: commandBuffer
-              ) else { return false }
-        return output === prepared.targets.outputTexture
+        // GraphExecutionState initialization intents are the sole owner of
+        // authored clears and transparent history seeds. Clearing here would
+        // run once per copy-on-write target table, after history rehydration,
+        // and erase the committed state before a dedicated pass can read it.
+        guard let output = renderStage(
+            prepared.stage,
+            sourceTexture: prepared.sourceTexture,
+            masks: inputs.masks,
+            targets: prepared.targets,
+            dynamicValues: inputs.dynamicValues,
+            sourceUniforms: .neutral(),
+            pipeline: prepared.sourcePipeline,
+            pipelines: inputs.pipelines,
+            cursorUV: inputs.cursorUV,
+            previousCursorUV: inputs.previousCursorUV,
+            pointerIsInside: inputs.pointerIsInside,
+            previousPointerIsInside: inputs.previousPointerIsInside,
+            pointerMovement: inputs.pointerMovement,
+            primaryButtonIsDown: inputs.primaryButtonIsDown,
+            frameTime: inputs.frameTime,
+            time: prepared.time,
+            audioSpectrum: inputs.audioSpectrum,
+            dependencyEffect: inputs.dependencyEffect,
+            preciseBlurSampleExtent: prepared.sourceSampleExtent,
+            commandBuffer: commandBuffer
+        ) else {
+            logEncodeFailure(prepared.stage, phase: "render")
+            return false
+        }
+        guard output === prepared.targets.outputTexture else {
+            logEncodeFailure(prepared.stage, phase: "output-identity")
+            return false
+        }
+        return true
+    }
+
+    private static func logEncodeFailure(
+        _ stage: SceneEffectStageExecutionPlan,
+        phase: String
+    ) {
+        guard let effect = stage.renderGraph.effects.first?.key else { return }
+        NSLog(
+            "MWX DEBUG SCENE: phase=dedicated-stage-encode layer=%d effect=%d"
+                + " backend=%@ failure=%@",
+            effect.layerID,
+            effect.effectIndex,
+            stage.backend.stableName,
+            phase
+        )
     }
 
     private static func leafInputRejection(
@@ -229,6 +262,17 @@ extension SceneEffectStageRenderer {
             }
             return pipelines.waterCaustics == nil
                 ? "water-caustics-pipeline-missing" : nil
+        case .cursorRipple(let plan):
+            guard pipelines.cursorRipple != nil else {
+                return "cursor-ripple-pipeline-missing"
+            }
+            guard let resources = inputs.masks.cursorRippleEffects[
+                plan.effectKey.descriptorID
+            ] else {
+                return "cursor-ripple-resource-missing"
+            }
+            _ = resources
+            return nil
         case .foliageSway(let plan):
             guard let resources = inputs.masks.foliageSwayEffects[
                 plan.effectKey.descriptorID
@@ -273,6 +317,19 @@ extension SceneEffectStageRenderer {
                 plan: plan
             ) ? nil : "clipping-mask-dependency-mismatch"
         case .blend(let plan):
+            if let providerLayerID = plan.dependencyProviderLayerID {
+                guard let dependency = inputs.dependencyEffect,
+                      dependency.consumerLayerID == plan.layerID,
+                      dependency.providerLayerID == providerLayerID,
+                      dependency.variant == .primary,
+                      dependency.slot.effectID == plan.effectKey.descriptorID,
+                      dependency.slot.passIndex == 0,
+                      dependency.slot.slotIndex == 1,
+                      dependency.blendMode == plan.blendMode else {
+                    return "blend-dependency-mismatch"
+                }
+                return pipelines.blend == nil ? "blend-pipeline-missing" : nil
+            }
             guard let resources = inputs.masks.blendEffects[
                 plan.effectKey.descriptorID
             ], resources.resolvedArguments(for: plan) != nil else {

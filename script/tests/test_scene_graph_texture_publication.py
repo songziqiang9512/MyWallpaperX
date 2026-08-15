@@ -121,6 +121,7 @@ struct SceneEffectStageExecutionPlan {
     var xRay: SceneXRayExecutionPlan? { nil }
 
     var supportsUnifiedLogicalTargetStage: Bool { false }
+    var supportsUnifiedHistoryTargetStage: Bool { false }
     var supportsUnifiedFullFrameComposeStage: Bool { false }
     var supportsUtilityCapture: Bool { true }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }

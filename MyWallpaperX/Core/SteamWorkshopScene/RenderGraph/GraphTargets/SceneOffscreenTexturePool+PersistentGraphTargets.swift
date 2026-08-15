@@ -194,6 +194,7 @@ extension SceneOffscreenTexturePool {
 
     func framePlanForPersistentGraphTargets(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
+        targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
@@ -204,6 +205,7 @@ extension SceneOffscreenTexturePool {
         guard pixelFormat == .bgra8Unorm,
               let prepared = persistentTargetPlans(
                   admittedGraphs: admittedGraphs,
+                  targetExecutionPlans: targetExecutionPlans,
                   pairPlan: pairPlan,
                   extentPolicy: extentPolicy,
                   requestedWidth: requestedWidth,

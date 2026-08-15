@@ -435,6 +435,47 @@ enum Harness {
                 "float alpha = weight; " +
                 "gl_FragColor = vec4(finalColor, alpha);"
             ),
+            "generatedRGBPreservedAlpha": transfer(
+                "float weight = g_ScalarWeight; " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "vec3 generated = vec3(0.8); " +
+                "vec3 finalColor = generated.rgb; " +
+                "finalColor = ApplyBlending(0, lerp(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight * mask); " +
+                "float alpha = scene.a; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "generatedRGBPreservedAlphaMetal": metal(
+                "float weight = g_ScalarWeight; " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "vec3 generated = vec3(0.8); " +
+                "vec3 finalColor = generated.rgb; " +
+                "finalColor = ApplyBlending(0, lerp(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight * mask); " +
+                "float alpha = scene.a; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "generatedRGBReplacedAlpha": transfer(
+                "float weight = g_ScalarWeight; " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec3 finalColor = vec3(0.8); " +
+                "finalColor = ApplyBlending(0, lerp(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = weight; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "generatedRGBSecondColorSource": transfer(
+                "float weight = g_ScalarWeight; " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 other = texSample2D(g_Texture1, v_TexCoord); " +
+                "vec3 finalColor = other.rgb; " +
+                "finalColor = ApplyBlending(0, lerp(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = scene.a; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
+            ),
             "overlayAlphaBlend": transfer(
                 "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
                 "vec4 overlay = texSample2D(g_Texture1, v_TexCoord); " +
@@ -806,6 +847,38 @@ enum Harness {
                 "vec4 color = sampled; color.rgb = vec3(0.25); " +
                 "gl_FragColor = saturate(color);"
             ),
+            "alphaPreservingRGBBlend": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float weight = g_ScalarWeight; " +
+                "color.rgb = ApplyBlending(30, color.rgb, g_Tint, weight); " +
+                "gl_FragColor = color;"
+            ),
+            "alphaPreservingRGBReconstruction": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float weight = g_ScalarWeight; " +
+                "color.rgb = ApplyBlending(9, color.rgb * g_Tint, " +
+                "color.rgb * g_Tint, weight); " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "alphaPreservingRGBReconstructionMetal": metal(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float weight = g_ScalarWeight; " +
+                "color.rgb = ApplyBlending(9, color.rgb * g_Tint, " +
+                "color.rgb * g_Tint, weight); " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "alphaPreservingRGBReconstructionDifferentAlpha": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "color.rgb = vec3(0.25); " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), " +
+                "g_ScalarWeight);"
+            ),
+            "alphaPreservingRGBReconstructionOtherColor": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 other = texSample2D(g_Texture1, v_TexCoord); " +
+                "color.rgb = other.rgb; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
             "alphaPreservingRGBMix": transfer(
                 "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
                 "vec3 shifted = vec3(0.25); float mask = " +
@@ -1170,6 +1243,23 @@ class SceneShaderColorContractTests(unittest.TestCase):
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertIn("return mwxPremultiply(mwxFragColor);", source)
 
+    def test_generated_rgb_blend_can_preserve_one_sampled_alpha(self) -> None:
+        self.assertEqual(
+            self.result["generatedRGBPreservedAlpha"],
+            "straight-preserving-slot:0",
+        )
+        source = self.result["generatedRGBPreservedAlphaMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertNotIn("mwxUnpremultiply(mwxTexture1.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+        for key in (
+            "generatedRGBReplacedAlpha",
+            "generatedRGBSecondColorSource",
+        ):
+            self.assertNotEqual(
+                self.result[key], "straight-preserving-slot:0", key
+            )
+
     def test_straight_rgb_with_factored_source_alpha_has_one_color_boundary(self) -> None:
         self.assertEqual(
             self.result["straightRGBFactoredAlpha"], "straight-slot:0"
@@ -1321,9 +1411,29 @@ class SceneShaderColorContractTests(unittest.TestCase):
         self.assertEqual(
             self.result["opaqueInputRGBTransform"], "straight-preserving-slot:0"
         )
+        self.assertEqual(
+            self.result["alphaPreservingRGBBlend"],
+            "straight-preserving-slot:0",
+        )
         source = self.result["alphaPreservingMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+
+    def test_rgb_reconstruction_preserves_only_the_proven_source_alpha(self) -> None:
+        self.assertEqual(
+            self.result["alphaPreservingRGBReconstruction"],
+            "straight-preserving-slot:0",
+        )
+        source = self.result["alphaPreservingRGBReconstructionMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+        for key in (
+            "alphaPreservingRGBReconstructionDifferentAlpha",
+            "alphaPreservingRGBReconstructionOtherColor",
+        ):
+            self.assertNotEqual(
+                self.result[key], "straight-preserving-slot:0", key
+            )
 
     def test_rgb_mix_read_preserves_source_alpha(self) -> None:
         self.assertEqual(
