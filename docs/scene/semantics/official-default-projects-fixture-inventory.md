@@ -304,7 +304,9 @@ imagesequence:  {"frameduration": 0.1,
 
 自定义 shader 共 45 对 `.frag`/`.vert`，命名与工程绑定（`ricepodjet`、`technohex`、`neonsun`、`audiophileflow` 等）。`arsenal` 是唯一没有自定义 shader 的 scene 工程——它只有 `.dxs` 缓存，源码未随包。
 
-## 11. 建议的最小正向门
+## 11. 可选官方 fixture 分组（非计划编号）
+
+本节 `G0`–`G8` 只是本文内部给九组 fixture 的短标签，用于描述输入从窄到宽；它们与已退役 Scene 能力计划中的 `G0`–`G5` 编号没有关系，也不表示当前路线、成熟度或必须依次实现。现役开发顺序见 [Scene 兼容路线](../scene-compatibility-roadmap.md)，具体跑哪组由本批风险和 validation gate 决定。
 
 按覆盖能力从窄到宽排序，每一档只引入一个新维度：
 
@@ -320,9 +322,9 @@ imagesequence:  {"frameduration": 0.1,
 | G7 | `razer_bedroom` | 18 layer + 15 effect + HDR + sRGB + 6 处 script | 大规模 2D 合成 + 色彩空间 |
 | G8 | `dino_run` | 36 layer + text + sound + spritesheet + imagesequence + 7141B 脚本 | 全库最复杂；覆盖文字、音频、两种动画纹理和动态 layer 生命周期 |
 
-G0–G3 建议作为**回归门**（每次改动都跑），G4–G8 作为**快照门**（阶段性跑）。
+G0–G3 是低成本回归候选，G4–G8 是较宽快照候选；它们都不是每次改动自动全跑的前置门。普通纵向切片先选最相关的一组，checkpoint 再加入新组合/未见 fixture，跨 family 或里程碑风险才扩大到更多组。
 
-各门的接入前提：
+各 fixture 所需的主要能力：
 
 | 门 | 前置能力 |
 |---|---|

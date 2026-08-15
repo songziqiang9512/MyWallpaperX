@@ -1,14 +1,20 @@
 # Scene 播放能力开发计划
 
+> **历史证据 — 非现役入口**
+>
+> 本文仅保存截至 2026-07-27 的能力开发批次；其中“当前”“下一任务”、门、命令、路径和数值均不得作为现役结论或执行顺序。
+>
+> 现役执行顺序查 [Scene 兼容执行路线](../../scene/scene-compatibility-roadmap.md)，能力与证据查[覆盖台账](../../scene/semantics/coverage-ledger.md)和[运行证据索引](../../scene/semantics/runtime-evidence-index.md)；全部历史材料见[历史索引](../README.md)。
+
 > 建立日期：2026-07-22
 >
-> 文档状态：截至 2026-07-27 的实施批次快照；当前 baseline、矩阵报告、签名身份和运行边界只查 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md)。
+> 文档状态：截至 2026-07-27 的实施批次快照；当前 baseline、矩阵报告、签名身份和运行边界只查 [`runtime-evidence-index.md`](../../scene/semantics/runtime-evidence-index.md)。
 >
-> 阅读约定：正文中的“当前”“已完成”和待办均以 2026-07-27 收口时点为准，不代表当前 HEAD；下一任务只从现役[Scene 通用执行重构计划](scene-generic-execution-refactor-plan-2026-08-15.md)选择。专项覆盖表与[`semantics/capability-dependency-map.md`](semantics/capability-dependency-map.md)只提供事实和依赖，正文中的 strict profile / coverage-first 指令不得继续执行。
+> 阅读约定：正文中的“当前”“已完成”和待办均以 2026-07-27 收口时点为准，不代表当前 HEAD；下一任务只从现役 [Scene 兼容执行路线](../../scene/scene-compatibility-roadmap.md)选择。专项覆盖表与[`capability-dependency-map.md`](../../scene/semantics/capability-dependency-map.md)只提供事实和依赖，正文中的 strict profile / coverage-first 指令不得继续执行。
 >
 > 最近更新：2026-07-27（实现基线 `a77b875`；生产播放把原始项目目录交给宿主并在内存构建 `SceneRuntimeInput`，Debug runtime evidence schema 1 不参与播放；`0ff96e0` 的十四类 strict effect backend、stock Radial God Rays、Timeline 28/48 typed target 与 Scene audio 16 档 consumer 均保留。当前完整门 `.codex/scene-runtime-input-full45-20260727/results/report.json` 为 45/45，固定门 `/private/tmp/mwx-scene-runtime-input-fixed13-20260727-v1/report.json` 为 13/13；58 份 runtime evidence 均为 schema 1，旧解释 JSON/preview log residue 0。精确哈希、App 身份和边界见运行证据索引。）
 >
-> 作用：保留该批次从可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)，当前能力结论只以专项表与 [运行证据索引](semantics/runtime-evidence-index.md) 为准。
+> 作用：保留该批次从可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](../../scene/semantics/README.md)，当前能力结论只以专项表与 [运行证据索引](../../scene/semantics/runtime-evidence-index.md) 为准。
 
 ## 1. 目标与边界
 
@@ -52,7 +58,7 @@
 - 用户属性定义、group/display condition/options、默认值/override、visibility/text/camera 与部分 effect target、按壁纸持久化、活动 Scene 受控重建和独立属性窗口；`sceneTexture` PNG/JPEG picker、按 wallpaper/property bookmark、同步 security-scope 解码、逐屏 Metal 上传、恢复作者默认和失败回退；
 - typed `composition/project/fullscreen` 与 generic dependency layer ID；对满足严格边界的 utility layer 执行当前 framebuffer 前缀捕获，并支持 `_rt_imageLayerComposite_<id>_a` named target 的有预算发布与 clipping consumer 绑定；
 - effect/material pass 的 typed user texture input、typed texture registry（resource generation 与 named frame epoch 双代）、v15 EffectDefinition IR、v16 authored graph planner、v17 provider identity、ShaderContract IR v1、`rgba8888` target format、ordered strict effect-chain scheduler、effect-chain target allocation 事务、同帧 copy/swap command、受限 history seed/clear、Precise Blur material-command interleave 与 exact legacy compose 归一化——逐项边界见第 8 节历史索引与对应 semantics 表；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；`678a052` 的完整快照门 `scene-static-origin-full45-20260725`（历史本机产物已清理） 为 **45/45**、particle **101/131**，报告/矩阵 SHA-256 为 `8d578f2b8bb39e8f62fb0a64cfc1e0f6fd2018b578752afd3a555d8fb141e6a0` / `b005da924cfefbcd08410d298f8795af67086f62c7df95ca802988fcfabea38e`；45 门 strict 为 stage 91、chain 15、failed 0。固定回归门 `scene-static-origin-fixed13-20260725`（历史本机产物已清理） 为 **13/13**、particle **19/27**、strict stage 24、chain 2、failed 0，报告/矩阵 SHA-256 为 `6537c945963e2005d9354113036602e57357a57ece44769e68aef3291252b07d` / `479b794d64b48369348b4b8e6583599e5ac70161a4f670102332f5cd1e2d653c`；static-origin 定向门 `scene-static-origin-targeted-20260725`（历史本机产物已清理） 为 **1/1**、particle **17/19**。这些是历史基线。当前 stock 批次的完整 Scene suite 为 **435 项：433 通过、2 跳过**，代码健康为 453 Swift files、44 locked legacy files、400-line limit；签名 Debug App `2.0.8 (268)` 构建和 `codesign --deep --strict` 通过。当前固定矩阵只找到 6/13 样本，六个运行样本 image 82/82、particle 11/13，无 stock unavailable/load failure，但 interpretation v25 与当前 v29 及 `2902406982` strict graph 旧断言使整门不能记 PASS。完整聚合缺口见 [运行证据索引](semantics/runtime-evidence-index.md)。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；`678a052` 的完整快照门 `scene-static-origin-full45-20260725`（历史本机产物已清理） 为 **45/45**、particle **101/131**，报告/矩阵 SHA-256 为 `8d578f2b8bb39e8f62fb0a64cfc1e0f6fd2018b578752afd3a555d8fb141e6a0` / `b005da924cfefbcd08410d298f8795af67086f62c7df95ca802988fcfabea38e`；45 门 strict 为 stage 91、chain 15、failed 0。固定回归门 `scene-static-origin-fixed13-20260725`（历史本机产物已清理） 为 **13/13**、particle **19/27**、strict stage 24、chain 2、failed 0，报告/矩阵 SHA-256 为 `6537c945963e2005d9354113036602e57357a57ece44769e68aef3291252b07d` / `479b794d64b48369348b4b8e6583599e5ac70161a4f670102332f5cd1e2d653c`；static-origin 定向门 `scene-static-origin-targeted-20260725`（历史本机产物已清理） 为 **1/1**、particle **17/19**。这些是历史基线。当前 stock 批次的完整 Scene suite 为 **435 项：433 通过、2 跳过**，代码健康为 453 Swift files、44 locked legacy files、400-line limit；签名 Debug App `2.0.8 (268)` 构建和 `codesign --deep --strict` 通过。当前固定矩阵只找到 6/13 样本，六个运行样本 image 82/82、particle 11/13，无 stock unavailable/load failure，但 interpretation v25 与当前 v29 及 `2902406982` strict graph 旧断言使整门不能记 PASS。完整聚合缺口见 [运行证据索引](../../scene/semantics/runtime-evidence-index.md)。
 
 ### 仅解析/诊断或部分实现
 
@@ -69,7 +75,7 @@
 
 ## 3. 官方资料核验后的契约边界
 
-官方能力全景现由[官方页面逐页表](semantics/official-page-map.md)、[分组映射](semantics/official-page-crosswalk.md)和 [Scene 语义手册](semantics/README.md)共同维护。官方资料描述编辑器/官方运行时行为，没有公开稳定的 Workshop 序列化格式。实现必须标注"官方行为、样本实例、WE-compatible asset 观察、第三方播放器解释、MyWallpaperX 现状"五类证据，不能把后两类反向写成官方规则。
+官方能力全景现由[官方页面逐页表](../../scene/semantics/official-page-map.md)、[分组映射](../../scene/semantics/official-page-crosswalk.md)和 [Scene 语义手册](../../scene/semantics/README.md)共同维护。官方资料描述编辑器/官方运行时行为，没有公开稳定的 Workshop 序列化格式。实现必须标注"官方行为、样本实例、WE-compatible asset 观察、第三方播放器解释、MyWallpaperX 现状"五类证据，不能把后两类反向写成官方规则。
 
 当前直接影响架构与验收的官方契约：
 
@@ -89,12 +95,12 @@
 
 ## 4. 实施路线
 
-所有未完成阶段受 [公共能力依赖图](semantics/capability-dependency-map.md) 约束。研究和 fixture 可以并行，产品执行按 `D0-D8 -> D9-D10 -> D11` 推进；后续某个样本再显眼，也不能绕过 host/surface scope、identity、provider、graph、shader contract、coordinate space 或 lifecycle 建旁路。
+所有未完成阶段受 [公共能力依赖图](../../scene/semantics/capability-dependency-map.md) 约束。研究和 fixture 可以并行，产品执行按 `D0-D8 -> D9-D10 -> D11` 推进；后续某个样本再显眼，也不能绕过 host/surface scope、identity、provider、graph、shader contract、coordinate space 或 lifecycle 建旁路。
 
 阶段划分与已完成边界：
 
 - **S0 可重复基线与作者语义门**、**S1 首帧主构图基础闭合**、**S2.1-S2.4 效果图谱与 strict backend 系列**、**S3 B0 live-property 主链**、**S4 第一批程序化粒子纹理**均已完成，逐项能力、提交与边界见第 8 节历史批次索引；
-- **S2（进行中）**：在现有 strict profile 上提取共享 material pass executor、stock shader registry 和 preprocessing IR；generic compose、真实 history consumer 与 typed shader defaults/built-ins/state 仍未完成。高命中 Effect 批次继续只能通过新增共享 graph/shader/provider/space primitive 或注册完整匹配且 fail-closed 的 strict profile 实现，不得扩大 effect-name/path-substring 手写近似；逐项门见 [Effect 执行覆盖表](semantics/effect-execution-coverage.md)；
+- **S2（进行中）**：在现有 strict profile 上提取共享 material pass executor、stock shader registry 和 preprocessing IR；generic compose、真实 history consumer 与 typed shader defaults/built-ins/state 仍未完成。高命中 Effect 批次继续只能通过新增共享 graph/shader/provider/space primitive 或注册完整匹配且 fail-closed 的 strict profile 实现，不得扩大 effect-name/path-substring 手写近似；逐项门见 [Effect 执行覆盖表](../../scene/semantics/effect-execution-coverage.md)；
 - **S3（进行中）**：Timeline 已完成保真 IR、绝对 scene-time evaluator 和 28/48 typed target 写回；tangent、`relative`、Combined、其余 target 与 Animation Event 继续 fail closed。Frame Context 的通用 pause/resume、raw/simulation delta、discontinuity、fixed-time adapter 和目标 FPS仍待补；SceneScript 仍需 source/binding IR、sandbox VM、lifecycle、typed write 和 budget；
 - **S4（进行中）**：strict child 已执行至层级 2——depth-one static/default-static/eventspawn/natural-eventdeath/eventfollow 复用 fixed step + deterministic event queue + child owner/budget，`b86db59` 起 depth-two 仅 event 触发、按 parent asset path 去重展开、以 (parent system, 粒子) 为 owner，每深度 64 systems、跨两层 128/131,072 聚合预算；depth-three 与 nested static 声明 fail closed。持续/混合/duration child emitter、root aggregate budget、有限 static origin translation 已闭合；Particle slot 0 按 exact catalog identity 消费 164 项 bundle TEX，22-key 程序 registry 只作 bundle 缺失回退。隔离缓存 census 锁定语料最大 child 深度 2。下一步接通 sidecar metadata 与 spritesheet 序列帧 consumer,并补 stop/switch teardown 压力门；rope/rope trail 与 audio response 前置未完成时不提前接产品执行；
 - **S5**：Scene 音频已闭合 16 档 left/right host-shared 输入、consumer demand 生命周期和 stock Shake/Pulse consumer；32/64/average、粒子/SceneScript/workshop shader consumer仍待各自前置。角色、高级兼容与发布门继续要求加载时间、纹理内存、粒子上限、帧时、降级原因、长稳与系统生命周期证据。
@@ -175,7 +181,7 @@ stock Radial God Rays 已以 `0ff96e0` 完成实现、定向 4/4、固定 13/13 
 
 ## 8. 历史批次索引
 
-已完成批次按提交排序；逐项运行报告、矩阵 SHA 与签名身份见 [运行证据索引](semantics/runtime-evidence-index.md)，实现细节以对应提交与 semantics 覆盖表为准。历史小节原文可在 git 历史（本文件 `8bac86e` 之前版本）中查阅。
+已完成批次按提交排序；逐项运行报告、矩阵 SHA 与签名身份见 [运行证据索引](../../scene/semantics/runtime-evidence-index.md)，实现细节以对应提交与 semantics 覆盖表为准。历史小节原文可在 git 历史（本文件 `8bac86e` 之前版本）中查阅。
 
 | 批次 | 关键提交 | 能力与边界 |
 | --- | --- | --- |

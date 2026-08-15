@@ -2,11 +2,11 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-07-25
+> 最近核对：2026-08-15
 >
 > 实现基线见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 >
-> 当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。exact stock Opacity direct alpha 已闭环；本表高级对象仍按各自前置单独升级。
+> 运行事实与签名 App 身份统一见 [运行证据索引](runtime-evidence-index.md)。本表只展开高级对象能力，不定义平行开发顺序；Puppet、lighting/HDR、3D、RGB 和离线能力统一归入[现役路线](../scene-compatibility-roadmap.md)的 V5，且不阻塞 V0 普通 authored effect 首次出画面。
 
 本表覆盖基础对象之外容易被笼统描述掩盖的能力：utility composition、sound、Puppet Warp、3D model、lighting/HDR、性能策略、RGB 和离线烘焙。等级口径见 [`coverage-ledger.md`](coverage-ledger.md)，逐页官方归属见 [`official-page-map.md`](official-page-map.md)，16 组导航见 [`official-page-crosswalk.md`](official-page-crosswalk.md)。
 
@@ -19,7 +19,7 @@
 | TEX common decode | `L3` | [`SceneTextureLoader.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureLoader.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | 全容器/format/mip/color-space 边界 |
 | resource identity and missing diagnostics | `L3` | [`SceneResourceReferenceIndex.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceReferenceIndex.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | 统一 VFS、alias/case 规则与依赖版本 |
 | image layer | `L3` | Metal compositor、180/181 固定矩阵结构计数、[E-BASE](runtime-evidence-index.md#e-base) | 通用 material/effect/provider 和 WE pixel golden |
-| solid layer | `L3` | typed solid、1x1 white texture、author color；纯 solid color 已由 B0 snapshot live 消费；[E-BASE](runtime-evidence-index.md#e-base)、[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | non-solid/mixed color、HDR/light |
+| solid layer | `L3` | typed solid、1x1 white texture、author color；纯 solid color 已由现有 per-surface snapshot live 消费；[E-BASE](runtime-evidence-index.md#e-base)、[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | non-solid/mixed color、HDR/light |
 | text layer | `L3` | CoreText 静态纹理、direct property 动态重栅格、79/108 结构门、[E-TEXT](runtime-evidence-index.md#e-text) | time/SceneScript/system/media 值与 Windows typography |
 | particle layer | `L3` | 固定门 18/27、完整门 83/131 可见层进入受限 runtime（REFRACT 材质 fail closed）；[E-PARTICLE](runtime-evidence-index.md#e-particle) | 逐组件状态见 [粒子表](particle-component-coverage.md) |
 | container/parent hierarchy | `L3` | source order、parent transform/visibility/parallax propagation、[E-BASE](runtime-evidence-index.md#e-base) | composition、动态 reparent、复杂 component |
@@ -37,7 +37,7 @@
 | source order | `L3` | render order 固定为 scene object 顺序；[E-BASE](runtime-evidence-index.md#e-base) | dynamic topology 与 official golden |
 | parent transform | `L3` | origin/size/scale/angles 合成；[E-BASE](runtime-evidence-index.md#e-base) | 3D、shear、动态 target 和数值 golden |
 | effective visibility | `L3` | parent/child/effect/particle gating；[E-BASE](runtime-evidence-index.md#e-base) | live topology invalidation |
-| layer alpha/color/blend mode | `L3` | 静态 descriptor/compositor 子集；layer alpha 与纯 solid color 已由 B0 per-surface snapshot live 消费；[E-BASE](runtime-evidence-index.md#e-base)、[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | visibility/topology、non-solid/mixed color、完整 blend/premultiply/color space |
+| layer alpha/color/blend mode | `L3` | 静态 descriptor/compositor 子集；layer alpha 与纯 solid color 已由现有 per-surface snapshot live 消费；[E-BASE](runtime-evidence-index.md#e-base)、[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | visibility/topology、non-solid/mixed color、完整 blend/premultiply/color space |
 | dependency layer IDs | `L2` | 可保留并进入 dependency plan；exact composition Clipping Mask 的单 backward dependency 可执行 | 通用 nested/effectful/child provider 与更多 consumer topology |
 | typed composition/project/fullscreen layer | `L3` | 有限 current-frame prefix capture、geometry，以及 exact composition `Clipping Mask` / `Clipping Mask -> static Opacity`；[E-UTILITY](runtime-evidence-index.md#e-utility) | 完整子场景边界、嵌套和 target ordering |
 | current-frame capture | `L3` | bounded provider、clipping、GPU completion；composition dependency capture 与 named binding 共用完整-chain consumer 集合；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 capture mask/format/extent 与 SceneScript/dynamic alpha |
@@ -208,7 +208,7 @@ Generic 2D lit-material lighting 仍为 `L0`；`b856f4ee` 的 bounded standalone
 | arbitrary authored shader | `L0` | 自有 Metal 近似不等于作者 shader | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
 | history/copy/swap generic runtime | `L0` | IR 保留不等于跨帧执行 | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
 
-Puppet、3D 和 lighting 必须复用同一 target/provider/render-graph 基础，但不得因此提前把 2D bounded executor 宣称为高级对象支持。
+通用执行不等于把所有对象塞进一个巨型 renderer。Puppet deformation、2D/3D lighting、model animation/physics、RGB output 和 offline bake 可以拥有各自凝聚的解析、simulation/evaluator 与 geometry 子系统；它们仍必须把结果降低到共享 identity、frame snapshot、resource/provider generation、Program/material、graph/target/publication 和 compositor output。不得因为存在专用子系统就建立按完整对象/样本名称选择视觉答案的第二条产品主链，也不得提前把 2D bounded executor 宣称为高级对象支持。
 
 ## 7. Performance 官方页面覆盖（3）与生命周期
 
@@ -255,7 +255,7 @@ Composition 作为 RGB source 时像 camera 一样捕获它下方的所有 layer
 | device discovery/output | `L0` | macOS 无 iCUE/Chroma adapter | 明确支持设备/SDK/授权、disconnect/reconnect 和 rate limit |
 | no-device fallback | `L0` | 尚无产品设置 | 默认关闭；不得改变 wallpaper render、阻塞 frame 或保留资源 |
 
-RGB 不阻塞 Scene Lite；在 macOS 没有明确设备 adapter、授权和产品策略前保持 `L0` fail-closed。
+RGB 不阻塞 V0-V4；在 macOS 没有明确设备 adapter、授权和产品策略前保持 `L0` fail-closed。
 
 ## 9. 实时与离线烘焙
 
@@ -269,22 +269,26 @@ RGB 不阻塞 Scene Lite；在 macOS 没有明确设备 adapter、授权和产�
 | sequence/video encoder | `L0` | 无产品输出 | PNG sequence 后再接编码/取消/进度 |
 | realtime-offline equivalence gate | `L0` | 无同输入 pixel comparison | 固定 sample/property/time/seed 阈值 |
 
-WaifuX 的可借鉴点是实时和 bake 共用核心，不是复制其实现。B0 live-value 的 alpha/solid color/Local Contrast strength 子集已成立；离线能力仍要等 Provider Core、fixed-time、deterministic input replay 与其余 producer/consumer 合同成立后进入产品层。
+WaifuX 的可借鉴点是实时和 bake 共用核心，不是复制其实现。现有 live-value 的 alpha/solid color/Local Contrast strength 子集已成立；离线能力仍需复用同一 provider、fixed-time、deterministic input replay 与 producer/consumer 合同，但这些发行向能力不阻塞 V0 的实时普通 effect。
 
-## 10. 高级系统公共前置
+## 10. 高级系统共享接入点
 
-| 高级系统 | 必须先完成的公共层 | 原因 |
+下表描述高级子系统接入现有主链时必须复用的 owner，不是要求“先完成全部公共平台”才能开始高级能力。每项都可以从一个真实内容的最小纵向切片进入，并只实现该切片实际需要的共享对象。
+
+| 高级系统 | 可保留的专用职责 | 必须复用的共享运行对象 |
 |---|---|---|
-| Puppet mesh/animation | [D0-D3](capability-dependency-map.md)、[D5](capability-dependency-map.md#d5)、[D7-D8](capability-dependency-map.md#d7) | 需要稳定 asset/bone identity、clock/evaluator、texture/material 和 local/world space |
-| Puppet physics/interaction | [D2-D4](capability-dependency-map.md#d2)、[D8](capability-dependency-map.md#d8) | fixed step、event queue、pointer/control target 和 deterministic reset |
-| 2D lighting/HDR | [D5-D8](capability-dependency-map.md#d5) | PBR texture metadata、RT graph、material/state、world coordinates |
-| 3D model/animation | [D0-D3](capability-dependency-map.md)、[D5-D8](capability-dependency-map.md#d5) | VFS/schema、stable nodes、clock、provider、graph/shader 和 handedness |
-| RGB/offline | [D1-D10](capability-dependency-map.md#d1) | 必须复用同一 scene graph、evaluation、provider、renderer 和 lifecycle |
+| Puppet mesh/animation | mesh/bone/channel IR、deformation、clip evaluator、constraint/physics | stable asset/bone identity、frame/mutation order、texture/material Program、graph target/publication、compositor output |
+| 2D lighting/HDR | light selection、lit-material inputs、shadow/volume/HDR stages | layer/light identity、frame inputs、resource generation、Program/render state、graph target 与 scene post output |
+| 3D model/animation | model/node/skeleton/camera IR、animation/physics、3D geometry | VFS/resource identity、shared clock/frame snapshot、material Program、graph/target/publication、唯一 compositor handoff |
+| RGB output | source selection、downsample/device adapter | scene/layer identity、已提交 frame、独立 publication、生命周期与无设备 fallback；不得另跑一套 wallpaper renderer |
+| offline bake | fixed clock、input replay、encoder adapter | 与 realtime 相同的 IR、Program、graph、provider、particle/script state 和 compositor output |
 
-## 11. 开发顺序
+[能力依赖图](capability-dependency-map.md)继续用于定位共享 owner 和影响面，不是 V5 前的串行阶段门。
 
-1. B0 live target program 已覆盖 layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target；这些 consumer 不升级 SceneScript、lighting 或高级对象。Timeline/SceneScript source IR 和其他 target 继续复用同一 per-surface transaction/snapshot。
-2. 新能力只从本表的公共前置与现役证据缺口立项；blend/composition、Fire、generic compose、真实history consumer和高命中effect都必须先证明可复用合同，不沿用旧样本批次或样本ID排序。
-3. 再做 Puppet 的 mesh/bone/animation 最小闭环，然后 lighting/HDR；每项必须沿现有 author-enable 和 fail-closed 规则。
-4. 3D、自定义 shader、RGB 和 offline encoder 后置，但基础时钟、target、provider 和 graph 不能封死这些输入。
-5. 每个系统从 `L0` 升级时同时增加结构、执行、author-off、失败、teardown 和性能门，不能只新增 parser 字段。
+## 11. 与唯一现役路线的关系
+
+1. V0 先闭合普通 authored material/shader 到现有 GraphExecutor/compositor 的可见链；任何 Puppet、lighting、3D、RGB 或 offline 完整平台都不是 V0 前置。
+2. 本表高级能力归入 V5。只有真实 corpus 价值或用户结果足以提升优先级时，才从该能力的首断点建立一个可回滚纵向切片；不得沿用旧批次编号、样本 ID 排序或“先搭完整平台再出画面”的顺序。
+3. 专用 evaluator/simulator/geometry 可以存在，但输入必须来自作者数据和共享 primitive，输出必须回到统一 Program/graph/publication/compositor；不能按完整 effect/object/sample identity 选择固定视觉算法。
+4. 未实现的 optional stage 只停用最小对象或 pass；路径、GPU range、handle generation、target/publication 与生命周期破坏仍硬拒绝对应执行单元。
+5. 能力升级只同步本表受影响行和实际证据。首个可见切片不以完整结构平台、全 corpus、发行性能或 Windows parity 为前置；若声明完整视觉/发行能力，仍必须补相应数值、像素、teardown、压力与产品门。

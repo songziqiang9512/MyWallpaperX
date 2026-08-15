@@ -1,16 +1,22 @@
 # Scene 解析到合成链路重构计划
 
+> **历史证据 — 非现役入口**
+>
+> 本文仅保存 R0-R5 owner 收敛和删除过程；其中“快速接手”、阶段顺序、命令、checkpoint 与矩阵数字均不得作为现役待办或最新运行事实。
+>
+> 现役执行顺序查 [Scene 兼容执行路线](../../scene/scene-compatibility-roadmap.md)，能力与证据查[覆盖台账](../../scene/semantics/coverage-ledger.md)和[运行证据索引](../../scene/semantics/runtime-evidence-index.md)；全部历史材料见[历史索引](../README.md)。
+
 > 建立日期：2026-08-03
 >
 > 文档状态：**R0-R5 已完成的历史实施记录**；更新至 2026-08-12。B25删除最后3个旧planner observation、旧runtime-plan/decision/inline telemetry及只服务它们的pipeline，统一命名为`SceneEffectAdmissionCatalog`、`SceneEffectProgramCompiler`、`SceneEffectStageExecutionPlan`、`SceneEffectStageRenderer`与`SceneResolvedMaterialGraphExecutor`；base layer只做中性source/dependency composition，effect资源只由typed descriptor投影，target只经frame preflight与persistent graph lifecycle分配。manifest现为`R4=complete / R5=complete`，全部R4/R5 retirement gate均为全局零门。B25不刷新benchmark/fixed13/full45；B22签名App的full45 **45/45 PASS**、fixed13 **12/13 NON-PASS**及唯一`2938612768`的`flat-border`视觉债务仍是最新跨样本里程碑。算法和视觉细节转入现役能力台账，不把矩阵、非黑或架构完成写成视觉PASS。
 >
-> 事实边界：本文记录问题假设、迁移顺序、验收门和进度，不是当前能力等级或运行基线的权威入口。能力事实仍以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md)、专项覆盖表和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 为准。
+> 事实边界：本文记录问题假设、迁移顺序、验收门和进度，不是当前能力等级或运行基线的权威入口。能力事实仍以 [`coverage-ledger.md`](../../scene/semantics/coverage-ledger.md)、专项覆盖表和 [`runtime-evidence-index.md`](../../scene/semantics/runtime-evidence-index.md) 为准。
 >
-> 工作分支：`codex/scene-capability-baseline`。计划建立快照为`896cbb1b`；R0-R3分别由`a1d469f3`、`9d655ce2`、`57cc94dc`、`588faf40`闭合，B22完成R4产品owner退役，B23-B25完成R5纯删除与最终证据收口。本文不再作为待办队列；现役能力与缺口查语义台账和运行证据，后续开发顺序只看现役[Scene 通用执行重构计划](scene-generic-execution-refactor-plan-2026-08-15.md)。B25不刷新矩阵，最新签名App跨样本里程碑仍是B22 full45 **45/45 PASS**与fixed13 **12/13 NON-PASS**；架构完成不覆盖`2938612768`视觉债务，也不证明视觉或性能等价。
+> 工作分支：`codex/scene-capability-baseline`。计划建立快照为`896cbb1b`；R0-R3分别由`a1d469f3`、`9d655ce2`、`57cc94dc`、`588faf40`闭合，B22完成R4产品owner退役，B23-B25完成R5纯删除与最终证据收口。本文不再作为待办队列；现役能力与缺口查语义台账和运行证据，后续开发顺序只看现役 [Scene 兼容执行路线](../../scene/scene-compatibility-roadmap.md)。B25不刷新矩阵，最新签名App跨样本里程碑仍是B22 full45 **45/45 PASS**与fixed13 **12/13 NON-PASS**；架构完成不覆盖`2938612768`视觉债务，也不证明视觉或性能等价。
 
 ## 0. 快速接手
 
-- **能力与运行事实**：继续从 [`semantics/README.md`](semantics/README.md) 进入专项表，并以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md) 和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 的B25静态合同及B22最新跨样本运行里程碑为准；本文只保存R0-R5重构决策、验收门和历史checkpoint。
+- **能力与运行事实**：继续从 [`semantics/README.md`](../../scene/semantics/README.md) 进入专项表，并以 [`coverage-ledger.md`](../../scene/semantics/coverage-ledger.md) 和 [`runtime-evidence-index.md`](../../scene/semantics/runtime-evidence-index.md) 的现役结论为准；本文只保存R0-R5重构决策、验收门和历史 checkpoint。
 - **Git 断点**：分支 `codex/scene-capability-baseline`；恢复时先核对`git status`、最近提交和本页最末checkpoint。现役提交链已越过统一材质pass方向回归、Tint/Film Grain、authored Program九段链与Light Shafts当前正例；同批后续又闭合bounded orthographic Scene Camera Shake。不得从旧`2b2b03df`或历史计划重开已完成波次。
 - **架构判断**：capability直接来自raw authored graph admission，rejected graph不回落第二planner，四类partial recovery已删除。R4-B1至B13已建立Program-first、typed pair、logical-target、raw full-frame adapters、visibility lifecycle、bounded utility capture与external-primary dependency ownership。B12/B13让exact Clipping Mask及`worleyColorV1`在launch冻结typed binding，frame reservation与provider capture复用同一texture，ready后late execute核对同一epoch/object并由ticket单次消费；generic named texture、secondary/multiple/mismatch继续关闭。B14-B21撤销旧product authority及fixed Text/TextureAnimation/media/SceneScript Audio Bars profile；B22撤销独立ImageBlend plan/runtime/pipeline、source preparation、property execution与专属telemetry。无typed claim的可见effect失败关闭；current `$mediaThumbnail`、普通authored Blend、named dependency、layer color blend、普通/Workshop Effect Audio Bars与共享audio spectrum仍通过各自typed或结构合同进入产品。typed registry selection作为共享数据面保留，但不自行取得产品owner。
 - **阶段边界**：全部R4/R5 retirement gate、独立ImageBlend owner、旧whole-chain/standalone/frame-batch/telemetry、shader fallback graph/provenance与旧planner observation均已归零。产品唯一effect执行权来自GraphExecutor claim；base layer、dependency、resource与target lifecycle不再推断或近似effect。B25 Scene全量、代码健康、build verify与签名已闭合，manifest为`R4=complete / R5=complete`。fixed13的`2938612768`视觉债务留在架构后的能力阶段，不放宽阈值、不恢复旧owner；若后续发现旧执行权或样本分支回引，视为架构回归而不是新增能力。
@@ -567,7 +573,7 @@ sample declaration
 - 先对现役文档和`2067939514`真实graph做只读census：45样本共有40个Blend subject、36个visible subject，至少包含dynamic visibility、media thumbnail、非零blend mode与多段chain等互不等价形态；本批只选择独立layer`342`的exact stock单pass形态。它使用`BLENDMODE=0`、`multiply=1`、slot 1 authored asset与`custombackground` property override，effect visibility静态true；生产准入不读取sample/layer/effect/path/hash。
 - 根因不是Blend shader或纹理加载器缺失，而是旧`.blend` dedicated plan总是先持有owner，使已能完整形成的resolved-material Program从未取得claim。现将`.blend`加入共享Program-yield合同：完整Program成功时由`resolved-material-graph`唯一执行，失败、整链不完整或unsupported topology继续交回bounded strict fallback。同批项目自有frontend门锁two-texture RGB blend的straight/premultiplied边界，capability门锁yield与不双owner；`scene_shader_preparation_census.py`只同步此前拆分后遗漏的独立Swift source list，不改变产品语义。
 - focused frontend **28/28**、capability **5/5**、Program finalizer **8/8**、pass/executor **1/1、1/1**、color **12/12**、Blend planner/loader **1/1、5/5**、最终checkpoint **26 modules ALL OK**，code health **861 Swift / 44 locked legacy / 400行**，签名`script/build_and_run.sh verify`为`BUILD SUCCEEDED`。定向v3对`2067939514`为**1/1 PASS**：layer`342` accepted，executor claimed/encoded/GPU `100/100/100`、failure 0，两次terminal success和两次成功transaction均被compositor/next-frame消费，graph diagnostic/GPU failure/failed frame为0，ready/after非黑且只见局部星点变化，没有全图翻转、黑帧或主体方向回退。
-- v2按现役正式单样本matrix运行，因本次owner/count迁移与该样本既有particle ratchet而非PASS，保留为失败现场；v3只用临时定向matrix移除无关particle ratchet，正式fixed/full matrix未改，本批未跑fixed13/full45。报告与App身份见[E-EFFECT-BLEND-TRANSFORM](semantics/runtime-evidence-index.md#e-effect-blend-transform)。该checkpoint时Transform候选因dynamic effect visibility、SceneScript audio scale及前置Blend/Precise Blur依赖暂停；其中user-property visibility blocker现已由B10的typed-live/原子拒绝后整景重启lifecycle移除，SceneScript audio scale与非identity Transform数学仍未开放。其他Blend形态、Transform family、R4-2/R4仍未完成，R5未准入。
+- v2按现役正式单样本matrix运行，因本次owner/count迁移与该样本既有particle ratchet而非PASS，保留为失败现场；v3只用临时定向matrix移除无关particle ratchet，正式fixed/full matrix未改，本批未跑fixed13/full45。报告与App身份见[E-EFFECT-BLEND-TRANSFORM](../../scene/semantics/runtime-evidence-index.md#e-effect-blend-transform)。该checkpoint时Transform候选因dynamic effect visibility、SceneScript audio scale及前置Blend/Precise Blur依赖暂停；其中user-property visibility blocker现已由B10的typed-live/原子拒绝后整景重启lifecycle移除，SceneScript audio scale与非identity Transform数学仍未开放。其他Blend形态、Transform family、R4-2/R4仍未完成，R5未准入。
 
 #### 2026-08-09 R4-2 Simple Audio Bars Program owner migration
 

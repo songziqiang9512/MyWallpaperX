@@ -1,5 +1,11 @@
 # Scene 参考项目只读审查
 
+> **历史证据 — 非现役入口**
+>
+> 本文仅保存 2026-07-24 对本地参考项目的 clean-room 审查快照；其中项目状态、差距判断和建议均不得直接作为现役任务或实现依据。
+>
+> 现役研究入口查[资料来源索引](../../scene/semantics/source-index.md)，能力与证据查[覆盖台账](../../scene/semantics/coverage-ledger.md)和[运行证据索引](../../scene/semantics/runtime-evidence-index.md)；全部历史材料见[历史索引](../README.md)。
+
 日期：2026-07-24
 
 审查范围：`Reference Project/` 下全部四个本地参考项目。

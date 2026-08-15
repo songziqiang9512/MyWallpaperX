@@ -10,7 +10,7 @@
     },
     "scene-all-tests": {
       "risk": "A shared Scene contract breaks a consumer outside the focused test group.",
-      "trigger": "Integration or milestone validation for Scene core, playback runner, Workshop bridge, or Scene playback input changes.",
+      "trigger": "Milestone validation for Scene core, playback runner, Workshop bridge, or Scene playback input changes.",
       "cost": "medium",
       "serialized": false,
       "retirement": "Retire only when dependency-aware coverage can prove the same cross-module risk with a smaller set."
@@ -31,7 +31,7 @@
     },
     "targeted-sample": {
       "risk": "Executable unit coverage passes while the affected real Scene path is visually or structurally broken.",
-      "trigger": "Integration validation for Scene core, playback runner, Workshop bridge, or Scene playback input changes.",
+      "trigger": "Integration or milestone validation for Scene core, playback runner, Workshop bridge, or Scene playback input changes.",
       "cost": "medium",
       "serialized": true,
       "retirement": "Retire only when an equally representative reproducible runtime corpus becomes mandatory elsewhere."

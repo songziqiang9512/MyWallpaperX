@@ -1,8 +1,14 @@
 # MyWallpaperX Web 与 Scene 当前状况评估及演进路线
 
+> **历史证据 — 非现役入口**
+>
+> 本文仅保存标题日期对应的跨专题评估；其中“当前”“下一步”、命令、路径、得分和 PASS 均不得作为现役事实或任务入口。
+>
+> 现役入口：[Web 状态](../../web/current-state.md)、[Scene 兼容执行路线](../../scene/scene-compatibility-roadmap.md)；全部历史材料见[历史索引](../README.md)。
+
 > 评估日期：2026-07-19，Web 状态更新至 2026-07-22，Scene 状态更新至 2026-07-25
 > 评估对象：当前仓库中的 Steam Workshop Web 与 Wallpaper Engine Scene 实现  
-> 文档性质：带日期的历史评估快照，不是当前 Web/Scene baseline、门数据、能力等级或任务入口。Web 当前事实查 [`docs/web/current-state.md`](../web/current-state.md)，Scene 当前事实按 [`docs/scene/semantics/README.md`](../scene/semantics/README.md) 的权威分工查询；本文所有“当前”“最新”“最终”和数字只代表标题日期所述批次。
+> 文档性质：带日期的历史评估快照，不是当前 Web/Scene baseline、门数据、能力等级或任务入口。Web 当前事实查 [`docs/web/current-state.md`](../../web/current-state.md)，Scene 当前事实按 [`docs/scene/semantics/README.md`](../../scene/semantics/README.md) 的权威分工查询；本文所有“当前”“最新”“最终”和数字只代表标题日期所述批次。
 
 ## 1. 执行摘要
 
@@ -31,12 +37,12 @@ Scene 已建立独立模块、PKGV/typed 内存运行输入、纹理解码、Met
 本评估采用以下证据：
 
 1. 当前 Web/Scene 源码与模块调用路径。
-2. [Web 壁纸运行能力评测标准](../web/web-wallpaper-benchmark-standard.md)。
-3. [Web 外部代表样本基线](../web/regression/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md) 与 [Steam 代表样本基线](../web/regression/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md)。
-4. [Scene 能力台账](../scene/semantics/coverage-ledger.md)、[能力依赖图](../scene/semantics/capability-dependency-map.md) 与 [运行证据索引](../scene/semantics/runtime-evidence-index.md)。
+2. [Web 壁纸运行能力评测标准](../../web/web-wallpaper-benchmark-standard.md)。
+3. [Web 外部代表样本基线](../web/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md) 与 [Steam 代表样本基线](../web/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md)。
+4. [Scene 能力台账](../../scene/semantics/coverage-ledger.md)、[能力依赖图](../../scene/semantics/capability-dependency-map.md) 与 [运行证据索引](../../scene/semantics/runtime-evidence-index.md)。
 5. 2026-07-20 对当前 Debug App 的 10 项固定矩阵、5 项作者源码外部矩阵、3 项 Steam CDN 代表矩阵、34 项全量扫描和三段生命周期隔离运行结果。
-6. [Web 外部代表样本基线](../web/regression/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md) 中的来源、revision、能力覆盖和证据边界。
-7. [Web Steam 代表样本基线](../web/regression/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md) 中的 Steam CDN 快照、响应式/多视口/联网能力和证据边界。
+6. [Web 外部代表样本基线](../web/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md) 中的来源、revision、能力覆盖和证据边界。
+7. [Web Steam 代表样本基线](../web/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md) 中的 Steam CDN 快照、响应式/多视口/联网能力和证据边界。
 8. 提交 `3a5ef15` 的远程字体硬失败恢复、慢响应、iframe、HTTP HEAD/Range 和 34 项完整门报告。
 9. 提交 `3b69614` 的纯信号测试、受控 `afplay` 双声道频率测试、音频需求生命周期、10 项固定门和 34 项完整门报告。
 10. 2026-07-21 的 Web 音频幅度回归测试：`884307090` 圆环/直线两种属性模式分别为 96 / A，`1509243786` 确定性频谱和真实 `afplay` 两次均为 100 / A；报告保存在 `web-audio-calibration-20260721`（历史本机产物已清理）。
@@ -51,7 +57,7 @@ Scene 已建立独立模块、PKGV/typed 内存运行输入、纹理解码、Met
 19. 2026-07-22 的当前最终 34 项完整门：32A/2B，平均 97.7，coverage 95.9%，矩阵门通过；报告保存在 `web-full-final-pass-20260722`（历史本机产物已清理）。
 20. 2026-07-22 的当前最终作者源码门：5A，平均 98.8，coverage 97.9%，矩阵门通过；报告保存在 `web-external-final-pass2-20260722`（历史本机产物已清理）。
 21. 2026-07-22 的当前最终 Steam CDN 门：3A，平均 98.0，coverage 94.8%，矩阵门通过；报告保存在 `web-steam-final-pass-20260722`（历史本机产物已清理）。
-22. Scene 逐批实施与验收记录（2026-07-22 起的首批自动门到最新合成正确性批次）不再在本文逐条复制：批次索引见 [Scene 播放能力开发计划第 8 节](../scene/scene-capability-development-plan-2026-07-22.md)，逐项运行报告、矩阵 SHA 与签名身份见 [运行证据索引](../scene/semantics/runtime-evidence-index.md)，实现细节以对应提交为准。
+22. Scene 逐批实施与验收记录（2026-07-22 起的首批自动门到最新合成正确性批次）不再在本文逐条复制：批次索引见 [Scene 播放能力开发计划第 8 节](../scene/scene-capability-development-plan-2026-07-22.md)，逐项运行报告、矩阵 SHA 与签名身份见 [运行证据索引](../../scene/semantics/runtime-evidence-index.md)，实现细节以对应提交为准。
 
 前序专项报告当时保存在 `web-closure-final-20260720`；作者源码、Steam CDN、34 项历史基线、系统中断门、音频配置失效门、文件持久化门、偏好隔离矩阵和 Space/屏幕门报告当时分别保存在 `web-external-final-20260720/results`、`web-steam-final-20260720/results`、`web-full-final-20260720/results`、`web-system-state-final-20260721/results-pass2`、`web-audio-restart-final-20260721/results-pass`、`web-property-persistence-final-20260721/results-suite-pass`、`web-defaults-isolation-final-20260721/matrix-regression` 和 `web-space-lifecycle-final-20260721/results-pass2`；作者源码和 Steam 样本副本当时分别保存在 `web-external-representative-samples-20260722` 与 `web-steam-representative-samples-20260720`。这些 Git 忽略的本机复核产物现已清理；仓库内矩阵定义和生产测试继续作为可复现证据入口。
 
@@ -121,7 +127,7 @@ Scene 已建立独立模块、PKGV/typed 内存运行输入、纹理解码、Met
 - 当前实际策略是每屏独立 `WKWebView` 的 `dedicatedHostPlaceholder`；daemon 已降级为诊断 harness。
 - 宿主支持屏幕增删、运行状态广播和一次 WebContent 进程终止恢复。
 - Space 变化监听使用 `NSWorkspace.shared.notificationCenter`；屏幕参数突发变化按 200 毫秒合并，observer token 始终从其注册 center 释放。
-- 代码入口：[WebWallpaperHostTypes.swift](../../MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift)、[WallpaperEngine+WebWallpaper.swift](../../MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebWallpaper.swift)。
+- 代码入口：[WebWallpaperHostTypes.swift](../../../MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift)、[WallpaperEngine+WebWallpaper.swift](../../../MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebWallpaper.swift)。
 
 虽然类型名仍带 `Placeholder`，其实现已经承担正式播放职责。后续应在验收完成后重命名，避免代码语义继续误导维护者，但重命名不是当前 P0。
 
@@ -132,7 +138,7 @@ Scene 已建立独立模块、PKGV/typed 内存运行输入、纹理解码、Met
 - 支持按 Workshop/profile 选择 persistent、scoped 或 ephemeral data store。
 - Google Fonts 等境外远程样式遵循系统网络/代理配置，但不再是页面就绪前提；主文档、iframe、动态 link 和嵌套 CSS import 均支持失败降级与网络恢复重试。
 - loopback 的二进制 GET/HEAD/Range 保持 HTTP 语义；被转换的 HTML/CSS 明确不声明 Range，避免响应头与正文不一致。
-- 代码入口：[WebWallpaperLocalSchemeHandler.swift](../../MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler.swift)、[WebWallpaperLoopbackServer.swift](../../MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLoopbackServer.swift)。
+- 代码入口：[WebWallpaperLocalSchemeHandler.swift](../../../MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler.swift)、[WebWallpaperLoopbackServer.swift](../../../MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLoopbackServer.swift)。
 
 这部分架构方向正确，不应退回到扩大整个 Workshop 根目录读取权限的通用 `file://` 方案。
 
@@ -143,7 +149,7 @@ Scene 已建立独立模块、PKGV/typed 内存运行输入、纹理解码、Met
 - 已包含目录变更、媒体状态、媒体属性、缩略图、timeline、playback 和音频频谱接口。
 - Web 音频使用保留符号的 PCM 分声道执行 4096 点 FFT，按 32 Hz 到 20 kHz 的 64 个对数频带输出 `left[0...63] + right[0...63]`；只有真实单声道输入才复制为左右两组。
 - 兼容层按 foundation、resource rewriting、media、pointer、DOM lifecycle 和 host bridge 拆分。
-- 代码入口：[DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift](../../MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift)、[DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift](../../MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift)。
+- 代码入口：[DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift](../../../MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift)、[DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift](../../../MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift)。
 
 #### 属性、输入和产品接入
 
@@ -151,7 +157,7 @@ Scene 已建立独立模块、PKGV/typed 内存运行输入、纹理解码、Met
 - 属性面板覆盖 slider、color、toggle、text、combo、file、directory、label、group 等主要类型。
 - 外部 file/directory 用户覆盖不会读取或写入 execution payload cache；每次播放重新解析 bookmark 并恢复授权，静态 descriptor cache 仍可复用。非沙盒构建在 security-scoped bookmark 不可创建时保存普通 bookmark，文件或目录改名后仍可跟随。
 - 输入层支持 pointer、wheel、点击、拖动和临时捕获，不依赖壁纸窗口直接抢占桌面事件。
-- 代码入口：[SteamWorkshopService+WebPropertyParsing.swift](../../MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPropertyParsing.swift)、[DedicatedWebWallpaperHostPlaceholderAdapter+InputForwarding.swift](../../MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+InputForwarding.swift)。
+- 代码入口：[SteamWorkshopService+WebPropertyParsing.swift](../../../MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPropertyParsing.swift)、[DedicatedWebWallpaperHostPlaceholderAdapter+InputForwarding.swift](../../../MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+InputForwarding.swift)。
 
 #### 诊断和评测
 
@@ -159,7 +165,7 @@ Scene 已建立独立模块、PKGV/typed 内存运行输入、纹理解码、Met
 - `script/web_wallpaper_benchmark.py` 可以启动真实 App、聚合日志、评分、生成 coverage，并与 baseline 比较；每次正式运行拒绝非空输出目录，只接受本次日志声明且位于当前样本目录内的截图路径。
 - benchmark 会严格验证签名 App、复制到独立 runtime bundle，并在运行前后核对 bundle/Team/CDHash/版本/可执行文件 SHA-256；报告记录这组身份，不再把被原地改写或来源不明的 App 当作本轮证据。
 - 已定义启动、导航、资源、属性、媒体、交互、视觉和性能八个评分维度。
-- 代码入口：[WebRuntimeDiagnosticsStore.swift](../../MyWallpaperX/Core/SteamWorkshopWeb/Host/WebRuntimeDiagnosticsStore.swift)、[web_wallpaper_benchmark.py](../../script/web_wallpaper_benchmark.py)。
+- 代码入口：[WebRuntimeDiagnosticsStore.swift](../../../MyWallpaperX/Core/SteamWorkshopWeb/Host/WebRuntimeDiagnosticsStore.swift)、[web_wallpaper_benchmark.py](../../../script/web_wallpaper_benchmark.py)。
 
 ### 3.2 已关闭的问题与当前剩余风险
 
@@ -198,9 +204,9 @@ benchmark 现在要求像素统计、DOM 状态和 pointer/click/drag/wheel 注�
 
 #### 已关闭：代表样本矩阵与单样本门禁
 
-固定矩阵由 [web_wallpaper_sample_matrix.json](../../script/web_wallpaper_sample_matrix.json) 定义。每个样本有能力标签、最低等级和最低 coverage，批次还限制平均分、平均 coverage 和关键短板。矩阵自带 18 秒最低观察窗，避免大体积或冷启动样本在首帧与属性回放完成前被过早终止。
+固定矩阵由 [web_wallpaper_sample_matrix.json](../../../script/web_wallpaper_sample_matrix.json) 定义。每个样本有能力标签、最低等级和最低 coverage，批次还限制平均分、平均 coverage 和关键短板。矩阵自带 18 秒最低观察窗，避免大体积或冷启动样本在首帧与属性回放完成前被过早终止。
 
-当前 34 样本已固化为 [web_wallpaper_full_baseline.json](../../script/web_wallpaper_full_baseline.json)，外部 5 样本由 [web_wallpaper_external_sample_matrix.json](../../script/web_wallpaper_external_sample_matrix.json) 定义，Steam CDN 3 样本由 [web_wallpaper_steam_representative_sample_matrix.json](../../script/web_wallpaper_steam_representative_sample_matrix.json) 定义。固定矩阵仍是公共 runtime 改动的快速门，完整基线用于高影响改动和发布候选，外部门用于扩展能力验证。大型脚本 Service Worker 静态识别已修复并由缓存版本 14 验证；补扫采用 64 KiB 分块匹配、单文件 1 MiB 上限，验证报告会复用描述符摘要，避免大批生成脚本重复拖慢冷启动。但 `1396475780` 在 Wallpaper Engine 分支实际注册数为 0；因此 Shadow DOM、Service Worker 真实注册、真实多屏 scale factor、外部网络失败/恢复等能力仍没有形成独立行为门。
+当前 34 样本已固化为 [web_wallpaper_full_baseline.json](../../../script/web_wallpaper_full_baseline.json)，外部 5 样本由 [web_wallpaper_external_sample_matrix.json](../../../script/web_wallpaper_external_sample_matrix.json) 定义，Steam CDN 3 样本由 [web_wallpaper_steam_representative_sample_matrix.json](../../../script/web_wallpaper_steam_representative_sample_matrix.json) 定义。固定矩阵仍是公共 runtime 改动的快速门，完整基线用于高影响改动和发布候选，外部门用于扩展能力验证。大型脚本 Service Worker 静态识别已修复并由缓存版本 14 验证；补扫采用 64 KiB 分块匹配、单文件 1 MiB 上限，验证报告会复用描述符摘要，避免大批生成脚本重复拖慢冷启动。但 `1396475780` 在 Wallpaper Engine 分支实际注册数为 0；因此 Shadow DOM、Service Worker 真实注册、真实多屏 scale factor、外部网络失败/恢复等能力仍没有形成独立行为门。
 
 #### 部分关闭：切换、停止和资源释放
 
@@ -353,7 +359,7 @@ python3 script/web_wallpaper_benchmark.py \
   --screenshot
 ```
 
-`<isolated-workshop-root>`、`<external-sample-root>` 和 `<steam-sample-root>` 必须是只用于测试的副本，包含 `Web/<id>` 和依赖目录；不得把真实 `~/Movies/MyWallpaperX/创意工坊` 直接作为 runtime root。外部样本的来源、revision 和准备方式见 [Web 外部代表样本基线](../web/regression/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md)，Steam CDN 快照见 [Web Steam 代表样本基线](../web/regression/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md)。
+`<isolated-workshop-root>`、`<external-sample-root>` 和 `<steam-sample-root>` 必须是只用于测试的副本，包含 `Web/<id>` 和依赖目录；不得把真实 `~/Movies/MyWallpaperX/创意工坊` 直接作为 runtime root。外部样本的来源、revision 和准备方式见 [Web 外部代表样本基线](../web/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md)，Steam CDN 快照见 [Web Steam 代表样本基线](../web/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md)。
 
 Scene 当前 13 样本语义门：
 
@@ -372,9 +378,9 @@ python3 script/scene_wallpaper_benchmark.py \
 
 Scene 的逐系统能力等级、代码/测试/运行证据与剩余缺口不再在本文复制维护，统一以四个入口为准：
 
-- 系统级摘要与逐项等级：[Scene 能力台账](../scene/semantics/coverage-ledger.md)，逐系统专项表由其链接；
-- 当前两层运行门、签名身份与证据包：[运行证据索引](../scene/semantics/runtime-evidence-index.md)；
-- 实施顺序、批次决策与历史批次索引：[Scene 播放能力开发计划](../scene/scene-capability-development-plan-2026-07-22.md)；
+- 系统级摘要与逐项等级：[Scene 能力台账](../../scene/semantics/coverage-ledger.md)，逐系统专项表由其链接；
+- 当前两层运行门、签名身份与证据包：[运行证据索引](../../scene/semantics/runtime-evidence-index.md)；
+- 现役实施顺序与批次决策：[Scene 兼容执行路线](../../scene/scene-compatibility-roadmap.md)；历史批次索引见[历史文档索引](../README.md)；
 - 逐样本视觉基线与用户实机观察目标：[21 样本评估](../scene/scene-sample-assessment-2026-07-22.md)。
 
 当前差距的定性结论（详情见上述入口）：
@@ -389,7 +395,7 @@ Scene 的逐系统能力等级、代码/测试/运行证据与剩余缺口不再
 
 ### 阶段 0：产品边界与执行门（已确定方向，进行中）
 
-当前仍选择“可审计的兼容 Runtime”方向。Effect-definition IR、authored graph planner、ShaderContract v1、十四类 strict backend、ordered strict chain、resource/property fallback、Frame Context、B0 live program、direct dynamic text、Timeline 受限 typed target、16 档 audio 输入、同帧 copy/swap、受限 history、Water/X-Ray/God Rays、Puppet 与 strict particle 子集均已进入当前基线。下一代码批尚未指定，按 [开发计划的当前批次状态](../scene/scene-capability-development-plan-2026-07-22.md) 重新选择；route-only、内部 blocker 数和跨样本视觉分数都不能单独决定优先级。
+当前仍选择“可审计的兼容 Runtime”方向。Effect-definition IR、authored graph planner、ShaderContract v1、十四类 strict backend、ordered strict chain、resource/property fallback、Frame Context、B0 live program、direct dynamic text、Timeline 受限 typed target、16 档 audio 输入、同帧 copy/swap、受限 history、Water/X-Ray/God Rays、Puppet 与 strict particle 子集均已进入当前基线。本文当时未指定下一代码批；现役顺序只查 [Scene 兼容执行路线](../../scene/scene-compatibility-roadmap.md)，route-only、内部 blocker 数和跨样本视觉分数都不能单独决定优先级。
 
 ### 阶段 1：正确性、安全和性能基础
 
@@ -458,7 +464,7 @@ Scene 的逐系统能力等级、代码/测试/运行证据与剩余缺口不再
 ### M5：Scene 基础质量收口
 
 - 已建立 13 个真实 Scene 样本、签名身份、Metal 非黑双帧、语义字段、动态像素、dependency GPU 完成和 surface 释放门，样本覆盖层级/有效可见性、MP4 payload、作者与 built-in sprite 粒子、静态文字、脚本密集图层、音频声明和更多 effect。
-- 十四类 strict backend、ordered strict chain、Bloom、程序化 solid、静态/direct-property 动态 text、Timeline 受限 target、16 档 audio、camera/parallax、受限水波/合成、pointer-driven X-Ray、stock Radial God Rays、built-in 粒子纹理/sprite trail、utility/named target、静态 image blend、file-backed `sceneTexture`、Frame Context、B0 live 主链、受限 unique history、Precise Blur interleave/legacy compose，以及 Puppet bind-pose/静态 attachment 已落地。非阻断 preview 和 SceneBake MP4 方向性门已建立。下一批以 [覆盖台账](../scene/semantics/coverage-ledger.md) 和 [Scene 播放能力开发计划](../scene/scene-capability-development-plan-2026-07-22.md) 的新增样本与公共能力顺序为准。
+- 十四类 strict backend、ordered strict chain、Bloom、程序化 solid、静态/direct-property 动态 text、Timeline 受限 target、16 档 audio、camera/parallax、受限水波/合成、pointer-driven X-Ray、stock Radial God Rays、built-in 粒子纹理/sprite trail、utility/named target、静态 image blend、file-backed `sceneTexture`、Frame Context、B0 live 主链、受限 unique history、Precise Blur interleave/legacy compose，以及 Puppet bind-pose/静态 attachment 已落地。非阻断 preview 和 SceneBake MP4 方向性门已建立。现役能力只查 [覆盖台账](../../scene/semantics/coverage-ledger.md)，下一批只查 [Scene 兼容执行路线](../../scene/scene-compatibility-roadmap.md)。
 - Scene 属性当前通过独立窗口编辑受支持 target；实际可执行的 texture key 支持 PNG/JPEG 选择和恢复作者默认，不再把未实现 target 伪装成可调控件。
 - 继续移除效果硬编码，修复 PKG 边界与重复解析，并建立 CPU/GPU/显存预算；样本只作验收，不新增 ID 适配。
 

@@ -1,9 +1,14 @@
 {
   "schemaVersion": 1,
   "discovery": {
-    "datedMarkdownFilenamePattern": "\\d{4}-\\d{2}-\\d{2}",
+    "historyRoot": "docs/history",
     "additionalPaths": [
-      "docs/architecture/framework-architecture-memo.md"
+      "docs/architecture/appkit-migration.md",
+      "docs/scene/scene-compatibility-roadmap.md",
+      "docs/scene/semantics/official-client-behavior-research-workflow.md",
+      "docs/web/wallpaper-engine-web-rules.md",
+      "docs/web/web-project-json-localization.md",
+      "docs/web/web-project-json-runtime-model.md"
     ]
   },
   "roleDefinitions": {
@@ -27,58 +32,60 @@
   },
   "documents": [
     {
-      "path": "docs/architecture/appkit-migration-plan-2026-05-17.md",
+      "path": "docs/architecture/appkit-migration.md",
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "产品目标内的 SwiftUI import、NSHosting 接点和 SwiftUI-to-AppKit bridge 经可复现扫描与构建门证明全部为零，且长期架构合同已接管最终职责后，将本文转为 historical-evidence。"
     },
     {
-      "path": "docs/architecture/framework-architecture-memo.md",
+      "path": "docs/history/architecture/framework-architecture-memo.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/README.md",
+      "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "AGENTS.md",
+        "docs/README.md",
         "docs/architecture/technology-stack-boundaries.md"
       ]
     },
     {
-      "path": "docs/reviews/scene-reference-audit-effects-runtime-2026-07-24.md",
+      "path": "docs/history/cross-topic/web-scene-current-state-roadmap-2026-07-19.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/semantics/source-index.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md"
-      ]
-    },
-    {
-      "path": "docs/reviews/scene-reference-project-audit-2026-07-24.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/scene/semantics/source-index.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/semantics/source-index.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md"
-      ]
-    },
-    {
-      "path": "docs/reviews/web-scene-current-state-roadmap-2026-07-19.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/web/README.md",
+      "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/web/current-state.md",
+        "docs/scene/scene-compatibility-roadmap.md",
         "docs/scene/semantics/coverage-ledger.md",
         "docs/scene/semantics/runtime-evidence-index.md"
       ]
     },
     {
-      "path": "docs/reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md",
+      "path": "docs/history/scene/scene-capability-development-plan-2026-07-22.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/semantics/source-index.md",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/scene-compatibility-roadmap.md",
+        "docs/scene/semantics/coverage-ledger.md",
+        "docs/scene/semantics/runtime-evidence-index.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/scene-generic-execution-refactor-plan-2026-08-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/scene-compatibility-roadmap.md",
+        "docs/scene/semantics/coverage-ledger.md",
+        "docs/scene/semantics/runtime-evidence-index.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/scene-reference-audit-effects-runtime-2026-07-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/semantics/source-index.md",
@@ -87,37 +94,31 @@
       ]
     },
     {
-      "path": "docs/scene/scene-capability-development-plan-2026-07-22.md",
+      "path": "docs/history/scene/scene-reference-project-audit-2026-07-24.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/README.md",
+      "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
-        "docs/scene/scene-generic-execution-refactor-plan-2026-08-15.md",
+        "docs/scene/semantics/source-index.md",
         "docs/scene/semantics/coverage-ledger.md",
         "docs/scene/semantics/runtime-evidence-index.md"
       ]
     },
     {
-      "path": "docs/scene/scene-generic-execution-refactor-plan-2026-08-15.md",
-      "role": "active-plan",
-      "entrypoint": "docs/scene/README.md",
-      "retirementCondition": "通用 shader/material compiler、RenderGraph compiler/executor、SceneScript VM 和粒子组件解释器均取得产品执行权，产品不再以 exact effect/source/sample/path/hash 做 capability admission，被替代的专用 owner 已删除或隔离为非产品 oracle，并由 fixed/full、故障隔离与性能基线共同验证后，将本文转为 historical-evidence。"
-    },
-    {
-      "path": "docs/scene/scene-render-chain-refactor-plan-2026-08-03.md",
+      "path": "docs/history/scene/scene-render-chain-refactor-plan-2026-08-03.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/README.md",
+      "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
-        "docs/scene/scene-generic-execution-refactor-plan-2026-08-15.md",
+        "docs/scene/scene-compatibility-roadmap.md",
         "docs/scene/semantics/coverage-ledger.md",
         "docs/scene/semantics/runtime-evidence-index.md"
       ]
     },
     {
-      "path": "docs/scene/scene-sample-assessment-2026-07-22.md",
+      "path": "docs/history/scene/scene-sample-assessment-2026-07-22.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/scene/README.md",
+      "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/semantics/coverage-ledger.md",
@@ -126,64 +127,87 @@
       ]
     },
     {
-      "path": "docs/web/regression/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md",
+      "path": "docs/history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/web/README.md",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/semantics/source-index.md",
+        "docs/scene/semantics/coverage-ledger.md",
+        "docs/scene/semantics/runtime-evidence-index.md"
+      ]
+    },
+    {
+      "path": "docs/history/web/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/web/current-state.md"
       ]
     },
     {
-      "path": "docs/web/regression/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md",
+      "path": "docs/history/web/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md",
       "role": "historical-evidence",
-      "entrypoint": "docs/web/README.md",
+      "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/web/current-state.md"
       ]
     },
     {
-      "path": "docs/web/wallpaper-engine-web-rules-reference-2026-04-14.md",
+      "path": "docs/history/web/web-compatibility-execution-plan-2026-04-13.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/web/current-state.md"
+      ]
+    },
+    {
+      "path": "docs/history/web/web-native-input-host-plan-2026-04-14.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/web/current-state.md"
+      ]
+    },
+    {
+      "path": "docs/history/web/web-official-alignment-progress-2026-04-14.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/web/current-state.md"
+      ]
+    },
+    {
+      "path": "docs/scene/scene-compatibility-roadmap.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/README.md",
+      "retirementCondition": "V0-V5 的产品目标均由现役能力台账和运行证据证明，所有待办均有完成、明确不支持或平台策略结论，旧专用产品 owner 已删除或隔离，并由稳定架构合同和能力台账接管终态后，将本文转为 historical-evidence。"
+    },
+    {
+      "path": "docs/scene/semantics/official-client-behavior-research-workflow.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/semantics/README.md",
+      "currentStateAuthority": "docs/scene/semantics/source-index.md"
+    },
+    {
+      "path": "docs/web/wallpaper-engine-web-rules.md",
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md"
     },
     {
-      "path": "docs/web/web-compatibility-execution-plan-2026-04-13.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/web/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/web/current-state.md"
-      ]
-    },
-    {
-      "path": "docs/web/web-native-input-host-plan-2026-04-14.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/web/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/web/current-state.md"
-      ]
-    },
-    {
-      "path": "docs/web/web-official-alignment-progress-2026-04-14.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/web/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/web/current-state.md"
-      ]
-    },
-    {
-      "path": "docs/web/web-project-json-localization-strategy-2026-04-14.md",
+      "path": "docs/web/web-project-json-localization.md",
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md"
     },
     {
-      "path": "docs/web/web-project-json-runtime-model-plan-2026-04-14.md",
+      "path": "docs/web/web-project-json-runtime-model.md",
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md"

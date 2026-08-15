@@ -6,7 +6,7 @@
 >
 > 本页只维护依赖与完成门；精确当前提交、报告和测试总数统一见 [总覆盖台账](coverage-ledger.md) 与 [运行证据索引](runtime-evidence-index.md)。
 >
-> 目的：表达通用执行单元之间不可绕过的前置关系。当前批次、产品 owner 迁移和停止项由[Scene 通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)决定；本图不是逐节点实施队列。
+> 目的：表达通用执行单元之间不可绕过的运行依赖。当前用户结果和优先级只由[Scene 兼容执行路线](../scene-compatibility-roadmap.md)决定；本图不是逐节点实施队列，也不能把整层依赖变成首次出画面的前置工程。
 
 本文把 [总覆盖台账](coverage-ledger.md) 和各专项表中的能力整理成依赖图。它不改变任何能力等级，只回答“一个通用 compiler、VM、graph 或 executor 在执行某类输入时依赖哪些公共状态”。前置合同可以在同一可回滚批次中按实际消费面闭合，不要求先把整层所有语义逐项证明完毕。
 
@@ -37,7 +37,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 ### 1.1 如何使用本图
 
-依赖与优先级是两条轴：本图决定实现不能绕过哪些公共前置，现役计划决定当前先迁移哪个产品 owner。隔离真实样本的首个失败 identity 用于定位缺失 primitive，但不自动决定架构；优先选择能让未见内容受益、并能局部降级的通用 compiler/VM/graph/executor 修法。样本 identity 只定位证据，产品实现不得出现样本分支。
+依赖与优先级是两条轴：本图决定一个已执行切片不能缺少哪些运行合同，现役路线决定当前先闭合哪个可见结果。隔离真实样本的首个失败 identity 用于定位缺失 primitive，但不自动决定架构；优先选择能让同类 authored 内容受益、并能局部降级的 compiler/VM/graph/executor 修法。definition/material/shader/component/API identity 可以加载声明、资源或共享 primitive；sample/layer/path/hash 不得选择样本专用视觉答案。
 
 一个批次可以跨多个 D 节点和源码目录，只需闭合本批实际消费的 identity、order、resource、target、budget 与 lifecycle。涉及 GPU 或可见输出时验证到 `GPU -> publication -> compositor -> next-frame`；只有声称具体 fidelity 回归恢复时才要求目标 ROI/事件断言。未知 optional 语义可保真、告警或局部 passthrough，安全与状态完整性风险仍 hard fail。
 
@@ -154,7 +154,9 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 <a id="d9"></a>
 ### D9 Generic 2D execution layer
 
-这一层只消费 `D0-D8` 的统一合同：base layer compositor、共享 material pass executor、effect profile registry、particle geometry/material、text texture generation。R3 已把 production raw graph、provider snapshot、active variant/reflection、uniform/state/color 收敛为可审计的 `SceneResolvedMaterialProgram`；R4 已让 bounded Program 经统一 executor 取得 GPU/compositor/next-frame 证据，并逐族迁移或撤销旧产品owner。composition子集仍要求每个resolved material含active audio host consumer，并通过显式main-target source route在作者层执行点读取此前已绘制的framebuffer；relocated正例在Program后继续按作者顺序执行strict zero-distortion Fisheye leaf。mixed chain首个active stage必须是resolved，未知形态只能由完整Program/typed adapter接管或整链失败关闭。B22完成R4产品owner撤权，B23删除whole-chain/standalone/frame-batch/旧layer telemetry，B24又删除`fallbackGraph`及`.legacyContract` provenance：缺少typed `sourceGraph`时即`shader-source-graph-missing`，不再从include-free raw contract建立第二条preparation路径；package/loose/stock VFS、include/variant、Program与GraphExecutor保持。现役R5只剩3个diagnostics/disposition observation调用及其他经证明不可达的残留，不能只改名继续可达。提交前仍比较dedicated probes、runtime backends、legacy authority sites、Scene Swift文件/LOC、`<3 KiB`、`<1 KiB`六轴。既有bounded typed backend不替代generic material/pass executor，也不能升级官方Shadow/lighting或动态effect variants。若某项需要在renderer内重新解析JSON、猜effect名称、重新决定属性优先级或自行保存history，说明底座仍有缺口，应回到对应D层修复。
+这一层只消费 `D0-D8` 的统一合同：base layer compositor、Material Program、graph/target executor、particle geometry/material 和 text/provider output。现役产品已收敛为 typed VFS/preparation → admission/Program/resource → GraphExecutor → compositor；旧 whole-chain、standalone、frame-batch 和 planner authority 已退役并由稳定零门保护。当前主要缺口不是再删旧 owner，而是普通 authored stage 仍只能依赖 bounded/dedicated backend，mixed chain 的未知 stage 仍可能扩大成整链或后续 layer suffix 失败。
+
+V0/V1 在这层只做两件事：让 ordinary authored Program 成为默认候选；把失败收窄到 effect/pass/真实依赖子图并保留 previous current。既有 bounded backend 只作显式 fallback/oracle，不能替代 generic material/pass executor，也不能升级 Shadow、lighting 或动态 variant。若某项需要在 renderer 内重新解析 JSON、猜 sample/effect 身份、重算属性优先级或保存私有 history，说明共享 D 层仍有缺口，应回到对应 producer/contract 修复。
 
 <a id="d10"></a>
 ### D10 System runtimes
@@ -165,7 +167,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 | Exact native property-script profiles | D0 + D4 + D7 + D8 + D9 | Text七个fixed profile已在B18退役；Audio Bars两个fixed profile又在B21退役。source identity不再为两族建立产品binding，旧报告只作历史 |
 | Bounded property-bound text update | D2 + D3 + D4 + D5 + D9 | B18后唯一现役Text脚本合同：唯一`update(value)`的无循环Date/string AST以语法和三层预算准入，复用typed snapshot/dynamic text consumer；无sample/layer/hash旁路。`clockWithPeriod`、greeting等未准入语法保留authored fallback，且该子集不等于VM |
 | Bounded media placeholder fade | D2 + D3 + D4 + D5 + D7 + D8 + D9 | exact pass-owned effect constant与严格stopped-rise/active-fall AST编译为typed scalar producer；scene级state按event-before-update、shared simulation delta推进一次并广播，复用Opacity Program/GraphExecutor/compositor。产品无live media ingress，只证明author-initial stopped/0-event与injected evaluator；反向脚本及其他media API继续关闭 |
-| Generic SceneScript | D2 + D3 + D4 + D5 | 顶层layer wrapper partial IR与bounded String/time-of-day/fade子集已有；仍需generic source/module/value IR、sandbox VM、lifecycle、typed handles/writes、events及VM级时间/内存预算 |
+| Generic SceneScript | D2 + D3 + D4 + D5 | 顶层 binding/source IR 与 bounded String/time-of-day/fade/origin 子集已有；V2 首条链是 QuickJS-NG per-scene runtime/context + 一个 typed property owner + init/update + next-frame mutation。随后扩 module、handles、events/timers/jobs、interrupt/heap/stack、reload/teardown 和 stale-handle isolation；不以完整 API 平台阻塞首个可见结果 |
 | dynamic text | D3 + D5 + D9 | direct property、bounded text update与bounded Timeline width已完成per-layer generation、并发stale cancellation、单在途连续更新合并和last-ready；fixed native Text profile已退役，system/media producer、非String script target、长文本/多屏压力与Windows layout fidelity仍待推进 |
 | particle breadth | D2 + D3 + D4 + D5 + D8 + D9 | root direct User Property 八字段和 absolute scalar Timeline 七字段已复用统一 binding compiler、per-surface transaction/snapshot 与 fixed-step simulator；静态 plain-image Layer Image 已复用 typed dependency/texture/simulator；Position Offset Random、initial delay、仅 rate Random periodic、one-per-render-frame、emitter CP identity/static angles/speed/shape、raw parent CP copy、pointer-lock CP Force、uniform child scale、classic Vortex、Cap Velocity、Sprite Trail、Rope 继续各有 bounded 门。`968d86eb` 在 initializer typed plan/fixed-step creation stream 上复用项目 3D gradient-noise 基元，只为已确认五字段开放 finite-octave position offset；`594e52c4` 让 raw bit 2 的每个 emitter 在同一 render advance 的全部 fixed steps 共享一个 rate 配额；`5cc7ee37` 又复用 D4/D5 host audio snapshot、consumer demand 与 fixed-step simulator，建立共享 16-band evaluator，并只为 root Sphere/Box rate emitter、Turbulent Velocity Random/Turbulence phase、底层已合法的 classic Vortex speed 开放 consumer。Position Offset `sign`、官方 default/FBM/RNG/space/time、dynamic override 的 script/conflict/direct color/relative/Combined/child/存量追溯、复杂 emitter/child/其他 operator audio、child 非零 angles/event offset/nonuniform or nested scale、one-per-frame Windows 30/60/120 FPS count/Rope topology、initial-delay Windows timing golden、periodic burst/max-per-period、动态/text/puppet Layer Image、dynamic control point angle/adjusted/world/cross-space、previous pointer 与其他 consumer、event/nested CP copy、force falloff、Vortex CP/center-force/`vortex_v2` ring、Rope animated texture/root-world/multi-renderer/ribbon join、通用 RopeTrail subdivision/UV、collision，以及各项 WE 数值/RNG/分布/轨迹 golden 仍待闭合 |
 | audio/media | D4 + D5 | audio侧已闭合consumer-driven 16/32/64 host input、普通/Workshop effect consumers与bounded Particle 16-band consumers；embedded MP4与current cover provider保持bounded。placeholder-fade strict evaluator可在无live ingress时执行author-initial stopped路径，并有injected 0/1/2 event门；这不等于系统媒体provider或SceneScript API。通用bridge/Sound、其余particle audio、live producer、event ordering、metadata/status/timeline、单次decode抢占、多surface/hot-plug与previous/transition仍未闭合 |
@@ -181,18 +183,27 @@ Particle breadth 的 bounded Position Offset Random 子集由 `968d86eb` 在同�
 
 Puppet、lighting/HDR、3D、RGB 和 offline 复用 D0-D10。Puppet 已有严格单 clip 与 bind-referenced/disjoint-bone additive clips 的 fixed-step CPU LBS 子集，typed animation visibility 复用 D2/D4 snapshot；它仍必须复用统一 frame context、geometry、texture lifetime 和 fail-closed 路由，不代表冲突 animation mixing/权重、动态 attachment 或完整高级对象支持。其他系统在 light/shader/fixed-time consumer 不存在时必须保持 `L0-L2`，不能用普通 image transform、layer Bloom 或 Debug PNG readback 冒充执行。
 
-## 4. 与现役迁移波次的关系
+## 4. 与现役 V0-V5 路线的关系
 
-历史的 Coverage-first F0-F5 排序已经停止作为实施路线。当前 G0-G5 波次统一见[Scene 通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)：先治理与基线，再迁移通用 shader/material、Effect/FBO graph、SceneScript VM、粒子组件解释器和高级 primitive。
+历史的 Coverage-first F0-F5 与 G0-G5 排序均已停止作为实施路线。当前 V0-V5 只见[Scene 兼容执行路线](../scene-compatibility-roadmap.md)：先闭合普通 authored shader/material 的最小可见纵向链，再沿同一 Program/GraphExecutor 扩 graph；VM、粒子和动态输入可以按互不重叠的 owner 并行研究与纵向落地。
 
-本页 D0-D11 只用于检查每个 G 波次实际消费的前置，允许在同一可回滚批次中跨层闭合。不得要求一个 D 层所有专项条目完成后才开始下游通用执行，也不得从当前表格的 bounded 状态反推新的专用 owner。
+本页 D0-D11 只用于检查每个 V 路线切片实际消费的前置，允许在同一可回滚批次中跨层闭合。不得要求一个 D 层所有专项条目完成后才开始下游通用执行，也不得从当前表格的 bounded 状态反推新的专用 owner。
+
+| 路线 | 主要 D 节点 | 首要产品结果 |
+|---|---|---|
+| V0 | D0/D3/D5/D7/D9 的最小已消费子集 | 普通 authored material/shader 经过通用 backend、Program、GraphExecutor 与 compositor 首次出画面 |
+| V1 | D1/D5/D6/D7/D9 | ordered pass、FBO、copy/swap/compose、history、named/cross-layer graph |
+| V2 | D2/D3/D4/D10 | 真正 ECMAScript VM、host bridge、typed mutation 与生命周期隔离 |
+| V3 | D1/D2/D3/D5/D8/D10 | 粒子 component registry/interpreter 与共享 operation stream |
+| V4 | D2-D5/D8-D10 | properties、pointer、audio、media、text 与 provider 贯穿式补齐 |
+| V5 | D8/D11 | Puppet、lighting/HDR、3D、RGB、offline、性能与发行闭合 |
 
 ## 5. 禁止的冲突路径
 
 1. 不在各 renderer 内分别计算 user property、Timeline 或 SceneScript 优先级。
 2. 不为 Effect、Particle、Video 分别建立互不兼容的时钟、pause 或 fixed-step 语义。
 3. 不把 layer/named/effect/history/system/media texture 塞进同一个无作用域字符串 key。
-4. 不用文件名、effect 名称、路径、hash 或 exact stock identity 选择产品算法；固定 identity 只用于资源解析、缓存、provenance、诊断和回归。
+4. definition/material/shader/component/API identity 只选择作者声明、资源或共享 primitive；不用 sample/layer/path/hash 选择样本专用视觉答案。固定 identity 还可用于缓存、publication、provenance、诊断和回归。
 5. 不把 effect-local UV 变形写成 object transform，也不把 Camera Parallax 当成所有鼠标交互。
 6. 不在没有 shader annotation/slot contract 时自动绑定空白纹理并启用 optional combo。
 7. 不在通用 RT lifecycle 之前单独给 Motion Blur、Cursor Ripple 或 Fluid 保存私有 history。
@@ -200,10 +211,10 @@ Puppet、lighting/HDR、3D、RGB 和 offline 复用 D0-D10。Puppet 已有严格
 9. 不因 parser 能识别字段就升级 executor 等级；不因样本非黑就升级视觉等级。
 10. 不让高级对象绕过统一 identity、target、provider、graph、clock 和 teardown 合同。
 
-## 6. 下次会话的决策顺序
+## 6. 使用顺序
 
-1. 先查[通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)确定当前 G 波次、停止项和可回滚边界。
+1. 先查[Scene 兼容执行路线](../scene-compatibility-roadmap.md)确定当前 V 目标、首个真实断点和可回滚边界。
 2. 查[覆盖台账](coverage-ledger.md)、对应专项表和[运行证据索引](runtime-evidence-index.md)，确认当前 owner、已有正反例和未验证边界；它们提供事实，不决定专用实现方法。
 3. 用本图检查本批实际消费的 identity、order、resource、target、budget 和 lifecycle 前置，不为尚未消费的未知项预建 admission。
-4. 只实现一个可独立回滚的通用 primitive 批次；至少用一个未见内容或新组合证明没有名称/hash dispatch，并验证局部失败不扩大为整场拒绝。
+4. 只实现一个可独立回滚的纵向切片；编码循环用最小 synthetic 正反门和一个真实代表内容，到 checkpoint 再用未见结构组合证明没有样本/path/hash 视觉 dispatch，并验证局部失败不扩大为整场拒绝。
 5. 只有能力等级、产品 owner、matrix 合同或现役运行事实变化时才更新相应专项表、总台账和证据索引；微小内部改动不做全库文档同步。

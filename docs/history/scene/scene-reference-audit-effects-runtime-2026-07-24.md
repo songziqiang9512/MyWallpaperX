@@ -1,10 +1,16 @@
 # MyWallpaperX Scene 参考项目与官方语义证据审查
 
+> **历史证据 — 非现役入口**
+>
+> 本文仅保存 2026-07-24 的 clean-room 研究线索；其中参考项目判断、实现建议和路径均须按现役证据重新核验，不能直接形成任务或能力结论。
+>
+> 现役研究入口查[资料来源索引](../../scene/semantics/source-index.md)，能力与证据查[覆盖台账](../../scene/semantics/coverage-ledger.md)和[运行证据索引](../../scene/semantics/runtime-evidence-index.md)；全部历史材料见[历史索引](../README.md)。
+
 审查日期：2026-07-24  
 审查方式：只读  
 审查目录：`/Users/songziqiang/Documents/Development/MyWallpaperX/Reference Project`
 
-> 使用边界：本文是研究记录，不是现役能力状态入口；与 [全量参考项目审查](scene-reference-project-audit-2026-07-24.md) 为同日互补记录（本文聚焦 effect/runtime 专题）。已转化为可执行合同的条目以现役文档为准：puppet MDLV mesh block 与 BC/TEX 二进制合同见 [场景格式与 Render Graph 第 11 节](../scene/semantics/scene-format-and-render-graph.md)，X-Ray/Water 系 strict profile 边界见 [Effect 执行覆盖表](../scene/semantics/effect-execution-coverage.md)。本文其余线索在进入实现前仍须按语义手册的证据等级交叉验证。
+> 使用边界：本文是研究记录，不是现役能力状态入口；与 [全量参考项目审查](scene-reference-project-audit-2026-07-24.md) 为同日互补记录（本文聚焦 effect/runtime 专题）。已转化为可执行合同的条目以现役文档为准：puppet MDLV mesh block 与 BC/TEX 二进制合同见 [场景格式与 Render Graph 第 11 节](../../scene/semantics/scene-format-and-render-graph.md)，X-Ray/Water 系 strict profile 边界见 [Effect 执行覆盖表](../../scene/semantics/effect-execution-coverage.md)。本文其余线索在进入实现前仍须按语义手册的证据等级交叉验证。
 
 ## 1. 文档定位
 

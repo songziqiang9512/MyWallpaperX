@@ -1,9 +1,15 @@
 # MyWallpaperX 框架架构备忘
 
+> **历史证据 — 非现役入口**
+>
+> 本文仅保存截至 2026-05-05 的架构快照；其中“当前”、路径、命令和协作要求均不得作为现役规则或任务入口。
+>
+> 现役依据：[文档入口](../../README.md)、[技术栈边界](../../architecture/technology-stack-boundaries.md)；全部历史材料见[历史索引](../README.md)。
+
 > 最后更新：2026-05-05
 > 基准 Git 分支：`dev`
 
-本备忘录保留 2026-05-05 的框架结构与协作约定，停止作为现役架构清单更新。当前实现应以代码和可复现门禁为准；AppKit 迁移现状见[迁移计划顶部残留清单](appkit-migration-plan-2026-05-17.md)，Scene 现役事实见[覆盖台账](../scene/semantics/coverage-ledger.md)与[运行证据索引](../scene/semantics/runtime-evidence-index.md)，Web 按[专题入口](../web/README.md)复核当前代码和最新报告。
+本备忘录保留 2026-05-05 的框架结构与协作约定，停止作为现役架构清单更新。当前实现应以代码和可复现门禁为准；AppKit 迁移现状见[迁移计划顶部残留清单](../../architecture/appkit-migration.md)，Scene 现役事实见[覆盖台账](../../scene/semantics/coverage-ledger.md)与[运行证据索引](../../scene/semantics/runtime-evidence-index.md)，Web 按[专题入口](../../web/README.md)复核当前代码和最新报告。
 
 ---
 
@@ -490,7 +496,7 @@ VideoLibraryToolbarController（主控，NSToolbarDelegate）
 
 ### 8.3 历史维护制度（已冻结）
 
-以下同步要求只记录 2026-05-05 当时的工作方式，不再约束现役开发，也不再要求维护本备忘录或不存在的 framework fix archive。仍有参考价值的接入检查表必须先与当前代码及 [`technology-stack-boundaries.md`](technology-stack-boundaries.md) 核对；新的长期合同进入现役架构入口，具体模块行为由代码和对应测试维护。
+以下同步要求只记录 2026-05-05 当时的工作方式，不再约束现役开发，也不再要求维护本备忘录或不存在的 framework fix archive。仍有参考价值的接入检查表必须先与当前代码及 [`technology-stack-boundaries.md`](../../architecture/technology-stack-boundaries.md) 核对；新的长期合同进入现役架构入口，具体模块行为由代码和对应测试维护。
 
 ---
 

@@ -4,6 +4,8 @@
 取证快照：Wallpaper Engine 2.8.42 `ui/dist/scripts/scripts.js` 内嵌变更日志
 审查方式：只读静态提取，459 个 revision / 741 条变更 / 45 KB 正文
 
+> 文档角色：`official-client-static-observation`。本文保留固定 2.8.42 客户端内嵌 changelog 的版本证据；其中对 MyWallpaperX 的“当前”、`L*` 或旧批次描述只是审查时解读，不决定现役能力或顺序。现役事实查[覆盖台账](coverage-ledger.md)与[运行证据索引](runtime-evidence-index.md)，顺序查[Scene 兼容路线](../scene-compatibility-roadmap.md)。
+
 > 官方在编辑器 UI 脚本里内嵌了逐版本变更日志：`assets/**` 只给出当前 build 的静态数据形态，changelog 给出「哪一版加了什么、改了什么、为什么改」。
 >
 > 它直接回答两个 `assets` 回答不了的问题：**某个字段缺席到底是作者没写还是官方主动删了**，以及**某个系统官方自己是怎么分解的**。
@@ -11,14 +13,14 @@
 复现命令：
 
 ```bash
-python3 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downloads/wallpaper_engine --output-dir <生成物目录>
+python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downloads/wallpaper_engine --output-dir <生成物目录>
 ```
 
 输出 `changelog.json` 含每个 revision 的 headline、编号与逐条变更，并记录源文件 SHA-256 供版本变化比对。459 版 / 741 条的逐字全量已固化在 [changelog 全量附录](client-changelog-appendix.md)，查证个别条目时先查附录，无需回到官方客户端目录。
 
 ## 1. 结论先行
 
-1. **SceneScript VM 是 V8，当前为 14.0**（REV 4260）。此前 [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) §3 只能把 VM 选型收窄为「至少覆盖 ES2019 authoring surface」，并注明「JavaScriptCore 只是候选」；[Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §11 明确拒绝从 `scenescript32.dll` 已加载推断 VM。现在有 10 条独立条目（含 Android 平台 2 条）正面确认引擎侧就是 V8。
+1. **该固定客户端的 SceneScript VM 是 V8，REV 4260 记录升级到 14.0**。此前 [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) §3 只能把 VM 选型收窄为「至少覆盖 ES2019 authoring surface」，并注明「JavaScriptCore 只是候选」；[Windows 官方客户端取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §11 明确拒绝从 `scenescript32.dll` 已加载推断 VM。本快照内 10 条独立条目（含 Android 平台 2 条）正面确认当时引擎侧使用 V8。
 2. **官方会主动从 JSON 中删除等于默认值的字段**（REV 4148、REV 4366）。这意味着样本里字段缺席**不等于作者未声明**，parser 必须持有正确的默认值表；把「缺失」一律当「该能力关闭」会系统性偏离官方渲染结果。
 3. **官方文字渲染是 MSDF（多通道有向距离场），不是位图栅格**（REV 4319-4367 共 19 条）。outline、drop shadow、blur 三类 text effect 都建立在 MSDF 之上。MyWallpaperX 当前的 CoreText 位图路径与官方是两套体系，这解释了字体保真为何难以对齐，也说明 outline/shadow 的 `L1` 不是「少写几行绘制代码」。
 4. **shader pass / FBO / binding 的条件表达式共有四个比较运算符**：REV 4192 先落地 `ge`，REV 4193 补齐 `gt`、`le`、`lt`。项目 Graph 里 condition/function 一直只作为 blocker 存在，现在有了完整运算符集。
@@ -41,7 +43,7 @@ python3 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downl
 
 **口径警告**：changelog 陈述的是「做过什么改动」，不是完整算法规范。一条 "Added X" 证明能力 X 存在且在该版本引入，不证明 X 的参数域、默认值或数值行为。所有引用必须与 `assets/**` 的静态数据或运行门交叉验证后才能进入实现。
 
-**证据等级**：A（正版安装中的结构化文件直接确认，标度同 [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §2）。由 changelog 文字推断出的运行时语义为该标度的 C 级，本文逐条标注。
+**证据等级**：A（正版安装中的结构化文件直接确认，标度同 [Windows 官方客户端取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §2）。由 changelog 文字推断出的运行时语义为该标度的 C 级，本文逐条标注。
 
 ## 3. SceneScript 与 V8
 
@@ -141,7 +143,7 @@ python3 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downl
 | 4027 / 4028 / 4036 / 4054 / 4056 / 3968-3997 系列 | nested clipping masks、compose 顺序、a2c prerender、alpha 边界优化。 | **clipping mask 是一套独立子系统**，项目完全未建模 |
 | 3987 | Doubled z render range for orthogonal projection to fix old wallpapers that were relying on incorrect eye z pos on older builds. | 正交投影 z 范围曾翻倍，且是为兼容老作品 |
 
-**当前落差**：项目 `Generic FBO command graph` 为 `L2`，condition/function 是明确 blocker。本节把 condition 的运算符集、无名 FBO 的合法性、compose 三开关正交性和 prerendering 概念固定下来，这些是 B2 批次继续推进 generic compose 时的直接输入。
+**历史解读边界**：当时的台账曾把 `Generic FBO command graph` 记为 `L2`，并把 condition/function 视为后续 generic compose 阻塞项。本节只保留 condition 运算符集、无名 FBO 合法性、compose 三开关正交性和 prerendering 概念等版本证据；旧 `B2` 标签不构成现役批次指令，当前能力与顺序分别以[覆盖台账](coverage-ledger.md)和[Scene 兼容路线](../scene-compatibility-roadmap.md)为准。
 
 ## 6. Shader 编译与预处理
 

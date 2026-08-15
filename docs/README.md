@@ -1,66 +1,52 @@
 # MyWallpaperX 文档入口
 
-这个目录按“长期规范、当前状态、现役执行计划、稳定合同、历史证据”分工。同一事实只允许一个现役权威入口；标题或正文中的“当前”不能覆盖本页标明的文档角色。Scene 的 R0-R5 owner 收敛计划已经完成，当前转入“通用编译器、VM、RenderGraph 与统一 executor”路线；迁移顺序由现役[Scene 通用执行重构计划](scene/scene-generic-execution-refactor-plan-2026-08-15.md)决定，专项覆盖表和能力依赖图不再充当逐项专用实现队列。
+这个目录只保留一个当前答案：现役目录解释系统现在怎样工作、已经实现什么和下一步做什么；所有被替代的计划、评审、迁移记录和基线统一进入[历史文档索引](history/README.md)。
 
-## 文档角色与裁决顺序
+## 事实角色
 
-| 角色 | 回答什么 | 不回答什么 |
+| 角色 | 回答什么 | 权威入口 |
 |---|---|---|
-| 长期规范 | 技术、所有权、性能、安全和准入边界 | 单项能力是否已经完成 |
-| 当前状态 | 当前代码所有权、能力等级、运行证据和缺口 | 过去批次为什么这样做 |
-| 现役执行计划 | 尚未完成的当前批次顺序、断点和验收门；没有现役计划时不得用历史计划代替 | 能力真值或长期技术选型 |
-| 稳定合同 | 格式、生命周期、测试和发布应满足什么 | 当前 HEAD 是否已经满足 |
-| 历史证据 | 当时的代码、样本、报告和取舍 | 当前状态或下一任务 |
+| 工作规则 | Agent 如何实现、验证、提交和保护工作区 | [`AGENTS.md`](../AGENTS.md) |
+| 长期技术边界 | 技术栈、语言、进程、依赖和所有权 | [技术栈与架构路线](architecture/technology-stack-boundaries.md) |
+| Scene 目标架构 | 如何把官方/静态/参考证据转成 MyWallpaperX 的兼容运行时 | [Scene 兼容运行时架构](scene/runtime-architecture.md) |
+| Scene 现役计划 | 当前第一批、纵向路线、停止项和完成门 | [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md) |
+| Scene 官方结果研究 | 公开资料不足时如何研究固定官方客户端并把结果交给独立实现 | [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md) |
+| Scene 当前能力 | 每项能力现在是已执行、部分、仅结构还是缺失 | [Scene 能力台账](scene/semantics/coverage-ledger.md)及专项表 |
+| Scene 当前运行证据 | 当前构建、样本、GPU/compositor、失败和未验证边界 | [运行证据索引](scene/semantics/runtime-evidence-index.md) |
+| Web 当前状态 | Web 源码所有权、运行事实和缺口 | [Web 现役状态](web/current-state.md) |
+| 历史 | 当时的计划、审计、迁移和基线 | [历史文档索引](history/README.md) |
 
-冲突时按以下顺序裁决：当前代码/配置与可复现运行证据 -> `AGENTS.md` 工作规则 -> 长期技术规范 -> 专题当前状态/专项表 -> 稳定合同 -> 现役执行计划 -> 历史证据。代码存在只证明实现路径，用户可见能力与性能仍需相应运行证据。
+冲突时按以下顺序裁决：当前代码/配置与可复现运行证据 → `AGENTS.md` → 长期架构合同 → 专题当前状态和稳定合同 → 现役计划 → 历史证据。代码存在只证明实现路径；用户可见能力、性能和发布状态仍需相应运行证据。
 
-[文档角色索引](document-role-index.json)以机器可检查形式登记带日期文档和旧架构 memo 的角色、专题入口与现役权威；新增或重分类这些文件时必须同步索引，不能仅靠标题里的“当前”“计划”或“参考”推断角色。
+## Scene
 
-## 当前事实入口
+- [Scene 专题入口](scene/README.md)：当前架构、路线、能力、证据和资料导航。
+- [Scene 兼容运行时架构](scene/runtime-architecture.md)：官方公开合同、2.8.42 客户端静态观察、Mirage clean-room 模式和项目独立方案的边界。
+- [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md)：V0–V5 纵向路线；V0 先让普通 authored material/shader 实际出画面。
+- [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md)：有界黑盒/静态研究、独立实现交接和预登记 parity 门。
+- [语义手册](scene/semantics/README.md)：按格式、Graph/Shader、Effect、Particle、SceneScript、输入和高级对象进入专项合同。
+- [能力台账](scene/semantics/coverage-ledger.md)：所有能力的当前状态、明确边界和待办。
+- [运行证据索引](scene/semantics/runtime-evidence-index.md)：已运行的当前证据和失败边界。
+- [Corpus 能力清单](scene/semantics/scene-corpus-capability-inventory.md)：真实作者输入的影响面；不证明运行支持。
 
-- [architecture/technology-stack-boundaries.md](architecture/technology-stack-boundaries.md)：项目长期技术栈职责、跨语言/跨进程边界，以及 VM、shader compiler 和第三方 native 依赖的准入顺序；候选不等于现役能力。
-- [scene/scene-generic-execution-refactor-plan-2026-08-15.md](scene/scene-generic-execution-refactor-plan-2026-08-15.md)：Scene 现役迁移顺序、停止项、失败分级、快速回滚与退役条件；它决定怎么迁移，不覆盖当前能力事实。
-- [scene/README.md](scene/README.md)：Scene 专题入口；区分现役台账、专项合同、公开参考和历史快照。
-- [scene/semantics/coverage-ledger.md](scene/semantics/coverage-ledger.md)：Scene 当前系统级摘要；新会话从这里定位系统，再进入专项能力表。
-- [scene/semantics/runtime-evidence-index.md](scene/semantics/runtime-evidence-index.md)：Scene 当前提交、正式运行门、签名身份与能力证据包。
-- [scene/semantics/capability-dependency-map.md](scene/semantics/capability-dependency-map.md)：Scene 公共依赖关系；用于阻止旁路，不决定当前批次或要求逐节点闭合。
-- [scene/semantics/scene-corpus-capability-inventory.md](scene/semantics/scene-corpus-capability-inventory.md)：当前真实 Scene corpus 的 authored family/参数/资源清单与公共修复记录入口；不替代能力等级和运行证据。
-- [web/current-state.md](web/current-state.md)：Web 当前源码所有权、证据边界、发布缺口与下一门。
-- [web/README.md](web/README.md)：Web 稳定规范、现役状态与历史证据导航。
-- [architecture/appkit-migration-plan-2026-05-17.md](architecture/appkit-migration-plan-2026-05-17.md)：AppKit 迁移目标与当前 SwiftUI 残留。
-- [release/release-signing.md](release/release-signing.md)：发布签名与 notarization 流程。
+## App、Web 与发布
 
-## Scene 语义参考
+- [AppKit 迁移](architecture/appkit-migration.md)：当前 SwiftUI 残留和迁移门。
+- [Web 专题入口](web/README.md)：Web 当前状态、稳定合同和历史导航。
+- [Web 现役状态](web/current-state.md)：当前 Web runtime 事实和待验收项。
+- [发布签名](release/release-signing.md)：Developer ID、hardened runtime、notarization 与发布流程。
 
-- [scene/semantics/README.md](scene/semantics/README.md)：现役语义手册索引；按系统进入专项能力表。
-- [scene/semantics/official-page-map.md](scene/semantics/official-page-map.md)：179 个官方 Scene 页面逐页映射到唯一合同 anchor、分类和产品决策；这是资料完整性门。
-- [scene/semantics/capability-dependency-map.md](scene/semantics/capability-dependency-map.md)：公共依赖层；用于避免属性、脚本、粒子、Provider 和 Render Graph 相互绕开或重复实现，不作为现役任务队列。
+## 文档治理
 
-## 历史参考
+[文档角色索引](document-role-index.json)机器化登记 active plan、stable contract 和 historical evidence。适用规则：
 
-- [architecture/framework-architecture-memo.md](architecture/framework-architecture-memo.md)：2026-05-05 的模块接入与框架约定快照；仍有独有的接入检查表，但必须与当前代码核对。
-- [reviews/web-scene-current-state-roadmap-2026-07-19.md](reviews/web-scene-current-state-roadmap-2026-07-19.md)：Web / Scene 的 2026-07-19 至 2026-07-25 评估快照，不是当前状态入口。
-- [scene/scene-capability-development-plan-2026-07-22.md](scene/scene-capability-development-plan-2026-07-22.md)：历史总体实施批次、样本门和测试方法；当前等级与待办以专项表为准。
-- 专题下的 `regression/` 与普通 `reviews/` 文件默认是历史证据，不反向覆盖现役入口。
+- 现役文件使用稳定、无日期的路径；日期写入正文的复核字段。
+- 所有带日期 Markdown 只能位于 `docs/history/`；历史目录中的文件不能取得现役角色。
+- 每个专题只允许一个现役执行计划。能力表、依赖图、来源索引和历史文档都不能决定下一任务。
+- 同一当前事实只保留一个权威解释，其他文件放短指针；不在多个专题表复制 commit、矩阵数字和报告路径。
+- 当前能力变化更新能力台账/专项表；运行证据变化更新运行证据索引；架构变化更新稳定架构；任务顺序变化只更新现役路线。
+- 新的历史材料统一进入 `docs/history/{architecture,scene,web,cross-topic}`，并登记截止日期、独有价值和当前权威。
+- 历史正文中的“当前”“下一步”和命令只属于其截止日期，不得被 Agent 当成现役指令。
+- 脚本统一放在仓库根的 `script/`，Python 工具使用明确的 `python3.12`。
 
-## 已完成实施计划
-
-- [scene/scene-render-chain-refactor-plan-2026-08-03.md](scene/scene-render-chain-refactor-plan-2026-08-03.md)：Scene R0-R5 owner 收敛与旧链删除的已完成实施记录；当前能力看专项台账和运行证据，当前迁移顺序看通用执行重构计划。
-
-## 目录分类
-
-- `architecture/`：现役技术栈/性能边界、AppKit 迁移目标，以及带日期的架构快照。
-- `web/`：Web 现役状态、稳定规范、评测标准、样本回归记录和历史方案。
-- `scene/`：Scene 当前事实、`semantics/` 语义手册、`reference/` 公开参考快照，以及已完成计划和历史评审。
-- `release/`：发布、签名、版本和 notarization。
-- `reviews/`：跨项目审计、模块审查和 WaifuX 对比资料。
-
-## 使用规则
-
-- 判断框架结构时以代码和 `AGENTS.md` 为准；判断长期技术职责、性能和依赖准入时看现役[技术栈与架构路线边界](architecture/technology-stack-boundaries.md)，判断 Scene 当前迁移顺序看[通用执行重构计划](scene/scene-generic-execution-refactor-plan-2026-08-15.md)，判断能力和闭环状态看覆盖台账、专项表与运行证据索引。
-- Web 当前结论从[现役状态](web/current-state.md)进入；带日期文档的用途按[文档角色索引](document-role-index.json)判断：`historical-evidence` 只作历史证据，`stable-contract` 只约束长期语义，两者都不能用正文里的“当前”或旧数字覆盖现役状态。
-- 专题下的 `regression/` 与 `reviews/` 下的文件主要用于查历史原因和证据，不反向覆盖当前规范。
-- 新增长期规范时放入对应专题目录；新增一次性样本回归或排障记录时放入该专题已有的 `regression/`，没有合适归属时先在对应专题建立清晰入口，不新设空泛归档目录。
-- 脚本统一放在仓库根目录的 `script/`，不要再新增 `scripts/`。
-- 文档描述与当前代码或运行门禁冲突时，以当前代码和最新可复现证据为准，并回补对应现役文档，不能只在旧 review 中追加新结论。
-- 新文档必须在专题入口归类；带日期文件默认是历史快照，只有在[文档角色索引](document-role-index.json)中明确登记后才能作为 `active-plan` 或 `stable-contract`。现役计划必须写明完成/退役条件，稳定合同必须指向当前状态权威；能力数字、报告路径和 commit 不复制到长期规范。
+判断任何 Scene 问题时，不从历史计划或截图开始；先看当前代码/证据，再从能力台账定位缺口，最后按现役路线闭合最短可见纵向链。

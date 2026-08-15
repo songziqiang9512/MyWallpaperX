@@ -1,10 +1,16 @@
 # Windows Wallpaper Engine 2.8.42 Scene 官方客户端取证记录
 
+> **历史证据 — 非现役入口**
+>
+> 本文仅保存 Wallpaper Engine 2.8.42 与 2026-07-25 环境的静态取证；其中客户端路径、版本分布、候选工作和实现判断均须重新核验，不能直接作为当前能力或任务入口。
+>
+> 现役取证入口查[客户端静态取证](../../scene/semantics/client-runtime-static-forensics.md)和[资料来源索引](../../scene/semantics/source-index.md)，能力与证据查[覆盖台账](../../scene/semantics/coverage-ledger.md)；全部历史材料见[历史索引](../README.md)。
+
 审查日期：2026-07-25
 审查方式：Parallels Windows 11 静态检查、进程检查和有限 UI 验证
 MyWallpaperX 审查基线：`678a0525c2adaa1eaed8be886aa68e7f3f680c4c`
 
-> 本文是 2.8.42 客户端静态取证的版本化审计快照，不是 MyWallpaperX 当前能力或开发优先级入口。当前实现等级以 [Scene 能力总账](../scene/semantics/coverage-ledger.md)、对应专项覆盖表和 [运行证据索引](../scene/semantics/runtime-evidence-index.md) 为准；后续 Ghidra 结构结论统一维护在 [官方客户端运行机制静态取证](../scene/semantics/client-runtime-static-forensics.md)。
+> 本文是 2.8.42 客户端静态取证的版本化审计快照，不是 MyWallpaperX 当前能力或开发优先级入口。当前实现等级以 [Scene 能力总账](../../scene/semantics/coverage-ledger.md)、对应专项覆盖表和 [运行证据索引](../../scene/semantics/runtime-evidence-index.md) 为准；后续 Ghidra 结构结论统一维护在 [官方客户端运行机制静态取证](../../scene/semantics/client-runtime-static-forensics.md)。
 
 ## 1. 目的与结论
 
@@ -503,10 +509,10 @@ ROBOCOPY_RC:0
 
 - [Scene 参考项目只读审查](scene-reference-project-audit-2026-07-24.md)：第三方参考项目和架构线索。
 - [Scene 参考项目与官方语义证据审查](scene-reference-audit-effects-runtime-2026-07-24.md)：Effect/runtime 专项交叉审查。
-- [Scene 资料来源与证据索引](../scene/semantics/source-index.md)：官方网页、真实样本和证据入口。
-- [官方客户端运行机制静态取证](../scene/semantics/client-runtime-static-forensics.md)：2026-07-30/31 的 Ghidra clean-room 结构证据与后续维护入口。
-- [Effect 执行覆盖表](../scene/semantics/effect-execution-coverage.md)：MyWallpaperX 当前逐项实现等级。
-- [粒子组件覆盖表](../scene/semantics/particle-component-coverage.md)：MyWallpaperX 当前粒子 parser/runtime/visual 等级。
+- [Scene 资料来源与证据索引](../../scene/semantics/source-index.md)：官方网页、真实样本和证据入口。
+- [官方客户端运行机制静态取证](../../scene/semantics/client-runtime-static-forensics.md)：2026-07-30/31 的 Ghidra clean-room 结构证据与后续维护入口。
+- [Effect 执行覆盖表](../../scene/semantics/effect-execution-coverage.md)：MyWallpaperX 当前逐项实现等级。
+- [粒子组件覆盖表](../../scene/semantics/particle-component-coverage.md)：MyWallpaperX 当前粒子 parser/runtime/visual 等级。
 
 冲突处理顺序：
 
@@ -542,7 +548,7 @@ assets/scripts/jsmodules/wecolor.js
 ui/dist/monaco/autocomplete/lib.sceneScript.d.ts
 ```
 
-实现级合同已单独整理到 [SceneScript 运行时实现层合同](../scene/semantics/scenescript-runtime-implementation-contract.md)。本节只保留对开发排序最有用的摘要：
+实现级合同已单独整理到 [SceneScript 运行时实现层合同](../../scene/semantics/scenescript-runtime-implementation-contract.md)。本节只保留对开发排序最有用的摘要：
 
 | 合同 | 随包直接证据 |
 |---|---|
@@ -561,7 +567,7 @@ Monaco 随包声明只装载 ES5 到 ES2019 的类型库，且没有 DOM/Node/We
 
 ## 16. 官方默认项目 corpus
 
-`projects/defaultprojects` 有 19 个项目：14 个 `project.json` 明确声明 `type: "scene"`，2 个 Web，2 个省略 `type` 但入口为 scene-shaped JSON 的旧工程，以及 1 个 EXE 项目。以下 census 仍只统计 14 个明确 Scene，避免把扩展名 fallback 当成已确认的官方 loader 规则；完整 16 个 scene-shaped 工程的逐项目输入清单见 [官方默认工程 corpus](../scene/semantics/official-default-projects-fixture-inventory.md)。
+`projects/defaultprojects` 有 19 个项目：14 个 `project.json` 明确声明 `type: "scene"`，2 个 Web，2 个省略 `type` 但入口为 scene-shaped JSON 的旧工程，以及 1 个 EXE 项目。以下 census 仍只统计 14 个明确 Scene，避免把扩展名 fallback 当成已确认的官方 loader 规则；完整 16 个 scene-shaped 工程的逐项目输入清单见 [官方默认工程 corpus](../../scene/semantics/official-default-projects-fixture-inventory.md)。
 
 | 项目 | 数量 |
 |---|---:|
@@ -696,7 +702,7 @@ depth-test 和 non-depth-test compose material 是独立变体。内置 render t
 
 同一 corpus 有 368 个不同 uniform 标识符，sampler 使用 `g_Texture0` 到 `g_Texture8`；唯一一个 `sampler3D` 位于 color-correction/LUT 路径。这里的 stock slot 8 只证明官方内部 shader 使用面，不能据此把公开 custom-effect 的 T0...T7 合同擅自扩成 T0...T8。
 
-候选 frontend token、format branch 与后端解释已单独整理到 [Shader source 前置合同与跨后端假设审查](../scene/semantics/shader-prelude-and-backend-abstraction.md)。其中 token 使用/本地定义缺席是 A 级，binary 注入者、矩阵转置和 Metal 坐标映射仍是 C 级，不进入现役兼容承诺。
+候选 frontend token、format branch 与后端解释已单独整理到 [Shader source 前置合同与跨后端假设审查](../../scene/semantics/shader-prelude-and-backend-abstraction.md)。其中 token 使用/本地定义缺席是 A 级，binary 注入者、矩阵转置和 Metal 坐标映射仍是 C 级，不进入现役兼容承诺。
 
 ## 18. TEX sidecar 与 3D LUT 缺口
 
@@ -752,7 +758,7 @@ extra UInt32   = 32
 
 `assets/shaders/ccsimple.frag` 在 `LUT` 变体中把对应资源声明为 `sampler3D` 并以 RGB 三分量采样。由“32、1024=32x32、32、sampler3D”共同支持的高可信结构推断是：额外值参与 32x32x32 3D LUT 的维度/上传合同。**随包文件没有公开这个 UInt32 的字段名，本文不为它发明名称。**
 
-当前 [SceneTexContainer.swift](../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneTexContainer.swift) 固定从 offset 46 读取 `TEXB0001...0004`，因此这 28 个文件会在 `invalidHeader` 前置门失败。即使只放宽 offset，也不能直接闭合能力：loader 还需保留 3D extent、创建 `MTLTextureType3D`、验证 row/image stride，并实现 LUT stock shader profile 和像素门。不能把 1024x32 当普通 2D 颜色图后声称兼容。
+当前 [SceneTexContainer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneTexContainer.swift) 固定从 offset 46 读取 `TEXB0001...0004`，因此这 28 个文件会在 `invalidHeader` 前置门失败。即使只放宽 offset，也不能直接闭合能力：loader 还需保留 3D extent、创建 `MTLTextureType3D`、验证 row/image stride，并实现 LUT stock shader profile 和像素门。不能把 1024x32 当普通 2D 颜色图后声称兼容。
 
 ## 19. 完整粒子 preset corpus
 
@@ -867,7 +873,7 @@ ropetrail: fadealpha, length, segments
 | `MDLV0017` | 1 | editor camera asset |
 | `MDLV0023` | 4 | 默认项目 3 + particle collision preview 1 |
 
-MyWallpaperX 当前 Puppet mesh reader 只接受 `MDLV0021/MDLV0023`，rig/animation/attachment 更严格只接受已验证的 `MDLV0023` block。默认项目中 23/26 个 MDL 是 `MDLV0004/0014`，会被当前 Puppet reader 拒绝；这与 [高级对象覆盖表](../scene/semantics/advanced-object-coverage.md) 的“3D model L0”一致。
+MyWallpaperX 当前 Puppet mesh reader 只接受 `MDLV0021/MDLV0023`，rig/animation/attachment 更严格只接受已验证的 `MDLV0023` block。默认项目中 23/26 个 MDL 是 `MDLV0004/0014`，会被当前 Puppet reader 拒绝；这与 [高级对象覆盖表](../../scene/semantics/advanced-object-coverage.md) 的“3D model L0”一致。
 
 这些旧 magic 是官方默认 3D model corpus，不应通过给 `supportedMagics` 加字符串直接放行。其布局、vertex/index/material/node/animation 合同尚未解析，且 Puppet reader 不是通用 3D model loader。正确路径是独立建立 3D model IR 和版本化 reader，并用默认项目做只读 corpus/自有 fixture 对照。
 
@@ -890,7 +896,7 @@ MyWallpaperX 当前 Puppet mesh reader 只接受 `MDLV0021/MDLV0023`，rig/anima
 
 ## 21. 对开发计划的新增优先级建议
 
-以下是证据导出的候选工作，不改变现役 [Scene 能力总账](../scene/semantics/coverage-ledger.md) 的等级和既定批次：
+以下是证据导出的候选工作，不改变现役 [Scene 能力总账](../../scene/semantics/coverage-ledger.md) 的等级和既定批次：
 
 1. **TEX 3D LUT ingest**：先写自有 2x2x2/4x4x4 fixture，扩展 header/extent IR、3D uploader、stride/budget 和 fail-closed 测试，再用 2.8.42 neutral LUT 取证结果做解析对照和 Windows pixel golden。
 2. **SceneScript Source/Binding IR**：先保留 13 个默认脚本实际出现的 owner/property target，不再压成 Bool；随后才接受控 VM、Vec/Mat、官方 module registry 和最小 layer/text/sound handles。
@@ -907,4 +913,4 @@ MyWallpaperX 当前 Puppet mesh reader 只接受 `MDLV0021/MDLV0023`，rig/anima
 
 作者 shader 还声明了 16/32/64 三档、左右声道分别命名的 audio spectrum uniform。静态声明只约束 binder identity，不能证明 Windows renderer 实际填入独立 stereo 数据。
 
-这批文件不能静态确认 ID 的身份、`maximumprojectid` 比较方向、Web replace 的首次/全量策略、缺文件/零匹配行为或补丁应用时机。详细 A/C 边界见 [zcompat 向后兼容机制取证](../scene/semantics/zcompat-backward-compatibility-forensics.md)。MyWallpaperX 若建立兼容层，应使用版本化 manifest 与隔离 fixture。
+这批文件不能静态确认 ID 的身份、`maximumprojectid` 比较方向、Web replace 的首次/全量策略、缺文件/零匹配行为或补丁应用时机。详细 A/C 边界见 [zcompat 向后兼容机制取证](../../scene/semantics/zcompat-backward-compatibility-forensics.md)。MyWallpaperX 若建立兼容层，应使用版本化 manifest 与隔离 fixture。

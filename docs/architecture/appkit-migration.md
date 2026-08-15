@@ -179,7 +179,7 @@ UI 保真要求：
 
 验收：
 
-- `rg -n "SwiftUI|NSHosting|NSViewRepresentable|ViewModifier|@State|@ObservedObject|@EnvironmentObject|@Binding|some View" MyWallpaperX README.md MyWallpaperXHelp docs/architecture/framework-architecture-memo.md` 仅允许历史迁移文档中出现。
+- `rg -n "SwiftUI|NSHosting|NSViewRepresentable|ViewModifier|@State|@ObservedObject|@EnvironmentObject|@Binding|some View" MyWallpaperX README.md MyWallpaperXHelp docs/history/architecture/framework-architecture-memo.md` 仅允许历史迁移文档中出现。
 - Debug 构建通过。
 - 手工走查：启动、主窗口、菜单、设置、四个模块入口、Inspector、Quick Look、状态栏、关闭/重开主窗口。
 

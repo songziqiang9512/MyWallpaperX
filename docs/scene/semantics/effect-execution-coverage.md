@@ -2,7 +2,7 @@
 
 > 状态：现役专项能力表
 >
-> 最近核对：2026-08-13
+> 最近核对：2026-08-15
 >
 > 实现基线、当前 tracked matrix 状态、历史 fixed13、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 
@@ -20,23 +20,11 @@
 | `L3` | 表中明确限定的 profile 有真实 GPU 执行、正反测试和运行证据；仍非 WE parity |
 | `L4` | 作者启用、输入、顺序、生命周期和视觉均经合法 Windows WE golden 验证 |
 
-执行通道：`IR-only` 只保留数据；`graph-only` 只建图或 route；`inline-profile` 是项目自写的有界 Metal 近似；`strict-graph-profile` 先匹配完整 graph/material 形状再执行固定 backend，且可在整链所有 stage 均严格准入时参与 ordered strict effect-chain；`bounded-authored-profile` 先匹配完整 effect/material/raw+canonical shader 指纹，再由有界 frontend 翻译并执行 authored source；`provider-profile` 是受限跨层纹理 consumer。任一 stage 不受支持时整链失败关闭。当前已有 bounded authored Program/executor，但还不能执行任意 shader、material、pass、helper、state 或 resource，也没有任何 `L4` Effect。
+执行通道：`IR-only` 只保留数据；`graph-only` 只建图或 route；`inline-profile` 是项目自写的有界 Metal 近似；`strict-graph-profile` 先匹配完整 graph/material 形状再执行固定 backend；`bounded-authored-profile` 由有界 frontend 翻译并执行作者 source；`provider-profile` 是受限跨层纹理 consumer。当前已有 bounded Program/GraphExecutor 子集，但普通 authored stage 仍没有默认通用 backend，也没有任何 `L4` Effect。
 
-R4-B1在R4-A+C complete-chain-only基础上改为逐stage Program-first，B2至B13依次把Program/pair/logical-target/full-frame、visibility、captured-main与两种external-primary dependency接入同一GraphExecutor；`3768903841:49`迁入resolved后，正式矩阵旧authored whole-chain corpus owner归零。B14-B22完成旧产品owner撤权，B23-B25删除frame-batch、whole-chain/standalone、旧planner/runtime-plan/decision/inline telemetry、fallback graph/provenance、启发式资源投影和直接target旁路。产品只保留typed admission/program/resource/GraphExecutor/stage renderer/compositor主链，全部R4/R5 retirement gate为全局`0/0`且无例外，manifest为`R4=complete / R5=complete`。B25不跑benchmark/fixed/full；B22签名App的fresh full45 **45/45 PASS**与fresh fixed13 **12/13 NON-PASS**仍是最新跨样本里程碑，唯一`2938612768`的`flat-border`视觉债务不变。见[E-R5-B25-CLEAN-FRAMEWORK-CLOSEOUT](runtime-evidence-index.md#e-r5-b25-clean-framework-closeout)。
+现役产品只有 typed admission → Program/resource → GraphExecutor → compositor 主链；旧 whole-chain、standalone、frame-batch 和 planner authority 已退役，迁移过程只在[运行证据索引](runtime-evidence-index.md)中作为 sealed evidence 保留。当前代码在 active stage 不受支持时仍可能拒绝整 effect chain，claimed draw 失败还可能停止后续 layer suffix；这是 V0/V1 要修复的现役缺口，不是长期合同。目标是失败 effect 保留 previous current、失败 pass 只影响真实依赖子图，并继续执行无关 effect/layer。
 
-B14不新增Effect capability，也不撤销任何运行owner：它删除三个永远为空的dedicated参数/分支与`yieldsToResolvedMaterialProgram`二次裁决，同名manifest R4退役门由1降为全局0。整合5模块31项、semantics 7/7、code health和签名build verify均通过；因产品owner、矩阵和像素路径未变，本批未跑benchmark。见[E-R4-B14-RESOLVED-PROGRAM-LEGACY-YIELD-REMOVAL](runtime-evidence-index.md#e-r4-b14-resolved-program-legacy-yield-removal)。
-
-B15撤销的是旧whole-chain产品scheduler，不是删除typed backend：compositor只有resolved claim存在时才执行authored chain；否则记录明确失败并返回false，当时旧helper只由测试直接调用，现已由B23实际删除。R4 product-dispatch gate `1→0`、当时R5 helper surface `2→1`；checkpoint 71项、code health与签名build verify通过。统一GraphExecutor使用的per-stage typed backend继续保留。见[E-R4-B15-LEGACY-WHOLE-CHAIN-PRODUCT-RETIREMENT](runtime-evidence-index.md#e-r4-b15-legacy-whole-chain-product-retirement)。
-
-B16撤销的是Light Shafts无resolved claim时的独立main-pass产品恢复，不是删除resolved Program或修改光效数学：quad只有拿到`transparentDirectDraw` frame plan才可绘制；unsupported/no-claim形态不再解析旧plan、装配旧resource/pipeline或写main pass。旧renderer仅保留为R5删除面与测试oracle。R4同名gate `1→0`、总R4 retirement occurrence `58→57`；正式owner矩阵与resolved像素路径不变，故不跑benchmark，也不新增视觉parity结论。见[E-R4-B16-LEGACY-LIGHT-SHAFTS-MAIN-PASS-RETIREMENT](runtime-evidence-index.md#e-r4-b16-legacy-light-shafts-main-pass-retirement)。
-
-B17撤销的是所有剩余`SceneEffectRuntimePlanner`产品authority，不是删除resolved/typed effect backend：compositor对无claim可见effect记录`legacy-effect-product-authority / unclaimed-visible-effects`并失败关闭，旧offscreen renderer不再可达；结构性source-copy与layer color blend继续保留，当时standalone authored helper只属于R5 surface，现已由B23删除。utility legacy-only effect不再取得capture，text loader默认summary为nil；正式diagnostics显式注入的3个planner引用仍是observation。manifest `legacy-product-authority` `4→0`、R5 `legacy-authority-total` `7→3`，R4 retirement总量`57→53`。B13正式矩阵owner未变，本批不跑benchmark/fixed/full，也不新增视觉或性能结论。见[E-R4-B17-LEGACY-PRODUCT-AUTHORITY-RETIREMENT](runtime-evidence-index.md#e-r4-b17-legacy-product-authority-retirement)。
-
-B23删除的是已无producer的整链/standalone产品入口和仍可达的legacy frame-batch资源提交面，不是GraphExecutor的typed stage backend：`SceneEffectStageRenderer.render`、standalone renderer、legacy compositor/batch/pool/cache surface与旧`authored-effect-graph` layer telemetry归零；`authoredEffectChain`继续作为fail-closed sentinel，`prepareStage`/`encodePreparedStage`/`renderStage`仍由统一executor调用。authored plan/chain/stage/backend诊断继续保留，不把删除旧layer aggregate误写成失去stage truth。见[E-R5-B23-LEGACY-AUTHORED-SURFACE-RETIREMENT](runtime-evidence-index.md#e-r5-b23-legacy-authored-surface-retirement)。
-
-effect visibility是共享activation/lifecycle合同，不是新的Effect执行家族：现役compiler只把exact X-Ray visibility映射为typed live target；generic effect visibility与同key混合active/inactive target不会部分写入，而是原子拒绝后走整景重启。B10正式2样本门没有注入property override，只证明这三层启动后的owner迁移与GPU/compositor/next-frame闭合；它不把其他45项Effect的动态参数或visibility提升为live，也不证明视觉等价。见[E-R4-B10-USER-PROPERTY-VISIBILITY-LIFECYCLE](runtime-evidence-index.md#e-r4-b10-user-property-visibility-lifecycle)。
-
-静态 admission 只说明 stage 能否进入某条候选路径，static disposition 只说明 planner 把它归到哪个 owner/route；两者都不等于本帧实际执行。现役 R0 证据把 exact/aggregate CPU invocation、route operation 与 shared-frame command-buffer status 分轴记录，并由同代 disposition 推导 execution demand。共享 command buffer 完成只证明该 cohort 的提交完成，不回写成逐 stage GPU 成功或视觉正确；完整合同见 [E-EFFECT-EXECUTION-EVIDENCE](runtime-evidence-index.md#e-effect-execution-evidence)。
+effect visibility 是共享 activation/lifecycle 能力，不是新 Effect family。当前只有 exact X-Ray 等有界 live target；generic visibility、同 key 混合 owner 和 VM mutation 仍未闭合。静态 admission、route/disposition、共享 command-buffer completion 都不能证明逐 stage GPU 成功或视觉正确；精确运行身份和旧批次只查[运行证据索引](runtime-evidence-index.md)。
 
 ## 2. Animation
 
@@ -130,13 +118,16 @@ effect visibility是共享activation/lifecycle合同，不是新的Effect执行�
 | Workshop `2084198056/Simple_Audio_Bars` | `L3 bounded` | 现役执行不再按Workshop路径、raw/canonical SHA或旧`32+CLIP_LOW`/`64+CLIP_HIGH`/relocated 16-band tuple选择专用算法；三种语料都必须经完整ShaderContract、Program与source route静态证明后由`resolved-material-graph`唯一持有。`3122339805:64`是ordinary显式64档，`2938612768:563`省略`RESOLUTION`并以默认32档从无child/dependency composition的main target取此前已绘制framebuffer；relocated `3299228616:151`执行作者16档left/right上下条、AA、source-alpha intersect与additive输出，再顺序执行strict zero-distortion Fisheye。公共frontend/color analyzer的有界转换与straight-output证明继续失败关闭。三个旧专用profile取得Program/GPU/视觉正证据后，Simple专用planner/profile/pipeline/renderer dispatch与旧链测试已删除；`3082978660/enhanced_simple_audio_bars`是独立家族，继续以同名runtime backend作为resolved-first mixed chain的dedicated leaf，不得被Simple撤权误删。未知relocation/fragment/combo、其他shape/transparency/blend/AA/topology、带child/dependency utility、非零Fisheye、Scroll/SceneScript sibling与partial chain必须形成完整Program或整链fail closed，不再回退Simple专用近似，见 [E-WORKSHOP-SIMPLE-AUDIO-BARS](runtime-evidence-index.md#e-workshop-simple-audio-bars) |
 | Workshop `2800594362/clipping_mask` | `L3` | exact named-provider single-pass profile；完整匹配 definition/material/raw+canonical ShaderContract、slot 1 primary reference、静态实例常量与 render state，并在 authored chain 原始 stage 执行 `BLENDMODE=0/5`。B12让普通image/solid与可见、无child、单backward dependency的exact composition consumer共用`externalPrimary` execution ownership；launch-time binding、frame reservation、provider current-frame capture/ready与late exact execute保持同一consumer/provider/variant/slot/blend/epoch/object，execution ticket保证dependency只消费一次。composition可后接static Opacity；`2902406982`七层、`2938612768`一层及`2974757317`两层/三段已迁入统一GraphExecutor。weighted hidden profile、SceneScript/dynamic alpha、project/child/multi-dependency、generic named texture、secondary/mismatch/current-frame缺失、unsupported sibling、未知hash/slot/combo/state与动态值继续fail closed，见 [E-EFFECT-WORKSHOP-CLIPPING-MASK](runtime-evidence-index.md#e-effect-workshop-clipping-mask) 与 [E-R4-B12-EXTERNAL-PRIMARY-CLIPPING-MASK](runtime-evidence-index.md#e-r4-b12-external-primary-clipping-mask) |
 
-45 项逐行汇总：`L1=16`、`L2=3`、`L3=26`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
+本表第2-7节当前机械读取为50个能力行，里面混有官方用户可见 Effect、Workshop-specific 与补充家族；旧的“45项：`L1=16/L2=3/L3=26`”没有可复现排除规则，已停止使用。后续应先为每行增加明确的`official-45 / workshop / internal`类别，再生成守恒汇总；在此之前只能逐行读取 bounded 状态，不能用聚合数字规划或宣传。当前仍没有任何 Effect 行达到官方/Windows parity。
 
 现役调度按stage执行Program-first；Program失败段只可使用typed pair、logical-target、strict history-target或B8 full-frame-compose adapter，并与Program保持作者顺序。B9-B13依次闭合Directional God Rays、visibility、captured-main与两种external-primary ownership；strict history-target只授权完整Cursor Ripple typed plan。B15-B22完成旧产品owner撤权，B23-B25删除全部旧执行surface与observation。统一GraphExecutor通过per-stage typed backend执行，只有typed loader提供完整source graph时才进入preparation。generic compose、Refraction/background、generic/full-frame-compose captured-main、generic history、generic named texture、secondary/multiple dependency、unknown variants与其他未迁移shape都不会借第二路径恢复。普通authored Blend继续走现役Program/typed effect合同，requires-source-copy与layer color blend仍是结构性合成。B22 full45 45/45 PASS、fixed13 12/13 NON-PASS仍是最后formal跨样本基线；最新Cursor Ripple报告是单样本定向正证，不能替代fixed/full、Windows visual golden、性能或视觉parity。
 
-## 9. 开发顺序
+## 9. 现役路线与升级规则
 
-1. D6 ordered strict effect-chain 骨架与 `3724289844:20` exact Workshop Shadow 正门已完成；后续仍只补可由完整 graph/material/ShaderContract fingerprint 约束的 backend，不扩大 path substring 分支。
-2. 290的四层普通Opacity已由统一Program/executor接管，293的SceneScript Opacity与302的unsupported mixed chain是零接管负门；typed optional mask的material variant已闭合，但不能由此推导其他Foliage/Water Waves chain已迁移。`3766387484:17`现提供一条独立九段正门，证明当前可完整编译的Foliage/Water Flow/Shimmer/Iris/Depth/Twirl stage可由同一Program按序执行；它仍不能外推到Water Waves、其他source/resource/topology或其他样本。Tint又以同一generic-first合同迁移四样本41个exact subject，并由`2134765860:206`的Water Waves → Tint正例证明整链owner守恒；`1937925563`、`3769688830`的mixed/unmigrated Tint是pre-R4-A+C历史fallback证据，现役若其authored graph被拒则整图失败关闭。Film Grain只迁移stock/no-mask current variant：`3767460992:20#effect#702`是Program正例；`3747492842:434#effect#545`的X-Ray prefix omission同样只保留为历史，现役为`rejected-chain`。exact stock Shake仍是dedicated profile，`2802243144`的layers`[41,64,115]`是正门；人物主体layer 58`Shake -> Opacity`仍因user-bound`speed`被拒。`2134765860`的audio Shake已转为正门，legacy audio声明、带user binding常量与`AUDIOPROCESSING=4`继续承担负门。下一Effect只在结构化authored-graph census与公共primitive收益明确后选择；unknown purpose/state/color、Workshop variants、unsupported leaf和logical target继续fail closed。
-3. 每个 Effect 新增执行前必须锁定显式引用、author-off、missing input、slot/combo、local space、alpha/color、resize/switch/stop。
-4. 只有对应行取得 Windows golden，才能从 `L3` 升到 `L4`；样本封面只用于固定画布上的主构图、主体位置、色调、亮度和明显效果范围参考，不能验证动态时序、粒子轨迹、音频响应或像素等价。
+Effect 的唯一执行顺序由[Scene 兼容执行路线](../scene-compatibility-roadmap.md)决定，本表不再按 strict profile 排下一项：
+
+1. V0 先让 ordinary authored stage 在 dedicated probe 之前或耗尽后进入通用 shader backend，复用现有 VFS/preparation、8-slot Program、GraphExecutor 与 compositor。
+2. 一个 pass/backend 失败默认保留进入当前 effect 前的 `current`，继续无依赖 sibling 和后续 layer；确定的 resource/ABI/target/lifecycle hazard仍硬拒绝真实依赖子图。
+3. 新 Effect fixture 只用于证明普通 material/pass/resource/state primitive；不得用 definition path、显示名或 hash 选择新的产品视觉算法。
+4. V1 再沿同一执行对象扩 ordered multi-pass、FBO、copy/swap/compose/history、condition 与 dependency；不另建“高级 Effect renderer”。
+5. 每个能力升级仍必须锁定显式引用、author-off、missing input、slot/combo、local space、alpha/color、resize/switch/stop。只有对应行取得合法 Windows/官方行为 golden，才能升级到 parity-ready；封面、非黑和 formal matrix 都不能替代。

@@ -2,11 +2,11 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-08-14
+> 最近核对：2026-08-15
 >
-> 本页的 Timeline 与各 bounded consumer 历史基线保留在对应证据包；R3 provider/atomic material program 的现役状态见 [E-MATERIAL-PROGRAM](runtime-evidence-index.md#e-material-program)，精确全局当前状态见 [总覆盖台账](coverage-ledger.md)。
+> 本页维护当前能力与缺口；精确运行身份见 [运行证据索引](runtime-evidence-index.md)，唯一实现顺序见 [Scene 兼容执行路线](../scene-compatibility-roadmap.md)。旧 R/B 批次只作证据 provenance。
 >
-> 本专项的 direct text 定向门：`scene-dynamic-text-targeted-213-final-20260723-1907`（历史本机产物已清理）；全局正式门统一见 [运行证据索引](runtime-evidence-index.md)。
+> `311115e3` 新增的hover/click、shared alpha、audio-scaled value、property→Vec3、media colors/title/artist已有产品接线与自动测试，但没有该接线后的真实可见证据；本页统一标为`S2 wired / visible unknown`。
 
 本表把 Frame Context、动态目标、Timeline、用户属性、文字、光标、音频、媒体和纹理 provider 放在同一执行合同下。官方语义摘要见 [`runtime-systems-reference.md`](runtime-systems-reference.md)，等级口径见 [`coverage-ledger.md`](coverage-ledger.md)。
 
@@ -28,7 +28,7 @@ HostFrameInputs(time, properties, audio, media)
   -> renderer / text / particle / provider consumers
 ```
 
-高优先级输入无效时保留最近一个合法低优先级值；未知目标、重复定义和非有限数值 fail-closed。这条规则只适用于普通 value 通道；纹理 provider 使用 R3 的 explicit-absent-only 合同，missing、pending、unavailable、incomplete 或 identity mismatch 都不得回退低优先级纹理。纹理内容不进入普通 value 字典，只传 provider identity、状态和 generation。共享时间、用户属性、音频和媒体可以在 host 捕获一次；viewport、pointer、矩阵、surface provider、SceneScript 实例和最终 dynamic snapshot 必须按 surface 隔离。
+高优先级输入无效时保留最近一个合法低优先级值；未知目标、重复定义和非有限数值 fail-closed。这条规则只适用于普通 value 通道；现役纹理 provider 使用 explicit-absent-only 合同，missing、pending、unavailable、incomplete 或 identity mismatch 都不得回退低优先级纹理。纹理内容不进入普通 value 字典，只传 provider identity、状态和 generation。共享时间、用户属性、音频和媒体可以在 host 捕获一次；viewport、pointer、矩阵、surface provider、SceneScript 实例和最终 dynamic snapshot 必须按 surface 隔离。
 
 ## 2. Frame Context 与动态目标
 
@@ -50,7 +50,7 @@ HostFrameInputs(time, properties, audio, media)
 | delta clamp / dropped-time | `L3 bounded` | shared clock 保留 raw delta，把 simulation delta 限为项目 policy 0.25 秒，并发布 dropped delta/discontinuity；纯 clock fixture 有 1 秒长帧数值门，Debug performance 记录次数、累计 dropped 与最大 raw；[E-FRAME](runtime-evidence-index.md#e-frame) | 0.25 秒不是官方常量；真实长卡顿、不同 FPS、其他 simulation consumer、离线/Windows timing golden 仍缺 |
 | offline fixed-time adapter | `L0` | Debug PNG readback 不是离线 adapter | 注入 frame index/time/seed/provider replay |
 
-B0 live-property 子阶段已从空 snapshot 脚手架合龙到真实 producer/consumer：format 22 在既有 value-only target 上加入 direct text content/point-size/color。文本 consumer 按 layer signature 去重、异步生成、拒绝 stale completion 并保留 last-ready texture；缺少 compiler mapping、有效可见 consumer 或 direct user binding 时继续走 `requestSceneRender` fallback。
+当前 live-property 路径已让 direct text content/point-size/color 等 value-only target 进入真实 producer/consumer。文本 consumer 按 layer signature 去重、异步生成、拒绝 stale completion 并保留 last-ready texture；缺少 compiler mapping、有效可见 consumer 或 direct user binding 时继续走 `requestSceneRender` fallback。
 
 ## 3. Scene 与 Camera 输入
 
@@ -269,11 +269,11 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
 | `usershortcut` definition/persistence | `L0` | parser 归入 unsupported | macOS 类型/授权、逐机存储、preset 排除和安全 UI |
-| cursor-triggered open | `L0` | 无 pointer click、SceneScript VM 或 host API | 单事件单命令、click propagation 和 invalid key 门 |
+| cursor-triggered open | `L0 generic` | 已有 launch-origin 专用 primary-button hit-test，但没有通用 pointer event queue、SceneScript VM 或 `openUserShortcut` host API | 单事件单命令、click propagation 和 invalid key 门 |
 | shortcut icon provider | `L0` | 无 shortcut provider | bound/unbound generation、square icon fallback 和取消 |
 | `isbound` / `file` change payload | `L0` | 无 `applyUserProperties` event | first/full 与 change-only payload、隐私与屏保策略 |
 
-当前 21 样本 census：424 definitions、952 bindings、195 条 conditional bindings。定义/绑定总数只证明扫描覆盖，不能证明所有 target 可调。
+下表沿用 21 样本 target census 快照：424 definitions、952 bindings、195 条 conditional bindings。它只用于解释既有 target 分布，数字不是当前 corpus fingerprint、产品支持率或开发顺序；当前能力以每行代码/运行证据和[总台账](coverage-ledger.md)为准。
 
 ## 6. User Property target 矩阵
 
@@ -299,7 +299,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | sound volume target identity | 1 | `.layer(.volume)` 已定义，binding 未分类 | `L1` | binding compiler 和 sound owner identity |
 | sound volume runtime | 1 | 无 sound IR/player | `L0` | playback/lifecycle 后再开放 |
 
-当前旧 census 的 unsupported 统计仍需在 v22 上重算。已确认 alpha/color、Local Contrast、Opacity 与 direct text 三类 target 进入 binding program；`2134765860` 的 content/point-size/color 正门与 `2938612768` SceneScript Opacity 负门分别保持。mixed、hidden/no-consumer、non-solid color、其他 shader constant 和 unsupported key 仍由 rebuild/fail-closed 路径处理。
+该 census 的 unsupported 总数没有按当前 schema 重算，因此不得引用其聚合数量。当前已确认 alpha/color、Local Contrast、Opacity 与 direct text target 进入 binding program；mixed、hidden/no-consumer、non-solid color、其他 shader constant 和 unsupported key 仍由 rebuild/fail-closed 路径处理。
 
 ## 7. Text
 
@@ -328,14 +328,16 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | current pointer bounded projection | `L3` | view-normalized -> scene world，以及忽略 parent/rotation/scale/parallax 的 axis-aligned authored layer UV；[E-PARALLAX](runtime-evidence-index.md#e-parallax) | 完整层级逆矩阵前不得宣称通用 layer-local |
 | full layer/effect/control-point local pointer | `L0` | 无 parent/world inverse 或 effect/control-point 投影 | hierarchy/rotation/scale/parallax 正反 golden |
 | previous pointer storage | `L2` | Frame Context 保存；renderer 未消费 | shader built-in 和 event delta consumer |
-| pointer buttons/down/up/click | `L0` | 无状态或事件队列 | 同帧 event snapshot 与坐标空间 |
+| pointer buttons/down/up/click | `L2 bounded wiring；generic L0` | AppKit down/up更新per-surface primary-button state；admitted launch-origin master在button edge使用实际camera/world-frame/quad UV hit-test并toggle cohort。只有代码与自动测试证据 | generic有序event queue、multi-button、capture/drag、VM dispatch与fresh visible门 |
+| bounded hover-origin projection | `L2 wired` | AppKit move/enter/exit与同一camera/world/UV hit-test驱动已准入hover cohort；不是SceneScript `cursorEnter/Leave` | fresh surface-local可见门、generic callback/event ordering、完整坐标空间 |
 | audio declarations | `L3` | effect 与粒子两套 schema 分别保真解析（字段名不同，粒子无 `audioamount`）；[E-AUDIO-EFFECT](runtime-evidence-index.md#e-audio-effect) | 粒子声明保真不等于可执行 |
 | 16 stereo buffers | `L3` | left/right host-shared 快照每帧广播给所有 surface，静音/无权限稳定归零；stock effect 与统一Program中的relocated Simple Audio Bars stereo up/down作者shader已消费；旧Simple专用consumer已删除；[E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input) | 频段划分与归一化是工程选择，无官方数值合同；采集 30 Hz 与渲染 60 Hz 之间不插值 |
 | 32/64 stereo buffers | `L3 bounded` | 与 16 档由同一次 FFT 生成并进入 host-shared snapshot；供统一Program中的Simple Audio Bars 32/64-band作者shader、Workshop Audio Hue已证作者Program及其他现役effect consumer；旧Simple、Audio Hue与fixed SceneScript Audio Bars专用consumer均已删除；[E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input) | 其他 Workshop shader 与通用 SceneScript `registerAudioBuffers` 尚无 consumer/bridge，不外推 |
 | SceneScript `AudioBuffers` / `average` API | `L0` | host snapshot 只有 left/right；两个 bounded native consumer 在 renderer geometry 内按 `(left + right) / 2` 逐 bin 派生 average，但没有 JS object、Float32Array identity 或订阅 lifecycle | 由通用 SceneScript bridge 建立逐帧受控数组，并验证对象/数组生命周期 |
 | audio consumer registration/lifecycle | `L3` | 采集由 consumer 存在性驱动，launch 声明/teardown 撤销，暂停/锁屏/休眠停采并归零；统一Program按实际反射出的audio host uniform声明需求，Simple Audio Bars、Workshop Audio Hue与既有effect consumer共用同一次host snapshot，专用Audio Hue owner删除后需求不丢失 | 新增 consumer 必须同批扩充判定，否则采集不会启动 |
 | Scene Sound layer / self-playback | `L0` | `3743305891` authored FLAC 尚未解码/播放；当前 system tap 排除本进程，不会把该声音回送成 Scene 频谱 | sound content IR、提取/解码、状态/volume/teardown，以及 wallpaper-local 频谱源的独立合同 |
-| media status/playback/properties/timeline | `L0` | 无 snapshot | 可注入 provider 和原子 generation |
+| media playback/colors/title/artist snapshot | `L2 wired` | producer-agnostic inbox保存playback、artwork colors、title/artist及独立generation；bounded fade/color/text consumer已接到同一frame transaction。当前无新runtime/ROI | live producer、missing-field/clear语义、fresh visible门 |
+| media status/album/timeline | `L0` | 无完整typed snapshot或consumer | 可注入 provider、原子 generation与generic event/VM bridge |
 | generic media thumbnail identity | `L3 bounded current cover` | `$mediaThumbnail`是现役system identity；replacement pending保留last-ready current/generation，ready后原子发布current。B20删除`$mediaPreviousThumbnail`产品identity/publication与gradient transition | live platform producer、previous/transition/variant、通用media event与SceneScript lifecycle |
 | media events | `L0` | 无 SceneScript dispatch | 每屏队列、顺序和异常隔离 |
 
@@ -355,13 +357,14 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 
 | 官方能力 | 等级 | 当前事实 | 最小实现门 |
 |---|---|---|---|
-| status/playback/properties/timeline snapshot | `L0` | Scene 没有 media snapshot | 可注入、同 host frame 原子 generation，missing field 保留 nil/fallback |
-| media property events | `L0` | 无 SceneScript VM/dispatch | title/albumTitle/albumArtist 等 typed event 和逐 surface queue |
-| missing metadata fallback | `L0` | 无 producer/consumer | 缺字段不得保留上一首错误文本；作者 fallback/空值策略可测 |
-| media text layout constraints | `L0` | 静态 text 有部分 layout，但没有 media-driven text | point size、max width/rows、ellipsis 和长 Unicode title golden |
-| stopped versus paused visibility | `L0` | 无 playback state consumer | 枚举映射、初始 stopped、paused 保持可见和恢复顺序 |
-| thumbnail derived colors | `L0` | 无 `MediaThumbnailEvent`；layer Bloom/clear color 不等价 | primary/text/其他公开色值与无 thumbnail fallback |
-| authored color transition | `L0` | 无 media event + SceneScript update | 由作者脚本按 `engine.frametime` 插值；host 不得默认套 transition |
+| playback/colors/title/artist snapshot | `L2 wired` | inbox与frame driver已有typed generation和bounded consumer；没有fresh runtime evidence | 可注入同host-frame原子更新、clear/missing、stale与多surface门 |
+| status/album/timeline snapshot | `L0` | 尚无完整producer/consumer | typed optional fields与原子generation |
+| media property events | `L0 generic` | bounded native title/artist projection不是SceneScript event | title/albumTitle/albumArtist等typed event和逐surface queue |
+| missing metadata fallback | `L2 wiring incomplete` | title/artist snapshot可为空，但没有fresh切歌/clear证据 | 缺字段不得保留上一首错误文本；作者fallback/空值策略可测 |
+| media text layout constraints | `L2 wired` | typed title/artist可进入bounded text runtime；尚无fresh可见门 | point size、max width/rows、ellipsis和长Unicode title golden |
+| stopped versus paused visibility | `L2 bounded wiring` | bounded playback-state fade consumer已存在；没有live provider与fresh event门 | 枚举映射、初始stopped、paused保持可见和恢复顺序 |
+| thumbnail derived colors | `L2 wired` | artwork color snapshot与bounded transition consumer已接线；不等于generic `MediaThumbnailEvent` | primary/text/其他公开色值、无thumbnail fallback与fresh ROI |
+| authored color transition | `L2 bounded wiring` | bounded native projection按simulation delta更新；不是通用作者SceneScript | VM event/update链、作者数学、fresh dynamic ROI与Windows timing |
 
 <a id="op-media-album-cover"></a>
 ### 8.3 [Current / Previous Album Cover](https://docs.wallpaperengine.io/en/scene/audiovisualizer/albumcover.html)
@@ -392,14 +395,16 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 | named secondary variant identity | `L2` | registry identity 保留 `_b` | producer/consumer flow 尚未执行 |
 | Texture Variant provider | `L0` | 无 variant schema/selection | property selection + authored fallback |
 | system/media provider identity | `L2 carrier` | Template保留exact system demand；production snapshot缺少唯一purpose、publication不完整或lifecycle未证时明确发布/解释为unavailable，不伪造absent。current `$mediaThumbnail` bounded producer仍走独立typed合同；previous/transition已撤权 | 统一live producer、purpose仲裁、generic consumer、pause/rebuild/stop与teardown |
-| generic material slots `0...7` | `L2 atomic program` | Template固定保留8项及hole，候选低到高保存provenance；Program在同一frame/resource/dynamic snapshot内把active variant/reflection、purpose/readiness、candidate metadata、uniform/state/color与exact/semantic identity原子化。`material` annotation只是lookup key，不是purpose；production审计固定`gpuEncoded=0` | R4唯一executor消费Program，并补unproven regular asset purpose、更多state/color/helper与graph command publication |
+| generic material slots `0...7` | `L3 bounded execution；arbitrary S0` | Template固定保留8项及hole；Program原子携带variant/reflection、purpose/readiness、candidate metadata、uniform/state/color与identity，bounded子集已由唯一GraphExecutor完成GPU/publication/compositor/next-frame | ordinary arbitrary authored stage仍缺通用backend；继续补unproven purpose、state/color/helper、FBO command publication，不在consumer重做优先级 |
 
-## 10. 下一实现顺序
+## 10. 现役路线与完成门
 
-1. **B0 live-property 与首个 generation consumer 已完成**：format 22 binding program、per-surface transaction、atomic state，以及 layer alpha、solid color、direct text、Local Contrast/Opacity consumer 均已闭环；隔离真实样本证明 live 更新不替换 surface/window。
-2. 新增任何 live target 时，必须在同一能力切片中补稳定 identity/value semantic、compiler definition/instruction、真实 renderer/runtime consumer、原子失败、fallback 与 identity 运行门；缺一项就保留整场重建。
-3. B2 ordered strict scheduler、exact Workshop Shadow与stock Opacity `MASK=0`已完成。`2902406982:[365,372,647,664]`是direct-binding live正门；`2938612768:79/165/454`与`2974757317:454/2130`又由bounded placeholder-fade producer进入同一Opacity consumer。`2938612768:626/629/924`、`2974757317:626/2094`的反向/metadata复合脚本及optional mask、未知fingerprint或缺consumer的部分live继续拒绝。
-4. B2 同帧 copy/swap foundation、受限 history seed、Precise Blur interleave 与 stock Radial God Rays 双 half RT 已完成；真实 persistent/history consumer、generic compose 与 provider generation/cancel 仍未完成。
-5. Timeline 的 IR、绝对 scene-time evaluator、bounded 作者 Bézier handle、Loop wrap 闭合段和 Workshop **48/48 authored host** 受限 consumer 已接入；唯一 default 2D camera Combined `origin↔zoom` 组已共用 owner clock 并原子进入 projection。该计数不外推 generic Timeline：particle relative/其他 field、普通 Combined、multiple path/3D camera、其余 target与 event crossing 继续 fail closed。另有 stock-wire/project-fixture 证明 particle CP position/angles typed target，其中仅 absolute position 驱动 root emitter。SceneScript 文档级 inline binding 已对正式取证五类owner/完整target path/authored fallback/JSON value type及可选wrapper keys达到局部`L1`，另有provenance-only全量source evidence；bounded launch-origin initial-false startup是独立typed producer，file/module、generic schema type、handle、mutable shared、click与VM仍须在沙箱成立后接入同一target层。
-6. 16/32/64 档 audio provider 已有 consumer 驱动、失败归零和 teardown 门；当前开放 stock effect与统一Program/typed effect路径中静态可证的Workshop Audio Bars作者形态。B21已删除两个fixed SceneScript Audio Bars profile及其native 64-draw consumer；新增renderer consumer、通用SceneScript `AudioBuffers` bridge/`average`或media provider仍须同批补作者未启用反例、fallback、generation/cancel和stop teardown。
-7. **R3已完成**：8槽Template、exact provider publication、immutable frame snapshot与atomic Program已接入production raw graph的一次性CPU审计；只有explicit absent允许fallback，`gpuEncoded=0`。下一步由R4在同一Program/graph-node边界接唯一executor，不能在renderer内重做资源优先级或purpose判断。
+输入能力不再按旧B/R批次排序；唯一优先级见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。
+
+- V0/V1只补普通Program/graph当前真实消费的value、resource和topology invalidation，不为输入另建renderer状态。
+- V2由per-scene QuickJS-NG VM接管generic script property、shared、handle、cursor/media/audio event与timer。
+- V4逐项把property、pointer、audio、media、text和provider接入现有typed snapshot/publication/mutation；一个native bounded projection不升级对应generic SceneScript API。
+- 每个新输入必须明确属于value-only、resource-generation、geometry/extent、program-variant或topology变化，只使最小owner失效。
+- `311115e3`新接线在取得fresh产品运行和预定义ROI/事件证据前保持`S2 / visible unknown`；自动测试存在、formal matrix或非黑截图都不能替代。
+
+普通material slots现已有bounded GPU consumer，旧`R3 gpuEncoded=0 / 下一步R4`已退役。arbitrary authored shader、generic VM、live media producer和完整event queue仍是明确待办。

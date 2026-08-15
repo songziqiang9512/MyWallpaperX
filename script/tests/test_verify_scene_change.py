@@ -424,7 +424,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("test_scene_shader_preparation_census", command)
         self.assertNotIn("test_scene_material_program_census", command)
 
-    def test_integration_runs_scene_suite_and_requires_real_sample(self) -> None:
+    def test_integration_runs_focused_tests_and_requires_real_sample(self) -> None:
         gates, _ = verify.build_plan(
             ["MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTexture.swift"],
             arguments(phase="integration"),
@@ -432,8 +432,9 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual(
             [gate.gate_id for gate in gates],
-            ["scene-all-tests", "build-verify", "targeted-sample"],
+            ["focused-tests", "build-verify", "targeted-sample"],
         )
+        self.assertIn("texture", gates[0].command)
         self.assertIn("--sample-id", gates[-1].unresolved)
 
     def test_ci_can_record_why_runtime_is_unavailable(self) -> None:
@@ -490,10 +491,11 @@ class SceneValidationSelectionTests(unittest.TestCase):
                     self.registry,
                 )
                 gate_ids = [gate.gate_id for gate in gates]
-                self.assertIn("scene-all-tests", gate_ids)
+                self.assertIn("focused-tests", gate_ids)
+                self.assertNotIn("scene-all-tests", gate_ids)
                 self.assertIn("targeted-sample", gate_ids)
 
-    def test_integration_keeps_explicit_modules_alongside_scene_suite(self) -> None:
+    def test_integration_keeps_explicit_modules_in_focused_gate(self) -> None:
         gates, groups = verify.build_plan(
             ["MyWallpaperX/App/DebugScenePlaybackRunner.swift"],
             arguments(phase="integration"),
@@ -501,9 +503,19 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertIn("scene-debug-runner", groups)
         self.assertEqual(gates[0].gate_id, "focused-tests")
-        self.assertEqual(gates[1].gate_id, "scene-all-tests")
+        self.assertNotIn("scene-all-tests", [gate.gate_id for gate in gates])
         self.assertIn("test_scene_wallpaper_benchmark", gates[0].command)
         self.assertIn("__scene_validation_no_scope_match__", gates[0].command)
+
+    def test_milestone_runs_complete_scene_regression_suite(self) -> None:
+        gates, _ = verify.build_plan(
+            ["MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTexture.swift"],
+            arguments(phase="milestone"),
+            self.registry,
+        )
+        gate_ids = [gate.gate_id for gate in gates]
+        self.assertEqual(gate_ids[:2], ["focused-tests", "scene-all-tests"])
+        self.assertIn("targeted-sample", gate_ids)
 
     def test_milestone_matrix_gate_requires_explicit_inputs(self) -> None:
         gates, _ = verify.build_plan(

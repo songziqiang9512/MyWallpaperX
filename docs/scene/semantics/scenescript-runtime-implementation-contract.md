@@ -1,6 +1,6 @@
 # SceneScript 运行时实现层合同（2.8.42 客户端取证）
 
-审查日期：2026-07-25；Ghidra engine 增补：2026-07-30；32/64 位交叉复核：2026-07-31
+审查日期：2026-07-25；Ghidra engine 增补：2026-07-30；32/64 位交叉复核：2026-07-31；项目路线复核：2026-08-15
 取证快照：Wallpaper Engine 2.8.42 随包文件
 审查方式：静态检查
 
@@ -8,7 +8,7 @@
 >
 > 本文回答的是 API 覆盖表回答不了的问题：**声明背后的实际数值行为、宿主与 VM 的桥接协议、以及编辑器声明的 authoring/type surface**。
 >
-> VM 技术选型与准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#5-scenescript-路线)统一约束。本文出现的 JavaScriptCore 是历史候选或桥接示例，不表示已经选定；QuickJS-NG 同样必须先通过预算、隔离、生命周期和发布门，不能据候选身份升级覆盖等级。
+> VM 技术选型与准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#5-scenescript-路线)和[兼容运行时架构](../runtime-architecture.md)统一约束。MyWallpaperX 的现役目标是 QuickJS-NG per-scene runtime/context + Swift typed host bridge；JavaScriptCore 只保留为历史候选和对照。官方公开合同只确认 SceneScript 基于 ECMAScript 并使用 wallpaper host API，不公开 QuickJS-NG、MyWallpaperX owner/预算策略或内部帧提交协议；下文 V8、record、timer 和 teardown 结论均是 2.8.42 固定客户端静态观察。
 
 ## 1. 为什么需要这份文档
 
@@ -31,7 +31,7 @@
 | `LB` | `ui/dist/monaco/autocomplete/lib.es*.d.ts` 清单 | 23 个文件 | A |
 | `GB` | 32/64 位 `wallpaper` + `scenescript` 的 Ghidra 有界静态路径 | module/engine/event/timer/teardown 与跨 ABI 结构邻域 | B |
 
-等级沿用 [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)：A = 客户端快照中的结构化文件直接确认。
+等级沿用 [Windows 官方客户端取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)：A = 客户端快照中的结构化文件直接确认。
 
 ### 2.1 与当前项目状态的关系
 
@@ -41,15 +41,15 @@
 |---|---|---|
 | 通用 ECMAScript VM、module、owner/handle、event 与 timer | 未实现，保持 `L0`；现役只有若干彼此独立的项目自有bounded typed projection，不创建VM、module、script instance、handle或通用event runtime | [SceneScript API 覆盖表](scenescript-api-coverage.md) |
 | 文档级 inline property wrapper | 正式取证五类位置可保真保存scene/object/effect/pass owner、完整target path、source/properties/authored fallback/JSON value type及可选`wrapperKeys`，局部`L1`；独立source evidence遍历所有string-valued inline script，但nested/未知owner只取得provenance/conflict rejection权，`script + user`冲突fail-closed | [SceneScript API 覆盖表 §2](scenescript-api-coverage.md#2-property-bound-核心合同) |
-| bounded typed execution | 现役分别有Text Date/string、time-of-day Blend、media placeholder fade与launch-origin startup typed producer；它们都不执行通用JavaScript。七个fixed native Text profile与两个exact native Audio Bars profile已于R4-B18/B21退役，普通/Workshop Effect Audio Bars仍是独立effect consumer | [运行证据索引](runtime-evidence-index.md) |
+| bounded typed execution | 现役分别有 Text Date/string、time-of-day Blend、media placeholder fade 与 launch-origin startup typed producer；它们都不执行通用 JavaScript。历史 fixed native Text 与 exact native Audio Bars owner 已退役，普通/Workshop Effect Audio Bars 仍是独立 effect consumer；历史批次标签不再定义现役顺序 | [运行证据索引](runtime-evidence-index.md) |
 | bounded launch-origin startup projection | 只对完整`shared=false` initializer + 1 master + followers `object.origin` cohort建立typed producer；每host frame在surface loop外推进一次，target collision与额外source writer失败关闭 | [E-BOUNDED-LAUNCH-ORIGIN-TRANSITION](runtime-evidence-index.md#e-bounded-launch-origin-transition) |
 | Timeline | 已有部分 target/evaluator 的 `L2-L3`，不能由此推导 SceneScript runtime | [覆盖台账 §6.1](coverage-ledger.md#61-timeline-与-scenescript) |
 
-后续实现时先从 API 覆盖表选择一个仍为 `L0/L1` 的能力，再使用本文相应合同建立自有 fixture；完成代码、测试和隔离运行证据后，才在覆盖表和运行证据索引升级状态。
+后续实现遵循[唯一现役路线](../scene-compatibility-roadmap.md)的 V2 纵向切片：先让一个真实 property script 从 source 进入 QuickJS-NG、取得一个 typed owner、执行 `init/update`、提交 mutation 并在下一帧产生可见结果，再按该真实结果补对应 fixture 与覆盖记录。完整 API、module、event、timer 或动态 layer 平台不是第一条可见脚本的前置；未实现能力保持可诊断并只停用受影响 script owner。
 
 ## 3. 编辑器 authoring/type surface（`LB`）
 
-[SceneScript API 覆盖表](scenescript-api-coverage.md) 中「ECMAScript VM」一项为 `L0`，缺口写的是「选定 VM；严格 global allowlist」。Monaco 自动补全的 lib 清单直接给出官方自己界定的语言边界：
+[SceneScript API 覆盖表](scenescript-api-coverage.md) 中「ECMAScript VM」一项仍为 `L0`；MyWallpaperX 已把目标收敛为 QuickJS-NG per-scene runtime/context，但尚未取得产品执行证据。Monaco 自动补全的 lib 清单直接给出官方自己界定的语言边界：
 
 | 随包 lib 文件 | 含义 |
 |---|---|
@@ -67,7 +67,7 @@
 
 声明文件首行是 `/// <reference no-default-lib="true"/>`，即官方显式关闭默认 lib，只挂上述白名单。
 
-**证据边界**：Monaco type lib 不是 runtime syntax probe。它不能单独证明官方 VM 必然接受全部 ES2019 语法，也不能证明 `??`、`?.`、`BigInt`、`globalThis` 在 runtime 必然失败。对 MyWallpaperX 的作用是把 VM 选型目标收窄为“至少覆盖随包 ES2019 authoring surface，并默认不暴露 DOM/Node/WebWorker”；具体语法与 global allowlist 仍需正反运行门。JavaScriptCore 只是候选，不能因宿主可用就直接记为兼容。
+**证据边界**：Monaco type lib 不是 runtime syntax probe。它不能单独证明官方 VM 必然接受全部 ES2019 语法，也不能证明 `??`、`?.`、`BigInt`、`globalThis` 在 runtime 必然失败。对 MyWallpaperX 的作用是把 QuickJS-NG 集成目标收窄为“至少覆盖随包 ES2019 authoring surface，并默认不暴露 DOM/Node/WebWorker”；具体语法、module loader 与 global allowlist 仍需正反运行门，不能因选用了真实 ECMAScript VM 就直接记为兼容。
 
 ## 4. 宿主 ↔ VM 桥接协议（`JS`）
 
@@ -79,7 +79,7 @@
 
 顶层 `this` 可用（而非 `undefined`），说明该随包文件在观察到的包装上下文中获得了宿主对象；是否直接脚本求值、是否另有 wrapper 以及严格模式边界仍属于 C 级解释。用户模块源码则明确使用 `'use strict'` 与 ES `export`。
 
-推断（等级 C）：原生侧构造向量/矩阵时挂这些 prototype，避免每次跨边界重新构造 JS 对象。MyWallpaperX 若用 JavaScriptCore，对应做法是缓存 `JSObjectRef` 原型并用 `JSObjectSetPrototype`。
+推断（等级 C）：原生侧构造向量/矩阵时挂这些 prototype，避免每次跨边界重新构造 JS 对象。MyWallpaperX 的 QuickJS-NG bridge 应在 per-scene context 内持有并复用这些 prototype root，以 typed constructor/handle 边界创建对象；具体 C API 形态属于项目实现，不由该静态证据规定。
 
 ### 4.2 token 句柄机制
 
@@ -364,19 +364,60 @@ property return 通过集中式 typed conversion 写回 number、bool、string �
 - scene teardown 先释放这些 owner，再释放 scene engine；因此恢复出的完整顺序是 `destroy -> engine record removal -> host record release -> all owners complete -> engine release`。
 - exactly-once 仍是宿主合同：必须保证同一 owner 只进入一次 removal path。项目 fixture 还应覆盖 destroy 内自取消 timer、跨 handle 访问和异常，不把静态顺序本身当成重入安全证明。
 
-## 9. 对 MyWallpaperX 的验收门
+## 9. MyWallpaperX V2 目标运行时合同
+
+本节是 MyWallpaperX 自有架构策略，不是官方公开的内部实现事实。V8、19 个 event slot、timer snapshot、live update 和客户端 teardown 次序只来自 2.8.42 固定静态观察；项目使用 QuickJS-NG，并在不改变作者可见语义的前提下采用更窄、可预算、可回滚的 owner 与帧事务。
+
+### 9.1 Runtime、context 与 owner
+
+- 每个 scene execution domain 默认独占一个 QuickJS-NG runtime/context、module registry、global `shared`、job queue 和预算账户；不同 scene、reload generation 与测试 fixture 不共享 JS object 或 native handle。若同一 scene 需要多个 surface，共享/复制策略必须显式定义并有隔离门，不能靠进程全局单例偶然共享。
+- scene VM 是 runtime/context 的 owner；每个 scene、layer、effect、property binding 或动态对象脚本另有 typed script owner record。owner 保存 source identity、phase、event/timer/job、mutation buffer 和 teardown state，单个 owner 熔断不销毁其他 owner 或整个可见 scene。
+- host object 只暴露 typed opaque handle：`{domain, ownerIdentity, objectIdentity, generation, capability}`。每次调用都在 Swift 侧重验 domain、generation、owner 存活、phase 与 capability；VM 不持有 Swift/Metal 对象裸指针，handle 失效后返回可诊断异常或空结果，不得重新绑定到同 identity 的新对象。
+- 默认 global allowlist 不含 DOM、Node、WebWorker、文件、网络或任意 native module。裸模块名只可解析到显式登记的官方模块和项目 host module；路径、动态 native load 与跨 scene import 必须拒绝。
+
+### 9.2 帧执行与 mutation commit
+
+第一条 V2 产品链固定为：
+
+```text
+immutable Swift frame snapshot
+  -> queued lifecycle/media/animation/input events
+  -> due timers and bounded pending jobs
+  -> owner init/update callback
+  -> typed return + owner-local mutation buffer
+  -> validate identity/generation/type/finite/conflict
+  -> one ordered Swift mutation transaction
+  -> next-frame snapshot / Program / graph consumer
+```
+
+- `init` 对 owner exactly once；`update`、event、timer 和 job 都只能读取本帧 immutable snapshot，并向 owner-local buffer 追加 mutation，不能在 callback 中直接改写正在遍历的 Swift scene graph、Program、target 或 compositor state。
+- 已有 2.8.42 静态证据覆盖的 event/timer 顺序作为兼容 fixture；尚未确认的 event 先后、同帧新 owner 可见性和 callback 重入由 MyWallpaperX 明确排序并记录为项目 policy，不伪称官方顺序。
+- callback 完成后，Swift 按作者顺序、owner identity 和 mutation 类别做 typed validation/conflict resolution；全部合法 mutation 在帧边界一次提交到现有 surface transaction。value-only 更新进入下一帧 immutable snapshot，resource/program/topology 更新只失效其最小 owner；任一无效 mutation 只丢弃对应写入或熔断对应 owner，不留下半提交状态。
+- teardown、reload、pause 或 generation 变化发生在 commit 前时，旧 owner 的 pending mutation、timer、job、event 和 promise continuation 全部作废。terminal compositor 只消费已提交的 Swift 状态，不直接读取 VM 可变对象。
+
+### 9.3 预算、故障隔离与销毁
+
+- 每个 scene runtime 必须设置 heap 与 stack 上限；每个 callback 有 interrupt deadline，每帧还有累计 CPU、callback、timer、job、owner mutation 和动态 identity 上限。无限循环、microtask/job 风暴、递归爆栈、OOM 或预算超限终止最小 script owner；runtime 不再可信时才销毁该 scene VM，并保留不依赖脚本的安全画面。
+- exception、unhandled rejection、缺 API、错类型、NaN/Inf 与 stale handle 都产生 source/owner/API/generation 可定位诊断。它们不能杀死主 App，也不能把无关 layer 或 effect 从 compositor 移除。
+- reload 建立新 generation 与新 runtime/context，完成 `init` 前不复用旧 handle；切换成功后再撤销旧 owner。失败时保留上一份已提交 Swift 状态或无脚本 authored fallback，不静默同时运行两代脚本。
+- teardown 顺序为：停止新 dispatch、interrupt 正在执行的 callback、取消 timer/job/event、丢弃 pending mutation、调用仍安全可调用的 owner `destroy`、撤销全部 handle、释放 context/runtime，并证明 active owner/timer/job/handle 为零。`destroy` exactly once；其异常不能阻止其余 owner 和 runtime 释放。
+
+V2 的第一门只要求一个真实 property owner 闭合 source、`init/update`、mutation commit 与 teardown；后续 event/timer 能力复用同一 owner/runtime 合同。完整 API 覆盖、跨架构、签名、公证和全部 2.8.42 顺序不是第一张正确动态画面的前置。
+
+## 10. 对 MyWallpaperX 的验收门
 
 按 [SceneScript API 覆盖表](scenescript-api-coverage.md) 的分级口径，本文把结构化文件的 A 级证据与 executable 静态路径的 B 级证据整理为分层规格；它们仍处于“待实现/待验证”，不会自动升级 API 等级：
 
 | 能力 | 本文提供的规格 | 建议验收门 |
 |---|---|---|
-| VM 选型 | §3 随包 authoring surface 到 ES2019、无 DOM/Node/WebWorker 类型 | 正向：官方默认项目用到的语法与 ES2019 authoring subset；负向 global allowlist 由独立运行门确认 |
+| VM/runtime owner | §3 authoring surface + §9 QuickJS-NG per-scene runtime/context、typed owner/handle 和预算 | 真实 source/module 进入独立 scene VM；跨 scene/reload handle 拒绝；无限循环、OOM、异常和 job 风暴只熔断最小 owner；无 DOM/Node/文件/网络 |
 | 向量/矩阵类型 | §5.1 构造分派、§5.2 `_Epsilon`、§5.3 序列化 | `new Vec3(2)` = `(2,2,2)`；`new Vec3("1 2 3")` 往返 `toString` 一致；`equals` 在 `1e-5` 边界判不等 |
 | 用户属性桥 | §4.3 三个 `_Internal` 回调、类型映射表 | `color` → `Vec3`；`usershortcut` 仅三字段；未声明 key 静默丢弃 |
 | 自定义属性 UI | §6 完整 builder 协议 | 双键命名；combo 取 `options[0].value`；`order` 自增即渲染序 |
 | 官方模块 | §7 三模块行为 | `mix` 不 clamp；角度制；`rgb2hsv` 三分量归一化 |
 | 序列化 | §4.3 replacer + §5.3 格式 | 含向量的对象经 `stringifyConfig` 后向量为空格分隔字符串 |
 | engine lifecycle | §8 版本、事件、timer、watchdog、teardown | 版本不符失败；19 slot；media/animation → audio/timer tick → live update → destroy drain；单事件隔离；实例熔断；destroy → record removal → engine release；stop 后 timer/audio/handle 为 0 |
+| frame mutation commit | §9.2 immutable snapshot、owner-local buffer 与单次 Swift transaction | event/timer/update 不直接改正在遍历的 graph；合法 mutation 下一帧可见；冲突、stale generation 与 callback 异常无半提交；terminal compositor 只读已提交状态 |
 | effective time / timer / audio | §8.2 单一 delta、pause/resume、timer snapshot 与 live update、稳定 arrays | frametime/runtime/timer 同 delta；完全暂停不累计，恢复不 catch-up；timer callback 新建 timer 下一轮执行；update callback 新建 owner 有界准入；16/32/64 arrays identity 不变且先于 update 刷新 |
 | cursor state | §8.3 candidate、solid/visible/propagation、getter/event snapshot、hover/capture 与销毁失效 | hidden-solid 正例、后续候选不被遮断、world/screen/left-down snapshot、event object 独立、visible toggle 状态保留、destroy silent invalidation、同 identity click |
 | host resources | §8.4 asset/layer/parent/model-data/storage | asset 首次 precache sticky；2048 identity cap；sort 与 script 顺序分离；destroy 后 render/update 边界；parent adjust/no-op/failure；wrapper 失效；replaceData 负门；storage 损坏恢复 |
@@ -385,7 +426,7 @@ property return 通过集中式 typed conversion 写回 number、bool、string �
 
 均**不需要**复制官方源码即可实现与验证。
 
-## 10. 未覆盖与后续
+## 11. 未覆盖与后续
 
 - `CameraTransforms` 的四成员、base defaults、authored override 与 typed partial update 已有主程序/DLL 静态互证；仍未闭合的是 VM finite/type 负向行为、2D/3D 冲突和脚本 camera 与同帧 authored/animation mutation 的优先级。
 - cursor event-local/puppet 坐标、候选前后顺序、边界容差、多按钮与 parent/visibility 同帧 mutation 仍需自有 fixture；`cursorHitTest` 不属于 v2.8 公共 API。
@@ -393,10 +434,10 @@ property return 通过集中式 typed conversion 写回 number、bool、string �
 - prototype 导出（§4.1）与 token 机制（§4.2）的原生侧用法为等级 C 推断，只能指导实现，不能写成兼容承诺。
 - `ui/dist/scripts/scripts.js`（1.2 MB 编辑器逻辑）已于 2026-07-26 展开：其中**不含** Scene wire 字段的 schema 校验或默认值表（`depthtest`/`pointsize`/`maxrows` 等命中 0 次），此前「可能含属性 schema 校验与默认值」的推测不成立；其真实价值是内嵌的官方 changelog（含 10 条 V8 证据，把 §3 的 VM 选型目标从推断收窄为官方事实），见 [官方客户端 changelog 取证](client-changelog-forensics.md)。
 
-## 11. 关联文档
+## 12. 关联文档
 
 - [SceneScript API 覆盖表](scenescript-api-coverage.md) —— API 表面与当前实现等级
 - [资料来源与证据索引](source-index.md) —— 本文来源应登记于此
-- [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) —— 证据等级出处
+- [Windows 官方客户端取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) —— 证据等级出处
 - [运行时系统语义](runtime-systems-reference.md) —— 运行系统执行顺序
 - [官方客户端运行机制静态取证](client-runtime-static-forensics.md) —— Ghidra 方法、输入身份与 32/64 位结构交叉

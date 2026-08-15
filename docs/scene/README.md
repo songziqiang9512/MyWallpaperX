@@ -1,43 +1,57 @@
 # Scene 文档入口
 
-> Scene 当前能力和证据以现役台账与运行证据为准；历史计划、样本记录和参考资料不反向覆盖当前结论。
+Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者内容，按纵向切片快速得到真实效果”。不再按 effect 名称继续扩张专用 planner，也不先横向建完 compiler、RenderGraph、VM 和 particle platform。
 
-> 当前现役路线是[Scene 通用执行重构计划](scene-generic-execution-refactor-plan-2026-08-15.md)。R0-R5 owner 收敛已经完成；新增能力必须扩大通用 compiler、VM、RenderGraph、particle interpreter 或统一 executor，不得从历史批次、样本 ID、effect 名称或旧专用 owner 路线续接。
+## 开始工作
 
-## 现役执行计划
+1. 先看[能力台账](semantics/coverage-ledger.md)确认当前状态和未验证边界；
+2. 看[运行证据索引](semantics/runtime-evidence-index.md)确认最新实际运行结果；
+3. 用[兼容执行路线](scene-compatibility-roadmap.md)确定当前纵向 lane 和第一批；
+4. 需要理解 owner/data flow 时看[兼容运行时架构](runtime-architecture.md)；
+5. 再从[语义手册](semantics/README.md)进入对应专项合同。
 
-- [Scene 通用执行重构计划](scene-generic-execution-refactor-plan-2026-08-15.md)：G0-G5 的迁移顺序、失败分级、停止新增的专用路线、快速回滚和最终退役条件。它决定“下一批怎么迁移”，不改变覆盖台账里的当前能力等级。
+当前 V0 目标是让 ordinary authored material/shader 通过通用 compiler、Program、GraphExecutor 和 compositor 实际出画面。旧 G0–G5 计划、R0–R5 记录和 coverage-first 批次均已退役，只能从[历史索引](../history/README.md)追溯。
+
+## 当前架构与计划
+
+- [Scene 兼容运行时架构](runtime-architecture.md)：官方公开合同、固定客户端静态观察、Mirage clean-room 结构和项目独立方案；规定 identity、失败粒度、compiler/VM/particle/executor 的职责。
+- [Scene 兼容执行路线](scene-compatibility-roadmap.md)：唯一现役计划；V0 ordinary shader/material、V1 graph、V2 VM、V3 particle、V4 inputs/providers、V5 advanced/release。
+- [长期技术边界](../architecture/technology-stack-boundaries.md)：Swift/AppKit/Metal、QuickJS-NG、glslang/SPIRV-Cross、跨语言和发布边界。
 
 ## 当前事实
 
-- [语义与实现覆盖台账](semantics/coverage-ledger.md)：系统级能力、当前边界和下一升级门。
-- [运行证据索引](semantics/runtime-evidence-index.md)：当前生产输入边界、签名运行门和可复现证据。
-- [Scene 语义手册](semantics/README.md)：按格式、渲染图、属性、粒子、SceneScript 等问题进入专项合同。
-- [能力依赖图](semantics/capability-dependency-map.md)：公共前置关系；用于阻止旁路，不是当前任务队列。
-- [全样本能力分类与修复台账](semantics/scene-corpus-capability-inventory.md)：真实 Scene 根全部 authored 资源、Effect、纹理、粒子、动态输入和参数 family；用于按共享结构立项与防回归，不表示运行支持。
+- [能力台账](semantics/coverage-ledger.md)：所有系统的当前能力、部分能力、缺失项和待办。
+- [运行证据索引](semantics/runtime-evidence-index.md)：当前构建/运行身份、样本结果和证据限制。
+- [Corpus 能力清单](semantics/scene-corpus-capability-inventory.md)：真实 authored occurrence、family、参数和资源影响面；不表示运行支持。
+- [能力依赖图](semantics/capability-dependency-map.md)：公共依赖和不可绕过边界；不是任务队列。
 
-## 历史与已完成记录
+## 专项合同与覆盖
 
-- [Scene 解析到合成链路重构计划](scene-render-chain-refactor-plan-2026-08-03.md)：R0-R5 owner 收敛与旧链删除的完整实施记录。该计划已完成并转为历史快照，不再决定下一任务，也不覆盖能力等级或运行基线。
+- [语义手册](semantics/README.md)：全部专项文档导航。
+- [Effect 执行覆盖](semantics/effect-execution-coverage.md)：45 类官方 Effect 的当前执行通路和缺口。
+- [Render Graph / Shader 覆盖](semantics/render-graph-shader-coverage.md)：Program、pass、FBO、command、target 和 shader primitive。
+- [SceneScript API 覆盖](semantics/scenescript-api-coverage.md)：语言、module、host API、handle、event 和 timer。
+- [Particle 组件覆盖](semantics/particle-component-coverage.md)：General、Emitter、Initializer、Operator、Renderer、Child 和 Control Point。
+- [运行输入与属性覆盖](semantics/runtime-input-property-coverage.md)：Timeline、user property、pointer、audio、media 和 provider。
+- [高级对象覆盖](semantics/advanced-object-coverage.md)：Puppet、lighting/HDR、3D、RGB、offline 和性能。
 
-- [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)：2026-07-22 至 2026-07-27 的实施顺序、样本和测试门。
+## 资料与参考
 
-以上文件只用于追溯当时的总体实施顺序、取舍与证据，不用于选择下一项任务。当前任务顺序只由现役通用执行重构计划决定；Timeline、Audio、Effect 与 Render Graph 的能力事实继续由对应专项表、总台账和运行证据索引维护。
+- [资料来源索引](semantics/source-index.md)：官方、客户端取证、项目 corpus 和第三方证据边界。
+- [官方客户端行为研究与一致性验证工作流](semantics/official-client-behavior-research-workflow.md)：公开资料不足时的触发条件、AI 研究卡、clean-room 静态边界和官方黑盒结果门。
+- [官方页面映射](semantics/official-page-map.md)：官方 Scene 页面到唯一合同 anchor 的映射。
+- [官方客户端静态取证](semantics/client-runtime-static-forensics.md)：Wallpaper Engine 2.8.42 的版本有界职责和顺序，不是公开跨版本 API。
+- [MirageWallpaper 静态研究](semantics/miragewallpaper-rendering-reference.md)：固定 revision 的 GPL-3.0 第三方结构对照，不是官方或像素真值。
+- [官方公开快照](reference/official/)：版本化 API 声明，只用于 diff/fixture，不进入 App bundle。
 
-## 公开参考
+官方资料优先。只有公开合同、现有固定客户端证据和当前 corpus 仍不足以解释 producer-to-consumer 链时，才按固定 revision 读取 Mirage；不得把第三方审查变成每个 family 的前置仪式。
 
-- [资料来源与证据索引](semantics/source-index.md)：官方页面、样本、第三方实现和证据等级。
-- [MirageWallpaper Scene 显示链路静态研究](semantics/miragewallpaper-rendering-reference.md)：固定 revision 下的纹理、合成、effect、相机、鼠标及其他显示链路 clean-room 对照；不表示当前能力。
-- [官方参考快照](reference/official/)：版本化的公开 API 声明，仅供 API diff 和 fixture 研究，不进入 App bundle 或播放输入。
+## 验证入口
 
-## 历史资料
+```bash
+python3.12 script/verify_scene_change.py --phase <inner|checkpoint|integration|milestone> --base HEAD --path <owned-path> --run
+```
 
-- [样本评估](scene-sample-assessment-2026-07-22.md)：2026-07-22 的视觉基线；当前等级以覆盖台账为准。
+开发循环先跑最近 inner 门并尽早进入一个真实代表内容；checkpoint 再加入未见组合；fixed/full、性能、签名和发布属于 milestone。可见声明必须证明实际执行和与声明相称的画面/事件变化，不能用 compiler success、route、matrix 或非黑像素代替。
 
-## 使用规则
-
-- 日常验证先运行 `python3 script/verify_scene_change.py --phase checkpoint --base HEAD --path <path>` 查看按改动选择的最小门，再加 `--run` 执行；fixed/full 必须使用 milestone 阶段并记录原因。
-- 新任务先用现役计划的四问检查通用性：新增哪个公共 primitive、未见内容如何受益、局部失败如何隔离、哪个旧 owner 会撤销。答不出来时先改任务，不新增名称表或专用 planner。
-- 新的稳定语义、实现边界和证据更新进入 `semantics/` 的权威入口，不在历史报告中追加当前结论。
-- 新的官方公开文本或声明放入 `reference/` 时，必须在来源索引记录官方 URL、版本、校验值和可使用边界。
-- 删除或合并带日期的计划前，先把仍独有的合同迁入专项表并修复反向引用；未经确认保留原路径，不让历史文件继续承担现役状态。
+历史计划、评审、基线和迁移过程统一见[历史文档索引](../history/README.md)。现役文件不得链接历史材料来决定下一任务。

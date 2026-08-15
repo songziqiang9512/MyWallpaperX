@@ -1,10 +1,16 @@
 # Scene 通用执行重构计划
 
-> 状态：现役执行计划
+> **历史证据 — 非现役入口**
+>
+> 本文保存已被路线转向否决的 G0-G5 横向平台方案；其中阶段、停止项、验收顺序和命令不得再驱动现役开发。
+>
+> 现役执行顺序查 [Scene 兼容执行路线](../../scene/scene-compatibility-roadmap.md)，能力与证据查[覆盖台账](../../scene/semantics/coverage-ledger.md)和[运行证据索引](../../scene/semantics/runtime-evidence-index.md)；全部历史材料见[历史索引](../README.md)。
+
+> 状态：已退役，由 Scene 兼容执行路线取代
 >
 > 启动日期：2026-08-15
 >
-> 当前阶段：G0 治理转向与基线准备
+> 退役时阶段：G0 治理转向与基线准备
 
 ## 1. 目标
 
@@ -22,7 +28,7 @@ project / scene / package / assets
   -> one Metal graph executor and compositor
 ```
 
-这不是完整重写，也不承诺 Wallpaper Engine 像素等价。当前能力真值仍由[覆盖台账](semantics/coverage-ledger.md)和[运行证据索引](semantics/runtime-evidence-index.md)给出；本文只决定迁移顺序、停止项和验收方式。
+这不是完整重写，也不承诺 Wallpaper Engine 像素等价。当前能力真值仍由[覆盖台账](../../scene/semantics/coverage-ledger.md)和[运行证据索引](../../scene/semantics/runtime-evidence-index.md)给出；本文只保存当时设想的迁移顺序、停止项和验收方式。
 
 ## 2. 不做什么
 
@@ -139,14 +145,14 @@ project / scene / package / assets
 
 ## 8. 文档与提交纪律
 
-- 本计划决定迁移顺序；[能力依赖图](semantics/capability-dependency-map.md)只表达前置关系，[覆盖台账](semantics/coverage-ledger.md)和专项表只表达当前事实，[运行证据索引](semantics/runtime-evidence-index.md)只表达已运行证据。
+- 本文只保存当时的迁移顺序；[能力依赖图](../../scene/semantics/capability-dependency-map.md)只表达前置关系，[覆盖台账](../../scene/semantics/coverage-ledger.md)和专项表只表达当前事实，[运行证据索引](../../scene/semantics/runtime-evidence-index.md)只表达已运行证据。
 - 小批次不重复改写所有专项表；只有能力等级、产品 owner、matrix 合同或现役运行事实变化时才同步对应权威文档。
 - 目录移动与功能迁移分开提交；功能批次必须显式列出取得产品执行权的通用 owner、被撤销的旧 owner、fallback 和实际门。
 - MirageWallpaper 等第三方项目只作 clean-room 结构对照；不得把其实现细节、shader、资产、常量组合、算法表达或测试 payload 复制进本项目。
 
 ## 9. 退役条件
 
-同时满足以下条件后，把本文在 `docs/document-role-index.json` 中改为 `historical-evidence`：
+以下是原 G0-G5 方案设想的退役门，仅为解释当时如何定义终点。本文已经因路线转向提前登记为 `historical-evidence`；这些条件不再是当前执行门，也不得把本文恢复为现役计划：
 
 1. 通用 shader/material compiler、RenderGraph compiler/executor、SceneScript VM 和粒子组件解释器均已取得各自产品执行权；
 2. 产品路径不再用 exact effect/source/sample/path/hash 作为 capability admission 或算法 dispatch；

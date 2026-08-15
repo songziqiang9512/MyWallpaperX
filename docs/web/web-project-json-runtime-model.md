@@ -167,9 +167,9 @@ descriptor 的职责是：
 
 ## 7. 文档分工
 
-- `docs/web/wallpaper-engine-web-rules-reference-2026-04-14.md`
+- `docs/web/wallpaper-engine-web-rules.md`
   - 记录官方规则与项目内稳定解释
-- `docs/web/web-project-json-runtime-model-plan-2026-04-14.md`
+- `docs/web/web-project-json-runtime-model.md`
   - 记录解析层 / 运行层稳定分层
 - `docs/web/current-state.md`
   - 记录当前落地状态、源码所有权与剩余缺口

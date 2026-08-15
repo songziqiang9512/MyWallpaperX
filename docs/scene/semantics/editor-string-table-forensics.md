@@ -4,6 +4,8 @@
 取证快照：Wallpaper Engine 2.8.42 `locale/ui_en-us.json`（3,332 keys）及同族 `core_en-us.json`（96 keys）、`var_en-us.json`（28 keys），36 种语言各三族
 审查方式：只读静态提取
 
+> 文档角色：`official-client-static-observation`。字符串表可确认固定 2.8.42 编辑器的字段标签和作者可见说明，不自动构成官方公开运行合同，也不决定 MyWallpaperX 现役能力或顺序。证据分类见[资料来源与证据索引](source-index.md)。
+
 > 字符串表是官方**字段名到作者可见语义**的权威对照：wire 字段（`horizontalalign`、`maxrows`、`controlpoint`…）在编辑器里叫什么、归哪个面板、和哪些枚举值成组。它还给出每个粒子组件与 utility 层的**官方一句话定义**——这些定义在 179 个官方网页中没有的粒度。
 >
 > 本文只收 Scene 相关子集。key 总量 3,332，其中 `ui_editor_properties_*` 865、`ui_editor_particle_*` 175、`ui_editor_effect_*`/`ui_editor_effects_*` 145、`ui_editor_animation_*` 60、`ui_editor_scene_options_*` 38、blend 命名 74。浏览器/商店/工坊/移动端域不收录。
@@ -11,7 +13,7 @@
 复现命令：
 
 ```bash
-python3 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downloads/wallpaper_engine --output-dir <生成物目录>
+python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downloads/wallpaper_engine --output-dir <生成物目录>
 ```
 
 输出 `locale.json` 含三族 en-us 全量键值。证据等级：A（字段名与标签逐字来自随包文件）；由标签措辞推断运行时行为为 C，逐处标注。
@@ -19,7 +21,7 @@ python3 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downl
 ## 1. 结论先行
 
 1. **45 个 effect 的 `ui_editor_effect_<stem>_title` 恰好 45 条**，与 [Effect 执行覆盖表](effect-execution-coverage.md) 的 45 项名单一一对应——官方名单的又一独立 A 级确认，且给出每项官方描述。
-2. **粒子组件官方定义齐全**：3 emitter / 16 initializer / 25 operator / 4 renderer，与 [Windows 取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §19 preset corpus 的 3/16/25/4 逐项对齐，每项带一句话语义。
+2. **粒子组件官方定义齐全**：3 emitter / 16 initializer / 25 operator / 4 renderer，与 [Windows 取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §19 preset corpus 的 3/16/25/4 逐项对齐，每项带一句话语义。
 3. **blend mode 官方共 35 个名称，且官方自己分为 `Native (fast)` 与 `Emulated (slow)` 两组**。项目 Tint 的 32 模式 `ApplyBlending` 表可据此核对命名与分组，但数值语义仍以 `common_blending.h` 源码为准。
 4. **属性绑定共五种来源**：User Property、Timeline Animation、Script、Album Cover（system resource 的 UI 名）、Attachment。其中「Bind to Attachment」的确认文案写明 *"This will replace the current script on the property"*——attachment 投影绑定在官方实现里**就是一段 script**（C 级推断：该绑定复用 SceneScript 通道）。
 5. **Timeline 编辑器合同**：mode 为 Loop/Mirror/Single，`Start paused`、`Random start frame` 是并列开关；smooth loop wrap 的官方定义是 *"Sets the last frame of the animation equal to the first frame"*；keyframe 的 Bézier 插值有五态 `none, automatic, left, right, both`；animation event 按 Frame + Name 登记。

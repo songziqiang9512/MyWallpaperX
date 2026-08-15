@@ -1,8 +1,13 @@
 # Shader source 前置合同与跨后端假设审查
 
-> shader compiler 的语言职责、候选后端与迁移准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#6-shader-compiler-路线)统一约束。本文只记录 source/prelude/backend 语义合同，不选定 Slang、DXC、Metal Shader Converter、glslang 或 SPIRV-Cross，也不因外部 frontend 可编译而扩大生产 GPU 准入。
+> 本文只记录 source/prelude/backend 语义合同与固定客户端观察，不决定现役开发顺序。shader compiler 的语言职责、生产后端与迁移准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#6-shader-compiler-路线)与[兼容运行时架构](../runtime-architecture.md#41-作者-shader-的推荐后端)统一决定。
+>
+> - `official-public-contract`：官方 Shader Syntax/Variables/Headers 页只定义作者可见的 GLSL-like source、自定义 preprocessor、combo、uniform、sampler 和 built-in 表面；它们没有公开内部 translator 或 Metal 后端。
+> - `official-client-static-observation`：本文的 Wallpaper Engine 2.8.42/build `23967692` 快照只观察到随包 source/prelude，以及 normal DirectX material-pass 链的“自定义 preparation → WE HLSL translator → 动态 `D3DCompile`”；不外推到其他版本或 Metal。
+> - `MyWallpaperX-policy/plan`：项目现役首选是“小型 dialect normalization/generated prelude → glslang → SPIR-V → SPIRV-Cross MSL/reflection → Metal”。这是项目自有策略，不是官方客户端路径；外部 frontend 可编译也不自动证明 GPU 执行或视觉等价。
 
 审查日期：2026-07-25
+架构角色与后端策略复核：2026-08-15
 取证快照：Wallpaper Engine 2.8.42 `assets/shaders`
 审查方式：只读静态检查，共 14 个头文件 + 108 个顶层 shader + 7 个 HLSL 专用 shader
 
@@ -14,7 +19,7 @@
 
 1. 扫描得到 **25 个候选 frontend token**，在 `assets/` source corpus 中被使用但没有找到本地定义。缺席是 A 级事实；由哪个 executable/module 注入是 C 级假设。
 2. `mul`、`saturate`、`frac`、`clip`、`ddx`/`ddy` 等命名明显受 HLSL 影响，但矩阵上传、转置与各目标语言展开仍需独立 fixture 和 Windows golden。
-3. 源码存在 `HLSL`、`GLSL`、`HLSL_SM30`、`PLATFORM_ANDROID` 条件分支。MyWallpaperX 应保留这些 authored branches，并设计自有 MSL frontend/translator；不得直接复制官方分支或把 `HLSL` 路径等同于 Metal。
+3. 源码存在 `HLSL`、`GLSL`、`HLSL_SM30`、`PLATFORM_ANDROID` 条件分支。MyWallpaperX 应保真这些 authored branches，用自有 backend identity 和小型 normalization 送入通用 glslang/SPIR-V/SPIRV-Cross MSL 链；不得直接复制官方分支、扩张 Swift 手写完整语言 translator，或把 `HLSL` 路径等同于 Metal。
 4. 存在 **13 个纹理格式枚举**，通过 `TEX0FORMAT`/`TEX1FORMAT` 等 combo 注入，直接决定法线解压和通道 swizzle。
 5. 同一安装包内**两个灰度函数使用相反的 R/B 权重**。统一实现会产生偏色。
 
@@ -377,9 +382,9 @@ shaders/chroma4.frag:2   // [PASS] shadow shadowcaster
 
 对 render graph 的影响：依赖收集与 pass 枚举不能只扫 JSON，还要解析 shader 头部注解。三个宿主 shader 都是 3D 模型类（fur/foliage/chroma），与阴影投射用途一致。只有 3 个样本，`[PASS]` 的完整参数形态与官方调度时机无证据（等级 C）。
 
-### 8.6 Shader frontend 注解是运行输入
+### 8.6 固定 2.8.42 DirectX frontend 会消费这些注解
 
-Ghidra 静态执行路径确认，客户端 frontend 会识别多位数字的 `g_TextureN`、`uniform` inline metadata，以及 `[COMBO]`、`[PASS]`。inline metadata 至少包含 `material`、`default`、`components` 和 `formatcombo` 族。对2.8.42 normal material-pass链的后续单点复核又闭合了当前default/override优先级：compile map已有material显式值时保留，缺少时读取active声明的`default`；两者随后进入同一define emitter、WE HLSL translator和动态加载的`D3DCompile`。相同最终宏值应共享编译variant identity，provenance仍可单独保存。
+固定 Wallpaper Engine 2.8.42/build `23967692` 的 Ghidra 静态执行路径确认，normal DirectX material-pass frontend 会识别多位数字的 `g_TextureN`、`uniform` inline metadata，以及 `[COMBO]`、`[PASS]`。inline metadata 至少包含 `material`、`default`、`components` 和 `formatcombo` 族。对该链的后续单点复核又闭合了当时default/override优先级：compile map已有material显式值时保留，缺少时读取active声明的`default`；两者随后进入同一define emitter、WE HLSL translator和动态加载的`D3DCompile`。相同最终宏值应共享项目自有编译variant identity，provenance仍可单独保存。
 
 这把上述注解从“随包 source 中存在”推进为“运行时 frontend 会读取”；它仍不能推出其他客户端版本/backend、editor UI状态、完整预处理错误恢复、未公开slot的作者可用性或官方私有translator算法。项目对缺失所需default、冲突或畸形default采用额外的失败关闭边界。
 
@@ -389,7 +394,7 @@ Ghidra 静态执行路径确认，客户端 frontend 会识别多位数字的 `g
 |---|---|---|
 | frontend token | §2 的 25 个 token 建 typed IR 或明确诊断 | 每个 token 有 operand/stage fixture；未知形态 fail closed |
 | `mul` 约定 | 按 operand shape 保存，不预先假定转置 | identity/translation/rotation/normal fixture + Windows 对照 |
-| 后端分支 | 保留 authored `HLSL`/`GLSL`/platform 条件；MSL 使用自有 backend identity | variant key 包含 backend/stage/combo；不伪装成 HLSL |
+| 后端分支 | 保真 authored `HLSL`/`GLSL`/platform 条件；小型 normalization/generated prelude 后进入 glslang → SPIR-V → SPIRV-Cross MSL/reflection；MSL 使用自有 backend identity | variant key 包含 backend/stage/combo；不伪装成 HLSL；编译成功不代替 MSL/library/pipeline 与实际 GPU 门 |
 | 坐标与法线 Y | 作为待验证 transform contract | 非对称法线/反射 fixture 不发生未解释的上下镜像 |
 | 纹理格式 combo | §4.1 的 13 个枚举值 | 加载器实际格式 → combo 值映射正确；R8 上传为 `r8Unorm` |
 | 法线解压 | §4.2 三分支，`0.965` 偏移 | 同一法线贴图分别以 BC7 与 RGBA8888 编码，解压结果一致 |
@@ -413,4 +418,4 @@ Ghidra 静态执行路径确认，客户端 frontend 会识别多位数字的 `g
 - [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md) —— Shader IR 与 executor 实现进度
 - [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) —— JS 侧 WEColor 与 shader 侧色彩函数的差异
 - [资料来源与证据索引](source-index.md) —— 官方 Shader 文档页面入口
-- [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) —— 证据等级
+- [Windows 官方客户端取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) —— 证据等级

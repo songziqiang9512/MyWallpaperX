@@ -4,7 +4,7 @@
 >
 > 首次整理：2026-07-22
 >
-> 目标：保真作者声明与关键执行合同，并让通用 compiler、VM、RenderGraph 和 executor 以可诊断降级覆盖尽可能多的未见内容。
+> 目标：保真作者声明与关键执行合同，让声明式作者内容优先进入通用 compiler、VM、component runtime 和 Metal executor，并在局部失败时保住其余画面。
 
 ## 1. 先说结论
 
@@ -16,7 +16,7 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 4. Timeline、SceneScript、用户属性、鼠标、音频和媒体只更新作者绑定的目标；
 5. 不支持的局部语义应显式降级，不能用整层位移、全局水波或静态占位冒充支持；作者显式启用的 Scene Camera Shake 是独立的全局相机系统，不能与局部 effect 混同。
 
-运行证据使用两层矩阵：`script/scene_wallpaper_sample_matrix.json` 是固定回归 suite，按 digest 锁定 `script/scene_wallpaper_full_sample_matrix.json` 并只保存 13 个成员及其明确 override；加载时无损展开成既有矩阵合同。后者的目标是当前真实 Scene 目录完整快照；authored census 发现样本增删时立即降为待扩容 tracked baseline，完成独立 milestone 运行扩容前不得称完整。日常改动按影响面跑定向门；fixed/full 只在 milestone 阶段按明确风险选择。现役结果和聚合缺口只在 [运行证据索引](runtime-evidence-index.md) 维护，专项表只链接该入口，避免重复数字随代码演进失真。用户可见回归仍按真实 render chain 定位，但当前迁移优先级与批次边界由[通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)决定：优先修公共 primitive，并验证失败只影响预期执行单元，不再把每个已知 family 变成一条专用完整准入链。
+运行证据使用两层矩阵：`script/scene_wallpaper_sample_matrix.json` 是固定回归 suite，按 digest 锁定 `script/scene_wallpaper_full_sample_matrix.json` 并只保存 13 个成员及其明确 override；加载时无损展开成既有矩阵合同。后者的目标是当前真实 Scene 目录完整快照；authored census 发现样本增删时立即降为待扩容 tracked baseline，完成独立 milestone 运行扩容前不得称完整。日常改动按影响面跑定向门；fixed/full 只在 milestone 阶段按明确风险选择。现役结果和聚合缺口只在 [运行证据索引](runtime-evidence-index.md) 维护。当前迁移优先级与批次边界由[兼容执行路线](../scene-compatibility-roadmap.md)决定：先让一个真实 authored unit 沿完整纵向链实际执行，再在 checkpoint 扩未见组合和撤权范围。
 
 这直接解释了此前的主要错误：
 
@@ -46,10 +46,12 @@ Scene 文档按四层使用，后续开发不要从取证记录直接跳到“�
 | 问题 | 先看 |
 |---|---|
 | Swift、Metal、C/C++、JavaScript 与 Python 的长期职责，VM/compiler/XPC 何时允许接入 | [技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md)；只规定路线与准入，不代表能力已实现 |
-| 当前 Scene 为什么转向通用执行、下一波次做什么、什么专用路线不得再扩张 | [Scene 通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)；只决定迁移顺序，不覆盖能力事实 |
-| 当前系统大盘、主要缺口和下一批次是什么 | [官方语义与实现覆盖台账](coverage-ledger.md) |
+| Scene 的目标处理方式、官方/静态/第三方证据如何分层 | [Scene 兼容运行时架构](../runtime-architecture.md) |
+| 当前先做哪个纵向结果、什么专用路线不得再扩张 | [Scene 兼容执行路线](../scene-compatibility-roadmap.md)；只决定迁移顺序，不覆盖能力事实 |
+| 公开资料不足时，AI 何时研究官方客户端、怎样提炼独立合同并证明结果一致 | [官方客户端行为研究与一致性验证工作流](official-client-behavior-research-workflow.md)；Ghidra 只回答有界结构问题，官方黑盒对照才验证外部结果 |
+| 当前系统大盘、主要缺口和待办是什么 | [官方语义与实现覆盖台账](coverage-ledger.md) |
 | 当前真实 Scene 样本声明了哪些纹理、Effect/Graph/FBO、粒子、动态输入和参数 family，某个公共修复影响哪些样本 | [全样本能力分类与修复台账](scene-corpus-capability-inventory.md)；它是 authored corpus 清单，不是运行支持等级 |
-| 真实样本缺图、错误合成、黑窗或交互不生效，当前先修哪一项 | 从[运行证据索引](runtime-evidence-index.md)和隔离复现确定第一个失败 identity，再用[能力依赖图](capability-dependency-map.md)定位公共前置；按现役计划选择能让未见内容受益、且可局部降级的通用 primitive，不按目录、`L1/L2` 或已知 effect 名称挑任务 |
+| 真实样本缺图、错误合成、黑窗或交互不生效，当前先修哪一项 | 从[运行证据索引](runtime-evidence-index.md)和隔离复现确定第一个失败 identity；按现役路线闭合最短可见纵向链，并用[能力依赖图](capability-dependency-map.md)检查不可绕过的公共前置 |
 | 179 个官方页面逐页落到哪个稳定合同 anchor、哪些只属于编辑器或平台决策 | [官方页面逐页表](official-page-map.md) |
 | 16 个官方目录组如何路由到专项能力表 | [官方页面分组映射](official-page-crosswalk.md) |
 | 公共能力先后依赖、哪些系统必须共用底座 | [能力依赖图](capability-dependency-map.md) |
@@ -76,8 +78,7 @@ Scene 文档按四层使用，后续开发不要从取证记录直接跳到“�
 | 官方站当前有哪些 Scene 页面、某个 API 专页在哪里 | [官方页面全目录](official-page-catalog.md) |
 | 某条结论来自官方、样本还是第三方实现 | [资料来源与证据索引](source-index.md) |
 | 某条 `L3` 到底由哪些代码、自动测试和运行/GPU 结果支撑 | [运行证据索引](runtime-evidence-index.md) |
-| 2026-07-22 早期能力批次当时采用的顺序、样本和测试门 | [Scene 播放能力开发计划](../scene-capability-development-plan-2026-07-22.md)（历史记录，不用于选下一任务） |
-| R0-R5 owner 收敛和旧链删除当时的断点、决策与验收条件 | [Scene Render Chain 重构计划](../scene-render-chain-refactor-plan-2026-08-03.md)（已完成历史记录，不是现役计划或能力事实入口） |
+| 早期能力批次、R0-R5、旧 G0-G5 计划和样本基线 | [历史文档索引](../../history/README.md)；只用于追溯，不用于选择下一任务 |
 
 ### 2.1 源码目录导航
 
@@ -111,7 +112,7 @@ Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范�
 
 冲突时按 `A -> 2.8.42 客户端快照静态取证 -> B -> C -> D -> E` 排查。客户端静态取证是单独标注版本和方法的证据通道，不占用本表字母等级；其逐篇入口见 [资料来源与证据索引](source-index.md) §1.11。它可收窄结构和生命周期假设，但仍不能证明完整运行时事件顺序、shader 数学或 Windows 像素 parity。WaifuX 的资源包仍留在 `C`。
 
-注意本表的 `A`-`E` 与 [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) 的 `A`/`B`/`C` 是**两套不同的标度**：后者的 `C` 指“根据字段名或常量作出的解释”，不是本表的 WaifuX payload。§1.11 中以该审计为等级源的随包取证文档使用后者。引用“等级 C”时必须指明出处标度。
+注意本表的 `A`-`E` 与 [Windows 2.8.42 历史取证快照](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) 的 `A`/`B`/`C` 是**两套不同的标度**：后者的 `C` 指“根据字段名或常量作出的解释”，不是本表的 WaifuX payload。§1.11 中以该审计为等级源的随包取证文档使用后者。引用“等级 C”时必须指明出处标度。
 
 ## 4. 开发硬规则
 
@@ -166,13 +167,14 @@ scene.json / scene.pkg / assets
 
 继续改代码前，只需把本批真正会消费的合同闭合到足以安全执行，而不是预先穷举整个作者语义空间：
 
-1. 写明新增或扩展的通用 primitive，以及未见内容如何自动受益；
-2. 保留本批所需的作者启用条件、source/pass order、resource/slot/target identity 和 lifecycle；
-3. 区分 hard fail、局部 passthrough、作者默认和 preserve-with-warning；
-4. 提供项目自有正反 fixture，并至少包含一个未见内容或新组合，证明不是名称/hash dispatch；
-5. compiler、VM 或 graph 接受输入后仍由 reflection/ABI/resource/target/budget 门校验，不能把 parse success 当视觉支持；
-6. 涉及 GPU 或可见输出时运行代表隔离样本，证明 GPU、publication、terminal compositor、next-frame 和局部失败隔离；只有声称具体 fidelity 修复时才强制预定义 ROI/事件断言；
-7. 写明旧专用 owner/fallback、取得产品执行权的开关或范围，以及稳定后的撤销条件。
+1. 写明当前没有执行的真实作者输入及统一链第一个失败 identity；
+2. 写明本批要闭合到的可见/可执行结果和 previous-current fallback；
+3. 保留作者启用条件、source/pass order、resource/slot/target identity 和 lifecycle；
+4. 区分 hard fail、局部 effect/pass/script/component 降级、作者默认和 preserve-with-warning；
+5. 提供项目自有正反 fixture，尽早运行一个代表性真实内容；未见内容或新组合在 checkpoint 加入，证明不是名称/hash 视觉特判；
+6. compiler、VM 或 graph 接受输入后仍由 reflection/ABI/resource/target/budget 门校验，不能把 parse success 当视觉支持；
+7. 涉及 GPU 或可见输出时证明实际执行、completion、publication、terminal compositor、next-frame 和局部失败隔离；具体 fidelity 声明再加预定义 ROI/事件断言；
+8. 记录旧专用 fallback 和稳定后的撤销条件，但公共前置批次不强制同批撤权。
 
 官方材料足以定义本批消费合同就直接实现。MirageWallpaper 等第三方源码只在官方材料不足、需要交叉检查 producer-to-consumer 结构时读取固定 revision；它不是每批前置门，也不能提供算法真值。未知但不会破坏安全或状态完整性的可选语义可以带诊断进入受控执行，不再因为缺少逐项证明自动整层 `unsupported`。
 
@@ -183,7 +185,7 @@ scene.json / scene.pkg / assets
 - [覆盖台账](coverage-ledger.md) 只做系统摘要；Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象的专项能力表分别是其逐项等级事实来源。
 - [全样本能力分类与修复台账](scene-corpus-capability-inventory.md) 保存当前 corpus 的静态 family、参数和资源清单。新增/删除样本或按公共类型立项时先刷新它；family 覆盖数只用于界定影响面，不能覆盖运行证据或第一个可见断裂边。
 - 纹理/资源、Graph/FBO/composition、effect/shader、粒子和动态输入/SceneScript/交互均以官方公开合同和项目 corpus 为主；Mirage 固定 revision 只在官方材料不足时作结构交叉检查，专项表不复制治理文字。
-- 实现顺序先看[通用执行重构计划](../scene-generic-execution-refactor-plan-2026-08-15.md)，再用[能力依赖图](capability-dependency-map.md)检查公共前置，并进入对应专项表核对当前事实。依赖图不是工作队列，专项表的 `L3 bounded` 也不是继续扩张专用 owner 的理由。
+- 实现顺序先看[兼容执行路线](../scene-compatibility-roadmap.md)，再用[能力依赖图](capability-dependency-map.md)检查公共前置，并进入对应专项表核对当前事实。依赖图不是工作队列，专项表的 `L3 bounded` 也不是继续扩张专用 owner 的理由。
 - 资料入口完整性以 [179 页逐页表](official-page-map.md) 与自动门禁为准；16 组分组统计不能替代逐页映射。
 - 专项表不写「当前实现基线：`<commit>`」。当前基线、生产播放输入边界、签名身份和 Debug runtime evidence schema 只在 [运行证据索引](runtime-evidence-index.md) 维护；覆盖台账只做系统摘要，能力依赖图只维护前置关系，带日期的 plan/roadmap 只表示历史批次快照。专项表里出现的 commit 号一律理解为对应能力的历史落地提交。
 - 新发现的字段先标证据等级和样本来源，再判断是否进入实现。

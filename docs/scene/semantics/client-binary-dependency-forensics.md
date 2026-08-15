@@ -67,7 +67,7 @@ PyTorch、Torch Vision、Torch Audio、timm、**MiDaS**、**DPT**、OpenCV（含
 
 ## 3. `bin/` 磁盘模块清单
 
-[Windows 取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §4 记录的是 Parallels 运行时**已加载**的 4 个模块（`d3d11`/`dxgi`/`d3dcompiler_47_x32`/`scenescript32`）。以下是磁盘上的完整装载面（62 个文件，511 MB；`.dll` 28 个）：
+[Windows 取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §4 记录的是 Parallels 运行时**已加载**的 4 个模块（`d3d11`/`dxgi`/`d3dcompiler_47_x32`/`scenescript32`）。以下是磁盘上的完整装载面（62 个文件，511 MB；`.dll` 28 个）：
 
 | 组 | 文件 | 结构事实 / 边界（逐项等级见下文） |
 |---|---|---|
@@ -139,7 +139,7 @@ FreeImage、Assimp、OpenAL Soft、DXC/DXIL、CEF、ANGLE、SwiftShader、Vulkan
 | `editor/` | `editorparticlelayerdependency.{frag,vert}`、`meshviewportshading.{frag,vert}` | 编辑器专用视口 shader，播放器无义务 |
 | `HLSL/` | `dx11fallback.{frag,vert}`、`dx11playlistgaussian.{frag,vert}`、`dx11playlisttransition.{frag,geom,vert}` | D3D11 专用回退与播放列表过渡（Prelude §10 已收录其 15 个 `g_` 符号） |
 
-`declarations.json`（4.7 KB）已由 [Windows 取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §17 收录其 shader/texture format 声明结构。
+`declarations.json`（4.7 KB）已由 [Windows 取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §17 收录其 shader/texture format 声明结构。
 
 ## 5. 官方元素预览视频
 

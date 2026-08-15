@@ -1,6 +1,12 @@
 # Web 外部代表样本基线（2026-07-20）
 
-> 状态：历史运行基线，不代表当前 HEAD。以下 App 身份、样本数量、得分和 PASS 只属于 2026-07-20 批次；当前证据状态查 [Web 现役状态](../current-state.md)。
+> **历史证据 — 非现役入口**
+>
+> 本文仅保存 2026-07-20 的外部样本运行基线；其中样本、revision、App 身份、命令、得分和 PASS 均不得作为当前兼容性结论。
+>
+> 现役结论只查 [Web 现役状态](../../web/current-state.md)；相关跨专题历史背景见[当时评估](../cross-topic/web-scene-current-state-roadmap-2026-07-19.md)，全部历史材料见[历史索引](../README.md)。
+
+> 状态：历史运行基线，不代表当前 HEAD。以下 App 身份、样本数量、得分和 PASS 只属于 2026-07-20 批次；当前证据状态查 [Web 现役状态](../../web/current-state.md)。
 
 ## 1. 目的与结论
 
@@ -65,7 +71,7 @@ AudiOrbits 的作者 production webpack 配置要求本地 HTTPS 证书，准备
 2. `audio.spectrum.dispatched`，且 `bins=128`、`stereoDelta=0`；
 3. `audio.spectrum.changed`，证明不是重复发送静态数组。
 
-这个 fixture 证明监听注册、64+64 布局、JS 桥接和样本消费链路，不单独证明系统音频采集相关性。生产链的 signed stereo FFT、受控系统音源和按需采集生命周期证据见 [Web 与 Scene 当前状况评估](../../reviews/web-scene-current-state-roadmap-2026-07-19.md)；设备切换、真正系统静音和睡眠恢复仍需单独验收，不能用本基线替代。
+这个 fixture 证明监听注册、64+64 布局、JS 桥接和样本消费链路，不单独证明系统音频采集相关性。该批次的 signed stereo FFT、受控系统音源和按需采集生命周期背景见 [Web 与 Scene 当时状况评估](../cross-topic/web-scene-current-state-roadmap-2026-07-19.md)；设备切换、真正系统静音和睡眠恢复不能用本基线代替现役验收。
 
 ## 6. Service Worker 证据边界
 

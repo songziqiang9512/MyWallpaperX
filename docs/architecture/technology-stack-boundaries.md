@@ -12,10 +12,11 @@
 
 1. `AGENTS.md` 约束实现、验证、提交和工作区安全；
 2. 本文是技术栈职责、跨语言边界和依赖准入的唯一长期入口；
-3. [Scene 通用执行重构计划](../scene/scene-generic-execution-refactor-plan-2026-08-15.md)决定当前迁移顺序和停止项；
-4. [Scene 语义手册](../scene/semantics/README.md)和专项覆盖表记录语义合同与当前能力，[能力依赖图](../scene/semantics/capability-dependency-map.md)只记录前置关系；
-5. [运行证据索引](../scene/semantics/runtime-evidence-index.md)决定当前构建、签名和真实运行证据；
-6. [Web 现役状态](../web/current-state.md)决定 Web 当前源码所有权、证据边界和待验收项。
+3. [Scene 兼容运行时架构](../scene/runtime-architecture.md)规定官方/参考证据如何转化为项目执行结构；
+4. [Scene 兼容执行路线](../scene/scene-compatibility-roadmap.md)决定当前迁移顺序和停止项；
+5. [Scene 语义手册](../scene/semantics/README.md)和专项覆盖表记录语义合同与当前能力，[能力依赖图](../scene/semantics/capability-dependency-map.md)只记录前置关系；
+6. [运行证据索引](../scene/semantics/runtime-evidence-index.md)决定当前构建、签名和真实运行证据；
+7. [Web 现役状态](../web/current-state.md)决定 Web 当前源码所有权、证据边界和待验收项。
 
 本文使用三种状态词：
 
@@ -25,9 +26,9 @@
 
 ## 1. 当前基线与迁移目标
 
-当前产品是 Swift-first 的原生 macOS 工程：AppKit 承担 App 生命周期、主界面、窗口和桌面宿主，少量 SwiftUI 只作为 [AppKit 迁移计划](appkit-migration-plan-2026-05-17.md)列出的受控残留；Swift 承担产品模型、播放生命周期与现有 Scene runtime，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。当前仓库尚未把通用 JavaScript VM、第三方 shader compiler 或 Scene XPC service 接入生产链。
+当前产品是 Swift-first 的原生 macOS 工程：AppKit 承担 App 生命周期、主界面、窗口和桌面宿主，少量 SwiftUI 只作为 [AppKit 迁移计划](appkit-migration.md)列出的受控残留；Swift 承担产品模型、播放生命周期与现有 Scene runtime，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。当前仓库尚未把通用 JavaScript VM、第三方 shader compiler 或 Scene XPC service 接入生产链。
 
-Scene 的迁移目标已经确定：保留 Swift/Metal 产品底座，把作者内容交给少数通用执行单元处理，而不是继续为已知 effect、脚本表达式或样本建立越来越多的 Swift 专用准入路径。核心目标是：
+Scene 的迁移目标已经确定：保留 Swift/Metal 产品底座，把作者内容交给少数通用执行单元处理，而不是继续为已知 effect、脚本表达式或样本建立越来越多的 Swift 专用准入路径。迁移按能够让真实内容立即出画面的纵向切片推进，不先横向建完所有平台。核心目标是：
 
 - 一个 loss-preserving Scene IR 和一套 identity/order/lifecycle 合同；
 - 一个通用 shader/material compiler 路径；
@@ -35,6 +36,7 @@ Scene 的迁移目标已经确定：保留 Swift/Metal 产品底座，把作者�
 - 一个真实 ECMAScript VM 与 typed host bridge；
 - 一个数据驱动的粒子组件解释器；
 - 对安全/状态完整性 hard fail，对局部视觉不兼容 fail soft；
+- 普通合法作者内容默认获得编译/执行尝试，而不是先进入名称准入表；
 - 新的合法未见内容能够因公共 primitive 自动受益；
 - 稳态帧率、首帧、内存、能耗和故障恢复分别测量，不以代码行数或单样本结果判断架构优劣。
 
@@ -67,7 +69,7 @@ Scene 的迁移目标已经确定：保留 Swift/Metal 产品底座，把作者�
 
 作者 shader 的词法、语法、类型和代码生成由通用 compiler backend 承担；ECMAScript 语言行为由真实 VM 承担；粒子组合由 component interpreter 承担。Swift host 负责输入规范化、能力/资源边界、调用预算、结果校验和生命周期，不再把这些完整语言逐项重写成 Swift 专用 parser/compiler。
 
-sample ID、layer ID、路径、hash、资产名称和参考项目身份只能用于 identity、缓存、provenance、诊断和回归定位，不能选择可见算法。
+sample ID、layer ID、路径、hash 和资产名称可以用于装载作者声明、选择共享 component/API primitive、identity、缓存、provenance、诊断和回归定位；不能选择样本专用可见算法或固定输出。definition/material/shader path 选择对应作者数据，以及 particle/API name 选择共享 registry 项，属于正常数据驱动执行。
 
 ### 3.2 失败按风险分级
 
@@ -112,21 +114,23 @@ compiler 在 scene load 或 variant 变化时工作，不持有 drawable、长�
 
 ## 5. SceneScript 路线
 
-通用 SceneScript 不继续沿“在 Swift 中逐步补成完整 JavaScript 解释器”的路线。QuickJS-NG 是优先评估实现，因为其 C API 提供 runtime 内存、栈和 interrupt 控制；JavaScriptCore 保留为 Apple 原生对照。最终选择在现役计划 G3 批次用许可证、双架构、发布、预算、兼容和性能证据决定。[QuickJS-NG C API](https://quickjs-ng.github.io/quickjs/developer-guide/intro/)
+通用 SceneScript 不继续沿“在 Swift 中逐步补成完整 JavaScript 解释器”的路线。首选上游 QuickJS-NG，因为其 C API 可控制 runtime heap、stack 和 interrupt budget，适合先闭合最小 per-scene VM + typed mutation 纵向链。[QuickJS-NG C API](https://quickjs-ng.github.io/quickjs/developer-guide/intro/)
+
+JavaScriptCore 保留为系统框架对照，但当前 Xcode SDK 没有公开的执行时间限制入口；没有独立 worker 的可靠终止、内存和 teardown 证据时，不作为首条实现。固定 Wallpaper Engine 2.8.42 Windows 客户端的静态观察识别到 V8 runtime，这只支持“应使用真实 ECMAScript VM”的方向，不是官方公开或跨版本保证，也不代表项目应承担完整 V8 的体积和构建成本。
 
 VM 执行 ECMAScript；Swift host bridge 负责 source/binding/owner/target IR、global/per-surface phase、官方 host API/module allowlist、typed handle/generation、mutation buffer、event/timer/effective time、pause/seek、作者值 fallback 和 teardown。
 
-VM 取得受控产品执行权前至少满足：
+VM 首次进入受控开发产品路径前至少满足：
 
 1. 项目 fixture 覆盖代表语法、module、数值、host API 和 lifecycle 正反例；
 2. 默认无 DOM、Node、WebWorker、文件、网络和任意 native module；
 3. heap、stack、单次执行、每帧总预算和 job/timer 数量有可测上限；
 4. surface domain、handle generation、reload 和 teardown 相互隔离；
 5. 无限循环、异常、OOM、stale handle 和销毁竞态不会杀死主 App；
-6. 跨 VM/Swift 调用按帧批量化，并有 CPU/内存基线；
-7. 许可证、固定版本、来源、arm64/x86_64、签名、公证和更新流程完成审计。
+6. 跨 VM/Swift 调用按帧批量化，并记录最小 CPU/内存基线；
+7. 上游、固定版本、许可证和可重复构建已登记。
 
-不要求完整 API 表全部实现后才开始受控产品验证；未实现 host API 必须可诊断，并只回退受影响 binding/script domain。Hello World 或单个样本成功只证明集成链可运行，不证明 SceneScript 完整兼容。
+不要求完整 API、双架构、签名或公证后才开始开发验证；这些属于 release gate。未实现 host API 必须可诊断，并只回退受影响 binding/script domain。Hello World 或单个样本成功只证明集成链可运行，不证明 SceneScript 完整兼容。
 
 ## 6. Shader compiler 路线
 
@@ -134,44 +138,44 @@ VM 取得受控产品执行权前至少满足：
 
 当前 Swift authored-shader frontend/emitter 是已验证子集的现役路径和迁移 oracle，不是永久扩张方向。Swift 继续拥有 source provenance、author metadata/variant preparation、resource identity、host uniform、Program ABI、render state 校验、预算和 lifecycle；通用 compiler backend 负责语言解析、类型、stage link、代码生成和 reflection。
 
-### 6.2 后端评估
+### 6.2 首选后端与对照
 
 | 路径 | 合理用途 | 边界 |
 |---|---|---|
 | 现有 Swift frontend/emitter | 已验证子集、差分 oracle、迁移期 fallback | 不再扩张为完整通用语言编译器 |
 | Slang | HLSL-like corpus、MSL 与 reflection 评估 | Metal target 状态和 dialect 兼容需实测，[Slang](https://github.com/shader-slang/slang) |
 | DXC -> Metal Shader Converter | 现代 HLSL 到 DXIL/metallib 路径 | 不自动兼容历史 dialect 或 SM3 行为，[DXC](https://github.com/microsoft/DirectXShaderCompiler)、[Metal Shader Converter](https://developer.apple.com/metal/shader-converter/) |
-| glslang -> SPIR-V -> SPIRV-Cross | GLSL 路径及 MSL/reflection | glslang HLSL frontend 不作为统一路线；优先稳定 C API，[glslang](https://github.com/KhronosGroup/glslang)、[SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) |
+| **glslang -> SPIR-V -> SPIRV-Cross** | **当前首选：WE GLSL-like normalization 后生成 MSL/reflection** | 从独立上游固定版本集成；不得复制 Mirage vendor、bridge 或 shader rewrite，[glslang](https://github.com/KhronosGroup/glslang)、[SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) |
 
-评估后收敛为“Swift compatibility/host layer + 最少必要 production backend”，不永久捆绑全部候选。
+第一轮只建设首选后端。只有真实 corpus spike 证明 dialect、MSL 或 runtime 约束无法以小型 normalization 解决，才带着失败分类评估 Slang 或 DXC；不并行建设三套 compiler。最终保持“Swift compatibility/host layer + 一个 production backend”。
 
 ### 6.3 取得产品执行权的门
 
-backend 先通过项目 fixture 和只读隔离 corpus 的 source/dialect 分类、parse/type/stage link、reflection/ABI、MSL/metallib/pipeline preflight、冷/热编译、缓存/取消/预算、双架构/发布/许可证检查。之后可以在受控开关下取得代表内容的产品执行权；不要求先为所有未知 state/slot/color 建立逐项 exact admission。
+backend 先通过项目 fixture 和只读隔离 corpus 的 source/dialect 分类、parse/type/stage link、reflection/ABI、MSL/library/pipeline preflight以及输入大小/编译时间预算。随后立即在受控开关下取得 ordinary representative content 的开发产品执行权；不要求先为所有未知 state/slot/color 建立逐项 exact admission，也不等待完整发行审计。
 
 产品验证必须证明：
 
-- 至少一个未见内容或新组合不依赖名称/hash dispatch；
+- 至少一个真实 ordinary effect 实际执行；checkpoint 再加入未见内容或新组合，证明不依赖名称视觉特判；
 - 编译结果经 Swift 校验后进入统一 Program 和 GraphExecutor；
 - compile/pipeline 失败只降级相关 pass/effect，安全与状态错误仍 hard fail；
 - 代表隔离样本具备 GPU、publication、terminal compositor 和 next-frame 证据；
 - fallback 有诊断和显式路由，不是静默双 owner；
-- 稳定后撤销对应 Swift 专用产品 owner。
+- 稳定替代后再撤销对应 Swift 专用产品 owner。
 
 外部 compiler 接受源码只证明 frontend 能力，不证明运行时语义或视觉等价。
 
 ## 7. 迁移顺序
 
-具体波次、快速回滚和退役条件以[Scene 通用执行重构计划](../scene/scene-generic-execution-refactor-plan-2026-08-15.md)为准：
+具体纵向切片、快速回滚和退役条件以[Scene 兼容执行路线](../scene/scene-compatibility-roadmap.md)为准：
 
-1. G0 对齐规则、长期合同和基线；
-2. G1 通用 shader/material compiler；
-3. G2 通用 Effect/FBO RenderGraph；
-4. G3 真实 SceneScript VM；
-5. G4 粒子组件解释器；
-6. G5 3D、lighting/HDR、Puppet 与离线高级 primitive。
+1. V0 普通 authored material/shader 从声明到 compositor；
+2. V1 多 pass、FBO、command、history 和 cross-layer graph；
+3. V2 真实 SceneScript VM 与 typed host bridge；
+4. V3 particle component interpreter；
+5. V4 动态输入、provider、text、audio、media 和交互；
+6. V5 Puppet、lighting/HDR、3D、offline、性能与发布。
 
-各波次用可独立回滚的通用 primitive 批次推进。受控 feature flag、差分 oracle 和迁移期 fallback 允许存在；稳定后必须撤销旧 owner，不能长期保留两套不透明产品路由。是否落地 compiler XPC 或 renderer helper 由协议、崩溃、预算和性能证据决定，不作为 G1-G4 的前置。
+V0 必须先取得真实可见结果；V1–V3 的独立研究和 fixture 可以并行，但不以完成整个子系统阻塞上一条纵向链。受控 feature flag、差分 oracle 和迁移期 fallback 允许存在；可见替代稳定后必须撤销旧 owner，不能长期保留不透明双路由。是否落地 compiler XPC 或 renderer helper 由 crash、预算和性能证据决定，不作为首个普通 effect 或 VM property 结果的前置。
 
 ## 8. 性能与效率合同
 
@@ -186,21 +190,32 @@ backend 先通过项目 fixture 和只读隔离 corpus 的 source/dialect 分类
 
 性能批次按影响面记录首帧、warm switch、CPU/GPU frame time p50/p95/p99、hitch、encoder 数、冷热编译、单/多 surface 内存、30/60/120 Hz frame pacing、暂停/睡眠/显示变化和长时间恢复。首次建立基线时记录硬件、OS、显示器、构建、App 身份、fixture/corpus 和采集工具；不凭主观体验预写阈值。[Analyzing Metal performance](https://developer.apple.com/documentation/xcode/analyzing-the-performance-of-your-metal-app)
 
-## 9. 第三方依赖与发布门
+## 9. 第三方依赖的开发门与发布门
 
-任何新增 native runtime/compiler 依赖进入产品 target 前必须完成：
+新增 native runtime/compiler 进入受控开发 target 前必须完成：
 
 - 使用场景、替代方案和退出条件；
-- 官方上游、固定版本、校验值和可重复构建；
-- license、NOTICE、third-party notices 与分发义务；
-- arm64/x86_64、最低系统、动态库解析；
-- Developer ID、hardened runtime、notarization、stapling 与 Gatekeeper；
-- sandbox/entitlement、文件和网络权限最小化；
-- crash、timeout、OOM、取消、更新和损坏缓存恢复；
+- 官方上游、固定 revision、获取方式、项目 patch、toolchain、架构、构建参数、产物哈希和可重复构建；
+- license 与已知分发义务；
+- 当前开发架构、最低系统和链接方式；
+- 输入大小、timeout/OOM、取消或 interrupt、失败隔离；
 - CI 无私有 Workshop corpus 时仍可运行的项目 fixture；
 - 不在运行时下载或执行未固定的 compiler、VM、module 或脚本依赖。
 
+进入发行构建前再完成：
+
+- NOTICE/third-party notices 和全部分发义务；
+- binary、dependency manifest、固定源码 revision、项目 patch 与构建产物哈希的一一对应；
+- 完整 corresponding-source/source archive；若使用 submodule，必须验证归档包含实际源码而非只有 gitlink；
+- arm64/x86_64、最低系统和动态库解析；
+- Developer ID、hardened runtime、notarization、stapling 与 Gatekeeper；
+- sandbox/entitlement、文件和网络权限最小化；
+- crash、timeout、OOM、取消、更新、损坏缓存恢复和长稳；
+- release package 中的版本、校验和可追溯清单。
+
 依赖升级重新执行其保护风险相关的合同门，不能只因包管理器解析成功就合入。
+
+这些规则适用于 glslang、SPIRV-Cross、QuickJS-NG 及以后确有必要的 compiler/VM 依赖；采用通用语言库不等于授权引入第二套 renderer，也不改变 MirageWallpaper 的 clean-room 边界。开发门只保护第一次受控执行所需的来源、预算和故障隔离，完整 source archive、双架构、签名和公证不阻塞 V0 第一张真实画面。
 
 ## 10. 工具链与语言模式
 
@@ -213,4 +228,4 @@ backend 先通过项目 fixture 和只读隔离 corpus 的 source/dialect 分类
 
 只有语言、GPU backend、VM、compiler、service、跨语言/跨进程 owner、生命周期、安全边界或现役架构路线改变时修改本文。单个 capability 完成度、样本数字、一次性能结果和实验日志进入专项覆盖表、运行证据索引或对应批次记录。
 
-修改本文时必须同时检查 `AGENTS.md`、[文档入口](../README.md)、[Scene 专题入口](../scene/README.md)、[语义手册](../scene/semantics/README.md)和链接门，避免产生第二份技术栈真相。
+修改本文时必须同时检查 `AGENTS.md`、[文档入口](../README.md)、[Scene 专题入口](../scene/README.md)、[兼容运行时架构](../scene/runtime-architecture.md)、[语义手册](../scene/semantics/README.md)和链接门，避免产生第二份技术栈真相。

@@ -1,10 +1,24 @@
 # Scene 资料来源与证据索引
 
-> 核验日期：2026-08-09
+> 资料内容核验日期：2026-08-09；文档角色与链接复核：2026-08-15
 >
 > 网络核验使用系统代理 `http://127.0.0.1:7897`。
 >
-> 本索引只记录可追溯资料。没有公开或无法验证的内部行为保持 unknown，不用第三方猜测补成“官方规则”。
+> 本索引只做来源与证据导航，不决定现役开发顺序、能力等级或下一批。现役顺序只看[Scene 兼容路线](../scene-compatibility-roadmap.md)，当前能力与运行事实只看[覆盖台账](coverage-ledger.md)和[运行证据索引](runtime-evidence-index.md)。
+
+当现有来源仍不足以决定当前纵向切片时，研究者必须先按[官方客户端行为研究与一致性验证工作流](official-client-behavior-research-workflow.md)建立有界问题、研究卡、clean-room 输出边界和官方黑盒一致性门；不得从本页直接跳到宽泛反编译或产品实现。
+
+本页始终分开以下五类来源，不在一个结论中互相替代：
+
+| 来源类别 | 本页中的含义 | 不能证明 |
+|---|---|---|
+| `official-public-contract` | 官方 Designer 文档、公开声明、官方示例及其固定 revision | 未公开的内部 GraphExecutor、shader 数学或调度算法 |
+| `official-client-dynamic-golden` | 固定 Wallpaper Engine 客户端、输入、环境、时间和事件下的黑盒画面/状态/时序观察 | 客户端内部实现、其他版本/环境或未纳入对照的 profile |
+| `official-client-static-observation` | 固定 Wallpaper Engine 2.8.42/build `23967692` 安装物、字符串、changelog 与 bounded clean-room 静态观察 | 其他版本、macOS/Metal 实现、Windows 像素等价或可复制的官方算法 |
+| `third-party-reference-pattern` | 固定 revision 的 MirageWallpaper 等第三方项目所展示的职责分层、状态传递和顺序 | 官方语义、MyWallpaperX 当前能力或可直接复制的实现 |
+| `MyWallpaperX-policy/plan` | 项目自有的兼容运行时架构、路线、安全边界和验证决策 | 官方内部处理方式或已有运行支持 |
+
+没有公开或无法验证的内部行为保持 unknown，不用第三方猜测补成“官方规则”，也不把项目自有策略倒写成官方事实。
 
 ## 1. 官方公开资料
 
@@ -21,7 +35,7 @@
 
 本轮固定官方文档 revision：[`b26412295cbfd0ee5cdceff67e2c95069527aa1b`](https://github.com/Wallpaper-Engine-Team/wallpaper-engine-docs/commit/b26412295cbfd0ee5cdceff67e2c95069527aa1b)，也是 2026-07-22 核验时的远端 `HEAD`。线上页面与源码发生漂移时，先对比该 revision，不从记忆猜改动。
 
-Scene 能力研究按以下顺序取证：先读现役专项表、总覆盖台账与运行证据索引，再读本资料库已经归档的官方客户端分析；仍不足时核对官方网页和合法 corpus。只有这些材料无法回答一个会阻塞公共设计的结构性问题时，才对已记录哈希的官方客户端做一次范围明确的 clean-room 反编译复核。不得把 Ghidra 变成每批默认步骤，也不得从客户端复制算法表达、payload、伪代码、地址或资产；静态结构不能代替项目自有正反门、隔离样本或 Windows golden。
+当某个具体行为问题需要补证时，先查已有现役合同、合法 corpus 和官方公开资料，再用固定输入做官方客户端黑盒差分。只有它们仍无法回答会阻塞公共设计的字段归属、producer-to-consumer 顺序、状态或生命周期问题时，才对已记录哈希的官方客户端做范围明确的 clean-room 静态复核；只在官方资料仍不足或需要交叉检查完整链时读取固定 revision 第三方参考。这是取证导航，不是开发批次顺序。不得把 Ghidra 或 Mirage 审查变成每批前置仪式，也不得从客户端或第三方复制算法表达、payload、伪代码、地址或资产；静态结构不能代替项目自有正反门、隔离样本或官方客户端动态 golden。
 
 2026-07-22 sitemap 中 Scene 页面按首级目录计数：
 
@@ -70,7 +84,7 @@ Scene 能力研究按以下顺序取证：先读现役专项表、总覆盖台�
 
 2026-08-02 复核官方 [Blur Precise effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blurprecise.html) 与 [Effects overview](https://docs.wallpaperengine.io/en/scene/effects/overview.html)：公开页把它定义为作用于完整 layer 的精确 Gaussian blur，并允许作者调整 kernel size 与 X/Y scale；更大的 kernel 增加模糊范围和性能成本，overview 只把其更清晰的轮廓/光束表现作为选择方向。页面不公开私有 `KERNEL` 数值映射、采样权重、`ENABLEMASK`/`MASK` wire、pass/RT 结构或跨后端舍入。项目当前 `KERNEL=0/1/2` identity 来自合法 authored 语料与 stock 结构研究，GPU 使用项目自有 large/7-tap binomial/3-tap binomial profile；不得把这些系数写成官方算法或 Windows 像素等价。
 
-2026-08-03 复核官方 [Blend Gradient effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blendgradient.html)、[Album Cover](https://docs.wallpaperengine.io/en/scene/audiovisualizer/albumcover.html) 与 [Timeline modes](https://docs.wallpaperengine.io/en/scene/timeline/modes.html)：公开页确认 Blend Gradient 用 gradient 控制两张纹理的混合，Album Cover 配方把 previous cover 绑定到该输入，并以 `Single`、`Start paused` Timeline 在 `mediaThumbnailChanged` 中调用 `play()`。当前公开示例没有要求先 `stop()`，也没有公开重复 `play()` 时是否从头开始的私有状态机。合法 Workshop 语料另有受保护的 `stop(); play()` 和直接 `play()` 两种作者形态；它们只证明 Timeline 数值生产者可由 SceneScript 控制附件触发，不得被建模成两个竞争的数值 producer。页面不公开私有 JSON、shader 数学、edge 公式或 Windows 事件时序；B20前项目bounded profile的内容指纹、slot/constant/wire准入和项目自有Metal wipe来自合法authored语料与正反门，但该产品面现已退役，旧证据只作历史，不能表述成现役Blend Gradient执行或Windows像素等价。
+2026-08-03 复核官方 [Blend Gradient effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blendgradient.html)、[Album Cover](https://docs.wallpaperengine.io/en/scene/audiovisualizer/albumcover.html) 与 [Timeline modes](https://docs.wallpaperengine.io/en/scene/timeline/modes.html)：公开页确认 Blend Gradient 用 gradient 控制两张纹理的混合，Album Cover 配方把 previous cover 绑定到该输入，并以 `Single`、`Start paused` Timeline 在 `mediaThumbnailChanged` 中调用 `play()`。当前公开示例没有要求先 `stop()`，也没有公开重复 `play()` 时是否从头开始的私有状态机。合法 Workshop 语料另有受保护的 `stop(); play()` 和直接 `play()` 两种作者形态；它们只证明 Timeline 数值生产者可由 SceneScript 控制附件触发，不得被建模成两个竞争的数值 producer。页面不公开私有 JSON、shader 数学、edge 公式或 Windows 事件时序；历史 `B20` 之前的项目bounded profile内容指纹、slot/constant/wire准入和项目自有Metal wipe来自合法authored语料与正反门，但该产品面现已退役，旧标签与证据只作历史，不构成现役批次指令，也不能表述成现役Blend Gradient执行或Windows像素等价。
 
 2026-08-08 复核官方 [Film Grain effect](https://docs.wallpaperengine.io/en/scene/effects/effect/filmgrain.html)、[Shader overview](https://docs.wallpaperengine.io/en/scene/shader/overview.html)、[Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 与 [Shader Headers](https://docs.wallpaperengine.io/en/scene/shader/headers.html)：公开页把 Film Grain 定义为叠加噪声的普通 image effect，作者面包含 blend mode、strength、power、scale、greyscale 与 optional opacity mask；Variables 明确 `g_Time` 是程序运行秒数，`g_TextureNResolution.xy/.zw` 分别是 physical/mapped size；Headers 把 imageblending combo 与 `ApplyBlending` 归入 `common_blending.h`。官网不公开 stock texture default、私有 pass graph、完整 shader 数学或 Windows 数值/像素真值。合法 stock metadata 中当前形态的 slot 1 exact default 为 `util/noise`，旧式 slot 0 可省略 framebuffer material annotation；Mirage 固定 revision的 D 级 asset/RenderGraph结构只作独立交叉检查，不作为官方真值，也不复制 GPL shader、payload、纹理或算法表达。上述资料已足够约束本批的“普通 material pass → authored source/include/helper → framebuffer + exact stock noise → built-in uniforms → Program → layer-local graph → final composition”职责路径，因此无需新增 Ghidra 复核；当前只登记 exact `util/noise -> .noise`，不把任意 path、文件名或格式升级为 purpose。
 
@@ -141,9 +155,9 @@ Scene 能力研究按以下顺序取证：先读现役专项表、总覆盖台�
 
 2026-08-02 复核官方 [Initializer](https://docs.wallpaperengine.io/en/scene/particles/component/initializer.html) 与 [Operator](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html) 页的 Inherit Value From Event：公开页把 initializer 定义为 child 创建时复制 parent 值，把 operator 定义为持续跟随变化中的 parent 值，并建议不需要持续更新时优先 initializer；页面不公开私有 mode wire、默认、event 同帧顺序或数值公式。随包 `particleelementpreviews/inheritinitialvaluefromevent` / `inheritvaluefromevent` 分别提供 event-death initializer 与 event-follow operator 正例，二者均省略 `input`；资料库既有 editor string table 列出 `setcolor` 等 14 个 mode，changelog revision 4154/4175 只确认相关能力演进。45 份当前 Workshop package 为 0 命中。现有资料仍不足以确认两个 component 是否共用同一 `input` typed parser，故只对哈希匹配的 2.8.42 客户端做一次 bounded Ghidra 字段/模式归属复核：两名称进入同一 particle dispatcher、各自直接关联 `input`，并共用 14-value parser；`setcolor` 是表中首项，unknown 进入独立 sentinel。该结论不证明省略默认、枚举编号、运行时机或算法。项目 `b9e60059` 因此只开放省略/精确小写 `setcolor` 的 color snapshot/follow；省略即 `setcolor` 明确属于项目侧 bounded inference，其他 13 种 mode 和畸形/扩展形态继续 fail closed。原始地址、伪代码、函数体与官方算法均未入库；见 [客户端运行时静态取证](client-runtime-static-forensics.md#511-particle-event-value-inheritance-字段与模式复核) 与 [E-PARTICLE](runtime-evidence-index.md#e-particle)。
 
-2026-08-02 复核 [Operator](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html) 与 [Control Point](https://docs.wallpaperengine.io/en/scene/particles/component/control_point.html) 页的 Vortex：公开页说明 Vortex 可围绕 axis 旋转，standard 形态按 inner/outer distance 与 speed 定义场，另有 ring、infinite axis、control point 与 center force 等作者选项；Control Point 可提供 position/angles。页面不公开私有 JSON 名称、flags 位、默认值、距离插值、每帧积分、单位或 2.8.42 数值公式。官方客户端静态审查 [windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)、[client-changelog-forensics.md](client-changelog-forensics.md) 与 [editor-string-table-forensics.md](editor-string-table-forensics.md) 只用于 clean-room 区分 classic v1 的 `axis/distanceinner/distanceouter/flags/speedinner/speedouter` 与 `vortex_v2` 的 ring/CP wire，并交叉确认 infinite-axis/CP-angle 能力演进；它们不提供可复制算法或官方 runtime truth。项目当前 v1 executor 的 right-hand tangential acceleration、flags 0/1 距离解释与 fixed-step 数学是有界项目合同，`vortex_v2`、audio/CP/center-force 与 Windows 轨迹等价继续保持 unknown/fail closed。
+2026-08-02 复核 [Operator](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html) 与 [Control Point](https://docs.wallpaperengine.io/en/scene/particles/component/control_point.html) 页的 Vortex：公开页说明 Vortex 可围绕 axis 旋转，standard 形态按 inner/outer distance 与 speed 定义场，另有 ring、infinite axis、control point 与 center force 等作者选项；Control Point 可提供 position/angles。页面不公开私有 JSON 名称、flags 位、默认值、距离插值、每帧积分、单位或 2.8.42 数值公式。官方客户端静态审查 [windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)、[client-changelog-forensics.md](client-changelog-forensics.md) 与 [editor-string-table-forensics.md](editor-string-table-forensics.md) 只用于 clean-room 区分 classic v1 的 `axis/distanceinner/distanceouter/flags/speedinner/speedouter` 与 `vortex_v2` 的 ring/CP wire，并交叉确认 infinite-axis/CP-angle 能力演进；它们不提供可复制算法或官方 runtime truth。项目当前 v1 executor 的 right-hand tangential acceleration、flags 0/1 距离解释与 fixed-step 数学是有界项目合同，`vortex_v2`、audio/CP/center-force 与 Windows 轨迹等价继续保持 unknown/fail closed。
 
-2026-08-02 复核 [Operator](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html) 页的 Cap velocity 与 Operator blending：公开页明确 Cap velocity 为每个粒子设置 speed upper limit，blending 的四个时间点均使用单粒子 lifetime 的 normalized `0...1`，但没有公开 clamp/blend 的逐帧数值公式、私有 JSON 名称、flags、默认值或与 General speed override 的组合顺序。官方客户端静态审查 [windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) 只确认 `capvelocity` 的 `maxspeed` / `blendinstart` / `blendinend` wire，changelog 只确认该 operator 在 revision 4096 加入；随包三份合法声明均显式填写有限正 `maxspeed` 与完整 blend-in pair，未提供 blend-out 正例。项目的“按 blend weight 移除超额速度比例”、`1,000,000` 预算、全局窗口顺序和 speed override 组合均是公开边界内的 bounded clean-room 合同，不是官方内部算法或 Windows trajectory truth。
+2026-08-02 复核 [Operator](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html) 页的 Cap velocity 与 Operator blending：公开页明确 Cap velocity 为每个粒子设置 speed upper limit，blending 的四个时间点均使用单粒子 lifetime 的 normalized `0...1`，但没有公开 clamp/blend 的逐帧数值公式、私有 JSON 名称、flags、默认值或与 General speed override 的组合顺序。官方客户端静态审查 [windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) 只确认 `capvelocity` 的 `maxspeed` / `blendinstart` / `blendinend` wire，changelog 只确认该 operator 在 revision 4096 加入；随包三份合法声明均显式填写有限正 `maxspeed` 与完整 blend-in pair，未提供 blend-out 正例。项目的“按 blend weight 移除超额速度比例”、`1,000,000` 预算、全局窗口顺序和 speed override 组合均是公开边界内的 bounded clean-room 合同，不是官方内部算法或 Windows trajectory truth。
 
 ### 1.6 Timeline
 
@@ -174,9 +188,9 @@ Group 与 display condition 在 Overview 中定义。Texture Variants 不能由 
 
 官方可下载的 [user property sample](https://docs.wallpaperengine.io/samples/user_property_sample.zip) 提供 `project.json`、`scene.json` 与 SceneScript 实例；本轮只通过管道静态读取，未运行其中的 shader 或二进制。它证明用户属性 raw instance 的一种当前形态，不构成完整版本化 schema。
 
-2026-08-03 R3资料归纳：官方Variables页只确认`T0...T7`的索引纹理表面、combo/uniform annotation与built-in入口；Texture property页确认用户未选择替换文件时使用作者原始导入纹理；Album Cover/Timeline公开示例确认Timeline数值可由事件中的`play()`触发。既有[官方客户端运行机制静态取证](client-runtime-static-forensics.md)又只在clean-room边界确认slot不压缩，以及default/user/system/provider/state/variant汇入resolved material状态的控制流方向。以上足以约束项目自有Template/Program的分层、exact identity与“显式absent才回退”安全边界，但不公开完整candidate优先级、purpose、normal/depth、alpha/write-mask、SceneScript状态机或任何shader算法；R3因此保留unknown fail-closed，没有复制官方payload/shader/算法，也无需新增Ghidra取证。
+2026-08-03 历史 `R3` 资料归纳（只保留当时取证边界，不构成现役路线）：官方Variables页只确认`T0...T7`的索引纹理表面、combo/uniform annotation与built-in入口；Texture property页确认用户未选择替换文件时使用作者原始导入纹理；Album Cover/Timeline公开示例确认Timeline数值可由事件中的`play()`触发。既有[官方客户端运行机制静态取证](client-runtime-static-forensics.md)又只在clean-room边界确认slot不压缩，以及default/user/system/provider/state/variant汇入resolved material状态的控制流方向。以上足以约束项目自有Template/Program的分层、exact identity与“显式absent才回退”安全边界，但不公开完整candidate优先级、purpose、normal/depth、alpha/write-mask、SceneScript状态机或任何shader算法；当时的有界合同因此保留unknown fail-closed，没有复制官方payload/shader/算法，也无需新增Ghidra取证。
 
-2026-08-03 R4 先复核现役 [Shader Syntax](https://docs.wallpaperengine.io/en/scene/shader/syntax.html)、[Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 与 [Effects Introduction](https://docs.wallpaperengine.io/en/scene/effects/introduction.html)：官网确认 shader 经过自定义 preprocessor、公开 `[COMBO]`、effect 可有序组合并连接 layer，但没有公开 condition 私有 wire、definition function、raw compose pair 或 `[PASS]` schedule。为解决这些会阻塞统一 executor 的结构问题，对 source-index 已登记且哈希匹配的 2.8.42 `wallpaper64.exe` 做一次 bounded Ghidra clean-room 复核。结果纠正了旧字段误归属：condition 属于 FBO/pass/material 引用，function 只按名称读取 `action/fbos`，`repeat` 属于 FBO `uvs`；合法 condition 是 combo-keyed array/object 比较并支持 equality 与 `ge/gt/le/lt`；clear function 是显式有序 target 操作；raw compose 是 layer-local 双缓冲时序，先把 layer base content 捕获一次，再在实际执行的 ordinary compose pass 与 effect 边界推进 current，最终 current 回到普通 layer/compositor 输出，不能据此绑定 scene background；`[PASS]` 是独立 shader metadata，当前只验证 `shadow` 与 3D shadow 路径的对应，不能外推为通用 2D schedule。以上只约束 typed carrier、事务顺序与 fail-closed 边界，不包含地址、伪代码、shader、payload 或算法；详见 [客户端运行时静态取证 §5.1](client-runtime-static-forensics.md#51-parserresolverfrontend-与-graph-admission)。
+2026-08-03 历史 `R4` 取证记录（只保留当时问题与结论，不构成现役路线）：先复核 [Shader Syntax](https://docs.wallpaperengine.io/en/scene/shader/syntax.html)、[Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 与 [Effects Introduction](https://docs.wallpaperengine.io/en/scene/effects/introduction.html)：官网确认 shader 经过自定义 preprocessor、公开 `[COMBO]`、effect 可有序组合并连接 layer，但没有公开 condition 私有 wire、definition function、raw compose pair 或 `[PASS]` schedule。为解决当时阻塞统一 executor 的结构问题，对 source-index 已登记且哈希匹配的 2.8.42 `wallpaper64.exe` 做一次 bounded Ghidra clean-room 复核。结果纠正了旧字段误归属：condition 属于 FBO/pass/material 引用，function 只按名称读取 `action/fbos`，`repeat` 属于 FBO `uvs`；合法 condition 是 combo-keyed array/object 比较并支持 equality 与 `ge/gt/le/lt`；clear function 是显式有序 target 操作；raw compose 是 layer-local 双缓冲时序，先把 layer base content 捕获一次，再在实际执行的 ordinary compose pass 与 effect 边界推进 current，最终 current 回到普通 layer/compositor 输出，不能据此绑定 scene background；`[PASS]` 是独立 shader metadata，当时只验证 `shadow` 与 3D shadow 路径的对应，不能外推为通用 2D schedule。以上只约束 typed carrier、事务顺序与 fail-closed 边界，不包含地址、伪代码、shader、payload 或算法；详见 [客户端运行时静态取证 §5.1](client-runtime-static-forensics.md#51-parserresolverfrontend-与-graph-admission)。
 
 ### 1.8 Audio 与 Media
 
@@ -247,15 +261,15 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 
 2026-08-02 复核 Puppet [Animation Mixing](https://docs.wallpaperengine.io/en/scene/puppet-warp/animationmixing.html)：官方公开行为只说明同一 Puppet 可同时启用多个 animation 并分别设置 duration/rate，运行时会合并结果；没有公开相同 bone/property 的冲突规则、blend weight、插值或矩阵算法。资料库既有 MDLA/full-TRS、严格单 clip 与 SceneScript handle 生命周期分析仍不足以界定多 clip 数值合同，因此仅对 source-index 已登记、哈希匹配的官方客户端做一次 bounded Ghidra clean-room 高层核对：`animationlayers` 按有序 records 创建，每条读取 `animation/autosort/index`，create/play 复用验证、排序与生命周期；没有恢复或复制 pose mixing 公式。项目 `0892e74b` 只据真实 MDLA 自有 fixture 开放 bind-referenced、driven-bone 集两两不相交、blend/rate=1、无 blend-in/out 的 additive 子集，并实时消费 typed User Property visibility；重叠 bone、权重/插值/independent rate 与其他 profile 继续 fail closed。详见 [客户端运行时静态取证 §6.6](client-runtime-static-forensics.md#66-cameramaterialparticlevideo-与-animation-handle) 与 [E-PUPPET-BC](runtime-evidence-index.md#e-puppet-bc)。
 
-本轮只建立能力边界，没有把这些高级模块错误提升为当前 P0。
+这一段只保留当时建立的能力边界，不赋予任何现役优先级；开发顺序只看[Scene 兼容路线](../scene-compatibility-roadmap.md)。
 
 ### 1.11 2.8.42 客户端快照静态取证资料组
 
-Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快照。文档会继续维护，但结论不能自动外推到其他客户端版本。按下面顺序查阅，避免把旧审计快照、深层静态证据和项目现状混为一体：
+Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快照。文档会继续维护，但结论不能自动外推到其他客户端版本。下表是证据导航，不是开发顺序；查阅时需避免把旧审计快照、深层静态证据和项目现状混为一体：
 
 | 需要回答的问题 | 维护入口 | 定位 |
 |---|---|---|
-| 当时检查了哪些随包资产、默认工程和格式缺口 | [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) | 2026-07-25 的版本化审计快照；保留 census 和当时的开发映射，不是当前能力入口 |
+| 当时检查了哪些随包资产、默认工程和格式缺口 | [Windows 官方客户端取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) | 2026-07-25 的版本化审计快照；保留 census 和当时的开发映射，不是当前能力入口 |
 | 二进制模块、第三方库和官方动态预览来自哪里 | [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md) | 模块与公开上游导航；依赖存在不等于数值或视觉等价 |
 | resolver、RenderGraph、SceneScript、媒体和 surface 的内部结构如何分层 | [官方客户端运行机制静态取证](client-runtime-static-forensics.md) | Ghidra clean-room 结构证据的正式维护入口；不记录地址、伪代码或私有算法表达 |
 | MyWallpaperX 当前实现到哪一级 | [覆盖台账](coverage-ledger.md)、各专项覆盖表与 [运行证据索引](runtime-evidence-index.md) | 唯一当前状态入口；静态取证本身不升级 `L0-L4` |
@@ -293,7 +307,7 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 
 当前样本事实入口：
 
-- [21 个用户样本首轮评估（历史截图基线）](../scene-sample-assessment-2026-07-22.md)
+- [21 个用户样本首轮评估（历史截图基线）](../../history/scene/scene-sample-assessment-2026-07-22.md)
 - [全样本能力分类与修复台账](scene-corpus-capability-inventory.md)
 - v16 结构基线：`scene-effect-graph-canonical-final-20260723`（历史本机产物已清理）（canonical graph 身份，不等于 GPU 执行）
 - 运行证据分固定回归门与完整快照门；仓库 `script/scene_wallpaper_full_sample_matrix.json` 当前仍是45-member tracked baseline。2026-08-13 authored census已在真实根发现49个可解析样本，因此该矩阵状态为`pending-expansion`而不是当前完整快照；新增四项及静态清单见[全样本能力分类与修复台账](scene-corpus-capability-inventory.md)，是否曾单独运行不能由census推断。`3770500543`因缺 package 只保留在历史source manifest。`scene-builtin-textures-full45-20260725`（历史本机产物已清理） 与 `scene-builtin-textures-fixed13-v2-20260725`（历史本机产物已清理）只作旧阶段证据，不能覆盖现役结果。Puppet旧单clip正向门与v24对照分别为`scene-puppet-animation-20260725/targeted-v1`（历史本机产物已清理）、`scene-puppet-animation-20260725/control-v24-v1`（历史本机产物已清理）；当前disjoint-additive定向门为`.codex/scene-puppet-disjoint-3769688830-20260802-v2/report.json`。当前实现基线、报告/App身份与能力边界统一见[运行证据索引](runtime-evidence-index.md)。
@@ -309,7 +323,7 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 
 ## 3. 开源播放器对照
 
-本地参考项目的两份只读审查记录（研究记录，不是现役能力状态）：[全量参考项目审查](../../reviews/scene-reference-project-audit-2026-07-24.md)（HEAD `31ae557` 时）与 [effect/runtime 专题审查](../../reviews/scene-reference-audit-effects-runtime-2026-07-24.md)（有序 effect 链、X-Ray、water、时间/文字、视频纹理主题）。Puppet MDLV mesh、受限 MDLS/MDAT 静态 attachment、三来源 MDLA/full-TRS/skin weights、严格单 clip 与 disjoint-bone additive LBS，以及 BC 解码的可执行合同已收敛到 [场景格式与 Render Graph](scene-format-and-render-graph.md) 第 11 节；第三方审查记录不再是这些现役能力的事实来源。
+本地参考项目的两份只读审查记录（研究记录，不是现役能力状态）：[全量参考项目审查](../../history/scene/scene-reference-project-audit-2026-07-24.md)（HEAD `31ae557` 时）与 [effect/runtime 专题审查](../../history/scene/scene-reference-audit-effects-runtime-2026-07-24.md)（有序 effect 链、X-Ray、water、时间/文字、视频纹理主题）。Puppet MDLV mesh、受限 MDLS/MDAT 静态 attachment、三来源 MDLA/full-TRS/skin weights、严格单 clip 与 disjoint-bone additive LBS，以及 BC 解码的可执行合同已收敛到 [场景格式与 Render Graph](scene-format-and-render-graph.md) 第 11 节；第三方审查记录不再是这些现役能力的事实来源。
 
 ### 3.1 `Almamu/linux-wallpaperengine`
 
@@ -358,7 +372,7 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 - 定位：SwiftUI/AppKit 宿主 + 独立 C++20/Vulkan/MoltenVK Scene renderer。README 明确说明仍处早期，复杂作品可能存在 effect、脚本或材质差异。
 - 专题入口：[MirageWallpaper Scene 显示链路静态研究](miragewallpaper-rendering-reference.md)。该文档覆盖 frame order、TEX physical/mapped extent、slot/sampler、layer-local ping-pong、FBO/RenderGraph、render state、global Bloom、reflection、相机/fill、鼠标/SceneScript、文字、视频、粒子、surface/present，并把可借鉴结构与 Mirage 自身缺口分开记录。
 - 证据边界：等级 `D`。本轮未 build/run，没有 Mirage 与 Windows 的同步像素 golden；其项目自有 renderer 测试覆盖也不足以支撑兼容声明。文档中的静态链路不能更新 MyWallpaperX 覆盖等级。
-- 维护合同：每个新的 Scene family 结论都必须自行固定完整 revision，列出实际读取模块/关键 symbol、`producer -> state/identity -> consumer -> frame order/lifecycle -> failure path` 与 divergence；只写“Mirage 固定 revision”、只链接专题总结或拿当前 HEAD 覆盖历史快照，都不构成可审计交叉验证。
+- 使用边界：只有官方材料不足或需要交叉检查完整 producer-to-consumer 链时才读 Mirage。引用时固定完整 revision，列出实际读取模块/关键 symbol、`producer -> state/identity -> consumer -> frame order/lifecycle -> failure path` 与 divergence；只写“Mirage 固定 revision”、只链接专题总结或拿新 HEAD 覆盖历史快照，都不构成可审计交叉验证。
 
 确认的高价值结构：
 

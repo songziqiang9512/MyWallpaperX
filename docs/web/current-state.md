@@ -50,10 +50,10 @@ project.json / Workshop directory
 | 四层 project/runtime 模型存在 | 当前 Swift 类型和调用链 | 可称“源码已实现”，不能据此称所有项目可运行 |
 | 默认生产宿主与 daemon harness 已分流 | `WallpaperEngine.currentWebHostStrategy` 与 launch switch | 可称“当前代码所有权明确”，不证明发布环境切换无回归 |
 | 本地资源、属性、输入、音频与生命周期实现存在 | 当前 Core/Host 源码 | 只能证明对应路径存在，用户可见兼容仍以运行门为准 |
-| 2026-07 固定、完整和外部样本结果 | dated roadmap 与 `regression/` | 只作为历史比较基线，不代表当前 HEAD PASS |
+| 2026-07 固定、完整和外部样本结果 | [统一历史索引](../history/README.md)中的 dated roadmap 与 baseline | 只作为历史比较基线，不代表当前 HEAD PASS |
 | 当前 HEAD 发布级 Web 闭环 | 本批未运行 | **未验证**，不得写成已完成 |
 
-新的“当前 PASS”、样本数量、得分、coverage、Team ID、CDHash 或报告路径只能在同一源码/构建身份完成正式门后写回本页；历史数字保留在 regression/roadmap，不复制到 README 或长期技术规范。
+新的“当前 PASS”、样本数量、得分、coverage、Team ID、CDHash 或报告路径只能在同一源码/构建身份完成正式门后写回本页；被替代的历史数字收入统一 history，不复制到 README 或长期技术规范。
 
 ## 4. 未闭合边界
 
@@ -79,9 +79,4 @@ project.json / Workshop directory
 
 ## 6. 历史入口
 
-- [2026-07 Web/Scene 状态与路线快照](../reviews/web-scene-current-state-roadmap-2026-07-19.md)
-- [2026-07 外部作者样本基线](regression/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md)
-- [2026-07 Steam CDN 代表样本基线](regression/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md)
-- [2026-04 兼容执行方案](web-compatibility-execution-plan-2026-04-13.md)
-- [2026-04 原生输入宿主方案](web-native-input-host-plan-2026-04-14.md)
-- [2026-04 官方对齐进度](web-official-alignment-progress-2026-04-14.md)
+- [统一历史索引](../history/README.md)：2026-04 兼容/输入方案、2026-07 Web/Scene 状态快照，以及两组代表样本基线。历史材料不决定当前开发顺序。

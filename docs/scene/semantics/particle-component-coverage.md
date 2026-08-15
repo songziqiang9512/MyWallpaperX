@@ -2,7 +2,7 @@
 
 > 状态：现役专题能力表
 >
-> 最近核对：2026-08-09
+> 最近核对：2026-08-15
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
 > 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行五种 General author instance-override gate、root direct User Property 的 `alpha/size/lifetime/rate/speed/count/brightness/colorn`、相同七个 scalar 字段的 absolute Timeline、bounded 16-band Particle Audio Response、bounded Color List、bounded Position Offset Random、Turbulent Velocity Random、Turbulence operator、bounded classic Vortex、bounded Cap Velocity、最多 64 粒子的 zero-separation Boids alignment/cohesion、zero-min centered Box、常见 Random initializer exponent、lifetime-normalized Alpha/Size/Position oscillation、TEX filter/address/mip sampler、单 sequence sidecar nominal frame aspect 与 raw TEX frame-axis 像素比例回退、严格的 child 层级 ≤ 2（depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow`，加 depth-two 仅 event 触发的 nested child）、有限 static origin translation、static/spawn/death/follow Sprite profile 的 bounded uniform screen-plane child scale、event spawn/death/follow 创建时的 bounded parent-color snapshot 与 event-follow 持续 parent-color 跟随、按 authored identity 准入的 root Sphere/Box emitter Control Point 0...7、该 emitter 子集的 bounded static CP angles frame、有限非负且有序的 emitter 初始 speed range、有限三轴 Directions 与 Sphere `-1/0/1` Sign、Sphere/Box/Layer Image 共用的 bounded initial emitter delay、绝对 Timeline 驱动的 root-emitter local Control Point position、depth-one static child 的有限 raw parent Control Point position copy、精确 pointer-lock CP 1...7 驱动的 bounded local Control Point Force、持续/混合/duration child emitter、静态可逆 layer world frame 下的 General/Movement/Renderer world-space、严格 `genericparticle` `REFRACT=1` 双纹理背景折射、root/child 共用且允许省略 `length` 的 bounded Sprite Trail、严格单 renderer/Screen 的 bounded Rope（含 subdivision、UV scale/equal-lifetime smoothing/scrolling 与 strict child 隔离拓扑）和有界 RopeTrail、静态同空间 plain image alpha bitmap 的 Layer Image emitter、仅 rate 的 Sphere/Box Random periodic active/delay 窗口，以及无 REFRACT/Lighting/Cutout/user binding 的单 screen Sprite `cullmode=normal` 子集；它仍不是通用 Particle System，尤其没有 dynamic override 的 SceneScript、冲突来源、direct color、relative/Combined、size/alpha 等其他 event inheritance channel 或存量粒子追溯更新，也没有 Position Offset 的官方 FBM/default/space/time/RNG/Windows golden、initial delay 的 Windows fixed-step/组合 timing golden、classic Vortex 的 CP/center-force/Windows 数值公式或 `vortex_v2` ring、Cap Velocity 的 Windows blend/逐帧数值 golden、Boids separation/speed clamp/大群 spatial index、periodic burst/maximum-per-period、Layer Image 的 text/puppet/audio source、Control Point dynamic angles/previous pointer/adjusted-space parent copy/cross-space/其他 consumer、child audio、未准入 operator 的 audio、child 非零 angles、event offset、XY 非均匀/镜像、Rope/nested/world-space-movement scale、collision/delete event、动态 root world-space Rope、animated/multiple-renderer Rope、精确 ribbon join、通用 RopeTrail subdivision/UV、Lighting 和通用 Particle Material。
@@ -16,7 +16,11 @@
 >
 > 最新 bounded Position Offset Random 提交 `968d86eb`：公共 parser/simulator 只准注册证据确认的五字段与有限预算，使用项目自建 gradient-noise 的 finite-octave 近似；未确认的 `sign`、未知/畸形/超预算 shape 继续 fail closed。它不按样本、layer、路径或 Workshop ID 分支，也不复制官方 FBM。
 
-本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
+官方公开页面确认 Particle 由 General、Emitter、Initializer、Operator、Renderer、Children 和 Control Point 等组件组合，并公开各组件的作者可见行为；它没有公开内部 definition record 布局、factory/dispatcher、精确同帧顺序、随机/力场数学或 GPU 实现。本文把这些公开组件类别以及 instance override/material 逐项映射到当前实现；精确字段注册、record 邻接、parser helper 与高层 lifecycle 只在标有 [CLIENT-STATIC] 时表示 Wallpaper Engine **2.8.42 固定客户端静态观察**，不是跨版本官方保证。
+
+MyWallpaperX 的现役 V3 目标不是继续增加完整 particle preset/profile renderer，而是：loss-preserving definition 按作者顺序进入 component registry，每个 component type 编译为共享 typed operation，system instance 依次执行 emitter/initializer/operator/event/child/control-point/renderer operation stream，并复用统一 identity、frame snapshot、resource generation、material Program、graph/publication 和 compositor output。组件可以选择共享 primitive，完整 definition/sample/layer/path 不得选择特制视觉答案。unknown optional component 产生诊断并跳过；缺少唯一 renderer、非法数值、预算或生命周期破坏只停用对应 particle system。具体开发顺序只看[唯一现役路线](../scene-compatibility-roadmap.md)的 V3，本表不构成“先完成整套粒子平台”的串行计划。
+
+它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以当前代码和运行证据为准，再同步两页，不能仅凭本表较细就把旧数字视为更新事实。
 
 ## 1. 等级口径
 
@@ -105,7 +109,7 @@
 | T-TEX | [script/tests/test_scene_particle_builtin_textures.py](../../../script/tests/test_scene_particle_builtin_textures.py) |
 | CLIENT-STATIC | [官方客户端运行机制静态取证](client-runtime-static-forensics.md) |
 
-### 2.1 官方客户端静态锚点
+### 2.1 2.8.42 官方客户端固定静态锚点
 
 Wallpaper Engine 2.8.42 的 64 位粒子 definition factory 静态引用集合覆盖 168 项字段或组件标识，包括 emitter、initializer、operator、renderer、children、event spawn/death/follow、control point、collision、Rope/RopeTrail/SpriteTrail、turbulence 与 boids；initializer/operator 数组另由专门 helper 解析。这个数字描述 parser/factory surface，不是执行覆盖率，也不与本文 171 个能力行一一对应。
 
@@ -115,13 +119,13 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 
 外围 frame/lifecycle 路径可恢复为 active/pause/reset gating，必要时清空 active buffer 与 child runtime，delta 乘 timescale 并累计 system time，取得 host transform/frame state，准备 control-point/transform context，进入大型 simulation dispatcher，最后标记输出 buffer dirty。reset/teardown 会归零 active count 与 CPU buffer，遍历 root 和分组 child，递归析构嵌套 child，再清空 vector/hash/index 容器。
 
-这些静态锚点支持 parser、dynamic property、simulation context、renderer variant、child owner 与递归 reset 分层，但没有恢复 dispatcher 内 emitter -> initializer -> operator、collision/event/children 的精确同帧顺序，也没有恢复随机、力场或 renderer 数学。依据 [CLIENT-STATIC] 不更新本文任何 `L0-L4` 等级；等级仍只由项目当前代码、测试、隔离样本和合法 Windows golden 决定。
+这些静态锚点支持 parser、dynamic property、simulation context、renderer variant、child owner 与递归 reset 分层，但没有恢复 dispatcher 内 emitter -> initializer -> operator、collision/event/children 的精确同帧顺序，也没有恢复随机、力场或 renderer 数学。本文出现的精确 record/field 邻接、注册入口或 teardown 顺序只对 2.8.42 这一固定快照成立；没有 [CLIENT-STATIC] 或合法动态证据时不得把项目 operation 顺序反写成官方内部事实。依据 [CLIENT-STATIC] 不更新本文任何 `L0-L4` 等级；等级仍只由项目当前代码、测试、隔离样本和合法 Windows golden 决定。
 
 ## 3. General
 
 官方入口：[General](https://docs.wallpaperengine.io/en/scene/particles/component/general.html)、[Sprite Sheet tutorial](https://docs.wallpaperengine.io/en/scene/particles/tutorial/spritesheet.html)。
 
-| ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
+| ID / 能力 | 作者合同 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | G01 Material reference | 粒子系统引用 material，material 决定纹理、shader 与 render state。 | `L3` | [DEF] [AST] [T-AST] | 只执行 `genericparticle` 近似路径和首纹理；完整能力见 Material 表。 | 多纹理 material fixture、未知 shader fail-closed、Windows 像素门。 |
 | G02 Maximum count | `max count` 限制系统同时存活的粒子数量并进入预算。 | `L3` | [DEF] [SIM] [ROPE-TRAIL] [T-SIM] [T-ROPE] | 普通系统上限额外硬夹到 20,000；strict RopeTrail 进一步要求 `maxcount <= 512` 且 `maxcount × segments <= 4096`。这些是项目准入预算，不是官方边界。 | 0、1、超大值、动态修改、whole-scene RopeTrail 聚合与压力 fixture。 |
@@ -146,7 +150,7 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 
 官方入口：[Emitter](https://docs.wallpaperengine.io/en/scene/particles/component/emitter.html)。
 
-| ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
+| ID / 能力 | 作者合同 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | E01 Sphere Random | 在 origin/control point 周围的球或圆范围随机生成。 | `L3` | [DEF] [PAR] [SIM] [T-SIM] | 自有均匀半径算法；未核验 WE 的维度、seed 与 exponent 分布。 | 2D/3D、空方向、固定 seed 的位置分布 golden。 |
 | E02 Box Random | 在矩形或盒范围内随机生成。 | `L3` | [DEF] [PAR] [RANDOM] [T-SIM] | `distancemin` 缺省或各轴为 0 时按 `-abs(max)...+abs(max)` 围绕 origin；显式正非零 min/max 保留作者区间。bounded Directions 可逐轴乘法并已覆盖 `2 -1 0`，Box Sign 失败关闭；反向范围、负 Directions 的官方语义和 WE 分布未核验。 | 更多轴组合、反向范围与 Windows 固定 seed 分布门。 |
@@ -170,7 +174,7 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 
 官方入口：[Initializer](https://docs.wallpaperengine.io/en/scene/particles/component/initializer.html)。Initializer 只在粒子创建时运行。
 
-| ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
+| ID / 能力 | 作者合同 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | I01 Lifetime Random | 从范围为新粒子选择 lifetime。 | `L3` | [DEF] [RANDOM] [T-SIM] | 无 exponent 时为线性；finite nonnegative exponent 使用 `pow(U,e)`。单位、clamp、非法/极值与 WE RNG 未核验。 | 零/负 lifetime、分数/大 exponent 与 Windows 固定 seed 分布门。 |
 | I02 Size Random | 从范围为新粒子选择初始 size。 | `L3` | [DEF] [RANDOM] [T-SIM] | scalar 路径消费 exponent；单位、renderer 像素比例与 WE RNG 未核验。 | size 0、透视缩放和 Windows 画面门。 |
@@ -195,7 +199,7 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 
 官方入口：[Operator](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html)。Operator 在单粒子存活期间按作者顺序更新。
 
-| ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
+| ID / 能力 | 作者合同 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | O01 Movement | 用 velocity、gravity、drag 随时间推进位置。 | `L3` | [DEF] [SIM] [WORLD] [T-SIM] | 自有 semi-implicit integration；world-space 子集先用静态逆 world linear frame 把作者 velocity/gravity 转回 local simulation direction。 | 不同 dt、gravity/drag、动态 parent 边界与 Windows 轨迹 golden。 |
 | O02 Angular Movement | 用 angular velocity、force、drag 推进旋转。 | `L3` | [DEF] [SIM] [T-SIM] | 角度单位和三轴 renderer 关系未核验。 | 三 orientation、不同 dt 的旋转 golden。 |
@@ -231,7 +235,7 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 
 官方入口：[Renderer](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html)。
 
-| ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
+| ID / 能力 | 作者合同 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | R01 Sprite | 每个粒子绘制独立 textured sprite。 | `L3` | [DEF] [RUN] [GPU] [SAMP] [T-GPU] [T-RUN] | 自有 quad shader、首纹理、两种 blend；renderer 必须显式传入 texture sampling，TEX filter/address/mip 进入真实 Metal sampler。官方 `genericparticle` 上传 straight RGB/alpha 并让 blend 乘一次 source alpha；项目 premultiplied 主链用等价的 `ONE` source factor，分数 alpha GPU 门拒绝 alpha²。精确 size 仍无 Windows pixel parity。 | 尺寸/旋转/alpha/color/UV/sampling 的 Windows golden。 |
 | R02 Sprite Trail | 沿 velocity 拉伸 sprite，length 乘 speed 并受 min/max 限制。 | `L3` | [DEF] [TRAIL] [RUN] [CHILD-SUPPORT] [T-TRAIL] [T-GPU] [T-RUN] | root/child 共用单 quad stretch plan；显式有限非负 length 继续按作者值执行，省略/`null` length 使用项目有界默认 `1`，min/max 缺省仍为 `1/1`。该数值由官方 stock 多个合法 omitted-length definition 与公开的 `1/1/1` orientation-only 语义共同约束，不是官方公开默认值。malformed、非有限、负值和 min/max 反序继续 fail closed。真实 `3770444459` 三个 water-impact child 层与官方 stock `previewwaterimpact` 有独立运行门；orientation、单位和低速视觉仍未与 Windows 核验。 | 速度方向、旋转、透视、atlas 联合 pixel 门及 Windows 同相位默认值校准。 |
@@ -252,7 +256,7 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 
 官方入口：[Control Point](https://docs.wallpaperengine.io/en/scene/particles/component/control_point.html)。官方索引范围为 0...7。
 
-| ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
+| ID / 能力 | 作者合同 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | C01 Definition and index | 系统可定义最多八个具名索引 CP，供多个 component 引用。 | `L3` | [DEF] [PAR] [SIM] [SUP] [T-DEF] [T-SIM] [T-RUN] | typed 数组保留 id/flags/offset/angles；root Sphere/Box emitter consumer 只接受所有显式 declaration 都有唯一 0...7 identity，并按 authored ID 而非数组位置绑定。合法未声明 identity 仍表示系统零位置；未被 emitter 引用的其他 consumer 尚未共用这项准入。 | 把同一 identity admission 接到 initializer/operator/child 等合法 consumer，并补 Windows 状态门。 |
 | C02 Relative offset | CP 可相对系统 origin 设置 offset。 | `L3` | [DEF] [SIM] [CHILD-SUPPORT] [T-DEF] [T-SIM] [T-RUN] | static definition offset 与 static/absolute-Timeline instance position 在 root Sphere/Box emitter local origin 相加；depth-one static child 的 exact raw-copy 子集可把 finite static parent position 复制给 child emitter。没有 adjusted/world/operator consumer 或 Windows 数值门。 | 多 emitter、adjusted/space 转换和 Windows fixed-seed 位置 golden。 |
@@ -271,7 +275,7 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 
 官方入口：[Children](https://docs.wallpaperengine.io/en/scene/particles/component/children.html)。
 
-| ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
+| ID / 能力 | 作者合同 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | CH01 Child resource graph | child path 指向另一个 particle definition，资源必须递归可达。 | `L3` | [DEF] [AST] [CHILD] [CHILD-EXPAND] [T-AST] [T-RUN] | 资源图递归发现 definition/material/texture；`b86db59` 起 runtime 实例化 strict child 至层级 2：depth-one 全部触发保持每声明一个 template，depth-two 仅 event 触发并按 parent asset path 去重展开一次（纹理/instance buffer 共享）；depth-three 目标与 depth-two static 声明 fail closed（`nestedDepthUnsupported`/`nestedStaticChildUnsupported`），合成正反门与 26 样本 census 门（maximumChildDepth 2、63 条 nested 声明）锁定。 | depth-two static 语义样本、更深层级真实样本与 teardown 压力门。 |
 | CH02 Cycle/missing child guard | 递归引用必须有 cycle、missing definition 诊断，不能死循环。 | `L2` | [AST] [CHILD] [T-AST] | runtime 复用有 stable missing/cycle 诊断的资源图，但尚无 runtime-specific cycle ownership/lifecycle 断言。 | cyclic root 的 runtime 构建、零实例与 stop 门。 |
@@ -290,7 +294,7 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 
 官方 General 允许作者暴露 instance override；动态值还可来自 User Property、Timeline 和 SceneScript。
 
-| ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
+| ID / 能力 | 作者合同 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | IV01 Wrapper parse/preserve | override wrapper 应保留 authored value 与 user/script/animation 来源。 | `L2` | [DEF] [PAR] [T-DEF] | numeric value 和来源标志可 Codable；JSON `null` 与非空 malformed payload 已区分，后者保持 fail closed；仍未保存 script/animation 内容。 | 保真 source payload、typed precedence 与 round-trip。 |
 | IV02 Alpha | 统一缩放新粒子的 alpha。 | `L3` | [DEF] [SIM] [DYN-OVERRIDE] [T-SIM] [T-BIND] | static、direct User Property 与 absolute scalar Timeline 每步选择当前值，影响新生粒子；user fallback 为 0 时不再把整层误判为静态透明。存量粒子不追溯改写。 | new/existing particle 的 Windows 更新语义门。 |
@@ -313,7 +317,7 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 
 官方 General 将 albedo/normal、cutout、lighting、refraction、overbright 和 blend 都视为 Particle renderer variant 的一部分。
 
-| ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
+| ID / 能力 | 作者合同 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | M01 Material/pass resolution | 从 particle material 找到 pass、shader、纹理和 render state。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 只挑一个 pass，随后经共享 typed render-state admission 进入专用自有 pipeline；unknown/incomplete 或该 pipeline 不支持的 state 不再执行。 | 多 pass/slot、missing/duplicate、更多已证 state fixture。 |
 | M02 `genericparticle` shader family | 官方通用粒子 shader 按 material combo 决定 renderer variant。 | `L3` | [AST] [GPU] [T-AST] [T-GPU] | 仅识别名字并使用自写 Metal 近似；不执行官方 shader/combo。 | combo matrix 和合法 Windows pixel golden。 |
@@ -340,7 +344,9 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 
 ## 12. 执行顺序、事件与生命周期
 
-| ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
+官方公开页面提供组件类别和单个组件的作者可见作用，不提供这一整张表的内部帧顺序。下列顺序首先记录 MyWallpaperX 当前 operation stream 与待验证目标；引用 [CLIENT-STATIC] 的 record/lifecycle 事实仍只限 2.8.42 固定快照，精确同帧行为必须由独立 Windows trace/golden 才能升级为兼容结论。
+
+| ID / 能力 | 项目顺序 / 有界观察摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | X01 Emitter → initializer → operator | 每帧先推进 schedule/spawn，再对新粒子初始化，对存活粒子运行 operator。 | `L2` | [SIM] [T-SIM] | 阶段顺序已写入代码，但现有结果测试没有锁定同帧 birth/update 边界；也没有 collision/event/children 阶段。 | 同帧 birth/update 边界与 Windows 状态 golden。 |
 | X02 Collision/death/spawn events | operator 后处理碰撞、死亡、spawn/follow 事件。 | `L3` | [SIM] [CHILD] [T-SIM] [T-RUN] | birth 与 natural-death queue 按 fixed step 收集 typed final state 并 drain；collision、delete、follow event 不存在。 | collision/delete 顺序、同帧递归限制和 fixture。 |
@@ -368,5 +374,5 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 - 当前 one-per-render-frame 门以项目自有 fixture 锁定单 callback 三个 fixed steps `1` 个、三 callback 各一步 `3` 个、第二 callback 累计 `2`、作者关闭 `30`、双 emitter `2` 与 prewarm `10`；既有 instantaneous/duration 组合仍为 `4`。粒子全套 **121 tests（9 skipped）**、simulator **35/35**、代码健康与签名 Debug verify 通过。隔离 `3770444459` 的两个 `flags=2 + rate=20 + Rope` child、App 身份与可见方向证据见 [E-PARTICLE](runtime-evidence-index.md#e-particle)；真实门约 60 FPS，只证明生产路由和无整景回归，精确低 FPS 行为由 fixture 锁定。未跑 fixed13/full45，也没有 Windows 同时长 count/topology golden。
 - 当前 HSV Color Random 门由 `9058a8b3` 落地：项目 fixture 锁定六个离散 hue 全部可达、S=0/V=.25 灰阶、后续 Color Random 覆盖前序 HSV、有效 instance color override 冲突及 19 类无效/不完整/非 direct-number 形态。聚焦 **43/43**、粒子全套 **127 tests（9 skipped）**、代码健康（743 Swift files / 44 locked legacy / 400-line limit）和签名 Debug verify 通过。官方 stock `hsvcolorrandom` 预览的隔离运行、App 身份与六色运动截图见 [E-PARTICLE](runtime-evidence-index.md#e-particle)；45 份 Workshop package 当前没有 HSV Color Random 声明，未跑 fixed13/full45，也没有 Windows RNG/default/instance-color/色彩空间/pixel golden。
 - 当前 Color List 门由 `dbd0f13e` 落地：项目 fixture 锁定三项 RGB 全部可被选择、后续 Color Random 覆盖前序列表，以及 empty、11 项、scalar、越界、坏字符串和未知 `weights` 字段六类失败关闭。粒子全套 **123 tests（9 skipped）**、代码健康（741 Swift files / 44 locked legacy / 400-line limit）和签名 Debug verify 通过。官方 stock `colorlist` 预览的隔离运行、App 身份与三色运动截图见 [E-PARTICLE](runtime-evidence-index.md#e-particle)；45 份 Workshop package 当前没有 Color List 声明，未跑 fixed13/full45，也没有 Windows RNG/noise/pixel golden。
-- 开发批次应优先消除公共断点：raw TEX frame axes/sidecar nominal geometry、author allow gates、root-emitter Control Point authored identity/absolute Timeline position/bounded static angles、bounded emitter speed/shape/initial delay/audio response、depth-one static raw parent copy、pointer-lock CP 的 bounded local Force consumer、静态 plain-image Layer Image、仅 rate Random periodic、bounded Rope subdivision/UV/strict-child 与 bounded event color inheritance 已闭合；下一步按现役优先级先核对 TEX、stock resource 与 effects composition 的公共断点，再扩展有合法 consumer 的 Control Point adjusted/space/dynamic-angle、Layer Image dynamic/text/puppet provider、periodic burst/maximum-per-period、剩余 event value channels、Collision 与 Rope ribbon/RopeTrail。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
-- 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有跑过对应正向、负向、生命周期测试后才能从 `L2` 升到 `L3`。
+- 上述 TEX、Control Point、Layer Image、periodic、event、Collision、Rope/RopeTrail 缺口只是 V3 候选，不是现役串行清单。V3 开工时从一个真实未执行 system 的首断 component 开始，把该 component 编译为可复用 operation，并闭合 spawn/update/render/publication/teardown 与局部失败；无需先补齐全部 registry、record 或 simulator 平台，也不阻塞 V0/V1。逐样本 hardcode、完整 definition-name renderer、把 unsupported 静默回退成 Sprite/translucent，或把程序纹理称为官方资产，都不允许升级等级。
+- 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有项目正反门、真实 operation stream 执行与相称的隔离运行证据成立后才能从 `L2` 升到 `L3`，仅解析、注册或矩阵计数不能升级。

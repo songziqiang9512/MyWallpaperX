@@ -170,24 +170,19 @@ def build_plan(
     build_required = phase_index >= 1 and product_change
     gates: list[Gate] = []
 
-    focused_keywords = set() if phase_index >= 2 and scene_product_change else keywords
-    focused = focused_test_command(modules, focused_keywords)
+    focused = focused_test_command(modules, keywords)
     if focused is not None:
         gates.append(Gate(
             "focused-tests",
             focused,
-            (
-                "explicitly mapped test modules remain required alongside Scene integration"
-                if phase_index >= 2 and scene_product_change
-                else "changed paths map to focused executable test groups"
-            ),
+            "changed paths map to focused executable test groups",
             False,
         ))
-    if phase_index >= 2 and scene_product_change:
+    if args.phase == "milestone" and scene_product_change:
         gates.append(Gate(
             "scene-all-tests",
             (sys.executable, "-B", "script/run_scene_tests.py", "--scope", "scene"),
-            "integration of a Scene product path requires the complete executable suite",
+            "a Scene product milestone requires the complete executable regression suite",
             False,
         ))
 
@@ -263,9 +258,9 @@ def build_plan(
             )
             unresolved = None
             if not args.sample_id:
-                unresolved = "integration requires at least one --sample-id"
+                unresolved = f"{args.phase} requires at least one --sample-id"
             elif command is None:
-                unresolved = "integration requires --sample-root and --output-dir"
+                unresolved = f"{args.phase} requires --sample-root and --output-dir"
             gates.append(Gate(
                 "targeted-sample",
                 command,
