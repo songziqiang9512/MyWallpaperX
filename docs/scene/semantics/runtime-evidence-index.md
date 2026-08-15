@@ -2,7 +2,7 @@
 
 > 状态：现役证据入口
 >
-> 最近核对：2026-08-15
+> 最近核对：2026-08-16
 >
 > 当前核对分支：`codex/scene-capability-baseline`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。
 >
@@ -26,6 +26,14 @@
 当前可见或运行结论只使用下方仍有效的精确证据包。新证据替代旧结论后，应把旧过程移入history或在原包内明确sealed，不继续扩张页首流水账。
 
 ## 2. 证据包
+
+<a id="e-v0-generic-shader-compiler-spike"></a>
+### E-V0-GENERIC-SHADER-COMPILER-SPIKE: 普通 authored shader 独立编译链
+
+- 代码与权限：[scene_shader_compiler_harness.py](../../../script/scene_shader_compiler_harness.py)、[scene_shader_compiler_dependencies.json](../../../script/scene_shader_compiler_dependencies.json)、[project-owned fixtures](../../../script/fixtures/scene_shader_compiler/)。依赖清单固定 glslang `16.4.0` revision `168d452a4f460d24b588fed08477a81c44ee27a1` 与 SPIRV-Cross `vulkan-sdk-1.4.357.0` revision `6c09849fe88c48eaed08413aa022aaa136a3a057`，记录 license 文件、构建参数、开发机 arm64 artifact SHA-256 和预算；route 明确为 `observe-only`，`productExecutionAuthorized=false`。harness 只接受 vertex/fragment pair，按公开声明形状降低 Wallpaper Engine-like attribute/varying/uniform/sampler/combo 语法，随后执行 stage link、SPIR-V、MSL、reflection 与 Apple Metal frontend preflight。所有子进程使用独立 process group、临时 cwd、wall/CPU/file/descriptor/source/diagnostic/artifact 限制；Darwin resident limit 仍明确为未强制的 worker 阻断项。
+- 自动门：[test_scene_shader_compiler_harness.py](../../../script/tests/test_scene_shader_compiler_harness.py) **6/6 PASS**，覆盖 project-owned 标准 GLSL、Wallpaper Engine-like 公开形状、缺失 vertex varying 不得被 adapter 伪造、compiler rejection 不发布报告、artifact hash 漂移、timeout process-group kill，以及 glslang stage-link loose artifact 不得泄漏到调用者 cwd。
+- 隔离真实内容门：只读隔离副本 `scene-transform-full45-20260728/Scene/3767343314` 的 `scene.pkg` SHA-256 为 `77ae77319125dd952eb4bc8ce0d2a6a03de07eb86c6e64e8ce88a37c834389a0`。layer `17` 的单 pass Sharpen 公开形状包含 framebuffer `g_Texture0`、可选 mask `g_Texture1`、`INVERT`/`OPACITY` combo、四个普通 uniforms 和一个 varying；`/private/tmp/mwx-v0-sharpen-normalized-report-v3.json` 为 **PASS**，报告 SHA-256 `ba110beded34721a4e3bb9ad77e2eeeecfacccd665fd35aee63e3693a2dc3530`。固定输入产生 vertex/fragment normalized source SHA-256 `c502c56dd99b5ad4addb11be0bd9a9c8366b6f7b8d649dbf2ea38d3f67a64c1b` / `0d3e46ff40972d99e96e16e2bfee1184046e8a5eb2db293edd9dc24707f7067e`，对应 SPIR-V SHA-256 `5f3b19e496c3f9213faa213485ad4a3c498808c1b9153b9ef16bd533c141ddfa` / `68bfb424bb41a087a859e6493788336f0fa2af87f87f5f20507c668005313a1c`，MSL SHA-256 `0533018669cb81ff1e0f40d02390d9c3dc0ade0657057af8aa4e04b05fc1746e` / `6db6f7da9e1cf756f79bd77bedc147457eeb99d3482d59e60fed5cf168236074`；运行后仓库 cwd 没有 `vert.spv`/`frag.spv` residue。
+- 严格边界：本包只升级 compiler spike 为 `S1 preserved`，证明一个固定工具链和有界 dialect adapter 对两个 project-owned fixture及一份隔离真实 shader pair 可行。它没有生成产品 `Program`，没有取得任何产品 route、GPU encode/completion/publication、terminal compositor、next-frame 或 ROI 证据；Sharpen 在其他 identity 上已有 bounded frontend 历史正证，本包也不把同源编译成功写成新的视觉能力。V0 下一门仍是把可重启/可杀死、预算可强制的 bundled worker 或等价 preparation cache 接入现有 Program + GraphExecutor，并以此前未执行的普通 effect 与编译失败局部回滚反例取得 `S3-S4`。
 
 <a id="e-ingest"></a>
 ### E-INGEST: Scene / PKG / TEX / resource ingest

@@ -333,6 +333,15 @@
       ]
     },
     {
+      "id": "shader-compiler-harness",
+      "patterns": [
+        "script/scene_shader_compiler_dependencies.json",
+        "script/scene_shader_compiler_harness.py",
+        "script/fixtures/scene_shader_compiler/**"
+      ],
+      "modules": ["test_scene_shader_compiler_harness"]
+    },
+    {
       "id": "shader-census",
       "patterns": ["script/scene_shader_preparation_census.py"],
       "modules": ["test_scene_shader_preparation_census"]

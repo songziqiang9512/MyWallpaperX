@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "backendID": "glslang-spirv-cross-msl-v1",
+  "routeState": "observe-only",
+  "productExecutionAuthorized": false,
+  "tools": {
+    "glslang": {
+      "upstream": "https://github.com/KhronosGroup/glslang",
+      "tag": "16.4.0",
+      "revision": "168d452a4f460d24b588fed08477a81c44ee27a1",
+      "versionProbeContains": "Glslang Version: 11:16.4.0",
+      "versionProbeExitCode": 0,
+      "licenseFiles": [
+        "LICENSE.txt",
+        "LICENSES/Apache-2.0.txt",
+        "LICENSES/BSD-2-Clause.txt",
+        "LICENSES/BSD-3-Clause.txt",
+        "LICENSES/MIT.txt"
+      ],
+      "build": {
+        "generator": "CMake",
+        "arguments": [
+          "-DCMAKE_BUILD_TYPE=Release",
+          "-DENABLE_OPT=OFF",
+          "-DENABLE_GLSLANG_BINARIES=ON"
+        ],
+        "target": "glslang-standalone"
+      }
+    },
+    "spirvCross": {
+      "upstream": "https://github.com/KhronosGroup/SPIRV-Cross",
+      "tag": "vulkan-sdk-1.4.357.0",
+      "revision": "6c09849fe88c48eaed08413aa022aaa136a3a057",
+      "versionProbeContains": "Git commit: vulkan-sdk-1.4.357.0",
+      "versionProbeExitCode": 1,
+      "licenseFiles": [
+        "LICENSE"
+      ],
+      "build": {
+        "generator": "CMake",
+        "arguments": [
+          "-DCMAKE_BUILD_TYPE=Release",
+          "-DSPIRV_CROSS_CLI=ON",
+          "-DSPIRV_CROSS_ENABLE_TESTS=OFF",
+          "-DSPIRV_CROSS_ENABLE_MSL=ON",
+          "-DSPIRV_CROSS_ENABLE_REFLECT=ON"
+        ],
+        "target": "spirv-cross"
+      }
+    }
+  },
+  "limits": {
+    "maximumStageSourceBytes": 524288,
+    "maximumDiagnosticBytes": 65536,
+    "maximumArtifactBytes": 16777216,
+    "maximumResidentBytes": 536870912,
+    "timeoutMilliseconds": 5000
+  },
+  "verifiedDevelopmentArtifacts": [
+    {
+      "platform": "macOS 26.5.2 (25F84)",
+      "architecture": "arm64",
+      "toolchain": "Apple clang 21.0.0; CMake 4.1.0; macOS SDK 26.5",
+      "glslangSHA256": "406066c25b9ac11ba62218adf3a86f8055daffd55ee4ca426195395c630b4d34",
+      "spirvCrossSHA256": "1d7fdf4a837df9691c896a3b201277ba18950f67bb9c72f84c7efa6a2d735632",
+      "scope": "local development harness only; binaries are not distributed or authorized for product execution"
+    }
+  ],
+  "exitCondition": "Replace observe-only CLI artifacts with a reproducible bundled worker, or retire this backend with corpus failure evidence before another backend is evaluated."
+}

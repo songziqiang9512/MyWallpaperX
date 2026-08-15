@@ -10,7 +10,7 @@
 
 ## 1. 口径
 
-现役产品只保留 admission → Program/typed stage → GraphExecutor → compositor 主链，但普通 authored stage 仍主要依赖 dedicated candidate/backend，耗尽后会以 `noBackendAccepted` 结束；这才是当前扩面首断点。下一步是在现有主链内建立普通 authored shader/material 的通用 backend，并把失败半径从整 layer/后续 layer suffix 收窄到实际失败的 effect/pass/依赖子图。已完成的 R4/R5 owner 迁移只是稳定不变量，不再决定开发顺序。
+现役产品只保留 admission → Program/typed stage → GraphExecutor → compositor 主链，但普通 authored stage 仍主要依赖 dedicated candidate/backend，耗尽后会以 `noBackendAccepted` 结束；这才是当前扩面首断点。2026-08-16 的固定 glslang → SPIR-V → SPIRV-Cross MSL 独立 harness 已对 project-owned fixture 与一份隔离真实 Sharpen shader pair取得 compiler/reflection/Metal frontend preflight，严格记为 `observe-only` / `S1 preserved`；它没有产品 Program、GPU、compositor 或 route 权限，因而不改变本段产品缺口。下一步是在现有主链内建立普通 authored shader/material 的通用 backend，并把失败半径从整 layer/后续 layer suffix 收窄到实际失败的 effect/pass/依赖子图。已完成的 R4/R5 owner 迁移只是稳定不变量，不再决定开发顺序。
 
 本页是系统级 current capability 的唯一摘要入口；专项表拥有逐项字段、边界、代码/测试证据和下一门。各专项沿用的 `L0-L4` 只在该专题自己的定义下解释：不同专项的同名 `L` 不可横向比较、求和、排序。`S0-S5` 只由[运行证据索引](runtime-evidence-index.md)定义，表达精确 code/App/fixture/ROI identity 的证据闭合深度，不表达能力宽度；`S0` 只是无已保存证据，不是优先级。任何 `L` 都不得批量映射为 `S`，一条 `S4` 也不得外推整个 family 已可见。需要系统结论时读取本页，需要逐项结论时沿本页链接进入对应专项；路线不得复制一份平行 current 表。
 

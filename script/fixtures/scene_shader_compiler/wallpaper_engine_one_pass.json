@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "requestID": "project-wallpaper-engine-one-pass-v1",
+  "sourceDialect": "wallpaper-engine-glsl-like-v0",
+  "defines": {
+    "OPTIONAL_MASK": 1
+  },
+  "stages": [
+    {
+      "stage": "vertex",
+      "entryPoint": "main",
+      "source": "uniform mat4 g_ModelViewProjectionMatrix;\nattribute vec3 a_Position;\nattribute vec2 a_TexCoord;\nvarying vec2 v_TexCoord;\nvoid main() {\n    gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);\n    v_TexCoord = a_TexCoord;\n}\n"
+    },
+    {
+      "stage": "fragment",
+      "entryPoint": "main",
+      "source": "uniform sampler2D g_Texture0;\nuniform sampler2D g_Texture1;\nuniform float u_amount;\nvarying vec2 v_TexCoord;\nvoid main() {\n    vec4 source = texSample2D(g_Texture0, v_TexCoord);\n    float mask = texSample2D(g_Texture1, v_TexCoord);\n    float amount = OPTIONAL_MASK ? mask : 1.0;\n    gl_FragColor = mix(source, vec4(source.rgb * u_amount, source.a), amount);\n}\n"
+    }
+  ]
+}
