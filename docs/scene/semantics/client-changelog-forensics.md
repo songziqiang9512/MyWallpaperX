@@ -4,7 +4,7 @@
 取证快照：Wallpaper Engine 2.8.42 `ui/dist/scripts/scripts.js` 内嵌变更日志
 审查方式：只读静态提取，459 个 revision / 741 条变更 / 45 KB 正文
 
-> 文档角色：`official-client-static-observation`。本文保留固定 2.8.42 客户端内嵌 changelog 的版本证据；其中对 MyWallpaperX 的“当前”、`L*` 或旧批次描述只是审查时解读，不决定现役能力或顺序。现役事实查[覆盖台账](coverage-ledger.md)与[运行证据索引](runtime-evidence-index.md)，顺序查[Scene 兼容路线](../scene-compatibility-roadmap.md)。
+> 文档角色：`official-client-static-observation / research-context-only`。本文只保留固定 2.8.42 客户端内嵌 changelog 的版本证据；不是产品实现说明、算法说明、现役能力或任务入口。implementation agent 不得把 changelog 条目、本文的历史解读或客户端内部措辞直接翻译成代码，只能消费项目自有语义合同、正反 fixture 与官方结果对照协议。现役事实查[覆盖台账](coverage-ledger.md)与[运行证据索引](runtime-evidence-index.md)，顺序查[Scene 兼容路线](../scene-compatibility-roadmap.md)。
 
 > 官方在编辑器 UI 脚本里内嵌了逐版本变更日志：`assets/**` 只给出当前 build 的静态数据形态，changelog 给出「哪一版加了什么、改了什么、为什么改」。
 >
@@ -13,20 +13,20 @@
 复现命令：
 
 ```bash
-python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downloads/wallpaper_engine --output-dir <生成物目录>
+python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root <client-root> --output-dir <生成物目录>
 ```
 
 输出 `changelog.json` 含每个 revision 的 headline、编号与逐条变更，并记录源文件 SHA-256 供版本变化比对。459 版 / 741 条的逐字全量已固化在 [changelog 全量附录](client-changelog-appendix.md)，查证个别条目时先查附录，无需回到官方客户端目录。
 
 ## 1. 结论先行
 
-1. **该固定客户端的 SceneScript VM 是 V8，REV 4260 记录升级到 14.0**。此前 [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) §3 只能把 VM 选型收窄为「至少覆盖 ES2019 authoring surface」，并注明「JavaScriptCore 只是候选」；[Windows 官方客户端取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §11 明确拒绝从 `scenescript32.dll` 已加载推断 VM。本快照内 10 条独立条目（含 Android 平台 2 条）正面确认当时引擎侧使用 V8。
-2. **官方会主动从 JSON 中删除等于默认值的字段**（REV 4148、REV 4366）。这意味着样本里字段缺席**不等于作者未声明**，parser 必须持有正确的默认值表；把「缺失」一律当「该能力关闭」会系统性偏离官方渲染结果。
-3. **官方文字渲染是 MSDF（多通道有向距离场），不是位图栅格**（REV 4319-4367 共 19 条）。outline、drop shadow、blur 三类 text effect 都建立在 MSDF 之上。MyWallpaperX 当前的 CoreText 位图路径与官方是两套体系，这解释了字体保真为何难以对齐，也说明 outline/shadow 的 `L1` 不是「少写几行绘制代码」。
-4. **shader pass / FBO / binding 的条件表达式共有四个比较运算符**：REV 4192 先落地 `ge`，REV 4193 补齐 `gt`、`le`、`lt`。项目 Graph 里 condition/function 一直只作为 blocker 存在，现在有了完整运算符集。
-5. **REV 4256 不能被解读为「REFRACT 只降低不透明度、不是扭曲」**。它只说明：某些 profile 曾借 refraction feature 降低粒子不透明度而非制造位移，因此官方重新启用了 particle shader 的 framebuffer multiplication；同域 REV 4149/4252 及当前官方 Particle General 文档仍把 refraction 与 normal map/background distortion 关联。`e698c18` 因而实现 strict normal + framebuffer displacement 子集，同时保留未知 profile fail closed；精确乘法、位移和历史兼容分支仍需 Windows golden。
+1. **该固定客户端的 SceneScript VM 是 V8，REV 4260 记录升级到 14.0**。此前 [SceneScript 2.8.42 静态取证](scenescript-runtime-implementation-contract.md) §3 只能把当时客户端的 VM 候选收窄为「至少覆盖 ES2019 authoring surface」；[Windows 官方客户端取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §11 明确拒绝从 `scenescript32.dll` 已加载推断 VM。本快照内 10 条独立条目（含 Android 平台 2 条）正面确认当时引擎侧使用 V8。这是版本有界研究事实，不决定 MyWallpaperX 的 VM 选型。
+2. **该固定客户端曾从 JSON 中删除等于默认值的字段**（REV 4148、REV 4366）。因此“字段缺席是否表示取默认值”是项目合同必须显式回答的行为问题；这些条目本身不公开完整默认值表，也不直接规定 parser 实现。
+3. **该固定客户端的文字渲染记录指向 MSDF（多通道有向距离场），不是单一位图栅格路径**（REV 4319-4367 共 19 条）。outline、drop shadow、blur 三类 text effect 都建立在 MSDF 之上。2026-07-26 审查时 MyWallpaperX 的 CoreText 路径与该结构不同；这只是历史项目解释，当前文字实现与等级只查[运行输入与属性覆盖表](runtime-input-property-coverage.md)和[运行证据索引](runtime-evidence-index.md)。
+4. **该 changelog 区间记录 shader pass / FBO / binding 条件表达式加入四个比较运算符**：REV 4192 先记录 `ge`，REV 4193 再记录 `gt`、`le`、`lt`。这确认固定客户端的名称面，不证明完整条件语法或 MyWallpaperX 当前状态。
+5. **REV 4256 不能被解读为「REFRACT 只降低不透明度、不是扭曲」**。它只说明：某些 profile 曾借 refraction feature 降低粒子不透明度而非制造位移，因此固定客户端重新启用了 particle shader 的 framebuffer multiplication；同域 REV 4149/4252 及当前官方 Particle General 文档仍把 refraction 与 normal map/background distortion 关联。项目提交 `e698c18` 曾据此采用 strict normal + framebuffer displacement 的 bounded 策略；该历史决策不由本文继续授权，当前执行与边界只查[粒子组件覆盖表](particle-component-coverage.md)和[运行证据索引](runtime-evidence-index.md)。
 6. **粒子系统在 REV 4102-4112 被整体重构**，且 REV 4103 明确「changed new child config structure」。child 配置结构变过，跨版本样本可能带两种形态。
-7. **static child 初始化必须计入 parent object transform**（REV 4120）。这条直接落在项目刚闭合的「有限 static origin translation」批次边界上。
+7. **REV 4120 记录 static child 初始化曾因未计入 parent object transform 而修复**。这提供一个可做动态对照的行为问题，不证明完整 transform 数学，也不描述 MyWallpaperX 当前批次。
 8. 官方存在**按作品新旧分叉的行为开关**：REV 3967 的粒子颜色覆盖修复注明 "Only enabled for new wallpapers"，REV 3987 为「依赖旧 build 错误 eye z pos 的老作品」保留兼容。这与 [zcompat 取证](zcompat-backward-compatibility-forensics.md) 的 `maximumprojectid` 机制是同一类设计。
 
 ## 2. 语料与口径
@@ -41,9 +41,9 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 
 **编号连续性**：459 个 revision 覆盖 3943-4401 的 459 个整数位，无缺号，因此这是该区间的完整记录，不是抽样。区间之外（REV 3942 及更早）的记录不在本地安装包内。
 
-**口径警告**：changelog 陈述的是「做过什么改动」，不是完整算法规范。一条 "Added X" 证明能力 X 存在且在该版本引入，不证明 X 的参数域、默认值或数值行为。所有引用必须与 `assets/**` 的静态数据或运行门交叉验证后才能进入实现。
+**口径警告**：changelog 陈述的是「做过什么改动」，不是完整算法规范。一条 "Added X" 证明能力 X 存在且在该版本引入，不证明 X 的参数域、默认值或数值行为。它只能产生研究问题；要进入产品实现，必须先由项目合同用独立措辞重新定义，并以项目正反 fixture 和按需的官方动态对照验证。
 
-**证据等级**：A（正版安装中的结构化文件直接确认，标度同 [Windows 官方客户端取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §2）。由 changelog 文字推断出的运行时语义为该标度的 C 级，本文逐条标注。
+**来源分类**：`official-client-static-observation`。结构化文件直接确认的只有固定版本 changelog 的文本、revision 与顺序；由文字外推的运行语义一律标为静态解释，不能升级成动态行为或实现合同。历史 Windows 取证文件中的局部 `A/B/C` 标度只属于该快照，不在本文继续使用。
 
 ## 3. SceneScript 与 V8
 
@@ -63,7 +63,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 4240 | Reduced general settings callback to language only. | `applyGeneralSettings` 的载荷后来被收窄到 language |
 | 4290 | Added user property cache against misuse of engine.userProperties. | `engine.userProperties` 有缓存层，反复读不穿透到宿主 |
 | 4290 | Added precache system for registerAsset. | `registerAsset` 有预缓存阶段 |
-| 4308 | Added support for numbers in min/max for all script Vec classes. | `Vec.min/max` 接受标量，与 [实现层合同](scenescript-runtime-implementation-contract.md) 的标量广播行为一致 |
+| 4308 | Added support for numbers in min/max for all script Vec classes. | `Vec.min/max` 接受标量，与 [2.8.42 静态取证](scenescript-runtime-implementation-contract.md) 的标量广播观察一致；实现前仍需转为中性行为合同 |
 | 4283 | Added createModelData, updateModelData and destroyModelData script functions to create layers with custom geometry. | 脚本可创建自定义几何图层 |
 | 4285 | Changed model data script interface to be part of modal data object. | — |
 | 4355 | Disallowed IModelData.replace in update(). | 生命周期阶段限制：`replace` 不能在 `update()` 内调用 |
@@ -72,7 +72,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 4302 | Made it possible to create a model layer directly from a model data object. | — |
 | 4287 | Adding vertexformat constants to IModelData. | — |
 | 4301 | Cached some JS utility handles in createLayer. | `createLayer` 是官方 API |
-| 4293 | Removed render target check on effectlayer causing texture map to fill up because this looks like a memory leak when spamming layers in a script. | 脚本可批量创建 effect layer，RT 生命周期必须能承受 |
+| 4293 | Removed render target check on effectlayer causing texture map to fill up because this looks like a memory leak when spamming layers in a script. | 固定客户端曾处理脚本批量创建 effect layer 与 RT 生命周期的交互；具体资源策略未知 |
 | 4207 | Added system command user property to open custom files/application/websites from a scene wallpaper. | `usershortcut` 属性的能力面 |
 | 4208 | Added security warning to text inputs for system commands. | 官方自己给这条能力加了安全警告 |
 | 4213 | Renamed system command to user shortcut. engine.openUserShortcut for scripts and changed property type to usershortcut. | 属性类型名与脚本 API 的确切拼写 |
@@ -83,7 +83,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 3989 | Fixed scene script storage to use absolute path for hash from virtual file system instead of local path. | 脚本持久化存储按 VFS 绝对路径哈希分桶 |
 | 4327 / 4318 / 4299 / 4291 / 4321 | Updated script language defs. | 语言定义随版本演进，`lib.sceneScript.d.ts` 是快照不是恒定合同 |
 
-**当前落差**：项目 SceneScript source/VM/API 全线 `L0`，`usershortcut` 为 `L0`。本节把 VM 选型问题从「候选」变成「已知目标」，但仍不解决沙箱、预算与 API 表面的实现工作。
+**2026-07-26 项目状态快照（历史解释）**：当时审查把 SceneScript source/VM/API 与 `usershortcut` 记为未实现，并据此讨论 VM 候选。该状态已从本文撤权；当前 binding、bounded producer、VM/API 缺口与技术选型分别只查[SceneScript API 覆盖表](scenescript-api-coverage.md)、[覆盖台账](coverage-ledger.md)和[技术栈边界](../../architecture/technology-stack-boundaries.md)。
 
 ## 4. 文字与字体：官方是 MSDF 管线
 
@@ -112,9 +112,9 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 4347 | Added font x/y spacing customization. | 字距/行距可分轴自定义 |
 | 4338 | Optimizing font manager. | — |
 
-**当前落差**：项目 [coverage-ledger](coverage-ledger.md) 的 `outline/shadow/text effects` 为 `L1`，`baseline/alignment` 为 `L2`。本节说明官方这三类效果不是叠加在位图上的后处理，而是 MSDF 距离场的直接产物。项目若继续用 CoreText 位图，outline/shadow 只能做形似近似，且必须在文档中标为非官方算法；若要对齐，需要独立引入距离场字形生成。两条路都不是本批次能闭合的，本文只固定这个判据。
+**研究边界**：这些 revision 只说明固定客户端曾把 outline/shadow/blur 与 MSDF 路径共同演进，不证明完整算法、参数、栅格结果，也不决定 MyWallpaperX 的实现选择。项目当前的文字能力和缺口只查[运行输入与属性覆盖表](runtime-input-property-coverage.md)；任何实现路线必须先进入项目自有合同并建立独立 fixture/官方结果对照，不能从本节直接落代码。
 
-`padding` 双轴与 `x/y spacing` 是可以先于 MSDF 落地的字段级能力，与现有 `limitrows`/`maxwidth` 同属 CoreText 阶段可消费的范围。
+`padding` 双轴与 `x/y spacing` 是独立于“是否采用 MSDF”的作者字段，可作为后续项目合同评审的分离候选；本文不安排其实现顺序。
 
 ## 5. Render Graph、FBO 与 compose
 
@@ -140,7 +140,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 4146 | Changed swap chain mode to flip sequential. | 呈现模式，非 Scene 语义 |
 | 4055 / 4059 / 4069 | Reverse Z depth buffer（experimental → toggle → desktop 启用）。 | 3D 场景深度精度策略 |
 | 4142 | Fixed z shadow projection switch for reverse depth in cascaded shadow maps. | 官方有级联阴影贴图 |
-| 4027 / 4028 / 4036 / 4054 / 4056 / 3968-3997 系列 | nested clipping masks、compose 顺序、a2c prerender、alpha 边界优化。 | **clipping mask 是一套独立子系统**，项目完全未建模 |
+| 4027 / 4028 / 4036 / 4054 / 4056 / 3968-3997 系列 | nested clipping masks、compose 顺序、a2c prerender、alpha 边界优化。 | 固定客户端把 clipping mask 作为独立演进域；MyWallpaperX 当前状态查现役台账 |
 | 3987 | Doubled z render range for orthogonal projection to fix old wallpapers that were relying on incorrect eye z pos on older builds. | 正交投影 z 范围曾翻倍，且是为兼容老作品 |
 
 **历史解读边界**：当时的台账曾把 `Generic FBO command graph` 记为 `L2`，并把 condition/function 视为后续 generic compose 阻塞项。本节只保留 condition 运算符集、无名 FBO 合法性、compose 三开关正交性和 prerendering 概念等版本证据；旧 `B2` 标签不构成现役批次指令，当前能力与顺序分别以[覆盖台账](coverage-ledger.md)和[Scene 兼容路线](../scene-compatibility-roadmap.md)为准。
@@ -161,7 +161,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 4329 | Fixed normal mapping tangent space on modular shaders. | 存在「modular shaders」 |
 | 4296 | Fixed reflection map not working in chroma/veg/fur shaders. | chroma/veg/fur 是三类专用 shader |
 
-**当前落差**：项目 `Shader source/include/annotation/declaration contract` 为 `L1`，无 include expansion、macro/permutation preprocessor。REV 4286 给了一条可直接采纳的实现判据：注解解析按行、不展平多行注释。REV 4284 说明官方跨后端方案是自建翻译器，与 [Shader source 前置合同](shader-prelude-and-backend-abstraction.md) 的跨后端假设一致。
+**2026-07-26 项目状态快照（历史解释）**：当时审查认为 shader source/include/preprocessor 仍处早期阶段。REV 4286 只能证明固定客户端曾对 texture/combo 注解解析采用按行处理，REV 4284 只能证明其当时存在 HLSL translator；两者都不是可直接采纳的跨平台实现判据。当前 shader 能力查[Graph/Shader 覆盖表](render-graph-shader-coverage.md)，后端策略查[Shader source 前置合同](shader-prelude-and-backend-abstraction.md)。
 
 ## 7. 粒子系统
 
@@ -195,7 +195,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 4124 | Made rope uv scroll assume that emitter rate is limited to FPS when deciding if max length is reached. | rope UV 滚动假定发射率受 FPS 限制 |
 | 4125 | Disabled uv smoothing on rope particles that emit more particles than expected each frame. | — |
 
-**当前落差**：项目粒子已有 fixed simulation step 与 deterministic seed（`L3`），但 `Delta clamp/prewarm cap` 为 `L2`、缺定向预算断言。本节说明官方在低帧率下对 operator 做的是**阻尼 dt** 而非简单钳制，且 sprite trail 长度有独立的 fps 补偿——这两条都是项目现有实现未覆盖的数值语义。
+**2026-07-26 项目状态快照（历史解释）**：当时审查用项目已有 fixed step/seed 与尚缺的预算门解释这些条目。changelog 只证明固定客户端曾修正低帧率 operator 与 sprite-trail 行为，不公开公式、阈值或当前项目缺口；现役粒子时钟、prewarm、trail 与预算状态只查[粒子组件覆盖表](particle-component-coverage.md)。
 
 ### 7.3 Emitter
 
@@ -211,7 +211,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 4148 | Fixed particle emission stopping when rate becomes 0 due to instance multiplier. | instance multiplier 可把 rate 压到 0 |
 | 4162 | Improved sphere emitter cone control. | — |
 | 4077 | Changed sphere emitter coords to allow cone angle adjustment along x axis. | sphere emitter 的 cone 沿 x 轴可调 |
-| 4080-4085 | Layer image emitter：emission mask、offset、random velocity、inherit layer motion、model bind pose、child 支持。 | **Layer Image emitter 是完整能力**，项目当前为 `L1`（仅名称可诊断） |
+| 4080-4085 | Layer image emitter：emission mask、offset、random velocity、inherit layer motion、model bind pose、child 支持。 | 这些 revision 证明固定客户端在该区间持续扩展 Layer Image emitter；不证明完整公式或 MyWallpaperX 当前等级，现状只查[粒子组件覆盖表](particle-component-coverage.md) |
 | 4079 | Progress on effect layer particle emitter. | 另有 effect layer emitter |
 
 ### 7.4 Initializer
@@ -291,7 +291,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 
 | REV | 官方原文 | 含义 |
 |---|---|---|
-| 4120 | Fixed particle static child init not taking parent object transform into account. | **static child 初始化必须计入父对象 transform** |
+| 4120 | Fixed particle static child init not taking parent object transform into account. | 固定客户端曾修复 static child 初始化遗漏 parent object transform；完整数学未知 |
 | 4117 / 4122 / 4127 / 4141 | Improved/fixed child particle transforms（4 条）。 | child transform 是官方反复修正的区域 |
 | 4127 | Added more options to disable various instance overrides for child particles. | child 可逐项禁用 instance override |
 | 3948 | Added ability to disable color overrides on child particles. | — |
@@ -301,7 +301,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 4004 | Fixed particle child prerender coordinate system for world particles. | world 粒子的 child 预渲染坐标系 |
 | 4121 | Fixed child materials not reloading in main editor. | — |
 
-**当前落差**：项目 child 执行为 strict depth ≤ 2 子集；`3fd77125` 已让 static/spawn/death/follow Sprite profile 共用 bounded uniform screen-plane scale，但仍要求零 angles，event offset、XY 非均匀/镜像、Rope/nested/world-space-movement scale 与多数 CP 形态继续失败关闭。REV 4120 仍提示官方 static child 初始化会计入父对象 transform；项目当前只执行有限 authored local origin 与上述 bounded scale，不代表完整 parent/object transform。REV 4103 的 child config 结构变更说明跨版本样本可能存在两种结构。
+**历史项目解释**：2026-07-26 之后的旧维护批次曾把这些条目与当时的 strict child 子集、bounded scale 和未支持 transform 形态对照。该批次描述不再维护当前状态；本节现役价值仅是 REV 4120 记录 parent object transform 参与 static child 初始化、REV 4103 记录 child config 结构变更。当前 child 执行边界只查[粒子组件覆盖表](particle-component-coverage.md)。
 
 ### 7.9 Renderer
 
@@ -365,7 +365,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 4230 / 4242 | Media thumbnail 系列：uri thumbnail loading、自定义缩略图文件缓存、生成器锁定 256。 | `$mediaThumbnail` 的官方尺寸约束 |
 | 4020 | Fixed light cookie texture being deleted while in use when media integration triggers a texture flush. | 媒体集成会触发纹理 flush |
 
-**当前落差**：项目 Texture Variants 为 `L0`。本节给出该系统的完整能力面：分组、blending、视频纹理、combo 联动重载、格式约束。REV 4242 的「media thumbnail generator 锁定 256」是 `$mediaThumbnail` 尺寸的直接依据。
+**研究边界**：本节记录固定客户端 changelog 中 Texture Variants 的分组、blending、视频纹理、combo 联动重载和格式约束，以及 REV 4242 的 media-thumbnail 256 记录；它不决定 MyWallpaperX 当前等级，也不单独证明运行时默认或精确尺寸算法。现役状态只查[运行输入与属性覆盖表](runtime-input-property-coverage.md)。
 
 ## 9. 场景后处理、颜色与 blend
 
@@ -426,7 +426,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 4168 | Added sound spatialization params. | 空间化带参数 |
 | 4394 | Added new architecture to handle invalid audio streams in scene player and better fall back to other configurations asynchronously. | 音频流失败异步回退 |
 
-**当前落差**：项目 `Sound layer` 为 `L0`，缺口写的是「补 sound content IR、播放、volume 和生命周期」。本节新增一项必须纳入的能力：空间化及其参数。
+**研究边界**：这些条目证明固定客户端在该 revision 区间引入 Sound spatialization 及参数，并记录 invalid-stream fallback 架构变化；不证明参数 wire、数值算法、设备行为或 MyWallpaperX 当前等级。现役 Sound 能力与缺口只查[运行输入与属性覆盖表](runtime-input-property-coverage.md)。
 
 ## 12. Puppet、模型与 clipping mask
 
@@ -445,7 +445,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 3992 | Fixed puppet index range depth priority calculation during animation. | 动画期间的深度优先级 |
 | 4002 | Made inverted masked puppet geometry draw in depth-order without pulling it down to the mask. | 反转遮罩几何的深度序 |
 | 3967 | Fixed puppet texture blending texture scale correction for non-lighting pre-render case. | — |
-| 3967 / 3968 / 3973 / 3975 / 3976 / 3984 / 3997 / 4026 / 4027 / 4028 / 4036 / 4054 / 4056 | Clipping mask 系列：实现、嵌套支持、渲染顺序、compose 系统、a2c prerender、alpha 边界优化、错误分析。 | **clipping mask 是独立子系统**，支持嵌套；项目完全未建模 |
+| 3967 / 3968 / 3973 / 3975 / 3976 / 3984 / 3997 / 4026 / 4027 / 4028 / 4036 / 4054 / 4056 | Clipping mask 系列：实现、嵌套支持、渲染顺序、compose 系统、a2c prerender、alpha 边界优化、错误分析。 | 固定客户端把 clipping mask 作为支持嵌套的独立演进域；项目状态查现役台账 |
 | 3969 | Added additive blending option to clipping mask compositor. | — |
 | 4037 | Added clipping mask pass count to stats. | — |
 | 3973 | Fixed clipping mask render not using skinning. | 遮罩渲染参与蒙皮 |
@@ -471,23 +471,23 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 4197 | Fixed lut options not being part of wallpaper defaults. | — |
 | 4369 | Fixed config version upgrade not setting old video player framework in correct location. | 存在 config 版本升级链 |
 
-**对 MyWallpaperX 的直接后果**：
+**提交给 MyWallpaperX 合同评审的问题（非实现指令）**：
 
-1. 「字段缺席」必须解释为「取默认值」，不能解释为「作者未启用」。项目现有的 `limitwidth: false` + `maxwidth: 500` 处理（只在开关打开时消费数值）正是这条规则的正确应用；其余字段需要逐项复核是否也存在「官方删默认值」导致的误判。
-2. 项目 [开发硬规则](README.md#41-能力存在不等于启用) 的「能力存在不等于启用」仍然成立，但要与本条区分：**启用与否由显式开关决定，数值缺席则取默认值**。两者不是同一件事。
-3. 官方存在按作品 ID / 发布时间的行为分叉，与 [zcompat](zcompat-backward-compatibility-forensics.md) 的 `maximumprojectid` 同源。项目若发现某样本行为与当前实现冲突，需要先判断是否属于这一类历史兼容，而不是直接改通用逻辑。
+1. 对每个字段分别确认“缺席”“显式默认值”和“显式关闭”的可观察结果；changelog 不提供一张可直接采用的全局默认值表。
+2. 把“能力存在不等于启用”与“缺席是否取默认值”作为两个独立合同问题，不能仅从这些 revision 合并成一条通用 parser 规则。
+3. 遇到按作品 ID / 发布时间分叉的迹象时，把历史兼容列为候选解释，并用 [zcompat](zcompat-backward-compatibility-forensics.md)、项目 fixture 与动态对照区分；不要让 changelog 单独决定通用逻辑。
 
 ## 14. 本文不覆盖的域
 
 以下条目在 741 条中占 64 条，与 Scene runtime 无关，不纳入取证：Steam 工坊/商店/播放列表 UI、CEF/Chromium 集成与补丁、Android/iOS/移动端、构建脚本与版本号、本地化更新、编辑器窗口布局与拖拽、桌面快捷方式图标解析、诊断与崩溃上报。
 
-`ui/dist/scripts/scripts.js` 的其余部分是 AngularJS 编辑器逻辑。已实测：`depthtest`、`cullmode`、`pointsize`、`limitrows`、`maxrows`、`usershadervalues`、`constantshadervalues`、`eventspawn`、`inheritvaluefromevent`、`MDLV`、`TEXV` 等 Scene wire 字段在其中命中 0 次，因此**它不是 schema 校验或默认值的来源**，`getSharedDefaultProperties` 只返回 `alignment: 0`、`alignmentposition: 50`、`rate: 100`、`volume: 50`、`cameraparallax: true` 五个通用壁纸设置。这与 [SceneScript 实现层合同](scenescript-runtime-implementation-contract.md) §11 的「可能含属性 schema 校验与默认值」推测不符，该推测本文予以更正。
+`ui/dist/scripts/scripts.js` 的其余部分是 AngularJS 编辑器逻辑。已实测：`depthtest`、`cullmode`、`pointsize`、`limitrows`、`maxrows`、`usershadervalues`、`constantshadervalues`、`eventspawn`、`inheritvaluefromevent`、`MDLV`、`TEXV` 等 Scene wire 字段在其中命中 0 次，因此**它不是 schema 校验或默认值的来源**，`getSharedDefaultProperties` 只返回 `alignment: 0`、`alignmentposition: 50`、`rate: 100`、`volume: 50`、`cameraparallax: true` 五个通用壁纸设置。这与 [SceneScript 2.8.42 静态取证](scenescript-runtime-implementation-contract.md) §11 的「可能含属性 schema 校验与默认值」旧研究推测不符，该推测本文予以更正。
 
 ## 15. 不应从本文推出的结论
 
 1. 不能因为某条 "Added X" 就认为 X 的参数域、默认值或数值行为已知；这些仍需 `assets/**` 静态数据或运行门确认。
-2. 不能把 changelog 的实现顺序当作 MyWallpaperX 的实施顺序依据；官方顺序由其自身架构决定，项目仍按 [能力依赖图](capability-dependency-map.md) 推进。
-3. 不能因为官方用 V8 就认为项目必须用 V8；这条只把「VM 至少要覆盖什么」变成「官方事实上是什么」，选型仍受 macOS 平台、安全沙箱与分发约束。
-4. 不能因为官方用 MSDF 就把项目的 CoreText 路径记为错误实现；两者是不同取舍，但 outline/shadow 的等级和边界描述必须反映这个差异。
+2. 不能把 changelog 的实现顺序当作 MyWallpaperX 的实施顺序依据；官方顺序由其自身架构决定，项目顺序只查[Scene 兼容路线](../scene-compatibility-roadmap.md)。
+3. 不能因为官方用 V8 就把 V8 设为项目必选项；这条只把「VM 至少要覆盖什么」变成「官方事实上是什么」，选型仍受 macOS 平台、安全沙箱与分发约束。
+4. 不能因为固定客户端使用 MSDF 就把项目的 CoreText 路径记为错误实现；两者是不同取舍，当前 outline/shadow 能力与差异只由专项表和运行证据记录。
 5. changelog 覆盖 REV 3943-4401，不代表这些能力的完整历史。更早引入的能力（如 Timeline、基础 effect 体系）不在区间内，缺席不构成任何结论。
 6. 任何单条 changelog 都不能替代 Windows golden；本文不改变 [覆盖台账](coverage-ledger.md) 中任何一行的等级。

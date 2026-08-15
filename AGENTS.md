@@ -22,9 +22,11 @@
 6. authored corpus 影响面：[`scene-corpus-capability-inventory.md`](docs/scene/semantics/scene-corpus-capability-inventory.md)，它不证明运行支持；
 7. 已退役计划、评审和基线：[`docs/history/README.md`](docs/history/README.md)，只用于追溯。
 
-冲突时依次采用：当前代码与可复现运行证据、本文、长期架构合同、专题当前状态/稳定合同、现役计划、历史证据。历史文件中的“当前”“下一批”和命令没有现役约束力。
+冲突时依次采用：当前代码与可复现运行证据、本文、长期架构合同、专题当前状态/稳定合同、现役计划、历史证据。这个顺序只裁决“当前是什么”的事实冲突，不允许当前错误实现覆盖目标合同；目标合同仍按来源边界由官方作者行为、本文与长期架构合同裁决。历史文件中的“当前”“下一批”和命令没有现役约束力。
 
-必须区分五种来源：官方公开合同、固定版本官方客户端动态观察、固定版本官方客户端静态观察、第三方 clean-room 结构参考、MyWallpaperX 自有策略。动态观察证明固定条件下发生了什么，不证明内部实现；静态观察只提供版本有界的职责和顺序，不证明画面。不得把官方未公开的内部 GraphExecutor/算法归给官方，也不得用 MirageWallpaper 定义官方语义。Mirage 只可借鉴职责、状态传播和顺序；不得复制其源码、shader、资产、payload、常量组合、算法表达或测试数据。
+每个实现判断必须同时写清三条轴：**目标合同**说明按官方作者行为与项目长期架构最终应当怎样；**当前事实**只说明当前代码和可复现证据现在怎样；**偏差债务**登记二者差异、现任 owner、fallback/route state、纠正门和退役条件。旧代码、旧测试和旧目录只证明现状，不得反向成为规范。AI 触达一个现有 owner 时必须主动列出本职责内的偏差，并在当前纵向结果所需范围内纠正；不得为了兼容已知错误实现而扩张错误抽象、专用分支或测试预期。暂时无法同批纠正的偏差必须显式留债并保持目标合同不变。
+
+必须使用[Scene 资料来源索引](docs/scene/semantics/source-index.md)的七类命名来源：`official-public-contract`、`official-client-dynamic-golden`、`official-client-static-observation`、`authored-corpus-observation`、`third-party-reference-pattern`、`MyWallpaperX-current-evidence`和`MyWallpaperX-strategy`。corpus 只证明作者写了什么，项目当前证据只证明现在做到了什么，二者都不能直接变成目标策略。动态观察证明固定条件下发生了什么，不证明内部实现；静态观察只提供版本有界的职责和顺序，不证明画面。不得把官方未公开的内部 GraphExecutor/算法归给官方，也不得用 MirageWallpaper 定义官方语义。Mirage 只可借鉴职责、状态传播和顺序；不得复制其源码、shader、资产、payload、常量组合、算法表达或测试数据。
 
 不得把 `recognized`、`wired`、静态 census、compile success、路由计数、非黑截图、matrix PASS 或单个样本通过表述为完整兼容或 Wallpaper Engine 视觉等价。
 
@@ -33,6 +35,8 @@
 - 官方公开合同、现役资料、既有固定客户端证据和合法 corpus 仍不能回答一个会阻塞当前纵向切片的可观察语义时，先定义首断点、候选解释和区分它们的 observable，再按[官方客户端行为研究与一致性验证工作流](docs/scene/semantics/official-client-behavior-research-workflow.md)执行。
 - 能由固定输入的官方客户端黑盒差分回答时优先测行为。只有黑盒仍不能决定 producer、state/identity、顺序、生命周期或失败边界时，才对合法取得、版本/build/hash 固定的本地客户端做范围明确的 clean-room 静态分析；不得把 Ghidra 变成每项功能的前置仪式。
 - 静态研究只提炼高层字段归属、职责、状态、顺序和生命周期。产品实现只能消费项目自有行为合同、正反 fixture 和官方结果对照协议；不得保存、提交或照译地址、指令、伪代码、函数体、私有算法表达、shader、资产、payload、常量表或原始分析工程。
+- clean-room 静态研究与产品实现必须使用隔离任务和 fresh context；实现任务只能接收经过审查的中性行为合同、自有 fixture 与官方黑盒对照协议，不得继承或读取反编译产物、分析上下文和原始笔记。
+- 标为 `research-context-only` 的文档只能由独立研究任务读取；implementation task 的文档检索必须从现役入口和中性合同开始，不得宽泛扫入取证页。如果实现上下文意外读到了禁止跨界的静态细节，该上下文立即降级为研究上下文，不得继续修改产品；必须完成中性交接并由 fresh context 重新实现。
 - 算法和 Metal 实现可以独立选择；对声称兼容的 bounded profile，固定输入、环境、时间和事件下的画面、事件顺序、状态、资源生命周期与失败结果必须通过预先登记的官方客户端对照容差。未运行官方对照时不得声称官方结果一致。
 
 ## 3. Scene 快速兼容执行
@@ -43,6 +47,8 @@
 - definition/material/shader path、component/API name 可以选择作者数据、共享 primitive、缓存、资源和诊断；sample/layer/path/hash/截图身份不得选择特制视觉算法或固定输出。
 - 除非现有 IR 无法表达多个内容都会复用的新 primitive，不新增 effect-specific planner/renderer、固定脚本 profile、完整 particle preset renderer 或样本产品旁路。
 - 现有 bounded frontend、exact planner 和专用 renderer 是迁移 fallback/oracle。通用路径取得相同可见结果并稳定后再精确撤权；不得要求每个前置批次都先删除旧 owner，也不得长期保留静默双路由。
+- 每个迁移 owner 必须显式登记 route state：`observe-only` 只观察/诊断、不持有产品输出；`prefer-generic` 由通用路径优先、旧 owner 仅作带原因的已验证 fallback；`generic-only` 只有通用路径持有产品执行权，旧实现只可作测试 oracle；`disable-generic` 只用于故障回滚并形成待退出偏差债务。每次 fallback 都必须输出 typed reason、影响 identity 和可聚合计数。
+- route state 变更必须证明原子切换和回滚演练。进入 `generic-only` 前至少需要目标纵向结果、局部失败反例、新组合/未见 fixture 与 fallback 统计；撤销旧产品 owner 前还须确认产品路径无旧引用并同步权威文档。不得以长期 `disable-generic` 或静默双执行代替修复。
 - 新功能从一个可闭合真实画面的纵向切片开始；不得把完整 compiler、RenderGraph、VM、particle platform 或发行准入作为第一张正确画面的前置工程。
 
 ### 3.2 失败按影响分级
@@ -97,11 +103,13 @@ python3.12 script/verify_scene_change.py --phase <inner|checkpoint|integration|m
 |---|---|---|
 | `inner` | 快速编码循环 | 最近单元/harness；不构建、不启动 App |
 | `checkpoint` | 可提交实现 | 定向测试、代码健康；Swift 产品改动再 build；通用化改动加入新组合/未见 fixture |
-| `integration` | GPU、VM、资源、生命周期或可见变化 | 小型 Fast Scene Suite/代表隔离内容、实际执行、局部降级、compositor 输出 |
+| `integration` | GPU、VM、资源、生命周期或可见变化 | 已批准 Fast case；尚未批准时使用契约化代表隔离内容并明确不是 suite PASS；实际执行、局部降级、compositor 输出 |
 | `milestone` | 跨 family、matrix、性能或发布 | 按风险选择 fixed/full、压力、长稳、签名/发布门 |
 
 - gate 显式报告 `planned/running/passed/failed/skipped/blocked`；缺命令、`--skip-runtime` 或缺样本只能得到 structural-only/skipped。
+- Fast Scene Suite 成员与 readiness 只查 `script/scene_fast_suite.json`；`selection-required` 成员、任意 `--sample-id` 或 full matrix 子集不能报告为 Fast Suite PASS。
 - 声称具体显示或动态恢复时，需要实际执行身份、GPU/VM completion、publication、terminal compositor、next-frame，以及与声明相称的截图 ROI/事件证据。架构广度迁移仍不能用任意非黑像素冒充视觉支持。
+- 完成状态分三层独立报告：`slice-visible` 只证明当前纵向切片真实可见或可执行；`owner-migration` 还要求显式 route state、fallback 指标、回滚演练和旧 owner 撤权；`parity-release` 再要求对应 bounded profile 的官方黑盒容差、发布依赖、性能/长稳与签名门。前一层不得冒充后一层，发行门也不得倒灌阻塞第一张正确画面。
 - fixed 与 full 不互相替代；普通定向开发默认不跑 full。发行、跨 corpus 合同和无法由低成本门覆盖的风险才进入 milestone。
 - 新 gate 必须登记在 `script/scene_validation_gates.json`；迁移期 ratchet 结束后删除或收敛为稳定不变量。
 

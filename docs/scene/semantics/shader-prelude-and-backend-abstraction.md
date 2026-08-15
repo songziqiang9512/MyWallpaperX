@@ -1,10 +1,12 @@
-# Shader source 前置合同与跨后端假设审查
+# Shader source/prelude 固定客户端与语料研究
 
 > 本文只记录 source/prelude/backend 语义合同与固定客户端观察，不决定现役开发顺序。shader compiler 的语言职责、生产后端与迁移准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#6-shader-compiler-路线)与[兼容运行时架构](../runtime-architecture.md#41-作者-shader-的推荐后端)统一决定。
 >
 > - `official-public-contract`：官方 Shader Syntax/Variables/Headers 页只定义作者可见的 GLSL-like source、自定义 preprocessor、combo、uniform、sampler 和 built-in 表面；它们没有公开内部 translator 或 Metal 后端。
 > - `official-client-static-observation`：本文的 Wallpaper Engine 2.8.42/build `23967692` 快照只观察到随包 source/prelude，以及 normal DirectX material-pass 链的“自定义 preparation → WE HLSL translator → 动态 `D3DCompile`”；不外推到其他版本或 Metal。
-> - `MyWallpaperX-policy/plan`：项目现役首选是“小型 dialect normalization/generated prelude → glslang → SPIR-V → SPIRV-Cross MSL/reflection → Metal”。这是项目自有策略，不是官方客户端路径；外部 frontend 可编译也不自动证明 GPU 执行或视觉等价。
+> - `MyWallpaperX-strategy`：项目现役首选是“小型 dialect normalization/generated prelude → glslang → SPIR-V → SPIRV-Cross MSL/reflection → Metal”。这是项目自有策略，不是官方客户端路径；外部 frontend 可编译也不自动证明 GPU 执行或视觉等价。
+>
+> **文档角色：`research-context-only`。** 本页混合公开 source 表面、作者语料观察和固定客户端静态观察，不是产品实现输入。implementation agent 不得从本文复制 shader、公式、常量、rewrite 或客户端 translator 细节；当前切片必须先由独立研究任务产出经审查的中性 source/behavior 合同，再由 fresh context 通过项目 fixture 和官方黑盒协议实现。产品 frontend、backend、失败边界和验收门只以本文链接的现役合同为准。
 
 审查日期：2026-07-25
 架构角色与后端策略复核：2026-08-15
@@ -13,13 +15,13 @@
 
 > [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md) 记录了 EffectDefinition、Material、FBO 与 Shader 的 IR 与 executor 实现进度。本文补充一个前置观察：扫描到的官方 shader 源码使用一组在同一 source corpus 中没有定义的 token；它们可能由编译前端、未随包的 include 或其他宿主阶段提供。
 >
-> 这只建立“自研 frontend 必须解析或拒绝这些 token”的输入合同，不证明 token 的官方展开文本、注入模块或 Metal 映射。
+> 这只建立一个中性输入问题：自研 frontend 对这些 token 是接受、保留还是拒绝；它不证明 token 的官方展开文本、注入模块或 Metal 映射，也不直接规定产品行为。
 
 ## 1. 结论先行
 
 1. 扫描得到 **25 个候选 frontend token**，在 `assets/` source corpus 中被使用但没有找到本地定义。缺席是 A 级事实；由哪个 executable/module 注入是 C 级假设。
 2. `mul`、`saturate`、`frac`、`clip`、`ddx`/`ddy` 等命名明显受 HLSL 影响，但矩阵上传、转置与各目标语言展开仍需独立 fixture 和 Windows golden。
-3. 源码存在 `HLSL`、`GLSL`、`HLSL_SM30`、`PLATFORM_ANDROID` 条件分支。MyWallpaperX 应保真这些 authored branches，用自有 backend identity 和小型 normalization 送入通用 glslang/SPIR-V/SPIRV-Cross MSL 链；不得直接复制官方分支、扩张 Swift 手写完整语言 translator，或把 `HLSL` 路径等同于 Metal。
+3. 源码存在 `HLSL`、`GLSL`、`HLSL_SM30`、`PLATFORM_ANDROID` 条件分支；本观察只形成“哪些 authored branches 会改变固定输入结果”的黑盒区分问题。项目 backend identity、normalization 和通用编译链只由[兼容运行时架构](../runtime-architecture.md)规定，本页不授权复制官方分支或 translator 细节，也不能把 `HLSL` 路径等同于 Metal。
 4. 存在 **13 个纹理格式枚举**，通过 `TEX0FORMAT`/`TEX1FORMAT` 等 combo 注入，直接决定法线解压和通道 swizzle。
 5. 同一安装包内**两个灰度函数使用相反的 R/B 权重**。统一实现会产生偏色。
 
@@ -80,7 +82,7 @@
 | `VERSION` | 版本号 | 3 |
 | `SHADERVERSION` | shader 版本号 | 2 |
 
-源码把 `HLSL` 与 `GLSL` 当作独立条件，并在部分位置使用 `HLSL_SM30` 特化；本地静态文件没有证明所有编译任务中两者必有且仅有一个为真。MyWallpaperX 的 MSL 变体应使用自有 backend identity，并对每个保留分支做显式准入，不能复用 `HLSL` 标志伪装成 Metal。
+源码把 `HLSL` 与 `GLSL` 当作独立条件，并在部分位置使用 `HLSL_SM30` 特化；本地静态文件没有证明所有编译任务中两者必有且仅有一个为真。MSL 变体的 backend identity 与分支准入属于[现役架构策略](../runtime-architecture.md)；本观察仅证明复用 `HLSL` 标志不能被当作 Metal 官方路径证据。
 
 ### 2.5 不属于 prelude 的符号
 
@@ -150,7 +152,7 @@ common_vertex.h   ── base/model_vertex_v1.h
 | `FORMAT_ETC2_RGBA8` | 5 | | `FORMAT_R16F` | 11 |
 | | | | `FORMAT_BC7` | 12 |
 
-源码通过 `TEX0FORMAT`、`TEX1FORMAT`、`TEX4FORMAT`、`TEX8FORMAT`、`THICKFORMAT` 等 combo 选择分支。sidecar/binary format 与这些枚举存在可对照关系，但 combo 的最终来源、覆盖优先级和缺省值尚未由运行时确认；自研 loader 应先保留 authored、sidecar 与 decoded format 三者，再由 fixture 锁定 variant key。
+源码通过 `TEX0FORMAT`、`TEX1FORMAT`、`TEX4FORMAT`、`TEX8FORMAT`、`THICKFORMAT` 等 combo 选择分支。sidecar/binary format 与这些枚举存在可对照关系，但 combo 的最终来源、覆盖优先级和缺省值尚未由运行时确认；可交接的问题是 authored、sidecar 与 decoded format 三者如何影响固定客户端的 variant 结果，自研 loader 形态只由现役合同决定。
 
 ### 4.2 法线解压按格式分派
 
@@ -215,9 +217,9 @@ common_vertex.h   ── base/model_vertex_v1.h
 
 `Desaturate` 的权重接近标准 Rec.601（`0.299, 0.587, 0.114`）；`greyscale` 的 R 与 B 权重互换，**不符合任何标准亮度公式**。
 
-无论这是否为历史兼容或笔误，都不能在 parser 阶段把两个 helper 合并成同一身份。自研实现应以纯色输入建立独立 golden，并在得到 Windows 像素证据前保留“行为待确认”，而不是直接移植官方表达式。
+无论这是否为历史兼容或笔误，静态 source 都显示两个不同 helper identity；是否可合并只能由纯色输入的官方黑盒结果区分。在取得像素证据前，本页把其行为保持为待确认，不授权 parser 合并或移植官方表达式。
 
-同类情况还有 HSV：`common.h` 的 `rgb2hsv`/`hsv2rgb` 是 GLSL 无分支实现（用 `1e-10` 防除零），与 `common_blending.h` 的 `RGBToHSL`/`HSLToRGB` 是**不同色彩空间的不同实现**（HSV vs HSL），不可互换。JS 侧 `WEColor` 模块又是第三套实现，见 [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) §7.4。
+同类情况还有 HSV：`common.h` 的 `rgb2hsv`/`hsv2rgb` 是 GLSL 无分支实现（用 `1e-10` 防除零），与 `common_blending.h` 的 `RGBToHSL`/`HSLToRGB` 是**不同色彩空间的不同实现**（HSV vs HSL），不可互换。JS 侧 `WEColor` 模块又是第三套研究观察，见 [SceneScript 2.8.42 静态取证](scenescript-runtime-implementation-contract.md) §7.4。
 
 ## 6. PBR 与平台分支边界
 
@@ -280,7 +282,7 @@ common_vertex.h   ── base/model_vertex_v1.h
 
 `shaders/HLSL/` 的 7 个 dx11 shader 另含 15 个只在该目录出现的 `g_` 符号，以 HLSL `cbuffer` 成员或 `SamplerState` register 形式声明：`g_bufDynamic`、`g_AspectRatio`、`g_Hash`、`g_Hash2`、`g_Progress`、`g_Random`、`g_Width`、`g_Height`、`g_ViewProjection`、`g_ViewProjectionInv`、`g_Texture0SamplerState`、`g_Texture0SamplerStateWrap`、`g_Texture0MipMapped`、`g_Texture1Noise`、`g_Texture2Clouds`。
 
-它们属于 §10 说明的 D3D11 专用回退路径，**不参与跨平台抽象**，与上表合并统计会得到 161 这个无实现意义的数字。MyWallpaperX 不需要实现这一组。
+它们属于 §10 说明的 D3D11 专用回退路径，与上表合并统计会得到 161 这个没有跨平台统计意义的数字。本观察不把这组符号提升为作者公开 schema；项目支持边界只查现役 shader 合同。
 
 官方公开的 built-in 变量应以在线 Variables 页面为准（见 [资料来源与证据索引](source-index.md) §1.4）；本清单包含未公开的内部 uniform，可用于判断某个 workshop shader 引用的是否为合法 built-in。
 
@@ -290,9 +292,9 @@ Ghidra 选择性静态路径确认，2.8.42 运行时为每个内部纹理槽建
 
 官方公开 authored shader 合同仍只有 sampler 0...7，因此：
 
-- MyWallpaperX 的公开 schema、兼容声明和作者输入继续限制 0...7；
+- 项目现役 shader 合同把公开 schema、兼容声明和作者输入限制在 0...7；该策略不是由本页静态观察授权；
 - 内部 8/9 只能作为保留槽或显式 unsupported，不能据此扩宽公开兼容范围；
-- per-slot binder 必须从最终 texture candidate/generation 更新同一组元数据，不能由各 strict effect 分别猜测。
+- 最终 texture candidate/generation 与同槽 metadata 是否原子变化属于黑盒区分问题；per-slot binder 和 strict effect 的产品所有权只查现役 shader/资源合同。
 
 ## 8. shader 注解合同
 
@@ -310,7 +312,7 @@ Ghidra 选择性静态路径确认，2.8.42 运行时为每个内部纹理槽建
 
 后三个是**同一意图的三种不同拼写**（其中两种只是词序相反），各出现 1 次，且**全部在 stock 官方资产中**，不是作者内容。`[OFF_COMBO]`/`[COMBO_OFF]` 仍带完整 `combo`/`type`/`default` 载荷，`[COMBO_DISABLED]` 无 `type`。
 
-只匹配 `[COMBO]` 的 parser 会把它们当普通注释丢弃；按「包含 COMBO」宽松匹配又会把它们误当启用的 combo。两种都错。MyWallpaperX 应只承认精确 `[COMBO]`，其余拼写记为「已识别、不启用」的显式诊断。官方未公开这三种拼写的合同，见 [资料来源与证据索引](source-index.md) §6。
+只匹配 `[COMBO]` 的 parser 会把这些拼写当普通注释丢弃；按「包含 COMBO」宽松匹配又会把它们当作启用的 combo。官方未公开这三种拼写的合同，因此静态存在性不能决定项目 parser 或诊断策略；可交接的问题是固定客户端是否消费它们，以及消费时的作者可观察结果，见[资料来源与证据索引](source-index.md) §6。
 
 `projects/defaultprojects` 的 21 个 `[COMBO]` 中没有任何变体拼写。
 
@@ -380,32 +382,34 @@ shaders/chroma4.frag:2   // [PASS] shadow shadowcaster
 
 形态是 `[PASS] <pass 名> <shader 名>`，三条全部为 `shadow` + 一个 `shadowcaster*` shader。这说明**shader 源码本身可以声明它需要的附加 pass**，pass 集合不完全由 effect/material JSON 决定。
 
-对 render graph 的影响：依赖收集与 pass 枚举不能只扫 JSON，还要解析 shader 头部注解。三个宿主 shader 都是 3D 模型类（fur/foliage/chroma），与阴影投射用途一致。只有 3 个样本，`[PASS]` 的完整参数形态与官方调度时机无证据（等级 C）。
+这提示一个中性研究问题：固定客户端的依赖收集与 pass 枚举是否同时消费 JSON 和 shader 头部注解。三个宿主 shader 都是 3D 模型类（fur/foliage/chroma），与阴影投射用途一致；只有 3 个样本，`[PASS]` 的完整参数形态与官方调度时机无证据（等级 C），因此本页不规定项目 RenderGraph 行为。
 
 ### 8.6 固定 2.8.42 DirectX frontend 会消费这些注解
 
-固定 Wallpaper Engine 2.8.42/build `23967692` 的 Ghidra 静态执行路径确认，normal DirectX material-pass frontend 会识别多位数字的 `g_TextureN`、`uniform` inline metadata，以及 `[COMBO]`、`[PASS]`。inline metadata 至少包含 `material`、`default`、`components` 和 `formatcombo` 族。对该链的后续单点复核又闭合了当时default/override优先级：compile map已有material显式值时保留，缺少时读取active声明的`default`；两者随后进入同一define emitter、WE HLSL translator和动态加载的`D3DCompile`。相同最终宏值应共享项目自有编译variant identity，provenance仍可单独保存。
+固定 Wallpaper Engine 2.8.42/build `23967692` 的 Ghidra 静态执行路径确认，normal DirectX material-pass frontend 会识别多位数字的 `g_TextureN`、`uniform` inline metadata，以及 `[COMBO]`、`[PASS]`。inline metadata 至少包含 `material`、`default`、`components` 和 `formatcombo` 族。对该链的后续单点复核又闭合了当时 default/override 优先级：compile map 已有 material 显式值时保留，缺少时读取 active 声明的 `default`；两者随后进入同一 define emitter、WE HLSL translator 和动态加载的 `D3DCompile`。项目 variant identity 与 provenance 策略只查现役 shader 合同；本静态顺序仅提供“相同最终宏值是否产生相同可观察结果”的黑盒问题。
 
-这把上述注解从“随包 source 中存在”推进为“运行时 frontend 会读取”；它仍不能推出其他客户端版本/backend、editor UI状态、完整预处理错误恢复、未公开slot的作者可用性或官方私有translator算法。项目对缺失所需default、冲突或畸形default采用额外的失败关闭边界。
+这把上述注解从“随包 source 中存在”推进为“固定客户端的运行时 frontend 会读取”；它仍不能推出其他客户端版本/backend、editor UI 状态、完整预处理错误恢复、未公开 slot 的作者可用性或官方私有 translator 算法。缺失、冲突或畸形 default 的产品失败边界只由现役合同规定，不由该静态路径授权。
 
-## 9. 对 MyWallpaperX 的规格与验收门
+## 9. 已撤权的历史规格映射
 
-| 项 | 规格 | 验收门 |
+旧版本文曾把下表直接写成产品规格与验收门；该规范权现已撤销。表中只保留 source/静态观察与可由独立研究区分的问题，不能直接进入 implementation backlog。项目 frontend/backend、失败边界与验收门只查[兼容运行时架构](../runtime-architecture.md)、[Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)和[唯一现役路线](../scene-compatibility-roadmap.md)。
+
+| 项 | source/静态候选观察 | 中性行为问题 |
 |---|---|---|
-| frontend token | §2 的 25 个 token 建 typed IR 或明确诊断 | 每个 token 有 operand/stage fixture；未知形态 fail closed |
-| `mul` 约定 | 按 operand shape 保存，不预先假定转置 | identity/translation/rotation/normal fixture + Windows 对照 |
-| 后端分支 | 保真 authored `HLSL`/`GLSL`/platform 条件；小型 normalization/generated prelude 后进入 glslang → SPIR-V → SPIRV-Cross MSL/reflection；MSL 使用自有 backend identity | variant key 包含 backend/stage/combo；不伪装成 HLSL；编译成功不代替 MSL/library/pipeline 与实际 GPU 门 |
-| 坐标与法线 Y | 作为待验证 transform contract | 非对称法线/反射 fixture 不发生未解释的上下镜像 |
-| 纹理格式 combo | §4.1 的 13 个枚举值 | 加载器实际格式 → combo 值映射正确；R8 上传为 `r8Unorm` |
-| 法线解压 | §4.2 三分支，`0.965` 偏移 | 同一法线贴图分别以 BC7 与 RGBA8888 编码，解压结果一致 |
-| 灰度 | §5 两套权重分别实现 | 纯红输入下 `greyscale` 得 0.11、`Desaturate` 得 0.30 |
-| PBR | 保留 helper 身份与参数 | 参数 sweep 与 Windows 像素 golden 定义已支持子集 |
-| combo 注解 | 只承认精确 `[COMBO]`；material显式值优先，缺值时由当前active声明的有效且一致`default`补入统一macro environment；`require/requireany`保真为editor关系metadata，不改变player compile-map definedness | §8.1 三种变体拼写产出诊断而非静默忽略；显式值与同值default产生相同variant/prepared identity，缺失所需default、同名冲突或畸形default失败关闭；sampler/format资源require另走bounded fixed point |
-| uniform 标注 | 与 combo 分成两条通道，`type` 值域不共用 | `type == "color"` 不生成 variant；`type == "imageblending"` 不生成颜色控件 |
-| `[PASS]` 注解 | shader 头部声明的附加 pass 进入依赖收集与 pass 枚举 | fur/foliage/chroma 的 shadow pass 被枚举到，而非只扫 JSON |
-| sampler parser | 支持多位数字索引，同时对 authored contract 执行 0...7 边界 | `g_Texture7` 正门、`g_Texture8/9` 保留/失败关闭门、超范围负门 |
-| slot metadata | 每个公开槽使用同构 physical/mapped/texel/mip/rotation/translation binder | 0...7 表驱动 fixture；资源 generation 改变时元数据与纹理原子更新 |
-| texture purpose | storage format 与 color/data/normal identity 分离 | 同一 BC3 fixture 走 color 与 normal/data，只有 color 发生项目要求的 premultiply |
+| frontend token | §2 扫描到 25 个候选 token，但没有闭合 provider 与展开语义 | 哪些 token 在哪些 operand/stage 中被固定客户端接受；未知形态的作者可观察失败结果是什么 |
+| `mul` 约定 | source 中存在多种 operand shape，静态 source 不证明矩阵上传/转置 | identity/translation/rotation/normal 输入在官方黑盒中的输出如何区分 |
+| 后端分支 | authored source 分别出现 `HLSL`、`GLSL` 与 platform 条件 | 哪些分支改变固定输入结果；其他 backend 是否具有相同表面。本观察不回答项目编译链 |
+| 坐标与法线 Y | source 显示多个坐标/法线变换候选 | 非对称法线/反射输入是否产生上下镜像，以及镜像发生在哪个可观察阶段 |
+| 纹理格式 combo | §4.1 观察到 13 个枚举值 | 实际加载格式如何影响 combo 与输出；R8 的上传/采样结果是什么 |
+| 法线解压 | §4.2 记录三条 source 分支和一个 source 常量 | 同一法线内容以不同编码输入时，官方结果是否一致；本页不把 source 表达转为项目算法 |
+| 灰度 | §5 观察到两套不同 source 权重 | 纯色/非对称颜色输入在两个 helper 下的官方输出是否不同 |
+| PBR | source 中存在多个 helper identity 与参数 | 哪些参数对 bounded profile 的像素结果可观察；未运行 golden 前不定义支持子集 |
+| combo 注解 | 固定 frontend 读取精确 `[COMBO]`、material 显式值和 active declaration default；变体拼写只在 source 中出现 | 三种变体拼写是否被消费；显式值与同值 default 是否得到相同结果；缺失/冲突/畸形时的官方结果是什么 |
+| uniform 标注 | inline uniform metadata 与 combo 是不同表面，`type` 值域也不同 | `color`、`imageblending` 等类型分别影响哪些 author-visible 行为 |
+| `[PASS]` 注解 | 固定 frontend 读取 `[PASS]`；已观察样本均与 3D shadow 路径相关 | fur/foliage/chroma 的 shadow pass 何时被调度；2D 或未知 token 的结果仍未闭合 |
+| sampler parser | 固定 frontend 可识别多位数字索引；公开 authored contract 为 0...7 | `g_Texture7`、`g_Texture8/9` 与超范围输入分别产生什么作者可观察结果 |
+| slot metadata | fixed client 内部存在 physical/mapped/texel/mip/rotation/translation binder 家族 | 公开 0...7 槽在 resource generation 改变时，metadata 与 texture 的可观察更新是否原子 |
+| texture purpose | source 中对 color/data/normal 采用不同处理候选 | 同一编码以不同 purpose 输入时，哪些颜色/alpha 变化能由官方黑盒确认 |
 
 ## 10. 未覆盖与边界
 
@@ -416,6 +420,6 @@ shaders/chroma4.frag:2   // [PASS] shadow shadowcaster
 ## 11. 关联文档
 
 - [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md) —— Shader IR 与 executor 实现进度
-- [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) —— JS 侧 WEColor 与 shader 侧色彩函数的差异
+- [SceneScript 2.8.42 固定客户端静态取证](scenescript-runtime-implementation-contract.md) —— JS 侧 WEColor 与 shader 侧色彩函数的研究差异
 - [资料来源与证据索引](source-index.md) —— 官方 Shader 文档页面入口
 - [Windows 官方客户端取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) —— 证据等级

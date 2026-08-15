@@ -4,29 +4,29 @@
 取证快照：Wallpaper Engine 2.8.42 `locale/ui_en-us.json`（3,332 keys）及同族 `core_en-us.json`（96 keys）、`var_en-us.json`（28 keys），36 种语言各三族
 审查方式：只读静态提取
 
-> 文档角色：`official-client-static-observation`。字符串表可确认固定 2.8.42 编辑器的字段标签和作者可见说明，不自动构成官方公开运行合同，也不决定 MyWallpaperX 现役能力或顺序。证据分类见[资料来源与证据索引](source-index.md)。
+> 文档角色：`official-client-static-observation / research-context-only`。字符串表只能确认固定 2.8.42 编辑器的字段标签和作者可见说明，不是官方公开运行合同、产品实现说明或 MyWallpaperX 现役能力/顺序。实现代理不得把标签、相邻关系或本文推断直接翻译为代码；产品实现只能消费经项目独立形成的行为合同、正反 fixture 与官方结果对照协议。来源分类见[资料来源与证据索引](source-index.md)。
 
-> 字符串表是官方**字段名到作者可见语义**的权威对照：wire 字段（`horizontalalign`、`maxrows`、`controlpoint`…）在编辑器里叫什么、归哪个面板、和哪些枚举值成组。它还给出每个粒子组件与 utility 层的**官方一句话定义**——这些定义在 179 个官方网页中没有的粒度。
+> 字符串表是这个固定客户端快照中**字段名到作者可见措辞**的直接对照：wire 字段（`horizontalalign`、`maxrows`、`controlpoint`…）在编辑器里叫什么、归哪个面板、和哪些枚举值成组。它还保留每个粒子组件与 utility 层的一句话说明——这些说明比 179 个官方网页更细，但仍只是版本有界的静态观察。
 >
 > 本文只收 Scene 相关子集。key 总量 3,332，其中 `ui_editor_properties_*` 865、`ui_editor_particle_*` 175、`ui_editor_effect_*`/`ui_editor_effects_*` 145、`ui_editor_animation_*` 60、`ui_editor_scene_options_*` 38、blend 命名 74。浏览器/商店/工坊/移动端域不收录。
 
 复现命令：
 
 ```bash
-python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downloads/wallpaper_engine --output-dir <生成物目录>
+python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root <client-root> --output-dir <生成物目录>
 ```
 
-输出 `locale.json` 含三族 en-us 全量键值。证据等级：A（字段名与标签逐字来自随包文件）；由标签措辞推断运行时行为为 C，逐处标注。
+输出 `locale.json` 含三族 en-us 全量键值。来源分类统一为 `official-client-static-observation`：字段名与标签是固定快照中的直接观察；由标签措辞外推的运行时行为只记为“静态推断”，不得据此宣称官方运行语义或决定产品实现。
 
 ## 1. 结论先行
 
-1. **45 个 effect 的 `ui_editor_effect_<stem>_title` 恰好 45 条**，与 [Effect 执行覆盖表](effect-execution-coverage.md) 的 45 项名单一一对应——官方名单的又一独立 A 级确认，且给出每项官方描述。
+1. **45 个 effect 的 `ui_editor_effect_<stem>_title` 恰好 45 条**，这是固定客户端官方名称面的独立确认，并给出每项作者可见描述。[Effect 执行覆盖表](effect-execution-coverage.md) 对当前实现能力另行分类；两者不得合并成同一份“当前支持名单”。
 2. **粒子组件官方定义齐全**：3 emitter / 16 initializer / 25 operator / 4 renderer，与 [Windows 取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §19 preset corpus 的 3/16/25/4 逐项对齐，每项带一句话语义。
-3. **blend mode 官方共 35 个名称，且官方自己分为 `Native (fast)` 与 `Emulated (slow)` 两组**。项目 Tint 的 32 模式 `ApplyBlending` 表可据此核对命名与分组，但数值语义仍以 `common_blending.h` 源码为准。
-4. **属性绑定共五种来源**：User Property、Timeline Animation、Script、Album Cover（system resource 的 UI 名）、Attachment。其中「Bind to Attachment」的确认文案写明 *"This will replace the current script on the property"*——attachment 投影绑定在官方实现里**就是一段 script**（C 级推断：该绑定复用 SceneScript 通道）。
+3. **blend mode 共观察到 35 个名称，且字符串表提供 `Native (fast)` 与 `Emulated (slow)` 两个组名**。它可用于核对名称面；模式归组、数值语义和 MyWallpaperX 行为仍需公开合同、动态对照与项目自有 fixture 裁决，不能由本页或随包源码直接下发。
+4. **属性绑定共五种来源**：User Property、Timeline Animation、Script、Album Cover（system resource 的 UI 名）、Attachment。其中「Bind to Attachment」的确认文案写明 *"This will replace the current script on the property"*；“attachment 投影绑定复用 SceneScript 通道”只是一项静态推断，仍需行为观察或项目合同确认。
 5. **Timeline 编辑器合同**：mode 为 Loop/Mirror/Single，`Start paused`、`Random start frame` 是并列开关；smooth loop wrap 的官方定义是 *"Sets the last frame of the animation equal to the first frame"*；keyframe 的 Bézier 插值有五态 `none, automatic, left, right, both`；animation event 按 Frame + Name 登记。
 6. **Scene options 全集**（38 keys）：标准 Bloom 与 Ultra HDR 两套参数、Camera parallax 带 `Amount`/`Delay`、Camera shake 带 `Amplitude`/`Roughness`/`Speed`、Camera zoom、Distance Fog 与 Height Fog 各带 start/end/density、Near/Far Z、FOV、Physics、Transparent object sorting。
-7. **Utility 层官方定义**：`composelayer` = Adjustable Composition Layer（子对象合成单纹理）、`projectlayer` = Full Composition Layer（覆盖整个壁纸、与壁纸对齐）、`fullscreenlayer` = Post-processing Layer（覆盖屏幕、**不随壁纸移动**）；另有 Built-in Post-processing Controller 与 Solid Placeholder（solid 可被 user texture 或 album cover 动态替换）两类项目未建模的层。
+7. **Utility 层作者可见定义**：`composelayer` = Adjustable Composition Layer（子对象合成单纹理）、`projectlayer` = Full Composition Layer（覆盖整个壁纸、与壁纸对齐）、`fullscreenlayer` = Post-processing Layer（覆盖屏幕、**不随壁纸移动**）；另观察到 Built-in Post-processing Controller 与 Solid Placeholder（solid 可被 user texture 或 album cover 动态替换）。这些名称不证明 MyWallpaperX 当前支持或缺失。
 8. **effect 有版本概念**：导入不同版本 effect 会弹 "Different Effect Version" 警告并可能重置实例设置。
 
 ## 2. 45 项 Effect 官方名称
@@ -95,7 +95,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | `sphererandom` | Sphere random | 球形内随机位置发射 |
 | `layerimage` | Layer image | **从 image/text/puppet 层发射**；可用附加 mask 限制发射区域；发射时尊重 puppet warp 动画；粒子可用发射点的图层颜色初始化 |
 
-`layerimage` 描述给出的能力面远超项目当前 `L1`（仅名称可诊断）：mask、puppet warp 跟随、图层颜色采样都是作者可见合同。
+`layerimage` 描述固定了该客户端向作者展示的能力面：mask、puppet warp 跟随与图层颜色采样。MyWallpaperX 当前实现状态只以[粒子组件覆盖表](particle-component-coverage.md)和[能力台账](coverage-ledger.md)为准；本页不据此赋予项目等级。
 
 ### 3.2 Initializer（16）
 
@@ -118,7 +118,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | `turbulentvelocityrandom` | Turbulent velocity random | **沿 perlin noise 决定的方向加速** |
 | `velocityrandom` | Velocity random | 随机初始速度 |
 
-`turbulentvelocityrandom` 官方口径是 perlin noise；项目实现是自建 3D gradient noise（[粒子组件覆盖表](particle-component-coverage.md) 已标注非数值等价），本行进一步确认官方噪声族。`positionoffsetrandom` 的 fbm 口径同理。
+`turbulentvelocityrandom` 的固定客户端作者措辞是 perlin noise，`positionoffsetrandom` 的措辞是 fbm；它们只确认名称面，不给出数值算法。MyWallpaperX 当前实现与是否数值等价只查[粒子组件覆盖表](particle-component-coverage.md)及对应运行证据。
 
 ### 3.3 Operator（25）
 
@@ -159,7 +159,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | `rope` | Rope | **所有粒子按 spawn 时间连成一条绳** |
 | `ropetrail` | Rope trail | 每个粒子一条尾随绳 |
 
-`required_movement_tip` / `required_angular_movement_tip` 两个 tag 说明部分组件在编辑器里**强制要求 Movement / Angular movement operator 存在**（具体是哪些组件挂 tag 需查编辑器逻辑，本表只固定标签存在；C 级）。
+`required_movement_tip` / `required_angular_movement_tip` 两个 tag 说明编辑器存在 Movement / Angular movement operator 的“required”提示；具体挂接组件及运行约束待查，本表只固定标签存在，其他均为静态推断。
 
 ### 3.5 Remap 枚举官方标签
 
@@ -179,7 +179,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | Add | velocity、rotation、angular velocity |
 | Multiply | color、opacity、color+opacity、size |
 
-这是 child event 值继承的完整作者面；项目当前 census 里该组件使用为 0，等级 `L1`，本表为将来实现固定值域。
+这是固定客户端字符串表中 child event 值继承的作者值域。当前 authored corpus 是否出现由[语料能力库存](scene-corpus-capability-inventory.md)回答，当前执行支持由[粒子组件覆盖表](particle-component-coverage.md)与[能力台账](coverage-ledger.md)回答；本页不构成未来实现清单。
 
 ### 3.7 Control point 属性标签
 
@@ -187,7 +187,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 
 ## 4. Blend mode 官方名单（35）
 
-`ui_editor_blending_*`。官方分两组（`ui_editor_blending_group_*`）：**Native (fast)** 与 **Emulated (slow)**；哪个模式属于哪组由编辑器逻辑决定，字符串表只固定组名存在（分组归属为 C 级待查项）。
+`ui_editor_blending_*`。官方分两组（`ui_editor_blending_group_*`）：**Native (fast)** 与 **Emulated (slow)**；哪个模式属于哪组由编辑器逻辑决定，字符串表只固定组名存在，分组归属仍是待查的静态推断。
 
 按字母序：Add、Average、Color、Color burn、Color dodge、Darken、Darker color、Difference、Diffuse light、Exclusion、Glow、Hard light、Hard mix、Hue、Lighten、Lighter color、Linear burn、Linear dodge、Linear light、Luminosity、Multiply、Negation、Normal、Overlay、Phoenix、Pin light、Reflect、Saturation、Screen、Soft light、Subtract、Tint、Vivid light。
 
@@ -207,7 +207,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | 动画事件 | `events_modal_header`=SceneScript Animation Events，表列 `Frame` + `Name`（事件按帧号登记、以名字派发给同层脚本） |
 | CP 锁定 | `lock_control_point_angles` / `lock_control_point_lengths`（曲线编辑器的 Bézier 控制柄也叫 control point，与粒子 CP 无关） |
 
-与 [运行输入与属性覆盖表](runtime-input-property-coverage.md) 的 Timeline `L0` 行对照：本节把官方页面已知的 Loop/Mirror/Single/paused/wrap 合同补上了 `Random start frame`、FPS/frames 双口径与 Bézier 五态三个此前未固定的细节。
+本节只固定该客户端编辑器展示的 Timeline 作者面；MyWallpaperX 当前 Timeline 实现与证据只以[运行输入与属性覆盖表](runtime-input-property-coverage.md)和[能力台账](coverage-ledger.md)为准。`Random start frame`、FPS/frames 双口径与 Bézier 五态可作为后续行为研究的候选 observable，但不是本页直接下发的实现要求。
 
 ## 6. Scene options 全集（`ui_editor_scene_options_*`，38 keys）
 
@@ -222,7 +222,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | Distance Fog | Start、End、Start density、End density、Color |
 | Height Fog | 同上一组共用 start/end/density/color 键族 |
 
-对照 [高级对象覆盖表](advanced-object-coverage.md)：官方 Scene 级 Bloom 是「标准 + Ultra HDR」双模式、共 10 参数的系统；Camera shake 的三参数（Amplitude/Roughness/Speed）与 Camera parallax 的 Amount/Delay 分属 [coverage-ledger](coverage-ledger.md) 的独立能力行。字符串表只证明作者面，不证明运行 evaluator；现役 bounded Camera Shake 代码与证据见 [运行输入与属性覆盖表](runtime-input-property-coverage.md#op-camera-shake)。Distance/Height 双 Fog 是项目未建模的场景级系统（`ui_editor_properties_fog` 另有逐层 Fog 标签一枚）。
+固定客户端字符串表展示 Scene 级 Bloom 的「标准 + Ultra HDR」双模式与 10 个参数，并把 Camera shake 的 Amplitude/Roughness/Speed 与 Camera parallax 的 Amount/Delay 分开。它也展示 Distance/Height 两组 Fog（`ui_editor_properties_fog` 另有逐层 Fog 标签一枚）。这些都只证明作者面，不证明运行 evaluator；MyWallpaperX 当前实现与证据查[高级对象覆盖表](advanced-object-coverage.md)、[运行输入与属性覆盖表](runtime-input-property-coverage.md)和[能力台账](coverage-ledger.md)。
 
 ## 7. 层类型与属性绑定
 
@@ -238,7 +238,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 | `solidlayer` | Solid Layer | 纯色层 |
 | `imagelayer` / `model` / `particle_system` / `light` / `camera` / `sound` | Image Layer / Model / Particle System / Light / Camera / Sound | Sound 定义为 *"looping background music or randomly playing ambient sounds"*；Light 只影响启用 lighting 的图像或 3D 模型 |
 
-前三行是项目 `Utility composition`（typed composition/project/fullscreen）`L3` 行的官方语义原文；「fullscreen 不随壁纸移动、project 随壁纸对齐」是两者的判据性差异。Solid Placeholder 与 Built-in Post-processing Controller 是项目尚未建模的层类型。
+前三行给出固定客户端对三种 utility composition 的作者可见区分；「fullscreen 不随壁纸移动、project 随壁纸对齐」是可用于设计行为对照的判据。MyWallpaperX 当前 utility/advanced-object 状态只以[能力台账](coverage-ledger.md)、[高级对象覆盖表](advanced-object-coverage.md)和现役运行证据为准；字符串表中的 Solid Placeholder 与 Built-in Post-processing Controller 也不证明项目当前支持或缺失。
 
 ### 7.2 属性绑定五源（`ui_editor_properties_context_menu_*`）
 
@@ -248,7 +248,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 2. **Timeline Animation**（Bind Timeline Animation）
 3. **Script**（Bind Script）
 4. **Album Cover**（Bind Album Cover，键名为 `bind_system_resource`——**system resource 的 UI 名就是 Album Cover**，与 `$mediaThumbnail` identity 对应）
-5. **Attachment**（Bind to Attachment；确认文案 *"This will replace the current script on the property"*，即该绑定以 script 形式写入属性——C 级推断：attachment follow 复用 SceneScript 通道，而非独立 wire 字段）
+5. **Attachment**（Bind to Attachment；确认文案 *"This will replace the current script on the property"*；“attachment follow 复用 SceneScript 通道而非独立 wire 字段”仅为静态推断）
 
 另有 `Restore Default Value`。这与 [能力依赖图 D3](capability-dependency-map.md#d3) 的 `authored -> property -> Timeline -> SceneScript` 优先级模型相容，并把 system resource 与 attachment 两种来源补进完整作者面。
 
@@ -267,11 +267,11 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Do
 
 ### 7.4 Audio response 字段族
 
-`ui_editor_properties_audio_*`：Audio response（开关）、Audio amount、Audio bounds、Audio exponent、Audio frequency、**Audio attenuation start distance**（空间化衰减起始距离，与 changelog REV 4167-4168 的 sound spatialization 对应）。另有独立 `frequency_min/max/start/end` 键族。这是 [粒子组件覆盖表](particle-component-coverage.md) audio-response 行与 Sound layer `L0` 行的作者字段面。
+`ui_editor_properties_audio_*`：Audio response（开关）、Audio amount、Audio bounds、Audio exponent、Audio frequency、**Audio attenuation start distance**（空间化衰减起始距离，与 changelog REV 4167-4168 的 sound spatialization 对应）。另有独立 `frequency_min/max/start/end` 键族。这是固定客户端展示的作者字段面；MyWallpaperX 当前粒子 audio-response 与 Sound layer 状态只以[粒子组件覆盖表](particle-component-coverage.md)、[高级对象覆盖表](advanced-object-coverage.md)和[能力台账](coverage-ledger.md)为准。
 
 ## 8. 维护与边界
 
-1. 本表是字符串证据：**字段在 UI 里存在不等于 runtime 语义已知**，数值行为仍以 `assets/**` 源码、preset corpus 与运行门为准。
+1. 本表是字符串证据：**字段在 UI 里存在不等于 runtime 语义已知**。静态资产与合法 authored corpus 只能补充来源证据；产品数值行为只能由项目自有合同、正反 fixture、可复现运行门和官方结果对照共同裁决。
 2. `ui_en-us.json` 会随版本变化；重跑提取脚本比对 `locale.json` 的 keyCount 与本表计数即可发现漂移。
-3. 浏览器（`ui_browse_*`）、设置（`ui_settings_*`）、工坊、角色创建（`ui_editor_character_*` 79 keys）、骨骼编辑（`ui_editor_bone_*` 66 keys）与模型编辑域未逐 key 收录；其中 bone/character 域在 Puppet 批次推进时应按需补充。
+3. 浏览器（`ui_browse_*`）、设置（`ui_settings_*`）、工坊、角色创建（`ui_editor_character_*` 79 keys）、骨骼编辑（`ui_editor_bone_*` 66 keys）与模型编辑域未逐 key 收录；若未来 Puppet 行为研究被这些字段阻塞，可按同一固定快照补充研究库存，但本页不据此安排实现批次。
 4. 不应从官方描述的措辞反推数值公式（如 boids 的「minimum distance」不给出距离度量）；描述只界定能力面与启用条件。

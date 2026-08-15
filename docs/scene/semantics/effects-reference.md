@@ -15,7 +15,7 @@
 - `previous`、mask/normal/flow/noise 等精确槽位来自 WE-compatible asset 定义观察，证据级别为 C；官方专页确认的作者行为是 A。
 - `1P/4P` 表示 material pass 数；`RT` 是中间 render target；`Hist` 表示跨帧状态；`Compose` 表示需要场景背景。
 - Combo 是 shader compile-time variant。optional texture 只有真实绑定后才能启用对应 combo。
-- 固定 revision `b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d` 的 `Almamu/linux-wallpaperengine` 源码树不附带 stock effect/material/shader assets；它只能作为 Effect/Material/pass/FBO/texture precedence 的 D 级交叉证据，不能复核本表 45 项的逐效果参数、默认值、pass/RT 数或 shader 算法。
+- 固定 revision `b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d` 的 `Almamu/linux-wallpaperengine` 源码树不附带逐效果输入；它只能作为 Effect/Material/pass/FBO/texture precedence 的 `third-party-reference-pattern` 结构交叉，不能复核本表 45 项的逐效果参数、默认值、pass/RT 数或 shader 算法，也不证明官方语义或当前能力。
 
 官方入口：[Effects Overview](https://docs.wallpaperengine.io/en/scene/effects/overview.html)、[Effects Introduction](https://docs.wallpaperengine.io/en/scene/effects/introduction.html)、[Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html)。
 

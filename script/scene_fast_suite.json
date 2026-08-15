@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "status": "selection-required",
+  "purpose": "Machine-readable contract for the seven low-cost Scene vertical slices. It does not claim that any case is currently selected or passing.",
+  "allowedSelectionStates": [
+    "selection-required",
+    "approved",
+    "retired"
+  ],
+  "requiredEvidence": [
+    "actual-route-identity",
+    "execution-completion",
+    "publication-identity",
+    "terminal-compositor-consumption",
+    "next-frame",
+    "predeclared-visible-or-event-oracle",
+    "localized-failure-negative"
+  ],
+  "checkpointMetrics": [
+    "eligibleAuthoredUnits",
+    "compileOrPlanSuccesses",
+    "actualExecutions",
+    "gpuEncodedEffectPasses",
+    "visibleNonBaseScenes",
+    "localizedFallbacks",
+    "wholeLayerOrSceneRejections",
+    "fallbackReasons",
+    "firstCompileMilliseconds",
+    "firstEffectFrameMilliseconds",
+    "cpuFrameMilliseconds",
+    "gpuFrameMilliseconds",
+    "memoryBytes",
+    "changedExecutionPrimitives",
+    "newlyExecutedAuthoredUnits"
+  ],
+  "cases": [
+    {
+      "id": "v0-ordinary-one-pass",
+      "lane": "V0",
+      "selectionState": "selection-required",
+      "fixtureIdentity": null,
+      "contentDigest": null,
+      "authoredShape": [
+        "image-or-composition-layer",
+        "one-ordinary-material-pass",
+        "framebuffer-or-layer-source",
+        "vertex-and-fragment-author-shader"
+      ],
+      "expectedRoute": "author source -> generic compiler -> Program -> GraphExecutor -> effect current -> compositor",
+      "firstBreakpoint": "must be recorded when a fixture is approved",
+      "positiveOracle": "The effect changes a predeclared ROI in the authored direction and the exact generic Program route reaches the next frame.",
+      "negativeOracle": "A compile or pipeline failure preserves the pre-effect current and does not remove unrelated layers.",
+      "failureRadius": "current effect or pass"
+    },
+    {
+      "id": "v0-ordinary-optional-texture-combo",
+      "lane": "V0",
+      "selectionState": "selection-required",
+      "fixtureIdentity": null,
+      "contentDigest": null,
+      "authoredShape": [
+        "one-ordinary-material-pass",
+        "one-optional-authored-texture",
+        "presence-combo-or-author-default",
+        "explicit-slot-hole-preservation"
+      ],
+      "expectedRoute": "typed resource readiness -> variant -> generic Program -> GraphExecutor -> compositor",
+      "firstBreakpoint": "must be recorded when a fixture is approved",
+      "positiveOracle": "Present and absent optional texture variants follow their declared combo/default and produce distinct predeclared ROI results.",
+      "negativeOracle": "Pending, stale, or invalid resource generation cannot bind a fabricated texture or poison unrelated effects.",
+      "failureRadius": "affected variant or pass"
+    },
+    {
+      "id": "v1-ordered-multipass-fbo",
+      "lane": "V1",
+      "selectionState": "selection-required",
+      "fixtureIdentity": null,
+      "contentDigest": null,
+      "authoredShape": [
+        "two-or-more-ordered-passes",
+        "authored-fbo-or-logical-target",
+        "effect-output-consumer"
+      ],
+      "expectedRoute": "graph compiler -> target reservation -> ordered GraphExecutor -> effect current -> compositor",
+      "firstBreakpoint": "must be recorded when a fixture is approved",
+      "positiveOracle": "Pass order, target identity, extent, publication, and final ROI match the approved contract.",
+      "negativeOracle": "A middle-pass failure rolls back only the effect or dependent suffix and keeps unrelated graph branches.",
+      "failureRadius": "current effect dependency subgraph"
+    },
+    {
+      "id": "v1-copy-swap-history",
+      "lane": "V1",
+      "selectionState": "selection-required",
+      "fixtureIdentity": null,
+      "contentDigest": null,
+      "authoredShape": [
+        "copy-or-swap-command",
+        "previous-current-pair",
+        "at-least-two-observed-frames"
+      ],
+      "expectedRoute": "command graph -> logical pair transition -> publication -> next-frame history consumer",
+      "firstBreakpoint": "must be recorded when a fixture is approved",
+      "positiveOracle": "Exact logical identity/order and the predeclared two-frame visual sequence are preserved.",
+      "negativeOracle": "Missing history, stale epoch, or illegal swap fails locally without publishing a false current.",
+      "failureRadius": "history chain or its real dependents"
+    },
+    {
+      "id": "v1-cross-layer-named-provider",
+      "lane": "V1",
+      "selectionState": "selection-required",
+      "fixtureIdentity": null,
+      "contentDigest": null,
+      "authoredShape": [
+        "provider-layer",
+        "named-target-publication",
+        "consumer-layer",
+        "authored-dependency-edge"
+      ],
+      "expectedRoute": "dependency plan -> provider publication -> named reservation -> consumer Program -> compositor",
+      "firstBreakpoint": "must be recorded when a fixture is approved",
+      "positiveOracle": "The consumer uses the exact approved provider identity and the composed ROI reflects the dependency.",
+      "negativeOracle": "Missing, stale, mismatched, or cyclic publication only disables the dependent consumer subgraph.",
+      "failureRadius": "dependent consumer subgraph"
+    },
+    {
+      "id": "v2-scenescript-property-event",
+      "lane": "V2",
+      "selectionState": "selection-required",
+      "fixtureIdentity": null,
+      "contentDigest": null,
+      "authoredShape": [
+        "ecmascript-source",
+        "one-typed-property-owner",
+        "one-lifecycle-or-input-event",
+        "next-frame-visible-mutation"
+      ],
+      "expectedRoute": "per-scene VM -> typed host bridge -> mutation transaction -> next-frame consumer",
+      "firstBreakpoint": "must be recorded when a fixture is approved",
+      "positiveOracle": "The exact event order and typed mutation produce the predeclared next-frame ROI or value.",
+      "negativeOracle": "Exception, timeout, OOM, stale handle, or invalid target terminates only the script owner.",
+      "failureRadius": "script owner and mutations that depend on it"
+    },
+    {
+      "id": "v3-particle-component-stream",
+      "lane": "V3",
+      "selectionState": "selection-required",
+      "fixtureIdentity": null,
+      "contentDigest": null,
+      "authoredShape": [
+        "general-and-material",
+        "emitter",
+        "initializer",
+        "operator",
+        "renderer"
+      ],
+      "expectedRoute": "component registry -> ordered operation stream -> instance lifecycle -> renderer -> compositor",
+      "firstBreakpoint": "must be recorded when a fixture is approved",
+      "positiveOracle": "The approved spawn/update/render sequence produces the predeclared multi-frame particle envelope.",
+      "negativeOracle": "Unknown optional component is diagnosed; missing renderer or illegal numeric state disables only the system.",
+      "failureRadius": "particle system or real child dependency"
+    }
+  ]
+}

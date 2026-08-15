@@ -1,5 +1,7 @@
 # Scene 兼容执行路线
 
+<!-- document-role: active-plan -->
+
 > 状态：唯一现役 Scene 执行计划
 >
 > 启动日期：2026-08-15
@@ -22,15 +24,11 @@
 
 普通 parser、IR、diagnostic、compiler census 或 matrix 变化可以是必要前置，但不能单独记为“效果完成”。
 
-## 2. 当前判断
+## 2. 当前路线前提
 
-当前 Swift/Metal 底座已经拥有 Scene IR、资源和 provider identity、GraphTargets、LayerDependencies、Program、GraphExecutor、compositor、frame transaction、GPU completion 和运行证据设施。继续重写这些底座不会最快改善画面。
+本节不复述 current capability，也不保存底座、backend、失败半径或样本状态的移动快照。当前能力与缺口只读取[能力台账 §1](semantics/coverage-ledger.md#1-口径)，当前运行身份与首断点只读取[运行证据索引 §1](semantics/runtime-evidence-index.md#1-当前证据快照)；两者变化时先更新各自权威，再重新审查本文的路线选择，禁止直接在计划中手改一份平行事实。
 
-当前首要断点是：普通 authored effect 并没有一条默认的“准备作者 shader → 通用编译 → 反射和绑定 → ordinary graph node → Metal encode”路线；stage compiler 仍主要依赖 dedicated candidate/backend，shader frontend 又把大量未证明语义当作产品准入条件。一个 stage 失败还可能让整个 layer capability 不成立。
-
-2026-08-15 静态快照中，`SteamWorkshopScene` 已有 **615 个 Swift 文件 / 109,337 行**，其中 `RenderGraph` 为 **251 个文件 / 51,503 行**。这些数字不证明能力，但说明继续用新增类型、matcher 和 correctness gate 换取单个 bounded profile 已经不是经济路线。最后一组 formal full45 是 **45/45 PASS**，而 fixed13 仍为 **12/13 NON-PASS**，最新两个定向可见样本为 **0/2 NON-PASS**；formal matrix 只能证明其合同内的结构/回归，不能覆盖用户可见基准。
-
-因此下一批不得先做 G0/G1 式完整平台建设。V0 要在现有主链内建立最小、真实、可回退的普通 effect 执行切片。
+本文只保存由上述现役权威导出的计划决策：下一批选择 V0，在现有产品主链内建立最小、真实、可回退的普通 effect 执行切片，不先建设 G0/G1 式完整平台。仓库中的历史专用实现、旧测试、旧类型层级和旧 matrix 只构成需要审计的偏差候选，不自动取得目标架构或下一批执行权。
 
 ## 3. 执行优先级
 
@@ -131,72 +129,64 @@ inline/file source
 
 完成门：新的合法组件组合无需增加完整效果名分支即可运行；unknown optional component 局部诊断，缺少 renderer/非法数值只停用对应 system；spawn/update/render/child/teardown 有同一实例生命周期证据。
 
-### V4：动态输入、Provider、Text、Audio、Media 和交互
+### V4：动态输入横切轨
 
-这不是 V0 的前置阶段，而是贯穿 V0–V3 的输入扩展：
+V4 不是排在 V3 后面的串行阶段，而是随 V0–V3 的真实 consumer 一起接入。所有输入在同一 frame commit 下走相应 typed channel，不在 consumer 内另建状态系统：
 
-- user property 和 Texture Variants；
-- pointer button/hover/click/drag 与局部坐标；
-- system audio、Scene sound layer 和 SceneScript AudioBuffers；
-- media status/metadata/timeline/current/previous artwork；
-- video/system/provider generation；
-- dynamic text、字体、alignment、outline/shadow；
-- effectful/nested provider 和跨层 current/history。
+| 输入族 | typed output | 首个公共 consumer | 正反门 | 旧路径退出条件 |
+|---|---|---|---|---|
+| user property / Timeline / Texture Variants | immutable value snapshot；variant 变化进入 Program invalidation | V0 material、V2 VM、V3 particle | 同值稳定、新值下一帧生效、非法 target 局部拒绝 | consumer 不再自行解析 property 或保存第二份值 |
+| pointer / hover / click / drag | ordered event snapshot + local/world coordinates | V2 VM、V3 control point | exact event order/identity、outside-hit 负例、capture/teardown | bounded native profile 不再持有产品事件 owner |
+| system/Scene audio | immutable audio snapshot 或 provider publication | V0 Program、V2 AudioBuffers、V3 component op | 固定 buffer、静音/invalid 负例、帧相位 | consumer 不再各自重采样或保存私有 FFT |
+| media / video / artwork | resource/provider publication + value/event snapshot | V0 material、V2 media API、Text | generation、last-ready、stale/cancel、next-frame | 专用 current-cover/text profile 不再持有产品 owner |
+| dynamic text | resource publication；尺寸变化另触发 geometry/extent invalidation | Text compositor、V2 mutation | 内容、baseline/bounds、空值/字体失败 | consumer 不再绕过 provider publication |
+| nested/effectful provider | provider publication + topology transaction | V1 dependency graph | named identity、dependency failure、teardown | provider 不再拥有私有 graph/current/history |
 
-每个输入都写入现有 typed frame snapshot、resource publication 或 VM mutation，不在 consumer 内各自建立状态系统。
+### V5：独立高级 epic
 
-### V5：Puppet、2D Lighting/HDR、3D、RGB、离线与发行
+V5 不是一个可以整体“完成”的大阶段。以下 epic 分别按 corpus 影响和用户价值立项，互不阻塞：
 
-在 V0–V3 持续提供真实画面后，按 corpus 影响和用户价值选择：
+| epic | entry | 交付对象 | 最小门 | rollback / 完成 |
+|---|---|---|---|---|
+| Puppet | authored puppet carrier + animation/mixing/constraint/physics | 共享 identity/frame/resource 下的专用 simulation/geometry producer | 一个可见动作、约束负例、teardown | feature route 可回退；旧 owner 归零后才算迁移完成 |
+| 2D Lighting/HDR | normal/PBR/light/shadow/reflection/HDR declarations | shared Material Program、scene post graph 和 color contract | light on/off、HDR/tone-map ROI、资源失败 | 保留非 HDR compositor；parity 另过官方门 |
+| 3D | model/node/material/camera/skeleton/physics | 专用 importer/simulation，输出共享 Program/graph/compositor | hierarchy、camera、animation、missing asset | 3D domain 可整体停用且不影响 2D |
+| RGB device | authored RGB output | 权限受控的 provider/device adapter | 无设备、拒权、连接/断开 | adapter 可禁用，不影响画面执行 |
+| offline bake | fixed clock + deterministic input/provider | 复用在线 IR/graph/runtime 的离屏输出 | 帧序列、音频/随机合同、取消 | 回退实时播放；不得建立第二 renderer |
+| platform/release | color management、多屏、刷新率、sleep/wake/reset、性能、签名 | 恢复、预算与发行合同 | 长稳、资源恢复、双架构、签名/公证 | 不倒灌阻塞 V0 首张画面；对外发布前必须闭合 |
 
-- Puppet animation/mixing/constraint/physics；
-- normal/PBR、light、shadow/reflection、Scene HDR/Bloom/tone mapping；
-- 3D model/node/material/camera/skeleton/physics；
-- RGB device；
-- offline fixed-clock bake；
-- color management、多屏、不同刷新率、sleep/wake/device reset；
-- 长稳、性能、内存、能耗、签名、公证和发布。
+## 4. AI 主动纠偏合同
 
-V5 的发行门不倒灌到 V0 开发执行门；涉及产品发布时仍必须完整验证。
+Scene 开发必须同时维护三个互不替代的轴：
 
-## 4. 全能力状态与归属
+| 轴 | 唯一用途 | 权威入口 |
+|---|---|---|
+| 目标合同 | 决定“应该怎样执行”、owner 和失败边界 | `AGENTS.md`、[兼容运行时架构](runtime-architecture.md)和本路线 |
+| 当前事实 | 证明“当前代码实际怎样执行”及证据上限 | [能力台账](semantics/coverage-ledger.md)、专项表、[运行证据索引](semantics/runtime-evidence-index.md)和当前代码 |
+| 偏差债务 | 记录目标与事实之间的首个可修复差异 | 当前 correctness atom；跨批遗留必须回写能力台账的明确待办 |
 
-所有 Scene 能力必须处于“当前能力”或“明确待办”之一，不能只存在于旧计划。为避免各专项表的旧 `L0-L4` 含义互不一致，现役路线使用统一的结果等级：
+当前代码、旧测试、旧类型层级和历史 matrix 都只是描述性证据，不能自动升级成目标合同。AI 触达一个能力时必须把现状归为 `aligned`、`missing`、`contradictory`、`duplicate-owner`、`over-specialized`、`stale-document` 或 `unknown`；发现偏差后优先在当前纵向 atom 内纠正。若旧测试锁住已由目标合同和更强证据判定为错误的行为，应随实现一起改正测试，不能为了保持旧绿灯继续扩张错误架构。
 
-| 等级 | 固定含义 | 可以声明 | 不能外推 |
+若偏差超出当前用户结果，不得顺手大改；应先隔离错误 owner、保持可观察 fallback，并在能力台账写明 current、target、first breakpoint、所属 V 轨和退出条件。若新证据表明目标合同本身错误，必须先修改唯一目标合同并说明证据，再改代码；不能在实现里静默偏离规划。
+
+本路线只决定工作轨，不复制 current 状态：
+
+| 能力族 | 目标运行对象 | 路线 | 当前事实入口 |
 |---|---|---|---|
-| `S0 missing` | 产品没有入口或 consumer | 缺失 | 不得称 recognized/wired |
-| `S1 preserved` | 能解析、保真、识别或诊断 | IR/schema preserved | 不得称 executable |
-| `S2 wired` | 产品 owner、typed plan/target/provider/consumer 与自动测试已接线，但没有该接线之后的真实闭环 | wired / executable candidate | 不得称 visible/current fidelity |
-| `S3 executed` | 真实产品路径已执行，并观察到必要的 CPU/GPU、publication/completion/rollback | bounded execution | 不得称视觉正确或相似 |
-| `S4 visible` | 预定义隔离内容、ROI、事件或时间目标取得可见正证，且局部失败边界成立 | bounded visible result | 不得外推整个 family 或官方等价 |
-| `S5 parity-ready` | 官方公开行为或合法 Windows golden、动态时序、生命周期与预算均闭合 | 对应精确合同的 parity/production-ready | 不得由非黑、matrix PASS 或单截图推导 |
+| ordinary material/shader | Program + GraphExecutor | V0 | [Effect](semantics/effect-execution-coverage.md)、[Graph/Shader](semantics/render-graph-shader-coverage.md) |
+| pass/FBO/command/dependency | shared graph/target/publication | V1 | [Graph/Shader](semantics/render-graph-shader-coverage.md) |
+| SceneScript | ECMAScript VM + typed host bridge | V2 | [SceneScript](semantics/scenescript-api-coverage.md) |
+| Particle | ordered component operation stream | V3 | [Particle](semantics/particle-component-coverage.md) |
+| property/pointer/audio/media/text/provider | three typed frame channels | V4 横切 | [运行输入](semantics/runtime-input-property-coverage.md) |
+| Puppet/lighting/HDR/3D/RGB/offline/platform | shared identity/frame/resource/Program/graph/output 上的独立 epic | V5 | [高级对象](semantics/advanced-object-coverage.md) |
 
-同一能力族可以同时含 `S4` 子集和 `S0` 缺口；表中必须把二者同时写出。下表的 `S3/S4` 只表示[运行证据索引](semantics/runtime-evidence-index.md)仍登记了绑定特定 App/commit/fixture 的最近有效精确证据，不表示当前 HEAD 已重新运行或仍通过；本次治理没有构建 App、启动 Scene 或重跑这些证据。`311115e3` 触达的相关旧可见链尤其需要 fresh 回归后才能声明 current-visible；其新增 hover/click、shared alpha、audio-scaled value、property→Vec3、identity display、media color/title/artist 等产品接线因为没有更新后的真实可见证据，当前最高只能记为 `S2 / visible unknown`。
-
-| 能力族 | 最近登记结果（identity-bound，非 current-HEAD PASS） | 明确待办 | 路线与事实入口 |
-|---|---|---|---|
-| Format | loose project/scene、PKGV、常见 TEX/对象已达 bounded `S3`；未知 schema 多为 `S1` | 私有版本、完整 VFS case/symlink/duplicate、多格式兼容 | V0/V1；[总台账](semantics/coverage-ledger.md)、[格式/图合同](semantics/scene-format-and-render-graph.md) |
-| Resource/provider | PNG/JPEG、常见 TEX/BC1-3、embedded MP4、property texture、current cover、typed generation 有 `S3-S4` 子集；8-slot/named/R8 为 mixed `S2-S3` | generic video/material provider、`_b` 数据流、Texture Variants、live media producer、更多格式/颜色合同 | V0/V1/V4；[运行输入覆盖](semantics/runtime-input-property-coverage.md) |
-| Property/Timeline | catalog/UI/persistence、layer/text/effect/root-particle/Timeline 子集有 `S3-S4`；新 audio/property/shared projections 为 `S2` | shortcut、Sound volume、generic script mutation、完整 Combined/3D targets 与 topology invalidation | V2/V4；[运行输入覆盖](semantics/runtime-input-property-coverage.md) |
-| Base layer/object | image、solid、text、container、常见 particle、2D hierarchy/order 有 `S3-S4`；Puppet 仅 bounded | Sound、generic light、3D model 和完整 attachment/dynamic hierarchy | V0/V3/V5；[高级对象覆盖](semantics/advanced-object-coverage.md) |
-| Effect/shader/material | 多个 strict/bounded profile 有 `S3-S4`；arbitrary authored shader 仍无默认 backend | 先通用 ordinary compiler，再扩 state/resource/color/helper；Motion Blur、Fluid、Glitter、Refraction 等不得继续靠新 matcher | V0；[Effect 覆盖](semantics/effect-execution-coverage.md)、[Graph/Shader 覆盖](semantics/render-graph-shader-coverage.md) |
-| Graph target/command | bounded current capture、`_a`、Cursor history、部分 logical target/R8 有 `S3-S4`；FBO/copy/swap 多为 `S1-S2` | generic ordinary/copy/swap/compose/condition/function/history、`_b`、multi-dependency | V1；[Graph/Shader 覆盖](semantics/render-graph-shader-coverage.md) |
-| Composition/dependency | basic layer compose 与少数 named/captured chain 有 `S3-S4` | nested/effectful/child provider、generic scene composition、RGB/secondary/multiple dependency | V1/V4；[总台账](semantics/coverage-ledger.md) |
-| SceneScript | bounded AST/fade/origin 子集最高 `S4`；binding/source evidence `S1`；最新 native projections `S2` | QuickJS-NG ECMAScript、modules、host objects/handles、events/timers/shared、mutation/teardown | V2；[SceneScript 覆盖](semantics/scenescript-api-coverage.md) |
-| Particle | common Sprite/emitter/initializer/operator/child/rope/audio/CP 有 mixed `S2-S4` | component registry 泛化、collision、dynamic Layer Image、lighting/HDR、cross-space、offline | V3/V5；[Particle 覆盖](semantics/particle-component-coverage.md) |
-| Text | CoreText static/direct/bounded Date、alignment/pivot/limits 有 `S3-S4`；media title/artist wiring `S2` | baseline、outline/shadow、完整 typography、generic media/SceneScript text | V4；[运行输入覆盖](semantics/runtime-input-property-coverage.md) |
-| 3D/lighting/HDR | carrier/metadata 最多 `S1`；没有可声明的完整执行 | model/node/material/camera/animation/skeleton/physics、light/shadow/reflection/HDR/tone mapping | V5；[高级对象覆盖](semantics/advanced-object-coverage.md) |
-| Interaction | pointer world/窄 local 与少数 effect/particle 有 `S3-S4`；primary-button hit-test、bounded click/hover 为 `S2` | generic event queue、VM bridge、完整 local coordinates、多按钮、drag/capture/puppet hitbox | V2/V4；[运行输入覆盖](semantics/runtime-input-property-coverage.md)、[SceneScript 覆盖](semantics/scenescript-api-coverage.md) |
-| Audio/Sound | host FFT 16/32/64 与部分 effect/particle/Program consumer 有 `S3-S4`；audio-scaled rate/scale wiring `S2` | Sound layer/self-playback spectrum、SceneScript AudioBuffers/average、数值/生命周期 golden | V3/V4；[运行输入覆盖](semantics/runtime-input-property-coverage.md) |
-| Media/video | embedded MP4、current cover、last-ready/fade 有 `S3-S4`；playback/colors/title/artist snapshot/consumer 为 `S2` | live macOS producer、status/timeline、previous cover、generic events/transition/provider arbitration | V4；[运行输入覆盖](semantics/runtime-input-property-coverage.md) |
-| Performance/release | stop/switch/diagnostic 与局部预算有 `S2-S3` | frame pacing/quality tiers、CPU/GPU/VRAM/leak预算、30min/2h soak、多屏/sleep/hot-plug、offline、签名/公证发布闭环 | V5/release；[高级对象覆盖](semantics/advanced-object-coverage.md)、[签名流程](../release/release-signing.md) |
-
-若发现官方能力未出现在总台账或专项表，先补权威能力行并标 `S0/S1/unknown`，再按本表归入 V0–V5；不得用新的一次性 plan 代替现役台账。当前没有任何能力族可不带限定地记为完整 `S5`。
+发现未登记能力时，先在能力台账或对应专项表增加明确的 current/unknown/todo 行，再归入上述路线；不得再建一次性平行计划或在本路线手抄当前等级。
 
 ## 5. Fast Scene Suite
 
-建立一个小型、稳定、低成本的纵向开发集，成员从隔离真实 corpus 选择并记录 authored structure，不把 sample ID 写入产品代码：
+[`script/scene_fast_suite.json`](../../script/scene_fast_suite.json) 是这套低成本纵向开发集的机器合同，也是成员、选择状态和 readiness 的唯一事实入口。它固定七类能力形状、所需正反门、运行证据和指标字段；sample/layer identity 只允许存在于该开发清单、隔离 fixture 和报告中，不能进入产品 dispatch。
+
+任何 `selection-required` 成员都不能执行或计为 Fast Scene Suite PASS，任意 `--sample-id` 或 full45 子集也不能冒充 suite PASS。V0-0 的计划动作是为前两类各批准一个成员；每个成员只有登记 content digest、authored structure、expected route/first breakpoint、正反 oracle、ROI/事件、局部 fallback 和证据字段后才能变成 `approved`：
 
 1. ordinary one-pass framebuffer effect；
 2. ordinary pass + optional texture/combo；
@@ -206,11 +196,27 @@ V5 的发行门不倒灌到 V0 开发执行门；涉及产品发布时仍必须�
 6. SceneScript 可见 property/event；
 7. Particle 常见 emitter/initializer/operator/renderer。
 
-V0 只需要前两类，V1 增加 3–5，V2/V3 分别增加 6/7。suite 是开发反馈环，不替代 fixed/full milestone，也不以任意非黑像素作为成功。
+V0 只需要前两类，V1 增加 3–5，V2/V3 分别增加 6/7。批准前仍可使用写明同等合同的代表性隔离内容推进首张画面，但只能报告 `representative-content`，不能报告 Fast Suite。suite 是开发反馈环，不替代 fixed/full milestone，也不以任意非黑像素作为成功。
 
 ## 6. 批次工作方式
 
-每批只需回答：
+每批先填写一个最小纠偏卡：
+
+```yaml
+capability_id:
+target_contract:
+current_observation_and_evidence:
+deviation_class:
+first_breakpoint:
+correctness_atom:
+route_state_before:
+route_state_after:
+fallback_reason_and_radius:
+positive_negative_and_visible_gate:
+remaining_deviation_and_exit_condition:
+```
+
+然后回答：
 
 1. 哪个真实作者输入目前没有执行？
 2. 它在统一链的第一个失败点是什么？
@@ -226,11 +232,20 @@ V0 只需要前两类，V1 增加 3–5，V2/V3 分别增加 6/7。suite 是开�
 - 更新所有专项表或刷新全 corpus；
 - 运行 fixed/full、签名和公证。
 
-通用路径已经可见替代旧路径后，才在后续同职责批次撤销旧 owner；不得长期保留静默双路由。未见组合在 checkpoint/milestone 定期验证，用于防止名称特判，而不是阻止第一张正确画面。
+迁移中的每个 owner family 只能处于以下显式路由之一：
+
+- `observe-only`：通用路径只收集差分，不决定产品输出；
+- `prefer-generic`：通用路径先执行，失败按 typed reason 回到已验证旧路径；
+- `generic-only`：通用路径持有产品权，旧路径只可作为离线 oracle；
+- `disable-generic`：出现回滚条件时原子关闭通用产品路由，不删除 fixture 和诊断。
+
+从 `prefer-generic` 升为 `generic-only` 前必须有新组合门、相关 Fast/代表内容、fallback 次数与原因、一次回滚演练、能力/证据回写，并证明旧 owner 不再被产品调用；之后才删除对应旧实现。不得长期保留静默双路由，也不得以“已经稳定”代替这些退出条件。
+
+完成状态也分三层：`slice-visible` 只证明本纵向结果；`owner-migration-complete` 证明执行权与回滚合同完成；`bounded-profile-parity/release` 还必须通过预登记官方黑盒对照、生命周期、预算及所需发行门。前一层不能冒充后一层。
 
 ## 7. 指标
 
-每个 V0–V4 checkpoint 至少报告：
+每个 V0–V4 checkpoint 只报告实际可采集字段；统一字段名由 Fast Suite manifest 的 `checkpointMetrics` 定义。最低包括：
 
 - eligible authored units；
 - compile/plan success；
@@ -243,19 +258,20 @@ V0 只需要前两类，V1 增加 3–5，V2/V3 分别增加 6/7。suite 是开�
 
 同时报告本批的语义压缩率：新增或修改多少产品执行 primitive，实际让多少此前未执行的 authored unit 进入执行。新增文件数、类型数、gate 数和台账行数不是正向 KPI；如果一个通用 primitive 只解锁一个已知 identity，必须解释为什么它仍是数据驱动能力而不是新的 profile。
 
-指标只使用可实际采集的分母，不提前写百分比目标。compile success、route count、matrix PASS、非黑截图和进程存活均不能单独证明效果或兼容性。
+没有统一 collector 的字段必须明确写 `not-collected`，不能填零或推测；本轮治理只建立字段合同，不声称已有自动 collector。指标只使用可实际采集的分母，不提前写百分比目标。compile success、route count、matrix PASS、非黑截图和进程存活均不能单独证明效果或兼容性。
 
 ## 8. 下一批精确断点
 
-V0 第一批从当前 `SceneEffectStageCompiler` 的 `resolveDedicatedStage -> noBackendAccepted` 断点开始：
+V0 第一批从能力台账登记的 `SceneEffectStageCompiler.resolveDedicatedStage -> noBackendAccepted` 断点开始：
 
-1. 先用 Fast Scene Suite 前两类建立独立 upstream shader backend spike；第一条普通 pass 能编译后再做有界 source census，按真实失败类别决定 normalization，不以全 corpus 报告阻塞首次出画面；
-2. 复用现有 source graph、preparation、slot/default/combo 和 Program ABI，绕开 effect-name matcher；
-3. 让 ordinary authored stage 先尝试 generic backend；
-4. 把 frontend analyzer 从默认 admission 改为 diagnostic/oracle，安全/ABI/resource 检查仍保留；
-5. 将失败半径收窄到当前 effect，并保留 previous current；同时修正 renderer 中 claimed layer/quad draw 失败后停止整个后续 layer suffix 的行为；
-6. 用 Fast Scene Suite 前两类取得可见正证；
-7. 稳定后才决定哪些 dedicated backend 可以撤权。
+1. V0-0 从隔离 corpus 为 Fast Scene Suite 前两类各批准一个成员；若选择成本阻塞编译 spike，先用同合同的代表内容推进，但不得声称 suite 已建立；
+2. 在独立 subprocess harness 建立 upstream shader backend spike；第一条普通 pass 能编译后再做有界 source census，按真实失败类别决定 normalization，不以全 corpus 报告阻塞首次出画面；
+3. 复用现有 source graph、preparation、slot/default/combo 和 Program ABI，绕开 effect-name matcher；
+4. 让 ordinary authored stage 先尝试 generic backend；
+5. 把 frontend analyzer 从默认 admission 改为 diagnostic/oracle，安全/ABI/resource 检查仍保留；
+6. 将失败半径收窄到当前 effect，并保留 previous current；同时修正 renderer 中 claimed layer/quad draw 失败后停止整个后续 layer suffix 的行为；
+7. 用已批准的前两类或明确标记的代表内容取得可见正证；
+8. 按显式 route state、fallback metric 和回滚门决定哪些 dedicated backend 可以撤权。
 
 如果 shader backend spike 证明 glslang → SPIR-V → SPIRV-Cross MSL 对当前 dialect 不可行，保留 fixture、diagnostics 和失败分类，再评估 Slang 或 HLSL/DXC 路径；不得在没有 corpus 数据前并行建设三套 compiler。
 

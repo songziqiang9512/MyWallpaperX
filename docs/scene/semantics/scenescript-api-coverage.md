@@ -4,13 +4,13 @@
 >
 > 官方基线：`lib.sceneScript.d.ts` **VERSION 2.8**，固定文档 revision `b26412295cbfd0ee5cdceff67e2c95069527aa1b`。
 >
-> 资料入口：[资料来源与证据索引](source-index.md)、[SceneScript 随包实现合同](scenescript-runtime-implementation-contract.md)、[官方页面全目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[总覆盖台账](coverage-ledger.md)。
+> 资料入口：[资料来源与证据索引](source-index.md)、[官方页面全目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[总覆盖台账](coverage-ledger.md)。固定客户端深层观察只在独立研究任务中查[2.8.42 SceneScript 静态取证](scenescript-runtime-implementation-contract.md)，implementation agent 不直接读取该页。
 >
 > Scene 实现身份、运行证据与聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内旧 commit/批次号只用于追溯，不定义现役顺序。
 
 ## 1. 当前结论与评级口径
 
-当前结论只有一条：项目保存了一部分 SceneScript 作者数据并执行少数项目自有 bounded AST/projection，但**没有通用 SceneScript runtime**。逐 API 表继续使用 `L0-L4` 表达接口覆盖；现役路线的结果声明同时使用 `S0-S5`，两套等级不能互相批量推导。
+当前结论只有一条：项目保存了一部分 SceneScript 作者数据并执行少数项目自有 bounded AST/projection，但**没有通用 SceneScript runtime**。逐 API 表继续使用本专题定义的 `L0-L4` 表达接口覆盖；`S*` 只引用[运行证据索引](runtime-evidence-index.md)对精确 identity 的证据闭合等级。两轴正交，不能互相批量推导，也不能与其他专题的同名 `L` 横向比较。
 
 | 能力面 | 当前结果 | 精确边界 |
 |---|---|---|
@@ -29,9 +29,22 @@
 
 `3768229922` 仍没有恢复 generic click/shared/display：display scripts `397/202/354` 只有 provenance 与安全抑制；hidden controller/update、head `cursorClick`、mutable shared toggle、alpha/display mutation、开场 fade/destroy，以及人物头部点击切换 16 层文字/红框遮罩均未执行。`311115e3` 的 bounded primary-button projection 不证明这条链，见 [E-AUTHORED-STRAIGHT-RGB-SCALAR-ALPHA](runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha)。
 
-当前首批只按 V2 闭合一个纵向结果：QuickJS-NG per-scene runtime/context → one typed owner → `init/update` → owner-local mutation → Swift frame transaction → next-frame visible consumer；完整 API、event、timer、dynamic layer 或发行平台不是第一条正确脚本画面的前置。owner、预算、reload/teardown 与 stale-handle 合同见[SceneScript 随包实现合同 §9](scenescript-runtime-implementation-contract.md#9-mywallpaperx-v2-目标运行时合同)。
+当前首批只按 V2 闭合一个纵向结果：QuickJS-NG per-scene runtime/context → one typed owner → `init/update` → owner-local mutation → Swift frame transaction → next-frame visible consumer；完整 API、event、timer、dynamic layer 或发行平台不是第一条正确脚本画面的前置。owner、预算、reload/teardown 与 stale-handle 只按下方项目自有目标合同实施，不从固定客户端反编译表达反推代码。
 
-等级沿用总覆盖台账：
+### 1.1 MyWallpaperX V2 目标运行时合同
+
+本节是 implementation agent 可以消费的项目自有合同，不描述官方内部实现：
+
+- 每个 scene execution domain 默认独占 QuickJS-NG runtime/context、module registry、job queue 和预算账户；scene/reload generation 之间不共享 JS object 或 native handle。
+- 每个 binding/layer/effect/dynamic object 有 typed script owner；host object 只暴露带 domain、owner/object identity、generation 和 capability 的 opaque handle，Swift 每次调用重新校验，VM 不持有 Swift/Metal 裸对象。
+- global/module allowlist 默认不含 DOM、Node、WebWorker、文件、网络、进程或任意 native module；路径逃逸、动态 native load 和跨 scene import 拒绝。
+- callback 只读取本帧 immutable value/event snapshot 和已提交 provider state，结果写入 owner-local mutation buffer；Swift 在帧边界校验 identity/generation/type/finite/conflict 后，以单一 topology/VM mutation transaction 提交。callback 不直接改正在遍历的 graph、Program、target 或 compositor。
+- 每个 runtime 与 callback 必须有 heap、stack、deadline、每帧 CPU/job/timer/mutation/identity 预算。exception、unhandled rejection、NaN/Inf、stale handle、timeout 与 OOM 只熔断最小 owner；runtime 不再可信时才重建该 scene VM，同时保住不依赖脚本的安全画面。
+- reload 建立新 generation，切换成功后才撤销旧 owner；teardown 停止 dispatch、interrupt callback、取消 job/timer/event、丢弃 pending mutation、按项目合同调用 `destroy` exactly once、撤销 handle 并证明 owner/job/timer/handle 归零。
+
+官方事件顺序、默认值或数值边界未由公开合同/黑盒确认时保持 unknown；研究任务可按官方客户端工作流生成一个中性行为合同，fresh implementation context 只接收该合同和项目自有正反门。不得把 2.8.42 的 V8 数据结构、record、常量或静态调用顺序当成 QuickJS-NG 的实现模板。
+
+等级使用本专题本地定义：
 
 | 等级 | 本表含义 |
 |---|---|
@@ -41,7 +54,7 @@
 | `L3` | 已执行受限子集，并有正反例和生命周期门 |
 | `L4` | 已由官方行为或 Windows golden 验证 |
 
-### 1.1 本地证据代号
+### 1.2 本地证据代号
 
 | 代号 | 代码/测试证据 | 能证明什么 | 不能证明什么 |
 |---|---|---|---|
@@ -50,10 +63,10 @@
 | `W` | [`SceneParticleDefinitionParser.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinitionParser.swift)、[`test_scene_particle_definitions.py`](../../../script/tests/test_scene_particle_definitions.py) | 动态 wrapper 的 `hasScript` presence 可诊断 | wrapper script 的源码或求值 |
 | `D` | [`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift)、[`SceneTextScriptSubsetCompiler.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptSubsetCompiler.swift)、[`SceneTimeOfDayEffectScriptCompiler.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneTimeOfDayEffectScriptCompiler.swift)、[`SceneMediaPlaybackPlaceholderFadeCompiler.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneMediaPlaybackPlaceholderFadeCompiler.swift)、[`test_scene_text_script_runtime.py`](../../../script/tests/test_scene_text_script_runtime.py)、[`test_scene_time_of_day_effect_script.py`](../../../script/tests/test_scene_time_of_day_effect_script.py)、[`test_scene_media_playback_placeholder_fade.py`](../../../script/tests/test_scene_media_playback_placeholder_fade.py) | typed target、固定优先级，以及无身份旁路的bounded text/Blend/fade AST/value；fixed Text profile已退役 | 通用ECMAScript、module/API object bridge、其他target、VM instance lifecycle |
 | `F` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[`SceneTextScriptRuntime.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptRuntime.swift)、[`SceneDesktopWallpaperHost+FrameDriver.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift) | 同帧wall date、per-surface evaluation/snapshot、bounded `new Date()` getter、本地`timeOfDay` scalar及scene级fade state每host frame一次推进 | JS实例、live event/timer/provider、locale/DST/通用离线clock、任意JS |
-| `G` | 2.8.42 主程序与 SceneScript module 的 Ghidra 有界静态证据，详见 [实现层合同 §8](scenescript-runtime-implementation-contract.md#8-engine-与宿主生命周期静态互证gb) | 版本握手、effective time/pause、固定事件槽、watchdog/timer/audio tick、typed return、camera/material/particle/video/animation handle 与 host-owned teardown 结构 | MyWallpaperX 已实现、未闭合事件/冲突顺序、完整 ABI、官方性能/视觉等价 |
+| `G` | 2.8.42 主程序与 SceneScript module 的 Ghidra 有界静态证据，详见 [静态取证 §8](scenescript-runtime-implementation-contract.md#8-engine-与宿主生命周期静态互证gb) | 版本握手、effective time/pause、固定事件槽、watchdog/timer/audio tick、typed return、camera/material/particle/video/animation handle 与 host-owned teardown 的研究候选结构 | MyWallpaperX 已实现、官方可观察结果、完整 ABI，或对 implementation agent 的直接授权 |
 | `N` | 全仓 `SceneScript`/VM/API 搜索及现有 Scene 测试 | 没有VM或handle bridge；除`D/F`单列的bounded text/Blend/fade evaluator外，无其他官方API执行测试 | 不能把其他Swift renderer的同名能力算成脚本API |
 
-### 1.2 目标执行模型与来源边界
+### 1.3 目标执行模型与来源边界
 
 SceneScript 不是孤立的脚本引擎，而是与 Timeline、用户属性和作者默认值共同组成的属性绑定系统。本节同时使用多类证据，必须分开理解：
 
@@ -64,7 +77,7 @@ SceneScript 不是孤立的脚本引擎，而是与 Timeline、用户属性和�
 | immutable snapshot、generation、预算和失败关闭 | MyWallpaperX 目标合同 | 项目安全与跨平台 policy；与官方实现不同处必须明确标注 |
 | 当前等级 | 本表、总覆盖台账与运行证据索引 | 唯一实现状态 |
 
-#### 1.2.1 求值优先级（从低到高）
+#### 1.3.1 求值优先级（从低到高）
 
 ```
 authored default → userProperty → Timeline → SceneScript
@@ -156,7 +169,7 @@ existing inline source/binding IR
   -> next-frame visible consumer
 ```
 
-首批同时具备 interrupt/heap/stack budget、exception isolation、reload/teardown 和 stale-handle negative fixture，但只开放该真实脚本需要的最小 host API。cursor/audio/media/timer/dynamic layer 等后续能力复用同一 owner、mutation 和 transaction；它们不是首个 property 可见结果的前置。具体执行合同见[实现层合同 §9](scenescript-runtime-implementation-contract.md#9-mywallpaperx-v2-目标运行时合同)，开发顺序只看[现役路线 V2](../scene-compatibility-roadmap.md)。
+首批同时具备 interrupt/heap/stack budget、exception isolation、reload/teardown 和 stale-handle negative fixture，但只开放该真实脚本需要的最小 host API。cursor/audio/media/timer/dynamic layer 等后续能力复用同一 owner、mutation 和 transaction；它们不是首个 property 可见结果的前置。具体执行合同见本页 §1.1，开发顺序只看[现役路线 V2](../scene-compatibility-roadmap.md)。
 
 ## 2. Property-bound 核心合同
 

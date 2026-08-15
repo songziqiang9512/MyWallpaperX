@@ -242,7 +242,10 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             self.assertEqual(set(manifest["files"]), set(census.GENERATOR_PATHS))
             self.assertEqual(manifest["sha256"], census.canonical_sha256(manifest["files"]))
             generated_markdown = markdown.read_text(encoding="utf-8")
-            self.assertIn("| family | 修复 / 运行 / 回归状态 |", generated_markdown)
+            self.assertIn(
+                "| family | 修复事件 / 事件运行证据 / 事件回归保护（非能力状态） |",
+                generated_markdown,
+            )
             self.assertIn("_尚无已登记修复_", generated_markdown)
             self.assertEqual(census.verify(args), 0)
             snapshot_query = type("Args", (), {
@@ -420,6 +423,9 @@ class SceneCapabilityCensusTests(unittest.TestCase):
         })
         self.assertIn("`effect/fixture@1`", rendered)
         self.assertIn("`bounded-verified / visible-chain-closed / targeted-runtime`", rendered)
+        self.assertIn("修复事件（非能力状态）", rendered)
+        self.assertIn("不是该 family 的能力实现、current、support 或待办状态", rendered)
+        self.assertIn("`untriaged` 不表示缺失", rendered)
         self.assertIn("public fix", rendered)
         self.assertIn("official parity unproven", rendered)
         valid["families"][0]["repair_state"] = "complete"

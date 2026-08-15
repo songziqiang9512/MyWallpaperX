@@ -190,6 +190,6 @@ g_AudioSpectrum64Left[64]   g_AudioSpectrum64Right[64]
 ## 8. 关联文档
 
 - [Shader source 前置合同与跨后端假设审查](shader-prelude-and-backend-abstraction.md) —— frontend token 与 `g_` uniform 清单（不含音频系列）
-- [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) —— `AUDIO_RESOLUTION_*` 常量与 `registerAudioBuffers`
+- [SceneScript 2.8.42 固定客户端静态取证](scenescript-runtime-implementation-contract.md) —— 只作 `AUDIO_RESOLUTION_*` 与 `registerAudioBuffers` 的研究上下文，不是实现合同
 - [官方 19 工程 fixture 清单](official-default-projects-fixture-inventory.md) —— `supportsaudioprocessing` 开关的官方样本
 - [资料来源与证据索引](source-index.md) —— 第三方播放器的 mono spectrum 偏差记录；本文来源应登记于此

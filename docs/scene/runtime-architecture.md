@@ -1,5 +1,7 @@
 # Scene 兼容运行时架构
 
+<!-- document-role: stable-contract -->
+
 > 状态：现役长期架构合同
 >
 > 最近复核：2026-08-15
@@ -28,13 +30,27 @@ project / scene / package / texture
 
 ## 2. 证据来源及其边界
 
-架构决策按以下证据强度裁决：
+架构决策必须按[资料来源索引](semantics/source-index.md)的命名来源标注，以下是本文使用它们时的裁决顺序：
 
 1. Wallpaper Engine 官方公开文档定义作者可见合同；
 2. 固定版本、输入、环境、时间和事件下的官方客户端黑盒观察定义对应 bounded profile 实际发生的外部结果，不证明内部算法或其他版本；
 3. 固定版本官方客户端静态取证补充未公开的职责、顺序和数据流，只能标为版本有界结构；
-4. 当前 MyWallpaperX 代码与可复现运行证据决定已经实现什么；
-5. MirageWallpaper 等第三方项目只提供 clean-room 结构对照，不能定义官方语义或像素结果。
+4. 合法 authored corpus 观察只决定作者数据的实际形状和影响面，不证明运行支持；
+5. 当前 MyWallpaperX 代码与可复现运行证据决定已经实现什么，不反向定义应当怎样；
+6. MirageWallpaper 等第三方项目只提供 clean-room 结构对照，不能定义官方语义或像素结果；
+7. MyWallpaperX 策略只在不伪写上述外部事实的前提下定义跨平台实现、安全、失效半径和迁移方式。
+
+### 2.1 目标合同、当前事实与偏差债务
+
+任何设计和实现决策必须同时保留三条互不替代的轴：
+
+| 轴 | 回答的问题 | 权威来源 |
+|---|---|---|
+| 目标合同 | 为满足作者可观察行为和本项目长期边界，最终应怎样处理 | 官方公开合同、bounded 官方结果合同与本文的项目自有架构策略 |
+| 当前事实 | 当前代码、owner、路由和运行结果实际上怎样 | 当前源码、能力台账与可复现运行证据 |
+| 偏差债务 | 当前事实偏离目标合同在哪里、由谁持有、如何回滚和退役 | 现役路线/能力表中的 owner、route state、fallback reason、纠正门与退役条件 |
+
+现有代码、测试、目录和旧报告不能把偶然实现升级成目标合同。触达一个旧 owner 时，先列出本职责内的偏差，再在当前纵向结果所需范围内把数据和执行权迁向目标；不得为了兼容已知错误路径而继续扩张其 matcher、wrapper、专用 IR 或测试预期。无法同批纠正的部分保持为显式债务，不能通过降低目标合同来消失。
 
 官方公开合同当前明确支持以下架构判断：
 
@@ -54,7 +70,7 @@ project / scene / package / texture
 - [官方客户端运行机制静态取证](semantics/client-runtime-static-forensics.md)
 - [MirageWallpaper 固定 revision 静态研究](semantics/miragewallpaper-rendering-reference.md)
 
-官方公开文档没有公开内部 RenderGraph。普通 material、FBO、copy、swap、compose、history、ping-pong 和 publication 的具体处理链来自 2.8.42 客户端静态取证及独立结构交叉检查，文档和实现不得把它们表述成跨版本官方保证。
+官方公开文档没有公开内部 RenderGraph。2.8.42 固定客户端静态取证只支持 condition、ordinary material、copy、swap、compose、FBO 和 layer-local logical pair 等版本有界结构；它没有闭合通用跨帧 history、device-loss 结果或 MyWallpaperX publication 语义。后三者在官方黑盒结果出现前必须分别标为 unknown 或 `MyWallpaperX-strategy`，不得表述为官方内部处理链。
 
 当上述来源不足以决定当前纵向切片时，必须由官方客户端研究工作流控制问题范围、工具边界和实现交接。固定客户端静态观察只提供版本有界结构；对一个 bounded profile 的画面、事件、状态和失败结果是否一致，仍须由固定输入、环境、时间与事件下的官方客户端黑盒对照证明。
 
@@ -152,6 +168,8 @@ WE GLSL-like source
 
 选择依据：作者语言公开形态接近 GLSL；glslang 与 SPIRV-Cross 都提供独立上游和可固定版本，能够把语言语义从 Swift 手写 analyzer 移出，同时继续使用 Metal。Mirage 的 glslang/Vulkan 路线只提供“通用编译器 + 反射 + 图执行”职责拆分的固定 revision 静态结构对照，不能证明其可构建性、运行效果或产品可行性，也不能复制其 vendor 树、shader bridge、常量、payload 或 Vulkan 选择。
 
+第一批 compiler 集成必须先在独立、可终止的 subprocess harness 中验证不可信作者输入、诊断、reflection、预算和产物，不直接取得产品执行权。进入产品路径前必须作出显式故障隔离决策：要么以故障注入证明 in-process backend 的 crash、hang、timeout、OOM、取消和损坏结果不会杀死 App 或污染 cache/Program，要么使用可重启的 bundled compiler worker。完整 XPC 平台不是第一张画面的前置，但“尚未选择隔离策略”不能进入产品执行权。
+
 Slang、DXC + Metal Shader Converter 可以保留为对照，但在当前 corpus 没有证明它们比 GLSL → SPIR-V → MSL 少一层 dialect 转换以前，不作为首条产品路线。
 
 第一条执行切片只需普通 vertex/fragment、常见 uniform/sampler、combo 和 render state。复杂 geometry、3D system shader 和全部历史 dialect 不阻塞普通 effect 首次出画面。
@@ -187,13 +205,30 @@ effect definition
 
 现有 effect-specific backend 只能作为可观测 fallback。通用路径尝试失败后可以临时回退到已验证旧实现；不得为新 effect 增加同类 matcher/backend/renderer。
 
+每个迁移 owner 使用同一套显式 route state：
+
+| route state | 产品执行权 |
+|---|---|
+| `observe-only` | 通用路径只编译、规划和记录差异，不发布产品输出 |
+| `prefer-generic` | 通用路径优先；只有已验证旧 owner 可按 typed fallback reason 接管失败的 bounded 输入 |
+| `generic-only` | 只有通用路径持有产品执行权；旧实现至多作为离线测试 oracle |
+| `disable-generic` | 故障时显式回滚到仍受支持的旧 owner；必须登记触发原因、影响面和退出条件 |
+
+路由选择、fallback reason、输入 identity 和计数必须可观察，禁止同一输入静默双执行。`observe-only -> prefer-generic -> generic-only` 的每次转换都要原子可回退；进入 `generic-only` 前必须通过真实纵向正证、局部失败反例、新组合/未见 fixture、fallback 统计和一次回滚演练。旧产品 owner 只有在 `generic-only` 稳定、产品路径无旧引用且权威文档同步后才可删除或隔离；长期停在 `disable-generic` 仍是未完成偏差债务。
+
 ### 5.2 Effect graph 通路
 
 在同一条普通通路上增加 FBO、copy、swap、compose、clear、condition、named target、history 和 cross-layer dependency。不得另建“高级 effect renderer”。
 
 ### 5.3 动态行为通路
 
-Timeline、user property、SceneScript、pointer、audio、media 和 system state 都写入同一个 typed frame snapshot/mutation transaction。不同 producer 可以有优先级，但 consumer 不得各自再实现一套动态状态模型。
+Timeline、user property、SceneScript、pointer、audio、media 和 system state 都参加同一个有序 frame commit，但不能压进同一类值容器。commit 明确汇合三条 typed channel：
+
+1. `immutable value/event snapshot`：time、property、pointer、audio scalar、事件和普通 uniform/value；
+2. `resource/provider publication`：video frame、media artwork、dynamic text/texture 与各自 generation/readiness；
+3. `topology/VM mutation transaction`：对象/层/effect 增删、visibility/condition 引起的图变化，以及脚本产生的受控 mutation。
+
+producer 的优先级、同帧/下一帧可见性和冲突处理由 frame commit 统一决定；consumer 只读取与自身职责匹配的 channel，不得各自建立状态系统，也不得把 resource generation 或 topology change 伪装成普通 value-only 更新。
 
 ### 5.4 Particle 通路
 
@@ -213,33 +248,43 @@ Particle definition 编译为有序 component ops；system 实例拥有固定步
 
 每个 target、provider、Program 和 graph node 都必须声明自己的 invalidation domain。consumer 不得以“实现方便”为由把 value-only 更新升级成整 Scene relaunch；也不得在结构已变化时仅改 uniform 而继续复用 stale graph。
 
-## 6. 开发、产品和发布三层门
+### 5.6 V4 是横切输入轨，不是 V3 之后的整个平台
 
-### 开发执行门
+V4 的 user property、pointer、audio、media、video/provider、dynamic text 和交互能力贯穿 V0–V3。每项输入都以一个独立纵向原子推进：typed producer -> 对应 frame-commit channel -> 现有 Program/VM/component consumer -> 可见或事件结果 -> teardown/局部失败。一个输入不得等待全部 V4 完成，也不能因另一个输入已完成而共享其 owner-migration 结论。
 
-- 定向编译/单测；
-- 一个真实代表内容实际进入新路径；
-- GPU/VM 执行无 crash；
-- 截图或事件观察到预期方向的变化；
-- 失败不会抹掉无关 layer。
+### 5.7 V5 是独立 epics 集合
 
-### 产品 checkpoint
+Puppet、2D lighting/HDR、3D、RGB、offline bake、color/multi-display/device recovery 与 performance/release 分别是独立 epic，不构成必须顺序完成的单一 V5 平台。每个 epic 按 corpus 影响和用户价值单独登记输入、输出、首个可见切片、失败/回滚、验收门和旧 owner 退役条件；任何一个 epic 都不得等待“完整 V5”，也不能把自己的通过外推为其他 epic 或发行完成。
 
-- App build；
-- 小型 Fast Scene Suite；
-- Program/graph/VM/component diagnostics；
-- publication、completion、terminal compositor 和 next-frame；
-- 正常和局部降级两条路径。
+## 6. 三层完成门
 
-### milestone / release
+### 6.1 `slice-visible`
+
+- 定向编译/单测和风险所需的 App build 通过；
+- 一个真实代表输入实际进入新 Program/graph/VM/component 路径；
+- GPU/VM completion、publication、terminal compositor/next-frame 或对应事件链闭合；
+- 预定义 ROI/事件观察到目标方向，局部失败反例不抹掉无关 layer/object。
+
+这一级只证明当前 bounded 纵向结果，不改变旧 owner 的产品权威，也不证明官方等价。
+
+### 6.2 `owner-migration`
+
+- route state 已从 `observe-only`/`prefer-generic` 原子迁到 `generic-only`；
+- Fast Scene Suite、相关新组合/未见 fixture、正常与局部降级路径通过；
+- fallback reason/计数和差分已审计，并完成一次 `disable-generic` 回滚演练；
+- 旧 owner 已撤销产品引用或隔离为无产品执行权的测试 oracle，能力/owner 文档同步。
+
+这一级证明产品所有权迁移完成；若旧 owner 仍承担 fallback，迁移仍未完成。
+
+### 6.3 `parity-release`
 
 - 未见内容与更广 corpus；
 - fixed/full matrix；
 - cache、取消、压力、长稳、性能和内存；
 - arm64/x86_64、许可证、Developer ID、hardened runtime、notarization 和 Gatekeeper；
-- 需要宣称 fidelity 时再加入 Windows golden 或预定义 ROI/事件门。
+- 对任何声称兼容或 fidelity 的 bounded profile，按预先登记输入、时间、事件和容差通过固定官方客户端黑盒 golden/ROI/状态序列；未运行时只能标为项目自有实现或 parity 未验证。
 
-发行条件不能倒灌成第一个真实 effect 的开发前置；开发成功也不能反向冒充发行就绪。
+`slice-visible -> owner-migration -> parity-release` 只能逐层提升并分别报告。发行条件不能倒灌成第一个真实 effect 的开发前置；开发成功也不能反向冒充所有权迁移、官方一致或发行就绪。
 
 ## 7. 迁移终态
 

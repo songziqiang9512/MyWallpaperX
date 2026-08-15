@@ -1,10 +1,10 @@
 # Scene 官方语义与实现覆盖台账
 
-> 状态：现役系统汇总；逐项等级以各专项能力表为准
+> 状态：现役 current capability 唯一系统摘要；逐项合同与专题内等级由各专项能力表维护
 >
 > 最近核对：2026-08-15
 >
-> 当前系统等级和主要缺口见本页总表；唯一执行顺序见 [Scene 兼容执行路线](../scene-compatibility-roadmap.md)，精确 App、矩阵、报告与运行身份统一见 [运行证据索引](runtime-evidence-index.md)。逐批迁移过程只从[统一历史索引](../../history/README.md)追溯，不得覆盖当前结论。
+> 当前系统能力、主要缺口和明确待办只由本页汇总；唯一执行顺序见 [Scene 兼容执行路线](../scene-compatibility-roadmap.md)，精确 App、矩阵、报告与运行身份统一见 [运行证据索引](runtime-evidence-index.md)。路线只拥有 V0-V5 顺序，不复制或改写 current capability；逐批迁移过程只从[统一历史索引](../../history/README.md)追溯，不得覆盖当前结论。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -12,9 +12,11 @@
 
 现役产品只保留 admission → Program/typed stage → GraphExecutor → compositor 主链，但普通 authored stage 仍主要依赖 dedicated candidate/backend，耗尽后会以 `noBackendAccepted` 结束；这才是当前扩面首断点。下一步是在现有主链内建立普通 authored shader/material 的通用 backend，并把失败半径从整 layer/后续 layer suffix 收窄到实际失败的 effect/pass/依赖子图。已完成的 R4/R5 owner 迁移只是稳定不变量，不再决定开发顺序。
 
-台账等级表示当前覆盖范围与证据强度，不表示开发优先级或用户收益。真实样本已有缺图、错误合成、黑窗或交互失败时，先修该样本第一个共享断裂边，并把同一可见结果需要的 texture selection、owner、Program、GPU、publication、compositor 与 next-frame 闭合；一个 `L1/L2` 基础项或某行“下一门”不能取代这条链，也不能据此把相互依赖的 consumer 拆成多个“已完成”批次。
+本页是系统级 current capability 的唯一摘要入口；专项表拥有逐项字段、边界、代码/测试证据和下一门。各专项沿用的 `L0-L4` 只在该专题自己的定义下解释：不同专项的同名 `L` 不可横向比较、求和、排序。`S0-S5` 只由[运行证据索引](runtime-evidence-index.md)定义，表达精确 code/App/fixture/ROI identity 的证据闭合深度，不表达能力宽度；`S0` 只是无已保存证据，不是优先级。任何 `L` 都不得批量映射为 `S`，一条 `S4` 也不得外推整个 family 已可见。需要系统结论时读取本页，需要逐项结论时沿本页链接进入对应专项；路线不得复制一份平行 current 表。
 
-真实 corpus 的 authored occurrence、公共结构 family、参数 profile 和修复事件统一见[全样本能力分类与修复台账](scene-corpus-capability-inventory.md)。该 census 用于回答“样本声明了什么、修一个公共结构会影响哪些样本”；本页继续回答“当前实现到什么等级”。两者不可互相推导：静态高频 family 不是开发优先级，`resolved/observed` 也不是运行支持。
+本页表格中的等级只概括本行写明的 bounded 范围与证据强度，不表示开发优先级或用户收益，也不能反向统一各专项的本地等级。真实样本已有缺图、错误合成、黑窗或交互失败时，先修该样本第一个共享断裂边，并把同一可见结果需要的 texture selection、owner、Program、GPU、publication、compositor 与 next-frame 闭合；一个 `L1/L2` 基础项或某行“下一门”不能取代这条链，也不能据此把相互依赖的 consumer 拆成多个“已完成”批次。
+
+真实 corpus 的 authored occurrence、公共结构 family、参数 profile 和修复事件统一见[全样本能力分类与修复事件台账](scene-corpus-capability-inventory.md)。该 census 用于回答“样本声明了什么、某个修复事件影响哪些样本”；本页继续回答“当前实现到什么等级”。两者不可互相推导：静态高频 family 不是开发优先级，`resolved/observed/repair_state` 也不是运行支持。
 
 R0-R5、B0-B25 与旧 Coverage-first 的逐批迁移过程不参与现役路线；需要追溯时只从[统一历史索引](../../history/README.md)进入。表中仍出现的旧标签只用于定位既有证据包，不能解释为下一批。
 
@@ -120,9 +122,9 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 | Bounded HSV Color Random | `L3 bounded` | 七个显式 direct-number wire、normalized ordered HSV ranges 与 `1...1024` hue steps；创建时按 authored order 执行项目自有离散 hue、连续 saturation/value 和 HSV→RGB 近似，有效 instance color override 冲突失败关闭 | 官方 default、instance-color 依赖、RNG/端点、linear-vs-sRGB 与 Windows 数值/像素 golden |
 | Rotation Random initializer | `L2` | 字段与 simulation 分支已接线；无最终 rotation 断言 | renderer orientation 数值门 |
 | 其他未接 initializer | `L1` | control-point/remap 等可诊断或字段不足 | 逐项 fixture 与创建时语义 |
-| 已接 operator 子集 | `L3` | movement/angular、alpha/size/color change、部分 oscillate、非音频 Turbulence、event-follow 的省略/`setcolor` Inherit Value，以及最多 64 粒子的 zero-separation Boids alignment/cohesion；event color 每步读当前 parent state且不重启 child emission，Boids 使用不可变 fixed-step snapshot，其他声明继续 fail closed | 其他 event channel/type、Boids separation/speed clamp/spatial index、默认 phase/system seed、curve 与 Windows 数值/轨迹门 |
-| Turbulence operator | `L3 executed-degraded` | 非音频 profile 按作者顺序消费 mask/phase/scale/time scale/speed/blend/fixed dt/static speed override，非有限写入失败关闭；audio profile 零执行 | Windows 固定 seed 轨迹/像素 golden；audio phase 调制公式 |
-| 其他未接 force/operator | `L1` | maintain/reduce/vortex/remap/collision 等明确 unsupported | control-point/world-space 力场、typed channel 与 collision solver |
+| 已接 operator 子集 | `L3 bounded` | movement/angular、alpha/size/color change、部分 oscillate、Cap Velocity、bounded Control Point Force、Turbulence、classic v1 Vortex、event-follow 的省略/`setcolor` Inherit Value，以及最多 64 粒子的 zero-separation Boids alignment/cohesion；合法 Turbulence/Vortex audio profile 分别消费 phase/speed，event color 每步读当前 parent state且不重启 child emission，Boids 使用不可变 fixed-step snapshot；未准入字段或组合继续 fail closed | 其他 event channel/type、Cap Velocity Windows blend/clamp、Control Point Force falloff/world/perspective、classic Vortex CP/center-force、`vortex_v2`、Boids separation/speed clamp/spatial index、默认 phase/system seed、curve 与 Windows 数值/轨迹门 |
+| Turbulence operator | `L3 bounded` | 按作者顺序消费 mask/phase/scale/time scale/speed/blend/fixed dt/static speed override，非有限写入失败关闭；合法 Audio Response 以项目 clean-room 的 `1 + response` 调制 phase，非法或未准入 profile 继续局部失败关闭 | Windows 固定 seed、非零音频轨迹/像素 golden；官方 phase、幅度、默认值和数值公式仍未证明 |
+| 其他未接 force/operator | `L1` | Maintain Distance、Reduce Movement Near Control Point、Remap、Collision、`vortex_v2` 及未准入 classic Vortex/Control Point Force 扩展明确 unsupported | 双 control-point/world-space 力场、typed channel、collision solver，以及各 bounded operator 未覆盖的字段与组合 |
 | Sprite renderer | `L3` | 作者纹理和程序化静态遮罩子集；TEX filter/address/mip 进入真实 Metal sampler，UV>1 repeat、minification 与单 mip 均有 GPU 门 | clamp-border 精确值、全 material/blend/lighting/atlas 与像素 golden |
 | Sprite Trail | `L3` | root/strict child 共用单 quad stretch；显式 length 按有限非负值执行，省略/`null` 采用项目默认 `1`，min/max 缺省为 `1/1`；malformed、非有限、负值与反序范围失败关闭 | 默认 `1` 是 stock corpus + 公开 orientation-only 语义约束下的 clean-room 合同；orientation/单位/atlas/曲线与 Windows 像素精度仍缺 |
 | Rope declaration | `L3` | typed kind/字段进入严格 profile；单 renderer、Screen、静态纹理、2...512 maxcount，准入 subdivision `0...7`、有限 UV scale、smoothing/scroll；strict child 另允许 bounded bit-2 one-per-frame emitter 与透明 unused parent CP mapping | `segments`、length/fades、root world-space、animated texture、multiple renderer、active/unknown CP mapping 继续拒绝 |
@@ -138,8 +140,8 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 | World-space execution | `L3` | 静态可逆 layer/ancestor world frame 下，General 固定 birth origin、Movement 逆变换作者 velocity/gravity、Renderer orientation 不继承 system rotation/scale；inline script、transform Timeline/诊断、有效 parallax、循环/奇异 frame 失败关闭 | 动态 parent/Timeline、multi-screen/camera 与 Windows 数值/像素 golden |
 | Collision declaration | `L1` | 可诊断但无 solver | shape/depth/response/event IR |
 | Collision execution | `L0` | 无 solver | fixed step 与 event dispatch |
-| Audio-response declaration | `L1` | 五字段按粒子 schema 保真进 IR，emitter/turbulent velocity/operator 三类共用同一声明类型；启用后一律报 `audioResponseIgnored`（operator 此前无诊断、会静默按无音频路径模拟） | 声明保真不等于可执行；默认值官方未公开，IR 层不内置 |
-| Audio-response execution | `L0` | frame snapshot 已可用，但**求值公式与调制目标无证据**：粒子侧无 shader 源码，第三方参考实现对应代码是 `audioAmplitude = 0.0` 的 TODO 占位，其默认值在 emitter/initializer 两处自相矛盾 | 需 Windows golden 或官方公开算法；在此之前不得按推测实现 |
+| Audio-response declaration | `L3 bounded` | 五字段按粒子 schema 保真进 IR，emitter、Turbulent Velocity Random、Turbulence 与 classic v1 Vortex 共用 typed 声明和准入；只有底层 component profile 与 audio profile 同时合法时才建立 consumer，其他声明明确记录 `audioResponseIgnored` 并局部失败关闭 | 其他 emitter/initializer/operator/child audio、未知字段/组合与官方默认值；声明或 frame snapshot 本身不外推执行 |
+| Audio-response execution | `L3 bounded` | 共享 16-band evaluator 消费同帧 host snapshot；当前只为 root Sphere/Box rate emitter、Turbulent Velocity Random/Turbulence phase 与底层已合法的 classic v1 Vortex speed 执行。mean、bounds normalization、默认值、`1 + response` phase 与 speed/rate scale 均为项目 clean-room 近似 | 合法 Windows 非零频谱 count/trajectory/pixel golden、官方数值/默认/生命周期，以及其他 component/child/audio 组合；不得称官方 parity |
 | Sprite Sheet | `L3` | Sequence/Random frame/frame blend 子集可执行；repeat sampler 不再把超 1 UV 拉成边缘条；可信单 sequence sidecar nominal aspect 优先，raw TEX axes 像素长度回退，并随 current/next frame blend 插值普通 Sprite 几何 | trim pivot、多 sequence/multi-image 异尺寸、loop/edge、多纹理 material 与 Windows atlas golden |
 | Static instance overrides | `L3` | alpha/size/lifetime/rate/speed/count/brightness/normalizedColor 有运行断言，五种 General gate 有逐项 allow/deny 门 | direct color、完整类型/range 与 Windows 状态门 |
 | Direct color/control-point override | `L2` | CP position 的 static/absolute-Timeline root-emitter 子集已有数值门；static CP angle 的 bounded root Sphere/Box emitter consumer 也有正反门。本聚合行仍受 direct color、dynamic angle 与其他 consumer 无执行门限制 | direct color、dynamic CP angle 与其他 consumer 断言 |
@@ -283,7 +285,7 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 
 ## 8. 现役路线映射
 
-本页不再维护 B/R/Coverage-first 实施顺序。完整能力现状、统一 `S0-S5` 结果等级和 V0-V5 待办归属见[Scene 兼容执行路线](../scene-compatibility-roadmap.md)：
+本页不再维护 B/R/Coverage-first 实施顺序。current capability、边界与待办仍由本页汇总；[Scene 兼容执行路线](../scene-compatibility-roadmap.md)只拥有 V0-V5 的执行顺序和结果声明口径，其中任何能力族摘要都只是返回本页/专项表的导航，不是第二份 current 状态：
 
 - V0：ordinary authored shader/material 通用编译、Program、GPU 与 compositor；
 - V1：ordered pass、FBO、copy/swap/compose/history/named dependency；
@@ -297,9 +299,9 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。
-2. 升级到 `L2` 必须有结构/路由测试；升级到 `L3` 必须有实际执行正例、作者关闭反例、失败降级和生命周期门；升级到 `L4` 必须有官方行为或 Windows golden。
+2. 本页系统行升级必须写明其 bounded 子集、结构/执行/可见证据和未证明边界；专项 `L0-L4` 只按该专项自己的等级定义升级，不得套用另一专题的同名阈值或机械换算为 `S0-S5`。
 3. 新发现的官方能力先补 [官方页面全目录](official-page-catalog.md)、[页面能力映射](official-page-crosswalk.md) 和专题语义，再进入本表；私有字段按 [资料来源与证据索引](source-index.md) 标证据等级。
 4. 当前 baseline、矩阵报告、测试总数和签名 App 身份只以 [运行证据索引](runtime-evidence-index.md) 为主答案；本表只维护系统摘要与专项入口，带日期的文档全部属于 history。语义自动门校验布局合同与相对链接，不假装同步这些动态事实。
 5. 开发开始顺序：先看[现役路线](../scene-compatibility-roadmap.md)的当前可见目标，再从本表和专题合同定位首断边；不得按本表行号或旧批次标签排队，也不得凭截图写视觉特判。
-6. 总表只允许单一 `L0` 到 `L4` 等级；若同一能力同时存在 IR 与 executor 子集，必须拆成两行或下沉专项表。
+6. 总表每行只允许一个本行摘要等级；若同一能力同时存在 IR、wired、executor 或 visible 子集，必须拆行或明确写成 bounded current + missing remainder，不能把不同专项的 `L`/`S` 拼成一个可比较等级。
 7. 每行至少要能追溯到专项表中的代码、测试和运行证据；只有 parser 或结构时不得写成执行支持。

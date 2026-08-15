@@ -4,11 +4,14 @@
     "historyRoot": "docs/history",
     "additionalPaths": [
       "docs/architecture/appkit-migration.md",
+      "docs/architecture/technology-stack-boundaries.md",
+      "docs/scene/runtime-architecture.md",
       "docs/scene/scene-compatibility-roadmap.md",
       "docs/scene/semantics/official-client-behavior-research-workflow.md",
       "docs/web/wallpaper-engine-web-rules.md",
       "docs/web/web-project-json-localization.md",
-      "docs/web/web-project-json-runtime-model.md"
+      "docs/web/web-project-json-runtime-model.md",
+      "docs/web/web-wallpaper-benchmark-standard.md"
     ]
   },
   "roleDefinitions": {
@@ -36,6 +39,12 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "产品目标内的 SwiftUI import、NSHosting 接点和 SwiftUI-to-AppKit bridge 经可复现扫描与构建门证明全部为零，且长期架构合同已接管最终职责后，将本文转为 historical-evidence。"
+    },
+    {
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/README.md"
     },
     {
       "path": "docs/history/architecture/framework-architecture-memo.md",
@@ -183,6 +192,12 @@
       ]
     },
     {
+      "path": "docs/scene/runtime-architecture.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
       "path": "docs/scene/scene-compatibility-roadmap.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
@@ -208,6 +223,12 @@
     },
     {
       "path": "docs/web/web-project-json-runtime-model.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/web/README.md",
+      "currentStateAuthority": "docs/web/current-state.md"
+    },
+    {
+      "path": "docs/web/web-wallpaper-benchmark-standard.md",
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md"

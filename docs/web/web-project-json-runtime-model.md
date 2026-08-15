@@ -1,5 +1,7 @@
 # Web `project.json` 解析层 / 运行模型方案（2026-04-15）
 
+<!-- document-role: stable-contract -->
+
 > 状态：稳定合同。本文规定 project/descriptor/runtime/context 的职责分层，不声明当前代码仍有哪些类型或字段；能力、证据、源码所有权与剩余缺口只查 [Web 现役状态](current-state.md)。
 >
 > 目的：保留 Web 解析层与运行层设计的最小共识，作为后续实现的稳定参考。

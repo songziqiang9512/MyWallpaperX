@@ -10,6 +10,8 @@ Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者�
 4. 需要理解 owner/data flow 时看[兼容运行时架构](runtime-architecture.md)；
 5. 再从[语义手册](semantics/README.md)进入对应专项合同。
 
+对每个触达范围都要分开写目标合同、当前事实和偏差债务。现有代码与测试只能证明当前实现；它们偏离目标架构时，应在当前纵向 atom 所需范围内主动纠正，而不是新增兼容错误实现的 wrapper、matcher 或专用分支。
+
 当前 V0 目标是让 ordinary authored material/shader 通过通用 compiler、Program、GraphExecutor 和 compositor 实际出画面。旧 G0–G5 计划、R0–R5 记录和 coverage-first 批次均已退役，只能从[历史索引](../history/README.md)追溯。
 
 ## 当前架构与计划
@@ -24,6 +26,7 @@ Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者�
 - [运行证据索引](semantics/runtime-evidence-index.md)：当前构建/运行身份、样本结果和证据限制。
 - [Corpus 能力清单](semantics/scene-corpus-capability-inventory.md)：真实 authored occurrence、family、参数和资源影响面；不表示运行支持。
 - [能力依赖图](semantics/capability-dependency-map.md)：公共依赖和不可绕过边界；不是任务队列。
+- [Fast Scene Suite 机器合同](../../script/scene_fast_suite.json)：成员、选择状态和 readiness 的唯一事实入口；任何 `selection-required` 成员都不能执行或计为 Suite PASS。
 
 ## 专项合同与覆盖
 
@@ -52,6 +55,6 @@ Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者�
 python3.12 script/verify_scene_change.py --phase <inner|checkpoint|integration|milestone> --base HEAD --path <owned-path> --run
 ```
 
-开发循环先跑最近 inner 门并尽早进入一个真实代表内容；checkpoint 再加入未见组合；fixed/full、性能、签名和发布属于 milestone。可见声明必须证明实际执行和与声明相称的画面/事件变化，不能用 compiler success、route、matrix 或非黑像素代替。
+开发循环先跑最近 inner 门并尽早进入一个真实代表内容；只有 manifest 已批准的成员才能称 Fast Scene Suite，未批准时必须报告 `representative-content`。checkpoint 再加入未见组合；fixed/full、性能、签名和发布属于 milestone。可见声明必须证明实际执行和与声明相称的画面/事件变化，不能用 compiler success、route、matrix 或非黑像素代替。
 
 历史计划、评审、基线和迁移过程统一见[历史文档索引](../history/README.md)。现役文件不得链接历史材料来决定下一任务。

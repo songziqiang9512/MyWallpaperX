@@ -284,6 +284,7 @@
       "patterns": ["docs/**"],
       "modules": [
         "test_document_role_index",
+        "test_scene_governance_contract",
         "test_scene_semantics_coverage"
       ]
     },
@@ -297,6 +298,7 @@
         "script/scene_swift_source_sets.py"
       ],
       "modules": [
+        "test_scene_governance_contract",
         "test_scene_semantics_coverage",
         "test_scene_swift_source_sets"
       ]
@@ -353,11 +355,15 @@
     {
       "id": "validation-governance",
       "patterns": [
+        "script/scene_fast_suite.json",
         "script/verify_scene_change.py",
         "script/scene_validation_gates.json",
         ".github/workflows/**"
       ],
-      "modules": ["test_verify_scene_change"]
+      "modules": [
+        "test_scene_governance_contract",
+        "test_verify_scene_change"
+      ]
     }
   ]
 }

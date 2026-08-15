@@ -65,16 +65,16 @@ Scene 文档按四层使用，后续开发不要从取证记录直接跳到“�
 | SceneScript v2.8 每个生命周期、事件、handle 和 global 做到哪里 | [SceneScript API 覆盖表](scenescript-api-coverage.md) |
 | Utility、Puppet、3D、Lighting、性能、RGB 和离线做到哪里 | [高级对象覆盖表](advanced-object-coverage.md) |
 | 各运行系统的官方语义和正确执行顺序是什么 | [运行时系统语义](runtime-systems-reference.md) |
-| VM 语言等级、宿主桥接协议、Vec/Mat 数值行为、自定义属性 UI 协议 | [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) |
+| 研究任务需要核对 2.8.42 VM/宿主桥接的版本有界结构 | [SceneScript 固定客户端实现层静态取证](scenescript-runtime-implementation-contract.md)，只作 `research-context-only`；实现者查 SceneScript API 覆盖与兼容运行时架构 |
 | 内联脚本绑定到 JSON 的哪个位置、`authoredValue` 怎么编码、导出哪些 hook | [内联脚本与 binding target 取证](scenescript-binding-target-forensics.md) |
-| 官方 shader source 使用哪些未定义 token、哪些后端结论仍需实验 | [Shader source 前置合同与跨后端假设审查](shader-prelude-and-backend-abstraction.md) |
+| 研究任务需要核对官方 shader source/prelude 观察和待验证后端假设 | [Shader source/prelude 固定客户端与语料研究](shader-prelude-and-backend-abstraction.md)，只作 `research-context-only`；实现者只消费经审查的本批中性合同 |
 | 19 个随包工程各覆盖什么能力、哪些可作为隔离验证候选 | [官方默认工程 corpus](official-default-projects-fixture-inventory.md) |
 | 随包 `zcompat` 有哪些 patch record、哪些 matcher/runtime 语义尚未确认 | [zcompat 向后兼容机制取证](zcompat-backward-compatibility-forensics.md) |
 | 官方某能力哪个版本引入、改过什么、VM/字体/FBO 条件等实现事实 | [官方客户端 changelog 取证](client-changelog-forensics.md) |
 | 某个 wire 字段在编辑器叫什么、粒子组件/blend/Timeline/scene options 的官方名称与定义 | [编辑器字符串表取证](editor-string-table-forensics.md) |
 | 官方各系统的实现库来源、bin 模块清单、官方元素预览视频在哪 | [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md)，只作模块/来源导航 |
 | 官方客户端的资源、resolver、RenderGraph、SceneScript、媒体与 surface 如何分层，32/64 位结构是否对应 | [官方客户端运行机制静态取证](client-runtime-static-forensics.md)，只作 clean-room 结构证据 |
-| MirageWallpaper 如何组织纹理、effect/FBO 合成、相机、鼠标、动态输入与最终呈现，哪些实现缺口不能照抄 | [MirageWallpaper Scene 显示链路静态研究](miragewallpaper-rendering-reference.md)，只作等级 D 的 clean-room 架构对照 |
+| MirageWallpaper 如何组织纹理、effect/FBO 合成、相机、鼠标、动态输入与最终呈现，哪些实现缺口不能照抄 | [MirageWallpaper Scene 显示链路静态研究](miragewallpaper-rendering-reference.md)，只作 `third-party-reference-pattern` clean-room 架构对照 |
 | 官方站当前有哪些 Scene 页面、某个 API 专页在哪里 | [官方页面全目录](official-page-catalog.md) |
 | 某条结论来自官方、样本还是第三方实现 | [资料来源与证据索引](source-index.md) |
 | 某条 `L3` 到底由哪些代码、自动测试和运行/GPU 结果支撑 | [运行证据索引](runtime-evidence-index.md) |
@@ -98,21 +98,13 @@ Scene 文档按四层使用，后续开发不要从取证记录直接跳到“�
 
 新增 Swift 文件必须进入既有职责目录；主类型 extension 与主文件同目录，不使用 `Misc`、`Common` 或 `Helpers` 兜底，也不为未来能力建立空目录。Timeline/Animation、SceneScript/Scripting、system/media/audio provider 或 Puppet/3D/Lighting 等新系统只有形成多个共同生命周期或明确依赖边界的实际文件后，才评估新增一级目录。结构约束由 `test_scene_semantics_coverage.py` 自动检查。
 
-## 3. 证据等级
+## 3. 来源分类与事实裁决
 
-Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范。本文必须区分“官方行为合同”和“观察到的数据格式”，不能混写成同等确定性。
+Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范。全库只使用[资料来源与证据索引](source-index.md)定义的 named source taxonomy；本手册不再维护第二套 `A`–`E` 全局等级，也不得用字母顺序把官方公开合同、固定客户端观察、作者语料、第三方参考和项目事实混成一条“可信度排名”。历史取证文件中的局部 `A/B/C` 只属于其固定快照，不能带回现役文档继续分类。
 
-| 等级 | 来源 | 可以证明什么 | 不能证明什么 |
-|---|---|---|---|
-| `A` | Wallpaper Engine 官方 Designer 文档、官方 SceneScript `lib.sceneScript.d.ts` | 作者可见能力、启用规则、参数含义、脚本 API 和生命周期 | 私有 JSON/PKG/TEX 的全部字段和内部 pass 调度 |
-| `B` | Workshop 样本及其隔离解包结果 | 真实实例字段、顺序、override、资源引用和组合方式 | 字段在所有版本中的稳定性、官方内部默认算法 |
-| `C` | WaifuX 内嵌的 WE-compatible asset payload | effect/material/shader 定义形态和具体高频效果的执行线索 | 资源来源、版本和官方真实性；不作为项目资产 |
-| `D` | `Almamu/linux-wallpaperengine` 等开源播放器 | 一种可审计解释路径、常见陷阱、字段间关系 | 官方真值；项目中的 TODO、启发式和 bug 不能反向成为规范 |
-| `E` | MyWallpaperX 当前代码、测试和样本矩阵 | 当前真实支持范围、已知降级和回归证据 | Wallpaper Engine parity 或未覆盖样本的正确性 |
+使用来源时必须同时写明输入身份和证明边界：官方公开合同回答作者可见语义；官方客户端动态对照回答固定条件下发生了什么；固定客户端静态观察只提供研究上下文；作者语料回答真实内容声明了什么；第三方实现只提供结构对照。静态取证或第三方代码都不是产品实现输入，必须先转写为项目自有的行为合同、正反 fixture 或官方结果对照协议，implementation agent 只消费这些项目合同。
 
-冲突时按 `A -> 2.8.42 客户端快照静态取证 -> B -> C -> D -> E` 排查。客户端静态取证是单独标注版本和方法的证据通道，不占用本表字母等级；其逐篇入口见 [资料来源与证据索引](source-index.md) §1.11。它可收窄结构和生命周期假设，但仍不能证明完整运行时事件顺序、shader 数学或 Windows 像素 parity。WaifuX 的资源包仍留在 `C`。
-
-注意本表的 `A`-`E` 与 [Windows 2.8.42 历史取证快照](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) 的 `A`/`B`/`C` 是**两套不同的标度**：后者的 `C` 指“根据字段名或常量作出的解释”，不是本表的 WaifuX payload。§1.11 中以该审计为等级源的随包取证文档使用后者。引用“等级 C”时必须指明出处标度。
+MyWallpaperX 的当前代码与可复现运行证据回答“当前构建实际实现了什么”，项目 strategy 回答“准备怎样实现、验证和降级”；两者必须分开。strategy、计划或架构选择不能升级当前能力，旧 App/旧报告也不能覆盖当前代码与 fresh 运行事实。冲突裁决继续服从[项目文档入口](../../README.md#事实角色)的现役权威顺序。
 
 ## 4. 开发硬规则
 
@@ -188,7 +180,7 @@ scene.json / scene.pkg / assets
 - 实现顺序先看[兼容执行路线](../scene-compatibility-roadmap.md)，再用[能力依赖图](capability-dependency-map.md)检查公共前置，并进入对应专项表核对当前事实。依赖图不是工作队列，专项表的 `L3 bounded` 也不是继续扩张专用 owner 的理由。
 - 资料入口完整性以 [179 页逐页表](official-page-map.md) 与自动门禁为准；16 组分组统计不能替代逐页映射。
 - 专项表不写「当前实现基线：`<commit>`」。当前基线、生产播放输入边界、签名身份和 Debug runtime evidence schema 只在 [运行证据索引](runtime-evidence-index.md) 维护；覆盖台账只做系统摘要，能力依赖图只维护前置关系，带日期的 plan/roadmap 只表示历史批次快照。专项表里出现的 commit 号一律理解为对应能力的历史落地提交。
-- 新发现的字段先标证据等级和样本来源，再判断是否进入实现。
+- 新发现的字段先标 named source category、输入身份和证明边界，再判断是否进入项目自有合同；原始静态取证不直接进入实现。
 - 官方文档或 `lib.sceneScript.d.ts` 版本变化时，更新 [资料来源与证据索引](source-index.md) 的核验日期和差异。
 - 第三方播放器与官方资料冲突时，记录其偏差，不修正文档去迎合第三方行为。
 - Scene 源码导航以根 `AGENTS.md` 和 [`script/scene_source_layout.json`](../../../script/scene_source_layout.json) 为准。新代码应把 authored source/metadata、统一 Program、通用 graph compilation、target/publication 生命周期和 GraphExecutor 保持为清晰职责；现有 bounded `ShaderFrontend`、dedicated candidate/admission 和 effect-specific planner 只作迁移期 oracle，不作为新 family 的目录或所有权模板。目录变化按完整类型族迁移，并同步布局 manifest、自动门、共享 source set 与现役链接。

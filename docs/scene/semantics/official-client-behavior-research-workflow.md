@@ -1,5 +1,7 @@
 # 官方客户端行为研究与一致性验证工作流
 
+<!-- document-role: stable-contract -->
+
 > 状态：现役稳定合同
 >
 > 最近复核：2026-08-15
@@ -17,7 +19,7 @@
 - 官方公开合同优先；现有固定证据能够回答时直接复用。
 - 能从合法黑盒实验直接观察的行为，优先测行为，不先猜内部算法。
 - Ghidra 等静态工具只用于回答公开资料和黑盒仍无法决定的高层职责、字段归属、执行顺序、状态转换和生命周期边界。
-- 反编译输出不能进入产品实现。实现者只能消费经过 clean-room 压缩的项目自有行为合同、正反 fixture 和官方结果对照协议。
+- 反编译输出不能进入产品实现。静态研究任务不得修改产品代码；审查过的中性行为合同必须交给一个未接触原始反编译内容的新实现任务/新上下文，实现者只能消费该合同、项目自有正反 fixture 和官方结果对照协议。
 - 算法、数据结构和 Metal 实现可以与官方不同；但对一个声称兼容的 bounded profile，最终作者可观察结果必须在**事先声明**的容差内与固定官方客户端一致。
 - 静态结构一致、编译成功、非黑画面或 Mirage 输出都不能证明官方结果一致。
 
@@ -79,11 +81,13 @@
 
 ## 5. AI 研究卡
 
-启动本流程后，AI 在根据本次研究修改产品代码前必须填写以下字段；不适用项写 `not-applicable`，不能留空或用推测补齐：
+启动本流程后，研究任务必须填写以下字段；不适用项写 `not-applicable`，不能留空或用推测补齐。研究任务不得随后根据本次静态取证修改产品代码：
 
 ```yaml
 research_id:               # 稳定短 ID
 owner_and_date:
+research_task_or_context_id:
+research_task_product_write_authority: false
 user_visible_expected:
 user_visible_actual:
 reproduction:
@@ -115,8 +119,12 @@ still_unknown:
 self_authored_behavior_contract:
 allowed_inputs_and_order:
 failure_and_fallback_contract:
-independent_implementation_owner:
 positive_and_negative_fixtures:
+sanitized_handoff_reviewer:
+sanitized_handoff_approved: # true/false
+independent_implementation_owner:
+fresh_implementation_task_or_context_id:
+implementation_context_attestation: # did-not-receive-raw-static-output
 
 golden_capture_protocol:
 comparison_metrics:
@@ -167,7 +175,23 @@ evidence_and_doc_updates:
 - 明确正例、反例、unknown 和预算；
 - 官方 black-box 对照方式和预声明容差。
 
-实现者不得读取或照译反编译伪代码。实现必须落入现有 Swift/Metal 通用 Program、graph、VM host bridge、particle component op、resource/provider 或 compositor 职责；不得按研究用 sample/layer/path/hash 建产品 dispatch。
+### 7.1 AI 上下文隔离
+
+只要研究任务查看了选择性反编译、地址、控制流、字段连续布局、私有公式或其他禁止跨界的实现表达，就必须在交接审核完成后结束该任务。产品实现由**新任务或新上下文**开始，并满足：
+
+1. 研究任务没有产品源码写权限，也没有在同一 diff 中落产品实现；
+2. 一名审查者确认 handoff 只包含中性行为合同、事实/推断/unknown、项目自有 fixture 与官方黑盒协议；
+3. 新实现上下文没有收到原始 Ghidra 输出、反编译伪代码、地址/offset、私有公式/常量/布局、原始调用链或研究聊天全文；
+4. 新实现任务在纠偏卡中登记新的 context/task identity，并声明 `did-not-receive-raw-static-output`；
+5. 如果所用 AI/工具无法保证上下文隔离，静态结果只能留作研究证据，不能由同一上下文实现该功能；应改用公开合同和黑盒行为，或由独立实现者接手。
+
+“开一个子代理但完整继承研究对话”不算新上下文。只清空临时文件也不等于清空已经进入模型上下文的实现细节。
+
+implementation task 不得宽泛检索或预读标为 `research-context-only` 的取证页。如果它意外读到了地址、控制流、私有公式/常量/布局或原始调用链，当前上下文必须停止产品写入并转为研究上下文；只有完成审查后的中性交接，才能由另一个 fresh implementation context 继续。
+
+### 7.2 实现边界
+
+实现者不得读取或照译反编译伪代码，也不得根据旧 MyWallpaperX 代码反推目标语义。实现必须落入现有 Swift/Metal 通用 Program、graph、VM host bridge、particle component op、resource/provider 或 compositor 职责；不得按研究用 sample/layer/path/hash 建产品 dispatch。
 
 若官方只证明行为方向而未给出数值真值，可以先做项目自有 bounded approximation，但必须：
 
@@ -220,7 +244,8 @@ Direct3D 与 Metal 的浮点、采样和色彩后端差异意味着默认不要�
 4. 固定官方客户端对照按同输入、同时间、同事件协议运行；
 5. 所有预声明 ROI/序列/状态/容差通过；
 6. 新组合或反例证明实现没有退化为样本身份特判；
-7. 能力表和运行证据只提升到本次实际证明的范围。
+7. 若使用静态取证，研究与实现的 fresh-context 交接字段完整且经审查；
+8. 能力表和运行证据只提升到本次实际证明的范围。
 
 若官方客户端对照未运行，最高只能报告“项目自有实现/结构一致，官方结果未验证”；若对照失败，保持 `failed` 并记录第一个差异，不以算法不同、Metal 后端不同或主观可接受为由改写通过标准。
 

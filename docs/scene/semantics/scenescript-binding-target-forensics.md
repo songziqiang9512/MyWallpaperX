@@ -4,7 +4,9 @@
 取证快照：Wallpaper Engine 2.8.42 `projects/defaultprojects`
 审查方式：只读静态解析 `scene.json`
 
-> [SceneScript API 覆盖表](scenescript-api-coverage.md) 中「property-bound 实例」一项为 `L0`，缺口写的是「建立 `ScriptSource + owner + target + authoredValue + valueType` IR」。本文用随包工程中的 13 处真实内联脚本，把这五项的**实际 JSON 形态**确定到静态输入层。
+> 文档角色：`official-client-static-observation / research-context-only`。本文只记录固定 2.8.42 随包默认工程中 13 处内联脚本的静态 JSON 形态，不是现役能力、实现说明或通用运行语义。implementation agent 只能消费已经写入项目自有 SceneScript 合同的 IR、正反 fixture 和动态对照协议，不能从本文的样本源码、字段邻接或推断直接生成产品代码。
+>
+> 2026-07-25 审查开始时，[SceneScript API 覆盖表](scenescript-api-coverage.md) 曾把 property-bound 实例记为 `L0`，并以 `ScriptSource + owner + target + authoredValue + valueType` 为当时缺口。该等级已经撤权；本文只保留五项静态输入形态，当前能力与缺口只查现役覆盖表和[运行证据索引](runtime-evidence-index.md)。
 >
 > 这批工程随正版安装分发，全 docs 此前零引用。
 
@@ -84,12 +86,12 @@
 | Boolean | JSON bool | `true` |
 | Vec3 | **空格分隔字符串** | `"1 0 0"`、`"206.33000 57.95600 0.00000"` |
 
-两条必须处理的细节：
+两条可提交给项目合同评审的观察：
 
-1. **小数位数不统一**。同一 scene 内 `"1 0 0"` 与 `"1.00000 0.00000 0.00000"` 并存（样本 #8 与 #10 同属 `razer_bedroom`）。解析必须容忍任意位数，不能按固定格式匹配。
-2. **float32 形态**。`1.1200000047683716` 与 `1.12f` 提升到 double 的值一致，强烈暗示编辑器链路中存在 float32 存储或转换；具体落盘路径仍是 C 级解释。兼容测试应覆盖这种展开值，不能只接受固定小数位数。
+1. **小数位数不统一**。同一 scene 内 `"1 0 0"` 与 `"1.00000 0.00000 0.00000"` 并存（样本 #8 与 #10 同属 `razer_bedroom`）。这反驳“固定小数位数就是格式合同”的假设；实际 parser 规则仍由项目自有合同决定。
+2. **float32 形态**。`1.1200000047683716` 与 `1.12f` 提升到 double 的值一致，提示编辑器链路中可能存在 float32 存储或转换；具体落盘路径仍是静态推断。该值可作为合同评审后的 fixture 候选，不能单凭本观察开放新解析语义。
 
-字符串向量的形态与 [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) §5.1 的单空格分隔构造/序列化规则一致。两份证据可以建立兼容的往返合同，但静态文件不能证明每个 `scene.json` 字符串都由 `Vec3.toString()` 直接生成。
+字符串向量的形态与 [SceneScript 2.8.42 静态取证](scenescript-runtime-implementation-contract.md) §5.1 的单空格分隔构造/序列化观察一致。它可为项目自有往返合同提供独立静态佐证，但静态文件不能证明每个 `scene.json` 字符串都由 `Vec3.toString()` 直接生成，也不自行取得实现授权。
 
 ## 6. 事件覆盖与求值时机
 
@@ -103,9 +105,9 @@
 
 **5 处只导出 `applyUserProperties`** —— 分布在 `razer_vortex` 3 处、`dino_run` 1 处、`shimmering_particles` 1 处。静态导出面没有要求它们进入 frame update 队列；实际触发次数、初次调用和属性批处理顺序仍需 Windows 运行门确认。
 
-这对实现有直接影响：script binding 的调度不能默认把全部实例都作为 `update` consumer。可先按实际导出的事件集建立挂载点，再用 Windows 运行门锁定初次调用、批处理与异常行为。这也与 `lib.sceneScript.d.ts` 头部「PREFER EVENT HOOKS OVER UPDATE」的性能指引一致。
+这为项目合同评审提供一个候选问题：script binding 是否应按实际导出的事件集区分 consumer，而非假定全部实例都消费 `update`。初次调用、批处理与异常行为仍需项目正反 fixture 和官方动态对照裁决；本文不直接规定调度实现。该观察也与 `lib.sceneScript.d.ts` 头部「PREFER EVENT HOOKS OVER UPDATE」的公开性能指引一致。
 
-`applyUserProperties` 无返回值写回语义（`d.ts` 只对 `init`/`update` 定义返回值规则），因此这 5 处必须通过直接赋值生效，即声明中的 ASSIGNMENT EXCEPTION 路径。
+`d.ts` 只对 `init`/`update` 定义返回值规则，而这 5 处 `applyUserProperties` 脚本都使用直接赋值；它们是 ASSIGNMENT EXCEPTION 路径的正向静态样本，但不能据此断言所有版本或所有 property hook 只能按同一内部方式生效。
 
 ## 7. `dino_run` 复杂样本的 API 面
 
@@ -124,15 +126,15 @@
 | 日志 | `console.log` |
 | 事件 | `init`、`update`、`cursorDown`、`applyUserProperties` |
 
-价值：这是唯一一份同时覆盖**动态 layer 生命周期**（create/destroy/sort）、**持久化**和**指针事件**的官方样本。[SceneScript API 覆盖表](scenescript-api-coverage.md) 中 `thisScene` layer mutation 与 `ILocalStorage` 均为 `L0`，这份样本可作为实现后的第一个端到端正向门。
+价值：在本固定客户端随包工程中，这是同时覆盖**动态 layer 生命周期**（create/destroy/sort）、**持久化**和**指针事件**的静态样本。它可在对应能力进入现役项目合同后作为端到端候选输入；当前 `thisScene`、`ILocalStorage` 和事件能力只查[SceneScript API 覆盖表](scenescript-api-coverage.md)，本文不保存等级。
 
-`engine.registerAsset` 在该脚本中位于**模块顶层**，符合 `d.ts` 中「MUST be called at the root global level」的约束，可作为该约束的正向样本。
+`engine.registerAsset` 在该脚本中位于**模块顶层**，符合 `d.ts` 中「MUST be called at the root global level」的公开约束；若项目合同纳入该 API，可把此形态作为正向 fixture 候选。
 
 一处不一致值得记录：该脚本的 JSDoc 写 `@param {ICursorEvent}`，但 `lib.sceneScript.d.ts` 中声明的类型名是 `CursorEvent`（class，无 `I` 前缀）。官方样本的 JSDoc 类型名与声明文件不一致，**不要把 JSDoc 类型名当作类型系统依据**。
 
-## 8. 对 MyWallpaperX 的规格与验收门
+## 8. 可提交给项目合同评审的候选（非实现输入）
 
-本文直接证明`ScriptSource IR`的五个官方静态输入字段；MyWallpaperX为精确wrapper shape admission另保留第六个实现字段`wrapperKeys`：
+本文直接观察到五类静态输入身份；它们可提交给项目自有 `ScriptSource IR` 合同评审，但不由本页自动成为字段规范。`wrapperKeys` 是 MyWallpaperX 的项目策略/实现字段，不属于官方静态观察；其当前状态必须与前五项分开读取：
 
 | IR 字段 | 取值来源 |
 |---|---|
@@ -141,26 +143,26 @@
 | `target` | wrapper 所在的属性 key 及其完整 JSON 路径 |
 | `authoredValue` | wrapper 的 `value` |
 | `valueType` | 先保留 `value` 的 JSON 类型；字符串是否为向量还需结合 target/property schema，不能只凭空格模式猜测 |
-| `wrapperKeys` | 承载`script`的wrapper全部直接key排序后保留，用于精确shape admission；它是项目实现字段，不改变本页官方13处静态取证计数。旧cache缺字段时只允许兼容解码，不得凭缺失字段取得新的执行权 |
+| `wrapperKeys` | 项目自有策略：记录承载 `script` 的 wrapper 直接 key，用于 shape admission；当前实现与兼容解码边界只查项目合同和运行证据，本页不授权 |
 
-另有独立`SceneScriptSourceEvidenceIR`遍历所有string-valued inline `script`，保存原始source、最近owner、完整target path与排序后的wrapper keys。它只提供provenance/conflict rejection，不等于可执行binding；nested/未知wrapper被记录是为了不漏掉writer或冲突，不因此获得target authorization。
+项目曾另设 `SceneScriptSourceEvidenceIR` 记录 string-valued inline `script` 的 provenance/conflict 信息；这属于 `MyWallpaperX-current-evidence` 或 `MyWallpaperX-strategy`，不是本文静态样本能够证明的官方结构。是否仍为当前实现只查[SceneScript API 覆盖表](scenescript-api-coverage.md)和[运行证据索引](runtime-evidence-index.md)。
 
-建议验收门：
+下表保留 2026-07-25 审查时提出的**候选区分问题**，不作为现役验收门：
 
 | 门 | 内容 |
 |---|---|
-| wrapper 判定 | 分别识别 `script`、`user` 与裸字面量；两种绑定可在同一 `constantshadervalues` 内共存，但单个 wrapper 同时含两者时 fail closed |
-| 五类 target | 5 类路径均能正确定位 owner 与属性 key，`general` 级不可误挂到 object |
-| authoredValue | `"1 0 0"` 与 `"1.00000 0.00000 0.00000"` 解析为同一 Vec3；float32 往返精度 |
-| source evidence不越权 | nested/未知路径无损进入source evidence；同一bounded cohort若出现额外writer、owner/path/wrapper不一致则整cohort拒绝，source evidence本身不得生成runtime binding |
-| 调度 | 未导出 `update` 的实例不进入每帧队列；`applyUserProperties` 的具体初次/批次触发次数由 Windows 运行门锁定 |
-| 回退 | 脚本缺失、解析失败或求值异常时回退到 `authoredValue`，不使属性变为未定义 |
+| wrapper 区分 | `script`、`user` 与裸字面量如何区分；同一 `constantshadervalues` 中的共存与冲突形态 |
+| 五类 target | 5 类路径能否稳定定位 owner 与属性 key；`general` 与 object 的反例 |
+| authoredValue | `"1 0 0"` 与 `"1.00000 0.00000 0.00000"` 的往返结果及 float32 展开值 |
+| source evidence 边界 | nested/未知路径、额外 writer、owner/path/wrapper 冲突是否只提供 provenance，而不取得 target authorization |
+| 调度 | 未导出 `update` 的实例是否进入每帧队列；`applyUserProperties` 的初次/批次触发次数 |
+| 回退 | 脚本缺失、解析失败或求值异常时，固定客户端的 observable 是否保持 authored value |
 
-注意本文只确定 target 的**静态形态**，不证明generic求值语义。通用脚本实际执行仍需VM按[SceneScript运行时实现层合同](scenescript-runtime-implementation-contract.md)验证；项目自有bounded typed projection必须另以完整shape、冲突拒绝、runtime接线与隔离证据逐项准入，当前launch-origin子集见[E-BOUNDED-LAUNCH-ORIGIN-TRANSITION](runtime-evidence-index.md#e-bounded-launch-origin-transition)。
+本文只确定 target 的**静态形态**，不证明 generic 求值、调度或回退语义。implementation agent 只查[SceneScript API 覆盖表](scenescript-api-coverage.md)的公开 API/项目目标合同和[兼容运行时架构](../runtime-architecture.md)；当前 bounded 执行与证据只查 API 覆盖表和[运行证据索引](runtime-evidence-index.md)。
 
 ## 9. 关联文档
 
-- [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) —— Vec3 字符串构造与序列化格式
+- [SceneScript 固定客户端实现层静态取证](scenescript-runtime-implementation-contract.md) —— 仅供独立研究任务核对版本有界结构，不是实现输入
 - [SceneScript API 覆盖表](scenescript-api-coverage.md) —— 各 API 当前实现等级
 - [场景格式与 Render Graph](scene-format-and-render-graph.md) —— `scene.json` 整体结构
 - [资料来源与证据索引](source-index.md) —— 本文来源应登记于此

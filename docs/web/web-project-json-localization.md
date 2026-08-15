@@ -1,5 +1,7 @@
 # MyWallpaperX Web `project.json` 处理与本地化策略
 
+<!-- document-role: stable-contract -->
+
 > 状态：稳定合同。本文只规定原始声明、本地派生数据与本地化边界，不保存当前源码类型、文件路径或实现状态；运行证据、源码所有权和未闭合项只查 [Web 现役状态](current-state.md)。
 >
 > 文档目的：

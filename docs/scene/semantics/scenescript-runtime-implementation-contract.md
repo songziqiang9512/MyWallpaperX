@@ -1,4 +1,4 @@
-# SceneScript 运行时实现层合同（2.8.42 客户端取证）
+# SceneScript 固定客户端实现层静态取证（2.8.42）
 
 审查日期：2026-07-25；Ghidra engine 增补：2026-07-30；32/64 位交叉复核：2026-07-31；项目路线复核：2026-08-15
 取证快照：Wallpaper Engine 2.8.42 随包文件
@@ -9,6 +9,8 @@
 > 本文回答的是 API 覆盖表回答不了的问题：**声明背后的实际数值行为、宿主与 VM 的桥接协议、以及编辑器声明的 authoring/type surface**。
 >
 > VM 技术选型与准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#5-scenescript-路线)和[兼容运行时架构](../runtime-architecture.md)统一约束。MyWallpaperX 的现役目标是 QuickJS-NG per-scene runtime/context + Swift typed host bridge；JavaScriptCore 只保留为历史候选和对照。官方公开合同只确认 SceneScript 基于 ECMAScript 并使用 wallpaper host API，不公开 QuickJS-NG、MyWallpaperX owner/预算策略或内部帧提交协议；下文 V8、record、timer 和 teardown 结论均是 2.8.42 固定客户端静态观察。
+>
+> **文档角色：`official-client-static-observation / research-context-only`。** 本页不是稳定实现合同，不得直接交给 implementation agent，也不授权照译其中的客户端常量、公式、布局、record 或顺序。研究任务只能按[官方客户端行为研究工作流](official-client-behavior-research-workflow.md)把当前有界问题压缩成经审查的中性行为合同；fresh implementation context 只接收该合同、项目自有 fixture 与官方黑盒协议。产品策略、失败边界和验收门只以本文链接的现役合同为准。
 
 ## 1. 为什么需要这份文档
 
@@ -35,7 +37,7 @@
 
 ### 2.1 与当前项目状态的关系
 
-本文把结构化随包文件和 Ghidra 证据提炼为**待实现合同**，不维护 MyWallpaperX 的能力等级。以下当前状态只作导航，准确等级仍以现役覆盖表与运行证据索引为准：
+本文把结构化随包文件和 Ghidra 证据整理为**研究候选观察**，不是待实现合同，也不维护 MyWallpaperX 的能力等级。候选观察必须经官方黑盒区分、去除静态实现细节并通过交接审查，才能形成新的中性行为合同。以下当前状态只作导航，准确等级仍以现役覆盖表与运行证据索引为准：
 
 | 能力面 | 当前边界 | 当前状态入口 |
 |---|---|---|
@@ -45,7 +47,7 @@
 | bounded launch-origin startup projection | 只对完整`shared=false` initializer + 1 master + followers `object.origin` cohort建立typed producer；每host frame在surface loop外推进一次，target collision与额外source writer失败关闭 | [E-BOUNDED-LAUNCH-ORIGIN-TRANSITION](runtime-evidence-index.md#e-bounded-launch-origin-transition) |
 | Timeline | 已有部分 target/evaluator 的 `L2-L3`，不能由此推导 SceneScript runtime | [覆盖台账 §6.1](coverage-ledger.md#61-timeline-与-scenescript) |
 
-后续实现遵循[唯一现役路线](../scene-compatibility-roadmap.md)的 V2 纵向切片：先让一个真实 property script 从 source 进入 QuickJS-NG、取得一个 typed owner、执行 `init/update`、提交 mutation 并在下一帧产生可见结果，再按该真实结果补对应 fixture 与覆盖记录。完整 API、module、event、timer 或动态 layer 平台不是第一条可见脚本的前置；未实现能力保持可诊断并只停用受影响 script owner。
+现役实现路线不由本页规定。implementation agent 只从[SceneScript API 覆盖表 §1.1](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)和[唯一现役路线](../scene-compatibility-roadmap.md)读取目标与顺序；需要新的官方非公开行为时，必须由独立研究任务产生经审查的中性交接合同。
 
 ## 3. 编辑器 authoring/type surface（`LB`）
 
@@ -67,7 +69,7 @@
 
 声明文件首行是 `/// <reference no-default-lib="true"/>`，即官方显式关闭默认 lib，只挂上述白名单。
 
-**证据边界**：Monaco type lib 不是 runtime syntax probe。它不能单独证明官方 VM 必然接受全部 ES2019 语法，也不能证明 `??`、`?.`、`BigInt`、`globalThis` 在 runtime 必然失败。对 MyWallpaperX 的作用是把 QuickJS-NG 集成目标收窄为“至少覆盖随包 ES2019 authoring surface，并默认不暴露 DOM/Node/WebWorker”；具体语法、module loader 与 global allowlist 仍需正反运行门，不能因选用了真实 ECMAScript VM 就直接记为兼容。
+**证据边界**：Monaco type lib 不是 runtime syntax probe。它不能单独证明官方 VM 必然接受全部 ES2019 语法，也不能证明 `??`、`?.`、`BigInt`、`globalThis` 在 runtime 必然失败。它只提供一个中性评审问题：随包 ES2019 authoring surface 中哪些语法和 globals 能由官方黑盒正反门确认。QuickJS-NG、module loader、global allowlist 和产品准入仍只由现役合同决定，不能因选用了真实 ECMAScript VM 就直接记为兼容。
 
 ## 4. 宿主 ↔ VM 桥接协议（`JS`）
 
@@ -79,7 +81,7 @@
 
 顶层 `this` 可用（而非 `undefined`），说明该随包文件在观察到的包装上下文中获得了宿主对象；是否直接脚本求值、是否另有 wrapper 以及严格模式边界仍属于 C 级解释。用户模块源码则明确使用 `'use strict'` 与 ES `export`。
 
-推断（等级 C）：原生侧构造向量/矩阵时挂这些 prototype，避免每次跨边界重新构造 JS 对象。MyWallpaperX 的 QuickJS-NG bridge 应在 per-scene context 内持有并复用这些 prototype root，以 typed constructor/handle 边界创建对象；具体 C API 形态属于项目实现，不由该静态证据规定。
+推断（等级 C）：原生侧可能在构造向量/矩阵时挂这些 prototype，以避免每次跨边界重新构造 JS 对象。可提交给黑盒研究的问题只有 prototype identity 是否在同一 scene/context 内稳定、跨 scene 是否隔离；本静态观察不授权 QuickJS-NG bridge 的 root 持有方式、constructor/handle 形态或具体 C API。
 
 ### 4.2 token 句柄机制
 
@@ -115,7 +117,7 @@
 | `usershortcut` | 对象 `{isbound, commandtype, file}`，**仅这三个字段** |
 | 其他全部 | `value` 原值 |
 
-**对 MyWallpaperX 的作用**：这三条直接是 `SceneDynamicSnapshot` 与用户属性桥的实现规格。特别是 `usershortcut` 只投影三字段、未声明 key 静默丢弃这两条，属于容易漏掉又会导致行为分叉的细节。
+**中性交接候选**：可用官方黑盒区分 `usershortcut` 是否只投影三字段、未声明 key 是否静默丢弃，以及向量更新是否产生新对象。这些静态观察不构成 `SceneDynamicSnapshot` 或用户属性桥的实现依据；只有通过交接评审后写入现役行为合同的结论才可约束产品。
 
 ## 5. 数值行为合同（`JS`）
 
@@ -178,7 +180,7 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 | compose | translation -> rotation -> scale | translation -> Euler rotation -> scale |
 | angle unit | degree | degree |
 
-`Mat4.fromEuler` 接受 Vec3 或 x/y/z；`extractEuler()` 和 `decompose().rotation` 也返回 degree。实现时不能把序列化数组当 row-major，也不能在 SceneScript bridge 内套用弧度制。
+`Mat4.fromEuler` 接受 Vec3 或 x/y/z；`extractEuler()` 和 `decompose().rotation` 也返回 degree。可交接的行为问题是序列化数组的 basis/translation 方向和角度单位在官方黑盒往返中是否保持；项目矩阵布局与 bridge 单位只由审定后的现役合同决定。
 
 ### 5.5 实现与声明的差异
 
@@ -196,7 +198,7 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 
 可确认的三点：
 
-1. `toConfigString` 是全类通用的**未公开序列化 API**。作者代码不应依赖，但 MyWallpaperX 的桥接层必须实现它，否则 `stringifyConfig` 无法正确处理向量。
+1. `toConfigString` 是这些类在固定随包脚本中共用的**未公开序列化入口**；`stringifyConfig` 在该脚本内依赖它处理向量。它是否属于作者可观察兼容表面、是否必须由 host bridge 暴露，仍需公开合同或黑盒用例确认，本观察不直接规定项目桥接层。
 2. `Mat3` 实际具备 `forward`/`right`/`up` 方向向量访问，官方只在 `Mat4` 声明了它们。属于未公开但存在的能力。
 3. `CameraTransforms` 在 JS 层无实现，是**真正由引擎原生提供**的类。其余 Vec/Mat 全部有 JS 实现。
 
@@ -236,7 +238,7 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 2. slider 的 `mode` 在非整数时显式为 `undefined`（key 存在，值为 undefined），这影响 `JSON.stringify` 后的形态；
 3. 全部 `addXxx` 返回 builder 自身，支持链式；`finish()` 才返回数据。
 
-**对 MyWallpaperX 的作用**：这是当前随包证据中确认的 SceneScript 自定义属性声明通路。若要兼容使用该 builder 的脚本，需要支持双键命名，并保留 `_config.order`；是否还存在 native/editor 私有入口不由本文件证明。
+**中性交接候选**：这是当前随包证据中观察到的 SceneScript 自定义属性声明通路。黑盒研究可区分双键命名是否都可见、`_config.order` 是否影响作者可观察顺序；是否还存在 native/editor 私有入口不由本文件证明，产品支持范围只由现役合同决定。
 
 同一注入段还把全局 `shared` 初始化为空对象。它确认初始 identity，但不确认多脚本、跨 layer、跨 surface 或壁纸切换时的共享/销毁范围；这些生命周期仍需运行门。当前launch-origin能力只静态证明作者`shared=false` initializer及master/follower cohort，再编译为项目typed scene/host state；它不是这里所述mutable JavaScript `shared` object的实现。
 
@@ -297,7 +299,7 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 - 主程序要求 SceneScript module 返回精确匹配的版本身份；缺导出或版本不符时不创建 engine，属于 fail-closed。
 - module `Init`/`Shutdown` 是进程级引用计数边界；每个 engine 另有独立 isolate、script/timer/property/audio 表与 host bridge。
 - 每个 engine 有独立 watchdog。连续执行长时间不退出会使该实例进入永久中断并跳过后续 event/timer，不是“下一帧自动恢复”。
-- event 与 timer callback 会累计真实执行耗时，宿主可读取并清零。项目可据此设计分级预算，但不能把观察到的客户端 watchdog 阈值直接复制为 MyWallpaperX policy。
+- event 与 timer callback 会累计真实执行耗时，宿主可读取并清零。这只表明客户端存在耗时观测点；项目预算与 watchdog policy 只见[现役 SceneScript 目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)，客户端阈值不得由本页转成实现参数。
 
 2026-07-31 的独立 32/64 位 Ghidra 交叉进一步确认：两份 DLL 共同公开上述四个宿主入口；`thisLayer`、`engine`、`localStorage`、`registerAudioBuffers`、`setTimeout` 与 `setInterval` 在两个架构中形成相同的共址集合，并可达独立 worker 与同步参与者。它支持这些能力属于 per-engine owner bridge，而不是 64 位特例或互不相关的全局 helper；函数数、xref、TLS/异常导出与 CRT 细节不同，因此不证明逐函数或 ABI 等价。完整输入身份和方法见 [官方客户端运行机制静态取证](client-runtime-static-forensics.md)。
 
@@ -322,22 +324,22 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 - visible setter 不清理输入状态。native object 真正销毁时才静默清除 hover 和 pressed/capture identity，不补发 leave/up/click；click 必须由仍有效的同一 pressed identity 完成 down/up 配对。
 - `input.cursorWorldPosition` 与 `cursorScreenPosition` 共用 scene 的 cursor pixel snapshot；前者经当前 view/projection 逆变换为 Vec3并可按 2D policy 把 z 置 0，后者按 canvas/viewport scale 与 Y-axis policy 输出像素坐标。`cursorLeftDown` 固定查询 left-button identity并读取当前 input bool。三个 getter 都拒绝 global phase。
 - `CursorEvent` 在 dispatch 前把 world/local/hit-box 构造成独立 snapshot，不应在 JS callback 中再次读取轮询 getter来拼事件。
-- 项目 fixture 必须分别覆盖 visible、solid、parent visibility、propagation、hover/capture 与销毁失效；event-local/puppet 坐标、候选前后顺序和多按钮仍需自有 golden。
+- 可交接的黑盒区分问题包括 visible、solid、parent visibility、propagation、hover/capture 与销毁失效；event-local/puppet 坐标、候选前后顺序和多按钮仍缺动态结果。本页不直接生成项目 fixture 或验收门。
 
 ### 8.4 Asset、dynamic layer、model data 与 storage
 
-- `registerAsset` 只允许 global phase，按传入路径去重；重复注册不会改写首次 precache 选择。VM 边界可得到路径值，但项目公共 API 应继续使用 opaque `IAssetHandle`。
+- `registerAsset` 只允许 global phase，按传入路径去重；重复注册不会改写首次 precache 选择。VM 边界可得到路径值。项目公共 API 是否以及如何使用 opaque `IAssetHandle` 只由[现役 SceneScript 目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)规定，不由该静态路径授权。
 - `createLayer` 同步请求宿主并立即取得 native identity；wrapper cache 按该 identity 复用 handle。bridge-managed identity vector 最多 2048 项：2047 项时可再创建，已有 2048 项时返回空值；不能假定该容器只统计动态 layer。
 - `getLayerIndex` 对未知 identity 返回 `-1`，`sortLayer` 对未知 identity 返回失败；native sort 把超过当前长度的 index 夹到尾部，负数是否在 VM boundary 被拒绝仍待闭合。sort 只改变 native/render topology，不改变 script-record 注册顺序。
 - `destroyLayer` 同步返回请求状态，实际 topology removal 在普通 `update` 后的 pending-destroy drain 执行。destroy callback 创建的新 layer 已加入 native/render registry；若满足类型与 effective-visible 门，可能在本帧 render preparation 中出现，但到下一帧才第一次普通 `update`。
 - `setParent` 不是 pending-destroy mutation：宿主同步解析 parent identity 与可选 attachment name/index，从旧 parent 的 child vector 摘除，再切换 parent/attachment。`adjustTransforms=true` 以旧 world transform 和新 parent/attachment transform 重算 local origin/angles/scale；false 直接切换关系。相同 parent+attachment 是 no-op success，`getParent` 读取当前 identity，`getChildren` 返回调用时 child vector snapshot。
-- self-parent 或 native flag/child complexity guard 失败时，旧 parent 已被摘除且不会自动回滚；宿主保持 unparented 并报告 invalid configuration。项目可以用事务式“验证成功后再提交”避免半完成 mutation，但必须将其标为安全 policy 差异。descendant cycle、缺失 identity/attachment 与 guard 的准确公共含义仍需负向 fixture。
+- self-parent 或 native flag/child complexity guard 失败时，旧 parent 已被摘除且不会自动回滚；宿主保持 unparented 并报告 invalid configuration。可提交评审的问题是产品安全策略是否选择事务式提交，以及若选择后如何在官方对照中标记差异；该策略只由现役合同授权。descendant cycle、缺失 identity/attachment 与 guard 的准确公共含义仍需黑盒负向观察。
 - 每个新 layer wrapper 会向 native object 注册 lifetime callback。native object 真正销毁时 callback 清除 identity/index 两张 wrapper 索引并释放 wrapper；这给失效 handle 提供了明确通知边界。
 - `getInitialLayerConfig` 是宿主配置 serialize 后再 parse 得到的 detached object，不是 live alias。
 - `createModelData` 返回 tokenized handle；`applyData` 与 `replaceData` 共用 native bridge，以 mode 区分，update phase 拒绝 `replaceData`。buffer 增长、非 dynamic 更新、shape/buffer 增删、material/vertex format 改变及 index/layout 不兼容分别 fail closed。仍被 layer 引用的 model-data destroy 请求延迟到引用解除。
 - local storage 的四个操作都拒绝 global evaluation phase。默认 screen，只有字符串精确等于 `global` 才进入 global 域；key 必须是 string，`set(key, undefined)` 转 delete。value 经 VM 序列化并加版本 envelope；get 验证或反序列化失败返回 `undefined`，delete/clear 返回宿主状态。
 
-官方 live traversal 允许 `update` callback 持续创建 owner 并继续延长同一轮。MyWallpaperX 必须为每帧 callback、owner mutation 和动态 identity 设置明确 budget；可选择达到预算后排到下一帧，但必须把该差异标为项目安全 policy，不能伪称官方等价。
+官方 live traversal 允许 `update` callback 持续创建 owner 并继续延长同一轮，这形成一个可观察的无界工作量风险。项目预算、延后准入和差异标记只见[现役 SceneScript 目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)与[兼容运行时架构](../runtime-architecture.md)；本静态观察仅提供预算触发和同帧可见性的黑盒对照问题。
 
 这些结论不闭合 asset canonicalization/precache 时点、负 index VM 行为、model-data 精确引用计数，也不闭合 storage namespace/quota/原子性/跨重启行为。
 
@@ -362,22 +364,22 @@ property return 通过集中式 typed conversion 写回 number、bool、string �
 - DLL 的 record removal / engine 析构不会替宿主调用用户 `destroy`。
 - 主程序的公共 owner removal path 在同一 engine batch 中先派发存在的 `destroy`，再删除 engine script record，最后释放 host record。多类 layer/object owner 都调用这一路径。
 - scene teardown 先释放这些 owner，再释放 scene engine；因此恢复出的完整顺序是 `destroy -> engine record removal -> host record release -> all owners complete -> engine release`。
-- exactly-once 仍是宿主合同：必须保证同一 owner 只进入一次 removal path。项目 fixture 还应覆盖 destroy 内自取消 timer、跨 handle 访问和异常，不把静态顺序本身当成重入安全证明。
+- 当前静态路径只观察到同一 owner 进入一次公共 removal path，不能单独证明所有重入条件下的 exactly-once。可交接的负向问题包括 destroy 内自取消 timer、跨 handle 访问和异常；项目的 exactly-once 安全合同及验收门只见现役合同。
 
-## 9. MyWallpaperX V2 目标运行时合同
+## 9. 已撤权的 2026-08-15 项目目标草案
 
-本节是 MyWallpaperX 自有架构策略，不是官方公开的内部实现事实。V8、19 个 event slot、timer snapshot、live update 和客户端 teardown 次序只来自 2.8.42 固定静态观察；项目使用 QuickJS-NG，并在不改变作者可见语义的前提下采用更窄、可预算、可回滚的 owner 与帧事务。
+本节是旧研究文档中混入的项目目标草案，现已撤销规范权。现役目标只见[SceneScript API 覆盖表 §1.1](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)和[兼容运行时架构](../runtime-architecture.md)；implementation agent 不得从本节取得顺序、常量、默认值或实现授权。本节以下内容统一按“旧草案曾记录的候选设计”理解，仅保留为起草取舍的研究 provenance。
 
 ### 9.1 Runtime、context 与 owner
 
-- 每个 scene execution domain 默认独占一个 QuickJS-NG runtime/context、module registry、global `shared`、job queue 和预算账户；不同 scene、reload generation 与测试 fixture 不共享 JS object 或 native handle。若同一 scene 需要多个 surface，共享/复制策略必须显式定义并有隔离门，不能靠进程全局单例偶然共享。
-- scene VM 是 runtime/context 的 owner；每个 scene、layer、effect、property binding 或动态对象脚本另有 typed script owner record。owner 保存 source identity、phase、event/timer/job、mutation buffer 和 teardown state，单个 owner 熔断不销毁其他 owner 或整个可见 scene。
-- host object 只暴露 typed opaque handle：`{domain, ownerIdentity, objectIdentity, generation, capability}`。每次调用都在 Swift 侧重验 domain、generation、owner 存活、phase 与 capability；VM 不持有 Swift/Metal 对象裸指针，handle 失效后返回可诊断异常或空结果，不得重新绑定到同 identity 的新对象。
-- 默认 global allowlist 不含 DOM、Node、WebWorker、文件、网络或任意 native module。裸模块名只可解析到显式登记的官方模块和项目 host module；路径、动态 native load 与跨 scene import 必须拒绝。
+- 旧草案曾为每个 scene execution domain 分配独立的 QuickJS-NG runtime/context、module registry、global `shared`、job queue 和预算账户，并假定不同 scene、reload generation 与测试 fixture 不共享 JS object 或 native handle；多 surface 的共享/复制与隔离当时被列为待定义项。
+- 旧草案曾把 scene VM 设为 runtime/context owner，并给 scene、layer、effect、property binding 或动态对象脚本各配 typed script owner record；record 候选字段包括 source identity、phase、event/timer/job、mutation buffer 和 teardown state。
+- 旧草案曾提出 typed opaque handle 形状 `{domain, ownerIdentity, objectIdentity, generation, capability}`，并把 domain、generation、owner、phase 与 capability 重验列为候选安全策略；这不是静态客户端观察，也不规定现役 handle 形态。
+- 旧草案曾提出不向默认 global allowlist 暴露 DOM、Node、WebWorker、文件、网络或任意 native module，并限制裸模块名、路径、dynamic native load 与跨 scene import；现役 allowlist 只由上文链接的项目合同决定。
 
 ### 9.2 帧执行与 mutation commit
 
-第一条 V2 产品链固定为：
+旧草案记录的候选产品链为：
 
 ```text
 immutable Swift frame snapshot
@@ -390,48 +392,48 @@ immutable Swift frame snapshot
   -> next-frame snapshot / Program / graph consumer
 ```
 
-- `init` 对 owner exactly once；`update`、event、timer 和 job 都只能读取本帧 immutable snapshot，并向 owner-local buffer 追加 mutation，不能在 callback 中直接改写正在遍历的 Swift scene graph、Program、target 或 compositor state。
-- 已有 2.8.42 静态证据覆盖的 event/timer 顺序作为兼容 fixture；尚未确认的 event 先后、同帧新 owner 可见性和 callback 重入由 MyWallpaperX 明确排序并记录为项目 policy，不伪称官方顺序。
-- callback 完成后，Swift 按作者顺序、owner identity 和 mutation 类别做 typed validation/conflict resolution；全部合法 mutation 在帧边界一次提交到现有 surface transaction。value-only 更新进入下一帧 immutable snapshot，resource/program/topology 更新只失效其最小 owner；任一无效 mutation 只丢弃对应写入或熔断对应 owner，不留下半提交状态。
-- teardown、reload、pause 或 generation 变化发生在 commit 前时，旧 owner 的 pending mutation、timer、job、event 和 promise continuation 全部作废。terminal compositor 只消费已提交的 Swift 状态，不直接读取 VM 可变对象。
+- 旧草案把 owner `init` exactly-once、immutable frame snapshot、owner-local mutation buffer 与 callback 不直接改写正在遍历状态列为候选约束。
+- 旧草案拟将 2.8.42 event/timer 静态顺序转成 fixture，并把未确认顺序、同帧可见性和 callback 重入标为项目 policy；这些内容尚未经过中性交接与黑盒确认。
+- 旧草案描述了 callback 后按作者顺序、owner identity 和 mutation 类别做 typed validation/conflict resolution，再在帧边界提交 surface transaction 的候选方案，以及 value/resource/program/topology 的不同失效半径。
+- 旧草案描述了 teardown、reload、pause 或 generation 变化时撤销旧 pending 工作，并让 terminal compositor 只消费已提交 Swift 状态的候选方案。
 
 ### 9.3 预算、故障隔离与销毁
 
-- 每个 scene runtime 必须设置 heap 与 stack 上限；每个 callback 有 interrupt deadline，每帧还有累计 CPU、callback、timer、job、owner mutation 和动态 identity 上限。无限循环、microtask/job 风暴、递归爆栈、OOM 或预算超限终止最小 script owner；runtime 不再可信时才销毁该 scene VM，并保留不依赖脚本的安全画面。
-- exception、unhandled rejection、缺 API、错类型、NaN/Inf 与 stale handle 都产生 source/owner/API/generation 可定位诊断。它们不能杀死主 App，也不能把无关 layer 或 effect 从 compositor 移除。
-- reload 建立新 generation 与新 runtime/context，完成 `init` 前不复用旧 handle；切换成功后再撤销旧 owner。失败时保留上一份已提交 Swift 状态或无脚本 authored fallback，不静默同时运行两代脚本。
-- teardown 顺序为：停止新 dispatch、interrupt 正在执行的 callback、取消 timer/job/event、丢弃 pending mutation、调用仍安全可调用的 owner `destroy`、撤销全部 handle、释放 context/runtime，并证明 active owner/timer/job/handle 为零。`destroy` exactly once；其异常不能阻止其余 owner 和 runtime 释放。
+- 旧草案列出 heap/stack、callback deadline、累计 CPU、callback、timer、job、owner mutation 和动态 identity 等预算维度，并设想按最小 owner 隔离无限循环、job 风暴、递归、OOM 与超限。
+- 旧草案列出 exception、unhandled rejection、缺 API、错类型、NaN/Inf 与 stale handle 的 typed diagnostic 字段，以及不波及主 App 和无关可见内容的候选失败半径。
+- 旧草案记录了 reload 建立新 generation/runtime/context、成功后撤销旧 owner，以及失败时保留已提交状态或无脚本 authored fallback 的候选切换策略。
+- 旧草案记录了停止 dispatch、interrupt callback、取消 pending 工作、尝试 owner `destroy`、撤销 handle、释放 context/runtime 的候选 teardown 顺序和零残留检查。
 
-V2 的第一门只要求一个真实 property owner 闭合 source、`init/update`、mutation commit 与 teardown；后续 event/timer 能力复用同一 owner/runtime 合同。完整 API 覆盖、跨架构、签名、公证和全部 2.8.42 顺序不是第一张正确动态画面的前置。
+旧草案曾把一个真实 property owner 的 source、`init/update`、mutation commit 与 teardown 作为第一门，把 event/timer 作为后续复用候选。该排程已经撤权；当前顺序只查[唯一现役路线](../scene-compatibility-roadmap.md)。
 
-## 10. 对 MyWallpaperX 的验收门
+## 10. 静态研究候选的区分问题
 
-按 [SceneScript API 覆盖表](scenescript-api-coverage.md) 的分级口径，本文把结构化文件的 A 级证据与 executable 静态路径的 B 级证据整理为分层规格；它们仍处于“待实现/待验证”，不会自动升级 API 等级：
+下表仅把结构化文件与 executable 静态路径整理为研究任务可以区分的问题。它不是现役验收门、不是 implementation backlog，也不自动升级 API 等级；任何项目实现门都必须在 fresh-context 交接后重新写入现役 API 合同或路线。
 
-| 能力 | 本文提供的规格 | 建议验收门 |
+| 能力 | 静态候选观察 | 可由独立研究区分的行为问题 |
 |---|---|---|
-| VM/runtime owner | §3 authoring surface + §9 QuickJS-NG per-scene runtime/context、typed owner/handle 和预算 | 真实 source/module 进入独立 scene VM；跨 scene/reload handle 拒绝；无限循环、OOM、异常和 job 风暴只熔断最小 owner；无 DOM/Node/文件/网络 |
+| VM/runtime owner | §3 authoring surface；§9 只保存已撤权的项目草案 | source/module 的 scene 隔离、跨 scene/reload handle 结果、无限循环/OOM/异常/job 风暴的可观察失败半径，以及 DOM/Node/文件/网络是否可见 |
 | 向量/矩阵类型 | §5.1 构造分派、§5.2 `_Epsilon`、§5.3 序列化 | `new Vec3(2)` = `(2,2,2)`；`new Vec3("1 2 3")` 往返 `toString` 一致；`equals` 在 `1e-5` 边界判不等 |
 | 用户属性桥 | §4.3 三个 `_Internal` 回调、类型映射表 | `color` → `Vec3`；`usershortcut` 仅三字段；未声明 key 静默丢弃 |
 | 自定义属性 UI | §6 完整 builder 协议 | 双键命名；combo 取 `options[0].value`；`order` 自增即渲染序 |
 | 官方模块 | §7 三模块行为 | `mix` 不 clamp；角度制；`rgb2hsv` 三分量归一化 |
 | 序列化 | §4.3 replacer + §5.3 格式 | 含向量的对象经 `stringifyConfig` 后向量为空格分隔字符串 |
 | engine lifecycle | §8 版本、事件、timer、watchdog、teardown | 版本不符失败；19 slot；media/animation → audio/timer tick → live update → destroy drain；单事件隔离；实例熔断；destroy → record removal → engine release；stop 后 timer/audio/handle 为 0 |
-| frame mutation commit | §9.2 immutable snapshot、owner-local buffer 与单次 Swift transaction | event/timer/update 不直接改正在遍历的 graph；合法 mutation 下一帧可见；冲突、stale generation 与 callback 异常无半提交；terminal compositor 只读已提交状态 |
+| frame mutation commit | §9.2 仅为已撤权的项目草案，不是客户端静态观察 | event/timer/update mutation 的同帧/下一帧可见性、冲突/stale generation/callback 异常后的外部状态；具体 Swift transaction 形态不属于官方对照问题 |
 | effective time / timer / audio | §8.2 单一 delta、pause/resume、timer snapshot 与 live update、稳定 arrays | frametime/runtime/timer 同 delta；完全暂停不累计，恢复不 catch-up；timer callback 新建 timer 下一轮执行；update callback 新建 owner 有界准入；16/32/64 arrays identity 不变且先于 update 刷新 |
 | cursor state | §8.3 candidate、solid/visible/propagation、getter/event snapshot、hover/capture 与销毁失效 | hidden-solid 正例、后续候选不被遮断、world/screen/left-down snapshot、event object 独立、visible toggle 状态保留、destroy silent invalidation、同 identity click |
 | host resources | §8.4 asset/layer/parent/model-data/storage | asset 首次 precache sticky；2048 identity cap；sort 与 script 顺序分离；destroy 后 render/update 边界；parent adjust/no-op/failure；wrapper 失效；replaceData 负门；storage 损坏恢复 |
 | scene handles | §8.5 camera/material/particle/video/animation | camera typed partial update/default；ordered material execution；emit count；seek 不误报 loop end；ended callback 先于 one-shot removal；teardown 后 callback 为 0 |
 | typed return/reflection | §8.6 conversion 与 metadata 通道 | scalar/Vec/bool/string/错类型/NaN/Inf；order/label/range/combo/color round-trip |
 
-均**不需要**复制官方源码即可实现与验证。
+这些区分问题均可通过公开合同、项目自有 fixture 与官方黑盒结果研究，不需要复制官方源码，也不直接生成产品实现要求。
 
 ## 11. 未覆盖与后续
 
 - `CameraTransforms` 的四成员、base defaults、authored override 与 typed partial update 已有主程序/DLL 静态互证；仍未闭合的是 VM finite/type 负向行为、2D/3D 冲突和脚本 camera 与同帧 authored/animation mutation 的优先级。
 - cursor event-local/puppet 坐标、候选前后顺序、边界容差、多按钮与 parent/visibility 同帧 mutation 仍需自有 fixture；`cursorHitTest` 不属于 v2.8 公共 API。
 - material descriptor 到完整 authored pass 的映射、particle GPU 同 draw 可见性、video registry pump/device-reset retained intent/provider error/多屏时钟以及 animation blend/root-motion 仍需自有 fixture、Windows trace 或视觉/声音 golden。
-- prototype 导出（§4.1）与 token 机制（§4.2）的原生侧用法为等级 C 推断，只能指导实现，不能写成兼容承诺。
+- prototype 导出（§4.1）与 token 机制（§4.2）的原生侧用法为本页历史等级 C 推断，只能形成后续研究问题，不能直接指导实现或写成兼容承诺。
 - `ui/dist/scripts/scripts.js`（1.2 MB 编辑器逻辑）已于 2026-07-26 展开：其中**不含** Scene wire 字段的 schema 校验或默认值表（`depthtest`/`pointsize`/`maxrows` 等命中 0 次），此前「可能含属性 schema 校验与默认值」的推测不成立；其真实价值是内嵌的官方 changelog（含 10 条 V8 证据，把 §3 的 VM 选型目标从推断收窄为官方事实），见 [官方客户端 changelog 取证](client-changelog-forensics.md)。
 
 ## 12. 关联文档

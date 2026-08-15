@@ -262,7 +262,7 @@ MaterialPass
 - material default、effect instance override、user texture 和 explicit pass bind 必须在同一 resolver 中按来源跟踪；
 - resolution、mapped size、rotation/translation 需按最终绑定 texture 更新。
 
-`Almamu/linux-wallpaperengine` 采用“shader default -> material -> effect override -> explicit bind”的优先级，这是一条有用的 D 级佐证，但仍需用合法官方 assets/真实样本逐类验证后才能固化为 MyWallpaperX 合同。
+`Almamu/linux-wallpaperengine` 采用“shader default -> material -> effect override -> explicit bind”的优先级，这是一条 `third-party-reference-pattern` 结构佐证，但不证明官方语义或 MyWallpaperX 当前能力；仍需由官方公开合同、合法输入与黑盒结果逐类验证。
 
 历史 **v22** 时点的 material resolver 与 frame registry 仍是两份分离的选择合同，尚无 material candidate -> frame selection 桥；该批只增加 direct text binding/generation，不改变 ShaderContract 或 strict adapter。现役 bounded Template/Program/GraphExecutor 已建立受限同代 resource selection 与执行桥，但 ordinary authored material 的通用 provider/backend 仍未闭合；当前事实统一见 §12 和[运行证据索引](runtime-evidence-index.md)，不能从 v22 叙事推断现役缺口或升级 generic shader/provider 能力。
 
@@ -270,7 +270,7 @@ MaterialPass
 
 blend、depth 和 cull 属于 material/pass 语义。未知 blend mode 不能无声回退 normal 后仍宣称支持；至少应 passthrough 并记录 `unsupported-render-state`。alpha 的 straight/premultiplied 关系要在纹理解码、effect RT 和最终 composite 三处一致。
 
-`linux-wallpaperengine` 的 parser 在字段缺失或未知时分别回退 `normal`、`nocull`、`disabled`、`disabled`（`MaterialParser.cpp:39-56,73-127`）。这是 D 级兼容实现的 fallback，不是官方默认值证明；尤其其 unknown enum 会记录错误后继续运行，MyWallpaperX 不能照此回退后仍把该 pass 记为语义支持。
+`linux-wallpaperengine` 的 parser 在字段缺失或未知时分别回退 `normal`、`nocull`、`disabled`、`disabled`（`MaterialParser.cpp:39-56,73-127`）。这是 `third-party-reference-pattern` 的 fallback，不是官方默认值或 MyWallpaperX 支持证明；其 unknown enum 会记录错误后继续运行，项目边界只由现役合同与自身正反门决定。
 
 ### 7.3 Material resolution 与 value channels
 

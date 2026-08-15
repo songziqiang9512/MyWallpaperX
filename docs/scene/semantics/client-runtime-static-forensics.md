@@ -11,10 +11,12 @@
 > 工具：Ghidra 12.1.2 headless、OpenJDK 21.0.12
 >
 > 性质：clean-room 静态结构证据，不是运行时或像素等价证据
+>
+> 文档角色：`official-client-static-observation / research-context-only`。本文不是官方公开规范、产品实现说明或算法说明。implementation agent 不得依据地址邻域、调用关系、字段偏移、客户端控制流描述或本文遗留的“必须/应/可指导”措辞直接落代码；这些措辞一律只表示审查时的研究假设。产品实现只能消费已经独立写入项目语义合同的行为边界、项目正反 fixture 与官方结果对照协议，当前能力与任务顺序只查现役台账、证据索引和路线。
 
 ## 1. 目的与边界
 
-本文只记录能迁移为 MyWallpaperX 公共合同的高层结构：
+本文只记录可提交给 MyWallpaperX 项目合同评审的高层结构候选：
 
 - 外部图像、离线资源编译、TEX 容器与运行时采样之间的职责边界；
 - Scene parser、material/texture resolver、shader frontend、RenderGraph 和最终输出之间的关系；
@@ -40,17 +42,10 @@
 |---|---|
 | MyWallpaperX 当前是否实现、实现到哪一级 | [覆盖台账](coverage-ledger.md) 与对应专项覆盖表 |
 | 当前等级由哪些代码、测试、隔离样本和 GPU 结果支撑 | [运行证据索引](runtime-evidence-index.md) |
-| 下一步需要保真的公共结构与失败边界 | 本文 §8，以及 [场景格式与 RenderGraph](scene-format-and-render-graph.md)、[SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) |
+| implementation agent 可消费的项目合同与失败边界 | [场景格式与 RenderGraph](scene-format-and-render-graph.md)、[SceneScript API 覆盖表的项目目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)和[兼容运行时架构](../runtime-architecture.md)；本文及 SceneScript 深层静态页只有待独立审查的研究候选 |
 | 某个结论的输入身份、方法和静态限制 | 本文 §2–§7 |
 
-截至 2026-07-31，与本文最相关的项目现状是：
-
-- RenderGraph 已有保真 IR、typed command 基础和多个 strict/bounded executor，但仍没有通用 authored command-graph 或通用 shader executor；
-- 通用 SceneScript runtime 仍为 `L0`，正式取证五类 inline binding 的 owner/完整 target path/authored fallback/JSON value type 保真为局部 `L1`；Text只保留按语法准入的bounded AST与authored fallback，七个fixed native Text profile已于R4-B18退役；exact native audio profiles不执行JavaScript，也不升级任何通用API；
-- 粒子已有多项受限 `L3` 子集，但 factory/dispatcher 的静态宽度不代表 component 数学、随机状态或视觉轨迹已兼容；
-- 内嵌 MP4 image-layer 是受限 `L3`；Sound、系统媒体和 SceneScript video handle 仍是独立缺口。
-
-这些状态会继续变化，因此只在当前状态入口维护；本文不复制提交号、矩阵计数或能力等级明细。
+2026-07-31 审查时曾在这里记录 RenderGraph、SceneScript、Particle、Video/Sound/Media 的项目等级解释；这些状态已经撤权且不再复制。当前实现和缺口只查[覆盖台账](coverage-ledger.md)与对应专项表，当前运行身份只查[运行证据索引](runtime-evidence-index.md)。
 
 ## 2. 输入身份
 
@@ -182,9 +177,9 @@ image-layer 的资源准备方法会重新折叠这些状态并取得 sampler；
 
 `repeat` 是 FBO `uvs` 的已观察取值，不是 function 字段；`index/conditions` 属于 pass 内 material 引用，也不能挂到 function 上。此前把四者合并成 function schema 是字段邻域误归属，本轮已由 parser 的有界控制流复核纠正。
 
-condition 在 FBO、pass 或 material 引用纳入结构前由同一 evaluator 求值。可验证的作者形态是 condition array；每个 array 元素为以 combo 名称为 key 的 object，value 可为直接数值相等比较，或带数值和 `ge/gt/le/lt` 运算符的比较对象。所有有效条目共同决定准入，combo 表缺少 key 时客户端数值入口取零。客户端对非 array、非 object 和部分错误类型存在宽松行为；这些 malformed 路径不是兼容合同，MyWallpaperX 必须保真解析合法 AST 并对其余形态 fail closed，不能复制宽松降级。
+condition 在 FBO、pass 或 material 引用纳入结构前由同一 evaluator 求值。可验证的作者形态是 condition array；每个 array 元素为以 combo 名称为 key 的 object，value 可为直接数值相等比较，或带数值和 `ge/gt/le/lt` 运算符的比较对象。所有有效条目共同决定准入，combo 表缺少 key 时客户端数值入口取零。客户端对非 array、非 object 和部分错误类型存在宽松行为；这些 malformed 路径不是公开兼容合同。合法 AST 与 malformed 输入的产品边界只由[现役 RenderGraph 合同](scene-format-and-render-graph.md)规定，本静态观察只提供黑盒差分候选。
 
-`command` 与可选 `source/target` 保持独立字段；`compose:true` 设置独立状态并增加 compose 参与计数。`copy` / `swap` 被编译成与普通 material pass 不同的两个 command enum；未知 command literal 不产生新 enum，而落回 ordinary-pass shape，项目应对未知值 fail closed并报告诊断。
+`command` 与可选 `source/target` 保持独立字段；`compose:true` 设置独立状态并增加 compose 参与计数。`copy` / `swap` 被编译成与普通 material pass 不同的两个 command enum；未知 command literal 不产生新 enum，而落回 ordinary-pass shape。未知值的官方可观察结果仍需黑盒负向用例区分；项目的 fail-closed 与诊断策略只查现役 RenderGraph 合同。
 
 executor 又把三类节点的结构区别闭合：
 
@@ -195,7 +190,7 @@ executor 又把三类节点的结构区别闭合：
 
 FBO definition 到运行资源的准备链又闭合了以下合同：
 
-- 缺省 `width/height` 取 layer 当前 extent，显式值覆盖对应轴；`fit` 在不放大原 extent 的前提下限制长边并保持宽高比；`scale` 作为后续 extent divisor，底层至少保留一个非零最小 target。项目应把 authored extent、fit 与 allocation scale 分开，不能把三者压成一个百分比；
+- 缺省 `width/height` 取 layer 当前 extent，显式值覆盖对应轴；`fit` 在不放大原 extent 的前提下限制长边并保持宽高比；`scale` 作为后续 extent divisor，底层至少保留一个非零最小 target。这是三个字段在固定客户端路径中的不同阶段，不直接规定项目 IR 或 allocation API；
 - 非 `unique` FBO 通过 authored name、resolved extent、format 等组成的 key 查询共享 render-target cache；`unique:true` 改走追加 effect identity 的 key。effect identity 优先使用实例 JSON 的 `id`，缺失时由 owner registry 分配，因此 unique 是实例隔离合同，不只是禁止同名；
 - `uvs` 只有字符串精确为 `repeat` 时切换一项底层创建 policy，其他值保留默认 policy；静态路径尚未把这项 policy 闭合到最终 D3D/Metal sampler address mode；
 - `clear` 只有成功解析四个分量时才置位。resource prepare 在 target 创建或尺寸更新后设置这四个分量并执行一次 clear；frame executor 不会因为 FBO 声明带 `clear` 而逐帧自动清屏。clear 的颜色空间、alpha 解释和共享非-unique target 的跨 owner 可见性仍需 dynamic golden；
@@ -215,17 +210,17 @@ compose 的对象与时序已由 R4 的最后一次单点复核收窄为 layer-l
 - copy、swap 与 definition function 不推进 compose pair；effect 结束时其 output 成为下一 effect 的 current，所以无 raw compose 的普通 effect 也保持有序 chain handoff；
 - 链结束后，最终 current 的底层资源进入 layer final-output 对象，再交给正常 layer/compositor 路径。单独的 `_rt_FullFrameBuffer` lookup 受另一 effect flag 控制，raw compose 本身不建立这个 ambient provider。
 
-这些事实闭合了 pair 初始选择、base capture、同 effect 与跨 effect 的可见点，以及最终发布方向，足以约束项目的独立事务实现。它们不公开 material shader 数学、clear/alias 像素结果、另一个 ambient flag 的作者语义或跨版本实现细节；这些部分仍须以公开资料、合法资产和项目自有 fixture 单独证明。
+这些事实只形成 pair 初始选择、base capture、同 effect 与跨 effect 可见点及最终发布方向的版本有界观察；项目事务形态仍须由审定后的行为合同与黑盒正反门决定。静态路径不公开 material shader 数学、clear/alias 像素结果、另一个 ambient flag 的作者语义或跨版本实现细节。
 
-definition function 与逐帧 graph command 也是两条不同路径。parser 只在 function action 为 `clear`、`fbos` 为可枚举目标且至少一个名称能解析到已登记 FBO 时形成 function record。运行时按 function 名称找到该 record 后，依目标顺序逐个激活 FBO、应用目标保存的四分量 clear state、执行 clear，再恢复目标；未知名称不产生 clear。该结构允许项目建立 typed function registry 与显式调用命令，但没有证据把 function 自动挂到 create、resize、每帧或 compose 生命周期。
+definition function 与逐帧 graph command 也是两条不同路径。parser 只在 function action 为 `clear`、`fbos` 为可枚举目标且至少一个名称能解析到已登记 FBO 时形成 function record。运行时按 function 名称找到该 record 后，依目标顺序逐个激活 FBO、应用目标保存的四分量 clear state、执行 clear，再恢复目标；未知名称不产生 clear。可交接的问题是 function identity、显式调用与目标顺序是否属于作者可观察合同；静态路径没有证明 function 会自动挂到 create、resize、每帧或 compose 生命周期，也不规定项目 registry/command 类型。
 
-shader frontend 的 R4 单点复核确认 `// [PASS]` 是 shader source metadata，不是 effect JSON pass、material ordinal 或 copy/swap/function command。2.8.42 可验证的 token 只有 `shadow`，解析结果与已编译 vertex/fragment shader metadata 一起缓存，并与独立的 3D shadow-caster 材质路径对应；有限调用邻域没有把二者闭合成可移植的通用 schedule。官方公开 [Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 只定义 `[COMBO]`，没有公开 `[PASS]` 的通用作者合同；静态证据也没有证明任意 token 或 2D effect schedule。因此项目可保真携带已声明 pass metadata，但 2D 通用 material executor 遇到 active `[PASS]` 必须 fail closed，不能把它解释成第二次普通 draw。
+shader frontend 的 R4 单点复核确认 `// [PASS]` 是 shader source metadata，不是 effect JSON pass、material ordinal 或 copy/swap/function command。2.8.42 可验证的 token 只有 `shadow`，解析结果与已编译 vertex/fragment shader metadata 一起缓存，并与独立的 3D shadow-caster 材质路径对应；有限调用邻域没有把二者闭合成可移植的通用 schedule。官方公开 [Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 只定义 `[COMBO]`，没有公开 `[PASS]` 的通用作者合同；静态证据也没有证明任意 token 或 2D effect schedule。可交接的问题仅是 metadata 是否需要 loss-preserving 携带，以及未知/active token 的官方失败结果；2D executor 的产品准入边界只查现役合同。
 
 2026-08-09 又对同一 2.8.42 64 位主程序的 normal material-pass combo 编译链做了单点复核。高层可恢复顺序为：material pass汇集当前active shader声明和material显式combo → 对每个声明查询compile map → 已有显式值时保留 → 缺少时读取该声明的`default`并插入同一map → 统一define emitter生成宏 → WE HLSL translator → 动态解析的`D3DCompile`。因此annotation default不是只供editor展示的孤立字段，而是player实际编译输入；material显式值与相同default会得到相同最终宏值。反向检查中，JSON `require`没有被该声明/default binder读取，也没有参与normal pass compile-map剪枝；精确的`#require`字符串属于另一条preprocessor directive路径，不能与JSON成员混同。这个负面结论由已定位parser/binder和全可执行文件精确字符串交叉支持，但仍只覆盖当前版本的normal DirectX player链，不能外推editor、其他backend或所有版本。
 
-这项证据要求项目把“material显式值”和“active shader annotation default”保留为不同provenance，却在进入preprocessor前合成一个最终macro environment；`#if`、`#ifdef`、`defined(...)`、普通source展开、variant digest与Program cache必须观察同一值。项目额外采用失败关闭边界：同名active声明的default冲突、畸形default，或material和所有active声明都不能提供所需值时拒绝，不复制客户端可能存在的宽松错误恢复。sampler readiness/format metadata的资源require属于项目另一套typed fixed point，不由本结论移除。
+这项静态路径观察到“material 显式值”和“active shader annotation default”来自不同 provenance，随后进入同一最终 macro environment；`#if`、`#ifdef`、`defined(...)` 与普通 source 展开读取该环境。variant digest、Program cache、冲突/畸形 default 的产品策略只查现役 shader 合同，本结论不授权复制客户端错误恢复，也不改变资源 require 的项目边界。
 
-这些结果证明项目必须保留 typed command、FBO allocation policy 和 mutable logical-resource mapping，不能把 swap 实现为像素 blit，也不能让 command 消耗 material ordinal。静态路径仍未给出 copy 的 exact D3D primitive、颜色/采样转换、同资源 copy 结果、device-loss 后 history 可见结果或 clear 的像素解释。
+这些结果只证明固定客户端把 typed command、FBO allocation state 和 mutable logical-resource mapping 作为不同结构，并且观察到的 `swap` 交换 logical identity 而非执行像素 blit；它们不直接规定项目类型或算法。静态路径仍未给出 copy 的 exact D3D primitive、颜色/采样转换、同资源 copy 结果、device-loss 后 history 可见结果或 clear 的像素解释。
 
 ### 5.2 32/64 位主程序交叉结果
 
@@ -255,9 +250,9 @@ raw elapsed
   -> effective scene delta
 ```
 
-`engine.frametime`、scene `runtime` 累计、SceneScript tick 与 timer 共用这个 effective-delta 时间域。pause 渐变阶段会随 time scale 同步减速；完全暂停后不再 tick 或累计。恢复时先重置性能计时基线，暂停期间的 wall time 不会进入首个恢复帧，也不会触发 timer catch-up。`engine.timeOfDay` 则每帧重新采样本地系统时间，不属于累计 scene runtime。静态路径没有给出跨平台应复制的 smoothing/clamp 数值；项目应把它们作为自有 policy，而不是硬编码客户端常量。
+`engine.frametime`、scene `runtime` 累计、SceneScript tick 与 timer 共用这个 effective-delta 时间域。pause 渐变阶段会随 time scale 同步减速；完全暂停后不再 tick 或累计。恢复时先重置性能计时基线，暂停期间的 wall time 不会进入首个恢复帧，也不会触发 timer catch-up。`engine.timeOfDay` 则每帧重新采样本地系统时间，不属于累计 scene runtime。静态路径没有给出可移植的 smoothing/clamp 数值；项目时间 policy 只由现役合同和自有 fixture 决定，客户端常量不进入中性交接。
 
-device loss 或 scene rebuild 会按资源族释放并重建 render target、material/shader cache、texture/provider 与 scene state。这个形状要求项目使用 `reset(reason, generation)` 式跨资源事务，不能只依赖对象各自 deinit。
+device loss 或 scene rebuild 会按资源族释放并重建 render target、material/shader cache、texture/provider 与 scene state。这提供了“各资源族的 generation 与恢复顺序是否对外可见”的中性研究问题，不直接授权 `reset(reason, generation)` API 或任何具体跨资源事务形态。
 
 最终输出按 LDR、HDR、video-HDR 与 display-HDR 选择不同 combine/downsample/bloom/blur/upsample 参与者。静态证据确认 typed output-mode graph 的必要性，但没有给出 transfer function、色域、tone-map、bloom 数学或 Metal 等价参数。
 
@@ -265,7 +260,7 @@ device loss 或 scene rebuild 会按资源族释放并重建 render target、mat
 
 pause 与 mute 是独立的 renderer 状态，不是同一个“不可见”开关。集中策略更新会遍历现有 renderer：pause 由全局 interruption reasons 与显示器 mask 联合计算，mute 由全局静音 reasons 集合计算；新建 renderer 立即继承当时的策略。renderer window 已存在时，状态会同步投递到 renderer thread；window 尚未建立时先保存为初始状态，待创建后生效。
 
-因此跨平台应先把 lock/sleep/display sleep/user pause、静音和 per-display eligibility 归一为显式 reasons，再计算每个 renderer 的 pause/mute snapshot。外部 UI 到主命令窗口的最终 IPC wire format 尚未闭合，本文不记录或推断消息号。
+这些观察可用于黑盒区分 lock/sleep/display sleep/user pause、静音与 per-display eligibility 是否独立影响 renderer，以及新旧 renderer 何时取得状态。跨平台 reasons、snapshot 和 IPC 形态只由项目现役运行时合同决定；最终 wire format 尚未闭合，本文不记录或推断消息号。
 
 ### 5.5 Particle factory、frame 与 teardown
 
@@ -290,7 +285,7 @@ definition 初始化会先递归实例化直接 child，并分别保存普通 ch
 
 collision plane/sphere/box/bounds/quad/model 均编译为同一个 operator stream 内的变长 record，运行时与其他 operator 共用 type dispatch 和 record-size 前进合同；它们不是 operator 之外的独立末端阶段。这个结论只确定编排，不确定碰撞数学、反弹结果或与所有 event 的视觉等价。
 
-operator dispatcher 还存在 mode-dependent substep policy：普通模式执行一个整步，另一组 host mode 把 frame delta 与相关 time scale 一致缩放后执行两个子步。MyWallpaperX 因而需要让 operator stage 显式接收 substep context，不能只在外层重复调用而仍把完整 delta 传给每个 operator。
+operator dispatcher 还存在 mode-dependent substep policy：普通模式执行一个整步，另一组 host mode 把 frame delta 与相关 time scale 一致缩放后执行两个子步。可交接的黑盒问题是不同 mode 下 operator 获得的 effective delta 与结果；本观察不规定项目 operator stage 的参数或调用形态。
 
 root/child 的普通帧顺序也已闭合：父 runtime 先完成上述 simulation 与 snapshot，再按 definition 容器顺序递归更新直接 child，随后按 event group 和组内活动实例顺序更新 event child；递归调用继承同一 frame delta 与更新标志。父 dispatcher 本帧新插入且通过 probability/capacity 等门的 event child 会进入稍后的 child 遍历，其中 event-death 的新建/复用路径得到直接确认。
 
@@ -329,7 +324,7 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 - 67 个具有正的 `starttime`，离散 prewarm 是常见 authored 合同，不是极端兼容项；
 - 50 个含 child，共出现 static 36、event-death 17、event-follow 12、event-spawn 4 次；child graph、event owner 和递归 teardown 应作为同一能力族实现；
 - 五类实际出现的 collision definition 都来自各自的官方 element preview，且未与 event child 共现；它们为隔离正向 fixture 提供输入，但不能据此推断真实复杂作品中的 collision/event 组合顺序；
-- 204 个显式声明 renderer，11 个没有 renderer record；loader 必须保留“缺省 renderer”与“显式 renderer”差异，不能在 parse IR 中静默补成同一形态。
+- 204 个显式声明 renderer，11 个没有 renderer record；这证明 authored corpus 存在“缺省 renderer”和“显式 renderer”两种输入形态，但不直接规定 loader 或 parse IR。两者的官方可观察差异仍需运行对照。
 
 46 个根 effect definition 另显示：
 
@@ -337,7 +332,7 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 - 9 个声明 offscreen buffer，39 个 pass 写显式 target；部分 target 在同一 effect 中重复写入，证明资源 identity 与 pass identity 不能合并；
 - pass-level 与 bind-level `conditions` 都实际出现，bind slot 使用到稀疏 index 4；condition 必须先于 admission，slot 也不得压缩；
 - `compose` 是独立 pass flag，不等于普通 material pass；
-- 其中一个随包 effect 文件带单个 trailing comma，严格 JSON parser 会拒绝；这是输入兼容候选，不足以单独证明客户端所有 JSON 都宽松。项目若支持，应在 bounded normalization 后保留诊断与原始 source identity，不能全局吞掉任意语法错误。
+- 其中一个随包 effect 文件带单个 trailing comma，严格 JSON parser 会拒绝；这是输入兼容候选，不足以单独证明客户端所有 JSON 都宽松。它只提供“该固定输入是否被接受、诊断如何呈现”的黑盒问题；bounded normalization、source identity 和语法失败策略只由现役格式合同决定。
 
 这些频率只用于开发排序和 fixture 选择，不把静态文件存在性提升为 MyWallpaperX 的执行等级，也不证明官方视觉结果。
 
@@ -353,7 +348,7 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 
 2026-08-02 在先读现役 Particle 专项表、既有 2.8.42 静态审计、官方 Initializer 页面与合法 stock corpus 后，仍无法判定 `directions/sign/octaves` 是否属于 `positionoffsetrandom` 的实际字段注册。本次只对资料库已登记、SHA-256 为 `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0` 的官方 2.8.42 `wallpaper64.exe` 做一个字段归属问题的 bounded Ghidra 12.1.2 clean-room 复核。
 
-只保留以下高层结论：引用 `positionoffsetrandom` 的组件注册函数也直接引用 `directions`、`distance`、`octaves`、`scale` 与 `timescale`；`sign` 没有直接 code/data 引用，也没有可验证的一跳函数关联。结合随包 standalone 预览的 `distance=150` 和 lightning preset 的 `distance/scale/timescale`，可把前述五字段安全地纳入项目 typed declaration；字符串表邻接不足以把 `sign` 推进同一 wire 合同，因此继续失败关闭。
+只保留以下高层结论：引用 `positionoffsetrandom` 的组件注册函数也直接引用 `directions`、`distance`、`octaves`、`scale` 与 `timescale`；`sign` 没有直接 code/data 引用，也没有可验证的一跳函数关联。结合随包 standalone 预览，这五个字段可进入中性交接的字段归属候选；`sign` 仍只能作为待黑盒区分的问题。项目 typed declaration 与失败边界只由现役粒子合同决定。
 
 本次没有反编译、摘录或移植 Position Offset 的 FBM、随机、默认、空间、时间或数值公式，也没有恢复 32 位路径、运行顺序、Windows 轨迹或像素结果。原始地址、伪代码、函数体、临时 project、脚本和日志均未入库并已清理。项目 `968d86eb` 的字段预算、缺省 `1 1 0 / 3 / 1 / 1`、seed/particle/time/position 采样和 finite-octave gradient-noise 数学都是独立的 project-owned bounded approximation，只由公开行为、自有正反 fixture 与隔离 stock 运行约束，不是官方算法。
 
@@ -361,7 +356,7 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 
 2026-08-02 在先读现役 Particle 专项表、资料库既有 initializer/operator field census、官方 Initializer/Operator 页面、editor string table、changelog 与合法 stock corpus 后，仍无法确认 `inheritinitialvaluefromevent` 和 `inheritvaluefromevent` 是否共用同一 `input` typed parser，也无法仅凭 stock omission 判定缺省 mode。本次只对资料库已登记、SHA-256 为 `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0` 的官方 2.8.42 `wallpaper64.exe` 做一个字段/模式归属问题的 bounded Ghidra 12.1.2 clean-room 复核。
 
-只保留以下高层结论：两个 component 名称进入同一 particle component dispatcher；各自锚点后都存在对 `input` 的直接引用；两者进入同一套 14-value typed parser；该表首项为 `setcolor`，未知值走独立 sentinel。结合公开页的 snapshot/continuous 行为、stock event-death/event-follow 双预览均省略 `input`、资料库 editor string table 的 14 个 mode 与 revision 4154/4175，足以支持项目建立共用 typed declaration，并把 `setcolor` 作为第一批有界 channel；不足以把任何其他 mode 推入执行。
+只保留以下高层结论：两个 component 名称进入同一 particle component dispatcher；各自锚点后都存在对 `input` 的直接引用；两者进入同一套 14-value typed parser；该表首项为 `setcolor`，未知值走独立 sentinel。结合公开页、随包预览、editor string table 与 changelog，这些内容可进入“是否共用声明、缺省是否为 `setcolor`、其他 mode 如何失败”的中性交接问题；本页不授权任何 channel 进入产品执行。
 
 本次没有恢复或摘录省略 `input` 的官方默认、枚举数值、event 同帧顺序、parent state 生命周期、色彩空间、每帧复制时机、其他 channel 的转换公式或任何可移植 runtime 算法，也没有证明 32 位路径、Windows 数值或像素等价。原始地址、伪代码、函数体、脚本和日志均未入库。项目 `b9e60059` 把省略 `input` 视作 `setcolor` 是 stock omission 与上述高层结构共同约束下的 project-owned bounded inference，不是已确认的官方默认；显式小写 `setcolor` 与省略形态之外全部 fail closed。
 
@@ -375,7 +370,7 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 - 分支由Scene `general.orthogonalprojection`形成的全局mode位选择，不读取particle/layer flags。orthographic先清零Z、以XY做roughness整形，再乘`amplitude × authored projection height × .01`；true perspective保留XYZ并使用独立scale。正交Scene中即使particle `flags=4`选择下游perspective VP，也不会再求第二套XYZ shake。随包orthographic Scene + flags4 Snow preset只作状态分层互证，不承担shake动态证明。
 - shake写回working eye/center后，parallax算术明确读取刚写回的eye XY并与pointer平滑项组合；shared view同样只由这一shake后working camera构建，不回读base camera。Mirage固定revision在这里读取base camera并采用不同scale/suppression策略，不能作为官方真值。
 
-该证据不足以证明player对越界脚本值的处理、官方pause/seek事件、其他版本/backend、Windows同相位数值/像素或真正perspective Scene在MyWallpaperX已实现。项目只据此建立独立2D orthographic bounded evaluator；实现等级与运行门见[E-CAMERA-SHAKE](runtime-evidence-index.md#e-camera-shake)。临时Ghidra工程没有进入仓库，复核后已精确清理且当前不可恢复。
+该证据不足以证明 player 对越界脚本值的处理、官方 pause/seek 事件、其他版本/backend、Windows 同相位数值/像素或真正 perspective Scene 在 MyWallpaperX 已实现。项目当前的独立 2D orthographic bounded evaluator 及其证据只由 [E-CAMERA-SHAKE](runtime-evidence-index.md#e-camera-shake) 说明，本静态页不为其取得实现授权。临时 Ghidra 工程没有进入仓库，复核后已精确清理且当前不可恢复。
 
 ## 6. SceneScript 的 module/engine/owner 机制
 
@@ -400,7 +395,7 @@ engine 还具有：
 - 实例级 watchdog 与永久中断状态；
 - host-owned destroy 和有序 teardown。
 
-这些结构要求项目分开 module global、engine instance、owner script record 和 host event bridge。不能把 SceneScript 简化为 renderer draw 中无预算的一次 `eval`。
+这些静态结构把 module global、engine instance、owner script record 和 host event bridge 表现为不同对象；它们只形成生命周期与隔离的黑盒问题，不直接规定项目对象模型。项目 SceneScript 架构与预算边界只查[现役 SceneScript 目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)。
 
 ### 6.2 32/64 位 SceneScript 交叉结果
 
@@ -436,7 +431,7 @@ timer 是 owner-scoped record。每轮 scheduler 会先复制当前 timer 指针
 
 timer 接收的是 §5.3 的 effective scene delta，而不是独立 wall clock。完全暂停时 scene engine 不 tick，timer 也不累计；恢复时重置计时基线，不追补暂停期间的 interval 或 timeout。
 
-`registerAudioBuffers` 只允许在 global evaluation phase。分辨率只接受 16/32/64，未提供时走 16；首次注册建立三档 left/right/average backing arrays，后续 tick 在原数组上更新，因此 VM 所见 array identity 跨帧稳定。静态证据没有给出项目应采用的音频归一化、平滑或缺设备 policy。
+`registerAudioBuffers` 只允许在 global evaluation phase。分辨率只接受 16/32/64，未提供时走 16；首次注册建立三档 left/right/average backing arrays，后续 tick 在原数组上更新，因此 VM 所见 array identity 跨帧稳定。静态证据没有给出可移植的音频归一化、平滑或缺设备 policy；这些项目策略只由现役合同和自有 fixture 决定。
 
 普通 `update` 与 timer 不使用同一种 mutation admission。新 owner 的 script record 在创建时尾插到 live 链表，且 `init` 同步执行：
 
@@ -460,15 +455,15 @@ DLL 的 record removal 与 engine 析构本身仍不会替宿主派发 `destroy`
 
 ### 6.4 已恢复的 host binding 合同
 
-以下事实只用于实现自有 contract/fixture，不公开客户端内部 ABI：
+以下事实只用于 research card 和项目自有 contract/fixture 的独立设计评审，不公开客户端内部 ABI，也不直接授权产品实现：
 
-- **asset registry**：`registerAsset` 只允许 global phase，按传入路径去重；重复注册不改写第一次的 precache 选择。VM 边界能取得路径值，但 v2.8 公共接口仍应保持 opaque `IAssetHandle`。registry 随 owner 释放；路径 canonicalization、大小写、依赖展开与真实 precache 时点仍未知。
+- **asset registry**：`registerAsset` 只允许 global phase，按传入路径去重；重复注册不改写第一次的 precache 选择。VM 边界能取得路径值，而 v2.8 公共声明暴露的是 opaque `IAssetHandle`。registry 随 owner 释放；路径 canonicalization、大小写、依赖展开与真实 precache 时点仍未知。项目 handle 形态只查现役 SceneScript 合同。
 - **dynamic layer**：`createLayer` 同步进入宿主并立即取得 native identity；wrapper cache 按 native identity 复用 handle。bridge-managed identity vector 每项 8 bytes，已有字节长度大于 `0x3fff` 时创建返回空值，因此 2047 项可再创建一项，已有 2048 项时拒绝；该上限不能被解释为“只统计动态 layer”。`getLayerIndex` 对未知 identity 返回 `-1`，`sortLayer` 对未知 identity 返回失败；native sort 会把超过当前长度的目标 index 夹到尾部，负数在 VM 边界是否先被拒绝仍未闭合。sort 只改变 native/render topology，不改变 script-record 注册顺序。`destroyLayer` 同步返回请求结果，实际 removal 在普通 `update` 后的 pending-destroy drain 执行。wrapper 创建时还向 native object 注册 lifetime callback；对象真正销毁时 callback 同时清除 identity/index 两张表并释放 wrapper，旧 handle 不能继续命中 cache。`getInitialLayerConfig` 是宿主配置序列化后重新解析出的 detached object，不是 live alias。
 - **layer parenting**：`setParent` 先把 string/number/handle 统一解析为 native parent identity，并把 attachment number 或 name 解析为 index；缺少 parent 表示解除父子关系。native core 同步从旧 parent 的 child vector 摘除并写入新 parent/attachment，不经过 pending-destroy queue。`adjustTransforms=false` 直接切换关系；`true` 会以切换前的 world transform 和新 parent/attachment transform 重算 local origin/angles/scale。相同 parent 与 attachment 是成功 no-op；显式 self-parent 或内部 flag/child complexity guard 失败时不会恢复旧 parent，而是保持 unparented 并报告 invalid configuration。`getParent` 直接返回当前 identity，`getChildren` 复制调用时 child vector 的 `[begin,end)`，不是 live collection。descendant cycle、缺失 parent/attachment 的 VM 负向行为以及 guard 的跨平台含义尚未闭合。
 - **model data**：`createModelData` 返回带 token 的 VM handle；`applyData` / `replaceData` 共用一个 native update bridge，以 mode 区分，且 update phase 明确拒绝 `replaceData`。负向路径分别拒绝 buffer 增长、非 dynamic 更新、shape/buffer 增删、material 或 vertex-format 改变，以及 index type/lock/layout 不兼容。destroy 使用 token/handle；仍被 layer 引用时只登记销毁请求，释放延后到引用解除。
 - **local storage**：set/get/delete/clear 均禁止 global evaluation phase。默认域是 screen，只有字符串精确等于 `global` 才切到 global，其他值回落 screen。key 必须为 string；`set(key, undefined)` 转为 delete。value 先经 VM 序列化再写入带版本 envelope，get 遇到 envelope/反序列化失败返回 `undefined`；delete/clear 透传宿主成功状态。namespace、quota、原子性与跨重启结果仍未知。
 
-二进制内部注册了名为 `clearTimeout` 的 binding，但 v2.8 公共声明仍明确要求调用 `setTimeout`/`setInterval` 返回的 cancel function。项目不能因内部兼容入口存在而扩张公开 API。
+二进制内部注册了名为 `clearTimeout` 的 binding，但 v2.8 公共声明只记录 `setTimeout`/`setInterval` 返回的 cancel function。内部兼容入口不构成作者公开 API 证据；项目公开表面只查现役 SceneScript 合同。
 
 ### 6.5 Cursor 命中、传播与输入状态
 
@@ -522,7 +517,7 @@ getter 都禁止 global phase，并读取调用时 host state；`CursorEvent` �
 - cursor event-local/puppet 坐标、候选顺序、边界容差、多按钮与 visible/solid/parent mutation 的同帧冲突；
 - 未在 §6.4–§6.6 闭合的 handle/API 副作用与同帧冲突语义。
 
-MyWallpaperX 应先用自有 fake VM 锁定 owner lifecycle、事件队列、typed writeback、timer policy、mutation/callback budget 和 exactly-once destroy，再选择通用 VM。官方 live update traversal 允许 callback 不断尾插新 owner并延长同一轮；项目应采用明确的有界队列或总预算。若选择“下一帧准入”，这是安全 policy 差异，必须写入能力合同，不能表述为官方等价。
+官方 live update traversal 允许 callback 不断尾插新 owner 并延长同一轮；这只形成 owner lifecycle、事件队列、typed writeback、timer、预算、exactly-once destroy 与下一帧准入的区分问题。fake VM、通用 VM 选型、有界队列和总预算属于[现役 SceneScript 目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)与[兼容运行时架构](../runtime-architecture.md)的项目策略；本页不授权其顺序或实现形态。
 
 ## 7. 视频、声音、系统媒体与 surface
 
@@ -538,7 +533,7 @@ MyWallpaperX 应先用自有 fake VM 锁定 owner lifecycle、事件队列、typ
 - controller 的输出侧方法分别承担媒体帧取得/发布、音量同步、原子 take-and-clear 状态和 provider pump/recovery；
 - teardown 先停止并等待 worker，再从宿主 registry 退注册，随后释放 output、media engine、DXGI/D3D/MF 资源并执行 Media Foundation shutdown。
 
-这把跨平台公共形状收窄为 **host-owned producer registry + retained playback intent + 独立 frame publication**。项目应分别记录 provider generation 与 device generation，并保证 teardown 的 `stop worker -> deregister -> release GPU/media` 顺序。最后一轮静态扫描没有无歧义闭合宿主每帧如何遍历 registry，也没有证明 device reset 后由谁恢复 play/rate/loop/seek intent；这两项继续保持未验证。
+固定客户端路径呈现出 **host-owned producer registry + retained playback intent + 独立 frame publication** 的结构，并观察到 teardown 依次停止 worker、退注册、释放 GPU/media。provider/device generation 的项目表示和 teardown 实现只由现役资源/运行时合同规定；最后一轮静态扫描没有无歧义闭合宿主每帧如何遍历 registry，也没有证明 device reset 后由谁恢复 play/rate/loop/seek intent，这两项继续保持未验证。
 
 `mediaextensions64.dll` 经主程序 factory 动态取得，公开/静态边界覆盖 audio device/context、source play/pause/stop/rewind、buffer queue、capture、device pause/resume 和线程化 teardown。它更接近 Sound/device lifecycle，不是通用视频解码器。
 
@@ -560,7 +555,7 @@ resource identity / bytes
 
 主程序的 Sound 参数链还确认，某个 Sound owner 的 `+0x304` 最终写入 source 的 rolloff factor；它与 image-layer 同偏移的 clamp 位没有语义关系。这再次说明偏移只能在明确 owner/vtable/call chain 内解释。
 
-项目无需复制 OpenAL API，但 owner-scoped Sound 应把 immutable/cached audio payload、mutable source/voice、显式三态、参数快照和 device generation 分开；prepare/play/pause/resume/stop/dispose、loop/volume、预算、锁保护更新与 reset 必须有清晰边界。静态路径仍没有闭合主程序的完整 provider admission、全局 gain 来源、设备重建时 source 状态恢复或声音 golden。
+固定客户端把 immutable/cached audio payload、mutable source/voice、显式三态、参数快照和 device state 表现为不同结构，并为 prepare/play/pause/resume/stop/dispose、loop/volume、锁保护更新与 reset 呈现出不同生命周期。它们是项目合同评审的问题清单，不授权复制 OpenAL API，也不直接规定 owner-scoped Sound 的类型边界。静态路径仍没有闭合主程序的完整 provider admission、全局 gain 来源、设备重建时 source 状态恢复或声音 golden。
 
 ### 7.2 系统媒体是带 generation 的异步 producer
 
@@ -584,9 +579,9 @@ media generation N
 
 `cloneextensions64.dll` 由主程序动态解析 clone/composition 入口，并维护独立 surface/window/swapchain create/update/destroy 边界。它支持稳定 surface identity、per-display policy 与 display hot-plug transaction，不能证明所有场景都走 clone，也不要求 macOS 复制 DirectComposition。
 
-## 8. 从静态证据导出的目标合同（非实现状态）
+## 8. 静态观察支持的项目合同候选（非实现输入）
 
-本取证只收窄公共设计，不更新任何 `L0-L4` 等级：
+本节只归纳可供项目合同评审的关系，不更新任何 `L0-L4` 等级，也不是 implementation checklist。每一项只有在现役项目合同用独立措辞重新定义、配套项目正反 fixture，并按声明需要加入官方动态对照后，才能取得实现授权；未完成该转换时保持 research-context-only：
 
 1. **纹理**：format、purpose、physical/mapped、UV、sampler、alpha/color 与 generation 必须共同进入 identity；`nointerpolation/clampuvs` 分别进入 filter/address policy，cache key 不得只取这两个布尔位；动态写入必须由显式 generation/reprepare 合同承接；
 2. **RenderGraph**：condition 先于 admission；ordinary/copy/swap/compose 保持 typed node；copy 是 target operation，swap 改 logical mapping，compose 推进 layer-local full-frame pair；FBO 的 authored extent、fit、scale、unique、clear 与 UV policy 必须分别保真，resource mapping 必须受 effect/reset generation 治理；
@@ -626,7 +621,7 @@ media generation N
 - [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md)
 - [场景格式与 RenderGraph](scene-format-and-render-graph.md)
 - [Shader source 前置合同与跨后端假设审查](shader-prelude-and-backend-abstraction.md)
-- [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md)
+- [SceneScript 2.8.42 固定客户端静态取证](scenescript-runtime-implementation-contract.md)（`research-context-only`）
 - [运行时系统语义](runtime-systems-reference.md)
 - [资料来源与证据索引](source-index.md)
 - [覆盖台账](coverage-ledger.md)

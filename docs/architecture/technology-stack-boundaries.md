@@ -1,5 +1,7 @@
 # MyWallpaperX 技术栈与架构路线边界
 
+<!-- document-role: stable-contract -->
+
 > 状态：现役长期规范
 >
 > 最后复核：2026-08-15
@@ -10,7 +12,7 @@
 
 文档事实按以下入口分工：
 
-1. `AGENTS.md` 约束实现、验证、提交和工作区安全；
+1. [文档入口](../README.md)定义事实角色和冲突裁决，[`AGENTS.md`](../../AGENTS.md)约束实现、验证、提交和工作区安全；
 2. 本文是技术栈职责、跨语言边界和依赖准入的唯一长期入口；
 3. [Scene 兼容运行时架构](../scene/runtime-architecture.md)规定官方/参考证据如何转化为项目执行结构；
 4. [Scene 兼容执行路线](../scene/scene-compatibility-roadmap.md)决定当前迁移顺序和停止项；
@@ -23,6 +25,8 @@
 - **现役**：已经在当前生产源码路径中承担产品职责；
 - **迁移目标**：方向已经确定，但当前残留尚未清零；
 - **评估项**：尚未选定具体依赖或落地形态，不能据此升级能力台账。
+
+每项技术决策还必须同时维护三条轴：**目标合同**由本文和对应长期架构规定最终职责；**当前事实**由当前源码与可复现证据说明现状；**偏差债务**登记二者差异、当前 owner、route state/fallback、纠正门和退役条件。现有代码、测试和目录只证明当前事实，不得反向定义长期技术边界；触达旧实现时必须主动纠正当前纵向结果范围内的偏差，不得为兼容已知错误所有权继续扩张旧架构。
 
 ## 1. 当前基线与迁移目标
 
@@ -63,11 +67,14 @@ Scene 的迁移目标已经确定：保留 Swift/Metal 产品底座，把作者�
 
 - project / scene / object / layer / effect / pass / resource / target identity；
 - 作者声明的 source order、effect order、pass order 和 graph dependency；
-- 用户属性、Timeline、SceneScript mutation 和系统输入的提交顺序；
-- provider generation、surface identity、history、publication 与 teardown；
+- immutable value/event snapshot 中用户属性、Timeline、pointer/audio event/value 与系统输入的提交顺序；
+- resource/provider publication 中 generation、readiness、surface identity、history 与 teardown；
+- topology/VM mutation transaction 中动态对象/层/effect/graph 变化、handle identity 与 mutation 顺序；
 - Program ABI、reflection、资源绑定、render state、诊断和产品 fallback 状态。
 
 作者 shader 的词法、语法、类型和代码生成由通用 compiler backend 承担；ECMAScript 语言行为由真实 VM 承担；粒子组合由 component interpreter 承担。Swift host 负责输入规范化、能力/资源边界、调用预算、结果校验和生命周期，不再把这些完整语言逐项重写成 Swift 专用 parser/compiler。
+
+上述三类动态输入由同一个 frame commit 决定 producer 优先级、同帧/下一帧可见性和冲突，但保持不同 typed channel；resource generation 或 topology mutation 不得为复用普通 property 代码而伪装成 value-only 更新。
 
 sample ID、layer ID、路径、hash 和资产名称可以用于装载作者声明、选择共享 component/API primitive、identity、缓存、provenance、诊断和回归定位；不能选择样本专用可见算法或固定输出。definition/material/shader path 选择对应作者数据，以及 particle/API name 选择共享 registry 项，属于正常数据驱动执行。
 
@@ -94,7 +101,22 @@ CPU 热点先用 Instruments、Metal System Trace 或同等可复现证据定位
 
 XPC 或 bundled helper 只有在需要隔离不可信代码、编译器崩溃、权限或可重启资源时才引入。允许跨进程的消息是场景启动/停止、属性或输入批次、编译请求、缓存结果、surface/resource handle 和 diagnostics；禁止把 draw、pass、uniform、JS property access 或每帧小对象调用拆成 XPC 往返。[Apple XPC](https://developer.apple.com/documentation/xpc)
 
+第三方 shader compiler 的首个集成形态必须是独立、可终止的 subprocess harness，用于固定输入、预算、diagnostics、reflection 和产物验证，不持有产品执行权。进入产品路径前必须明确二选一：以故障注入证明 in-process compiler 的 crash、hang、timeout、OOM、取消和损坏结果不会杀死 App 或污染 cache/Program；或使用可重启的 bundled compiler worker。完整 XPC/service 平台不阻塞开发 spike，但未完成这项选择不得让不可信作者源码在主 App 内取得产品编译权。
+
 普通 XPC service 不承担桌面窗口或 WindowServer UI 所有权；需要呈现窗口的 renderer 保持在主 App，或在证据成立时使用 bundled helper application。[Designing Daemons and Services](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/DesigningDaemons.html)
+
+### 3.6 迁移 owner 必须显式路由
+
+每个被通用执行器替代的旧 owner 必须登记以下 route state，不允许从调用顺序猜产品权威：
+
+| route state | 约束 |
+|---|---|
+| `observe-only` | 新路径只观察/诊断，不发布产品输出 |
+| `prefer-generic` | 新路径优先，旧 owner 只处理带 typed reason 的已验证 bounded fallback |
+| `generic-only` | 新路径独占产品执行；旧实现至多为离线 oracle |
+| `disable-generic` | 显式故障回滚；必须记录触发、影响面与退出条件 |
+
+路由、fallback reason、identity 和计数必须进入 diagnostics/metrics。进入 `generic-only` 前必须有纵向正证、局部失败反例、新组合/未见 fixture、fallback 审计和原子回滚演练；旧 owner 只有在产品引用撤销并同步权威文档后才可删除。长期双执行或长期 `disable-generic` 都是未完成迁移。
 
 ## 4. 目标运行单元
 
@@ -106,11 +128,12 @@ MyWallpaperX.app                                  Swift + AppKit
        -> SceneScript domain（迁移目标）          ECMAScript VM + Swift host bridge
        -> shader compiler（迁移目标）             C/C++ backend + stable bridge
        -> GraphExecutor / compositor              Swift + Metal / MSL
-  -> compiler worker（条件目标）                  仅在 crash/预算/权限证据成立时
+  -> compiler subprocess harness（首批开发）      无产品执行权、可终止
+  -> compiler worker（产品隔离二选一）            in-process fault proof 不成立时采用
   -> renderer helper app（条件评估项）            仅在窗口与恢复证据成立时
 ```
 
-compiler 在 scene load 或 variant 变化时工作，不持有 drawable、长期 GPU 资源或真实 Workshop 根目录权限。脚本按 surface 隔离，以批量 snapshot/mutation 与 Swift 交换，避免细粒度跨语言调用。进程拆分晚于协议和每帧交换粒度稳定，不为形式分层提前引入。
+compiler 在 scene load 或 variant 变化时工作，不持有 drawable、长期 GPU 资源或真实 Workshop 根目录权限。开发 harness 先稳定输入/输出协议；产品采用 in-process backend 还是 worker，按上一节的故障证明门决定。脚本按 surface 隔离，以批量 snapshot/mutation 与 Swift 交换，避免细粒度跨语言调用。renderer 的进程拆分晚于协议和每帧交换粒度稳定，不为形式分层提前引入。
 
 ## 5. SceneScript 路线
 
@@ -151,7 +174,7 @@ VM 首次进入受控开发产品路径前至少满足：
 
 ### 6.3 取得产品执行权的门
 
-backend 先通过项目 fixture 和只读隔离 corpus 的 source/dialect 分类、parse/type/stage link、reflection/ABI、MSL/library/pipeline preflight以及输入大小/编译时间预算。随后立即在受控开关下取得 ordinary representative content 的开发产品执行权；不要求先为所有未知 state/slot/color 建立逐项 exact admission，也不等待完整发行审计。
+backend 先在独立 subprocess harness 中通过项目 fixture 和只读隔离 corpus 的 source/dialect 分类、parse/type/stage link、reflection/ABI、MSL/library/pipeline preflight以及输入大小/编译时间预算。完成 in-process fault proof 或 bundled worker 的显式选择后，才可在受控 route state 下取得 ordinary representative content 的开发产品执行权；不要求先为所有未知 state/slot/color 建立逐项 exact admission，也不等待完整发行审计。
 
 产品验证必须证明：
 
@@ -171,11 +194,11 @@ backend 先通过项目 fixture 和只读隔离 corpus 的 source/dialect 分类
 1. V0 普通 authored material/shader 从声明到 compositor；
 2. V1 多 pass、FBO、command、history 和 cross-layer graph；
 3. V2 真实 SceneScript VM 与 typed host bridge；
-4. V3 particle component interpreter；
-5. V4 动态输入、provider、text、audio、media 和交互；
-6. V5 Puppet、lighting/HDR、3D、offline、性能与发布。
+4. V3 particle component interpreter。
 
-V0 必须先取得真实可见结果；V1–V3 的独立研究和 fixture 可以并行，但不以完成整个子系统阻塞上一条纵向链。受控 feature flag、差分 oracle 和迁移期 fallback 允许存在；可见替代稳定后必须撤销旧 owner，不能长期保留不透明双路由。是否落地 compiler XPC 或 renderer helper 由 crash、预算和性能证据决定，不作为首个普通 effect 或 VM property 结果的前置。
+V4 不是排在 V3 之后的阶段，而是贯穿 V0–V3 的动态输入、provider、text、audio、media 和交互横切轨；每项输入各自闭合 typed producer、frame-commit channel、consumer、可见/事件结果、teardown 和 owner 退役。V5 也不是单体平台阶段；Puppet、2D lighting/HDR、3D、RGB、offline、color/multi-display/device recovery 与 performance/release 是独立 epics，每项单独定义输入、输出、门、回滚和退役条件，不互相等待或外推完成。
+
+V0 必须先取得真实可见结果；V1–V3 的独立研究和 fixture 可以并行，但不以完成整个子系统阻塞上一条纵向链。迁移按三层分别声明：`slice-visible` 证明一个真实纵向结果；`owner-migration` 再证明 `generic-only`、fallback 审计、回滚演练和旧 owner 撤权；`parity-release` 最后证明 bounded 官方黑盒容差、性能/长稳、依赖/许可证与签名发布。受控 route state、差分 oracle 和迁移期 fallback 允许存在，但前一层不能冒充后一层，发行门也不能倒灌阻塞首个普通 effect 或 VM property 结果。
 
 ## 8. 性能与效率合同
 

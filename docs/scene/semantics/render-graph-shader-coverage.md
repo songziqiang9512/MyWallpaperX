@@ -20,13 +20,13 @@
 
 这里的等级只描述 **MyWallpaperX 当前实现成熟度**，不是官方语义的可信等级，也不是某个 effect 的视觉相似度。
 
-### 1.1 `linux-wallpaperengine` D 级复核边界
+### 1.1 `linux-wallpaperengine` 第三方结构复核边界
 
 固定 revision `b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d` 没有附带 stock effect/material/shader assets，运行时要求用户提供官方 Wallpaper Engine assets。因此它不能核验 45 个 effect 的逐参数和算法；本页只用它交叉检查 generic contract，并保留以下未进入官方 A 级表的候选：
 
 - `ShaderUnit.cpp:77-94` 的处理顺序是 include -> `#require` -> variables；`#require` 只识别 `LightingV1`，生成的 `PerformLighting_V1` 固定返回零（`ShaderUnit.cpp:313-376`）。这证明私有 shader 中可能存在 module directive，不证明该 stub 或 module schema 正确。
 - 它的 annotation/combo/sampler 解析依赖 regex/string，sampler slot 只提取单个数字且 combo 只接受整数（`ShaderUnit.cpp:442-543`）；不得作为未来 frontend 的实现模板。
-- `CPass.cpp:824-890` 还尝试绑定 `g_TextureReductionScale`、`g_Brightness`、`g_UserAlpha`、`g_CompositeColor`、`g_LightAmbientColor`、`g_LightSkylightColor` 和 `g_NormalModelMatrix`。这些名称是 D 级 runtime 候选，不追加到官方 Variables 合同；先在合法 assets/样本 source 中确认声明、类型和作用域。
+- `CPass.cpp:824-890` 还尝试绑定 `g_TextureReductionScale`、`g_Brightness`、`g_UserAlpha`、`g_CompositeColor`、`g_LightAmbientColor`、`g_LightSkylightColor` 和 `g_NormalModelMatrix`。这些名称只属于 `third-party-reference-pattern` runtime 候选，不追加到官方 Variables 合同；须在合法输入和官方行为中另行确认声明、类型与作用域。
 - 同一 binder 把 Left/Right 16/32/64 spectrum 都指向同一 mono 数组，并把部分 effect projection/normal matrix 简化为 identity 或现有 matrix。它只能帮助发现需要的 binder surface，不能提供 stereo、matrix 或 lighting 数值 golden。
 
 | 等级 | 唯一含义 |
@@ -201,12 +201,6 @@
 
 当前 App、样本、报告、matrix 和签名身份只见[运行证据索引](runtime-evidence-index.md)。本表只维护能力合同与缺口，不复制某个旧提交的测试总数、报告路径或“下一批”。
 
-更新本表时必须同时区分：
-
-- `S1 preserved`：source/IR/graph schema 已保真；
-- `S2 wired`：Program/target/backend 已接线但没有fresh产品运行；
-- `S3 executed`：真实CPU/GPU、publication/completion已观察；
-- `S4 visible`：预定义ROI/事件/时间目标取得可见正证；
-- `S5 parity-ready`：官方行为或合法Windows golden与生命周期/预算闭合。
+本表只使用本专题定义的 `L0-L4` 表达能力覆盖。`S0-S5` 的含义只由[运行证据索引](runtime-evidence-index.md)定义，引用时必须同时给出其精确 code/App/fixture/ROI identity；本表不重新定义 `S`，也不从 `L` 机械推导 `S`。
 
 formal full45、fixed13、非黑截图、compile成功或旧strict profile不能替代后两级。当前优先级只看[Scene兼容执行路线](../scene-compatibility-roadmap.md)。

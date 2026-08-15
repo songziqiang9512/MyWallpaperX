@@ -10,7 +10,7 @@
 >
 > 运行边界：上述 revision 均只做静态源码审查；未构建、未运行、未与 Wallpaper Engine 做像素或时序 golden 对照
 >
-> 证据等级：`D`（独立 GPL-3.0 开源播放器实现）
+> 来源分类：`third-party-reference-pattern`（独立 GPL-3.0 开源播放器的静态结构参考）
 
 ## 1. 目的、边界与使用方法
 
@@ -42,7 +42,7 @@ Mirage 不是 Wallpaper Engine 官方实现。它的 README 明确说明项目�
 | 2026-08-13 bounded Pulse material/composition chain | `443777e29a8046615db6275f80ff816a4bad444b` | `SceneCompiler.cpp` 的 image-effect/material/target编译，`LayerEffectStack.cpp::ResolveEffect`，`SceneRenderPlanner.cpp::ToGraphPass`，`MaterialPass.cpp::CustomShaderPass`，`SceneUniformBinder.cpp::FrameBegin/UpdateUniforms`，`WallpaperEngineRuntime.cpp::on(RenderDraw)`，`PresentPass.cpp::FinPass` | authored material/slot/uniform → layer-local ordered effect/ping-pong → graph texture read/write/version → reflected shader resources/uniforms → offscreen RGBA target → final layer state → present | 只交叉支持资源身份、pass顺序、uniform更新、RGBA target与最终present的职责链；Mirage固定使用RGBA8 UNorm并有自己的blend/load-op/编译兼容选择，不证明Pulse scalar公式、alpha边界、Metal数值或官方像素/时序，本项目仍以官方/合法stock与项目自有GPU fixture为准 |
 | 2026-08-13 本地固定 checkout 观察 | `443777e29a8046615db6275f80ff816a4bad444b` | 只确认 §3 关键入口仍存在；相对 `da4fa7b`，粒子 geometry/subdivision 与 large-mesh upload/first-frame handling 已变化 | 为后续 texture/effect/particle/dynamic family 提供固定候选 | 未逐 family 重证，不能把基础或 `da4fa7b` 的全部结论改署到该 revision；2026-08-15 远端 `main` 已是 `899e6820a36d7e7b243b603c299f8a0b4c181775`，本文未审查该远端 revision，也未构建或运行 `443777e` |
 
-Mirage 始终只是 GPL-3.0 等级 `D` 结构参考，不是每个纹理、graph、effect、粒子或 SceneScript 批次的强制前置，也不决定 MyWallpaperX 的产品 admission。官方合同优先；冲突时记录偏差，并按本项目的安全 hard-fail、局部视觉 fail-soft 策略处理 unknown，不复制源码、shader、纹理、payload、常量组合、表达式、算法或测试资产。
+Mirage 始终只是 `third-party-reference-pattern` 结构参考，不是每个纹理、graph、effect、粒子或 SceneScript 批次的强制前置，也不决定 MyWallpaperX 的产品 admission。官方合同优先；冲突时记录偏差，并按本项目的安全 hard-fail、局部视觉 fail-soft 策略处理 unknown，不复制源码、shader、纹理、payload、常量组合、表达式、算法或测试资产。
 
 ## 2. 总体结论
 
@@ -485,18 +485,18 @@ Scene 逻辑 canvas 与 drawable 物理像素因此天然分离，不能从 `NSS
 
 ## 14. 与本地官方语义资料的对照方式
 
-Mirage 只能提供“一个第三方实现怎样连线”的等级 `D` 证据。决定 MyWallpaperX 应该实现什么、哪些字段可被视为作者合同，仍须回到本地已经归档的官方资料与真实样本：
+Mirage 只能提供“一个第三方实现怎样连线”的 `third-party-reference-pattern`。决定 MyWallpaperX 应该实现什么、哪些字段可被视为作者合同，仍须回到本地已经归档的官方资料与真实样本：
 
 | Mirage 调查主题 | 本地优先核对入口 | 使用边界 |
 |---|---|---|
 | effect、pass、FBO、`previous`、compose/copy/swap | [场景格式与 Render Graph](scene-format-and-render-graph.md)、[内置 Effects 语义全集](effects-reference.md) | Mirage 的 target 名、pass 数和 fallback 不能反推官方默认 |
 | material、slot、combo、shader built-ins | [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)、[Shader source 前置合同](shader-prelude-and-backend-abstraction.md) | 第三方 shader translator 和 stub 不能作为官方算法 |
 | camera、parallax、mouse、audio、media、text | [运行时系统语义](runtime-systems-reference.md)、[运行输入与属性覆盖表](runtime-input-property-coverage.md) | 先确认作者启用条件、坐标域与生命周期，再比较 Mirage 接线 |
-| SceneScript cursor/event/update | [SceneScript API 覆盖表](scenescript-api-coverage.md)、[SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) | Mirage 的 AABB hit-test、local=world 和 watchdog 都是独立实现选择 |
+| SceneScript cursor/event/update | [SceneScript API 覆盖表](scenescript-api-coverage.md)、[SceneScript 2.8.42 静态研究](scenescript-runtime-implementation-contract.md) | Mirage 的 AABB hit-test、local=world 和 watchdog 都是独立实现选择；两份静态研究都不是 implementation input |
 | particles、lighting、3D、puppet | [粒子组件覆盖表](particle-component-coverage.md)、[高级对象覆盖表](advanced-object-coverage.md) | 字段被解析或 uniform 被上传不代表完整执行 |
 | 当前 MyWallpaperX 是否已支持 | [总覆盖台账](coverage-ledger.md)、[运行证据索引](runtime-evidence-index.md) | 本页不能单独提升任何等级；必须有项目代码、测试和隔离运行证据 |
 
-具体判断顺序为：先用官方页面/类型声明确定作者可见合同，再用客户端固定版本静态取证收窄内部结构，用真实样本确认 wire 形态，最后把 Mirage 当作结构交叉检查。如果只有 Mirage 一条证据，结论只能保持候选或等级 `D`，不能进入通用执行准入。
+具体判断顺序为：先用官方页面/类型声明确定作者可见合同，再用客户端固定版本静态取证收窄内部结构，用真实样本确认 wire 形态，最后把 Mirage 当作结构交叉检查。如果只有 Mirage 一条证据，结论只能保持 `third-party-reference-pattern` 候选，不能进入通用执行准入。
 
 ## 15. 对 MyWallpaperX 的错误路径审计清单
 

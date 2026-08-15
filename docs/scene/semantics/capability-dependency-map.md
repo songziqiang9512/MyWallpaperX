@@ -4,13 +4,13 @@
 >
 > 最近核对：2026-08-15
 >
-> 本页只维护依赖与完成门；精确当前提交、报告和测试总数统一见 [总覆盖台账](coverage-ledger.md) 与 [运行证据索引](runtime-evidence-index.md)。
+> 本页只维护依赖边与完成门，不拥有 current capability 状态；系统级 current 摘要只见 [总覆盖台账](coverage-ledger.md)，精确 App、报告和测试身份只见 [运行证据索引](runtime-evidence-index.md)。表内等级只是所链接专题的局部摘录，不可横向比较或反向覆盖总台账。
 >
 > 目的：表达通用执行单元之间不可绕过的运行依赖。当前用户结果和优先级只由[Scene 兼容执行路线](../scene-compatibility-roadmap.md)决定；本图不是逐节点实施队列，也不能把整层依赖变成首次出画面的前置工程。
 
 本文把 [总覆盖台账](coverage-ledger.md) 和各专项表中的能力整理成依赖图。它不改变任何能力等级，只回答“一个通用 compiler、VM、graph 或 executor 在执行某类输入时依赖哪些公共状态”。前置合同可以在同一可回滚批次中按实际消费面闭合，不要求先把整层所有语义逐项证明完毕。
 
-[全样本能力分类与修复台账](scene-corpus-capability-inventory.md) 提供另一条正交轴：某个公共结构 family 在真实 corpus 中覆盖多少样本与可见 occurrence。依赖图用于发现旁路和缺失前置，corpus 用于估计受益面，隔离样本用于定位失败；三者都不能覆盖现役计划，也不能合并成按名称或数量机械排序的专用工作队列。
+[全样本能力分类与修复事件台账](scene-corpus-capability-inventory.md) 提供另一条正交轴：某个公共结构 family 在真实 corpus 中覆盖多少样本与可见 occurrence，以及哪些修复事件曾以它为作用域。依赖图用于发现旁路和缺失前置，corpus 用于估计受益面，隔离样本用于定位失败；三者都不拥有 current capability 或现役计划，也不能合并成按名称或数量机械排序的专用工作队列。
 
 ## 1. 依赖图
 
@@ -67,7 +67,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 |---|---|---|
 | scene/object/layer/effect/pass/material/target identity | 部分 `L2-L3`；Scene loader 与 descriptor admission 双重拒绝重复 authored object ID，报告排序后的冲突 ID并沿 launch error 保留具体原因，避免下游 identity dictionary runtime trap | authored ID 优先、合法缺失时的 ordinal fallback、跨屏/跨帧作用域明确；effect/pass/material/target duplicate 继续逐类补门 |
 | source order、parent、dependency、provider、read/write edges | 部分 `L2-L3` | cycle、missing、duplicate、read-before-write 和 topology invalidation |
-| named/effect/history target identity | `_a` 子集 `L3`、`_b` `L2`、history `L0` | primary/secondary/history 不混用，resize/switch/reset 可测 |
+| named/effect/history target identity | `_a` 子集 `L3`、`_b` `L2`；exact Cursor Ripple strict history target 已有 bounded `L3` consumer，generic history 仍为 `L0` | primary/secondary/history 不混用；继续补 generic history、其他 consumer、resize/seek/switch/stop 与预算门 |
 
 <a id="d2"></a>
 ### D2 Host/surface frame context and lifecycle
@@ -84,12 +84,12 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| value types and target definitions | 六类 value 与主要 target 由 v22 持久化；direct text、strict Local Contrast/Opacity 与 bounded Blend multiply 已注册 typed target | 新类型继续执行 type/finite/default validation；SceneScript 计算值不冒充 direct binding |
+| value types and target definitions | 六类 value 与主要 target 由 v22 持久化；direct text、strict Local Contrast/Opacity 与 bounded Blend multiply 已注册 typed target。`311115e3` 又为 shared layer alpha、audio-scaled particle rate/layer scale、property slider→Vec3 origin/scale 与 identity display 建立 bounded typed definition/projection，当前最高 `S2 wired / visible unknown` | 新类型继续执行 type/finite/default validation；这些 native projection 不冒充 ECMAScript、mutable shared 或 generic binding |
 | source priority | `authored -> property -> Timeline -> SceneScript` 已定义；property、受限Timeline与bounded text/time-of-day/fade producer已复用同一resolver | generic SceneScript/event mutation接入时不得在renderer内重复求值 |
-| binding program | layer alpha/solid color、direct text、Local Contrast/Opacity 与 bounded Blend multiply 编译、验证和持久化已完成；mixed/invalid/未知 SceneScript key 标记 rebuild | 下一 target 必须同批增加 compiler mapping、稳定 identity、snapshot consumer 和 fallback |
+| binding program | layer alpha/solid color、direct text、Local Contrast/Opacity 与 bounded Blend multiply 编译、验证和持久化已完成；`311115e3` 的 shared/audio/property/identity bounded program 已接入 definition/snapshot consumer；mixed/invalid/未知 SceneScript key 标记 rebuild | 下一 target 必须同批增加 compiler mapping、稳定 identity、snapshot consumer 和 fallback；新增接线补 fresh runtime/ROI 前保持 `S2` |
 | target scope and invalidation domain | direct text 使用 per-layer generation；alpha/color/effect scalar 为 value-only；mixed/hidden/no-consumer 统一 rebuild | topology/provider/simulation target 逐类登记失效域 |
-| evaluation transaction | property、Timeline与bounded text/time-of-day/fade evaluation、validation、atomic commit已执行；fade scene state每host frame只推进一次再广播 | generic events/mutation依固定顺序接入同一transaction；live media provider另立生命周期门 |
-| immutable snapshot and generation | 每 surface 独立 snapshot/generation；相同 payload 不增 generation | 双屏 local input、script/provider 加入后继续验证不串用 |
+| evaluation transaction | property、Timeline与bounded text/time-of-day/fade evaluation、validation、atomic commit已执行；fade scene state及 `311115e3` 的 shared/audio/property projection 在 surface loop 外求值，hover/click 则在每 surface hit-test 后进入最终 transaction | generic events/mutation依固定顺序接入同一transaction；live media provider另立生命周期门；新接线补 fresh 可见证据 |
+| immutable snapshot and generation | 每 surface 独立 snapshot/generation；相同 payload 不增 generation；`311115e3` 已把 bounded shared alpha、audio-scaled value、property Vec3、identity display 与 media playback/colors/title/artist 合并进现役 carrier | 双屏 local input、generic script/event、live media provider 加入后继续验证不串用；这些 carrier 不证明可见结果 |
 
 目标运行形态必须是：
 
@@ -100,17 +100,17 @@ HostFrameInputs(time, properties, audio, media)
   -> SurfaceDynamicSnapshot
 ```
 
-B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color，并用 per-layer generation/stale cancellation/last-ready fallback 消费同一 snapshot。`2134765860` 证明三字段更新不替换 surface/window；默认隐藏文本第一次会因无活动 consumer 被拒绝，只有作者属性先启用 Custom 模式后才 live。`32e3a928` 又把已准入的 root particle direct User Property 八字段注册为活动 consumer，并在相同 surface/window 内发布 typed snapshot；particle 的 script/conflict/direct color/child 等未准入形态，以及 time/media、container、mixed、unsupported 或无活动 consumer 的 key 继续整场重建。
+B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color，并用 per-layer generation/stale cancellation/last-ready fallback 消费同一 snapshot。`2134765860` 证明三字段更新不替换 surface/window；默认隐藏文本第一次会因无活动 consumer 被拒绝，只有作者属性先启用 Custom 模式后才 live。`32e3a928` 又把已准入的 root particle direct User Property 八字段注册为活动 consumer，并在相同 surface/window 内发布 typed snapshot。`311115e3` 新增的 shared alpha、audio-scaled value、property→Vec3、identity display 与 media carriers 只有产品接线和自动测试，统一保持 `S2 / visible unknown`；particle script/conflict/direct color/child、generic SceneScript/event、live media producer、container、mixed、unsupported 或无活动 consumer 的 key 仍重建或失败关闭。
 
 <a id="d4"></a>
 ### D4 Input snapshots and event queues
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| pointer position/buttons/events | position 极窄子集 | world/layer/effect local 变换、button queue、同帧顺序 |
+| pointer position/buttons/events | view-normalized→scene world 与窄 layer/effect local position 有 bounded consumer；`311115e3` 又接入 per-surface primary-button edge、实际 camera/world-frame/quad UV hit-test、bounded launch-origin click toggle 与 hover-origin projection，当前最高 `S2 wired / visible unknown` | generic world/layer/effect local 变换、有序 button/event queue、多按钮、drag/capture、VM bridge与 fresh visible/event 门 |
 | audio 16 stereo bins | `L3` | 已闭合：injectable producer、按 consumer 存在性注册、无消费者停采集并归零 |
 | audio 32/64 stereo bins | `L3 bounded` | 与16档由同次FFT生成；普通/Workshop Effect Audio Bars的现役Program/typed consumer继续消费。B21已删除两个fixed native property-script 64-band consumer，generic SceneScript bridge仍为`L0` |
-| media state/properties/timeline/thumbnail | current thumbnail `L3 bounded`；previous/transition及其他media state/property/timeline `L0` | current `$mediaThumbnail` generation、旧request协作取消、replacement pending last-ready、clear/decode-failure作者fallback与strict Blend/visibility consumer保留；B20已删除previous identity/publication和fixed transition。仍缺单次ImageIO调用抢占、通用事件队列、metadata/status/timeline snapshot与live producer |
+| media state/properties/timeline/thumbnail | current thumbnail `L3 bounded`；`311115e3` 的 playback、artwork colors、title/artist carrier与 bounded consumer 为 `S2 wired / visible unknown`；previous/transition、status/timeline、generic event 与 live producer仍缺 | current `$mediaThumbnail` generation、旧request协作取消、replacement pending last-ready、clear/decode-failure作者fallback与strict Blend/visibility consumer保留；为新增 carrier 补 fresh runtime/ROI，再补单次 ImageIO 抢占、status/timeline/event、previous/transition 与 live producer |
 | user/general/animation events | `L0` | per-screen queue、owner isolation、异常隔离 |
 
 <a id="d5"></a>
@@ -127,9 +127,9 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| ordered nodes、target/bind/compose/copy/swap | 通用 IR/runtime `L2`；十四类 strict backend 已按作者顺序消费 target table，真实 chain 覆盖 `Blur Precise -> Shadow`、Blur/Shake 双向顺序、Foliage Sway/Water Ripple、重复 Water Waves、`Water Flow -> Opacity`、composition `Clipping Mask -> static Opacity`、X-Ray 受限前缀与 `[Blur Precise, God Rays]`；God Rays 双 half RT 让混合链预算按 target extent 折算，Precise Blur 的 `material -> copy/swap -> material` 两种白名单拓扑仍按 authored nodeIndex 交错执行；所有已声明 target 的 preflight 现与 allocation 共用完整 extent resolver，缺失声明按整张补足、非法 extent 直接拒绝 | 真实 history consumer、generic compose/condition/function、跨帧 logical swap 与通用 hazard |
+| ordered nodes、target/bind/compose/copy/swap | 通用 IR/runtime `L2`；strict backend 已按作者顺序消费 target table，真实 chain 覆盖 `Blur Precise -> Shadow`、Blur/Shake 双向顺序、Foliage Sway/Water Ripple、重复 Water Waves、`Water Flow -> Opacity`、composition `Clipping Mask -> static Opacity`、pair-only exact X-Ray 与 `[Blur Precise, God Rays]`；exact Cursor Ripple 另以 strict history topology 进入统一 GraphExecutor。God Rays 双 half RT 让混合链预算按 target extent 折算，Precise Blur 的 `material -> copy/swap -> material` 两种白名单拓扑仍按 authored nodeIndex 交错执行；所有已声明 target 的 preflight 现与 allocation 共用完整 extent resolver，缺失声明按整张补足、非法 extent 直接拒绝 | generic history/compose/condition/function、跨帧 logical swap、其他 X-Ray/Cursor topology 与通用 hazard；bounded consumer 不外推 family |
 | extent/format/clear/UV/unique | `width`/`height`/`fit`/`scale` 分别保真并可组合，公共 resolver 依次执行单轴/双轴 override、fit 不放大、scale divisor、floor/min-1；单轴、absolute、`scale<1` 和 composed area 均进入 2048² reference budget，非法/非有限/`<=0` 失败关闭。strict Blur 的 input/BGRA 与 stock Local Contrast 的 scale=4/RGBA target 子集为 `L3`。公共 `r8` Metal-storage target已进入 typed plan、1 logical B/texel预算、`.r8Unorm` allocation/lease、format-aware history账本与exact-format resource clear/copy；独立于TEX `authoredFormat`的`.scalarRedUnorm` atom再以typed capability闭合无clear/非unique/无command的单writer、later direct-`.r` consumer、publication与RGBA terminal，`.g`/whole/alias、mixed/empty channel envelope、clear/unique、无consumer、多writer、copy/swap与repeat均在claim前失败关闭。generic table/extent/format家族整体仍为`L2` | 在不放宽现有负门的前提下建立FBO sampler/address identity与`repeat` GPU wrap合同；之后才可把stock Glitter固定256² tile pass、combine pass及可见动态作为完整产品/样本门。`rg88`/`r16f`/`rg1616f`、mapped size、load/store/reset、clear/history/command上的scalar语义继续逐项独立闭合 |
-| history/ping-pong | `L0` | first frame、resize、seek、switch、stop 和 memory budget |
+| history/ping-pong | exact Cursor Ripple strict topology 为 bounded `L3`：持久 target、history seed/rehydration、submission pin、completion/publication/compositor/next-frame 已有精确 consumer；generic history/ping-pong 仍为 `L0` | 其他 authored topology、logical swap，以及 first frame、resize、seek、switch、stop、epoch rollback 和 memory budget 的通用门 |
 
 <a id="d7"></a>
 ### D7 Material and shader contract
@@ -166,7 +166,7 @@ V0/V1 在这层只做两件事：让 ordinary authored Program 成为默认候�
 | Timeline | D2 + D3 | lossless IR、绝对 scene-time evaluator、bounded 作者 Bézier handles、Loop wrap 闭合段与 typed writes 已完成，现役 Workshop **48/48 authored host** 均形成 typed binding：effect constant 23、layer alpha 5、bounded relative layer transform 9、root particle scalar override 7、bounded text `maxwidth` 2，以及唯一 default 2D camera Combined `origin↔zoom` 两成员；实际视觉执行还需对应 renderer/chain 准入，`3769688830:157` 已闭合首条 Tint alpha Timeline consumer。普通段消费 `start.front` / `end.back`，9 条 wrap 声明的末/首段消费末 `front` / 首 `back`；均按 segment-normalized X/property-offset Y 求值，双禁用严格线性，越出周期或 bounded target control hull 的形态失败关闭。camera 两成员共用 owner clock，经同一 per-surface transaction 原子写入 projection、particle camera 与 pointer projection。multiple path、3D/未知 camera、坏组、generic Combined、event crossing、particle relative/colorn/child/存量追溯仍待推进；handle/wrap 单位无 Windows wire/golden |
 | Exact native property-script profiles | D0 + D4 + D7 + D8 + D9 | Text七个fixed profile已在B18退役；Audio Bars两个fixed profile又在B21退役。source identity不再为两族建立产品binding，旧报告只作历史 |
 | Bounded property-bound text update | D2 + D3 + D4 + D5 + D9 | B18后唯一现役Text脚本合同：唯一`update(value)`的无循环Date/string AST以语法和三层预算准入，复用typed snapshot/dynamic text consumer；无sample/layer/hash旁路。`clockWithPeriod`、greeting等未准入语法保留authored fallback，且该子集不等于VM |
-| Bounded media placeholder fade | D2 + D3 + D4 + D5 + D7 + D8 + D9 | exact pass-owned effect constant与严格stopped-rise/active-fall AST编译为typed scalar producer；scene级state按event-before-update、shared simulation delta推进一次并广播，复用Opacity Program/GraphExecutor/compositor。产品无live media ingress，只证明author-initial stopped/0-event与injected evaluator；反向脚本及其他media API继续关闭 |
+| Bounded media placeholder fade | D2 + D3 + D4 + D5 + D7 + D8 + D9 | exact pass-owned effect constant与严格stopped-rise/active-fall AST编译为typed scalar producer；scene级state按event-before-update、shared simulation delta推进一次并广播，复用Opacity Program/GraphExecutor/compositor。`311115e3` 另接入 playback/colors/title/artist carrier与 bounded consumer，但只有 `S2` 接线证据。产品仍无live media ingress；旧可见门只证明author-initial stopped/0-event与injected evaluator，不能替新增 carrier 升级；反向脚本及其他media API继续关闭 |
 | Generic SceneScript | D2 + D3 + D4 + D5 | 顶层 binding/source IR 与 bounded String/time-of-day/fade/origin 子集已有；V2 首条链是 QuickJS-NG per-scene runtime/context + 一个 typed property owner + init/update + next-frame mutation。随后扩 module、handles、events/timers/jobs、interrupt/heap/stack、reload/teardown 和 stale-handle isolation；不以完整 API 平台阻塞首个可见结果 |
 | dynamic text | D3 + D5 + D9 | direct property、bounded text update与bounded Timeline width已完成per-layer generation、并发stale cancellation、单在途连续更新合并和last-ready；fixed native Text profile已退役，system/media producer、非String script target、长文本/多屏压力与Windows layout fidelity仍待推进 |
 | particle breadth | D2 + D3 + D4 + D5 + D8 + D9 | root direct User Property 八字段和 absolute scalar Timeline 七字段已复用统一 binding compiler、per-surface transaction/snapshot 与 fixed-step simulator；静态 plain-image Layer Image 已复用 typed dependency/texture/simulator；Position Offset Random、initial delay、仅 rate Random periodic、one-per-render-frame、emitter CP identity/static angles/speed/shape、raw parent CP copy、pointer-lock CP Force、uniform child scale、classic Vortex、Cap Velocity、Sprite Trail、Rope 继续各有 bounded 门。`968d86eb` 在 initializer typed plan/fixed-step creation stream 上复用项目 3D gradient-noise 基元，只为已确认五字段开放 finite-octave position offset；`594e52c4` 让 raw bit 2 的每个 emitter 在同一 render advance 的全部 fixed steps 共享一个 rate 配额；`5cc7ee37` 又复用 D4/D5 host audio snapshot、consumer demand 与 fixed-step simulator，建立共享 16-band evaluator，并只为 root Sphere/Box rate emitter、Turbulent Velocity Random/Turbulence phase、底层已合法的 classic Vortex speed 开放 consumer。Position Offset `sign`、官方 default/FBM/RNG/space/time、dynamic override 的 script/conflict/direct color/relative/Combined/child/存量追溯、复杂 emitter/child/其他 operator audio、child 非零 angles/event offset/nonuniform or nested scale、one-per-frame Windows 30/60/120 FPS count/Rope topology、initial-delay Windows timing golden、periodic burst/max-per-period、动态/text/puppet Layer Image、dynamic control point angle/adjusted/world/cross-space、previous pointer 与其他 consumer、event/nested CP copy、force falloff、Vortex CP/center-force/`vortex_v2` ring、Rope animated texture/root-world/multi-renderer/ribbon join、通用 RopeTrail subdivision/UV、collision，以及各项 WE 数值/RNG/分布/轨迹 golden 仍待闭合 |

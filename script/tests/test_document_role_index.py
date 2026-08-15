@@ -27,6 +27,12 @@ REPOSITORY_SOURCE_LINK_PATTERN = re.compile(
 )
 HISTORICAL_BANNER = "> **历史证据 — 非现役入口**"
 VALID_ROLES = {"active-plan", "stable-contract", "historical-evidence"}
+CURRENT_ROLE_MARKER_PATTERN = re.compile(
+    r"<!--\s*document-role:\s*(active-plan|stable-contract)\s*-->"
+)
+CURRENT_ROLE_DECLARATION_PATTERN = re.compile(
+    r">\s*状态：[^\n；。]*(?:现役[^\n；。]*(?:计划|合同|规范|迁移目标)|稳定合同)"
+)
 
 
 def load_role_index() -> dict[str, object]:
@@ -47,6 +53,19 @@ def local_markdown_targets(source: Path) -> set[Path]:
             continue
         targets.add((source.parent / unquote(parsed.path)).resolve())
     return targets
+
+
+def current_role_declarations() -> dict[str, str | None]:
+    declarations: dict[str, str | None] = {}
+    for path in DOCUMENTATION_ROOT.rglob("*.md"):
+        if path.resolve().is_relative_to((DOCUMENTATION_ROOT / "history").resolve()):
+            continue
+        header = "\n".join(path.read_text(encoding="utf-8").splitlines()[:12])
+        marker = CURRENT_ROLE_MARKER_PATTERN.search(header)
+        if marker or CURRENT_ROLE_DECLARATION_PATTERN.search(header):
+            relative = path.relative_to(REPOSITORY_ROOT).as_posix()
+            declarations[relative] = marker.group(1) if marker else None
+    return declarations
 
 
 class DocumentRoleIndexTests(unittest.TestCase):
@@ -85,7 +104,7 @@ class DocumentRoleIndexTests(unittest.TestCase):
             "historical-only",
         )
 
-    def test_discovery_uses_history_root_plus_undated_additional_paths(self) -> None:
+    def test_discovery_uses_history_root_plus_declared_current_roles(self) -> None:
         self.assertEqual(set(self.discovery), {"historyRoot", "additionalPaths"})
         self.assertEqual(
             self.history_root.resolve(),
@@ -96,6 +115,12 @@ class DocumentRoleIndexTests(unittest.TestCase):
         additional_paths = self.discovery.get("additionalPaths")
         self.assertIsInstance(additional_paths, list)
         self.assertEqual(additional_paths, sorted(additional_paths))
+        declarations = current_role_declarations()
+        self.assertEqual(
+            set(additional_paths),
+            set(declarations),
+            "every self-declared current plan/contract must be explicitly discovered",
+        )
         for relative_path in additional_paths:
             with self.subTest(additionalPath=relative_path):
                 self.assertIsInstance(relative_path, str)
@@ -104,6 +129,10 @@ class DocumentRoleIndexTests(unittest.TestCase):
                 self.assertEqual(path.suffix, ".md")
                 self.assertFalse(path.resolve().is_relative_to(self.history_root.resolve()))
                 self.assertNotRegex(path.name, DATED_MARKDOWN_PATTERN)
+                self.assertIsNotNone(
+                    declarations[relative_path],
+                    "current plans/contracts need an explicit machine role marker",
+                )
 
         discovered = {
             path.relative_to(REPOSITORY_ROOT).as_posix()
@@ -115,8 +144,17 @@ class DocumentRoleIndexTests(unittest.TestCase):
         self.assertEqual(
             indexed,
             discovered,
-            "document role index must cover every history document plus explicit current documents",
+            "document role index must cover every history document plus declared current roles",
         )
+
+    def test_current_role_markers_match_indexed_roles(self) -> None:
+        declarations = current_role_declarations()
+        indexed = {str(document["path"]): document for document in self.documents}
+        for relative_path, marker_role in declarations.items():
+            with self.subTest(path=relative_path):
+                self.assertIsNotNone(marker_role)
+                self.assertIn(relative_path, indexed)
+                self.assertEqual(indexed[relative_path].get("role"), marker_role)
 
     def test_all_history_documents_are_explicit_historical_evidence(self) -> None:
         history_documents = {
