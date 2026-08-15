@@ -68,13 +68,27 @@ nonisolated enum SceneGenericShaderCompiler {
         } catch {
             return .failure(.workspace)
         }
-        guard probe(configuration.glslang, contains: configuration.glslangVersionProbe,
-                    expectedExitCode: configuration.glslangVersionProbeExitCode,
-                    configuration: configuration, workspace: workspace),
-              probe(configuration.spirvCross, contains: configuration.spirvCrossVersionProbe,
-                    expectedExitCode: configuration.spirvCrossVersionProbeExitCode,
-                    configuration: configuration, workspace: workspace) else {
-            return .failure(.tool("version-mismatch"))
+        switch probe(
+            configuration.glslang,
+            phase: "glslang-version",
+            contains: configuration.glslangVersionProbe,
+            expectedExitCode: configuration.glslangVersionProbeExitCode,
+            configuration: configuration,
+            workspace: workspace
+        ) {
+        case .success: break
+        case let .failure(failure): return .failure(failure)
+        }
+        switch probe(
+            configuration.spirvCross,
+            phase: "spirv-cross-version",
+            contains: configuration.spirvCrossVersionProbe,
+            expectedExitCode: configuration.spirvCrossVersionProbeExitCode,
+            configuration: configuration,
+            workspace: workspace
+        ) {
+        case .success: break
+        case let .failure(failure): return .failure(failure)
         }
         switch run(
             configuration.glslang,
@@ -181,12 +195,15 @@ nonisolated enum SceneGenericShaderCompiler {
 
     private static func probe(
         _ executable: URL,
+        phase: String,
         contains expected: String,
         expectedExitCode: Int32,
         configuration: SceneGenericShaderCompilerBundle.Configuration,
         workspace: URL
-    ) -> Bool {
-        guard !expected.isEmpty else { return false }
+    ) -> Result<Void, Failure> {
+        guard !expected.isEmpty else {
+            return .failure(.tool("\(phase):version-mismatch"))
+        }
         switch SceneGenericShaderCompilerProcess.run(
             executable: executable,
             arguments: ["--version"],
@@ -199,8 +216,10 @@ nonisolated enum SceneGenericShaderCompiler {
         case let .success(output):
             let version = String(decoding: output.stdout + output.stderr, as: UTF8.self)
             return version.contains(expected)
-        case .failure:
-            return false
+                ? .success(())
+                : .failure(.tool("\(phase):version-mismatch"))
+        case let .failure(failure):
+            return .failure(.tool("\(phase):\(failure)"))
         }
     }
 

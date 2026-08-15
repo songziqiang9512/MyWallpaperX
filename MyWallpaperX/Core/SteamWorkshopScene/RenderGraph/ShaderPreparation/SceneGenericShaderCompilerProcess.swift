@@ -15,6 +15,7 @@ nonisolated enum SceneGenericShaderCompilerProcess {
         case timeout
         case diagnosticBudget
         case residentBudget
+        case signaled(signal: Int32)
         case rejected(exitCode: Int32)
     }
 
@@ -143,8 +144,10 @@ nonisolated enum SceneGenericShaderCompilerProcess {
               stderrData.count <= maximumDiagnosticBytes else {
             return .failure(.diagnosticBudget)
         }
-        guard process.terminationReason == .exit,
-              process.terminationStatus == expectedExitCode else {
+        guard process.terminationReason == .exit else {
+            return .failure(.signaled(signal: process.terminationStatus))
+        }
+        guard process.terminationStatus == expectedExitCode else {
             return .failure(.rejected(exitCode: process.terminationStatus))
         }
         let components = elapsed.components

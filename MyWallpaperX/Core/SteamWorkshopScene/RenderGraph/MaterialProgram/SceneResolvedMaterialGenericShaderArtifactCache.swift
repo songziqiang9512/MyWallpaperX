@@ -95,9 +95,41 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 preparedKey
             )
         }
+
+        func recordCompilerLifecycle(
+            source: CompilationCoordinator.Source,
+            outcome: String,
+            reason: String,
+            requestKey: String
+        ) {
+            let count = lock.withLock {
+                let identity = "compiler:\(source.rawValue):\(outcome):\(reason)"
+                let updated = counts[identity, default: 0] + 1
+                counts[identity] = updated
+                return updated
+            }
+            NSLog(
+                "MWX generic shader compiler lifecycle phase=launch-preparation source=%@ outcome=%@ reason=%@ request=%@ count=%d",
+                source.rawValue,
+                outcome,
+                reason,
+                requestKey,
+                count
+            )
+        }
     }
 
-    private final class CompilationCoordinator: @unchecked Sendable {
+    final class CompilationCoordinator: @unchecked Sendable {
+        enum Source: String {
+            case spawn
+            case launchResultCache = "launch-result-cache"
+        }
+
+        struct Outcome {
+            let result: Result<URL, SceneGenericShaderCompiler.Failure>
+            let source: Source
+        }
+
         private let condition = NSCondition()
         private var active = Set<String>()
         private var completed: [String: Result<URL, SceneGenericShaderCompiler.Failure>] = [:]
@@ -105,14 +137,14 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         func perform(
             key: String,
             operation: () -> Result<URL, SceneGenericShaderCompiler.Failure>
-        ) -> Result<URL, SceneGenericShaderCompiler.Failure> {
+        ) -> Outcome {
             condition.lock()
             while active.contains(key) {
                 condition.wait()
             }
             if let result = completed[key] {
                 condition.unlock()
-                return result
+                return .init(result: result, source: .launchResultCache)
             }
             active.insert(key)
             condition.unlock()
@@ -122,7 +154,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             active.remove(key)
             condition.broadcast()
             condition.unlock()
-            return result
+            return .init(result: result, source: .spawn)
         }
     }
 
@@ -176,13 +208,26 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                     cacheRoot: root
                 )
             }
-            switch compilation {
+            switch compilation.result {
             case .success:
+                routeTelemetry.recordCompilerLifecycle(
+                    source: compilation.source,
+                    outcome: "published",
+                    reason: "-",
+                    requestKey: key
+                )
                 data = regularFileData(artifactURL)
             case let .failure(failure):
+                let code = compilerFallbackCode(failure)
+                routeTelemetry.recordCompilerLifecycle(
+                    source: compilation.source,
+                    outcome: "failed",
+                    reason: code,
+                    requestKey: key
+                )
                 return fallback(
                     state: routeState,
-                    code: compilerFallbackCode(failure),
+                    code: code,
                     requestKey: key
                 )
             }

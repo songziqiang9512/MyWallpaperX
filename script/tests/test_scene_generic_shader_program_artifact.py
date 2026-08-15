@@ -46,6 +46,16 @@ private struct Output: Codable {
     let colorTransfer: String?
 }
 
+private struct CoordinatorOutput: Codable {
+    let operationCount: Int
+    let firstSource: String
+    let repeatedSource: String
+    let independentSource: String
+    let firstFailed: Bool
+    let repeatedFailed: Bool
+    let independentSucceeded: Bool
+}
+
 private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
     switch transfer {
     case .passthrough: return "passthrough"
@@ -59,6 +69,32 @@ private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
 @main
 private struct GenericShaderArtifactHarness {
     static func main() throws {
+        if CommandLine.arguments[1] == "--coordinator" {
+            let coordinator = SceneResolvedMaterialGenericShaderArtifactCache
+                .CompilationCoordinator()
+            var operationCount = 0
+            let failed: () -> Result<URL, SceneGenericShaderCompiler.Failure> = {
+                operationCount += 1
+                return .failure(.workspace)
+            }
+            let first = coordinator.perform(key: "failed-key", operation: failed)
+            let repeated = coordinator.perform(key: "failed-key", operation: failed)
+            let independent = coordinator.perform(key: "independent-key") {
+                operationCount += 1
+                return .success(URL(fileURLWithPath: "/tmp/fixture-artifact"))
+            }
+            let output = CoordinatorOutput(
+                operationCount: operationCount,
+                firstSource: first.source.rawValue,
+                repeatedSource: repeated.source.rawValue,
+                independentSource: independent.source.rawValue,
+                firstFailed: failedResult(first.result),
+                repeatedFailed: failedResult(repeated.result),
+                independentSucceeded: succeededResult(independent.result)
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
         let vertex = try String(contentsOfFile: CommandLine.arguments[1], encoding: .utf8)
         let fragment = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
         let result: Output
@@ -85,6 +121,16 @@ private struct GenericShaderArtifactHarness {
         let data = try JSONEncoder().encode(result)
         FileHandle.standardOutput.write(data)
     }
+}
+
+private func failedResult<T, E>(_ result: Result<T, E>) -> Bool {
+    if case .failure = result { return true }
+    return false
+}
+
+private func succeededResult<T, E>(_ result: Result<T, E>) -> Bool {
+    if case .success = result { return true }
+    return false
 }
 """
 
@@ -219,6 +265,25 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 ),
             },
         }
+
+    def test_compilation_coordinator_restarts_for_independent_key(self):
+        completed = subprocess.run(
+            [str(self.binary), "--coordinator"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(completed.stdout)
+        self.assertEqual(output, {
+            "operationCount": 2,
+            "firstSource": "spawn",
+            "repeatedSource": "launch-result-cache",
+            "independentSource": "spawn",
+            "firstFailed": True,
+            "repeatedFailed": True,
+            "independentSucceeded": True,
+        })
 
     def test_request_export_and_source_keyed_artifact_acceptance(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:

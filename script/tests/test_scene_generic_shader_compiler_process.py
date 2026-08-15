@@ -133,6 +133,13 @@ class SceneGenericShaderCompilerProcessTests(unittest.TestCase):
         self.assertEqual(output["failure"], "timeout")
         self.assertLess(elapsed, 1.0)
 
+    def test_uncaught_signal_is_not_reported_as_an_exit_code(self):
+        output, _ = self.run_process(
+            "/bin/sh", "-c", "kill -9 $$"
+        )
+        self.assertEqual(output["status"], "failed")
+        self.assertEqual(output["failure"], "signaled(signal: 9)")
+
     def test_diagnostic_budget_stops_unbounded_output(self):
         output, _ = self.run_process(
             "/usr/bin/yes", timeout=2_000, diagnostics=128
