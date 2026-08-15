@@ -37,6 +37,7 @@ class NestedRuntimeExpectation:
 
 EFFECT_EXECUTION_EXACT_KINDS = frozenset({
     "dedicated",
+    "fallback",
     "program",
 })
 RESOLVED_MATERIAL_GRAPH_BACKEND = "resolved-material-graph"

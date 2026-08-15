@@ -2604,6 +2604,7 @@ def effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]:
     admission_keys = (
         "inactive",
         "admitted-dedicated",
+        "admitted-fallback",
         "admitted-generic",
         "not-admitted",
     )
@@ -2736,6 +2737,7 @@ def effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]:
         admission_inactive = record["admission"] == "inactive"
         admitted = record["admission"] in {
             "admitted-dedicated",
+            "admitted-fallback",
             "admitted-generic",
         }
         if active == admission_inactive:
@@ -2753,6 +2755,12 @@ def effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]:
         ):
             failures.append("effect stage generic owner invalid")
             break
+        if record["admission"] == "admitted-fallback" and (
+            record["backend"] != "visual-failure-passthrough"
+            or record["profile"] != "effect-local-passthrough"
+        ):
+            failures.append("effect stage fallback owner invalid")
+            break
         if active and not admitted and record["reason"] is None:
             failures.append("effect stage non-admitted reason missing")
             break
@@ -2769,6 +2777,8 @@ def effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]:
             record["coverage"] not in accepted_coverages
             or (record["admission"] == "admitted-dedicated"
                 and record["profile"] is not None)
+            or (record["admission"] == "admitted-fallback"
+                and record["profile"] != "effect-local-passthrough")
             or (record["admission"] == "admitted-generic"
                 and record["profile"] is None)
         ):
@@ -2994,6 +3004,7 @@ def effect_runtime_disposition_metrics(
     kind_keys = (
         "inactive",
         "dedicated",
+        "fallback",
         "program",
         "unsupported",
         "unattributed",
@@ -3253,6 +3264,7 @@ def effect_runtime_disposition_metrics(
             group["owner_count"] < 1
             or not kinds.issubset({
                 "dedicated",
+                "fallback",
                 "program",
                 "unattributed",
             })
@@ -3270,6 +3282,7 @@ def effect_runtime_disposition_metrics(
     state_contracts: dict[str, tuple[str, set[str], str, str]] = {
         "inactive": ("none", {"none"}, "none", "forbidden"),
         "dedicated": ("exact-key", {"owner"}, "resolved", "required"),
+        "fallback": ("exact-key", {"owner"}, "resolved", "required"),
         "program": ("exact-key", {"owner"}, "resolved", "required"),
         "unsupported": ("none", {"member"}, "direct", "forbidden"),
         "unattributed": (
@@ -3355,6 +3368,9 @@ def effect_runtime_disposition_metrics(
             elif admission["admission"] == "admitted-dedicated":
                 expected_kind = "dedicated"
                 expected_reason = admission["reason"]
+            elif admission["admission"] == "admitted-fallback":
+                expected_kind = "fallback"
+                expected_reason = "effect-local-visual-failure"
             elif admission["admission"] == "admitted-generic":
                 expected_kind = "program"
                 expected_reason = admission["reason"]
@@ -3374,6 +3390,11 @@ def effect_runtime_disposition_metrics(
                 record["family"] != admission["backend"]
             ):
                 failures.append("effect runtime disposition dedicated family mismatch")
+            if expected_kind == "fallback" and (
+                record["family"] != admission["backend"]
+                or record["family"] != "visual-failure-passthrough"
+            ):
+                failures.append("effect runtime disposition fallback family mismatch")
             if expected_kind == "program" and not resolved_material_owner and (
                 record["family"] != (
                     admission["profile"] or admission["backend"]

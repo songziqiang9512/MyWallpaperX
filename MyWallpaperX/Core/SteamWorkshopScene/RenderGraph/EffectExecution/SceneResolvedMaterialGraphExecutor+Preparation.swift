@@ -21,6 +21,19 @@ extension SceneResolvedMaterialGraphExecutor {
         commands: inout [Command],
         programKeys: inout [String]
     ) -> Failure? {
+        if case let .visualFailurePassthrough(_, reasonCode) = stageCapability {
+            return prepareVisualFailurePassthrough(
+                reasonCode: reasonCode,
+                transition: transition,
+                graph: graph,
+                pairStep: pairStep,
+                lease: lease,
+                pair: &pair,
+                publications: &publications,
+                commands: &commands,
+                programKeys: &programKeys
+            )
+        }
         if case let .dedicated(_, program, _) = stageCapability {
             let failure = prepareDedicated(
                 program: program,

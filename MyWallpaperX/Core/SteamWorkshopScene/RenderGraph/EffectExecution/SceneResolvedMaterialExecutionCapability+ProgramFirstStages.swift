@@ -89,6 +89,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
             case let .failure(programFailure):
                 guard let program = programsByKey[effect.key]?.first else {
+                    if visualFailureMayPassthrough(
+                        programFailure,
+                        product: product,
+                        pairPlan: admitted.pairPlan,
+                        dependencyOwnership: admitted.dependencyOwnership
+                    ) {
+                        stages.append(.visualFailurePassthrough(
+                            product: product,
+                            reasonCode: programFailure.code
+                        ))
+                        continue
+                    }
                     return .failure(programFailure)
                 }
                 let pairLeaf = dedicatedLeafKeys.contains(effect.key)
@@ -149,6 +161,37 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             return .failure(rejection("execution-stage-conservation"))
         }
         return .success(.init(stages: stages, materials: allMaterials))
+    }
+
+    /// Only a launch-time shader frontend failure may become a visual no-op.
+    /// Resource, target, dependency, state and lifecycle failures remain hard
+    /// rejections. The admitted effect must be one current-in/current-out leaf
+    /// so an exact full-frame copy preserves the previous current without
+    /// fabricating an authored texture or graph resource.
+    private static func visualFailureMayPassthrough(
+        _ failure: Rejection,
+        product: SceneGraphAdmissionProduct,
+        pairPlan: SceneLayerFullFramePairPlan,
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+    ) -> Bool {
+        guard failure.code == "material-variant-envelope-frontend",
+              dependencyOwnership == .none,
+              product.graph.effects.count == 1,
+              product.graph.nodes.count == 1,
+              product.graph.renderTargets.isEmpty,
+              product.graph.blockers.isEmpty,
+              let effect = product.graph.effects.first,
+              let node = product.graph.nodes.first,
+              node.effect == effect.key,
+              node.kind == .material,
+              node.target == effect.output,
+              node.bindings.allSatisfy({ $0.texture == effect.input }),
+              let pairStep = pairPlan.effects.first(where: {
+                  $0.effect == effect.key
+              }),
+              pairStep.inputMember != pairStep.outputMember,
+              pairStep.composeTransitionCount == 0 else { return false }
+        return true
     }
 
     /// Dedicated stages consume the same launch-scoped producer catalog as

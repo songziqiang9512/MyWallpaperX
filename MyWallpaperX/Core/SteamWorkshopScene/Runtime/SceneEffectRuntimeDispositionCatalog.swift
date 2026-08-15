@@ -47,6 +47,9 @@ struct SceneEffectRuntimeDispositionCatalog {
                           return subject.family == "resolved-material"
                       case .admittedDedicated:
                           return admission.backendName == subject.family
+                      case .admittedFallback:
+                          return admission.backendName == subject.family
+                              && subject.family == "visual-failure-passthrough"
                       default:
                           return false
                       }
@@ -153,6 +156,7 @@ struct SceneEffectRuntimeDispositionCatalog {
         dispositions.compactMap { disposition in
             guard disposition.attribution == .exactKey,
                   disposition.kind == .dedicated
+                    || disposition.kind == .fallback
                     || disposition.kind == .program,
                   let family = disposition.family,
                   !family.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -193,6 +197,16 @@ struct SceneEffectRuntimeDispositionCatalog {
                 kind: .dedicated,
                 family: family,
                 role: .owner
+            )
+        case .admittedFallback
+            where family == "visual-failure-passthrough"
+                && family == admission.backendName:
+            return disposition(
+                admission,
+                kind: .fallback,
+                family: family,
+                role: .owner,
+                reason: "effect-local-visual-failure"
             )
         default:
             return unattributedDisposition(

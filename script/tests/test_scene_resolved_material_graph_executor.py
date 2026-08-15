@@ -62,6 +62,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+DedicatedPreparation.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Validation.swift",
@@ -2033,6 +2035,109 @@ private enum Harness {
             pixelChainFailure = "leases"
         }
 
+        let passthroughCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(
+                for: pixelGraph,
+                frontendInvalidNodes: [1]
+            )
+        )
+        var visualFailureCanClaimEffectLocalPassthrough = false
+        var visualFailurePassthroughPrepared = false
+        var visualFailurePassthroughEncoded = false
+        var visualFailurePassthroughGPUCompleted = false
+        var visualFailurePreservesPreviousAndContinuesSuffix = false
+        var visualFailurePassthroughIsTypedAndCounted = false
+        var visualFailureObservedPixels: [[UInt8]] = []
+        let passthroughClaim = passthroughCapabilities.claim(pixelChain)
+        let passthroughCapability = passthroughClaim.flatMap {
+            passthroughCapabilities.resolve($0.token, for: pixelChain)
+        }
+        visualFailureCanClaimEffectLocalPassthrough = passthroughClaim != nil
+            && passthroughCapability?.stages.count == 3
+            && passthroughCapability?.stages[1].visualFailureReasonCode
+                == "material-variant-envelope-frontend"
+        visualFailurePassthroughIsTypedAndCounted =
+            passthroughCapabilities.reportLines.contains {
+                $0 == "resolved material execution capability fallback:"
+                    + " state=prefer-generic outcome=effect-local-passthrough"
+                    + " reason=material-variant-envelope-frontend count=1"
+            }
+        let passthroughLeases = passthroughCapability.flatMap {
+            makeChainedLeases($0, device: device, generation: 18)
+        }
+        if let claim = passthroughClaim,
+           let leases = passthroughLeases,
+           let executor = Executor(
+               device: device,
+               capabilities: passthroughCapabilities
+           ),
+           let command = queue.makeCommandBuffer() {
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(2),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 2,
+                resetGeneration: 2
+            )
+            if case let .success(prepared) = preparation,
+               prepared.stages.count == 3,
+               prepared.stages[1].programCacheKeys == [
+                   "visual-failure-passthrough:material-variant-envelope-frontend"
+               ] {
+                visualFailurePassthroughPrepared = true
+                var observedStageIndices: [Int] = []
+                var stageReadbacks: [Readback] = []
+                visualFailurePassthroughEncoded = executor.encode(
+                    prepared,
+                    commandBuffer: command,
+                    stageBoundaryObserver: { stageIndex, transition, buffer in
+                        guard let readback = appendReadback(
+                            transition.effectOutputResource.publication.texture,
+                            commandBuffer: buffer
+                        ) else { return false }
+                        observedStageIndices.append(stageIndex)
+                        stageReadbacks.append(readback)
+                        return true
+                    }
+                )
+                if visualFailurePassthroughEncoded,
+                   let finalReadback = appendReadback(
+                       prepared.finalTexture,
+                       commandBuffer: command
+                   ) {
+                    command.commit()
+                    command.waitUntilCompleted()
+                    visualFailurePassthroughGPUCompleted =
+                        command.status == .completed && command.error == nil
+                    let expectedPixels: [[UInt8]] = [
+                        [255, 0, 0, 255],
+                        [255, 0, 0, 255],
+                        [0, 255, 0, 255],
+                    ]
+                    visualFailureObservedPixels = stageReadbacks.map(\.firstPixel)
+                        + [finalReadback.firstPixel]
+                    visualFailurePreservesPreviousAndContinuesSuffix =
+                        observedStageIndices == [0, 1, 2]
+                        && stageReadbacks.count == 3
+                        && zip(stageReadbacks, expectedPixels).allSatisfy {
+                            matches($0.firstPixel, $1)
+                                && matches($0.lastPixel, $1)
+                        }
+                        && matches(finalReadback.firstPixel, expectedPixels[2])
+                        && matches(finalReadback.lastPixel, expectedPixels[2])
+                }
+            }
+        }
+
         let ordinaryGraph = graph(
             targets: [rawTarget(first)],
             nodes: [
@@ -3261,6 +3366,18 @@ private enum Harness {
             "orderedStagesGPUCompleted": chainedStagesGPUCompleted,
             "orderedStagesPreservePriorPixelContribution":
                 chainedStagePixelsPreserved,
+            "visualFrontendFailureCanClaimEffectLocalPassthrough":
+                visualFailureCanClaimEffectLocalPassthrough,
+            "visualFrontendFailurePassthroughPrepared":
+                visualFailurePassthroughPrepared,
+            "visualFrontendFailurePassthroughEncoded":
+                visualFailurePassthroughEncoded,
+            "visualFrontendFailurePassthroughGPUCompleted":
+                visualFailurePassthroughGPUCompleted,
+            "visualFrontendFailurePreservesPreviousAndContinuesSuffix":
+                visualFailurePreservesPreviousAndContinuesSuffix,
+            "visualFrontendFailurePassthroughIsTypedAndCounted":
+                visualFailurePassthroughIsTypedAndCounted,
             "ordinaryComposeRotatesWithinEffectAndReturnsTerminalZero":
                 failureCode(composePreparation) == "success"
                     && composePublicationContract
@@ -3350,6 +3467,7 @@ private enum Harness {
             "pixelChainCanClaim": pixelCapabilities.claim(pixelChain) != nil,
             "pixelChainReport": pixelCapabilities.reportLines,
             "pixelChainFailure": pixelChainFailure,
+            "visualFailureObservedPixels": visualFailureObservedPixels,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,

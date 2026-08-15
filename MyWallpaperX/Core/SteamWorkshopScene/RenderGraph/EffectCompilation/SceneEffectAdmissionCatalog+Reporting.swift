@@ -31,7 +31,7 @@ extension SceneEffectAdmissionCatalog {
         let parsedKeys = stageAdmissions.map(\.key)
         let admittedKeys = stageAdmissions.compactMap { admission in
             switch admission.admission {
-            case .admittedDedicated, .admittedGeneric:
+            case .admittedDedicated, .admittedFallback, .admittedGeneric:
                 admission.key
             case .inactive, .notAdmitted:
                 nil

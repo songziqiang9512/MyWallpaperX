@@ -111,6 +111,11 @@ final class SceneResolvedMaterialRuntimeBridge {
     private var executionEvidenceByKey: [Graph.EffectKey: String] = [:]
     private var executionEvidenceIssues: [String: Int] = [:]
 
+    enum ExecutionEvidenceOutcome {
+        case encodedOutput
+        case failed(reasonCode: String)
+    }
+
     init(
         catalog: SceneResolvedMaterialRuntimeCatalog,
         capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
@@ -244,6 +249,21 @@ final class SceneResolvedMaterialRuntimeBridge {
     ) -> [ExactEffectSubject] {
         guard let runtimeClaim = capabilities.resolve(claim.token) else { return [] }
         return runtimeClaim.stages.compactMap(\.subject)
+    }
+
+    func executionEvidenceOutcome(
+        for subject: ExactEffectSubject,
+        claim: ClaimedExecution
+    ) -> ExecutionEvidenceOutcome {
+        guard let runtimeClaim = capabilities.resolve(claim.token),
+              let stage = runtimeClaim.stages.first(where: {
+                  $0.subject?.key == subject.key
+              }), let reason = stage.visualFailureReasonCode else {
+            return .encodedOutput
+        }
+        return .failed(
+            reasonCode: "effect-local-passthrough-\(reason)"
+        )
     }
 
     /// Returns dedicated leaf plans owned by the unified capability for a

@@ -56,10 +56,15 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             program: SceneEffectStageProgram,
             family: String
         )
+        case visualFailurePassthrough(
+            product: SceneGraphAdmissionProduct,
+            reasonCode: String
+        )
 
         var product: SceneGraphAdmissionProduct {
             switch self {
             case .resolved(let product, _), .dedicated(let product, _, _): product
+            case .visualFailurePassthrough(let product, _): product
             }
         }
 
@@ -70,6 +75,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 return .init(key: key, family: "resolved-material")
             case .dedicated(_, _, let family):
                 return .init(key: key, family: family)
+            case .visualFailurePassthrough:
+                return .init(key: key, family: "visual-failure-passthrough")
             }
         }
 
@@ -78,6 +85,13 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         var dedicatedExecutionPlan: SceneEffectStageExecutionPlan? {
             guard case .dedicated(_, let program, _) = self else { return nil }
             return program.executionPlan
+        }
+
+        var visualFailureReasonCode: String? {
+            guard case let .visualFailurePassthrough(_, reasonCode) = self else {
+                return nil
+            }
+            return reasonCode
         }
     }
 
@@ -128,6 +142,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     private let ownerID = UUID()
     private let capabilitiesByLayerID: [Int: LayerCapability]
     private let rejectedReasons: [String: Int]
+    private let visualFailurePassthroughReasons: [String: Int]
     private let candidateCount: Int
     private let variantLimit: Int
 
@@ -150,6 +165,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         variantLimit = maximumVariantsPerMaterial
         var accepted: [Int: LayerCapability] = [:]
         var rejected: [String: Int] = [:]
+        var passthroughs: [String: Int] = [:]
         for candidate in admissionCandidates {
             switch candidate.result {
             case let .failure(failure):
@@ -178,11 +194,17 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                         stages: compiled.stages,
                         materials: compiled.materials
                     )
+                    for reason in compiled.stages.compactMap(
+                        \.visualFailureReasonCode
+                    ) {
+                        passthroughs[reason, default: 0] += 1
+                    }
                 }
             }
         }
         capabilitiesByLayerID = accepted
         rejectedReasons = rejected
+        visualFailurePassthroughReasons = passthroughs
     }
 
     func claim(layerID: Int) -> ClaimedLayer? {
@@ -265,6 +287,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     }
                 case .dedicated(_, let program, _):
                     targets.formUnion(program.executionPlan.liveConsumerTargets)
+                case .visualFailurePassthrough:
+                    break
                 }
             }
         }
@@ -289,6 +313,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     }
                 case .dedicated(_, let program, _):
                     targets.formUnion(program.executionPlan.liveConsumerTargets)
+                case .visualFailurePassthrough:
+                    break
                 }
             }
         }
@@ -304,6 +330,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 case .dedicated(_, let program, _):
                     let plan = program.executionPlan
                     return plan.shake?.audio != nil || plan.pulse?.audio != nil || plan.workshopAudioBars != nil
+                case .visualFailurePassthrough:
+                    return false
                 }
             }
         }
@@ -320,6 +348,12 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         result += rejectedReasons.keys.sorted().map {
             "resolved material execution capability rejection: \($0)"
                 + " count=\(rejectedReasons[$0] ?? 0)"
+        }
+        result += visualFailurePassthroughReasons.keys.sorted().map {
+            "resolved material execution capability fallback:"
+                + " state=prefer-generic outcome=effect-local-passthrough"
+                + " reason=\($0)"
+                + " count=\(visualFailurePassthroughReasons[$0] ?? 0)"
         }
         result += capabilitiesByLayerID.keys.sorted().map { layerID in
             guard let dependency = capabilitiesByLayerID[layerID]?

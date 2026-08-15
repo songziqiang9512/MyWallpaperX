@@ -12,6 +12,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability {
             return plan.cursorRipple != nil
                 || plan.depthParallax != nil
                 || plan.xRay != nil
+        case .visualFailurePassthrough:
+            return false
         }
     }
 }

@@ -53,13 +53,18 @@ extension SceneEffectRuntimeDispositionCatalog {
                     return disposition.kind == .dedicated
                         && disposition.family == admission.backendName
                         && disposition.reasonCode == admission.reasonCode
+                case .admittedFallback:
+                    return disposition.kind == .fallback
+                        && disposition.family == "visual-failure-passthrough"
+                        && disposition.family == admission.backendName
+                        && disposition.reasonCode == "effect-local-visual-failure"
                 default:
                     return false
                 }
             }
             guard admission.admission == .notAdmitted else { return false }
             switch disposition.kind {
-            case .inactive, .dedicated, .program:
+            case .inactive, .dedicated, .fallback, .program:
                 return false
             default:
                 return true

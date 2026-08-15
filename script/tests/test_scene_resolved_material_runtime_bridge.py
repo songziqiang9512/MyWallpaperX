@@ -604,13 +604,16 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     struct StageCapability {
         let subject: ExactEffectSubject?
         let dedicatedExecutionPlan: SceneEffectStageExecutionPlan?
+        let visualFailureReasonCode: String?
 
         init(
             subject: ExactEffectSubject?,
-            dedicatedExecutionPlan: SceneEffectStageExecutionPlan? = nil
+            dedicatedExecutionPlan: SceneEffectStageExecutionPlan? = nil,
+            visualFailureReasonCode: String? = nil
         ) {
             self.subject = subject
             self.dedicatedExecutionPlan = dedicatedExecutionPlan
+            self.visualFailureReasonCode = visualFailureReasonCode
         }
     }
     struct ChainCapability {
@@ -1272,6 +1275,7 @@ private func makeCapabilities(
     dependencyOwnershipByLayerID: [
         Int: SceneResolvedMaterialDependencyOwnership
     ] = [:],
+    visualFailureReasonByLayerID: [Int: String] = [:],
     resolvesClaims: Bool = true
 ) -> SceneResolvedMaterialExecutionCapabilityCatalog {
     let capabilities = layerIDs.map { layerID ->
@@ -1286,10 +1290,14 @@ private func makeCapabilities(
             layerID: layerID,
             pairPlan: .init(layerID: layerID),
             admittedProducts: [.init(graph: graph)],
-            stages: [.init(subject: .init(
-                key: key,
-                family: "resolved-material"
-            ))],
+            stages: [.init(
+                subject: .init(
+                    key: key,
+                    family: visualFailureReasonByLayerID[layerID] == nil
+                        ? "resolved-material" : "visual-failure-passthrough"
+                ),
+                visualFailureReasonCode: visualFailureReasonByLayerID[layerID]
+            )],
             fullFrameExtentPolicy: .standard,
             dependencyOwnership:
                 dependencyOwnershipByLayerID[layerID] ?? .none,
@@ -2202,6 +2210,37 @@ enum Harness {
                     == "generic-framebuffer"
             results["missingExecutionEvidenceKeepsFallbackIsolated"] =
                 bridge.executionEvidenceFamily(for: fallback8.key) == nil
+
+            let passthroughBridge = SceneResolvedMaterialRuntimeBridge(
+                catalog: .init(
+                    userPropertyDemands: [],
+                    systemProviderDemands: []
+                ),
+                capabilities: makeCapabilities(
+                    layerIDs: [9],
+                    visualFailureReasonByLayerID: [
+                        9: "material-variant-envelope-frontend",
+                    ]
+                ),
+                assets: .init(states: [:]),
+                device: device
+            )
+            if case let .claimed(passthroughClaim) = passthroughBridge
+                .preflightClaim(layerID: 9),
+               let passthroughSubject = passthroughBridge
+                .executionEvidenceSubjects(for: passthroughClaim).first,
+               case let .failed(reasonCode) = passthroughBridge
+                .executionEvidenceOutcome(
+                    for: passthroughSubject,
+                    claim: passthroughClaim
+                ) {
+                results["visualFailurePassthroughKeepsFailedTelemetry"] =
+                    passthroughSubject.family == "visual-failure-passthrough"
+                    && reasonCode == "effect-local-passthrough-"
+                        + "material-variant-envelope-frontend"
+            } else {
+                results["visualFailurePassthroughKeepsFailedTelemetry"] = false
+            }
 
             bridge.installExecutionEvidence([
                 .init(key: key7, family: "generic-framebuffer"),
@@ -3337,6 +3376,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "bridgeDerivesNeutralEvidenceSubjectsAfterClaim",
                 "executionEvidenceOverridesFallbackFamily",
                 "missingExecutionEvidenceKeepsFallbackIsolated",
+                "visualFailurePassthroughKeepsFailedTelemetry",
                 "malformedExecutionEvidenceDropsOnlyInvalidKey",
                 "emptyExecutionFamilyDropsOnlyInvalidKey",
                 "invalidCapabilityTokenRejectsWithoutLegacyFallback",

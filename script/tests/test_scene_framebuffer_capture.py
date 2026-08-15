@@ -258,6 +258,11 @@ final class SceneResolvedMaterialRuntimeBridge {
         case failed(reasonCode: String)
     }
 
+    enum ExecutionEvidenceOutcome {
+        case encodedOutput
+        case failed(reasonCode: String)
+    }
+
     struct FramePreparationRequest {
         let claim: ClaimedExecution
         let targetPlan: SceneResolvedMaterialFrameTargetPlan
@@ -365,6 +370,15 @@ final class SceneResolvedMaterialRuntimeBridge {
                 .init(key: $0.key, family: "resolved-material")
             }
         }
+    }
+
+    func executionEvidenceOutcome(
+        for subject: ExactEffectSubject,
+        claim: ClaimedExecution
+    ) -> ExecutionEvidenceOutcome {
+        _ = subject
+        _ = claim
+        return .encodedOutput
     }
 
     func prepareFrame(

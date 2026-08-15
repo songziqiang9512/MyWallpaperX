@@ -84,6 +84,16 @@ enum SceneResolvedMaterialGraphComposition {
         switch result {
         case let .encoded(texture, ticket):
             for subject in runtime.executionEvidenceSubjects(for: claim) {
+                let outcome: SceneEffectCPUInvocationOutcome
+                switch runtime.executionEvidenceOutcome(
+                    for: subject,
+                    claim: claim
+                ) {
+                case .encodedOutput:
+                    outcome = .encodedOutput
+                case let .failed(reasonCode):
+                    outcome = .failed(reasonCode: reasonCode)
+                }
                 executionTrace?.recordExact(
                     identity: .init(
                         layerID: subject.key.layerID,
@@ -94,7 +104,7 @@ enum SceneResolvedMaterialGraphComposition {
                     family: runtime.executionEvidenceFamily(for: subject.key)
                         ?? subject.family,
                     backend: "resolved-material-graph",
-                    outcome: .encodedOutput
+                    outcome: outcome
                 )
             }
             return .encoded(texture: texture, ticket: ticket)

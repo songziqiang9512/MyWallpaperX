@@ -14,6 +14,7 @@ nonisolated struct SceneEffectStageAdmission {
     enum Admission: String, CaseIterable {
         case inactive
         case admittedDedicated = "admitted-dedicated"
+        case admittedFallback = "admitted-fallback"
         case admittedGeneric = "admitted-generic"
         case notAdmitted = "not-admitted"
     }
@@ -113,15 +114,27 @@ enum SceneEffectStageAdmissionBuilder {
                 )
             }
             if let subject = unifiedExecutionSubjects.first(where: { $0.key == key }) {
+                let admissionKind: Admission.Admission
+                let profileName: String?
+                switch subject.family {
+                case "resolved-material":
+                    admissionKind = .admittedGeneric
+                    profileName = "program"
+                case "visual-failure-passthrough":
+                    admissionKind = .admittedFallback
+                    profileName = "effect-local-passthrough"
+                default:
+                    admissionKind = .admittedDedicated
+                    profileName = nil
+                }
                 return admission(
                     key: key,
                     path: descriptorEffect.file,
                     activity: .active,
-                    admission: subject.family == "resolved-material"
-                        ? .admittedGeneric : .admittedDedicated,
+                    admission: admissionKind,
                     coverage: .complete,
                     backendName: subject.family,
-                    profileName: subject.family == "resolved-material" ? "program" : nil
+                    profileName: profileName
                 )
             }
             return admission(

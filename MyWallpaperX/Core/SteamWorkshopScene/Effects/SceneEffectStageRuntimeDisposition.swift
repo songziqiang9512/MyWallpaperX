@@ -6,6 +6,7 @@ nonisolated struct SceneEffectStageRuntimeDisposition {
     enum Kind: String, CaseIterable {
         case inactive
         case dedicated
+        case fallback
         case program
         case unsupported
         case unattributed
