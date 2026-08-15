@@ -178,6 +178,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         guard [
             "material-variant-envelope-frontend",
             "material-variant-envelope-shader-preparation",
+            "material-variant-envelope-color-contract",
         ].contains(failure.code),
               dependencyOwnership == .none,
               product.graph.effects.count == 1,

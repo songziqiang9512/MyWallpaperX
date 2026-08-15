@@ -20,6 +20,8 @@
 
 R0-R5、B0-B25 与旧 Coverage-first 的逐批迁移过程不参与现役路线；需要追溯时只从[统一历史索引](../../history/README.md)进入。表中仍出现的旧标签只用于定位既有证据包，不能解释为下一批。
 
+2026-08-16 的后续公共切片又把 exact current-pair leaf 的 launch-time `material-variant-envelope-color-contract` 收窄为 typed previous-current passthrough；派生真实内容从整层无执行恢复为 `Program → fallback → Program`、GraphExecutor `7/7/7` GPU 完成、terminal compositor 与 next-frame，末段截图与既有 `.35` suffix 基线同 hash。失败 effect 仍记为 typed CPU failure；sampler/uniform/texture/resource/target/state/hazard/generation/runtime encode 不在该准入集合内。此切片不改变产品 compiler worker、owner migration 或 parity-release 的未完成状态。
+
 ## 2. 官方资料覆盖
 
 | 资料面 | 收集状态 | 权威入口 | 仍未知 |

@@ -19,6 +19,7 @@ extension SceneResolvedMaterialGraphExecutor {
         guard [
             "material-variant-envelope-frontend",
             "material-variant-envelope-shader-preparation",
+            "material-variant-envelope-color-contract",
         ].contains(reasonCode),
               graph.effects.count == 1,
               graph.nodes.count == 1,

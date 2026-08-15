@@ -8,6 +8,8 @@
 
 > R0-R5/B0-B25 只作 sealed evidence，不决定本页顺序；迁移记录统一查[历史索引](../../history/README.md)。本页只维护当前 primitive、执行边界和升级条件，现役顺序只看[Scene 兼容执行路线](../scene-compatibility-roadmap.md)。
 
+> 后续 V0 证据已把 exact current-pair leaf 的 launch-time `material-variant-envelope-color-contract` 加入同一 typed visual fallback；它只复制 previous current、继续 suffix，不把未证明的颜色表达当作执行成功。sampler/uniform/texture/resource/target/state/lifecycle/runtime encode 仍硬拒绝。
+
 ## 1. 证据与使用方式
 
 本页把以下资料压成一张当前能力矩阵，不替代原始语义文档，也不作为逐行任务队列：

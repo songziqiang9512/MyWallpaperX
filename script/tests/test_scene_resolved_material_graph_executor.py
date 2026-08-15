@@ -3500,6 +3500,10 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
                 '"material-variant-envelope-shader-preparation"',
                 text,
             )
+            self.assertIn(
+                '"material-variant-envelope-color-contract"',
+                text,
+            )
             self.assertNotIn('"material-variant-envelope-texture"', text)
             self.assertNotIn('"material-variant-envelope-target"', text)
             self.assertNotIn('"material-variant-envelope-runtime-encode"', text)
