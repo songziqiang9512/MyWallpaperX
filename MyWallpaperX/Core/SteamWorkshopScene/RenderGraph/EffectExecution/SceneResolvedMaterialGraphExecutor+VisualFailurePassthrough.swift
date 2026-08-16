@@ -22,6 +22,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-variant-envelope-frontend",
             "material-variant-envelope-shader-preparation",
             "material-variant-envelope-color-contract",
+            "material-variant-envelope-sampler-schema",
             "material-variant-envelope-uniform-schema",
             "material-dynamic-uniform-contributor-policy",
             "material-dynamic-uniform-contributor-producer-unavailable",

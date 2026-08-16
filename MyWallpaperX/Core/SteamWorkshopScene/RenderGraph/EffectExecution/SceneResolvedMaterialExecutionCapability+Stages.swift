@@ -104,14 +104,22 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     ) else {
                 return .failure(rejection("material-template-unsupported"))
             }
-            guard let variants = SceneResolvedMaterialVariantCache(
+            let variants: SceneResolvedMaterialVariantCache
+            switch SceneResolvedMaterialVariantCache.launchValidated(
                 template: template,
                 maximumVariantCount: maximumVariantsPerMaterial,
                 assetFormatFacts: assetFormatFacts
-            ) else {
+            ) {
+            case let .success(value):
+                variants = value
+            case let .failure(failure):
+                let envelope = SceneResolvedMaterialVariantCache
+                    .LaunchEnvelopeFailure.material(failure)
                 SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
-                    .variantSchemaFailure(template: template)
-                return .failure(rejection("material-variant-envelope-sampler-schema"))
+                    .launchEnvelopeFailure(template: template, failure: envelope)
+                return .failure(rejection(
+                    "material-variant-envelope-\(envelope.kind.rawValue)"
+                ))
             }
             if case let .failure(failure) = variants.precompileLaunchEnvelope(
                 implicitFramebufferIdentity: effect.input,

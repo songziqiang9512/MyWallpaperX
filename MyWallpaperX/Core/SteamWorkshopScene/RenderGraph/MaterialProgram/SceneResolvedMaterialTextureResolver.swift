@@ -22,10 +22,14 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     static func resolve(
         _ input: SceneResolvedMaterialFinalizationInput
     ) throws -> Resolution {
-        guard let cache = SceneResolvedMaterialVariantCache(
+        let cache: SceneResolvedMaterialVariantCache
+        switch SceneResolvedMaterialVariantCache.launchValidated(
             template: input.template,
             maximumVariantCount: 8
-        ) else { throw failure(.activeSamplerSchemaInvalid) }
+        ) {
+        case let .success(value): cache = value
+        case let .failure(error): throw error
+        }
         switch cache.resolveSelection(input) {
         case let .success(selection):
             return try resolve(

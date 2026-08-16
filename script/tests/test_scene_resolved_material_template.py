@@ -683,7 +683,8 @@ enum Harness {
         let stableCodes: [SceneResolvedMaterialFailure.Code] = [
             .resourceSnapshotUnresolved,
             .textureBindingInvalid, .texturePurposeUnproven, .textureMetadataIncomplete,
-            .shaderPreparationFailed, .activeSamplerSchemaInvalid, .shaderFrontendFailed,
+            .shaderPreparationFailed, .activeSamplerSchemaInvalid,
+            .authoredSamplerSchemaInvalid, .shaderFrontendFailed,
             .uniformBindingInvalid, .uniformContributorPolicyUnproven,
             .uniformScriptAttachmentUnproven, .colorContractUnproven,
             .frameSnapshotMismatch, .identityInvariant,
@@ -847,7 +848,8 @@ enum Harness {
             "finalizerFailuresStable": stableCodes.map(\.rawValue) == [
                 "resourceSnapshotUnresolved",
                 "textureBindingInvalid", "texturePurposeUnproven", "textureMetadataIncomplete",
-                "shaderPreparationFailed", "activeSamplerSchemaInvalid", "shaderFrontendFailed",
+                "shaderPreparationFailed", "activeSamplerSchemaInvalid",
+                "authoredSamplerSchemaInvalid", "shaderFrontendFailed",
                 "uniformBindingInvalid", "uniformContributorPolicyUnproven",
                 "uniformScriptAttachmentUnproven", "colorContractUnproven",
                 "frameSnapshotMismatch", "identityInvariant",

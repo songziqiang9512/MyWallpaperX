@@ -885,7 +885,7 @@ private func crossTemplateRuntimeLoopCacheToken(_ device: MTLDevice) -> String {
         shader,
         uniformDeclarations: [staticDeclaration("Fractals", components: [257])]
     )
-    guard let cache = SceneResolvedMaterialVariantCache(
+    guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
         template: admitted,
         maximumVariantCount: 8
     ), case let .success(frame) = SceneResolvedMaterialFrameSnapshot.validated(
@@ -1691,7 +1691,8 @@ private enum Harness {
             includePrimaryCandidate: false,
             uniformDeclarations: activeDefaultUniforms
         )
-        guard let activeDefaultMaskCache = SceneResolvedMaterialVariantCache(
+        guard case let .success(activeDefaultMaskCache) =
+                SceneResolvedMaterialVariantCache.launchValidated(
             template: activeDefaultTemplate,
             maximumVariantCount: 8
         ) else {
@@ -2651,7 +2652,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "unknownEditorMaterialAlias": "texture/textureBindingInvalid",
             "regularGraphSampler": "success",
             "customPurposeIgnored": "success",
-            "unknownMode": "texture/activeSamplerSchemaInvalid",
+            "unknownMode": "texture/authoredSamplerSchemaInvalid",
             "multipleCandidates": "success",
             "providerUnavailableDoesNotUseEarlierCandidate": (
                 "texture/resourceSnapshotUnresolved"

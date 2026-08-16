@@ -134,11 +134,13 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
     static func finalize(
         _ input: SceneResolvedMaterialFinalizationInput
     ) -> Result<Program, Failure> {
-        guard let cache = SceneResolvedMaterialVariantCache(
+        let cache: SceneResolvedMaterialVariantCache
+        switch SceneResolvedMaterialVariantCache.launchValidated(
             template: input.template,
             maximumVariantCount: 8
-        ) else {
-            return .failure(failure(.texture, .activeSamplerSchemaInvalid))
+        ) {
+        case let .success(value): cache = value
+        case let .failure(error): return .failure(error)
         }
         return finalize(input, variantCache: cache)
     }

@@ -31,6 +31,7 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         case textureMetadataIncomplete
         case shaderPreparationFailed
         case activeSamplerSchemaInvalid
+        case authoredSamplerSchemaInvalid
         case shaderFrontendFailed
         case uniformBindingInvalid
         case activeUniformSchemaMissing

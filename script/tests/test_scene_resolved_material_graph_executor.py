@@ -558,6 +558,7 @@ void main() {
 private func fragmentSource(
     pass: Bool,
     internalDefault: Bool = false,
+    samplerSchemaInvalid: Bool = false,
     frontendInvalid: Bool = false,
     uniformSchemaInvalid: Bool = false,
     dynamicUniform: Bool = false,
@@ -571,7 +572,9 @@ private func fragmentSource(
     let annotation = pass ? "// [PASS] shadow shadowcasterdemo\n" : ""
     let sampler = internalDefault
         ? #"uniform sampler2D g_Texture0; // {"default":"_rt_history"}"#
-        : "uniform sampler2D g_Texture0;"
+        : samplerSchemaInvalid
+            ? #"uniform sampler2D g_Texture0; // {"mode":"mystery"}"#
+            : "uniform sampler2D g_Texture0;"
     let varying = frontendInvalid
         ? "varying vec3 v_TexCoord;"
         : "varying vec2 v_TexCoord;"
@@ -921,6 +924,7 @@ private func shaderContract(
     nodeIndex: Int,
     pass: Bool,
     internalDefault: Bool = false,
+    samplerSchemaInvalid: Bool = false,
     frontendInvalid: Bool = false,
     uniformSchemaInvalid: Bool = false,
     dynamicUniform: Bool = false,
@@ -979,6 +983,7 @@ private func shaderContract(
     """ ) : fragmentSource(
         pass: pass,
         internalDefault: internalDefault,
+        samplerSchemaInvalid: samplerSchemaInvalid,
         frontendInvalid: frontendInvalid,
         uniformSchemaInvalid: uniformSchemaInvalid,
         dynamicUniform: dynamicUniform,
@@ -1072,6 +1077,7 @@ private func template(
     for node: Graph.Node,
     pass: Bool = false,
     internalDefault: Bool = false,
+    samplerSchemaInvalid: Bool = false,
     overwrite: Bool = true,
     frontendInvalid: Bool = false,
     uniformSchemaInvalid: Bool = false,
@@ -1100,6 +1106,7 @@ private func template(
         nodeIndex: node.nodeIndex,
         pass: pass,
         internalDefault: internalDefault,
+        samplerSchemaInvalid: samplerSchemaInvalid,
         frontendInvalid: frontendInvalid,
         uniformSchemaInvalid: uniformSchemaInvalid,
         dynamicUniform: dynamicUniform,
@@ -1226,6 +1233,7 @@ private func catalog(
     passNodes: Set<Int> = [],
     nonOverwriteNodes: Set<Int> = [],
     internalDefaultNodes: Set<Int> = [],
+    samplerSchemaInvalidNodes: Set<Int> = [],
     frontendInvalidNodes: Set<Int> = [],
     uniformSchemaInvalidNodes: Set<Int> = [],
     dynamicUniformNodes: Set<Int> = [],
@@ -1254,6 +1262,8 @@ private func catalog(
                 for: node,
                 pass: passNodes.contains(node.nodeIndex),
                 internalDefault: internalDefaultNodes.contains(node.nodeIndex),
+                samplerSchemaInvalid:
+                    samplerSchemaInvalidNodes.contains(node.nodeIndex),
                 overwrite: !nonOverwriteNodes.contains(node.nodeIndex),
                 frontendInvalid: frontendInvalidNodes.contains(node.nodeIndex),
                 uniformSchemaInvalid:
@@ -2233,6 +2243,17 @@ private enum Harness {
         let staticPixelCapability = staticPixelClaim.flatMap {
             staticPixelCapabilities.resolve($0.token, for: pixelChain)
         }
+        let samplerSchemaPixelCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(
+                for: pixelGraph,
+                samplerSchemaInvalidNodes: [1]
+            )
+        )
+        let samplerSchemaPixelClaim = samplerSchemaPixelCapabilities.claim(pixelChain)
+        let samplerSchemaPixelCapability = samplerSchemaPixelClaim.flatMap {
+            samplerSchemaPixelCapabilities.resolve($0.token, for: pixelChain)
+        }
         let declarationConflictPixelCapabilities = capabilities(
             pixelChain,
             catalog: catalog(
@@ -2389,6 +2410,14 @@ private enum Harness {
             capabilities: staticPixelCapabilities,
             generation: 7,
             reason: "material-finalizer-static-uniform-binding"
+        )
+
+        let samplerSchemaFailure = executeUniformFailurePassthrough(
+            claim: samplerSchemaPixelClaim,
+            capability: samplerSchemaPixelCapability,
+            capabilities: samplerSchemaPixelCapabilities,
+            generation: 8,
+            reason: "material-variant-envelope-sampler-schema"
         )
 
         let hostConflictFailure = executeUniformFailurePassthrough(
@@ -2608,6 +2637,13 @@ private enum Harness {
             catalog: catalog(
                 for: ordinaryGraph,
                 uniformSchemaInvalidNodes: [0]
+            )
+        )
+        let samplerSchemaMultiNodeCapabilities = capabilities(
+            ordinaryChain,
+            catalog: catalog(
+                for: ordinaryGraph,
+                samplerSchemaInvalidNodes: [0]
             )
         )
         let ordinaryClaim = ordinaryCapabilities.claim(ordinaryChain)!
@@ -3385,10 +3421,11 @@ private enum Harness {
         let compilerCountsAfterSecond = compilerCounts(ordinaryCapability)
 
         let cacheTemplate = template(for: ordinaryGraph.nodes[0])
-        let boundedCache = SceneResolvedMaterialVariantCache(
+        guard case let .success(boundedCache) =
+                SceneResolvedMaterialVariantCache.launchValidated(
             template: cacheTemplate,
             maximumVariantCount: 1
-        )!
+        ) else { fatalError("bounded cache rejected") }
         var readyResources = prepared.stages[0].frameResources
         readyResources[input] = prepared.stages[0].effectOutputResource
             .rewrappedForGraphIdentity(input)!
@@ -3453,10 +3490,11 @@ private enum Harness {
             for: ordinaryGraph.nodes[0],
             frontendInvalid: true
         )
-        let failingVariantCache = SceneResolvedMaterialVariantCache(
+        guard case let .success(failingVariantCache) =
+                SceneResolvedMaterialVariantCache.launchValidated(
             template: failingTemplate,
             maximumVariantCount: 1
-        )!
+        ) else { fatalError("failing cache rejected") }
         let failingInput = readyVariantFrame.finalizationInput(
             template: failingTemplate,
             renderSize: CGSize(width: extent.width, height: extent.height),
@@ -3799,7 +3837,7 @@ private enum Harness {
                 passCapabilities.claim(ordinaryChain) == nil
                     && passCapabilities.reportLines.contains {
                         $0.contains(
-                            "rejection: material-variant-envelope-sampler-schema count=1"
+                            "rejection: material-variant-envelope-invariant count=1"
                         )
                     },
             "typedPreflightFailureCodesAreStable":
@@ -3953,6 +3991,14 @@ private enum Harness {
                 staticUniformFailure.gpuCompleted,
             "staticUniformFailurePreservesPreviousAndContinuesSuffix":
                 staticUniformFailure.continued,
+            "samplerSchemaFailurePassthroughPrepared":
+                samplerSchemaFailure.prepared,
+            "samplerSchemaFailurePassthroughEncoded":
+                samplerSchemaFailure.encoded,
+            "samplerSchemaFailurePassthroughGPUCompleted":
+                samplerSchemaFailure.gpuCompleted,
+            "samplerSchemaFailurePreservesPreviousAndContinuesSuffix":
+                samplerSchemaFailure.continued,
             "hostConflictFailurePassthroughPrepared":
                 hostConflictFailure.prepared,
             "hostConflictFailurePassthroughEncoded":
@@ -3994,6 +4040,14 @@ private enum Harness {
                     && uniformSchemaMultiNodeCapabilities.reportLines.contains {
                         $0.contains(
                             "rejection: material-variant-envelope-uniform-schema"
+                                + " count=1"
+                        )
+                    },
+            "visualSamplerSchemaMultiNodeRemainsHardRejected":
+                samplerSchemaMultiNodeCapabilities.claim(ordinaryChain) == nil
+                    && samplerSchemaMultiNodeCapabilities.reportLines.contains {
+                        $0.contains(
+                            "rejection: material-variant-envelope-sampler-schema"
                                 + " count=1"
                         )
                     },

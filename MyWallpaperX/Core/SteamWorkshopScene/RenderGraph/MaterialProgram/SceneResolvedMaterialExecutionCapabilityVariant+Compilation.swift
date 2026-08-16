@@ -116,7 +116,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 activeNames: Set(frontend.textureBindings.map(\.name))
             )
         } catch {
-            throw failure(.activeSamplerSchemaInvalid)
+            throw failure(.authoredSamplerSchemaInvalid)
         }
         let bindings = frontend.textureBindings
         guard !hasInternalDefault(samplers),

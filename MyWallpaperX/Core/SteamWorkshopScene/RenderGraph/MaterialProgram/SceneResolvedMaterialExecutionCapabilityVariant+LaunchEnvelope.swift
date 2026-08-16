@@ -94,7 +94,7 @@ extension SceneResolvedMaterialVariantCache {
             case let .material(failure): switch failure.code {
                 case .shaderPreparationFailed: .shaderPreparation
                 case .shaderFrontendFailed: .frontend
-                case .activeSamplerSchemaInvalid: .samplerSchema
+                case .authoredSamplerSchemaInvalid: .samplerSchema
                 case .uniformBindingInvalid: .uniformSchema
                 case .texturePurposeUnproven: .texturePurpose
                 case .textureBindingInvalid, .textureReferenceInvalid:

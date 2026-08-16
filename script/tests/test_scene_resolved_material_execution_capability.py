@@ -536,6 +536,19 @@ final class SceneResolvedMaterialVariantCache {
                 && template.graphRole.bindings[0].texture == .layerSource
     }
 
+    static func launchValidated(
+        template: SceneResolvedMaterialTemplate,
+        maximumVariantCount: Int,
+        assetFormatFacts: [String: Int] = [:]
+    ) -> Result<SceneResolvedMaterialVariantCache, SceneResolvedMaterialFailure> {
+        guard let cache = SceneResolvedMaterialVariantCache(
+            template: template,
+            maximumVariantCount: maximumVariantCount,
+            assetFormatFacts: assetFormatFacts
+        ) else { return .failure(.init()) }
+        return .success(cache)
+    }
+
     func precompileLaunchEnvelope(
         implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?,
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
@@ -4196,14 +4209,17 @@ private enum EnvelopeHarness {
             graph: boundGraph,
             pointerSensitive: true
         )
-        let uncompiledProjectionRequirement = SceneResolvedMaterialVariantCache(
+        guard case let .success(uncompiledProjectionCache) =
+                SceneResolvedMaterialVariantCache.launchValidated(
             template: materialTemplate(
                 graph: boundGraph,
                 shader: contract("projection-uncompiled"),
                 slots: slots(primary: graphCandidate())
             ),
             maximumVariantCount: 16
-        )!.requiresInvertibleEffectTextureProjection
+        ) else { fatalError("projection cache rejected") }
+        let uncompiledProjectionRequirement = uncompiledProjectionCache
+            .requiresInvertibleEffectTextureProjection
         let shaderFailure = catalog(
             graph: boundGraph,
             template: materialTemplate(
@@ -4788,10 +4804,11 @@ private enum EnvelopeHarness {
             template: variantMixedTemplate,
             sourceRoute: .capturedMainTargetTexture
         )
-        let variantMixedCache = SceneResolvedMaterialVariantCache(
+        guard case let .success(variantMixedCache) =
+                SceneResolvedMaterialVariantCache.launchValidated(
             template: variantMixedTemplate,
             maximumVariantCount: 16
-        )!
+        ) else { fatalError("variant mixed cache rejected") }
         let variantMixedEnvelopePrepared: Bool
         let variantMixedEnvelopeFailure: String
         switch variantMixedCache.precompileLaunchEnvelope(

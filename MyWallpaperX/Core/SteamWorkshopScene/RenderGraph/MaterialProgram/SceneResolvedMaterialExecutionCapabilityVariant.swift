@@ -35,23 +35,54 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     private var cachedReachabilityIdentity: Graph.TextureIdentity?
     private var hasCachedReachability = false
 
-    init?(
+    private init(
+        template: Template,
+        maximumVariantCount: Int,
+        assetFormatFacts: [String: Int],
+        seedSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        textureFormatSlots: Set<Int>
+    ) {
+        self.template = template
+        self.seedSamplers = seedSamplers
+        self.textureFormatSlots = textureFormatSlots
+        self.assetFormatFacts = assetFormatFacts
+        self.maximumVariantCount = maximumVariantCount
+    }
+
+    static func launchValidated(
         template: Template,
         maximumVariantCount: Int,
         assetFormatFacts: [String: Int] = [:]
-    ) {
-        guard (1 ... 256).contains(maximumVariantCount),
-              let seed = try? SceneResolvedMaterialShaderSchema
-                  .unconditionalSamplers(template),
-              let formatSlots = try? SceneResolvedMaterialTextureResolver
-                  .launchTextureFormatSlots(template: template) else {
-            return nil
+    ) -> Result<SceneResolvedMaterialVariantCache, Failure> {
+        guard (1 ... 256).contains(maximumVariantCount) else {
+            return .failure(Self.failure(.identityInvariant, phase: .invariant))
         }
-        self.template = template
-        seedSamplers = seed
-        textureFormatSlots = formatSlots
-        self.assetFormatFacts = assetFormatFacts
-        self.maximumVariantCount = maximumVariantCount
+        let seed: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+        do {
+            seed = try SceneResolvedMaterialShaderSchema.unconditionalSamplers(template)
+        } catch {
+            return .failure(Self.failure(
+                .authoredSamplerSchemaInvalid,
+                details: ["unconditional-sampler-schema"]
+            ))
+        }
+        let formatSlots: Set<Int>
+        do {
+            formatSlots = try SceneResolvedMaterialTextureResolver
+                .launchTextureFormatSlots(template: template)
+        } catch {
+            return .failure(Self.failure(
+                .authoredSamplerSchemaInvalid,
+                details: ["texture-format-schema"]
+            ))
+        }
+        return .success(.init(
+            template: template,
+            maximumVariantCount: maximumVariantCount,
+            assetFormatFacts: assetFormatFacts,
+            seedSamplers: seed,
+            textureFormatSlots: formatSlots
+        ))
     }
 
     var counters: Counters {
