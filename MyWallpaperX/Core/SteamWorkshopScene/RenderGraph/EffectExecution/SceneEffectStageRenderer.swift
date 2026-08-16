@@ -129,7 +129,7 @@ targets: targets,
             return nil
         case .shake, .waterFlow, .waterWaves, .waterCaustics,
              .cursorRipple, .foliageSway, .waterRipple, .depthParallax,
-             .xRay, .clippingMask, .blend, .tint, .transform,
+             .xRay, .blend, .tint, .transform,
              .fisheyeZeroDistortion, .godrays, .shine, .pulse:
             return renderSpecializedStage(
                 stage, sourceTexture: sourceTexture, masks: masks,

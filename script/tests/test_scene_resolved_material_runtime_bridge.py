@@ -571,7 +571,7 @@ enum SceneNamedTextureReference {
 struct SceneDependencyRenderPlan {
     struct Binding: Hashable {
         enum Kind: Hashable {
-            case clippingMask
+            case resolvedMaterial
             case proceduralNoiseLayer
             case imageLayerBlend
         }
@@ -1236,8 +1236,8 @@ private func externalPrimaryBinding(
     consumerLayerID: Int = 7,
     providerLayerID: Int = 42,
     slotIndex: Int = 1,
-    blendMode: Int = 5,
-    kind: SceneDependencyRenderPlan.Binding.Kind = .clippingMask
+    blendMode: Int = 0,
+    kind: SceneDependencyRenderPlan.Binding.Kind = .resolvedMaterial
 ) -> SceneDependencyRenderPlan.Binding {
     .init(
         consumerLayerID: consumerLayerID,

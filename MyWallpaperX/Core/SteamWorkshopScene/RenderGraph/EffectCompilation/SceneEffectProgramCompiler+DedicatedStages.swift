@@ -167,11 +167,6 @@ extension SceneEffectProgramCompiler {
                     stage(.xRay($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.clippingMask, {
-                SceneAuthoredClippingMaskPlanner.compile(input).mapAccepted {
-                    stage(.clippingMask($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.blend, {
                 SceneAuthoredBlendPlanner.compile(input).mapAccepted {
                     stage(.blend($0), stageGraph: stageGraph, inputRole: inputRole)

@@ -10,6 +10,10 @@
 >
 > 当前能力只查[能力台账](semantics/coverage-ledger.md)，架构理由只查[兼容运行时架构](runtime-architecture.md)，已运行结果只查[运行证据索引](semantics/runtime-evidence-index.md)。
 
+> 路线北极星：在一个共享 Scene 控制与输出主干上，用更少的通用 primitive 执行更多合法 authored 输入，逐步复现有证据约束的官方可观察行为。V0–V3 是对同一主干依次增加 material/shader、graph、ECMAScript VM 和 particle component 语义；V4 是贯穿其间的 typed-input 横切轨；V5 是接入同一 identity/frame/resource/Program/graph/compositor 的独立领域 epic。它们不是多套替代架构，也不允许按 sample/layer/path/hash 增长产品算法。
+
+每个批次必须能够指出接入的共享 owner、消费的 authored schema、产出的共享运行对象、最小失败半径，以及旧产品 owner 的退出条件。回答不出这些问题时，不得新增 renderer、planner、完整 profile 或第二套资源、状态、graph、clock、history、compositor/output 链。
+
 ## 1. 成功定义
 
 本路线优化的第一结果是“更多真实作者效果实际进入 GPU 并得到可见画面”，不是“更多结构被识别”“更多拒绝理由被证明”或“先完成一个通用平台”。
@@ -30,7 +34,7 @@
 
 本文只保存由上述现役权威导出的计划决策：V0 首个 ordinary authored effect 已按完成门取得 `slice-visible` 正反证，下一批进入 V1，在同一 Program/GraphExecutor 主链闭合最小 graph/FBO correctness atom，不建设第二套 renderer。仓库中的历史专用实现、旧测试、旧类型层级和旧 matrix 只构成需要审计的偏差候选，不自动取得目标架构或下一批执行权。
 
-依据当前能力台账与运行证据，V1 已分别闭合 material/copy/unique-history 与 exact primary cross-layer named-provider 两个 bounded `slice-visible` atom。路线决策仍是留在 V1：从 ordered multi-pass/FBO command、其他 history、swap/compose/condition/function与 secondary/multiple/nested dependency 中选择下一个独立公共结果；不因两个 atom 提前进入 V2，也不宣告 V1、Fast Suite 或 owner migration 完成。
+依据当前能力台账与运行证据，V1 已分别闭合 material/copy/unique-history 与 classic primary cross-layer named-provider 两个 bounded `slice-visible` atom；能力台账与运行证据另已登记后者的局部 `generic-only / owner-migration-complete`。路线决策仍是留在 V1：从 ordered multi-pass/FBO command、其他 history、swap/compose/condition/function与 secondary/multiple/nested dependency 中选择下一个独立公共结果；该局部 owner 迁移不表示 V1、Fast Suite、官方 parity 或 release 完成。
 
 ## 3. 执行优先级
 
@@ -206,15 +210,24 @@ V0 只需要前两类，V1 增加 3–5，V2/V3 分别增加 6/7。批准前仍�
 
 ```yaml
 capability_id:
+capability_profile:
 target_contract:
 current_observation_and_evidence:
 deviation_class:
 first_breakpoint:
 correctness_atom:
+shared_backbone_owner:
+authored_input_schema:
+shared_runtime_output:
+product_output_owner_before:
+product_output_owner_after:
 route_state_before:
 route_state_after:
 fallback_reason_and_radius:
+old_owner_retirement_condition:
+unseen_composition_fixture:
 positive_negative_and_visible_gate:
+evidence_claim_limit:
 remaining_deviation_and_exit_condition:
 ```
 
@@ -238,10 +251,10 @@ remaining_deviation_and_exit_condition:
 
 - `observe-only`：通用路径只收集差分，不决定产品输出；
 - `prefer-generic`：通用路径先执行，失败按 typed reason 回到已验证旧路径；
-- `generic-only`：通用路径持有产品权，旧路径只可作为离线 oracle；
-- `disable-generic`：出现回滚条件时原子关闭通用产品路由，不删除 fixture 和诊断。
+- `generic-only`：在按架构合同登记的 `capability_profile` 内通用路径持有产品权，不自动外推整个 family 或 V 轨；经审查仍表达官方可观察行为、项目稳定公共合同或独立正反输入的 fixture/golden/截图 ROI 可以继续验证通用路径，但依赖旧内部类型、dispatch、私有常量组合或旧实现自生成预期的测试/oracle，以及旧可执行产品实现和 dispatch 必须删除，不得保留可重启的第二链；
+- `disable-generic`：出现回滚条件时原子关闭该 `capability_profile` 的通用产品路由，不删除实现无关的 fixture 和诊断；仍有已验证旧 owner 时才可按 typed reason 回退，否则继续按现役失败分类处理：eligible visual failure 局部 fail soft 并保留安全 previous current，integrity/ABI/target/hazard/lifecycle/budget failure 硬拒绝最小不安全单元；任何分支都不得复活已退役 owner。
 
-从 `prefer-generic` 升为 `generic-only` 前必须有新组合门、相关 Fast/代表内容、fallback 次数与原因、一次回滚演练、能力/证据回写，并证明旧 owner 不再被产品调用；之后才删除对应旧实现。不得长期保留静默双路由，也不得以“已经稳定”代替这些退出条件。
+从 `prefer-generic` 升为 `generic-only` 前必须有新组合门、相关 Fast/代表内容、fallback 次数与原因、一次回滚演练、能力/证据回写，并证明旧 owner 不再被产品调用；同一独立 owner-migration 批次必须删除对应旧实现与专用测试 owner。不得长期保留静默双路由、可重启的第二链，也不得以“已经稳定”代替这些退出条件。
 
 完成状态也分三层：`slice-visible` 只证明本纵向结果；`owner-migration-complete` 证明执行权与回滚合同完成；`bounded-profile-parity/release` 还必须通过预登记官方黑盒对照、生命周期、预算及所需发行门。前一层不能冒充后一层。
 

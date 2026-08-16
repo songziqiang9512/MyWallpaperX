@@ -252,14 +252,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let resolvedDependencyStages = stages.compactMap {
             resolvedExternalDependency(in: $0)
         }
-        let clippingStages = stages.compactMap { stage -> (
-            program: SceneEffectStageProgram,
-            plan: SceneClippingMaskExecutionPlan
-        )? in
-            guard case let .dedicated(_, program, _) = stage,
-                  let plan = program.executionPlan.clippingMask else { return nil }
-            return (program, plan)
-        }
         let proceduralDependencyStages = stages.compactMap { stage -> (
             program: SceneEffectStageProgram,
             plan: SceneProceduralNoiseExecutionPlan
@@ -282,14 +274,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         switch ownership {
         case .none, .graphInternal:
             return resolvedDependencyStages.isEmpty
-                && clippingStages.isEmpty
                 && proceduralDependencyStages.isEmpty
                 && imageBlendDependencyStages.isEmpty
 
         case let .externalPrimary(binding):
             guard binding.consumerLayerID == layerID else { return false }
             if resolvedDependencyStages.count == 1,
-               clippingStages.isEmpty,
                proceduralDependencyStages.isEmpty,
                imageBlendDependencyStages.isEmpty,
                resolvedDependencyStages.first?.matches(binding) == true {
@@ -297,31 +287,13 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             guard resolvedDependencyStages.isEmpty else { return false }
             switch binding.kind {
-            case .clippingMask:
-                guard binding.slot.slotIndex == 1,
-                      clippingStages.count == 1,
-                      proceduralDependencyStages.isEmpty,
-                      imageBlendDependencyStages.isEmpty,
-                      let clipping = clippingStages.first else { return false }
-                let program = clipping.program
-                let plan = clipping.plan
-                return program.effectKey == plan.effectKey
-                    && program.stageGraph.effects.first?.key == plan.effectKey
-                    && plan.layerID == layerID
-                    && plan.effectKey.layerID == layerID
-                    && plan.effectKey.descriptorID == binding.slot.effectID
-                    && plan.providerLayerID == binding.providerLayerID
-                    && plan.blendMode == binding.blendMode
-                    && plan.renderGraph.effects.count == 1
-                    && plan.renderGraph.nodes.count == 1
-                    && plan.renderGraph.nodes.first?.instancePassIndex
-                        == binding.slot.passIndex
+            case .resolvedMaterial:
+                return false
 
             case .proceduralNoiseLayer:
                 guard binding.slot.passIndex == 0,
                       binding.slot.slotIndex == 3,
                       binding.blendMode == 0,
-                      clippingStages.isEmpty,
                       imageBlendDependencyStages.isEmpty,
                       proceduralDependencyStages.count == 1,
                       let procedural = proceduralDependencyStages.first else {
@@ -347,7 +319,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 guard binding.slot.passIndex == 0,
                       binding.slot.slotIndex == 1,
                       binding.blendMode == 0,
-                      clippingStages.isEmpty,
                       proceduralDependencyStages.isEmpty,
                       imageBlendDependencyStages.count == 1,
                       let blend = imageBlendDependencyStages.first else {

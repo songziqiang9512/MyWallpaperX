@@ -23,7 +23,6 @@ extension SceneEffectStageExecutionPlan {
         case waterRipple(SceneWaterRippleExecutionPlan)
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
-        case clippingMask(SceneClippingMaskExecutionPlan)
         case blend(SceneBlendExecutionPlan)
         case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
@@ -38,7 +37,7 @@ extension SceneEffectStageExecutionPlan {
                  .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                  .workshopShadow, .filmGrain, .shake, .waterFlow,
                  .waterWaves, .waterCaustics, .foliageSway, .waterRipple,
-                 .depthParallax, .xRay, .clippingMask, .blend, .tint, .transform,
+                 .depthParallax, .xRay, .blend, .tint, .transform,
                  .fisheyeZeroDistortion, .pulse:
                 return true
             case .proceduralNoise(let plan):
@@ -214,11 +213,6 @@ extension SceneEffectStageExecutionPlan {
         return plan
     }
 
-    nonisolated var clippingMask: SceneClippingMaskExecutionPlan? {
-        guard case .clippingMask(let plan) = backend else { return nil }
-        return plan
-    }
-
     nonisolated var blend: SceneBlendExecutionPlan? {
         guard case .blend(let plan) = backend else { return nil }
         return plan
@@ -280,7 +274,7 @@ extension SceneEffectStageExecutionPlan {
             return true
         case .foliageSway:
             return true
-        case .clippingMask, .opacity:
+        case .opacity:
             return true
         case .fisheyeZeroDistortion:
             return true

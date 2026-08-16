@@ -311,11 +311,6 @@ extension SceneEffectStageRenderer {
             case .unsupported:
                 return "x-ray-runtime-unsupported"
             }
-        case .clippingMask(let plan):
-            return clippingDependencyMatches(
-                inputs.dependencyEffect,
-                plan: plan
-            ) ? nil : "clipping-mask-dependency-mismatch"
         case .blend(let plan):
             if let providerLayerID = plan.dependencyProviderLayerID {
                 guard let dependency = inputs.dependencyEffect,

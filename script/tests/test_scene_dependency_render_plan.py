@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -22,7 +23,6 @@ METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
 LAUNCH_SOURCE = SOURCE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
-    SOURCE_ROOT / "RenderGraph/SceneClippingMaskContract.swift",
     SOURCE_ROOT
     / "RenderGraph/LayerDependencies/SceneImageLayerBlendDependencyContract.swift",
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyGraphAnalysis.swift",
@@ -117,12 +117,12 @@ enum Harness {
         let partialConsumer = consumer(8, provider: 1, extraEffect: true)
         let neutralOpacityConsumer = consumer(9, provider: 1, opacity: 1)
         let nonNeutralOpacityConsumer = consumer(10, provider: 1, opacity: 0.5)
-        let unsupportedBlendConsumer = consumer(
+        let alternateEffectConsumer = consumer(
             11,
             provider: 1,
             effectPath: "effects/blend/effect.json"
         )
-        let lookalikeConsumer = consumer(
+        let alternatePathConsumer = consumer(
             16,
             provider: 1,
             effectPath: "effects/workshop/other/clipping_mask/effect.json"
@@ -194,13 +194,39 @@ enum Harness {
             descriptor: secondaryDescriptor,
             visibleLayerIDs: [1, 33]
         )
+        let routeProvider = layer(400, kind: .composition, visible: false)
+        let routeConsumer = consumer(401, provider: 400)
+        let routePlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: [routeProvider, routeConsumer],
+                renderOrderLayerIDs: [routeProvider.id, routeConsumer.id]
+            ),
+            visibleLayerIDs: [routeProvider.id, routeConsumer.id]
+        )
+        let routeUtilityProvider = layer(410, kind: .composition, visible: false)
+        let routeUtilityConsumer = SceneRenderDescriptor.Layer(
+            id: 411,
+            contentKind: "composition",
+            utilityLayer: .init(kind: .composition),
+            dependencyLayerIDs: [routeUtilityProvider.id],
+            childLayerIDs: [],
+            visible: true,
+            effects: [effect(id: 411, provider: routeUtilityProvider.id)]
+        )
+        let routeUtilityPlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: [routeUtilityProvider, routeUtilityConsumer],
+                renderOrderLayerIDs: [routeUtilityProvider.id, routeUtilityConsumer.id]
+            ),
+            visibleLayerIDs: [routeUtilityProvider.id, routeUtilityConsumer.id]
+        )
         let descriptor = SceneRenderDescriptor(
             layers: [
                 provider, visibleConsumer, hiddenConsumer,
                 cycleA, cycleB, forwardConsumer, forwardProvider, partialConsumer,
-                neutralOpacityConsumer, nonNeutralOpacityConsumer, unsupportedBlendConsumer,
+                neutralOpacityConsumer, nonNeutralOpacityConsumer, alternateEffectConsumer,
                 supportedGradientConsumer, reversedGradientConsumer, invalidGradientConsumer,
-                utilityConsumer, lookalikeConsumer, projectUtilityConsumer,
+                utilityConsumer, alternatePathConsumer, projectUtilityConsumer,
                 childUtilityConsumer, extraDependencyUtilityConsumer,
                 legacyNoiseProvider, legacyNoiseConsumer, missingProviderConsumer,
             ],
@@ -393,6 +419,28 @@ enum Harness {
             "secondaryIssues": secondaryPlan.issues.map {
                 "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
             },
+            "resolvedMaterialRoute": [
+                "binding": routePlan.bindingsByConsumerLayerID[routeConsumer.id] != nil,
+                "resolvedMaterial": routePlan.bindingsByConsumerLayerID[routeConsumer.id]?.kind
+                    == .resolvedMaterial,
+                "requiredEffect": routePlan.requiredEffectConsumerLayerIDs
+                    .contains(routeConsumer.id),
+                "requiredProviders": routePlan.requiredProviderLayerIDs.sorted(),
+                "issues": routePlan.issues.map {
+                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+                },
+            ],
+            "resolvedMaterialUtilityRoute": [
+                "binding": routeUtilityPlan.bindingsByConsumerLayerID[
+                    routeUtilityConsumer.id
+                ] != nil,
+                "requiredEffect": routeUtilityPlan.requiredEffectConsumerLayerIDs
+                    .contains(routeUtilityConsumer.id),
+                "requiredProviders": routeUtilityPlan.requiredProviderLayerIDs.sorted(),
+                "issues": routeUtilityPlan.issues.map {
+                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+                },
+            ],
             "matrixBindingCount": matrixPlan.bindingsByConsumerLayerID.count,
             "matrixRequiredProviders": matrixPlan.requiredProviderLayerIDs.sorted(),
             "staticPassthroughBlocks": [
@@ -701,7 +749,7 @@ enum Harness {
                 ]
             )]
         )
-        let clipping = effect(id: id, provider: provider)
+        let externalPrimary = effect(id: id, provider: provider)
         return .init(
             id: id,
             contentKind: "image",
@@ -709,7 +757,7 @@ enum Harness {
             dependencyLayerIDs: [provider],
             childLayerIDs: [],
             visible: true,
-            effects: reversed ? [clipping, gradient] : [gradient, clipping]
+            effects: reversed ? [externalPrimary, gradient] : [gradient, externalPrimary]
         )
     }
 
@@ -894,10 +942,26 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         )
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
+        default_environment = os.environ.copy()
+        default_environment.pop("MWX_SCENE_NAMED_PROVIDER_ROUTE", None)
         completed = subprocess.run(
-            [str(cls.binary)], check=True, capture_output=True, text=True
+            [str(cls.binary)],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=default_environment,
         )
         cls.result = json.loads(completed.stdout)
+        disabled_environment = default_environment.copy()
+        disabled_environment["MWX_SCENE_NAMED_PROVIDER_ROUTE"] = "disable-generic"
+        disabled = subprocess.run(
+            [str(cls.binary)],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=disabled_environment,
+        )
+        cls.route_disabled_result = json.loads(disabled.stdout)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -912,7 +976,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             ["33:unsupportedVariant:1"],
         )
 
-    def test_image_and_composition_clipping_consumers_share_backward_binding(self) -> None:
+    def test_named_consumers_share_path_independent_backward_binding(self) -> None:
         self.assertEqual(self.result["referenceCount"], 17)
         self.assertEqual(
             self.result["namedConsumers"],
@@ -920,24 +984,72 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         )
         self.assertEqual(
             self.result["requiredEffectConsumers"],
-            [2, 6, 8, 9, 12, 13, 14, 15, 31, 32],
+            [2, 6, 8, 9, 11, 12, 13, 14, 15, 16, 31, 32],
         )
         self.assertEqual(self.result["executableUtilityConsumers"], [15, 31])
         self.assertEqual(
             self.result["bindingConsumers"],
-            [2, 8, 9, 12, 13, 14, 15, 31],
+            [2, 8, 9, 11, 12, 13, 14, 15, 16, 31],
         )
         self.assertFalse(self.result["defaultUtilityBinding"])
         self.assertEqual(self.result["requiredProviders"], [1, 30])
 
-    def test_cycle_forward_and_invalid_clipping_contracts_fail_closed(self) -> None:
+    def test_named_provider_route_rollback_is_generic_only_and_fail_closed(self) -> None:
+        self.assertEqual(
+            self.result["resolvedMaterialRoute"],
+            {
+                "binding": True,
+                "resolvedMaterial": True,
+                "requiredEffect": True,
+                "requiredProviders": [400],
+                "issues": [],
+            },
+        )
+        self.assertEqual(
+            self.route_disabled_result["resolvedMaterialRoute"],
+            {
+                "binding": False,
+                "resolvedMaterial": False,
+                "requiredEffect": True,
+                "requiredProviders": [],
+                "issues": ["401:resolvedMaterialRouteDisabled:400"],
+            },
+        )
+        self.assertEqual(
+            self.result["resolvedMaterialUtilityRoute"],
+            {
+                "binding": False,
+                "requiredEffect": False,
+                "requiredProviders": [],
+                "issues": ["411:unsupportedConsumer:-1"],
+            },
+        )
+        self.assertEqual(
+            self.route_disabled_result["resolvedMaterialUtilityRoute"],
+            {
+                "binding": False,
+                "requiredEffect": True,
+                "requiredProviders": [],
+                "issues": ["411:resolvedMaterialRouteDisabled:410"],
+            },
+        )
+        self.assertEqual(
+            self.route_disabled_result["legacyNoiseBinding"],
+            self.result["legacyNoiseBinding"],
+        )
+        self.assertEqual(
+            self.route_disabled_result["imageBlendBinding"],
+            self.result["imageBlendBinding"],
+        )
+
+    def test_cycle_forward_and_invalid_external_primary_contracts_fail_closed(self) -> None:
         self.assertEqual(self.result["cycles"], [4, 5])
         self.assertIn("2:dependencyMismatch:1", self.result["issues"])
         self.assertIn("6:forwardUtilityProvider:7", self.result["issues"])
         self.assertIn("32:missingProvider:999", self.result["issues"])
         self.assertIn("10:unsupportedConsumer:-1", self.result["issues"])
         self.assertNotIn("15:unsupportedConsumer:-1", self.result["issues"])
-        self.assertIn("16:unsupportedConsumer:-1", self.result["issues"])
+        self.assertNotIn("16:unsupportedConsumer:-1", self.result["issues"])
         for layer_id in (17, 18, 19):
             self.assertIn(
                 f"{layer_id}:unsupportedConsumer:-1",

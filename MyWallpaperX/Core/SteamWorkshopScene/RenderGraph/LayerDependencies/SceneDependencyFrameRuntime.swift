@@ -247,7 +247,7 @@ final class SceneDependencyFrameRuntime {
                 )
                 return didEncode
             }
-        case .clippingMask, .proceduralNoiseLayer:
+        case .resolvedMaterial, .proceduralNoiseLayer:
             guard let utility = layer.utilityLayer,
                   let geometry = SceneCaptureGeometryResolver.resolve(
                       kind: utility.kind,
@@ -347,7 +347,7 @@ final class SceneDependencyFrameRuntime {
                 width: providerTexture.width,
                 height: providerTexture.height
             )
-        case .clippingMask, .proceduralNoiseLayer:
+        case .resolvedMaterial, .proceduralNoiseLayer:
             guard let utility = providerLayer.utilityLayer,
                   let geometry = SceneCaptureGeometryResolver.resolve(
                       kind: utility.kind,

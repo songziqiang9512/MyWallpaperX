@@ -4,13 +4,15 @@
 
 > 状态：现役长期架构合同
 >
-> 最近复核：2026-08-15
+> 最近复核：2026-08-17
 >
 > 当前实现程度与缺口只查[能力台账](semantics/coverage-ledger.md)；本文件描述目标处理方式，不把目标冒充现役能力。
 
 ## 1. 产品目标
 
 MyWallpaperX Scene 的首要目标是尽快让真实 Wallpaper Engine Scene 在 macOS 上得到可辨认、可持续改进的正确画面。长期仍保持 Swift + AppKit 产品宿主和 Swift + Metal 渲染底座，但不再把每个已知 effect、shader 表达式、脚本或粒子组合翻译成一条专用 Swift 产品路径。
+
+兼容对象是有证据约束的官方作者可观察行为，不是对 Wallpaper Engine 未公开内部 renderer、RenderGraph 或算法的猜测与复刻。样本、layer、path、asset、hash 和截图只用于发现影响面、验证与回归，永远不能选择产品视觉算法。项目的长期工程目标是**语义压缩**：用更少的共享运行 primitive 执行更多合法 authored 输入，而不是随样本数量增长 planner、profile、renderer 和 dispatch。
 
 目标只有一条执行主链：
 
@@ -27,6 +29,25 @@ project / scene / package / texture
 ```
 
 实施时按能够闭合真实画面的纵向切片扩展这条链。不得先分别建设完整 compiler、RenderGraph、VM、particle platform，再等待它们全部完成后才允许真实内容执行。
+
+### 1.1 一个产品主干，多个通用语义执行器
+
+“一条执行主链”约束的是产品控制、状态、资源和最终输出所有权，不表示把不同语言和对象域压进一个巨型 renderer。以下边界在所有迁移中保持不变：
+
+| 必须只有一个产品权威 | 可以独立演进、但必须生产或消费共享运行对象 |
+|---|---|
+| scene/object identity 与作者顺序 | authored shader compiler/backend |
+| frame clock、typed frame channels 与 frame commit | ECMAScript VM 与 typed host bridge |
+| property/state 权威、generation 与 invalidation | particle component interpreter/simulator |
+| resource/provider registry | text rasterizer、media/video decoder/provider |
+| graph、target、history、publication 与 rollback 生命周期 | 3D importer、geometry、animation、physics、lighting |
+| compositor、drawable 与每个 surface 的最终输出决策 | 其他接入共享 Program/resource/graph/compositor 的领域 producer |
+
+同一个明确登记的 `capability_profile` 在产品运行时只能有一个输出 owner 和一个 route decision。`capability_profile` 只能由 authored schema、结构 topology、typed resource/state/constant bounds、failure contract 与公共执行 identity 定义，并登记在能力台账和 route diagnostic；不得包含 sample/layer/path/hash/screenshot identity。迁移期的新旧实现可以暂时共存，但不得静默双执行；旧 owner 只能通过 typed fallback reason 接管已经验证的 bounded 输入，并且必须有退出条件。`generic-only` 只证明该 `capability_profile` 的执行权迁移，不自动证明整个 effect、shader、script、particle family 或 V 轨完成。
+
+进入 `generic-only` 后，只有经审查仍表达官方可观察行为、项目稳定公共合同或独立正反输入的 authored fixture、golden、截图 ROI 和行为反例可以继续验证通用路径；依赖旧内部类型、dispatch、私有常量组合或由旧实现自生成预期的测试/oracle 必须删除，或先转换为实现无关的行为合同。旧产品 dispatch、planner、renderer、可重新接回产品的实现和实现耦合测试 owner 必须在同一独立 owner-migration 批次删除或移出产品边界。纯离线 oracle 只有在不持有产品依赖和路由、且仍能提供独立行为价值时才可保留。
+
+Agent 若准备新增第二套 resource registry、property tree、frame clock、graph/history、compositor/final output owner，或让 sample/layer/path/hash/screenshot identity 选择视觉算法，说明设计已经偏离本合同，必须停止当前实现并重新接入上述共享主干。
 
 ## 2. 证据来源及其边界
 
@@ -211,10 +232,10 @@ effect definition
 |---|---|
 | `observe-only` | 通用路径只编译、规划和记录差异，不发布产品输出 |
 | `prefer-generic` | 通用路径优先；只有已验证旧 owner 可按 typed fallback reason 接管失败的 bounded 输入 |
-| `generic-only` | 只有通用路径持有产品执行权；旧实现至多作为离线测试 oracle |
-| `disable-generic` | 故障时显式回滚到仍受支持的旧 owner；必须登记触发原因、影响面和退出条件 |
+| `generic-only` | 在明确登记的 `capability_profile` 内只有通用路径持有产品执行权；旧产品实现与 dispatch 已退役，历史 fixture/golden 继续验证通用路径，纯离线 oracle 必须与产品依赖隔离 |
+| `disable-generic` | 故障时原子关闭该通用产品 route；仍有已验证旧 owner 时可按 typed reason 回退，否则继续按现役失败分类处理，eligible visual failure 局部 fail soft 并保留安全 previous current，integrity/ABI/target/hazard/lifecycle/budget failure 硬拒绝最小不安全单元；不得复活已退役 owner |
 
-路由选择、fallback reason、输入 identity 和计数必须可观察，禁止同一输入静默双执行。`observe-only -> prefer-generic -> generic-only` 的每次转换都要原子可回退；进入 `generic-only` 前必须通过真实纵向正证、局部失败反例、新组合/未见 fixture、fallback 统计和一次回滚演练。旧产品 owner 只有在 `generic-only` 稳定、产品路径无旧引用且权威文档同步后才可删除或隔离；长期停在 `disable-generic` 仍是未完成偏差债务。
+路由选择、fallback reason、输入 identity 和计数必须可观察，禁止同一输入静默双执行。`observe-only -> prefer-generic -> generic-only` 的每次转换都要原子可回退；进入 `generic-only` 前必须通过真实纵向正证、局部失败反例、新组合/未见 fixture、fallback 统计和一次回滚演练。同一独立 owner-migration 批次必须完成产品路径旧引用撤销、旧产品 owner 删除或隔离以及权威文档同步，之后才能声明 `owner-migration-complete`；长期停在 `disable-generic` 仍是未完成偏差债务。
 
 ### 5.2 Effect graph 通路
 

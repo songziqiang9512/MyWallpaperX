@@ -10,7 +10,7 @@ nonisolated struct SceneDependencyRenderPlan {
 
     nonisolated struct Binding: Hashable {
         enum Kind: Hashable {
-            case clippingMask
+            case resolvedMaterial
             case proceduralNoiseLayer
             case imageLayerBlend
         }
@@ -29,6 +29,7 @@ nonisolated struct SceneDependencyRenderPlan {
         case unsupportedConsumer
         case unsupportedVariant
         case forwardUtilityProvider
+        case resolvedMaterialRouteDisabled
     }
 
     nonisolated struct Issue: Hashable {
@@ -89,6 +90,9 @@ nonisolated struct SceneDependencyRenderPlan {
         let cyclicLayerIDs = SceneDependencyGraphAnalysis.cyclicLayerIDs(
             edges: dependencyEdges
         )
+        let resolvedMaterialRouteDisabled = ProcessInfo.processInfo.environment[
+            "MWX_SCENE_NAMED_PROVIDER_ROUTE"
+        ] == "disable-generic"
         var issues = SceneDependencyGraphAnalysis.referenceIssues(
             references: references,
             layersByID: layersByID
@@ -105,6 +109,7 @@ nonisolated struct SceneDependencyRenderPlan {
                 order: order,
                 cyclicLayerIDs: cyclicLayerIDs,
                 executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
+                resolvedMaterialRouteDisabled: resolvedMaterialRouteDisabled,
                 issues: &issues
             ) else {
                 continue
@@ -125,12 +130,19 @@ nonisolated struct SceneDependencyRenderPlan {
         })
         self.executableUtilityConsumerLayerIDs = executableUtilityConsumerLayerIDs
         self.requiredEffectConsumerLayerIDs = Set(descriptor.layers.compactMap { layer in
+            let layerReferences = references.filter { $0.consumerLayerID == layer.id }
+            let routeDisabledResolvedMaterialUtility = resolvedMaterialRouteDisabled
+                && Self.supportsStructuralUtilityConsumer(layer)
+                && Self.resolvedMaterialReference(
+                    in: layer.effects.filter { $0.visible != false },
+                    references: layerReferences
+                ) != nil
             guard visibleLayerIDs.contains(layer.id),
                   Self.supportsEffectConsumer(
                       layer,
                       executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
-                  ),
-                  references.contains(where: { $0.consumerLayerID == layer.id }),
+                  ) || routeDisabledResolvedMaterialUtility,
+                  !layerReferences.isEmpty,
                   Self.requiresNamedEffect(
                       layer,
                       executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
@@ -156,6 +168,7 @@ nonisolated struct SceneDependencyRenderPlan {
         order: [Int: Int],
         cyclicLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
+        resolvedMaterialRouteDisabled: Bool,
         issues: inout [Issue]
     ) -> Binding? {
         let visibleEffects = layer.effects.filter { $0.visible != false }
@@ -164,15 +177,7 @@ nonisolated struct SceneDependencyRenderPlan {
             blendMode: Int,
             kind: Binding.Kind
         )?
-        if let clipping = supportedClippingEffect(in: visibleEffects),
-           references.count == 1,
-           let reference = references.first,
-           reference.slot.effectID == clipping.declaration.effectID,
-           reference.slot.passIndex == clipping.declaration.passIndex,
-           reference.slot.slotIndex == 1,
-           reference.providerLayerID == clipping.declaration.providerLayerID {
-            contract = (reference, clipping.declaration.blendMode, .clippingMask)
-        } else if let reference = supportedProceduralNoiseReference(
+        if let reference = supportedProceduralNoiseReference(
             layer: layer,
             visibleEffects: visibleEffects,
             references: references,
@@ -187,14 +192,27 @@ nonisolated struct SceneDependencyRenderPlan {
            reference.slot.slotIndex == declaration.slotIndex,
            reference.providerLayerID == declaration.providerLayerID {
             contract = (reference, declaration.blendMode, .imageLayerBlend)
+        } else if let reference = resolvedMaterialReference(
+            in: visibleEffects,
+            references: references
+        ) {
+            contract = (reference, 0, .resolvedMaterial)
         } else {
             contract = nil
         }
-        guard supportsEffectConsumer(
-                  layer,
-                  executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
-              ),
-              let contract else {
+        guard let contract else {
+            issues.append(Issue(kind: .unsupportedConsumer, layerID: layer.id, providerLayerID: nil))
+            return nil
+        }
+        let supportsConsumer = supportsEffectConsumer(
+            layer,
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+        ) || (
+            resolvedMaterialRouteDisabled
+                && contract.kind == .resolvedMaterial
+                && supportsStructuralUtilityConsumer(layer)
+        )
+        guard supportsConsumer else {
             issues.append(Issue(kind: .unsupportedConsumer, layerID: layer.id, providerLayerID: nil))
             return nil
         }
@@ -226,7 +244,7 @@ nonisolated struct SceneDependencyRenderPlan {
             return nil
         }
         let providerKindIsSupported = switch contract.kind {
-        case .clippingMask:
+        case .resolvedMaterial:
             provider.utilityLayer?.kind == .composition
         case .proceduralNoiseLayer:
             provider.contentKind == "solid"
@@ -244,6 +262,14 @@ nonisolated struct SceneDependencyRenderPlan {
               (order[provider.id] ?? .max) < (order[layer.id] ?? .min) else {
             issues.append(Issue(
                 kind: .forwardUtilityProvider,
+                layerID: layer.id,
+                providerLayerID: provider.id
+            ))
+            return nil
+        }
+        if contract.kind == .resolvedMaterial, resolvedMaterialRouteDisabled {
+            issues.append(Issue(
+                kind: .resolvedMaterialRouteDisabled,
                 layerID: layer.id,
                 providerLayerID: provider.id
             ))
@@ -270,18 +296,13 @@ nonisolated struct SceneDependencyRenderPlan {
             && layer.dependencyLayerIDs.count == 1
     }
 
-    private nonisolated static func supportedClippingEffect(
-        in visibleEffects: [SceneRenderDescriptor.EffectDescriptor]
-    ) -> (
-        effect: SceneRenderDescriptor.EffectDescriptor,
-        declaration: SceneClippingMaskDeclaration
-    )? {
-        let matches = visibleEffects.compactMap { effect in
-            SceneClippingMaskContract.dependencyDeclaration(for: effect).map {
-                (effect: effect, declaration: $0)
-            }
-        }
-        return matches.count == 1 ? matches[0] : nil
+    private nonisolated static func supportsStructuralUtilityConsumer(
+        _ layer: SceneRenderDescriptor.Layer
+    ) -> Bool {
+        layer.utilityLayer?.kind == .composition
+            && layer.contentKind == "composition"
+            && layer.childLayerIDs.isEmpty
+            && layer.dependencyLayerIDs.count == 1
     }
 
     private nonisolated static func requiresNamedEffect(
@@ -289,9 +310,11 @@ nonisolated struct SceneDependencyRenderPlan {
         executableUtilityConsumerLayerIDs: Set<Int>
     ) -> Bool {
         let visibleEffects = layer.effects.filter { $0.visible != false }
-        if visibleEffects.compactMap(
-            SceneClippingMaskContract.dependencyDeclaration
-        ).count == 1 {
+        let references = SceneDependencyGraphAnalysis.references(in: [layer])
+        if resolvedMaterialReference(
+            in: visibleEffects,
+            references: references
+        ) != nil {
             return true
         }
         if supportedImageLayerBlendDeclaration(in: visibleEffects) != nil {
@@ -300,9 +323,46 @@ nonisolated struct SceneDependencyRenderPlan {
         return supportedProceduralNoiseReference(
             layer: layer,
             visibleEffects: visibleEffects,
-            references: SceneDependencyGraphAnalysis.references(in: [layer]),
+            references: references,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         ) != nil
+    }
+
+    private nonisolated static func resolvedMaterialReference(
+        in visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
+        references: [Reference]
+    ) -> Reference? {
+        guard references.count == 1,
+              let reference = references.first,
+              reference.slot.slotIndex == 1 else { return nil }
+        let effects = visibleEffects.filter { $0.id == reference.slot.effectID }
+        guard effects.count == 1, let effect = effects.first else { return nil }
+        let passes = effect.passes.filter {
+            $0.passIndex == reference.slot.passIndex
+        }
+        guard passes.count == 1, let pass = passes.first else { return nil }
+        let hasNoUserTextureOverride =
+            !pass.userTextureInputs.indices.contains(reference.slot.slotIndex)
+            || pass.userTextureInputs[reference.slot.slotIndex] == nil
+        let hasOnlyNeutralAuthoredConstants = pass.constantShaderValues.values
+            .allSatisfy { value in
+                guard let components = value.components,
+                      !components.isEmpty else { return false }
+                return components.allSatisfy { $0 == 1 }
+            }
+        guard
+              pass.textureSlots.indices.contains(reference.slot.slotIndex),
+              let path = pass.textureSlots[reference.slot.slotIndex],
+              SceneNamedTextureReference.parse(path) == .init(
+                  providerLayerID: reference.providerLayerID,
+                  variant: reference.variant
+              ),
+              hasNoUserTextureOverride,
+              hasOnlyNeutralAuthoredConstants
+        else {
+            return nil
+        }
+        return reference
     }
 
     private nonisolated static func supportedProceduralNoiseReference(

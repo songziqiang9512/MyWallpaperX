@@ -195,7 +195,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         case .waterRipple: "water-ripple"
         case .depthParallax: "depth-parallax"
         case .xRay: "x-ray"
-        case .clippingMask: "clipping-mask"
         case .blend: "blend"
         case .tint: "tint"
         case .transform: "transform"

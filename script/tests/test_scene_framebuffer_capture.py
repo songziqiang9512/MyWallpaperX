@@ -105,7 +105,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ShiftHue.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ProceduralNoise.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+FilmGrain.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ClippingMask.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Tint.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+XRay.swift",
@@ -507,20 +506,6 @@ struct SceneLayerDisplayScriptOwnership {
     var isEmpty: Bool { !visible && !alpha }
 }
 
-enum SceneClippingMaskProfile: String {
-    case classic
-    case weightedNeutral
-}
-
-struct SceneClippingMaskExecutionPlan {
-    let layerID: Int
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let providerLayerID: Int
-    let blendMode: Int
-    let profile: SceneClippingMaskProfile
-}
-
 struct SceneTexContainer {
     struct SpriteFrame {
         let imageIndex: Int
@@ -730,7 +715,6 @@ struct SceneLightShaftsEffectTextures {
         case waterRipple(SceneWaterRippleExecutionPlan)
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
-        case clippingMask(SceneClippingMaskExecutionPlan)
         case blend(SceneBlendExecutionPlan)
         case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
@@ -743,7 +727,7 @@ struct SceneLightShaftsEffectTextures {
             switch self {
             case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                  .workshopShadow,
-                 .filmGrain, .shake, .clippingMask:
+                 .filmGrain, .shake:
                 return true
             case .proceduralNoise(let plan):
                 return plan.variant == .worleyColorV1
@@ -777,7 +761,6 @@ struct SceneLightShaftsEffectTextures {
             case .waterRipple: "water-ripple"
             case .depthParallax: "depth-parallax"
             case .xRay: "x-ray"
-            case .clippingMask: "clipping-mask"
             case .blend: "blend"
             case .tint: "tint"
             case .transform: "transform"
@@ -849,11 +832,6 @@ struct SceneLightShaftsEffectTextures {
 
     var depthParallax: SceneDepthParallaxExecutionPlan? {
         guard case .depthParallax(let plan) = backend else { return nil }
-        return plan
-    }
-
-    var clippingMask: SceneClippingMaskExecutionPlan? {
-        guard case .clippingMask(let plan) = backend else { return nil }
         return plan
     }
 
@@ -1918,11 +1896,6 @@ enum Harness {
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             blendMode: 5, alpha: 0.5
         )
-        let resolvedClippingMaskPrepared = try resolvedClippingMaskPreparedEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline
-        )
         let resolvedLegacyProceduralPrepared =
             try resolvedLegacyProceduralPreparedEvidence(
                 device: device,
@@ -2069,7 +2042,6 @@ enum Harness {
             "normalDependencyBGRA": normalDependency,
             "darkenDependencyBGRA": darkenDependency,
             "darkenHalfAlphaBGRA": darkenHalfAlpha,
-            "resolvedClippingMaskPrepared": resolvedClippingMaskPrepared,
             "resolvedLegacyProceduralPrepared": resolvedLegacyProceduralPrepared,
             "solidTintBGRA": solidTint,
             "imageTintBGRA": imageTint,
@@ -3323,129 +3295,6 @@ enum Harness {
             frameEpoch: frameEpoch,
             texture: texture
         )
-    }
-
-    static func resolvedClippingMaskPreparedEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline
-    ) throws -> [String: Any] {
-        let size = 8
-        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
-              let dependency = makeTexture(
-                  device: device, size: size, usage: .shaderRead
-              ),
-              let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: [32, 64, 128, 128])
-        fill(dependency, bgra: [192, 32, 64, 255])
-
-        let stage = clippingMaskStage()
-        guard let clipping = stage.clippingMask else {
-            throw HarnessError.drawRefused
-        }
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let frameTables = try prepareStageTargets(
-            plan: stage,
-            pool: pool,
-            width: size,
-            height: size,
-            commandBuffer: commandBuffer
-        )
-        defer { frameTables.commit.releaseAll() }
-        guard let table = frameTables.tables.first else {
-            throw HarnessError.drawRefused
-        }
-        let pipelines = SceneAuthoredEffectPipelineSet(
-            repository: SceneImageEffectPipelineRepository(device: device)
-        )
-        func input(
-            providerLayerID: Int = 1,
-            slotIndex: Int = 1,
-            frameEpoch: UInt64 = 1
-        ) -> SceneDependencyEffectInput {
-            dependencyInput(
-                consumerLayerID: clipping.layerID,
-                providerLayerID: providerLayerID,
-                variant: .primary,
-                effectID: clipping.effectKey.descriptorID,
-                passIndex: 0,
-                slotIndex: slotIndex,
-                blendMode: clipping.blendMode,
-                frameEpoch: frameEpoch,
-                texture: dependency
-            )
-        }
-        func preparation(
-            dependencyEffect: SceneDependencyEffectInput?
-        ) -> SceneEffectStageRenderer.StagePreparation {
-            SceneEffectStageRenderer.prepareStage(
-                stage,
-                sourceTexture: table.inputTexture,
-                targets: table,
-                inputs: .init(
-                    masks: authoredEffectMasks(),
-                    dynamicValues: .empty(frameIndex: 1),
-                    pipelines: pipelines,
-                    cursorUV: .zero,
-                    previousCursorUV: .zero,
-                    pointerIsInside: false,
-                    previousPointerIsInside: false,
-                    pointerMovement: 0,
-                    primaryButtonIsDown: false,
-                    frameTime: 1 / 60,
-                    time: 0,
-                    audioSpectrum: .silent,
-                    dependencyEffect: dependencyEffect
-                ),
-                sourcePipeline: pipeline,
-                time: 0
-            )
-        }
-        func rejectionReason(
-            _ result: SceneEffectStageRenderer.StagePreparation
-        ) -> String? {
-            guard case let .rejected(reason) = result else { return nil }
-            return reason
-        }
-
-        let missingReason = rejectionReason(preparation(dependencyEffect: nil))
-        let wrongProviderReason = rejectionReason(preparation(
-            dependencyEffect: input(providerLayerID: clipping.providerLayerID + 1)
-        ))
-        let wrongSlotReason = rejectionReason(preparation(
-            dependencyEffect: input(slotIndex: 2)
-        ))
-        let zeroEpochReason = rejectionReason(preparation(
-            dependencyEffect: input(frameEpoch: 0)
-        ))
-        guard case let .ready(preparedStage) = preparation(
-            dependencyEffect: input(providerLayerID: clipping.providerLayerID)
-        ), SceneOffscreenEffectRenderer.captureSource(
-            sourceTexture: source,
-            target: table.inputTexture,
-            sourceUniforms: .neutral(),
-            pipeline: pipeline,
-            commandBuffer: commandBuffer
-        ), SceneEffectStageRenderer.encodePreparedStage(
-            preparedStage,
-            commandBuffer: commandBuffer
-        ) else {
-            throw HarnessError.drawRefused
-        }
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed,
-              commandBuffer.error == nil else { throw HarnessError.commandFailed }
-        return [
-            "preparedStageEncoded": true,
-            "outputBGRA": pixel(table.outputTexture, x: size / 2, y: size / 2),
-            "missingReason": missingReason as Any,
-            "wrongProviderReason": wrongProviderReason as Any,
-            "wrongSlotReason": wrongSlotReason as Any,
-            "zeroEpochReason": zeroEpochReason as Any,
-        ]
     }
 
     static func resolvedLegacyProceduralPreparedEvidence(
@@ -5498,64 +5347,6 @@ enum Harness {
         )
     }
 
-    static func clippingMaskStage() -> SceneEffectStageExecutionPlan {
-        let layerID = 846
-        let effectKey = Graph.EffectKey(
-            layerID: layerID,
-            effectIndex: 0,
-            descriptorID: "\(layerID)#effect#0"
-        )
-        let input = graphTexture(.layerSource, layerID: layerID)
-        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
-        let node = Graph.Node(
-            nodeIndex: 0,
-            effect: effectKey,
-            definitionPassIndex: 0,
-            materialOrdinal: 0,
-            instancePassIndex: 0,
-            kind: .material,
-            materialPath: "materials/workshop/clipping_mask.json",
-            materialPassID: "materials/workshop/clipping_mask.json#0",
-            target: output,
-            bindings: [],
-            commandSource: nil,
-            commandTarget: nil,
-            compose: nil,
-            conditions: nil
-        )
-        let effect = Graph.Effect(
-            key: effectKey,
-            definitionPath: "effects/workshop/clipping_mask/effect.json",
-            input: input,
-            output: output,
-            nodeIndices: [0]
-        )
-        let graph = Graph(
-            layerID: layerID,
-            effects: [effect],
-            renderTargets: [],
-            nodes: [node],
-            finalOutput: output,
-            blockers: []
-        )
-        let clipping = SceneClippingMaskExecutionPlan(
-            layerID: layerID,
-            effectKey: effectKey,
-            renderGraph: graph,
-            providerLayerID: 1,
-            blendMode: 0,
-            profile: .classic
-        )
-        let stage = SceneEffectStageExecutionPlan(
-            layerID: layerID,
-            renderGraph: graph,
-            backend: .clippingMask(clipping),
-            materialNodeCount: 1,
-            logicalRenderTargetCount: 0
-        )
-        return stage
-    }
-
     static func externalProceduralNoiseStage()
         -> SceneEffectStageExecutionPlan {
         let layerID = 847
@@ -6307,25 +6098,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assert_pixel_close(self.result["normalDependencyBGRA"], [112, 48, 96, 128])
         self.assert_pixel_close(self.result["darkenDependencyBGRA"], [32, 32, 64, 128])
         self.assert_pixel_close(self.result["darkenHalfAlphaBGRA"], [16, 16, 32, 64])
-
-    def test_authored_clipping_stage_consumes_dependency_once(self) -> None:
-        prepared = self.result["resolvedClippingMaskPrepared"]
-        self.assertTrue(prepared["preparedStageEncoded"], prepared)
-        self.assert_pixel_close(
-            prepared["outputBGRA"],
-            self.result["normalDependencyBGRA"],
-        )
-        for key in (
-            "missingReason",
-            "wrongProviderReason",
-            "wrongSlotReason",
-            "zeroEpochReason",
-        ):
-            self.assertEqual(
-                prepared[key],
-                "clipping-mask-dependency-mismatch",
-                prepared,
-            )
 
     def test_legacy_procedural_stage_prepares_and_executes_with_exact_dependency(
         self,

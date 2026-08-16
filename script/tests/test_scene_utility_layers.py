@@ -141,9 +141,9 @@ class SceneUtilityLayerTests(unittest.TestCase):
             "the exact Foliage backend must explicitly admit utility capture",
         )
         self.assertIn(
-            "case .clippingMask, .opacity:",
+            "case .opacity:",
             backend,
-            "exact named clipping and static/direct opacity must admit utility capture",
+            "static/direct opacity must admit utility capture",
         )
         self.assertIn("case .proceduralNoise(let plan):", backend)
         for contract in (

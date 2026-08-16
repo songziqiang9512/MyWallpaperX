@@ -57,7 +57,6 @@ nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable
     case waterRipple = "water-ripple"
     case depthParallax = "depth-parallax"
     case xRay = "x-ray"
-    case clippingMask = "clipping-mask"
     case blend
     case tint
     case transform

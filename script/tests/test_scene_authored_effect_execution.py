@@ -412,8 +412,6 @@ struct SceneXRayExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
-struct SceneClippingMaskExecutionPlan {}
-
 enum SceneAuthoredXRayPlanner {
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
@@ -423,17 +421,6 @@ enum SceneAuthoredXRayPlanner {
     ) -> SceneXRayExecutionPlan? {
         graph.effects.first?.definitionPath.lowercased()
             == "effects/xray/effect.json" ? SceneXRayExecutionPlan() : nil
-    }
-}
-
-enum SceneAuthoredClippingMaskPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneClippingMaskExecutionPlan? {
-        nil
     }
 }
 
@@ -740,10 +727,6 @@ extension SceneAuthoredDepthParallaxPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredXRayPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneXRayExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .xRay }
-}
-extension SceneAuthoredClippingMaskPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneClippingMaskExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .clippingMask }
 }
 extension SceneAuthoredBlendPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneBlendExecutionPlan
@@ -1507,7 +1490,6 @@ enum Harness {
             case .waterRipple: backend = "waterRipple"
             case .depthParallax: backend = "depthParallax"
             case .xRay: backend = "xRay"
-            case .clippingMask: backend = "clippingMask"
             case .blend: backend = "blend"
             case .tint: backend = "tint"
             case .transform: backend = "transform"

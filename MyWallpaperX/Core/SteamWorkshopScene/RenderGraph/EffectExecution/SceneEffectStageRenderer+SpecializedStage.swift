@@ -123,13 +123,6 @@ targets: targets, dynamicValues: dynamicValues,
                 pipelines: pipelines, cursorUV: cursorUV,
                 pointerIsInside: pointerIsInside, commandBuffer: commandBuffer
             )
-        case .clippingMask(let clippingMask):
-            return renderClippingMask(
-                clippingMask, sourceTexture: sourceTexture, masks: masks,
-                targets: targets, sourceUniforms: sourceUniforms,
-                dependencyEffect: dependencyEffect, pipeline: pipeline,
-                commandBuffer: commandBuffer
-            )
         case .blend(let blend):
             guard let blendPipeline = pipelines.blend else { return nil }
             return renderBlend(

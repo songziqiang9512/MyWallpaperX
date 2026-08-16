@@ -38,8 +38,8 @@
 | parent transform | `L3` | origin/size/scale/angles 合成；[E-BASE](runtime-evidence-index.md#e-base) | 3D、shear、动态 target 和数值 golden |
 | effective visibility | `L3` | parent/child/effect/particle gating；[E-BASE](runtime-evidence-index.md#e-base) | live topology invalidation |
 | layer alpha/color/blend mode | `L3` | 静态 descriptor/compositor 子集；layer alpha 与纯 solid color 已由现有 per-surface snapshot live 消费；[E-BASE](runtime-evidence-index.md#e-base)、[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | visibility/topology、non-solid/mixed color、完整 blend/premultiply/color space |
-| dependency layer IDs | `L2` | 可保留并进入 dependency plan；exact composition Clipping Mask 的单 backward dependency 可执行 | 通用 nested/effectful/child provider 与更多 consumer topology |
-| typed composition/project/fullscreen layer | `L3` | 有限 current-frame prefix capture、geometry，以及 exact composition `Clipping Mask` / `Clipping Mask -> static Opacity`；[E-UTILITY](runtime-evidence-index.md#e-utility) | 完整子场景边界、嵌套和 target ordering |
+| dependency layer IDs | `L2` | 可保留并进入 dependency plan；classic primary named-provider 的单 backward composition dependency由共享`.resolvedMaterial` binding与普通GraphExecutor执行，旧exact Clipping owner已删除 | secondary/multiple、nested/effectful/child provider与更多consumer topology |
+| typed composition/project/fullscreen layer | `L3` | 有限 current-frame capture/geometry；classic primary `Clipping Mask` / `Clipping Mask -> static Opacity`的bounded结构经普通MaterialProgram执行，不再按effect path/hash选择专用实现；[E-UTILITY](runtime-evidence-index.md#e-utility) | 完整子场景边界、嵌套、其他named profile和target ordering |
 | current-frame capture | `L3` | bounded provider、clipping、GPU completion；composition dependency capture 与 named binding 共用完整-chain consumer 集合；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 capture mask/format/extent 与 SceneScript/dynamic alpha |
 | named primary `_a` target | `L3` | bounded producer/consumer 和预算池；`2974757317` 只捕获 `912/57382` 并绑定 `956/57098`；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 authored identity、copy/swap/compose |
 | named secondary `_b` identity | `L2` | registry 区分完整 variant | producer/consumer 数据流 |

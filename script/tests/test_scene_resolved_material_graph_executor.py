@@ -101,13 +101,6 @@ struct SceneProceduralNoiseExecutionPlan {
     let dependencyProviderLayerID: Int?
     let dependencySlotIndex: Int?
 }
-struct SceneClippingMaskExecutionPlan {
-    let layerID: Int
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let providerLayerID: Int
-    let blendMode: Int
-}
 struct SceneBlendExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
@@ -116,7 +109,6 @@ struct SceneBlendExecutionPlan {
 }
 
 extension SceneEffectStageExecutionPlan {
-    var clippingMask: SceneClippingMaskExecutionPlan? { nil }
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
     var blend: SceneBlendExecutionPlan? { nil }
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
@@ -191,7 +183,7 @@ struct SceneDependencyRenderPlan {
 
     struct Binding: Hashable {
         enum Kind: Hashable {
-            case clippingMask, proceduralNoiseLayer, imageLayerBlend
+            case resolvedMaterial, proceduralNoiseLayer, imageLayerBlend
         }
         let consumerLayerID: Int
         let providerLayerID: Int
@@ -2267,7 +2259,7 @@ private enum Harness {
                 slotIndex: 1
             ),
             blendMode: 0,
-            kind: .clippingMask
+            kind: .resolvedMaterial
         )
         let crossLayerCapabilities = capabilities(
             crossLayerChain,
@@ -2438,7 +2430,7 @@ private enum Harness {
                     slotIndex: slotIndex
                 ),
                 blendMode: 0,
-                kind: .clippingMask
+                kind: .resolvedMaterial
             )
             return capabilities(
                 crossLayerChain,

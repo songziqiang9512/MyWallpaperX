@@ -220,7 +220,7 @@ struct SceneDependencyRenderPlan {
 
     struct Binding: Hashable {
         enum Kind: Hashable {
-            case clippingMask
+            case resolvedMaterial
             case proceduralNoiseLayer
             case imageLayerBlend
         }
@@ -285,13 +285,6 @@ struct SceneProceduralNoiseExecutionPlan {
     let dependencyProviderLayerID: Int?
     let dependencySlotIndex: Int?
 }
-struct SceneClippingMaskExecutionPlan {
-    let layerID: Int
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let providerLayerID: Int
-    let blendMode: Int
-}
 struct SceneBlendExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
@@ -309,7 +302,6 @@ struct SceneEffectStageExecutionPlan {
     let opacity: SceneOpacityExecutionPlan?
     var depthParallax: SceneDepthParallaxExecutionPlan? = nil
     var xRay: SceneXRayExecutionPlan? = nil
-    var clippingMask: SceneClippingMaskExecutionPlan? = nil
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil
     var blend: SceneBlendExecutionPlan? = nil
     var supportsUnifiedLogicalTargetStage = false
@@ -819,7 +811,7 @@ private func dependencyBinding(
     passIndex: Int = 0,
     slotIndex: Int = 1,
     blendMode: Int = 0,
-    kind: SceneDependencyRenderPlan.Binding.Kind = .clippingMask
+    kind: SceneDependencyRenderPlan.Binding.Kind = .resolvedMaterial
 ) -> SceneDependencyRenderPlan.Binding {
     .init(
         consumerLayerID: layerID,
@@ -1058,7 +1050,7 @@ private func pairOnlyDescriptor() -> SceneRenderDescriptor {
     )
 }
 
-private func externalClippingGraph(includeOpacity: Bool = false) -> Graph {
+private func externalResolvedMaterialGraph(includeOpacity: Bool = false) -> Graph {
     let pair = pairOnlyGraph()
     guard !includeOpacity else { return pair }
     let effect = pair.effects[0]
@@ -1074,7 +1066,7 @@ private func externalClippingGraph(includeOpacity: Bool = false) -> Graph {
 }
 
 private func externalProceduralGraph() -> Graph {
-    let base = externalClippingGraph()
+    let base = externalResolvedMaterialGraph()
     let effect = base.effects[0]
     return .init(
         layerID: base.layerID,
@@ -1092,7 +1084,7 @@ private func externalProceduralGraph() -> Graph {
     )
 }
 
-private func externalClippingDescriptor(
+private func externalResolvedMaterialDescriptor(
     utilityConsumer: Bool = false,
     includeOpacity: Bool = false,
     dependencyLayerIDs: [Int] = [providerLayerID],
@@ -1159,46 +1151,14 @@ private func externalClippingDescriptor(
     )
 }
 
-private func clippingProgram(
-    graph: Graph,
-    provider: Int = providerLayerID,
-    blendMode: Int = 0
-) -> SceneEffectStageProgram {
-    let effect = graph.effects[0]
-    let stageGraph = Graph(
-        layerID: layerID,
-        effects: [effect],
-        renderTargets: [],
-        nodes: graph.nodes.filter { $0.effect == effect.key },
-        finalOutput: effect.output,
-        blockers: []
-    )
-    let plan = SceneClippingMaskExecutionPlan(
-        layerID: layerID,
-        effectKey: effect.key,
-        renderGraph: stageGraph,
-        providerLayerID: provider,
-        blendMode: blendMode
-    )
-    return dedicatedProgram(
-        graph: graph,
-        effectIndex: 0,
-        inputRole: .layerSource,
-        clippingMask: plan,
-        supportsUtilityCapture: true
-    )
-}
-
-private func externalClippingCatalog(
+private func externalResolvedMaterialCatalog(
     descriptor: SceneRenderDescriptor,
     graph: Graph,
-    program: SceneEffectStageProgram? = nil,
-    allowDedicated: Bool = true
+    programAvailable: Bool = true
 ) -> Catalog {
-    let clipping = program ?? clippingProgram(graph: graph)
-    var programs = [clipping]
-    var families = [firstKey: "clipping-mask"]
-    var leafKeys: Set<Graph.EffectKey> = allowDedicated ? [firstKey] : []
+    var programs: [SceneEffectStageProgram] = []
+    var families: [Graph.EffectKey: String] = [:]
+    var leafKeys: Set<Graph.EffectKey> = []
     if graph.effects.count == 2 {
         programs.append(dedicatedProgram(
             graph: graph,
@@ -1208,7 +1168,7 @@ private func externalClippingCatalog(
             supportsUtilityCapture: true
         ))
         families[secondKey] = "opacity"
-        if allowDedicated { leafKeys.insert(secondKey) }
+        leafKeys.insert(secondKey)
     }
     let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
         descriptor: descriptor,
@@ -1217,7 +1177,11 @@ private func externalClippingCatalog(
     )
     return Catalog(
         admissionCandidates: candidates,
-        materialCatalog: materialCatalog(graph: graph, omitNode: 0),
+        materialCatalog: materialCatalog(
+            graph: graph,
+            omitNode: programAvailable ? nil : 0,
+            namedProviderByNode: [0: providerLayerID]
+        ),
         dedicatedStageFamilies: families,
         dedicatedLeafKeys: leafKeys
     )
@@ -1402,7 +1366,6 @@ private func dedicatedProgram(
     effectIndex: Int,
     inputRole: SceneAuthoredEffectInputRole,
     opacity: Bool = false,
-    clippingMask: SceneClippingMaskExecutionPlan? = nil,
     proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil,
     logicalTargetStage: Bool = false,
     fullFrameComposeStage: Bool = false,
@@ -1429,7 +1392,6 @@ private func dedicatedProgram(
             inputRole: inputRole,
             cursorRipple: nil,
             opacity: opacity ? .init() : nil,
-            clippingMask: clippingMask,
             proceduralNoise: proceduralNoise,
             supportsUnifiedLogicalTargetStage: logicalTargetStage,
             supportsUnifiedFullFrameComposeStage: fullFrameComposeStage,
@@ -1546,7 +1508,8 @@ private func template(
     node: Graph.Node,
     effect: Graph.Effect,
     overwrite: Bool = true,
-    uniforms: [Template.UniformDeclaration] = []
+    uniforms: [Template.UniformDeclaration] = [],
+    namedProviderLayerID: Int? = nil
 ) -> Template {
     let roles = node.bindings.map {
         Template.GraphBindingRole(slot: $0.slot!, texture: role($0.texture))
@@ -1555,6 +1518,14 @@ private func template(
     for binding in node.bindings {
         slots[binding.slot!] = .init(candidates: [
             .init(reference: .graph(binding.texture)),
+        ])
+    }
+    if let namedProviderLayerID {
+        slots[1] = .init(index: 1, candidates: [
+            .init(reference: .provider(.namedLayerTarget(.init(
+                providerLayerID: namedProviderLayerID,
+                variant: .primary
+            )))),
         ])
     }
     return .init(
@@ -1579,6 +1550,7 @@ private func materialCatalog(
     graph: Graph,
     omitNode: Int? = nil,
     uniformsByNode: [Int: [Template.UniformDeclaration]] = [:],
+    namedProviderByNode: [Int: Int] = [:],
     demandIssueNodes: Set<Int> = [],
     demandIssueSlotsByNode: [Int: Set<Int>] = [:]
 ) -> SceneResolvedMaterialRuntimeCatalog {
@@ -1592,7 +1564,8 @@ private func materialCatalog(
             template(
                 node: node,
                 effect: effects[node.effect]!,
-                uniforms: uniformsByNode[node.nodeIndex] ?? []
+                uniforms: uniformsByNode[node.nodeIndex] ?? [],
+                namedProviderLayerID: namedProviderByNode[node.nodeIndex]
             )
         )
     }
@@ -1776,61 +1749,67 @@ private enum Harness {
             graphs: [raw],
             materials: materialCatalog(graph: raw, omitNode: 1)
         )
-        let clippingGraph = externalClippingGraph()
-        let externalClipping = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(),
-            graph: clippingGraph
+        let resolvedMaterialGraph = externalResolvedMaterialGraph()
+        let externalResolvedMaterial = externalResolvedMaterialCatalog(
+            descriptor: externalResolvedMaterialDescriptor(),
+            graph: resolvedMaterialGraph
         )
-        let externalClippingCapability = externalClipping
+        let externalResolvedMaterialCapability = externalResolvedMaterial
             .claim(layerID: layerID)
-            .flatMap { externalClipping.resolve($0.token) }
-        let utilityExternalClipping = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(utilityConsumer: true),
-            graph: clippingGraph
+            .flatMap { externalResolvedMaterial.resolve($0.token) }
+        let utilityExternalResolvedMaterial = externalResolvedMaterialCatalog(
+            descriptor: externalResolvedMaterialDescriptor(utilityConsumer: true),
+            graph: resolvedMaterialGraph
         )
-        let utilityExternalClippingCapability = utilityExternalClipping
+        let utilityExternalResolvedMaterialCapability = utilityExternalResolvedMaterial
             .claim(layerID: layerID)
-            .flatMap { utilityExternalClipping.resolve($0.token) }
-        let clippingOpacityGraph = externalClippingGraph(includeOpacity: true)
-        let utilityClippingOpacity = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(
+            .flatMap { utilityExternalResolvedMaterial.resolve($0.token) }
+        let resolvedMaterialOpacityGraph = externalResolvedMaterialGraph(
+            includeOpacity: true
+        )
+        let utilityResolvedMaterialOpacity = externalResolvedMaterialCatalog(
+            descriptor: externalResolvedMaterialDescriptor(
                 utilityConsumer: true,
                 includeOpacity: true
             ),
-            graph: clippingOpacityGraph
+            graph: resolvedMaterialOpacityGraph
         )
-        let utilityClippingOpacityCapability = utilityClippingOpacity
+        let utilityResolvedMaterialOpacityCapability = utilityResolvedMaterialOpacity
             .claim(layerID: layerID)
-            .flatMap { utilityClippingOpacity.resolve($0.token) }
-        let secondaryExternalClipping = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(references: [namedReference(
+            .flatMap { utilityResolvedMaterialOpacity.resolve($0.token) }
+        let secondaryExternalResolvedMaterial = externalResolvedMaterialCatalog(
+            descriptor: externalResolvedMaterialDescriptor(references: [namedReference(
                 effectID: firstKey.descriptorID,
                 providerLayerID: providerLayerID,
                 slotIndex: 1,
                 variant: .secondary
             )]),
-            graph: clippingGraph
+            graph: resolvedMaterialGraph
         )
-        let wrongSlotExternalClipping = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(references: [namedReference(
+        let wrongSlotExternalResolvedMaterial = externalResolvedMaterialCatalog(
+            descriptor: externalResolvedMaterialDescriptor(references: [namedReference(
                 effectID: firstKey.descriptorID,
                 providerLayerID: providerLayerID,
                 slotIndex: 0
             )]),
-            graph: clippingGraph
+            graph: resolvedMaterialGraph
         )
-        let wrongDependencyIDExternalClipping = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(
+        let wrongDependencyIDExternalResolvedMaterial =
+            externalResolvedMaterialCatalog(
+            descriptor: externalResolvedMaterialDescriptor(
                 dependencyLayerIDs: [providerLayerID + 1]
             ),
-            graph: clippingGraph
+            graph: resolvedMaterialGraph
         )
-        let authoredDependencyExternalClipping = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(authoredDependencies: [1]),
-            graph: clippingGraph
+        let authoredDependencyExternalResolvedMaterial =
+            externalResolvedMaterialCatalog(
+            descriptor: externalResolvedMaterialDescriptor(
+                authoredDependencies: [1]
+            ),
+            graph: resolvedMaterialGraph
         )
-        let extraReferenceExternalClipping = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(references: [
+        let extraReferenceExternalResolvedMaterial = externalResolvedMaterialCatalog(
+            descriptor: externalResolvedMaterialDescriptor(references: [
                 namedReference(
                     effectID: firstKey.descriptorID,
                     providerLayerID: providerLayerID,
@@ -1843,35 +1822,27 @@ private enum Harness {
                     slotIndex: 1
                 ),
             ]),
-            graph: clippingGraph
+            graph: resolvedMaterialGraph
         )
-        let proceduralExternalClipping = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(bindings: [dependencyBinding(
+        let proceduralExternalResolvedMaterial = externalResolvedMaterialCatalog(
+            descriptor: externalResolvedMaterialDescriptor(bindings: [dependencyBinding(
                 providerLayerID: providerLayerID,
                 kind: .proceduralNoiseLayer
             )]),
-            graph: clippingGraph
+            graph: resolvedMaterialGraph
         )
-        let mismatchedProviderExternalClipping = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(),
-            graph: clippingGraph,
-            program: clippingProgram(
-                graph: clippingGraph,
-                provider: providerLayerID + 1
-            )
-        )
-        let mismatchedBlendExternalClipping = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(),
-            graph: clippingGraph,
-            program: clippingProgram(graph: clippingGraph, blendMode: 5)
-        )
-        let clippingWithoutOwnership = externalClippingCatalog(
-            descriptor: externalClippingDescriptor(
+        let resolvedMaterialWithoutOwnership = externalResolvedMaterialCatalog(
+            descriptor: externalResolvedMaterialDescriptor(
                 dependencyLayerIDs: [],
                 references: [],
                 bindings: []
             ),
-            graph: clippingGraph
+            graph: resolvedMaterialGraph
+        )
+        let resolvedMaterialWithoutProgram = externalResolvedMaterialCatalog(
+            descriptor: externalResolvedMaterialDescriptor(),
+            graph: resolvedMaterialGraph,
+            programAvailable: false
         )
         let proceduralGraph = externalProceduralGraph()
         let externalProcedural = externalProceduralCatalog(
@@ -2021,9 +1992,9 @@ private enum Harness {
             )
         )
         let externalOwnershipMatches: Bool
-        if let externalClippingCapability,
+        if let externalResolvedMaterialCapability,
            case let .externalPrimary(binding) =
-            externalClippingCapability.dependencyOwnership {
+            externalResolvedMaterialCapability.dependencyOwnership {
             externalOwnershipMatches = binding.consumerLayerID == layerID
                 && binding.providerLayerID == providerLayerID
                 && binding.slot == .init(
@@ -2032,7 +2003,7 @@ private enum Harness {
                     slotIndex: 1
                 )
                 && binding.blendMode == 0
-                && binding.kind == .clippingMask
+                && binding.kind == .resolvedMaterial
         } else {
             externalOwnershipMatches = false
         }
@@ -2849,12 +2820,12 @@ private enum Harness {
                     $0.contains("status=accepted")
                 }) ?? "",
                 "externalPrimary": externalOwnershipMatches,
-                "externalPrimaryReport": externalClipping.reportLines.first(where: {
+                "externalPrimaryReport": externalResolvedMaterial.reportLines.first(where: {
                     $0.contains("status=accepted")
                 }) ?? "",
-                "externalUtilityRoute": utilityExternalClippingCapability?
+                "externalUtilityRoute": utilityExternalResolvedMaterialCapability?
                     .sourceRoute == .capturedMainTargetTexture,
-                "externalUtilityStages": utilityClippingOpacityCapability?
+                "externalUtilityStages": utilityResolvedMaterialOpacityCapability?
                     .stages.count == 2,
                 "externalProcedural": externalProceduralCapability.map {
                     capability in
@@ -3132,43 +3103,39 @@ private enum Harness {
                     missingComposeCatalog.claim(layerID: layerID) == nil,
                 "fullFrameComposeStageRejectsExtraNode":
                     extraNodeComposeCatalog.claim(layerID: layerID) == nil,
-                "externalClippingAccepted":
-                    externalClippingCapability?.stages.count == 1,
-                "externalClippingRejectsSecondary": reportHas(
-                    secondaryExternalClipping,
+                "externalResolvedMaterialAccepted":
+                    externalResolvedMaterialCapability?.stages.count == 1,
+                "externalResolvedMaterialRejectsSecondary": reportHas(
+                    secondaryExternalResolvedMaterial,
                     "execution-route-dependency-owner"
                 ),
-                "externalClippingRejectsWrongSlot": reportHas(
-                    wrongSlotExternalClipping,
+                "externalResolvedMaterialRejectsWrongSlot": reportHas(
+                    wrongSlotExternalResolvedMaterial,
                     "execution-route-dependency-owner"
                 ),
-                "externalClippingRejectsWrongDependencyID": reportHas(
-                    wrongDependencyIDExternalClipping,
+                "externalResolvedMaterialRejectsWrongDependencyID": reportHas(
+                    wrongDependencyIDExternalResolvedMaterial,
                     "execution-route-dependency-owner"
                 ),
-                "externalClippingRejectsAuthoredDependency": reportHas(
-                    authoredDependencyExternalClipping,
+                "externalResolvedMaterialRejectsAuthoredDependency": reportHas(
+                    authoredDependencyExternalResolvedMaterial,
                     "execution-route-dependency-owner"
                 ),
-                "externalClippingRejectsExtraReference": reportHas(
-                    extraReferenceExternalClipping,
+                "externalResolvedMaterialRejectsExtraReference": reportHas(
+                    extraReferenceExternalResolvedMaterial,
                     "execution-route-dependency-owner"
                 ),
-                "externalClippingRejectsProceduralBinding": reportHas(
-                    proceduralExternalClipping,
+                "externalResolvedMaterialRejectsProceduralBinding": reportHas(
+                    proceduralExternalResolvedMaterial,
                     "execution-route-dependency-owner"
                 ),
-                "externalClippingRejectsMismatchedProvider": reportHas(
-                    mismatchedProviderExternalClipping,
+                "resolvedMaterialRejectsMissingExternalOwnership": reportHas(
+                    resolvedMaterialWithoutOwnership,
                     "execution-stage-conservation"
                 ),
-                "externalClippingRejectsMismatchedBlend": reportHas(
-                    mismatchedBlendExternalClipping,
-                    "execution-stage-conservation"
-                ),
-                "clippingRejectsMissingExternalOwnership": reportHas(
-                    clippingWithoutOwnership,
-                    "execution-stage-conservation"
+                "externalResolvedMaterialDoesNotFallback": reportHas(
+                    resolvedMaterialWithoutProgram,
+                    "material-template-unsupported"
                 ),
                 "externalProceduralAccepted":
                     externalProceduralCapability?.stages.count == 1,
@@ -3348,7 +3315,7 @@ ENVELOPE_SUPPORT = PROGRAM_FINALIZER_FIXTURE["SUPPORT"] + r'''
 enum SceneDependencyRenderPlan {
     struct Binding: Hashable {
         enum Kind: Hashable {
-            case clippingMask, proceduralNoiseLayer, imageLayerBlend
+            case resolvedMaterial, proceduralNoiseLayer, imageLayerBlend
         }
         let consumerLayerID: Int
         let providerLayerID: Int
@@ -3395,13 +3362,6 @@ struct SceneProceduralNoiseExecutionPlan {
     let dependencyProviderLayerID: Int?
     let dependencySlotIndex: Int?
 }
-struct SceneClippingMaskExecutionPlan {
-    let layerID: Int
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let providerLayerID: Int
-    let blendMode: Int
-}
 struct SceneBlendExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
@@ -3419,7 +3379,6 @@ struct SceneEffectStageExecutionPlan {
     var depthParallax: SceneDepthParallaxExecutionPlan? = nil
     var xRay: SceneXRayExecutionPlan? = nil
     var inputRole: SceneAuthoredEffectInputRole { .layerSource }
-    var clippingMask: SceneClippingMaskExecutionPlan? { nil }
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
     var blend: SceneBlendExecutionPlan? { nil }
     var supportsUnifiedLogicalTargetStage = false
@@ -4755,7 +4714,7 @@ private enum EnvelopeHarness {
                 slotIndex: 1
             ),
             blendMode: 0,
-            kind: .clippingMask
+            kind: .resolvedMaterial
         )
         let crossLayerTemplate = materialTemplate(
             graph: boundGraph,
@@ -4782,7 +4741,7 @@ private enum EnvelopeHarness {
                 providerLayerID: 43,
                 slot: externalBinding.slot,
                 blendMode: 0,
-                kind: .clippingMask
+                kind: .resolvedMaterial
             ))
         )
         let crossLayerSecondary = catalog(
@@ -6511,16 +6470,15 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "fullFrameComposeStageRejectsHistory": True,
                 "fullFrameComposeStageRejectsMissingCompose": True,
                 "fullFrameComposeStageRejectsExtraNode": True,
-                "externalClippingAccepted": True,
-                "externalClippingRejectsSecondary": True,
-                "externalClippingRejectsWrongSlot": True,
-                "externalClippingRejectsWrongDependencyID": True,
-                "externalClippingRejectsAuthoredDependency": True,
-                "externalClippingRejectsExtraReference": True,
-                "externalClippingRejectsProceduralBinding": True,
-                "externalClippingRejectsMismatchedProvider": True,
-                "externalClippingRejectsMismatchedBlend": True,
-                "clippingRejectsMissingExternalOwnership": True,
+                "externalResolvedMaterialAccepted": True,
+                "externalResolvedMaterialRejectsSecondary": True,
+                "externalResolvedMaterialRejectsWrongSlot": True,
+                "externalResolvedMaterialRejectsWrongDependencyID": True,
+                "externalResolvedMaterialRejectsAuthoredDependency": True,
+                "externalResolvedMaterialRejectsExtraReference": True,
+                "externalResolvedMaterialRejectsProceduralBinding": True,
+                "resolvedMaterialRejectsMissingExternalOwnership": True,
+                "externalResolvedMaterialDoesNotFallback": True,
                 "externalProceduralAccepted": True,
                 "externalProceduralRejectsModern": True,
                 "externalProceduralRejectsWrongProvider": True,

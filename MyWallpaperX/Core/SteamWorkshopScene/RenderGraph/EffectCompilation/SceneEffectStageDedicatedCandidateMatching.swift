@@ -88,15 +88,6 @@ extension SceneAuthoredXRayPlanner {
     }
 }
 
-extension SceneAuthoredClippingMaskPlanner {
-    nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        SceneEffectStageDedicatedCandidateMatcher.matches(
-            graph: graph,
-            definitionPath: SceneClippingMaskContract.definitionPath
-        )
-    }
-}
-
 extension SceneAuthoredTintPlanner {
     nonisolated static func containsCandidate(
         graph: Graph,

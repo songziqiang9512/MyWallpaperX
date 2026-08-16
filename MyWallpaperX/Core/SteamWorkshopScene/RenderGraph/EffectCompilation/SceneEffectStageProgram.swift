@@ -87,7 +87,6 @@ nonisolated struct SceneEffectStageProgram {
              (.waterRipple, .waterRipple),
              (.depthParallax, .depthParallax),
              (.xRay, .xRay),
-             (.clippingMask, .clippingMask),
              (.blend, .blend),
              (.tint, .tint),
              (.transform, .transform),

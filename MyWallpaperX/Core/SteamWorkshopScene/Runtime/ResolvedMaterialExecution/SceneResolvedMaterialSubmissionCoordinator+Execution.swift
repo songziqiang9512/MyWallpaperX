@@ -87,8 +87,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return input == nil
         case .externalPrimary(let binding):
             switch binding.kind {
-            case .clippingMask:
-                guard binding.slot.slotIndex == 1 else { return false }
+            case .resolvedMaterial:
+                guard binding.slot.slotIndex == 1,
+                      binding.blendMode == 0 else { return false }
             case .proceduralNoiseLayer:
                 guard binding.slot.passIndex == 0,
                       binding.slot.slotIndex == 3,
