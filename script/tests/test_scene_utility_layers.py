@@ -116,6 +116,18 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("authoredDependencies: object.authoredDependencies", descriptor)
         self.assertIn("if let utilityLayer = object.utilityLayer", descriptor)
 
+    def test_utility_report_preserves_typed_dependency_issues(self) -> None:
+        runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            '"utilityDependencyIssueCount: \\(dependencyPlan.issues.count)"',
+            runtime_plan,
+        )
+        self.assertIn(
+            '"utilityDependencyIssue: kind=\\(issue.kind.rawValue) "',
+            runtime_plan,
+        )
+        self.assertIn('"layer=\\(issue.layerID) provider=\\(provider)"', runtime_plan)
+
     def test_utility_capture_requires_unified_layer_ownership(self) -> None:
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
         self.assertIn("resolvedMaterialLayerIDs.contains(layer.id)", runtime_plan)

@@ -248,8 +248,10 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                         ) {
                             userDemands.insert(identity)
                         }
-                    case let .provider(.system(name)):
-                        systemDemands.insert(.init(name: name, purpose: purpose))
+                    case let .provider(request):
+                        if case let .system(name) = request {
+                            systemDemands.insert(.init(name: name, purpose: purpose))
+                        }
                     case .graph:
                         break
                     }
@@ -296,6 +298,9 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             if case .graph = candidate.reference {
                 return (candidates, false)
             }
+            if case .provider(.namedLayerTarget) = candidate.reference {
+                return (candidates, false)
+            }
         }
         return (candidates, true)
     }
@@ -314,7 +319,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             unresolved = .asset(path)
         case let .userProperty(request):
             unresolved = .userProperty(request.key)
-        case let .provider(.system(name)):
+        case let .provider(request):
+            guard case let .system(name) = request else { return }
             unresolved = .system(name)
         case .graph:
             return

@@ -78,6 +78,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
 
     enum KnownProviderRequest: Hashable {
         case system(String)
+        case namedLayerTarget(SceneNamedTextureReference)
     }
 
     enum TextureReference: Hashable {

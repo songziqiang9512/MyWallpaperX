@@ -346,6 +346,12 @@ indirect enum SceneShaderAnnotationValue {
     case object([String: SceneShaderAnnotationValue])
 }
 
+struct SceneNamedTextureReference {
+    enum Variant { case primary, secondary, unspecified }
+    let providerLayerID: Int
+    let variant: Variant
+}
+
 struct SceneResolvedMaterialTemplate {
     enum GraphTextureRole: String, Hashable {
         case layerSource
@@ -370,9 +376,15 @@ struct SceneResolvedMaterialTemplate {
         let nodeIndex: Int
     }
 
+    enum KnownProviderRequest {
+        case system(String)
+        case namedLayerTarget(SceneNamedTextureReference)
+    }
+
     enum TextureReference {
         case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
         case asset(String)
+        case provider(KnownProviderRequest)
         case internalTarget(String)
     }
 
@@ -381,7 +393,13 @@ struct SceneResolvedMaterialTemplate {
     }
 
     struct TextureSlot {
+        let index: Int
         let candidates: [TextureCandidate]
+
+        init(index: Int = 0, candidates: [TextureCandidate]) {
+            self.index = index
+            self.candidates = candidates
+        }
     }
 
     enum DynamicUniformSource: Hashable {
@@ -4020,6 +4038,19 @@ private func userPropertyCandidate(_ key: String) -> Template.TextureCandidate {
     .init(reference: .userProperty(.init(key: key)), provenance: .instance)
 }
 
+private func namedTargetCandidate(
+    providerLayerID: Int,
+    variant: SceneNamedTextureReference.Variant = .primary
+) -> Template.TextureCandidate {
+    .init(
+        reference: .provider(.namedLayerTarget(.init(
+            providerLayerID: providerLayerID,
+            variant: variant
+        ))),
+        provenance: .instance
+    )
+}
+
 private func materialTemplate(
     graph: Graph,
     nodeIndex: Int = 0,
@@ -4091,6 +4122,7 @@ private func catalog(
     template: Template,
     maximumVariants: Int = 16,
     sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture,
+    dependencyOwnership: SceneResolvedMaterialDependencyOwnership = .none,
     assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
     demandIssueSlots: Set<Int> = []
 ) -> Catalog {
@@ -4099,6 +4131,7 @@ private func catalog(
         templates: [graph.nodes[0].nodeIndex: template],
         maximumVariants: maximumVariants,
         sourceRoute: sourceRoute,
+        dependencyOwnership: dependencyOwnership,
         assetStates: assetStates,
         demandIssueSlots: demandIssueSlots
     )
@@ -4109,6 +4142,7 @@ private func catalog(
     templates: [Int: Template],
     maximumVariants: Int = 16,
     sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture,
+    dependencyOwnership: SceneResolvedMaterialDependencyOwnership = .none,
     assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
     demandIssueSlots: Set<Int> = []
 ) -> Catalog {
@@ -4125,7 +4159,7 @@ private func catalog(
         layerID: layerID,
         products: [.init(graph: graph)],
         pairPlan: .init(baseCaptureIdentity: graph.effects[0].input),
-        dependencyOwnership: .none,
+        dependencyOwnership: dependencyOwnership,
         sourceRoute: sourceRoute
     )
     return .init(
@@ -4712,6 +4746,76 @@ private enum EnvelopeHarness {
                 ))
             )
         )
+        let externalBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: layerID,
+            providerLayerID: 42,
+            slot: .init(
+                effectID: effectKey.descriptorID,
+                passIndex: 0,
+                slotIndex: 1
+            ),
+            blendMode: 0,
+            kind: .clippingMask
+        )
+        let crossLayerTemplate = materialTemplate(
+            graph: boundGraph,
+            shader: contract(
+                "cross-layer-provider",
+                secondMetadata: "{}",
+                observesSecond: true
+            ),
+            slots: secondCandidates([
+                assetCandidate("util/white"),
+                namedTargetCandidate(providerLayerID: 42),
+            ])
+        )
+        let crossLayerPositive = catalog(
+            graph: boundGraph,
+            template: crossLayerTemplate,
+            dependencyOwnership: .externalPrimary(externalBinding)
+        )
+        let crossLayerWrongProvider = catalog(
+            graph: boundGraph,
+            template: crossLayerTemplate,
+            dependencyOwnership: .externalPrimary(.init(
+                consumerLayerID: layerID,
+                providerLayerID: 43,
+                slot: externalBinding.slot,
+                blendMode: 0,
+                kind: .clippingMask
+            ))
+        )
+        let crossLayerSecondary = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "cross-layer-secondary",
+                    secondMetadata: "{}",
+                    observesSecond: true
+                ),
+                slots: secondCandidates([
+                    namedTargetCandidate(providerLayerID: 42, variant: .secondary),
+                ])
+            ),
+            dependencyOwnership: .externalPrimary(externalBinding)
+        )
+        let crossLayerAmbiguous = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "cross-layer-ambiguous",
+                    secondMetadata: "{}",
+                    observesSecond: true
+                ),
+                slots: secondCandidates([
+                    namedTargetCandidate(providerLayerID: 41),
+                    namedTargetCandidate(providerLayerID: 42),
+                ])
+            ),
+            dependencyOwnership: .externalPrimary(externalBinding)
+        )
         let directDrawPositive = catalog(
             graph: unboundGraph,
             template: materialTemplate(
@@ -5204,6 +5308,13 @@ private enum EnvelopeHarness {
                 providerPositive,
                 graph: unboundGraph
             ),
+            "crossLayerPositiveClaim": crossLayerPositive.claim(
+                layerID: layerID
+            ) != nil,
+            "crossLayerPositiveFailure": rejection(crossLayerPositive),
+            "crossLayerWrongProvider": rejection(crossLayerWrongProvider),
+            "crossLayerSecondary": rejection(crossLayerSecondary),
+            "crossLayerAmbiguous": rejection(crossLayerAmbiguous),
             "directDrawPositiveClaim": directDrawPositive.claim(
                 layerID: layerID
             ) != nil,
@@ -6840,6 +6951,14 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             payload["providerPositiveCounters"],
             {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
         )
+        self.assertTrue(payload["crossLayerPositiveClaim"], payload)
+        self.assertEqual(payload["crossLayerPositiveFailure"], "", payload)
+        for key in (
+            "crossLayerWrongProvider",
+            "crossLayerSecondary",
+            "crossLayerAmbiguous",
+        ):
+            self.assertIn("execution-stage-conservation", payload[key], payload)
         self.assertTrue(payload["directDrawPositiveClaim"], payload)
         self.assertEqual(payload["directDrawPositiveFailure"], "")
         self.assertEqual(

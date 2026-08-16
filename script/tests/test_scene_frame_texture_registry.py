@@ -79,14 +79,16 @@ enum Harness {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw NSError(domain: "SceneFrameTextureRegistryTests", code: 1)
         }
-        func texture() -> MTLTexture {
+        func texture(
+            usage: MTLTextureUsage = [.shaderRead, .renderTarget]
+        ) -> MTLTexture {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: .bgra8Unorm,
                 width: 4,
                 height: 4,
                 mipmapped: false
             )
-            descriptor.usage = [.shaderRead, .renderTarget]
+            descriptor.usage = usage
             return device.makeTexture(descriptor: descriptor)!
         }
         func publication(
@@ -216,6 +218,58 @@ enum Harness {
         let primaryReady = registry.texture(for: named) === namedTexture
         let secondaryIsolated = registry.texture(
             for: .namedLayerTarget(secondary)
+        ) == nil
+
+        let overlayRegistry = SceneFrameTextureRegistry()
+        let overlayEpoch = overlayRegistry.beginFrame(layerSources: [:])
+        let overlaySnapshot = overlayRegistry.snapshot()
+        let reservedNamedResource = SceneFrameTextureResource
+            .reservedNamedLayerTarget(
+                reference: primary,
+                frameEpoch: overlayEpoch,
+                texture: namedTexture
+            )!
+        let namedOverlay = overlaySnapshot.overlayingNamedLayerTarget(
+            primary,
+            resource: reservedNamedResource
+        )
+        let exactNamedOverlayReady = namedOverlay?.resource(for: named)?
+            .publication.texture === namedTexture
+        let secondaryNamedReservationRejected = SceneFrameTextureResource
+            .reservedNamedLayerTarget(
+                reference: secondary,
+                frameEpoch: overlayEpoch,
+                texture: namedTexture
+            ) == nil
+        let missingRenderTargetUsageRejected = SceneFrameTextureResource
+            .reservedNamedLayerTarget(
+                reference: primary,
+                frameEpoch: overlayEpoch,
+                texture: texture(usage: [.shaderRead])
+            ) == nil
+        let staleNamedResource = SceneFrameTextureResource
+            .reservedNamedLayerTarget(
+                reference: primary,
+                frameEpoch: overlayEpoch + 1,
+                texture: namedTexture
+            )!
+        let staleNamedOverlayRejected = overlaySnapshot.overlayingNamedLayerTarget(
+            primary,
+            resource: staleNamedResource
+        ) == nil
+        let wrongNamedReference = SceneNamedTextureReference(
+            providerLayerID: 43,
+            variant: .primary
+        )
+        let wrongNamedResource = SceneFrameTextureResource
+            .reservedNamedLayerTarget(
+                reference: wrongNamedReference,
+                frameEpoch: overlayEpoch,
+                texture: namedTexture
+            )!
+        let wrongNamedOverlayRejected = overlaySnapshot.overlayingNamedLayerTarget(
+            primary,
+            resource: wrongNamedResource
         ) == nil
 
         let secondEpoch = registry.beginFrame(
@@ -888,6 +942,11 @@ enum Harness {
             "readyOverride": ready?.texture === propertyTexture,
             "primaryReady": primaryReady,
             "secondaryIsolated": secondaryIsolated,
+            "exactNamedOverlayReady": exactNamedOverlayReady,
+            "secondaryNamedReservationRejected": secondaryNamedReservationRejected,
+            "missingRenderTargetUsageRejected": missingRenderTargetUsageRejected,
+            "staleNamedOverlayRejected": staleNamedOverlayRejected,
+            "wrongNamedOverlayRejected": wrongNamedOverlayRejected,
             "namedCleared": namedCleared,
             "namedGenerationAdvanced": secondNamed.generation == firstNamed.generation + 1,
             "persistentEntriesCleared": persistentEntriesCleared,
@@ -1019,6 +1078,11 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             "frameEpochAdvanced",
             "primaryReady",
             "secondaryIsolated",
+            "exactNamedOverlayReady",
+            "secondaryNamedReservationRejected",
+            "missingRenderTargetUsageRejected",
+            "staleNamedOverlayRejected",
+            "wrongNamedOverlayRejected",
             "namedCleared",
             "namedGenerationAdvanced",
         ):

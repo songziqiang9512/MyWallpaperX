@@ -885,6 +885,51 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         compact_integer = integer["metalSource"].replace(" ", "")
         self.assertNotIn("(int4(1,2,3,4)).", compact_integer)
 
+    def test_component_expression_contextually_narrows_wide_float_vectors(self):
+        output = self.compile(
+            VEC4_COORDINATE_VERTEX_SOURCE,
+            """
+            varying vec4 v_Coordinates;
+            uniform vec4 g_SourceResolution;
+            uniform vec4 g_ProviderResolution;
+            uniform vec2 g_ScaleCenter;
+            uniform vec2 g_TextureScale;
+            uniform vec2 g_Offset;
+            void main() {
+                vec2 ratio = vec2(
+                    g_ProviderResolution.x / g_ProviderResolution.y,
+                    g_SourceResolution.x / g_SourceResolution.y
+                );
+                vec2 center = g_ScaleCenter * 2.0 - 1.0;
+                vec2 coordinates = (
+                    (v_Coordinates * 2.0 - 1.0 - center)
+                    / ratio / g_TextureScale + 1.0 + center
+                ) / 2.0 - g_Offset;
+                gl_FragColor = vec4(coordinates, 0.0, 1.0);
+            }
+            """,
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIn("(mwxInput.v_Coordinates).xy*2.0", compact_source)
+        self.assertIsNone(output.get("metalError"))
+
+        function_call = self.compile(
+            VEC4_COORDINATE_VERTEX_SOURCE,
+            """
+            varying vec4 v_Coordinates;
+            void main() {
+                vec2 coordinates = normalize(v_Coordinates);
+                gl_FragColor = vec4(coordinates, 0.0, 1.0);
+            }
+            """,
+        )
+        self.assertNotIn(
+            "normalize((mwxInput.v_Coordinates).xy)",
+            function_call["metalSource"].replace(" ", ""),
+        )
+        self.assertIsNotNone(function_call.get("metalError"))
+
     def test_scalar_assignment_narrows_only_proven_float_vector_chains(self):
         output = self.compile(
             VERTEX_SOURCE,

@@ -149,6 +149,7 @@ final class ExactEvidenceLogRecorder: @unchecked Sendable {
 
 nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
+    case namedLayerTarget(SceneNamedTextureReference)
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
 }
 
@@ -175,6 +176,14 @@ struct SceneTextureProviderPublication {
 struct SceneFrameTextureResource {
     let publication: SceneTextureProviderPublication
     let resourceGeneration: UInt64
+
+    static func reservedNamedLayerTarget(
+        reference: SceneNamedTextureReference,
+        frameEpoch: UInt64,
+        texture: MTLTexture
+    ) -> Self? {
+        nil
+    }
 
     var isCompleteGraphResource: Bool {
         resourceGeneration > 0

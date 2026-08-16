@@ -33,6 +33,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
     SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
+    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "Resources/SceneTextureProviderPublication.swift",
     *scene_swift_sources("resolved_material_program_model"),
 ]
@@ -79,7 +80,7 @@ nonisolated enum SceneDynamicSource: Hashable {
 
 nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
-    case namedLayerTarget(String)
+    case namedLayerTarget(SceneNamedTextureReference)
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
     case asset(SceneAssetTextureIdentity)
     case userProperty(String)
@@ -293,8 +294,13 @@ private func textureSlot(
             propertyKey: request.key,
             purpose: expectedPurpose
         )!)
-    case let .provider(.system(name)):
-        registryIdentity = .system(name)
+    case let .provider(request):
+        switch request {
+        case let .system(name):
+            registryIdentity = .system(name)
+        case let .namedLayerTarget(reference):
+            registryIdentity = .namedLayerTarget(reference)
+        }
     case let .graph(identity):
         registryIdentity = .graph(identity)
     }

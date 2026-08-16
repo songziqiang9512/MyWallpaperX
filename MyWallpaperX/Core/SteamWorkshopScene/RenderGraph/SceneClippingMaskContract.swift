@@ -9,12 +9,23 @@ nonisolated struct SceneClippingMaskDeclaration {
     let effectID: String
     let passIndex: Int
     let providerLayerID: Int
+    let variant: SceneNamedTextureReference.Variant
     let blendMode: Int
     let profile: SceneClippingMaskProfile
 }
 
 enum SceneClippingMaskContract {
     nonisolated static func declaration(
+        for effect: SceneRenderDescriptor.EffectDescriptor
+    ) -> SceneClippingMaskDeclaration? {
+        guard let declaration = dependencyDeclaration(for: effect),
+              declaration.variant == .primary else {
+            return nil
+        }
+        return declaration
+    }
+
+    nonisolated static func dependencyDeclaration(
         for effect: SceneRenderDescriptor.EffectDescriptor
     ) -> SceneClippingMaskDeclaration? {
         guard effect.visible != false,
@@ -25,7 +36,6 @@ enum SceneClippingMaskContract {
               pass.userTextureInputs.allSatisfy({ $0 == nil }),
               let referencePath = pass.textureSlots[safe: 1] ?? nil,
               let reference = SceneNamedTextureReference.parse(referencePath),
-              reference.variant == .primary,
               pass.texturePaths == [referencePath],
               pass.textureSlots.enumerated().allSatisfy({
                   $0.offset == 1 || $0.element == nil
@@ -37,6 +47,7 @@ enum SceneClippingMaskContract {
             effectID: effect.id,
             passIndex: pass.passIndex,
             providerLayerID: reference.providerLayerID,
+            variant: reference.variant,
             blendMode: instance.blendMode,
             profile: instance.profile
         )

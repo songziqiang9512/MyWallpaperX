@@ -33,6 +33,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
     SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
+    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "Resources/SceneTextureProviderPublication.swift",
     *scene_swift_sources("resolved_material_program_model"),
     SCENE_ROOT
@@ -74,7 +75,7 @@ nonisolated enum SceneDynamicSource: Hashable {
 
 nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
-    case namedLayerTarget(String)
+    case namedLayerTarget(SceneNamedTextureReference)
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
     case asset(SceneAssetTextureIdentity)
     case userProperty(String)

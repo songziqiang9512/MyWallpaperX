@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Metal
 
@@ -106,6 +107,50 @@ nonisolated struct SceneFrameTextureResource {
     let publication: SceneTextureProviderPublication
     let resourceGeneration: UInt64
 
+    static func reservedNamedLayerTarget(
+        reference: SceneNamedTextureReference,
+        frameEpoch: UInt64,
+        texture: MTLTexture
+    ) -> Self? {
+        guard frameEpoch > 0,
+              reference.variant == .primary,
+              texture.textureType == .type2D,
+              texture.sampleCount == 1,
+              texture.mipmapLevelCount == 1,
+              texture.usage.contains(.renderTarget),
+              texture.usage.contains(.shaderRead),
+              texture.pixelFormat == .bgra8Unorm
+                || texture.pixelFormat == .rgba8Unorm else { return nil }
+        let size = CGSize(width: texture.width, height: texture.height)
+        let candidate = SceneTextureCandidate(
+            texture: texture,
+            identity: .provider(.namedLayerTarget(
+                providerLayerID: reference.providerLayerID,
+                variant: reference.variant.rawValue,
+                frameEpoch: frameEpoch
+            )),
+            generation: .provider(contentGeneration: frameEpoch),
+            purpose: .premultipliedColor,
+            content: .color(.resolved(.premultipliedAlpha)),
+            physicalSize: size,
+            mappedSize: size,
+            uvTransform: .identity,
+            sampling: .linearClamp
+        )
+        let result = Self(
+            publication: .init(
+                requestIdentity: .namedLayerTarget(reference),
+                candidate: candidate,
+                contentGeneration: frameEpoch
+            ),
+            resourceGeneration: frameEpoch
+        )
+        return result.isCompleteNamedLayerTarget(
+            reference: reference,
+            frameEpoch: frameEpoch
+        ) ? result : nil
+    }
+
     /// Rebinds one already validated graph allocation to another logical graph
     /// request. Swap changes only this request identity; the physical provider,
     /// texture and both generations remain the same immutable atom.
@@ -160,6 +205,46 @@ nonisolated struct SceneFrameTextureResource {
         case .color(.resolved(.straightAlpha)), .color(.unresolved), .data:
             return false
         }
+    }
+
+    func isCompleteNamedLayerTarget(
+        reference: SceneNamedTextureReference,
+        frameEpoch: UInt64
+    ) -> Bool {
+        guard frameEpoch > 0,
+              reference.variant == .primary,
+              resourceGeneration == frameEpoch,
+              publication.contentGeneration == frameEpoch,
+              publication.requestIdentity == .namedLayerTarget(reference),
+              publication.isComplete,
+              case let .provider(.namedLayerTarget(
+                providerLayerID,
+                variant,
+                publicationEpoch
+              )) = publication.candidate.identity,
+              providerLayerID == reference.providerLayerID,
+              variant == reference.variant.rawValue,
+              publicationEpoch == frameEpoch,
+              publication.candidate.purpose == .premultipliedColor,
+              publication.candidate.content
+                == .color(.resolved(.premultipliedAlpha)),
+              publication.candidate.physicalSize
+                == publication.candidate.mappedSize,
+              publication.candidate.uvTransform == .identity,
+              publication.candidate.sampling.isResolvedForMaterialProgram,
+              publication.candidate.texture.textureType == .type2D,
+              publication.candidate.texture.sampleCount == 1,
+              publication.candidate.texture.mipmapLevelCount == 1,
+              publication.candidate.texture.usage.contains(.renderTarget),
+              publication.candidate.texture.usage.contains(.shaderRead),
+              publication.candidate.pixelFormat == .bgra8Unorm
+                || publication.candidate.pixelFormat == .rgba8Unorm,
+              let scale = publication.candidate.axisAlignedMappedUVScale(
+                expectedPurpose: .premultipliedColor
+              ),
+              scale.x == 1,
+              scale.y == 1 else { return false }
+        return true
     }
 
     private func identityUVScale(
@@ -220,6 +305,24 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
         for (identity, resource) in resources {
             overlaid[.graph(identity)] = .ready(resource)
         }
+        return Self(
+            frameEpoch: frameEpoch,
+            frameIndex: frameIndex,
+            entries: overlaid
+        )
+    }
+
+    func overlayingNamedLayerTarget(
+        _ reference: SceneNamedTextureReference,
+        resource: SceneFrameTextureResource
+    ) -> Self? {
+        let identity = SceneFrameTextureIdentity.namedLayerTarget(reference)
+        guard resource.isCompleteNamedLayerTarget(
+            reference: reference,
+            frameEpoch: frameEpoch
+        ) else { return nil }
+        var overlaid = entries
+        overlaid[identity] = .ready(resource)
         return Self(
             frameEpoch: frameEpoch,
             frameIndex: frameIndex,

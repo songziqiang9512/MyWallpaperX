@@ -47,8 +47,13 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 throw Failure(phase: .invariant, code: .identityInvariant)
             }
             return .materialUserProperty(identity)
-        case let .provider(.system(name)):
-            return .system(name)
+        case let .provider(request):
+            switch request {
+            case let .system(name):
+                return .system(name)
+            case let .namedLayerTarget(reference):
+                return .namedLayerTarget(reference)
+            }
         case let .graph(graph):
             return .graph(graph)
         }

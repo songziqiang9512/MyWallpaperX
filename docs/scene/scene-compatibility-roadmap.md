@@ -30,6 +30,8 @@
 
 本文只保存由上述现役权威导出的计划决策：V0 首个 ordinary authored effect 已按完成门取得 `slice-visible` 正反证，下一批进入 V1，在同一 Program/GraphExecutor 主链闭合最小 graph/FBO correctness atom，不建设第二套 renderer。仓库中的历史专用实现、旧测试、旧类型层级和旧 matrix 只构成需要审计的偏差候选，不自动取得目标架构或下一批执行权。
 
+依据当前能力台账与运行证据，V1 已分别闭合 material/copy/unique-history 与 exact primary cross-layer named-provider 两个 bounded `slice-visible` atom。路线决策仍是留在 V1：从 ordered multi-pass/FBO command、其他 history、swap/compose/condition/function与 secondary/multiple/nested dependency 中选择下一个独立公共结果；不因两个 atom 提前进入 V2，也不宣告 V1、Fast Suite 或 owner migration 完成。
+
 ## 3. 执行优先级
 
 ### V0：普通 authored material/shader 首次出画面——首个 `slice-visible` 已闭合

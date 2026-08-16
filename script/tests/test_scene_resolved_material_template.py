@@ -19,6 +19,7 @@ PROGRAM_SOURCE = SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterial
 TEXTURE_CANDIDATE_SOURCE = SCENE_ROOT / "Resources/SceneTextureCandidate.swift"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneShaderMalformedMetadataAdmission.swift",
@@ -331,7 +332,11 @@ private func referenceToken(_ value: Template.TextureReference) -> String {
     case let .asset(request): return "asset:\(request.value)"
     case let .userProperty(request): return "property:\(request.key)"
     case let .provider(identity):
-        switch identity { case let .system(name): return "system:\(name)" }
+        switch identity {
+        case let .system(name): return "system:\(name)"
+        case let .namedLayerTarget(reference):
+            return "named:\(reference.providerLayerID):\(reference.variant.rawValue)"
+        }
     case let .graph(identity): return "graph:\(identity.kind.rawValue):\(identity.layerID)"
     }
 }
@@ -369,6 +374,14 @@ enum Harness {
             provenance: .userTexture
         )])
         let projected = template(compile(material(slots: slots)))
+        var namedSlots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
+        namedSlots[1] = .init(index: 1, candidates: [
+            .init(
+                source: .asset("_rt_imageLayerComposite_42_a"),
+                provenance: .instance
+            ),
+        ])
+        let namedTemplate = template(compile(material(slots: namedSlots)))
         let candidateTokens = projected?.textureSlots[1]?.candidates.map {
             referenceToken($0.reference)
         } ?? []
@@ -713,6 +726,9 @@ enum Harness {
                 && projected?.textureSlots[6]?.candidates.first.map {
                     referenceToken($0.reference)
                 } == "property:tintTexture",
+            "namedLayerTargetIsProvider": namedTemplate?.textureSlots[1]?
+                .candidates.first.map { referenceToken($0.reference) }
+                    == "named:42:a",
             "typedGraphRole": projected?.graphRole == expectedRole,
             "priorEffectOutputIsTypedIngress": chainedTemplate?.graphRole.effectInput
                 == .effectOutput
@@ -946,6 +962,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "holesPreserved",
             "precedenceLowToHigh",
             "typedRequests",
+            "namedLayerTargetIsProvider",
             "typedGraphRole",
             "priorEffectOutputIsTypedIngress",
             "combosDeterministic",

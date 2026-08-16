@@ -127,7 +127,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             case .deferred: return .unknownInternalGraph
             case .invalid, .none: return .invalid
             }
-            if case .provider = reference {
+            if case let .provider(provider) = reference,
+               case .system = provider {
                 return .unknownInternalGraph
             }
             if case .userProperty = reference {
@@ -224,6 +225,12 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             guard identity == implicitFramebufferIdentity else { return nil }
             return .init(
                 isGraphReference: true,
+                content: .color(.resolved(.premultipliedAlpha))
+            )
+        }
+        if case .provider(.namedLayerTarget) = reference {
+            return .init(
+                isGraphReference: false,
                 content: .color(.resolved(.premultipliedAlpha))
             )
         }

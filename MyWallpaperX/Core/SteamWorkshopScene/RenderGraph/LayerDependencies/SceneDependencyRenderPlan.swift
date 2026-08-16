@@ -277,7 +277,7 @@ nonisolated struct SceneDependencyRenderPlan {
         declaration: SceneClippingMaskDeclaration
     )? {
         let matches = visibleEffects.compactMap { effect in
-            SceneClippingMaskContract.declaration(for: effect).map {
+            SceneClippingMaskContract.dependencyDeclaration(for: effect).map {
                 (effect: effect, declaration: $0)
             }
         }
@@ -289,7 +289,9 @@ nonisolated struct SceneDependencyRenderPlan {
         executableUtilityConsumerLayerIDs: Set<Int>
     ) -> Bool {
         let visibleEffects = layer.effects.filter { $0.visible != false }
-        if visibleEffects.compactMap(SceneClippingMaskContract.declaration).count == 1 {
+        if visibleEffects.compactMap(
+            SceneClippingMaskContract.dependencyDeclaration
+        ).count == 1 {
             return true
         }
         if supportedImageLayerBlendDeclaration(in: visibleEffects) != nil {

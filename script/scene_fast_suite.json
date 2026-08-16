@@ -107,19 +107,19 @@
     {
       "id": "v1-cross-layer-named-provider",
       "lane": "V1",
-      "selectionState": "selection-required",
-      "fixtureIdentity": null,
-      "contentDigest": null,
+      "selectionState": "approved",
+      "fixtureIdentity": "isolated-real-derived:2902406982:167->253->245:effect-245#effect#246:pass-0:slot-1",
+      "contentDigest": "source-scene.pkg:sha256:57d26227f86014706887b5325ea84437c2b4d20d98fa03f46c6c3f53199459c4;positive-derived.json:sha256:01110941ae9678cf1765390aa91667312eb5d937249c7a8dbb9e7726d4075f6b;negative-derived.json:sha256:b4b8898b141dc911e6a8efcd631880a4ec6b0da9a6c278cb18797622ccb81703",
       "authoredShape": [
         "provider-layer",
         "named-target-publication",
         "consumer-layer",
         "authored-dependency-edge"
       ],
-      "expectedRoute": "dependency plan -> provider publication -> named reservation -> consumer Program -> compositor",
-      "firstBreakpoint": "must be recorded when a fixture is approved",
-      "positiveOracle": "The consumer uses the exact approved provider identity and the composed ROI reflects the dependency.",
-      "negativeOracle": "Missing, stale, mismatched, or cyclic publication only disables the dependent consumer subgraph.",
+      "expectedRoute": "dependency plan -> external-primary reservation -> typed provider publication -> named Program slot -> GraphExecutor -> compositor",
+      "firstBreakpoint": "The primary _rt_imageLayerComposite_253_a dependency reached reservation and capture but did not become the exact premultiplied-color Program slot 1, so the ordinary consumer could not execute through GraphExecutor.",
+      "positiveOracle": "Provider 253 capture and consumer 245 binding conserve effect 245#effect#246, pass 0, slot 1, primary variant, frame epoch, purpose, format, usage and sampling; the Program reaches GPU completion, publication, terminal compositor and next-frame. Relative to the paired secondary-variant negative at 3024x1964, all delta above the registered threshold stays within consumer bbox x=1398..1832/y=1156..1544.",
+      "negativeOracle": "Changing only the authored reference to _rt_imageLayerComposite_253_b produces typed unsupportedVariant before execution demand, plans no named target, performs zero Program/GraphExecutor execution, and retains 299/299 safe compositor frames. Existing missing, stale, mismatched and cyclic publication gates remain fail-closed.",
       "failureRadius": "dependent consumer subgraph"
     },
     {

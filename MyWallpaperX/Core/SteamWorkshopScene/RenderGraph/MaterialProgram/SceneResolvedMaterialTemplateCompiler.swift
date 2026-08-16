@@ -176,6 +176,9 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
     ) throws -> Template.TextureReference {
         switch candidate.source {
         case let .asset(value):
+            if let reference = SceneNamedTextureReference.parse(value) {
+                return .provider(.namedLayerTarget(reference))
+            }
             guard let path = SceneVFSAssetPath(value)
             else { throw textureFailure(.textureReferenceInvalid, slot, candidate.provenance) }
             return .asset(path)

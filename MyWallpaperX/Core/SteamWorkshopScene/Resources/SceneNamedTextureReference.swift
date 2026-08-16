@@ -1,7 +1,7 @@
 import Foundation
 
-nonisolated struct SceneNamedTextureReference: Hashable {
-    nonisolated enum Variant: String {
+nonisolated struct SceneNamedTextureReference: Hashable, Sendable {
+    nonisolated enum Variant: String, Sendable {
         case primary = "a"
         case secondary = "b"
         case unspecified

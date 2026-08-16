@@ -135,7 +135,15 @@ enum SceneUtilityLayerRuntimePlanner {
             "utilityNamedTargetPlannedCount: \(namedTargetProviderIDs.count)",
             "utilityNamedBindingPlannedCount: \(dependencyPlan.bindingsByConsumerLayerID.count)",
             "utilityNamedTargetGapCount: \(namedTargetGaps.count)",
+            "utilityDependencyIssueCount: \(dependencyPlan.issues.count)",
         ]
+        for issue in dependencyPlan.issues {
+            let provider = issue.providerLayerID.map(String.init) ?? "-"
+            lines.append(
+                "utilityDependencyIssue: kind=\(issue.kind.rawValue) "
+                    + "layer=\(issue.layerID) provider=\(provider)"
+            )
+        }
         for plan in ordered {
             let namedTarget: String
             if namedTargetProviderIDs.contains(plan.layerID) {

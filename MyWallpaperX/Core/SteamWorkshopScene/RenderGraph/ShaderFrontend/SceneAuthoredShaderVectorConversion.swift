@@ -35,14 +35,21 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
             ) {
                 return [conversion]
             }
-            guard
-                  let operands = multiplicativeOperands(
-                      tokens[(index + 1)..<end],
-                      before: index,
-                      allTokens: tokens,
-                      unit: unit
-                  ) else {
-                return []
+            guard let operands = multiplicativeOperands(
+                tokens[(index + 1)..<end],
+                before: index,
+                allTokens: tokens,
+                unit: unit
+            ) else {
+                return targetWidth > 1
+                    ? contextualComponentConversions(
+                        expression: (index + 1)..<end,
+                        targetWidth: targetWidth,
+                        before: index,
+                        tokens: tokens,
+                        unit: unit
+                    ) ?? []
+                    : []
             }
             let vectorOperands = operands.filter { floatVectorWidth($0.type) != nil }
             guard let operationWidth = vectorOperands.compactMap({
@@ -287,6 +294,88 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
             floatVectorWidth($0.type) != nil
         }) else { return nil }
         return operands
+    }
+
+    private static func contextualComponentConversions(
+        expression: Range<Int>,
+        targetWidth: Int,
+        before limit: Int,
+        tokens: [SceneAuthoredShaderToken],
+        unit: SceneAuthoredShaderSyntaxUnit
+    ) -> [Conversion]? {
+        var result: [Conversion] = []
+        var depth = 0
+        var index = expression.lowerBound
+        while index < expression.upperBound {
+            let token = tokens[index]
+            if token.kind == .number {
+                index += 1
+                continue
+            }
+            if ["+", "-", "*", "/"].contains(token.text) {
+                index += 1
+                continue
+            }
+            if token.text == "(" {
+                depth += 1
+                index += 1
+                continue
+            }
+            if token.text == ")" {
+                depth -= 1
+                guard depth >= 0 else { return nil }
+                index += 1
+                continue
+            }
+            if token.text == "," {
+                guard depth > 0 else { return nil }
+                index += 1
+                continue
+            }
+            guard token.kind == .identifier else { return nil }
+            if index > expression.lowerBound, tokens[index - 1].text == "." {
+                index += 1
+                continue
+            }
+            if index + 1 < expression.upperBound, tokens[index + 1].text == "(" {
+                guard let constructor = SceneAuthoredShaderValueType(
+                          authoredName: token.text
+                      ), constructor == .float
+                        || floatVectorWidth(constructor).map({ $0 <= targetWidth }) == true
+                else { return nil }
+                index += 1
+                continue
+            }
+            guard let source = declaredType(
+                of: token.text,
+                before: limit,
+                tokens: tokens,
+                unit: unit
+            ) else { return nil }
+            if index + 2 < expression.upperBound,
+               tokens[index + 1].text == ".",
+               tokens[index + 2].kind == .identifier {
+                guard let explicit = swizzleType(tokens[index + 2].text),
+                      explicit == .float
+                        || floatVectorWidth(explicit).map({ $0 <= targetWidth }) == true
+                else { return nil }
+                index += 3
+                continue
+            }
+            if [.float, .int, .uint].contains(source) {
+                index += 1
+                continue
+            }
+            guard let sourceWidth = floatVectorWidth(source) else { return nil }
+            if sourceWidth > targetWidth {
+                guard let suffix = narrowingSuffix(from: sourceWidth, to: targetWidth)
+                else { return nil }
+                result.append(.init(range: index..<(index + 1), suffix: suffix))
+            }
+            index += 1
+        }
+        guard depth == 0, !result.isEmpty else { return nil }
+        return result
     }
 
     private static func declaredType(

@@ -246,6 +246,18 @@ struct SceneDependencyEffectInput {
 
     var slotIndex: Int { slot.slotIndex }
 
+    var namedReference: SceneNamedTextureReference {
+        .init(providerLayerID: providerLayerID, variant: variant)
+    }
+
+    var reservedMaterialResource: SceneFrameTextureResource? {
+        SceneFrameTextureResource.reservedNamedLayerTarget(
+            reference: namedReference,
+            frameEpoch: frameEpoch,
+            texture: texture
+        )
+    }
+
     init(
         consumerLayerID: Int,
         providerLayerID: Int,

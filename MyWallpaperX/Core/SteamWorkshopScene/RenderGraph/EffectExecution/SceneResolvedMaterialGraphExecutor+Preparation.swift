@@ -58,6 +58,20 @@ extension SceneResolvedMaterialGraphExecutor {
             }
             return failure
         }
+        let dependencyFrame: SceneResolvedMaterialFrameSnapshot
+        if let dependency = dedicatedInputs.dependencyEffect {
+            guard dependency.frameEpoch > 0,
+                  let resource = dependency.reservedMaterialResource,
+                  let replacement = frameTextureSnapshot(
+                    frame,
+                    overlaying: dependency.namedReference,
+                    resource: resource,
+                    frameEpoch: dependency.frameEpoch
+                  ) else { return .graphPublicationRejected }
+            dependencyFrame = replacement
+        } else {
+            dependencyFrame = frame
+        }
         let nodes = Dictionary(uniqueKeysWithValues: graph.nodes.map {
             ($0.nodeIndex, $0)
         })
@@ -105,7 +119,9 @@ extension SceneResolvedMaterialGraphExecutor {
                       ), let material = capability.material(for: node) else {
                     return .graphStructureRejected
                 }
-                guard let overlaid = frame.overlayingGraphResources(publications) else {
+                guard let overlaid = dependencyFrame.overlayingGraphResources(
+                    publications
+                ) else {
                     return .graphPublicationRejected
                 }
                 let finalized = SceneResolvedMaterialProgramFinalizer.finalize(
@@ -460,5 +476,20 @@ extension SceneResolvedMaterialGraphExecutor {
               case let .provider(.graph(_, token)) =
                 publication.publication.candidate.identity else { return false }
         return token == resource.token.rawValue
+    }
+
+    private func frameTextureSnapshot(
+        _ frame: SceneResolvedMaterialFrameSnapshot,
+        overlaying reference: SceneNamedTextureReference,
+        resource: SceneFrameTextureResource,
+        frameEpoch: UInt64
+    ) -> SceneResolvedMaterialFrameSnapshot? {
+        let snapshot = frame.textureRegistrySnapshot
+        guard snapshot.frameEpoch == frameEpoch,
+              let replacement = snapshot.overlayingNamedLayerTarget(
+                reference,
+                resource: resource
+              ) else { return nil }
+        return frame.replacingTextureSnapshot(replacement)
     }
 }

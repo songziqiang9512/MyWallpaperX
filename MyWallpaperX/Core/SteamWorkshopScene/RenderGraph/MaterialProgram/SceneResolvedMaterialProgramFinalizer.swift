@@ -10,6 +10,10 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
 
     var frameIndex: UInt64 { frameInputs.frameIndex }
 
+    var textureRegistrySnapshot: SceneFrameTextureRegistrySnapshot {
+        textureSnapshot
+    }
+
     static func validated(
         textureSnapshot: SceneFrameTextureRegistrySnapshot,
         dynamicSnapshot: SceneDynamicSnapshot,
@@ -72,6 +76,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         }
         return replacingTextureSnapshot(replacement)
     }
+
 }
 
 nonisolated struct SceneResolvedMaterialFinalizationInput {

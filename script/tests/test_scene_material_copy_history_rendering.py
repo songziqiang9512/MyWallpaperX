@@ -68,11 +68,49 @@ SUPPORT = (
         "",
     )
     .replace(
+        """struct SceneDependencyEffectInput {
+    let frameEpoch: UInt64
+    let namedReference: SceneNamedTextureReference
+    let reservedMaterialResource: SceneFrameTextureResource?
+}
+""",
+        """struct SceneDependencyEffectInput {
+    let consumerLayerID: Int
+    let providerLayerID: Int
+    let variant: SceneNamedTextureReference.Variant
+    let slot: SceneEffectPassSlot
+    let blendMode: Int
+    let frameEpoch: UInt64
+    let texture: MTLTexture
+
+    var namedReference: SceneNamedTextureReference {
+        .init(providerLayerID: providerLayerID, variant: variant)
+    }
+
+    var reservedMaterialResource: SceneFrameTextureResource? {
+        SceneFrameTextureResource.reservedNamedLayerTarget(
+            reference: namedReference,
+            frameEpoch: frameEpoch,
+            texture: texture
+        )
+    }
+}
+""",
+    )
+    .replace(
         """final class SceneResolvedMaterialRuntimeBridge {
     struct DedicatedFrameInputs {
-        let time: Float = 0
-        let layerModelMatrix = matrix_identity_float4x4
-        let effectTextureProjectionMatrixInverse = matrix_identity_float4x4
+        let time: Float
+        let layerModelMatrix: simd_float4x4
+        let effectTextureProjectionMatrixInverse: simd_float4x4
+        let dependencyEffect: SceneDependencyEffectInput?
+
+        init(dependencyEffect: SceneDependencyEffectInput? = nil) {
+            time = 0
+            layerModelMatrix = matrix_identity_float4x4
+            effectTextureProjectionMatrixInverse = matrix_identity_float4x4
+            self.dependencyEffect = dependencyEffect
+        }
     }
 }
 """,
@@ -133,19 +171,13 @@ struct SceneResolvedMaterialFrameTargetPlan {
     let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
     let allocation: ScenePersistentGraphTargetFramePlan
 }
-
-struct SceneDependencyEffectInput {
-    let consumerLayerID: Int
-    let providerLayerID: Int
-    let variant: SceneNamedTextureReference.Variant
-    let slot: SceneEffectPassSlot
-    let blendMode: Int
-    let frameEpoch: UInt64
-    let texture: MTLTexture
-}
 """,
     )
 )
+if "typealias LogSink = @Sendable (String) -> Void" not in SUPPORT:
+    raise AssertionError("runtime bridge support replacement did not match")
+if "let consumerLayerID: Int" not in SUPPORT:
+    raise AssertionError("dependency effect support replacement did not match")
 
 
 HARNESS_PATH = (

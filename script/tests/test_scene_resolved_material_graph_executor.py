@@ -155,11 +155,13 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
         let effects: [EffectDescriptor]
-        let contentKind: String = "image"
-        let utilityLayer: SceneUtilityLayer? = nil
-        let childLayerIDs: [Int] = []
-        let dependencyLayerIDs: [Int] = []
-        let authoredDependencies: [String] = []
+        var contentKind: String = "image"
+        var utilityLayer: SceneUtilityLayer? = nil
+        var childLayerIDs: [Int] = []
+        var dependencyLayerIDs: [Int] = []
+        var authoredDependencies: [String] = []
+        var namedReferences: [SceneDependencyRenderPlan.Reference] = []
+        var namedBindings: [SceneDependencyRenderPlan.Binding] = []
     }
 
     struct MaterialPassDescriptor {
@@ -207,12 +209,24 @@ struct SceneDependencyRenderPlan {
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int> = []
     ) {
-        _ = descriptor
-        _ = visibleLayerIDs
-        _ = executableUtilityConsumerLayerIDs
-        references = []
-        namedReferenceConsumerLayerIDs = []
-        bindingsByConsumerLayerID = [:]
+        references = descriptor.layers.flatMap(\.namedReferences)
+        namedReferenceConsumerLayerIDs = Set(references.compactMap {
+            visibleLayerIDs.contains($0.consumerLayerID) ? $0.consumerLayerID : nil
+        })
+        var bindings: [Int: Binding] = [:]
+        for layer in descriptor.layers where visibleLayerIDs.contains(layer.id) {
+            guard layer.utilityLayer == nil
+                    || executableUtilityConsumerLayerIDs.contains(layer.id) else {
+                continue
+            }
+            let matches = layer.namedBindings.filter {
+                $0.consumerLayerID == layer.id
+            }
+            if matches.count == 1 {
+                bindings[layer.id] = matches[0]
+            }
+        }
+        bindingsByConsumerLayerID = bindings
     }
 }
 
@@ -235,10 +249,24 @@ struct AdmittedLayerGraph {
 
 final class SceneResolvedMaterialRuntimeBridge {
     struct DedicatedFrameInputs {
-        let time: Float = 0
-        let layerModelMatrix = matrix_identity_float4x4
-        let effectTextureProjectionMatrixInverse = matrix_identity_float4x4
+        let time: Float
+        let layerModelMatrix: simd_float4x4
+        let effectTextureProjectionMatrixInverse: simd_float4x4
+        let dependencyEffect: SceneDependencyEffectInput?
+
+        init(dependencyEffect: SceneDependencyEffectInput? = nil) {
+            time = 0
+            layerModelMatrix = matrix_identity_float4x4
+            effectTextureProjectionMatrixInverse = matrix_identity_float4x4
+            self.dependencyEffect = dependencyEffect
+        }
     }
+}
+
+struct SceneDependencyEffectInput {
+    let frameEpoch: UInt64
+    let namedReference: SceneNamedTextureReference
+    let reservedMaterialResource: SceneFrameTextureResource?
 }
 
 enum SceneEffectStageRenderer {
@@ -567,14 +595,18 @@ private func fragmentSource(
     hostUniformDeclarationConflict: Bool = false,
     pixelTransform: Int? = nil,
     scalarProducer: Bool = false,
-    scalarConsumer: String? = nil
+    scalarConsumer: String? = nil,
+    crossLayerMix: Bool = false
 ) -> String {
     let annotation = pass ? "// [PASS] shadow shadowcasterdemo\n" : ""
-    let sampler = internalDefault
+    let primarySampler = internalDefault
         ? #"uniform sampler2D g_Texture0; // {"default":"_rt_history"}"#
         : samplerSchemaInvalid
             ? #"uniform sampler2D g_Texture0; // {"mode":"mystery"}"#
             : "uniform sampler2D g_Texture0;"
+    let samplers = crossLayerMix
+        ? primarySampler + "\nuniform sampler2D g_Texture1;"
+        : primarySampler
     let varying = frontendInvalid
         ? "varying vec3 v_TexCoord;"
         : "varying vec2 v_TexCoord;"
@@ -589,7 +621,11 @@ private func fragmentSource(
                     : hostUniformDeclarationConflict
                         ? "uniform float g_Time;"
                         : ""
-    let expression = if uniformSchemaInvalid {
+    let expression = if crossLayerMix {
+        "gl_FragColor = mix("
+            + "texSample2D(g_Texture0, v_TexCoord), "
+            + "texSample2D(g_Texture1, v_TexCoord), 0.5);"
+    } else if uniformSchemaInvalid {
         "gl_FragColor = texSample2D(g_Texture0, v_TexCoord)"
             + " * g_InvalidUniform;"
     } else if staticUniformMissingDefault {
@@ -642,7 +678,7 @@ private func fragmentSource(
     }
     return annotation + """
     \(varying)
-    \(sampler)
+    \(samplers)
     \(uniform)
     void main() {
         \(expression)
@@ -936,7 +972,8 @@ private func shaderContract(
     implicitFramebufferAnnotation: Bool = true,
     historicalFramebufferAlias: Bool = false,
     scalarProducer: Bool = false,
-    scalarConsumer: String? = nil
+    scalarConsumer: String? = nil,
+    crossLayerMix: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -992,7 +1029,8 @@ private func shaderContract(
         hostUniformDeclarationConflict: hostUniformDeclarationConflict,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
-        scalarConsumer: scalarConsumer
+        scalarConsumer: scalarConsumer,
+        crossLayerMix: crossLayerMix
     )
     let stages = [
         stage(.vertex, path: "\(prefix).vert", source: vertexSource),
@@ -1086,7 +1124,8 @@ private func template(
     uniformDeclarationConflict: Bool = false,
     hostUniformDeclarationConflict: Bool = false,
     scalarProducer: Bool = false,
-    scalarConsumer: String? = nil
+    scalarConsumer: String? = nil,
+    namedProvider: SceneNamedTextureReference? = nil
 ) -> Template {
     guard let target = node.target,
           let inputBinding = node.bindings.first,
@@ -1115,7 +1154,8 @@ private func template(
         hostUniformDeclarationConflict: hostUniformDeclarationConflict,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
-        scalarConsumer: scalarConsumer
+        scalarConsumer: scalarConsumer,
+        crossLayerMix: namedProvider != nil
     )
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     slots[slot] = .init(index: slot, candidates: [
@@ -1124,6 +1164,14 @@ private func template(
             provenance: .explicitBinding
         ),
     ])
+    if let namedProvider {
+        slots[1] = .init(index: 1, candidates: [
+            .init(
+                reference: .provider(.namedLayerTarget(namedProvider)),
+                provenance: .instance
+            ),
+        ])
+    }
     let effectInput: Template.GraphTextureRole
     if node.effect == chainedSecondEffect {
         effectInput = role(chainedFirstOutput)
@@ -1245,7 +1293,8 @@ private func catalog(
     implicitFramebufferNodes: Set<Int> = [],
     historicalFramebufferNodes: Set<Int> = [],
     scalarProducerNodes: Set<Int> = [],
-    scalarConsumerNodes: [Int: String] = [:]
+    scalarConsumerNodes: [Int: String] = [:],
+    namedProvidersByNode: [Int: SceneNamedTextureReference] = [:]
 ) -> SceneResolvedMaterialRuntimeCatalog {
     var entries: [
         SceneResolvedMaterialRuntimeCatalog.Key:
@@ -1276,7 +1325,8 @@ private func catalog(
                 hostUniformDeclarationConflict:
                     hostUniformDeclarationConflictNodes.contains(node.nodeIndex),
                 scalarProducer: scalarProducerNodes.contains(node.nodeIndex),
-                scalarConsumer: scalarConsumerNodes[node.nodeIndex]
+                scalarConsumer: scalarConsumerNodes[node.nodeIndex],
+                namedProvider: namedProvidersByNode[node.nodeIndex]
             )
         entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
     }
@@ -2028,7 +2078,9 @@ private func capabilities(
     _ admittedGraph: AdmittedLayerGraph,
     catalog: SceneResolvedMaterialRuntimeCatalog,
     dynamicProducers: Capabilities.DynamicProducerCatalog = .empty,
-    dedicatedFullFrameComposeStageKeys: Set<Graph.EffectKey> = []
+    dedicatedFullFrameComposeStageKeys: Set<Graph.EffectKey> = [],
+    namedProvider: SceneNamedTextureReference? = nil,
+    dependencyBinding: SceneDependencyRenderPlan.Binding? = nil
 ) -> Capabilities {
     let graph = admittedGraph.renderGraph
     let materialNodes = graph.nodes.filter { $0.kind == .material }
@@ -2049,8 +2101,7 @@ private func capabilities(
             combos: [:]
         )
     }
-    let descriptor = SceneRenderDescriptor(
-        layers: [.init(
+    var consumer = SceneRenderDescriptor.Layer(
             id: graph.layerID,
             effects: graph.effects.map {
                 .init(
@@ -2060,7 +2111,24 @@ private func capabilities(
                     passes: instancePasses[$0.key] ?? []
                 )
             }
-        )],
+        )
+    var layers: [SceneRenderDescriptor.Layer] = [consumer]
+    if let namedProvider, let dependencyBinding {
+        consumer.dependencyLayerIDs = [dependencyBinding.providerLayerID]
+        consumer.namedReferences = [.init(
+            consumerLayerID: graph.layerID,
+            providerLayerID: namedProvider.providerLayerID,
+            slot: dependencyBinding.slot,
+            variant: namedProvider.variant
+        )]
+        consumer.namedBindings = [dependencyBinding]
+        layers = [
+            .init(id: dependencyBinding.providerLayerID, effects: []),
+            consumer,
+        ]
+    }
+    let descriptor = SceneRenderDescriptor(
+        layers: layers,
         materialPasses: materialPasses,
         effectDefinitions: graph.effects.map {
             .init(relativePath: $0.definitionPath, functions: nil)
@@ -2095,6 +2163,81 @@ private func compilerCounts(
     }
 }
 
+private struct CrossLayerRejectedPreparation {
+    let failureCode: String
+    let previousCurrentPreserved: Bool
+    let safeSuffixCompleted: Bool
+}
+
+private func rejectedCrossLayerPreparation(
+    device: MTLDevice,
+    queue: MTLCommandQueue,
+    sourcePipeline: SceneImageLayerPipeline,
+    admittedGraph: AdmittedLayerGraph,
+    capabilities: Capabilities,
+    dependency: SceneDependencyEffectInput?
+) -> CrossLayerRejectedPreparation {
+    guard let claim = capabilities.claim(admittedGraph),
+          let capability = capabilities.resolve(claim.token, for: admittedGraph),
+          let leases = makeChainedLeases(capability, device: device, generation: 61),
+          let firstStep = capability.pairPlan.effects.first,
+          let executor = Executor(device: device, capabilities: capabilities),
+          let command = queue.makeCommandBuffer() else {
+        return .init(
+            failureCode: "setup",
+            previousCurrentPreserved: false,
+            safeSuffixCompleted: false
+        )
+    }
+    let previousCurrent = executor.pairTexture(
+        lease: leases[0],
+        member: firstStep.inputMember
+    )
+    guard fill(
+        previousCurrent,
+        color: MTLClearColorMake(0, 0, 1, 1),
+        queue: queue
+    ) else {
+        return .init(
+            failureCode: "fill",
+            previousCurrentPreserved: false,
+            safeSuffixCompleted: false
+        )
+    }
+    let preparation = executor.prepare(
+        token: claim.token,
+        leases: leases,
+        historyRehydrateCopiesByEffect: [:],
+        frame: frame(60),
+        sourceTexture: makeSource(device, width: 2, height: 2),
+        sourceUniforms: .neutral(),
+        sourcePipeline: sourcePipeline,
+        dedicatedInputs: .init(dependencyEffect: dependency),
+        commandBuffer: command,
+        previousStates: [:],
+        previousGraphResources: [:],
+        effectGeneration: 1,
+        resetGeneration: 1
+    )
+    guard case .failure = preparation,
+          let readback = appendReadback(previousCurrent, commandBuffer: command) else {
+        return .init(
+            failureCode: failureCode(preparation),
+            previousCurrentPreserved: false,
+            safeSuffixCompleted: false
+        )
+    }
+    command.commit()
+    command.waitUntilCompleted()
+    let completed = command.status == .completed && command.error == nil
+    return .init(
+        failureCode: failureCode(preparation),
+        previousCurrentPreserved: completed
+            && readback.firstPixel == [255, 0, 0, 255],
+        safeSuffixCompleted: completed
+    )
+}
+
 @main
 private enum Harness {
     static func main() throws {
@@ -2105,6 +2248,217 @@ private enum Harness {
         }
         let source = makeSource(device)
         let sourcePipeline = makeSourcePipeline(device)
+
+        let crossLayerGraph = graph(
+            targets: [],
+            nodes: [material(0, ordinal: 0, target: output, read: input)]
+        )
+        let crossLayerChain = admittedGraph(crossLayerGraph)
+        let namedReference = SceneNamedTextureReference(
+            providerLayerID: 879,
+            variant: .primary
+        )
+        let externalBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: layerID,
+            providerLayerID: namedReference.providerLayerID,
+            slot: .init(
+                effectID: effect.descriptorID,
+                passIndex: 0,
+                slotIndex: 1
+            ),
+            blendMode: 0,
+            kind: .clippingMask
+        )
+        let crossLayerCapabilities = capabilities(
+            crossLayerChain,
+            catalog: catalog(
+                for: crossLayerGraph,
+                namedProvidersByNode: [0: namedReference]
+            ),
+            namedProvider: namedReference,
+            dependencyBinding: externalBinding
+        )
+        let crossLayerClaim = crossLayerCapabilities.claim(crossLayerChain)
+        let crossLayerCapability = crossLayerClaim.flatMap {
+            crossLayerCapabilities.resolve($0.token, for: crossLayerChain)
+        }
+        var crossLayerPrepared = false
+        var crossLayerEncoded = false
+        var crossLayerGPUCompleted = false
+        var crossLayerProviderChangesPixels = false
+        var crossLayerPixel: [UInt8] = []
+        var crossLayerFailure = "setup"
+        let providerTexture = makeSource(
+            device,
+            width: 2,
+            height: 2,
+            usage: [.shaderRead, .renderTarget],
+            bgra: [0, 255, 0, 255]
+        )
+        let providerResource = SceneFrameTextureResource.reservedNamedLayerTarget(
+            reference: namedReference,
+            frameEpoch: 60,
+            texture: providerTexture
+        )
+        if let claim = crossLayerClaim,
+           let capability = crossLayerCapability,
+           let resource = providerResource,
+           let leases = makeChainedLeases(capability, device: device, generation: 60),
+           let executor = Executor(device: device, capabilities: crossLayerCapabilities),
+           let command = queue.makeCommandBuffer() {
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(60),
+                sourceTexture: makeSource(device, width: 2, height: 2),
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(dependencyEffect: .init(
+                    frameEpoch: 60,
+                    namedReference: namedReference,
+                    reservedMaterialResource: resource
+                )),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 1,
+                resetGeneration: 1
+            )
+            crossLayerFailure = failureCode(preparation)
+            if case let .success(prepared) = preparation,
+               prepared.stages.count == 1,
+               prepared.stages[0].programCacheKeys.count == 1,
+               !prepared.stages[0].programCacheKeys[0].contains("passthrough") {
+                crossLayerPrepared = true
+                crossLayerEncoded = executor.encode(prepared, commandBuffer: command)
+                if crossLayerEncoded,
+                   let readback = appendReadback(
+                    prepared.finalTexture,
+                    commandBuffer: command
+                   ) {
+                    command.commit()
+                    command.waitUntilCompleted()
+                    crossLayerGPUCompleted = command.status == .completed
+                        && command.error == nil
+                    crossLayerPixel = readback.firstPixel
+                    crossLayerProviderChangesPixels = crossLayerGPUCompleted
+                        && matches(crossLayerPixel, [0, 128, 128, 255])
+                        && !matches(crossLayerPixel, [0, 0, 255, 255])
+                        && !matches(crossLayerPixel, [255, 255, 255, 255])
+                }
+            }
+        }
+
+        let missingProvider = rejectedCrossLayerPreparation(
+            device: device,
+            queue: queue,
+            sourcePipeline: sourcePipeline,
+            admittedGraph: crossLayerChain,
+            capabilities: crossLayerCapabilities,
+            dependency: nil
+        )
+        let wrongNamedReference = SceneNamedTextureReference(
+            providerLayerID: namedReference.providerLayerID + 1,
+            variant: .primary
+        )
+        let wrongProviderTexture = makeSource(
+            device,
+            width: 2,
+            height: 2,
+            usage: [.shaderRead, .renderTarget],
+            bgra: [255, 0, 0, 255]
+        )
+        let wrongProviderResource = SceneFrameTextureResource.reservedNamedLayerTarget(
+            reference: wrongNamedReference,
+            frameEpoch: 60,
+            texture: wrongProviderTexture
+        )
+        let wrongProvider = rejectedCrossLayerPreparation(
+            device: device,
+            queue: queue,
+            sourcePipeline: sourcePipeline,
+            admittedGraph: crossLayerChain,
+            capabilities: crossLayerCapabilities,
+            dependency: .init(
+                frameEpoch: 60,
+                namedReference: wrongNamedReference,
+                reservedMaterialResource: wrongProviderResource
+            )
+        )
+        let secondaryReference = SceneNamedTextureReference(
+            providerLayerID: namedReference.providerLayerID,
+            variant: .secondary
+        )
+        let secondaryProvider = rejectedCrossLayerPreparation(
+            device: device,
+            queue: queue,
+            sourcePipeline: sourcePipeline,
+            admittedGraph: crossLayerChain,
+            capabilities: crossLayerCapabilities,
+            dependency: .init(
+                frameEpoch: 60,
+                namedReference: secondaryReference,
+                reservedMaterialResource:
+                    SceneFrameTextureResource.reservedNamedLayerTarget(
+                        reference: secondaryReference,
+                        frameEpoch: 60,
+                        texture: providerTexture
+                    )
+            )
+        )
+        let staleResource = SceneFrameTextureResource.reservedNamedLayerTarget(
+            reference: namedReference,
+            frameEpoch: 59,
+            texture: providerTexture
+        )
+        let staleProvider = rejectedCrossLayerPreparation(
+            device: device,
+            queue: queue,
+            sourcePipeline: sourcePipeline,
+            admittedGraph: crossLayerChain,
+            capabilities: crossLayerCapabilities,
+            dependency: .init(
+                frameEpoch: 59,
+                namedReference: namedReference,
+                reservedMaterialResource: staleResource
+            )
+        )
+        func mismatchedOwnershipClaim(
+            effectID: String,
+            passIndex: Int,
+            slotIndex: Int
+        ) -> Bool {
+            let binding = SceneDependencyRenderPlan.Binding(
+                consumerLayerID: layerID,
+                providerLayerID: namedReference.providerLayerID,
+                slot: .init(
+                    effectID: effectID,
+                    passIndex: passIndex,
+                    slotIndex: slotIndex
+                ),
+                blendMode: 0,
+                kind: .clippingMask
+            )
+            return capabilities(
+                crossLayerChain,
+                catalog: catalog(
+                    for: crossLayerGraph,
+                    namedProvidersByNode: [0: namedReference]
+                ),
+                namedProvider: namedReference,
+                dependencyBinding: binding
+            ).claim(crossLayerChain) != nil
+        }
+        let secondaryCapabilities = capabilities(
+            crossLayerChain,
+            catalog: catalog(
+                for: crossLayerGraph,
+                namedProvidersByNode: [0: secondaryReference]
+            ),
+            namedProvider: secondaryReference,
+            dependencyBinding: externalBinding
+        )
 
         let pixelGraph = chainedGraph()
         let pixelChain = orderedLayerGraph(pixelGraph)
@@ -3818,6 +4172,56 @@ private enum Harness {
         )
 
         let results: [String: Bool] = [
+            "crossLayerExactOwnershipClaimed": {
+                guard let capability = crossLayerCapability,
+                      case let .externalPrimary(binding) =
+                        capability.dependencyOwnership else { return false }
+                return binding == externalBinding
+            }(),
+            "crossLayerPreparedUnifiedProgram": crossLayerFailure == "success"
+                && crossLayerPrepared,
+            "crossLayerEncodedAndGPUCompleted": crossLayerEncoded
+                && crossLayerGPUCompleted,
+            "crossLayerProviderPixelsReachOutputWithoutWhiteFallback":
+                crossLayerProviderChangesPixels,
+            "crossLayerMissingProviderRejectedAtomically":
+                missingProvider.failureCode != "success"
+                    && missingProvider.previousCurrentPreserved
+                    && missingProvider.safeSuffixCompleted,
+            "crossLayerWrongProviderRejectedAtomically":
+                wrongProvider.failureCode != "success"
+                    && wrongProvider.previousCurrentPreserved
+                    && wrongProvider.safeSuffixCompleted,
+            "crossLayerSecondaryRejectedAtomically":
+                secondaryProvider.failureCode
+                    == Executor.Failure.graphPublicationRejected.rawValue
+                    && secondaryProvider.previousCurrentPreserved
+                    && secondaryProvider.safeSuffixCompleted,
+            "crossLayerStaleEpochRejectedAtomically":
+                staleProvider.failureCode
+                    == Executor.Failure.graphPublicationRejected.rawValue
+                    && staleProvider.previousCurrentPreserved
+                    && staleProvider.safeSuffixCompleted,
+            "crossLayerWrongEffectOwnershipRejectedBeforeFrame":
+                !mismatchedOwnershipClaim(
+                    effectID: effect.descriptorID + "-wrong",
+                    passIndex: 0,
+                    slotIndex: 1
+                ),
+            "crossLayerWrongPassOwnershipRejectedBeforeFrame":
+                !mismatchedOwnershipClaim(
+                    effectID: effect.descriptorID,
+                    passIndex: 1,
+                    slotIndex: 1
+                ),
+            "crossLayerWrongSlotOwnershipRejectedBeforeFrame":
+                !mismatchedOwnershipClaim(
+                    effectID: effect.descriptorID,
+                    passIndex: 0,
+                    slotIndex: 0
+                ),
+            "crossLayerSecondaryCannotClaim":
+                secondaryCapabilities.claim(crossLayerChain) == nil,
             "ordinaryCanClaim": ordinaryCapabilities.claim(ordinaryChain) != nil,
             "implicitFramebufferStructuralInferenceBindsEffectInput":
                 failureCode(implicitFramebufferPreparation) == "success",
@@ -4137,6 +4541,11 @@ private enum Harness {
             "metalAvailable": true,
             "results": results,
             "failureCodes": [
+                "crossLayer": crossLayerFailure,
+                "crossLayerMissing": missingProvider.failureCode,
+                "crossLayerWrongProvider": wrongProvider.failureCode,
+                "crossLayerSecondary": secondaryProvider.failureCode,
+                "crossLayerStale": staleProvider.failureCode,
                 "late": failureCode(latePreparation),
                 "copyMismatch": failureCode(copyMismatch),
                 "swapMismatch": failureCode(swapMismatch),
@@ -4150,6 +4559,8 @@ private enum Harness {
                 "pixels": String(composePixelsPreserved),
             ],
             "mixedKinds": mixedKinds,
+            "crossLayerPixel": crossLayerPixel,
+            "crossLayerReport": crossLayerCapabilities.reportLines,
             "encodedPixel": encodedRead.firstPixel,
             "encodedLastPixel": encodedRead.lastPixel,
             "pixelChainCanClaim": pixelCapabilities.claim(pixelChain) != nil,

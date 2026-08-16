@@ -185,6 +185,15 @@ enum Harness {
             effects: [proceduralNoiseEffect(id: 31, provider: 30)]
         )
         let missingProviderConsumer = consumer(32, provider: 999)
+        let secondaryConsumer = consumer(33, provider: 1, variantSuffix: "b")
+        let secondaryDescriptor = SceneRenderDescriptor(
+            layers: [provider, secondaryConsumer],
+            renderOrderLayerIDs: [1, 33]
+        )
+        let secondaryPlan = SceneDependencyRenderPlan(
+            descriptor: secondaryDescriptor,
+            visibleLayerIDs: [1, 33]
+        )
         let descriptor = SceneRenderDescriptor(
             layers: [
                 provider, visibleConsumer, hiddenConsumer,
@@ -380,6 +389,10 @@ enum Harness {
             "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
             "cycles": plan.cyclicLayerIDs.sorted(),
             "issues": plan.issues.map { "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)" },
+            "secondaryBinding": secondaryPlan.bindingsByConsumerLayerID[33] != nil,
+            "secondaryIssues": secondaryPlan.issues.map {
+                "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+            },
             "matrixBindingCount": matrixPlan.bindingsByConsumerLayerID.count,
             "matrixRequiredProviders": matrixPlan.requiredProviderLayerIDs.sorted(),
             "staticPassthroughBlocks": [
@@ -489,12 +502,14 @@ enum Harness {
         visible: Bool? = true,
         extraEffect: Bool = false,
         opacity: Double? = nil,
+        variantSuffix: String = "a",
         effectPath: String = "effects/workshop/2800594362/clipping_mask/effect.json"
     ) -> SceneRenderDescriptor.Layer {
         var effects = [effect(
             id: id,
             provider: provider,
             opacity: opacity,
+            variantSuffix: variantSuffix,
             path: effectPath
         )]
         if extraEffect {
@@ -641,6 +656,7 @@ enum Harness {
         id: Int,
         provider: Int,
         opacity: Double? = nil,
+        variantSuffix: String = "a",
         path: String = "effects/workshop/2800594362/clipping_mask/effect.json"
     ) -> SceneRenderDescriptor.EffectDescriptor {
         .init(
@@ -649,10 +665,10 @@ enum Harness {
             visible: true,
             passes: [.init(
                 passIndex: 0,
-                texturePaths: ["_rt_imageLayerComposite_\(provider)_a"],
+                texturePaths: ["_rt_imageLayerComposite_\(provider)_\(variantSuffix)"],
                 textureSlots: opacity == nil
-                    ? [nil, "_rt_imageLayerComposite_\(provider)_a"]
-                    : [nil, "_rt_imageLayerComposite_\(provider)_a", nil],
+                    ? [nil, "_rt_imageLayerComposite_\(provider)_\(variantSuffix)"]
+                    : [nil, "_rt_imageLayerComposite_\(provider)_\(variantSuffix)", nil],
                 combos: opacity == nil ? ["BLENDMODE": 5] : [:],
                 constantShaderValues: opacity.map {
                     ["Opacity": SceneDocument.ShaderValue(components: [$0])]
@@ -890,6 +906,11 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
     def test_named_reference_variants_are_typed(self) -> None:
         self.assertEqual(self.result["parsedVariants"], ["unspecified", "a", "b"])
         self.assertTrue(self.result["invalidReference"])
+        self.assertFalse(self.result["secondaryBinding"])
+        self.assertEqual(
+            self.result["secondaryIssues"],
+            ["33:unsupportedVariant:1"],
+        )
 
     def test_image_and_composition_clipping_consumers_share_backward_binding(self) -> None:
         self.assertEqual(self.result["referenceCount"], 17)
