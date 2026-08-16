@@ -42,6 +42,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         struct ColorTransfer: Codable {
             let kind: String
             let slot: Int?
+            let slots: [Int]?
         }
 
         let metalSource: String
@@ -123,15 +124,24 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
               bindings.map(\.slot) == bindings.map(\.slot).sorted(),
               Set(bindings.map(\.slot)).count == bindings.count else { return nil }
         let colorTransfer: SceneShaderColorTransfer
-        switch (raw.colorTransfer.kind, raw.colorTransfer.slot) {
-        case let ("passthrough", slot?):
+        switch (raw.colorTransfer.kind, raw.colorTransfer.slot, raw.colorTransfer.slots) {
+        case let ("passthrough", slot?, nil):
             guard bindings.contains(where: { $0.slot == slot }) else { return nil }
             colorTransfer = .passthrough(textureSlot: slot)
-        case ("opaque", nil):
+        case let ("interpolated-color", nil, slots?):
+            guard slots.count >= 2,
+                  slots.count <= 8,
+                  slots == slots.sorted(),
+                  Set(slots).count == slots.count,
+                  slots.allSatisfy({ slot in
+                      bindings.contains(where: { $0.slot == slot })
+                  }) else { return nil }
+            colorTransfer = .interpolatedColor(textureSlots: slots)
+        case ("opaque", nil, nil):
             colorTransfer = .opaque
-        case ("premultiplied", nil):
+        case ("premultiplied", nil, nil):
             colorTransfer = .premultipliedAlpha
-        case let ("straight-alpha", slot?):
+        case let ("straight-alpha", slot?, nil):
             guard bindings.contains(where: { $0.slot == slot }) else { return nil }
             colorTransfer = .straightAlpha(textureSlot: slot)
         default:

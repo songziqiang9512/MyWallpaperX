@@ -4,7 +4,8 @@
   "hardLineLimit": 800,
   "sourceRoots": [
     "MyWallpaperX",
-    "WallpaperDaemonSources"
+    "WallpaperDaemonSources",
+    "script/tests/fixtures"
   ],
   "legacyFiles": {
     "MyWallpaperX/Modules/OnlineLibrary/Toolbar/OnlineLibraryToolbarController.swift": 866,

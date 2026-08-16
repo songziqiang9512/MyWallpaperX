@@ -6582,7 +6582,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
                 "SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
-                "SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
+                "SceneAuthoredShaderColorMixGraphAnalyzer.swift",
                 "SceneAuthoredShaderWholeVectorAffineParser.swift",
                 "SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
                 "SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",

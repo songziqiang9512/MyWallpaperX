@@ -398,6 +398,67 @@ fragment void f() {
         with self.assertRaisesRegex(ArtifactFailure, "color-transfer"):
             build_program_artifact(**kwargs)
 
+    def test_two_direct_color_samples_require_scalar_unmutated_mix(self) -> None:
+        reflection = {
+            "types": {"_1": {"members": [
+                {"name": "rate", "type": "float", "offset": 0},
+                {"name": "mwxRenderSize", "type": "vec2", "offset": 8},
+            ]}},
+            "ubos": [{
+                "type": "_1", "block_size": 16, "set": 0, "binding": 8
+            }],
+            "textures": [
+                {"name": "g_Texture0", "binding": 0},
+                {"name": "g_Texture1", "binding": 1},
+            ],
+        }
+        stages = [
+            {"stage": "vertex", "reflection": reflection},
+            {"stage": "fragment", "reflection": reflection},
+        ]
+        vertex_msl = "struct MWXUniforms { float rate; float2 mwxRenderSize; };"
+        fragment_msl = """struct MWXUniforms { float rate; float2 mwxRenderSize; };
+fragment void f() {
+    float4 current = g_Texture0.sample(sourceSampler, uv);
+    float4 history = g_Texture1.sample(historySampler, uv);
+    float rate = uniforms.rate;
+    out.mwxFragColor = mix(history, current, rate);
+}
+"""
+        kwargs = {
+            "request_key": "e" * 64,
+            "backend_id": "glslang-spirv-cross-msl-v1",
+            "compiled_stages": stages,
+            "stage_sources": {
+                "vertex": "void main() {}", "fragment": "void main() {}"
+            },
+            "msl_sources": {"vertex": vertex_msl, "fragment": fragment_msl},
+            "maximum_artifact_bytes": 1_024_000,
+        }
+        artifact = build_program_artifact(**kwargs)
+        self.assertEqual(
+            artifact["program"]["colorTransfer"], {
+                "kind": "interpolated-color", "slots": [0, 1]
+            }
+        )
+
+        kwargs["msl_sources"] = {
+            "vertex": vertex_msl,
+            "fragment": fragment_msl.replace("float rate =", "float2 rate ="),
+        }
+        with self.assertRaisesRegex(ArtifactFailure, "color-transfer"):
+            build_program_artifact(**kwargs)
+
+        kwargs["msl_sources"] = {
+            "vertex": vertex_msl,
+            "fragment": fragment_msl.replace(
+                "float4 history =",
+                "current *= 0.5;\n    float4 history =",
+            ),
+        }
+        with self.assertRaisesRegex(ArtifactFailure, "color-transfer"):
+            build_program_artifact(**kwargs)
+
     def test_varying_array_reserves_each_interface_location(self) -> None:
         from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
 
@@ -429,6 +490,59 @@ void main() { vec4 sample; gl_FragColor = texture(g_Texture0, base); }
         self.assertIn("vec4 mwx_sample", normalized[1]["source"])
         self.assertIn("uniform sampler2D g_Texture0", normalized[1]["source"])
         self.assertNotIn("uniform sampler2D g_Texture1", normalized[1]["source"])
+
+    def test_vertex_position_input_matches_authored_position_contract(self) -> None:
+        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
+
+        fragment = {
+            "stage": "fragment", "entryPoint": "main",
+            "source": """varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+void main() { gl_FragColor = texture(g_Texture0, v_TexCoord); }
+""",
+        }
+        direct, direct_summary = normalize_wallpaper_engine_pair([
+            {
+                "stage": "vertex", "entryPoint": "main",
+                "source": """attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec2 v_TexCoord;
+void main() {
+    gl_Position = vec4(a_Position, 1.0);
+    v_TexCoord = a_TexCoord;
+}
+""",
+            },
+            fragment,
+        ], {})
+        projected, projected_summary = normalize_wallpaper_engine_pair([
+            {
+                "stage": "vertex", "entryPoint": "main",
+                "source": """uniform mat4 g_ModelViewProjectionMatrix;
+attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec2 v_TexCoord;
+void main() {
+    gl_Position = mul(
+        vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);
+    v_TexCoord = a_TexCoord;
+}
+""",
+            },
+            fragment,
+        ], {})
+
+        self.assertEqual(direct_summary["vertexPositionInput"], "clip-space")
+        self.assertIn(
+            "mwxPosition * 2.0 - vec2(1.0)", direct[0]["source"]
+        )
+        self.assertEqual(
+            projected_summary["vertexPositionInput"], "target-pixels"
+        )
+        self.assertIn(
+            "(mwxPosition - vec2(0.5)) * mwxRenderSize",
+            projected[0]["source"],
+        )
 
     def test_inactive_optional_varying_components_prune_dead_resolution(self) -> None:
         from scene_shader_compiler_harness import normalize_wallpaper_engine_pair

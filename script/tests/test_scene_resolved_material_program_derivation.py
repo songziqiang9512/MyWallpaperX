@@ -883,6 +883,25 @@ private enum Harness {
                 marker: 2
             ))
         )
+        let secondPremultipliedSlot = textureSlot(
+            device: device,
+            slot: 1,
+            marker: 3
+        )
+        let interpolatedProjection = SceneResolvedMaterialProgramDerivation.resolveColor(
+            transfer: .interpolatedColor(textureSlots: [0, 1]),
+            textureSlots: slots(firstSlot, secondPremultipliedSlot)
+        )
+        let interpolatedMismatchRejected = SceneResolvedMaterialProgramDerivation
+            .resolveColor(
+                transfer: .interpolatedColor(textureSlots: [0, 1]),
+                textureSlots: slots(firstSlot, secondSlot)
+            ) == nil
+        let interpolatedUnsortedRejected = SceneResolvedMaterialProgramDerivation
+            .resolveColor(
+                transfer: .interpolatedColor(textureSlots: [1, 0]),
+                textureSlots: slots(firstSlot, secondPremultipliedSlot)
+            ) == nil
 
         let padding = Array(baseline.uniformBytes[4 ..< 8])
         let results: [String: Bool] = [
@@ -982,6 +1001,11 @@ private enum Harness {
             "independentSignalCompositeAccepted":
                 compositingProjection?.framebufferInput == .premultipliedAlpha
                 && compositingProjection?.fragmentOutput == .premultipliedAlpha,
+            "interpolatedSameRepresentationAccepted":
+                interpolatedProjection?.framebufferInput == .premultipliedAlpha
+                && interpolatedProjection?.fragmentOutput == .premultipliedAlpha,
+            "interpolatedMismatchRejected": interpolatedMismatchRejected,
+            "interpolatedUnsortedRejected": interpolatedUnsortedRejected,
             "metalKeyDerived": baseline.metalCompileStateKey(
                 attachmentPixelFormat: .bgra8Unorm,
                 sampleCount: 1,

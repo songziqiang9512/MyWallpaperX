@@ -77,7 +77,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderConditionalShadowAnalyzer+Scalar.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderConditionalShadowAnalyzer+Syntax.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
-        "RenderGraph/ShaderFrontend/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderColorMixGraphAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderWholeVectorAffineParser.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",

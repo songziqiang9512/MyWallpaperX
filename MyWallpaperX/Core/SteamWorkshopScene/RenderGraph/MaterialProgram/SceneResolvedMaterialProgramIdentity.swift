@@ -20,6 +20,7 @@ extension SceneResolvedMaterialProgram {
 
         enum ColorTransfer: Hashable {
             case passthrough(Int)
+            case interpolatedColor([Int])
             case straightAlphaPreserving(Int)
             case straightAlpha(Int)
             case straightAlphaUNorm(Int)
@@ -178,6 +179,8 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         let transfer: Program.ShaderSemanticIdentity.ColorTransfer
         switch frontend.colorTransfer {
         case let .passthrough(slot): transfer = .passthrough(slot)
+        case let .interpolatedColor(slots):
+            transfer = .interpolatedColor(slots)
         case let .straightAlphaPreserving(slot):
             transfer = .straightAlphaPreserving(slot)
         case let .straightAlpha(slot): transfer = .straightAlpha(slot)

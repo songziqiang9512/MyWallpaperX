@@ -209,6 +209,39 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertIsNone(output.get("metalError"))
 
+    def test_vertex_position_input_matches_authored_position_contract(self):
+        fragment = """
+            uniform sampler2D g_Texture0;
+            varying vec2 v_TexCoord;
+            void main() {
+                gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+            }
+        """
+        direct = self.compile(
+            """
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec2 v_TexCoord;
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                v_TexCoord = a_TexCoord;
+            }
+            """,
+            fragment,
+        )
+        projected = self.compile(VERTEX_SOURCE, fragment)
+
+        direct_source = direct["metalSource"].replace(" ", "")
+        projected_source = projected["metalSource"].replace(" ", "")
+        self.assertEqual(direct["diagnosticCodes"], [])
+        self.assertEqual(projected["diagnosticCodes"], [])
+        self.assertIn("position*2.0-1.0", direct_source)
+        self.assertNotIn("mwxUniforms.mwxRenderSize", direct_source)
+        self.assertIn(
+            "(position-0.5)*mwxUniforms.mwxRenderSize",
+            projected_source,
+        )
+
     def test_explicit_lod_texture_sample_compiles_to_metal(self):
         output = self.compile(
             VEC4_COORDINATE_VERTEX_SOURCE,

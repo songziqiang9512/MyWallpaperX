@@ -132,7 +132,13 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             fragment.body = replaceWord("sample", with: "mwx_sample", in: fragment.body)
             fragment.body = replaceWord("gl_FragColor", with: "mwxFragColor", in: fragment.body)
             fragment.body = rewriteScalarTextureAssignments(fragment.body)
-            guard let injected = injectVertexMain(vertex.body) else {
+            let usesTargetPixelPosition = containsWord(
+                "g_ModelViewProjectionMatrix", in: vertex.body
+            )
+            guard let injected = injectVertexMain(
+                vertex.body,
+                usesTargetPixelPosition: usesTargetPixelPosition
+            ) else {
                 throw Failure.vertexMain
             }
             vertex.body = pruneUnusedVaryingComponentAssignments(
@@ -246,10 +252,16 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         return slot
     }
 
-    private static func injectVertexMain(_ source: String) -> String? {
+    private static func injectVertexMain(
+        _ source: String,
+        usesTargetPixelPosition: Bool
+    ) -> String? {
         let regex = try! NSRegularExpression(pattern: #"\bvoid\s+main\s*\(\s*\)\s*\{"#)
         let range = NSRange(source.startIndex..., in: source)
         guard regex.numberOfMatches(in: source, range: range) == 1 else { return nil }
+        let positionExpression = usesTargetPixelPosition
+            ? "(mwxPosition - vec2(0.5)) * mwxRenderSize"
+            : "mwxPosition * 2.0 - vec2(1.0)"
         return regex.stringByReplacingMatches(
             in: source,
             range: range,
@@ -260,7 +272,7 @@ void main() {
         vec2(0.0, 0.0), vec2(1.0, 0.0));
     vec2 a_TexCoord = mwxCoordinates[gl_VertexIndex];
     vec2 mwxPosition = vec2(a_TexCoord.x, 1.0 - a_TexCoord.y);
-    vec3 a_Position = vec3((mwxPosition - vec2(0.5)) * mwxRenderSize, 0.0);
+    vec3 a_Position = vec3(\(positionExpression), 0.0);
 """
         )
     }

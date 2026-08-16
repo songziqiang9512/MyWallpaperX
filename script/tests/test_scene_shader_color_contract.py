@@ -114,6 +114,8 @@ private func transfer(
     case .opaque: return "opaque"
     case .unresolved: return "unresolved"
     case .passthrough(let slot): return "slot:\(slot)"
+    case .interpolatedColor(let slots):
+        return "interpolated-slots:" + slots.map(String.init).joined(separator: ",")
     case .straightAlphaPreserving(let slot):
         return "straight-preserving-slot:\(slot)"
     case .straightAlpha(let slot): return "straight-slot:\(slot)"
@@ -1384,7 +1386,10 @@ class SceneShaderColorContractTests(unittest.TestCase):
 
     def test_nested_same_slot_mix_graph_is_bounded_and_fail_closed(self) -> None:
         self.assertEqual(self.result["nestedSameSlotMixGraph"], "slot:0")
-        self.assertEqual(self.result["nestedDifferentSlotMixGraph"], "unresolved")
+        self.assertEqual(
+            self.result["nestedDifferentSlotMixGraph"],
+            "interpolated-slots:0,1",
+        )
         self.assertEqual(self.result["conditionalNestedMixGraph"], "unresolved")
 
     def test_whole_rgba_affine_filter_uses_a_clamped_straight_boundary(self) -> None:

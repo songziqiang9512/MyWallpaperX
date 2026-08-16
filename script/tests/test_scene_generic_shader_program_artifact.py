@@ -56,9 +56,24 @@ private struct CoordinatorOutput: Codable {
     let independentSucceeded: Bool
 }
 
+private struct BuilderOutput: Codable {
+    let positiveKind: String?
+    let positiveSlots: [Int]?
+    let positiveFailure: String?
+    let vectorWeightRejected: Bool
+    let mutatedColorRejected: Bool
+}
+
+private struct PositionInputOutput: Codable {
+    let directUsesClipSpace: Bool
+    let directAvoidsTargetPixels: Bool
+    let projectedUsesTargetPixels: Bool
+}
+
 private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
     switch transfer {
     case .passthrough: return "passthrough"
+    case .interpolatedColor: return "interpolatedColor"
     case .straightAlpha: return "straightAlpha"
     case .premultipliedAlpha: return "premultipliedAlpha"
     case .opaque: return "opaque"
@@ -69,6 +84,123 @@ private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
 @main
 private struct GenericShaderArtifactHarness {
     static func main() throws {
+        if CommandLine.arguments[1] == "--normalizer-position" {
+            let fragment = [
+                "varying vec2 v_TexCoord;",
+                "uniform sampler2D g_Texture0;",
+                "void main() {",
+                "    gl_FragColor = texture(g_Texture0, v_TexCoord);",
+                "}",
+            ].joined(separator: "\n")
+            func normalized(_ vertex: String) throws -> String {
+                switch SceneGenericShaderSourceNormalizer.normalize(
+                    vertexSource: vertex,
+                    fragmentSource: fragment,
+                    maximumStageSourceBytes: 64 * 1_024
+                ) {
+                case let .success(pair): return pair.vertex
+                case let .failure(failure): throw failure
+                }
+            }
+            let direct = try normalized([
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    v_TexCoord = a_TexCoord;",
+                "}",
+            ].joined(separator: "\n"))
+            let projected = try normalized([
+                "uniform mat4 g_ModelViewProjectionMatrix;",
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    gl_Position = mul(",
+                "        vec4(a_Position, 1.0),",
+                "        g_ModelViewProjectionMatrix);",
+                "    v_TexCoord = a_TexCoord;",
+                "}",
+            ].joined(separator: "\n"))
+            let output = PositionInputOutput(
+                directUsesClipSpace: direct.contains(
+                    "mwxPosition * 2.0 - vec2(1.0)"
+                ),
+                directAvoidsTargetPixels: !direct.contains(
+                    "(mwxPosition - vec2(0.5)) * mwxRenderSize"
+                ),
+                projectedUsesTargetPixels: projected.contains(
+                    "(mwxPosition - vec2(0.5)) * mwxRenderSize"
+                )
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--builder-interpolation" {
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"rate","type":"float","offset":0},{"name":"mwxRenderSize","type":"vec2","offset":8}]}},"ubos":[{"type":"_1","block_size":16,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float rate; float2 mwxRenderSize; };"
+            let fragmentMSL = [
+                "struct MWXUniforms { float rate; float2 mwxRenderSize; };",
+                "fragment void f() {",
+                "    float4 current = g_Texture0.sample(sourceSampler, uv);",
+                "    float4 history = g_Texture1.sample(historySampler, uv);",
+                "    float rate = uniforms.rate;",
+                "    out.mwxFragColor = mix(history, current, rate);",
+                "}",
+            ].joined(separator: "\n")
+            func build(_ fragment: String) -> Result<
+                SceneGenericShaderProgramArtifact,
+                SceneGenericShaderArtifactBuilder.Failure
+            > {
+                SceneGenericShaderArtifactBuilder.build(
+                    requestKey: String(repeating: "a", count: 64),
+                    backendID: "glslang-spirv-cross-msl-v1",
+                    stages: [
+                        .init(
+                            name: "vertex", source: "void main() {}",
+                            msl: vertexMSL, reflection: reflection
+                        ),
+                        .init(
+                            name: "fragment", source: "void main() {}",
+                            msl: fragment, reflection: reflection
+                        ),
+                    ],
+                    maximumArtifactBytes: 1_024_000
+                )
+            }
+            let positiveKind: String?
+            let positiveSlots: [Int]?
+            let positiveFailure: String?
+            switch build(fragmentMSL) {
+            case let .success(artifact):
+                positiveKind = artifact.program.colorTransfer.kind
+                positiveSlots = artifact.program.colorTransfer.slots
+                positiveFailure = nil
+            case let .failure(failure):
+                positiveKind = nil
+                positiveSlots = nil
+                positiveFailure = String(describing: failure)
+            }
+            let vectorWeightRejected = failedColorTransfer(build(
+                fragmentMSL.replacingOccurrences(of: "float rate =", with: "float2 rate =")
+            ))
+            let mutatedColorRejected = failedColorTransfer(build(
+                fragmentMSL.replacingOccurrences(
+                    of: "float4 history =",
+                    with: "current *= 0.5;\n    float4 history ="
+                )
+            ))
+            let output = BuilderOutput(
+                positiveKind: positiveKind,
+                positiveSlots: positiveSlots,
+                positiveFailure: positiveFailure,
+                vectorWeightRejected: vectorWeightRejected,
+                mutatedColorRejected: mutatedColorRejected
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
         if CommandLine.arguments[1] == "--coordinator" {
             let coordinator = SceneResolvedMaterialGenericShaderArtifactCache
                 .CompilationCoordinator()
@@ -130,6 +262,16 @@ private func failedResult<T, E>(_ result: Result<T, E>) -> Bool {
 
 private func succeededResult<T, E>(_ result: Result<T, E>) -> Bool {
     if case .success = result { return true }
+    return false
+}
+
+private func failedColorTransfer(
+    _ result: Result<
+        SceneGenericShaderProgramArtifact,
+        SceneGenericShaderArtifactBuilder.Failure
+    >
+) -> Bool {
+    if case .failure(.colorTransfer) = result { return true }
     return false
 }
 """
@@ -261,7 +403,11 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "colorTransfer": (
                     {"kind": color_transfer, "slot": 0}
                     if color_transfer in ("passthrough", "straight-alpha")
-                    else {"kind": color_transfer}
+                    else (
+                        {"kind": color_transfer, "slots": [0, 1]}
+                        if color_transfer == "interpolated-color"
+                        else {"kind": color_transfer}
+                    )
                 ),
             },
         }
@@ -283,6 +429,35 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             "firstFailed": True,
             "repeatedFailed": True,
             "independentSucceeded": True,
+        })
+
+    def test_product_builder_proves_scalar_two_color_interpolation(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-interpolation"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "positiveKind": "interpolated-color",
+            "positiveSlots": [0, 1],
+            "vectorWeightRejected": True,
+            "mutatedColorRejected": True,
+        })
+
+    def test_product_normalizer_preserves_vertex_position_contract(self):
+        completed = subprocess.run(
+            [str(self.binary), "--normalizer-position"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "directUsesClipSpace": True,
+            "directAvoidsTargetPixels": True,
+            "projectedUsesTargetPixels": True,
         })
 
     def test_request_export_and_source_keyed_artifact_acceptance(self):
@@ -426,6 +601,31 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             accepted, _, _, _ = self.run_harness(root, route="prefer-generic")
             self.assertEqual(accepted["status"], "accepted")
             self.assertEqual(accepted["colorTransfer"], "straightAlpha")
+
+    def test_interpolated_color_artifact_requires_sorted_bound_slots(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            first, _, cache, _ = self.run_harness(root, route="observe-only")
+            artifact = self.artifact(
+                first["requestKey"], color_transfer="interpolated-color"
+            )
+            artifact["program"]["textureBindings"].append({
+                "name": "g_Texture1", "slot": 1, "channelUse": "unproven"
+            })
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, _ = self.run_harness(root, route="prefer-generic")
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["colorTransfer"], "interpolatedColor")
+
+            artifact["program"]["colorTransfer"]["slots"] = [1, 0]
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            rejected, _, _, _ = self.run_harness(root, route="prefer-generic")
+            self.assertEqual(rejected["status"], "unavailable")
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
 
 
 if __name__ == "__main__":

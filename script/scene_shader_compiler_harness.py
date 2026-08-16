@@ -370,15 +370,23 @@ def normalize_wallpaper_engine_pair(
 
     if "mwxRenderSize" in uniform_shapes:
         raise HarnessFailure("normalization", "reserved-uniform", ["mwxRenderSize"])
+    uses_target_pixel_position = re.search(
+        r"\bg_ModelViewProjectionMatrix\b", parsed["vertex"]["body"]
+    ) is not None
+    position_expression = (
+        "(mwxPosition - vec2(0.5)) * mwxRenderSize"
+        if uses_target_pixel_position
+        else "mwxPosition * 2.0 - vec2(1.0)"
+    )
     vertex_body, main_replacements = re.subn(
         r"\bvoid\s+main\s*\(\s*\)\s*\{",
-        """void main() {
+        f"""void main() {{
     const vec2 mwxCoordinates[4] = vec2[4](
         vec2(0.0, 1.0), vec2(1.0, 1.0),
         vec2(0.0, 0.0), vec2(1.0, 0.0));
     vec2 a_TexCoord = mwxCoordinates[gl_VertexIndex];
     vec2 mwxPosition = vec2(a_TexCoord.x, 1.0 - a_TexCoord.y);
-    vec3 a_Position = vec3((mwxPosition - vec2(0.5)) * mwxRenderSize, 0.0);""",
+    vec3 a_Position = vec3({position_expression}, 0.0);""",
         parsed["vertex"]["body"],
         count=1,
     )
@@ -477,6 +485,9 @@ def normalize_wallpaper_engine_pair(
         "scalarTextureChannelRewrites": scalar_texture_rewrites,
         "booleanComboTernaryRewrites": boolean_combo_rewrites,
         "reservedIdentifierRewrites": reserved_identifier_rewrites,
+        "vertexPositionInput": (
+            "target-pixels" if uses_target_pixel_position else "clip-space"
+        ),
     }
 
 

@@ -1,6 +1,11 @@
 import Foundation
 
 nonisolated enum SceneAuthoredShaderMetalSource {
+    enum VertexPositionInput {
+        case targetPixels
+        case clipSpace
+    }
+
     static let float3x3InverseHelper = """
         inline float3x3 mwxInverseFloat3x3(float3x3 value) {
             float3 cofactor0 = cross(value[1], value[2]);
@@ -110,10 +115,17 @@ nonisolated enum SceneAuthoredShaderMetalSource {
     }
 
     static func vertexWrapper(
-        textures: [SceneAuthoredShaderProgram.TextureBinding]
+        textures: [SceneAuthoredShaderProgram.TextureBinding],
+        positionInput: VertexPositionInput
     ) -> String {
         let resources = wrapperResourceParameters(textures: textures)
         let arguments = contextArguments(stage: .vertex, textures: textures)
+        let positionExpression = switch positionInput {
+        case .targetPixels:
+            "(position - 0.5) * mwxUniforms.mwxRenderSize"
+        case .clipSpace:
+            "position * 2.0 - 1.0"
+        }
         return """
         vertex SceneAuthoredVertexOutput sceneAuthoredVertex(
             uint vertexID [[vertex_id]],
@@ -130,7 +142,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
                 1.0 - coordinates[vertexID].y
             );
             mwxAttributes.a_Position = float3(
-                (position - 0.5) * mwxUniforms.mwxRenderSize,
+                \(positionExpression),
                 0.0
             );
             SceneAuthoredVertexOutput mwxOutput;

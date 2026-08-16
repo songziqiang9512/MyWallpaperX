@@ -45,12 +45,15 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .passthrough(textureSlot: slot)
         }
-        if let slot = SceneAuthoredShaderSameSlotMixGraphAnalyzer.analyze(
+        if let slots = SceneAuthoredShaderColorMixGraphAnalyzer.analyze(
             outputUses: outputUses,
             fragment: fragment,
             main: main
         ) {
-            return .passthrough(textureSlot: slot)
+            if slots.count == 1, let slot = slots.first {
+                return .passthrough(textureSlot: slot)
+            }
+            return .interpolatedColor(textureSlots: slots)
         }
         if let slot = SceneAuthoredShaderOpaqueInputAlphaAnalyzer.analyze(
             outputUses: outputUses,

@@ -1,9 +1,9 @@
 import Foundation
 
-/// Proves a bounded root-local color graph whose leaves all sample one texture
-/// slot and whose only color operation is scalar `mix`. Coordinate and scalar
+/// Proves a bounded root-local color graph whose leaves are direct texture
+/// colors and whose only color operation is scalar `mix`. Coordinate and scalar
 /// expressions may consume auxiliary samplers without changing color ownership.
-nonisolated enum SceneAuthoredShaderSameSlotMixGraphAnalyzer {
+nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
     private struct State {
         let fragment: SceneAuthoredShaderSyntaxUnit
         let main: SceneAuthoredShaderSyntaxUnit.Function
@@ -15,7 +15,7 @@ nonisolated enum SceneAuthoredShaderSameSlotMixGraphAnalyzer {
         outputUses: [Int],
         fragment: SceneAuthoredShaderSyntaxUnit,
         main: SceneAuthoredShaderSyntaxUnit.Function
-    ) -> Int? {
+    ) -> [Int]? {
         let tokens = fragment.tokens
         guard outputUses.count == 1,
               let output = outputUses.first,
@@ -38,10 +38,10 @@ nonisolated enum SceneAuthoredShaderSameSlotMixGraphAnalyzer {
             expression,
             before: output,
             state: &state
-        ), slots.count == 1 else {
+        ), !slots.isEmpty else {
             return nil
         }
-        return slots.first
+        return slots.sorted()
     }
 
     private static func colorSlots(
@@ -61,8 +61,7 @@ nonisolated enum SceneAuthoredShaderSameSlotMixGraphAnalyzer {
            isScalar(arguments[2], before: boundary, state: state),
            let first = colorSlots(arguments[0], before: boundary, state: &state),
            let second = colorSlots(arguments[1], before: boundary, state: &state) {
-            let slots = first.union(second)
-            return slots.count == 1 ? slots : nil
+            return first.union(second)
         }
         guard expression.count == 1,
               let token = expression.first,

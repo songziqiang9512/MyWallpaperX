@@ -110,6 +110,19 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                 return nil
             }
             fragmentOutput = representation
+        case let .interpolatedColor(slots):
+            guard slots.count >= 2,
+                  slots == slots.sorted(),
+                  Set(slots).count == slots.count else { return nil }
+            let representations = slots.compactMap {
+                representation(slot: $0, textureFacts: textureFacts)
+            }
+            guard representations.count == slots.count,
+                  Set(representations).count == 1,
+                  let representation = representations.first else {
+                return nil
+            }
+            fragmentOutput = representation
         case let .straightAlphaPreserving(slot):
             guard let representation = representation(
                 slot: slot, textureFacts: textureFacts

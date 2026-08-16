@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+
+"""GPU pixel gate for generic material-copy-history execution."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import runpy
+import shutil
+import subprocess
+import tempfile
+import unittest
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+EXECUTOR_GATE = Path(__file__).with_name(
+    "test_scene_resolved_material_graph_executor.py"
+)
+EXECUTOR_FIXTURE = runpy.run_path(str(EXECUTOR_GATE))
+POOL_FIXTURE = runpy.run_path(
+    str(Path(__file__).with_name("test_scene_offscreen_texture_pool.py"))
+)
+RUNTIME_FIXTURE = runpy.run_path(
+    str(Path(__file__).with_name("test_scene_resolved_material_runtime_bridge.py"))
+)
+SWIFT_SOURCES = list(dict.fromkeys([
+    *EXECUTOR_FIXTURE["SWIFT_SOURCES"],
+    *POOL_FIXTURE["SWIFT_SOURCES"],
+    *(
+        path
+        for path in RUNTIME_FIXTURE["SUBMISSION_SWIFT_SOURCES"]
+        if path.name != "SceneResolvedMaterialRuntimeBridge.swift"
+    ),
+]))
+SUPPORT = (
+    EXECUTOR_FIXTURE["SUPPORT"]
+    .replace(
+        """struct SceneGraphCommandRuntime {
+    init?(
+        plan: SceneGraphRenderTargetPlan,
+        texturesByIdentity: [
+            SceneAuthoredEffectRenderPlan.TextureIdentity: MTLTexture
+        ]
+    ) {
+        _ = plan
+        _ = texturesByIdentity
+    }
+}
+""",
+        "",
+    )
+    .replace(
+        "final class SceneOffscreenTexturePool {\n    struct Pair {}\n}\n",
+        "",
+    )
+    .replace(
+        """final class ScenePreparedPersistentGraphTargets {
+    struct HistoryRehydrateCopy {
+        let sourceToken: SceneGraphExecutionState.PhysicalToken
+        let sourceTexture: MTLTexture
+        let targetToken: SceneGraphExecutionState.PhysicalToken
+        let targetTexture: MTLTexture
+    }
+}
+""",
+        "",
+    )
+    .replace(
+        """final class SceneResolvedMaterialRuntimeBridge {
+    struct DedicatedFrameInputs {
+        let time: Float = 0
+        let layerModelMatrix = matrix_identity_float4x4
+        let effectTextureProjectionMatrixInverse = matrix_identity_float4x4
+    }
+}
+""",
+        """final class SceneResolvedMaterialRuntimeBridge {
+    typealias LogSink = @Sendable (String) -> Void
+
+    struct ClaimedExecution {
+        let layerID: Int
+        let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+        let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
+    }
+    enum Claim {
+        case notMigrated
+        case rejected(reasonCode: String)
+        case claimed(ClaimedExecution)
+    }
+    struct DedicatedFrameInputs {
+        let time: Float = 0
+        let layerModelMatrix = matrix_identity_float4x4
+        let effectTextureProjectionMatrixInverse = matrix_identity_float4x4
+        let dependencyEffect: SceneDependencyEffectInput? = nil
+    }
+    struct FramePreparationRequest {
+        let claim: ClaimedExecution
+        let targetPlan: SceneResolvedMaterialFrameTargetPlan
+        let sourceTexture: MTLTexture?
+        let sourceUniforms: SceneLayerFragmentUniforms?
+        let sourcePipeline: SceneImageLayerPipeline
+        let dedicatedInputs: DedicatedFrameInputs
+    }
+    enum FramePreparationResult {
+        case ready
+        case rejected(reasonCode: String)
+    }
+    struct ExecutionTicket: Hashable {
+        struct EffectFailure: Hashable {
+            let layerID: Int
+            let effectIndex: Int
+            let descriptorID: String
+            let reasonCode: String
+        }
+        let identity, epoch: UInt64
+        let finalTextureIdentity: ObjectIdentifier
+        let consumesExternalPrimaryDependency: Bool
+        let effectFailures: [EffectFailure]
+    }
+    enum ExecutionResult {
+        case encoded(texture: MTLTexture, ticket: ExecutionTicket)
+        case failed(reasonCode: String)
+    }
+    enum CompositeOutcome {
+        case consumed
+        case failed(reasonCode: String)
+    }
+}
+
+struct SceneResolvedMaterialFrameTargetPlan {
+    let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
+    let allocation: ScenePersistentGraphTargetFramePlan
+}
+
+struct SceneDependencyEffectInput {
+    let consumerLayerID: Int
+    let providerLayerID: Int
+    let variant: SceneNamedTextureReference.Variant
+    let slot: SceneEffectPassSlot
+    let blendMode: Int
+    let frameEpoch: UInt64
+    let texture: MTLTexture
+}
+""",
+    )
+)
+
+
+HARNESS_PATH = (
+    Path(__file__).with_name("fixtures")
+    / "SceneMaterialCopyHistoryRenderingHarness.swift"
+)
+HARNESS = HARNESS_PATH.read_text(encoding="utf-8")
+MAIN = HARNESS_PATH.with_name(
+    "SceneMaterialCopyHistoryRenderingMain.swift"
+).read_text(encoding="utf-8")
+
+
+@unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
+class SceneMaterialCopyHistoryRenderingTests(unittest.TestCase):
+    def test_material_copy_history_pixels_converge_across_frames(self) -> None:
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-material-copy-history-"
+        ) as directory:
+            root = Path(directory)
+            support = root / "Support.swift"
+            harness = root / "Harness.swift"
+            main = root / "Main.swift"
+            binary = root / "material-copy-history-test"
+            support.write_text(SUPPORT, encoding="utf-8")
+            harness.write_text(HARNESS, encoding="utf-8")
+            main.write_text(MAIN, encoding="utf-8")
+            environment = os.environ.copy()
+            environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
+            environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+            compilation = subprocess.run(
+                [
+                    "xcrun",
+                    "--sdk",
+                    "macosx",
+                    "swiftc",
+                    "-parse-as-library",
+                    "-D",
+                    "SCENE_GRAPH_TESTING",
+                    str(support),
+                    *(str(path) for path in SWIFT_SOURCES),
+                    str(harness),
+                    str(main),
+                    "-framework",
+                    "Metal",
+                    "-framework",
+                    "CoreGraphics",
+                    "-framework",
+                    "ImageIO",
+                    "-module-cache-path",
+                    str(root / "module-cache"),
+                    "-o",
+                    str(binary),
+                ],
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            completed = subprocess.run(
+                [str(binary)],
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+
+        payload = json.loads(completed.stdout)
+        if not payload["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        self.assertEqual(payload["quarterFailure"], "success", payload)
+        self.assertEqual(payload["threeQuarterFailure"], "success", payload)
+        for key in (
+            "serialQuarterConverges",
+            "inFlightQuarterConverges",
+            "serialThreeQuarterConverges",
+            "inFlightThreeQuarterConverges",
+            "pendingHistoryDefersNextFrame",
+            "authoredWeightsProduceDistinctPixels",
+            "sourceCaptureIsExact",
+        ):
+            self.assertTrue(payload[key], payload)
+
+
+if __name__ == "__main__":
+    unittest.main()

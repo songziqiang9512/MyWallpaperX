@@ -306,6 +306,9 @@ def _passthrough_color_transfer(fragment_msl: str) -> dict[str, Any]:
         assignments[0],
     )
     if match is None:
+        interpolated = _interpolated_color_transfer(fragment_msl, assignments[0])
+        if interpolated is not None:
+            return interpolated
         premultiplied = _premultiplied_accumulator(fragment_msl, assignments[0])
         if premultiplied is not None:
             return premultiplied
@@ -317,6 +320,48 @@ def _passthrough_color_transfer(fragment_msl: str) -> dict[str, Any]:
             return {"kind": "opaque"}
         raise ArtifactFailure("color-transfer")
     return {"kind": "passthrough", "slot": int(match.group(1))}
+
+
+def _interpolated_color_transfer(
+    fragment_msl: str, assignment: str
+) -> dict[str, Any] | None:
+    output = re.fullmatch(
+        r"\s*out\.mwxFragColor\s*=\s*mix\(\s*"
+        r"(?P<first>[A-Za-z_]\w*)\s*,\s*"
+        r"(?P<second>[A-Za-z_]\w*)\s*,\s*"
+        r"(?P<weight>[A-Za-z_]\w*|[-+]?(?:\d+(?:\.\d*)?|\.\d+))\s*\)\s*;",
+        assignment,
+    )
+    if output is None:
+        return None
+
+    slots: list[int] = []
+    for group in ("first", "second"):
+        name = output.group(group)
+        declaration = re.findall(
+            rf"^[ \t]*float4\s+{re.escape(name)}\s*=\s*"
+            rf"g_Texture(?P<slot>[0-7])\.sample\([^;]+\)\s*;$",
+            fragment_msl,
+            re.MULTILINE,
+        )
+        if len(declaration) != 1 or len(re.findall(rf"\b{re.escape(name)}\b", fragment_msl)) != 2:
+            return None
+        slots.append(int(declaration[0]))
+
+    weight = output.group("weight")
+    if re.fullmatch(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)", weight) is None:
+        scalar_declarations = re.findall(
+            rf"^[ \t]*float\s+{re.escape(weight)}\s*=\s*[^;]+;$",
+            fragment_msl,
+            re.MULTILINE,
+        )
+        if len(scalar_declarations) != 1:
+            return None
+
+    slots = sorted(set(slots))
+    if len(slots) < 2:
+        return None
+    return {"kind": "interpolated-color", "slots": slots}
 
 
 def _without_comments(source: str) -> str:

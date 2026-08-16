@@ -174,7 +174,8 @@ extension SceneResolvedMaterialVariantCache {
             return slot
         case let .independentAlphaSignalCompositing(_, colorSlot):
             return colorSlot
-        case .independentAlphaSignal, .independentAlphaSignalPreserving,
+        case .interpolatedColor,
+             .independentAlphaSignal, .independentAlphaSignalPreserving,
              .premultipliedAlpha, .opaque, .unresolved:
             return nil
         }

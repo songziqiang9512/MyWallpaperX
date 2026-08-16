@@ -116,7 +116,12 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             SceneAuthoredShaderMetalSource.stageStructs(varyings: varyings),
             vertexCode,
             fragmentCode,
-            SceneAuthoredShaderMetalSource.vertexWrapper(textures: textures),
+            SceneAuthoredShaderMetalSource.vertexWrapper(
+                textures: textures,
+                positionInput: SceneAuthoredShaderGlobalReferenceAnalyzer
+                    .isReferenced("g_ModelViewProjectionMatrix", in: vertex)
+                    ? .targetPixels : .clipSpace
+            ),
             SceneAuthoredShaderMetalSource.fragmentWrapper(
                 textures: textures,
                 colorTransfer: colorTransfer

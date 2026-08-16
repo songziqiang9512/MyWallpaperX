@@ -1083,10 +1083,38 @@ private enum Harness {
             outputMatches = pixels(rgbaTarget) == color
         }
 
+        var nonSquareColor: [UInt8] = []
+        for index in 0 ..< 12 {
+            nonSquareColor.append(UInt8(11 + index * 17))
+            nonSquareColor.append(UInt8(7 + index * 13))
+            nonSquareColor.append(UInt8(3 + index * 19))
+            nonSquareColor.append(UInt8(96 + index * 11))
+        }
+        let nonSquareTexture = texture(
+            device: device,
+            width: 4,
+            height: 3,
+            fill: nonSquareColor
+        )
+        let nonSquareProgram = program(
+            device: device,
+            marker: 1001,
+            outputSlot: 0,
+            slot0Texture: nonSquareTexture
+        )!
+        let nonSquareTarget = target(device: device, width: 4, height: 3)
+        let nonSquareResult = render(
+            nonSquareProgram,
+            encoder: encoder,
+            queue: queue,
+            target: nonSquareTarget
+        )
+
+        let attemptsBeforeBGRA = encoder.pipelineCompilationAttemptCount
         let bgraTarget = target(device: device, format: .bgra8Unorm)
         let bgraPrepared = encoder.prepare(program: baseline, target: bgraTarget)
         let separateFormatPipeline = bgraPrepared != nil
-            && encoder.pipelineCompilationAttemptCount == 2
+            && encoder.pipelineCompilationAttemptCount == attemptsBeforeBGRA + 1
 
         let straight = program(
             device: device,
@@ -2279,6 +2307,11 @@ private enum Harness {
             "gpuCompleted": gpuCompleted,
             "committedCommandBufferRejected": committedBufferRejected,
             "outputMatches": outputMatches,
+            "directClipNonSquarePrepared": nonSquareResult.prepared,
+            "directClipNonSquareEncoded": nonSquareResult.encoded,
+            "directClipNonSquareGPUCompleted": nonSquareResult.completed,
+            "directClipNonSquarePixelsMatch": nonSquareResult.pixels
+                == nonSquareColor,
             "rgbaAndBgraSupported": separateFormatPipeline,
             "straightOutputRejectedBeforeCompile": straightRejected,
             "unresolvedOutputRejectedUpstream": unresolvedRejectedUpstream,

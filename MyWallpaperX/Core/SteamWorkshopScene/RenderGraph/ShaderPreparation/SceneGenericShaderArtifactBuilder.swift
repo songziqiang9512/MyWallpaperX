@@ -252,9 +252,13 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 source,
                 SceneGenericShaderProgramArtifact.Program.ColorTransfer(
                     kind: "passthrough",
-                    slot: slot
+                    slot: slot,
+                    slots: nil
                 )
             )
+        }
+        if let interpolated = interpolatedColorTransfer(source, assignment: assignment) {
+            return (source, interpolated)
         }
         if regexMatches(
             #"^\s*out\.mwxFragColor\s*=\s*float4\(.+,\s*1(?:\.0+)?\s*\);\s*$"#,
@@ -264,7 +268,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 source,
                 SceneGenericShaderProgramArtifact.Program.ColorTransfer(
                     kind: "opaque",
-                    slot: nil
+                    slot: nil,
+                    slots: nil
                 )
             )
         }
@@ -273,11 +278,48 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 source,
                 SceneGenericShaderProgramArtifact.Program.ColorTransfer(
                     kind: "premultiplied",
-                    slot: nil
+                    slot: nil,
+                    slots: nil
                 )
             )
         }
         throw Failure.colorTransfer
+    }
+
+    private static func interpolatedColorTransfer(
+        _ source: String,
+        assignment: String
+    ) -> SceneGenericShaderProgramArtifact.Program.ColorTransfer? {
+        guard let output = captures(
+            #"^\s*out\.mwxFragColor\s*=\s*mix\(\s*([A-Za-z_]\w*)\s*,\s*([A-Za-z_]\w*)\s*,\s*([^,)]+)\s*\)\s*;\s*$"#,
+            in: assignment
+        ), output.count == 3 else { return nil }
+
+        var slots: [Int] = []
+        for name in output.prefix(2) {
+            let declarations = matches(
+                #"(?m)^[ \t]*float4\s+"# + escaped(name)
+                    + #"\s*=\s*g_Texture([0-7])\.sample\([^;]+\)\s*;$"#,
+                in: source
+            )
+            guard declarations.count == 1,
+                  let slotText = capture(declarations[0], 1, in: source),
+                  let slot = Int(slotText),
+                  countWord(name, in: source) == 2 else { return nil }
+            slots.append(slot)
+        }
+
+        let weight = output[2].trimmingCharacters(in: .whitespacesAndNewlines)
+        if !regexMatches(#"^[-+]?(?:\d+(?:\.\d*)?|\.\d+)$"#, weight) {
+            guard matches(
+                #"(?m)^[ \t]*float\s+"# + escaped(weight) + #"\s*=\s*[^;]+;$"#,
+                in: source
+            ).count == 1 else { return nil }
+        }
+
+        slots = Array(Set(slots)).sorted()
+        guard slots.count >= 2 else { return nil }
+        return .init(kind: "interpolated-color", slot: nil, slots: slots)
     }
 
     private static func straightAlphaAttenuation(_ source: String) -> (
@@ -322,7 +364,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             transformed,
             SceneGenericShaderProgramArtifact.Program.ColorTransfer(
                 kind: "straight-alpha",
-                slot: slot
+                slot: slot,
+                slots: nil
             )
         )
     }

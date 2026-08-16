@@ -184,6 +184,9 @@ nonisolated struct SceneAuthoredShaderUniformDeclaration {
 
 nonisolated enum SceneShaderColorTransfer: Equatable, Hashable, Sendable {
     case passthrough(textureSlot: Int)
+    /// Scalar interpolation of two or more sampled colors. Finalization proves
+    /// that every listed slot carries one common resolved representation.
+    case interpolatedColor(textureSlots: [Int])
     case straightAlphaPreserving(textureSlot: Int)
     case straightAlpha(textureSlot: Int)
     /// A single straight-RGBA source is filtered with bounded whole-vector
