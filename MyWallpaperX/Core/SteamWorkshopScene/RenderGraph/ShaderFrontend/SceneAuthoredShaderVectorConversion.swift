@@ -24,12 +24,24 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                       tokens: tokens,
                       unit: unit
                   ),
+                  let targetWidth = assignmentWidth(target) else {
+                return []
+            }
+            if targetWidth > 1,
+               let conversion = directConstructorConversion(
+                expression: (index + 1)..<end,
+                targetWidth: targetWidth,
+                tokens: tokens
+            ) {
+                return [conversion]
+            }
+            guard
                   let operands = multiplicativeOperands(
                       tokens[(index + 1)..<end],
                       before: index,
                       allTokens: tokens,
                       unit: unit
-                  ), let targetWidth = floatVectorWidth(target) else {
+                  ) else {
                 return []
             }
             let vectorOperands = operands.filter { floatVectorWidth($0.type) != nil }
@@ -49,6 +61,29 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
             }
             return result
         }
+    }
+
+    private static func directConstructorConversion(
+        expression: Range<Int>,
+        targetWidth: Int,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> Conversion? {
+        guard expression.count >= 3,
+              tokens[expression.lowerBound].kind == .identifier,
+              let source = SceneAuthoredShaderValueType(
+                authoredName: tokens[expression.lowerBound].text
+              ), let sourceWidth = floatVectorWidth(source),
+              sourceWidth > targetWidth,
+              tokens[expression.lowerBound + 1].text == "(",
+              matchingParenthesis(
+                tokens: tokens,
+                opening: expression.lowerBound + 1
+              ) == expression.upperBound - 1,
+              let suffix = narrowingSuffix(
+                from: sourceWidth,
+                to: targetWidth
+              ) else { return nil }
+        return .init(range: expression, suffix: suffix)
     }
 
     static func assignmentBoundaries(
@@ -128,6 +163,22 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         guard targets.count == 1, let target = targets.first else { return nil }
         if target == .float { return "x" }
         return narrowingSuffix(from: .float4, to: target)
+    }
+
+    static func suffixForTextureCoordinate(
+        tokens: [SceneAuthoredShaderToken],
+        range: Range<Int>,
+        unit: SceneAuthoredShaderSyntaxUnit
+    ) -> String? {
+        guard range.count == 1,
+              tokens[range.lowerBound].kind == .identifier,
+              let source = declaredType(
+                  of: tokens[range.lowerBound].text,
+                  before: range.lowerBound,
+                  tokens: tokens,
+                  unit: unit
+              ) else { return nil }
+        return narrowingSuffix(from: source, to: .float2)
     }
 
     static func floatingModuloTarget(
@@ -285,10 +336,15 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
 
     private static func narrowingSuffix(from source: Int, to target: Int) -> String? {
         switch (source, target) {
+        case (2, 1), (3, 1), (4, 1): "x"
         case (4, 3): "xyz"
         case (4, 2), (3, 2): "xy"
         default: nil
         }
+    }
+
+    private static func assignmentWidth(_ type: SceneAuthoredShaderValueType) -> Int? {
+        type == .float ? 1 : floatVectorWidth(type)
     }
 
     private static func floatVectorWidth(_ type: SceneAuthoredShaderValueType) -> Int? {

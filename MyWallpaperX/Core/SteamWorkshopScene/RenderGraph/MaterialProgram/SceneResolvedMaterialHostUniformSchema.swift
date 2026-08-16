@@ -10,6 +10,8 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         switch (field.authoredName, field.type) {
         case ("mwxRenderSize", .float2): .renderSize
         case ("g_ModelViewProjectionMatrix", .float4x4): .modelViewProjection
+        case ("g_ModelViewProjectionMatrixInverse", .float4x4):
+            .modelViewProjectionInverse
         case ("g_LayerModelMatrix", .float4x4): .layerModelMatrix
         case ("g_EffectTextureProjectionMatrix", .float4x4):
             .effectTextureProjectionMatrix

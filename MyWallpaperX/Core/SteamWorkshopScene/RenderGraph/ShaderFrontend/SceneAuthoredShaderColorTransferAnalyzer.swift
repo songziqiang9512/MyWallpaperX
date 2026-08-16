@@ -66,6 +66,13 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlphaPreserving(textureSlot: slot)
         }
+        if let slot = SceneAuthoredShaderSameSlotChannelReconstructionAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return .straightAlphaPreserving(textureSlot: slot)
+        }
         if let slot = SceneAuthoredShaderStraightBlendOutputAnalyzer
             .analyzeAlphaPreservingGeneratedRGB(
                 outputUses: outputUses,

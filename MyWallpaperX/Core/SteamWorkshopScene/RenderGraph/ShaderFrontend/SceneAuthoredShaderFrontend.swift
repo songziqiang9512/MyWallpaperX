@@ -139,7 +139,10 @@ nonisolated enum SceneAuthoredShaderFrontend {
             ($0.0, ($0.1, $0.2))
         })
         let activeFragmentVaryings = fragmentVaryings.filter {
-            declarationIsReferenced($0.0, in: fragment)
+            SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced(
+                $0.0,
+                in: fragment
+            )
         }
         if activeFragmentVaryings.contains(where: {
             guard let vertex = vertexByName[$0.0] else { return true }
@@ -222,7 +225,10 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 let identity = "\(unit.stage.rawValue):\(declaration.name)"
                 if seenUniforms.insert(identity).inserted,
                    !deadBindings.omittedUniformNames.contains(declaration.name),
-                   declarationIsReferenced(declaration.name, in: unit) {
+                   SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced(
+                       declaration.name,
+                       in: unit
+                   ) {
                     let fieldName = uniformStages[declaration.name]?.count == 1
                         ? declaration.name
                         : "mwx\(unit.stage == .vertex ? "V" : "F")_\(declaration.name)"
@@ -275,19 +281,6 @@ nonisolated enum SceneAuthoredShaderFrontend {
         guard let count else { return true }
         return (1 ... 16).contains(count)
             && [.float, .float2, .float3, .float4].contains(type)
-    }
-
-    private static func declarationIsReferenced(
-        _ name: String,
-        in unit: SceneAuthoredShaderSyntaxUnit
-    ) -> Bool {
-        let declarationRanges = unit.declarations.filter {
-            $0.name == name
-        }.map(\.range)
-        return unit.tokens.indices.contains { index in
-            unit.tokens[index].text == name
-                && !declarationRanges.contains(where: { $0.contains(index) })
-        }
     }
 
     private static func textureSlot(_ name: String) -> Int? {

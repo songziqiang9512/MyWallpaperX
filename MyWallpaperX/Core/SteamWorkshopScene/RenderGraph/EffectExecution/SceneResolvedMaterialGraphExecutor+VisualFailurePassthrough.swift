@@ -16,6 +16,7 @@ extension SceneResolvedMaterialGraphExecutor {
         commands: inout [Command],
         programKeys: inout [String],
         effectLocalFailureReasonCode: inout String?,
+        boundedDetail: String? = nil,
         rejection: Failure = .graphStructureRejected
     ) -> Failure? {
         guard [
@@ -101,7 +102,8 @@ extension SceneResolvedMaterialGraphExecutor {
             || reasonCode.hasPrefix("material-finalizer-") {
             recordEffectLocalFramePreparationFallback(
                 reasonCode: reasonCode,
-                effect: effect.key
+                effect: effect.key,
+                boundedDetail: boundedDetail
             )
         }
         return nil
@@ -109,7 +111,8 @@ extension SceneResolvedMaterialGraphExecutor {
 
     private func recordEffectLocalFramePreparationFallback(
         reasonCode: String,
-        effect: Graph.EffectKey
+        effect: Graph.EffectKey,
+        boundedDetail: String?
     ) {
         let identity = "\(effect.layerID):\(effect.effectIndex):"
             + "\(effect.descriptorID):\(reasonCode)"
@@ -121,11 +124,12 @@ extension SceneResolvedMaterialGraphExecutor {
         NSLog(
             "MWX resolved material renderer fallback phase=frame-preparation"
                 + " outcome=effect-local-passthrough reason=%@"
-                + " layer=%d effect=%d descriptor=%@ count=%d",
+                + " layer=%d effect=%d descriptor=%@ detail=%@ count=%d",
             reasonCode,
             effect.layerID,
             effect.effectIndex,
             effect.descriptorID,
+            boundedDetail ?? "-",
             count
         )
     }

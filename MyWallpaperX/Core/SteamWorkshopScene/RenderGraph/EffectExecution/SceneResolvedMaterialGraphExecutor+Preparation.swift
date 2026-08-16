@@ -160,6 +160,7 @@ extension SceneResolvedMaterialGraphExecutor {
                         programKeys: &programKeys,
                         effectLocalFailureReasonCode:
                             &effectLocalFailureReasonCode,
+                        boundedDetail: failure.boundedDetails.first,
                         rejection: rejection
                     )
                 }

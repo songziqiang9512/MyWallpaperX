@@ -14,6 +14,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let varyingArrayCounts: [String: Int]
         let attributeNames: Set<String>
         let texturesByName: [String: SceneAuthoredShaderProgram.TextureBinding]
+        let globalReferenceTokens: Set<SceneAuthoredShaderToken>
         let unpremultipliedTextureSlot: Int?
         let omittedStatementRanges: [Range<Int>]
     }
@@ -67,6 +68,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 $0.storage == .attribute
             }.map(\.name)),
             texturesByName: texturesByName,
+            globalReferenceTokens:
+                SceneAuthoredShaderGlobalReferenceAnalyzer.referenceTokens(in: vertex),
             unpremultipliedTextureSlot: nil,
             omittedStatementRanges: omittedVertexStatementRanges
         )
@@ -88,6 +91,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             varyingArrayCounts: varyingArrayCounts,
             attributeNames: [],
             texturesByName: texturesByName,
+            globalReferenceTokens:
+                SceneAuthoredShaderGlobalReferenceAnalyzer.referenceTokens(in: fragment),
             unpremultipliedTextureSlot: unpremultipliedTextureSlot,
             omittedStatementRanges: []
         )
@@ -246,7 +251,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 index += 1
                 continue
             }
-            if let reference = SceneAuthoredShaderVaryingArrayEmitter.reference(
+            if context.globalReferenceTokens.contains(token),
+               let reference = SceneAuthoredShaderVaryingArrayEmitter.reference(
                 tokens: tokens,
                 index: index,
                 arrayCounts: context.varyingArrayCounts,
@@ -383,8 +389,17 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             levelSource = level.source
         }
         let level = levelSource.map { ", level(\($0))" } ?? ""
+        let coordinateSuffix = SceneAuthoredShaderVectorConversion
+            .suffixForTextureCoordinate(
+                tokens: tokens,
+                range: arguments[1],
+                unit: context.unit
+            )
+        let coordinateSource = coordinateSuffix.map {
+            "(\(coordinate.source)).\($0)"
+        } ?? coordinate.source
         let sample = "mwxTexture\(texture.slot).sample(mwxSampler\(texture.slot), "
-            + "\(coordinate.source)\(level))"
+            + "\(coordinateSource)\(level))"
         let sampledSource = context.unpremultipliedTextureSlot == texture.slot
             ? "mwxUnpremultiply(\(sample))"
             : sample

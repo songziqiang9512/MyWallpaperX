@@ -157,6 +157,7 @@ private func vertexSource(
     let stageLocalProbe = stageLocalUniforms ? "float vertexProbe = g_Gain;" : ""
     return """
     #if 1
+    uniform mat4 g_ModelViewProjectionMatrixInverse;
     uniform mat4 g_EffectTextureProjectionMatrix;
     uniform mat4 g_EffectTextureProjectionMatrixInverse;
     uniform mat4 g_LayerModelMatrix;
@@ -172,6 +173,7 @@ private func vertexSource(
     \(stageLocalUniform)
     void main() {
         \(stageLocalProbe)
+        mat4 modelViewProjectionInverseProbe = g_ModelViewProjectionMatrixInverse;
         mat4 forwardProjectionProbe = g_EffectTextureProjectionMatrix;
         mat4 layerModelProbe = g_LayerModelMatrix;
         vec2 parallaxProbe = g_ParallaxPosition;
@@ -2075,6 +2077,16 @@ private enum Harness {
             float(programA.uniformBytes, at: effectProjectionField.offset + component * 4)
                 == Float(index + 2)
         }
+        let modelViewProjectionInverseField =
+            programA.frontendProgram.uniformLayout.fields.first {
+                $0.name == "g_ModelViewProjectionMatrixInverse"
+            }!
+        let modelViewProjectionInverseEncoded = [0, 5, 10, 15].allSatisfy {
+            float(
+                programA.uniformBytes,
+                at: modelViewProjectionInverseField.offset + $0 * 4
+            ) == 1
+        }
         let layerModelField = programA.frontendProgram.uniformLayout.fields.first {
             $0.name == "g_LayerModelMatrix"
         }!
@@ -2413,6 +2425,8 @@ private enum Harness {
                     && programA.textureSlots[0] != nil
                     && programA.textureSlots.dropFirst().allSatisfy { $0 == nil },
                 "uniformLayoutCorrect": uniformLayoutCorrect,
+                "modelViewProjectionInverseEncoded":
+                    modelViewProjectionInverseEncoded,
                 "effectProjectionInverseEncoded": effectProjectionEncoded,
                 "layerModelMatrixEncoded": layerModelEncoded,
                 "effectProjectionEncoded": forwardProjectionEncoded,

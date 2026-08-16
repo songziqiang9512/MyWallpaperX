@@ -300,6 +300,84 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
                 self.assertNotIn("level(", compact_source)
                 self.assertIsNone(output.get("metalError"))
 
+    def test_direct_float_vector_texture_coordinate_narrowing_is_bounded(self):
+        output = self.compile(
+            VEC4_COORDINATE_VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            varying vec4 v_Coordinates;
+            void main() {
+                gl_FragColor = texture2D(g_Texture0, v_Coordinates);
+            }
+            """,
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIn(
+            "mwxTexture0.sample(mwxSampler0,(mwxInput.v_Coordinates).xy)",
+            compact_source,
+        )
+        self.assertIsNone(output.get("metalError"))
+
+        unsupported = {
+            "integer": """
+                uniform sampler2D g_Texture0;
+                varying ivec4 v_Coordinates;
+                void main() {
+                    gl_FragColor = texture2D(g_Texture0, v_Coordinates);
+                }
+            """,
+            "compound": """
+                uniform sampler2D g_Texture0;
+                varying vec4 v_Coordinates;
+                void main() {
+                    gl_FragColor = texture2D(
+                        g_Texture0, v_Coordinates + vec4(0.1)
+                    );
+                }
+            """,
+            "function": """
+                uniform sampler2D g_Texture0;
+                varying vec4 v_Coordinates;
+                vec4 coordinates() { return v_Coordinates; }
+                void main() {
+                    gl_FragColor = texture2D(g_Texture0, coordinates());
+                }
+            """,
+        }
+        vertices = {
+            "integer": """
+                attribute vec3 a_Position;
+                varying ivec4 v_Coordinates;
+                void main() {
+                    gl_Position = vec4(a_Position, 1.0);
+                    v_Coordinates = ivec4(0);
+                }
+            """,
+            "compound": VEC4_COORDINATE_VERTEX_SOURCE,
+            "function": VEC4_COORDINATE_VERTEX_SOURCE,
+        }
+        for name, fragment in unsupported.items():
+            with self.subTest(name=name):
+                rejected = self.compile(vertices[name], fragment, metal=False)
+                compact_rejected = rejected["metalSource"].replace(" ", "")
+                self.assertEqual(rejected["diagnosticCodes"], [])
+                self.assertNotIn("v_Coordinates).xy", compact_rejected)
+
+        explicit = self.compile(
+            VEC4_COORDINATE_VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            varying vec4 v_Coordinates;
+            void main() {
+                gl_FragColor = texture2D(g_Texture0, v_Coordinates.xy);
+            }
+            """,
+        )
+        compact_explicit = explicit["metalSource"].replace(" ", "")
+        self.assertNotIn("((mwxInput.v_Coordinates).xy).xy", compact_explicit)
+        self.assertIsNone(explicit.get("metalError"))
+
     def test_texture_channel_use_proves_only_direct_red_samples(self):
         red_only = self.compile(
             VERTEX_SOURCE,
@@ -622,6 +700,98 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertNotIn("mwxPremultiply", output["metalSource"])
 
+    def test_same_slot_channel_reconstruction_preserves_base_alpha(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            self.same_slot_channel_reconstruction_fixture(),
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["textureSlots"], [0])
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", output["metalSource"])
+        self.assertIn("returnmwxPremultiply(mwxFragColor);", compact_source)
+        self.assertIsNone(output.get("metalError"))
+
+    def test_same_slot_channel_reconstruction_rejects_unproven_flows(self):
+        fixtures = {
+            "cross-slot-channel": {"green_sampler": "g_Texture1"},
+            "shifted-alpha": {"alpha_expression": "redShift.a"},
+            "multiplied-alpha": {"alpha_expression": "base.a * opacity"},
+            "extra-rgb-write": {"after_blend": "generated.rgb *= opacity;"},
+            "conditional-sample": {
+                "red_declaration": (
+                    "vec4 redShift = base; "
+                    "if (opacity > 0.5) { "
+                    "redShift = texSample2D(g_Texture0, v_TexCoord + vec2(0.01)); }"
+                )
+            },
+            "helper-sample": {
+                "extra_helper": (
+                    "vec4 hiddenSample(vec2 coordinate) { "
+                    "return texSample2D(g_Texture0, coordinate); }"
+                )
+            },
+            "unmatched-base": {"blend_base": "redShift.rgb"},
+        }
+        for name, substitutions in fixtures.items():
+            with self.subTest(name=name):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    self.same_slot_channel_reconstruction_fixture(**substitutions),
+                    metal=False,
+                )
+                self.assertEqual(output["diagnosticCodes"], [])
+                self.assertNotIn("mwxPremultiply", output["metalSource"])
+
+    @staticmethod
+    def same_slot_channel_reconstruction_fixture(
+        *,
+        green_sampler="g_Texture0",
+        alpha_expression="base.a",
+        after_blend="",
+        red_declaration=(
+            "vec4 redShift = texSample2D("
+            "g_Texture0, v_TexCoord + vec2(0.01));"
+        ),
+        extra_helper="",
+        blend_base="base.rgb",
+    ):
+        return f"""
+        uniform sampler2D g_Texture0;
+        uniform sampler2D g_Texture1;
+        uniform float opacity;
+        varying vec2 v_TexCoord;
+        {extra_helper}
+        vec3 ApplyBlending(
+            const int mode,
+            in vec3 baseColor,
+            in vec3 blendColor,
+            in float weight
+        ) {{
+            return mix(baseColor, blendColor, weight);
+        }}
+        void main() {{
+            vec4 base = texSample2D(g_Texture0, v_TexCoord);
+            vec4 coordinateDriver = texSample2D(g_Texture0, v_TexCoord);
+            {red_declaration}
+            vec4 greenShift = texSample2D(
+                {green_sampler}, v_TexCoord + vec2(coordinateDriver.g)
+            );
+            vec4 blueShift = texSample2D(
+                g_Texture0, v_TexCoord - vec2(0.02)
+            );
+            vec3 generated = vec4(
+                redShift.r, greenShift.g, blueShift.b, 0.1
+            );
+            generated = ApplyBlending(
+                0, {blend_base}, generated, opacity
+            );
+            {after_blend}
+            float alpha = {alpha_expression};
+            gl_FragColor = vec4(generated, alpha);
+        }}
+        """
+
     def test_float_vector_narrowing_matches_cross_backend_authored_forms(self):
         function_argument = self.compile(
             VEC4_COORDINATE_VERTEX_SOURCE,
@@ -640,6 +810,105 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(function_argument["diagnosticCodes"], [])
         self.assertIn("(mwxInput.v_Coordinates).xy", compact_function_source)
         self.assertIsNone(function_argument.get("metalError"))
+
+    def test_local_float_constructor_initializer_narrowing_is_bounded(self):
+        narrowed = self.compile(
+            VERTEX_SOURCE,
+            """
+            void main() {
+                vec3 color = vec4(0.1, 0.2, 0.3, 0.4);
+                gl_FragColor = vec4(color, 1.0);
+            }
+            """,
+        )
+        compact_narrowed = narrowed["metalSource"].replace(" ", "")
+        self.assertEqual(narrowed["diagnosticCodes"], [])
+        self.assertIn("float3color=(float4(0.1,0.2,0.3,0.4)).xyz", compact_narrowed)
+        self.assertIsNone(narrowed.get("metalError"))
+
+        widened = self.compile(
+            VERTEX_SOURCE,
+            """
+            void main() {
+                vec4 color = vec3(0.1, 0.2, 0.3);
+                gl_FragColor = color;
+            }
+            """,
+            metal=False,
+        )
+        compact_widened = widened["metalSource"].replace(" ", "")
+        self.assertNotIn("(float3(0.1,0.2,0.3)).", compact_widened)
+
+        integer = self.compile(
+            VERTEX_SOURCE,
+            """
+            void main() {
+                ivec3 value = ivec4(1, 2, 3, 4);
+                gl_FragColor = vec4(value);
+            }
+            """,
+            metal=False,
+        )
+        compact_integer = integer["metalSource"].replace(" ", "")
+        self.assertNotIn("(int4(1,2,3,4)).", compact_integer)
+
+    def test_scalar_assignment_narrows_only_proven_float_vector_chains(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform vec2 g_PointerPosition;
+            uniform float u_pointerSpeed;
+            void main() {
+                float pointer = g_PointerPosition * u_pointerSpeed;
+                gl_FragColor = vec4(pointer, 0.0, 0.0, 1.0);
+            }
+            """,
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIn(
+            "floatpointer=(mwxUniforms.g_PointerPosition*"
+            "mwxUniforms.u_pointerSpeed).x;",
+            compact_source,
+        )
+        self.assertIsNone(output.get("metalError"))
+
+        unsupported = [
+            "float value = g_PointerPosition + vec2(1.0);",
+            "float value = vectorValue(g_PointerPosition);",
+            "float value = g_Integer * 2;",
+        ]
+        for statement in unsupported:
+            with self.subTest(statement=statement):
+                rejected = self.compile(
+                    VERTEX_SOURCE,
+                    f"""
+                    uniform vec2 g_PointerPosition;
+                    uniform ivec2 g_Integer;
+                    vec2 vectorValue(vec2 value) {{ return value; }}
+                    void main() {{
+                        {statement}
+                        gl_FragColor = vec4(value, 0.0, 0.0, 1.0);
+                    }}
+                    """,
+                )
+                compact_rejected = rejected["metalSource"].replace(" ", "")
+                self.assertNotIn(").x;", compact_rejected)
+                self.assertIsNotNone(rejected.get("metalError"))
+
+        widened = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform float g_Value;
+            uniform float g_Scale;
+            void main() {
+                vec2 expanded = g_Value * g_Scale;
+                gl_FragColor = vec4(expanded, 0.0, 1.0);
+            }
+            """,
+            metal=False,
+        )
+        self.assertNotIn(").x;", widened["metalSource"].replace(" ", ""))
 
     def test_builtin_mix_narrows_proven_float_vector_arguments(self):
         output = self.compile(
@@ -1731,6 +2000,86 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         )
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertIsNone(output.get("metalError"))
+
+    def test_local_values_shadow_unmatched_fragment_varyings(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec4 shadowA;
+            varying vec4 shadowB;
+            varying vec4 shadowC;
+            varying vec4 shadowD;
+            void main() {
+                vec4 shadowA = vec4(0.1);
+                vec4 shadowB = vec4(0.2);
+                vec4 shadowC = vec4(0.3);
+                const vec4 shadowD = vec4(0.4);
+                gl_FragColor = shadowA + shadowB + shadowC + shadowD;
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIsNone(output.get("metalError"))
+
+    def test_read_before_local_shadow_still_requires_stage_link(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec4 unmatchedSignal;
+            void main() {
+                vec4 before = unmatchedSignal;
+                vec4 unmatchedSignal = vec4(1.0);
+                gl_FragColor = before + unmatchedSignal;
+            }
+            """,
+            metal=False,
+        )
+        self.assertEqual(output["diagnosticCodes"], ["stageLinkMismatch"])
+
+    def test_nested_local_shadow_does_not_escape_its_scope(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec4 unmatchedSignal;
+            void main() {
+                {
+                    vec4 unmatchedSignal = vec4(1.0);
+                    float local = unmatchedSignal.r;
+                }
+                gl_FragColor = unmatchedSignal;
+            }
+            """,
+            metal=False,
+        )
+        self.assertEqual(output["diagnosticCodes"], ["stageLinkMismatch"])
+
+    def test_function_parameter_shadows_unmatched_fragment_varying(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec4 helperValue;
+            vec4 identity(vec4 helperValue) { return helperValue; }
+            void main() { gl_FragColor = identity(vec4(1.0)); }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIsNone(output.get("metalError"))
+
+    def test_matching_varying_name_can_be_shadowed_by_local_value(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec2 v_TexCoord;
+            void main() {
+                vec2 v_TexCoord = vec2(0.25, 0.75);
+                gl_FragColor = vec4(v_TexCoord, 0.0, 1.0);
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIsNone(output.get("metalError"))
+        compact_source = "".join(output["metalSource"].split())
+        self.assertNotIn("mwxInput.v_TexCoord,0.0", compact_source)
 
     def test_unused_uniform_does_not_enter_the_runtime_abi(self):
         output = self.compile(

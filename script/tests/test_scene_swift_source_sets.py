@@ -30,8 +30,22 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         core = scene_swift_source_relpaths("authored_shader_frontend_core")
 
         self.assertEqual(len(support), 3)
-        self.assertEqual(len(implementation), 38)
+        self.assertEqual(len(implementation), 40)
         self.assertEqual(core, (*support, *implementation))
+        syntax = next(
+            index for index, path in enumerate(implementation)
+            if path.endswith("/SceneAuthoredShaderSyntax.swift")
+        )
+        references = next(
+            index for index, path in enumerate(implementation)
+            if path.endswith("/SceneAuthoredShaderGlobalReferenceAnalyzer.swift")
+        )
+        frontend = next(
+            index for index, path in enumerate(implementation)
+            if path.endswith("/SceneAuthoredShaderFrontend.swift")
+        )
+        self.assertLess(syntax, references)
+        self.assertLess(references, frontend)
         frontend_directory = (
             REPOSITORY_ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderFrontend"

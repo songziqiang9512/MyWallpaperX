@@ -63,13 +63,20 @@ nonisolated extension SceneAuthoredShaderMetalEmitter {
            let field = context.uniformNames[token.text] {
             return "clamp(mwxUniforms.\(field), 0.0, \(maximum).0)"
         }
-        if let field = context.uniformNames[token.text] { return "mwxUniforms.\(field)" }
-        if context.varyingNames.contains(token.text) {
+        if context.globalReferenceTokens.contains(token),
+           let field = context.uniformNames[token.text] {
+            return "mwxUniforms.\(field)"
+        }
+        if context.globalReferenceTokens.contains(token),
+           context.varyingNames.contains(token.text) {
             return context.unit.stage == .vertex
                 ? "mwxOutput.\(token.text)"
                 : "mwxInput.\(token.text)"
         }
-        if context.attributeNames.contains(token.text) { return "mwxAttributes.\(token.text)" }
+        if context.globalReferenceTokens.contains(token),
+           context.attributeNames.contains(token.text) {
+            return "mwxAttributes.\(token.text)"
+        }
         if token.text == "gl_Position" { return "mwxOutput.position" }
         if token.text == "gl_FragColor" { return "mwxFragColor" }
         if context.functionNames.contains(token.text) {
