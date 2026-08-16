@@ -22,6 +22,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-variant-envelope-frontend",
             "material-variant-envelope-shader-preparation",
             "material-variant-envelope-color-contract",
+            "material-variant-envelope-uniform-schema",
             "material-pass-preparation-library-compilation",
             "material-pass-preparation-vertex-function",
             "material-pass-preparation-fragment-function",

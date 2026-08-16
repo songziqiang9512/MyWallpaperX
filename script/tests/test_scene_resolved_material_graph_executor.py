@@ -559,6 +559,7 @@ private func fragmentSource(
     pass: Bool,
     internalDefault: Bool = false,
     frontendInvalid: Bool = false,
+    uniformSchemaInvalid: Bool = false,
     pixelTransform: Int? = nil,
     scalarProducer: Bool = false,
     scalarConsumer: String? = nil
@@ -570,7 +571,13 @@ private func fragmentSource(
     let varying = frontendInvalid
         ? "varying vec3 v_TexCoord;"
         : "varying vec2 v_TexCoord;"
-    let expression = if scalarProducer {
+    let uniform = uniformSchemaInvalid
+        ? #"uniform float g_InvalidUniform; // {"material":3}"#
+        : ""
+    let expression = if uniformSchemaInvalid {
+        "gl_FragColor = texSample2D(g_Texture0, v_TexCoord)"
+            + " * g_InvalidUniform;"
+    } else if scalarProducer {
         "gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0);"
     } else if scalarConsumer == "red" {
         "float scalar = texSample2D(g_Texture0, v_TexCoord).r;"
@@ -597,6 +604,7 @@ private func fragmentSource(
     return annotation + """
     \(varying)
     \(sampler)
+    \(uniform)
     void main() {
         \(expression)
     }
@@ -878,6 +886,7 @@ private func shaderContract(
     pass: Bool,
     internalDefault: Bool = false,
     frontendInvalid: Bool = false,
+    uniformSchemaInvalid: Bool = false,
     pixelTransform: Int? = nil,
     implicitFramebuffer: Bool = false,
     implicitFramebufferAnnotation: Bool = true,
@@ -931,6 +940,7 @@ private func shaderContract(
         pass: pass,
         internalDefault: internalDefault,
         frontendInvalid: frontendInvalid,
+        uniformSchemaInvalid: uniformSchemaInvalid,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
         scalarConsumer: scalarConsumer
@@ -1020,6 +1030,7 @@ private func template(
     internalDefault: Bool = false,
     overwrite: Bool = true,
     frontendInvalid: Bool = false,
+    uniformSchemaInvalid: Bool = false,
     scalarProducer: Bool = false,
     scalarConsumer: String? = nil
 ) -> Template {
@@ -1042,6 +1053,7 @@ private func template(
         pass: pass,
         internalDefault: internalDefault,
         frontendInvalid: frontendInvalid,
+        uniformSchemaInvalid: uniformSchemaInvalid,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
         scalarConsumer: scalarConsumer
@@ -1096,6 +1108,7 @@ private func catalog(
     nonOverwriteNodes: Set<Int> = [],
     internalDefaultNodes: Set<Int> = [],
     frontendInvalidNodes: Set<Int> = [],
+    uniformSchemaInvalidNodes: Set<Int> = [],
     omittedNodes: Set<Int> = [],
     demandIssueNodes: Set<Int> = [],
     implicitFramebufferNodes: Set<Int> = [],
@@ -1120,6 +1133,8 @@ private func catalog(
                 internalDefault: internalDefaultNodes.contains(node.nodeIndex),
                 overwrite: !nonOverwriteNodes.contains(node.nodeIndex),
                 frontendInvalid: frontendInvalidNodes.contains(node.nodeIndex),
+                uniformSchemaInvalid:
+                    uniformSchemaInvalidNodes.contains(node.nodeIndex),
                 scalarProducer: scalarProducerNodes.contains(node.nodeIndex),
                 scalarConsumer: scalarConsumerNodes[node.nodeIndex]
             )
@@ -2131,7 +2146,7 @@ private enum Harness {
             pixelChain,
             catalog: catalog(
                 for: pixelGraph,
-                frontendInvalidNodes: [1]
+                uniformSchemaInvalidNodes: [1]
             )
         )
         var visualFailureCanClaimEffectLocalPassthrough = false
@@ -2148,12 +2163,12 @@ private enum Harness {
         visualFailureCanClaimEffectLocalPassthrough = passthroughClaim != nil
             && passthroughCapability?.stages.count == 3
             && passthroughCapability?.stages[1].visualFailureReasonCode
-                == "material-variant-envelope-frontend"
+                == "material-variant-envelope-uniform-schema"
         visualFailurePassthroughIsTypedAndCounted =
             passthroughCapabilities.reportLines.contains {
                 $0 == "resolved material execution capability fallback:"
                     + " state=prefer-generic outcome=effect-local-passthrough"
-                    + " reason=material-variant-envelope-frontend count=1"
+                    + " reason=material-variant-envelope-uniform-schema count=1"
             }
         let passthroughLeases = passthroughCapability.flatMap {
             makeChainedLeases($0, device: device, generation: 18)
@@ -2183,7 +2198,8 @@ private enum Harness {
             if case let .success(prepared) = preparation,
                prepared.stages.count == 3,
                prepared.stages[1].programCacheKeys == [
-                   "visual-failure-passthrough:material-variant-envelope-frontend"
+                   "visual-failure-passthrough:"
+                       + "material-variant-envelope-uniform-schema"
                ] {
                 visualFailurePassthroughPrepared = true
                 var observedStageIndices: [Int] = []
@@ -2242,6 +2258,13 @@ private enum Harness {
         let ordinaryCapabilities = capabilities(
             ordinaryChain,
             catalog: ordinaryCatalog
+        )
+        let uniformSchemaMultiNodeCapabilities = capabilities(
+            ordinaryChain,
+            catalog: catalog(
+                for: ordinaryGraph,
+                uniformSchemaInvalidNodes: [0]
+            )
         )
         let ordinaryClaim = ordinaryCapabilities.claim(ordinaryChain)!
         let ordinaryExecutor = Executor(
@@ -3478,18 +3501,26 @@ private enum Harness {
             "orderedStagesGPUCompleted": chainedStagesGPUCompleted,
             "orderedStagesPreservePriorPixelContribution":
                 chainedStagePixelsPreserved,
-            "visualFrontendFailureCanClaimEffectLocalPassthrough":
+            "visualUniformSchemaFailureCanClaimEffectLocalPassthrough":
                 visualFailureCanClaimEffectLocalPassthrough,
-            "visualFrontendFailurePassthroughPrepared":
+            "visualUniformSchemaFailurePassthroughPrepared":
                 visualFailurePassthroughPrepared,
-            "visualFrontendFailurePassthroughEncoded":
+            "visualUniformSchemaFailurePassthroughEncoded":
                 visualFailurePassthroughEncoded,
-            "visualFrontendFailurePassthroughGPUCompleted":
+            "visualUniformSchemaFailurePassthroughGPUCompleted":
                 visualFailurePassthroughGPUCompleted,
-            "visualFrontendFailurePreservesPreviousAndContinuesSuffix":
+            "visualUniformSchemaFailurePreservesPreviousAndContinuesSuffix":
                 visualFailurePreservesPreviousAndContinuesSuffix,
-            "visualFrontendFailurePassthroughIsTypedAndCounted":
+            "visualUniformSchemaFailurePassthroughIsTypedAndCounted":
                 visualFailurePassthroughIsTypedAndCounted,
+            "visualUniformSchemaMultiNodeRemainsHardRejected":
+                uniformSchemaMultiNodeCapabilities.claim(ordinaryChain) == nil
+                    && uniformSchemaMultiNodeCapabilities.reportLines.contains {
+                        $0.contains(
+                            "rejection: material-variant-envelope-uniform-schema"
+                                + " count=1"
+                        )
+                    },
             "rendererFailurePassthroughPrepared":
                 rendererFailurePassthroughPrepared,
             "rendererFailurePassthroughEncoded":
@@ -3616,6 +3647,10 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
             )
             self.assertIn(
                 '"material-variant-envelope-color-contract"',
+                text,
+            )
+            self.assertIn(
+                '"material-variant-envelope-uniform-schema"',
                 text,
             )
             self.assertNotIn('"material-variant-envelope-texture"', text)

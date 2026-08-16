@@ -163,12 +163,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return .success(.init(stages: stages, materials: allMaterials))
     }
 
-    /// Only a launch-time shader preparation/frontend failure may become a
-    /// visual no-op.
-    /// Resource, target, dependency, state and lifecycle failures remain hard
+    /// Only a launch-time shader/frontend/color or static uniform-schema
+    /// failure may become a visual no-op. Dynamic producer availability,
+    /// resource, target, dependency, state and lifecycle failures remain hard
     /// rejections. The admitted effect must be one current-in/current-out leaf
     /// so an exact full-frame copy preserves the previous current without
-    /// fabricating an authored texture or graph resource.
+    /// fabricating an authored texture, uniform value or graph resource.
     private static func visualFailureMayPassthrough(
         _ failure: Rejection,
         product: SceneGraphAdmissionProduct,
@@ -179,6 +179,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             "material-variant-envelope-frontend",
             "material-variant-envelope-shader-preparation",
             "material-variant-envelope-color-contract",
+            "material-variant-envelope-uniform-schema",
         ].contains(failure.code),
               dependencyOwnership == .none,
               product.graph.effects.count == 1,
