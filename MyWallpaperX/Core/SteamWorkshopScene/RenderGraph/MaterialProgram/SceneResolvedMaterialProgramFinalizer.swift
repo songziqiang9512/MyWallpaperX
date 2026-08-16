@@ -277,7 +277,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 return .init(field: field, source: .host(host), encodedValue: value)
             }
             guard let schema else {
-                throw failure(.uniform, .uniformBindingInvalid, details: [field.name])
+                throw failure(
+                    .uniform,
+                    .activeUniformSchemaMissing,
+                    details: [field.name]
+                )
             }
             if declarations.isEmpty {
                 guard let fallback = schema.defaultValue,
@@ -294,7 +298,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 return .init(field: field, source: .staticValue, encodedValue: encoded)
             }
             guard declarations.count == 1, let declaration = declarations.first else {
-                throw failure(.uniform, .uniformBindingInvalid, details: [field.name])
+                throw failure(
+                    .uniform,
+                    .uniformDeclarationConflict,
+                    details: [field.name]
+                )
             }
             switch declaration.value {
             case let .staticExact(value):

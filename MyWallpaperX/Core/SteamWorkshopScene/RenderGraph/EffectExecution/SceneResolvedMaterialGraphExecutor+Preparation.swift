@@ -143,6 +143,8 @@ extension SceneResolvedMaterialGraphExecutor {
                         reasonCode = "material-finalizer-static-uniform-binding"
                     case .hostUniformDeclarationConflict:
                         reasonCode = "material-finalizer-host-uniform-declaration-conflict"
+                    case .uniformDeclarationConflict:
+                        reasonCode = "material-finalizer-uniform-declaration-conflict"
                     default:
                         return rejection
                     }

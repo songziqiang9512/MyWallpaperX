@@ -2165,6 +2165,14 @@ private enum Harness {
                     staticDeclaration("Tint", components: [1]),
                 ]
             )),
+            "uniformDeclarationConflict": failureToken(finalize(
+                shader: contract(revision: "uniform-declaration-conflict"),
+                device: device,
+                uniformDeclarations: [
+                    staticDeclaration("Tint", components: [1, 0, 0]),
+                    staticDeclaration("u_Tint", components: [0, 1, 0]),
+                ]
+            )),
             "hostUniformDeclarationConflict": failureToken(finalize(
                 shader: contract(revision: "host-uniform-declaration-conflict"),
                 device: device,
@@ -2758,6 +2766,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "missingUniformDefault": "uniform/staticUniformBindingInvalid",
             "malformedUniformDefault": "uniform/uniformBindingInvalid",
             "malformedStaticDeclaration": "uniform/staticUniformBindingInvalid",
+            "uniformDeclarationConflict": "uniform/uniformDeclarationConflict",
             "hostUniformDeclarationConflict":
                 "uniform/hostUniformDeclarationConflict",
             "hostUniformBindingInvalid": "uniform/hostUniformBindingInvalid",
@@ -2776,19 +2785,24 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             expected,
         )
 
-    def test_only_host_declaration_conflict_is_a_visual_passthrough(self) -> None:
+    def test_only_local_declaration_conflicts_are_visual_passthroughs(self) -> None:
+        finalizer_text = FINALIZER_SOURCE.read_text(encoding="utf-8")
+        visual_text = VISUAL_PASSTHROUGH_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
             ".hostUniformBindingInvalid",
-            FINALIZER_SOURCE.read_text(encoding="utf-8"),
+            finalizer_text,
         )
-        self.assertIn(
+        self.assertIn(".activeUniformSchemaMissing", finalizer_text)
+        for reason in (
             '"material-finalizer-host-uniform-declaration-conflict"',
-            VISUAL_PASSTHROUGH_SOURCE.read_text(encoding="utf-8"),
-        )
+            '"material-finalizer-uniform-declaration-conflict"',
+        ):
+            self.assertIn(reason, visual_text)
         self.assertNotIn(
             "material-finalizer-host-uniform-binding",
-            VISUAL_PASSTHROUGH_SOURCE.read_text(encoding="utf-8"),
+            visual_text,
         )
+        self.assertNotIn("material-finalizer-active-uniform-schema", visual_text)
 
     def test_render_state_and_color_contracts_fail_closed(self) -> None:
         expected = {
