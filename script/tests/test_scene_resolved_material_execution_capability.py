@@ -2236,6 +2236,23 @@ private enum Harness {
                 sceneScriptTargets: []
             )
         )
+        let multipleProducerMissingCatalog = catalog(
+            descriptor: desc,
+            graphs: [raw],
+            materials: materialCatalog(
+                graph: raw,
+                omitNode: 1,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("missing-property")]
+                )]]
+            ),
+            admissionCandidates: admissionCandidates,
+            dynamicProducers: .init(
+                userProperties: [],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
         let missingProducerCatalog = catalog(
             descriptor: desc,
             graphs: [raw],
@@ -2295,6 +2312,45 @@ private enum Harness {
             ),
             dynamicProducers: .init(
                 userProperties: [],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
+        let pairMultipleProducerMissingCapability = pairMultipleProducerMissingCatalog
+            .claim(layerID: layerID)
+            .flatMap { pairMultipleProducerMissingCatalog.resolve($0.token) }
+        let pairMultipleProducerAllMissingCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("missing-property")]
+                )]]
+            )
+        )
+        let pairMultipleProducerAllMissingCapability = pairMultipleProducerAllMissingCatalog
+            .claim(layerID: layerID)
+            .flatMap { pairMultipleProducerAllMissingCatalog.resolve($0.token) }
+        let pairMultipleProducerMismatchedCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("strength-property")]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: .effectConstant(
+                        layerID: layerID,
+                        effectIndex: firstKey.effectIndex,
+                        passIndex: 0,
+                        name: "other-strength"
+                    )
+                )],
                 timelineTargets: [dynamicTarget()],
                 sceneScriptTargets: []
             )
@@ -2859,10 +2915,30 @@ private enum Harness {
                             + " reason=material-dynamic-uniform-contributor-policy"
                             + " count=1"
                     },
-                "multipleProducerMissingRemainsHard": reportHas(
-                    pairMultipleProducerMissingCatalog,
+                "multipleProducerMissingNonLeafRemainsRejected": reportHas(
+                    multipleProducerMissingCatalog,
+                    "material-dynamic-uniform-contributor-producer-unavailable"
+                ) && multipleProducerMissingCatalog.claim(layerID: layerID) == nil,
+                "multipleProducerMissingPairLeafPassthrough":
+                    pairMultipleProducerMissingCapability?.stages.first?
+                        .visualFailureReasonCode
+                        == "material-dynamic-uniform-contributor-producer-unavailable",
+                "multipleProducerMissingPairLeafCounted":
+                    pairMultipleProducerMissingCatalog.reportLines.contains {
+                        $0 == "resolved material execution capability fallback:"
+                            + " state=prefer-generic"
+                            + " outcome=effect-local-passthrough"
+                            + " reason=material-dynamic-uniform-contributor-producer-unavailable"
+                            + " count=1"
+                    },
+                "multipleProducerAllMissingPairLeafPassthrough":
+                    pairMultipleProducerAllMissingCapability?.stages.first?
+                        .visualFailureReasonCode
+                        == "material-dynamic-uniform-contributor-producer-unavailable",
+                "multipleProducerMismatchedRemainsHard": reportHas(
+                    pairMultipleProducerMismatchedCatalog,
                     "dynamic-uniform-unavailable"
-                ) && pairMultipleProducerMissingCatalog.claim(layerID: layerID) == nil,
+                ) && pairMultipleProducerMismatchedCatalog.claim(layerID: layerID) == nil,
                 "multipleProducerAttachmentRemainsHard": reportHas(
                     pairMultipleProducerAttachmentCatalog,
                     "dynamic-uniform-unavailable"
@@ -6096,7 +6172,11 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "multipleProducerNonLeafRemainsRejected": True,
                 "multipleProducerPairLeafPassthrough": True,
                 "multipleProducerPairLeafCounted": True,
-                "multipleProducerMissingRemainsHard": True,
+                "multipleProducerMissingNonLeafRemainsRejected": True,
+                "multipleProducerMissingPairLeafPassthrough": True,
+                "multipleProducerMissingPairLeafCounted": True,
+                "multipleProducerAllMissingPairLeafPassthrough": True,
+                "multipleProducerMismatchedRemainsHard": True,
                 "multipleProducerAttachmentRemainsHard": True,
                 "unprovenScriptPairLeafPassthrough": True,
                 "unprovenScriptPairLeafCounted": True,

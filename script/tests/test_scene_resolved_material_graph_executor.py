@@ -3912,6 +3912,10 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
             visual_text,
         )
         self.assertIn(
+            '"material-dynamic-uniform-contributor-producer-unavailable"',
+            visual_text,
+        )
+        self.assertIn(
             '"material-dynamic-uniform-script-attachment-unproven"',
             visual_text,
         )

@@ -24,6 +24,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-variant-envelope-color-contract",
             "material-variant-envelope-uniform-schema",
             "material-dynamic-uniform-contributor-policy",
+            "material-dynamic-uniform-contributor-producer-unavailable",
             "material-dynamic-uniform-script-attachment-unproven",
             "material-dynamic-uniform-producer-unavailable",
             "material-pass-preparation-library-compilation",

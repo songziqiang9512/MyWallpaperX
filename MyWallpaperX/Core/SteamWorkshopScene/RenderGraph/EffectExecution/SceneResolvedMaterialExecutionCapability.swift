@@ -408,6 +408,18 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     return producers.sceneScriptTargets.contains(dynamic.target)
                 }
             }
+            let hasMismatchedProducerIdentity: (
+                Template.DynamicUniformSource
+            ) -> Bool = { contributor in
+                switch contributor {
+                case let .userProperty(propertyKey):
+                    return producers.userProperties.contains {
+                        $0.propertyKey == propertyKey && $0.target != dynamic.target
+                    }
+                case .timeline, .sceneScript:
+                    return false
+                }
+            }
             if dynamic.valueContributors.isEmpty {
                 guard dynamic.authoredFallback != nil,
                       dynamic.scriptAttachments == [.unproven] else {
@@ -416,9 +428,16 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 return rejection("material-dynamic-uniform-script-attachment-unproven")
             }
             guard dynamic.valueContributors.count == 1 else {
-                guard dynamic.valueContributors.allSatisfy(hasProducer),
-                      dynamic.scriptAttachments.isEmpty else {
+                guard dynamic.scriptAttachments.isEmpty,
+                      !dynamic.valueContributors.contains(
+                          where: hasMismatchedProducerIdentity
+                      ) else {
                     return rejection("dynamic-uniform-unavailable")
+                }
+                guard dynamic.valueContributors.allSatisfy(hasProducer) else {
+                    return rejection(
+                        "material-dynamic-uniform-contributor-producer-unavailable"
+                    )
                 }
                 return rejection("material-dynamic-uniform-contributor-policy")
             }
@@ -426,14 +445,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 return rejection("dynamic-uniform-unavailable")
             }
             if !hasProducer(contributor) {
-                let hasMismatchedUserProperty = switch contributor {
-                case let .userProperty(propertyKey):
-                    producers.userProperties.contains { $0.propertyKey == propertyKey }
-                case .timeline, .sceneScript:
-                    false
-                }
                 guard dynamic.scriptAttachments.isEmpty,
-                      !hasMismatchedUserProperty else {
+                      !hasMismatchedProducerIdentity(contributor) else {
                     return rejection("dynamic-uniform-unavailable")
                 }
                 return rejection("material-dynamic-uniform-producer-unavailable")
