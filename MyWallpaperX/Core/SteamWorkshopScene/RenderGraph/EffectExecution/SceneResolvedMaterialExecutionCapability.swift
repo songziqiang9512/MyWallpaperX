@@ -395,30 +395,44 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 name == declaration.name else {
                 return rejection("dynamic-uniform-unavailable")
             }
-            guard !dynamic.valueContributors.isEmpty,
-                  dynamic.valueContributors.allSatisfy({ contributor in
-                      switch contributor {
-                      case let .userProperty(propertyKey):
-                          return producers.userProperties.contains(.init(
-                              propertyKey: propertyKey,
-                              target: dynamic.target
-                          ))
-                      case .timeline:
-                          return producers.timelineTargets.contains(dynamic.target)
-                      case .sceneScript:
-                          return producers.sceneScriptTargets.contains(dynamic.target)
-                      }
-                  }) else {
+            let hasProducer: (Template.DynamicUniformSource) -> Bool = { contributor in
+                switch contributor {
+                case let .userProperty(propertyKey):
+                    return producers.userProperties.contains(.init(
+                        propertyKey: propertyKey,
+                        target: dynamic.target
+                    ))
+                case .timeline:
+                    return producers.timelineTargets.contains(dynamic.target)
+                case .sceneScript:
+                    return producers.sceneScriptTargets.contains(dynamic.target)
+                }
+            }
+            guard !dynamic.valueContributors.isEmpty else {
                 return rejection("dynamic-uniform-unavailable")
             }
             guard dynamic.valueContributors.count == 1 else {
-                guard dynamic.controlAttachments.isEmpty else {
+                guard dynamic.valueContributors.allSatisfy(hasProducer),
+                      dynamic.controlAttachments.isEmpty else {
                     return rejection("dynamic-uniform-unavailable")
                 }
                 return rejection("material-dynamic-uniform-contributor-policy")
             }
             guard let contributor = dynamic.valueContributors.first else {
                 return rejection("dynamic-uniform-unavailable")
+            }
+            if !hasProducer(contributor) {
+                let hasMismatchedUserProperty = switch contributor {
+                case let .userProperty(propertyKey):
+                    producers.userProperties.contains { $0.propertyKey == propertyKey }
+                case .timeline, .sceneScript:
+                    false
+                }
+                guard dynamic.controlAttachments.isEmpty,
+                      !hasMismatchedUserProperty else {
+                    return rejection("dynamic-uniform-unavailable")
+                }
+                return rejection("material-dynamic-uniform-producer-unavailable")
             }
             if dynamic.controlAttachments == [.unprovenSceneScript] {
                 return rejection("material-dynamic-uniform-control-policy")

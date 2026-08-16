@@ -2343,6 +2343,42 @@ private enum Harness {
                 )]]
             )
         )
+        let pairMissingProducerCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.userProperty("missing-property")]
+                )]]
+            )
+        )
+        let pairMissingProducerCapability = pairMissingProducerCatalog
+            .claim(layerID: layerID)
+            .flatMap { pairMissingProducerCatalog.resolve($0.token) }
+        let pairMismatchedProducerCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.userProperty("strength-property")]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: .effectConstant(
+                        layerID: layerID,
+                        effectIndex: firstKey.effectIndex,
+                        passIndex: 0,
+                        name: "other-strength"
+                    )
+                )],
+                timelineTargets: [],
+                sceneScriptTargets: []
+            )
+        )
         let pairDuplicateControlCatalog = catalog(
             descriptor: pairDescriptor,
             graphs: [pairGraph],
@@ -2794,6 +2830,22 @@ private enum Harness {
                     pairUnknownControlMissingProducerCatalog,
                     "dynamic-uniform-unavailable"
                 ) && pairUnknownControlMissingProducerCatalog.claim(layerID: layerID) == nil,
+                "missingProducerPairLeafPassthrough":
+                    pairMissingProducerCapability?.stages.first?
+                        .visualFailureReasonCode
+                        == "material-dynamic-uniform-producer-unavailable",
+                "missingProducerPairLeafCounted":
+                    pairMissingProducerCatalog.reportLines.contains {
+                        $0 == "resolved material execution capability fallback:"
+                            + " state=prefer-generic"
+                            + " outcome=effect-local-passthrough"
+                            + " reason=material-dynamic-uniform-producer-unavailable"
+                            + " count=1"
+                    },
+                "mismatchedProducerRemainsHard": reportHas(
+                    pairMismatchedProducerCatalog,
+                    "dynamic-uniform-unavailable"
+                ) && pairMismatchedProducerCatalog.claim(layerID: layerID) == nil,
                 "duplicateControlRemainsHard": reportHas(
                     pairDuplicateControlCatalog,
                     "dynamic-uniform-unavailable"
@@ -2804,8 +2856,8 @@ private enum Harness {
                 ) && pairKnownControlWrongContributorCatalog.claim(layerID: layerID) == nil,
                 "missingProducer": reportHas(
                     missingProducerCatalog,
-                    "dynamic-uniform-unavailable"
-                ),
+                    "material-dynamic-uniform-producer-unavailable"
+                ) && missingProducerCatalog.claim(layerID: layerID) == nil,
                 "unverifiedSceneScript": reportHas(
                     unverifiedSceneScriptCatalog,
                     "dynamic-uniform-unavailable"
@@ -5972,6 +6024,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "unknownControlPairLeafPassthrough": True,
                 "unknownControlPairLeafCounted": True,
                 "unknownControlMissingProducerRemainsHard": True,
+                "missingProducerPairLeafPassthrough": True,
+                "missingProducerPairLeafCounted": True,
+                "mismatchedProducerRemainsHard": True,
                 "duplicateControlRemainsHard": True,
                 "knownControlWrongContributorRemainsHard": True,
                 "missingProducer": True,

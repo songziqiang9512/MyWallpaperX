@@ -3915,6 +3915,10 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
             '"material-dynamic-uniform-control-policy"',
             visual_text,
         )
+        self.assertIn(
+            '"material-dynamic-uniform-producer-unavailable"',
+            visual_text,
+        )
 
     def test_production_executor_preflights_and_executes_atomic_graph(self) -> None:
         with tempfile.TemporaryDirectory(

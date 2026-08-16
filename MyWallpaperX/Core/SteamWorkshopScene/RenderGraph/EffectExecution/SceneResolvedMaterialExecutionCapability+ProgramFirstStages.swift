@@ -182,6 +182,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             "material-variant-envelope-uniform-schema",
             "material-dynamic-uniform-contributor-policy",
             "material-dynamic-uniform-control-policy",
+            "material-dynamic-uniform-producer-unavailable",
         ].contains(failure.code),
               dependencyOwnership == .none,
               product.graph.effects.count == 1,
