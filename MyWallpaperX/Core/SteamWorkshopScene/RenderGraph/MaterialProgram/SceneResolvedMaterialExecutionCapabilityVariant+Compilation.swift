@@ -119,14 +119,21 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             throw failure(.authoredSamplerSchemaInvalid)
         }
         let bindings = frontend.textureBindings
-        guard !hasInternalDefault(samplers),
-              bindings.map(\.slot) == bindings.map(\.slot).sorted(),
-              Set(bindings.map(\.slot)).count == bindings.count,
-              bindings.allSatisfy({ binding in
-                  (0 ..< 8).contains(binding.slot)
-                      && samplers[binding.slot]?.name == binding.name
-              }), !declaresActivePass(prepared) else {
-            throw failure(.activeSamplerSchemaInvalid)
+        if let internalTarget = internalTarget(in: samplers) {
+            throw failure(
+                .samplerInternalTargetUnsupported,
+                phase: .preparation,
+                slot: internalTarget.slot,
+                details: [internalTarget.name]
+            )
+        }
+        try validateSamplerBindings(samplers, bindings: bindings)
+        if declaresActivePass(prepared) {
+            throw failure(
+                .activePassUnsupported,
+                phase: .preparation,
+                details: ["active-pass"]
+            )
         }
         let activeSlots = Set(bindings.map(\.slot))
         let nonHost = frontend.uniformLayout.fields.filter {
@@ -154,13 +161,96 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         )
     }
 
-    private static func hasInternalDefault(
-        _ samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
-    ) -> Bool {
-        samplers.values.contains {
-            if case .internalTarget? = $0.defaultTexture { return true }
-            return false
+    private static func internalTarget(
+        in samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+    ) -> (slot: Int, name: String)? {
+        for (slot, sampler) in samplers.sorted(by: { $0.key < $1.key }) {
+            if case let .internalTarget(name)? = sampler.defaultTexture {
+                return (slot, name)
+            }
         }
+        return nil
+    }
+
+    static func validateSamplerBindings(
+        _ samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        bindings: [SceneAuthoredShaderProgram.TextureBinding]
+    ) throws {
+        let slots = bindings.map(\.slot)
+        guard slots == slots.sorted() else {
+            throw failure(
+                .samplerBindingOrderInvalid,
+                phase: .invariant,
+                details: slots.map(String.init)
+            )
+        }
+        var seen = Set<Int>()
+        for binding in bindings {
+            guard seen.insert(binding.slot).inserted else {
+                throw failure(
+                    .samplerBindingDuplicateSlot,
+                    phase: .invariant,
+                    slot: binding.slot
+                )
+            }
+            guard (0 ..< 8).contains(binding.slot) else {
+                throw failure(
+                    .samplerBindingIdentityMismatch,
+                    phase: .invariant,
+                    slot: binding.slot,
+                    details: ["slot-out-of-range"]
+                )
+            }
+            guard let sampler = samplers[binding.slot] else {
+                throw failure(
+                    .samplerBindingIdentityMismatch,
+                    phase: .invariant,
+                    slot: binding.slot,
+                    details: ["sampler-missing", binding.name]
+                )
+            }
+            guard sampler.slot == binding.slot,
+                  sampler.name == binding.name else {
+                throw failure(
+                    .samplerBindingIdentityMismatch,
+                    phase: .invariant,
+                    slot: binding.slot,
+                    details: ["sampler-name-or-slot", binding.name, sampler.name]
+                )
+            }
+        }
+    }
+
+    static func validatedSamplerChannelUses(
+        _ samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        bindings: [SceneAuthoredShaderProgram.TextureBinding]
+    ) throws -> [Int: ChannelUse] {
+        try validateSamplerBindings(samplers, bindings: bindings)
+        return Dictionary(uniqueKeysWithValues: bindings.map {
+            ($0.slot, $0.channelUse)
+        })
+    }
+
+    static func samplerVariantSchemaFailure(
+        _ schemas: [(
+            samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+            bindings: [SceneAuthoredShaderProgram.TextureBinding]
+        )]
+    ) -> Failure? {
+        guard let baseline = schemas.first else {
+            return failure(.identityInvariant, phase: .invariant)
+        }
+        guard schemas.dropFirst().allSatisfy({
+            $0.samplers == baseline.samplers
+                && $0.bindings == baseline.bindings
+        }) else {
+            return failure(
+                .samplerVariantSchemaDivergence,
+                phase: .preparation,
+                details: ["texture-format-schema-divergence"]
+            )
+        }
+        return nil
     }
 
     private static func declaresActivePass(

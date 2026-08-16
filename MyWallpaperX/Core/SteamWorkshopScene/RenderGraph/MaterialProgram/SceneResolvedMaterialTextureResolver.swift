@@ -141,29 +141,21 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         variant: SceneResolvedMaterialCompiledVariant,
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
     ) throws -> [Program.TextureSlot?] {
+        let channelUses = try SceneResolvedMaterialVariantCache
+            .validatedSamplerChannelUses(
+            variant.activeSamplers,
+            bindings: variant.frontendProgram.textureBindings
+        )
         let selections = try SceneResolvedMaterialTextureSelection.resolve(
             input,
             samplers: variant.activeSamplers,
             reachableSamplers: reachableSamplers,
-            channelUses: Dictionary(uniqueKeysWithValues:
-                variant.frontendProgram.textureBindings.map {
-                    ($0.slot, $0.channelUse)
-                }
-            ),
+            channelUses: channelUses,
             allowPresenceIndependentDefaults: true,
             restrictToSamplerSlots: true
         )
-        let bindingSlots = variant.frontendProgram.textureBindings.map(\.slot)
-        guard Set(bindingSlots).count == bindingSlots.count else {
-            throw failure(.activeSamplerSchemaInvalid)
-        }
         var result = Array<Program.TextureSlot?>(repeating: nil, count: 8)
         for binding in variant.frontendProgram.textureBindings {
-            guard result.indices.contains(binding.slot),
-                  let sampler = variant.activeSamplers[binding.slot],
-                  sampler.name == binding.name else {
-                throw failure(.activeSamplerSchemaInvalid, slot: binding.slot)
-            }
             guard case let .reference(
                 reference,
                 selectedPurpose,

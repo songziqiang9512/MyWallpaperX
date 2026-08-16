@@ -30,7 +30,12 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         case texturePurposeUnproven
         case textureMetadataIncomplete
         case shaderPreparationFailed
-        case activeSamplerSchemaInvalid
+        case samplerBindingOrderInvalid
+        case samplerBindingDuplicateSlot
+        case samplerBindingIdentityMismatch
+        case samplerInternalTargetUnsupported
+        case activePassUnsupported
+        case samplerVariantSchemaDivergence
         case authoredSamplerSchemaInvalid
         case shaderFrontendFailed
         case uniformBindingInvalid

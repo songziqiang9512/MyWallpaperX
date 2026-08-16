@@ -3566,7 +3566,8 @@ private func fragmentSource(
     audioDirectDraw: Bool = false,
     opaqueSecondGraph: Bool = false,
     independentAlphaSignal: Bool = false,
-    variantMixedSource: Bool = false
+    variantMixedSource: Bool = false,
+    activePass: Bool = false
 ) -> String {
     let comboAnnotation = comboMetadata.map { "// \($0)" } ?? ""
     let varyingType = frontendInvalid ? "vec3" : "vec2"
@@ -3578,6 +3579,9 @@ private func fragmentSource(
     let secondDeclaration = conditionalSecond
         ? "#if EXTRA\n\(rawSecondDeclaration)\n#endif"
         : rawSecondDeclaration
+    let passAnnotation = activePass
+        ? "// [PASS] 1 fixtures/unsupported-pass.frag"
+        : ""
     let scalarDeclarations = scalarAlphaAuxiliaries ? """
     uniform sampler2D g_Texture1; // {"default":"util/noise"}
     uniform sampler2D g_Texture3; // {"mode":"opacitymask"}
@@ -3698,6 +3702,7 @@ private func fragmentSource(
             + " * texSample2D(g_Texture1, v_TexCoord);"
     }
     return """
+    \(passAnnotation)
     \(comboAnnotation)
     varying \(varyingType) v_TexCoord;
     uniform sampler2D \(firstName);\(firstAnnotation)
@@ -3733,6 +3738,7 @@ private func contract(
     opaqueSecondGraph: Bool = false,
     independentAlphaSignal: Bool = false,
     variantMixedSource: Bool = false,
+    activePass: Bool = false,
     vertexMatrixUniform: String? = nil,
     usesVertexMatrixUniform: Bool = true
 ) -> SceneShaderContract {
@@ -3775,7 +3781,8 @@ private func contract(
         audioDirectDraw: audioDirectDraw,
         opaqueSecondGraph: opaqueSecondGraph,
         independentAlphaSignal: independentAlphaSignal,
-        variantMixedSource: variantMixedSource
+        variantMixedSource: variantMixedSource,
+        activePass: activePass
     )
     let stages = [
         stage(
@@ -3813,6 +3820,88 @@ private func contract(
             dependencySHA256: "fixture-dependency-\(revision)"
         )
     )
+}
+
+private func fixtureSampler(
+    slot: Int,
+    name: String? = nil
+) -> SceneResolvedMaterialShaderSchema.Sampler {
+    .init(
+        name: name ?? "g_Texture\(slot)",
+        slot: slot,
+        mode: .regular,
+        materialKey: nil,
+        isHidden: false,
+        defaultTexture: nil,
+        readinessCombo: nil
+    )
+}
+
+private func fixtureBinding(
+    slot: Int,
+    name: String? = nil
+) -> SceneAuthoredShaderProgram.TextureBinding {
+    .init(
+        name: name ?? "g_Texture\(slot)",
+        slot: slot,
+        channelUse: .unproven
+    )
+}
+
+private func materialFailureToken(_ failure: SceneResolvedMaterialFailure) -> String {
+    ([
+        failure.phase.rawValue,
+        failure.code.rawValue,
+        failure.slot.map(String.init) ?? "none",
+    ] + failure.boundedDetails).joined(separator: ":")
+}
+
+private func samplerBindingToken(
+    samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+    bindings: [SceneAuthoredShaderProgram.TextureBinding]
+) -> String {
+    do {
+        try SceneResolvedMaterialVariantCache.validateSamplerBindings(
+            samplers,
+            bindings: bindings
+        )
+        return "success"
+    } catch let failure as SceneResolvedMaterialFailure {
+        return materialFailureToken(failure)
+    } catch {
+        return "unexpected"
+    }
+}
+
+private func samplerVariantSchemaToken(
+    _ schemas: [(
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        bindings: [SceneAuthoredShaderProgram.TextureBinding]
+    )]
+) -> String {
+    SceneResolvedMaterialVariantCache.samplerVariantSchemaFailure(schemas)
+        .map(materialFailureToken) ?? "success"
+}
+
+private func launchEnvelopeToken(
+    template: Template,
+    implicitFramebufferIdentity: Graph.TextureIdentity?
+) -> String {
+    let cache: SceneResolvedMaterialVariantCache
+    switch SceneResolvedMaterialVariantCache.launchValidated(
+        template: template,
+        maximumVariantCount: 16
+    ) {
+    case let .success(value): cache = value
+    case let .failure(failure): return materialFailureToken(failure)
+    }
+    switch cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: implicitFramebufferIdentity
+    ) {
+    case .success: return "success"
+    case .failure(.capacity): return "capacity"
+    case let .failure(.material(failure)): return materialFailureToken(failure)
+    }
 }
 
 private func source() -> Graph.TextureIdentity {
@@ -4243,6 +4332,27 @@ private enum EnvelopeHarness {
                 shader: contract("schema-failure", invalidSamplerSlot: true),
                 slots: slots(primary: graphCandidate())
             )
+        )
+        let internalSamplerTemplate = materialTemplate(
+            graph: boundGraph,
+            shader: contract(
+                "internal-sampler-target",
+                firstMetadata: #"{"default":"_rt_fixture"}"#
+            ),
+            slots: slots(primary: graphCandidate())
+        )
+        let internalSamplerTarget = catalog(
+            graph: boundGraph,
+            template: internalSamplerTemplate
+        )
+        let activePassTemplate = materialTemplate(
+            graph: boundGraph,
+            shader: contract("active-pass", activePass: true),
+            slots: slots(primary: graphCandidate())
+        )
+        let activePass = catalog(
+            graph: boundGraph,
+            template: activePassTemplate
         )
         let colorFailure = catalog(
             graph: boundGraph,
@@ -4928,6 +5038,60 @@ private enum EnvelopeHarness {
             "shaderFailure": rejection(shaderFailure),
             "frontendFailure": rejection(frontendFailure),
             "samplerSchemaFailure": rejection(samplerSchemaFailure),
+            "samplerBindingProvenance": [
+                "positive": samplerBindingToken(
+                    samplers: [0: fixtureSampler(slot: 0)],
+                    bindings: [fixtureBinding(slot: 0)]
+                ),
+                "order": samplerBindingToken(
+                    samplers: [
+                        0: fixtureSampler(slot: 0),
+                        1: fixtureSampler(slot: 1),
+                    ],
+                    bindings: [fixtureBinding(slot: 1), fixtureBinding(slot: 0)]
+                ),
+                "duplicate": samplerBindingToken(
+                    samplers: [0: fixtureSampler(slot: 0)],
+                    bindings: [fixtureBinding(slot: 0), fixtureBinding(slot: 0)]
+                ),
+                "identity": samplerBindingToken(
+                    samplers: [0: fixtureSampler(slot: 0)],
+                    bindings: [fixtureBinding(slot: 0, name: "g_Texture1")]
+                ),
+                "variantPositive": samplerVariantSchemaToken([
+                    (
+                        [0: fixtureSampler(slot: 0)],
+                        [fixtureBinding(slot: 0)]
+                    ),
+                    (
+                        [0: fixtureSampler(slot: 0)],
+                        [fixtureBinding(slot: 0)]
+                    ),
+                ]),
+                "variantDivergence": samplerVariantSchemaToken([
+                    (
+                        [0: fixtureSampler(slot: 0)],
+                        [fixtureBinding(slot: 0)]
+                    ),
+                    (
+                        [1: fixtureSampler(slot: 1)],
+                        [fixtureBinding(slot: 1)]
+                    ),
+                ]),
+            ],
+            "internalSamplerTargetClaim":
+                internalSamplerTarget.claim(layerID: layerID) != nil,
+            "internalSamplerTargetFailure": rejection(internalSamplerTarget),
+            "internalSamplerTargetToken": launchEnvelopeToken(
+                template: internalSamplerTemplate,
+                implicitFramebufferIdentity: source()
+            ),
+            "activePassClaim": activePass.claim(layerID: layerID) != nil,
+            "activePassFailure": rejection(activePass),
+            "activePassToken": launchEnvelopeToken(
+                template: activePassTemplate,
+                implicitFramebufferIdentity: source()
+            ),
             "colorFailure": rejection(colorFailure),
             "typedColorFailure": rejection(typedColorFailure),
             "wholeFilterClaim": wholeFilterPositive.claim(
@@ -5825,6 +5989,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         )
         self.assertNotIn("reachable-sampler-schema", variant_cache)
         self.assertNotIn("reachableSamplersLocked", variant_cache)
+        self.assertNotIn(
+            "material-variant-envelope-invariant",
+            CAPABILITY_PROGRAM_FIRST_SOURCE.read_text(encoding="utf-8"),
+        )
 
     def test_generic_artifact_is_the_first_and_only_frontend_owner_on_hit(
         self,
@@ -6511,6 +6679,46 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn(
             "material-variant-envelope-sampler-schema",
             payload["samplerSchemaFailure"],
+        )
+        self.assertEqual(
+            payload["samplerBindingProvenance"],
+            {
+                "positive": "success",
+                "order": "invariant:samplerBindingOrderInvalid:none:1:0",
+                "duplicate": "invariant:samplerBindingDuplicateSlot:0",
+                "identity": (
+                    "invariant:samplerBindingIdentityMismatch:0:"
+                    "sampler-name-or-slot:g_Texture1:g_Texture0"
+                ),
+                "variantPositive": "success",
+                "variantDivergence": (
+                    "preparation:samplerVariantSchemaDivergence:none:"
+                    "texture-format-schema-divergence"
+                ),
+            },
+            payload,
+        )
+        self.assertFalse(payload["internalSamplerTargetClaim"], payload)
+        self.assertIn(
+            "material-variant-envelope-invariant",
+            payload["internalSamplerTargetFailure"],
+            payload,
+        )
+        self.assertEqual(
+            payload["internalSamplerTargetToken"],
+            "preparation:samplerInternalTargetUnsupported:0:_rt_fixture",
+            payload,
+        )
+        self.assertFalse(payload["activePassClaim"], payload)
+        self.assertIn(
+            "material-variant-envelope-invariant",
+            payload["activePassFailure"],
+            payload,
+        )
+        self.assertEqual(
+            payload["activePassToken"],
+            "preparation:activePassUnsupported:none:active-pass",
+            payload,
         )
         self.assertIn(
             "material-variant-envelope-color-contract",

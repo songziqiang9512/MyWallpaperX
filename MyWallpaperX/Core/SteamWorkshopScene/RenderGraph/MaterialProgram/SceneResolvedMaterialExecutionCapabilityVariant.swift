@@ -241,18 +241,12 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         .identityInvariant, phase: .invariant
                     )))
                 }
-                guard let variant = variants.first,
-                      variants.dropFirst().allSatisfy({
-                          $0.activeSamplers == variant.activeSamplers
-                              && $0.frontendProgram.textureBindings
-                                  == variant.frontendProgram.textureBindings
-                      }) else {
-                    return .failure(.material(Self.failure(
-                        .activeSamplerSchemaInvalid,
-                        phase: .preparation,
-                        details: ["texture-format-schema-divergence"]
-                    )))
+                if let failure = Self.samplerVariantSchemaFailure(variants.map {
+                    ($0.activeSamplers, $0.frontendProgram.textureBindings)
+                }) {
+                    return .failure(.material(failure))
                 }
+                let variant = variants[0]
                 reached.insert(mask)
                 for compiled in variants {
                     for (slot, sampler) in compiled.activeSamplers {
@@ -324,17 +318,17 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             for (key, entry) in entries {
                 guard case let .ready(variant) = entry else { continue }
                 do {
+                    let channelUses = try Self.validatedSamplerChannelUses(
+                        variant.activeSamplers,
+                        bindings: variant.frontendProgram.textureBindings
+                    )
                     let resolvedKey = try SceneResolvedMaterialTextureResolver
                         .variantKey(
                             input,
                             samplers: variant.activeSamplers,
                             reachableSamplers: reachableSamplers,
                             formatSlots: textureFormatSlots,
-                            channelUses: Dictionary(uniqueKeysWithValues:
-                                variant.frontendProgram.textureBindings.map {
-                                    ($0.slot, $0.channelUse)
-                                }
-                            ),
+                            channelUses: channelUses,
                             allowPresenceIndependentDefaults: true,
                             restrictToSamplerSlots: true
                         )

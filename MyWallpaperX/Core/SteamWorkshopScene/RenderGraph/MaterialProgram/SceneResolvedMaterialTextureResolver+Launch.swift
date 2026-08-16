@@ -46,7 +46,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         do {
             guard template.textureSlots.count == 8,
                   samplers.keys.allSatisfy((0 ..< 8).contains) else {
-                throw launchFailure(.activeSamplerSchemaInvalid)
+                throw launchFailure(.identityInvariant, phase: .invariant)
             }
             var required: UInt8 = 0
             var optional: UInt8 = 0
@@ -188,8 +188,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         guard template.textureSlots.count == 8,
               formatSlots.allSatisfy((0 ..< 8).contains) else {
             return .failure(launchFailure(
-                .activeSamplerSchemaInvalid,
-                phase: .preparation
+                .identityInvariant,
+                phase: .invariant
             ))
         }
         var profiles = [Array<SceneShaderTextureFormat?>(

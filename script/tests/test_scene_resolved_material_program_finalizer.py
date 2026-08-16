@@ -2849,6 +2849,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             visual_text,
         )
         self.assertNotIn("material-finalizer-active-uniform-schema", visual_text)
+        self.assertNotIn("material-variant-envelope-invariant", visual_text)
 
     def test_frame_selection_consumes_only_precompiled_sampler_reachability(self) -> None:
         variant_text = VARIANT_CACHE_SOURCE.read_text(encoding="utf-8")
