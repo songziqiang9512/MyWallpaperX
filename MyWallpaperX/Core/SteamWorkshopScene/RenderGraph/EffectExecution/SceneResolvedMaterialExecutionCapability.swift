@@ -379,11 +379,11 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     /// This launch-time gate is intentionally no broader than Finalizer's
     /// per-frame policy. It prevents a predictable post-claim failure from
     /// preventing duplicate execution ownership.
-    static func dynamicUniformsAreExecutable(
+    static func dynamicUniformExecutionRejection(
         _ template: Template,
         node: Graph.Node,
         producers: DynamicProducerCatalog
-    ) -> Bool {
+    ) -> Rejection? {
         for declaration in template.uniformDeclarations {
             guard case let .dynamic(dynamic) = declaration.value else { continue }
             guard case let .effectConstant(
@@ -392,32 +392,43 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 layerID == node.effect.layerID,
                 effectIndex == node.effect.effectIndex,
                 passIndex == node.instancePassIndex,
-                name == declaration.name,
-                dynamic.valueContributors.count == 1,
-                let contributor = dynamic.valueContributors.first,
+                name == declaration.name else {
+                return rejection("dynamic-uniform-unavailable")
+            }
+            guard !dynamic.valueContributors.isEmpty,
+                  dynamic.valueContributors.allSatisfy({ contributor in
+                      switch contributor {
+                      case let .userProperty(propertyKey):
+                          return producers.userProperties.contains(.init(
+                              propertyKey: propertyKey,
+                              target: dynamic.target
+                          ))
+                      case .timeline:
+                          return producers.timelineTargets.contains(dynamic.target)
+                      case .sceneScript:
+                          return producers.sceneScriptTargets.contains(dynamic.target)
+                      }
+                  }) else {
+                return rejection("dynamic-uniform-unavailable")
+            }
+            guard dynamic.valueContributors.count == 1 else {
+                guard dynamic.controlAttachments.isEmpty else {
+                    return rejection("dynamic-uniform-unavailable")
+                }
+                return rejection("material-dynamic-uniform-contributor-policy")
+            }
+            guard let contributor = dynamic.valueContributors.first else {
+                return rejection("dynamic-uniform-unavailable")
+            }
+            guard
                 Set(dynamic.controlAttachments).count
                     == dynamic.controlAttachments.count,
                 dynamic.controlAttachments.allSatisfy({
                     $0 == .mediaThumbnailAnimationRestart
                         && contributor == .timeline
-                }) else { return false }
-            switch contributor {
-            case let .userProperty(propertyKey):
-                guard producers.userProperties.contains(.init(
-                    propertyKey: propertyKey,
-                    target: dynamic.target
-                )) else { return false }
-            case .timeline:
-                guard producers.timelineTargets.contains(dynamic.target) else {
-                    return false
-                }
-            case .sceneScript:
-                guard producers.sceneScriptTargets.contains(dynamic.target) else {
-                    return false
-                }
-            }
+                }) else { return rejection("dynamic-uniform-unavailable") }
         }
-        return true
+        return nil
     }
 
     static func rejection(_ code: String) -> Rejection {

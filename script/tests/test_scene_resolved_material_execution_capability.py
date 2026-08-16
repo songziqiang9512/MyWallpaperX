@@ -2258,6 +2258,61 @@ private enum Harness {
         )
         let pairGraph = pairOnlyGraph()
         let pairDescriptor = pairOnlyDescriptor()
+        let pairMultipleProducerCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("strength-property")]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget()
+                )],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
+        let pairMultipleProducerCapability = pairMultipleProducerCatalog
+            .claim(layerID: layerID)
+            .flatMap { pairMultipleProducerCatalog.resolve($0.token) }
+        let pairMultipleProducerMissingCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("missing-property")]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
+        let pairMultipleProducerControlCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("strength-property")],
+                    controls: [.unprovenSceneScript]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget()
+                )],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
         let inactiveDemandIssueCatalog = Catalog(
             admissionCandidates:
                 SceneResolvedMaterialExecutionCapabilityAdmission.compile(
@@ -2634,8 +2689,30 @@ private enum Harness {
                 ),
                 "multipleProducer": reportHas(
                     multipleProducerCatalog,
-                    "dynamic-uniform-unavailable"
+                    "material-dynamic-uniform-contributor-policy"
                 ),
+                "multipleProducerNonLeafRemainsRejected":
+                    multipleProducerCatalog.claim(layerID: layerID) == nil,
+                "multipleProducerPairLeafPassthrough":
+                    pairMultipleProducerCapability?.stages.first?
+                        .visualFailureReasonCode
+                        == "material-dynamic-uniform-contributor-policy",
+                "multipleProducerPairLeafCounted":
+                    pairMultipleProducerCatalog.reportLines.contains {
+                        $0 == "resolved material execution capability fallback:"
+                            + " state=prefer-generic"
+                            + " outcome=effect-local-passthrough"
+                            + " reason=material-dynamic-uniform-contributor-policy"
+                            + " count=1"
+                    },
+                "multipleProducerMissingRemainsHard": reportHas(
+                    pairMultipleProducerMissingCatalog,
+                    "dynamic-uniform-unavailable"
+                ) && pairMultipleProducerMissingCatalog.claim(layerID: layerID) == nil,
+                "multipleProducerControlRemainsHard": reportHas(
+                    pairMultipleProducerControlCatalog,
+                    "dynamic-uniform-unavailable"
+                ) && pairMultipleProducerControlCatalog.claim(layerID: layerID) == nil,
                 "missingProducer": reportHas(
                     missingProducerCatalog,
                     "dynamic-uniform-unavailable"
@@ -5798,6 +5875,11 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "validSceneScript": True,
                 "unknownScript": True,
                 "multipleProducer": True,
+                "multipleProducerNonLeafRemainsRejected": True,
+                "multipleProducerPairLeafPassthrough": True,
+                "multipleProducerPairLeafCounted": True,
+                "multipleProducerMissingRemainsHard": True,
+                "multipleProducerControlRemainsHard": True,
                 "missingProducer": True,
                 "unverifiedSceneScript": True,
                 "dedicatedBeforeResolvedAccepted": True,

@@ -144,11 +144,13 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                !variants.supportsCapturedMainTargetTexture {
                 return .failure(rejection("utility-source-program-unsupported"))
             }
-            guard dynamicUniformsAreExecutable(
+            if let failure = dynamicUniformExecutionRejection(
                 template,
                 node: node,
                 producers: dynamicProducers
-            ) else { return .failure(rejection("dynamic-uniform-unavailable")) }
+            ) {
+                return .failure(failure)
+            }
             guard let attachment = attachment(
                 for: node,
                 in: product.graph

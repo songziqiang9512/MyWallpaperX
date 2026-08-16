@@ -3907,6 +3907,10 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
             '"material-finalizer-dynamic-uniform-binding"',
             visual_text,
         )
+        self.assertIn(
+            '"material-dynamic-uniform-contributor-policy"',
+            visual_text,
+        )
 
     def test_production_executor_preflights_and_executes_atomic_graph(self) -> None:
         with tempfile.TemporaryDirectory(

@@ -163,7 +163,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return .success(.init(stages: stages, materials: allMaterials))
     }
 
-    /// Only a launch-time shader/frontend/color or static uniform-schema
+    /// Only a launch-time visual contract or ambiguous dynamic value-owner
     /// failure may become a visual no-op. Dynamic producer availability,
     /// resource, target, dependency, state and lifecycle failures remain hard
     /// rejections. The admitted effect must be one current-in/current-out leaf
@@ -180,6 +180,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             "material-variant-envelope-shader-preparation",
             "material-variant-envelope-color-contract",
             "material-variant-envelope-uniform-schema",
+            "material-dynamic-uniform-contributor-policy",
         ].contains(failure.code),
               dependencyOwnership == .none,
               product.graph.effects.count == 1,
