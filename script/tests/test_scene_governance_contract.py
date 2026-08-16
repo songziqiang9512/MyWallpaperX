@@ -129,6 +129,7 @@ class SceneGovernanceContractTests(unittest.TestCase):
     def test_roadmap_does_not_duplicate_current_capability_truth(self) -> None:
         roadmap = ROADMAP.read_text(encoding="utf-8")
         self.assertIn("## 4. AI 主动纠偏合同", roadmap)
+        self.assertIn("## 8. 当前 V1 选择协议", roadmap)
         self.assertIn("当前代码、旧测试、旧类型层级和历史 matrix", roadmap)
         self.assertIn("readiness 的唯一事实入口", roadmap)
         self.assertIn("任何 `selection-required` 成员都不能执行或计为", roadmap)
@@ -144,6 +145,14 @@ class SceneGovernanceContractTests(unittest.TestCase):
         self.assertNotIn("current capability truth", roadmap)
         self.assertNotIn("## 4. 全能力状态与归属", roadmap)
         self.assertNotIn("`S5 parity-ready`", roadmap)
+        self.assertNotIn("## 8. 下一批精确断点", roadmap)
+        self.assertNotIn("该包冻结时的下一", roadmap)
+        self.assertNotIn("该阶段仍在 V0", roadmap)
+        self.assertNotRegex(
+            roadmap,
+            r"(?<![0-9-])\d{9,10}(?![0-9-])",
+            "active roadmap must not retain sample or fixture identities",
+        )
 
     def test_rules_require_active_drift_correction_and_typed_migration_routes(self) -> None:
         combined = "\n".join(
