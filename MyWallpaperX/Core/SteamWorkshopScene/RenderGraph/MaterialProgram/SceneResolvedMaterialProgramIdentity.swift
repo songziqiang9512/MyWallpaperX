@@ -130,8 +130,8 @@ extension SceneResolvedMaterialProgram {
         let target: SceneDynamicTarget
         let declaredSource: SceneResolvedMaterialTemplate.DynamicUniformSource
         let resolvedSource: SceneDynamicSource
-        let controlAttachments: [
-            SceneResolvedMaterialTemplate.DynamicUniformControlAttachment
+        let scriptAttachments: [
+            SceneResolvedMaterialTemplate.DynamicUniformScriptAttachment
         ]
     }
 

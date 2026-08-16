@@ -23,7 +23,7 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         case userTextureUnknown
         case uniformDeclarationInvalid
         case uniformContributorPolicyUnproven
-        case uniformControlUnproven
+        case uniformScriptAttachmentUnproven
         case renderStateInvalid
         case resourceSnapshotUnresolved
         case textureBindingInvalid
@@ -102,17 +102,17 @@ nonisolated struct SceneResolvedMaterialTemplate {
         case sceneScript
     }
 
-    enum DynamicUniformControlAttachment: Hashable {
+    enum DynamicUniformScriptAttachment: Hashable {
         case mediaThumbnailAnimationRestart
-        case unprovenSceneScript
+        case unproven
     }
 
     struct DynamicUniform: Hashable {
         let target: SceneDynamicTarget
-        /// Value producers and control-only SceneScript attachments are kept
-        /// separate. Unknown script shapes remain explicit and fail closed.
+        /// Proven value producers stay separate from SceneScript attachments.
+        /// An unproven attachment may still produce a value and must fail closed.
         let valueContributors: [DynamicUniformSource]
-        let controlAttachments: [DynamicUniformControlAttachment]
+        let scriptAttachments: [DynamicUniformScriptAttachment]
         let authoredFallback: StaticUniformValue?
         let authoredBindingKeys: [String]
     }
@@ -262,8 +262,8 @@ nonisolated struct SceneResolvedMaterialProgram {
                 declared: SceneResolvedMaterialTemplate.DynamicUniformSource,
                 target: SceneDynamicTarget,
                 resolvedSource: SceneDynamicSource,
-                controlAttachments: [
-                    SceneResolvedMaterialTemplate.DynamicUniformControlAttachment
+                scriptAttachments: [
+                    SceneResolvedMaterialTemplate.DynamicUniformScriptAttachment
                 ]
             )
         }

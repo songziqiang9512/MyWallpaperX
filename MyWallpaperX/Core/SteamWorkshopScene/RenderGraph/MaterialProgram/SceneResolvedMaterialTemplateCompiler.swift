@@ -247,7 +247,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             guard fallback != nil || !dynamic.valueContributors.isEmpty
             else { throw uniformFailure(.uniformDeclarationInvalid, name) }
             let value: Template.UniformValue
-            if dynamic.valueContributors.isEmpty && dynamic.controlAttachments.isEmpty {
+            if dynamic.valueContributors.isEmpty && dynamic.scriptAttachments.isEmpty {
                 value = .staticExact(fallback!)
             } else {
                 guard let target else {
@@ -256,7 +256,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                 value = .dynamic(.init(
                     target: target,
                     valueContributors: dynamic.valueContributors,
-                    controlAttachments: dynamic.controlAttachments,
+                    scriptAttachments: dynamic.scriptAttachments,
                     authoredFallback: fallback,
                     authoredBindingKeys: authored?.bindingKeys.sorted() ?? []
                 ))

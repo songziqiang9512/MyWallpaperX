@@ -1142,7 +1142,7 @@ private func dynamicUniformDeclaration(
         value: .dynamic(.init(
             target: dynamicUniformTarget(node),
             valueContributors: [.timeline],
-            controlAttachments: [],
+            scriptAttachments: [],
             authoredFallback: .init(
                 valueKind: "fixture",
                 componentBitPatterns: [Double(1).bitPattern],
@@ -3912,7 +3912,7 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
             visual_text,
         )
         self.assertIn(
-            '"material-dynamic-uniform-control-policy"',
+            '"material-dynamic-uniform-script-attachment-unproven"',
             visual_text,
         )
         self.assertIn(

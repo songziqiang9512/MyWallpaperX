@@ -338,7 +338,7 @@ private func resolvedUniforms(
     dynamic: (
         Template.DynamicUniformSource,
         SceneDynamicSource,
-        [Template.DynamicUniformControlAttachment]
+        [Template.DynamicUniformScriptAttachment]
     )? = nil
 ) -> [Program.ResolvedUniform] {
     let frontend = SceneAuthoredShaderFrontend.compile(
@@ -360,7 +360,7 @@ private func resolvedUniforms(
                             name: field.name
                         ),
                         resolvedSource: dynamic.1,
-                        controlAttachments: dynamic.2
+                        scriptAttachments: dynamic.2
                     ),
                     encodedValue: data(gain)
                 )
@@ -451,7 +451,7 @@ private func assemble(
     dynamic: (
         Template.DynamicUniformSource,
         SceneDynamicSource,
-        [Template.DynamicUniformControlAttachment]
+        [Template.DynamicUniformScriptAttachment]
     )? = nil
 ) -> Program? {
     var uniforms = resolvedUniforms(
@@ -926,7 +926,7 @@ private enum Harness {
                     ),
                     declaredSource: .timeline,
                     resolvedSource: .authored,
-                    controlAttachments: []
+                    scriptAttachments: []
                 )],
             "selectionProvenanceDiagnosticOnly": baseline.semanticIdentity
                     == provenanceVariant.semanticIdentity

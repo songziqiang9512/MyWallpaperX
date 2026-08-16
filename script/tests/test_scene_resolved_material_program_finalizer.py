@@ -450,7 +450,7 @@ private func staticDeclaration(
 
 private func dynamicDeclaration(
     _ valueContributors: [Template.DynamicUniformSource],
-    controls: [Template.DynamicUniformControlAttachment] = []
+    attachments: [Template.DynamicUniformScriptAttachment] = []
 ) -> Template.UniformDeclaration {
     .init(
         name: "Tint",
@@ -462,7 +462,7 @@ private func dynamicDeclaration(
                 name: "Tint"
             ),
             valueContributors: valueContributors,
-            controlAttachments: controls,
+            scriptAttachments: attachments,
             authoredFallback: staticValue([1, 0.5, 0.25]),
             authoredBindingKeys: ["animation", "script", "value"]
         ))
@@ -482,7 +482,7 @@ private func dynamicAlphaDeclaration(
                 name: "alpha"
             ),
             valueContributors: valueContributors,
-            controlAttachments: [],
+            scriptAttachments: [],
             authoredFallback: staticValue([1]),
             authoredBindingKeys: ["value"]
         ))
@@ -500,7 +500,7 @@ private func dynamicScalarDeclaration(_ name: String) -> Template.UniformDeclara
                 name: name
             ),
             valueContributors: [.timeline],
-            controlAttachments: [],
+            scriptAttachments: [],
             authoredFallback: staticValue([5]),
             authoredBindingKeys: ["value"]
         ))
@@ -2151,16 +2151,16 @@ private enum Harness {
                 device: device,
                 uniformDeclarations: [dynamicDeclaration(
                     [.timeline],
-                    controls: [.mediaThumbnailAnimationRestart]
+                    attachments: [.mediaThumbnailAnimationRestart]
                 )],
                 dynamicSource: .timeline
             )),
-            "unknownTimelineScriptControl": failureToken(finalize(
-                shader: contract(revision: "unknown-timeline-script-control"),
+            "unknownTimelineScriptAttachment": failureToken(finalize(
+                shader: contract(revision: "unknown-timeline-script-attachment"),
                 device: device,
                 uniformDeclarations: [dynamicDeclaration(
                     [.timeline],
-                    controls: [.unprovenSceneScript]
+                    attachments: [.unproven]
                 )],
                 dynamicSource: .timeline
             )),
@@ -2725,7 +2725,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "missingUniformDefault": "uniform/uniformBindingInvalid",
             "malformedUniformDefault": "uniform/uniformBindingInvalid",
             "knownTimelineScriptControl": "success",
-            "unknownTimelineScriptControl": "uniform/uniformControlUnproven",
+            "unknownTimelineScriptAttachment": "uniform/uniformScriptAttachmentUnproven",
             "authoredDynamicFallback": "success",
             "dynamicSourceMismatch": "uniform/dynamicUniformBindingInvalid",
             "multipleValueContributors": "uniform/uniformContributorPolicyUnproven",

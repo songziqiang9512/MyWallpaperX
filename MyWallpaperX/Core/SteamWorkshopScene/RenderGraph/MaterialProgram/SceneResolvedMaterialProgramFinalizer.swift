@@ -293,8 +293,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 return .init(field: field, source: .staticValue, encodedValue: encoded)
             case let .dynamic(dynamic):
                 let contributor = try soleValueContributor(dynamic, name: field.name)
-                try validateControlAttachments(
-                    dynamic.controlAttachments,
+                try validateScriptAttachments(
+                    dynamic.scriptAttachments,
                     contributor: contributor,
                     name: field.name
                 )
@@ -334,7 +334,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                         declared: contributor,
                         target: dynamic.target,
                         resolvedSource: resolved.source,
-                        controlAttachments: dynamic.controlAttachments
+                        scriptAttachments: dynamic.scriptAttachments
                     ),
                     encodedValue: encoded
                 )
@@ -357,17 +357,17 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         return contributor
     }
 
-    private static func validateControlAttachments(
-        _ controls: [Template.DynamicUniformControlAttachment],
+    private static func validateScriptAttachments(
+        _ attachments: [Template.DynamicUniformScriptAttachment],
         contributor: Template.DynamicUniformSource,
         name: String
     ) throws {
-        guard Set(controls).count == controls.count,
-              controls.allSatisfy({ control in
-                  control == .mediaThumbnailAnimationRestart
+        guard Set(attachments).count == attachments.count,
+              attachments.allSatisfy({ attachment in
+                  attachment == .mediaThumbnailAnimationRestart
                       && contributor == .timeline
               }) else {
-            throw failure(.uniform, .uniformControlUnproven, details: [name])
+            throw failure(.uniform, .uniformScriptAttachmentUnproven, details: [name])
         }
     }
 

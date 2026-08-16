@@ -408,12 +408,16 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     return producers.sceneScriptTargets.contains(dynamic.target)
                 }
             }
-            guard !dynamic.valueContributors.isEmpty else {
-                return rejection("dynamic-uniform-unavailable")
+            if dynamic.valueContributors.isEmpty {
+                guard dynamic.authoredFallback != nil,
+                      dynamic.scriptAttachments == [.unproven] else {
+                    return rejection("dynamic-uniform-unavailable")
+                }
+                return rejection("material-dynamic-uniform-script-attachment-unproven")
             }
             guard dynamic.valueContributors.count == 1 else {
                 guard dynamic.valueContributors.allSatisfy(hasProducer),
-                      dynamic.controlAttachments.isEmpty else {
+                      dynamic.scriptAttachments.isEmpty else {
                     return rejection("dynamic-uniform-unavailable")
                 }
                 return rejection("material-dynamic-uniform-contributor-policy")
@@ -428,19 +432,19 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 case .timeline, .sceneScript:
                     false
                 }
-                guard dynamic.controlAttachments.isEmpty,
+                guard dynamic.scriptAttachments.isEmpty,
                       !hasMismatchedUserProperty else {
                     return rejection("dynamic-uniform-unavailable")
                 }
                 return rejection("material-dynamic-uniform-producer-unavailable")
             }
-            if dynamic.controlAttachments == [.unprovenSceneScript] {
-                return rejection("material-dynamic-uniform-control-policy")
+            if dynamic.scriptAttachments == [.unproven] {
+                return rejection("material-dynamic-uniform-script-attachment-unproven")
             }
             guard
-                Set(dynamic.controlAttachments).count
-                    == dynamic.controlAttachments.count,
-                dynamic.controlAttachments.allSatisfy({
+                Set(dynamic.scriptAttachments).count
+                    == dynamic.scriptAttachments.count,
+                dynamic.scriptAttachments.allSatisfy({
                     $0 == .mediaThumbnailAnimationRestart
                         && contributor == .timeline
                 }) else { return rejection("dynamic-uniform-unavailable") }

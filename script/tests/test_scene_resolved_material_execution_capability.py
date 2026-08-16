@@ -394,15 +394,18 @@ struct SceneResolvedMaterialTemplate {
         case sceneScript
     }
 
-    enum DynamicUniformControlAttachment: Hashable {
+    enum DynamicUniformScriptAttachment: Hashable {
         case mediaThumbnailAnimationRestart
-        case unprovenSceneScript
+        case unproven
     }
+
+    struct StaticUniformValue {}
 
     struct DynamicUniform {
         let target: SceneDynamicTarget
         let valueContributors: [DynamicUniformSource]
-        let controlAttachments: [DynamicUniformControlAttachment]
+        let scriptAttachments: [DynamicUniformScriptAttachment]
+        let authoredFallback: StaticUniformValue?
     }
 
     enum UniformValue {
@@ -1660,14 +1663,16 @@ private func dynamicTarget() -> SceneDynamicTarget {
 
 private func dynamicUniform(
     contributors: [Template.DynamicUniformSource],
-    controls: [Template.DynamicUniformControlAttachment] = []
+    attachments: [Template.DynamicUniformScriptAttachment] = [],
+    hasAuthoredFallback: Bool = true
 ) -> Template.UniformDeclaration {
     .init(
         name: "strength",
         value: .dynamic(.init(
             target: dynamicTarget(),
             valueContributors: contributors,
-            controlAttachments: controls
+            scriptAttachments: attachments,
+            authoredFallback: hasAuthoredFallback ? .init() : nil
         ))
     )
 }
@@ -2201,7 +2206,7 @@ private enum Harness {
                 omitNode: 1,
                 uniformsByNode: [0: [dynamicUniform(
                     contributors: [.timeline],
-                    controls: [.unprovenSceneScript]
+                    attachments: [.unproven]
                 )]]
             ),
             admissionCandidates: admissionCandidates,
@@ -2251,7 +2256,7 @@ private enum Harness {
                 omitNode: 1,
                 uniformsByNode: [0: [dynamicUniform(
                     contributors: [],
-                    controls: [.unprovenSceneScript]
+                    attachments: [.unproven]
                 )]]
             ),
             admissionCandidates: admissionCandidates
@@ -2294,14 +2299,14 @@ private enum Harness {
                 sceneScriptTargets: []
             )
         )
-        let pairMultipleProducerControlCatalog = catalog(
+        let pairMultipleProducerAttachmentCatalog = catalog(
             descriptor: pairDescriptor,
             graphs: [pairGraph],
             materials: materialCatalog(
                 graph: pairGraph,
                 uniformsByNode: [0: [dynamicUniform(
                     contributors: [.timeline, .userProperty("strength-property")],
-                    controls: [.unprovenSceneScript]
+                    attachments: [.unproven]
                 )]]
             ),
             dynamicProducers: .init(
@@ -2313,14 +2318,14 @@ private enum Harness {
                 sceneScriptTargets: []
             )
         )
-        let pairUnknownControlCatalog = catalog(
+        let pairUnprovenScriptCatalog = catalog(
             descriptor: pairDescriptor,
             graphs: [pairGraph],
             materials: materialCatalog(
                 graph: pairGraph,
                 uniformsByNode: [0: [dynamicUniform(
                     contributors: [.timeline],
-                    controls: [.unprovenSceneScript]
+                    attachments: [.unproven]
                 )]]
             ),
             dynamicProducers: .init(
@@ -2329,17 +2334,65 @@ private enum Harness {
                 sceneScriptTargets: []
             )
         )
-        let pairUnknownControlCapability = pairUnknownControlCatalog
+        let pairUnprovenScriptCapability = pairUnprovenScriptCatalog
             .claim(layerID: layerID)
-            .flatMap { pairUnknownControlCatalog.resolve($0.token) }
-        let pairUnknownControlMissingProducerCatalog = catalog(
+            .flatMap { pairUnprovenScriptCatalog.resolve($0.token) }
+        let pairScriptOnlyCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [],
+                    attachments: [.unproven]
+                )]]
+            )
+        )
+        let pairScriptOnlyCapability = pairScriptOnlyCatalog
+            .claim(layerID: layerID)
+            .flatMap { pairScriptOnlyCatalog.resolve($0.token) }
+        let pairScriptOnlyNoFallbackCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [],
+                    attachments: [.unproven],
+                    hasAuthoredFallback: false
+                )]]
+            )
+        )
+        let pairKnownAttachmentWithoutValueCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [],
+                    attachments: [.mediaThumbnailAnimationRestart]
+                )]]
+            )
+        )
+        let pairDuplicateScriptOnlyAttachmentCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [],
+                    attachments: [.unproven, .unproven]
+                )]]
+            )
+        )
+        let pairUnprovenScriptMissingProducerCatalog = catalog(
             descriptor: pairDescriptor,
             graphs: [pairGraph],
             materials: materialCatalog(
                 graph: pairGraph,
                 uniformsByNode: [0: [dynamicUniform(
                     contributors: [.timeline],
-                    controls: [.unprovenSceneScript]
+                    attachments: [.unproven]
                 )]]
             )
         )
@@ -2379,14 +2432,14 @@ private enum Harness {
                 sceneScriptTargets: []
             )
         )
-        let pairDuplicateControlCatalog = catalog(
+        let pairDuplicateAttachmentCatalog = catalog(
             descriptor: pairDescriptor,
             graphs: [pairGraph],
             materials: materialCatalog(
                 graph: pairGraph,
                 uniformsByNode: [0: [dynamicUniform(
                     contributors: [.timeline],
-                    controls: [.unprovenSceneScript, .unprovenSceneScript]
+                    attachments: [.unproven, .unproven]
                 )]]
             ),
             dynamicProducers: .init(
@@ -2402,7 +2455,7 @@ private enum Harness {
                 graph: pairGraph,
                 uniformsByNode: [0: [dynamicUniform(
                     contributors: [.userProperty("strength-property")],
-                    controls: [.mediaThumbnailAnimationRestart]
+                    attachments: [.mediaThumbnailAnimationRestart]
                 )]]
             ),
             dynamicProducers: .init(
@@ -2786,7 +2839,7 @@ private enum Harness {
                         == Set([dynamicTarget()]),
                 "unknownScript": reportHas(
                     unknownScriptCatalog,
-                    "material-dynamic-uniform-control-policy"
+                    "material-dynamic-uniform-script-attachment-unproven"
                 ) && unknownScriptCatalog.claim(layerID: layerID) == nil,
                 "multipleProducer": reportHas(
                     multipleProducerCatalog,
@@ -2810,26 +2863,50 @@ private enum Harness {
                     pairMultipleProducerMissingCatalog,
                     "dynamic-uniform-unavailable"
                 ) && pairMultipleProducerMissingCatalog.claim(layerID: layerID) == nil,
-                "multipleProducerControlRemainsHard": reportHas(
-                    pairMultipleProducerControlCatalog,
+                "multipleProducerAttachmentRemainsHard": reportHas(
+                    pairMultipleProducerAttachmentCatalog,
                     "dynamic-uniform-unavailable"
-                ) && pairMultipleProducerControlCatalog.claim(layerID: layerID) == nil,
-                "unknownControlPairLeafPassthrough":
-                    pairUnknownControlCapability?.stages.first?
+                ) && pairMultipleProducerAttachmentCatalog.claim(layerID: layerID) == nil,
+                "unprovenScriptPairLeafPassthrough":
+                    pairUnprovenScriptCapability?.stages.first?
                         .visualFailureReasonCode
-                        == "material-dynamic-uniform-control-policy",
-                "unknownControlPairLeafCounted":
-                    pairUnknownControlCatalog.reportLines.contains {
+                        == "material-dynamic-uniform-script-attachment-unproven",
+                "unprovenScriptPairLeafCounted":
+                    pairUnprovenScriptCatalog.reportLines.contains {
                         $0 == "resolved material execution capability fallback:"
                             + " state=prefer-generic"
                             + " outcome=effect-local-passthrough"
-                            + " reason=material-dynamic-uniform-control-policy"
+                            + " reason=material-dynamic-uniform-script-attachment-unproven"
                             + " count=1"
                     },
-                "unknownControlMissingProducerRemainsHard": reportHas(
-                    pairUnknownControlMissingProducerCatalog,
+                "scriptOnlyPairLeafPassthrough":
+                    pairScriptOnlyCapability?.stages.first?
+                        .visualFailureReasonCode
+                        == "material-dynamic-uniform-script-attachment-unproven",
+                "scriptOnlyPairLeafCounted":
+                    pairScriptOnlyCatalog.reportLines.contains {
+                        $0 == "resolved material execution capability fallback:"
+                            + " state=prefer-generic"
+                            + " outcome=effect-local-passthrough"
+                            + " reason=material-dynamic-uniform-script-attachment-unproven"
+                            + " count=1"
+                    },
+                "scriptOnlyNoFallbackRemainsHard": reportHas(
+                    pairScriptOnlyNoFallbackCatalog,
                     "dynamic-uniform-unavailable"
-                ) && pairUnknownControlMissingProducerCatalog.claim(layerID: layerID) == nil,
+                ) && pairScriptOnlyNoFallbackCatalog.claim(layerID: layerID) == nil,
+                "knownAttachmentWithoutValueRemainsHard": reportHas(
+                    pairKnownAttachmentWithoutValueCatalog,
+                    "dynamic-uniform-unavailable"
+                ) && pairKnownAttachmentWithoutValueCatalog.claim(layerID: layerID) == nil,
+                "duplicateScriptOnlyAttachmentRemainsHard": reportHas(
+                    pairDuplicateScriptOnlyAttachmentCatalog,
+                    "dynamic-uniform-unavailable"
+                ) && pairDuplicateScriptOnlyAttachmentCatalog.claim(layerID: layerID) == nil,
+                "unprovenScriptMissingProducerRemainsHard": reportHas(
+                    pairUnprovenScriptMissingProducerCatalog,
+                    "dynamic-uniform-unavailable"
+                ) && pairUnprovenScriptMissingProducerCatalog.claim(layerID: layerID) == nil,
                 "missingProducerPairLeafPassthrough":
                     pairMissingProducerCapability?.stages.first?
                         .visualFailureReasonCode
@@ -2846,10 +2923,10 @@ private enum Harness {
                     pairMismatchedProducerCatalog,
                     "dynamic-uniform-unavailable"
                 ) && pairMismatchedProducerCatalog.claim(layerID: layerID) == nil,
-                "duplicateControlRemainsHard": reportHas(
-                    pairDuplicateControlCatalog,
+                "duplicateAttachmentRemainsHard": reportHas(
+                    pairDuplicateAttachmentCatalog,
                     "dynamic-uniform-unavailable"
-                ) && pairDuplicateControlCatalog.claim(layerID: layerID) == nil,
+                ) && pairDuplicateAttachmentCatalog.claim(layerID: layerID) == nil,
                 "knownControlWrongContributorRemainsHard": reportHas(
                     pairKnownControlWrongContributorCatalog,
                     "dynamic-uniform-unavailable"
@@ -2860,8 +2937,8 @@ private enum Harness {
                 ) && missingProducerCatalog.claim(layerID: layerID) == nil,
                 "unverifiedSceneScript": reportHas(
                     unverifiedSceneScriptCatalog,
-                    "dynamic-uniform-unavailable"
-                ),
+                    "material-dynamic-uniform-script-attachment-unproven"
+                ) && unverifiedSceneScriptCatalog.claim(layerID: layerID) == nil,
                 "dedicatedBeforeResolvedAccepted":
                     dedicatedBeforeResolvedCatalog.claim(layerID: layerID) != nil,
                 "alternatingMixedOrderAccepted": alternatingCapability != nil,
@@ -6020,14 +6097,19 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "multipleProducerPairLeafPassthrough": True,
                 "multipleProducerPairLeafCounted": True,
                 "multipleProducerMissingRemainsHard": True,
-                "multipleProducerControlRemainsHard": True,
-                "unknownControlPairLeafPassthrough": True,
-                "unknownControlPairLeafCounted": True,
-                "unknownControlMissingProducerRemainsHard": True,
+                "multipleProducerAttachmentRemainsHard": True,
+                "unprovenScriptPairLeafPassthrough": True,
+                "unprovenScriptPairLeafCounted": True,
+                "scriptOnlyPairLeafPassthrough": True,
+                "scriptOnlyPairLeafCounted": True,
+                "scriptOnlyNoFallbackRemainsHard": True,
+                "knownAttachmentWithoutValueRemainsHard": True,
+                "duplicateScriptOnlyAttachmentRemainsHard": True,
+                "unprovenScriptMissingProducerRemainsHard": True,
                 "missingProducerPairLeafPassthrough": True,
                 "missingProducerPairLeafCounted": True,
                 "mismatchedProducerRemainsHard": True,
-                "duplicateControlRemainsHard": True,
+                "duplicateAttachmentRemainsHard": True,
                 "knownControlWrongContributorRemainsHard": True,
                 "missingProducer": True,
                 "unverifiedSceneScript": True,

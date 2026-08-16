@@ -442,7 +442,7 @@ enum Harness {
         let mergedDynamic: Bool
         if case let .dynamic(value)? = dynamicDeclaration?.value,
            value.valueContributors == [.userProperty("strength")],
-           value.controlAttachments.isEmpty,
+           value.scriptAttachments.isEmpty,
            case .effectConstant(42, 2, 3, "g_Strength") = value.target {
             mergedDynamic = value.authoredFallback?.componentBitPatterns
                 == [Double(0.75).bitPattern]
@@ -685,7 +685,7 @@ enum Harness {
             .textureBindingInvalid, .texturePurposeUnproven, .textureMetadataIncomplete,
             .shaderPreparationFailed, .activeSamplerSchemaInvalid, .shaderFrontendFailed,
             .uniformBindingInvalid, .uniformContributorPolicyUnproven,
-            .uniformControlUnproven, .colorContractUnproven,
+            .uniformScriptAttachmentUnproven, .colorContractUnproven,
             .frameSnapshotMismatch, .identityInvariant,
         ]
         let stablePhases: [SceneResolvedMaterialFailure.Phase] = [
@@ -741,45 +741,45 @@ enum Harness {
                     return value.valueContributors == [
                         .userProperty("legacy"), .userProperty("strength"),
                     ]
-                        && value.controlAttachments.isEmpty
+                        && value.scriptAttachments.isEmpty
                 } == true,
             "timelineControlSeparated": timelineControl?
                 .uniformDeclarations.first.map { declaration in
                     guard case let .dynamic(value) = declaration.value else { return false }
                     return value.valueContributors == [.timeline]
-                        && value.controlAttachments
+                        && value.scriptAttachments
                             == [.mediaThumbnailAnimationRestart]
                 } == true,
             "unknownScriptTypedUnproven": unknownTimelineScript?
                 .uniformDeclarations.first.map { declaration in
                     guard case let .dynamic(value) = declaration.value else { return false }
                     return value.valueContributors == [.timeline]
-                        && value.controlAttachments == [.unprovenSceneScript]
+                        && value.scriptAttachments == [.unproven]
                 } == true,
             "boundedScriptNeedsExactProof": boundedScriptUnproven?
                 .uniformDeclarations.first.map { declaration in
                     guard case let .dynamic(value) = declaration.value else { return false }
                     return value.valueContributors.isEmpty
-                        && value.controlAttachments == [.unprovenSceneScript]
+                        && value.scriptAttachments == [.unproven]
                 } == true
                 && boundedScriptWrongTarget?.uniformDeclarations.first.map {
                     declaration in
                     guard case let .dynamic(value) = declaration.value else { return false }
                     return value.valueContributors.isEmpty
-                        && value.controlAttachments == [.unprovenSceneScript]
+                        && value.scriptAttachments == [.unproven]
                 } == true,
             "boundedScriptExactProofBecomesSoleValue": boundedScriptProven?
                 .uniformDeclarations.first.map { declaration in
                     guard case let .dynamic(value) = declaration.value else { return false }
                     return value.target == boundedScriptTarget
                         && value.valueContributors == [.sceneScript]
-                        && value.controlAttachments.isEmpty
+                        && value.scriptAttachments.isEmpty
                 } == true,
             "boundedPropertyScriptNeedsExactProof": boundedPropertyScriptUnproven?
                 .uniformDeclarations.first.map { declaration in
                     guard case let .dynamic(value) = declaration.value else { return false }
                     return value.valueContributors.isEmpty
-                        && value.controlAttachments == [.unprovenSceneScript]
+                        && value.scriptAttachments == [.unproven]
                 } == true,
             "boundedPropertyScriptExactProofBecomesSoleValue":
                 boundedPropertyScriptProven?.uniformDeclarations.first.map {
@@ -787,7 +787,7 @@ enum Harness {
                     guard case let .dynamic(value) = declaration.value else { return false }
                     return value.target == boundedScriptTarget
                         && value.valueContributors == [.sceneScript]
-                        && value.controlAttachments.isEmpty
+                        && value.scriptAttachments.isEmpty
                 } == true,
             "observedPlayShapesRemainUnproven": [
                 playOnlyTimelineScript, directPlayTimelineScript,
@@ -798,7 +798,7 @@ enum Harness {
                         return false
                     }
                     return value.valueContributors == [.timeline]
-                        && value.controlAttachments == [.unprovenSceneScript]
+                        && value.scriptAttachments == [.unproven]
                 } == true
             },
             "blockedGraphRejected": failure(compile(material(), graph: blockedGraph))?.phase
@@ -849,7 +849,7 @@ enum Harness {
                 "textureBindingInvalid", "texturePurposeUnproven", "textureMetadataIncomplete",
                 "shaderPreparationFailed", "activeSamplerSchemaInvalid", "shaderFrontendFailed",
                 "uniformBindingInvalid", "uniformContributorPolicyUnproven",
-                "uniformControlUnproven", "colorContractUnproven",
+                "uniformScriptAttachmentUnproven", "colorContractUnproven",
                 "frameSnapshotMismatch", "identityInvariant",
             ] && stablePhases.map(\.rawValue) == ["preparation", "frontend", "color"],
         ]
@@ -958,7 +958,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "graphUniverseRejected",
         ])
 
-    def test_uniforms_separate_value_producers_from_script_controls(self) -> None:
+    def test_uniforms_separate_value_producers_from_script_attachments(self) -> None:
         self.assert_contracts([
             "staticExactBits",
             "constantFallbackMergedWithDynamic",

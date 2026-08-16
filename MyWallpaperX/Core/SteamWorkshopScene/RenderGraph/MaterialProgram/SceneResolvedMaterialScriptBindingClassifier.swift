@@ -1,19 +1,19 @@
 import Foundation
 
-/// Keeps value-producing and control-only SceneScript declarations separate.
-/// A target reaches `.sceneScript` only after a bounded compiler has proved
-/// the exact authored binding before material templates are built.
+/// Separates proven value producers from SceneScript attachments. An attachment
+/// is only called a control when its exact behavior is already modeled; every
+/// other script remains unproven because it may still produce a value.
 nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
     typealias Template = SceneResolvedMaterialTemplate
 
     struct Binding {
         let valueContributors: [Template.DynamicUniformSource]
-        let controlAttachments: [Template.DynamicUniformControlAttachment]
+        let scriptAttachments: [Template.DynamicUniformScriptAttachment]
     }
 
     enum Projection {
         case value(Template.DynamicUniformSource)
-        case control(Template.DynamicUniformControlAttachment)
+        case scriptAttachment(Template.DynamicUniformScriptAttachment)
     }
 
     static func binding(
@@ -23,7 +23,7 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
         provenSceneScriptValueTargets: Set<SceneDynamicTarget>
     ) -> Binding? {
         var sources: [Template.DynamicUniformSource] = []
-        var controls: [Template.DynamicUniformControlAttachment] = []
+        var attachments: [Template.DynamicUniformScriptAttachment] = []
         if let raw = authored?.userBinding {
             guard let value = normalizedProviderValue(raw) else { return nil }
             sources.append(.userProperty(value))
@@ -37,14 +37,14 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
            ) {
             switch projection {
             case let .value(source): sources.append(source)
-            case let .control(control): controls.append(control)
+            case let .scriptAttachment(attachment): attachments.append(attachment)
             }
         }
         if let raw = userValue {
             guard let value = normalizedProviderValue(raw) else { return nil }
             sources.append(.userProperty(value))
         }
-        return Binding(valueContributors: sources, controlAttachments: controls)
+        return Binding(valueContributors: sources, scriptAttachments: attachments)
     }
 
     static func classify(
@@ -64,10 +64,10 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
            provenSceneScriptValueTargets.contains(target) {
             return .value(.sceneScript)
         }
-        return .control(
+        return .scriptAttachment(
             isKnownMediaRestartControl(source)
                 ? .mediaThumbnailAnimationRestart
-                : .unprovenSceneScript
+                : .unproven
         )
     }
 

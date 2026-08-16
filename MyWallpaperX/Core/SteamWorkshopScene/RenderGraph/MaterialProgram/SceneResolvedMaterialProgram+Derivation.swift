@@ -303,13 +303,13 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                 declared,
                 target,
                 resolvedSource,
-                controlAttachments
+                scriptAttachments
             ) = value.source {
                 dynamic.append(.init(
                     target: target,
                     declaredSource: declared,
                     resolvedSource: resolvedSource,
-                    controlAttachments: controlAttachments
+                    scriptAttachments: scriptAttachments
                 ))
             }
         }

@@ -181,7 +181,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             "material-variant-envelope-color-contract",
             "material-variant-envelope-uniform-schema",
             "material-dynamic-uniform-contributor-policy",
-            "material-dynamic-uniform-control-policy",
+            "material-dynamic-uniform-script-attachment-unproven",
             "material-dynamic-uniform-producer-unavailable",
         ].contains(failure.code),
               dependencyOwnership == .none,
