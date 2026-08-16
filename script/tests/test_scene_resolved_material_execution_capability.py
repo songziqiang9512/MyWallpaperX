@@ -2313,6 +2313,71 @@ private enum Harness {
                 sceneScriptTargets: []
             )
         )
+        let pairUnknownControlCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline],
+                    controls: [.unprovenSceneScript]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
+        let pairUnknownControlCapability = pairUnknownControlCatalog
+            .claim(layerID: layerID)
+            .flatMap { pairUnknownControlCatalog.resolve($0.token) }
+        let pairUnknownControlMissingProducerCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline],
+                    controls: [.unprovenSceneScript]
+                )]]
+            )
+        )
+        let pairDuplicateControlCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline],
+                    controls: [.unprovenSceneScript, .unprovenSceneScript]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
+        let pairKnownControlWrongContributorCatalog = catalog(
+            descriptor: pairDescriptor,
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.userProperty("strength-property")],
+                    controls: [.mediaThumbnailAnimationRestart]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget()
+                )],
+                timelineTargets: [],
+                sceneScriptTargets: []
+            )
+        )
         let inactiveDemandIssueCatalog = Catalog(
             admissionCandidates:
                 SceneResolvedMaterialExecutionCapabilityAdmission.compile(
@@ -2685,8 +2750,8 @@ private enum Harness {
                         == Set([dynamicTarget()]),
                 "unknownScript": reportHas(
                     unknownScriptCatalog,
-                    "dynamic-uniform-unavailable"
-                ),
+                    "material-dynamic-uniform-control-policy"
+                ) && unknownScriptCatalog.claim(layerID: layerID) == nil,
                 "multipleProducer": reportHas(
                     multipleProducerCatalog,
                     "material-dynamic-uniform-contributor-policy"
@@ -2713,6 +2778,30 @@ private enum Harness {
                     pairMultipleProducerControlCatalog,
                     "dynamic-uniform-unavailable"
                 ) && pairMultipleProducerControlCatalog.claim(layerID: layerID) == nil,
+                "unknownControlPairLeafPassthrough":
+                    pairUnknownControlCapability?.stages.first?
+                        .visualFailureReasonCode
+                        == "material-dynamic-uniform-control-policy",
+                "unknownControlPairLeafCounted":
+                    pairUnknownControlCatalog.reportLines.contains {
+                        $0 == "resolved material execution capability fallback:"
+                            + " state=prefer-generic"
+                            + " outcome=effect-local-passthrough"
+                            + " reason=material-dynamic-uniform-control-policy"
+                            + " count=1"
+                    },
+                "unknownControlMissingProducerRemainsHard": reportHas(
+                    pairUnknownControlMissingProducerCatalog,
+                    "dynamic-uniform-unavailable"
+                ) && pairUnknownControlMissingProducerCatalog.claim(layerID: layerID) == nil,
+                "duplicateControlRemainsHard": reportHas(
+                    pairDuplicateControlCatalog,
+                    "dynamic-uniform-unavailable"
+                ) && pairDuplicateControlCatalog.claim(layerID: layerID) == nil,
+                "knownControlWrongContributorRemainsHard": reportHas(
+                    pairKnownControlWrongContributorCatalog,
+                    "dynamic-uniform-unavailable"
+                ) && pairKnownControlWrongContributorCatalog.claim(layerID: layerID) == nil,
                 "missingProducer": reportHas(
                     missingProducerCatalog,
                     "dynamic-uniform-unavailable"
@@ -5880,6 +5969,11 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "multipleProducerPairLeafCounted": True,
                 "multipleProducerMissingRemainsHard": True,
                 "multipleProducerControlRemainsHard": True,
+                "unknownControlPairLeafPassthrough": True,
+                "unknownControlPairLeafCounted": True,
+                "unknownControlMissingProducerRemainsHard": True,
+                "duplicateControlRemainsHard": True,
+                "knownControlWrongContributorRemainsHard": True,
                 "missingProducer": True,
                 "unverifiedSceneScript": True,
                 "dedicatedBeforeResolvedAccepted": True,

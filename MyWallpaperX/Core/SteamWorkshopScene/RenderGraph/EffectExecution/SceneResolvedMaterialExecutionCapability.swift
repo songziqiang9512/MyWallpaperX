@@ -420,6 +420,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             guard let contributor = dynamic.valueContributors.first else {
                 return rejection("dynamic-uniform-unavailable")
             }
+            if dynamic.controlAttachments == [.unprovenSceneScript] {
+                return rejection("material-dynamic-uniform-control-policy")
+            }
             guard
                 Set(dynamic.controlAttachments).count
                     == dynamic.controlAttachments.count,
