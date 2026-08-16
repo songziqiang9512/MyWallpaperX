@@ -561,6 +561,7 @@ private func fragmentSource(
     frontendInvalid: Bool = false,
     uniformSchemaInvalid: Bool = false,
     dynamicUniform: Bool = false,
+    staticUniformMissingDefault: Bool = false,
     pixelTransform: Int? = nil,
     scalarProducer: Bool = false,
     scalarConsumer: String? = nil
@@ -576,10 +577,15 @@ private func fragmentSource(
         ? #"uniform float g_InvalidUniform; // {"material":3}"#
         : dynamicUniform
             ? #"uniform float u_Gain; // {"material":"Gain","default":1}"#
-            : ""
+            : staticUniformMissingDefault
+                ? #"uniform float u_Static; // {"material":"Static"}"#
+                : ""
     let expression = if uniformSchemaInvalid {
         "gl_FragColor = texSample2D(g_Texture0, v_TexCoord)"
             + " * g_InvalidUniform;"
+    } else if staticUniformMissingDefault {
+        "vec4 color = texSample2D(g_Texture0, v_TexCoord);"
+            + " color.rgb *= u_Static; gl_FragColor = color;"
     } else if scalarProducer {
         "gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0);"
     } else if scalarConsumer == "red" {
@@ -906,6 +912,7 @@ private func shaderContract(
     frontendInvalid: Bool = false,
     uniformSchemaInvalid: Bool = false,
     dynamicUniform: Bool = false,
+    staticUniformMissingDefault: Bool = false,
     pixelTransform: Int? = nil,
     implicitFramebuffer: Bool = false,
     implicitFramebufferAnnotation: Bool = true,
@@ -961,6 +968,7 @@ private func shaderContract(
         frontendInvalid: frontendInvalid,
         uniformSchemaInvalid: uniformSchemaInvalid,
         dynamicUniform: dynamicUniform,
+        staticUniformMissingDefault: staticUniformMissingDefault,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
         scalarConsumer: scalarConsumer
@@ -1052,6 +1060,7 @@ private func template(
     frontendInvalid: Bool = false,
     uniformSchemaInvalid: Bool = false,
     dynamicUniform: Bool = false,
+    staticUniformMissingDefault: Bool = false,
     scalarProducer: Bool = false,
     scalarConsumer: String? = nil
 ) -> Template {
@@ -1076,6 +1085,7 @@ private func template(
         frontendInvalid: frontendInvalid,
         uniformSchemaInvalid: uniformSchemaInvalid,
         dynamicUniform: dynamicUniform,
+        staticUniformMissingDefault: staticUniformMissingDefault,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
         scalarConsumer: scalarConsumer
@@ -1161,6 +1171,7 @@ private func catalog(
     frontendInvalidNodes: Set<Int> = [],
     uniformSchemaInvalidNodes: Set<Int> = [],
     dynamicUniformNodes: Set<Int> = [],
+    staticUniformMissingDefaultNodes: Set<Int> = [],
     omittedNodes: Set<Int> = [],
     demandIssueNodes: Set<Int> = [],
     implicitFramebufferNodes: Set<Int> = [],
@@ -1188,6 +1199,8 @@ private func catalog(
                 uniformSchemaInvalid:
                     uniformSchemaInvalidNodes.contains(node.nodeIndex),
                 dynamicUniform: dynamicUniformNodes.contains(node.nodeIndex),
+                staticUniformMissingDefault:
+                    staticUniformMissingDefaultNodes.contains(node.nodeIndex),
                 scalarProducer: scalarProducerNodes.contains(node.nodeIndex),
                 scalarConsumer: scalarConsumerNodes[node.nodeIndex]
             )
@@ -2145,6 +2158,17 @@ private enum Harness {
         let dynamicPixelCapability = dynamicPixelClaim.flatMap {
             dynamicPixelCapabilities.resolve($0.token, for: pixelChain)
         }
+        let staticPixelCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(
+                for: pixelGraph,
+                staticUniformMissingDefaultNodes: [1]
+            )
+        )
+        let staticPixelClaim = staticPixelCapabilities.claim(pixelChain)
+        let staticPixelCapability = staticPixelClaim.flatMap {
+            staticPixelCapabilities.resolve($0.token, for: pixelChain)
+        }
         var dynamicUniformValidFramePrepares = false
         if let claim = dynamicPixelClaim,
            let capability = dynamicPixelCapability,
@@ -2245,6 +2269,82 @@ private enum Harness {
                         [0, 255, 0, 255],
                     ]
                     dynamicUniformFailurePreservesPreviousAndContinuesSuffix =
+                        observedStageIndices == [0, 1, 2]
+                        && stageReadbacks.count == 3
+                        && zip(stageReadbacks, expectedPixels).allSatisfy {
+                            matches($0.firstPixel, $1)
+                                && matches($0.lastPixel, $1)
+                        }
+                        && matches(finalReadback.firstPixel, expectedPixels[2])
+                        && matches(finalReadback.lastPixel, expectedPixels[2])
+                }
+            }
+        }
+
+        var staticUniformFailurePassthroughPrepared = false
+        var staticUniformFailurePassthroughEncoded = false
+        var staticUniformFailurePassthroughGPUCompleted = false
+        var staticUniformFailurePreservesPreviousAndContinuesSuffix = false
+        if let claim = staticPixelClaim,
+           let capability = staticPixelCapability,
+           let leases = makeChainedLeases(capability, device: device, generation: 23),
+           let executor = Executor(
+               device: device,
+               capabilities: staticPixelCapabilities
+           ), let command = queue.makeCommandBuffer() {
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(7),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 7,
+                resetGeneration: 7
+            )
+            if case let .success(prepared) = preparation,
+               prepared.stages.count == 3,
+               prepared.stages[1].programCacheKeys == [
+                   "visual-failure-passthrough:"
+                       + "material-finalizer-static-uniform-binding"
+               ], prepared.stages[1].effectLocalFailureReasonCode
+                    == "material-finalizer-static-uniform-binding" {
+                staticUniformFailurePassthroughPrepared = true
+                var observedStageIndices: [Int] = []
+                var stageReadbacks: [Readback] = []
+                staticUniformFailurePassthroughEncoded = executor.encode(
+                    prepared,
+                    commandBuffer: command,
+                    stageBoundaryObserver: { stageIndex, transition, buffer in
+                        guard let readback = appendReadback(
+                            transition.effectOutputResource.publication.texture,
+                            commandBuffer: buffer
+                        ) else { return false }
+                        observedStageIndices.append(stageIndex)
+                        stageReadbacks.append(readback)
+                        return true
+                    }
+                )
+                if staticUniformFailurePassthroughEncoded,
+                   let finalReadback = appendReadback(
+                       prepared.finalTexture,
+                       commandBuffer: command
+                   ) {
+                    command.commit()
+                    command.waitUntilCompleted()
+                    staticUniformFailurePassthroughGPUCompleted =
+                        command.status == .completed && command.error == nil
+                    let expectedPixels: [[UInt8]] = [
+                        [255, 0, 0, 255],
+                        [255, 0, 0, 255],
+                        [0, 255, 0, 255],
+                    ]
+                    staticUniformFailurePreservesPreviousAndContinuesSuffix =
                         observedStageIndices == [0, 1, 2]
                         && stageReadbacks.count == 3
                         && zip(stageReadbacks, expectedPixels).allSatisfy {
@@ -2481,6 +2581,13 @@ private enum Harness {
                 sceneScriptTargets: []
             )
         )
+        let staticUniformMultiNodeCapabilities = capabilities(
+            ordinaryChain,
+            catalog: catalog(
+                for: ordinaryGraph,
+                staticUniformMissingDefaultNodes: [0]
+            )
+        )
         var dynamicUniformMultiNodeRemainsHardRejected = false
         var dynamicUniformMultiNodeFailure = "not-claimed"
         if let claim = dynamicMultiCapabilities.claim(ordinaryChain),
@@ -2506,6 +2613,33 @@ private enum Harness {
             dynamicUniformMultiNodeFailure = failure
             dynamicUniformMultiNodeRemainsHardRejected = failure.contains(
                 "finalizer-uniform-dynamicUniformBindingInvalid"
+            )
+        }
+        var staticUniformMultiNodeRemainsHardRejected = false
+        var staticUniformMultiNodeFailure = "not-claimed"
+        if let claim = staticUniformMultiNodeCapabilities.claim(ordinaryChain),
+           let executor = Executor(
+               device: device,
+               capabilities: staticUniformMultiNodeCapabilities
+           ), let command = queue.makeCommandBuffer() {
+            let failure = failureCode(executor.prepare(
+                token: claim.token,
+                leases: [makeLease(ordinaryPlan, device: device, generation: 24)],
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(8),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 8,
+                resetGeneration: 8
+            ))
+            staticUniformMultiNodeFailure = failure
+            staticUniformMultiNodeRemainsHardRejected = failure.contains(
+                "finalizer-uniform-staticUniformBindingInvalid"
             )
         }
 
@@ -3743,8 +3877,18 @@ private enum Harness {
                 dynamicUniformFailurePassthroughGPUCompleted,
             "dynamicUniformFailurePreservesPreviousAndContinuesSuffix":
                 dynamicUniformFailurePreservesPreviousAndContinuesSuffix,
+            "staticUniformFailurePassthroughPrepared":
+                staticUniformFailurePassthroughPrepared,
+            "staticUniformFailurePassthroughEncoded":
+                staticUniformFailurePassthroughEncoded,
+            "staticUniformFailurePassthroughGPUCompleted":
+                staticUniformFailurePassthroughGPUCompleted,
+            "staticUniformFailurePreservesPreviousAndContinuesSuffix":
+                staticUniformFailurePreservesPreviousAndContinuesSuffix,
             "dynamicUniformMultiNodeRemainsHardRejected":
                 dynamicUniformMultiNodeRemainsHardRejected,
+            "staticUniformMultiNodeRemainsHardRejected":
+                staticUniformMultiNodeRemainsHardRejected,
             "visualUniformSchemaFailureCanClaimEffectLocalPassthrough":
                 visualFailureCanClaimEffectLocalPassthrough,
             "visualUniformSchemaFailurePassthroughPrepared":
@@ -3865,6 +4009,9 @@ private enum Harness {
             "visualFailureObservedPixels": visualFailureObservedPixels,
             "dynamicUniformMultiNodeFailure": dynamicUniformMultiNodeFailure,
             "dynamicUniformMultiNodeReport": dynamicMultiCapabilities.reportLines,
+            "staticUniformMultiNodeFailure": staticUniformMultiNodeFailure,
+            "staticUniformMultiNodeReport":
+                staticUniformMultiNodeCapabilities.reportLines,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,

@@ -262,7 +262,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                           inputs: uniformInputs,
                           slots: slots
                       ) else {
-                    throw failure(.uniform, .uniformBindingInvalid, details: [field.name])
+                    throw failure(
+                        .uniform,
+                        .hostUniformBindingInvalid,
+                        details: [field.name]
+                    )
                 }
                 return .init(field: field, source: .host(host), encodedValue: value)
             }
@@ -275,7 +279,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                           fallback,
                           as: field.type
                       ) else {
-                    throw failure(.uniform, .uniformBindingInvalid, details: [field.name])
+                    throw failure(
+                        .uniform,
+                        .staticUniformBindingInvalid,
+                        details: [field.name]
+                    )
                 }
                 return .init(field: field, source: .staticValue, encodedValue: encoded)
             }
@@ -288,7 +296,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     value,
                     as: field.type
                 ) else {
-                    throw failure(.uniform, .uniformBindingInvalid, details: [field.name])
+                    throw failure(
+                        .uniform,
+                        .staticUniformBindingInvalid,
+                        details: [field.name]
+                    )
                 }
                 return .init(field: field, source: .staticValue, encodedValue: encoded)
             case let .dynamic(dynamic):

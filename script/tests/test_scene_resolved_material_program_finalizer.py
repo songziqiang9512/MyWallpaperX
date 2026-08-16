@@ -16,9 +16,20 @@ import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+VISUAL_PASSTHROUGH_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
+)
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
+
+
+FINALIZER_SOURCE = next(
+    source
+    for source in scene_swift_sources("resolved_material_frame_finalization")
+    if source.name == "SceneResolvedMaterialProgramFinalizer.swift"
+)
 
 
 SWIFT_SOURCES = [
@@ -2146,6 +2157,13 @@ private enum Harness {
                 ),
                 device: device
             )),
+            "malformedStaticDeclaration": failureToken(finalize(
+                shader: contract(revision: "malformed-static-declaration"),
+                device: device,
+                uniformDeclarations: [
+                    staticDeclaration("Tint", components: [1]),
+                ]
+            )),
             "knownTimelineScriptControl": failureToken(finalize(
                 shader: contract(revision: "timeline-script-control"),
                 device: device,
@@ -2722,8 +2740,9 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
 
     def test_shader_defaults_and_dynamic_contributors_are_fail_closed(self) -> None:
         expected = {
-            "missingUniformDefault": "uniform/uniformBindingInvalid",
+            "missingUniformDefault": "uniform/staticUniformBindingInvalid",
             "malformedUniformDefault": "uniform/uniformBindingInvalid",
+            "malformedStaticDeclaration": "uniform/staticUniformBindingInvalid",
             "knownTimelineScriptControl": "success",
             "unknownTimelineScriptAttachment": "uniform/uniformScriptAttachmentUnproven",
             "authoredDynamicFallback": "success",
@@ -2737,6 +2756,16 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},
             expected,
+        )
+
+    def test_host_uniform_failure_identity_is_not_a_visual_passthrough(self) -> None:
+        self.assertIn(
+            ".hostUniformBindingInvalid",
+            FINALIZER_SOURCE.read_text(encoding="utf-8"),
+        )
+        self.assertNotIn(
+            "material-finalizer-host-uniform-binding",
+            VISUAL_PASSTHROUGH_SOURCE.read_text(encoding="utf-8"),
         )
 
     def test_render_state_and_color_contracts_fail_closed(self) -> None:
