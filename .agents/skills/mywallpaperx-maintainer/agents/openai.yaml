@@ -1,0 +1,4 @@
+interface:
+  display_name: "MyWallpaperX Maintainer"
+  short_description: "MyWallpaperX 视频、Web、Scene 与仓库治理"
+  default_prompt: "使用 $mywallpaperx-maintainer，先按当前授权选择讨论、只读、诊断或实现模式，再依据现役仓库事实维护 MyWallpaperX。"
