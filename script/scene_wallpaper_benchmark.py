@@ -4151,6 +4151,17 @@ def append_property_arguments(
             ])
 
 
+def append_dynamic_values_fault_argument(
+    command: list[str],
+    frame_index: int | None,
+) -> None:
+    if frame_index is not None:
+        command.extend([
+            "--mwx-debug-scene-drop-dynamic-values-frame",
+            str(frame_index),
+        ])
+
+
 def append_media_thumbnail_argument(
     command: list[str],
     media_thumbnail_path: Any,
@@ -4616,6 +4627,7 @@ def run_sample(
     duration: float,
     after_snapshot_delay: float | None,
     periodic_snapshot_interval: float | None = None,
+    drop_dynamic_values_frame: int | None = None,
     audio_spectrum_fixture: bool = False,
     audio_spectrum_silence_fixture: bool = False,
     require_effect_stage_admission: bool = False,
@@ -4667,6 +4679,7 @@ def run_sample(
             "--mwx-debug-scene-periodic-snapshot-interval",
             str(periodic_snapshot_interval),
         ])
+    append_dynamic_values_fault_argument(command, drop_dynamic_values_frame)
     sample_audio_fixture = sample.get("audio_spectrum_fixture") is True
     sample_silence_fixture = sample.get("audio_spectrum_silence_fixture") is True
     if (audio_spectrum_fixture or sample_audio_fixture) and (
@@ -5372,6 +5385,7 @@ def run_sample(
             or sample.get("audio_spectrum_fixture") is True,
         "audio_spectrum_silence_fixture": audio_spectrum_silence_fixture
             or sample.get("audio_spectrum_silence_fixture") is True,
+        "drop_dynamic_values_frame": drop_dynamic_values_frame,
         "property_overrides": property_overrides if isinstance(property_overrides, dict) else {},
         "live_property_overrides": (
             live_property_overrides if isinstance(live_property_overrides, dict) else {}
@@ -5617,6 +5631,16 @@ def apply_runtime_retention(
         shutil.rmtree(runtime_root)
 
 
+def positive_uint64(raw: str) -> int:
+    try:
+        value = int(raw, 10)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected a positive UInt64") from error
+    if value <= 0 or value > (1 << 64) - 1:
+        raise argparse.ArgumentTypeError("expected a positive UInt64")
+    return value
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", required=True, type=Path, help="signed MyWallpaperX executable")
@@ -5647,6 +5671,14 @@ def parse_args() -> argparse.Namespace:
         "--periodic-snapshot-interval",
         type=float,
         help="capture a continuous Scene series at this interval in seconds",
+    )
+    parser.add_argument(
+        "--drop-dynamic-values-frame",
+        type=positive_uint64,
+        help=(
+            "drop the complete dynamic snapshot at this frame in the isolated "
+            "Debug evidence runner"
+        ),
     )
     parser.add_argument(
         "--audio-spectrum-fixture",
@@ -5748,6 +5780,7 @@ def main() -> int:
             duration=duration,
             after_snapshot_delay=args.after_snapshot_delay,
             periodic_snapshot_interval=args.periodic_snapshot_interval,
+            drop_dynamic_values_frame=args.drop_dynamic_values_frame,
             audio_spectrum_fixture=args.audio_spectrum_fixture,
             audio_spectrum_silence_fixture=args.audio_spectrum_silence_fixture,
             require_effect_stage_admission=args.require_effect_stage_admission,

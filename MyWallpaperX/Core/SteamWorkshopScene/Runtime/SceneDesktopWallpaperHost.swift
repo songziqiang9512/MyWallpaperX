@@ -82,6 +82,9 @@ final class SceneDesktopWallpaperHost {
     var nextVideoProviderEpoch: UInt64 = 0
 #if DEBUG
     var debugPointerOverride: SceneSurfacePointerState?
+    var debugDropDynamicValuesFrameIndex: UInt64?
+    var debugDidDropDynamicValues = false
+    var debugDidLogDynamicValuesRecovery = false
     var debugAudioScaledValueValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
     var debugAudioScaledValueFrameIndex: UInt64 = 0
     var debugAudioScaledValueGeneration: UInt64 = 0
@@ -262,6 +265,15 @@ final class SceneDesktopWallpaperHost {
     func setDebugPointerOverride(_ state: SceneSurfacePointerState?) {
         debugPointerOverride = state
         updateMouseLocations()
+    }
+
+    @discardableResult
+    func setDebugDropDynamicValuesFrameIndex(_ frameIndex: UInt64?) -> Bool {
+        guard Self.usesDebugEvidenceWindow else { return false }
+        debugDropDynamicValuesFrameIndex = frameIndex
+        debugDidDropDynamicValues = false
+        debugDidLogDynamicValuesRecovery = false
+        return true
     }
 #endif
 

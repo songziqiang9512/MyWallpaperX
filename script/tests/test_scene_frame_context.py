@@ -460,6 +460,29 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertNotIn("displayTimer", view)
         self.assertNotIn("renderStartTime", view)
 
+    def test_dynamic_snapshot_fault_is_debug_only_and_isolated_runner_owned(self) -> None:
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
+        launch = swift_body(runner, "private static func launchScene(")
+
+        self.assertIn("var debugDropDynamicValuesFrameIndex: UInt64?", host)
+        self.assertIn("func setDebugDropDynamicValuesFrameIndex(", host)
+        self.assertIn("guard Self.usesDebugEvidenceWindow else { return false }", host)
+        self.assertIn("#if DEBUG", host[:host.index("var debugDropDynamicValuesFrameIndex")])
+        self.assertIn(
+            'after: "--mwx-debug-scene-drop-dynamic-values-frame"', runner
+        )
+        isolated_guard = launch.index("guard isIsolatedSampleRoot(rootURL)")
+        fault_configuration = launch.index("setDebugDropDynamicValuesFrameIndex")
+        self.assertLess(isolated_guard, fault_configuration)
+        self.assertIn("let resolvedDynamicValues =", frame_driver)
+        self.assertIn("debugDropDynamicValuesFrameIndex == timing.frameIndex", frame_driver)
+        self.assertIn("frameIndex: resolvedDynamicValues.frameIndex", frame_driver)
+        self.assertIn("generation: resolvedDynamicValues.generation", frame_driver)
+        self.assertIn("state=dropped", frame_driver)
+        self.assertIn("state=recovered", frame_driver)
+
     def test_host_broadcasts_one_media_snapshot_to_every_surface(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         view = VIEW_SOURCE.read_text(encoding="utf-8")

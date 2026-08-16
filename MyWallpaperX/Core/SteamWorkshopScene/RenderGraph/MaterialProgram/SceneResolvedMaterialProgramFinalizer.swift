@@ -309,7 +309,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                           resolved.value,
                           as: field.type
                       ) else {
-                    throw failure(.uniform, .uniformBindingInvalid, details: [field.name])
+                    throw failure(
+                        .uniform,
+                        .dynamicUniformBindingInvalid,
+                        details: [field.name]
+                    )
                 }
                 if resolved.source == .authored {
                     guard let fallback,
@@ -317,7 +321,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                               fallback,
                               as: field.type
                           ) == encoded else {
-                        throw failure(.uniform, .uniformBindingInvalid, details: [field.name])
+                        throw failure(
+                            .uniform,
+                            .dynamicUniformBindingInvalid,
+                            details: [field.name]
+                        )
                     }
                 }
                 return .init(

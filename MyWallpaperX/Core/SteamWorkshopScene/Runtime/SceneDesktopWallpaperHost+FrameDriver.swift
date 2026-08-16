@@ -64,6 +64,9 @@ extension SceneDesktopWallpaperHost {
             debugAudioScaledValueFrameIndex = 0
             debugAudioScaledValueGeneration = 0
             debugAudioScaledValueWasSilent = true
+            debugDropDynamicValuesFrameIndex = nil
+            debugDidDropDynamicValues = false
+            debugDidLogDynamicValuesRecovery = false
 #endif
             videoTextureSourceRegistry?.stop()
             videoTextureSourceRegistry = nil
@@ -344,7 +347,7 @@ extension SceneDesktopWallpaperHost {
             } else {
                 hoverOriginTransitionValues = [:]
             }
-            let dynamicValues = surface.evaluationTransaction.evaluate(
+            let resolvedDynamicValues = surface.evaluationTransaction.evaluate(
                 frameIndex: timing.frameIndex, definitions: definitions,
                 userValues: launchContext.liveState.userValues,
                 timelineValues: timelineValues,
@@ -356,6 +359,42 @@ extension SceneDesktopWallpaperHost {
                     uniquingKeysWith: { existing, _ in existing }
                 )
             ).snapshot
+#if DEBUG
+            let dynamicValues: SceneDynamicSnapshot
+            if Self.usesDebugEvidenceWindow,
+               debugDropDynamicValuesFrameIndex == timing.frameIndex {
+                dynamicValues = .empty(
+                    frameIndex: resolvedDynamicValues.frameIndex,
+                    generation: resolvedDynamicValues.generation
+                )
+                if !debugDidDropDynamicValues {
+                    debugDidDropDynamicValues = true
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=dropped frame=%llu generation=%llu resolvedValues=%d",
+                        resolvedDynamicValues.frameIndex,
+                        resolvedDynamicValues.generation,
+                        resolvedDynamicValues.count
+                    )
+                }
+            } else {
+                dynamicValues = resolvedDynamicValues
+                if Self.usesDebugEvidenceWindow,
+                   debugDidDropDynamicValues,
+                   !debugDidLogDynamicValuesRecovery,
+                   let faultFrameIndex = debugDropDynamicValuesFrameIndex,
+                   timing.frameIndex > faultFrameIndex {
+                    debugDidLogDynamicValuesRecovery = true
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=recovered frame=%llu generation=%llu resolvedValues=%d",
+                        resolvedDynamicValues.frameIndex,
+                        resolvedDynamicValues.generation,
+                        resolvedDynamicValues.count
+                    )
+                }
+            }
+#else
+            let dynamicValues = resolvedDynamicValues
+#endif
             surface.metalView.renderFrame(
                 timing: timing, dynamicValues: dynamicValues, mediaInput: mediaInput,
                 audioSpectrum: audioSpectrum,

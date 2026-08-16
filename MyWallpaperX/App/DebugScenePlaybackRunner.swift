@@ -42,6 +42,17 @@ enum DebugScenePlaybackRunner {
             terminate(after: 0.1)
             return
         }
+        let requestsDynamicValuesFault = ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-drop-dynamic-values-frame"
+        )
+        guard !requestsDynamicValuesFault
+                || requestedDropDynamicValuesFrameIndex != nil else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=precondition-failed reason=invalid-drop-dynamic-values-frame"
+            )
+            terminate(after: 0.1)
+            return
+        }
 
         let evidenceDirectory = argumentValue(after: "--mwx-debug-scene-evidence-dir")
             .map { URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL }
@@ -69,6 +80,20 @@ enum DebugScenePlaybackRunner {
                 pauseWhenIdle: false,
                 idleTimeoutMinutes: 10
             )
+            if let frameIndex = requestedDropDynamicValuesFrameIndex {
+                guard SceneDesktopWallpaperHost.shared
+                    .setDebugDropDynamicValuesFrameIndex(frameIndex) else {
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=precondition-failed reason=dynamic-values-fault-requires-evidence-window"
+                    )
+                    terminate(after: 0.1)
+                    return
+                }
+                NSLog(
+                    "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=configured frame=%llu",
+                    frameIndex
+                )
+            }
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
             publishRequestedMediaThumbnail(rootURL: rootURL)
@@ -376,6 +401,17 @@ enum DebugScenePlaybackRunner {
             return 10
         }
         return min(max(duration, 7), 60)
+    }
+
+    static var requestedDropDynamicValuesFrameIndex: UInt64? {
+        guard let raw = argumentValue(
+            after: "--mwx-debug-scene-drop-dynamic-values-frame"
+        ),
+              let frameIndex = UInt64(raw),
+              frameIndex > 0 else {
+            return nil
+        }
+        return frameIndex
     }
 
     private static var requestedAfterSnapshotDelay: TimeInterval {

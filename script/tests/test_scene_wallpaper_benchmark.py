@@ -1325,6 +1325,25 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             benchmark.live_property_update_failures(requested, None),
         )
 
+    def test_dynamic_values_fault_argument_is_explicit_and_frame_bounded(self) -> None:
+        command = ["MyWallpaperX"]
+        benchmark.append_dynamic_values_fault_argument(command, 42)
+        self.assertEqual(command, [
+            "MyWallpaperX",
+            "--mwx-debug-scene-drop-dynamic-values-frame",
+            "42",
+        ])
+
+        unchanged = ["MyWallpaperX"]
+        benchmark.append_dynamic_values_fault_argument(unchanged, None)
+        self.assertEqual(unchanged, ["MyWallpaperX"])
+
+        self.assertEqual(benchmark.positive_uint64("1"), 1)
+        self.assertEqual(benchmark.positive_uint64(str((1 << 64) - 1)), (1 << 64) - 1)
+        for invalid in ("0", "-1", str(1 << 64), "1.5"):
+            with self.assertRaises(benchmark.argparse.ArgumentTypeError):
+                benchmark.positive_uint64(invalid)
+
     def test_media_thumbnail_argument_stays_inside_isolated_sample(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-media-thumbnail-argument-") as directory:
             runtime_sample = Path(directory)

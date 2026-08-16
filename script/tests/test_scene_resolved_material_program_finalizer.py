@@ -2727,7 +2727,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "knownTimelineScriptControl": "success",
             "unknownTimelineScriptControl": "uniform/uniformControlUnproven",
             "authoredDynamicFallback": "success",
-            "dynamicSourceMismatch": "uniform/uniformBindingInvalid",
+            "dynamicSourceMismatch": "uniform/dynamicUniformBindingInvalid",
             "multipleValueContributors": "uniform/uniformContributorPolicyUnproven",
             "runtimeLoopMetadataOnly": "preparation/activeSamplerSchemaInvalid",
             "runtimeLoopDynamicProducer": "preparation/activeSamplerSchemaInvalid",

@@ -1,10 +1,10 @@
 import Metal
 
 extension SceneResolvedMaterialGraphExecutor {
-    /// Preserves the previous current for one launch-time visual shader
-    /// preparation/frontend failure. This is an exact pair-member copy, not a
-    /// fabricated shader result. Resource, target, dependency and runtime
-    /// failures never reach this path.
+    /// Preserves the previous current for one launch-time visual contract or
+    /// pre-encode frame preparation failure. This is an exact pair-member copy,
+    /// not a fabricated shader result. Resource, target, dependency and runtime
+    /// encode failures never reach this path.
     func prepareVisualFailurePassthrough(
         reasonCode: String,
         transition: State.Transition,
@@ -27,6 +27,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-pass-preparation-vertex-function",
             "material-pass-preparation-fragment-function",
             "material-pass-preparation-pipeline-compilation",
+            "material-finalizer-dynamic-uniform-binding",
         ].contains(reasonCode),
               graph.effects.count == 1,
               graph.nodes.count == 1,
@@ -88,8 +89,9 @@ extension SceneResolvedMaterialGraphExecutor {
         )
         programKeys.append("visual-failure-passthrough:\(reasonCode)")
         effectLocalFailureReasonCode = reasonCode
-        if reasonCode.hasPrefix("material-pass-preparation-") {
-            recordEffectLocalRendererFallback(
+        if reasonCode.hasPrefix("material-pass-preparation-")
+            || reasonCode.hasPrefix("material-finalizer-") {
+            recordEffectLocalFramePreparationFallback(
                 reasonCode: reasonCode,
                 effect: effect.key
             )
@@ -97,7 +99,7 @@ extension SceneResolvedMaterialGraphExecutor {
         return nil
     }
 
-    private func recordEffectLocalRendererFallback(
+    private func recordEffectLocalFramePreparationFallback(
         reasonCode: String,
         effect: Graph.EffectKey
     ) {

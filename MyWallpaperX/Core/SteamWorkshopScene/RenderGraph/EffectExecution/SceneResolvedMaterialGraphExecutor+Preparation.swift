@@ -125,12 +125,30 @@ extension SceneResolvedMaterialGraphExecutor {
                 case let .success(value):
                     program = value
                 case let .failure(failure):
-                    return .materialFinalizerRejected(
+                    let rejection = Failure.materialFinalizerRejected(
                         stageIndex: stageIndex,
                         effect: node.effect,
                         nodeIndex: nodeIndex,
                         materialOrdinal: ordinal,
                         failure: failure
+                    )
+                    guard failure.phase == .uniform,
+                          failure.code == .dynamicUniformBindingInvalid else {
+                        return rejection
+                    }
+                    return prepareVisualFailurePassthrough(
+                        reasonCode: "material-finalizer-dynamic-uniform-binding",
+                        transition: transition,
+                        graph: graph,
+                        pairStep: pairStep,
+                        lease: lease,
+                        pair: &pair,
+                        publications: &publications,
+                        commands: &commands,
+                        programKeys: &programKeys,
+                        effectLocalFailureReasonCode:
+                            &effectLocalFailureReasonCode,
+                        rejection: rejection
                     )
                 }
                 guard let passPreparation = prepareMaterialPass(

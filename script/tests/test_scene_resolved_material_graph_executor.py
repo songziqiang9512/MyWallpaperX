@@ -560,6 +560,7 @@ private func fragmentSource(
     internalDefault: Bool = false,
     frontendInvalid: Bool = false,
     uniformSchemaInvalid: Bool = false,
+    dynamicUniform: Bool = false,
     pixelTransform: Int? = nil,
     scalarProducer: Bool = false,
     scalarConsumer: String? = nil
@@ -573,7 +574,9 @@ private func fragmentSource(
         : "varying vec2 v_TexCoord;"
     let uniform = uniformSchemaInvalid
         ? #"uniform float g_InvalidUniform; // {"material":3}"#
-        : ""
+        : dynamicUniform
+            ? #"uniform float u_Gain; // {"material":"Gain","default":1}"#
+            : ""
     let expression = if uniformSchemaInvalid {
         "gl_FragColor = texSample2D(g_Texture0, v_TexCoord)"
             + " * g_InvalidUniform;"
@@ -591,9 +594,24 @@ private func fragmentSource(
     } else if scalarConsumer == "whole" {
         "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
     } else if pixelTransform != nil {
+        if dynamicUniform {
+            """
+            vec4 color = texSample2D(g_Texture0, v_TexCoord);
+            color.rgb = color.rgb.gbr;
+            color.rgb *= u_Gain;
+            gl_FragColor = color;
+            """
+        } else {
+            """
+            vec4 color = texSample2D(g_Texture0, v_TexCoord);
+            color.rgb = color.rgb.gbr;
+            gl_FragColor = color;
+            """
+        }
+    } else if dynamicUniform {
         """
         vec4 color = texSample2D(g_Texture0, v_TexCoord);
-        color.rgb = color.rgb.gbr;
+        color.rgb *= u_Gain;
         gl_FragColor = color;
         """
     } else if frontendInvalid {
@@ -887,6 +905,7 @@ private func shaderContract(
     internalDefault: Bool = false,
     frontendInvalid: Bool = false,
     uniformSchemaInvalid: Bool = false,
+    dynamicUniform: Bool = false,
     pixelTransform: Int? = nil,
     implicitFramebuffer: Bool = false,
     implicitFramebufferAnnotation: Bool = true,
@@ -941,6 +960,7 @@ private func shaderContract(
         internalDefault: internalDefault,
         frontendInvalid: frontendInvalid,
         uniformSchemaInvalid: uniformSchemaInvalid,
+        dynamicUniform: dynamicUniform,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
         scalarConsumer: scalarConsumer
@@ -1031,6 +1051,7 @@ private func template(
     overwrite: Bool = true,
     frontendInvalid: Bool = false,
     uniformSchemaInvalid: Bool = false,
+    dynamicUniform: Bool = false,
     scalarProducer: Bool = false,
     scalarConsumer: String? = nil
 ) -> Template {
@@ -1054,6 +1075,7 @@ private func template(
         internalDefault: internalDefault,
         frontendInvalid: frontendInvalid,
         uniformSchemaInvalid: uniformSchemaInvalid,
+        dynamicUniform: dynamicUniform,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
         scalarConsumer: scalarConsumer
@@ -1076,7 +1098,8 @@ private func template(
     return Template.validated(
         textureSlots: slots,
         combos: [],
-        uniformDeclarations: [],
+        uniformDeclarations: dynamicUniform
+            ? [dynamicUniformDeclaration(for: node)] : [],
         renderState: SceneMaterialRenderState.compile(
             blending: overwrite ? "normal" : "translucent",
             depthTest: "disabled",
@@ -1102,6 +1125,34 @@ private func template(
     )!
 }
 
+private func dynamicUniformTarget(_ node: Graph.Node) -> SceneDynamicTarget {
+    .effectConstant(
+        layerID: node.effect.layerID,
+        effectIndex: node.effect.effectIndex,
+        passIndex: node.instancePassIndex!,
+        name: "Gain"
+    )
+}
+
+private func dynamicUniformDeclaration(
+    for node: Graph.Node
+) -> Template.UniformDeclaration {
+    .init(
+        name: "Gain",
+        value: .dynamic(.init(
+            target: dynamicUniformTarget(node),
+            valueContributors: [.timeline],
+            controlAttachments: [],
+            authoredFallback: .init(
+                valueKind: "fixture",
+                componentBitPatterns: [Double(1).bitPattern],
+                authoredBindingKeys: ["value"]
+            ),
+            authoredBindingKeys: ["value"]
+        ))
+    )
+}
+
 private func catalog(
     for graph: Graph,
     passNodes: Set<Int> = [],
@@ -1109,6 +1160,7 @@ private func catalog(
     internalDefaultNodes: Set<Int> = [],
     frontendInvalidNodes: Set<Int> = [],
     uniformSchemaInvalidNodes: Set<Int> = [],
+    dynamicUniformNodes: Set<Int> = [],
     omittedNodes: Set<Int> = [],
     demandIssueNodes: Set<Int> = [],
     implicitFramebufferNodes: Set<Int> = [],
@@ -1135,6 +1187,7 @@ private func catalog(
                 frontendInvalid: frontendInvalidNodes.contains(node.nodeIndex),
                 uniformSchemaInvalid:
                     uniformSchemaInvalidNodes.contains(node.nodeIndex),
+                dynamicUniform: dynamicUniformNodes.contains(node.nodeIndex),
                 scalarProducer: scalarProducerNodes.contains(node.nodeIndex),
                 scalarConsumer: scalarConsumerNodes[node.nodeIndex]
             )
@@ -1384,15 +1437,23 @@ private func makeSourcePipeline(_ device: MTLDevice) -> SceneImageLayerPipeline 
 private func frame(
     _ index: UInt64,
     width: Int = extent.width,
-    height: Int = extent.height
+    height: Int = extent.height,
+    dynamicDefinitions: [SceneDynamicTargetDefinition] = [],
+    timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
 ) -> SceneResolvedMaterialFrameSnapshot {
+    let dynamic = SceneDynamicSnapshotResolver().resolve(
+        frameIndex: index,
+        generation: index,
+        definitions: dynamicDefinitions,
+        timelineValues: timelineValues
+    )
     let result = SceneResolvedMaterialFrameSnapshot.validated(
         textureSnapshot: .init(
             frameEpoch: index,
             frameIndex: index,
             entries: [:]
         ),
-        dynamicSnapshot: .empty(frameIndex: index),
+        dynamicSnapshot: dynamic.snapshot,
         frameInputs: .init(
             frameIndex: index,
             screenSize: CGSize(width: width, height: height),
@@ -1877,6 +1938,7 @@ private func intentKinds(
 private func capabilities(
     _ admittedGraph: AdmittedLayerGraph,
     catalog: SceneResolvedMaterialRuntimeCatalog,
+    dynamicProducers: Capabilities.DynamicProducerCatalog = .empty,
     dedicatedFullFrameComposeStageKeys: Set<Graph.EffectKey> = []
 ) -> Capabilities {
     let graph = admittedGraph.renderGraph
@@ -1924,6 +1986,7 @@ private func capabilities(
     return .init(
         admissionCandidates: candidates,
         materialCatalog: catalog,
+        dynamicProducers: dynamicProducers,
         dedicatedStageFamilies: Dictionary(
             uniqueKeysWithValues: dedicatedFullFrameComposeStageKeys.map {
                 ($0, "fixture-full-frame-compose")
@@ -2060,6 +2123,138 @@ private enum Harness {
             }
         } else if pixelCapability != nil && pixelLeases == nil {
             pixelChainFailure = "leases"
+        }
+
+        let dynamicNode = pixelGraph.nodes[1]
+        let dynamicTarget = dynamicUniformTarget(dynamicNode)
+        let dynamicDefinition = SceneDynamicTargetDefinition(
+            target: dynamicTarget,
+            valueType: .scalar,
+            authoredValue: .scalar(1)
+        )
+        let dynamicPixelCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(for: pixelGraph, dynamicUniformNodes: [1]),
+            dynamicProducers: .init(
+                userProperties: [],
+                timelineTargets: [dynamicTarget],
+                sceneScriptTargets: []
+            )
+        )
+        let dynamicPixelClaim = dynamicPixelCapabilities.claim(pixelChain)
+        let dynamicPixelCapability = dynamicPixelClaim.flatMap {
+            dynamicPixelCapabilities.resolve($0.token, for: pixelChain)
+        }
+        var dynamicUniformValidFramePrepares = false
+        if let claim = dynamicPixelClaim,
+           let capability = dynamicPixelCapability,
+           let leases = makeChainedLeases(capability, device: device, generation: 20),
+           let executor = Executor(
+               device: device,
+               capabilities: dynamicPixelCapabilities
+           ), let command = queue.makeCommandBuffer() {
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(
+                    4,
+                    dynamicDefinitions: [dynamicDefinition],
+                    timelineValues: [dynamicTarget: .scalar(1)]
+                ),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 4,
+                resetGeneration: 4
+            )
+            if case let .success(prepared) = preparation {
+                dynamicUniformValidFramePrepares = prepared.stages.count == 3
+                    && prepared.stages[1].effectLocalFailureReasonCode == nil
+                    && prepared.stages[1].programCacheKeys.allSatisfy {
+                        !$0.hasPrefix("visual-failure-passthrough:")
+                    }
+            }
+        }
+
+        var dynamicUniformFailurePassthroughPrepared = false
+        var dynamicUniformFailurePassthroughEncoded = false
+        var dynamicUniformFailurePassthroughGPUCompleted = false
+        var dynamicUniformFailurePreservesPreviousAndContinuesSuffix = false
+        if let claim = dynamicPixelClaim,
+           let capability = dynamicPixelCapability,
+           let leases = makeChainedLeases(capability, device: device, generation: 21),
+           let executor = Executor(
+               device: device,
+               capabilities: dynamicPixelCapabilities
+           ), let command = queue.makeCommandBuffer() {
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(5),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 5,
+                resetGeneration: 5
+            )
+            if case let .success(prepared) = preparation,
+               prepared.stages.count == 3,
+               prepared.stages[1].programCacheKeys == [
+                   "visual-failure-passthrough:"
+                       + "material-finalizer-dynamic-uniform-binding"
+               ], prepared.stages[1].effectLocalFailureReasonCode
+                    == "material-finalizer-dynamic-uniform-binding" {
+                dynamicUniformFailurePassthroughPrepared = true
+                var observedStageIndices: [Int] = []
+                var stageReadbacks: [Readback] = []
+                dynamicUniformFailurePassthroughEncoded = executor.encode(
+                    prepared,
+                    commandBuffer: command,
+                    stageBoundaryObserver: { stageIndex, transition, buffer in
+                        guard let readback = appendReadback(
+                            transition.effectOutputResource.publication.texture,
+                            commandBuffer: buffer
+                        ) else { return false }
+                        observedStageIndices.append(stageIndex)
+                        stageReadbacks.append(readback)
+                        return true
+                    }
+                )
+                if dynamicUniformFailurePassthroughEncoded,
+                   let finalReadback = appendReadback(
+                       prepared.finalTexture,
+                       commandBuffer: command
+                   ) {
+                    command.commit()
+                    command.waitUntilCompleted()
+                    dynamicUniformFailurePassthroughGPUCompleted =
+                        command.status == .completed && command.error == nil
+                    let expectedPixels: [[UInt8]] = [
+                        [255, 0, 0, 255],
+                        [255, 0, 0, 255],
+                        [0, 255, 0, 255],
+                    ]
+                    dynamicUniformFailurePreservesPreviousAndContinuesSuffix =
+                        observedStageIndices == [0, 1, 2]
+                        && stageReadbacks.count == 3
+                        && zip(stageReadbacks, expectedPixels).allSatisfy {
+                            matches($0.firstPixel, $1)
+                                && matches($0.lastPixel, $1)
+                        }
+                        && matches(finalReadback.firstPixel, expectedPixels[2])
+                        && matches(finalReadback.lastPixel, expectedPixels[2])
+                }
+            }
         }
 
         var rendererFailurePassthroughPrepared = false
@@ -2276,6 +2471,43 @@ private enum Harness {
             .pipelineCompilationAttemptCount
         let ordinaryPlan = requirePlan(ordinaryGraph)
         let ordinaryLease = makeLease(ordinaryPlan, device: device)
+        let dynamicMultiTarget = dynamicUniformTarget(ordinaryGraph.nodes[0])
+        let dynamicMultiCapabilities = capabilities(
+            ordinaryChain,
+            catalog: catalog(for: ordinaryGraph, dynamicUniformNodes: [0]),
+            dynamicProducers: .init(
+                userProperties: [],
+                timelineTargets: [dynamicMultiTarget],
+                sceneScriptTargets: []
+            )
+        )
+        var dynamicUniformMultiNodeRemainsHardRejected = false
+        var dynamicUniformMultiNodeFailure = "not-claimed"
+        if let claim = dynamicMultiCapabilities.claim(ordinaryChain),
+           let executor = Executor(
+               device: device,
+               capabilities: dynamicMultiCapabilities
+           ), let command = queue.makeCommandBuffer() {
+            let failure = failureCode(executor.prepare(
+                token: claim.token,
+                leases: [makeLease(ordinaryPlan, device: device, generation: 22)],
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(6),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 6,
+                resetGeneration: 6
+            ))
+            dynamicUniformMultiNodeFailure = failure
+            dynamicUniformMultiNodeRemainsHardRejected = failure.contains(
+                "finalizer-uniform-dynamicUniformBindingInvalid"
+            )
+        }
 
         let scalarGraph = graph(
             targets: [rawTarget(first, format: "r8")],
@@ -3501,6 +3733,18 @@ private enum Harness {
             "orderedStagesGPUCompleted": chainedStagesGPUCompleted,
             "orderedStagesPreservePriorPixelContribution":
                 chainedStagePixelsPreserved,
+            "dynamicUniformValidFramePreparesProgram":
+                dynamicUniformValidFramePrepares,
+            "dynamicUniformFailurePassthroughPrepared":
+                dynamicUniformFailurePassthroughPrepared,
+            "dynamicUniformFailurePassthroughEncoded":
+                dynamicUniformFailurePassthroughEncoded,
+            "dynamicUniformFailurePassthroughGPUCompleted":
+                dynamicUniformFailurePassthroughGPUCompleted,
+            "dynamicUniformFailurePreservesPreviousAndContinuesSuffix":
+                dynamicUniformFailurePreservesPreviousAndContinuesSuffix,
+            "dynamicUniformMultiNodeRemainsHardRejected":
+                dynamicUniformMultiNodeRemainsHardRejected,
             "visualUniformSchemaFailureCanClaimEffectLocalPassthrough":
                 visualFailureCanClaimEffectLocalPassthrough,
             "visualUniformSchemaFailurePassthroughPrepared":
@@ -3619,6 +3863,8 @@ private enum Harness {
             "pixelChainReport": pixelCapabilities.reportLines,
             "pixelChainFailure": pixelChainFailure,
             "visualFailureObservedPixels": visualFailureObservedPixels,
+            "dynamicUniformMultiNodeFailure": dynamicUniformMultiNodeFailure,
+            "dynamicUniformMultiNodeReport": dynamicMultiCapabilities.reportLines,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -3656,6 +3902,11 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
             self.assertNotIn('"material-variant-envelope-texture"', text)
             self.assertNotIn('"material-variant-envelope-target"', text)
             self.assertNotIn('"material-variant-envelope-runtime-encode"', text)
+        visual_text = VISUAL_FAILURE_PASSTHROUGH_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            '"material-finalizer-dynamic-uniform-binding"',
+            visual_text,
+        )
 
     def test_production_executor_preflights_and_executes_atomic_graph(self) -> None:
         with tempfile.TemporaryDirectory(
