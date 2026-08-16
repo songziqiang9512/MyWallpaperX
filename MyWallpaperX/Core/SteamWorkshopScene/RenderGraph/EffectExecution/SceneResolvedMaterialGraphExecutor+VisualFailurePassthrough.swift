@@ -33,6 +33,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-pass-preparation-pipeline-compilation",
             "material-finalizer-dynamic-uniform-binding",
             "material-finalizer-static-uniform-binding",
+            "material-finalizer-host-uniform-declaration-conflict",
         ].contains(reasonCode),
               graph.effects.count == 1,
               graph.nodes.count == 1,

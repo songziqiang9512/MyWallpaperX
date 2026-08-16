@@ -823,6 +823,7 @@ private func finalize(
     frameInputIndex: UInt64 = 1,
     dynamicSource: SceneDynamicSource? = nil,
     renderState: SceneMaterialRenderState = state(),
+    resolvedLayerModelMatrix: simd_float4x4 = layerModelMatrix,
     implicitFramebufferIdentity: Graph.TextureIdentity? = nil,
     audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent,
     variantCache: SceneResolvedMaterialVariantCache? = nil
@@ -860,7 +861,7 @@ private func finalize(
             ),
             renderSize: CGSize(width: 640, height: 360),
             modelViewProjection: matrix_identity_float4x4,
-            layerModelMatrix: layerModelMatrix,
+            layerModelMatrix: resolvedLayerModelMatrix,
             effectTextureProjectionMatrixInverse: effectProjectionInverse,
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )
@@ -2164,6 +2165,20 @@ private enum Harness {
                     staticDeclaration("Tint", components: [1]),
                 ]
             )),
+            "hostUniformDeclarationConflict": failureToken(finalize(
+                shader: contract(revision: "host-uniform-declaration-conflict"),
+                device: device,
+                uniformDeclarations: [
+                    staticDeclaration("g_Time", components: [99]),
+                ]
+            )),
+            "hostUniformBindingInvalid": failureToken(finalize(
+                shader: contract(revision: "host-uniform-binding-invalid"),
+                device: device,
+                resolvedLayerModelMatrix: simd_float4x4(
+                    diagonal: SIMD4(.nan, 1, 1, 1)
+                )
+            )),
             "knownTimelineScriptControl": failureToken(finalize(
                 shader: contract(revision: "timeline-script-control"),
                 device: device,
@@ -2743,6 +2758,9 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "missingUniformDefault": "uniform/staticUniformBindingInvalid",
             "malformedUniformDefault": "uniform/uniformBindingInvalid",
             "malformedStaticDeclaration": "uniform/staticUniformBindingInvalid",
+            "hostUniformDeclarationConflict":
+                "uniform/hostUniformDeclarationConflict",
+            "hostUniformBindingInvalid": "uniform/hostUniformBindingInvalid",
             "knownTimelineScriptControl": "success",
             "unknownTimelineScriptAttachment": "uniform/uniformScriptAttachmentUnproven",
             "authoredDynamicFallback": "success",
@@ -2758,10 +2776,14 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             expected,
         )
 
-    def test_host_uniform_failure_identity_is_not_a_visual_passthrough(self) -> None:
+    def test_only_host_declaration_conflict_is_a_visual_passthrough(self) -> None:
         self.assertIn(
             ".hostUniformBindingInvalid",
             FINALIZER_SOURCE.read_text(encoding="utf-8"),
+        )
+        self.assertIn(
+            '"material-finalizer-host-uniform-declaration-conflict"',
+            VISUAL_PASSTHROUGH_SOURCE.read_text(encoding="utf-8"),
         )
         self.assertNotIn(
             "material-finalizer-host-uniform-binding",

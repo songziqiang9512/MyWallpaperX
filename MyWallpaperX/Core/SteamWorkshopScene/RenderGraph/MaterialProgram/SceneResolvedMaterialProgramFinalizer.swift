@@ -255,13 +255,19 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 field,
                 slots: slots
             ) {
-                guard declarations.isEmpty,
-                      let value = SceneResolvedMaterialUniformEncoder.encodeHost(
+                guard declarations.isEmpty else {
+                    throw failure(
+                        .uniform,
+                        .hostUniformDeclarationConflict,
+                        details: [field.name]
+                    )
+                }
+                guard let value = SceneResolvedMaterialUniformEncoder.encodeHost(
                           host,
                           type: field.type,
                           inputs: uniformInputs,
                           slots: slots
-                      ) else {
+                ) else {
                     throw failure(
                         .uniform,
                         .hostUniformBindingInvalid,

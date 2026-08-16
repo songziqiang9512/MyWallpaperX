@@ -34,6 +34,7 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         case shaderFrontendFailed
         case uniformBindingInvalid
         case staticUniformBindingInvalid
+        case hostUniformDeclarationConflict
         case hostUniformBindingInvalid
         case dynamicUniformBindingInvalid
         case colorContractUnproven

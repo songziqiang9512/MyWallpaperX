@@ -562,6 +562,7 @@ private func fragmentSource(
     uniformSchemaInvalid: Bool = false,
     dynamicUniform: Bool = false,
     staticUniformMissingDefault: Bool = false,
+    hostUniformDeclarationConflict: Bool = false,
     pixelTransform: Int? = nil,
     scalarProducer: Bool = false,
     scalarConsumer: String? = nil
@@ -579,13 +580,18 @@ private func fragmentSource(
             ? #"uniform float u_Gain; // {"material":"Gain","default":1}"#
             : staticUniformMissingDefault
                 ? #"uniform float u_Static; // {"material":"Static"}"#
-                : ""
+                : hostUniformDeclarationConflict
+                    ? "uniform float g_Time;"
+                    : ""
     let expression = if uniformSchemaInvalid {
         "gl_FragColor = texSample2D(g_Texture0, v_TexCoord)"
             + " * g_InvalidUniform;"
     } else if staticUniformMissingDefault {
         "vec4 color = texSample2D(g_Texture0, v_TexCoord);"
             + " color.rgb *= u_Static; gl_FragColor = color;"
+    } else if hostUniformDeclarationConflict {
+        "float hostProbe = g_Time;"
+            + " gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
     } else if scalarProducer {
         "gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0);"
     } else if scalarConsumer == "red" {
@@ -913,6 +919,7 @@ private func shaderContract(
     uniformSchemaInvalid: Bool = false,
     dynamicUniform: Bool = false,
     staticUniformMissingDefault: Bool = false,
+    hostUniformDeclarationConflict: Bool = false,
     pixelTransform: Int? = nil,
     implicitFramebuffer: Bool = false,
     implicitFramebufferAnnotation: Bool = true,
@@ -969,6 +976,7 @@ private func shaderContract(
         uniformSchemaInvalid: uniformSchemaInvalid,
         dynamicUniform: dynamicUniform,
         staticUniformMissingDefault: staticUniformMissingDefault,
+        hostUniformDeclarationConflict: hostUniformDeclarationConflict,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
         scalarConsumer: scalarConsumer
@@ -1061,6 +1069,7 @@ private func template(
     uniformSchemaInvalid: Bool = false,
     dynamicUniform: Bool = false,
     staticUniformMissingDefault: Bool = false,
+    hostUniformDeclarationConflict: Bool = false,
     scalarProducer: Bool = false,
     scalarConsumer: String? = nil
 ) -> Template {
@@ -1086,6 +1095,7 @@ private func template(
         uniformSchemaInvalid: uniformSchemaInvalid,
         dynamicUniform: dynamicUniform,
         staticUniformMissingDefault: staticUniformMissingDefault,
+        hostUniformDeclarationConflict: hostUniformDeclarationConflict,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
         scalarConsumer: scalarConsumer
@@ -1109,7 +1119,10 @@ private func template(
         textureSlots: slots,
         combos: [],
         uniformDeclarations: dynamicUniform
-            ? [dynamicUniformDeclaration(for: node)] : [],
+            ? [dynamicUniformDeclaration(for: node)]
+            : hostUniformDeclarationConflict
+                ? [hostUniformConflictDeclaration()]
+                : [],
         renderState: SceneMaterialRenderState.compile(
             blending: overwrite ? "normal" : "translucent",
             depthTest: "disabled",
@@ -1163,6 +1176,17 @@ private func dynamicUniformDeclaration(
     )
 }
 
+private func hostUniformConflictDeclaration() -> Template.UniformDeclaration {
+    .init(
+        name: "g_Time",
+        value: .staticExact(.init(
+            valueKind: "fixture",
+            componentBitPatterns: [Double(99).bitPattern],
+            authoredBindingKeys: ["value"]
+        ))
+    )
+}
+
 private func catalog(
     for graph: Graph,
     passNodes: Set<Int> = [],
@@ -1172,6 +1196,7 @@ private func catalog(
     uniformSchemaInvalidNodes: Set<Int> = [],
     dynamicUniformNodes: Set<Int> = [],
     staticUniformMissingDefaultNodes: Set<Int> = [],
+    hostUniformDeclarationConflictNodes: Set<Int> = [],
     omittedNodes: Set<Int> = [],
     demandIssueNodes: Set<Int> = [],
     implicitFramebufferNodes: Set<Int> = [],
@@ -1201,6 +1226,8 @@ private func catalog(
                 dynamicUniform: dynamicUniformNodes.contains(node.nodeIndex),
                 staticUniformMissingDefault:
                     staticUniformMissingDefaultNodes.contains(node.nodeIndex),
+                hostUniformDeclarationConflict:
+                    hostUniformDeclarationConflictNodes.contains(node.nodeIndex),
                 scalarProducer: scalarProducerNodes.contains(node.nodeIndex),
                 scalarConsumer: scalarConsumerNodes[node.nodeIndex]
             )
@@ -2169,6 +2196,17 @@ private enum Harness {
         let staticPixelCapability = staticPixelClaim.flatMap {
             staticPixelCapabilities.resolve($0.token, for: pixelChain)
         }
+        let hostConflictPixelCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(
+                for: pixelGraph,
+                hostUniformDeclarationConflictNodes: [1]
+            )
+        )
+        let hostConflictPixelClaim = hostConflictPixelCapabilities.claim(pixelChain)
+        let hostConflictPixelCapability = hostConflictPixelClaim.flatMap {
+            hostConflictPixelCapabilities.resolve($0.token, for: pixelChain)
+        }
         var dynamicUniformValidFramePrepares = false
         if let claim = dynamicPixelClaim,
            let capability = dynamicPixelCapability,
@@ -2345,6 +2383,82 @@ private enum Harness {
                         [0, 255, 0, 255],
                     ]
                     staticUniformFailurePreservesPreviousAndContinuesSuffix =
+                        observedStageIndices == [0, 1, 2]
+                        && stageReadbacks.count == 3
+                        && zip(stageReadbacks, expectedPixels).allSatisfy {
+                            matches($0.firstPixel, $1)
+                                && matches($0.lastPixel, $1)
+                        }
+                        && matches(finalReadback.firstPixel, expectedPixels[2])
+                        && matches(finalReadback.lastPixel, expectedPixels[2])
+                }
+            }
+        }
+
+        var hostConflictFailurePassthroughPrepared = false
+        var hostConflictFailurePassthroughEncoded = false
+        var hostConflictFailurePassthroughGPUCompleted = false
+        var hostConflictFailurePreservesPreviousAndContinuesSuffix = false
+        if let claim = hostConflictPixelClaim,
+           let capability = hostConflictPixelCapability,
+           let leases = makeChainedLeases(capability, device: device, generation: 25),
+           let executor = Executor(
+               device: device,
+               capabilities: hostConflictPixelCapabilities
+           ), let command = queue.makeCommandBuffer() {
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(9),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 9,
+                resetGeneration: 9
+            )
+            if case let .success(prepared) = preparation,
+               prepared.stages.count == 3,
+               prepared.stages[1].programCacheKeys == [
+                   "visual-failure-passthrough:"
+                       + "material-finalizer-host-uniform-declaration-conflict"
+               ], prepared.stages[1].effectLocalFailureReasonCode
+                    == "material-finalizer-host-uniform-declaration-conflict" {
+                hostConflictFailurePassthroughPrepared = true
+                var observedStageIndices: [Int] = []
+                var stageReadbacks: [Readback] = []
+                hostConflictFailurePassthroughEncoded = executor.encode(
+                    prepared,
+                    commandBuffer: command,
+                    stageBoundaryObserver: { stageIndex, transition, buffer in
+                        guard let readback = appendReadback(
+                            transition.effectOutputResource.publication.texture,
+                            commandBuffer: buffer
+                        ) else { return false }
+                        observedStageIndices.append(stageIndex)
+                        stageReadbacks.append(readback)
+                        return true
+                    }
+                )
+                if hostConflictFailurePassthroughEncoded,
+                   let finalReadback = appendReadback(
+                       prepared.finalTexture,
+                       commandBuffer: command
+                   ) {
+                    command.commit()
+                    command.waitUntilCompleted()
+                    hostConflictFailurePassthroughGPUCompleted =
+                        command.status == .completed && command.error == nil
+                    let expectedPixels: [[UInt8]] = [
+                        [255, 0, 0, 255],
+                        [255, 0, 0, 255],
+                        [0, 255, 0, 255],
+                    ]
+                    hostConflictFailurePreservesPreviousAndContinuesSuffix =
                         observedStageIndices == [0, 1, 2]
                         && stageReadbacks.count == 3
                         && zip(stageReadbacks, expectedPixels).allSatisfy {
@@ -2588,6 +2702,13 @@ private enum Harness {
                 staticUniformMissingDefaultNodes: [0]
             )
         )
+        let hostConflictMultiNodeCapabilities = capabilities(
+            ordinaryChain,
+            catalog: catalog(
+                for: ordinaryGraph,
+                hostUniformDeclarationConflictNodes: [0]
+            )
+        )
         var dynamicUniformMultiNodeRemainsHardRejected = false
         var dynamicUniformMultiNodeFailure = "not-claimed"
         if let claim = dynamicMultiCapabilities.claim(ordinaryChain),
@@ -2640,6 +2761,33 @@ private enum Harness {
             staticUniformMultiNodeFailure = failure
             staticUniformMultiNodeRemainsHardRejected = failure.contains(
                 "finalizer-uniform-staticUniformBindingInvalid"
+            )
+        }
+        var hostConflictMultiNodeRemainsHardRejected = false
+        var hostConflictMultiNodeFailure = "not-claimed"
+        if let claim = hostConflictMultiNodeCapabilities.claim(ordinaryChain),
+           let executor = Executor(
+               device: device,
+               capabilities: hostConflictMultiNodeCapabilities
+           ), let command = queue.makeCommandBuffer() {
+            let failure = failureCode(executor.prepare(
+                token: claim.token,
+                leases: [makeLease(ordinaryPlan, device: device, generation: 26)],
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(10),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 10,
+                resetGeneration: 10
+            ))
+            hostConflictMultiNodeFailure = failure
+            hostConflictMultiNodeRemainsHardRejected = failure.contains(
+                "finalizer-uniform-hostUniformDeclarationConflict"
             )
         }
 
@@ -3885,10 +4033,20 @@ private enum Harness {
                 staticUniformFailurePassthroughGPUCompleted,
             "staticUniformFailurePreservesPreviousAndContinuesSuffix":
                 staticUniformFailurePreservesPreviousAndContinuesSuffix,
+            "hostConflictFailurePassthroughPrepared":
+                hostConflictFailurePassthroughPrepared,
+            "hostConflictFailurePassthroughEncoded":
+                hostConflictFailurePassthroughEncoded,
+            "hostConflictFailurePassthroughGPUCompleted":
+                hostConflictFailurePassthroughGPUCompleted,
+            "hostConflictFailurePreservesPreviousAndContinuesSuffix":
+                hostConflictFailurePreservesPreviousAndContinuesSuffix,
             "dynamicUniformMultiNodeRemainsHardRejected":
                 dynamicUniformMultiNodeRemainsHardRejected,
             "staticUniformMultiNodeRemainsHardRejected":
                 staticUniformMultiNodeRemainsHardRejected,
+            "hostConflictMultiNodeRemainsHardRejected":
+                hostConflictMultiNodeRemainsHardRejected,
             "visualUniformSchemaFailureCanClaimEffectLocalPassthrough":
                 visualFailureCanClaimEffectLocalPassthrough,
             "visualUniformSchemaFailurePassthroughPrepared":
@@ -4012,6 +4170,9 @@ private enum Harness {
             "staticUniformMultiNodeFailure": staticUniformMultiNodeFailure,
             "staticUniformMultiNodeReport":
                 staticUniformMultiNodeCapabilities.reportLines,
+            "hostConflictMultiNodeFailure": hostConflictMultiNodeFailure,
+            "hostConflictMultiNodeReport":
+                hostConflictMultiNodeCapabilities.reportLines,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -4052,6 +4213,18 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
         visual_text = VISUAL_FAILURE_PASSTHROUGH_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
             '"material-finalizer-dynamic-uniform-binding"',
+            visual_text,
+        )
+        self.assertIn(
+            '"material-finalizer-static-uniform-binding"',
+            visual_text,
+        )
+        self.assertIn(
+            '"material-finalizer-host-uniform-declaration-conflict"',
+            visual_text,
+        )
+        self.assertNotIn(
+            '"material-finalizer-host-uniform-binding"',
             visual_text,
         )
         self.assertIn(
