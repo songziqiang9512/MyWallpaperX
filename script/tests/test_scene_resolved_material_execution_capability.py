@@ -42,10 +42,6 @@ VARIANT_COMPILATION_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
 )
-SHADER_REACHABILITY_SOURCE = (
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+Reachability.swift"
-)
 DEPENDENCY_OWNERSHIP_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift"
@@ -5807,23 +5803,28 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             program_first[captured_route_end:],
         )
 
-    def test_runtime_variant_resolution_starts_from_launch_envelope_seed(
+    def test_frame_variant_resolution_consumes_only_the_launch_envelope(
         self,
     ) -> None:
         variant_cache = VARIANT_CACHE_SOURCE.read_text(encoding="utf-8")
-        reachability = SHADER_REACHABILITY_SOURCE.read_text(encoding="utf-8")
         resolve_start = variant_cache.index("    func resolveSelection(")
         resolve_end = variant_cache.index(
-            "    private func reachableSamplersLocked(", resolve_start
+            "    private func entry(", resolve_start
         )
         resolve_body = variant_cache[resolve_start:resolve_end]
 
-        self.assertIn("var activeSamplers = seedSamplers", resolve_body)
+        self.assertIn("guard hasCachedReachability", resolve_body)
+        self.assertIn("for (key, entry) in entries", resolve_body)
         self.assertIn(".variantKey(", resolve_body)
-        self.assertNotIn("cachedBootstrapSamplers", variant_cache)
+        self.assertNotIn("var activeSamplers = seedSamplers", resolve_body)
+        self.assertNotIn("entry(for:", resolve_body)
         self.assertNotIn("prepareShaderStages", resolve_body)
-        self.assertNotIn(".bootstrapSamplers(", resolve_body)
-        self.assertIn("static func bootstrapSamplers(", reachability)
+        self.assertNotIn(
+            "SceneResolvedMaterialShaderSchema.reachableSamplers(",
+            variant_cache,
+        )
+        self.assertNotIn("reachable-sampler-schema", variant_cache)
+        self.assertNotIn("reachableSamplersLocked", variant_cache)
 
     def test_generic_artifact_is_the_first_and_only_frontend_owner_on_hit(
         self,

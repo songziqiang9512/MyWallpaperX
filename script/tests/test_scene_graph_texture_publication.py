@@ -371,14 +371,24 @@ private func resolveProgram(
     guard case .success(let value) = frame else {
         fatalError("frame snapshot failed")
     }
+    let input = value.finalizationInput(
+        template: template(),
+        renderSize: CGSize(width: 2, height: 2),
+        modelViewProjection: matrix_identity_float4x4,
+        layerModelMatrix: matrix_identity_float4x4,
+        effectTextureProjectionMatrixInverse: matrix_identity_float4x4
+    )
+    guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+        template: input.template,
+        maximumVariantCount: 16
+    ), case .success = cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: input.implicitFramebufferIdentity
+    ) else {
+        fatalError("launch envelope rejected")
+    }
     return SceneResolvedMaterialProgramFinalizer.finalize(
-        value.finalizationInput(
-            template: template(),
-            renderSize: CGSize(width: 2, height: 2),
-            modelViewProjection: matrix_identity_float4x4,
-            layerModelMatrix: matrix_identity_float4x4,
-            effectTextureProjectionMatrixInverse: matrix_identity_float4x4
-        )
+        input,
+        variantCache: cache
     )
 }
 

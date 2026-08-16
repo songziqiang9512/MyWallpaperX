@@ -20,29 +20,6 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     private typealias Selection = SceneResolvedMaterialTextureSelection.Entry
 
     static func resolve(
-        _ input: SceneResolvedMaterialFinalizationInput
-    ) throws -> Resolution {
-        let cache: SceneResolvedMaterialVariantCache
-        switch SceneResolvedMaterialVariantCache.launchValidated(
-            template: input.template,
-            maximumVariantCount: 8
-        ) {
-        case let .success(value): cache = value
-        case let .failure(error): throw error
-        }
-        switch cache.resolveSelection(input) {
-        case let .success(selection):
-            return try resolve(
-                input,
-                variant: selection.variant,
-                reachableSamplers: selection.reachableSamplers
-            )
-        case let .failure(error):
-            throw error
-        }
-    }
-
-    static func resolve(
         _ input: SceneResolvedMaterialFinalizationInput,
         variant: SceneResolvedMaterialCompiledVariant,
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]

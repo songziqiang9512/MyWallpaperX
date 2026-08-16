@@ -132,20 +132,6 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
     typealias Template = SceneResolvedMaterialTemplate
 
     static func finalize(
-        _ input: SceneResolvedMaterialFinalizationInput
-    ) -> Result<Program, Failure> {
-        let cache: SceneResolvedMaterialVariantCache
-        switch SceneResolvedMaterialVariantCache.launchValidated(
-            template: input.template,
-            maximumVariantCount: 8
-        ) {
-        case let .success(value): cache = value
-        case let .failure(error): return .failure(error)
-        }
-        return finalize(input, variantCache: cache)
-    }
-
-    static func finalize(
         _ input: SceneResolvedMaterialFinalizationInput,
         variantCache: SceneResolvedMaterialVariantCache
     ) -> Result<Program, Failure> {

@@ -30,6 +30,11 @@ FINALIZER_SOURCE = next(
     for source in scene_swift_sources("resolved_material_frame_finalization")
     if source.name == "SceneResolvedMaterialProgramFinalizer.swift"
 )
+VARIANT_CACHE_SOURCE = next(
+    source
+    for source in scene_swift_sources("resolved_material_frame_finalization")
+    if source.name == "SceneResolvedMaterialExecutionCapabilityVariant.swift"
+)
 
 
 SWIFT_SOURCES = [
@@ -865,13 +870,53 @@ private func finalize(
             effectTextureProjectionMatrixInverse: effectProjectionInverse,
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )
+        let cache: SceneResolvedMaterialVariantCache
         if let variantCache {
-            return SceneResolvedMaterialProgramFinalizer.finalize(
-                input,
-                variantCache: variantCache
-            )
+            cache = variantCache
+        } else {
+            switch SceneResolvedMaterialVariantCache.launchValidated(
+                template: input.template,
+                maximumVariantCount: 16
+            ) {
+            case let .success(value): cache = value
+            case let .failure(failure): return .failure(failure)
+            }
+            let assetStatePairs: [(
+                SceneAssetTextureIdentity, SceneAssetTextureLaunchState
+            )] = input.textureSnapshot.entries.compactMap { identity, status in
+                    guard case let .asset(assetIdentity) = identity else { return nil }
+                    _ = status
+                    let content: SceneTextureContent = switch assetIdentity.purpose {
+                    case .premultipliedColor:
+                        .color(.resolved(.premultipliedAlpha))
+                    case .straightAlbedo:
+                        .color(.resolved(.straightAlpha))
+                    case .preservedChannels, .mask, .noise, .flow, .phase,
+                         .normal, .depth, .lookupTable:
+                        .data
+                    }
+                    return (assetIdentity, .ready(content))
+                }
+            let assetStates = Dictionary(uniqueKeysWithValues: assetStatePairs)
+            switch cache.precompileLaunchEnvelope(
+                implicitFramebufferIdentity: implicitFramebufferIdentity,
+                assetStates: assetStates
+            ) {
+            case .success: break
+            case .failure(.capacity):
+                return .failure(.init(
+                    phase: .preparation,
+                    code: .shaderPreparationFailed,
+                    details: ["variant-cache-capacity"]
+                ))
+            case let .failure(.material(failure)):
+                return .failure(failure)
+            }
         }
-        return SceneResolvedMaterialProgramFinalizer.finalize(input)
+        return SceneResolvedMaterialProgramFinalizer.finalize(
+            input,
+            variantCache: cache
+        )
     }
 }
 
@@ -2668,8 +2713,8 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "texture/resourceSnapshotUnresolved"
             ),
             "providerAbsentUsesShaderDefault": "success",
-            "slotSchemaMismatch": "texture/texturePurposeUnproven",
-            "optionalUntypedMask": "texture/texturePurposeUnproven",
+            "slotSchemaMismatch": "texture/textureBindingInvalid",
+            "optionalUntypedMask": "texture/textureBindingInvalid",
             "authoredOverridesShaderDefault": "success",
             "authoredFailureDoesNotUseShaderDefault": (
                 "texture/resourceSnapshotUnresolved"
@@ -2680,7 +2725,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "optionalMaskWrongPurposeDoesNotUseDefault": (
                 "texture/textureMetadataIncomplete"
             ),
-            "activeDefaultMaskMissing": "texture/resourceSnapshotUnresolved",
+            "activeDefaultMaskMissing": "texture/textureBindingInvalid",
         }
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},
@@ -2753,7 +2798,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "unsupportedSampler": "texture/textureMetadataIncomplete",
             "textureDynamicFrameMismatch": "invariant/frameSnapshotMismatch",
             "dynamicInputsFrameMismatch": "invariant/frameSnapshotMismatch",
-            "maskedMissing": "texture/resourceSnapshotUnresolved",
+            "maskedMissing": "texture/textureBindingInvalid",
             "maskedPending": "texture/resourceSnapshotUnresolved",
             "maskedWrongPurpose": "texture/textureMetadataIncomplete",
         }
@@ -2776,9 +2821,9 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "authoredDynamicFallback": "success",
             "dynamicSourceMismatch": "uniform/dynamicUniformBindingInvalid",
             "multipleValueContributors": "uniform/uniformContributorPolicyUnproven",
-            "runtimeLoopMetadataOnly": "preparation/activeSamplerSchemaInvalid",
-            "runtimeLoopDynamicProducer": "preparation/activeSamplerSchemaInvalid",
-            "runtimeLoopOverBudget": "preparation/activeSamplerSchemaInvalid",
+            "runtimeLoopMetadataOnly": "frontend/shaderFrontendFailed",
+            "runtimeLoopDynamicProducer": "frontend/shaderFrontendFailed",
+            "runtimeLoopOverBudget": "frontend/shaderFrontendFailed",
             "runtimeLoopCrossTemplateCache": "invariant/identityInvariant",
         }
         self.assertEqual(
@@ -2804,6 +2849,14 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             visual_text,
         )
         self.assertNotIn("material-finalizer-active-uniform-schema", visual_text)
+
+    def test_frame_selection_consumes_only_precompiled_sampler_reachability(self) -> None:
+        variant_text = VARIANT_CACHE_SOURCE.read_text(encoding="utf-8")
+        self.assertNotIn(
+            "SceneResolvedMaterialShaderSchema.reachableSamplers(",
+            variant_text,
+        )
+        self.assertNotIn("reachable-sampler-schema", variant_text)
 
     def test_render_state_and_color_contracts_fail_closed(self) -> None:
         expected = {

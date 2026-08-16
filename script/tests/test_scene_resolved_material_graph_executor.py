@@ -1998,12 +1998,14 @@ private func failureCode(
     }
 }
 
-private func variantFailureCode(
-    _ result: Result<SceneResolvedMaterialCompiledVariant, SceneResolvedMaterialFailure>
+private func launchEnvelopeFailureCode(
+    _ result: Result<[UInt8], SceneResolvedMaterialVariantCache.LaunchEnvelopeFailure>
 ) -> String {
     switch result {
     case .success: return "success"
-    case let .failure(failure): return "\(failure.phase.rawValue):\(failure.code.rawValue):\(failure.boundedDetails.joined(separator: ","))"
+    case .failure(.capacity): return "capacity"
+    case let .failure(.material(failure)):
+        return "\(failure.phase.rawValue):\(failure.code.rawValue):\(failure.boundedDetails.joined(separator: ","))"
     }
 }
 
@@ -3426,6 +3428,10 @@ private enum Harness {
             template: cacheTemplate,
             maximumVariantCount: 1
         ) else { fatalError("bounded cache rejected") }
+        let boundedLaunch = boundedCache.precompileLaunchEnvelope(
+            implicitFramebufferIdentity: input
+        )
+        let boundedCountsAfterLaunch = boundedCache.counters
         var readyResources = prepared.stages[0].frameResources
         readyResources[input] = prepared.stages[0].effectOutputResource
             .rewrappedForGraphIdentity(input)!
@@ -3436,7 +3442,8 @@ private enum Harness {
                 renderSize: CGSize(width: extent.width, height: extent.height),
                 modelViewProjection: Executor.fullTargetMVP(firstTexture),
                 layerModelMatrix: matrix_identity_float4x4,
-                effectTextureProjectionMatrixInverse: matrix_identity_float4x4
+                effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+                implicitFramebufferIdentity: input
             )
         )
         let absentVariantFrame: SceneResolvedMaterialFrameSnapshot = {
@@ -3462,22 +3469,27 @@ private enum Harness {
             }
             return value
         }()
-        let overflowVariant = boundedCache.resolve(
+        let unplannedVariant = boundedCache.resolve(
             absentVariantFrame.finalizationInput(
                 template: cacheTemplate,
                 renderSize: CGSize(width: extent.width, height: extent.height),
                 modelViewProjection: Executor.fullTargetMVP(firstTexture),
                 layerModelMatrix: matrix_identity_float4x4,
-                effectTextureProjectionMatrixInverse: matrix_identity_float4x4
+                effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+                implicitFramebufferIdentity: input
             )
         )
-        let overflowRejected: Bool
-        if case let .failure(failure) = overflowVariant {
-            overflowRejected = failure.boundedDetails == ["variant-cache-capacity"]
-                && boundedCache.counters.capacityRejectionCount == 1
-        } else {
-            overflowRejected = false
-        }
+        let unplannedVariantRejectedWithoutCompilation: Bool = {
+            guard case .success = boundedLaunch,
+                  case .success = readyVariant,
+                  case let .failure(failure) = unplannedVariant else {
+                return false
+            }
+            return failure.phase == .invariant
+                && failure.code == .identityInvariant
+                && boundedCache.counters == boundedCountsAfterLaunch
+                && boundedCache.counters.capacityRejectionCount == 0
+        }()
 
         let failingCapabilities = capabilities(
             ordinaryChain,
@@ -3495,20 +3507,17 @@ private enum Harness {
             template: failingTemplate,
             maximumVariantCount: 1
         ) else { fatalError("failing cache rejected") }
-        let failingInput = readyVariantFrame.finalizationInput(
-            template: failingTemplate,
-            renderSize: CGSize(width: extent.width, height: extent.height),
-            modelViewProjection: Executor.fullTargetMVP(firstTexture),
-            layerModelMatrix: matrix_identity_float4x4,
-            effectTextureProjectionMatrixInverse: matrix_identity_float4x4
+        let firstFailedVariant = failingVariantCache.precompileLaunchEnvelope(
+            implicitFramebufferIdentity: input
         )
-        let firstFailedVariant = failingVariantCache.resolve(failingInput)
         let failedCountsAfterFirst = failingVariantCache.counters
-        let secondFailedVariant = failingVariantCache.resolve(failingInput)
+        let secondFailedVariant = failingVariantCache.precompileLaunchEnvelope(
+            implicitFramebufferIdentity: input
+        )
         let failedCountsAfterSecond = failingVariantCache.counters
         let failedVariantRejectionIsCached: Bool = {
-            guard case let .failure(firstFailure) = firstFailedVariant,
-                  case let .failure(secondFailure) = secondFailedVariant else {
+            guard case let .failure(.material(firstFailure)) = firstFailedVariant,
+                  case let .failure(.material(secondFailure)) = secondFailedVariant else {
                 return false
             }
             return firstFailure.code == .shaderFrontendFailed
@@ -4073,11 +4082,9 @@ private enum Harness {
                         == compilerCountsAfterFirst.shader
                     && compilerCountsAfterSecond.frontend
                         == compilerCountsAfterFirst.frontend,
-            "boundedVariantOverflowFailsClosed": {
-                if case .success = readyVariant { return overflowRejected }
-                return false
-            }(),
-            "independentFailedVariantRejectionIsCached":
+            "frameSelectionRejectsUnplannedVariantWithoutCompilation":
+                unplannedVariantRejectedWithoutCompilation,
+            "independentLaunchVariantRejectionIsCached":
                 failedVariantRejectionIsCached,
             "frontendInvalidRejectedByLaunchEnvelope":
                 failingCapabilities.claim(ordinaryChain) == nil
@@ -4133,8 +4140,8 @@ private enum Harness {
                 "late": failureCode(latePreparation),
                 "copyMismatch": failureCode(copyMismatch),
                 "swapMismatch": failureCode(swapMismatch),
-                "firstFailedVariant": variantFailureCode(firstFailedVariant),
-                "secondFailedVariant": variantFailureCode(secondFailedVariant),
+                "firstFailedVariant": launchEnvelopeFailureCode(firstFailedVariant),
+                "secondFailedVariant": launchEnvelopeFailureCode(secondFailedVariant),
             ],
             "composeDiagnostics": [
                 "failure": failureCode(composePreparation),

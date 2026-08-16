@@ -313,121 +313,55 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                   input.template.uniformDeclarations == template.uniformDeclarations else {
                 throw Self.failure(.identityInvariant, phase: .invariant)
             }
-            let reachableSamplers = try reachableSamplersLocked(
-                implicitFramebufferIdentity: input.implicitFramebufferIdentity
-            )
-            if hasCachedReachability,
-               cachedReachabilityIdentity == input.implicitFramebufferIdentity {
-                let matches = entries.compactMap { key, entry -> Variant? in
-                    guard case let .ready(variant) = entry else { return nil }
-                    do {
-                        let resolvedKey = try SceneResolvedMaterialTextureResolver
-                            .variantKey(
-                                input,
-                                samplers: variant.activeSamplers,
-                                reachableSamplers: reachableSamplers,
-                                formatSlots: textureFormatSlots,
-                                channelUses: Dictionary(uniqueKeysWithValues:
-                                    variant.frontendProgram.textureBindings.map {
-                                        ($0.slot, $0.channelUse)
-                                    }
-                                ),
-                                allowPresenceIndependentDefaults: true,
-                                restrictToSamplerSlots: true
-                            )
-                        return resolvedKey == key ? variant : nil
-                    } catch {
-                        return nil
-                    }
-                }
-                if matches.count == 1, let variant = matches.first {
-                    return .success(.init(
-                        variant: variant,
-                        reachableSamplers: reachableSamplers
-                    ))
-                }
-                guard matches.isEmpty else {
+            guard hasCachedReachability,
+                  cachedReachabilityIdentity == input.implicitFramebufferIdentity,
+                  let reachableSamplers = cachedReachableSamplers else {
+                throw Self.failure(.identityInvariant, phase: .invariant)
+            }
+            var matches: [Variant] = []
+            var selectionFailures: [Failure] = []
+            var resolvedCandidateCount = 0
+            for (key, entry) in entries {
+                guard case let .ready(variant) = entry else { continue }
+                do {
+                    let resolvedKey = try SceneResolvedMaterialTextureResolver
+                        .variantKey(
+                            input,
+                            samplers: variant.activeSamplers,
+                            reachableSamplers: reachableSamplers,
+                            formatSlots: textureFormatSlots,
+                            channelUses: Dictionary(uniqueKeysWithValues:
+                                variant.frontendProgram.textureBindings.map {
+                                    ($0.slot, $0.channelUse)
+                                }
+                            ),
+                            allowPresenceIndependentDefaults: true,
+                            restrictToSamplerSlots: true
+                        )
+                    resolvedCandidateCount += 1
+                    if resolvedKey == key { matches.append(variant) }
+                } catch let failure as Failure {
+                    selectionFailures.append(failure)
+                } catch {
                     throw Self.failure(.identityInvariant, phase: .invariant)
                 }
             }
-            var activeSamplers = seedSamplers
-            var seen: Set<UInt8> = []
-            var hasPreparedActiveSamplers = false
-            for _ in 0 ..< Self.maximumReadinessPasses {
-                let key = try SceneResolvedMaterialTextureResolver.variantKey(
-                    input,
-                    samplers: activeSamplers,
-                    reachableSamplers: reachableSamplers,
-                    formatSlots: textureFormatSlots,
-                    allowPresenceIndependentDefaults: hasPreparedActiveSamplers
-                )
-                let mask = key.readinessMask
-                guard seen.insert(mask).inserted else {
-                    throw Self.failure(
-                        .shaderPreparationFailed,
-                        phase: .preparation,
-                        details: ["texture-schema-cycle"]
-                    )
+            guard matches.count == 1, let variant = matches.first else {
+                if resolvedCandidateCount == 0,
+                   let failure = selectionFailures.first,
+                   selectionFailures.allSatisfy({ $0 == failure }) {
+                    throw failure
                 }
-                let variant = try entry(for: key)
-                let next = try SceneResolvedMaterialTextureResolver.variantKey(
-                    input,
-                    samplers: variant.activeSamplers,
-                    reachableSamplers: reachableSamplers,
-                    formatSlots: textureFormatSlots,
-                    channelUses: Dictionary(uniqueKeysWithValues:
-                        variant.frontendProgram.textureBindings.map {
-                            ($0.slot, $0.channelUse)
-                        }
-                    ),
-                    allowPresenceIndependentDefaults: true
-                )
-                if next == key {
-                    return .success(.init(
-                        variant: variant,
-                        reachableSamplers: reachableSamplers
-                    ))
-                }
-                activeSamplers = variant.activeSamplers
-                hasPreparedActiveSamplers = true
+                throw Self.failure(.identityInvariant, phase: .invariant)
             }
-            throw Self.failure(
-                .shaderPreparationFailed,
-                phase: .preparation,
-                details: ["texture-schema-budget"]
-            )
+            return .success(.init(
+                variant: variant,
+                reachableSamplers: reachableSamplers
+            ))
         } catch let failure as Failure {
             return .failure(failure)
         } catch {
             return .failure(Self.failure(.identityInvariant, phase: .invariant))
-        }
-    }
-
-    private func reachableSamplersLocked(
-        implicitFramebufferIdentity: Graph.TextureIdentity?
-    ) throws -> [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>] {
-        if hasCachedReachability {
-            guard cachedReachabilityIdentity == implicitFramebufferIdentity,
-                  let cachedReachableSamplers else {
-                throw Self.failure(.identityInvariant, phase: .invariant)
-            }
-            return cachedReachableSamplers
-        }
-        do {
-            let samplers = try SceneResolvedMaterialShaderSchema.reachableSamplers(
-                template,
-                implicitFramebufferIdentity: implicitFramebufferIdentity
-            )
-            cachedReachableSamplers = samplers
-            cachedReachabilityIdentity = implicitFramebufferIdentity
-            hasCachedReachability = true
-            return samplers
-        } catch {
-            throw Self.failure(
-                .activeSamplerSchemaInvalid,
-                phase: .preparation,
-                details: ["reachable-sampler-schema"]
-            )
         }
     }
 
