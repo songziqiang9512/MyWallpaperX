@@ -359,7 +359,8 @@ enum SceneAuthoredEffectRenderPlanner {
                 && node.target == output
                 && node.commandSource == nil
                 && node.commandTarget == nil
-                && node.conditions == nil
+                // Condition admission prunes the ordered chain after this
+                // raw-shape check; it must not be treated as a compose blocker.
                 && node.bindings.allSatisfy {
                     $0.texture == input && $0.conditions == nil
                 }
