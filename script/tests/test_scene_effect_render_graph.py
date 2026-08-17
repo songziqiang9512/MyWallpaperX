@@ -659,11 +659,8 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
         )
 
     def test_raw_two_pass_compose_is_preserved_without_synthetic_framebuffer(self) -> None:
-        self.assertFalse(self.result["rawComposeStructural"])
-        self.assertEqual(
-            self.result["rawComposeBlockers"],
-            ["unsupportedCompose", "multipleEffectOutputs"],
-        )
+        self.assertTrue(self.result["rawComposeStructural"])
+        self.assertEqual(self.result["rawComposeBlockers"], [])
         self.assertEqual(self.result["rawComposeTargetCount"], 0)
         self.assertEqual(
             self.result["rawComposeTargets"],

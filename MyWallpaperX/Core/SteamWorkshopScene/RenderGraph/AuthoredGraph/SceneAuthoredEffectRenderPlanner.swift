@@ -158,12 +158,12 @@ enum SceneAuthoredEffectRenderPlanner {
                         detail: "Pass has a runtime condition."
                     ))
                 }
-                if let compose = pass.compose, compose.boolValue != false {
+                if let compose = pass.compose, compose.boolValue == nil {
                     blockers.append(blocker(
                         key,
                         passIndex: pass.passIndex,
                         reason: .unsupportedCompose,
-                        detail: "Compose is preserved raw until its input identity is verified."
+                        detail: "Compose must be a boolean before structural admission."
                     ))
                 }
 
@@ -292,13 +292,30 @@ enum SceneAuthoredEffectRenderPlanner {
                 ))
             }
 
+            let effectNodes = Array(nodes[effectNodeStart..<nodes.count])
+            let layerLocalComposeSupported = definition.framebuffers.isEmpty
+                && supportsLayerLocalCompose(
+                    effectNodes,
+                    input: chainInput,
+                    output: texture(.effectOutput, effect: key)
+                )
+            if !layerLocalComposeSupported {
+                for node in effectNodes where node.compose == .bool(true) {
+                    blockers.append(blocker(
+                        key,
+                        passIndex: node.definitionPassIndex,
+                        reason: .unsupportedCompose,
+                        detail: "Compose requires an ordered layer-local full-frame material chain."
+                    ))
+                }
+            }
             if outputPassCount == 0 {
                 blockers.append(blocker(
                     key,
                     reason: .missingEffectOutput,
                     detail: "Effect has no material pass targeting the effect output."
                 ))
-            } else if outputPassCount > 1 {
+            } else if outputPassCount > 1 && !layerLocalComposeSupported {
                 blockers.append(blocker(
                     key,
                     reason: .multipleEffectOutputs,
@@ -324,6 +341,29 @@ enum SceneAuthoredEffectRenderPlanner {
             finalOutput: chainInput,
             blockers: blockers
         )
+    }
+
+    nonisolated private static func supportsLayerLocalCompose(
+        _ nodes: [Plan.Node],
+        input: Plan.TextureIdentity,
+        output: Plan.TextureIdentity
+    ) -> Bool {
+        guard nodes.count >= 2,
+              nodes.dropLast().allSatisfy({ $0.compose == .bool(true) }),
+              let final = nodes.last,
+              final.compose == nil || final.compose == .bool(false) else {
+            return false
+        }
+        return nodes.allSatisfy { node in
+            node.kind == .material
+                && node.target == output
+                && node.commandSource == nil
+                && node.commandTarget == nil
+                && node.conditions == nil
+                && node.bindings.allSatisfy {
+                    $0.texture == input && $0.conditions == nil
+                }
+        }
     }
 
 }

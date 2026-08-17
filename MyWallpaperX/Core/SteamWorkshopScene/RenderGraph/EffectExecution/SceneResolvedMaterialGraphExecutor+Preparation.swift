@@ -22,6 +22,12 @@ extension SceneResolvedMaterialGraphExecutor {
         programKeys: inout [String],
         effectLocalFailureReasonCode: inout String?
     ) -> Failure? {
+        let visualFailureSnapshot = VisualFailureSnapshot(
+            pair: pair,
+            publications: publications,
+            commandCount: commands.count,
+            programKeyCount: programKeys.count
+        )
         if case let .visualFailurePassthrough(_, reasonCode) = stageCapability {
             return prepareVisualFailurePassthrough(
                 reasonCode: reasonCode,
@@ -29,6 +35,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 graph: graph,
                 pairStep: pairStep,
                 lease: lease,
+                snapshot: visualFailureSnapshot,
                 pair: &pair,
                 publications: &publications,
                 commands: &commands,
@@ -172,6 +179,7 @@ extension SceneResolvedMaterialGraphExecutor {
                         graph: graph,
                         pairStep: pairStep,
                         lease: lease,
+                        snapshot: visualFailureSnapshot,
                         pair: &pair,
                         publications: &publications,
                         commands: &commands,
@@ -208,6 +216,7 @@ extension SceneResolvedMaterialGraphExecutor {
                         graph: graph,
                         pairStep: pairStep,
                         lease: lease,
+                        snapshot: visualFailureSnapshot,
                         pair: &pair,
                         publications: &publications,
                         commands: &commands,

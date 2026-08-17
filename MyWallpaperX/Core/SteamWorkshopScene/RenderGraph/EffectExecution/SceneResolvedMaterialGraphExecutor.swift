@@ -270,7 +270,7 @@ final class SceneResolvedMaterialGraphExecutor {
             ) {
                 return .failure(failure)
             }
-            guard !stageCommands.isEmpty,
+            guard !stageCommands.isEmpty || effectLocalFailureReasonCode != nil,
                   pair.member == pairStep.outputMember,
                   let final = publications[pairStep.outputIdentity],
                   final.publication.texture === pair.resource.publication.texture,
