@@ -70,6 +70,7 @@ extension SceneDesktopWallpaperHost {
 #endif
             videoTextureSourceRegistry?.stop()
             videoTextureSourceRegistry = nil
+            launchContext?.sceneScriptScalarProgram.invalidate()
             launchContext = nil
 #if DEBUG
             debugPointerOverride = nil
@@ -218,6 +219,7 @@ extension SceneDesktopWallpaperHost {
                 + launchContext.hoverOriginTransitionProgram.definitions
                 + launchContext.audioScaledValueProgram.definitions
                 + launchContext.propertyVectorScriptProgram.definitions
+                + launchContext.sceneScriptScalarProgram.definitions
         )
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
         let timelineValues = SceneTimelineRuntime.values(
@@ -270,7 +272,7 @@ extension SceneDesktopWallpaperHost {
             debugAudioScaledValueWasSilent = audioSpectrum.isSilent
         }
 #endif
-        let commonSceneScriptValues = textScriptValues.merging(
+        var commonSceneScriptValues = textScriptValues.merging(
             timeOfDayEffectScriptValues,
             uniquingKeysWith: { textValue, _ in textValue }
         ).merging(
@@ -288,6 +290,39 @@ extension SceneDesktopWallpaperHost {
         ).merging(
             propertyVectorScriptValues,
             uniquingKeysWith: { existing, _ in existing }
+        )
+        let boundedSceneScriptValues = commonSceneScriptValues
+        let preliminaryForSceneScript = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: timing.frameIndex,
+            generation: 0,
+            definitions: definitions,
+            userValues: launchContext.liveState.userValues,
+            timelineValues: timelineValues,
+            sceneScriptValues: boundedSceneScriptValues
+        ).snapshot
+        let sceneScriptInputs = launchContext.sceneScriptScalarProgram.bindings.reduce(
+            into: [SceneDynamicTarget: SceneDynamicValue]()
+        ) { inputs, binding in
+            guard let resolved = preliminaryForSceneScript[binding.target],
+                  case .scalar = resolved.value else { return }
+            inputs[binding.target] = resolved.value
+        }
+        let sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate(
+            inputs: sceneScriptInputs
+        )
+        if !sceneScriptResult.failures.isEmpty {
+            for (target, failure) in sceneScriptResult.failures {
+                NSLog(
+                    "MWX SceneScript VM: target=%@ failure=%@ code=%@ fallback=previous-current",
+                    String(describing: target),
+                    String(describing: failure),
+                    failure.code
+                )
+            }
+        }
+        commonSceneScriptValues.merge(
+            sceneScriptResult.values,
+            uniquingKeysWith: { _, genericValue in genericValue }
         )
         for surface in surfaces.values {
 #if DEBUG

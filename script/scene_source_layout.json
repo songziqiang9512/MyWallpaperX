@@ -160,6 +160,13 @@
       }
     },
     "Runtime": {
+      "SceneScript": {
+        "file_globs": [
+          "SceneScriptScalarProgram.swift",
+          "SceneScriptScalarRuntime.swift"
+        ],
+        "responsibility": "SceneScript VM owner and typed scalar snapshot bridge; excludes QuickJS core source, host event API breadth, and GPU rendering consumers."
+      },
       "ResolvedMaterialExecution": {
         "file_globs": [
           "SceneResolvedMaterialGraphObservationBuilder.swift",

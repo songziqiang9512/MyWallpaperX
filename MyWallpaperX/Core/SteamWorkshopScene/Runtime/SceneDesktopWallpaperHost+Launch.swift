@@ -21,6 +21,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let hoverOriginTransitionProgram: SceneHoverOriginTransitionProgram
     let audioScaledValueProgram: SceneAudioScaledValueProgram
     let propertyVectorScriptProgram: ScenePropertyVectorScriptProgram
+    let sceneScriptScalarProgram: SceneScriptScalarProgram
     let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
@@ -33,6 +34,10 @@ struct SceneDesktopWallpaperLaunchContext {
         resolvedMaterialCatalog.reportLines
             + resolvedMaterialExecutionCapabilities.reportLines
             + materialAssetCatalog.reportLines + [
+            "scene script VM: schema=quickjs-ng-scalar-v1"
+                + " bindings=\(sceneScriptScalarProgram.bindings.count)"
+                + " targets=\(sceneScriptScalarProgram.definitions.count)"
+                + " fallback=bounded-swift-prefer-generic",
             "resolved material system providers: schema=r3-system-provider-v1"
                 + " demands=\(resolvedMaterialCatalog.systemProviderDemands.count)"
                 + " missingState=unavailable"
@@ -303,12 +308,41 @@ extension SceneDesktopWallpaperHost {
         ) else {
             throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
         }
+        let boundedSceneScriptTargets = timeOfDayEffectScriptCandidateTargets
+            .union(mediaPlaybackPlaceholderFadeCandidateTargets)
+            .union(mediaColorTransitionCandidateTargets)
+            .union(launchOriginTransitionTargets)
+            .union(hoverOriginTransitionTargets)
+            .union(audioScaledValueTargets)
+            .union(propertyVectorScriptTargets)
+        nextSceneScriptGeneration &+= 1
+        let sceneScriptScalarProgram = SceneScriptScalarProgram.compile(
+            descriptor: runtimeInput.renderDescriptor,
+            scriptBindings: model.sceneDocument.scriptBindings,
+            excludedTargets: boundedSceneScriptTargets,
+            generation: nextSceneScriptGeneration
+        )
+        let sceneScriptScalarTargets = Set(
+            sceneScriptScalarProgram.definitions.map(\.target)
+        )
+        guard sceneScriptScalarTargets.count
+                == sceneScriptScalarProgram.definitions.count,
+              sceneScriptScalarTargets.isDisjoint(with: boundedSceneScriptTargets),
+              sceneScriptScalarTargets.isDisjoint(with: Set(
+                  runtimeInput.propertyBindingProgram.definitions.map(\.target)
+              )),
+              sceneScriptScalarTargets.isDisjoint(with: Set(
+                  timelineProgram.bindings.map(\.target)
+              )) else {
+            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+        }
         let provenSceneScriptValueTargets = timeOfDayEffectScriptCandidateTargets
             .union(mediaPlaybackPlaceholderFadeCandidateTargets)
             .union(mediaColorTransitionCandidateTargets)
             .union(launchOriginTransitionProgram.scalarBindings.map {
                 $0.definition.target
             })
+            .union(sceneScriptScalarTargets)
         let resolvedMaterialAdmissionCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: runtimeInput.renderDescriptor,
@@ -439,6 +473,7 @@ extension SceneDesktopWallpaperHost {
             hoverOriginTransitionProgram: hoverOriginTransitionProgram,
             audioScaledValueProgram: model.audioScaledValueProgram,
             propertyVectorScriptProgram: model.propertyVectorScriptProgram,
+            sceneScriptScalarProgram: sceneScriptScalarProgram,
             mediaThumbnailBindings: mediaThumbnailBindings,
             liveState: ScenePropertyLiveUpdateState(
                 program: runtimeInput.propertyBindingProgram,

@@ -88,6 +88,21 @@
       "keywords": ["runtime", "frame_context", "performance"]
     },
     {
+      "id": "scene-script-runtime",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+      ],
+      "modules": [
+        "test_scene_dynamic_snapshot",
+        "test_scene_resolved_material_execution_capability",
+        "test_scene_script_binding_parser",
+        "test_scene_script_quickjs"
+      ]
+    },
+    {
       "id": "resolved-material-runtime-execution",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Runtime/ResolvedMaterialExecution/**"],
       "modules": [

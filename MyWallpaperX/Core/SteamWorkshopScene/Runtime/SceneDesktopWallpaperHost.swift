@@ -80,6 +80,7 @@ final class SceneDesktopWallpaperHost {
         SceneAudioScaledValueRuntime(program: .empty)
     var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
     var nextVideoProviderEpoch: UInt64 = 0
+    var nextSceneScriptGeneration: UInt64 = 0
 #if DEBUG
     var debugPointerOverride: SceneSurfacePointerState?
     var debugDropDynamicValuesFrameIndex: UInt64?
@@ -115,6 +116,7 @@ final class SceneDesktopWallpaperHost {
         videoTextureSourceRegistry = SceneVideoTextureSourceRegistry(
             epoch: nextVideoProviderEpoch
         )
+        launchContext?.sceneScriptScalarProgram.invalidate()
         launchContext = context
 #if DEBUG
         debugAudioScaledValueValues = [:]
