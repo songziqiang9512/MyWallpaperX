@@ -108,4 +108,4 @@ route state 的名称、定义和进入条件只从当前 `AGENTS.md`、runtime 
 
 ## 反漂移终审
 
-冻结 owned diff 后确认：没有 identity-based 视觉算法；没有为新 effect/script/particle family 新增名称专用产品 owner；没有第二 renderer/resource/clock/graph/property/history/compositor；作者顺序、slot hole、target/publication 未丢失；三个 frame channel 和最小失效域未混淆；local visual failure 保留 previous current 而 unsafe error 仍 fail closed；route 可观察且声明不超过证据；implementation context 未消费 research-only/第三方实现；Skill 没有覆盖当前 roadmap、ledger、evidence 或机器 manifest。
+冻结 owned diff 后确认：没有 identity-based 视觉算法；没有为新 effect/script/particle family 新增名称专用产品 owner；没有第二 renderer/resource/clock/graph/property/history/compositor；作者顺序、slot hole、target/publication 未丢失；现役 runtime architecture 定义的 typed frame channels 和最小失效域未混淆；local visual failure 保留 previous current 而 unsafe error 仍 fail closed；route 可观察且声明不超过证据；implementation context 未消费 research-only/第三方实现；Skill 没有覆盖当前 roadmap、ledger、evidence 或机器 manifest。

@@ -87,8 +87,8 @@ Add module-specific identity, route, source, or evidence fields only when the lo
 4. Preserve identity across async boundaries: intent epoch, request, generation, display, session, surface, navigation, provider, target, and publication as applicable. Add stale/teardown counterexamples when these can change.
 5. Keep integrity failures fail-closed at the smallest unsafe unit. Keep ordinary visual or optional-provider failures local and observable when the canonical contract permits it.
 6. Run the smallest gate that can falsify the change, confirm the changed code actually loaded, then escalate by risk. Never use build, ready, route, non-black, matrix, or one sample as a stronger visible/parity/release claim.
-7. Update only the canonical document whose fact actually changed. Never copy a new current result into this Skill.
-8. Freeze the owned diff, inspect untracked files explicitly, classify generated artifacts, and report all skipped or unresolved boundaries.
+7. Update each role-specific canonical authority whose owned fact changed, while recording each fact in only one owning document. Never copy a new current result into this Skill.
+8. Freeze the owned diff, inspect untracked files explicitly, and classify generated artifacts. After the final build, runtime, or gate, repeat status and relevant process/output checks; stop exact owned processes or record explicit retention, then report all skipped or unresolved boundaries.
 
 ## Correct This Skill Without Following It Blindly
 

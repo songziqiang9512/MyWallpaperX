@@ -11,7 +11,8 @@
 5. [日志与 typed diagnostics](#日志与-typed-diagnostics)
 6. [签名、nested code 与发布](#签名nested-code-与发布)
 7. [Runtime 隔离与声明等级](#runtime-隔离与声明等级)
-8. [Tracked 与 untracked 交接](#tracked-与-untracked-交接)
+8. [最终 gate 与证据闭环](#最终-gate-与证据闭环)
+9. [Tracked 与 untracked 交接](#tracked-与-untracked-交接)
 
 ## 先定义证据问题
 
@@ -79,7 +80,13 @@ UI 只投影产品状态并发命令，不能成为第二 runtime 真值。多�
 
 同一时刻只运行一个会竞争 App、helper、GPU、benchmark、matrix 或共享 DerivedData 的任务。结束后确认进程退出或明确保留。高体量输出另加载 artifact governance。
 
-声明按实际最高阶段：static/recognized、compiled/linked、process alive、accepted/host ready、prepared、published/composited、visible bounded case、matrix profile、signed staged、official bounded comparison、release。较低阶段不能冒充较高阶段；所有 PASS 绑定 diff/commit、build identity、输入、环境和 gate version。
+声明按实际最高阶段：static/recognized、compiled/linked、process alive、accepted/host ready、prepared、published/composited、visible bounded case、matrix profile、signed staged、official bounded comparison、release。较低阶段不能冒充较高阶段；所有 PASS 绑定 frozen source diff 或 commit、精确 build identity、输入、环境和 gate version。产品源码、gate/build input 或 App identity 变化后，旧 runtime 证据不再证明当前候选。
+
+## 最终 gate 与证据闭环
+
+把最后一个 build、runtime 或 gate 也当作新的 process/artifact writer。它结束后再核对相关 App/helper/benchmark/build/test 进程、output 保留状态、适用的 sample-root residue 与工作区 status；较早的收尾检查不能覆盖后来的命令。只终止精确归属于当前任务的进程，否则记录明确保留理由。
+
+将刚完成的 gate 结果写入其 role-specific 证据文档后，避免制造自引用重跑循环：若只变更 prose、link 或 evidence field，且产品源码、gate manifest、test selection、build input 与 App identity 均未变，只重跑受影响的 document/link/governance/semantic validator；若上述任一输入变化，则重跑相称的 product build/runtime。
 
 ## Tracked 与 untracked 交接
 
