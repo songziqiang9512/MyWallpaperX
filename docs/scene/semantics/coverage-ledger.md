@@ -68,6 +68,8 @@ R0-R5、B0-B25 与旧 Coverage-first 的逐批迁移过程不参与现役路线�
 
 2026-08-18 的第九个 V1 公共可见原子把显式 typed material/instance condition provider 接入 generic graph admission：false target/pass/binding 在 target allocation、Program preparation、encode 与 publication 前剪枝，raw planner 仍保留 `unsupportedCondition` 作为已处理的 admission-phase diagnostic。隔离真实 `3768724269` 派生 fixture 的正门在 `layer=100` 形成 2 material node + 1 compose node，反门剪掉 false 首节点后只剩 1 material node；两路 frame 0/next-frame 均 GPU completed、publication generation、terminal compositor consume、next-frame 与 teardown 闭合，`sample_root_residue=[]`。该结果达到 `slice-visible / representative-content / prefer-generic`，不是 generic-only、owner migration、Fast Suite、V1 整体或官方 parity；剩余 condition/function/provider、conditional FBO/history/dependency 与其他 graph failure 边界继续登记在专项表和运行证据中。精确身份见 [E-V1-EXPLICIT-CONDITION-PRUNING](runtime-evidence-index.md#e-v1-explicit-condition-pruning)。
 
+随后一个 V1 公共可见原子把同一真实 Motion Blur authored graph 的单 copy 扩展为两个有序 copy command：2 material + 2 copy 节点沿 `SceneGraphNodeScheduler`/`SceneGraphCommandRuntime` 执行，416 个 terminal graph observations 均 GPU/publication/compositor/next-frame 成功；未声明第二 target 的反门在 admission 前以 `unified-capability-unavailable` 关闭，claim/encode/GPU 为 0，安全 layer-source passthrough 继续完成。该结果达到 `slice-visible / representative-content / prefer-generic`，不升级 arbitrary multi-copy、mixed copy/swap、跨 effect/lifecycle history、owner migration、Fast Suite、V1 整体或官方 parity。精确身份见 [E-V1-ORDERED-MULTI-COPY-COMMAND-CHAIN](runtime-evidence-index.md#e-v1-ordered-multi-copy-command-chain)。
+
 ## 2. 官方资料覆盖
 
 | 资料面 | 收集状态 | 权威入口 | 仍未知 |
