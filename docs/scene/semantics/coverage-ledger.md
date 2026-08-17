@@ -2,7 +2,7 @@
 
 > 状态：现役 current capability 唯一系统摘要；逐项合同与专题内等级由各专项能力表维护
 >
-> 最近核对：2026-08-17
+> 最近核对：2026-08-18
 >
 > 当前系统能力、主要缺口和明确待办只由本页汇总；唯一执行顺序见 [Scene 兼容执行路线](../scene-compatibility-roadmap.md)，精确 App、矩阵、报告与运行身份统一见 [运行证据索引](runtime-evidence-index.md)。路线只拥有 V0-V5 顺序，不复制或改写 current capability；逐批迁移过程只从[统一历史索引](../../history/README.md)追溯，不得覆盖当前结论。
 
@@ -61,6 +61,8 @@ R0-R5、B0-B25 与旧 Coverage-first 的逐批迁移过程不参与现役路线�
 2026-08-17 的第五个 V1 公共可见原子把 exact case-insensitive `_rt_FullFrameBuffer` 降为 renderer-owned `sceneBackground` provider：它表示同帧中受影响 layer 之前的 main target，与 layer source、layer-local current、effect FBO/history、named cross-layer publication 和 final compositor output 分离。当前只接受单 effect、exactly two ordinary material、首 node slot 1 且 `compose:true`、次 node compose nil/false、0 authored FBO/blocker、一次 compose transition、两次 full-frame write、同 pair member in/out、dependency owner `.none` 的 image/solid/text captured-layer shape；资源必须保持 consumer layer、frame epoch、purpose、extent、UV、sampler、premultiplied content 与 texture-object identity。隔离 contract representative `9000000003:38` 由两个普通 Program 读取 same-frame main target，GraphExecutor `7/7/7`、frame 0/next-frame GPU completion、effect-output publication 和 terminal compositor 全部闭合；正门相对 no-effect control 改变 5,220,312 像素（87.896825%），三 node 反例以 typed `scene-background-compose-shape` 零 claim/encode/GPU 并回滚到与 control 完全相同的 PNG。route 仍为 `prefer-generic`，只达到 `slice-visible / contract-representative`；不是 stock Refraction、normal/mask 语义、其他 background/dependency compose、owner migration、Fast Suite、官方 parity 或 release。精确证据见 [E-V1-SCENE-BACKGROUND-COMPOSE](runtime-evidence-index.md#e-v1-scene-background-compose)。
 
 2026-08-17 的第六个 V1 公共可见原子让两个完全同 descriptor 的 declared FBO 执行 authored `swap`：command 只交换 logical identity mapping，不复制像素、不推进 full-frame current，后续 ordinary material 读取交换后的 identity。项目自有正例相对 no-swap control 使整个 `3024x1964` frame 从 `(229,13,13)` 变为 `(13,26,229)`，两路均闭合Program、GraphExecutor、GPU completion、exact effect-output publication、terminal compositor与next-frame。launch admission现按author extent expression及format/address/unique/clear检查swap compatibility，不再让`1x1` probe把不同scale钳成同一pixel extent；extent/format/unique/clear任一不匹配均以typed `swap-target-descriptor-incompatible`在claim、allocation、encode与publication前硬拒绝，layer-source passthrough与author-disabled base逐字节、逐像素相同。route仍为`prefer-generic`，只达到`slice-visible / contract-representative`；不表示跨帧mapping/history、Fluid condition/function/float format、V1完成、owner migration、Fast Suite、fixed/full、官方parity或release。精确证据见[E-V1-SAME-DESCRIPTOR-SWAP](runtime-evidence-index.md#e-v1-same-descriptor-swap)。
+
+2026-08-18 的第七个 V1 公共可见原子只把 exact authored shader schema 中稳定的 `[COMBO] default:0` 投影为缺失 graph condition key 的 implicit-zero evidence；material/instance 显式 combo 继续优先，nonzero、readiness、format、disabled、branch-only、条件冲突、malformed、identity mismatch与audit overflow均失败关闭。false target/pass/binding在allocation、Program preparation、encode与publication前剪枝。项目自有缺省零与显式一正例分别得到红/蓝全帧、GraphExecutor `7/7/7`、GPU/publication/compositor/next-frame；unproven-key反例为零claim/encode/GPU，204/204 frame完成且rollback截图与author-disabled control字节相同。真实Fluid相邻探针仍为NON-PASS，但condition evidence已证明`LIGHTING/LINEEMITTER/OPAQUE/PERSPECTIVE/RENDERING`，当前首断点推进到typed `function-invocation-unavailable`。route仍为`prefer-generic`，证据只到`slice-visible / contract-representative`；不是Fluid、V1、owner migration、官方parity或release完成。精确证据见[E-V1-SHADER-DEFAULT-ZERO-CONDITION](runtime-evidence-index.md#e-v1-shader-default-zero-condition)。
 
 ## 2. 官方资料覆盖
 

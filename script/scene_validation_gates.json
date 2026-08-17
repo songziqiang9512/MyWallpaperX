@@ -158,6 +158,7 @@
       "modules": [
         "test_scene_effect_render_graph",
         "test_scene_graph_admission_compiler",
+        "test_scene_graph_condition_schema_evidence",
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_graph_executor"
       ]

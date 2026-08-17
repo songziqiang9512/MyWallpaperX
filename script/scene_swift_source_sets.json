@@ -134,6 +134,21 @@
         "RenderGraph/ShaderPreparation/SceneAuthoredShaderPreparation+Support.swift"
       ]
     },
+    "graph_condition_schema_evidence_implementation": {
+      "description": "Exact authored graph and shader-schema inputs used to prove stable zero-default condition providers.",
+      "includes": [
+        "shader_preprocessing_and_variant_implementation"
+      ],
+      "sources": [
+        "Format/SceneJSONValue.swift",
+        "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
+        "RenderGraph/AuthoredGraph/SceneGraphConditionAdmission.swift",
+        "RenderGraph/AuthoredGraph/SceneGraphConditionSchemaEvidenceCompiler.swift",
+        "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+        "RenderGraph/ShaderContract/SceneShaderContract.swift",
+        "Resources/SceneTextureSampling.swift"
+      ]
+    },
     "generic_shader_compiler_preparation_implementation": {
       "description": "Signed generic shader helper resolution, isolated execution, source normalization, and artifact lowering.",
       "includes": [],

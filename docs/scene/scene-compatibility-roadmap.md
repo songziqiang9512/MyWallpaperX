@@ -34,7 +34,7 @@
 
 本文只保存由上述现役权威导出的计划决策：V0 首个 ordinary authored effect 已按完成门取得 `slice-visible` 正反证，下一批进入 V1，在同一 Program/GraphExecutor 主链闭合最小 graph/FBO correctness atom，不建设第二套 renderer。仓库中的历史专用实现、旧测试、旧类型层级和旧 matrix 只构成需要审计的偏差候选，不自动取得目标架构或下一批执行权。
 
-依据当前能力台账与运行证据，V1 已分别闭合 material/copy/unique-history、classic primary cross-layer named-provider、exact R8 repeat FBO/direct-red、bounded layer-local full-frame compose、same-frame scene-background compose carrier与same-descriptor authored swap六个 `slice-visible` atom；能力台账与运行证据另已登记named-provider的局部 `generic-only / owner-migration-complete`。路线决策仍是留在 V1：从剩余 ordered FBO command、其他 history、condition/function、其他background/dependency compose与 secondary/multiple/nested dependency 中选择下一个独立公共结果；该局部 owner 迁移和第六个可见原子都不表示 V1、Fluid、Refraction、Fast Suite、官方 parity 或 release 完成。
+依据当前能力台账与运行证据，V1 已分别闭合 material/copy/unique-history、classic primary cross-layer named-provider、exact R8 repeat FBO/direct-red、bounded layer-local full-frame compose、same-frame scene-background compose carrier、same-descriptor authored swap与stable zero-default authored condition pruning七个 `slice-visible` atom；能力台账与运行证据另已登记named-provider的局部 `generic-only / owner-migration-complete`。路线决策仍是留在 V1：真实Fluid相邻探针已越过缺省零condition provider，当前首断点推进到通用effect function invocation；下一批先闭合function调用来源、执行时机、target lifecycle与局部失败边界，再重新定位float target/utility source等后续缺口。该局部 owner 迁移和第七个可见原子都不表示 V1、Fluid、Refraction、Fast Suite、官方 parity 或 release 完成。
 
 ## 3. 执行优先级
 

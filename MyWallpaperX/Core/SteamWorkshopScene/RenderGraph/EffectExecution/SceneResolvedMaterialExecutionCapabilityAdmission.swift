@@ -56,7 +56,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         descriptor: SceneRenderDescriptor,
         authoredPlans: [Graph],
         dedicatedStagePrograms: [SceneEffectStageProgram] = [],
-        dynamicEffectVisibilityOwners: Set<DynamicEffectVisibilityOwner> = []
+        dynamicEffectVisibilityOwners: Set<DynamicEffectVisibilityOwner> = [],
+        conditionSchemaEvidence: [Graph.EffectKey: SceneGraphConditionSchemaEvidence] = [:]
     ) -> [Candidate] {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
         let rawGroups = Dictionary(grouping: authoredPlans, by: \.layerID)
@@ -142,7 +143,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     activeEffects: activeEffects,
                     descriptor: descriptor,
                     dependencyOwnership: dependencyOwnership,
-                    sourceRoute: sourceRoute
+                    sourceRoute: sourceRoute,
+                    conditionSchemaEvidence: conditionSchemaEvidence
                 ),
                 dedicatedStagePrograms: dedicatedGroups[layerID] ?? []
             )
@@ -201,7 +203,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         activeEffects: [(offset: Int, element: SceneRenderDescriptor.EffectDescriptor)],
         descriptor: SceneRenderDescriptor,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
-        sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
+        sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
+        conditionSchemaEvidence: [Graph.EffectKey: SceneGraphConditionSchemaEvidence]
     ) -> Result<SceneResolvedMaterialAdmittedLayer, Failure> {
         do {
             guard graph.effects.count <= maximumEffectsPerLayer,
@@ -227,7 +230,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     graph: stage,
                     descriptor: descriptor,
                     functions: definition.functions,
-                    schemaEvidence: .unavailable
+                    schemaEvidence: conditionSchemaEvidence[effect.key] ?? .unavailable
                 )
                 switch result {
                 case let .success(product):
@@ -381,8 +384,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
               }) else {
             throw failure("admitted-graph-structure")
         }
-        guard SceneGraphRenderTargetPlan
-            .authoredSwapDescriptorsAreCompatible(in: graph) else {
+        guard SceneGraphRenderTargetPlan.authoredSwapDescriptorsAreCompatible(in: graph) else {
             throw failure("swap-target-descriptor-incompatible")
         }
     }

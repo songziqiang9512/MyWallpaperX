@@ -315,7 +315,13 @@ extension SceneDesktopWallpaperHost {
                 authoredPlans: runtimeInput.authoredEffectRenderPlans,
                 dedicatedStagePrograms: dedicatedStageLeaves,
                 dynamicEffectVisibilityOwners:
-                    frameDrivenEffectVisibilityOwners
+                    frameDrivenEffectVisibilityOwners,
+                conditionSchemaEvidence:
+                    SceneGraphConditionSchemaEvidenceCompiler.compile(
+                        descriptor: runtimeInput.renderDescriptor,
+                        authoredPlans: runtimeInput.authoredEffectRenderPlans,
+                        shaderContracts: runtimeInput.shaderContracts
+                    )
             )
         let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
             descriptor: runtimeInput.renderDescriptor,

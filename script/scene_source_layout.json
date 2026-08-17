@@ -20,7 +20,8 @@
           "SceneAuthoredEffectRenderPlanner.swift",
           "SceneAuthoredEffectRenderPlanner+Resolution.swift",
           "SceneGraphAdmissionCompiler.swift",
-          "SceneGraphConditionAdmission.swift"
+          "SceneGraphConditionAdmission.swift",
+          "SceneGraphConditionSchemaEvidenceCompiler.swift"
         ],
         "responsibility": "Authored graph IR, structural planning, and graph/condition admission; excludes execution backends, target lifecycle, dependency scheduling, and GPU encoding."
       },

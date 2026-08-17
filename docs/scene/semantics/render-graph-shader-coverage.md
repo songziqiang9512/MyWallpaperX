@@ -1,10 +1,10 @@
 # Scene Render Graph 与 Shader 覆盖矩阵
 
-> 核验日期：2026-08-17
+> 核验日期：2026-08-18
 >
 > 范围：Effect definition、material、render graph、FBO 与 Wallpaper Engine shader 合同。
 >
-> 结论：当前 graph 已有 loss-preserving IR、source/variant preparation、atomic Program、persistent target、GraphExecutor 和 compositor；V0 ordinary authored Program与V1 material/copy/history、classic primary named-provider、exact R8 repeat FBO/direct-red、bounded layer-local compose、same-frame scene-background carrier及same-descriptor authored swap分别取得 bounded `slice-visible`。R8原子把exact `uvs` absent/repeat降为typed address identity，并让`.scalarRedUnorm` output contract与direct-red consumer沿同一Program/GraphExecutor闭合；swap原子证明后段material可见logical identity permutation，并在descriptor不兼容时于claim前硬拒绝。普通shader compiler route仍为`prefer-generic`；当前Motion Blur与layer 73 artifact均回退`boundedSwift`。named-provider的classic primary profile已独立完成`generic-only / owner-migration-complete`，但这些结果都不表示V1、整个command/named/FBO family、普通shader compiler、官方parity或release完成。精确运行身份与证据见[运行证据索引](runtime-evidence-index.md)。
+> 结论：当前 graph 已有 loss-preserving IR、source/variant preparation、atomic Program、persistent target、GraphExecutor 和 compositor；V0 ordinary authored Program与V1 material/copy/history、classic primary named-provider、exact R8 repeat FBO/direct-red、bounded layer-local compose、same-frame scene-background carrier、same-descriptor authored swap及stable zero-default condition pruning分别取得 bounded `slice-visible`。condition原子只在exact material/shader identity下使用稳定`[COMBO] default:0`，显式provider优先，false target/pass/binding在allocation前剪枝；其他schema来源和歧义继续失败关闭。普通shader compiler route仍为`prefer-generic`；当前Motion Blur与layer 73 artifact均回退`boundedSwift`。named-provider的classic primary profile已独立完成`generic-only / owner-migration-complete`，但这些结果都不表示V1、整个condition/command/named/FBO family、普通shader compiler、官方parity或release完成。精确运行身份与证据见[运行证据索引](runtime-evidence-index.md)。
 >
 > 当前第二个 V1 原子闭合classic primary named cross-layer carrier：`_rt_imageLayerComposite_<provider>_a` 经 typed publication 以 `.premultipliedColor` 进入普通 MaterialProgram slot，GraphExecutor 在同一 provider/consumer/effect/pass/slot/variant/frame identity 下消费并到达 compositor/next-frame；其后owner migration删除了旧Clipping planner/contract/execution plan/renderer与实现耦合测试owner。该`generic-only` profile只由单一primary backward composition provider、slot 1、无user override、blend 0和constants absent-or-unit定义。`_b`为typed `unsupportedVariant`，非unit constant为typed `unsupportedConsumer`，均零graph execution；secondary/multiple/mismatch/cycle、任意named texture、nested/effectful provider仍未闭合。bounded frontend另只对可静态证明为component-wise的`float2/float3` `+ - * /`赋值表达式缩窄更宽裸vector operand；其他复合形态仍失败关闭。
 
@@ -29,6 +29,8 @@
 > V1第五个公共可见原子见[E-V1-SCENE-BACKGROUND-COMPOSE](runtime-evidence-index.md#e-v1-scene-background-compose)：exact case-insensitive `_rt_FullFrameBuffer` 作为renderer-owned same-frame main-target provider进入严格two-node compose shape，独立于layer source/current、effect FBO/history、named publication和final compositor。项目自有正例闭合Program、GPU/publication/compositor/next-frame；三node反例typed拒绝并回到与no-effect control像素一致的base output。不外推stock Refraction、normal/mask、其他background/dependency compose、owner migration、Fast Suite或官方parity。
 >
 > V1第六个公共可见原子见[E-V1-SAME-DESCRIPTOR-SWAP](runtime-evidence-index.md#e-v1-same-descriptor-swap)：项目自有ordinary `material -> material -> swap -> material` graph以两个同descriptor declared FBO交换logical mapping，后段material使整帧输出与no-swap control形成明确红/蓝差异。extent expression、format、address、unique或clear不匹配时，launch admission以typed `swap-target-descriptor-incompatible`在claim/allocation/encode/publication前拒绝，并回到与author-disabled base逐像素一致的layer source。它不外推跨帧mapping/history、Fluid、condition/function、其他format、owner migration、Fast Suite或官方parity。
+>
+> V1第七个公共可见原子见[E-V1-SHADER-DEFAULT-ZERO-CONDITION](runtime-evidence-index.md#e-v1-shader-default-zero-condition)：condition admission在完整graph effect、descriptor layer/effect、material path/ID与唯一双stage authored shader contract identity下，只接收词法无条件、default为0且options允许0的authored combo。显式material/instance值仍先于implicit zero；nonzero、readiness、format、disabled、branch-only、同键条件冲突、malformed、重复identity/stage与probe overflow全部拒绝。项目自有正反fixture闭合red/blue visible output和像素相同rollback；Fluid只作为NON-PASS相邻定位，当前下一首断点是function invocation，不是Fluid执行证据。
 
 ## 1. 证据与使用方式
 

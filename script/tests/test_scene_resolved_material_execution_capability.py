@@ -886,6 +886,7 @@ private func rawGraph(
     let history = framebuffer(firstKey, "history")
     let scratch = framebuffer(firstKey, "scratch")
     let conditionName = unresolvedCondition ? "UNKNOWN" : "MODE"
+    let conditionValue = unresolvedCondition ? 1.0 : 0.0
     let firstNodes = [
         material(
             index: 0,
@@ -900,7 +901,7 @@ private func rawGraph(
             effect: firstKey,
             target: scratch,
             input: firstInput,
-            passCondition: condition(conditionName, 0)
+            passCondition: condition(conditionName, conditionValue)
         ),
         material(
             index: 2,
@@ -931,7 +932,7 @@ private func rawGraph(
             effects: [firstEffect],
             renderTargets: [
                 target(history),
-                target(scratch, condition: condition(conditionName, 0)),
+                target(scratch, condition: condition(conditionName, conditionValue)),
             ],
             nodes: firstNodes,
             finalOutput: firstOutput,
@@ -967,7 +968,7 @@ private func rawGraph(
         ],
         renderTargets: [
             target(history),
-            target(scratch, condition: condition(conditionName, 0)),
+            target(scratch, condition: condition(conditionName, conditionValue)),
         ],
         nodes: firstNodes + [secondNode],
         finalOutput: secondOutput,
@@ -1599,12 +1600,16 @@ private func catalog(
     admissionCandidates: [
         SceneResolvedMaterialExecutionCapabilityAdmission.Candidate
     ]? = nil,
+    conditionSchemaEvidence: [
+        Graph.EffectKey: SceneGraphConditionSchemaEvidence
+    ] = [:],
     dynamicProducers: Catalog.DynamicProducerCatalog = .empty
 ) -> Catalog {
     let candidates = admissionCandidates
         ?? SceneResolvedMaterialExecutionCapabilityAdmission.compile(
             descriptor: value,
-            authoredPlans: graphs
+            authoredPlans: graphs,
+            conditionSchemaEvidence: conditionSchemaEvidence
         )
     return .init(
         admissionCandidates: candidates,
@@ -2131,6 +2136,18 @@ private enum Harness {
             graphs: [unresolved],
             materials: materialCatalog(graph: unresolved)
         )
+        let implicitZeroCatalog = catalog(
+            descriptor: desc,
+            graphs: [unresolved],
+            materials: materialCatalog(graph: unresolved),
+            conditionSchemaEvidence: [firstKey: .init(
+                keysProvenZeroWhenMissing: ["UNKNOWN"]
+            )]
+        )
+        let implicitZeroCapability = implicitZeroCatalog
+            .claim(layerID: layerID)
+            .flatMap { implicitZeroCatalog.resolve($0.token) }
+        let implicitZeroProduct = implicitZeroCapability?.admittedProducts.first
         let missingTemplateCatalog = catalog(
             descriptor: desc,
             graphs: [raw],
@@ -2816,6 +2833,14 @@ private enum Harness {
                 effect: firstKey,
                 nodeIndex: 1
             ) == nil,
+            "implicitZeroCondition": [
+                "claimed": implicitZeroCapability != nil,
+                "keys": implicitZeroProduct?.conditionSnapshot.implicitZeroKeys ?? [],
+                "nodes": implicitZeroProduct?.graph.nodes.map(\.nodeIndex) ?? [],
+                "targets": implicitZeroProduct?.graph.renderTargets.compactMap {
+                    $0.texture.name
+                } ?? [],
+            ],
             "materials": capability.materials.count,
             "fullFrameExtentPolicy": [
                 "maximumDimensionClass": capability.fullFrameExtentPolicy
@@ -6441,6 +6466,15 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertEqual(payload["prunedTargets"], ["history"])
         self.assertEqual(payload["composeNodes"], [2])
         self.assertTrue(payload["conditionFalseMaterialExcluded"])
+        self.assertEqual(
+            payload["implicitZeroCondition"],
+            {
+                "claimed": True,
+                "keys": ["UNKNOWN"],
+                "nodes": [0, 2, 3],
+                "targets": ["history"],
+            },
+        )
         self.assertEqual(payload["materials"], 4)
         self.assertEqual(
             payload["fullFrameExtentPolicy"],
