@@ -134,9 +134,13 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             case .deferred: return .unknownInternalGraph
             case .invalid, .none: return .invalid
             }
-            if case let .provider(provider) = reference,
-               case .system = provider {
-                return .unknownInternalGraph
+            if case let .provider(provider) = reference {
+                switch provider {
+                case .system:
+                    return .unknownInternalGraph
+                case .namedLayerTarget, .sceneBackground:
+                    break
+                }
             }
             if case .userProperty = reference {
                 return .unknownInternalGraph
@@ -232,14 +236,27 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             guard identity == implicitFramebufferIdentity else { return nil }
             return .init(
                 isGraphReference: true,
+                isFramebufferInput: true,
                 content: .color(.resolved(.premultipliedAlpha))
             )
         }
-        if case .provider(.namedLayerTarget) = reference {
-            return .init(
-                isGraphReference: false,
-                content: .color(.resolved(.premultipliedAlpha))
-            )
+        if case let .provider(provider) = reference {
+            switch provider {
+            case .namedLayerTarget:
+                return .init(
+                    isGraphReference: false,
+                    isFramebufferInput: false,
+                    content: .color(.resolved(.premultipliedAlpha))
+                )
+            case .sceneBackground:
+                return .init(
+                    isGraphReference: false,
+                    isFramebufferInput: true,
+                    content: .color(.resolved(.premultipliedAlpha))
+                )
+            case .system:
+                return nil
+            }
         }
         guard let purpose = sampler.purpose(for: reference) else { return nil }
         if case let .asset(path) = reference {
@@ -247,7 +264,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             guard case let .ready(content)? = assetStates[identity] else {
                 return nil
             }
-            return .init(isGraphReference: false, content: content)
+            return .init(
+                isGraphReference: false,
+                isFramebufferInput: false,
+                content: content
+            )
         }
         return nil
     }

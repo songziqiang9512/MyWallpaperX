@@ -377,13 +377,21 @@ extension SceneMetalRenderer {
                 ) else { return nil }
                 sourceUniforms = uniforms
             }
-            result.append(.init(
-                claim: claim,
-                targetPlan: plan,
-                sourceTexture: sourceTexture,
-                sourceUniforms: sourceUniforms,
-                sourcePipeline: imagePipeline,
-                dedicatedInputs: .init(
+            let sceneBackgroundResource: SceneFrameTextureResource?
+            if let requirement = claim.sceneBackgroundRequirement {
+                guard requirement.layerID == layerID,
+                      let resource = SceneFrameTextureResource
+                        .sameFrameSceneBackground(
+                            consumerLayerID: layerID,
+                            frameEpoch: textureRegistry.frameEpoch,
+                            texture: mainTarget
+                        ) else { return nil }
+                sceneBackgroundResource = resource
+            } else {
+                sceneBackgroundResource = nil
+            }
+            let dedicatedInputs =
+                SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs(
                     masks: masks,
                     dynamicValues: frameContext.dynamicValues,
                     pipelines: imageCompositor.authoredEffectPipelines,
@@ -405,7 +413,16 @@ extension SceneMetalRenderer {
                     audioSpectrum: frameContext.audioSpectrum,
                     dependencyEffect: dependencyEffect
                 )
-            ))
+            let request = SceneResolvedMaterialRuntimeBridge.FramePreparationRequest(
+                claim: claim,
+                targetPlan: plan,
+                sceneBackgroundResource: sceneBackgroundResource,
+                sourceTexture: sourceTexture,
+                sourceUniforms: sourceUniforms,
+                sourcePipeline: imagePipeline,
+                dedicatedInputs: dedicatedInputs
+            )
+            result.append(request)
         }
         return result.count == plans.count ? result : nil
     }

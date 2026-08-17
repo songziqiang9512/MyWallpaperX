@@ -4,13 +4,14 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     func executeClaimed(
         claim: Bridge.ClaimedExecution,
         dependencyEffect: SceneDependencyEffectInput?,
+        sceneBackgroundTexture: MTLTexture? = nil,
         commandBuffer: MTLCommandBuffer
     ) -> Bridge.ExecutionResult {
         var emission = Emission()
         lock.lock()
         guard terminalFailureReason == nil, frameIsActive,
               framePreparationComplete, !frameRequiresDrop,
-              frameFailure == nil, let executor,
+              frameFailure == nil, let executor, let frame,
               let identity = preparedLedgerByLayerID[claim.layerID],
               let index = activeTransactions.firstIndex(of: identity),
               var ledger = activeByID[identity],
@@ -24,6 +25,11 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                   prepared: ledger.preparedDependencyEffect,
                   ready: dependencyEffect,
                   ownership: claim.dependencyOwnership
+              ), sceneBackgroundTextureMatches(
+                  prepared: ledger.prepared.sceneBackgroundResource,
+                  ready: sceneBackgroundTexture,
+                  requirement: claim.sceneBackgroundRequirement,
+                  frameEpoch: frame.textureRegistrySnapshot.frameEpoch
               ),
               activeTransactions[..<index].allSatisfy({
                   activeByID[$0]?.phase == .composited
@@ -108,6 +114,25 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         }
     }
 
+    func sceneBackgroundReservationMatches(
+        _ resource: SceneFrameTextureResource?,
+        requirement:
+            SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?,
+        frameEpoch: UInt64
+    ) -> Bool {
+        switch (requirement, resource) {
+        case (nil, nil):
+            return true
+        case let (requirement?, resource?):
+            return resource.isCompleteSceneBackground(
+                consumerLayerID: requirement.layerID,
+                frameEpoch: frameEpoch
+            )
+        case (nil, _?), (_?, nil):
+            return false
+        }
+    }
+
     private func dependenciesMatch(
         prepared: SceneDependencyEffectInput?,
         ready: SceneDependencyEffectInput?,
@@ -120,5 +145,23 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         guard let prepared, let ready else { return true }
         return prepared.frameEpoch == ready.frameEpoch
             && prepared.texture === ready.texture
+    }
+
+    private func sceneBackgroundTextureMatches(
+        prepared: SceneFrameTextureResource?,
+        ready: MTLTexture?,
+        requirement:
+            SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?,
+        frameEpoch: UInt64
+    ) -> Bool {
+        guard sceneBackgroundReservationMatches(
+            prepared,
+            requirement: requirement,
+            frameEpoch: frameEpoch
+        ) else { return false }
+        guard let prepared, let ready else {
+            return prepared == nil && ready == nil
+        }
+        return prepared.publication.texture === ready
     }
 }

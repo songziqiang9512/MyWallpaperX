@@ -76,6 +76,7 @@ nonisolated enum SceneDynamicSource: Hashable {
 nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
     case namedLayerTarget(SceneNamedTextureReference)
+    case sceneBackground(Int)
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
     case asset(SceneAssetTextureIdentity)
     case userProperty(String)

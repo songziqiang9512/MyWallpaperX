@@ -164,8 +164,12 @@ enum SceneUtilityLayerRuntimePlanner {
 
 extension SceneRenderDescriptor {
     func requiresReadableFramebuffer(
-        resolvedMaterialLayerIDs: Set<Int> = []
+        resolvedMaterialLayerIDs: Set<Int> = [],
+        sceneBackgroundLayerIDs: Set<Int> = []
     ) -> Bool {
+        if !sceneBackgroundLayerIDs.isEmpty {
+            return true
+        }
         if materialPasses.contains(where: { $0.combos["REFRACT"] == 1 }) {
             return true
         }

@@ -207,6 +207,7 @@ enum SceneGraphExecutionResetReason {
 
 enum SceneResolvedMaterialExecutionCapabilityCatalog {
     struct Token: Hashable { let rawValue: Int }
+    struct SceneBackgroundRequirement {}
 }
 
 enum SceneResolvedMaterialDependencyOwnership: Equatable {
@@ -248,6 +249,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+        let sceneBackgroundRequirement:
+            SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement? = nil
     }
 
     enum ClaimResult {
@@ -347,9 +350,11 @@ final class SceneResolvedMaterialRuntimeBridge {
     func executeClaimed(
         claim: ClaimedExecution,
         dependencyEffect: SceneDependencyEffectInput?,
+        sceneBackgroundTexture: MTLTexture? = nil,
         commandBuffer: MTLCommandBuffer
     ) -> ExecutionResult {
         _ = dependencyEffect
+        _ = sceneBackgroundTexture
         _ = commandBuffer
         executeCallCount += 1
         return executionShouldSucceed && preparedTexture != nil

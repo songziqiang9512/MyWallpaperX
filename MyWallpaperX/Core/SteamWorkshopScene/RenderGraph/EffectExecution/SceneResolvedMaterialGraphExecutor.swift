@@ -62,6 +62,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let finalTexture: MTLTexture
         let finalResource: SceneFrameTextureResource
         let historyTokensByEffect: [Graph.EffectKey: Set<State.PhysicalToken>]
+        let sceneBackgroundResource: SceneFrameTextureResource?
 
         fileprivate let ownerToken: UUID
         fileprivate let resetGeneration: UInt64
@@ -128,6 +129,7 @@ final class SceneResolvedMaterialGraphExecutor {
             Graph.EffectKey: [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy]
         ],
         frame: SceneResolvedMaterialFrameSnapshot,
+        sceneBackgroundResource: SceneFrameTextureResource? = nil,
         sourceTexture: MTLTexture?,
         sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
@@ -147,6 +149,21 @@ final class SceneResolvedMaterialGraphExecutor {
               ensureResourceEncoder(commandBuffer.commandQueue),
               let firstLease = leases.first else {
             return .failure(.invalidClaim)
+        }
+        let executionFrame: SceneResolvedMaterialFrameSnapshot
+        switch (capability.sceneBackgroundRequirement, sceneBackgroundResource) {
+        case (nil, nil):
+            executionFrame = frame
+        case let (requirement?, resource?):
+            guard requirement.layerID == capability.layerID,
+                  requirement.effect.layerID == capability.layerID,
+                  let replacement = frame.overlayingSceneBackground(
+                      consumerLayerID: requirement.layerID,
+                      resource: resource
+                  ) else { return .failure(.invalidFrame) }
+            executionFrame = replacement
+        case (nil, _?), (_?, nil):
+            return .failure(.invalidFrame)
         }
         let baseTarget = pairTexture(
             lease: firstLease,
@@ -256,7 +273,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 stageCapability: stageCapability,
                 capability: capability,
                 lease: lease,
-                frame: frame,
+                frame: executionFrame,
                 sourcePipeline: sourcePipeline,
                 time: dedicatedInputs.time,
                 originalSourceTexture: index == capability.stages.startIndex
@@ -314,6 +331,7 @@ final class SceneResolvedMaterialGraphExecutor {
             finalTexture: terminal.publication.texture,
             finalResource: terminal,
             historyTokensByEffect: historyTokens,
+            sceneBackgroundResource: sceneBackgroundResource,
             ownerToken: ownerToken,
             resetGeneration: self.resetGeneration,
             queueIdentity: queueIdentity,

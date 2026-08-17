@@ -176,6 +176,11 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
     ) throws -> Template.TextureReference {
         switch candidate.source {
         case let .asset(value):
+            if value.caseInsensitiveCompare("_rt_FullFrameBuffer") == .orderedSame {
+                return .provider(.sceneBackground(
+                    consumerLayerID: context.node.effect.layerID
+                ))
+            }
             if let reference = SceneNamedTextureReference.parse(value) {
                 return .provider(.namedLayerTarget(reference))
             }

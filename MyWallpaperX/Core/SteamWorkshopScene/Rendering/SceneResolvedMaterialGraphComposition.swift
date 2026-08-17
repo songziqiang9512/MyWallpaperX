@@ -74,12 +74,33 @@ enum SceneResolvedMaterialGraphComposition {
             )
             return .failed
         }
-        let result = mainPass.encodeOffscreen { commandBuffer in
+        let execute: (
+            MTLTexture?, MTLCommandBuffer
+        ) -> SceneResolvedMaterialRuntimeBridge.ExecutionResult = {
+            sceneBackgroundTexture, commandBuffer in
             runtime.executeClaimed(
                 claim: claim,
                 dependencyEffect: dependencyEffect,
+                sceneBackgroundTexture: sceneBackgroundTexture,
                 commandBuffer: commandBuffer
             )
+        }
+        let result: SceneResolvedMaterialRuntimeBridge.ExecutionResult
+        if claim.sceneBackgroundRequirement != nil {
+            guard let backgroundResult = mainPass.withReadableTarget({
+                mainTarget, commandBuffer in
+                execute(mainTarget, commandBuffer)
+            }) else {
+                runtime.recordClaimedFailure(
+                    reasonCode: "scene-background-main-target-unavailable"
+                )
+                return .failed
+            }
+            result = backgroundResult
+        } else {
+            result = mainPass.encodeOffscreen { commandBuffer in
+                execute(nil, commandBuffer)
+            }
         }
         switch result {
         case let .encoded(texture, ticket):

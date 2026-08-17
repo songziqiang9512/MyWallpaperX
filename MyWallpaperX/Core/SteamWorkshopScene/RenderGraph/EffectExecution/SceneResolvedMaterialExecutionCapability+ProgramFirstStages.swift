@@ -160,7 +160,101 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               ) else {
             return .failure(rejection("execution-stage-conservation"))
         }
-        return .success(.init(stages: stages, materials: allMaterials))
+        let background: SceneBackgroundRequirement?
+        switch sceneBackgroundRequirement(
+            admitted: admitted,
+            stages: stages
+        ) {
+        case let .success(value):
+            background = value
+        case let .failure(failure):
+            return .failure(failure)
+        }
+        return .success(.init(
+            stages: stages,
+            materials: allMaterials,
+            sceneBackgroundRequirement: background
+        ))
+    }
+
+    private struct SceneBackgroundCandidate {
+        let product: SceneGraphAdmissionProduct
+        let key: MaterialKey
+        let slot: Int
+        let consumerLayerID: Int
+        let selected: Bool
+    }
+
+    private static func sceneBackgroundRequirement(
+        admitted: SceneResolvedMaterialAdmittedLayer,
+        stages: [StageCapability]
+    ) -> Result<SceneBackgroundRequirement?, Rejection> {
+        var candidates: [SceneBackgroundCandidate] = []
+        for stage in stages {
+            guard case let .resolved(product, materials) = stage else { continue }
+            for material in materials.values {
+                for slot in material.template.textureSlots.compactMap({ $0 }) {
+                    for (index, candidate) in slot.candidates.enumerated() {
+                        guard case let .provider(.sceneBackground(consumerLayerID)) =
+                                candidate.reference else { continue }
+                        candidates.append(.init(
+                            product: product,
+                            key: material.key,
+                            slot: slot.index,
+                            consumerLayerID: consumerLayerID,
+                            selected: index == slot.candidates.index(
+                                before: slot.candidates.endIndex
+                            )
+                        ))
+                    }
+                }
+            }
+        }
+        guard !candidates.isEmpty else { return .success(nil) }
+        guard candidates.count == 1,
+              let candidate = candidates.first,
+              candidate.selected else {
+            return .failure(rejection("scene-background-provider-ambiguous"))
+        }
+        let graph = candidate.product.graph
+        let nodes = graph.nodes.sorted { $0.nodeIndex < $1.nodeIndex }
+        guard candidate.consumerLayerID == admitted.layerID,
+              admitted.sourceRoute == .capturedLayerTexture,
+              admitted.dependencyOwnership == .none,
+              graph.layerID == admitted.layerID,
+              graph.effects.count == 1,
+              graph.renderTargets.isEmpty,
+              graph.blockers.isEmpty,
+              nodes.count == 2,
+              let effect = graph.effects.first,
+              candidate.key.effect == effect.key,
+              candidate.key.nodeIndex == nodes[0].nodeIndex,
+              candidate.slot == 1,
+              nodes[0].kind == .material,
+              nodes[1].kind == .material,
+              nodes[0].effect == effect.key,
+              nodes[1].effect == effect.key,
+              nodes[0].target == effect.output,
+              nodes[1].target == effect.output,
+              nodes[0].compose == .bool(true),
+              nodes[1].compose == nil || nodes[1].compose == .bool(false),
+              nodes.allSatisfy({ node in
+                  node.bindings.allSatisfy { $0.texture == effect.input }
+              }),
+              let pairStep = admitted.pairPlan.effects.first(where: {
+                  $0.effect == effect.key
+              }),
+              pairStep.composeTransitionCount == 1,
+              pairStep.fullFrameOutputWriteCount == 2,
+              pairStep.inputMember == pairStep.outputMember else {
+            return .failure(rejection("scene-background-compose-shape"))
+        }
+        return .success(.init(
+            layerID: admitted.layerID,
+            effect: effect.key,
+            nodeIndex: candidate.key.nodeIndex,
+            slot: candidate.slot
+        ))
     }
 
     /// Only a launch-time visual contract or ambiguous dynamic value-owner
@@ -357,7 +451,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let key: MaterialKey
         let slot: Int
         let reference: SceneNamedTextureReference
-        let selected: Bool
     }
 
     private static func resolvedExternalDependency(
@@ -367,21 +460,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         var namedCandidates: [ResolvedNamedCandidate] = []
         for material in materials.values {
             for slot in material.template.textureSlots.compactMap({ $0 }) {
-                for (index, candidate) in slot.candidates.enumerated() {
-                    guard case let .provider(.namedLayerTarget(reference)) =
-                            candidate.reference else { continue }
-                    namedCandidates.append(.init(
-                        key: material.key,
-                        slot: slot.index,
-                        reference: reference,
-                        selected: index == slot.candidates.index(before: slot.candidates.endIndex)
-                    ))
-                }
+                guard let selected = slot.candidates.last,
+                      case let .provider(.namedLayerTarget(reference)) =
+                        selected.reference else { continue }
+                namedCandidates.append(.init(
+                    key: material.key,
+                    slot: slot.index,
+                    reference: reference
+                ))
             }
         }
         guard namedCandidates.count == 1,
               let candidate = namedCandidates.first,
-              candidate.selected,
               candidate.reference.variant == SceneNamedTextureReference.Variant.primary,
               candidate.key.effect.layerID == product.graph.layerID else { return nil }
         let nodeMatches = product.graph.nodes.filter {

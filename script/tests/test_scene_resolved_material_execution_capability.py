@@ -372,7 +372,7 @@ struct SceneResolvedMaterialTemplate {
 
     enum KnownProviderRequest {
         case system(String)
-        case namedLayerTarget(SceneNamedTextureReference)
+        case namedLayerTarget(SceneNamedTextureReference), sceneBackground(consumerLayerID: Int)
     }
 
     enum TextureReference {
@@ -4020,6 +4020,10 @@ private func namedTargetCandidate(
     )
 }
 
+private func systemCandidate(_ name: String) -> Template.TextureCandidate {
+    .init(reference: .provider(.system(name)), provenance: .instance)
+}
+
 private func materialTemplate(
     graph: Graph,
     nodeIndex: Int = 0,
@@ -4743,6 +4747,41 @@ private enum EnvelopeHarness {
             template: crossLayerTemplate,
             dependencyOwnership: .externalPrimary(externalBinding)
         )
+        let crossLayerTwoMaterialGraph = graph(
+            withPrimaryBinding: true,
+            materialCount: 2
+        )
+        let crossLayerShadowedProvenance = catalog(
+            graph: crossLayerTwoMaterialGraph,
+            templates: [
+                0: materialTemplate(
+                    graph: crossLayerTwoMaterialGraph,
+                    nodeIndex: 0,
+                    shader: contract(
+                        "cross-layer-selected",
+                        secondMetadata: "{}",
+                        observesSecond: true
+                    ),
+                    slots: secondCandidates([
+                        namedTargetCandidate(providerLayerID: 42),
+                    ])
+                ),
+                1: materialTemplate(
+                    graph: crossLayerTwoMaterialGraph,
+                    nodeIndex: 1,
+                    shader: contract(
+                        "cross-layer-shadowed",
+                        secondMetadata: #"{"mode":"flowmask"}"#,
+                        observesSecond: true
+                    ),
+                    slots: secondCandidates([
+                        namedTargetCandidate(providerLayerID: 42),
+                        systemCandidate("audio-spectrum"),
+                    ])
+                ),
+            ],
+            dependencyOwnership: .externalPrimary(externalBinding)
+        )
         let crossLayerWrongProvider = catalog(
             graph: boundGraph,
             template: crossLayerTemplate,
@@ -4770,19 +4809,33 @@ private enum EnvelopeHarness {
             dependencyOwnership: .externalPrimary(externalBinding)
         )
         let crossLayerAmbiguous = catalog(
-            graph: boundGraph,
-            template: materialTemplate(
-                graph: boundGraph,
-                shader: contract(
-                    "cross-layer-ambiguous",
-                    secondMetadata: "{}",
-                    observesSecond: true
+            graph: crossLayerTwoMaterialGraph,
+            templates: [
+                0: materialTemplate(
+                    graph: crossLayerTwoMaterialGraph,
+                    nodeIndex: 0,
+                    shader: contract(
+                        "cross-layer-ambiguous-first",
+                        secondMetadata: "{}",
+                        observesSecond: true
+                    ),
+                    slots: secondCandidates([
+                        namedTargetCandidate(providerLayerID: 41),
+                    ])
                 ),
-                slots: secondCandidates([
-                    namedTargetCandidate(providerLayerID: 41),
-                    namedTargetCandidate(providerLayerID: 42),
-                ])
-            ),
+                1: materialTemplate(
+                    graph: crossLayerTwoMaterialGraph,
+                    nodeIndex: 1,
+                    shader: contract(
+                        "cross-layer-ambiguous-second",
+                        secondMetadata: "{}",
+                        observesSecond: true
+                    ),
+                    slots: secondCandidates([
+                        namedTargetCandidate(providerLayerID: 42),
+                    ])
+                ),
+            ],
             dependencyOwnership: .externalPrimary(externalBinding)
         )
         let directDrawPositive = catalog(
@@ -5281,6 +5334,12 @@ private enum EnvelopeHarness {
                 layerID: layerID
             ) != nil,
             "crossLayerPositiveFailure": rejection(crossLayerPositive),
+            "crossLayerShadowedProvenanceClaim": crossLayerShadowedProvenance.claim(
+                layerID: layerID
+            ) != nil,
+            "crossLayerShadowedProvenanceFailure": rejection(
+                crossLayerShadowedProvenance
+            ),
             "crossLayerWrongProvider": rejection(crossLayerWrongProvider),
             "crossLayerSecondary": rejection(crossLayerSecondary),
             "crossLayerAmbiguous": rejection(crossLayerAmbiguous),
@@ -6931,6 +6990,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         )
         self.assertTrue(payload["crossLayerPositiveClaim"], payload)
         self.assertEqual(payload["crossLayerPositiveFailure"], "", payload)
+        self.assertTrue(payload["crossLayerShadowedProvenanceClaim"], payload)
+        self.assertEqual(payload["crossLayerShadowedProvenanceFailure"], "", payload)
         for key in (
             "crossLayerWrongProvider",
             "crossLayerSecondary",

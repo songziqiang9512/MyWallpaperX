@@ -84,8 +84,13 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
         if case .graph = reference {
             return mode.explicitPurpose ?? .premultipliedColor
         }
-        if case .provider(.namedLayerTarget) = reference {
-            return mode.explicitPurpose ?? .premultipliedColor
+        if case let .provider(provider) = reference {
+            switch provider {
+            case .namedLayerTarget, .sceneBackground:
+                return mode.explicitPurpose ?? .premultipliedColor
+            case .system:
+                break
+            }
         }
         guard case let .asset(path) = reference,
               let registeredPurpose = SceneStockTextureSemanticRegistry.purpose(

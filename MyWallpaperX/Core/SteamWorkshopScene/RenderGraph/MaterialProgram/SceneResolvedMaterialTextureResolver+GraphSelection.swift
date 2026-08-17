@@ -53,6 +53,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 return .system(name)
             case let .namedLayerTarget(reference):
                 return .namedLayerTarget(reference)
+            case let .sceneBackground(consumerLayerID):
+                return .sceneBackground(consumerLayerID)
             }
         case let .graph(graph):
             return .graph(graph)

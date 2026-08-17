@@ -22,6 +22,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
+        let sceneBackgroundRequirement:
+            SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?
         let requiresInvertibleEffectTextureProjection: Bool
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
 
@@ -33,6 +35,8 @@ final class SceneResolvedMaterialRuntimeBridge {
             fullFrameExtentPolicy: SceneFullFrameExtentPolicy,
             dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
             sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
+            sceneBackgroundRequirement:
+                SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement? = nil,
             requiresInvertibleEffectTextureProjection: Bool,
             token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
         ) {
@@ -43,6 +47,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.fullFrameExtentPolicy = fullFrameExtentPolicy
             self.dependencyOwnership = dependencyOwnership
             self.sourceRoute = sourceRoute
+            self.sceneBackgroundRequirement = sceneBackgroundRequirement
             self.requiresInvertibleEffectTextureProjection =
                 requiresInvertibleEffectTextureProjection
             self.token = token
@@ -82,10 +87,29 @@ final class SceneResolvedMaterialRuntimeBridge {
     struct FramePreparationRequest {
         let claim: ClaimedExecution
         let targetPlan: SceneResolvedMaterialFrameTargetPlan
+        let sceneBackgroundResource: SceneFrameTextureResource?
         let sourceTexture: MTLTexture?
         let sourceUniforms: SceneLayerFragmentUniforms?
         let sourcePipeline: SceneImageLayerPipeline
         let dedicatedInputs: DedicatedFrameInputs
+
+        init(
+            claim: ClaimedExecution,
+            targetPlan: SceneResolvedMaterialFrameTargetPlan,
+            sceneBackgroundResource: SceneFrameTextureResource? = nil,
+            sourceTexture: MTLTexture?,
+            sourceUniforms: SceneLayerFragmentUniforms?,
+            sourcePipeline: SceneImageLayerPipeline,
+            dedicatedInputs: DedicatedFrameInputs
+        ) {
+            self.claim = claim
+            self.targetPlan = targetPlan
+            self.sceneBackgroundResource = sceneBackgroundResource
+            self.sourceTexture = sourceTexture
+            self.sourceUniforms = sourceUniforms
+            self.sourcePipeline = sourcePipeline
+            self.dedicatedInputs = dedicatedInputs
+        }
     }
 
     struct DedicatedFrameInputs {
@@ -157,6 +181,10 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     var executionLayerIDs: Set<Int> {
         capabilities.executionLayerIDs
+    }
+
+    var sceneBackgroundLayerIDs: Set<Int> {
+        capabilities.sceneBackgroundLayerIDs
     }
 
     func userPropertyDemands(
@@ -311,11 +339,13 @@ final class SceneResolvedMaterialRuntimeBridge {
     func executeClaimed(
         claim: ClaimedExecution,
         dependencyEffect: SceneDependencyEffectInput?,
+        sceneBackgroundTexture: MTLTexture? = nil,
         commandBuffer: MTLCommandBuffer
     ) -> ExecutionResult {
         submissions.executeClaimed(
             claim: claim,
             dependencyEffect: dependencyEffect,
+            sceneBackgroundTexture: sceneBackgroundTexture,
             commandBuffer: commandBuffer
         )
     }
@@ -395,6 +425,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             fullFrameExtentPolicy: capability.fullFrameExtentPolicy,
             dependencyOwnership: capability.dependencyOwnership,
             sourceRoute: capability.sourceRoute,
+            sceneBackgroundRequirement: capability.sceneBackgroundRequirement,
             requiresInvertibleEffectTextureProjection:
                 capability.requiresInvertibleEffectTextureProjection,
             token: claim.token

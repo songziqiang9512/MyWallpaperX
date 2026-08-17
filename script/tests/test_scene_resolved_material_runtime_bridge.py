@@ -429,9 +429,11 @@ struct SceneGraphExecutionState {
 enum SceneTextureLoadPurpose: Hashable { case premultipliedColor }
 enum SceneTextureProviderIdentity: Hashable {
     case graph(allocationGeneration: UInt64, physicalToken: String)
+    case sceneBackground(consumerLayerID: Int, frameEpoch: UInt64)
     var reportToken: String {
         switch self {
         case let .graph(generation, token): return "graph:\(generation):\(token)"
+        case let .sceneBackground(layerID, epoch): return "background:\(layerID):\(epoch)"
         }
     }
 }
@@ -443,6 +445,7 @@ enum SceneTextureCandidateIdentity: Hashable {
 enum SceneFrameTextureIdentity: Hashable {
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
     case system(String)
+    case sceneBackground(Int)
 
     var reportToken: String {
         switch self {
@@ -452,6 +455,7 @@ enum SceneFrameTextureIdentity: Hashable {
             } ?? "none"
             return "graph:\(identity.kind):\(identity.layerID):\(effect):\(identity.name ?? "none")"
         case let .system(name): return "system:\(name)"
+        case let .sceneBackground(layerID): return "scene-background:\(layerID)"
         }
     }
 }
@@ -501,6 +505,13 @@ struct SceneFrameTextureResource {
     var isCompleteGraphResource: Bool {
         resourceGeneration > 0
             && publication.contentGeneration == resourceGeneration
+    }
+    func isCompleteSceneBackground(consumerLayerID: Int, frameEpoch: UInt64) -> Bool {
+        resourceGeneration == frameEpoch
+            && publication.contentGeneration == frameEpoch
+            && publication.requestIdentity == .sceneBackground(consumerLayerID)
+            && publication.texture.usage.contains(.renderTarget)
+            && publication.texture.usage.contains(.shaderRead)
     }
 }
 
@@ -642,6 +653,12 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
 }
 struct SceneEffectStageExecutionPlan {}
 final class SceneResolvedMaterialExecutionCapabilityCatalog {
+    struct SceneBackgroundRequirement: Equatable {
+        let layerID: Int
+        let effect: SceneAuthoredEffectRenderPlan.EffectKey
+        let nodeIndex: Int
+        let slot: Int
+    }
     struct Token: Hashable { let value: Int }
     struct Claim { let token: Token }
     struct AdmittedProduct { let graph: SceneAuthoredEffectRenderPlan }
@@ -676,6 +693,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
+        let sceneBackgroundRequirement: SceneBackgroundRequirement? = nil
         let requiresInvertibleEffectTextureProjection: Bool = false
         var effectSubjectsAreConserved: Bool {
             let expected = admittedProducts.flatMap { $0.graph.effects.map(\.key) }
@@ -712,6 +730,11 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
     var executionLayerIDs: Set<Int> { Set(capabilitiesByLayerID.keys) }
+    var sceneBackgroundLayerIDs: Set<Int> {
+        Set(capabilitiesByLayerID.values.compactMap {
+            $0.sceneBackgroundRequirement?.layerID
+        })
+    }
 }
 
 struct SceneLayerGraphTargetPlan {
@@ -787,11 +810,12 @@ struct SceneDependencyEffectInput {
     var slotIndex: Int { slot.slotIndex }
 }
 struct SceneResolvedMaterialFailure: Error {}
-struct SceneFrameTextureRegistrySnapshot { let frameIndex: UInt64; let valid: Bool }
+struct SceneFrameTextureRegistrySnapshot { let frameIndex: UInt64; let valid: Bool; var frameEpoch: UInt64 { frameIndex } }
 struct SceneDynamicSnapshot {}
 struct SceneAuthoredShaderFrameInputs {}
 struct SceneResolvedMaterialFrameSnapshot {
     let frameIndex: UInt64
+    var textureRegistrySnapshot: SceneFrameTextureRegistrySnapshot { .init(frameIndex: frameIndex, valid: true) }
     static func validated(
         textureSnapshot: SceneFrameTextureRegistrySnapshot,
         dynamicSnapshot: SceneDynamicSnapshot,
@@ -879,6 +903,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let finalResource: SceneFrameTextureResource
         let finalTexture: MTLTexture
         let historyTokensByEffect: [Graph.EffectKey: Set<State.PhysicalToken>]
+        let sceneBackgroundResource: SceneFrameTextureResource? = nil
     }
     static var prepareCallCount = 0
     static var prepareTokens: [Int] = []
@@ -893,6 +918,7 @@ final class SceneResolvedMaterialGraphExecutor {
         leases: [SceneGraphRenderTargetLease],
         historyRehydrateCopiesByEffect: [Graph.EffectKey: [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy]],
         frame: SceneResolvedMaterialFrameSnapshot,
+        sceneBackgroundResource: SceneFrameTextureResource? = nil,
         sourceTexture: MTLTexture?,
         sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
@@ -903,7 +929,7 @@ final class SceneResolvedMaterialGraphExecutor {
         effectGeneration: UInt64,
         resetGeneration: UInt64
     ) -> Result<PreparedGraph, Failure> {
-        _ = token; _ = leases; _ = historyRehydrateCopiesByEffect; _ = frame
+        _ = token; _ = leases; _ = historyRehydrateCopiesByEffect; _ = frame; _ = sceneBackgroundResource
         _ = sourceTexture; _ = sourceUniforms; _ = sourcePipeline
         _ = dedicatedInputs; _ = commandBuffer
         _ = previousStates; _ = previousGraphResources

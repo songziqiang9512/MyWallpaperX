@@ -298,8 +298,13 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             if case .graph = candidate.reference {
                 return (candidates, false)
             }
-            if case .provider(.namedLayerTarget) = candidate.reference {
-                return (candidates, false)
+            if case let .provider(provider) = candidate.reference {
+                switch provider {
+                case .namedLayerTarget, .sceneBackground:
+                    return (candidates, false)
+                case .system:
+                    break
+                }
             }
         }
         return (candidates, true)

@@ -262,6 +262,11 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
             .namedLayerTarget(actual)
         ):
             return actual == expected
+        case let (
+            .provider(.sceneBackground(expected)),
+            .sceneBackground(actual)
+        ):
+            return actual == expected
         case let (.graph(expected), .graph(actual)):
             return actual == expected
         default:

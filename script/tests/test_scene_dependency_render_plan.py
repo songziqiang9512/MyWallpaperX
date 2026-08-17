@@ -203,6 +203,50 @@ enum Harness {
             ),
             visibleLayerIDs: [routeProvider.id, routeConsumer.id]
         )
+        let shadowedProvider = layer(420, kind: .composition, visible: false)
+        let shadowedConsumer = SceneRenderDescriptor.Layer(
+            id: 421,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [shadowedProvider.id],
+            childLayerIDs: [],
+            visible: true,
+            effects: [
+                effect(id: 421, provider: shadowedProvider.id),
+                shadowedEffect(id: 422, provider: shadowedProvider.id),
+                shadowedEffect(id: 423, provider: shadowedProvider.id),
+            ]
+        )
+        let shadowedPlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: [shadowedProvider, shadowedConsumer],
+                renderOrderLayerIDs: [shadowedProvider.id, shadowedConsumer.id]
+            ),
+            visibleLayerIDs: [shadowedProvider.id, shadowedConsumer.id]
+        )
+        let selectedMultiReferenceConsumer = SceneRenderDescriptor.Layer(
+            id: 431,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [shadowedProvider.id],
+            childLayerIDs: [],
+            visible: true,
+            effects: [
+                effect(id: 431, provider: shadowedProvider.id),
+                effect(id: 432, provider: shadowedProvider.id),
+            ]
+        )
+        let selectedMultiReferencePlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: [shadowedProvider, selectedMultiReferenceConsumer],
+                renderOrderLayerIDs: [
+                    shadowedProvider.id, selectedMultiReferenceConsumer.id,
+                ]
+            ),
+            visibleLayerIDs: [
+                shadowedProvider.id, selectedMultiReferenceConsumer.id,
+            ]
+        )
         let routeUtilityProvider = layer(410, kind: .composition, visible: false)
         let routeUtilityConsumer = SceneRenderDescriptor.Layer(
             id: 411,
@@ -430,6 +474,26 @@ enum Harness {
                     "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
                 },
             ],
+            "shadowedNamedReferences": [
+                "referenceCount": shadowedPlan.references.count,
+                "binding": shadowedPlan.bindingsByConsumerLayerID[
+                    shadowedConsumer.id
+                ]?.kind == .resolvedMaterial,
+                "provider": shadowedPlan.bindingsByConsumerLayerID[
+                    shadowedConsumer.id
+                ]?.providerLayerID ?? -1,
+                "issues": shadowedPlan.issues.map {
+                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+                },
+            ],
+            "selectedMultiReferenceRejected":
+                selectedMultiReferencePlan.bindingsByConsumerLayerID[
+                    selectedMultiReferenceConsumer.id
+                ] == nil
+                && selectedMultiReferencePlan.issues.contains {
+                    $0.layerID == selectedMultiReferenceConsumer.id
+                        && $0.kind == .unsupportedConsumer
+                },
             "resolvedMaterialUtilityRoute": [
                 "binding": routeUtilityPlan.bindingsByConsumerLayerID[
                     routeUtilityConsumer.id
@@ -721,6 +785,29 @@ enum Harness {
                 constantShaderValues: opacity.map {
                     ["Opacity": SceneDocument.ShaderValue(components: [$0])]
                 } ?? [:]
+            )]
+        )
+    }
+
+    static func shadowedEffect(
+        id: Int,
+        provider: Int
+    ) -> SceneRenderDescriptor.EffectDescriptor {
+        let path = "_rt_imageLayerComposite_\(provider)_a"
+        return .init(
+            id: "effect-\(id)",
+            file: "effects/blend/effect.json",
+            visible: true,
+            passes: [.init(
+                passIndex: 0,
+                texturePaths: [path],
+                textureSlots: [nil, path],
+                userTextureInputs: [nil, 1],
+                combos: ["BLENDMODE": 0],
+                constantShaderValues: [
+                    "alpha": .init(components: [1]),
+                    "multiply": .init(components: [1]),
+                ]
             )]
         )
     }
@@ -1041,6 +1128,18 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             self.route_disabled_result["imageBlendBinding"],
             self.result["imageBlendBinding"],
         )
+
+    def test_shadowed_named_references_do_not_create_execution_dependencies(self) -> None:
+        self.assertEqual(
+            self.result["shadowedNamedReferences"],
+            {
+                "referenceCount": 1,
+                "binding": True,
+                "provider": 420,
+                "issues": [],
+            },
+        )
+        self.assertTrue(self.result["selectedMultiReferenceRejected"])
 
     def test_cycle_forward_and_invalid_external_primary_contracts_fail_closed(self) -> None:
         self.assertEqual(self.result["cycles"], [4, 5])

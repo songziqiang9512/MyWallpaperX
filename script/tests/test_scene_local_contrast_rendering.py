@@ -92,6 +92,7 @@ enum Harness {
             identity: identity,
             extent: .init(width: 2, height: 2),
             format: format,
+            addressMode: .clampToEdge,
             isUnique: false,
             lifetime: .init(
                 firstWriteNodeIndex: firstWrite,

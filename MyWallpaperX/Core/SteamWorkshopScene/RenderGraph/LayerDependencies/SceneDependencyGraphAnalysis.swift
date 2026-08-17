@@ -13,7 +13,10 @@ nonisolated enum SceneDependencyGraphAnalysis {
             layer.effects.filter { $0.visible != false }.flatMap { effect in
                 effect.passes.flatMap { pass in
                     pass.textureSlots.enumerated().compactMap { slotIndex, path in
-                        guard let reference = SceneNamedTextureReference.parse(path) else {
+                        guard !isShadowedByUserTexture(
+                            slotIndex: slotIndex,
+                            pass: pass
+                        ), let reference = SceneNamedTextureReference.parse(path) else {
                             return nil
                         }
                         return Reference(
@@ -30,6 +33,17 @@ nonisolated enum SceneDependencyGraphAnalysis {
                 }
             }
         }
+    }
+
+    /// Instance user textures are appended after instance asset paths by the
+    /// shared material resolver. A named path at the same slot remains
+    /// provenance, but it is not the selected cross-layer execution input.
+    private nonisolated static func isShadowedByUserTexture(
+        slotIndex: Int,
+        pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+    ) -> Bool {
+        pass.userTextureInputs.indices.contains(slotIndex)
+            && pass.userTextureInputs[slotIndex] != nil
     }
 
     nonisolated static func dependencyEdges(

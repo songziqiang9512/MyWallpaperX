@@ -3234,6 +3234,9 @@ utility layer 763: skippedHidden kind=composition
             "resolved material execution capability: "
             "schema=layer-graph-route-v1 layer=68 status=accepted "
             "dependency=none dependencyReferences=0\n"
+            "resolved material scene background: "
+            "schema=scene-background-provider-v1 layer=68 effect=0 "
+            "node=0 slot=1 mode=same-frame-main-target\n"
         )
         log_text = "\n".join([
             "resolved material runtime audit: schema=scene-graph-executor-v1 "
@@ -3279,6 +3282,20 @@ utility layer 763: skippedHidden kind=composition
             "accepted_layer_observation_count": 1,
             "duplicate_accepted_layer_ids": [],
             "malformed_route_observation_count": 0,
+        })
+        self.assertEqual(metrics["scene_background"], {
+            "has_evidence": True,
+            "schema_version": "scene-background-provider-v1",
+            "layer_ids": [68],
+            "duplicate_layer_ids": [],
+            "unaccepted_layer_ids": [],
+            "malformed_observation_count": 0,
+            "observations": [{
+                "layer_id": 68,
+                "effect_index": 0,
+                "node_index": 0,
+                "slot": 1,
+            }],
         })
         self.assertEqual(metrics["executor"]["claimed_count"], 2)
         self.assertEqual(metrics["executor"]["encoded_count"], 1)
@@ -3403,6 +3420,29 @@ utility layer 763: skippedHidden kind=composition
         self.assertIn(
             "resolved material graph accepted layer evidence malformed",
             malformed["validation_failures"],
+        )
+
+        malformed_background = benchmark.resolved_material_graph_execution_metrics(
+            preview_text
+            + "\nresolved material scene background: "
+            + "schema=scene-background-provider-v1 layer=70 mode=unknown",
+            "",
+        )
+        self.assertIn(
+            "resolved material scene background evidence malformed",
+            malformed_background["validation_failures"],
+        )
+
+        unaccepted_background = benchmark.resolved_material_graph_execution_metrics(
+            preview_text
+            + "\nresolved material scene background: "
+            + "schema=scene-background-provider-v1 layer=99 effect=0 "
+            + "node=0 slot=1 mode=same-frame-main-target",
+            "",
+        )
+        self.assertIn(
+            "resolved material scene background layer not accepted",
+            unaccepted_background["validation_failures"],
         )
 
     def test_resolved_material_graph_execution_gate_rejects_false_success(

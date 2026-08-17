@@ -77,6 +77,17 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         return replacingTextureSnapshot(replacement)
     }
 
+    func overlayingSceneBackground(
+        consumerLayerID: Int,
+        resource: SceneFrameTextureResource
+    ) -> Self? {
+        guard let replacement = textureSnapshot.overlayingSceneBackground(
+            consumerLayerID: consumerLayerID,
+            resource: resource
+        ) else { return nil }
+        return replacingTextureSnapshot(replacement)
+    }
+
 }
 
 nonisolated struct SceneResolvedMaterialFinalizationInput {

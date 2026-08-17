@@ -10,6 +10,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
     /// exact frame finalization. Pixel formats never imply this semantic.
     struct ColorTextureFact: Hashable {
         let isGraphReference: Bool
+        let isFramebufferInput: Bool
         let content: SceneTextureContent
     }
 
@@ -28,14 +29,18 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             transfer: transfer,
             textureFacts: textureSlots.map { slot -> ColorTextureFact? in
                 guard let slot else { return nil }
-                let isGraphReference: Bool
-                if case .graph = slot.reference {
-                    isGraphReference = true
+                let isGraphReference = if case .graph = slot.reference {
+                    true
                 } else {
-                    isGraphReference = false
+                    false
+                }
+                let isFramebufferInput = switch slot.reference {
+                case .graph, .provider(.sceneBackground): true
+                default: false
                 }
                 return .init(
                     isGraphReference: isGraphReference,
+                    isFramebufferInput: isFramebufferInput,
                     content: slot.resource.publication.candidate.content
                 )
             }
@@ -47,11 +52,11 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         textureFacts: [ColorTextureFact?]
     ) -> ColorProjection? {
         guard textureFacts.count == 8 else { return nil }
-        var graphRepresentations: Set<SceneShaderColorRepresentation> = []
-        for fact in textureFacts.compactMap({ $0 }) where fact.isGraphReference {
+        var framebufferRepresentations: Set<SceneShaderColorRepresentation> = []
+        for fact in textureFacts.compactMap({ $0 }) where fact.isFramebufferInput {
             switch fact.content {
             case let .color(.resolved(representation)):
-                graphRepresentations.insert(representation)
+                framebufferRepresentations.insert(representation)
             case .color(.unresolved):
                 return nil
             case .scalarRedUnorm, .data:
@@ -60,7 +65,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         }
         let framebufferInput: SceneShaderColorRepresentation
         if (transfer == .opaque || transfer == .premultipliedAlpha),
-           graphRepresentations.isEmpty {
+           framebufferRepresentations.isEmpty {
             // An opaque procedural pass can declare an authored framebuffer
             // sampler that the prepared variant never reads. Use one stable
             // identity value without claiming or requiring a sampled input.
@@ -77,8 +82,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             }
             framebufferInput = color
         } else {
-            guard graphRepresentations.count == 1,
-                  let representation = graphRepresentations.first else {
+            guard framebufferRepresentations.count == 1,
+                  let representation = framebufferRepresentations.first else {
                 return nil
             }
             framebufferInput = representation

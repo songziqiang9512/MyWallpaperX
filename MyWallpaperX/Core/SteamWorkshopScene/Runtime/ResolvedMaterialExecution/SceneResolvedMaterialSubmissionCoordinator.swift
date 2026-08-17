@@ -214,6 +214,10 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                   dependencyReservationMatches(
                       request.dedicatedInputs.dependencyEffect,
                       ownership: claim.dependencyOwnership
+                  ), sceneBackgroundReservationMatches(
+                      request.sceneBackgroundResource,
+                      requirement: claim.sceneBackgroundRequirement,
+                      frameEpoch: frame.textureRegistrySnapshot.frameEpoch
                   ) else { return false }
             return true
         }), let preparedTargets = pool.preparePersistentGraphTargets(
@@ -238,6 +242,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 historyRehydrateCopiesByEffect:
                     targets.historyRehydrateCopiesByEffect,
                 frame: frame,
+                sceneBackgroundResource: request.sceneBackgroundResource,
                 sourceTexture: request.sourceTexture,
                 sourceUniforms: request.sourceUniforms,
                 sourcePipeline: request.sourcePipeline,

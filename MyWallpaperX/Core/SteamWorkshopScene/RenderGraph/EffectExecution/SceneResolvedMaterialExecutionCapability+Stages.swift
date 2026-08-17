@@ -28,6 +28,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     struct CompiledStages {
         let stages: [StageCapability]
         let materials: [MaterialKey: MaterialCapability]
+        let sceneBackgroundRequirement: SceneBackgroundRequirement?
     }
 
     static func compileStages(
@@ -73,7 +74,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               stages.count == admitted.products.count else {
             return .failure(rejection("resolved-stage-empty"))
         }
-        return .success(.init(stages: stages, materials: allMaterials))
+        return .success(.init(
+            stages: stages,
+            materials: allMaterials,
+            sceneBackgroundRequirement: nil
+        ))
     }
 
     private static func compileMaterials(

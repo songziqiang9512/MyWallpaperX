@@ -121,6 +121,8 @@ SUPPORT = (
         let layerID: Int
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
+        let sceneBackgroundRequirement:
+            SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement? = nil
     }
     enum Claim {
         case notMigrated
@@ -136,6 +138,7 @@ SUPPORT = (
     struct FramePreparationRequest {
         let claim: ClaimedExecution
         let targetPlan: SceneResolvedMaterialFrameTargetPlan
+        let sceneBackgroundResource: SceneFrameTextureResource? = nil
         let sourceTexture: MTLTexture?
         let sourceUniforms: SceneLayerFragmentUniforms?
         let sourcePipeline: SceneImageLayerPipeline

@@ -3,6 +3,7 @@ import Metal
 nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
     case namedLayerTarget(SceneNamedTextureReference)
+    case sceneBackground(Int)
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
     case asset(SceneAssetTextureIdentity)
     case userProperty(String)
@@ -15,6 +16,8 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
             return "layer:\(layerID)"
         case let .namedLayerTarget(reference):
             return "named:\(reference.providerLayerID):\(reference.variant.rawValue)"
+        case let .sceneBackground(consumerLayerID):
+            return "scene-background:\(consumerLayerID)"
         case let .graph(identity):
             let effect = identity.effect.map {
                 "\($0.layerID):\($0.effectIndex):\($0.descriptorID.utf8.count)#\($0.descriptorID)"

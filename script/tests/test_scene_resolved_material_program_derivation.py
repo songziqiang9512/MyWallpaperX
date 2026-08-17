@@ -81,6 +81,7 @@ nonisolated enum SceneDynamicSource: Hashable {
 nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
     case namedLayerTarget(SceneNamedTextureReference)
+    case sceneBackground(Int)
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
     case asset(SceneAssetTextureIdentity)
     case userProperty(String)
@@ -300,6 +301,8 @@ private func textureSlot(
             registryIdentity = .system(name)
         case let .namedLayerTarget(reference):
             registryIdentity = .namedLayerTarget(reference)
+        case let .sceneBackground(consumerLayerID):
+            registryIdentity = .sceneBackground(consumerLayerID)
         }
     case let .graph(identity):
         registryIdentity = .graph(identity)

@@ -32,7 +32,8 @@ nonisolated struct SceneTextureProviderPublication {
             return identity.purpose == candidate.purpose
         case let .materialUserProperty(identity):
             return identity.purpose == candidate.purpose
-        case .layerSource, .namedLayerTarget, .graph, .userProperty, .system:
+        case .layerSource, .namedLayerTarget, .sceneBackground, .graph,
+             .userProperty, .system:
             return true
         }
     }
@@ -151,6 +152,49 @@ nonisolated struct SceneFrameTextureResource {
         ) ? result : nil
     }
 
+    static func sameFrameSceneBackground(
+        consumerLayerID: Int,
+        frameEpoch: UInt64,
+        texture: MTLTexture
+    ) -> Self? {
+        guard consumerLayerID >= 0,
+              frameEpoch > 0,
+              texture.textureType == .type2D,
+              texture.sampleCount == 1,
+              texture.mipmapLevelCount == 1,
+              texture.usage.contains(.renderTarget),
+              texture.usage.contains(.shaderRead),
+              texture.pixelFormat == .bgra8Unorm
+                || texture.pixelFormat == .rgba8Unorm else { return nil }
+        let size = CGSize(width: texture.width, height: texture.height)
+        let candidate = SceneTextureCandidate(
+            texture: texture,
+            identity: .provider(.sceneBackground(
+                consumerLayerID: consumerLayerID,
+                frameEpoch: frameEpoch
+            )),
+            generation: .provider(contentGeneration: frameEpoch),
+            purpose: .premultipliedColor,
+            content: .color(.resolved(.premultipliedAlpha)),
+            physicalSize: size,
+            mappedSize: size,
+            uvTransform: .identity,
+            sampling: .linearClamp
+        )
+        let result = Self(
+            publication: .init(
+                requestIdentity: .sceneBackground(consumerLayerID),
+                candidate: candidate,
+                contentGeneration: frameEpoch
+            ),
+            resourceGeneration: frameEpoch
+        )
+        return result.isCompleteSceneBackground(
+            consumerLayerID: consumerLayerID,
+            frameEpoch: frameEpoch
+        ) ? result : nil
+    }
+
     /// Rebinds one already validated graph allocation to another logical graph
     /// request. Swap changes only this request identity; the physical provider,
     /// texture and both generations remain the same immutable atom.
@@ -249,6 +293,41 @@ nonisolated struct SceneFrameTextureResource {
         return true
     }
 
+    func isCompleteSceneBackground(
+        consumerLayerID: Int,
+        frameEpoch: UInt64
+    ) -> Bool {
+        guard consumerLayerID >= 0,
+              frameEpoch > 0,
+              resourceGeneration == frameEpoch,
+              publication.contentGeneration == frameEpoch,
+              publication.requestIdentity == .sceneBackground(consumerLayerID),
+              publication.isComplete,
+              case let .provider(.sceneBackground(
+                  publishedLayerID,
+                  publicationEpoch
+              )) = publication.candidate.identity,
+              publishedLayerID == consumerLayerID,
+              publicationEpoch == frameEpoch,
+              publication.candidate.purpose == .premultipliedColor,
+              publication.candidate.content
+                == .color(.resolved(.premultipliedAlpha)),
+              publication.candidate.physicalSize
+                == publication.candidate.mappedSize,
+              publication.candidate.uvTransform == .identity,
+              publication.candidate.sampling == .linearClamp,
+              publication.candidate.texture.textureType == .type2D,
+              publication.candidate.texture.sampleCount == 1,
+              publication.candidate.texture.mipmapLevelCount == 1,
+              publication.candidate.texture.usage.contains(.renderTarget),
+              publication.candidate.texture.usage.contains(.shaderRead),
+              publication.candidate.pixelFormat == .bgra8Unorm
+                || publication.candidate.pixelFormat == .rgba8Unorm else {
+            return false
+        }
+        return identityUVScale(expectedPurpose: .premultipliedColor)
+    }
+
     private func identityUVScale(
         expectedPurpose: SceneTextureLoadPurpose
     ) -> Bool {
@@ -321,6 +400,24 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
         let identity = SceneFrameTextureIdentity.namedLayerTarget(reference)
         guard resource.isCompleteNamedLayerTarget(
             reference: reference,
+            frameEpoch: frameEpoch
+        ) else { return nil }
+        var overlaid = entries
+        overlaid[identity] = .ready(resource)
+        return Self(
+            frameEpoch: frameEpoch,
+            frameIndex: frameIndex,
+            entries: overlaid
+        )
+    }
+
+    func overlayingSceneBackground(
+        consumerLayerID: Int,
+        resource: SceneFrameTextureResource
+    ) -> Self? {
+        let identity = SceneFrameTextureIdentity.sceneBackground(consumerLayerID)
+        guard resource.isCompleteSceneBackground(
+            consumerLayerID: consumerLayerID,
             frameEpoch: frameEpoch
         ) else { return nil }
         var overlaid = entries

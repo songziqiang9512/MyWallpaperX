@@ -502,6 +502,12 @@ RESOLVED_MATERIAL_LAYER_ROUTE_V2_RE = re.compile(
     r"dependency=(?P<dependency>none|graph-internal|external-primary) "
     r"dependencyReferences=(?P<dependency_references>\d+)"
 )
+RESOLVED_MATERIAL_SCENE_BACKGROUND_RE = re.compile(
+    r"resolved material scene background: "
+    r"schema=scene-background-provider-v1 layer=(?P<id>\d+) "
+    r"effect=(?P<effect>\d+) node=(?P<node>\d+) slot=(?P<slot>\d+) "
+    r"mode=same-frame-main-target"
+)
 RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE = re.compile(
     r"resolved material runtime audit: schema=scene-graph-executor-v1 "
     r"claimed=(?P<claimed>\d+) encoded=(?P<encoded>\d+) "
@@ -1959,6 +1965,51 @@ def resolved_material_graph_execution_metrics(
             "resolved material graph accepted layer count conservation failed"
         )
 
+    scene_background_lines = [
+        line.strip()
+        for line in preview_text.splitlines()
+        if "schema=scene-background-provider-v1" in line
+    ]
+    scene_background_observations: list[dict[str, int]] = []
+    malformed_scene_background_count = 0
+    for line in scene_background_lines:
+        current = RESOLVED_MATERIAL_SCENE_BACKGROUND_RE.fullmatch(line)
+        if current is None:
+            malformed_scene_background_count += 1
+            continue
+        scene_background_observations.append({
+            "layer_id": int(current.group("id")),
+            "effect_index": int(current.group("effect")),
+            "node_index": int(current.group("node")),
+            "slot": int(current.group("slot")),
+        })
+    scene_background_layer_ids = sorted({
+        value["layer_id"] for value in scene_background_observations
+    })
+    duplicate_scene_background_layer_ids = sorted(
+        layer_id
+        for layer_id in scene_background_layer_ids
+        if sum(
+            value["layer_id"] == layer_id
+            for value in scene_background_observations
+        ) > 1
+    )
+    unaccepted_scene_background_layer_ids = sorted(
+        set(scene_background_layer_ids) - set(accepted_layer_ids)
+    )
+    if malformed_scene_background_count:
+        capability_failures.append(
+            "resolved material scene background evidence malformed"
+        )
+    if duplicate_scene_background_layer_ids:
+        capability_failures.append(
+            "resolved material scene background evidence duplicated"
+        )
+    if unaccepted_scene_background_layer_ids:
+        capability_failures.append(
+            "resolved material scene background layer not accepted"
+        )
+
     executor_observations = [
         {
             "claimed": int(match.group("claimed")),
@@ -2233,6 +2284,18 @@ def resolved_material_graph_execution_metrics(
             "accepted_layer_observation_count": len(accepted_layer_observations),
             "duplicate_accepted_layer_ids": duplicate_accepted_layer_ids,
             "malformed_route_observation_count": malformed_route_count,
+        },
+        "scene_background": {
+            "has_evidence": bool(scene_background_observations),
+            "schema_version": (
+                "scene-background-provider-v1"
+                if scene_background_observations else None
+            ),
+            "layer_ids": scene_background_layer_ids,
+            "duplicate_layer_ids": duplicate_scene_background_layer_ids,
+            "unaccepted_layer_ids": unaccepted_scene_background_layer_ids,
+            "malformed_observation_count": malformed_scene_background_count,
+            "observations": scene_background_observations,
         },
         "executor": {
             "has_evidence": bool(executor_observations),

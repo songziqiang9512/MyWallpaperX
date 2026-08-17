@@ -36,6 +36,13 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let layerID: Int
     }
 
+    struct SceneBackgroundRequirement: Equatable {
+        let layerID: Int
+        let effect: Graph.EffectKey
+        let nodeIndex: Int
+        let slot: Int
+    }
+
     struct RuntimeDispositionOwnership {
         let layerID: Int
         let subjects: [ExactEffectSubject]
@@ -104,13 +111,15 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
+        let sceneBackgroundRequirement: SceneBackgroundRequirement?
 
         fileprivate let capabilityID = UUID()
 
         fileprivate init(
             admitted: SceneResolvedMaterialAdmittedLayer,
             stages: [StageCapability],
-            materials: [MaterialKey: MaterialCapability]
+            materials: [MaterialKey: MaterialCapability],
+            sceneBackgroundRequirement: SceneBackgroundRequirement?
         ) {
             layerID = admitted.layerID
             admittedProducts = admitted.products
@@ -120,6 +129,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             fullFrameExtentPolicy = .standard
             dependencyOwnership = admitted.dependencyOwnership
             sourceRoute = admitted.sourceRoute
+            self.sceneBackgroundRequirement = sceneBackgroundRequirement
         }
 
         func material(for node: Graph.Node) -> MaterialCapability? {
@@ -192,7 +202,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     accepted[candidate.layerID] = .init(
                         admitted: admitted,
                         stages: compiled.stages,
-                        materials: compiled.materials
+                        materials: compiled.materials,
+                        sceneBackgroundRequirement:
+                            compiled.sceneBackgroundRequirement
                     )
                     for reason in compiled.stages.compactMap(
                         \.visualFailureReasonCode
@@ -266,6 +278,12 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
     var executionLayerIDs: Set<Int> {
         Set(capabilitiesByLayerID.keys)
+    }
+
+    var sceneBackgroundLayerIDs: Set<Int> {
+        Set(capabilitiesByLayerID.values.compactMap {
+            $0.sceneBackgroundRequirement?.layerID
+        })
     }
 
     var launchPipelineWarmupCapabilities: [LayerCapability] {
@@ -372,6 +390,17 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 + " layer=\(layerID) status=accepted"
                 + " dependency=\(dependency.reportKind)"
                 + " dependencyReferences=\(dependency.referenceCount)"
+        }
+        result += capabilitiesByLayerID.keys.sorted().compactMap { layerID in
+            guard let requirement = capabilitiesByLayerID[layerID]?
+                .sceneBackgroundRequirement else { return nil }
+            return "resolved material scene background:"
+                + " schema=scene-background-provider-v1"
+                + " layer=\(layerID)"
+                + " effect=\(requirement.effect.effectIndex)"
+                + " node=\(requirement.nodeIndex)"
+                + " slot=\(requirement.slot)"
+                + " mode=same-frame-main-target"
         }
         return result
     }
