@@ -34,7 +34,7 @@
 
 本文只保存由上述现役权威导出的计划决策：V0 首个 ordinary authored effect 已按完成门取得 `slice-visible` 正反证，下一批进入 V1，在同一 Program/GraphExecutor 主链闭合最小 graph/FBO correctness atom，不建设第二套 renderer。仓库中的历史专用实现、旧测试、旧类型层级和旧 matrix 只构成需要审计的偏差候选，不自动取得目标架构或下一批执行权。
 
-依据当前能力台账与运行证据，V1 已分别闭合 material/copy/unique-history、classic primary cross-layer named-provider、exact R8 repeat FBO/direct-red、bounded layer-local full-frame compose与same-frame scene-background compose carrier五个 `slice-visible` atom；能力台账与运行证据另已登记named-provider的局部 `generic-only / owner-migration-complete`。路线决策仍是留在 V1：从剩余 ordered FBO command、其他 history、swap/condition/function、其他background/dependency compose与 secondary/multiple/nested dependency 中选择下一个独立公共结果；该局部 owner 迁移和第五个可见原子都不表示 V1、Refraction、Fast Suite、官方 parity 或 release 完成。
+依据当前能力台账与运行证据，V1 已分别闭合 material/copy/unique-history、classic primary cross-layer named-provider、exact R8 repeat FBO/direct-red、bounded layer-local full-frame compose、same-frame scene-background compose carrier与same-descriptor authored swap六个 `slice-visible` atom；能力台账与运行证据另已登记named-provider的局部 `generic-only / owner-migration-complete`。路线决策仍是留在 V1：从剩余 ordered FBO command、其他 history、condition/function、其他background/dependency compose与 secondary/multiple/nested dependency 中选择下一个独立公共结果；该局部 owner 迁移和第六个可见原子都不表示 V1、Fluid、Refraction、Fast Suite、官方 parity 或 release 完成。
 
 ## 3. 执行优先级
 
@@ -287,7 +287,7 @@ remaining_deviation_and_exit_condition:
 4. 能在一个批次内闭合正门、局部失败反例、新组合/未见 fixture、局部回滚与真实隔离运行；
 5. 能明确本批只达到 `slice-visible`，还是还包含同一 profile 的 `generic-only / owner-migration-complete`；没有旧 owner 撤权证据时不得宣告后者。
 
-V1 候选范围只取第 3 节已列出的 ordered multi-pass/FBO command、其他 history、swap/condition/function、background/dependency等其他compose，以及 secondary/multiple/nested dependency。主实现者在编码前填写第 6 节纠偏卡并冻结一个 atom；并行研究只能提供候选证据，不能各自建立路线、修改共享权威文档或同时取得产品输出权。若当前证据不能让任一候选满足上述五项，先补最小可区分证据，不退回 V0 历史断点，也不以新增专用实现制造可见结果。
+V1 候选范围只取第 3 节已列出的剩余 ordered multi-pass/FBO command、其他 history、condition/function、background/dependency等其他compose，以及 secondary/multiple/nested dependency。主实现者在编码前填写第 6 节纠偏卡并冻结一个 atom；并行研究只能提供候选证据，不能各自建立路线、修改共享权威文档或同时取得产品输出权。若当前证据不能让任一候选满足上述五项，先补最小可区分证据，不退回 V0 历史断点，也不以新增专用实现制造可见结果。
 
 ## 9. 完成与退役
 

@@ -43,6 +43,58 @@ nonisolated extension SceneGraphRenderTargetPlan {
         )
     }
 
+    /// Command compatibility must not depend on a probe extent. In particular,
+    /// a 1x1 launch probe cannot collapse distinct scale declarations to the
+    /// same clamped pixel extent and grant a later-invalid swap capability.
+    nonisolated static func authoredSwapDescriptorsAreCompatible(
+        in graph: Graph
+    ) -> Bool {
+        let declarations = Dictionary(grouping: graph.renderTargets, by: \.texture)
+        for node in graph.nodes where node.kind == .swap {
+            guard let source = node.commandSource,
+                  let target = node.commandTarget,
+                  source != target,
+                  let sourceDeclarations = declarations[source],
+                  sourceDeclarations.count == 1,
+                  let sourceDeclaration = sourceDeclarations.first,
+                  let targetDeclarations = declarations[target],
+                  targetDeclarations.count == 1,
+                  let targetDeclaration = targetDeclarations.first,
+                  normalizedExtent(sourceDeclaration.extent)
+                    == normalizedExtent(targetDeclaration.extent),
+                  let sourceDescriptor = targetDescriptor(
+                      sourceDeclaration,
+                      inputWidth: 1,
+                      inputHeight: 1
+                  ),
+                  let targetDescriptor = targetDescriptor(
+                      targetDeclaration,
+                      inputWidth: 1,
+                      inputHeight: 1
+                  ),
+                  sourceDescriptor.format == targetDescriptor.format else {
+                return false
+            }
+            if sourceDescriptor.addressMode != targetDescriptor.addressMode
+                || sourceDescriptor.isUnique != targetDescriptor.isUnique
+                || sourceDescriptor.initialClear != targetDescriptor.initialClear {
+                return false
+            }
+        }
+        return true
+    }
+
+    private nonisolated static func normalizedExtent(
+        _ authored: Graph.TargetExtent
+    ) -> Graph.TargetExtent {
+        Graph.TargetExtent(
+            width: authored.width,
+            height: authored.height,
+            fit: authored.fit,
+            scale: authored.scale == 1 ? nil : authored.scale
+        )
+    }
+
     /// Confirms that this typed Plan is the canonical interpretation of the
     /// supplied Graph declarations. Callers consume Plan descriptors only;
     /// raw spelling differences are accepted when they resolve identically.

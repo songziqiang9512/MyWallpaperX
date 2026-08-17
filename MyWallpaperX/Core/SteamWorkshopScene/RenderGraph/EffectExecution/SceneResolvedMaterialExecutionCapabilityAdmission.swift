@@ -381,6 +381,10 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
               }) else {
             throw failure("admitted-graph-structure")
         }
+        guard SceneGraphRenderTargetPlan
+            .authoredSwapDescriptorsAreCompatible(in: graph) else {
+            throw failure("swap-target-descriptor-incompatible")
+        }
     }
 
     private static func normalized(_ path: String) -> String {

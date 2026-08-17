@@ -210,6 +210,9 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             }
             descriptors[target.texture] = descriptor
         }
+        guard authoredSwapDescriptorsAreCompatible(in: graph) else {
+            return .failure(.unsupportedTargetDescriptor)
+        }
 
         var firstReads: [Graph.TextureIdentity: Int] = [:]
         var lastReads: [Graph.TextureIdentity: Int] = [:]

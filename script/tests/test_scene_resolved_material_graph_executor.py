@@ -4413,62 +4413,16 @@ private enum Harness {
                 material(3, ordinal: 2, target: output, read: first),
             ]
         )
-        let swapMismatchPlan = manualPlan(
-            targets: [
-                logical(
-                    first,
-                    firstWrite: 0,
-                    lastWrite: 2,
-                    firstRead: 2,
-                    lastRead: 3
-                ),
-                logical(
-                    second,
-                    unique: true,
-                    firstWrite: 1,
-                    lastWrite: 2,
-                    firstRead: 2,
-                    lastRead: 2
-                ),
-            ],
-            commands: [.init(
-                nodeIndex: 2,
-                kind: .swap,
-                source: first,
-                target: second
-            )]
-        )
         let swapMismatchChain = admittedGraph(swapMismatchGraph)
         let swapMismatchCapabilities = capabilities(
             swapMismatchChain,
             catalog: catalog(for: swapMismatchGraph)
         )
-        let swapMismatchClaim = swapMismatchCapabilities.claim(
+        let swapMismatchRejectedBeforeFrame = swapMismatchCapabilities.claim(
             swapMismatchChain
-        )!
-        let swapMismatchExecutor = Executor(
-            device: device,
-            capabilities: swapMismatchCapabilities
-        )!
-        let swapMismatchLease = makeLease(swapMismatchPlan, device: device)
-        guard let swapMismatchBuffer = queue.makeCommandBuffer() else {
-            fatalError("swap mismatch buffer unavailable")
+        ) == nil && swapMismatchCapabilities.reportLines.contains {
+            $0.contains("rejection: swap-target-descriptor-incompatible count=1")
         }
-        let swapMismatch = swapMismatchExecutor.prepare(
-            token: swapMismatchClaim.token,
-            leases: [swapMismatchLease],
-            historyRehydrateCopiesByEffect: [:],
-            frame: frame(1),
-            sourceTexture: source,
-            sourceUniforms: .neutral(),
-            sourcePipeline: sourcePipeline,
-            dedicatedInputs: .init(),
-            commandBuffer: swapMismatchBuffer,
-            previousStates: [:],
-            previousGraphResources: [:],
-            effectGeneration: 1,
-            resetGeneration: 1
-        )
 
         let mixedKinds: [String]
         let mixedPublicationChain: Bool
@@ -4888,8 +4842,8 @@ private enum Harness {
                 freshCopyPublicationMatches,
             "copyExtentMismatchRejectedBeforeFrame": failureCode(copyMismatch)
                 == Executor.Failure.invalidClaim.rawValue,
-            "swapDescriptorMismatchRejectedBeforeFrame": failureCode(swapMismatch)
-                == Executor.Failure.invalidClaim.rawValue,
+            "swapDescriptorMismatchRejectedBeforeFrame":
+                swapMismatchRejectedBeforeFrame,
             "freshSameDescriptorLeaseWithoutCopiesRejectsHistory":
                 sameDescriptorHistory.noCopiesBehavior,
             "graphResourceKeyRequestIdentityMismatchRejected":
@@ -4930,7 +4884,8 @@ private enum Harness {
                 "crossLayerStale": staleProvider.failureCode,
                 "late": failureCode(latePreparation),
                 "copyMismatch": failureCode(copyMismatch),
-                "swapMismatch": failureCode(swapMismatch),
+                "swapMismatch": swapMismatchRejectedBeforeFrame
+                    ? "swap-target-descriptor-incompatible" : "unexpected-admission",
                 "firstFailedVariant": launchEnvelopeFailureCode(firstFailedVariant),
                 "secondFailedVariant": launchEnvelopeFailureCode(secondFailedVariant),
             ],

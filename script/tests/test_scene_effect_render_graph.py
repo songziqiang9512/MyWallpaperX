@@ -300,7 +300,9 @@ enum Harness {
     }
 
     static func targetPlan(
-        _ graph: Plan
+        _ graph: Plan,
+        width: Int = 64,
+        height: Int = 32
     ) -> Result<TargetPlan, TargetPlan.Failure> {
         TargetPlan.make(
             executionPlan: .init(
@@ -311,13 +313,17 @@ enum Harness {
                 cursorRipple: nil
             ),
             graph: graph,
-            inputWidth: 64,
-            inputHeight: 32
+            inputWidth: width,
+            inputHeight: height
         )
     }
 
-    static func targetPlanFailure(_ graph: Plan) -> String {
-        switch targetPlan(graph) {
+    static func targetPlanFailure(
+        _ graph: Plan,
+        width: Int = 64,
+        height: Int = 32
+    ) -> String {
+        switch targetPlan(graph, width: width, height: height) {
         case .success: return "success"
         case .failure(let failure): return failure.rawValue
         }
@@ -436,6 +442,9 @@ enum Harness {
         let incompatibleFormat = byLayer[91]!
         let incompatibleUnique = byLayer[92]!
         let incompatibleClear = byLayer[93]!
+        let incompatibleGraphs = [
+            incompatibleExtent, incompatibleFormat, incompatibleUnique, incompatibleClear,
+        ]
         let motionTargets = Dictionary(uniqueKeysWithValues: motion.renderTargets.map {
             ($0.texture.name ?? "", $0)
         })
@@ -517,6 +526,16 @@ enum Harness {
                 $0.initialClear != nil
             }.count,
             "semanticSwapStateAccepted": semanticStateAccepted,
+            "semanticSwapAuthoredDescriptorsCompatible":
+                SceneGraphRenderTargetPlan.authoredSwapDescriptorsAreCompatible(
+                    in: semanticSwap
+                ),
+            "incompatibleAuthoredDescriptorsCompatible": incompatibleGraphs.map {
+                SceneGraphRenderTargetPlan.authoredSwapDescriptorsAreCompatible(in: $0)
+            },
+            "incompatibleOnePixelPlanFailures": incompatibleGraphs.map {
+                targetPlanFailure($0, width: 1, height: 1)
+            },
             "incompatibleRawBlockers": [
                 incompatibleExtent, incompatibleFormat,
                 incompatibleUnique, incompatibleClear,
@@ -524,7 +543,7 @@ enum Harness {
             "incompatiblePlanFailures": [
                 incompatibleExtent, incompatibleFormat,
                 incompatibleUnique, incompatibleClear,
-            ].map(targetPlanFailure),
+            ].map { targetPlanFailure($0) },
             "rawComposeStructural": rawCompose.isStructurallyResolved,
             "rawComposeBlockers": rawCompose.blockers.map { $0.reason.rawValue },
             "rawComposeTargets": rawCompose.nodes.map { textureKey($0.target) },
@@ -650,8 +669,17 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
         self.assertEqual(self.result["semanticSwapUnique"], [False, False])
         self.assertEqual(self.result["semanticSwapClearCount"], 2)
         self.assertTrue(self.result["semanticSwapStateAccepted"])
+        self.assertTrue(self.result["semanticSwapAuthoredDescriptorsCompatible"])
 
     def test_true_descriptor_incompatibility_fails_at_target_plan(self) -> None:
+        self.assertEqual(
+            self.result["incompatibleAuthoredDescriptorsCompatible"],
+            [False] * 4,
+        )
+        self.assertEqual(
+            self.result["incompatibleOnePixelPlanFailures"],
+            ["unsupportedTargetDescriptor"] * 4,
+        )
         self.assertEqual(self.result["incompatibleRawBlockers"], [[], [], [], []])
         self.assertEqual(
             self.result["incompatiblePlanFailures"],
