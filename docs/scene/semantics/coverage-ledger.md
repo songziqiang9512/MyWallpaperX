@@ -72,6 +72,8 @@ R0-R5、B0-B25 与旧 Coverage-first 的逐批迁移过程不参与现役路线�
 
 随后一个 V1 公共可见原子把同一真实 Motion Blur authored graph 扩展为一个 copy 后一个 swap 的混合 command chain：2 material + 1 copy + 1 swap 节点沿同一 scheduler/target-plan/GraphExecutor 执行，415 个 terminal graph observations 均 GPU/publication/compositor/next-frame 成功；未声明 swap target 的反门在 admission 前以 `unclaimed-effect-product-authority` 关闭，graph claim/encode/GPU 为 0，安全 layer-source passthrough 继续完成。两个 target 的 descriptor（extent/format/address/unique/clear）在正门中保持完全一致；该结果达到 `slice-visible / representative-content / prefer-generic`，不升级 arbitrary mixed command、跨帧 mapping/history lifecycle、跨 effect dependency、owner migration、Fast Suite、V1 整体或官方 parity。精确身份见 [E-V1-MIXED-COPY-SWAP-COMMAND-CHAIN](runtime-evidence-index.md#e-v1-mixed-copy-swap-command-chain)。
 
+随后一个 V1 公共可见原子把同一 mixed chain 的 swap node 接入显式 integer combo 条件：`MIXED=1` 保留 `2 material + 1 copy + 1 swap`，415/415 terminal observations 成功；`MIXED=0` 在 target allocation/encode 前只剪掉 swap，保留合法 `2 material + 1 copy`，423/423 terminal observations 同样 GPU/publication/compositor/next-frame 成功。两路均无 graph diagnostic、failed outcome、failed frame 或 drawable miss，`sample_root_residue=[]`。该结果达到 `slice-visible / representative-content / prefer-generic`，不升级 conditional FBO/binding/function/dependency、任意 condition provider/expression、跨帧 lifecycle、owner migration、Fast Suite、V1 整体或官方 parity。精确身份见 [E-V1-CONDITIONED-MIXED-COMMAND-PRUNING](runtime-evidence-index.md#e-v1-conditioned-mixed-command-pruning)。
+
 ## 2. 官方资料覆盖
 
 | 资料面 | 收集状态 | 权威入口 | 仍未知 |
