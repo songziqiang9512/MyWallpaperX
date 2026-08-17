@@ -182,6 +182,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         readinessMask: UInt8,
         formatSlots: Set<Int>,
+        graphTextureFormatFacts: [
+            Graph.TextureIdentity: SceneShaderTextureFormat
+        ],
         assetFormatFacts: [String: Int],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> Result<[[SceneShaderTextureFormat?]], Failure> {
@@ -226,6 +229,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     possible.formUnion(formats(
                         for: reference,
                         sampler: sampler,
+                        graphTextureFormatFacts: graphTextureFormatFacts,
                         assetFormatFacts: assetFormatFacts
                     ))
                 case .deferred:
@@ -237,6 +241,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                             possible.formUnion(formats(
                                 for: .asset(path),
                                 sampler: sampler,
+                                graphTextureFormatFacts: graphTextureFormatFacts,
                                 assetFormatFacts: assetFormatFacts
                             ))
                         case .internalTarget where sampler.readinessCombo == nil:
@@ -300,21 +305,30 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
     private static func formats(
         for reference: Template.TextureReference,
         sampler: SceneResolvedMaterialShaderSchema.Sampler?,
+        graphTextureFormatFacts: [
+            Graph.TextureIdentity: SceneShaderTextureFormat
+        ],
         assetFormatFacts: [String: Int]
     ) -> Set<SceneShaderTextureFormat?> {
-        guard case let .asset(path) = reference,
-              let sampler,
-              let purpose = sampler.purpose(for: reference) else { return [nil] }
-        let identity = SceneAssetTextureIdentity(path: path, purpose: purpose)
-        guard let value = assetFormatFacts[identity.reportToken] else {
+        switch reference {
+        case let .graph(identity):
+            return [graphTextureFormatFacts[identity]]
+        case let .asset(path):
+            guard let sampler,
+                  let purpose = sampler.purpose(for: reference) else { return [nil] }
+            let identity = SceneAssetTextureIdentity(path: path, purpose: purpose)
+            guard let value = assetFormatFacts[identity.reportToken] else {
+                return [nil]
+            }
+            if value == -1 { return [] }
+            guard let rawValue = UInt32(exactly: value),
+                  let format = SceneShaderTextureFormat(rawValue: rawValue) else {
+                return [nil]
+            }
+            return [format]
+        case .userProperty, .provider:
             return [nil]
         }
-        if value == -1 { return [] }
-        guard let rawValue = UInt32(exactly: value),
-              let format = SceneShaderTextureFormat(rawValue: rawValue) else {
-            return [nil]
-        }
-        return [format]
     }
 
     private static func less(

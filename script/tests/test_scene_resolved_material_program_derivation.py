@@ -345,7 +345,8 @@ private func resolvedUniforms(
         Template.DynamicUniformSource,
         SceneDynamicSource,
         [Template.DynamicUniformScriptAttachment]
-    )? = nil
+    )? = nil,
+    outputStorage: Program.OutputStorage = .color
 ) -> [Program.ResolvedUniform] {
     let frontend = SceneAuthoredShaderFrontend.compile(
         vertexSource: prepared.vertex.source,
@@ -458,7 +459,8 @@ private func assemble(
         Template.DynamicUniformSource,
         SceneDynamicSource,
         [Template.DynamicUniformScriptAttachment]
-    )? = nil
+    )? = nil,
+    outputStorage: Program.OutputStorage = .color
 ) -> Program? {
     var uniforms = resolvedUniforms(
         shader,
@@ -471,7 +473,8 @@ private func assemble(
         textureSlots: textureSlots,
         resolvedUniforms: uniforms,
         renderState: renderState,
-        graphRole: role
+        graphRole: role,
+        outputStorage: outputStorage
     ))
 }
 
@@ -480,7 +483,10 @@ private func hasStraightAlphaBoundary(_ program: Program?) -> Bool {
           case .straightAlpha(0) = program.semanticIdentity.shader.colorTransfer else {
         return false
     }
-    return program.semanticIdentity.colorContract.fragmentOutput == .premultipliedAlpha
+    guard case let .color(contract) = program.semanticIdentity.outputContract else {
+        return false
+    }
+    return contract.fragmentOutput == .premultipliedAlpha
 }
 
 private func hasStraightAlphaPreservingBoundary(_ program: Program?) -> Bool {
@@ -489,8 +495,10 @@ private func hasStraightAlphaPreservingBoundary(_ program: Program?) -> Bool {
             program.semanticIdentity.shader.colorTransfer else {
         return false
     }
-    return program.semanticIdentity.colorContract.fragmentOutput
-        == .premultipliedAlpha
+    guard case let .color(contract) = program.semanticIdentity.outputContract else {
+        return false
+    }
+    return contract.fragmentOutput == .premultipliedAlpha
 }
 
 private func hasStraightAlphaUNormBoundary(_ program: Program?) -> Bool {
@@ -499,8 +507,18 @@ private func hasStraightAlphaUNormBoundary(_ program: Program?) -> Bool {
             program.semanticIdentity.shader.colorTransfer else {
         return false
     }
-    return program.semanticIdentity.colorContract.fragmentOutput
-        == .premultipliedAlpha
+    guard case let .color(contract) = program.semanticIdentity.outputContract else {
+        return false
+    }
+    return contract.fragmentOutput == .premultipliedAlpha
+}
+
+private func colorIdentity(_ program: Program?) -> Program.ColorContractIdentity? {
+    guard let program,
+          case let .color(contract) = program.semanticIdentity.outputContract else {
+        return nil
+    }
+    return contract
 }
 
 @main
@@ -515,6 +533,11 @@ private enum Harness {
         let baseline = assemble(
             prepared: firstPrepared,
             textureSlots: slots(firstSlot)
+        )!
+        let scalarBaseline = assemble(
+            prepared: firstPrepared,
+            textureSlots: slots(firstSlot),
+            outputStorage: .scalarRedUnorm
         )!
         let proceduralOpaque = assemble(
             prepared: prepared(
@@ -831,6 +854,23 @@ private enum Harness {
             textureSlots: slots(firstSlot, maskSlot),
             role: graphRole(effectInput: .layerSource)
         ) == nil
+        let wholeFilterScalarFramebufferAccepted = assemble(
+            prepared: wholeFilterPrepared,
+            textureSlots: slots(firstSlot, maskSlot),
+            role: graphRole(effectInput: .layerSource),
+            outputStorage: .scalarRedUnorm
+        )
+        let wholeFilterScalarMismatchedBindingRejected = assemble(
+            prepared: wholeFilterPrepared,
+            textureSlots: slots(firstSlot, maskSlot),
+            role: .init(
+                effectInput: .layerSource,
+                effectOutput: .effectOutput,
+                nodeTarget: .framebuffer,
+                bindings: [.init(slot: 0, texture: .layerSource)]
+            ),
+            outputStorage: .scalarRedUnorm
+        ) == nil
 
         let twoSlotPrepared = prepared(
             revision: "two-color-inputs",
@@ -912,6 +952,10 @@ private enum Harness {
         let padding = Array(baseline.uniformBytes[4 ..< 8])
         let results: [String: Bool] = [
             "metalAvailable": true,
+            "scalarOutputContractHasDistinctIdentity":
+                baseline.semanticIdentity != scalarBaseline.semanticIdentity
+                && scalarBaseline.semanticIdentity.outputContract == .scalarRedUnorm
+                && scalarBaseline.outputContract == .scalarRedUnorm,
             "baselineAssembled": baseline.textureSlots.count == 8,
             "uniformPaddingZeroed": baseline.uniformBytes.count == 16
                 && padding.allSatisfy { $0 == 0 },
@@ -962,10 +1006,8 @@ private enum Harness {
             "proceduralOpaqueWithoutSampledInputAccepted":
                 proceduralOpaque?.textureSlots.allSatisfy({ $0 == nil }) == true
                 && proceduralOpaque?.semanticIdentity.graphRole.bindings.isEmpty == true
-                && proceduralOpaque?.semanticIdentity.colorContract.framebufferInput
-                    == .opaque
-                && proceduralOpaque?.semanticIdentity.colorContract.fragmentOutput
-                    == .opaque,
+                && colorIdentity(proceduralOpaque)?.framebufferInput == .opaque
+                && colorIdentity(proceduralOpaque)?.fragmentOutput == .opaque,
             "unsupportedStateRejected": unsupportedState,
             "mismatchedGraphBindingRejected": mismatchedGraphBinding,
             "invalidGraphBindingSlotRejected": invalidGraphBindingSlot,
@@ -985,8 +1027,8 @@ private enum Harness {
                     == .layerSource
                 && scanlinePremultiplied?.semanticIdentity.graphRole.nodeTarget
                     == .effectOutput
-                && scanlinePremultiplied?.semanticIdentity.colorContract
-                    .framebufferInput == .premultipliedAlpha,
+                && colorIdentity(scanlinePremultiplied)?.framebufferInput
+                    == .premultipliedAlpha,
             "scanlineDataLayerSourceRejected": scanlineDataRejected,
             "maskedDataAccepted": hasStraightAlphaBoundary(maskedDataAccepted),
             "maskedColorRejected": maskedColorRejected,
@@ -998,6 +1040,11 @@ private enum Harness {
             "wholeFilterAccepted": hasStraightAlphaUNormBoundary(
                 wholeFilterAccepted
             ),
+            "wholeFilterScalarFramebufferAccepted":
+                wholeFilterScalarFramebufferAccepted?.outputContract
+                    == .scalarRedUnorm,
+            "wholeFilterScalarMismatchedBindingRejected":
+                wholeFilterScalarMismatchedBindingRejected,
             "wholeFilterColorAuxiliaryRejected":
                 wholeFilterColorAuxiliaryRejected,
             "wholeFilterEffectOutputRejected": wholeFilterEffectOutputRejected,

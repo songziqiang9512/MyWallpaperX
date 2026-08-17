@@ -219,6 +219,13 @@ nonisolated struct SceneAuthoredShaderProgram {
         let channelUse: ChannelUse
     }
 
+    enum FragmentOutputChannelUse: String, Equatable, Hashable, Sendable {
+        /// Every reachable fragment exit defines red through one root-level,
+        /// unconditional whole-output write.
+        case redDefined
+        case unproven
+    }
+
     let metalSource: String
     let vertexFunctionName: String
     let fragmentFunctionName: String
@@ -227,6 +234,7 @@ nonisolated struct SceneAuthoredShaderProgram {
     let textureBindings: [TextureBinding]
     let staticLoopWork: Int
     let colorTransfer: SceneShaderColorTransfer
+    let fragmentOutputChannelUse: FragmentOutputChannelUse
     let backend: Backend
 
     func channelUse(forTextureSlot slot: Int) -> TextureBinding.ChannelUse? {
@@ -242,6 +250,7 @@ nonisolated struct SceneAuthoredShaderProgram {
         textureBindings: [TextureBinding],
         staticLoopWork: Int,
         colorTransfer: SceneShaderColorTransfer,
+        fragmentOutputChannelUse: FragmentOutputChannelUse = .unproven,
         backend: Backend = .boundedSwift
     ) {
         self.metalSource = metalSource
@@ -252,6 +261,7 @@ nonisolated struct SceneAuthoredShaderProgram {
         self.textureBindings = textureBindings
         self.staticLoopWork = staticLoopWork
         self.colorTransfer = colorTransfer
+        self.fragmentOutputChannelUse = fragmentOutputChannelUse
         self.backend = backend
     }
 

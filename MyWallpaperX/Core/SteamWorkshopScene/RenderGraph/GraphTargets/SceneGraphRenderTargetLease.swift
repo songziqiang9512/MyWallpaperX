@@ -92,6 +92,7 @@ struct SceneGraphRenderTargetLease {
         let pairDescriptor = State.ResourceDescriptor(
             extent: table.plan.inputExtent,
             format: .rgbaBackbuffer,
+            addressMode: .clampToEdge,
             isUnique: false,
             initialClear: nil
         )
@@ -180,6 +181,7 @@ struct SceneGraphRenderTargetLease {
             return .init(
                 extent: plan.inputExtent,
                 format: .rgbaBackbuffer,
+                addressMode: .clampToEdge,
                 isUnique: false,
                 initialClear: nil
             )
@@ -190,6 +192,7 @@ struct SceneGraphRenderTargetLease {
         return .init(
             extent: target.extent,
             format: target.format,
+            addressMode: target.addressMode,
             isUnique: target.isUnique,
             initialClear: target.initialClear
         )

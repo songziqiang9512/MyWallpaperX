@@ -308,6 +308,7 @@ struct ScenePersistentGraphTargetAllocator {
                       descriptor: .init(
                           extent: slot.descriptor.extent,
                           format: slot.descriptor.format,
+                          addressMode: slot.descriptor.addressMode,
                           isUnique: slot.isEffectUnique,
                           initialClear: nil
                       )
@@ -338,6 +339,7 @@ struct ScenePersistentGraphTargetAllocator {
                     descriptor: .init(
                         extent: slot.descriptor.extent,
                         format: slot.descriptor.format,
+                        addressMode: slot.descriptor.addressMode,
                         isUnique: slot.isEffectUnique,
                         initialClear: nil
                     )

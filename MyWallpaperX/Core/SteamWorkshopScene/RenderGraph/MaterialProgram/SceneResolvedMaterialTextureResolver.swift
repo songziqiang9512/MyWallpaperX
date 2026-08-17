@@ -24,13 +24,19 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         variant: SceneResolvedMaterialCompiledVariant,
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
     ) throws -> Resolution {
+        let channelUses = try SceneResolvedMaterialVariantCache
+            .validatedSamplerChannelUses(
+                variant.activeSamplers,
+                bindings: variant.frontendProgram.textureBindings
+            )
         guard try readinessMask(
             input,
             samplers: variant.activeSamplers,
-            reachableSamplers: reachableSamplers
+            reachableSamplers: reachableSamplers,
+            channelUses: channelUses
         )
                 == variant.readinessMask else {
-            throw failure(.identityInvariant, phase: .invariant)
+            throw failure(.textureReadinessIdentityInvariant, phase: .invariant)
         }
         return .init(
             variant: variant,
@@ -45,13 +51,15 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     static func readinessMask(
         _ input: SceneResolvedMaterialFinalizationInput,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
+        channelUses: [Int: ChannelUse]
     ) throws -> UInt8 {
         try variantKey(
             input,
             samplers: samplers,
             reachableSamplers: reachableSamplers,
             formatSlots: [],
+            channelUses: channelUses,
             allowPresenceIndependentDefaults: true,
             restrictToSamplerSlots: true
         ).readinessMask
@@ -68,7 +76,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     ) throws -> SceneResolvedMaterialVariantKey {
         guard formatSlots.allSatisfy((0 ..< 8).contains),
               channelUses.keys.allSatisfy((0 ..< 8).contains) else {
-            throw failure(.identityInvariant, phase: .invariant)
+            throw failure(.textureVariantKeyIdentityInvariant, phase: .invariant)
         }
         let selections = try SceneResolvedMaterialTextureSelection.resolve(
             input,
@@ -115,16 +123,50 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                     mask |= UInt8(1) << UInt8(slot)
                 }
                 if formatSlots.contains(slot) {
-                    formats[slot] = resolved.resource.publication.candidate
-                        .authoredFormat
+                    formats[slot] = try textureFormatFact(
+                        reference: reference,
+                        resource: resolved.resource,
+                        slot: slot
+                    )
                 }
             }
         }
         guard let key = SceneResolvedMaterialVariantKey(
             readinessMask: mask,
             textureFormats: formats
-        ) else { throw failure(.identityInvariant, phase: .invariant) }
+        ) else {
+            throw failure(.textureVariantKeyIdentityInvariant, phase: .invariant)
+        }
         return key
+    }
+
+    private static func textureFormatFact(
+        reference: Template.TextureReference,
+        resource: SceneFrameTextureResource,
+        slot: Int
+    ) throws -> SceneShaderTextureFormat? {
+        let candidate = resource.publication.candidate
+        guard case .graph = reference else { return candidate.authoredFormat }
+        guard resource.isCompleteGraphResource,
+              candidate.authoredFormat == nil else {
+            throw failure(
+                .textureVariantKeyIdentityInvariant,
+                phase: .invariant,
+                slot: slot
+            )
+        }
+        switch candidate.content {
+        case .scalarRedUnorm:
+            return .r8
+        case .color:
+            return nil
+        case .data:
+            throw failure(
+                .textureVariantKeyIdentityInvariant,
+                phase: .invariant,
+                slot: slot
+            )
+        }
     }
 
     private static func samplerReadinessIncludes(

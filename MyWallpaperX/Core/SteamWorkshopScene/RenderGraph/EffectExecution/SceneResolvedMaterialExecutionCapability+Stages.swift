@@ -90,6 +90,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         guard let effect = product.graph.effects.first else {
             return .failure(rejection("material-template-unsupported"))
         }
+        guard let graphTextureFormatFacts = graphTextureFormatFacts(
+            in: product.graph
+        ) else {
+            return .failure(rejection("material-target-storage-unproven"))
+        }
         var materials: [MaterialKey: MaterialCapability] = [:]
         for node in product.graph.nodes {
             guard case .material = node.kind else { continue }
@@ -104,6 +109,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     ) else {
                 return .failure(rejection("material-template-unsupported"))
             }
+            guard let attachment = attachment(
+                for: node,
+                in: product.graph
+            ) else { return .failure(rejection("material-target-storage-unproven")) }
             let variants: SceneResolvedMaterialVariantCache
             switch SceneResolvedMaterialVariantCache.launchValidated(
                 template: template,
@@ -123,6 +132,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             if case let .failure(failure) = variants.precompileLaunchEnvelope(
                 implicitFramebufferIdentity: effect.input,
+                outputStorage: attachment.storage == .color
+                    ? .color : .scalarRedUnorm,
+                graphTextureFormatFacts: graphTextureFormatFacts,
                 assetStates: assetStates
             ) {
                 SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
@@ -159,10 +171,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             ) {
                 return .failure(failure)
             }
-            guard let attachment = attachment(
-                for: node,
-                in: product.graph
-            ) else { return .failure(rejection("material-target-storage-unproven")) }
             materials[key] = .init(
                 key: key,
                 template: template,
@@ -178,6 +186,25 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             return .failure(rejection("r8-scalar-graph-unproven"))
         }
         return .success(materials)
+    }
+
+    private static func graphTextureFormatFacts(
+        in graph: Graph
+    ) -> [Graph.TextureIdentity: SceneShaderTextureFormat]? {
+        var seen = Set<Graph.TextureIdentity>()
+        var result: [Graph.TextureIdentity: SceneShaderTextureFormat] = [:]
+        for target in graph.renderTargets {
+            guard seen.insert(target.texture).inserted,
+                  let descriptor = SceneGraphRenderTargetPlan.targetDescriptor(
+                      target,
+                      inputWidth: 1,
+                      inputHeight: 1
+                  ) else { return nil }
+            if descriptor.format == .r8 {
+                result[target.texture] = .r8
+            }
+        }
+        return result
     }
 
     private static func attachment(

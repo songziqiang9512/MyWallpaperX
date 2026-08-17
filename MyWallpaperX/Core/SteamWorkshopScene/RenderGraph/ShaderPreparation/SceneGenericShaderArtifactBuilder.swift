@@ -117,6 +117,9 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 metalSource: metalSource
             )
             let loopWork = try staticLoopWork(stages.map(\.source))
+            let outputChannelUse = fragmentOutputChannelUse(
+                fragmentStage.source
+            )
             let program = SceneGenericShaderProgramArtifact.Program(
                 metalSource: metalSource,
                 metalSourceSHA256: SceneGenericShaderProgramArtifact.sha256(
@@ -131,7 +134,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 ),
                 textureBindings: bindings,
                 staticLoopWork: loopWork,
-                colorTransfer: color.transfer
+                colorTransfer: color.transfer,
+                fragmentOutputChannelUse: outputChannelUse.rawValue
             )
             return .success(.init(
                 backendID: backendID,
@@ -143,6 +147,22 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         } catch {
             return .failure(.reflection)
         }
+    }
+
+    private static func fragmentOutputChannelUse(
+        _ source: String
+    ) -> SceneAuthoredShaderProgram.FragmentOutputChannelUse {
+        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: source,
+                stage: .fragment
+            ),
+            stage: .fragment
+        )
+        guard let unit = syntax.unit, syntax.diagnostics.isEmpty else {
+            return .unproven
+        }
+        return SceneAuthoredShaderFragmentOutputAnalyzer.analyze(unit)
     }
 
     private static func reflectedLayout(_ reflection: Reflection) throws -> ReflectedLayout {

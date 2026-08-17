@@ -6,7 +6,7 @@ import Metal
 /// start its command buffer after the complete transaction is admissible.
 final class SceneResolvedMaterialPassEncoder {
     struct PreparedPass {
-        let fragmentOutput: SceneShaderColorRepresentation
+        let fragmentOutput: SceneShaderColorRepresentation?
         let storedContent: SceneTextureContent
         let bindingSlots: [Int]
         let bindingSamplings: [SceneTextureSampling]
@@ -108,12 +108,11 @@ final class SceneResolvedMaterialPassEncoder {
         target: MTLTexture,
         attachmentStorage: SceneResolvedMaterialAttachmentKind
     ) -> Result<PreparedPass, PreparationFailure> {
-        guard let fragmentOutput = SceneResolvedMaterialAttachmentStorage
-            .acceptedColorOutput(program.colorContract.fragmentOutput)
-        else { return .failure(.fragmentOutputRejected) }
-        let storedContent = attachmentStorage.storedContent(
-            fragmentOutput: fragmentOutput
-        )
+        guard let output = SceneResolvedMaterialAttachmentStorage.storedOutput(
+            program.outputContract,
+            attachmentStorage: attachmentStorage
+        ) else { return .failure(.fragmentOutputRejected) }
+        let storedContent = output.content
         guard SceneResolvedMaterialAttachmentStorage.target(
             target,
             belongsTo: device,
@@ -164,7 +163,7 @@ final class SceneResolvedMaterialPassEncoder {
             preparedKey: program.preparedShader.cacheKey
         )
         return .success(PreparedPass(
-            fragmentOutput: fragmentOutput,
+            fragmentOutput: output.colorRepresentation,
             storedContent: storedContent,
             bindingSlots: bindings.map(\.slot),
             bindingSamplings: bindings.map(\.sampling),

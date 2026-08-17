@@ -166,6 +166,19 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
+    def test_graph_target_plan_change_selects_address_mode_contract(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/"
+                "SceneGraphRenderTargetPlan.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("graph-target-address-mode", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_scene_graph_target_address_mode", focused.command)
+
     def test_rendering_change_selects_compositor_and_renderer_wiring_contracts(
         self,
     ) -> None:

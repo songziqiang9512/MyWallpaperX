@@ -29,6 +29,7 @@ extension SceneResolvedMaterialProgram {
             case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)
             case premultipliedAlpha
             case opaque
+            case unresolved
         }
 
         let frontendSchemaVersion: Int
@@ -41,6 +42,8 @@ extension SceneResolvedMaterialProgram {
         let textureSlots: [Int]
         let textureChannelUses: [SceneAuthoredShaderProgram.TextureBinding.ChannelUse]
         let colorTransfer: ColorTransfer
+        let fragmentOutputChannelUse:
+            SceneAuthoredShaderProgram.FragmentOutputChannelUse
     }
 
     enum TextureContentIdentity: Hashable {
@@ -79,6 +82,11 @@ extension SceneResolvedMaterialProgram {
         let fragmentOutput: ColorRepresentationIdentity
     }
 
+    enum OutputContractIdentity: Hashable {
+        case color(ColorContractIdentity)
+        case scalarRedUnorm
+    }
+
     struct ActiveUniformIdentity: Hashable {
         let fieldName: String
         let fieldType: String
@@ -92,7 +100,7 @@ extension SceneResolvedMaterialProgram {
         let textureSlots: [TextureSemanticIdentity?]
         let activeUniforms: [ActiveUniformIdentity]
         let renderState: RenderStateIdentity
-        let colorContract: ColorContractIdentity
+        let outputContract: OutputContractIdentity
         let graphRole: SceneResolvedMaterialTemplate.GraphRole
     }
 
@@ -196,8 +204,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
             )
         case .premultipliedAlpha: transfer = .premultipliedAlpha
         case .opaque: transfer = .opaque
-        case .unresolved:
-            preconditionFailure("Unresolved color transfer passed derivation guard.")
+        case .unresolved: transfer = .unresolved
         }
         return .init(
             frontendSchemaVersion: schemaVersion,
@@ -216,7 +223,8 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
             },
             textureSlots: frontend.textureBindings.map(\.slot),
             textureChannelUses: frontend.textureBindings.map(\.channelUse),
-            colorTransfer: transfer
+            colorTransfer: transfer,
+            fragmentOutputChannelUse: frontend.fragmentOutputChannelUse
         )
     }
 

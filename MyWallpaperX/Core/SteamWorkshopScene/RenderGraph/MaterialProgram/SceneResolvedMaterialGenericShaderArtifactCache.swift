@@ -252,7 +252,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 requestKey: key
             )
         }
-        guard let program = artifact.makeProgram(expectedKey: key) else {
+        let fragmentOutputChannelUse = fragmentOutputChannelUse(fragmentSource)
+        guard let program = artifact.makeProgram(
+                  expectedKey: key,
+                  expectedFragmentOutputChannelUse: fragmentOutputChannelUse
+              ) else {
             return fallback(
                 state: routeState,
                 code: "artifact-contract-rejected",
@@ -266,6 +270,22 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             requestKey: key
         )
         return .accepted(program: program, requestKey: key)
+    }
+
+    private static func fragmentOutputChannelUse(
+        _ source: String
+    ) -> SceneAuthoredShaderProgram.FragmentOutputChannelUse {
+        let lexerOutput = SceneAuthoredShaderLexer.lex(
+            source: source,
+            stage: .fragment
+        )
+        let syntaxOutput = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: lexerOutput,
+            stage: .fragment
+        )
+        guard syntaxOutput.diagnostics.isEmpty,
+              let fragment = syntaxOutput.unit else { return .unproven }
+        return SceneAuthoredShaderFragmentOutputAnalyzer.analyze(fragment)
     }
 
     private static func fallback(
@@ -311,7 +331,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     ) -> String {
         var data = Data()
         for value in [
-            "mwx-generic-shader-request-v1",
+            "mwx-generic-shader-request-v2",
             "wallpaper-engine-glsl-like-v0",
             vertexSource,
             fragmentSource,
@@ -382,7 +402,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         ).first else { return nil }
         let root = caches
             .appendingPathComponent("com.songziqiang.MyWallpaperX", isDirectory: true)
-            .appendingPathComponent("SceneGenericShaderPrograms-v1", isDirectory: true)
+            .appendingPathComponent("SceneGenericShaderPrograms-v2", isDirectory: true)
             .standardizedFileURL
         do {
             try FileManager.default.createDirectory(

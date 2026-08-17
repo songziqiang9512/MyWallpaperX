@@ -134,7 +134,9 @@ extension SceneResolvedMaterialGraphExecutor {
                             dedicatedInputs.effectTextureProjectionMatrixInverse,
                         implicitFramebufferIdentity: pairStep.inputIdentity
                     ),
-                    variantCache: material.variants
+                    variantCache: material.variants,
+                    outputStorage: material.attachmentStorage == .color
+                        ? .color : .scalarRedUnorm
                 )
                 let program: SceneResolvedMaterialProgram
                 switch finalized {
@@ -241,7 +243,8 @@ extension SceneResolvedMaterialGraphExecutor {
                 } else {
                     guard let identity = node.target,
                           identity == pairStep.outputIdentity,
-                          let member = pairNode.fullFrameWriteMember else {
+                          let member = pairNode.fullFrameWriteMember,
+                          let fragmentOutput = prepared.fragmentOutput else {
                         return .graphStructureRejected
                     }
                     guard let generation = nextPairGeneration() else {
@@ -252,7 +255,7 @@ extension SceneResolvedMaterialGraphExecutor {
                         identity: identity,
                         member: member,
                         generation: generation,
-                        representation: prepared.fragmentOutput
+                        representation: fragmentOutput
                     ) else { return .graphPublicationRejected }
                     publications[identity] = publication
                     if pairNode.rotatesAfterNode {
@@ -264,13 +267,13 @@ extension SceneResolvedMaterialGraphExecutor {
                             identity: pairStep.inputIdentity,
                             member: member,
                             generation: generation,
-                            representation: prepared.fragmentOutput
+                            representation: fragmentOutput
                         ) else { return .graphPublicationRejected }
                         publications[pairStep.inputIdentity] = input
                         pair = .init(
                             member: member,
                             resource: input,
-                            representation: prepared.fragmentOutput
+                            representation: fragmentOutput
                         )
                     }
                 }
@@ -471,6 +474,10 @@ extension SceneResolvedMaterialGraphExecutor {
         identity: Graph.TextureIdentity
     ) -> Bool {
         guard let publication,
+              SceneGraphRenderTargetLease.graphSamplingMatches(
+                  publication,
+                  descriptor: resource.descriptor
+              ),
               publication.publication.requestIdentity == .graph(identity),
               publication.resourceGeneration == resource.contentGeneration,
               case let .provider(.graph(_, token)) =

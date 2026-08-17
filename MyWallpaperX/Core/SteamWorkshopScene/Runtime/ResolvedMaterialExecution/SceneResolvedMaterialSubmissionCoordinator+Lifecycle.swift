@@ -274,7 +274,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             allocationGeneration: next.allocationGeneration
         ), Set(value.persistentResources.keys) == next.historyClosureIdentities,
            physicalMapping(next) == transaction.mappingAfter.mapValues(\.token),
-           value.effectOutputResource.isCompleteGraphResource,
+           SceneGraphRenderTargetLease.graphSamplingMatches(
+               value.effectOutputResource,
+               expectedSampling: .linearClamp
+           ),
            value.effectOutputResource.publication.requestIdentity
                 == .graph(value.pairStep.outputIdentity),
            value.effectOutputResource.resourceGeneration > 0,
@@ -299,7 +302,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               let allocationGeneration else { return false }
         return readable.allSatisfy { identity, versioned in
             guard let resource = resources[identity],
-                  resource.isCompleteGraphResource,
+                  SceneGraphRenderTargetLease.graphSamplingMatches(
+                      resource,
+                      descriptor: versioned.descriptor
+                  ),
                   resource.publication.requestIdentity == .graph(identity),
                   resource.resourceGeneration == versioned.contentGeneration,
                   resource.publication.contentGeneration

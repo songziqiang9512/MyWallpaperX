@@ -587,7 +587,9 @@ private func fragmentSource(
     hostUniformDeclarationConflict: Bool = false,
     pixelTransform: Int? = nil,
     scalarProducer: Bool = false,
+    scalarProducerUnproven: Bool = false,
     scalarConsumer: String? = nil,
+    repeatProbe: Bool = false,
     crossLayerMix: Bool = false
 ) -> String {
     let annotation = pass ? "// [PASS] shadow shadowcasterdemo\n" : ""
@@ -613,6 +615,8 @@ private func fragmentSource(
                     : hostUniformDeclarationConflict
                         ? "uniform float g_Time;"
                         : ""
+    let sampleCoordinate = repeatProbe
+        ? "v_TexCoord + vec2(1.0)" : "v_TexCoord"
     let expression = if crossLayerMix {
         "gl_FragColor = mix("
             + "texSample2D(g_Texture0, v_TexCoord), "
@@ -629,10 +633,13 @@ private func fragmentSource(
     } else if hostUniformDeclarationConflict {
         "float hostProbe = g_Time;"
             + " gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
+    } else if scalarProducerUnproven {
+        "if (v_TexCoord.x > 0.5) gl_FragColor = vec4(0.25);"
     } else if scalarProducer {
-        "gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0);"
+        "float signal = 0.5 * 0.5;"
+            + " gl_FragColor = vec4(signal, signal * 2.0, 0.75, 0.0);"
     } else if scalarConsumer == "red" {
-        "float scalar = texSample2D(g_Texture0, v_TexCoord).r;"
+        "float scalar = texSample2D(g_Texture0, \(sampleCoordinate)).r;"
             + " gl_FragColor = vec4(scalar, 0.0, 0.0, 1.0);"
     } else if scalarConsumer == "green" {
         "float scalar = texSample2D(g_Texture0, v_TexCoord).g;"
@@ -665,6 +672,9 @@ private func fragmentSource(
         """
     } else if frontendInvalid {
         "gl_FragColor = texSample2D(g_Texture0, v_TexCoord.xy);"
+    } else if repeatProbe {
+        "gl_FragColor = texSample2D("
+            + "g_Texture0, v_TexCoord + vec2(1.0));"
     } else {
         "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
     }
@@ -964,7 +974,9 @@ private func shaderContract(
     implicitFramebufferAnnotation: Bool = true,
     historicalFramebufferAlias: Bool = false,
     scalarProducer: Bool = false,
+    scalarProducerUnproven: Bool = false,
     scalarConsumer: String? = nil,
+    repeatProbe: Bool = false,
     crossLayerMix: Bool = false
 ) -> SceneShaderContract {
     func stage(
@@ -1021,7 +1033,9 @@ private func shaderContract(
         hostUniformDeclarationConflict: hostUniformDeclarationConflict,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
+        scalarProducerUnproven: scalarProducerUnproven,
         scalarConsumer: scalarConsumer,
+        repeatProbe: repeatProbe,
         crossLayerMix: crossLayerMix
     )
     let stages = [
@@ -1116,7 +1130,9 @@ private func template(
     uniformDeclarationConflict: Bool = false,
     hostUniformDeclarationConflict: Bool = false,
     scalarProducer: Bool = false,
+    scalarProducerUnproven: Bool = false,
     scalarConsumer: String? = nil,
+    repeatProbe: Bool = false,
     namedProvider: SceneNamedTextureReference? = nil
 ) -> Template {
     guard let target = node.target,
@@ -1146,7 +1162,9 @@ private func template(
         hostUniformDeclarationConflict: hostUniformDeclarationConflict,
         pixelTransform: pixelTransform,
         scalarProducer: scalarProducer,
+        scalarProducerUnproven: scalarProducerUnproven,
         scalarConsumer: scalarConsumer,
+        repeatProbe: repeatProbe,
         crossLayerMix: namedProvider != nil
     )
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
@@ -1285,7 +1303,9 @@ private func catalog(
     implicitFramebufferNodes: Set<Int> = [],
     historicalFramebufferNodes: Set<Int> = [],
     scalarProducerNodes: Set<Int> = [],
+    scalarProducerUnprovenNodes: Set<Int> = [],
     scalarConsumerNodes: [Int: String] = [:],
+    repeatProbeNodes: Set<Int> = [],
     namedProvidersByNode: [Int: SceneNamedTextureReference] = [:]
 ) -> SceneResolvedMaterialRuntimeCatalog {
     var entries: [
@@ -1317,7 +1337,10 @@ private func catalog(
                 hostUniformDeclarationConflict:
                     hostUniformDeclarationConflictNodes.contains(node.nodeIndex),
                 scalarProducer: scalarProducerNodes.contains(node.nodeIndex),
+                scalarProducerUnproven:
+                    scalarProducerUnprovenNodes.contains(node.nodeIndex),
                 scalarConsumer: scalarConsumerNodes[node.nodeIndex],
+                repeatProbe: repeatProbeNodes.contains(node.nodeIndex),
                 namedProvider: namedProvidersByNode[node.nodeIndex]
             )
         entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
@@ -1480,6 +1503,7 @@ private func logical(
     width: Int = 2,
     height: Int = 2,
     format: Plan.TextureFormat = .rgbaBackbuffer,
+    addressMode: Plan.UVAddressMode = .clampToEdge,
     unique: Bool = false,
     firstWrite: Int,
     lastWrite: Int,
@@ -1490,6 +1514,7 @@ private func logical(
         identity: identity,
         extent: .init(width: width, height: height),
         format: format,
+        addressMode: addressMode,
         isUnique: unique,
         lifetime: .init(
             firstWriteNodeIndex: firstWrite,
@@ -1506,7 +1531,8 @@ private func makeSource(
     width: Int = 1,
     height: Int = 1,
     usage: MTLTextureUsage = .shaderRead,
-    bgra: [UInt8] = [0, 0, 255, 255]
+    bgra: [UInt8] = [0, 0, 255, 255],
+    pixelsBGRA: [UInt8]? = nil
 ) -> MTLTexture {
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(
         pixelFormat: .bgra8Unorm,
@@ -1518,11 +1544,12 @@ private func makeSource(
     descriptor.usage = usage
     let texture = device.makeTexture(descriptor: descriptor)!
     precondition(bgra.count == 4)
-    let red = (0 ..< width * height).flatMap { _ in bgra }
+    let pixels = pixelsBGRA ?? (0 ..< width * height).flatMap { _ in bgra }
+    precondition(pixels.count == width * height * 4)
     texture.replace(
         region: MTLRegionMake2D(0, 0, width, height),
         mipmapLevel: 0,
-        withBytes: red,
+        withBytes: pixels,
         bytesPerRow: width * 4
     )
     return texture
@@ -1819,6 +1846,7 @@ private func preservesPermutation(
 
 private struct HistoryScenarioResult {
     var fixtureHasSwapPermutation = false
+    var wrongRequestIdentityRejected = false
     var noCopiesBehavior = false
     var incompleteCopiesBehavior = false
     var unexpectedCopiesRejected = false
@@ -1884,8 +1912,19 @@ private func runHistoryScenario(
               queue: queue
           ) else { return .init() }
 
-    let previous = transition.transition.nextState
     var result = HistoryScenarioResult()
+    let previous = transition.transition.nextState
+    if let original = transition.persistentResources[first] {
+        var forgedResources = transition.persistentResources
+        forgedResources[first] = .init(
+            publication: original.publication.publication(for: .graph(second)),
+            resourceGeneration: original.resourceGeneration
+        )
+        result.wrongRequestIdentityRejected = executor.resources(
+            matching: previous.logicalMapping,
+            from: forgedResources
+        ) == nil
+    }
     result.fixtureHasSwapPermutation =
         previous.logicalMapping[first]?.token
             == previous.authoredResources[second]?.token
@@ -3198,6 +3237,7 @@ private enum Harness {
         func scalarRejection(
             _ candidateGraph: Graph,
             consumers: [Int: String] = [:],
+            unprovenProducer: Bool = false,
             expectedCode: String = "r8-scalar-graph-unproven"
         ) -> Bool {
             let chain = admittedGraph(candidateGraph)
@@ -3205,6 +3245,7 @@ private enum Harness {
                 chain,
                 catalog: catalog(
                     for: candidateGraph,
+                    scalarProducerUnprovenNodes: unprovenProducer ? [0] : [],
                     scalarConsumerNodes: consumers
                 )
             )
@@ -3225,6 +3266,7 @@ private enum Harness {
         let scalarGreenGraph = scalarConsumerGraph()
         let scalarWholeGraph = scalarConsumerGraph()
         let scalarAliasGraph = scalarConsumerGraph()
+        let scalarConditionalWriterGraph = scalarConsumerGraph()
         let scalarClearGraph = graph(
             targets: [rawTarget(
                 first,
@@ -3290,6 +3332,126 @@ private enum Harness {
                 material(0, ordinal: 0, target: first, read: input),
                 material(1, ordinal: 1, target: output, read: first),
             ]
+        )
+        let rgbaRepeatGraph = graph(
+            targets: [rawTarget(first, uvs: .string("repeat"))],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: output, read: first),
+            ]
+        )
+
+        func addressProbe(
+            _ graph: Graph,
+            scalar: Bool,
+            expectedSampling: SceneTextureSampling,
+            generation: UInt64
+        ) -> (
+            executed: Bool,
+            publicationMatches: Bool,
+            first: [UInt8],
+            last: [UInt8]
+        ) {
+            let chain = admittedGraph(graph)
+            let capabilitySet = capabilities(
+                chain,
+                catalog: catalog(
+                    for: graph,
+                    scalarConsumerNodes: scalar ? [1: "red"] : [:],
+                    repeatProbeNodes: [1]
+                )
+            )
+            guard let claim = capabilitySet.claim(chain),
+                  let executor = Executor(
+                      device: device,
+                      capabilities: capabilitySet
+                  ), let command = queue.makeCommandBuffer() else {
+                return (false, false, [], [])
+            }
+            let lease = makeLease(
+                requirePlan(graph),
+                device: device,
+                generation: generation
+            )
+            let pattern = makeSource(
+                device,
+                width: 2,
+                height: 2,
+                pixelsBGRA: [
+                    0, 0, 64, 255,
+                    0, 0, 128, 255,
+                    0, 0, 192, 255,
+                    0, 0, 255, 255,
+                ]
+            )
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: [lease],
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(generation),
+                sourceTexture: pattern,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: generation,
+                resetGeneration: generation
+            )
+            guard case let .success(prepared) = preparation,
+                  let stage = prepared.stages.first,
+                  let publication = stage.frameResources[first] else {
+                return (false, false, [], [])
+            }
+            let publicationMatches = stage.programCacheKeys.count == 2
+                && publication.publication.requestIdentity == .graph(first)
+                && publication.publication.candidate.sampling
+                    == expectedSampling
+                && publication.publication.candidate.sampling.rawFlags == nil
+                && (scalar
+                    ? publication.publication.candidate.content
+                        == .scalarRedUnorm
+                    : publication.publication.candidate.content
+                        != .scalarRedUnorm)
+            let encoded = executor.encode(prepared, commandBuffer: command)
+            guard let readback = appendReadback(
+                prepared.finalTexture,
+                commandBuffer: command
+            ) else { return (false, publicationMatches, [], []) }
+            command.commit()
+            command.waitUntilCompleted()
+            return (
+                encoded && command.status == .completed && command.error == nil,
+                publicationMatches,
+                readback.firstPixel,
+                readback.lastPixel
+            )
+        }
+
+        let rgbaClampProbe = addressProbe(
+            ordinaryGraph,
+            scalar: false,
+            expectedSampling: .linearClamp,
+            generation: 81
+        )
+        let rgbaRepeatProbe = addressProbe(
+            rgbaRepeatGraph,
+            scalar: false,
+            expectedSampling: .linearRepeat,
+            generation: 82
+        )
+        let scalarClampProbe = addressProbe(
+            scalarGraph,
+            scalar: true,
+            expectedSampling: .linearClamp,
+            generation: 83
+        )
+        let scalarRepeatProbe = addressProbe(
+            scalarRepeatGraph,
+            scalar: true,
+            expectedSampling: .linearRepeat,
+            generation: 84
         )
 
         let implicitFramebufferGraph = graph(
@@ -3490,13 +3652,6 @@ private enum Harness {
                 material(1, ordinal: 1, target: output, read: first),
             ]
         )
-        let repeatTargetGraph = graph(
-            targets: [rawTarget(first, uvs: .string("repeat"))],
-            nodes: [
-                material(0, ordinal: 0, target: first, read: input),
-                material(1, ordinal: 1, target: output, read: first),
-            ]
-        )
         let nonzeroClearGraph = graph(
             targets: [rawTarget(first, clear: .string("1 0 0 0"))],
             nodes: [
@@ -3523,10 +3678,6 @@ private enum Harness {
         let internalDefaultCapabilities = capabilities(
             ordinaryChain,
             catalog: catalog(for: ordinaryGraph, internalDefaultNodes: [1])
-        )
-        let repeatTargetCapabilities = capabilities(
-            admittedGraph(repeatTargetGraph),
-            catalog: catalog(for: repeatTargetGraph)
         )
         let nonzeroClearCapabilities = capabilities(
             admittedGraph(nonzeroClearGraph),
@@ -3832,7 +3983,7 @@ private enum Harness {
                 return false
             }
             return failure.phase == .invariant
-                && failure.code == .identityInvariant
+                && failure.code == .variantSelectionKeyInvariant
                 && boundedCache.counters == boundedCountsAfterLaunch
                 && boundedCache.counters.capacityRejectionCount == 0
         }()
@@ -4278,9 +4429,18 @@ private enum Harness {
                 demandIssueCapabilities.claim(ordinaryChain) == nil,
             "internalDefaultRejectedBeforeFrame":
                 internalDefaultCapabilities.claim(ordinaryChain) == nil,
-            "repeatTargetRejectedBeforeFrame": repeatTargetCapabilities.claim(
-                admittedGraph(repeatTargetGraph)
-            ) == nil,
+            "rgbaClampProbeExecutes": rgbaClampProbe.executed,
+            "rgbaClampPublicationIsTyped": rgbaClampProbe.publicationMatches,
+            "rgbaClampProbeClampsOutOfRangeUV": matches(
+                rgbaClampProbe.first,
+                [0, 0, 255, 255]
+            ) && matches(rgbaClampProbe.last, [0, 0, 255, 255]),
+            "rgbaRepeatProbeExecutes": rgbaRepeatProbe.executed,
+            "rgbaRepeatPublicationIsTyped": rgbaRepeatProbe.publicationMatches,
+            "rgbaRepeatProbeWrapsOutOfRangeUV": matches(
+                rgbaRepeatProbe.first,
+                [0, 0, 64, 255]
+            ) && matches(rgbaRepeatProbe.last, [0, 0, 255, 255]),
             "nonzeroClearRejectedBeforeFrame": nonzeroClearCapabilities.claim(
                 admittedGraph(nonzeroClearGraph)
             ) == nil,
@@ -4345,6 +4505,12 @@ private enum Harness {
                 scalarAliasGraph,
                 consumers: [1: "alias"]
             ),
+            "scalarConditionalWriterRejectedAtLaunchEnvelope": scalarRejection(
+                scalarConditionalWriterGraph,
+                consumers: [1: "red"],
+                unprovenProducer: true,
+                expectedCode: "material-variant-envelope-color-contract"
+            ),
             "scalarClearRejectedBeforeFrame": scalarRejection(
                 scalarClearGraph,
                 consumers: [1: "red"]
@@ -4368,11 +4534,18 @@ private enum Harness {
                 scalarSwapGraph,
                 consumers: [2: "red"]
             ),
-            "scalarRepeatRejectedBeforeFrame": scalarRejection(
-                scalarRepeatGraph,
-                consumers: [1: "red"],
-                expectedCode: "admitted-graph-structure"
-            ),
+            "scalarClampProbeExecutes": scalarClampProbe.executed,
+            "scalarClampPublicationIsTyped": scalarClampProbe.publicationMatches,
+            "scalarClampProbeClampsOutOfRangeUV": matches(
+                scalarClampProbe.first,
+                [0, 0, 255, 255]
+            ) && matches(scalarClampProbe.last, [0, 0, 255, 255]),
+            "scalarRepeatProbeExecutes": scalarRepeatProbe.executed,
+            "scalarRepeatPublicationIsTyped": scalarRepeatProbe.publicationMatches,
+            "scalarRepeatProbeWrapsOutOfRangeUV": matches(
+                scalarRepeatProbe.first,
+                [0, 0, 64, 255]
+            ) && matches(scalarRepeatProbe.last, [0, 0, 255, 255]),
             "orderedStagesPreparedTogether": chainedStagesPrepared,
             "orderedStagesEncodedTogether": chainedStagesEncoded,
             "orderedStagesGPUCompleted": chainedStagesGPUCompleted,
@@ -4504,6 +4677,8 @@ private enum Harness {
                 == Executor.Failure.invalidClaim.rawValue,
             "freshSameDescriptorLeaseWithoutCopiesRejectsHistory":
                 sameDescriptorHistory.noCopiesBehavior,
+            "graphResourceKeyRequestIdentityMismatchRejected":
+                sameDescriptorHistory.wrongRequestIdentityRejected,
             "freshSameDescriptorLeaseWithIncompleteCopiesRejectsHistory":
                 sameDescriptorHistory.incompleteCopiesBehavior,
             "completeHistoryCopiesPreserveSwapPermutationAndGeneration":
@@ -4555,6 +4730,12 @@ private enum Harness {
             "crossLayerReport": crossLayerCapabilities.reportLines,
             "encodedPixel": encodedRead.firstPixel,
             "encodedLastPixel": encodedRead.lastPixel,
+            "addressProbePixels": [
+                "rgbaClamp": [rgbaClampProbe.first, rgbaClampProbe.last],
+                "rgbaRepeat": [rgbaRepeatProbe.first, rgbaRepeatProbe.last],
+                "scalarClamp": [scalarClampProbe.first, scalarClampProbe.last],
+                "scalarRepeat": [scalarRepeatProbe.first, scalarRepeatProbe.last],
+            ],
             "pixelChainCanClaim": pixelCapabilities.claim(pixelChain) != nil,
             "pixelChainReport": pixelCapabilities.reportLines,
             "pixelChainFailure": pixelChainFailure,

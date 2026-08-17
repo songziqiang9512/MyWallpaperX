@@ -28,6 +28,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         guard validPreparedStages(input.preparedShader),
               acceptsGraphRole(
                   transfer: frontend.colorTransfer,
+                  outputStorage: input.outputStorage,
                   role: input.graphRole,
                   textureSlots: input.textureSlots
               ),
@@ -48,8 +49,9 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                   textureSlots: input.textureSlots,
                   activeTextureSlots: Set(textures.activeSlots)
               ),
-              let color = resolveColor(
-                  transfer: frontend.colorTransfer,
+              let output = resolveOutputContract(
+                  outputStorage: input.outputStorage,
+                  frontend: frontend,
                   textureSlots: input.textureSlots
               ) else {
             return nil
@@ -62,20 +64,13 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             frontend,
             schemaVersion: input.preparedShader.vertex.frontendSchemaVersion
         )
-        let colorIdentity = Program.ColorContractIdentity(
-            framebufferInput: SceneResolvedMaterialProgramIdentity.color(
-                color.framebufferInput
-            ),
-            fragmentOutput: SceneResolvedMaterialProgramIdentity.color(
-                color.fragmentOutput
-            )
-        )
+        let outputIdentity = output.identity
         let semantic = Program.SemanticIdentity(
             shader: shader,
             textureSlots: textures.semantic,
             activeUniforms: uniforms.semantic,
             renderState: renderState,
-            colorContract: colorIdentity,
+            outputContract: outputIdentity,
             graphRole: graphRole
         )
         let exact = Program.ExactIdentity(
@@ -90,20 +85,61 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         return Program.Derived(
             frontendProgram: frontend,
             uniformBytes: uniforms.bytes,
-            colorContract: SceneShaderColorContract(
-                framebufferInput: .resolved(color.framebufferInput),
-                fragmentOutput: .resolved(color.fragmentOutput)
-            ),
+            outputContract: output.contract,
             semanticIdentity: semantic,
             exactIdentity: exact
         )
     }
 
+    private struct OutputProjection {
+        let contract: Program.OutputContract
+        let identity: Program.OutputContractIdentity
+    }
+
+    private static func resolveOutputContract(
+        outputStorage: Program.OutputStorage,
+        frontend: SceneAuthoredShaderProgram,
+        textureSlots: [Program.TextureSlot?]
+    ) -> OutputProjection? {
+        switch outputStorage {
+        case .color:
+            guard let color = resolveColor(
+                transfer: frontend.colorTransfer,
+                textureSlots: textureSlots
+            ) else { return nil }
+            let identity = Program.ColorContractIdentity(
+                framebufferInput: SceneResolvedMaterialProgramIdentity.color(
+                    color.framebufferInput
+                ),
+                fragmentOutput: SceneResolvedMaterialProgramIdentity.color(
+                    color.fragmentOutput
+                )
+            )
+            return .init(
+                contract: .color(.init(
+                    framebufferInput: .resolved(color.framebufferInput),
+                    fragmentOutput: .resolved(color.fragmentOutput)
+                )),
+                identity: .color(identity)
+            )
+        case .scalarRedUnorm:
+            guard frontend.fragmentOutputChannelUse == .redDefined else {
+                return nil
+            }
+            return .init(
+                contract: .scalarRedUnorm,
+                identity: .scalarRedUnorm
+            )
+        }
+    }
+
     private static func acceptsGraphRole(
         transfer: SceneShaderColorTransfer,
+        outputStorage: Program.OutputStorage,
         role: Template.GraphRole,
         textureSlots: [Program.TextureSlot?]
     ) -> Bool {
+        guard outputStorage == .color else { return true }
         guard case let .straightAlphaUNorm(slot) = transfer else { return true }
         guard role.effectInput == .layerSource,
               role.effectOutput == .effectOutput,

@@ -16,7 +16,11 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
-from scene_shader_compiler_artifact import ArtifactFailure, build_program_artifact
+from scene_shader_compiler_artifact import (
+    ArtifactFailure,
+    build_program_artifact,
+    request_cache_key,
+)
 
 
 SCRIPT = REPOSITORY_ROOT / "script/scene_shader_compiler_harness.py"
@@ -190,14 +194,19 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
             artifact = json.loads(artifact_output.read_text(encoding="utf-8"))
+            request = json.loads(FIXTURE.read_text(encoding="utf-8"))
+            self.assertEqual(artifact["schemaVersion"], 2)
             self.assertEqual(artifact["kind"], "scene-generic-shader-program-artifact")
-            self.assertEqual(len(artifact["requestKey"]), 64)
+            self.assertEqual(artifact["requestKey"], request_cache_key(request))
             self.assertEqual(artifact["routeState"], "prefer-generic")
             self.assertEqual(artifact["program"]["colorTransfer"], {
                 "kind": "passthrough", "slot": 0
             })
             self.assertEqual(artifact["program"]["uniformLayout"]["byteSize"], 16)
             self.assertEqual(artifact["program"]["metalPreflight"]["bytes"], 3)
+            self.assertEqual(
+                artifact["program"]["fragmentOutputChannelUse"], "unproven"
+            )
             self.assertIn("MWXVertexUniforms", artifact["program"]["metalSource"])
             self.assertIn("MWXFragmentUniforms", artifact["program"]["metalSource"])
 
@@ -239,8 +248,12 @@ fragment void f() {
             msl_sources={"vertex": vertex_msl, "fragment": fragment_msl},
             maximum_artifact_bytes=1_024_000,
         )
+        self.assertEqual(artifact["schemaVersion"], 2)
         self.assertEqual(artifact["program"]["staticLoopWork"], 4)
         self.assertEqual(artifact["program"]["colorTransfer"], {"kind": "opaque"})
+        self.assertEqual(
+            artifact["program"]["fragmentOutputChannelUse"], "unproven"
+        )
         self.assertEqual(artifact["program"]["metalSource"].count("struct spvUnsafeArray"), 1)
         with self.assertRaisesRegex(ArtifactFailure, "loop-unbounded"):
             build_program_artifact(

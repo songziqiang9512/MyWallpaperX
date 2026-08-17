@@ -129,6 +129,24 @@ private func transfer(
     }
 }
 
+private func fragmentOutputUse(_ body: String) -> String {
+    program(body)?.fragmentOutputChannelUse.rawValue ?? "unproven"
+}
+
+private func fragmentOutputUse(source: String) -> String {
+    let lexerOutput = SceneAuthoredShaderLexer.lex(
+        source: source,
+        stage: .fragment
+    )
+    let syntaxOutput = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+        lexerOutput: lexerOutput,
+        stage: .fragment
+    )
+    guard syntaxOutput.diagnostics.isEmpty,
+          let fragment = syntaxOutput.unit else { return "unproven" }
+    return SceneAuthoredShaderFragmentOutputAnalyzer.analyze(fragment).rawValue
+}
+
 private func metal(
     _ body: String,
     helpers: String = "",
@@ -1131,6 +1149,42 @@ enum Harness {
             "discardedBranch": transfer(
                 "if (v_TexCoord.x < 0.0) discard; gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);"
             ),
+            "scalarOutput": fragmentOutputUse(
+                "float signal = texSample2D(g_Texture1, v_TexCoord).r * g_ScalarWeight; " +
+                "gl_FragColor = vec4(signal, signal * 0.5, 0.0, 0.0);"
+            ),
+            "scalarConditionalOutput": fragmentOutputUse(
+                "if (v_TexCoord.x > 0.5) gl_FragColor = vec4(0.5);"
+            ),
+            "scalarMultipleOutputs": fragmentOutputUse(
+                "gl_FragColor = vec4(0.25); gl_FragColor = vec4(0.5);"
+            ),
+            "scalarComponentOutput": fragmentOutputUse(
+                "gl_FragColor.r = 0.5;"
+            ),
+            "scalarEarlyReturn": fragmentOutputUse(
+                "if (v_TexCoord.x < 0.0) return; gl_FragColor = vec4(0.5);"
+            ),
+            "scalarDiscard": fragmentOutputUse(
+                "if (v_TexCoord.x < 0.0) discard; gl_FragColor = vec4(0.5);"
+            ),
+            "scalarHelperDiscard": fragmentOutputUse(source: """
+                void MaybeDiscard() { if (v_TexCoord.x < 0.0) discard; }
+                void main() { MaybeDiscard(); gl_FragColor = vec4(0.5); }
+                """),
+            "scalarTransitiveHelperDiscard": fragmentOutputUse(source: """
+                void MaybeDiscard() { if (v_TexCoord.x < 0.0) discard; }
+                void ForwardDiscard() { MaybeDiscard(); }
+                void main() { ForwardDiscard(); gl_FragColor = vec4(0.5); }
+                """),
+            "scalarHelperBeforeMain": fragmentOutputUse(source: """
+                void WriteOutput() { gl_FragColor = vec4(0.5); }
+                void main() { WriteOutput(); }
+                """),
+            "scalarHelperAfterMain": fragmentOutputUse(source: """
+                void main() { WriteOutput(); }
+                void WriteOutput() { gl_FragColor = vec4(0.5); }
+                """),
             "straightMetal": metal(
                 "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
                 "gl_FragColor = vec4(color.rgb, color.a * 0.5);"
@@ -1204,6 +1258,21 @@ class SceneShaderColorContractTests(unittest.TestCase):
 
     def test_literal_one_alpha_proves_only_opaque_output(self) -> None:
         self.assertEqual(self.result["opaque"], "opaque")
+
+    def test_scalar_red_output_fact_is_independent_of_color_transfer(self) -> None:
+        self.assertEqual(self.result["scalarOutput"], "redDefined")
+        for key in (
+            "scalarConditionalOutput",
+            "scalarMultipleOutputs",
+            "scalarComponentOutput",
+            "scalarEarlyReturn",
+            "scalarDiscard",
+            "scalarHelperDiscard",
+            "scalarTransitiveHelperDiscard",
+            "scalarHelperBeforeMain",
+            "scalarHelperAfterMain",
+        ):
+            self.assertEqual(self.result[key], "unproven", key)
 
     def test_closed_control_flow_does_not_hide_root_output(self) -> None:
         self.assertEqual(self.result["closedControlFlowOpaque"], "opaque")

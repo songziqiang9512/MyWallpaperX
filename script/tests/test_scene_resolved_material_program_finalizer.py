@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -16,6 +17,10 @@ import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+STOCK_MATERIAL_ROOT = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/materials"
+)
 VISUAL_PASSTHROUGH_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
@@ -198,6 +203,7 @@ private func fragmentSource(
     maskedAlpha: Bool = false,
     overlayAlphaBlend: Bool = false,
     optionalMask: Bool = false,
+    directRedInput: Bool = false,
     stageLocalUniforms: Bool = false,
     runtimeLoop: Bool = false,
     runtimeLoopEditorHints: Bool = false
@@ -238,6 +244,11 @@ private func fragmentSource(
         \(mask)
         color.a *= mask * g_UserAlpha;
         gl_FragColor = color;
+        """
+    } else if directRedInput {
+        output = """
+        float scalar = texSample2D(g_Texture0, v_TexCoord).r;
+        gl_FragColor = vec4(scalar);
         """
     } else {
         let expression = arithmetic
@@ -344,6 +355,7 @@ private func contract(
     maskedAlpha: Bool = false,
     overlayAlphaBlend: Bool = false,
     optionalMask: Bool = false,
+    directRedInput: Bool = false,
     deadMaskCoordinates: Bool = false,
     stageLocalUniforms: Bool = false,
     runtimeLoop: Bool = false,
@@ -392,6 +404,7 @@ private func contract(
                 maskedAlpha: maskedAlpha,
                 overlayAlphaBlend: overlayAlphaBlend,
                 optionalMask: optionalMask,
+                directRedInput: directRedInput,
                 stageLocalUniforms: stageLocalUniforms,
                 runtimeLoop: runtimeLoop,
                 runtimeLoopEditorHints: runtimeLoopEditorHints
@@ -430,6 +443,19 @@ private func graphTexture() -> Graph.TextureIdentity {
     .init(kind: .layerSource, layerID: fixtureLayerID, effect: nil, name: nil)
 }
 
+private func framebufferTexture() -> Graph.TextureIdentity {
+    .init(
+        kind: .framebuffer,
+        layerID: fixtureLayerID,
+        effect: .init(
+            layerID: fixtureLayerID,
+            effectIndex: 0,
+            descriptorID: "fixture-scalar-producer"
+        ),
+        name: nil
+    )
+}
+
 private func state(blending: String = "normal") -> SceneMaterialRenderState {
     SceneMaterialRenderState.compile(
         blending: blending,
@@ -440,11 +466,14 @@ private func state(blending: String = "normal") -> SceneMaterialRenderState {
     )!
 }
 
-private func candidates(_ count: Int) -> [Template.TextureCandidate] {
+private func candidates(
+    _ count: Int,
+    primaryReference: Template.TextureReference = .graph(graphTexture())
+) -> [Template.TextureCandidate] {
     (0 ..< count).map { index in
         .init(
             reference: index == count - 1
-                ? .graph(graphTexture())
+                ? primaryReference
                 : .asset(SceneVFSAssetPath("textures/overridden-\(index).tex")!),
             provenance: index == count - 1 ? .explicitBinding : .instance
         )
@@ -530,6 +559,9 @@ private func template(
     slot: Int = 0,
     candidateCount: Int = 1,
     includePrimaryCandidate: Bool = true,
+    primaryReference: Template.TextureReference = .graph(graphTexture()),
+    primaryGraphTextureRole: Template.GraphTextureRole = .layerSource,
+    graphBindingsOverride: [Template.GraphBindingRole]? = nil,
     secondReference: Template.TextureReference? = nil,
     secondCandidates: [Template.TextureCandidate]? = nil,
     uniformDeclarations: [Template.UniformDeclaration] = [],
@@ -537,7 +569,13 @@ private func template(
 ) -> Template {
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     if includePrimaryCandidate {
-        slots[slot] = .init(index: slot, candidates: candidates(candidateCount))
+        slots[slot] = .init(
+            index: slot,
+            candidates: candidates(
+                candidateCount,
+                primaryReference: primaryReference
+            )
+        )
     }
     if let secondCandidates {
         slots[1] = .init(index: 1, candidates: secondCandidates)
@@ -555,8 +593,8 @@ private func template(
             effectInput: .layerSource,
             effectOutput: .effectOutput,
             nodeTarget: .effectOutput,
-            bindings: includePrimaryCandidate
-                ? [.init(slot: slot, texture: .layerSource)] : []
+            bindings: graphBindingsOverride ?? (includePrimaryCandidate
+                ? [.init(slot: slot, texture: primaryGraphTextureRole)] : [])
         ),
         shaderContract: shader,
         diagnosticProvenance: .init(
@@ -570,9 +608,12 @@ private func template(
     )!
 }
 
-private func texture(_ device: MTLDevice) -> MTLTexture {
+private func texture(
+    _ device: MTLDevice,
+    pixelFormat: MTLPixelFormat = .rgba8Unorm
+) -> MTLTexture {
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-        pixelFormat: .rgba8Unorm,
+        pixelFormat: pixelFormat,
         width: 2,
         height: 2,
         mipmapped: false
@@ -589,20 +630,27 @@ private func publication(
     content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
     candidateGeneration: UInt64 = 1,
     contentGeneration: UInt64 = 1,
-    sampling: SceneTextureSampling = .directImageFallback
+    sampling: SceneTextureSampling = .directImageFallback,
+    pixelFormat: MTLPixelFormat = .rgba8Unorm,
+    authoredFormat: SceneShaderTextureFormat? = nil,
+    candidateIdentity: SceneTextureResourceIdentity = .provider(.video(
+        layerID: fixtureLayerID,
+        lifecycleEpoch: 1
+    ))
 ) -> SceneTextureProviderPublication {
     .init(
         requestIdentity: requestIdentity,
         candidate: .init(
-            texture: texture(device),
-            identity: .provider(.video(layerID: fixtureLayerID, lifecycleEpoch: 1)),
+            texture: texture(device, pixelFormat: pixelFormat),
+            identity: candidateIdentity,
             generation: .provider(contentGeneration: candidateGeneration),
             purpose: purpose,
             content: content,
             physicalSize: CGSize(width: 2, height: 2),
             mappedSize: CGSize(width: 2, height: 2),
             uvTransform: .identity,
-            sampling: sampling
+            sampling: sampling,
+            authoredFormat: authoredFormat
         ),
         contentGeneration: contentGeneration
     )
@@ -818,6 +866,9 @@ private func finalize(
     slot: Int = 0,
     candidateCount: Int = 1,
     includePrimaryCandidate: Bool = true,
+    primaryReference: Template.TextureReference = .graph(graphTexture()),
+    primaryGraphTextureRole: Template.GraphTextureRole = .layerSource,
+    graphBindingsOverride: [Template.GraphBindingRole]? = nil,
     secondReference: Template.TextureReference? = nil,
     secondCandidates: [Template.TextureCandidate]? = nil,
     additionalEntries: [
@@ -833,7 +884,11 @@ private func finalize(
     resolvedLayerModelMatrix: simd_float4x4 = layerModelMatrix,
     implicitFramebufferIdentity: Graph.TextureIdentity? = nil,
     audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent,
-    variantCache: SceneResolvedMaterialVariantCache? = nil
+    variantCache: SceneResolvedMaterialVariantCache? = nil,
+    outputStorage: Program.OutputStorage = .color,
+    graphTextureFormatFacts: [
+        Graph.TextureIdentity: SceneShaderTextureFormat
+    ] = [:]
 ) -> Result<Program, SceneResolvedMaterialFailure> {
     let frame = SceneResolvedMaterialFrameSnapshot.validated(
         textureSnapshot: snapshot(
@@ -861,6 +916,9 @@ private func finalize(
                 slot: slot,
                 candidateCount: candidateCount,
                 includePrimaryCandidate: includePrimaryCandidate,
+                primaryReference: primaryReference,
+                primaryGraphTextureRole: primaryGraphTextureRole,
+                graphBindingsOverride: graphBindingsOverride,
                 secondReference: secondReference,
                 secondCandidates: secondCandidates,
                 uniformDeclarations: uniformDeclarations,
@@ -902,6 +960,8 @@ private func finalize(
             let assetStates = Dictionary(uniqueKeysWithValues: assetStatePairs)
             switch cache.precompileLaunchEnvelope(
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
+                outputStorage: outputStorage,
+                graphTextureFormatFacts: graphTextureFormatFacts,
                 assetStates: assetStates
             ) {
             case .success: break
@@ -917,7 +977,8 @@ private func finalize(
         }
         return SceneResolvedMaterialProgramFinalizer.finalize(
             input,
-            variantCache: cache
+            variantCache: cache,
+            outputStorage: outputStorage
         )
     }
 }
@@ -954,6 +1015,157 @@ private func crossTemplateRuntimeLoopCacheToken(_ device: MTLDevice) -> String {
             variantCache: cache
         )
     )
+}
+
+private func reachabilityIdentityMismatchToken(_ device: MTLDevice) -> String {
+    let shader = contract(revision: "reachability-identity-mismatch")
+    let admitted = template(shader)
+    guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+        template: admitted,
+        maximumVariantCount: 8
+    ), case .success = cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: graphTexture()
+    ), case let .success(frame) = SceneResolvedMaterialFrameSnapshot.validated(
+        textureSnapshot: snapshot(device),
+        dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
+        frameInputs: frameInputs(frameIndex: 1)
+    ) else { return "setup-failed" }
+    let input = frame.finalizationInput(
+        template: admitted,
+        renderSize: CGSize(width: 640, height: 360),
+        modelViewProjection: matrix_identity_float4x4,
+        layerModelMatrix: layerModelMatrix,
+        effectTextureProjectionMatrixInverse: effectProjectionInverse,
+        implicitFramebufferIdentity: framebufferTexture()
+    )
+    return failureToken(
+        SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: cache)
+    )
+}
+
+private func variantSelectionKeyMismatchTokens(
+    _ device: MTLDevice
+) -> [String: String] {
+    let path = SceneVFSAssetPath("textures/variant-key-mismatch.tex")!
+    let reference = Template.TextureReference.asset(path)
+    let identity = SceneAssetTextureIdentity(
+        path: path,
+        purpose: .straightAlbedo
+    )
+    let shader = contract(
+        revision: "variant-key-mismatch",
+        samplerMetadata: #"{"material":"albedo","formatcombo":true}"#
+    )
+    let admitted = template(shader, primaryReference: reference)
+    let runtimePublication = publication(
+        device,
+        requestIdentity: .asset(identity),
+        purpose: .straightAlbedo,
+        content: .color(.resolved(.straightAlpha)),
+        authoredFormat: .dxt1
+    )
+    guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+        template: admitted,
+        maximumVariantCount: 8,
+        assetFormatFacts: [identity.reportToken: SceneShaderTextureFormat.rgba8888.macroValue]
+    ), case .success = cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: nil,
+        assetStates: [identity: .ready(runtimePublication.candidate.content)]
+    ), case let .success(frame) = SceneResolvedMaterialFrameSnapshot.validated(
+        textureSnapshot: snapshot(
+            device,
+            kind: .missing,
+            additionalEntries: [
+                .asset(identity): .ready(.init(
+                    publication: runtimePublication,
+                    resourceGeneration: 1
+                )),
+            ]
+        ),
+        dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
+        frameInputs: frameInputs(frameIndex: 1)
+    ) else { return ["failure": "setup-failed", "details": "setup-failed"] }
+    let input = frame.finalizationInput(
+        template: admitted,
+        renderSize: CGSize(width: 640, height: 360),
+        modelViewProjection: matrix_identity_float4x4,
+        layerModelMatrix: layerModelMatrix,
+        effectTextureProjectionMatrixInverse: effectProjectionInverse
+    )
+    let result = SceneResolvedMaterialProgramFinalizer.finalize(
+        input,
+        variantCache: cache
+    )
+    let details: String = switch result {
+    case .success: "success"
+    case let .failure(failure): failure.boundedDetails.joined(separator: ",")
+    }
+    return ["failure": failureToken(result), "details": details]
+}
+
+private func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
+    let shader = contract(revision: "resolver-invariant-codes")
+    let admitted = template(shader)
+    guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+        template: admitted,
+        maximumVariantCount: 8
+    ), case .success = cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: nil
+    ), case let .success(readyFrame) = SceneResolvedMaterialFrameSnapshot.validated(
+        textureSnapshot: snapshot(device),
+        dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
+        frameInputs: frameInputs(frameIndex: 1)
+    ) else { return ["setup": "failed"] }
+    let readyInput = readyFrame.finalizationInput(
+        template: admitted,
+        renderSize: CGSize(width: 640, height: 360),
+        modelViewProjection: matrix_identity_float4x4,
+        layerModelMatrix: layerModelMatrix,
+        effectTextureProjectionMatrixInverse: effectProjectionInverse
+    )
+    guard case let .success(selection) = cache.resolveSelection(readyInput),
+          case let .success(absentFrame) = SceneResolvedMaterialFrameSnapshot.validated(
+              textureSnapshot: snapshot(device, kind: .absent),
+              dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
+              frameInputs: frameInputs(frameIndex: 1)
+          ) else { return ["setup": "failed"] }
+    let absentInput = absentFrame.finalizationInput(
+        template: admitted,
+        renderSize: CGSize(width: 640, height: 360),
+        modelViewProjection: matrix_identity_float4x4,
+        layerModelMatrix: layerModelMatrix,
+        effectTextureProjectionMatrixInverse: effectProjectionInverse
+    )
+
+    func token(_ body: () throws -> Void) -> String {
+        do {
+            try body()
+            return "success"
+        } catch let failure as SceneResolvedMaterialFailure {
+            return "\(failure.phase.rawValue)/\(failure.code.rawValue)"
+        } catch {
+            return "untyped"
+        }
+    }
+
+    return [
+        "readiness": token {
+            _ = try SceneResolvedMaterialTextureResolver.resolve(
+                absentInput,
+                variant: selection.variant,
+                reachableSamplers: selection.reachableSamplers
+            )
+        },
+        "variantKey": token {
+            _ = try SceneResolvedMaterialTextureResolver.variantKey(
+                readyInput,
+                samplers: selection.variant.activeSamplers,
+                reachableSamplers: selection.reachableSamplers,
+                formatSlots: [8],
+                allowPresenceIndependentDefaults: true
+            )
+        },
+    ]
 }
 
 private func failureToken(
@@ -1187,7 +1399,8 @@ private enum Harness {
                     + "\(failureToken(revisionB)); \(positiveDiagnostic(contract(revision: "debug")))"
             )
         }
-
+        let resolverInvariants = resolverInvariantTokens(device)
+        let variantSelectionKeyMismatch = variantSelectionKeyMismatchTokens(device)
         let audioInputs = SceneAuthoredShaderAudioSpectrumInputs(
             left16: (0 ..< 16).map { Float($0 + 1) },
             right16: Array(repeating: 0, count: 16),
@@ -1318,6 +1531,120 @@ private enum Harness {
             ),
             device: device,
             implicitFramebufferIdentity: graphTexture()
+        )
+        let scalarRedConsumerProgram = finalize(
+            shader: contract(
+                revision: "scalar-red-consumer",
+                directRedInput: true
+            ),
+            device: device,
+            primaryReference: .graph(framebufferTexture()),
+            primaryGraphTextureRole: .framebuffer,
+            additionalEntries: [
+                .graph(framebufferTexture()): .ready(.init(
+                    publication: publication(
+                        device,
+                        requestIdentity: .graph(framebufferTexture()),
+                        purpose: .preservedChannels,
+                        content: .scalarRedUnorm,
+                        sampling: .linearRepeat,
+                        pixelFormat: .r8Unorm,
+                        candidateIdentity: .provider(.graph(
+                            allocationGeneration: 1,
+                            physicalToken: "fixture-scalar-target"
+                        ))
+                    ),
+                    resourceGeneration: 1
+                )),
+            ],
+            outputStorage: .scalarRedUnorm,
+            graphTextureFormatFacts: [framebufferTexture(): .r8]
+        )
+        let scalarRedForgedTEXFormat = finalize(
+            shader: contract(
+                revision: "scalar-red-forged-tex-format",
+                directRedInput: true
+            ),
+            device: device,
+            primaryReference: .graph(framebufferTexture()),
+            primaryGraphTextureRole: .framebuffer,
+            additionalEntries: [
+                .graph(framebufferTexture()): .ready(.init(
+                    publication: publication(
+                        device,
+                        requestIdentity: .graph(framebufferTexture()),
+                        purpose: .preservedChannels,
+                        content: .scalarRedUnorm,
+                        sampling: .linearRepeat,
+                        pixelFormat: .r8Unorm,
+                        authoredFormat: .r8,
+                        candidateIdentity: .provider(.graph(
+                            allocationGeneration: 1,
+                            physicalToken: "fixture-scalar-target-forged-tex-format"
+                        ))
+                    ),
+                    resourceGeneration: 1
+                )),
+            ],
+            outputStorage: .scalarRedUnorm,
+            graphTextureFormatFacts: [framebufferTexture(): .r8]
+        )
+        let scalarRedWrongFormat = finalize(
+            shader: contract(
+                revision: "scalar-red-wrong-format",
+                directRedInput: true
+            ),
+            device: device,
+            primaryReference: .graph(framebufferTexture()),
+            primaryGraphTextureRole: .framebuffer,
+            additionalEntries: [
+                .graph(framebufferTexture()): .ready(.init(
+                    publication: publication(
+                        device,
+                        requestIdentity: .graph(framebufferTexture()),
+                        purpose: .preservedChannels,
+                        content: .scalarRedUnorm,
+                        sampling: .linearRepeat,
+                        pixelFormat: .r8Unorm,
+                        authoredFormat: .rgba8888,
+                        candidateIdentity: .provider(.graph(
+                            allocationGeneration: 1,
+                            physicalToken: "fixture-scalar-target-wrong-format"
+                        ))
+                    ),
+                    resourceGeneration: 1
+                )),
+            ],
+            outputStorage: .scalarRedUnorm,
+            graphTextureFormatFacts: [framebufferTexture(): .r8]
+        )
+        let scalarRedConsumerIdentity: Bool = {
+            guard case let .success(program) = scalarRedConsumerProgram,
+                  let slot = program.textureSlots[0],
+                  slot.expectedPurpose == .preservedChannels,
+                  slot.resource.publication.candidate.content == .scalarRedUnorm,
+                  slot.resource.publication.candidate.authoredFormat == nil,
+                  slot.resource.publication.candidate.sampling == .linearRepeat,
+                  program.frontendProgram.textureBindings.first?.channelUse == .redOnly,
+                  case .scalarRedUnorm = program.outputContract else {
+                return false
+            }
+            return true
+        }()
+        let graphRoleIdentityFailure = finalize(
+            shader: contract(
+                revision: "graph-role-identity-invariant",
+                samplerMetadata: #"{"material":"framebuffer"}"#
+            ),
+            device: device,
+            includePrimaryCandidate: false,
+            graphBindingsOverride: [.init(slot: 0, texture: .effectOutput)],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let programAssemblyIdentityFailure = finalize(
+            shader: contract(revision: "program-assembly-identity-invariant"),
+            device: device,
+            primaryGraphTextureRole: .effectOutput
         )
         let implicitFramebufferTyped: Bool = {
             guard case let .success(program) = implicitFramebufferProgram,
@@ -1540,9 +1867,10 @@ private enum Harness {
                   case .data = maskSlot.resource.publication.candidate.content,
                   case .straightAlpha(0) = program.semanticIdentity.shader.colorTransfer
             else { return false }
+            guard case let .color(contract) =
+                    program.semanticIdentity.outputContract else { return false }
             return float(program.uniformBytes, at: field.offset) == 0.25
-                && program.semanticIdentity.colorContract.fragmentOutput
-                    == .premultipliedAlpha
+                && contract.fragmentOutput == .premultipliedAlpha
         }()
         let sceneScriptAlphaProgram = finalize(
             shader: maskedShader,
@@ -1605,9 +1933,10 @@ private enum Harness {
                     program.semanticIdentity.shader.colorTransfer else {
                 return false
             }
+            guard case let .color(contract) =
+                    program.semanticIdentity.outputContract else { return false }
             return program.frontendProgram.textureBindings.map(\.slot) == [0, 1]
-                && program.semanticIdentity.colorContract.fragmentOutput
-                    == .premultipliedAlpha
+                && contract.fragmentOutput == .premultipliedAlpha
         }()
         let overlayColorAuxiliary = finalize(
             shader: overlayShader,
@@ -1779,9 +2108,10 @@ private enum Harness {
                   case .data = mask.resource.publication.candidate.content else {
                 return false
             }
+            guard case let .color(contract) =
+                    program.semanticIdentity.outputContract else { return false }
             return program.frontendProgram.textureBindings.map(\.slot) == [0, 1]
-                && program.semanticIdentity.colorContract.fragmentOutput
-                    == .premultipliedAlpha
+                && contract.fragmentOutput == .premultipliedAlpha
         }()
         let activeDefaultMaskMissing = finalize(
             shader: activeDefaultMaskShader,
@@ -2310,6 +2640,16 @@ private enum Harness {
             )),
             "runtimeLoopCrossTemplateCache":
                 crossTemplateRuntimeLoopCacheToken(device),
+            "variantSelectionReachabilityIdentity":
+                reachabilityIdentityMismatchToken(device),
+            "variantSelectionKey":
+                variantSelectionKeyMismatch["failure"] ?? "missing",
+            "variantSelectionKeyDetails":
+                variantSelectionKeyMismatch["details"] ?? "missing",
+            "textureReadinessIdentityInvariant":
+                resolverInvariants["readiness"] ?? "missing",
+            "textureVariantKeyIdentityInvariant":
+                resolverInvariants["variantKey"] ?? "missing",
             "multipleCandidates": failureToken(finalize(
                 shader: contract(revision: "multiple-candidates"),
                 device: device,
@@ -2395,6 +2735,18 @@ private enum Harness {
                 shader: contract(revision: "arithmetic-output", arithmetic: true),
                 device: device
             )),
+            "arithmeticScalarOutput": failureToken(finalize(
+                shader: contract(revision: "arithmetic-scalar-output", arithmetic: true),
+                device: device,
+                outputStorage: .scalarRedUnorm
+            )),
+            "scalarRedConsumer": failureToken(scalarRedConsumerProgram),
+            "scalarRedForgedTEXFormat": failureToken(scalarRedForgedTEXFormat),
+            "scalarRedWrongFormat": failureToken(scalarRedWrongFormat),
+            "graphRoleIdentityInvariant": failureToken(graphRoleIdentityFailure),
+            "programAssemblyIdentityInvariant": failureToken(
+                programAssemblyIdentityFailure
+            ),
             "maskedMissing": failureToken(maskedMissing),
             "maskedPending": failureToken(maskedPending),
             "maskedWrongPurpose": failureToken(maskedWrongPurpose),
@@ -2469,6 +2821,7 @@ private enum Harness {
             "identity": [
                 "semanticStable": programA.semanticIdentity == programB.semanticIdentity,
                 "exactRevisionSensitive": programA.exactIdentity != programB.exactIdentity,
+                "scalarFramebufferDirectRedConsumer": scalarRedConsumerIdentity,
             ],
             "samplerSchema": [
                 "regularGraph": samplerPurposeToken(nil),
@@ -2528,6 +2881,31 @@ private enum Harness {
                     nil,
                     assetReference: true,
                     assetPath: "util/clouds_256"
+                ),
+                "registeredStockPerlinNoise": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "util/perlin_256"
+                ),
+                "registeredStockPerlinPurposeConflict": samplerPurposeToken(
+                    #"{"mode":"opacitymask"}"#,
+                    assetReference: true,
+                    assetPath: "util/perlin_256"
+                ),
+                "neighboringCustomPerlinUnproven": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "custom/perlin_256"
+                ),
+                "neighboringPerlin512Unproven": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "util/perlin_512"
+                ),
+                "neighboringPerlinSuffixUnproven": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "util/perlin_256_extra"
                 ),
                 "registeredStockPurposeConflict": samplerPurposeToken(
                     #"{"mode":"opacitymask"}"#,
@@ -2764,6 +3142,11 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "registeredStockFireGradientConflict": "unproven",
                 "unregisteredGradient": "unproven",
                 "registeredStockCloudNoise": "noise",
+                "registeredStockPerlinNoise": "noise",
+                "registeredStockPerlinPurposeConflict": "unproven",
+                "neighboringCustomPerlinUnproven": "unproven",
+                "neighboringPerlin512Unproven": "unproven",
+                "neighboringPerlinSuffixUnproven": "unproven",
                 "registeredStockPurposeConflict": "unproven",
                 "unknownMaterialAsset": "unproven",
                 "conflictingMaterial": "schema-invalid",
@@ -2781,6 +3164,25 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "unknownMode": "schema-invalid",
             },
         )
+
+    def test_stock_perlin_semantic_fact_is_bound_to_fixed_resource_hashes(
+        self,
+    ) -> None:
+        expected = {
+            "util/perlin_256.tex": (
+                "3a9e76025b07080babb4097c08a01ff9fcbae56ad4c122f6b070aaaae94bdd11"
+            ),
+            "util/perlin_256.tex-json": (
+                "2f9cfef09edf3ecff1b6a6d9773cf55a1b12c2fa194a525bbe2c58cf1d70c315"
+            ),
+        }
+        actual = {
+            relative: hashlib.sha256(
+                (STOCK_MATERIAL_ROOT / relative).read_bytes()
+            ).hexdigest()
+            for relative in expected
+        }
+        self.assertEqual(actual, expected)
 
     def test_registered_stock_default_unblocks_only_typed_implicit_input(self) -> None:
         self.assertEqual(
@@ -2838,7 +3240,9 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "runtimeLoopMetadataOnly": "frontend/shaderFrontendFailed",
             "runtimeLoopDynamicProducer": "frontend/shaderFrontendFailed",
             "runtimeLoopOverBudget": "frontend/shaderFrontendFailed",
-            "runtimeLoopCrossTemplateCache": "invariant/identityInvariant",
+            "runtimeLoopCrossTemplateCache": (
+                "invariant/variantSelectionTemplateIdentityInvariant"
+            ),
         }
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},
@@ -2873,11 +3277,45 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         )
         self.assertNotIn("reachable-sampler-schema", variant_text)
 
+    def test_finalizer_and_variant_selection_invariants_remain_typed(self) -> None:
+        expected = {
+            "variantSelectionReachabilityIdentity": (
+                "invariant/variantSelectionReachabilityIdentityInvariant"
+            ),
+            "variantSelectionKey": "invariant/variantSelectionKeyInvariant",
+            "textureReadinessIdentityInvariant": (
+                "invariant/textureReadinessIdentityInvariant"
+            ),
+            "textureVariantKeyIdentityInvariant": (
+                "invariant/textureVariantKeyIdentityInvariant"
+            ),
+            "graphRoleIdentityInvariant": "invariant/graphRoleIdentityInvariant",
+            "programAssemblyIdentityInvariant": (
+                "invariant/programAssemblyIdentityInvariant"
+            ),
+        }
+        self.assertEqual(
+            {name: self.result["failures"][name] for name in expected},
+            expected,
+        )
+        self.assertEqual(
+            self.result["failures"]["variantSelectionKeyDetails"],
+            "admitted-1,resolved-1,matches-0,key-e1-r1-a1-fs0-0-7",
+        )
+        finalizer_text = FINALIZER_SOURCE.read_text(encoding="utf-8")
+        variant_text = VARIANT_CACHE_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(".finalizerUnexpectedFailure", finalizer_text)
+        self.assertIn(".variantSelectionUnexpectedFailure", variant_text)
+
     def test_render_state_and_color_contracts_fail_closed(self) -> None:
         expected = {
             "unsupportedState": "state/renderStateInvalid",
             "dataGraphInput": "texture/textureMetadataIncomplete",
             "arithmeticOutput": "color/colorContractUnproven",
+            "arithmeticScalarOutput": "success",
+            "scalarRedConsumer": "success",
+            "scalarRedForgedTEXFormat": "texture/textureMetadataIncomplete",
+            "scalarRedWrongFormat": "texture/textureMetadataIncomplete",
             "maskedColorAuxiliary": "texture/textureMetadataIncomplete",
             "overlayColorAuxiliary": "texture/textureMetadataIncomplete",
         }

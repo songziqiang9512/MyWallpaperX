@@ -344,6 +344,7 @@ enum Harness {
                 descriptor: .init(
                     extent: target?.extent ?? plan.inputExtent,
                     format: target?.format ?? .rgbaBackbuffer,
+                    addressMode: target?.addressMode ?? .clampToEdge,
                     isUnique: target?.isUnique ?? false,
                     initialClear: target?.initialClear
                 )

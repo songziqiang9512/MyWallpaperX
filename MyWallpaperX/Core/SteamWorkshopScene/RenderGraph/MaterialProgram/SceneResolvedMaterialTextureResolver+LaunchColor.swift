@@ -11,6 +11,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         variants: [SceneResolvedMaterialCompiledVariant],
         readinessMask: UInt8,
         formatSlots: Set<Int>,
+        outputStorage: SceneResolvedMaterialProgram.OutputStorage,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> Failure? {
@@ -27,10 +28,15 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     return failure(.textureBindingInvalid, slot: binding.slot)
                 }
             }
-            guard variant.frontendProgram.colorTransfer != .unresolved else {
+            let scalarOutput = outputStorage == .scalarRedUnorm
+            if scalarOutput {
+                guard variant.frontendProgram.fragmentOutputChannelUse == .redDefined else {
+                    return failure(.colorContractUnproven, phase: .color)
+                }
+            } else if variant.frontendProgram.colorTransfer == .unresolved {
                 return failure(.colorContractUnproven, phase: .color)
             }
-            if case let .straightAlphaUNorm(slot) =
+            if !scalarOutput, case let .straightAlphaUNorm(slot) =
                 variant.frontendProgram.colorTransfer {
                 guard implicitFramebufferIdentity?.kind == .layerSource,
                       template.graphRole.effectInput == .layerSource,
@@ -52,7 +58,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 assetStates: assetStates
             ) {
             case .unknownInternalGraph:
-                if case .straightAlphaUNorm =
+                if !scalarOutput, case .straightAlphaUNorm =
                     variant.frontendProgram.colorTransfer {
                     return failure(.colorContractUnproven, phase: .color)
                 }
@@ -62,6 +68,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             case .profiles(let value):
                 profiles = value
             }
+            if scalarOutput { continue }
             if case let .straightAlphaUNorm(slot) =
                 variant.frontendProgram.colorTransfer {
                 guard profiles.allSatisfy({ profile in

@@ -23,6 +23,7 @@ nonisolated private struct SceneGraphExecutionPlanSignature: Encodable {
         let identity: SceneAuthoredEffectRenderPlan.TextureIdentity
         let extent: Extent?
         let format: String?
+        let addressMode: String?
         let isUnique: Bool?
         let lifetime: Lifetime
         let initialClear: [Double]?
@@ -69,6 +70,7 @@ nonisolated private struct SceneGraphExecutionPlanSignature: Encodable {
                     height: target.extent.height
                 ) : nil,
                 format: includeDescriptors ? target.format.rawValue : nil,
+                addressMode: includeDescriptors ? target.addressMode.rawValue : nil,
                 isUnique: includeDescriptors ? target.isUnique : nil,
                 lifetime: .init(
                     firstWrite: target.lifetime.firstWriteNodeIndex,

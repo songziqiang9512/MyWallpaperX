@@ -9,6 +9,11 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         case rgba8888
     }
 
+    enum UVAddressMode: String, Equatable {
+        case clampToEdge
+        case repeatWrap
+    }
+
     struct PixelExtent: Equatable {
         let width: Int
         let height: Int
@@ -33,6 +38,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         let identity: Graph.TextureIdentity
         let extent: PixelExtent
         let format: TextureFormat
+        let addressMode: UVAddressMode
         let isUnique: Bool
         let lifetime: Lifetime
         let initialClear: ClearColor?
@@ -380,6 +386,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                 identity: target.texture,
                 extent: descriptor.extent,
                 format: descriptor.format,
+                addressMode: descriptor.addressMode,
                 isUnique: descriptor.isUnique,
                 lifetime: lifetime,
                 initialClear: descriptor.initialClear

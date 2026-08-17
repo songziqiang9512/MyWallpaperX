@@ -202,7 +202,10 @@ extension SceneResolvedMaterialGraphExecutor {
         }
         return resources.allSatisfy { identity, resource in
             guard let versioned = readable[identity],
-                  resource.isCompleteGraphResource,
+                  SceneGraphRenderTargetLease.graphSamplingMatches(
+                      resource,
+                      descriptor: versioned.descriptor
+                  ),
                   resource.publication.requestIdentity == .graph(identity),
                   resource.resourceGeneration == versioned.contentGeneration,
                   resource.publication.contentGeneration
@@ -281,7 +284,11 @@ extension SceneResolvedMaterialGraphExecutor {
         var result: [Graph.TextureIdentity: SceneFrameTextureResource] = [:]
         for (identity, versioned) in readable {
             guard let resource = publications[identity],
-                  resource.isCompleteGraphResource,
+                  SceneGraphRenderTargetLease.graphSamplingMatches(
+                      resource,
+                      descriptor: versioned.descriptor
+                  ),
+                  resource.publication.requestIdentity == .graph(identity),
                   resource.resourceGeneration == versioned.contentGeneration,
                   case let .provider(.graph(_, token)) =
                     resource.publication.candidate.identity,

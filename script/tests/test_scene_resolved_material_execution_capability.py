@@ -121,6 +121,8 @@ CATALOG_DEMAND_SWIFT_SOURCES = [
 SUPPORT = r'''
 import Foundation
 
+enum SceneShaderTextureFormat { case r8 }
+
 struct SceneAssetTextureIdentity: Hashable {}
 enum SceneTextureContent: Hashable {}
 enum SceneAssetTextureLaunchState: Hashable {
@@ -510,6 +512,8 @@ struct SceneResolvedMaterialRuntimeCatalog {
 }
 
 final class SceneResolvedMaterialVariantCache {
+    enum OutputStorage { case color, scalarRedUnorm }
+
     enum LaunchEnvelopeFailure: Error {
         enum Kind: String { case capacity, invariant }
         case capacity
@@ -557,9 +561,15 @@ final class SceneResolvedMaterialVariantCache {
 
     func precompileLaunchEnvelope(
         implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?,
+        outputStorage: OutputStorage = .color,
+        graphTextureFormatFacts: [
+            SceneAuthoredEffectRenderPlan.TextureIdentity: SceneShaderTextureFormat
+        ] = [:],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
     ) -> Result<[UInt8], LaunchEnvelopeFailure> {
         _ = implicitFramebufferIdentity
+        _ = outputStorage
+        _ = graphTextureFormatFacts
         _ = assetStates
         return .success([1])
     }
@@ -5746,7 +5756,7 @@ private enum Main {
     static func main() throws {
         let fixtureGraph = graph()
 
-        let positivePath = SceneVFSAssetPath("gradient/gradient_fire")!
+        let positivePath = SceneVFSAssetPath("util/perlin_256")!
         let positiveCatalog = catalog(
             graph: fixtureGraph,
             contract: contract(defaultPath: positivePath.value)
@@ -5765,13 +5775,18 @@ private enum Main {
         let positiveReference = Template.TextureReference.asset(positivePath)
         let typedIdentity = SceneAssetTextureIdentity(
             path: positivePath,
+            purpose: .noise
+        )
+        let optionalPath = SceneVFSAssetPath("gradient/gradient_fire")!
+        let optionalTypedIdentity = SceneAssetTextureIdentity(
+            path: optionalPath,
             purpose: .preservedChannels
         )
 
         let optionalCatalog = catalog(
             graph: fixtureGraph,
             contract: contract(
-                defaultPath: positivePath.value,
+                defaultPath: optionalPath.value,
                 readinessCombo: "HAS_TEXTURE"
             )
         )
@@ -5790,7 +5805,7 @@ private enum Main {
         let activeOptionalCatalog = catalog(
             graph: fixtureGraph,
             contract: contract(
-                defaultPath: positivePath.value,
+                defaultPath: optionalPath.value,
                 readinessCombo: "HAS_TEXTURE",
                 conditionalReadinessUse: false
             )
@@ -5830,7 +5845,7 @@ private enum Main {
         let formatDefaultCatalog = catalog(
             graph: fixtureGraph,
             contract: contract(
-                defaultPath: positivePath.value,
+                defaultPath: optionalPath.value,
                 readinessCombo: "HAS_TEXTURE",
                 conditionalReadinessUse: false,
                 formatCombo: true
@@ -5893,14 +5908,14 @@ private enum Main {
                 "issueCount": optionalCatalog.resourceDemandIssues.count,
                 "hasPurposeIssue": hasPurposeIssue(
                     optionalCatalog,
-                    path: positivePath
+                    path: optionalPath
                 ),
             ],
             "activeOptionalDefault": [
                 "reachableHasSlot2":
                     !(activeOptionalReachable[2]?.isEmpty ?? true),
                 "hasTypedDemand": activeOptionalCatalog.assetDemands.contains(
-                    typedIdentity
+                    optionalTypedIdentity
                 ),
                 "issueCount": activeOptionalCatalog.resourceDemandIssues.count,
             ],
@@ -6048,7 +6063,12 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         resolve_body = variant_cache[resolve_start:resolve_end]
 
         self.assertIn("guard hasCachedReachability", resolve_body)
-        self.assertIn("for (key, entry) in entries", resolve_body)
+        self.assertIn("for key in cachedLaunchEnvelopeKeys", resolve_body)
+        self.assertIn(
+            "guard case let .ready(variant)? = entries[key]",
+            resolve_body,
+        )
+        self.assertNotIn("for (key, entry) in entries", resolve_body)
         self.assertIn(".variantKey(", resolve_body)
         self.assertNotIn("var activeSamplers = seedSamplers", resolve_body)
         self.assertNotIn("entry(for:", resolve_body)
@@ -6567,7 +6587,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             {
                 "unconditionalSeedHasSlot2": True,
                 "reachableHasSlot2": False,
-                "purpose": "preserved-channels",
+                "purpose": "noise",
                 "hasTypedDemand": True,
                 "issueCount": 0,
             },

@@ -214,6 +214,7 @@ nonisolated extension SceneGraphExecutionState {
             expected[logical.identity] = .init(
                 extent: logical.extent,
                 format: logical.format,
+                addressMode: logical.addressMode,
                 isUnique: logical.isUnique,
                 initialClear: logical.initialClear
             )

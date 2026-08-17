@@ -17,11 +17,11 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources
+from scene_shader_compiler_artifact import build_program_artifact
 
 
 SWIFT_SOURCES = [
-    *scene_swift_sources("authored_shader_frontend_support"),
-    SCENE_ROOT / "RenderGraph/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
+    *scene_swift_sources("authored_shader_frontend_core"),
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerBundle.swift",
@@ -31,6 +31,11 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompiler.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
 ]
+
+CACHE_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift"
+)
 
 HARNESS = r"""
 import Foundation
@@ -44,6 +49,7 @@ private struct Output: Codable {
     let uniformNames: [String]?
     let textureSlots: [Int]?
     let colorTransfer: String?
+    let fragmentOutputChannelUse: String?
 }
 
 private struct CoordinatorOutput: Codable {
@@ -59,6 +65,8 @@ private struct CoordinatorOutput: Codable {
 private struct BuilderOutput: Codable {
     let positiveKind: String?
     let positiveSlots: [Int]?
+    let unprovenOutputChannelUse: String?
+    let provenOutputChannelUse: String?
     let positiveFailure: String?
     let vectorWeightRejected: Bool
     let mutatedColorRejected: Bool
@@ -149,7 +157,10 @@ private struct GenericShaderArtifactHarness {
                 "    out.mwxFragColor = mix(history, current, rate);",
                 "}",
             ].joined(separator: "\n")
-            func build(_ fragment: String) -> Result<
+            func build(
+                _ fragment: String,
+                authoredFragment: String = "void main() {}"
+            ) -> Result<
                 SceneGenericShaderProgramArtifact,
                 SceneGenericShaderArtifactBuilder.Failure
             > {
@@ -162,7 +173,7 @@ private struct GenericShaderArtifactHarness {
                             msl: vertexMSL, reflection: reflection
                         ),
                         .init(
-                            name: "fragment", source: "void main() {}",
+                            name: "fragment", source: authoredFragment,
                             msl: fragment, reflection: reflection
                         ),
                     ],
@@ -171,16 +182,29 @@ private struct GenericShaderArtifactHarness {
             }
             let positiveKind: String?
             let positiveSlots: [Int]?
+            let unprovenOutputChannelUse: String?
             let positiveFailure: String?
             switch build(fragmentMSL) {
             case let .success(artifact):
                 positiveKind = artifact.program.colorTransfer.kind
                 positiveSlots = artifact.program.colorTransfer.slots
+                unprovenOutputChannelUse = artifact.program.fragmentOutputChannelUse
                 positiveFailure = nil
             case let .failure(failure):
                 positiveKind = nil
                 positiveSlots = nil
+                unprovenOutputChannelUse = nil
                 positiveFailure = String(describing: failure)
+            }
+            let provenOutputChannelUse: String?
+            switch build(
+                fragmentMSL,
+                authoredFragment: "void main() { gl_FragColor = vec4(1.0); }"
+            ) {
+            case let .success(artifact):
+                provenOutputChannelUse = artifact.program.fragmentOutputChannelUse
+            case .failure:
+                provenOutputChannelUse = nil
             }
             let vectorWeightRejected = failedColorTransfer(build(
                 fragmentMSL.replacingOccurrences(of: "float rate =", with: "float2 rate =")
@@ -194,6 +218,8 @@ private struct GenericShaderArtifactHarness {
             let output = BuilderOutput(
                 positiveKind: positiveKind,
                 positiveSlots: positiveSlots,
+                unprovenOutputChannelUse: unprovenOutputChannelUse,
+                provenOutputChannelUse: provenOutputChannelUse,
                 positiveFailure: positiveFailure,
                 vectorWeightRejected: vectorWeightRejected,
                 mutatedColorRejected: mutatedColorRejected
@@ -241,13 +267,15 @@ private struct GenericShaderArtifactHarness {
                 uniformBufferIndex: program.uniformBufferIndex,
                 uniformNames: program.uniformLayout.fields.map(\.name),
                 textureSlots: program.textureBindings.map(\.slot),
-                colorTransfer: colorTransferName(program.colorTransfer)
+                colorTransfer: colorTransferName(program.colorTransfer),
+                fragmentOutputChannelUse: program.fragmentOutputChannelUse.rawValue
             )
         case let .unavailable(code, requestKey):
             result = .init(
                 status: "unavailable", code: code, requestKey: requestKey,
                 backend: nil, uniformBufferIndex: nil,
-                uniformNames: nil, textureSlots: nil, colorTransfer: nil
+                uniformNames: nil, textureSlots: nil, colorTransfer: nil,
+                fragmentOutputChannelUse: nil
             )
         }
         let data = try JSONEncoder().encode(result)
@@ -291,6 +319,29 @@ FRAGMENT = """
 uniform sampler2D g_Texture0;
 varying vec2 v_TexCoord;
 void main() {
+    gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+}
+"""
+
+UNPROVEN_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void WriteOutput() {
+    gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+}
+void main() {
+    WriteOutput();
+}
+"""
+
+GENERIC_ONLY_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    int counter = 0;
+    while (counter < 1) {
+        counter += 1;
+    }
     gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
 }
 """
@@ -376,7 +427,7 @@ vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u
 fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) { return float4(1.0); }
 """.strip() + "\n"
         return {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "kind": "scene-generic-shader-program-artifact",
             "backendID": "glslang-spirv-cross-msl-v1",
             "requestKey": key,
@@ -400,6 +451,7 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                     "name": "g_Texture0", "slot": 0, "channelUse": "unproven"
                 }],
                 "staticLoopWork": 0,
+                "fragmentOutputChannelUse": "redDefined",
                 "colorTransfer": (
                     {"kind": color_transfer, "slot": 0}
                     if color_transfer in ("passthrough", "straight-alpha")
@@ -411,6 +463,105 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 ),
             },
         }
+
+    def python_artifact(
+        self,
+        key: str,
+        *,
+        vertex_source: str = VERTEX,
+        fragment_source: str = FRAGMENT,
+    ) -> dict:
+        reflection = {
+            "types": {"_1": {"members": [
+                {"name": "mwxRenderSize", "type": "vec2", "offset": 0}
+            ]}},
+            "ubos": [{
+                "type": "_1", "block_size": 8, "set": 0, "binding": 8
+            }],
+            "textures": [{"name": "g_Texture0", "binding": 0}],
+        }
+        stages = [
+            {"stage": "vertex", "reflection": reflection},
+            {"stage": "fragment", "reflection": reflection},
+        ]
+        vertex_msl = """#include <metal_stdlib>
+using namespace metal;
+struct MWXUniforms { float2 mwxRenderSize; };
+vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]]) {
+    return float4(0.0);
+}
+"""
+        fragment_msl = """#include <metal_stdlib>
+using namespace metal;
+struct MWXUniforms { float2 mwxRenderSize; };
+struct Output { float4 mwxFragColor [[color(0)]]; };
+fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
+    Output out;
+    out.mwxFragColor = g_Texture0.sample(sampler(), float2(0.5));
+    return out;
+}
+"""
+        return build_program_artifact(
+            request_key=key,
+            backend_id="glslang-spirv-cross-msl-v1",
+            compiled_stages=stages,
+            stage_sources={
+                "vertex": vertex_source,
+                "fragment": fragment_source,
+            },
+            msl_sources={"vertex": vertex_msl, "fragment": fragment_msl},
+            maximum_artifact_bytes=1_024_000,
+        )
+
+    @staticmethod
+    def request_key(seed: str, vertex_source: str, fragment_source: str) -> str:
+        digest = hashlib.sha256()
+        for value in (
+            seed,
+            "wallpaper-engine-glsl-like-v0",
+            vertex_source,
+            fragment_source,
+            "{}",
+        ):
+            encoded = value.encode("utf-8")
+            digest.update(len(encoded).to_bytes(8, "big"))
+            digest.update(encoded)
+        return digest.hexdigest()
+
+    def test_schema_two_request_and_default_cache_namespaces_are_isolated(self):
+        source = CACHE_SOURCE.read_text(encoding="utf-8")
+        self.assertIn('"mwx-generic-shader-request-v2"', source)
+        self.assertIn('"SceneGenericShaderPrograms-v2"', source)
+        self.assertNotIn('"mwx-generic-shader-request-v1"', source)
+        self.assertNotIn('"SceneGenericShaderPrograms-v1"', source)
+
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            observed, _, cache, _ = self.run_harness(root, route="observe-only")
+            current_key = self.request_key(
+                "mwx-generic-shader-request-v2", VERTEX, FRAGMENT
+            )
+            legacy_key = self.request_key(
+                "mwx-generic-shader-request-v1", VERTEX, FRAGMENT
+            )
+            self.assertEqual(observed["requestKey"], current_key)
+            self.assertNotEqual(current_key, legacy_key)
+
+            stale = self.artifact(legacy_key)
+            stale["schemaVersion"] = 1
+            stale["program"].pop("fragmentOutputChannelUse")
+            (cache / f"{legacy_key}.json").write_text(
+                json.dumps(stale), encoding="utf-8"
+            )
+            unavailable, _, _, log = self.run_harness(
+                root, route="prefer-generic"
+            )
+            self.assertEqual(unavailable["requestKey"], current_key)
+            self.assertEqual(
+                unavailable["code"],
+                "compiler-configuration-licensebundleunavailable",
+            )
+            self.assertNotIn("artifact-invalid-json", log)
 
     def test_compilation_coordinator_restarts_for_independent_key(self):
         completed = subprocess.run(
@@ -442,6 +593,8 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
         self.assertEqual(json.loads(completed.stdout), {
             "positiveKind": "interpolated-color",
             "positiveSlots": [0, 1],
+            "unprovenOutputChannelUse": "unproven",
+            "provenOutputChannelUse": "redDefined",
             "vectorWeightRejected": True,
             "mutatedColorRejected": True,
         })
@@ -477,7 +630,10 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "vertex", "fragment"
             ])
 
-            artifact = self.artifact(first["requestKey"])
+            artifact = self.python_artifact(first["requestKey"])
+            self.assertEqual(
+                artifact["program"]["fragmentOutputChannelUse"], "unproven"
+            )
             (cache / f"{first['requestKey']}.json").write_text(
                 json.dumps(artifact), encoding="utf-8"
             )
@@ -490,6 +646,7 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             self.assertEqual(accepted["uniformNames"], ["mwxRenderSize"])
             self.assertEqual(accepted["textureSlots"], [0])
             self.assertEqual(accepted["colorTransfer"], "passthrough")
+            self.assertEqual(accepted["fragmentOutputChannelUse"], "redDefined")
             self.assertIn(
                 "state=prefer-generic outcome=accepted reason=- ", accepted_log
             )
@@ -560,6 +717,91 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "outcome=fallback reason=artifact-contract-rejected", rejected_log
             )
             self.assertIn(f"request={first['requestKey']}", rejected_log)
+
+    def test_unknown_fragment_output_fact_fails_closed(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            first, _, cache, _ = self.run_harness(root, route="observe-only")
+            artifact = self.artifact(first["requestKey"])
+            artifact["program"]["fragmentOutputChannelUse"] = "forged"
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            rejected, _, _, _ = self.run_harness(root, route="prefer-generic")
+            self.assertEqual(rejected["status"], "unavailable")
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+
+    def test_valid_but_forged_fragment_output_fact_fails_closed(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            first, _, cache, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=UNPROVEN_FRAGMENT,
+            )
+            artifact = self.artifact(first["requestKey"])
+            self.assertEqual(
+                artifact["program"]["fragmentOutputChannelUse"],
+                "redDefined",
+            )
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            rejected, _, _, _ = self.run_harness(
+                root,
+                route="prefer-generic",
+                fragment=UNPROVEN_FRAGMENT,
+            )
+            self.assertEqual(rejected["status"], "unavailable")
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+
+    def test_generic_only_syntax_preserves_unproven_output_fact(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            first, _, cache, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=GENERIC_ONLY_FRAGMENT,
+            )
+            artifact = self.artifact(first["requestKey"])
+            artifact["program"]["fragmentOutputChannelUse"] = "unproven"
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, _ = self.run_harness(
+                root,
+                route="prefer-generic",
+                fragment=GENERIC_ONLY_FRAGMENT,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["backend"], "genericCompilerArtifact")
+            self.assertEqual(accepted["colorTransfer"], "passthrough")
+
+    def test_python_unproven_artifact_round_trips_for_unproven_source(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            first, _, cache, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=UNPROVEN_FRAGMENT,
+            )
+            artifact = self.python_artifact(
+                first["requestKey"],
+                fragment_source=UNPROVEN_FRAGMENT,
+            )
+            self.assertEqual(
+                artifact["program"]["fragmentOutputChannelUse"], "unproven"
+            )
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, _ = self.run_harness(
+                root,
+                route="prefer-generic",
+                fragment=UNPROVEN_FRAGMENT,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["fragmentOutputChannelUse"], "unproven")
 
     def test_opaque_artifact_maps_to_opaque_program_contract(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:

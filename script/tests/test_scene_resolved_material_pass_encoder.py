@@ -633,7 +633,8 @@ private func program(
     additionalSlots: [Program.TextureSlot] = [],
     uniformValues: [String: Data] = [:],
     slot0Sampling: SceneTextureSampling = .directImageFallback,
-    slot0GraphKind: Graph.TextureKind = .framebuffer
+    slot0GraphKind: Graph.TextureKind = .framebuffer,
+    outputStorage: Program.OutputStorage = .color
 ) -> Program? {
     let shader = prepared(
         marker: "program-\(marker)",
@@ -696,7 +697,8 @@ private func program(
                         ? .layerSource : .framebuffer
                 )]
                 : []
-        )
+        ),
+        outputStorage: outputStorage
     ))
 }
 
@@ -2061,8 +2063,25 @@ private enum Harness {
             program: baseline,
             target: r8Target
         ) == nil
+        let scalarProducer = program(
+            device: device,
+            marker: 73,
+            outputSlot: 0,
+            slot0Texture: authoredTexture,
+            fragmentSource: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0;
+            uniform float g_Gain;
+            void main() {
+                float signal = texSample2D(g_Texture0, v_TexCoord).r
+                    * g_Gain * 2.0;
+                gl_FragColor = vec4(signal, signal * 0.5, 0.0, 0.0);
+            }
+            """,
+            outputStorage: .scalarRedUnorm
+        )!
         let explicitScalarPreparation = encoder.prepareResult(
-            program: baseline,
+            program: scalarProducer,
             target: r8Target,
             attachmentStorage: .scalarRedUnorm
         )
@@ -2158,7 +2177,7 @@ private enum Harness {
         ) == nil
         let scalarIntoColorTargetRejected: Bool
         if case .failure(.targetRejected) = encoder.prepareResult(
-            program: baseline,
+            program: scalarProducer,
             target: rgbaTarget,
             attachmentStorage: .scalarRedUnorm
         ) {

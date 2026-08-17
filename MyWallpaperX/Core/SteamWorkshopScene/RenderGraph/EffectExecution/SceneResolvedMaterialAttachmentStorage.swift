@@ -3,6 +3,11 @@ import Metal
 /// Keeps color-framebuffer and single-channel graph attachment contracts
 /// distinct before pipeline compilation or command encoding.
 nonisolated enum SceneResolvedMaterialAttachmentStorage {
+    struct StoredOutput {
+        let content: SceneTextureContent
+        let colorRepresentation: SceneShaderColorRepresentation?
+    }
+
     static func acceptedColorOutput(
         _ resolution: SceneShaderColorRepresentationResolution
     ) -> SceneShaderColorRepresentation? {
@@ -42,15 +47,27 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
     static func writeMask(for content: SceneTextureContent) -> MTLColorWriteMask {
         content == .scalarRedUnorm ? .red : .all
     }
-}
 
-nonisolated extension SceneResolvedMaterialAttachmentKind {
-    func storedContent(
-        fragmentOutput: SceneShaderColorRepresentation
-    ) -> SceneTextureContent {
-        switch self {
-        case .color: .color(.resolved(fragmentOutput))
-        case .scalarRedUnorm: .scalarRedUnorm
+    static func storedOutput(
+        _ outputContract: SceneResolvedMaterialProgram.OutputContract,
+        attachmentStorage: SceneResolvedMaterialAttachmentKind
+    ) -> StoredOutput? {
+        switch (outputContract, attachmentStorage) {
+        case let (.color(contract), .color):
+            guard let representation = acceptedColorOutput(
+                contract.fragmentOutput
+            ) else { return nil }
+            return .init(
+                content: .color(.resolved(representation)),
+                colorRepresentation: representation
+            )
+        case (.scalarRedUnorm, .scalarRedUnorm):
+            return .init(
+                content: .scalarRedUnorm,
+                colorRepresentation: nil
+            )
+        case (.color, .scalarRedUnorm), (.scalarRedUnorm, .color):
+            return nil
         }
     }
 }

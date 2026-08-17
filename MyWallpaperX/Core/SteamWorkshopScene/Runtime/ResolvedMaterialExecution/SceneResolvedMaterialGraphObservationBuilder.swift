@@ -102,7 +102,10 @@ enum SceneResolvedMaterialGraphObservationBuilder {
     ) throws -> SceneGraphExecutionFinalOutputPublication {
         let resource = value.effectOutputResource
         let transaction = value.transition.transaction
-        guard resource.isCompleteGraphResource,
+        guard SceneGraphRenderTargetLease.graphSamplingMatches(
+                  resource,
+                  expectedSampling: .linearClamp
+              ),
               resource.publication.requestIdentity
                 == .graph(value.pairStep.outputIdentity),
               resource.resourceGeneration > 0,

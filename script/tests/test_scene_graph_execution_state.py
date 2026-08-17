@@ -76,7 +76,8 @@ enum Harness {
         _ identity: Graph.TextureIdentity,
         unique: Bool = false,
         extent: Graph.TargetExtent = fixedExtent,
-        clear: SceneJSONValue? = nil
+        clear: SceneJSONValue? = nil,
+        uvs: SceneJSONValue? = nil
     ) -> Graph.RenderTarget {
         .init(
             texture: identity,
@@ -84,7 +85,7 @@ enum Harness {
             format: "rgba_backbuffer",
             declaredUnique: unique,
             clear: clear,
-            uvs: nil,
+            uvs: uvs,
             conditions: nil
         )
     }
@@ -209,6 +210,7 @@ enum Harness {
                 descriptor: .init(
                     extent: logical.extent,
                     format: logical.format,
+                    addressMode: logical.addressMode,
                     isUnique: logical.isUnique,
                     initialClear: logical.initialClear
                 )
@@ -362,6 +364,7 @@ enum Harness {
         let endpointDescriptor = State.ResourceDescriptor(
             extent: ordinaryPlan.inputExtent,
             format: .rgbaBackbuffer,
+            addressMode: .clampToEdge,
             isUnique: false,
             initialClear: nil
         )
@@ -717,6 +720,75 @@ enum Harness {
             previous: history1.nextState
         ))
 
+        let repeatHistoryGraph = graph(
+            targets: [
+                rawTarget(q1, unique: true, uvs: .string("repeat")),
+                rawTarget(q2, unique: true, uvs: .string("repeat")),
+            ],
+            nodes: historyGraph.nodes
+        )
+        let repeatHistoryPlan = requirePlan(repeatHistoryGraph)
+        let repeatHistoryPair = requirePair(repeatHistoryGraph)
+        let repeatHistoryAllocation = allocation(
+            plan: repeatHistoryPlan,
+            generation: 4,
+            prefix: "history-repeat"
+        )
+        let clampToRepeat = require(State.reduce(
+            graph: repeatHistoryGraph,
+            targetPlan: repeatHistoryPlan,
+            pairStep: repeatHistoryPair,
+            allocation: repeatHistoryAllocation,
+            effectGeneration: 2,
+            resetGeneration: 1,
+            previous: history1.nextState
+        ))
+        let clampToRepeatRehydrationFailure = failure(
+            graph: repeatHistoryGraph,
+            plan: repeatHistoryPlan,
+            pair: repeatHistoryPair,
+            allocation: repeatHistoryAllocation,
+            effectGeneration: 2,
+            previous: history1.nextState,
+            historyRehydration: [
+                oldSelected.token: repeatHistoryAllocation.resources[q2]!.token
+            ]
+        )
+        let repeatHistory1 = require(State.reduce(
+            graph: repeatHistoryGraph,
+            targetPlan: repeatHistoryPlan,
+            pairStep: repeatHistoryPair,
+            allocation: repeatHistoryAllocation,
+            effectGeneration: 2,
+            resetGeneration: 1
+        ))
+        let freshClampAllocation = allocation(
+            plan: historyPlan,
+            generation: 5,
+            prefix: "history-clamp"
+        )
+        let repeatToClamp = require(State.reduce(
+            graph: historyGraph,
+            targetPlan: historyPlan,
+            pairStep: historyPair,
+            allocation: freshClampAllocation,
+            effectGeneration: 3,
+            resetGeneration: 1,
+            previous: repeatHistory1.nextState
+        ))
+        let repeatSelected = repeatHistory1.nextState.logicalMapping[q1]!
+        let repeatToClampRehydrationFailure = failure(
+            graph: historyGraph,
+            plan: historyPlan,
+            pair: historyPair,
+            allocation: freshClampAllocation,
+            effectGeneration: 3,
+            previous: repeatHistory1.nextState,
+            historyRehydration: [
+                repeatSelected.token: freshClampAllocation.resources[q2]!.token
+            ]
+        )
+
         // State validation still rejects FBO hazards and malformed allocation.
         let aliasAllocation = allocation(
             plan: swapPlan,
@@ -745,6 +817,7 @@ enum Harness {
                 identity: target.identity,
                 extent: target.extent,
                 format: target.format,
+                addressMode: target.addressMode,
                 isUnique: target.isUnique,
                 lifetime: .init(
                     firstWriteNodeIndex: target.lifetime.firstWriteNodeIndex,
@@ -791,6 +864,7 @@ enum Harness {
                 ),
                 extent: ordinaryPlan.inputExtent,
                 format: .rgbaBackbuffer,
+                addressMode: .clampToEdge,
                 isUnique: false,
                 lifetime: .init(
                     firstWriteNodeIndex: 0,
@@ -933,6 +1007,20 @@ enum Harness {
             "historyResetInitializations": initializationTokens(
                 historyReset.transaction.intents
             ),
+            "clampToRepeatHistoryResets": clampToRepeat.transaction.mappingBefore
+                .values.allSatisfy { value in
+                    value.contentGeneration == 0
+                        && value.descriptor.addressMode == .repeatWrap
+                },
+            "repeatToClampHistoryResets": repeatToClamp.transaction.mappingBefore
+                .values.allSatisfy { value in
+                    value.contentGeneration == 0
+                        && value.descriptor.addressMode == .clampToEdge
+                },
+            "clampToRepeatRehydrationFailure":
+                clampToRepeatRehydrationFailure,
+            "repeatToClampRehydrationFailure":
+                repeatToClampRehydrationFailure,
             "aliasFailure": failure(
                 graph: swapGraph,
                 plan: swapPlan,
@@ -1086,6 +1174,18 @@ class SceneGraphExecutionStateTests(unittest.TestCase):
         self.assertTrue(self.result["pureCandidateEqual"])
         self.assertTrue(self.result["previousStateUnchanged"])
         self.assertEqual(self.result["historyResetInitializations"], ["history-old-q1"])
+
+    def test_address_mode_changes_reset_history_and_reject_stale_rehydration(self) -> None:
+        self.assertTrue(self.result["clampToRepeatHistoryResets"])
+        self.assertTrue(self.result["repeatToClampHistoryResets"])
+        self.assertEqual(
+            self.result["clampToRepeatRehydrationFailure"],
+            "historyRehydrationMismatch",
+        )
+        self.assertEqual(
+            self.result["repeatToClampRehydrationFailure"],
+            "historyRehydrationMismatch",
+        )
 
     def test_fbo_hazards_capacity_and_aliases_remain_fail_closed(self) -> None:
         self.assertEqual(self.result["aliasFailure"], "physicalAlias")

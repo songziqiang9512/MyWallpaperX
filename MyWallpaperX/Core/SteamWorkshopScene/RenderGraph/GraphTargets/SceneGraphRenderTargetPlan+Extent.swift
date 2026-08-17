@@ -4,6 +4,7 @@ nonisolated extension SceneGraphRenderTargetPlan {
     struct TargetDescriptor: Equatable {
         let extent: PixelExtent
         let format: TextureFormat
+        let addressMode: UVAddressMode
         let isUnique: Bool
         let initialClear: ClearColor?
 
@@ -22,7 +23,7 @@ nonisolated extension SceneGraphRenderTargetPlan {
             inputWidth: inputWidth,
             inputHeight: inputHeight
         ), let format = textureFormat(target.format),
-              target.uvs == nil,
+              let addressMode = uvAddressMode(target.uvs),
               target.conditions == nil else {
             return nil
         }
@@ -36,6 +37,7 @@ nonisolated extension SceneGraphRenderTargetPlan {
         return TargetDescriptor(
             extent: extent,
             format: format,
+            addressMode: addressMode,
             isUnique: target.declaredUnique,
             initialClear: initialClear
         )
@@ -71,6 +73,7 @@ nonisolated extension SceneGraphRenderTargetPlan {
             return descriptor == .init(
                 extent: logical.extent,
                 format: logical.format,
+                addressMode: logical.addressMode,
                 isUnique: logical.isUnique,
                 initialClear: logical.initialClear
             )
@@ -175,6 +178,16 @@ nonisolated extension SceneGraphRenderTargetPlan {
         case "r8": return .r8
         case "rgba_backbuffer": return .rgbaBackbuffer
         case "rgba8888": return .rgba8888
+        default: return nil
+        }
+    }
+
+    private nonisolated static func uvAddressMode(
+        _ authored: SceneJSONValue?
+    ) -> UVAddressMode? {
+        switch authored {
+        case nil: return .clampToEdge
+        case .string("repeat"): return .repeatWrap
         default: return nil
         }
     }

@@ -181,9 +181,9 @@ nonisolated struct SceneFrameTextureResource {
               publication.candidate.physicalSize
                   == publication.candidate.mappedSize,
               publication.candidate.uvTransform == .identity,
-              publication.candidate.sampling == .directImageFallback,
+              (publication.candidate.sampling == .linearClamp
+                || publication.candidate.sampling == .linearRepeat),
               publication.candidate.sampling.rawFlags == nil,
-              publication.candidate.authoredFormat == nil,
               publication.candidate.texture.usage.contains(.renderTarget),
               publication.candidate.texture.usage.contains(.shaderRead),
               publication.candidate.texture.mipmapLevelCount == 1 else {
@@ -196,11 +196,13 @@ nonisolated struct SceneFrameTextureResource {
             let format = publication.candidate.pixelFormat
             return publication.candidate.purpose == .premultipliedColor
                 && (format == .bgra8Unorm || format == .rgba8Unorm)
+                && publication.candidate.authoredFormat == nil
                 && identityUVScale(expectedPurpose: .premultipliedColor)
         case .scalarRedUnorm:
             return request.kind == .framebuffer
                 && publication.candidate.purpose == .preservedChannels
                 && publication.candidate.pixelFormat == .r8Unorm
+                && publication.candidate.authoredFormat == nil
                 && identityUVScale(expectedPurpose: .preservedChannels)
         case .color(.resolved(.straightAlpha)), .color(.unresolved), .data:
             return false

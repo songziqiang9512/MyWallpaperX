@@ -356,9 +356,23 @@ struct SceneGraphExecutionState {
     static let maximumNodeCount = 512
     static let maximumLogicalBindingCount = 512
     struct PhysicalToken: Hashable { let rawValue: String }
+    struct ResourceDescriptor {
+        let addressMode: SceneGraphRenderTargetPlan.UVAddressMode
+    }
     struct VersionedResource {
         let token: PhysicalToken
+        let descriptor: ResourceDescriptor
         let contentGeneration: UInt64
+
+        init(
+            token: PhysicalToken,
+            descriptor: ResourceDescriptor = .init(addressMode: .clampToEdge),
+            contentGeneration: UInt64
+        ) {
+            self.token = token
+            self.descriptor = descriptor
+            self.contentGeneration = contentGeneration
+        }
     }
     enum InitializationReason { case authoredClear }
     struct MaterialBinding {}
@@ -448,10 +462,24 @@ enum SceneShaderStableDigest {
         "graph-\(graph.layerID)-\(graph.nodes.count)"
     }
 }
+enum SceneTextureSampling { case linearClamp, linearRepeat }
 struct SceneTextureCandidate {
     let texture: MTLTexture
     let identity: SceneTextureCandidateIdentity
     let purpose: SceneTextureLoadPurpose
+    let sampling: SceneTextureSampling
+
+    init(
+        texture: MTLTexture,
+        identity: SceneTextureCandidateIdentity,
+        purpose: SceneTextureLoadPurpose,
+        sampling: SceneTextureSampling = .linearClamp
+    ) {
+        self.texture = texture
+        self.identity = identity
+        self.purpose = purpose
+        self.sampling = sampling
+    }
 }
 struct SceneTextureProviderPublication {
     let requestIdentity: SceneFrameTextureIdentity
@@ -462,6 +490,7 @@ struct SceneTextureProviderPublication {
     func isSameAtom(as other: Self) -> Bool {
         requestIdentity == other.requestIdentity
             && candidate.identity == other.candidate.identity
+            && candidate.sampling == other.candidate.sampling
             && contentGeneration == other.contentGeneration
             && texture === other.texture
     }
@@ -479,7 +508,10 @@ enum SceneResolvedMaterialInFlightCapacity {
     static let maximumSubmissions = 2
 }
 
-struct SceneGraphRenderTargetPlan: Equatable { let identity: Int }
+struct SceneGraphRenderTargetPlan: Equatable {
+    enum UVAddressMode { case clampToEdge, repeatWrap }
+    let identity: Int
+}
 struct SceneGraphRenderTargetTable { let plan: SceneGraphRenderTargetPlan }
 struct SceneGraphRenderTargetLease {
     struct FullFramePair {
@@ -490,6 +522,26 @@ struct SceneGraphRenderTargetLease {
     let generation: UInt64
     let texturesByToken: [SceneGraphExecutionState.PhysicalToken: MTLTexture]
     let fullFramePair: FullFramePair
+
+    static func graphSamplingMatches(
+        _ resource: SceneFrameTextureResource,
+        descriptor: SceneGraphExecutionState.ResourceDescriptor
+    ) -> Bool {
+        graphSamplingMatches(
+            resource,
+            expectedSampling: descriptor.addressMode == .repeatWrap
+                ? .linearRepeat
+                : .linearClamp
+        )
+    }
+
+    static func graphSamplingMatches(
+        _ resource: SceneFrameTextureResource,
+        expectedSampling: SceneTextureSampling
+    ) -> Bool {
+        resource.isCompleteGraphResource
+            && resource.publication.candidate.sampling == expectedSampling
+    }
 }
 
 final class SceneGraphRenderTargetResidencyPin: @unchecked Sendable {
@@ -1069,7 +1121,8 @@ private func makeObservedPrepared(
 private func makeAtomicPrepared(
     device: MTLDevice,
     layerID: Int,
-    generation: UInt64
+    generation: UInt64,
+    terminalSampling: SceneTextureSampling = .linearClamp
 ) -> SceneResolvedMaterialGraphExecutor.PreparedGraph {
     let key = effect(for: layerID)
     let output = outputIdentity(for: layerID)
@@ -1083,7 +1136,8 @@ private func makeAtomicPrepared(
                     allocationGeneration: generation,
                     physicalToken: "atomic-output-\(layerID)"
                 )),
-                purpose: .premultipliedColor
+                purpose: .premultipliedColor,
+                sampling: terminalSampling
             ),
             contentGeneration: 1
         ),
@@ -2045,6 +2099,122 @@ enum Harness {
                 && postFailureClaimRejected
             targets7.commit.releaseAll()
             targets8.commit.releaseAll()
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
+        }
+
+        do {
+            SceneResolvedMaterialGraphExecutor.prepareCallCount = 0
+            SceneResolvedMaterialGraphExecutor.prepareTokens = []
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [
+                7: makeAtomicPrepared(
+                    device: device,
+                    layerID: 7,
+                    generation: 2,
+                    terminalSampling: .linearRepeat
+                ),
+            ]
+            let previousPin = SceneGraphRenderTargetResidencyPin(
+                purpose: .history(
+                    effect,
+                    [.init(rawValue: "terminal-repeat-safe-history")]
+                ),
+                generation: 1
+            )
+            let previousTail = makeTail(
+                device: device,
+                token: "terminal-repeat-safe-history",
+                generation: 1,
+                pin: previousPin
+            )
+            let previousResource = previousTail.persistentResources[historyIdentity]!
+            let coordinator = makeCoordinator(device)
+            coordinator.committedTails = [effect: previousTail]
+            coordinator.scheduledTails = coordinator.committedTails
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 4, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
+            switch coordinator.preflightClaim(layerID: 7) {
+            case let .claimed(value): claim = value
+            case let .rejected(reasonCode): fatalError(reasonCode)
+            case .notMigrated: fatalError("claim unavailable")
+            }
+            let targets = makeAtomicTargets(layerID: 7, generation: 2)
+            let pool = SceneOffscreenTexturePool(factory: { _ in targets.prepared })
+            let transactionIDBefore = coordinator.nextTransactionID
+            let outcome = coordinator.prepareFrame(
+                [.init(
+                    claim: claim,
+                    targetPlan: .init(
+                        token: claim.token,
+                        allocation: .init(graphPlan: .init(key: .init(layerID: 7)))
+                    ),
+                    sourceTexture: makeTexture(device, "repeat-terminal-source"),
+                    sourceUniforms: .init(),
+                    sourcePipeline: .init(),
+                    dedicatedInputs: .fixture
+                )],
+                pool: pool,
+                commandBuffer: buffer
+            )
+            let reason: String
+            switch outcome {
+            case let .rejected(value): reason = value
+            case .ready: reason = "ready"
+            }
+            let postFailureClaimRejected: Bool
+            switch coordinator.claim(layerID: 7) {
+            case let .rejected(reasonCode):
+                postFailureClaimRejected =
+                    reasonCode == "frame-candidate-not-prepared"
+            case .claimed, .notMigrated:
+                postFailureClaimRejected = false
+            }
+            let previousPublicationPreserved: Bool = {
+                guard let committed = coordinator.committedTails[effect],
+                      let scheduled = coordinator.scheduledTails[effect],
+                      committed.historyPin === previousPin,
+                      scheduled.historyPin === previousPin,
+                      committed.mappingGeneration == previousTail.mappingGeneration,
+                      scheduled.mappingGeneration == previousTail.mappingGeneration,
+                      let current = committed.persistentResources[historyIdentity],
+                      current.publication.isSameAtom(
+                          as: previousResource.publication
+                      ),
+                      current.publication.candidate.sampling == .linearClamp,
+                      current.publication.requestIdentity == .graph(historyIdentity),
+                      current.publication.texture === previousResource.publication.texture,
+                      case let .provider(.graph(generation, token)) =
+                        current.publication.candidate.identity else { return false }
+                return generation == 1
+                    && token == "terminal-repeat-safe-history"
+                    && current.resourceGeneration == 1
+                    && current.publication.contentGeneration == 1
+            }()
+            results["repeatTerminalPublicationRejectsBeforeLedgerAndPreservesPreviousCurrent"] =
+                reason == "persistent-allocation-commit-rejected"
+                && SceneResolvedMaterialGraphExecutor.prepareTokens == [7]
+                && coordinator.activeByID.isEmpty
+                && coordinator.activeTransactions.isEmpty
+                && coordinator.preparedLedgerByLayerID.isEmpty
+                && coordinator.pendingSubmissions.isEmpty
+                && coordinator.nextTransactionID == transactionIDBefore
+                && coordinator.commandBufferRecords.isEmpty
+                && coordinator.frameFailures == 1
+                && coordinator.frameRequiresDrop
+                && !coordinator.framePreparationComplete
+                && coordinator.frameClaimed == 0
+                && pool.batchCommitCount == 0
+                && targets.commit.submissionPin.releaseCount == 0
+                && buffer.status == .notEnqueued
+                && previousPin.active
+                && previousPin.releaseCount == 0
+                && previousPublicationPreserved
+                && postFailureClaimRejected
+            targets.commit.releaseAll()
             SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
         }
 
@@ -3418,6 +3588,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "preflightFailureReasonReachesCoordinatorEvidence",
                 "claimWaitsForAtomicFramePreparation",
                 "secondPreparationFailureRollsBackWholeFrame",
+                "repeatTerminalPublicationRejectsBeforeLedgerAndPreservesPreviousCurrent",
                 "twoCandidatesPublishConsumeAndCommitAtomically",
                 "postClaimFailureDropsWholeFrame",
                 "foreignBufferRejectedBeforePrepare",

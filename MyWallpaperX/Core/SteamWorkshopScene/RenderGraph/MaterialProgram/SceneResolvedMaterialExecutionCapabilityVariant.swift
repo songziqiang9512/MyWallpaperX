@@ -29,6 +29,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     private var shaderPreparations = 0
     private var frontendCompilations = 0
     private var capacityRejections = 0
+    private var cachedLaunchEnvelopeKeys = Set<SceneResolvedMaterialVariantKey>()
     private var cachedReachableSamplers: [
         Int: Set<SceneResolvedMaterialShaderSchema.Sampler>
     ]?
@@ -100,8 +101,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         guard (0 ..< 8).contains(slot) else { return nil }
         lock.lock()
         defer { lock.unlock() }
-        return entries.values.compactMap {
-            guard case let .ready(variant) = $0 else { return nil }
+        return cachedLaunchEnvelopeKeys.compactMap { key in
+            guard case let .ready(variant)? = entries[key] else { return nil }
             return variant.frontendProgram.textureBindings.first(where: { $0.slot == slot })?.channelUse
         }
     }
@@ -109,14 +110,14 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     func launchEnvelopeCapabilitySnapshot() -> LaunchEnvelopeCapabilitySnapshot {
         lock.lock()
         defer { lock.unlock() }
-        let variants = entries.values.compactMap { entry -> Variant? in
-            guard case let .ready(variant) = entry else { return nil }
+        let variants = cachedLaunchEnvelopeKeys.compactMap { key -> Variant? in
+            guard case let .ready(variant)? = entries[key] else { return nil }
             return variant
         }
         return .init(
             template: template,
             variants: variants,
-            allEntriesReady: variants.count == entries.count,
+            allEntriesReady: variants.count == cachedLaunchEnvelopeKeys.count,
             reachableSamplers: cachedReachableSamplers,
             inputIdentity: cachedReachabilityIdentity,
             hasCachedReachability: hasCachedReachability
@@ -169,11 +170,14 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
 
     func precompileLaunchEnvelope(
         implicitFramebufferIdentity: Graph.TextureIdentity?,
+        outputStorage: SceneResolvedMaterialProgram.OutputStorage = .color,
+        graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat] = [:],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
     ) -> Result<[UInt8], LaunchEnvelopeFailure> {
         lock.lock()
         defer { lock.unlock() }
         var reached = Set<UInt8>()
+        var admittedKeys = Set<SceneResolvedMaterialVariantKey>()
         var reachableSamplers: [
             Int: Set<SceneResolvedMaterialShaderSchema.Sampler>
         ] = [:]
@@ -208,6 +212,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         samplers: samplers,
                         readinessMask: mask,
                         formatSlots: textureFormatSlots,
+                        graphTextureFormatFacts: graphTextureFormatFacts,
                         assetFormatFacts: assetFormatFacts,
                         assetStates: assetStates
                     ) {
@@ -216,6 +221,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     return .failure(.material(failure))
                 }
                 var variants: [Variant] = []
+                var keys: [SceneResolvedMaterialVariantKey] = []
                 do {
                     for profile in profiles {
                         guard let key = SceneResolvedMaterialVariantKey(
@@ -232,6 +238,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                             capacityRejections += 1
                             return .failure(.capacity)
                         }
+                        keys.append(key)
                         variants.append(try entry(for: key))
                     }
                 } catch let failure as Failure {
@@ -247,12 +254,6 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     return .failure(.material(failure))
                 }
                 let variant = variants[0]
-                reached.insert(mask)
-                for compiled in variants {
-                    for (slot, sampler) in compiled.activeSamplers {
-                        reachableSamplers[slot, default: []].insert(sampler)
-                    }
-                }
                 let nextProjection: SceneResolvedMaterialTextureResolver.LaunchReadinessProjection
                 switch SceneResolvedMaterialTextureResolver.launchReadinessProjection(
                     template: template, samplers: variant.activeSamplers,
@@ -271,11 +272,19 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                             variants: variants,
                             readinessMask: mask,
                             formatSlots: textureFormatSlots,
+                            outputStorage: outputStorage,
                             implicitFramebufferIdentity: implicitFramebufferIdentity,
                             assetStates: assetStates
                         ) {
                         return .failure(.material(failure))
                     }
+                    reached.insert(mask)
+                    for compiled in variants {
+                        for (slot, sampler) in compiled.activeSamplers {
+                            reachableSamplers[slot, default: []].insert(sampler)
+                        }
+                    }
+                    admittedKeys.formUnion(keys)
                     stable = true
                     break
                 }
@@ -289,6 +298,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 )))
             }
         }
+        cachedLaunchEnvelopeKeys = admittedKeys
         cachedReachableSamplers = reachableSamplers
         cachedReachabilityIdentity = implicitFramebufferIdentity
         hasCachedReachability = true
@@ -305,18 +315,25 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     == template.diagnosticProvenance.contractCanonicalSHA256,
                   input.template.diagnosticProvenance.nodeIndex == template.diagnosticProvenance.nodeIndex,
                   input.template.uniformDeclarations == template.uniformDeclarations else {
-                throw Self.failure(.identityInvariant, phase: .invariant)
+                throw Self.failure(
+                    .variantSelectionTemplateIdentityInvariant,
+                    phase: .invariant
+                )
             }
             guard hasCachedReachability,
                   cachedReachabilityIdentity == input.implicitFramebufferIdentity,
                   let reachableSamplers = cachedReachableSamplers else {
-                throw Self.failure(.identityInvariant, phase: .invariant)
+                throw Self.failure(
+                    .variantSelectionReachabilityIdentityInvariant,
+                    phase: .invariant
+                )
             }
             var matches: [Variant] = []
             var selectionFailures: [Failure] = []
             var resolvedCandidateCount = 0
-            for (key, entry) in entries {
-                guard case let .ready(variant) = entry else { continue }
+            var keyMismatchDetails: [String] = []
+            for key in cachedLaunchEnvelopeKeys {
+                guard case let .ready(variant)? = entries[key] else { continue }
                 do {
                     let channelUses = try Self.validatedSamplerChannelUses(
                         variant.activeSamplers,
@@ -330,14 +347,25 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                             formatSlots: textureFormatSlots,
                             channelUses: channelUses,
                             allowPresenceIndependentDefaults: true,
-                            restrictToSamplerSlots: true
+                            restrictToSamplerSlots: false
                         )
                     resolvedCandidateCount += 1
-                    if resolvedKey == key { matches.append(variant) }
+                    if resolvedKey == key {
+                        matches.append(variant)
+                    } else if keyMismatchDetails.count < 4 {
+                        keyMismatchDetails.append(Self.variantKeyMismatchDetail(
+                            expected: key,
+                            resolved: resolvedKey,
+                            activeSamplerSlots: Set(variant.activeSamplers.keys)
+                        ))
+                    }
                 } catch let failure as Failure {
                     selectionFailures.append(failure)
                 } catch {
-                    throw Self.failure(.identityInvariant, phase: .invariant)
+                    throw Self.failure(
+                        .variantSelectionUnexpectedFailure,
+                        phase: .invariant
+                    )
                 }
             }
             guard matches.count == 1, let variant = matches.first else {
@@ -346,7 +374,15 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                    selectionFailures.allSatisfy({ $0 == failure }) {
                     throw failure
                 }
-                throw Self.failure(.identityInvariant, phase: .invariant)
+                throw Self.failure(
+                    .variantSelectionKeyInvariant,
+                    phase: .invariant,
+                    details: [([
+                        "admitted-\(cachedLaunchEnvelopeKeys.count)",
+                        "resolved-\(resolvedCandidateCount)",
+                        "matches-\(matches.count)",
+                    ] + keyMismatchDetails).joined(separator: ",")]
+                )
             }
             return .success(.init(
                 variant: variant,
@@ -355,8 +391,31 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         } catch let failure as Failure {
             return .failure(failure)
         } catch {
-            return .failure(Self.failure(.identityInvariant, phase: .invariant))
+            return .failure(Self.failure(
+                .variantSelectionUnexpectedFailure,
+                phase: .invariant
+            ))
         }
+    }
+
+    private static func variantKeyMismatchDetail(
+        expected: SceneResolvedMaterialVariantKey,
+        resolved: SceneResolvedMaterialVariantKey,
+        activeSamplerSlots: Set<Int>
+    ) -> String {
+        let differingFormats = (0 ..< 8).compactMap { slot -> String? in
+            guard expected.textureFormats[slot] != resolved.textureFormats[slot] else {
+                return nil
+            }
+            let lhs = expected.textureFormats[slot].map { String($0.rawValue) } ?? "nil"
+            let rhs = resolved.textureFormats[slot].map { String($0.rawValue) } ?? "nil"
+            return "s\(slot)-\(lhs)-\(rhs)"
+        }.joined(separator: "_")
+        let activeMask = activeSamplerSlots.reduce(UInt8(0)) { partial, slot in
+            partial | (UInt8(1) << UInt8(slot))
+        }
+        return "key-e\(expected.readinessMask)-r\(resolved.readinessMask)"
+            + "-a\(activeMask)-f\(differingFormats.isEmpty ? "none" : differingFormats)"
     }
 
     private func entry(

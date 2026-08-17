@@ -11,6 +11,7 @@ nonisolated enum SceneStockTextureSemanticRegistry {
         case "gradient/gradient_iridescent": .preservedChannels
         case "util/clouds_256": .noise
         case "util/noise": .noise
+        case "util/perlin_256": .noise
         default: nil
         }
     }

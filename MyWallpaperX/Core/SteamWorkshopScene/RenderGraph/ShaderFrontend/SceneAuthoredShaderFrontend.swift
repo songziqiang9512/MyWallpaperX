@@ -45,6 +45,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             return .init(program: nil, diagnostics: layoutDiagnostic)
         }
         let colorTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentUnit)
+        let fragmentOutputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer
+            .analyze(fragmentUnit)
         let emission = SceneAuthoredShaderMetalEmitter.emit(
             vertex: vertexUnit,
             fragment: fragmentUnit,
@@ -66,7 +68,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 uniformLayout: uniformLayout,
                 textureBindings: validation.textures,
                 staticLoopWork: max(vertexUnit.staticLoopWork, fragmentUnit.staticLoopWork),
-                colorTransfer: colorTransfer
+                colorTransfer: colorTransfer,
+                fragmentOutputChannelUse: fragmentOutputChannelUse
             ),
             diagnostics: []
         )

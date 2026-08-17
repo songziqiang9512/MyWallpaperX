@@ -161,6 +161,15 @@
       ]
     },
     {
+      "id": "graph-target-address-mode",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift"
+      ],
+      "modules": ["test_scene_graph_target_address_mode"]
+    },
+    {
       "id": "effect-compilation",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/**"],
       "modules": [

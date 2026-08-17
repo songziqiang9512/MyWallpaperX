@@ -169,6 +169,7 @@ extension SceneGraphRenderTargetLease {
         let descriptor = State.ResourceDescriptor(
             extent: table.plan.inputExtent,
             format: .rgbaBackbuffer,
+            addressMode: .clampToEdge,
             isUnique: false,
             initialClear: nil
         )
@@ -222,7 +223,9 @@ extension SceneGraphRenderTargetLease {
             physicalSize: size,
             mappedSize: size,
             uvTransform: .identity,
-            sampling: .directImageFallback
+            sampling: descriptor.addressMode == .repeatWrap
+                ? .linearRepeat
+                : .linearClamp
         )
         let result = SceneFrameTextureResource(
             publication: .init(
@@ -251,5 +254,28 @@ extension SceneGraphRenderTargetLease {
         default:
             return false
         }
+    }
+
+    static func graphSamplingMatches(
+        _ resource: SceneFrameTextureResource,
+        descriptor: State.ResourceDescriptor
+    ) -> Bool {
+        graphSamplingMatches(
+            resource,
+            expectedSampling: descriptor.addressMode == .repeatWrap
+                ? .linearRepeat
+                : .linearClamp
+        )
+    }
+
+    static func graphSamplingMatches(
+        _ resource: SceneFrameTextureResource,
+        expectedSampling: SceneTextureSampling
+    ) -> Bool {
+        guard resource.isCompleteGraphResource,
+              resource.publication.candidate.sampling.rawFlags == nil else {
+            return false
+        }
+        return resource.publication.candidate.sampling == expectedSampling
     }
 }

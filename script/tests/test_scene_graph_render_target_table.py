@@ -63,6 +63,7 @@ enum Harness {
         width: Int,
         height: Int,
         format: TargetPlan.TextureFormat = .rgbaBackbuffer,
+        addressMode: TargetPlan.UVAddressMode = .clampToEdge,
         isUnique: Bool = false,
         firstWrite: Int,
         lastWrite: Int,
@@ -82,6 +83,7 @@ enum Harness {
             identity: identity,
             extent: .init(width: width, height: height),
             format: format,
+            addressMode: addressMode,
             isUnique: isUnique,
             lifetime: lifetime,
             initialClear: initialClear

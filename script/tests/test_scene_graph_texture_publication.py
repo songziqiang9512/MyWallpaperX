@@ -176,12 +176,14 @@ private let extent = Plan.PixelExtent(width: 2, height: 2)
 
 private func logical(
     _ identity: Graph.TextureIdentity,
-    format: Plan.TextureFormat = .rgbaBackbuffer
+    format: Plan.TextureFormat = .rgbaBackbuffer,
+    addressMode: Plan.UVAddressMode = .clampToEdge
 ) -> Plan.LogicalTarget {
     .init(
         identity: identity,
         extent: extent,
         format: format,
+        addressMode: addressMode,
         isUnique: false,
         lifetime: .init(
             firstWriteNodeIndex: 0,
@@ -193,23 +195,32 @@ private func logical(
     )
 }
 
-private func targetPlan(format: Plan.TextureFormat = .rgbaBackbuffer) -> Plan {
+private func targetPlan(
+    format: Plan.TextureFormat = .rgbaBackbuffer,
+    addressMode: Plan.UVAddressMode = .clampToEdge
+) -> Plan {
     .testingPlan(
         layerID: layerID,
         input: input,
         output: output,
         inputExtent: extent,
-        logicalTargets: [logical(first, format: format), logical(second, format: format)]
+        logicalTargets: [
+            logical(first, format: format, addressMode: addressMode),
+            logical(second, format: format, addressMode: addressMode),
+        ]
     )
 }
 
 private func makeLease(
     _ device: MTLDevice,
-    format: Plan.TextureFormat = .rgbaBackbuffer
+    format: Plan.TextureFormat = .rgbaBackbuffer,
+    addressMode: Plan.UVAddressMode = .clampToEdge
 ) -> SceneGraphRenderTargetLease {
     let table: SceneGraphRenderTargetTable
     switch SceneGraphRenderTargetTable.make(
-        plan: targetPlan(format: format), device: device, byteBudget: 1_024
+        plan: targetPlan(format: format, addressMode: addressMode),
+        device: device,
+        byteBudget: 1_024
     ) {
     case .success(let value): table = value
     case .failure(let failure):
@@ -412,6 +423,12 @@ private enum Harness {
         }
         let lease = makeLease(device)
         let r8Lease = makeLease(device, format: .r8)
+        let repeatLease = makeLease(device, addressMode: .repeatWrap)
+        let r8RepeatLease = makeLease(
+            device,
+            format: .r8,
+            addressMode: .repeatWrap
+        )
         let aliasMapping: [Graph.TextureIdentity: MTLTexture] = [
             input: lease.table.inputTexture,
             first: lease.table.texture(for: first)!,
@@ -592,6 +609,7 @@ private enum Harness {
                 descriptor: .init(
                     extent: .init(width: 3, height: 2),
                     format: .rgbaBackbuffer,
+                    addressMode: .clampToEdge,
                     isUnique: false,
                     initialClear: nil
                 ),
@@ -644,6 +662,25 @@ private enum Harness {
             ),
             resourceGeneration: r8ScalarResource.resourceGeneration
         )
+        let forgedR8WrongAuthoredFormat = SceneFrameTextureResource(
+            publication: .init(
+                requestIdentity: r8ScalarResource.publication.requestIdentity,
+                candidate: .init(
+                    texture: r8ScalarCandidate.texture,
+                    identity: r8ScalarCandidate.identity,
+                    generation: r8ScalarCandidate.generation,
+                    purpose: r8ScalarCandidate.purpose,
+                    content: r8ScalarCandidate.content,
+                    physicalSize: r8ScalarCandidate.physicalSize,
+                    mappedSize: r8ScalarCandidate.mappedSize,
+                    uvTransform: r8ScalarCandidate.uvTransform,
+                    sampling: r8ScalarCandidate.sampling,
+                    authoredFormat: .rgba8888
+                ),
+                contentGeneration: r8ScalarResource.publication.contentGeneration
+            ),
+            resourceGeneration: r8ScalarResource.resourceGeneration
+        )
         let forgedR8ColorPurpose = SceneFrameTextureResource(
             publication: .init(
                 requestIdentity: r8ScalarResource.publication.requestIdentity,
@@ -667,6 +704,39 @@ private enum Harness {
             versionedResource: r8Physical,
             fragmentColorRepresentation: .resolved(.opaque)
         ))
+        let repeatPhysical = repeatLease.allocation.resources[first]!.versioned(15)
+        let repeatResource = require(repeatLease.graphResource(
+            for: first,
+            versionedResource: repeatPhysical,
+            fragmentColorRepresentation: .resolved(.opaque)
+        ))
+        let repeatPublicationContract = repeatResource.isCompleteGraphResource
+            && repeatResource.publication.candidate.sampling == .linearRepeat
+            && SceneGraphRenderTargetLease.graphSamplingMatches(
+                repeatResource,
+                descriptor: repeatPhysical.descriptor
+            )
+            && !SceneGraphRenderTargetLease.graphSamplingMatches(
+                repeatResource,
+                descriptor: firstPhysical.descriptor
+            )
+        let r8RepeatPhysical = r8RepeatLease.allocation.resources[first]!
+            .versioned(16)
+        let r8RepeatResource = require(r8RepeatLease.graphResource(
+            for: first,
+            versionedResource: r8RepeatPhysical,
+            storedContent: .scalarRedUnorm
+        ))
+        let r8RepeatPublicationContract = r8RepeatResource.isCompleteGraphResource
+            && r8RepeatResource.publication.candidate.sampling == .linearRepeat
+            && SceneGraphRenderTargetLease.graphSamplingMatches(
+                r8RepeatResource,
+                descriptor: r8RepeatPhysical.descriptor
+            )
+            && !SceneGraphRenderTargetLease.graphSamplingMatches(
+                r8RepeatResource,
+                descriptor: r8Physical.descriptor
+            )
 
         var aliasedResources = lease.allocation.resources
         aliasedResources[second] = lease.allocation.resources[first]
@@ -769,8 +839,15 @@ private enum Harness {
             "r8ScalarPublication": r8ScalarPublication,
             "r8ScalarCannotRewrapAsLayerSource":
                 r8ScalarCannotRewrapAsLayerSource,
-            "r8ScalarCannotRewrapAsEffectOutput":
+                "r8ScalarCannotRewrapAsEffectOutput":
                 r8ScalarCannotRewrapAsEffectOutput,
+                "rgbaRepeatPublication": repeatPublicationContract,
+                "r8RepeatPublication": r8RepeatPublicationContract,
+                "fullFramePublicationRemainsClamp":
+                    aliasOutputResource.publication.candidate.sampling
+                        == .linearClamp
+                    && aliasRotatedInputResource.publication.candidate.sampling
+                        == .linearClamp,
             ],
             "failures": [
                 "straight": straightFailure,
@@ -781,6 +858,8 @@ private enum Harness {
                 "pairToken": pairTokenFailure,
                 "r8Publication": r8PublicationFailure,
                 "forgedR8AuthoredFormat": forgedR8AuthoredFormat
+                    .isCompleteGraphResource ? "accepted" : "rejected",
+                "forgedR8WrongAuthoredFormat": forgedR8WrongAuthoredFormat
                     .isCompleteGraphResource ? "accepted" : "rejected",
                 "forgedR8ColorPurpose": forgedR8ColorPurpose
                     .isCompleteGraphResource ? "accepted" : "rejected",
@@ -887,6 +966,7 @@ class SceneGraphTexturePublicationTests(unittest.TestCase):
                 "pairToken": "unknownPhysicalToken",
                 "r8Publication": "storageSemanticUnavailable",
                 "forgedR8AuthoredFormat": "rejected",
+                "forgedR8WrongAuthoredFormat": "rejected",
                 "forgedR8ColorPurpose": "rejected",
                 "staticAlias": "physicalAlias",
                 "wrongTexture": "textureMismatch",

@@ -17,6 +17,7 @@ nonisolated struct SceneGraphExecutionState: Equatable {
     struct ResourceDescriptor: Equatable {
         let extent: Plan.PixelExtent
         let format: Plan.TextureFormat
+        let addressMode: Plan.UVAddressMode
         let isUnique: Bool
         let initialClear: Plan.ClearColor?
     }

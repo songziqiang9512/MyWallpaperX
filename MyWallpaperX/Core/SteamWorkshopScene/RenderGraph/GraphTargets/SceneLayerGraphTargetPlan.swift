@@ -22,6 +22,7 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
     struct Descriptor: Equatable {
         let extent: TargetPlan.PixelExtent
         let format: TargetPlan.TextureFormat
+        let addressMode: TargetPlan.UVAddressMode
     }
 
     /// Owner-scoped projection of the verified client cache-key shape. The
@@ -140,7 +141,8 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
 
         let pairDescriptor = Descriptor(
             extent: first.inputExtent,
-            format: .rgbaBackbuffer
+            format: .rgbaBackbuffer,
+            addressMode: .clampToEdge
         )
         var slots = [
             Slot(id: 0, descriptor: pairDescriptor, kind: .fullFrame(.zero)),
@@ -239,7 +241,8 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
                         authoredName: authoredName,
                         descriptor: .init(
                             extent: target.extent,
-                            format: target.format
+                            format: target.format,
+                            addressMode: target.addressMode
                         ),
                         uniqueEffect: target.isUnique ? pairStep.effect : nil
                     ),

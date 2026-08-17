@@ -54,6 +54,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         let textureBindings: [TextureBinding]
         let staticLoopWork: Int
         let colorTransfer: ColorTransfer
+        let fragmentOutputChannelUse: String
     }
 
     let schemaVersion: Int
@@ -64,7 +65,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
     let program: Program
 
     init(backendID: String, requestKey: String, program: Program) {
-        schemaVersion = 1
+        schemaVersion = 2
         kind = "scene-generic-shader-program-artifact"
         self.backendID = backendID
         self.requestKey = requestKey
@@ -72,8 +73,12 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         self.program = program
     }
 
-    func makeProgram(expectedKey: String) -> SceneAuthoredShaderProgram? {
-        guard schemaVersion == 1,
+    func makeProgram(
+        expectedKey: String,
+        expectedFragmentOutputChannelUse:
+            SceneAuthoredShaderProgram.FragmentOutputChannelUse
+    ) -> SceneAuthoredShaderProgram? {
+        guard schemaVersion == 2,
               kind == "scene-generic-shader-program-artifact",
               backendID == "glslang-spirv-cross-msl-v1",
               requestKey == expectedKey,
@@ -147,6 +152,18 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         default:
             return nil
         }
+        guard let fragmentOutputChannelUse =
+                SceneAuthoredShaderProgram.FragmentOutputChannelUse(
+                    rawValue: raw.fragmentOutputChannelUse
+                ) else {
+            return nil
+        }
+        // The producer may conservatively decline to prove this fact. The
+        // current Swift source analyzer owns any promotion used by Program.
+        guard fragmentOutputChannelUse == .unproven
+                || expectedFragmentOutputChannelUse == .redDefined else {
+            return nil
+        }
         return .init(
             metalSource: raw.metalSource,
             vertexFunctionName: raw.vertexFunctionName,
@@ -156,6 +173,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
             textureBindings: bindings,
             staticLoopWork: raw.staticLoopWork,
             colorTransfer: colorTransfer,
+            fragmentOutputChannelUse: expectedFragmentOutputChannelUse,
             backend: .genericCompilerArtifact
         )
     }

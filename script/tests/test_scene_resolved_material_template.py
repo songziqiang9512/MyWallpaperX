@@ -704,6 +704,12 @@ enum Harness {
             .uniformBindingInvalid, .uniformContributorPolicyUnproven,
             .uniformScriptAttachmentUnproven, .colorContractUnproven,
             .frameSnapshotMismatch, .identityInvariant,
+            .variantSelectionTemplateIdentityInvariant,
+            .variantSelectionReachabilityIdentityInvariant,
+            .variantSelectionKeyInvariant, .variantSelectionUnexpectedFailure,
+            .finalizerUnexpectedFailure,
+            .textureReadinessIdentityInvariant, .textureVariantKeyIdentityInvariant,
+            .graphRoleIdentityInvariant, .programAssemblyIdentityInvariant,
         ]
         let stablePhases: [SceneResolvedMaterialFailure.Phase] = [
             .preparation, .frontend, .color,
@@ -875,6 +881,12 @@ enum Harness {
                 "uniformBindingInvalid", "uniformContributorPolicyUnproven",
                 "uniformScriptAttachmentUnproven", "colorContractUnproven",
                 "frameSnapshotMismatch", "identityInvariant",
+                "variantSelectionTemplateIdentityInvariant",
+                "variantSelectionReachabilityIdentityInvariant",
+                "variantSelectionKeyInvariant", "variantSelectionUnexpectedFailure",
+                "finalizerUnexpectedFailure",
+                "textureReadinessIdentityInvariant", "textureVariantKeyIdentityInvariant",
+                "graphRoleIdentityInvariant", "programAssemblyIdentityInvariant",
             ] && stablePhases.map(\.rawValue) == ["preparation", "frontend", "color"],
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])

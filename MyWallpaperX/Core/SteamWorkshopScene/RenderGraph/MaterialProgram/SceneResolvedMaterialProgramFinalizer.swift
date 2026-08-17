@@ -138,7 +138,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
 
     static func finalize(
         _ input: SceneResolvedMaterialFinalizationInput,
-        variantCache: SceneResolvedMaterialVariantCache
+        variantCache: SceneResolvedMaterialVariantCache,
+        outputStorage: SceneResolvedMaterialProgram.OutputStorage = .color
     ) -> Result<Program, Failure> {
         do {
             guard input.template.renderState.matchesFullscreenOverwrite(
@@ -156,11 +157,18 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 variant: selection.variant,
                 reachableSamplers: selection.reachableSamplers
             )
-            guard SceneResolvedMaterialProgramDerivation.hasResolvedColorContract(
-                transfer: texture.frontend.colorTransfer,
-                textureSlots: texture.slots
-            ) else {
-                throw failure(.color, .colorContractUnproven)
+            switch outputStorage {
+            case .color:
+                guard SceneResolvedMaterialProgramDerivation.hasResolvedColorContract(
+                    transfer: texture.frontend.colorTransfer,
+                    textureSlots: texture.slots
+                ) else {
+                    throw failure(.color, .colorContractUnproven)
+                }
+            case .scalarRedUnorm:
+                guard texture.frontend.fragmentOutputChannelUse == .redDefined else {
+                    throw failure(.color, .colorContractUnproven)
+                }
             }
             let uniformInputs = input.uniformInputs(textureSlots: texture.slots)
             let uniforms = try resolvedUniforms(
@@ -173,22 +181,23 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 input.template.graphRole,
                 slots: texture.slots
             ) else {
-                throw failure(.invariant, .identityInvariant)
+                throw failure(.invariant, .graphRoleIdentityInvariant)
             }
             guard let program = Program.assembleCompiled(.init(
                 preparedShader: selection.variant.preparedShader,
                 textureSlots: texture.slots,
                 resolvedUniforms: uniforms,
                 renderState: input.template.renderState,
-                graphRole: graphRole
+                graphRole: graphRole,
+                outputStorage: outputStorage
             ), frontend: selection.variant.frontendProgram) else {
-                throw failure(.invariant, .identityInvariant)
+                throw failure(.invariant, .programAssemblyIdentityInvariant)
             }
             return .success(program)
         } catch let error as Failure {
             return .failure(error)
         } catch {
-            return .failure(failure(.invariant, .identityInvariant))
+            return .failure(failure(.invariant, .finalizerUnexpectedFailure))
         }
     }
 

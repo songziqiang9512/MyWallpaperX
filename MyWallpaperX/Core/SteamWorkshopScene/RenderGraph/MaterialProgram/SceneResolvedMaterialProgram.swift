@@ -48,6 +48,15 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         case colorContractUnproven
         case frameSnapshotMismatch
         case identityInvariant
+        case variantSelectionTemplateIdentityInvariant
+        case variantSelectionReachabilityIdentityInvariant
+        case variantSelectionKeyInvariant
+        case variantSelectionUnexpectedFailure
+        case finalizerUnexpectedFailure
+        case textureReadinessIdentityInvariant
+        case textureVariantKeyIdentityInvariant
+        case graphRoleIdentityInvariant
+        case programAssemblyIdentityInvariant
     }
 
     let phase: Phase
@@ -239,6 +248,16 @@ nonisolated struct SceneResolvedMaterialTemplate {
 
 /// One fully resolved material pass for one immutable resource/dynamic snapshot.
 nonisolated struct SceneResolvedMaterialProgram {
+    enum OutputStorage: Hashable {
+        case color
+        case scalarRedUnorm
+    }
+
+    enum OutputContract: Hashable {
+        case color(SceneShaderColorContract)
+        case scalarRedUnorm
+    }
+
     enum HostUniform: Hashable {
         case renderSize, modelViewProjection, modelViewProjectionInverse
         case layerModelMatrix
@@ -302,12 +321,29 @@ nonisolated struct SceneResolvedMaterialProgram {
         let resolvedUniforms: [ResolvedUniform]
         let renderState: SceneMaterialRenderState
         let graphRole: SceneResolvedMaterialTemplate.GraphRole
+        let outputStorage: OutputStorage
+
+        init(
+            preparedShader: SceneShaderPreparedProgram,
+            textureSlots: [TextureSlot?],
+            resolvedUniforms: [ResolvedUniform],
+            renderState: SceneMaterialRenderState,
+            graphRole: SceneResolvedMaterialTemplate.GraphRole,
+            outputStorage: OutputStorage = .color
+        ) {
+            self.preparedShader = preparedShader
+            self.textureSlots = textureSlots
+            self.resolvedUniforms = resolvedUniforms
+            self.renderState = renderState
+            self.graphRole = graphRole
+            self.outputStorage = outputStorage
+        }
     }
 
     struct Derived {
         let frontendProgram: SceneAuthoredShaderProgram
         let uniformBytes: Data
-        let colorContract: SceneShaderColorContract
+        let outputContract: OutputContract
         let semanticIdentity: SemanticIdentity
         let exactIdentity: ExactIdentity
     }
@@ -318,7 +354,7 @@ nonisolated struct SceneResolvedMaterialProgram {
     let resolvedUniforms: [ResolvedUniform]
     let uniformBytes: Data
     let renderState: SceneMaterialRenderState
-    let colorContract: SceneShaderColorContract
+    let outputContract: OutputContract
     let semanticIdentity: SemanticIdentity
     let exactIdentity: ExactIdentity
 
@@ -347,7 +383,7 @@ nonisolated struct SceneResolvedMaterialProgram {
         resolvedUniforms = input.resolvedUniforms
         uniformBytes = derived.uniformBytes
         renderState = input.renderState
-        colorContract = derived.colorContract
+        outputContract = derived.outputContract
         semanticIdentity = derived.semanticIdentity
         exactIdentity = derived.exactIdentity
     }
