@@ -35,6 +35,11 @@ final class SceneResolvedMaterialGraphExecutor {
         )
         case dedicatedLeafRejected(reason: String)
         case resourceCommandRejected
+        case functionInvocationStaleFrame
+        case functionInvocationUnknownEffect
+        case functionInvocationUnknownFunction
+        case functionInvocationTargetUnavailable
+        case functionClearEncodeRejected
         case captureRejected
         case encodeRejected
         case contentGenerationOverflow
@@ -86,12 +91,21 @@ final class SceneResolvedMaterialGraphExecutor {
 
     enum Command {
         case resource(SceneGraphResourcePassEncoder.PreparedCommand)
+        case functionClear(
+            SceneGraphResourcePassEncoder.PreparedCommand,
+            invocationOrdinal: Int,
+            targetOrdinal: Int
+        )
         case material(SceneResolvedMaterialPassEncoder.PreparedPass)
         case dedicated(SceneEffectStageRenderer.PreparedStage)
     }
 
     typealias StageBoundaryObserver = (
         Int, PreparedStage, MTLCommandBuffer
+    ) -> Bool
+
+    typealias FunctionClearEncodeObserver = (
+        Int, Int, Int, MTLCommandBuffer
     ) -> Bool
 
     let device: MTLDevice
@@ -139,6 +153,8 @@ final class SceneResolvedMaterialGraphExecutor {
         previousGraphResources: [
             Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]
         ],
+        materialFunctionInvocations:
+            [SceneGraphMaterialFunctionInvocationRequest] = [],
         effectGeneration: UInt64,
         resetGeneration: UInt64
     ) -> Result<PreparedGraph, Failure> {
@@ -149,6 +165,18 @@ final class SceneResolvedMaterialGraphExecutor {
               ensureResourceEncoder(commandBuffer.commandQueue),
               let firstLease = leases.first else {
             return .failure(.invalidClaim)
+        }
+        let resolvedInvocations: [
+            Graph.EffectKey: [SceneGraphClearFunctionRegistry.ClearFunction]
+        ]
+        switch resolveMaterialFunctionInvocations(
+            materialFunctionInvocations,
+            capability: capability,
+            leases: leases,
+            frameEpoch: frame.textureRegistrySnapshot.frameEpoch
+        ) {
+        case let .success(value): resolvedInvocations = value
+        case let .failure(failure): return .failure(failure)
         }
         let executionFrame: SceneResolvedMaterialFrameSnapshot
         switch (capability.sceneBackgroundRequirement, sceneBackgroundResource) {
@@ -250,7 +278,10 @@ final class SceneResolvedMaterialGraphExecutor {
                 effectGeneration: effectGeneration,
                 resetGeneration: resetGeneration,
                 previous: previous,
-                historyRehydration: history.rehydration
+                historyRehydration: history.rehydration,
+                materialFunctionInvocations: (resolvedInvocations[effect] ?? []).map {
+                    .init(name: $0.name, targets: $0.targets)
+                }
             )
             guard case let .success(transition) = reduction,
                   publishRehydratedHistory(
@@ -342,7 +373,23 @@ final class SceneResolvedMaterialGraphExecutor {
     /// `true` means every preflighted command was appended. Commit still waits
     /// for final compositor conservation and GPU completion.
     func encode(_ preparedGraph: PreparedGraph, commandBuffer: MTLCommandBuffer) -> Bool {
-        encodePreparedStages(preparedGraph, commandBuffer: commandBuffer, observer: nil)
+        if case .success = encodeResult(
+            preparedGraph,
+            commandBuffer: commandBuffer
+        ) { return true }
+        return false
+    }
+
+    func encodeResult(
+        _ preparedGraph: PreparedGraph,
+        commandBuffer: MTLCommandBuffer
+    ) -> Result<Void, Failure> {
+        encodePreparedStages(
+            preparedGraph,
+            commandBuffer: commandBuffer,
+            stageObserver: nil,
+            functionClearObserver: nil
+        )
     }
 
     #if SCENE_GRAPH_TESTING
@@ -351,10 +398,25 @@ final class SceneResolvedMaterialGraphExecutor {
         commandBuffer: MTLCommandBuffer,
         stageBoundaryObserver: @escaping StageBoundaryObserver
     ) -> Bool {
+        if case .success = encodePreparedStages(
+            preparedGraph,
+            commandBuffer: commandBuffer,
+            stageObserver: stageBoundaryObserver,
+            functionClearObserver: nil
+        ) { return true }
+        return false
+    }
+
+    func encodeResult(
+        _ preparedGraph: PreparedGraph,
+        commandBuffer: MTLCommandBuffer,
+        functionClearObserver: @escaping FunctionClearEncodeObserver
+    ) -> Result<Void, Failure> {
         encodePreparedStages(
             preparedGraph,
             commandBuffer: commandBuffer,
-            observer: stageBoundaryObserver
+            stageObserver: nil,
+            functionClearObserver: functionClearObserver
         )
     }
     #endif
@@ -362,26 +424,42 @@ final class SceneResolvedMaterialGraphExecutor {
     private func encodePreparedStages(
         _ preparedGraph: PreparedGraph,
         commandBuffer: MTLCommandBuffer,
-        observer: StageBoundaryObserver?
-    ) -> Bool {
+        stageObserver: StageBoundaryObserver?,
+        functionClearObserver: FunctionClearEncodeObserver?
+    ) -> Result<Void, Failure> {
         guard preparedGraph.ownerToken == ownerToken,
               preparedGraph.resetGeneration == resetGeneration,
               preparedGraph.queueIdentity == ObjectIdentifier(commandBuffer.commandQueue),
-              commandBuffer.status == .notEnqueued else { return false }
+              commandBuffer.status == .notEnqueued else {
+            return .failure(.stalePreparation)
+        }
         guard encode(preparedGraph.sourceCommand, commandBuffer: commandBuffer) else {
-            return false
+            return .failure(.encodeRejected)
         }
         for (stageIndex, stage) in preparedGraph.stages.enumerated() {
             for command in stage.commands {
+                if case let .functionClear(
+                    _, invocationOrdinal, targetOrdinal
+                ) = command, functionClearObserver?(
+                    stageIndex,
+                    invocationOrdinal,
+                    targetOrdinal,
+                    commandBuffer
+                ) == false {
+                    return .failure(.functionClearEncodeRejected)
+                }
                 guard encode(command, commandBuffer: commandBuffer) else {
-                    return false
+                    if case .functionClear = command {
+                        return .failure(.functionClearEncodeRejected)
+                    }
+                    return .failure(.encodeRejected)
                 }
             }
-            guard observer?(
+            guard stageObserver?(
                 stageIndex, stage, commandBuffer
-            ) != false else { return false }
+            ) != false else { return .failure(.encodeRejected) }
         }
-        return true
+        return .success(())
     }
 
     private func encode(
@@ -390,6 +468,8 @@ final class SceneResolvedMaterialGraphExecutor {
     ) -> Bool {
         switch command {
         case let .resource(value):
+            resourceEncoder?.encode(value, commandBuffer: commandBuffer) == true
+        case let .functionClear(value, _, _):
             resourceEncoder?.encode(value, commandBuffer: commandBuffer) == true
         case let .material(value):
             materialEncoder.encode(value, commandBuffer: commandBuffer)

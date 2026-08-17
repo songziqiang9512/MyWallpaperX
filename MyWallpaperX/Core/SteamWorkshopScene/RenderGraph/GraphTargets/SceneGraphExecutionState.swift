@@ -47,6 +47,11 @@ nonisolated struct SceneGraphExecutionState: Equatable {
     enum InitializationReason: Equatable {
         case authoredClear(Plan.ClearColor)
         case transparentHistorySeed
+        case materialFunctionClear(
+            functionName: String,
+            invocationOrdinal: Int,
+            targetOrdinal: Int
+        )
     }
 
     struct MaterialBinding: Equatable {
@@ -58,6 +63,11 @@ nonisolated struct SceneGraphExecutionState: Equatable {
     struct MaterialTarget: Equatable {
         let identity: Identity
         let resource: VersionedResource
+    }
+
+    struct MaterialFunctionInvocation: Equatable {
+        let name: String
+        let targets: [Identity]
     }
 
     /// Every resource carried by an intent is an authored framebuffer. Pair
@@ -147,7 +157,9 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         effectGeneration: UInt64,
         resetGeneration: UInt64,
         previous: Self = .empty,
-        historyRehydration: [PhysicalToken: PhysicalToken] = [:]
+        historyRehydration: [PhysicalToken: PhysicalToken] = [:],
+        materialFunctionInvocations:
+            [MaterialFunctionInvocation] = []
     ) -> Result<Transition, Failure> {
         guard graph.nodes.count <= maximumNodeCount,
               targetPlan.logicalTargets.count <= maximumLogicalBindingCount else {
@@ -261,6 +273,38 @@ nonisolated struct SceneGraphExecutionState: Equatable {
                     identity: target.identity,
                     resource: initializedResource,
                     reason: reason
+                ))
+            }
+        }
+
+        for (invocationOrdinal, invocation) in
+            materialFunctionInvocations.enumerated() {
+            guard !invocation.name.isEmpty,
+                  invocation.name
+                    == invocation.name.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !invocation.targets.isEmpty else {
+                return .failure(.functionUnavailable)
+            }
+            for (targetOrdinal, identity) in invocation.targets.enumerated() {
+                guard identity.kind == .framebuffer,
+                      let current = currentMapping[identity],
+                      let cleared = advanced(
+                          current,
+                          generation: &contentGeneration
+                      ) else {
+                    return .failure(.functionUnavailable)
+                }
+                currentMapping[identity] = cleared
+                initialized.insert(cleared.token)
+                readableTokens.insert(cleared.token)
+                intents.append(.initialize(
+                    identity: identity,
+                    resource: cleared,
+                    reason: .materialFunctionClear(
+                        functionName: invocation.name,
+                        invocationOrdinal: invocationOrdinal,
+                        targetOrdinal: targetOrdinal
+                    )
                 ))
             }
         }

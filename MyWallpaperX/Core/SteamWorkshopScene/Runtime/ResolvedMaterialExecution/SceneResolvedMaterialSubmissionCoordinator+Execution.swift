@@ -44,11 +44,21 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             emit(emission)
             return .failed(reasonCode: reason)
         }
-        guard executor.encode(ledger.prepared, commandBuffer: commandBuffer) else {
-            emission = claimedFailureLocked(reason: "command-append-failed")
+        let encodeResult = executor.encodeResult(
+            ledger.prepared,
+            commandBuffer: commandBuffer
+        )
+        guard case .success = encodeResult else {
+            let reason: String
+            if case let .failure(failure) = encodeResult {
+                reason = "command-append-\(failure.rawValue)"
+            } else {
+                reason = "command-append-result-invariant"
+            }
+            emission = claimedFailureLocked(reason: reason)
             lock.unlock()
             emit(emission)
-            return .failed(reasonCode: "command-append-failed")
+            return .failed(reasonCode: reason)
         }
         ledger.phase = .encoded
         activeByID[identity] = ledger

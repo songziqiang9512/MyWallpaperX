@@ -234,9 +234,6 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 )
                 switch result {
                 case let .success(product):
-                    guard product.clearFunctions.functions.isEmpty else {
-                        throw failure("function-invocation-unavailable")
-                    }
                     try validateAdmittedStructure(product.graph)
                     products.append(product)
                 case let .failure(rejection):

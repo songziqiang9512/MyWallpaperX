@@ -251,6 +251,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 previousStates: provisionalTails.mapValues(\.state),
                 previousGraphResources:
                     provisionalTails.mapValues(\.persistentResources),
+                materialFunctionInvocations:
+                    request.materialFunctionInvocations,
                 effectGeneration: effectGeneration,
                 resetGeneration: resetGeneration
             )

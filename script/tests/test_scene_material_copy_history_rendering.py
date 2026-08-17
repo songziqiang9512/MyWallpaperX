@@ -138,6 +138,8 @@ SUPPORT = (
     struct FramePreparationRequest {
         let claim: ClaimedExecution
         let targetPlan: SceneResolvedMaterialFrameTargetPlan
+        let materialFunctionInvocations:
+            [SceneGraphMaterialFunctionInvocationRequest] = []
         let sceneBackgroundResource: SceneFrameTextureResource? = nil
         let sourceTexture: MTLTexture?
         let sourceUniforms: SceneLayerFragmentUniforms?

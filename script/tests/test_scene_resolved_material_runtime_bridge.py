@@ -292,6 +292,8 @@ SUBMISSION_COORDINATOR_FIXTURE = r'''
 import Foundation
 import Metal
 
+struct SceneGraphMaterialFunctionInvocationRequest {}
+
 struct SceneAuthoredEffectRenderPlan {
     struct EffectKey: Hashable {
         let layerID: Int
@@ -926,10 +928,13 @@ final class SceneResolvedMaterialGraphExecutor {
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],
         previousGraphResources: [Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]],
+        materialFunctionInvocations:
+            [SceneGraphMaterialFunctionInvocationRequest] = [],
         effectGeneration: UInt64,
         resetGeneration: UInt64
     ) -> Result<PreparedGraph, Failure> {
-        _ = token; _ = leases; _ = historyRehydrateCopiesByEffect; _ = frame; _ = sceneBackgroundResource
+        _ = token; _ = leases; _ = historyRehydrateCopiesByEffect; _ = frame
+        _ = materialFunctionInvocations; _ = sceneBackgroundResource
         _ = sourceTexture; _ = sourceUniforms; _ = sourcePipeline
         _ = dedicatedInputs; _ = commandBuffer
         _ = previousStates; _ = previousGraphResources
@@ -941,6 +946,13 @@ final class SceneResolvedMaterialGraphExecutor {
     }
     func encode(_ value: PreparedGraph, commandBuffer: MTLCommandBuffer) -> Bool {
         _ = value; _ = commandBuffer; return Self.encodeSucceeds
+    }
+    func encodeResult(
+        _ value: PreparedGraph,
+        commandBuffer: MTLCommandBuffer
+    ) -> Result<Void, Failure> {
+        _ = value; _ = commandBuffer
+        return Self.encodeSucceeds ? .success(()) : .failure(.unavailable)
     }
     func reset() -> Bool { true }
 }
@@ -3424,7 +3436,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "commandBuffer: commandBuffer",
             coordinator[commit:],
         )
-        self.assertIn("executor.encode(ledger.prepared", execution)
+        self.assertIn("executor.encodeResult(", execution)
 
     def test_normal_invalidation_is_not_a_graph_failure_diagnostic(self) -> None:
         lifecycle = SUBMISSION_LIFECYCLE.read_text(encoding="utf-8")
@@ -3469,7 +3481,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         command_buffer_guard = execution.index(
             "ledger.commandBuffer === commandBuffer"
         )
-        encode = execution.index("executor.encode(ledger.prepared")
+        encode = execution.index("executor.encodeResult(")
         self.assertLess(command_buffer_guard, encode)
         self.assertIn("ledger.phase == .allocationCommitted", execution)
         self.assertIn('"prepared-frame-consumption-rejected"', execution)

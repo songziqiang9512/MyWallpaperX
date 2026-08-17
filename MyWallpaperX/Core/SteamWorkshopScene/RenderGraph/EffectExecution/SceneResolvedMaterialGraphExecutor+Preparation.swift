@@ -99,9 +99,21 @@ extension SceneResolvedMaterialGraphExecutor {
                           lease: lease,
                           identity: identity,
                           resource: resource,
-                          representation: initialization.representation
+                          content: resource.descriptor.format == .r8
+                              ? .scalarRedUnorm
+                              : .color(.resolved(initialization.representation))
                       ) else { return .resourceCommandRejected }
-                commands.append(.resource(prepared))
+                if case let .materialFunctionClear(
+                    _, invocationOrdinal, targetOrdinal
+                ) = reason {
+                    commands.append(.functionClear(
+                        prepared,
+                        invocationOrdinal: invocationOrdinal,
+                        targetOrdinal: targetOrdinal
+                    ))
+                } else {
+                    commands.append(.resource(prepared))
+                }
                 publications[identity] = publication
 
             case let .material(nodeIndex, ordinal, bindings, fboTarget):

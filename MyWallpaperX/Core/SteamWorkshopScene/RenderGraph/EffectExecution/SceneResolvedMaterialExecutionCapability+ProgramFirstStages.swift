@@ -49,6 +49,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 ownership: admitted.dependencyOwnership,
                 programsByKey: programsByKey
             ) {
+                guard product.clearFunctions.functions.isEmpty else {
+                    return .failure(rejection("function-invocation-executor-unavailable"))
+                }
                 let pairLeaf = dedicatedLeafKeys.contains(effect.key)
                     && program.executionPlan.logicalRenderTargetCount == 0
                     && product.graph.nodes.count == 1
@@ -88,6 +91,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 allMaterials.merge(compiled.materials) { current, _ in current }
 
             case let .failure(programFailure):
+                guard product.clearFunctions.functions.isEmpty else {
+                    return .failure(rejection("function-invocation-executor-unavailable"))
+                }
                 guard let program = programsByKey[effect.key]?.first else {
                     if visualFailureMayPassthrough(
                         programFailure,

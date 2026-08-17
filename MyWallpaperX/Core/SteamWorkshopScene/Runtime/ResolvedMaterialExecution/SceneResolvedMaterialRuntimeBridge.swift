@@ -87,6 +87,8 @@ final class SceneResolvedMaterialRuntimeBridge {
     struct FramePreparationRequest {
         let claim: ClaimedExecution
         let targetPlan: SceneResolvedMaterialFrameTargetPlan
+        let materialFunctionInvocations:
+            [SceneGraphMaterialFunctionInvocationRequest]
         let sceneBackgroundResource: SceneFrameTextureResource?
         let sourceTexture: MTLTexture?
         let sourceUniforms: SceneLayerFragmentUniforms?
@@ -96,6 +98,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         init(
             claim: ClaimedExecution,
             targetPlan: SceneResolvedMaterialFrameTargetPlan,
+            materialFunctionInvocations:
+                [SceneGraphMaterialFunctionInvocationRequest] = [],
             sceneBackgroundResource: SceneFrameTextureResource? = nil,
             sourceTexture: MTLTexture?,
             sourceUniforms: SceneLayerFragmentUniforms?,
@@ -104,6 +108,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         ) {
             self.claim = claim
             self.targetPlan = targetPlan
+            self.materialFunctionInvocations = materialFunctionInvocations
             self.sceneBackgroundResource = sceneBackgroundResource
             self.sourceTexture = sourceTexture
             self.sourceUniforms = sourceUniforms

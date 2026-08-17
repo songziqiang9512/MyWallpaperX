@@ -17,6 +17,16 @@ nonisolated struct SceneGraphClearFunctionRegistry: Equatable {
     }
 }
 
+/// One explicit, frame-scoped request from the future SceneScript host bridge.
+/// The request is inert until it is carried by a graph frame preparation.
+nonisolated struct SceneGraphMaterialFunctionInvocationRequest: Hashable {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+
+    let effect: Graph.EffectKey
+    let functionName: String
+    let frameEpoch: UInt64
+}
+
 nonisolated struct SceneGraphComposeTransitions: Equatable, Sendable {
     let nodeIndices: [Int]
     let digest: String

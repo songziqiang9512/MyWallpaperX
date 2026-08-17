@@ -59,6 +59,61 @@ extension SceneResolvedMaterialGraphExecutor {
         return true
     }
 
+    func resolveMaterialFunctionInvocations(
+        _ requests: [SceneGraphMaterialFunctionInvocationRequest],
+        capability: SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability,
+        leases: [SceneGraphRenderTargetLease],
+        frameEpoch: UInt64
+    ) -> Result<[
+        Graph.EffectKey: [SceneGraphClearFunctionRegistry.ClearFunction]
+    ], Failure> {
+        guard capability.admittedProducts.count == leases.count else {
+            return .failure(.functionInvocationTargetUnavailable)
+        }
+        guard !requests.isEmpty else { return .success([:]) }
+        guard frameEpoch > 0 else { return .failure(.functionInvocationStaleFrame) }
+        let indexed = Dictionary(grouping: capability.admittedProducts.indices, by: {
+            capability.admittedProducts[$0].graph.effects.first?.key
+        })
+        var resolved: [
+            Graph.EffectKey: [SceneGraphClearFunctionRegistry.ClearFunction]
+        ] = [:]
+        for request in requests {
+            guard request.frameEpoch == frameEpoch else {
+                return .failure(.functionInvocationStaleFrame)
+            }
+            guard let matches = indexed[request.effect], matches.count == 1,
+                  let index = matches.first else {
+                return .failure(.functionInvocationUnknownEffect)
+            }
+            let product = capability.admittedProducts[index]
+            let lease = leases[index]
+            guard !request.functionName.isEmpty,
+                  request.functionName == request.functionName.trimmingCharacters(
+                      in: .whitespacesAndNewlines
+                  ), let function = product.clearFunctions.function(
+                      named: request.functionName
+                  ) else {
+                return .failure(.functionInvocationUnknownFunction)
+            }
+            let graphTargets = Set(product.graph.renderTargets.map(\.texture))
+            let planTargets = Set(lease.table.plan.logicalTargets.map(\.identity))
+            guard !function.targets.isEmpty,
+                  function.targets.allSatisfy({ identity in
+                      identity.effect == request.effect
+                          && identity.kind == .framebuffer
+                          && graphTargets.contains(identity)
+                          && planTargets.contains(identity)
+                          && lease.framebufferAllocation.resources[identity] != nil
+                          && lease.texture(for: identity) != nil
+                  }) else {
+                return .failure(.functionInvocationTargetUnavailable)
+            }
+            resolved[request.effect, default: []].append(function)
+        }
+        return .success(resolved)
+    }
+
     func pairTexture(
         lease: SceneGraphRenderTargetLease,
         member: Pair.Member
@@ -323,7 +378,7 @@ extension SceneResolvedMaterialGraphExecutor {
         let clear: SceneGraphRenderTargetPlan.ClearColor
         switch reason {
         case let .authoredClear(value): clear = value
-        case .transparentHistorySeed:
+        case .transparentHistorySeed, .materialFunctionClear:
             clear = .init(red: 0, green: 0, blue: 0, alpha: 0)
         }
         guard clear.red == 0, clear.green == 0,
@@ -374,6 +429,12 @@ extension SceneResolvedMaterialGraphExecutor.Failure {
         case .dedicatedLeafRejected(let reason):
             "dedicated-leaf-rejected-\(reason)"
         case .resourceCommandRejected: "resource-command-rejected"
+        case .functionInvocationStaleFrame: "function-invocation-stale-frame"
+        case .functionInvocationUnknownEffect: "function-invocation-unknown-effect"
+        case .functionInvocationUnknownFunction: "function-invocation-unknown-function"
+        case .functionInvocationTargetUnavailable:
+            "function-invocation-target-unavailable"
+        case .functionClearEncodeRejected: "function-clear-encode-rejected"
         case .captureRejected: "capture-rejected"
         case .encodeRejected: "encode-rejected"
         case .contentGenerationOverflow: "content-generation-overflow"

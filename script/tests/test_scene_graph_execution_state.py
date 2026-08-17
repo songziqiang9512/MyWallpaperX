@@ -243,7 +243,8 @@ enum Harness {
         effectGeneration: UInt64 = 1,
         resetGeneration: UInt64 = 1,
         previous: State = .empty,
-        historyRehydration: [State.PhysicalToken: State.PhysicalToken] = [:]
+        historyRehydration: [State.PhysicalToken: State.PhysicalToken] = [:],
+        materialFunctionInvocations: [State.MaterialFunctionInvocation] = []
     ) -> String {
         switch State.reduce(
             graph: graph,
@@ -253,7 +254,8 @@ enum Harness {
             effectGeneration: effectGeneration,
             resetGeneration: resetGeneration,
             previous: previous,
-            historyRehydration: historyRehydration
+            historyRehydration: historyRehydration,
+            materialFunctionInvocations: materialFunctionInvocations
         ) {
         case .success: return "success"
         case .failure(let reason): return reason.rawValue
@@ -289,6 +291,16 @@ enum Harness {
         intents.compactMap {
             guard case .initialize(_, let resource, _) = $0 else { return nil }
             return resource.token.rawValue
+        }
+    }
+
+    static func functionClearReasons(_ intents: [State.Intent]) -> [String] {
+        intents.compactMap {
+            guard case let .initialize(_, _, reason) = $0,
+                  case let .materialFunctionClear(
+                      name, invocationOrdinal, targetOrdinal
+                  ) = reason else { return nil }
+            return "\(name):\(invocationOrdinal):\(targetOrdinal)"
         }
     }
 
@@ -583,6 +595,39 @@ enum Harness {
             resetGeneration: 1,
             previous: clear1.nextState
         ))
+
+        let functionGraph = graph(
+            targets: [rawTarget(q1, unique: true)],
+            nodes: [
+                material(0, ordinal: 0, target: output, reads: [q1]),
+                material(1, ordinal: 1, target: q1, reads: [input]),
+            ]
+        )
+        let functionPlan = requirePlan(functionGraph)
+        let functionPair = requirePair(functionGraph)
+        let functionAllocation = allocation(
+            plan: functionPlan, generation: 1, prefix: "function"
+        )
+        let duplicateInvocation = State.MaterialFunctionInvocation(
+            name: "reset",
+            targets: [q1, q1]
+        )
+        let functionTransition = require(State.reduce(
+            graph: functionGraph,
+            targetPlan: functionPlan,
+            pairStep: functionPair,
+            allocation: functionAllocation,
+            effectGeneration: 1,
+            resetGeneration: 1,
+            materialFunctionInvocations: [duplicateInvocation, duplicateInvocation]
+        ))
+        let missingFunctionTargetFailure = failure(
+            graph: functionGraph,
+            plan: functionPlan,
+            pair: functionPair,
+            allocation: functionAllocation,
+            materialFunctionInvocations: [.init(name: "reset", targets: [q2])]
+        )
 
         // A descriptor resize gets a disjoint allocation and keeps the swap
         // permutation, while its content versions restart from zero.
@@ -964,6 +1009,13 @@ enum Harness {
             ),
             "clearCommittedInitialized": clear1.nextState
                 .initializedPhysicalTokens.count,
+            "functionClearReasons": functionClearReasons(
+                functionTransition.transaction.intents
+            ),
+            "functionClearGeneration": generation(
+                functionTransition.transaction.mappingAfter, q1
+            ),
+            "functionClearMissingTargetFailure": missingFunctionTargetFailure,
             "resetMappingBefore": [
                 token(resetSwap.transaction.mappingBefore, q1),
                 token(resetSwap.transaction.mappingBefore, q2),
@@ -1141,6 +1193,17 @@ class SceneGraphExecutionStateTests(unittest.TestCase):
         self.assertEqual(
             self.result["resizeMappingBefore"],
             ["resize-large-q2", "resize-large-q1"],
+        )
+
+    def test_explicit_function_clear_is_ordered_versioned_and_atomic(self) -> None:
+        self.assertEqual(
+            self.result["functionClearReasons"],
+            ["reset:0:0", "reset:0:1", "reset:1:0", "reset:1:1"],
+        )
+        self.assertEqual(self.result["functionClearGeneration"], 6)
+        self.assertEqual(
+            self.result["functionClearMissingTargetFailure"],
+            "functionUnavailable",
         )
 
     def test_history_rehydration_is_explicit_and_closure_bounded(self) -> None:

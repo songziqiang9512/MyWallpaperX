@@ -2914,10 +2914,11 @@ private enum Harness {
                     missingTemplateCatalog,
                     "material-template-unsupported"
                 ),
-                "functionInvocation": reportHas(
-                    functionCatalog,
-                    "function-invocation-unavailable"
-                ),
+                "functionInvocation": functionCatalog.claim(layerID: layerID)
+                    .flatMap { functionCatalog.resolve($0.token) }?
+                    .admittedProducts.first?.clearFunctions
+                    .function(named: "reset")?.targets.map(\.name)
+                    == ["history"],
                 "dynamicVisibility": reportHas(
                     dynamicCatalog,
                     "dynamic-effect-visibility"
@@ -3442,6 +3443,11 @@ struct SceneEffectExactRuntimeSubject: Hashable {
 
 struct SceneGraphAdmissionProduct {
     let graph: SceneAuthoredEffectRenderPlan
+    let clearFunctions = SceneGraphClearFunctionRegistry()
+}
+
+struct SceneGraphClearFunctionRegistry {
+    let functions: [Int] = []
 }
 
 struct SceneLayerFullFramePairPlan {
