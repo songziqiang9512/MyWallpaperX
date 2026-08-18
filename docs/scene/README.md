@@ -24,6 +24,7 @@ V0 的首个 ordinary authored material/shader 可见门已经闭合；当前主
 
 - [能力台账](semantics/coverage-ledger.md)：所有系统的当前能力、部分能力、缺失项和待办。
 - [运行证据索引](semantics/runtime-evidence-index.md)：当前构建/运行身份、样本结果和证据限制。
+- [版本化证据包](evidence/v1/authored-fbo-allocation-lifecycle/manifest.json)：被运行证据索引采用的最小原始报告、结构化runtime evidence、必要日志/截图和逐文件哈希；它保存可复核载荷，但不取代运行证据索引的结论与边界。
 - [Corpus 能力清单](semantics/scene-corpus-capability-inventory.md)：真实 authored occurrence、family、参数和资源影响面；不表示运行支持。
 - [能力依赖图](semantics/capability-dependency-map.md)：公共依赖和不可绕过边界；不是任务队列。
 - [Fast Scene Suite 机器合同](../../script/scene_fast_suite.json)：成员、选择状态和 readiness 的唯一事实入口；任何 `selection-required` 成员都不能执行或计为 Suite PASS。

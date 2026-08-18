@@ -119,6 +119,7 @@ python3.12 script/verify_scene_change.py --phase <inner|checkpoint|integration|m
 - 主实现者维护唯一纵向结果、首断点、fallback、整合和最终运行事实；子代理适合有界研究、独立文件和冻结 diff 终审。
 - 提交只包含一个职责批次，信息写明问题、根因、实际结果和验证；禁止宽泛暂存。
 - `.codex` 是可重建工作区，不是源码或知识库。正式工具进入 `script/`，测试进入 `script/tests/`，一次性文件进入 `/private/tmp`。生成 build/runtime 产物后按现役规则审计，只清理精确归属且可重建的候选。
+- Scene benchmark 默认只保留 `report.json`、日志、必要截图和 identity/hash 摘要；staged App、隔离样本副本、临时 `HOME` 与 runtime cache 无论正反门结果都应在报告形成后清理，中断和异常也必须收尾。只有为了定位当前唯一失败现场时才显式使用 `--keep-runtime`，并记录保留理由、体量和清理触发条件；批次闭合后不得继续保留已被最终证据替代的 debug runtime、重试副本或独立 DerivedData。被权威文档采用的最终报告、结构化runtime evidence、必要日志与正反截图必须先通过 `script/promote_scene_evidence.py` 提纯到 `docs/scene/evidence/` 并提交，权威文档只链接该仓库路径；不得晋升 staged App、runtime/sample副本、Workshop包或普通重试。
 
 ## 7. 汇报
 

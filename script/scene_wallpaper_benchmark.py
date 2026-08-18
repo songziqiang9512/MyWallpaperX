@@ -10,11 +10,12 @@ import math
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import unicodedata
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import unquote
 
 from scene_matrix_contract import (
@@ -6202,6 +6203,29 @@ def run_sample(
     }
 
 
+def remove_runtime_tree(runtime_root: Path) -> None:
+    if not runtime_root.exists():
+        return
+
+    def retry_read_only_removal(
+        function: Callable[[str], object],
+        raw_path: str,
+        error: BaseException,
+    ) -> None:
+        if not isinstance(error, PermissionError):
+            raise error
+        path = Path(raw_path)
+        parent = path.parent
+        if parent.exists() and not parent.is_symlink():
+            parent.chmod(parent.stat().st_mode | stat.S_IWUSR | stat.S_IXUSR)
+        if path.exists() and not path.is_symlink():
+            mode = stat.S_IWUSR | (stat.S_IXUSR if path.is_dir() else 0)
+            path.chmod(path.stat().st_mode | mode)
+        function(raw_path)
+
+    shutil.rmtree(runtime_root, onexc=retry_read_only_removal)
+
+
 def apply_runtime_retention(
     runtime_root: Path,
     app_identity: dict[str, Any],
@@ -6211,10 +6235,7 @@ def apply_runtime_retention(
     if keep_runtime:
         return
 
-    failed_results = [result for result in results if not result["passed"]]
     for result in results:
-        if not result["passed"]:
-            continue
         for key in ("runtime_sample", "runtime_home"):
             path = Path(result[key])
             try:
@@ -6222,20 +6243,12 @@ def apply_runtime_retention(
             except ValueError as error:
                 raise RuntimeError(f"Scene runtime cleanup path escapes runtime root: {path}") from error
             if path.exists():
-                shutil.rmtree(path)
+                remove_runtime_tree(path)
             result[key] = None
         result["runtime_retained"] = False
 
-    if failed_results:
-        for directory_name in ("runtime-samples", "runtime-homes"):
-            directory = runtime_root / directory_name
-            if directory.is_dir() and not any(directory.iterdir()):
-                directory.rmdir()
-        return
-
     discard_staged_app(app_identity)
-    if runtime_root.is_dir():
-        shutil.rmtree(runtime_root)
+    remove_runtime_tree(runtime_root)
 
 
 def positive_uint64(raw: str) -> int:
@@ -6267,7 +6280,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--keep-runtime",
         action="store_true",
-        help="retain staged app, isolated samples, and temporary HOME after a passing run",
+        help=(
+            "debug only: retain the staged app, isolated samples, and temporary "
+            "HOME regardless of the run outcome"
+        ),
     )
     parser.add_argument(
         "--after-snapshot-delay",
@@ -6380,33 +6396,50 @@ def main() -> int:
     try:
         runtime_binary, app_identity = stage_signed_app(args.app, runtime_root)
     except AppIdentityError as error:
-        shutil.rmtree(runtime_root, ignore_errors=True)
+        try:
+            remove_runtime_tree(runtime_root)
+        except OSError as cleanup_error:
+            print(
+                f"Scene benchmark failed-stage cleanup failed: {cleanup_error}",
+                file=sys.stderr,
+            )
         print(f"Scene benchmark precondition failed: {error}", file=sys.stderr)
         return 2
 
-    results = [
-        run_sample(
-            runtime_binary=runtime_binary,
-            sample_root=args.sample_root.expanduser().resolve(),
-            sample=sample,
-            output_dir=output_dir,
-            runtime_root=runtime_root,
-            duration=duration,
-            after_snapshot_delay=args.after_snapshot_delay,
-            periodic_snapshot_interval=args.periodic_snapshot_interval,
-            resize_sequence=args.resize_sequence,
-            drop_dynamic_values_frame=args.drop_dynamic_values_frame,
-            audio_spectrum_fixture=args.audio_spectrum_fixture,
-            audio_spectrum_silence_fixture=args.audio_spectrum_silence_fixture,
-            require_effect_stage_admission=args.require_effect_stage_admission,
-            require_effect_execution=args.require_effect_execution,
-            require_graph_execution=args.require_graph_execution,
-            require_cursor_ripple_persistence=(
-                args.require_cursor_ripple_persistence
-            ),
-        )
-        for sample in matrix["samples"]
-    ]
+    try:
+        results = [
+            run_sample(
+                runtime_binary=runtime_binary,
+                sample_root=args.sample_root.expanduser().resolve(),
+                sample=sample,
+                output_dir=output_dir,
+                runtime_root=runtime_root,
+                duration=duration,
+                after_snapshot_delay=args.after_snapshot_delay,
+                periodic_snapshot_interval=args.periodic_snapshot_interval,
+                resize_sequence=args.resize_sequence,
+                drop_dynamic_values_frame=args.drop_dynamic_values_frame,
+                audio_spectrum_fixture=args.audio_spectrum_fixture,
+                audio_spectrum_silence_fixture=args.audio_spectrum_silence_fixture,
+                require_effect_stage_admission=args.require_effect_stage_admission,
+                require_effect_execution=args.require_effect_execution,
+                require_graph_execution=args.require_graph_execution,
+                require_cursor_ripple_persistence=(
+                    args.require_cursor_ripple_persistence
+                ),
+            )
+            for sample in matrix["samples"]
+        ]
+    except (Exception, KeyboardInterrupt):
+        if not args.keep_runtime:
+            try:
+                remove_runtime_tree(runtime_root)
+            except OSError as cleanup_error:
+                print(
+                    f"Scene benchmark interrupted-runtime cleanup failed: {cleanup_error}",
+                    file=sys.stderr,
+                )
+        raise
     try:
         verify_staged_app(app_identity)
     except AppIdentityError as error:

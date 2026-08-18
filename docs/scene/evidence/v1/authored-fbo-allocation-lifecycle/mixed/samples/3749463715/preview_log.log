@@ -1,0 +1,79 @@
+Scene preview texture load report
+camera: projection=cover parallax=false amount=0.5 delay=0.1 mouseInfluence=0.5
+camera shake: status=disabled enabled=false amplitude=0.5 roughness=1.0 speed=3.0
+cacheDirectory: /tmp/mwx-v1-mixed-fresh.iFBdeC/output/runtime/runtime-homes/3749463715/Library/Caches/MyWallpaperX/SteamWorkshopScene/61d6a52e53519ac4
+imageLayerCount: 1
+solidLayerCount: 1
+mediaThumbnailCurrentBindingCount: 0
+mediaThumbnailCurrentBindingLayerIDs: 
+layer 533 "0003": OK procedural solid tint=(0.74510, 0.74510, 0.74510); effect runtime resolved-material-graph; graph owner; parent=nil localOrigin=(1865.68, 1134.32, 0.00) worldCenter=(1865.68, 1025.68, 0.00) size=(3840.00, 2160.00) scale=(1.100, 1.100, 1.000) angles=(0.000, 0.000, 0.000) imageAlignment=center cropOffset=(0.00, 0.00)
+utilityLayerCount: 0
+utilityCapturePlannedCount: 0
+utilityDependencyEdgeCount: 0
+utilityNamedConsumerCount: 0
+utilityNamedTargetPlannedCount: 0
+utilityNamedBindingPlannedCount: 0
+utilityNamedTargetGapCount: 0
+utilityDependencyIssueCount: 0
+effectAdmissionSchema: 1
+effectStageDescriptorCount: 1
+effectStageParsedCount: 1
+effectStageActivityCounts: author-disabled=0,layer-hidden=0,active=1
+effectStageAdmissionCounts: inactive=0,admitted-dedicated=0,admitted-fallback=0,admitted-generic=1,not-admitted=0
+effectStageCoverageCounts: inactive=0,complete=1,rejected-missing-graph=0,rejected-ambiguous-graph=0,rejected-graph-mismatch=0,rejected-capability=0
+effectStageDescriptorIdentityConserved: true
+effectStageActivityConserved: true
+effectStageInactiveAdmissionConserved: true
+effectStageActiveAdmissionConserved: true
+effectStageExecutionIdentityConserved: true
+effectStageAdmission: layer=533 effect=0 descriptor=533%23effect%23557 activity=active admission=admitted-generic coverage=complete backend=resolved-material profile=program reason=- path=effects/motionblur/effect.json
+effectStageRuntimeDispositionSchema: 1
+effectStageRuntimeRouteScope: unified-effect-graph
+effectStageRuntimeDispositionCount: 1
+effectStageRuntimeDispositionKindCounts: inactive=0,dedicated=0,fallback=0,program=1,unsupported=0,unattributed=0
+effectStageRuntimeDispositionAttributionCounts: exact-key=1,none=0
+effectStageRuntimeDispositionRoleCounts: owner=1,member=0,none=0
+effectStaticRouteGroupCount: 1
+effectStaticRouteGroupKindCounts: inactive=0,direct=0,resolved=1
+effectStageRuntimeDescriptorIdentityConserved: true
+effectStageRuntimeGroupIdentityConserved: true
+effectStageRuntimeAdmissionIdentityConserved: true
+effectStageRuntimeResolvedMaterialOwnershipConserved: true
+effectStaticRouteGroup: layer=533 scope=unified-effect-graph kind=resolved effects=1 owners=1 reason=-
+effectStageRuntimeDisposition: layer=533 effect=0 descriptor=533%23effect%23557 kind=program attribution=exact-key family=resolved-material group=533 role=owner reason=resolved-material-capability-owner path=effects/motionblur/effect.json
+resolved material execution evidence: schema=effect-graph-disposition-v1 subjects=1
+spotLightCandidateCount: 0
+spotLightPlanCount: 0
+spotLightPlanLayerIDs: []
+text loaded: 0 / 0
+particle authored: 0
+particle visible: 0
+particle loaded: 0 / 0
+particle refract loaded: 0
+particle initial live: 0
+particle skipped hidden: 0
+particle skipped transparent: 0
+
+loaded: 1 / 1
+resolved material catalog: schema=executable-material-v1 nodes=2 templates=2 failures=0
+resolved material asset textures: demands=0 demandFailures=0
+resolved material user-property textures: demands=0 demandFailures=0
+resolved material system textures: demands=0 demandFailures=0
+resolved material execution capabilities: schema=layer-graph-capability-v1 candidates=1 accepted=1 rejected=0 variantLimit=16
+resolved material execution capability: schema=layer-graph-route-v1 layer=533 status=accepted dependency=none dependencyReferences=0
+resolved material asset catalog: schema=r3-vfs-assets-v1 demands=0 ready=0 absent=0 pending=0 unavailable=0
+scene script VM: schema=quickjs-ng-scalar-v1 bindings=0 targets=0 fallback=bounded-swift-prefer-generic
+resolved material system providers: schema=r3-system-provider-v1 demands=0 missingState=unavailable reason=snapshot-lifecycle-unproven
+scene media placeholder fade: schema=bounded-playback-fade-v1 bindings=0 input=typed-inbox liveProvider=unavailable initialMode=stopped
+scene media color transition: schema=bounded-thumbnail-palette-v2 bindings=0 input=typed-inbox liveProvider=unavailable
+scene shared layer alpha: schema=bounded-shared-alpha-v1 flags=[] bindings=0 layerIDs=[] interaction=unavailable
+scene launch origin transition: schema=bounded-shared-origin-v1 cohorts=0 bindings=0 scalarBindings=0 layerIDs=[] interaction=cursor-click
+scene hover origin transition: schema=bounded-hover-origin-v1 cohorts=0 owners=[] bindings=0 layerIDs=[] interaction=cursor-enter-leave
+scene audio scaled value: schema=bounded-audio-scaled-value-v1 bindings=0 rejectedParticleLayerIDs=[] rejectedScaleLayerIDs=[] resolution=16
+scene property vector scripts: schema=bounded-property-vector-v1 bindings=0 scaleLayerIDs=[]
+timelineBindingCount: 0
+timelineDiagnosticCount: 0
+textScriptBindingCount: 0
+textScriptDiagnosticCount: 0
+
+timeOfDayEffectScriptBindingCount: 0

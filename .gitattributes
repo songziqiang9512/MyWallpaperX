@@ -2,3 +2,7 @@
 # only lets repository browsers collapse generated changes by default.
 script/scene_capability_census_snapshot.json linguist-generated=true
 docs/scene/semantics/scene-corpus-capability-inventory.md linguist-generated=true
+docs/scene/evidence/**/*.json linguist-generated=true
+docs/scene/evidence/**/*.log linguist-generated=true -diff
+docs/scene/evidence/**/report.json -diff
+docs/scene/evidence/**/runtime_evidence.json -diff
