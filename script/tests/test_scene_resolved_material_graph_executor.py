@@ -2585,6 +2585,11 @@ private func rejectedCrossLayerPreparation(
 @main
 private enum Harness {
     static func main() throws {
+        // This Metal harness owns GraphExecutor scheduling/readback assertions,
+        // not the signed generic compiler bundle. Exercise the registered local
+        // rollback explicitly instead of relying on an implicit bounded fallback
+        // after a migrated generic-only profile cannot compile in this process.
+        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue() else {
             print("{\"metalAvailable\":false}")

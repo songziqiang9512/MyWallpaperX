@@ -248,6 +248,14 @@ extension SceneResolvedMaterialGraphExecutor {
                             .hasExternalProviderTexture(in: material.template),
                     producesScalarRedOutput:
                         program.outputContract == .scalarRedUnorm,
+                    graphTextureSlots: Set(program.textureSlots.compactMap { slot in
+                        guard let slot,
+                              case let .graph(identity) =
+                                  slot.resource.publication.requestIdentity,
+                              identity.kind == .framebuffer
+                        else { return nil }
+                        return slot.index
+                    }),
                     r8TextureSlots: Set(program.textureSlots.compactMap { slot in
                         guard let slot else { return nil }
                         let candidate = slot.resource.publication.candidate

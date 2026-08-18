@@ -423,6 +423,10 @@ private struct GenericShaderArtifactHarness {
                 ProcessInfo.processInfo.environment["MWX_TEST_EXTERNAL_PROVIDER"] == "1",
             producesScalarRedOutput:
                 ProcessInfo.processInfo.environment["MWX_TEST_SCALAR_OUTPUT"] == "1",
+            graphTextureSlots: Set(
+                (ProcessInfo.processInfo.environment["MWX_TEST_GRAPH_SLOTS"] ?? "")
+                    .split(separator: ",").compactMap { Int($0) }
+            ),
             r8TextureSlots: Set(
                 (ProcessInfo.processInfo.environment["MWX_TEST_R8_SLOTS"] ?? "")
                     .split(separator: ",").compactMap { Int($0) }
@@ -622,6 +626,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         fragment: str = FRAGMENT,
         has_external_provider: bool = False,
         produces_scalar_output: bool = False,
+        graph_slots: tuple[int, ...] = (),
         r8_slots: tuple[int, ...] = (),
     ):
         vertex_path = root / "fixture.vert"
@@ -649,6 +654,10 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             environment["MWX_TEST_SCALAR_OUTPUT"] = "1"
         else:
             environment.pop("MWX_TEST_SCALAR_OUTPUT", None)
+        if graph_slots:
+            environment["MWX_TEST_GRAPH_SLOTS"] = ",".join(map(str, graph_slots))
+        else:
+            environment.pop("MWX_TEST_GRAPH_SLOTS", None)
         if r8_slots:
             environment["MWX_TEST_R8_SLOTS"] = ",".join(map(str, r8_slots))
         else:
@@ -1263,8 +1272,13 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             )
             self.assertIn("outcome=fallback", log)
 
-    def test_r8_profiles_revoke_bounded_owner_only_for_typed_graph_facts(self):
+    def test_migrated_profiles_revoke_bounded_owner_only_for_typed_facts(self):
         cases = [
+            (
+                FRAGMENT,
+                {"graph_slots": (0,)},
+                "source-proven-graph-target-passthrough",
+            ),
             (
                 OPAQUE_FRAGMENT,
                 {"produces_scalar_output": True},
@@ -1326,8 +1340,32 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 ordinary_log,
             )
 
-    def test_r8_typed_profiles_accept_generic_artifacts_and_fail_closed(self):
+        for facts in (
+            {"graph_slots": (1,)},
+            {"graph_slots": (0,), "has_external_provider": True},
+        ):
+            with self.subTest(facts=facts), tempfile.TemporaryDirectory(
+                prefix="mwx-generic-artifact-test-"
+            ) as directory:
+                ordinary, _, _, ordinary_log = self.run_harness(
+                    Path(directory), route="prefer-generic", fragment=FRAGMENT,
+                    **facts,
+                )
+                self.assertTrue(ordinary["permitsBoundedFrontend"])
+                self.assertIn(
+                    "state=prefer-generic profile=ordinary-shader outcome=fallback",
+                    ordinary_log,
+                )
+
+    def test_migrated_profiles_accept_generic_artifacts_and_fail_closed(self):
         cases = [
+            (
+                FRAGMENT,
+                {"graph_slots": (0,)},
+                "passthrough",
+                "source-proven-graph-target-passthrough",
+                False,
+            ),
             (
                 OPAQUE_FRAGMENT,
                 {"produces_scalar_output": True},

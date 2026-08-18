@@ -72,11 +72,14 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             "source-proven-opaque-scalar-output"
         case sourceProvenStraightAlphaR8Signal =
             "source-proven-straight-alpha-r8-signal"
+        case sourceProvenGraphTargetPassthrough =
+            "source-proven-graph-target-passthrough"
 
         init(
             colorTransfer: SceneShaderColorTransfer,
             hasExternalProviderTexture: Bool,
             producesScalarRedOutput: Bool,
+            graphTextureSlots: Set<Int>,
             r8TextureSlots: Set<Int>
         ) {
             if colorTransfer == .opaque, producesScalarRedOutput {
@@ -85,6 +88,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                       !producesScalarRedOutput,
                       r8TextureSlots.contains(where: { $0 != sourceSlot }) {
                 self = .sourceProvenStraightAlphaR8Signal
+            } else if case let .passthrough(sourceSlot) = colorTransfer,
+                      !hasExternalProviderTexture,
+                      !producesScalarRedOutput,
+                      graphTextureSlots.contains(sourceSlot) {
+                self = .sourceProvenGraphTargetPassthrough
             } else if case .interpolatedColor = colorTransfer,
                hasExternalProviderTexture {
                 self = .providerBackedScalarColorInterpolation
@@ -101,7 +109,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                  .providerBackedScalarColorInterpolation: .preferGeneric
             case .sourceProvenScalarColorInterpolation,
                  .sourceProvenOpaqueScalarOutput,
-                 .sourceProvenStraightAlphaR8Signal: .genericOnly
+                 .sourceProvenStraightAlphaR8Signal,
+                 .sourceProvenGraphTargetPassthrough: .genericOnly
             }
         }
     }
@@ -234,6 +243,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         fragmentSource: String,
         hasExternalProviderTexture: Bool = false,
         producesScalarRedOutput: Bool = false,
+        graphTextureSlots: Set<Int> = [],
         r8TextureSlots: Set<Int> = []
     ) -> Resolution {
         let key = requestKey(
@@ -247,6 +257,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             colorTransfer: colorTransfer,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
+            graphTextureSlots: graphTextureSlots,
             r8TextureSlots: r8TextureSlots
         )
         let environment = ProcessInfo.processInfo.environment
@@ -421,6 +432,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         colorTransfer: SceneShaderColorTransfer,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
+        graphTextureSlots: Set<Int>,
         r8TextureSlots: Set<Int>,
         layerID: Int,
         effectIndex: Int,
@@ -433,6 +445,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             colorTransfer: colorTransfer,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
+            graphTextureSlots: graphTextureSlots,
             r8TextureSlots: r8TextureSlots
         )
         guard let state = RouteState.resolve(
