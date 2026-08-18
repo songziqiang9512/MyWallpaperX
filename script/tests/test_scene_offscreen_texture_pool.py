@@ -971,6 +971,43 @@ enum Harness {
             singleAxisFrameExtents = []
         }
 
+        let singleAxisWidth320 = Graph.TargetExtent(
+            width: 320, height: nil, fit: nil, scale: nil
+        )
+        let incompatibleSingleAxisCopy = copyExtentFixture(
+            layerID: 541,
+            firstExtent: singleAxisWidth,
+            secondExtent: singleAxisWidth320
+        )
+        let incompatibleSingleAxisGraphs = admittedGraphs([
+            incompatibleSingleAxisCopy
+        ])
+        let incompatibleSingleAxisPair = pairPlan([
+            incompatibleSingleAxisCopy
+        ])
+        let incompatibleSingleAxisProbeAccepted: Bool
+        switch fitCopyPool.persistentTargetPlansResult(
+            admittedGraphs: incompatibleSingleAxisGraphs,
+            pairPlan: incompatibleSingleAxisPair,
+            requestedWidth: 1,
+            requestedHeight: 1
+        ) {
+        case .success: incompatibleSingleAxisProbeAccepted = true
+        case .failure: incompatibleSingleAxisProbeAccepted = false
+        }
+        let incompatibleSingleAxisFrameReason: String
+        switch fitCopyPool.framePlanResultForPersistentGraphTargets(
+            admittedGraphs: incompatibleSingleAxisGraphs,
+            pairPlan: incompatibleSingleAxisPair,
+            requestedWidth: 2_048,
+            requestedHeight: 1_152,
+            sharesFullFramePairWhenHistoryFree: true
+        ) {
+        case .success: incompatibleSingleAxisFrameReason = "accepted"
+        case let .failure(failure):
+            incompatibleSingleAxisFrameReason = failure.localFallbackReasonCode
+        }
+
         func directChain(layerID: Int, count: Int) -> [Fixture] {
             var result: [Fixture] = []
             var input: Graph.TextureIdentity?
@@ -3157,6 +3194,10 @@ enum Harness {
                 incompatibleAbsoluteProbeAccepted,
             "incompatibleAbsoluteFrameReason": incompatibleAbsoluteFrameReason,
             "singleAxisFrameExtents": singleAxisFrameExtents,
+            "incompatibleSingleAxisProbeAccepted":
+                incompatibleSingleAxisProbeAccepted,
+            "incompatibleSingleAxisFrameReason":
+                incompatibleSingleAxisFrameReason,
             "sample302RequiredBytes": sample302RequiredBytes,
             "sample302ShapeIsExact": sample302ShapeIsExact,
             "sample302FitsAutomaticBudget": sample302FitsAutomaticBudget,
@@ -3434,10 +3475,17 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
             "frame-target-plan-unsupported-target-descriptor",
         )
 
-    def test_single_axis_extent_unseen_combination_preserves_other_axis(self) -> None:
+    def test_single_axis_extent_preserves_other_axis_and_rejects_mismatch(
+        self,
+    ) -> None:
         self.assertEqual(
             self.result["singleAxisFrameExtents"],
             [[640, 1152], [640, 1152]],
+        )
+        self.assertFalse(self.result["incompatibleSingleAxisProbeAccepted"])
+        self.assertEqual(
+            self.result["incompatibleSingleAxisFrameReason"],
+            "frame-target-plan-unsupported-target-descriptor",
         )
 
     def test_resolved_batch_shares_history_free_full_frame_pair(self) -> None:
