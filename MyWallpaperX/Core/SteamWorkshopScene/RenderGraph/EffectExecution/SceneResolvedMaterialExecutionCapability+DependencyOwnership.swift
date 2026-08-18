@@ -24,8 +24,8 @@ nonisolated enum SceneResolvedMaterialDependencyOwnership: Equatable {
             0
         case let .graphInternal(referenceCount):
             referenceCount
-        case .externalPrimary:
-            1
+        case let .externalPrimary(binding):
+            binding.referenceSlots.count
         }
     }
 }
@@ -79,12 +79,15 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
                   binding.consumerLayerID == layer.id,
                   layer.authoredDependencies.isEmpty,
                   layer.dependencyLayerIDs == [binding.providerLayerID],
-                  references.count == 1,
-                  let reference = references.first,
-                  reference.consumerLayerID == binding.consumerLayerID,
-                  reference.providerLayerID == binding.providerLayerID,
-                  reference.slot == binding.slot,
-                  reference.variant == .primary else {
+                  (binding.kind == .resolvedMaterial || references.count == 1),
+                  references.first != nil,
+                  binding.referenceSlots == references.map(\.slot),
+                  references.allSatisfy({ candidate in
+                      candidate.consumerLayerID == binding.consumerLayerID
+                          && candidate.providerLayerID == binding.providerLayerID
+                          && candidate.slot.slotIndex == binding.slot.slotIndex
+                          && candidate.variant == .primary
+                  }) else {
                 return nil
             }
             return .externalPrimary(binding)

@@ -230,8 +230,25 @@ struct SceneDependencyRenderPlan {
         let consumerLayerID: Int
         let providerLayerID: Int
         let slot: SceneEffectPassSlot
+        let referenceSlots: [SceneEffectPassSlot]
         let blendMode: Int
         let kind: Kind
+
+        init(
+            consumerLayerID: Int,
+            providerLayerID: Int,
+            slot: SceneEffectPassSlot,
+            referenceSlots: [SceneEffectPassSlot]? = nil,
+            blendMode: Int,
+            kind: Kind
+        ) {
+            self.consumerLayerID = consumerLayerID
+            self.providerLayerID = providerLayerID
+            self.slot = slot
+            self.referenceSlots = referenceSlots ?? [slot]
+            self.blendMode = blendMode
+            self.kind = kind
+        }
     }
 
     let references: [Reference]
@@ -820,6 +837,7 @@ private func dependencyBinding(
     providerLayerID: Int,
     passIndex: Int = 0,
     slotIndex: Int = 1,
+    referenceSlots: [SceneEffectPassSlot]? = nil,
     blendMode: Int = 0,
     kind: SceneDependencyRenderPlan.Binding.Kind = .resolvedMaterial
 ) -> SceneDependencyRenderPlan.Binding {
@@ -831,6 +849,7 @@ private func dependencyBinding(
             passIndex: passIndex,
             slotIndex: slotIndex
         ),
+        referenceSlots: referenceSlots,
         blendMode: blendMode,
         kind: kind
     )
@@ -1147,7 +1166,12 @@ private func externalResolvedMaterialDescriptor(
                     slotIndex: 1
                 )],
                 namedBindings: bindings ?? [dependencyBinding(
-                    providerLayerID: providerLayerID
+                    providerLayerID: providerLayerID,
+                    referenceSlots: (references ?? [namedReference(
+                        effectID: firstKey.descriptorID,
+                        providerLayerID: providerLayerID,
+                        slotIndex: 1
+                    )]).map(\.slot)
                 )]
             ),
         ],
@@ -3157,10 +3181,11 @@ private enum Harness {
                     authoredDependencyExternalResolvedMaterial,
                     "execution-route-dependency-owner"
                 ),
-                "externalResolvedMaterialRejectsExtraReference": reportHas(
-                    extraReferenceExternalResolvedMaterial,
-                    "execution-route-dependency-owner"
-                ),
+                "externalResolvedMaterialAcceptsMultipleReferences":
+                    !reportHas(
+                        extraReferenceExternalResolvedMaterial,
+                        "execution-route-dependency-owner"
+                    ),
                 "externalResolvedMaterialRejectsProceduralBinding": reportHas(
                     proceduralExternalResolvedMaterial,
                     "execution-route-dependency-owner"
@@ -3356,8 +3381,25 @@ enum SceneDependencyRenderPlan {
         let consumerLayerID: Int
         let providerLayerID: Int
         let slot: SceneEffectPassSlot
+        let referenceSlots: [SceneEffectPassSlot]
         let blendMode: Int
         let kind: Kind
+
+        init(
+            consumerLayerID: Int,
+            providerLayerID: Int,
+            slot: SceneEffectPassSlot,
+            referenceSlots: [SceneEffectPassSlot]? = nil,
+            blendMode: Int,
+            kind: Kind
+        ) {
+            self.consumerLayerID = consumerLayerID
+            self.providerLayerID = providerLayerID
+            self.slot = slot
+            self.referenceSlots = referenceSlots ?? [slot]
+            self.blendMode = blendMode
+            self.kind = kind
+        }
     }
 }
 
@@ -3378,7 +3420,7 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
         switch self {
         case .none: 0
         case let .graphInternal(referenceCount): referenceCount
-        case .externalPrimary: 1
+        case let .externalPrimary(binding): binding.referenceSlots.count
         }
     }
 }
@@ -6594,7 +6636,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "externalResolvedMaterialRejectsWrongSlot": True,
                 "externalResolvedMaterialRejectsWrongDependencyID": True,
                 "externalResolvedMaterialRejectsAuthoredDependency": True,
-                "externalResolvedMaterialRejectsExtraReference": True,
+                "externalResolvedMaterialAcceptsMultipleReferences": True,
                 "externalResolvedMaterialRejectsProceduralBinding": True,
                 "resolvedMaterialRejectsMissingExternalOwnership": True,
                 "externalResolvedMaterialDoesNotFallback": True,

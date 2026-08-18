@@ -349,8 +349,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         layerID: Int,
         stages: [StageCapability]
     ) -> Bool {
-        let resolvedDependencyStages = stages.compactMap {
-            resolvedExternalDependency(in: $0)
+        let resolvedDependencyStages = stages.flatMap {
+            resolvedExternalDependencies(in: $0)
         }
         let proceduralDependencyStages = stages.compactMap { stage -> (
             program: SceneEffectStageProgram,
@@ -379,10 +379,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
         case let .externalPrimary(binding):
             guard binding.consumerLayerID == layerID else { return false }
-            if resolvedDependencyStages.count == 1,
+            if !resolvedDependencyStages.isEmpty,
                proceduralDependencyStages.isEmpty,
-               imageBlendDependencyStages.isEmpty,
-               resolvedDependencyStages.first?.matches(binding) == true {
+               imageBlendDependencyStages.isEmpty {
+                let expected = Set(binding.referenceSlots.map { slot in
+                    ResolvedExternalDependency(
+                        consumerLayerID: binding.consumerLayerID,
+                        providerLayerID: binding.providerLayerID,
+                        slot: slot
+                    )
+                })
+                guard expected.count == binding.referenceSlots.count,
+                      Set(resolvedDependencyStages) == expected else { return false }
                 return true
             }
             guard resolvedDependencyStages.isEmpty else { return false }
@@ -441,16 +449,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
-    private struct ResolvedExternalDependency {
+    private struct ResolvedExternalDependency: Hashable {
         let consumerLayerID: Int
         let providerLayerID: Int
         let slot: SceneEffectPassSlot
-
-        func matches(_ binding: SceneDependencyRenderPlan.Binding) -> Bool {
-            consumerLayerID == binding.consumerLayerID
-                && providerLayerID == binding.providerLayerID
-                && slot == binding.slot
-        }
     }
 
     private struct ResolvedNamedCandidate {
@@ -459,10 +461,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let reference: SceneNamedTextureReference
     }
 
-    private static func resolvedExternalDependency(
+    private static func resolvedExternalDependencies(
         in stage: StageCapability
-    ) -> ResolvedExternalDependency? {
-        guard case let .resolved(product, materials) = stage else { return nil }
+    ) -> [ResolvedExternalDependency] {
+        guard case let .resolved(product, materials) = stage else { return [] }
         var namedCandidates: [ResolvedNamedCandidate] = []
         for material in materials.values {
             for slot in material.template.textureSlots.compactMap({ $0 }) {
@@ -476,30 +478,37 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 ))
             }
         }
-        guard namedCandidates.count == 1,
-              let candidate = namedCandidates.first,
+        guard let candidate = namedCandidates.first,
               candidate.reference.variant == SceneNamedTextureReference.Variant.primary,
-              candidate.key.effect.layerID == product.graph.layerID else { return nil }
-        let nodeMatches = product.graph.nodes.filter {
-            $0.nodeIndex == candidate.key.nodeIndex
-                && $0.effect == candidate.key.effect
-        }
-        guard nodeMatches.count == 1,
-              let passIndex = nodeMatches.first?.instancePassIndex else { return nil }
-        let bindings = product.graph.effects.compactMap { effect ->
-            ResolvedExternalDependency? in
-            guard effect.key == candidate.key.effect else { return nil }
-            return .init(
-                consumerLayerID: effect.key.layerID,
-                providerLayerID: candidate.reference.providerLayerID,
+              candidate.key.effect.layerID == product.graph.layerID,
+              namedCandidates.allSatisfy({ item in
+                  item.reference.variant == .primary
+                      && item.reference.providerLayerID
+                          == candidate.reference.providerLayerID
+              }) else { return [] }
+        var result: [ResolvedExternalDependency] = []
+        for item in namedCandidates {
+            let nodeMatches = product.graph.nodes.filter {
+                $0.nodeIndex == item.key.nodeIndex
+                    && $0.effect == item.key.effect
+            }
+            let effectMatches = product.graph.effects.filter {
+                $0.key == item.key.effect
+            }
+            guard nodeMatches.count == 1,
+                  effectMatches.count == 1,
+                  let passIndex = nodeMatches.first?.instancePassIndex else { return [] }
+            result.append(.init(
+                consumerLayerID: item.key.effect.layerID,
+                providerLayerID: item.reference.providerLayerID,
                 slot: .init(
-                    effectID: effect.key.descriptorID,
+                    effectID: item.key.effect.descriptorID,
                     passIndex: passIndex,
-                    slotIndex: candidate.slot
+                    slotIndex: item.slot
                 )
-            )
+            ))
         }
-        guard bindings.count == 1, let structural = bindings.first else { return nil }
-        return structural
+        guard Set(result).count == result.count else { return [] }
+        return result
     }
 }

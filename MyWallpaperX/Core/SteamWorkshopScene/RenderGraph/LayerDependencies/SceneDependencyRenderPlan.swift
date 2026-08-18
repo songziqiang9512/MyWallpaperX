@@ -18,8 +18,25 @@ nonisolated struct SceneDependencyRenderPlan {
         let consumerLayerID: Int
         let providerLayerID: Int
         let slot: SceneEffectPassSlot
+        let referenceSlots: [SceneEffectPassSlot]
         let blendMode: Int
         let kind: Kind
+
+        init(
+            consumerLayerID: Int,
+            providerLayerID: Int,
+            slot: SceneEffectPassSlot,
+            referenceSlots: [SceneEffectPassSlot]? = nil,
+            blendMode: Int,
+            kind: Kind
+        ) {
+            self.consumerLayerID = consumerLayerID
+            self.providerLayerID = providerLayerID
+            self.slot = slot
+            self.referenceSlots = referenceSlots ?? [slot]
+            self.blendMode = blendMode
+            self.kind = kind
+        }
     }
 
     nonisolated enum IssueKind: String {
@@ -279,6 +296,8 @@ nonisolated struct SceneDependencyRenderPlan {
             consumerLayerID: layer.id,
             providerLayerID: provider.id,
             slot: reference.slot,
+            referenceSlots: contract.kind == .resolvedMaterial
+                ? references.map(\.slot) : [reference.slot],
             blendMode: contract.blendMode,
             kind: contract.kind
         )
@@ -332,35 +351,41 @@ nonisolated struct SceneDependencyRenderPlan {
         in visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
         references: [Reference]
     ) -> Reference? {
-        guard references.count == 1,
-              let reference = references.first,
-              reference.slot.slotIndex == 1 else { return nil }
-        let effects = visibleEffects.filter { $0.id == reference.slot.effectID }
-        guard effects.count == 1, let effect = effects.first else { return nil }
-        let passes = effect.passes.filter {
-            $0.passIndex == reference.slot.passIndex
-        }
-        guard passes.count == 1, let pass = passes.first else { return nil }
-        let hasNoUserTextureOverride =
-            !pass.userTextureInputs.indices.contains(reference.slot.slotIndex)
-            || pass.userTextureInputs[reference.slot.slotIndex] == nil
-        let hasOnlyNeutralAuthoredConstants = pass.constantShaderValues.values
-            .allSatisfy { value in
-                guard let components = value.components,
-                      !components.isEmpty else { return false }
-                return components.allSatisfy { $0 == 1 }
+        guard let reference = references.first,
+              reference.slot.slotIndex == 1,
+              references.allSatisfy({ candidate in
+                  candidate.consumerLayerID == reference.consumerLayerID
+                      && candidate.providerLayerID == reference.providerLayerID
+                      && candidate.variant == reference.variant
+                      && candidate.slot.slotIndex == 1
+              }) else { return nil }
+
+        for candidate in references {
+            let effects = visibleEffects.filter { $0.id == candidate.slot.effectID }
+            guard effects.count == 1, let effect = effects.first else { return nil }
+            let passes = effect.passes.filter {
+                $0.passIndex == candidate.slot.passIndex
             }
-        guard
-              pass.textureSlots.indices.contains(reference.slot.slotIndex),
-              let path = pass.textureSlots[reference.slot.slotIndex],
-              SceneNamedTextureReference.parse(path) == .init(
-                  providerLayerID: reference.providerLayerID,
-                  variant: reference.variant
-              ),
-              hasNoUserTextureOverride,
-              hasOnlyNeutralAuthoredConstants
-        else {
-            return nil
+            guard passes.count == 1, let pass = passes.first else { return nil }
+            let hasNoUserTextureOverride =
+                !pass.userTextureInputs.indices.contains(candidate.slot.slotIndex)
+                || pass.userTextureInputs[candidate.slot.slotIndex] == nil
+            let hasOnlyNeutralAuthoredConstants = pass.constantShaderValues.values
+                .allSatisfy { value in
+                    guard let components = value.components,
+                          !components.isEmpty else { return false }
+                    return components.allSatisfy { $0 == 1 }
+                }
+            guard pass.textureSlots.indices.contains(candidate.slot.slotIndex),
+                  let path = pass.textureSlots[candidate.slot.slotIndex],
+                  SceneNamedTextureReference.parse(path) == .init(
+                      providerLayerID: candidate.providerLayerID,
+                      variant: candidate.variant
+                  ),
+                  hasNoUserTextureOverride,
+                  hasOnlyNeutralAuthoredConstants else {
+                return nil
+            }
         }
         return reference
     }

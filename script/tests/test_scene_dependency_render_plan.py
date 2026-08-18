@@ -486,14 +486,16 @@ enum Harness {
                     "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
                 },
             ],
-            "selectedMultiReferenceRejected":
+            "selectedMultiReferenceAccepted":
                 selectedMultiReferencePlan.bindingsByConsumerLayerID[
                     selectedMultiReferenceConsumer.id
-                ] == nil
-                && selectedMultiReferencePlan.issues.contains {
-                    $0.layerID == selectedMultiReferenceConsumer.id
-                        && $0.kind == .unsupportedConsumer
-                },
+                ]?.kind == .resolvedMaterial
+                && selectedMultiReferencePlan.references.filter {
+                    $0.consumerLayerID == selectedMultiReferenceConsumer.id
+                }.count == 2
+                && selectedMultiReferencePlan.requiredProviderLayerIDs == [
+                    shadowedProvider.id
+                ],
             "resolvedMaterialUtilityRoute": [
                 "binding": routeUtilityPlan.bindingsByConsumerLayerID[
                     routeUtilityConsumer.id
@@ -1139,7 +1141,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "issues": [],
             },
         )
-        self.assertTrue(self.result["selectedMultiReferenceRejected"])
+        self.assertTrue(self.result["selectedMultiReferenceAccepted"])
 
     def test_cycle_forward_and_invalid_external_primary_contracts_fail_closed(self) -> None:
         self.assertEqual(self.result["cycles"], [4, 5])

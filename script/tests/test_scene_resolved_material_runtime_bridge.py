@@ -644,8 +644,25 @@ struct SceneDependencyRenderPlan {
         let consumerLayerID: Int
         let providerLayerID: Int
         let slot: SceneEffectPassSlot
+        let referenceSlots: [SceneEffectPassSlot]
         let blendMode: Int
         let kind: Kind
+
+        init(
+            consumerLayerID: Int,
+            providerLayerID: Int,
+            slot: SceneEffectPassSlot,
+            referenceSlots: [SceneEffectPassSlot]? = nil,
+            blendMode: Int,
+            kind: Kind
+        ) {
+            self.consumerLayerID = consumerLayerID
+            self.providerLayerID = providerLayerID
+            self.slot = slot
+            self.referenceSlots = referenceSlots ?? [slot]
+            self.blendMode = blendMode
+            self.kind = kind
+        }
     }
 }
 enum SceneResolvedMaterialDependencyOwnership: Equatable {
