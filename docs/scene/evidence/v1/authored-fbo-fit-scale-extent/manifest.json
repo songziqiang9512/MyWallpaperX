@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "retention_class": "repository-evidence",
+  "excluded_classes": [
+    "staged-app",
+    "runtime-sample",
+    "runtime-home",
+    "runtime-cache",
+    "workshop-package"
+  ],
+  "package_size_bytes": 14025019,
+  "runs": [
+    {
+      "label": "positive",
+      "report_path": "positive/report.json",
+      "report_sha256": "7b9136fbedb6ac30b86f6ab4078fef748d891687c8d63ddc720efeb6fdfb6894",
+      "report_size_bytes": 847615,
+      "files": [
+        {
+          "key": "app_log",
+          "path": "positive/samples/3749463715/app_log.log",
+          "sha256": "d918e37c396a5e12fda89488e0ab96986764c47845b99c748ffcb364c7e47842",
+          "size_bytes": 740445
+        },
+        {
+          "key": "preview_log",
+          "path": "positive/samples/3749463715/preview_log.log",
+          "sha256": "0ed3f74da461046ed6f153f8372655b08c02e4bf7158a438512fb25e0344912b",
+          "size_bytes": 5375
+        },
+        {
+          "key": "runtime_evidence",
+          "path": "positive/samples/3749463715/runtime_evidence.json",
+          "sha256": "2ca434f506e80e2a4b1bc56342291224504d9efc1cfd08cd968d40489a87cdb2",
+          "size_bytes": 1090593
+        },
+        {
+          "key": "ready_snapshot",
+          "path": "positive/samples/3749463715/ready_snapshot.png",
+          "sha256": "d66a8820b0a96c9153c289339ca039449562197d962969a6b56cc0bd754305ea",
+          "size_bytes": 1758630
+        },
+        {
+          "key": "after_snapshot",
+          "path": "positive/samples/3749463715/after_snapshot.png",
+          "sha256": "d66a8820b0a96c9153c289339ca039449562197d962969a6b56cc0bd754305ea",
+          "size_bytes": 1758630
+        }
+      ]
+    },
+    {
+      "label": "negative",
+      "report_path": "negative/report.json",
+      "report_sha256": "be4190c22b3822125dd7ba11ffaadc5def09ed32cbe7da7be419e686e83e4a17",
+      "report_size_bytes": 28062,
+      "files": [
+        {
+          "key": "app_log",
+          "path": "negative/samples/3749463715/app_log.log",
+          "sha256": "b05680e5665c6024da2e089de44067d14ed051c06aa2a6a940e48a750da1afeb",
+          "size_bytes": 4288
+        },
+        {
+          "key": "preview_log",
+          "path": "negative/samples/3749463715/preview_log.log",
+          "sha256": "fe30791273298cd7de798b020d02f7f08f7945e041ad165d9b4627845cd82d8c",
+          "size_bytes": 5374
+        },
+        {
+          "key": "runtime_evidence",
+          "path": "negative/samples/3749463715/runtime_evidence.json",
+          "sha256": "b53e9eb9e62164e99a05a0716881f4c58afc2efb486fb5c767fbccbd195f09a1",
+          "size_bytes": 1090593
+        },
+        {
+          "key": "ready_snapshot",
+          "path": "negative/samples/3749463715/ready_snapshot.png",
+          "sha256": "6da90b5981e5464aef48c9f14cd1d3bcc6f9206c263e5cd91928749408da3b1a",
+          "size_bytes": 108123
+        },
+        {
+          "key": "after_snapshot",
+          "path": "negative/samples/3749463715/after_snapshot.png",
+          "sha256": "6da90b5981e5464aef48c9f14cd1d3bcc6f9206c263e5cd91928749408da3b1a",
+          "size_bytes": 108123
+        }
+      ]
+    },
+    {
+      "label": "rollback",
+      "report_path": "rollback/report.json",
+      "report_sha256": "dcb915564af29993c5c95c91c9f11abfc9effde8a88ebc85ef051080fabdede7",
+      "report_size_bytes": 848074,
+      "files": [
+        {
+          "key": "app_log",
+          "path": "rollback/samples/3749463715/app_log.log",
+          "sha256": "22779b383d432e02c168c7e5f7229d8a76397b26913f7fd2fee058105d370e69",
+          "size_bytes": 740923
+        },
+        {
+          "key": "preview_log",
+          "path": "rollback/samples/3749463715/preview_log.log",
+          "sha256": "bf985d553bc54e05138b4dfe90dc342241f61e8e2933483fedd375c97800598d",
+          "size_bytes": 5374
+        },
+        {
+          "key": "runtime_evidence",
+          "path": "rollback/samples/3749463715/runtime_evidence.json",
+          "sha256": "125e4383b8145a1035453be9c4b53c688f4f9f34320019fca6ce432d30864666",
+          "size_bytes": 1090479
+        },
+        {
+          "key": "ready_snapshot",
+          "path": "rollback/samples/3749463715/ready_snapshot.png",
+          "sha256": "5a6cc2a1817a020d8ee4370e1c6f60cc2cf7c26e113b06a7c68c4ef300cbc921",
+          "size_bytes": 1897159
+        },
+        {
+          "key": "after_snapshot",
+          "path": "rollback/samples/3749463715/after_snapshot.png",
+          "sha256": "5a6cc2a1817a020d8ee4370e1c6f60cc2cf7c26e113b06a7c68c4ef300cbc921",
+          "size_bytes": 1897159
+        }
+      ]
+    }
+  ]
+}

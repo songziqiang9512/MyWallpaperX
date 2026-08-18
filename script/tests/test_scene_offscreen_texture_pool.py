@@ -844,6 +844,46 @@ enum Harness {
             fitScaleFrameExtents = []
         }
 
+        let fitScaleOne = Graph.TargetExtent(
+            width: nil,
+            height: nil,
+            fit: 256,
+            scale: 1
+        )
+        let incompatibleFitScaleCopy = copyExtentFixture(
+            layerID: 540,
+            firstExtent: fitScale,
+            secondExtent: fitScaleOne
+        )
+        let incompatibleFitScaleGraphs = admittedGraphs([
+            incompatibleFitScaleCopy
+        ])
+        let incompatibleFitScalePair = pairPlan([
+            incompatibleFitScaleCopy
+        ])
+        let incompatibleFitScaleProbeAccepted: Bool
+        switch fitCopyPool.persistentTargetPlansResult(
+            admittedGraphs: incompatibleFitScaleGraphs,
+            pairPlan: incompatibleFitScalePair,
+            requestedWidth: 1,
+            requestedHeight: 1
+        ) {
+        case .success: incompatibleFitScaleProbeAccepted = true
+        case .failure: incompatibleFitScaleProbeAccepted = false
+        }
+        let incompatibleFitScaleFrameReason: String
+        switch fitCopyPool.framePlanResultForPersistentGraphTargets(
+            admittedGraphs: incompatibleFitScaleGraphs,
+            pairPlan: incompatibleFitScalePair,
+            requestedWidth: 2_048,
+            requestedHeight: 1_152,
+            sharesFullFramePairWhenHistoryFree: true
+        ) {
+        case .success: incompatibleFitScaleFrameReason = "accepted"
+        case let .failure(failure):
+            incompatibleFitScaleFrameReason = failure.localFallbackReasonCode
+        }
+
         let absolute640x360 = Graph.TargetExtent(
             kind: .absolute, first: 640, second: 360
         )
@@ -3108,6 +3148,10 @@ enum Harness {
             "incompatibleFitProbeAccepted": incompatibleFitProbeAccepted,
             "incompatibleFitFrameReason": incompatibleFitFrameReason,
             "fitScaleFrameExtents": fitScaleFrameExtents,
+            "incompatibleFitScaleProbeAccepted":
+                incompatibleFitScaleProbeAccepted,
+            "incompatibleFitScaleFrameReason":
+                incompatibleFitScaleFrameReason,
             "absoluteCopyFrameExtents": absoluteCopyFrameExtents,
             "incompatibleAbsoluteProbeAccepted":
                 incompatibleAbsoluteProbeAccepted,
@@ -3368,10 +3412,15 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
             "frame-target-plan-unsupported-target-descriptor",
         )
 
-    def test_fit_scale_unseen_combination_uses_the_same_actual_plan(self) -> None:
+    def test_fit_scale_combination_uses_actual_plan_and_typed_mismatch(self) -> None:
         self.assertEqual(
             self.result["fitScaleFrameExtents"],
             [[128, 72], [128, 72]],
+        )
+        self.assertTrue(self.result["incompatibleFitScaleProbeAccepted"])
+        self.assertEqual(
+            self.result["incompatibleFitScaleFrameReason"],
+            "frame-target-plan-unsupported-target-descriptor",
         )
 
     def test_absolute_extent_reaches_actual_plan_and_rejects_mismatch(self) -> None:
