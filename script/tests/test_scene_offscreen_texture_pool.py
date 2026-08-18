@@ -844,6 +844,93 @@ enum Harness {
             fitScaleFrameExtents = []
         }
 
+        let absolute640x360 = Graph.TargetExtent(
+            kind: .absolute, first: 640, second: 360
+        )
+        let absolute320x180 = Graph.TargetExtent(
+            kind: .absolute, first: 320, second: 180
+        )
+        let absoluteCopy = copyExtentFixture(
+            layerID: 537,
+            firstExtent: absolute640x360,
+            secondExtent: absolute640x360
+        )
+        let absoluteCopyFrameExtents: [[Int]]
+        switch fitCopyPool.persistentTargetPlansResult(
+            admittedGraphs: admittedGraphs([absoluteCopy]),
+            pairPlan: pairPlan([absoluteCopy]),
+            requestedWidth: 2_048,
+            requestedHeight: 1_152
+        ) {
+        case let .success(value):
+            absoluteCopyFrameExtents = value.plans.flatMap(\.logicalTargets).map {
+                [$0.extent.width, $0.extent.height]
+            }.sorted { lhs, rhs in
+                lhs.lexicographicallyPrecedes(rhs)
+            }
+        case .failure:
+            absoluteCopyFrameExtents = []
+        }
+
+        let incompatibleAbsoluteCopy = copyExtentFixture(
+            layerID: 538,
+            firstExtent: absolute640x360,
+            secondExtent: absolute320x180
+        )
+        let incompatibleAbsoluteGraphs = admittedGraphs([
+            incompatibleAbsoluteCopy
+        ])
+        let incompatibleAbsolutePair = pairPlan([
+            incompatibleAbsoluteCopy
+        ])
+        let incompatibleAbsoluteProbeAccepted: Bool
+        switch fitCopyPool.persistentTargetPlansResult(
+            admittedGraphs: incompatibleAbsoluteGraphs,
+            pairPlan: incompatibleAbsolutePair,
+            requestedWidth: 1,
+            requestedHeight: 1
+        ) {
+        case .success: incompatibleAbsoluteProbeAccepted = true
+        case .failure: incompatibleAbsoluteProbeAccepted = false
+        }
+        let incompatibleAbsoluteFrameReason: String
+        switch fitCopyPool.framePlanResultForPersistentGraphTargets(
+            admittedGraphs: incompatibleAbsoluteGraphs,
+            pairPlan: incompatibleAbsolutePair,
+            requestedWidth: 2_048,
+            requestedHeight: 1_152,
+            sharesFullFramePairWhenHistoryFree: true
+        ) {
+        case .success: incompatibleAbsoluteFrameReason = "accepted"
+        case let .failure(failure):
+            incompatibleAbsoluteFrameReason = failure.localFallbackReasonCode
+        }
+
+        let singleAxisWidth = Graph.TargetExtent(
+            width: 640, height: nil, fit: nil, scale: nil
+        )
+        let singleAxisCopy = copyExtentFixture(
+            layerID: 539,
+            firstExtent: singleAxisWidth,
+            secondExtent: singleAxisWidth
+        )
+        let singleAxisFrameExtents: [[Int]]
+        switch fitCopyPool.persistentTargetPlansResult(
+            admittedGraphs: admittedGraphs([singleAxisCopy]),
+            pairPlan: pairPlan([singleAxisCopy]),
+            requestedWidth: 2_048,
+            requestedHeight: 1_152
+        ) {
+        case let .success(value):
+            singleAxisFrameExtents = value.plans.flatMap(\.logicalTargets).map {
+                [$0.extent.width, $0.extent.height]
+            }.sorted { lhs, rhs in
+                lhs.lexicographicallyPrecedes(rhs)
+            }
+        case .failure:
+            singleAxisFrameExtents = []
+        }
+
         func directChain(layerID: Int, count: Int) -> [Fixture] {
             var result: [Fixture] = []
             var input: Graph.TextureIdentity?
@@ -3021,6 +3108,11 @@ enum Harness {
             "incompatibleFitProbeAccepted": incompatibleFitProbeAccepted,
             "incompatibleFitFrameReason": incompatibleFitFrameReason,
             "fitScaleFrameExtents": fitScaleFrameExtents,
+            "absoluteCopyFrameExtents": absoluteCopyFrameExtents,
+            "incompatibleAbsoluteProbeAccepted":
+                incompatibleAbsoluteProbeAccepted,
+            "incompatibleAbsoluteFrameReason": incompatibleAbsoluteFrameReason,
+            "singleAxisFrameExtents": singleAxisFrameExtents,
             "sample302RequiredBytes": sample302RequiredBytes,
             "sample302ShapeIsExact": sample302ShapeIsExact,
             "sample302FitsAutomaticBudget": sample302FitsAutomaticBudget,
@@ -3280,6 +3372,23 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertEqual(
             self.result["fitScaleFrameExtents"],
             [[128, 72], [128, 72]],
+        )
+
+    def test_absolute_extent_reaches_actual_plan_and_rejects_mismatch(self) -> None:
+        self.assertEqual(
+            self.result["absoluteCopyFrameExtents"],
+            [[640, 360], [640, 360]],
+        )
+        self.assertFalse(self.result["incompatibleAbsoluteProbeAccepted"])
+        self.assertEqual(
+            self.result["incompatibleAbsoluteFrameReason"],
+            "frame-target-plan-unsupported-target-descriptor",
+        )
+
+    def test_single_axis_extent_unseen_combination_preserves_other_axis(self) -> None:
+        self.assertEqual(
+            self.result["singleAxisFrameExtents"],
+            [[640, 1152], [640, 1152]],
         )
 
     def test_resolved_batch_shares_history_free_full_frame_pair(self) -> None:
