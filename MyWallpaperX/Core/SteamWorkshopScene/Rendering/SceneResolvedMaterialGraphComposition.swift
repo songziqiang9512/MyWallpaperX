@@ -201,19 +201,30 @@ enum SceneResolvedMaterialGraphComposition {
             }
             guard request.requestedWidth > 0, request.requestedHeight > 0,
                   request.fullFrameExtentPolicy
-                    == request.claim.fullFrameExtentPolicy,
-                  let allocation = pool.framePlanForPersistentGraphTargets(
-                      admittedGraphs: request.claim.admittedGraphs,
-                      targetExecutionPlans: request.claim.targetExecutionPlans,
-                      materialFunctionTargetsByEffect:
-                        materialFunctionTargetsByEffect,
-                      pairPlan: request.claim.pairPlan,
-                      extentPolicy: request.fullFrameExtentPolicy,
-                      requestedWidth: request.requestedWidth,
-                      requestedHeight: request.requestedHeight,
-                      sharesFullFramePairWhenHistoryFree: true,
-                      orderingContext: orderingContext
-                  ), allocation.graphPlan.key.layerID == request.claim.layerID,
+                    == request.claim.fullFrameExtentPolicy else {
+                localFallbacks[request.claim.layerID] =
+                    "frame-target-plan-rejected"
+                continue
+            }
+            let allocation: ScenePersistentGraphTargetFramePlan
+            switch pool.framePlanResultForPersistentGraphTargets(
+                admittedGraphs: request.claim.admittedGraphs,
+                targetExecutionPlans: request.claim.targetExecutionPlans,
+                materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+                pairPlan: request.claim.pairPlan,
+                extentPolicy: request.fullFrameExtentPolicy,
+                requestedWidth: request.requestedWidth,
+                requestedHeight: request.requestedHeight,
+                sharesFullFramePairWhenHistoryFree: true,
+                orderingContext: orderingContext
+            ) {
+            case let .success(value): allocation = value
+            case let .failure(failure):
+                localFallbacks[request.claim.layerID] =
+                    failure.localFallbackReasonCode
+                continue
+            }
+            guard allocation.graphPlan.key.layerID == request.claim.layerID,
                   byLayerID.updateValue(.init(
                       token: request.claim.token,
                       allocation: allocation
@@ -381,7 +392,8 @@ extension SceneImageLayerCompositor {
         case let .rejected(reasonCode):
             if reasonCode == "function-invocation-unknown-effect"
                 || reasonCode == "function-invocation-unknown-function"
-                || reasonCode == "frame-target-plan-rejected" {
+                || ScenePersistentGraphTargetPlanningFailure
+                    .isLocalFallbackReasonCode(reasonCode) {
                 return .localFallback(reasonCode: reasonCode)
             }
             resolvedMaterialRuntime.recordClaimedFailure(reasonCode: reasonCode)

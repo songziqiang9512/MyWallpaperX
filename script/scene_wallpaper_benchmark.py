@@ -515,6 +515,11 @@ RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE = re.compile(
     r"pending=(?P<pending>\d+) gpuEncoded=(?P<gpu_encoded>\d+)"
     r"(?: localFallbacks=(?P<local_fallbacks>\d+))?(?=\s|$)"
 )
+RESOLVED_MATERIAL_GRAPH_LOCAL_FALLBACK_RE = re.compile(
+    r"layer-local-fallback count=(?P<count>\d+) "
+    r"entries=(?P<entries>\d+:[A-Za-z0-9._-]+"
+    r"(?:,\d+:[A-Za-z0-9._-]+)*)"
+)
 RESOLVED_MATERIAL_GRAPH_OBSERVATION_RE = re.compile(
     r"schema=1 axis=graph-execution (?P<fields>[^\r\n]+)"
 )
@@ -1709,6 +1714,7 @@ def resolved_material_graph_observation_metrics(
     }
     required_fields = {
         "frame", "layer", "trigger", "transaction", *count_fields.values(),
+        "targetDescriptorsSHA256", "targetDescriptorCounts",
         "finalOutput", "physicalIdentity", "publication",
         "publicationGeneration", "compositorConsumed", "outcome",
         "gpuCompletion",
@@ -1758,6 +1764,20 @@ def resolved_material_graph_observation_metrics(
         outputs = (
             fields["finalOutput"], fields["physicalIdentity"], fields["publication"]
         )
+        target_descriptors_sha256 = fields["targetDescriptorsSHA256"]
+        target_descriptor_counts = unquote(fields["targetDescriptorCounts"])
+        descriptor_counts_valid = target_descriptor_counts == "-" or bool(
+            re.fullmatch(
+                r"\d+x\d+/[A-Za-z0-9_-]+:\d+"
+                r"(?:,\d+x\d+/[A-Za-z0-9_-]+:\d+)*",
+                target_descriptor_counts,
+            )
+        )
+        descriptor_hash_valid = (
+            target_descriptors_sha256 == "-"
+            if target_descriptor_counts == "-"
+            else bool(re.fullmatch(r"[0-9a-f]{64}", target_descriptors_sha256))
+        )
         terminal_failures = [
             message for valid, message in (
                 (
@@ -1789,6 +1809,10 @@ def resolved_material_graph_observation_metrics(
                     fields["compositorConsumed"] in {"true", "false"},
                     "resolved material graph observation compositor state invalid",
                 ),
+                (
+                    descriptor_counts_valid and descriptor_hash_valid,
+                    "resolved material graph target descriptor evidence invalid",
+                ),
             ) if not valid
         ]
         validation_failures.extend(terminal_failures)
@@ -1807,6 +1831,8 @@ def resolved_material_graph_observation_metrics(
             "compositor_consumed": fields["compositorConsumed"] == "true",
             "outcome": outcome,
             "gpu_completion": gpu_completion,
+            "target_descriptors_sha256": target_descriptors_sha256,
+            "target_descriptor_counts": target_descriptor_counts,
         })
 
     if diagnostic_count:
@@ -1838,6 +1864,11 @@ def resolved_material_graph_observation_metrics(
         if observation["compositor_consumed"]
         and "next-frame" in observation["trigger"]
     })
+    target_descriptor_counts = sorted({
+        observation["target_descriptor_counts"]
+        for observation in terminal_successes
+        if observation["target_descriptor_counts"] != "-"
+    })
     return {
         "has_evidence": bool(payloads),
         "schema_version": 1 if payloads else None,
@@ -1849,6 +1880,7 @@ def resolved_material_graph_observation_metrics(
         "compositor_consumed_layer_ids": compositor_consumed_layer_ids,
         "next_frame_layer_ids": next_frame_layer_ids,
         "next_frame_observed": bool(next_frame_layer_ids),
+        "target_descriptor_counts": target_descriptor_counts,
         "terminal_compositor_consume_observed": any(
             observation["compositor_consumed"] for observation in terminal_successes
         ),
@@ -2024,6 +2056,41 @@ def resolved_material_graph_execution_metrics(
         for match in RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE.finditer(log_text)
     ]
     executor_failures: list[str] = []
+    local_fallback_observations: list[dict[str, Any]] = []
+    local_fallback_lines = [
+        line for line in log_text.splitlines()
+        if "layer-local-fallback" in line
+    ]
+    for line in local_fallback_lines:
+        match = RESOLVED_MATERIAL_GRAPH_LOCAL_FALLBACK_RE.search(line)
+        if match is None:
+            executor_failures.append(
+                "resolved material graph local fallback evidence malformed"
+            )
+            continue
+        entries: list[dict[str, Any]] = []
+        for token in match.group("entries").split(","):
+            layer, reason = token.split(":", 1)
+            entries.append({"layer_id": int(layer), "reason": reason})
+        if (
+            int(match.group("count")) != len(entries)
+            or len({entry["layer_id"] for entry in entries}) != len(entries)
+        ):
+            executor_failures.append(
+                "resolved material graph local fallback evidence malformed"
+            )
+            continue
+        local_fallback_observations.extend(entries)
+    local_fallbacks = sorted(
+        {
+            (entry["layer_id"], entry["reason"])
+            for entry in local_fallback_observations
+        }
+    )
+    if len({layer for layer, _ in local_fallbacks}) != len(local_fallbacks):
+        executor_failures.append(
+            "resolved material graph local fallback evidence conflicts"
+        )
     if "schema=scene-graph-executor-v1" in log_text and not executor_observations:
         executor_failures.append(
             "resolved material graph executor evidence malformed"
@@ -2320,6 +2387,10 @@ def resolved_material_graph_execution_metrics(
             ),
             "gpu_encoded_count": gpu_encoded_count,
             "local_fallback_count": local_fallback_count,
+            "local_fallbacks": [
+                {"layer_id": layer, "reason": reason}
+                for layer, reason in local_fallbacks
+            ],
             "observations": executor_observations,
         },
         "graph_observations": graph_observations,
@@ -2367,9 +2438,39 @@ def resolved_material_graph_execution_failures(
     expected_fallback_layers = sample.get(
         "expected_resolved_material_graph_local_fallback_layer_ids"
     )
+    expected_fallbacks = sample.get(
+        "expected_resolved_material_graph_local_fallbacks"
+    )
     fallback_layers: set[int] = set()
-    fallback_contract_valid = expected_fallback_layers is None
-    if expected_fallback_layers is not None:
+    expected_fallback_keys: set[tuple[int, str]] | None = None
+    fallback_contract_valid = not (
+        expected_fallback_layers is not None and expected_fallbacks is not None
+    )
+    if expected_fallbacks is not None and fallback_contract_valid:
+        expected_fallback_keys = set()
+        if not isinstance(expected_fallbacks, list) or not expected_fallbacks:
+            fallback_contract_valid = False
+        else:
+            for expected in expected_fallbacks:
+                if (
+                    not isinstance(expected, dict)
+                    or set(expected) != {"layer_id", "reason"}
+                    or not isinstance(expected["layer_id"], int)
+                    or isinstance(expected["layer_id"], bool)
+                    or expected["layer_id"] < 0
+                    or not isinstance(expected["reason"], str)
+                    or re.fullmatch(r"[A-Za-z0-9._-]+", expected["reason"])
+                        is None
+                ):
+                    fallback_contract_valid = False
+                    continue
+                expected_fallback_keys.add((
+                    expected["layer_id"], expected["reason"]
+                ))
+            if len(expected_fallback_keys) != len(expected_fallbacks):
+                fallback_contract_valid = False
+            fallback_layers = {layer for layer, _ in expected_fallback_keys}
+    elif expected_fallback_layers is not None and fallback_contract_valid:
         fallback_contract_valid = True
         valid_layer_ids = (
             isinstance(expected_fallback_layers, list)
@@ -2393,13 +2494,26 @@ def resolved_material_graph_execution_failures(
         "resolved material graph accepted layer next-frame evidence missing",
         "resolved material graph accepted layer exact backend evidence missing",
         "resolved material graph observation diagnostic reported",
+        "resolved material graph executor claimed count is zero",
+        "resolved material graph executor encoded count is zero",
+        "resolved material graph executor GPU encoded count is zero",
+        "resolved material graph successful transaction count below two",
     }
     failures = list(metrics["validation_failures"])
+    fallback_evidence_satisfied = False
     if fallback_contract_valid and fallback_layers:
         missing_layers = set(metrics["layer_routes"]["missing_layer_ids"])
         accepted_layers = set(metrics["capability"]["accepted_layer_ids"])
         expected_success_layers = set(
             sample.get("expected_resolved_material_graph_succeeded_layer_ids", [])
+        )
+        actual_fallback_keys = {
+            (entry["layer_id"], entry["reason"])
+            for entry in metrics["executor"]["local_fallbacks"]
+        }
+        typed_fallback_mismatch = (
+            expected_fallback_keys is not None
+            and actual_fallback_keys != expected_fallback_keys
         )
         if missing_layers == fallback_layers and (
             accepted_layers != expected_success_layers.union(fallback_layers)
@@ -2407,16 +2521,18 @@ def resolved_material_graph_execution_failures(
             or set(metrics["graph_observations"]["successful_gpu_completed_layer_ids"])
             != expected_success_layers
             or metrics["graph_observations"]["diagnostic_count"] <= 0
+            or metrics["executor"]["local_fallback_count"]
+                < len(fallback_layers)
+            or typed_fallback_mismatch
         ):
             failures.append(
                 "resolved material graph local fallback evidence mismatch"
             )
         elif missing_layers == fallback_layers:
-            failures = [
-                failure for failure in failures
-                if failure not in allowlisted_local_failures
-            ]
-    elif expected_fallback_layers is not None and not fallback_contract_valid:
+            fallback_evidence_satisfied = True
+    elif (
+        expected_fallback_layers is not None or expected_fallbacks is not None
+    ) and not fallback_contract_valid:
         failures.append(
             "resolved material graph local fallback expectation invalid"
         )
@@ -2449,6 +2565,34 @@ def resolved_material_graph_execution_failures(
         elif metrics["succeeded_layer_ids"] != expected_layer_ids:
             failures.append(expectation.failure_message)
 
+    expected_target_descriptor_counts = sample.get(
+        "expected_resolved_material_graph_target_descriptor_counts"
+    )
+    if expected_target_descriptor_counts is not None:
+        valid_target_descriptor_counts = (
+            isinstance(expected_target_descriptor_counts, list)
+            and all(
+                isinstance(value, str)
+                and re.fullmatch(
+                    r"\d+x\d+/[A-Za-z0-9_-]+:\d+"
+                    r"(?:,\d+x\d+/[A-Za-z0-9_-]+:\d+)*",
+                    value,
+                )
+                for value in expected_target_descriptor_counts
+            )
+            and expected_target_descriptor_counts
+                == sorted(set(expected_target_descriptor_counts))
+        )
+        if not valid_target_descriptor_counts:
+            failures.append(
+                "resolved material graph target descriptor expectation invalid"
+            )
+        elif graph_observations["target_descriptor_counts"] \
+                != expected_target_descriptor_counts:
+            failures.append(
+                "resolved material graph target descriptor evidence mismatch"
+            )
+
     if capability["accepted_count"] <= 0:
         if require_evidence and not (
             expects_evidence and metrics["zero_contract_succeeded"]
@@ -2478,6 +2622,11 @@ def resolved_material_graph_execution_failures(
         failures.append(
             "resolved material graph successful transaction count below two"
         )
+    if fallback_evidence_satisfied:
+        failures = [
+            failure for failure in failures
+            if failure not in allowlisted_local_failures
+        ]
     return list(dict.fromkeys(failures))
 
 

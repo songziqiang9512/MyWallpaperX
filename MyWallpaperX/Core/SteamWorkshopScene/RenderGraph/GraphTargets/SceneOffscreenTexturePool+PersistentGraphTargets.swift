@@ -1,6 +1,29 @@
 import Foundation
 import Metal
 
+enum ScenePersistentGraphTargetPlanningFailure: Error {
+    case unsupportedPixelFormat
+    case invalidRequest
+    case invalidExtent
+    case graphTargetPlan(SceneGraphRenderTargetPlan.Failure)
+    case graphTargetIdentityMismatch
+    case layerTargetPlan(SceneLayerGraphTargetPlan.Failure)
+
+    var localFallbackReasonCode: String {
+        switch self {
+        case .graphTargetPlan(.unsupportedTargetDescriptor):
+            return "frame-target-plan-unsupported-target-descriptor"
+        default:
+            return "frame-target-plan-rejected"
+        }
+    }
+
+    static func isLocalFallbackReasonCode(_ reasonCode: String) -> Bool {
+        reasonCode == "frame-target-plan-rejected"
+            || reasonCode == "frame-target-plan-unsupported-target-descriptor"
+    }
+}
+
 struct ScenePersistentGraphTargetFramePlan {
     let residencyDomainID: UUID
     let graphPlan: SceneLayerGraphTargetPlan
@@ -203,16 +226,50 @@ extension SceneOffscreenTexturePool {
         sharesFullFramePairWhenHistoryFree: Bool = false,
         orderingContext: SceneGraphCommandQueueOrderingContext? = nil
     ) -> ScenePersistentGraphTargetFramePlan? {
-        guard pixelFormat == .bgra8Unorm,
-              let prepared = persistentTargetPlans(
-                  admittedGraphs: admittedGraphs,
-                  targetExecutionPlans: targetExecutionPlans,
-                  materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
-                  pairPlan: pairPlan,
-                  extentPolicy: extentPolicy,
-                  requestedWidth: requestedWidth,
-                  requestedHeight: requestedHeight
-              ) else { return nil }
+        guard case let .success(plan) = framePlanResultForPersistentGraphTargets(
+            admittedGraphs: admittedGraphs,
+            targetExecutionPlans: targetExecutionPlans,
+            materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+            pairPlan: pairPlan,
+            extentPolicy: extentPolicy,
+            requestedWidth: requestedWidth,
+            requestedHeight: requestedHeight,
+            sharesFullFramePairWhenHistoryFree: sharesFullFramePairWhenHistoryFree,
+            orderingContext: orderingContext
+        ) else { return nil }
+        return plan
+    }
+
+    func framePlanResultForPersistentGraphTargets(
+        admittedGraphs: [SceneAuthoredEffectRenderPlan],
+        targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
+        materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],
+        pairPlan: SceneLayerFullFramePairPlan,
+        extentPolicy: SceneFullFrameExtentPolicy = .standard,
+        requestedWidth: Int,
+        requestedHeight: Int,
+        sharesFullFramePairWhenHistoryFree: Bool = false,
+        orderingContext: SceneGraphCommandQueueOrderingContext? = nil
+    ) -> Result<ScenePersistentGraphTargetFramePlan,
+        ScenePersistentGraphTargetPlanningFailure> {
+        guard pixelFormat == .bgra8Unorm else {
+            return .failure(.unsupportedPixelFormat)
+        }
+        let prepared: (
+            plans: [SceneGraphRenderTargetPlan], width: Int, height: Int
+        )
+        switch persistentTargetPlansResult(
+            admittedGraphs: admittedGraphs,
+            targetExecutionPlans: targetExecutionPlans,
+            materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+            pairPlan: pairPlan,
+            extentPolicy: extentPolicy,
+            requestedWidth: requestedWidth,
+            requestedHeight: requestedHeight
+        ) {
+        case let .success(value): prepared = value
+        case let .failure(failure): return .failure(failure)
+        }
         let plan: SceneLayerGraphTargetPlan
         if sharesFullFramePairWhenHistoryFree,
            case let .success(shared) = SceneLayerGraphTargetPlan.make(
@@ -223,19 +280,21 @@ extension SceneOffscreenTexturePool {
            ) {
             plan = shared
         } else {
-            guard case let .success(owned) = SceneLayerGraphTargetPlan.make(
+            switch SceneLayerGraphTargetPlan.make(
                 plans: prepared.plans,
                 pairPlan: pairPlan,
                 byteBudget: residentByteBudget,
                 pairStorage: .owned
-            ) else { return nil }
-            plan = owned
+            ) {
+            case let .success(owned): plan = owned
+            case let .failure(failure): return .failure(.layerTargetPlan(failure))
+            }
         }
-        return .init(
+        return .success(.init(
             residencyDomainID: residencyDomainID,
             graphPlan: plan,
             orderingContext: orderingContext
-        )
+        ))
     }
 
     func preflightPersistentGraphTargets(

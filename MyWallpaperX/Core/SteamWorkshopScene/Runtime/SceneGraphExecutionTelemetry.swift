@@ -55,6 +55,7 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
     private struct TransactionSignature: Equatable {
         let frameIndex, allocationGeneration, mappingGeneration: UInt64
         let nodeSequence, mappingBefore, mappingAfter: String
+        let targetDescriptors: String?
         let composeBefore, composeAfter: SceneGraphExecutionComposeSlot
         let history: SceneGraphExecutionHistoryState
         let reset: SceneGraphExecutionResetReason?
@@ -68,6 +69,7 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
             nodeSequence = value.nodeSequenceSHA256
             mappingBefore = value.logicalMappingBeforeSHA256
             mappingAfter = value.logicalMappingAfterSHA256
+            targetDescriptors = value.targetDescriptorsSHA256
             composeBefore = value.composeSlotBefore
             composeAfter = value.composeSlotAfter
             history = value.historyState
@@ -362,6 +364,8 @@ nonisolated extension SceneGraphExecutionObservation {
             "nodeSequenceSHA256=\(nodeSequenceSHA256)",
             "mappingBeforeSHA256=\(logicalMappingBeforeSHA256)",
             "mappingAfterSHA256=\(logicalMappingAfterSHA256)",
+            "targetDescriptorsSHA256=\(targetDescriptorsSHA256 ?? "-")",
+            "targetDescriptorCounts=\(SceneGraphExecutionLogToken.encode(targetDescriptorCounts))",
             "composeSlotBefore=\(composeSlotBefore.rawValue)",
             "composeSlotAfter=\(composeSlotAfter.rawValue)",
             "history=\(historyState.rawValue)",

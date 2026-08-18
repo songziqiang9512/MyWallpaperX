@@ -216,6 +216,8 @@ def graph_execution_observation(
     publish: bool = True,
     outcome: str = "succeeded",
     gpu_completion: str = "completed",
+    target_descriptors_sha256: str = "-",
+    target_descriptor_counts: str = "-",
 ) -> str:
     final_output = f"output-{transaction}" if publish else "-"
     final_physical = f"physical-{transaction}" if publish else "-"
@@ -226,7 +228,10 @@ def graph_execution_observation(
         f"frame={frame} layer={layer} trigger={trigger} transaction={transaction} "
         f"authoredNodes={authored} materialNodes={material} "
         f"copyNodes={copy} swapNodes={swap} composeNodes={compose} "
-        f"rejectedNodes={rejected} finalOutput={final_output} "
+        f"rejectedNodes={rejected} "
+        f"targetDescriptorsSHA256={target_descriptors_sha256} "
+        f"targetDescriptorCounts={target_descriptor_counts} "
+        f"finalOutput={final_output} "
         f"physicalIdentity={final_physical} "
         f"publication={final_publication} "
         f"publicationGeneration={publication_generation} "
@@ -3303,12 +3308,16 @@ utility layer 763: skippedHidden kind=composition
                 frame=10,
                 transaction="tx-10",
                 trigger="first-frame+first-success+gpu-completed",
+                target_descriptors_sha256="a" * 64,
+                target_descriptor_counts="1512x982/rgbaBackbuffer:2",
             ),
             graph_execution_observation(
                 frame=11,
                 transaction="tx-11",
                 trigger="next-frame+compositor-consume+gpu-completed",
                 consumed=True,
+                target_descriptors_sha256="a" * 64,
+                target_descriptor_counts="1512x982/rgbaBackbuffer:2",
             ),
         ])
 
@@ -3358,6 +3367,10 @@ utility layer 763: skippedHidden kind=composition
             metrics["graph_observations"]["successful_transactions"],
             ["tx-10", "tx-11"],
         )
+        self.assertEqual(
+            metrics["graph_observations"]["target_descriptor_counts"],
+            ["1512x982/rgbaBackbuffer:2"],
+        )
         first_terminal = metrics["graph_observations"][
             "terminal_success_observations"
         ][0]
@@ -3405,7 +3418,10 @@ utility layer 763: skippedHidden kind=composition
                 metrics,
                 require_evidence=True,
                 sample={
-                    "expected_resolved_material_graph_succeeded_layer_ids": [68]
+                    "expected_resolved_material_graph_succeeded_layer_ids": [68],
+                    "expected_resolved_material_graph_target_descriptor_counts": [
+                        "1512x982/rgbaBackbuffer:2"
+                    ],
                 },
             ),
             [],
@@ -3416,6 +3432,65 @@ utility layer 763: skippedHidden kind=composition
                 metrics,
                 sample={
                     "expected_resolved_material_graph_succeeded_layer_ids": []
+                },
+            ),
+        )
+
+    def test_resolved_material_graph_gate_accepts_typed_local_fallback(
+        self,
+    ) -> None:
+        preview_text = (
+            "resolved material execution capabilities: "
+            "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
+            "rejected=0 variantLimit=8\n"
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=533 status=accepted "
+            "dependency=none dependencyReferences=0\n"
+        )
+        log_text = "\n".join([
+            "resolved material runtime audit: schema=scene-graph-executor-v1 "
+            "claimed=0 encoded=0 failures=0 deferred=0 pending=0 "
+            "gpuEncoded=0 localFallbacks=1",
+            "layer-local-fallback count=1 entries="
+            "533:frame-target-plan-unsupported-target-descriptor",
+            "schema=1 axis=graph-execution frame=1 "
+            "diagnostic=frame-target-plan-unsupported-target-descriptor",
+        ])
+        metrics = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            log_text,
+        )
+        expected_fallbacks = [{
+            "layer_id": 533,
+            "reason": "frame-target-plan-unsupported-target-descriptor",
+        }]
+
+        self.assertEqual(
+            metrics["executor"]["local_fallbacks"],
+            expected_fallbacks,
+        )
+        self.assertEqual(
+            benchmark.resolved_material_graph_execution_failures(
+                metrics,
+                require_evidence=True,
+                sample={
+                    "expected_resolved_material_graph_succeeded_layer_ids": [],
+                    "expected_resolved_material_graph_local_fallbacks":
+                        expected_fallbacks,
+                },
+            ),
+            [],
+        )
+        self.assertIn(
+            "resolved material graph local fallback evidence mismatch",
+            benchmark.resolved_material_graph_execution_failures(
+                metrics,
+                sample={
+                    "expected_resolved_material_graph_succeeded_layer_ids": [],
+                    "expected_resolved_material_graph_local_fallbacks": [{
+                        "layer_id": 533,
+                        "reason": "frame-target-plan-rejected",
+                    }],
                 },
             ),
         )

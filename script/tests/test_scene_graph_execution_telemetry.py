@@ -71,6 +71,22 @@ enum Harness {
         ),
     ]
 
+    static func described(
+        _ bindings: [SceneGraphExecutionLogicalBinding],
+        width: Int = 4,
+        height: Int = 2
+    ) -> [SceneGraphExecutionLogicalBinding] {
+        bindings.map {
+            .init(
+                logicalIdentity: $0.logicalIdentity,
+                physicalIdentity: $0.physicalIdentity,
+                width: width,
+                height: height,
+                format: "rgbaBackbuffer"
+            )
+        }
+    }
+
     static func nodes() -> [SceneGraphExecutionNodeObservation] {
         [
             .init(
@@ -325,7 +341,7 @@ enum Harness {
         let resized = try observation(
             frame: 20,
             allocationGeneration: 2,
-            reset: .resizeReprepare
+            reset: .allocationReprepare
         )
         let clearReset = try observation(frame: 21)
         let reparsed = try observation(
@@ -839,6 +855,29 @@ enum Harness {
             mappingBefore: Array(mappingBefore.reversed()),
             mappingAfter: Array(mappingAfter.reversed())
         )
+        let describedMapping = try observation(
+            frame: 100,
+            mappingBefore: described(mappingBefore),
+            mappingAfter: described(mappingAfter)
+        )
+        let descriptorTransitionError = errorCode {
+            _ = try observation(
+                frame: 101,
+                mappingBefore: described(mappingBefore),
+                mappingAfter: described(mappingAfter, width: 2, height: 2)
+            )
+        }
+        let partialDescriptorError = errorCode {
+            var partialBefore = described(mappingBefore)
+            var partialAfter = described(mappingAfter)
+            partialBefore[0] = mappingBefore[0]
+            partialAfter[0] = mappingAfter[0]
+            _ = try observation(
+                frame: 102,
+                mappingBefore: partialBefore,
+                mappingAfter: partialAfter
+            )
+        }
 
         let payload: [String: Any] = [
             "logs": collector.snapshot(),
@@ -891,6 +930,10 @@ enum Harness {
             "mappingBeforeHashB": hashB.logicalMappingBeforeSHA256,
             "mappingAfterHashA": hashA.logicalMappingAfterSHA256,
             "mappingAfterHashB": hashB.logicalMappingAfterSHA256,
+            "targetDescriptorsHash": describedMapping.targetDescriptorsSHA256 ?? "",
+            "targetDescriptorCounts": describedMapping.targetDescriptorCounts ?? "",
+            "descriptorTransitionError": descriptorTransitionError,
+            "partialDescriptorError": partialDescriptorError,
             "canonicalLine": hashA.canonicalLine,
             "encodedToken": SceneGraphExecutionLogToken.encode("A %=中\n"),
         ]
@@ -1153,6 +1196,30 @@ class SceneGraphExecutionTelemetryTests(unittest.TestCase):
         self.assertEqual(self.result["mappingAfterHashA"], after)
         self.assertEqual(self.result["mappingAfterHashB"], after)
         self.assertTrue(self.result["canonicalLine"].startswith("graph-execution|frame=90|"))
+
+    def test_target_descriptors_are_complete_stable_and_transition_safe(self) -> None:
+        lines = sorted(
+            f"logical={logical}|extent=4x2|format=rgbaBackbuffer"
+            for logical in (
+                "history-a",
+                "history-b",
+                "effect%20output/%25%20%E4%B8%AD",
+            )
+        )
+        expected = hashlib.sha256("\n".join(lines).encode()).hexdigest()
+        self.assertEqual(self.result["targetDescriptorsHash"], expected)
+        self.assertEqual(
+            self.result["targetDescriptorCounts"],
+            "4x2/rgbaBackbuffer:3",
+        )
+        self.assertEqual(
+            self.result["descriptorTransitionError"],
+            "invalidTargetDescriptors",
+        )
+        self.assertEqual(
+            self.result["partialDescriptorError"],
+            "invalidTargetDescriptors",
+        )
 
     def test_log_schema_tokens_and_transaction_publication_are_stable(self) -> None:
         self.assertEqual(self.result["encodedToken"], "A%20%25%3D%E4%B8%AD%0A")

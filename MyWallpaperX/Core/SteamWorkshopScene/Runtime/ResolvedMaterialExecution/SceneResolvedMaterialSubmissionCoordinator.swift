@@ -139,6 +139,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             "function-invocation-unknown-effect",
             "function-invocation-unknown-function",
             "frame-target-plan-rejected",
+            "frame-target-plan-unsupported-target-descriptor",
         ]
         var diagnostic: String?
         lock.lock()

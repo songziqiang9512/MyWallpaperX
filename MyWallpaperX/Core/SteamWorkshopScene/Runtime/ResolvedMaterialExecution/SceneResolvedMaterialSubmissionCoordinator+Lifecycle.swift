@@ -343,7 +343,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 ?? .executorInvalidation
         }
         if previous.allocationGeneration != transaction.allocationGeneration {
-            return .resizeReprepare
+            return .allocationReprepare
         }
         return nil
     }

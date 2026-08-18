@@ -164,19 +164,42 @@ final class SceneOffscreenTexturePool {
         requestedWidth: Int,
         requestedHeight: Int
     ) -> (plans: [SceneGraphRenderTargetPlan], width: Int, height: Int)? {
+        guard case let .success(value) = persistentTargetPlansResult(
+            admittedGraphs: admittedGraphs,
+            targetExecutionPlans: targetExecutionPlans,
+            materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+            pairPlan: pairPlan,
+            extentPolicy: extentPolicy,
+            requestedWidth: requestedWidth,
+            requestedHeight: requestedHeight
+        ) else { return nil }
+        return value
+    }
+
+    func persistentTargetPlansResult(
+        admittedGraphs: [SceneAuthoredEffectRenderPlan],
+        targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
+        materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],
+        pairPlan: SceneLayerFullFramePairPlan,
+        extentPolicy: SceneFullFrameExtentPolicy = .standard,
+        requestedWidth: Int,
+        requestedHeight: Int
+    ) -> Result<(
+        plans: [SceneGraphRenderTargetPlan], width: Int, height: Int
+    ), ScenePersistentGraphTargetPlanningFailure> {
         guard !admittedGraphs.isEmpty,
               admittedGraphs.count == pairPlan.effects.count,
               (targetExecutionPlans.isEmpty
                 || targetExecutionPlans.count == admittedGraphs.count),
               admittedGraphs.allSatisfy({ $0.layerID == pairPlan.layerID }) else {
-            return nil
+            return .failure(.invalidRequest)
         }
         guard let size = SceneOffscreenResolutionPolicy.resolvedDimensions(
             width: requestedWidth,
             height: requestedHeight,
             hardLimit: maxDimension,
             policy: extentPolicy
-        ) else { return nil }
+        ) else { return .failure(.invalidExtent) }
         var plans: [SceneGraphRenderTargetPlan] = []
         plans.reserveCapacity(admittedGraphs.count)
         for (index, values) in zip(admittedGraphs, pairPlan.effects).enumerated() {
@@ -200,14 +223,22 @@ final class SceneOffscreenTexturePool {
                 inputHeight: size.1,
                 materialFunctionTargets: materialFunctionTargetsByEffect[pairStep.effect] ?? []
             )
-            guard graph.effects.first?.key == pairStep.effect,
-                  case .success(let plan) = planResult else { return nil }
+            let plan: SceneGraphRenderTargetPlan
+            switch planResult {
+            case let .success(value): plan = value
+            case let .failure(failure): return .failure(.graphTargetPlan(failure))
+            }
+            guard graph.effects.first?.key == pairStep.effect else {
+                return .failure(.graphTargetIdentityMismatch)
+            }
             guard plan.inputRole == inputRole,
                   plan.input == pairStep.inputIdentity,
-                  plan.output == pairStep.outputIdentity else { return nil }
+                  plan.output == pairStep.outputIdentity else {
+                return .failure(.graphTargetIdentityMismatch)
+            }
             plans.append(plan)
         }
-        return (plans, size.0, size.1)
+        return .success((plans: plans, width: size.0, height: size.1))
     }
 
     func reset() {

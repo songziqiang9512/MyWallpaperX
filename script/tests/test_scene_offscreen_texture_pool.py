@@ -343,6 +343,72 @@ enum Harness {
         )
     }
 
+    static func incompatibleCopyFixture(layerID: Int = 533) -> Fixture {
+        let key = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#copy-extent"
+        )
+        let input = texture(.layerSource, layerID: layerID)
+        let output = texture(.effectOutput, layerID: layerID, effect: key)
+        let half = texture(
+            .framebuffer, layerID: layerID, effect: key, name: "half"
+        )
+        let full = texture(
+            .framebuffer, layerID: layerID, effect: key, name: "full"
+        )
+        let targets: [Graph.RenderTarget] = [
+            .init(
+                texture: half,
+                extent: .init(kind: .scale, first: 2, second: nil),
+                format: "rgba_backbuffer",
+                declaredUnique: true,
+                clear: nil,
+                uvs: nil,
+                conditions: nil
+            ),
+            .init(
+                texture: full,
+                extent: .init(kind: .scale, first: 1, second: nil),
+                format: "rgba_backbuffer",
+                declaredUnique: false,
+                clear: nil,
+                uvs: nil,
+                conditions: nil
+            ),
+        ]
+        let nodes = [
+            node(index: 0, effect: key, target: half, reads: [(0, input)]),
+            command(index: 1, effect: key, kind: .copy, source: half, target: full),
+            node(index: 2, effect: key, target: output, reads: [(0, full)]),
+        ]
+        let graph = Graph(
+            layerID: layerID,
+            effects: [.init(
+                key: key,
+                definitionPath: "effects/copy-extent/effect.json",
+                input: input,
+                output: output,
+                nodeIndices: nodes.map(\.nodeIndex)
+            )],
+            renderTargets: targets,
+            nodes: nodes,
+            finalOutput: output,
+            blockers: []
+        )
+        return .init(
+            execution: .init(
+                layerID: layerID,
+                renderGraph: graph,
+                materialNodeCount: 2,
+                logicalRenderTargetCount: 2,
+                requiresExactInputExtent: false,
+                inputRole: .layerSource
+            ),
+            framebufferIdentities: [half, full]
+        )
+    }
+
     static func composeFixture(
         effectIndex: Int,
         composeCount: Int,
@@ -644,6 +710,35 @@ enum Harness {
             explicit128Pool.residentByteBudget == 128 * mebibyte
             && explicit128Pool.allocationCache.preflightByteBudget
                 == 128 * mebibyte
+
+        let incompatibleCopy = incompatibleCopyFixture()
+        let incompatibleCopyGraphs = admittedGraphs([incompatibleCopy])
+        let incompatibleCopyPair = pairPlan([incompatibleCopy])
+        let incompatibleCopyPool = SceneOffscreenTexturePool(
+            device: device, maxDimension: 2_048
+        )
+        let incompatibleCopyProbeAccepted: Bool
+        switch incompatibleCopyPool.persistentTargetPlansResult(
+            admittedGraphs: incompatibleCopyGraphs,
+            pairPlan: incompatibleCopyPair,
+            requestedWidth: 1,
+            requestedHeight: 1
+        ) {
+        case .success: incompatibleCopyProbeAccepted = true
+        case .failure: incompatibleCopyProbeAccepted = false
+        }
+        let incompatibleCopyFrameReason: String
+        switch incompatibleCopyPool.framePlanResultForPersistentGraphTargets(
+            admittedGraphs: incompatibleCopyGraphs,
+            pairPlan: incompatibleCopyPair,
+            requestedWidth: 2_048,
+            requestedHeight: 1_152,
+            sharesFullFramePairWhenHistoryFree: true
+        ) {
+        case .success: incompatibleCopyFrameReason = "accepted"
+        case let .failure(failure):
+            incompatibleCopyFrameReason = failure.localFallbackReasonCode
+        }
 
         func directChain(layerID: Int, count: Int) -> [Fixture] {
             var result: [Fixture] = []
@@ -2816,6 +2911,8 @@ enum Harness {
             "automaticBudgetBoundsAreStable": automaticBudgetBoundsAreStable,
             "defaultPoolUsesDeviceBudget": defaultPoolUsesDeviceBudget,
             "explicit128BudgetIsPreserved": explicit128BudgetIsPreserved,
+            "incompatibleCopyProbeAccepted": incompatibleCopyProbeAccepted,
+            "incompatibleCopyFrameReason": incompatibleCopyFrameReason,
             "sample302RequiredBytes": sample302RequiredBytes,
             "sample302ShapeIsExact": sample302ShapeIsExact,
             "sample302FitsAutomaticBudget": sample302FitsAutomaticBudget,
@@ -3052,6 +3149,13 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["unsafeUnsubmittedSharedPairRejected"])
         self.assertTrue(self.result["differentQueueSharedPairRejected"])
         self.assertTrue(self.result["sharedPairOrderedReuseAndReleaseStable"])
+
+    def test_incompatible_copy_extent_keeps_typed_frame_local_reason(self) -> None:
+        self.assertTrue(self.result["incompatibleCopyProbeAccepted"])
+        self.assertEqual(
+            self.result["incompatibleCopyFrameReason"],
+            "frame-target-plan-unsupported-target-descriptor",
+        )
 
     def test_resolved_batch_shares_history_free_full_frame_pair(self) -> None:
         self.assertTrue(self.result["batchPlansShareOneHistoryFreePair"])

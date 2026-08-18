@@ -33,6 +33,23 @@ nonisolated struct SceneGraphExecutionNodeCounts: Equatable, Sendable {
 nonisolated struct SceneGraphExecutionLogicalBinding: Hashable, Sendable {
     let logicalIdentity: String
     let physicalIdentity: String
+    let width: Int?
+    let height: Int?
+    let format: String?
+
+    init(
+        logicalIdentity: String,
+        physicalIdentity: String,
+        width: Int? = nil,
+        height: Int? = nil,
+        format: String? = nil
+    ) {
+        self.logicalIdentity = logicalIdentity
+        self.physicalIdentity = physicalIdentity
+        self.width = width
+        self.height = height
+        self.format = format
+    }
 }
 
 nonisolated enum SceneGraphExecutionComposeSlot: String, Hashable, Sendable {
@@ -45,7 +62,7 @@ nonisolated enum SceneGraphExecutionHistoryState: String, Hashable, Sendable {
 
 nonisolated enum SceneGraphExecutionResetReason: String, Hashable, Sendable {
     case initial, sceneSwitch = "scene-switch", surfaceStop = "surface-stop"
-    case resizeReprepare = "resize-reprepare"
+    case allocationReprepare = "allocation-reprepare"
     case effectReparse = "effect-reparse"
     case deviceLoss = "device-loss"
     case executorInvalidation = "executor-invalidation"
@@ -68,7 +85,8 @@ nonisolated struct SceneGraphExecutionFinalOutputPublication: Hashable, Sendable
 nonisolated enum SceneGraphExecutionObservationError: String, Error, Sendable {
     case invalidIdentity, invalidExecutionIdentity, invalidNodeCount, invalidNodeOrder
     case invalidNodeDisposition, invalidCommandIdentity, invalidCompose, invalidOrdinals
-    case invalidNodeConservation, invalidLogicalMapping, invalidFinalOutput, invalidOutcome
+    case invalidNodeConservation, invalidLogicalMapping, invalidTargetDescriptors
+    case invalidFinalOutput, invalidOutcome
 }
 
 nonisolated struct SceneGraphExecutionObservation: Sendable {
@@ -86,6 +104,7 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
     let materialOrdinalCount, commandOrdinalCount: Int
     let nodeSequenceSHA256: String
     let logicalMappingBeforeSHA256, logicalMappingAfterSHA256: String
+    let targetDescriptorsSHA256, targetDescriptorCounts: String?
     let composeSlotBefore, composeSlotAfter: SceneGraphExecutionComposeSlot
     let historyState: SceneGraphExecutionHistoryState
     let resetReason: SceneGraphExecutionResetReason?
@@ -142,7 +161,7 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
               expectedNodeCounts.compose <= expectedNodeCounts.material else {
             throw SceneGraphExecutionObservationError.invalidNodeConservation
         }
-        let mappingDigests = try Self.validateMappingTransition(
+        let mappingEvidence = try Self.validateMappingTransition(
             before: logicalMappingBefore,
             after: logicalMappingAfter,
             nodes: nodes
@@ -196,8 +215,10 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
         materialOrdinalCount = ordinalCounts.material
         commandOrdinalCount = ordinalCounts.command
         nodeSequenceSHA256 = Self.sequenceSHA256(nodes)
-        logicalMappingBeforeSHA256 = mappingDigests.before
-        logicalMappingAfterSHA256 = mappingDigests.after
+        logicalMappingBeforeSHA256 = mappingEvidence.before
+        logicalMappingAfterSHA256 = mappingEvidence.after
+        targetDescriptorsSHA256 = mappingEvidence.targetDescriptorsSHA256
+        targetDescriptorCounts = mappingEvidence.targetDescriptorCounts
         self.composeSlotBefore = composeSlotBefore
         self.composeSlotAfter = composeSlotAfter
         self.historyState = historyState
@@ -300,7 +321,12 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
         before: [SceneGraphExecutionLogicalBinding],
         after: [SceneGraphExecutionLogicalBinding],
         nodes: [SceneGraphExecutionNodeObservation]
-    ) throws -> (before: String, after: String) {
+    ) throws -> (
+        before: String,
+        after: String,
+        targetDescriptorsSHA256: String?,
+        targetDescriptorCounts: String?
+    ) {
         guard before.count <= maximumLogicalBindingCount,
               before.count == after.count else {
             throw SceneGraphExecutionObservationError.invalidLogicalMapping
@@ -330,7 +356,76 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
         guard replay == afterMap else {
             throw SceneGraphExecutionObservationError.invalidLogicalMapping
         }
-        return (mappingSHA256(before), mappingSHA256(after))
+        let beforeDescriptors = try validatedTargetDescriptors(before)
+        let afterDescriptors = try validatedTargetDescriptors(after)
+        guard beforeDescriptors == afterDescriptors else {
+            throw SceneGraphExecutionObservationError.invalidTargetDescriptors
+        }
+        let descriptorLines = beforeDescriptors.values.sorted()
+        let descriptorCounts = Dictionary(grouping: beforeDescriptors.values) {
+            $0.extentAndFormat
+        }.map { key, values in
+            "\(key):\(values.count)"
+        }.sorted().joined(separator: ",")
+        return (
+            mappingSHA256(before),
+            mappingSHA256(after),
+            descriptorLines.isEmpty
+                ? nil : digest(descriptorLines.map(\.canonicalLine).joined(separator: "\n")),
+            descriptorCounts.isEmpty ? nil : descriptorCounts
+        )
+    }
+
+    private struct TargetDescriptorEvidence: Equatable, Comparable {
+        let logicalIdentity: String
+        let width, height: Int
+        let format: String
+
+        var extentAndFormat: String { "\(width)x\(height)/\(format)" }
+        var canonicalLine: String {
+            "logical=\(SceneGraphExecutionLogToken.encode(logicalIdentity))"
+                + "|extent=\(width)x\(height)|format="
+                + SceneGraphExecutionLogToken.encode(format)
+        }
+
+        static func < (lhs: Self, rhs: Self) -> Bool {
+            lhs.canonicalLine < rhs.canonicalLine
+        }
+    }
+
+    private static func validatedTargetDescriptors(
+        _ bindings: [SceneGraphExecutionLogicalBinding]
+    ) throws -> [String: TargetDescriptorEvidence] {
+        let carriesDescriptors = bindings.contains {
+            $0.width != nil || $0.height != nil || $0.format != nil
+        }
+        guard carriesDescriptors else { return [:] }
+        guard bindings.allSatisfy({ binding in
+            guard let width = binding.width,
+                  let height = binding.height,
+                  let format = binding.format else { return false }
+            return width > 0 && height > 0 && hasText(format)
+        }) else {
+            throw SceneGraphExecutionObservationError.invalidTargetDescriptors
+        }
+        let descriptors = Dictionary(
+            bindings.map { binding in
+                (
+                    binding.logicalIdentity,
+                    TargetDescriptorEvidence(
+                        logicalIdentity: binding.logicalIdentity,
+                        width: binding.width!,
+                        height: binding.height!,
+                        format: binding.format!
+                    )
+                )
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+        guard descriptors.count == bindings.count else {
+            throw SceneGraphExecutionObservationError.invalidTargetDescriptors
+        }
+        return descriptors
     }
 
     private static func validatedMapping(

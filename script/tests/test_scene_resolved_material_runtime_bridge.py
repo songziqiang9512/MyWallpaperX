@@ -362,7 +362,22 @@ struct SceneGraphExecutionState {
     static let maximumLogicalBindingCount = 512
     struct PhysicalToken: Hashable { let rawValue: String }
     struct ResourceDescriptor {
+        let extent: SceneGraphRenderTargetPlan.PixelExtent
+        let format: SceneGraphRenderTargetPlan.TextureFormat
         let addressMode: SceneGraphRenderTargetPlan.UVAddressMode
+
+        init(
+            extent: SceneGraphRenderTargetPlan.PixelExtent = .init(
+                width: 2,
+                height: 2
+            ),
+            format: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer,
+            addressMode: SceneGraphRenderTargetPlan.UVAddressMode
+        ) {
+            self.extent = extent
+            self.format = format
+            self.addressMode = addressMode
+        }
     }
     struct VersionedResource {
         let token: PhysicalToken
@@ -526,6 +541,11 @@ enum SceneResolvedMaterialInFlightCapacity {
 
 struct SceneGraphRenderTargetPlan: Equatable {
     enum UVAddressMode { case clampToEdge, repeatWrap }
+    enum TextureFormat: String { case rgbaBackbuffer }
+    struct PixelExtent: Equatable {
+        let width: Int
+        let height: Int
+    }
     let identity: Int
 }
 struct SceneGraphRenderTargetTable { let plan: SceneGraphRenderTargetPlan }
@@ -1912,7 +1932,7 @@ enum Harness {
         }
 
         for (key, reason) in [
-            ("resizeReprepareRemainsFailure", SceneGraphExecutionResetReason.resizeReprepare),
+            ("allocationReprepareRemainsFailure", SceneGraphExecutionResetReason.allocationReprepare),
             ("effectReparseRemainsFailure", SceneGraphExecutionResetReason.effectReparse),
             ("deviceLossRemainsFailure", SceneGraphExecutionResetReason.deviceLoss),
             ("executorInvalidationRemainsFailure", SceneGraphExecutionResetReason.executorInvalidation),
@@ -2553,6 +2573,33 @@ enum Harness {
                 && coordinator.frameClaimed == 0
                 && coordinator.frameFailures == 1
                 && coordinator.frameRequiresDrop
+        }
+
+        do {
+            let recorder = LogRecorder()
+            let coordinator = makeCoordinator(
+                device,
+                logSink: { recorder.append($0) }
+            )
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 21, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            let reason = "frame-target-plan-unsupported-target-descriptor"
+            let installed = coordinator.installFrameLocalFallbacks([7: reason])
+            let rejectedWithTypedReason: Bool
+            switch coordinator.claim(layerID: 7) {
+            case let .rejected(reasonCode):
+                rejectedWithTypedReason = reasonCode == reason
+            case .claimed, .notMigrated:
+                rejectedWithTypedReason = false
+            }
+            results["typedTargetDescriptorFallbackRemainsLayerLocal"] =
+                installed && rejectedWithTypedReason
+                && recorder.lines.contains {
+                    $0.contains("layer-local-fallback count=1 entries=7:\(reason)")
+                }
         }
 
         do {
@@ -3635,7 +3682,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "executorInvalidateHasGraphDiagnostic",
                 "pendingSurfaceStopCancelsSilently",
                 "pendingSceneSwitchCancelsSilently",
-                "resizeReprepareRemainsFailure",
+                "allocationReprepareRemainsFailure",
                 "effectReparseRemainsFailure",
                 "deviceLossRemainsFailure",
                 "executorInvalidationRemainsFailure",
@@ -3654,6 +3701,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "malformedExecutionEvidenceDropsOnlyInvalidKey",
                 "emptyExecutionFamilyDropsOnlyInvalidKey",
                 "invalidCapabilityTokenRejectsWithoutLegacyFallback",
+                "typedTargetDescriptorFallbackRemainsLayerLocal",
                 "preflightFailureReasonReachesCoordinatorEvidence",
                 "claimWaitsForAtomicFramePreparation",
                 "secondPreparationFailureRollsBackWholeFrame",

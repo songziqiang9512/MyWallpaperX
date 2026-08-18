@@ -258,7 +258,10 @@ enum SceneResolvedMaterialGraphObservationBuilder {
         values.map {
             .init(
                 logicalIdentity: SceneFrameTextureIdentity.graph($0.key).reportToken,
-                physicalIdentity: $0.value.token.rawValue
+                physicalIdentity: $0.value.token.rawValue,
+                width: $0.value.descriptor.extent.width,
+                height: $0.value.descriptor.extent.height,
+                format: $0.value.descriptor.format.rawValue
             )
         }
     }
