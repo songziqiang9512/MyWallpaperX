@@ -44,6 +44,7 @@ private struct Output: Codable {
     let status: String
     let code: String?
     let requestKey: String
+    let permitsBoundedFrontend: Bool?
     let backend: String?
     let uniformBufferIndex: Int?
     let uniformNames: [String]?
@@ -267,11 +268,14 @@ private struct GenericShaderArtifactHarness {
         let result: Output
         switch SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: vertex,
-            fragmentSource: fragment
+            fragmentSource: fragment,
+            hasExternalProviderTexture:
+                ProcessInfo.processInfo.environment["MWX_TEST_EXTERNAL_PROVIDER"] == "1"
         ) {
         case let .accepted(program, requestKey):
             result = .init(
                 status: "accepted", code: nil, requestKey: requestKey,
+                permitsBoundedFrontend: nil,
                 backend: program.backend.rawValue,
                 uniformBufferIndex: program.uniformBufferIndex,
                 uniformNames: program.uniformLayout.fields.map(\.name),
@@ -279,9 +283,10 @@ private struct GenericShaderArtifactHarness {
                 colorTransfer: colorTransferName(program.colorTransfer),
                 fragmentOutputChannelUse: program.fragmentOutputChannelUse.rawValue
             )
-        case let .unavailable(code, requestKey):
+        case let .unavailable(code, requestKey, permitsBoundedFrontend):
             result = .init(
                 status: "unavailable", code: code, requestKey: requestKey,
+                permitsBoundedFrontend: permitsBoundedFrontend,
                 backend: nil, uniformBufferIndex: nil,
                 uniformNames: nil, textureSlots: nil, colorTransfer: nil,
                 fragmentOutputChannelUse: nil
@@ -447,6 +452,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         *,
         route: str | None,
         fragment: str = FRAGMENT,
+        has_external_provider: bool = False,
     ):
         vertex_path = root / "fixture.vert"
         fragment_path = root / "fixture.frag"
@@ -465,6 +471,10 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             environment.pop("MWX_SCENE_GENERIC_SHADER_ROUTE", None)
         else:
             environment["MWX_SCENE_GENERIC_SHADER_ROUTE"] = route
+        if has_external_provider:
+            environment["MWX_TEST_EXTERNAL_PROVIDER"] = "1"
+        else:
+            environment.pop("MWX_TEST_EXTERNAL_PROVIDER", None)
         completed = subprocess.run(
             [str(self.binary), str(vertex_path), str(fragment_path)],
             cwd=REPOSITORY_ROOT,
@@ -486,11 +496,10 @@ vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u
 fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) { return float4(1.0); }
 """.strip() + "\n"
         return {
-            "schemaVersion": 2,
+            "schemaVersion": 3,
             "kind": "scene-generic-shader-program-artifact",
             "backendID": "glslang-spirv-cross-msl-v1",
             "requestKey": key,
-            "routeState": "prefer-generic",
             "program": {
                 "metalSource": metal,
                 "metalSourceSHA256": hashlib.sha256(metal.encode()).hexdigest(),
@@ -589,16 +598,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
 
     def test_schema_two_request_and_default_cache_namespaces_are_isolated(self):
         source = CACHE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn('"mwx-generic-shader-request-v2"', source)
-        self.assertIn('"SceneGenericShaderPrograms-v2"', source)
-        self.assertNotIn('"mwx-generic-shader-request-v1"', source)
-        self.assertNotIn('"SceneGenericShaderPrograms-v1"', source)
+        self.assertIn('"mwx-generic-shader-request-v3"', source)
+        self.assertIn('"SceneGenericShaderPrograms-v3"', source)
+        self.assertNotIn('"mwx-generic-shader-request-v2"', source)
+        self.assertNotIn('"SceneGenericShaderPrograms-v2"', source)
 
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
             root = Path(directory)
             observed, _, cache, _ = self.run_harness(root, route="observe-only")
             current_key = self.request_key(
-                "mwx-generic-shader-request-v2", VERTEX, FRAGMENT
+                "mwx-generic-shader-request-v3", VERTEX, FRAGMENT
             )
             legacy_key = self.request_key(
                 "mwx-generic-shader-request-v1", VERTEX, FRAGMENT
@@ -706,7 +715,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             self.assertEqual(accepted["colorTransfer"], "passthrough")
             self.assertEqual(accepted["fragmentOutputChannelUse"], "redDefined")
             self.assertIn(
-                "state=prefer-generic outcome=accepted reason=- ", accepted_log
+                "state=prefer-generic profile=ordinary-shader "
+                "outcome=accepted reason=- ", accepted_log
             )
             self.assertIn("count=1", accepted_log)
 
@@ -718,7 +728,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 default_accepted["backend"], "genericCompilerArtifact"
             )
             self.assertIn(
-                "state=prefer-generic outcome=accepted reason=- ",
+                "state=prefer-generic profile=ordinary-shader "
+                "outcome=accepted reason=- ",
                 default_log,
             )
 
@@ -728,7 +739,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             self.assertEqual(disabled["status"], "unavailable")
             self.assertEqual(disabled["code"], "route-disabled")
             self.assertIn(
-                "state=disable-generic outcome=fallback "
+                "state=disable-generic profile=ordinary-shader outcome=fallback "
                 "reason=route-disabled ",
                 disabled_log,
             )
@@ -738,6 +749,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             )
             self.assertEqual(invalid["status"], "unavailable")
             self.assertEqual(invalid["code"], "route-invalid")
+            self.assertTrue(invalid["permitsBoundedFrontend"])
             self.assertNotIn("outcome=accepted", invalid_log)
 
             changed, _, _, changed_log = self.run_harness(
@@ -752,7 +764,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             )
             self.assertNotEqual(changed["requestKey"], accepted["requestKey"])
             self.assertIn(
-                "outcome=fallback "
+                "profile=ordinary-shader outcome=fallback "
                 "reason=compiler-configuration-licensebundleunavailable",
                 changed_log,
             )
@@ -772,7 +784,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             self.assertEqual(rejected["status"], "unavailable")
             self.assertEqual(rejected["code"], "artifact-contract-rejected")
             self.assertIn(
-                "outcome=fallback reason=artifact-contract-rejected", rejected_log
+                "profile=ordinary-shader outcome=fallback "
+                "reason=artifact-contract-rejected", rejected_log
             )
             self.assertIn(f"request={first['requestKey']}", rejected_log)
 
@@ -790,7 +803,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             self.assertEqual(rejected["status"], "unavailable")
             self.assertEqual(rejected["code"], "artifact-contract-rejected")
             self.assertIn(
-                "outcome=fallback reason=artifact-contract-rejected",
+                "profile=ordinary-shader outcome=fallback "
+                "reason=artifact-contract-rejected",
                 rejected_log,
             )
 
@@ -947,21 +961,93 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             (cache / f"{first['requestKey']}.json").write_text(
                 json.dumps(artifact), encoding="utf-8"
             )
-            accepted, _, _, _ = self.run_harness(
+            accepted, _, _, accepted_log = self.run_harness(
                 root, route="prefer-generic", fragment=INTERPOLATED_FRAGMENT
             )
             self.assertEqual(accepted["status"], "accepted")
             self.assertEqual(accepted["colorTransfer"], "interpolatedColor")
+            self.assertIn(
+                "state=generic-only "
+                "profile=source-proven-scalar-color-interpolation "
+                "outcome=accepted",
+                accepted_log,
+            )
 
             artifact["program"]["colorTransfer"]["slots"] = [1, 0]
             (cache / f"{first['requestKey']}.json").write_text(
                 json.dumps(artifact), encoding="utf-8"
             )
-            rejected, _, _, _ = self.run_harness(
+            rejected, _, _, rejected_log = self.run_harness(
                 root, route="prefer-generic", fragment=INTERPOLATED_FRAGMENT
             )
             self.assertEqual(rejected["status"], "unavailable")
             self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+            self.assertIn(
+                "state=generic-only "
+                "profile=source-proven-scalar-color-interpolation "
+                "outcome=rejected reason=artifact-contract-rejected",
+                rejected_log,
+            )
+
+    def test_interpolated_profile_revokes_bounded_owner_until_explicit_rollback(
+        self,
+    ):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            rejected, _, _, rejected_log = self.run_harness(
+                root, route=None, fragment=INTERPOLATED_FRAGMENT
+            )
+            self.assertEqual(rejected["status"], "unavailable")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+            self.assertIn("state=generic-only", rejected_log)
+            self.assertIn(
+                "profile=source-proven-scalar-color-interpolation",
+                rejected_log,
+            )
+            self.assertIn("outcome=rejected", rejected_log)
+
+            observed, _, _, _ = self.run_harness(
+                root, route="observe-only", fragment=INTERPOLATED_FRAGMENT
+            )
+            self.assertEqual(observed["code"], "route-observe-only")
+            self.assertFalse(observed["permitsBoundedFrontend"])
+
+            invalid, _, _, _ = self.run_harness(
+                root, route="unknown-route", fragment=INTERPOLATED_FRAGMENT
+            )
+            self.assertEqual(invalid["code"], "route-invalid")
+            self.assertFalse(invalid["permitsBoundedFrontend"])
+
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root, route="disable-generic", fragment=INTERPOLATED_FRAGMENT
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertIn(
+                "state=disable-generic "
+                "profile=source-proven-scalar-color-interpolation "
+                "outcome=fallback reason=route-disabled",
+                rollback_log,
+            )
+
+    def test_provider_backed_interpolation_keeps_typed_bounded_fallback(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            unavailable, _, _, log = self.run_harness(
+                root,
+                route=None,
+                fragment=INTERPOLATED_FRAGMENT,
+                has_external_provider=True,
+            )
+            self.assertEqual(unavailable["status"], "unavailable")
+            self.assertTrue(unavailable["permitsBoundedFrontend"])
+            self.assertIn("state=prefer-generic", log)
+            self.assertIn(
+                "profile=provider-backed-scalar-color-interpolation",
+                log,
+            )
+            self.assertIn("outcome=fallback", log)
 
 
 if __name__ == "__main__":

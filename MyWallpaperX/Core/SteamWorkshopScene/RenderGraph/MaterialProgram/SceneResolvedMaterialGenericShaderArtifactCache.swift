@@ -2,11 +2,16 @@ import Foundation
 
 /// Product preparation cache for exact-source-keyed generic Program artifacts.
 /// Cache misses may invoke the separately killable bundled compiler worker;
-/// malformed or failed output remains an effect-local typed fallback.
+/// malformed or failed output is either an effect-local typed fallback or a
+/// profile-local rejection after the bounded product owner has been revoked.
 nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     enum Resolution {
         case accepted(program: SceneAuthoredShaderProgram, requestKey: String)
-        case unavailable(code: String, requestKey: String)
+        case unavailable(
+            code: String,
+            requestKey: String,
+            permitsBoundedFrontend: Bool
+        )
     }
 
     private struct Request: Encodable {
@@ -32,12 +37,58 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
 
     private enum RouteState: String {
         case preferGeneric = "prefer-generic"
+        case genericOnly = "generic-only"
         case observeOnly = "observe-only"
         case disableGeneric = "disable-generic"
 
-        static func resolve(_ rawValue: String?) -> RouteState? {
-            guard let rawValue else { return .preferGeneric }
-            return RouteState(rawValue: rawValue)
+        static func resolve(
+            _ rawValue: String?,
+            defaultState: RouteState
+        ) -> RouteState? {
+            guard let rawValue else { return defaultState }
+            guard let requested = RouteState(rawValue: rawValue) else { return nil }
+            switch requested {
+            case .preferGeneric:
+                // A migrated profile cannot silently regain a second product
+                // owner. `disable-generic` is its explicit rollback switch.
+                return defaultState == .genericOnly ? .genericOnly : .preferGeneric
+            case .genericOnly:
+                // Do not let an environment toggle broaden generic-only
+                // authority to profiles that have not passed their owner gate.
+                return defaultState == .genericOnly ? .genericOnly : nil
+            case .observeOnly, .disableGeneric:
+                return requested
+            }
+        }
+    }
+
+    private enum CapabilityProfile: String {
+        case ordinaryShader = "ordinary-shader"
+        case providerBackedScalarColorInterpolation =
+            "provider-backed-scalar-color-interpolation"
+        case sourceProvenScalarColorInterpolation =
+            "source-proven-scalar-color-interpolation"
+
+        init(
+            colorTransfer: SceneShaderColorTransfer,
+            hasExternalProviderTexture: Bool
+        ) {
+            if case .interpolatedColor = colorTransfer,
+               hasExternalProviderTexture {
+                self = .providerBackedScalarColorInterpolation
+            } else if case .interpolatedColor = colorTransfer {
+                self = .sourceProvenScalarColorInterpolation
+            } else {
+                self = .ordinaryShader
+            }
+        }
+
+        var defaultRouteState: RouteState {
+            switch self {
+            case .ordinaryShader,
+                 .providerBackedScalarColorInterpolation: .preferGeneric
+            case .sourceProvenScalarColorInterpolation: .genericOnly
+            }
         }
     }
 
@@ -48,19 +99,23 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
 
         func record(
             state: RouteState,
+            profile: CapabilityProfile,
             outcome: String,
             reason: String,
             requestKey: String
         ) {
             let count = lock.withLock {
-                let identity = "\(outcome):\(reason)"
+                let identity = [
+                    state.rawValue, profile.rawValue, outcome, reason,
+                ].joined(separator: ":")
                 let updated = counts[identity, default: 0] + 1
                 counts[identity] = updated
                 return updated
             }
             NSLog(
-                "MWX generic shader route state=%@ outcome=%@ reason=%@ request=%@ count=%d",
+                "MWX generic shader route state=%@ profile=%@ outcome=%@ reason=%@ request=%@ count=%d",
                 state.rawValue,
+                profile.rawValue,
                 outcome,
                 reason,
                 requestKey,
@@ -70,6 +125,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
 
         func recordExecution(
             state: RouteState,
+            profile: CapabilityProfile,
             backend: SceneAuthoredShaderProgram.Backend,
             layerID: Int,
             effectIndex: Int,
@@ -85,8 +141,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 return
             }
             NSLog(
-                "MWX generic shader execution state=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@",
+                "MWX generic shader execution state=%@ profile=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@",
                 state.rawValue,
+                profile.rawValue,
                 layerID,
                 effectIndex,
                 descriptorID,
@@ -160,36 +217,63 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
 
     static func resolve(
         vertexSource: String,
-        fragmentSource: String
+        fragmentSource: String,
+        hasExternalProviderTexture: Bool = false
     ) -> Resolution {
         let key = requestKey(
             vertexSource: vertexSource,
             fragmentSource: fragmentSource
         )
+        let colorTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(
+            fragmentSource: fragmentSource
+        )
+        let profile = CapabilityProfile(
+            colorTransfer: colorTransfer,
+            hasExternalProviderTexture: hasExternalProviderTexture
+        )
         let environment = ProcessInfo.processInfo.environment
-        guard let routeState = RouteState.resolve(environment[routeEnvironment]) else {
-            return .unavailable(code: "route-invalid", requestKey: key)
+        guard let routeState = RouteState.resolve(
+            environment[routeEnvironment],
+            defaultState: profile.defaultRouteState
+        ) else {
+            return .unavailable(
+                code: "route-invalid",
+                requestKey: key,
+                permitsBoundedFrontend:
+                    profile.defaultRouteState != .genericOnly
+            )
         }
         guard routeState != .disableGeneric else {
             routeTelemetry.record(
                 state: routeState,
+                profile: profile,
                 outcome: "fallback",
                 reason: "route-disabled",
                 requestKey: key
             )
-            return .unavailable(code: "route-disabled", requestKey: key)
+            return .unavailable(
+                code: "route-disabled",
+                requestKey: key,
+                permitsBoundedFrontend: true
+            )
         }
         exportRequest(
             key: key,
             vertexSource: vertexSource,
             fragmentSource: fragmentSource
         )
-        guard routeState == .preferGeneric else {
-            return .unavailable(code: "route-observe-only", requestKey: key)
+        guard routeState == .preferGeneric || routeState == .genericOnly else {
+            return .unavailable(
+                code: "route-observe-only",
+                requestKey: key,
+                permitsBoundedFrontend:
+                    profile.defaultRouteState != .genericOnly
+            )
         }
         guard let root = cacheDirectory(environment: environment) else {
             return fallback(
                 state: routeState,
+                profile: profile,
                 code: "cache-unavailable",
                 requestKey: key
             )
@@ -227,6 +311,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 )
                 return fallback(
                     state: routeState,
+                    profile: profile,
                     code: code,
                     requestKey: key
                 )
@@ -235,6 +320,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         guard let data else {
             return fallback(
                 state: routeState,
+                profile: profile,
                 code: "compiler-publication-missing",
                 requestKey: key
             )
@@ -248,13 +334,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         } catch {
             return fallback(
                 state: routeState,
+                profile: profile,
                 code: "artifact-invalid-json",
                 requestKey: key
             )
         }
-        let colorTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(
-            fragmentSource: fragmentSource
-        )
         let fragmentOutputChannelUse = fragmentOutputChannelUse(fragmentSource)
         guard let program = artifact.makeProgram(
                   expectedKey: key,
@@ -263,12 +347,14 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
               ) else {
             return fallback(
                 state: routeState,
+                profile: profile,
                 code: "artifact-contract-rejected",
                 requestKey: key
             )
         }
         routeTelemetry.record(
             state: routeState,
+            profile: profile,
             outcome: "accepted",
             reason: "-",
             requestKey: key
@@ -294,20 +380,28 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
 
     private static func fallback(
         state: RouteState,
+        profile: CapabilityProfile,
         code: String,
         requestKey: String
     ) -> Resolution {
         routeTelemetry.record(
             state: state,
-            outcome: "fallback",
+            profile: profile,
+            outcome: state == .genericOnly ? "rejected" : "fallback",
             reason: code,
             requestKey: requestKey
         )
-        return .unavailable(code: code, requestKey: requestKey)
+        return .unavailable(
+            code: code,
+            requestKey: requestKey,
+            permitsBoundedFrontend: state != .genericOnly
+        )
     }
 
     static func recordExecution(
         backend: SceneAuthoredShaderProgram.Backend,
+        colorTransfer: SceneShaderColorTransfer,
+        hasExternalProviderTexture: Bool,
         layerID: Int,
         effectIndex: Int,
         descriptorID: String,
@@ -315,11 +409,19 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         preparedKey: String
     ) {
         let environment = ProcessInfo.processInfo.environment
-        guard RouteState.resolve(environment[routeEnvironment]) == .preferGeneric else {
+        let profile = CapabilityProfile(
+            colorTransfer: colorTransfer,
+            hasExternalProviderTexture: hasExternalProviderTexture
+        )
+        guard let state = RouteState.resolve(
+                  environment[routeEnvironment],
+                  defaultState: profile.defaultRouteState
+              ), state == .preferGeneric || state == .genericOnly else {
             return
         }
         routeTelemetry.recordExecution(
-            state: .preferGeneric,
+            state: state,
+            profile: profile,
             backend: backend,
             layerID: layerID,
             effectIndex: effectIndex,
@@ -335,7 +437,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     ) -> String {
         var data = Data()
         for value in [
-            "mwx-generic-shader-request-v2",
+            "mwx-generic-shader-request-v3",
             "wallpaper-engine-glsl-like-v0",
             vertexSource,
             fragmentSource,
@@ -406,7 +508,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         ).first else { return nil }
         let root = caches
             .appendingPathComponent("com.songziqiang.MyWallpaperX", isDirectory: true)
-            .appendingPathComponent("SceneGenericShaderPrograms-v2", isDirectory: true)
+            .appendingPathComponent("SceneGenericShaderPrograms-v3", isDirectory: true)
             .standardizedFileURL
         do {
             try FileManager.default.createDirectory(

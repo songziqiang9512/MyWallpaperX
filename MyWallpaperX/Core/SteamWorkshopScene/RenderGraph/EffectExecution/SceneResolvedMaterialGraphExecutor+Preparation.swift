@@ -242,6 +242,10 @@ extension SceneResolvedMaterialGraphExecutor {
                 programKeys.append(program.preparedShader.cacheKey)
                 SceneResolvedMaterialGenericShaderArtifactCache.recordExecution(
                     backend: program.frontendProgram.backend,
+                    colorTransfer: program.frontendProgram.colorTransfer,
+                    hasExternalProviderTexture:
+                        SceneResolvedMaterialVariantCache
+                            .hasExternalProviderTexture(in: material.template),
                     layerID: node.effect.layerID,
                     effectIndex: node.effect.effectIndex,
                     descriptorID: node.effect.descriptorID,

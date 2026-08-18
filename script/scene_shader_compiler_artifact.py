@@ -72,7 +72,7 @@ def request_cache_key(request: dict[str, Any]) -> str:
         raise ArtifactFailure("request-pair")
     digest = hashlib.sha256()
     for value in (
-        "mwx-generic-shader-request-v2",
+        "mwx-generic-shader-request-v3",
         str(request.get("sourceDialect", "glsl-450")),
         sources["vertex"],
         sources["fragment"],
@@ -451,11 +451,10 @@ def build_program_artifact(
     if len(metal_source.encode("utf-8")) > maximum_artifact_bytes:
         raise ArtifactFailure("metal-size")
     return {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "kind": "scene-generic-shader-program-artifact",
         "backendID": backend_id,
         "requestKey": request_key,
-        "routeState": "prefer-generic",
         "program": {
             "metalSource": metal_source,
             "metalSourceSHA256": sha256_bytes(metal_source.encode("utf-8")),

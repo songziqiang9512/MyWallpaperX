@@ -6234,6 +6234,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertLess(resolve_start, switch_start)
         self.assertNotIn("onBoundedFrontendCompilation()", accepted)
         self.assertNotIn("SceneAuthoredShaderFrontend.compile(", accepted)
+        self.assertIn("guard permitsBoundedFrontend else", unavailable)
+        revoked = unavailable[:unavailable.index("onBoundedFrontendCompilation()")]
+        self.assertIn("bounded-frontend-owner-revoked", revoked)
+        self.assertNotIn("SceneAuthoredShaderFrontend.compile(", revoked)
         self.assertIn("onBoundedFrontendCompilation()", unavailable)
         self.assertIn("SceneAuthoredShaderFrontend.compile(", unavailable)
         self.assertLess(

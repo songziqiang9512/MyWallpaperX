@@ -61,15 +61,13 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
     let kind: String
     let backendID: String
     let requestKey: String
-    let routeState: String
     let program: Program
 
     init(backendID: String, requestKey: String, program: Program) {
-        schemaVersion = 2
+        schemaVersion = 3
         kind = "scene-generic-shader-program-artifact"
         self.backendID = backendID
         self.requestKey = requestKey
-        routeState = "prefer-generic"
         self.program = program
     }
 
@@ -79,11 +77,10 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         expectedFragmentOutputChannelUse:
             SceneAuthoredShaderProgram.FragmentOutputChannelUse
     ) -> SceneAuthoredShaderProgram? {
-        guard schemaVersion == 2,
+        guard schemaVersion == 3,
               kind == "scene-generic-shader-program-artifact",
               backendID == "glslang-spirv-cross-msl-v1",
-              requestKey == expectedKey,
-              routeState == "prefer-generic" else { return nil }
+              requestKey == expectedKey else { return nil }
         let raw = program
         guard raw.vertexFunctionName == "mwxGenericVertex",
               raw.fragmentFunctionName == "mwxGenericFragment",

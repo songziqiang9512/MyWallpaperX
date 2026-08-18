@@ -60,7 +60,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         }
         let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: prepared.vertex.source,
-            fragmentSource: prepared.fragment.source
+            fragmentSource: prepared.fragment.source,
+            hasExternalProviderTexture:
+                SceneResolvedMaterialVariantCache
+                    .hasExternalProviderTexture(in: template)
         )
         let frontend: SceneAuthoredShaderProgram
         let boundedOutput: SceneAuthoredShaderFrontendOutput?
@@ -70,7 +73,17 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             frontend = program
             boundedOutput = nil
             artifactFailure = ["generic-artifact-accepted", requestKey]
-        case let .unavailable(code, requestKey):
+        case let .unavailable(code, requestKey, permitsBoundedFrontend):
+            guard permitsBoundedFrontend else {
+                throw failure(
+                    .shaderFrontendFailed,
+                    phase: .frontend,
+                    details: [
+                        "generic-artifact", code, requestKey,
+                        "bounded-frontend-owner-revoked",
+                    ]
+                )
+            }
             onBoundedFrontendCompilation()
             let runtimeLoopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
                 template: template,
@@ -170,6 +183,17 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             }
         }
         return nil
+    }
+
+    static func hasExternalProviderTexture(
+        in template: Template
+    ) -> Bool {
+        template.textureSlots.compactMap { $0 }.contains { slot in
+            slot.candidates.contains { candidate in
+                if case .provider = candidate.reference { return true }
+                return false
+            }
+        }
     }
 
     static func validateSamplerBindings(

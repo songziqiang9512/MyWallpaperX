@@ -195,10 +195,10 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             artifact = json.loads(artifact_output.read_text(encoding="utf-8"))
             request = json.loads(FIXTURE.read_text(encoding="utf-8"))
-            self.assertEqual(artifact["schemaVersion"], 2)
+            self.assertEqual(artifact["schemaVersion"], 3)
             self.assertEqual(artifact["kind"], "scene-generic-shader-program-artifact")
             self.assertEqual(artifact["requestKey"], request_cache_key(request))
-            self.assertEqual(artifact["routeState"], "prefer-generic")
+            self.assertNotIn("routeState", artifact)
             self.assertEqual(artifact["program"]["colorTransfer"], {
                 "kind": "passthrough", "slot": 0
             })
@@ -248,7 +248,7 @@ fragment void f() {
             msl_sources={"vertex": vertex_msl, "fragment": fragment_msl},
             maximum_artifact_bytes=1_024_000,
         )
-        self.assertEqual(artifact["schemaVersion"], 2)
+        self.assertEqual(artifact["schemaVersion"], 3)
         self.assertEqual(artifact["program"]["staticLoopWork"], 4)
         self.assertEqual(artifact["program"]["colorTransfer"], {"kind": "opaque"})
         self.assertEqual(
