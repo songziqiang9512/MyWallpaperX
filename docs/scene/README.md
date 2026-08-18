@@ -12,7 +12,7 @@ Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者�
 
 对每个触达范围都要分开写目标合同、当前事实和偏差债务。现有代码与测试只能证明当前实现；它们偏离目标架构时，应在当前纵向 atom 所需范围内主动纠正，而不是新增兼容错误实现的 wrapper、matcher 或专用分支。
 
-当前 V0 目标是让 ordinary authored material/shader 通过通用 compiler、Program、GraphExecutor 和 compositor 实际出画面。旧 G0–G5 计划、R0–R5 记录和 coverage-first 批次均已退役，只能从[历史索引](../history/README.md)追溯。
+V0 的首个 ordinary authored material/shader 可见门已经闭合；当前主线只按[兼容执行路线](scene-compatibility-roadmap.md)收口 V1 correctness atom 与 owner 债务，随后依次进入 V2、V3，以 V4 横切输入轨补齐 producer/provider，再逐项进入 V5。当前能力宽度和最新证据分别只查能力台账、专项表与运行证据索引。旧 G0–G5 计划、R0–R5 记录和 coverage-first 批次均已退役，只能从[历史索引](../history/README.md)追溯。
 
 ## 当前架构与计划
 

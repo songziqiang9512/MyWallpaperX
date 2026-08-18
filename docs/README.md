@@ -9,7 +9,7 @@
 | 工作规则 | Agent 如何实现、验证、提交和保护工作区 | [`AGENTS.md`](../AGENTS.md) |
 | 长期技术边界 | 技术栈、语言、进程、依赖和所有权 | [技术栈与架构路线](architecture/technology-stack-boundaries.md) |
 | Scene 目标架构 | 如何把官方/静态/参考证据转成 MyWallpaperX 的兼容运行时 | [Scene 兼容运行时架构](scene/runtime-architecture.md) |
-| Scene 现役计划 | 当前第一批、纵向路线、停止项和完成门 | [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md) |
+| Scene 现役计划 | 当前段位、剩余顺序、停止项和完成门 | [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md) |
 | Scene 官方结果研究 | 公开资料不足时如何研究固定官方客户端并把结果交给独立实现 | [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md) |
 | Scene 当前能力 | 每项能力现在是已执行、部分、仅结构还是缺失 | [Scene 能力台账](scene/semantics/coverage-ledger.md)及专项表 |
 | Scene 当前运行证据 | 当前构建、样本、GPU/compositor、失败和未验证边界 | [运行证据索引](scene/semantics/runtime-evidence-index.md) |
@@ -22,7 +22,7 @@
 
 - [Scene 专题入口](scene/README.md)：当前架构、路线、能力、证据和资料导航。
 - [Scene 兼容运行时架构](scene/runtime-architecture.md)：官方公开合同、2.8.42 客户端静态观察、Mirage clean-room 模式和项目独立方案的边界。
-- [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md)：V0–V5 纵向路线；V0 先让普通 authored material/shader 实际出画面。
+- [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md)：唯一现役 Scene 执行计划；当前先收口 V1 correctness atom 与 owner 债务，再依次闭合 V2、V3，以 V4 横切输入轨补齐 producer/provider，最后逐项进入 V5 epics。
 - [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md)：有界黑盒/静态研究、独立实现交接和预登记 parity 门。
 - [语义手册](scene/semantics/README.md)：按格式、Graph/Shader、Effect、Particle、SceneScript、输入和高级对象进入专项合同。
 - [能力台账](scene/semantics/coverage-ledger.md)：所有能力的当前状态、明确边界和待办。

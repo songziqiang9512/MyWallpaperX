@@ -494,7 +494,7 @@ Realtime Adapter              Offline Adapter
 
 ## 11. 现役推进与封存边界
 
-本文定义运行时语义，不另建能力顺序。现役次序只来自 [Scene 兼容路线](../scene-compatibility-roadmap.md)：V0/V1 先闭合通用 shader/graph 可见链，随后按真实画面进入 V2 SceneScript、V3 particle component interpreter、V4 input/provider，Puppet/3D/Lighting 与离线产品层属于 V5。旧 D/R/B 计划及其“下一批”均已封存，历史提交和数字只能从[运行证据索引](runtime-evidence-index.md)追溯。
+本文定义运行时语义，不另建能力顺序，也不复述 V1–V5 的串行、并行或完成状态。现役段位、V4 横切方式和 V5 itemization 只来自 [Scene 兼容路线](../scene-compatibility-roadmap.md)；旧 D/R/B 计划及其“下一批”均已封存，历史提交和数字只能从[运行证据索引](runtime-evidence-index.md)追溯。
 
 运行时系统的实施原则：
 

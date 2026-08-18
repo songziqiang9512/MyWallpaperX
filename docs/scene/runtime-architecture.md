@@ -320,4 +320,4 @@ Puppet、2D lighting/HDR、3D、RGB、offline bake、color/multi-display/device 
 7. 现有 dedicated backend、bounded Swift language frontend 和 fixed script evaluator 已删除，或隔离为不持有产品执行权的测试 oracle；仍承担产品 fallback 的路径属于未完成迁移，必须可观察并登记退役条件；
 8. 当前能力、运行证据和性能/发布边界分别由各自权威文档证明。
 
-具体顺序和当前第一批工作只看[Scene 兼容执行路线](scene-compatibility-roadmap.md)。
+具体顺序、当前段位和任务选择只看[Scene 兼容执行路线](scene-compatibility-roadmap.md)。

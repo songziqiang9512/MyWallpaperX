@@ -370,7 +370,7 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 - V4：properties、pointer、audio、media、text 与 provider；
 - V5：Puppet、lighting/HDR、3D、RGB、offline、性能与发行。
 
-当前第一批不得继续按 Effect 名称新增 strict backend。它从 `SceneEffectStageCompiler.resolveDedicatedStage -> noBackendAccepted` 开始，让普通作者程序先尝试通用 backend，并把一个 stage/quad 失败后的整 layer 或后续 layer suffix 中断收窄为真实依赖面。旧 B/R 标签仅用于追溯已有证据包。
+所有后续 V1–V5 原子都不得按 Effect 名称新增 strict backend；普通作者程序优先进入通用 backend，一个 stage/quad 失败只收窄到真实 effect/依赖面。当前段位和下一 atom 只由[现役路线](../scene-compatibility-roadmap.md)选择，旧 B/R 标签仅用于追溯已有证据包。
 
 ## 9. 更新规则
 

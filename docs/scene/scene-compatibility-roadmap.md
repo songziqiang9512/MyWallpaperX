@@ -6,7 +6,7 @@
 >
 > 启动日期：2026-08-15
 >
-> 当前主线：V1 通用 graph、FBO 与 command 纵向通路
+> 当前主线：收口 V1 通用 graph/FBO/command correctness atom，再清零 V1 产品 owner 债务
 >
 > 当前能力只查[能力台账](semantics/coverage-ledger.md)，架构理由只查[兼容运行时架构](runtime-architecture.md)，已运行结果只查[运行证据索引](semantics/runtime-evidence-index.md)。
 
@@ -18,7 +18,7 @@
 
 本路线优化的第一结果是“更多真实作者效果实际进入 GPU 并得到可见画面”，不是“更多结构被识别”“更多拒绝理由被证明”或“先完成一个通用平台”。
 
-一个开发批次只有同时满足以下条件才算带来可见进展：
+一个 correctness/capability 开发批次只有同时满足以下条件才算带来可见进展：
 
 1. 至少一个此前未执行的真实 authored pass、script behavior 或 particle component 实际运行；
 2. 运行结果沿现有 resource/target/publication/compositor 主链闭合；
@@ -28,56 +28,27 @@
 
 普通 parser、IR、diagnostic、compiler census 或 matrix 变化可以是必要前置，但不能单独记为“效果完成”。
 
+独立 owner-migration、纯规则或历史整理批次不冒充新增可见能力；它们分别按 route/撤权/回滚门或文档治理门验收，并保持既有可见结果不回退。
+
 ## 2. 当前路线前提
 
 本节不复述 current capability，也不保存底座、backend、失败半径或样本状态的移动快照。当前能力与缺口只读取[能力台账 §1](semantics/coverage-ledger.md#1-口径)，当前运行身份与首断点只读取[运行证据索引 §1](semantics/runtime-evidence-index.md#1-当前证据快照)；两者变化时先更新各自权威，再重新审查本文的路线选择，禁止直接在计划中手改一份平行事实。
 
-本文只保存由上述现役权威导出的计划决策：V0 首个 ordinary authored effect 已按完成门取得 `slice-visible` 正反证，下一批进入 V1，在同一 Program/GraphExecutor 主链闭合最小 graph/FBO correctness atom，不建设第二套 renderer。仓库中的历史专用实现、旧测试、旧类型层级和旧 matrix 只构成需要审计的偏差候选，不自动取得目标架构或下一批执行权。
+由上述现役权威导出的剩余顺序只有一条：先闭合 V1 剩余 correctness atom，再完成 V1 owner debt；之后依次完成 V2、V3，以 V4 作为贯穿既有 consumer 的输入/provider 收口轨，最后逐项进入 V5 epics。V1 未同时通过 correctness 与 owner-debt 两道门时，不把 V2 的既有 bounded 证据改写成主线切换；V4 所需 producer 可以随 V1–V3 的真实 consumer 同批接入，但不能据此跳过 V2/V3 完成门或提前进入 V5。
 
-依据当前能力台账与运行证据，V1 当前已登记 material/copy/unique-history、classic primary cross-layer named-provider、同一primary provider的two-consumer共享、两个独立primary provider各自服务一个consumer、同一consumer多ordinary effect/pass引用共享一个primary provider、exact R8 repeat FBO/direct-red、bounded layer-local full-frame compose、same-frame scene-background compose carrier、same-descriptor authored swap、stable zero-default authored condition pruning、显式 typed material/instance condition pruning、ordered multi-copy command chain、mixed copy/swap command chain、mixed swap/copy command chain 与 typed-condition mixed command pruning 的 bounded `slice-visible`；另有显式 typed material-function clear 的 `contract-executable / contract-representative` 正反门。condition atom 只覆盖一个显式 integer combo provider和一个 ordinary layer-local compose shape；multi-copy atom只覆盖同一 effect 的两个 declared RGBA history target与两个 copy command，mixed copy/swap atom只覆盖同一 effect 的两个 descriptor-identical declared RGBA history target、一个 copy 后一个 swap，mixed swap/copy atom只覆盖同一 effect 的两个 descriptor-identical declared RGBA history target、首 material seed 后一个 swap 再一个 copy、以及末 material 对 copy 后 logical target 的读取，condition atom只覆盖该 mixed chain 的 swap node pruning并保留合法 copy，route仍为`prefer-generic`。multiple-consumer atom只覆盖一个single backward primary composition provider、两个consumer、slot 1、无user override、blend 0与unit constants；two-provider atom只覆盖两个single backward primary composition provider、各一个consumer、slot 1、无user override、blend 0与unit constants；single-consumer multi-reference atom只覆盖同一primary provider、两个ordinary authored effect/pass、slot 1、无user override、blend 0与unit constants；cycle 已取得真实隔离负证并明确保持硬拒绝；secondary、nested/effectful provider仍未闭合。function atom 只接受 frame-scoped request，在 history rehydrate 后按 registry 作者顺序推进 target generation、clear 与后续 graph read；未知 effect/name、stale epoch、target/lease mismatch 和 encode-abandon 均 fail closed 并保留 previous current。能力台账与运行证据另已登记 named-provider 的局部 `generic-only / owner-migration-complete`。V2 的 QuickJS-NG scalar owner 现已在派生真实 authored fixture 上取得 bounded `slice-visible` 正反证；精确 sample、fixture、App、报告与截图身份只见运行证据索引。V2 route 仍为 `prefer-generic`，当前主线继续 V1 剩余 graph/FBO/command/dependency/lifecycle 形态。上述 atom 不代表 arbitrary V1、owner migration、Fluid、Fast Suite、官方 parity 或 release。
+V1 当前已闭合和仍缺的精确 shape、route state 与升级门只查[Render Graph / Shader 覆盖表](semantics/render-graph-shader-coverage.md)，对应 App/fixture/GPU/publication/compositor 证据只查[运行证据索引](semantics/runtime-evidence-index.md)。V2–V5 同理返回各专项表。本路线只拥有顺序与完成门，不复制 atom 名单、batch 数、样本身份、报告路径或 route 快照。
 
 ## 3. 执行优先级
 
-### V0：普通 authored material/shader 首次出画面——首个 `slice-visible` 已闭合
+### V0：普通 authored material/shader 首次出画面——已封存门
 
-目标链：
-
-```text
-effect definition
-  -> ordinary material pass
-  -> VFS/include + combo/default
-  -> general shader backend
-  -> reflection + texture/uniform/state binding
-  -> Program
-  -> GraphExecutor
-  -> layer current
-  -> compositor
-```
-
-第一批只要求：
-
-- image/composition layer 的普通 vertex + fragment pass；
-- framebuffer/source slot 和常见 optional authored texture；
-- 常见 scalar/vector/matrix uniform、`g_Texture0...7` hole、combo 和基础 render state；
-- glslang → SPIR-V → SPIRV-Cross MSL 的独立编译 harness；
-- preparation-time MSL library/pipeline cache，不在 encode 热路径首次编译；
-- compiler 失败时跳过当前 effect并保留 previous current；
-- 现有 dedicated backend 作为明确、可观测 fallback，不新增同类 backend。
-
-第一批不要求：
-
-- 所有官方 effect；
-- 任意 shader 或完整历史 dialect；
-- 多 pass/FBO/history；
-- 删除所有旧 planner；
-- full matrix、x86_64、Developer ID 或 notarization；
-- 每个 analyzer 都迁移或删除。
-
-V0 完成门：至少一个此前因 `noBackendAccepted`、frontend admission 或 color-contract 阻断而未执行的真实 ordinary effect，使用通用作者程序实际产生 GPU effect output；同场其他 layer 保持；另有编译失败的局部降级反例。证据必须区分 compile、Program、encode、completion、publication、terminal compositor 和 next-frame，截图需证明预期方向变化，但不外推 Wallpaper Engine 像素等价。
+V0 的目标链和首个 `slice-visible` 结论已经由[能力台账](semantics/coverage-ledger.md)、[Effect 覆盖表](semantics/effect-execution-coverage.md)、[Render Graph / Shader 覆盖表](semantics/render-graph-shader-coverage.md)与[运行证据索引](semantics/runtime-evidence-index.md)接管。V0 不再保留“第一批”清单，也不从历史断点续接；后续 shader/frontend 缺口只有在服务当前 V1–V5 纵向结果时进入对应批次。
 
 ### V1：Effect graph、FBO 与 command——现在
 
-沿同一 Program/GraphExecutor 路线增加：
+#### V1-A：剩余 correctness atom
+
+沿同一 Program/GraphExecutor 路线逐个闭合：
 
 - ordered multi-pass；
 - authored target/FBO extent、fit、scale、format、clear 和 unique；
@@ -89,9 +60,17 @@ V0 完成门：至少一个此前因 `noBackendAccepted`、frontend admission �
 
 V1 不建立第二套 renderer，也不为 Motion Blur、Refraction、Glitter 等名字写专用算法。它们只可作为普通 pass、copy/history、compose、FBO 等结构的代表 fixture。
 
-完成门：普通多 pass、FBO command chain、history chain 和 cross-layer chain 各有项目正反门；至少一个真实 multi-pass effect 不新增 Swift matcher 即开始执行；一个中间 pass 失败只回退其 effect/依赖子图。
+V1-A 完成门：以[Render Graph / Shader 覆盖表](semantics/render-graph-shader-coverage.md)登记的当前 shape 为准，普通 multi-pass、FBO command、history/lifecycle、condition/function、compose 与 cross-layer dependency 的剩余公共形态均有项目正反门和明确 unsupported 边界；至少一个真实 multi-pass effect 不新增 Swift matcher 即执行；任一中间 pass 或依赖失败只回退 effect/真实依赖子图。未取得同级证据的 shape 必须继续 fail closed，不能用“任意 V1 已完成”抹掉。
 
-### V2：真实 SceneScript VM——可与 V1 研究并行
+#### V1-B：owner debt
+
+V1-A 不自动撤销旧 owner。完成 correctness 后，按[能力台账](semantics/coverage-ledger.md)和[Render Graph / Shader 覆盖表](semantics/render-graph-shader-coverage.md)逐项审计仍为 `observe-only`、`prefer-generic`、dedicated fallback 或重复 publication/graph owner 的产品路径；每个 profile 独立迁移，不用一个 bounded `generic-only` 外推整个 family。
+
+V1-B 完成门：所有纳入 V1 完成范围的 profile 都有显式 route state、typed fallback 统计、新组合门和一次 `disable-generic` 回滚演练；产品 route 原子切到 `generic-only`，旧产品引用、执行 owner 与实现耦合测试 owner 已删除或隔离为无产品执行权的独立 oracle，能力与证据权威同步。仍承担产品 fallback 的 profile 必须登记 owner、reason、退出条件，并使 V1 保持未完成。
+
+只有 V1-A 与 V1-B 同时通过，主线才进入 V2。
+
+### V2：真实 SceneScript VM
 
 首条纵向链：
 
@@ -116,9 +95,9 @@ inline/file source
 
 现有 bounded Swift AST evaluator 在迁移期只作为已验证 fallback/oracle。不得继续为 greeting、clock、Audio Bars、launch cohort 等已知源码增加新 profile。
 
-完成门：一个真实 property script 和一个生命周期/事件 script 通过 VM 改变画面；无限循环、exception、OOM/stale handle 只终止对应 script owner；当前 bounded fallback 在对应 VM 路径稳定以后再撤权。
+V2 完成门：以[SceneScript API 覆盖表](semantics/scenescript-api-coverage.md)为当前事实，一个真实 property script 和一个 lifecycle/event script 通过 VM 改变画面或产生预登记事件结果；无限循环、exception、OOM、reload/teardown 与 stale handle 只终止对应 script owner；所需 typed handle、job/timer 与 mutation transaction 有正反门。纳入 V2 完成范围的 bounded Swift/fixed owner 已完成 `generic-only` 迁移或在专项表明确保持 unsupported，不再承担静默产品 fallback。V2 通过后才进入 V3。
 
-### V3：Particle component interpreter——可与 V1/V2 研究并行
+### V3：Particle component interpreter
 
 按官方组件面把 definition 编译为共享 operation stream：
 
@@ -133,11 +112,11 @@ inline/file source
 
 从当前 corpus 高频组件和缺少可见效果的代表系统开始，不按完整 particle definition 名称写 renderer。现有通用 emitter/initializer/operator/renderer 继续保留，严格 profile 逐步改成数据驱动 registry。
 
-完成门：新的合法组件组合无需增加完整效果名分支即可运行；unknown optional component 局部诊断，缺少 renderer/非法数值只停用对应 system；spawn/update/render/child/teardown 有同一实例生命周期证据。
+V3 完成门：以[Particle 组件覆盖表](semantics/particle-component-coverage.md)为当前事实，新的合法 emitter/initializer/operator/renderer/child/control-point 组合无需增加完整 definition 名称分支即可运行；unknown optional component 局部诊断，缺少 renderer、非法数值或预算失败只停用对应 system；spawn/update/render/child/teardown 有同一实例生命周期证据。纳入完成范围的 strict profile 产品 owner 已撤权或显式保持 unsupported，route/fallback/回滚门完整。V3 通过后进入 V4 收口。
 
 ### V4：动态输入横切轨
 
-V4 不是排在 V3 后面的串行阶段，而是随 V0–V3 的真实 consumer 一起接入。所有输入在同一 frame commit 下走相应 typed channel，不在 consumer 内另建状态系统：
+V4 是横切 producer/provider 轨，不是另建一套输入平台。V1–V3 若闭合真实 consumer 必须同步接入它实际消费的最小 V4 原子；主线在 V3 完成后回到本轨，对尚未随 consumer 闭合的输入族作统一收口。所有输入在同一 frame commit 下走相应 typed channel，不在 consumer 内另建状态系统：
 
 | 输入族 | typed output | 首个公共 consumer | 正反门 | 旧路径退出条件 |
 |---|---|---|---|---|
@@ -148,18 +127,23 @@ V4 不是排在 V3 后面的串行阶段，而是随 V0–V3 的真实 consumer 
 | dynamic text | resource publication；尺寸变化另触发 geometry/extent invalidation | Text compositor、V2 mutation | 内容、baseline/bounds、空值/字体失败 | consumer 不再绕过 provider publication |
 | nested/effectful provider | provider publication + topology transaction | V1 dependency graph | named identity、dependency failure、teardown | provider 不再拥有私有 graph/current/history |
 
+V4 完成门：以[运行输入与属性覆盖表](semantics/runtime-input-property-coverage.md)为当前事实，每个纳入范围的 input/provider 都至少有一个真实 consumer，证明 typed producer → 正确 frame-commit channel → consumer → next-frame/event、generation/cancel/last-ready/teardown 与局部失败；consumer 内重复采样、私有值副本、私有 provider/graph owner 已撤销。尚无平台 producer 或产品策略的输入必须在专项表明确保持 unsupported，不能用另一个输入族的通过替代。V4 收口后才逐项进入 V5。
+
 ### V5：独立高级 epic
 
-V5 不是一个可以整体“完成”的大阶段。以下 epic 分别按 corpus 影响和用户价值立项，互不阻塞：
+V5 不是一个可以整体“完成”的大阶段，也不允许用一个 epic 的通过外推其他项。当前能力与缺口只查[高级对象覆盖表](semantics/advanced-object-coverage.md)；以下每项分别立项、分别回滚、分别过完成门：
 
-| epic | entry | 交付对象 | 最小门 | rollback / 完成 |
-|---|---|---|---|---|
-| Puppet | authored puppet carrier + animation/mixing/constraint/physics | 共享 identity/frame/resource 下的专用 simulation/geometry producer | 一个可见动作、约束负例、teardown | feature route 可回退；旧 owner 归零后才算迁移完成 |
-| 2D Lighting/HDR | normal/PBR/light/shadow/reflection/HDR declarations | shared Material Program、scene post graph 和 color contract | light on/off、HDR/tone-map ROI、资源失败 | 保留非 HDR compositor；parity 另过官方门 |
-| 3D | model/node/material/camera/skeleton/physics | 专用 importer/simulation，输出共享 Program/graph/compositor | hierarchy、camera、animation、missing asset | 3D domain 可整体停用且不影响 2D |
-| RGB device | authored RGB output | 权限受控的 provider/device adapter | 无设备、拒权、连接/断开 | adapter 可禁用，不影响画面执行 |
-| offline bake | fixed clock + deterministic input/provider | 复用在线 IR/graph/runtime 的离屏输出 | 帧序列、音频/随机合同、取消 | 回退实时播放；不得建立第二 renderer |
-| platform/release | color management、多屏、刷新率、sleep/wake/reset、性能、签名 | 恢复、预算与发行合同 | 长稳、资源恢复、双架构、签名/公证 | 不倒灌阻塞 V0 首张画面；对外发布前必须闭合 |
+| epic | 共享交付对象 | epic 完成门 |
+|---|---|---|
+| Puppet | identity/frame/resource 下的 animation、simulation 与 geometry producer | 至少一个真实可见动作、constraint/mixing/attachment 负例、pause/reset/teardown 与预算门；未支持阶段保持 typed fail closed，旧产品 owner 归零 |
+| 2D Lighting/HDR | normal/PBR/light/shadow/reflection 输入进入 Material Program、scene-post graph 与 color contract | author on/off、light/resource failure、HDR/tone-map ROI、光源/VRAM预算与非 HDR 安全回滚；官方 parity 另过预登记门 |
+| 3D | model/node/material/camera/skeleton/animation/physics 的专用 importer/simulation，输出共享 Program/graph/compositor | hierarchy、camera、animation、missing/malformed asset、资源预算和 teardown 有正反门；整个 3D domain 可禁用且不影响 2D |
+| RGB output | authored source selection、独立 publication 与权限受控 device adapter | topmost/hidden/composition source、无设备/拒权、连接/断开、rate limit 与 teardown 有门；禁用 adapter 不改变 wallpaper render |
+| Offline bake | fixed clock、deterministic input/provider replay 与 encoder adapter，复用在线 IR/Program/graph/runtime | 帧序列、seed/audio/media/input replay、取消/进度、资源释放及 realtime-offline 对照有门；不得建立第二 renderer |
+| Platform lifecycle | color management、多屏/scale/refresh、Space、sleep/wake、hot-plug 与 device-loss recovery | 每项状态变化都证明 generation/epoch、target/publication、provider/VM/particle 恢复和 stale 资源归零；失败可回到安全输出 |
+| Performance / release | frame/CPU/GPU/内存/VRAM预算、长稳、双架构、许可证、签名、公证与 Gatekeeper | 代表内容与所需 matrix 的性能/压力/长稳通过，arm64/x86_64、Developer ID、hardened runtime、notarization/Gatekeeper 和发布依赖闭合；只在此门后声明 release-ready |
+
+每个 epic 的精确 scope 由[高级对象覆盖表](semantics/advanced-object-coverage.md)对应行定义；宣告完成前，所有纳入 scope 的行都必须有完成、明确 unsupported 或平台策略结论。V5 的执行顺序由每次明确立项时的 corpus 影响、用户价值、风险与依赖决定；不得为它再创建一份平行 roadmap。所有 epics 都有上述结论后，才进入本文的最终退役门。
 
 ## 4. AI 主动纠偏合同
 
@@ -192,7 +176,7 @@ Scene 开发必须同时维护三个互不替代的轴：
 
 [`script/scene_fast_suite.json`](../../script/scene_fast_suite.json) 是这套低成本纵向开发集的机器合同，也是成员、选择状态和 readiness 的唯一事实入口。它固定七类能力形状、所需正反门、运行证据和指标字段；sample/layer identity 只允许存在于该开发清单、隔离 fixture 和报告中，不能进入产品 dispatch。
 
-任何 `selection-required` 成员都不能执行或计为 Fast Scene Suite PASS，任意 `--sample-id` 或 full45 子集也不能冒充 suite PASS。V0-0 的计划动作是为前两类各批准一个成员；每个成员只有登记 content digest、authored structure、expected route/first breakpoint、正反 oracle、ROI/事件、局部 fallback 和证据字段后才能变成 `approved`：
+任何 `selection-required` 成员都不能执行或计为 Fast Scene Suite PASS，任意 `--sample-id` 或 full45 子集也不能冒充 suite PASS。成员的当前 approval/readiness 只查机器合同；每个成员只有登记 content digest、authored structure、expected route/first breakpoint、正反 oracle、ROI/事件、局部 fallback 和证据字段后才能变成 `approved`：
 
 1. ordinary one-pass framebuffer effect；
 2. ordinary pass + optional texture/combo；
@@ -202,7 +186,7 @@ Scene 开发必须同时维护三个互不替代的轴：
 6. SceneScript 可见 property/event；
 7. Particle 常见 emitter/initializer/operator/renderer。
 
-V0 只需要前两类，V1 增加 3–5，V2/V3 分别增加 6/7。批准前仍可使用写明同等合同的代表性隔离内容推进首张画面，但只能报告 `representative-content`，不能报告 Fast Suite。suite 是开发反馈环，不替代 fixed/full milestone，也不以任意非黑像素作为成功。
+各路线段使用哪些成员由 manifest 的 V0–V3 mapping 决定。批准前仍可使用写明同等合同的代表性隔离内容推进纵向结果，但只能报告 `representative-content`，不能报告 Fast Suite。suite 是开发反馈环，不替代 fixed/full milestone，也不以任意非黑像素作为成功。
 
 ## 6. 批次工作方式
 
@@ -287,7 +271,9 @@ remaining_deviation_and_exit_condition:
 4. 能在一个批次内闭合正门、局部失败反例、新组合/未见 fixture、局部回滚与真实隔离运行；
 5. 能明确本批只达到 `slice-visible`，还是还包含同一 profile 的 `generic-only / owner-migration-complete`；没有旧 owner 撤权证据时不得宣告后者。
 
-V1 候选范围只取第 3 节已列出的剩余 ordered multi-pass/FBO command、其他 history、condition/function、background/dependency等其他compose，以及 secondary、nested/effectful dependency。cycle 已按目标合同明确硬拒绝并取得隔离负证，不再作为待放行候选；两个独立 primary provider 与单consumer多reference 的 bounded atom 已闭合，不再作为待放行候选。主实现者在编码前填写第 6 节纠偏卡并冻结一个 atom；并行研究只能提供候选证据，不能各自建立路线、修改共享权威文档或同时取得产品输出权。若当前证据不能让任一候选满足上述五项，先补最小可区分证据，不退回 V0 历史断点，也不以新增专用实现制造可见结果。
+候选只从[Render Graph / Shader 覆盖表](semantics/render-graph-shader-coverage.md)仍未闭合的 V1 shape 与[运行证据索引当前快照](semantics/runtime-evidence-index.md#1-当前证据快照)选择，不在本文维护名单。主实现者在编码前填写第 6 节纠偏卡并冻结一个 atom；并行研究只能提供候选证据，不能各自建立路线、修改共享权威文档或同时取得产品输出权。若当前证据不能让任一候选满足上述五项，先补最小可区分证据，不退回 V0 历史断点，也不以新增专用实现制造可见结果。
+
+当专项表不存在尚可独立闭合的 V1 correctness atom 时，先审计并完成第 3 节 V1-B owner debt；不得直接把主线切到 V2。V1-A/V1-B 完成事实由能力台账、专项表与运行证据索引同步证明，roadmap 只据此推进段位。
 
 ## 9. 完成与退役
 

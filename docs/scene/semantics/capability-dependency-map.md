@@ -185,7 +185,7 @@ Puppet、lighting/HDR、3D、RGB 和 offline 复用 D0-D10。Puppet 已有严格
 
 ## 4. 与现役 V0-V5 路线的关系
 
-历史的 Coverage-first F0-F5 与 G0-G5 排序均已停止作为实施路线。当前 V0-V5 只见[Scene 兼容执行路线](../scene-compatibility-roadmap.md)：先闭合普通 authored shader/material 的最小可见纵向链，再沿同一 Program/GraphExecutor 扩 graph；VM、粒子和动态输入可以按互不重叠的 owner 并行研究与纵向落地。
+历史的 Coverage-first F0-F5 与 G0-G5 排序均已停止作为实施路线。当前段位、先后关系和完成门只见[Scene 兼容执行路线](../scene-compatibility-roadmap.md)；本图不再复述并行或串行落地策略，只检查路线中当前纵向切片实际消费的公共依赖。
 
 本页 D0-D11 只用于检查每个 V 路线切片实际消费的前置，允许在同一可回滚批次中跨层闭合。不得要求一个 D 层所有专项条目完成后才开始下游通用执行，也不得从当前表格的 bounded 状态反推新的专用 owner。
 
