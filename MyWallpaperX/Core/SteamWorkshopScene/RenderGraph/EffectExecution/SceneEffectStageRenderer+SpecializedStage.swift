@@ -125,12 +125,11 @@ targets: targets,
                 pipeline: pipeline, tintPipeline: tintPipeline,
                 commandBuffer: commandBuffer
             )
-        case .transform, .fisheyeZeroDistortion:
-            return renderTransformOrFisheye(
-                stage, sourceTexture: sourceTexture, masks: masks,
-targets: targets,
+        case .transform:
+            return renderTransform(
+                stage, sourceTexture: sourceTexture, targets: targets,
                 sourceUniforms: sourceUniforms, pipeline: pipeline,
-                pipelines: pipelines, commandBuffer: commandBuffer
+                commandBuffer: commandBuffer
             )
         case .godrays(let godrays):
             return renderGodrays(

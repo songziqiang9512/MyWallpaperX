@@ -6115,7 +6115,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             self.assertIn(contract, leaf_body)
         self.assertNotIn(".spin", source)
         self.assertIn(".workshopAudioBars", leaf_body)
-        self.assertIn(".fisheyeZeroDistortion", leaf_body)
+        self.assertNotIn("fisheyeZeroDistortion", leaf_body)
         self.assertIn("case filmGrain(SceneFilmGrainExecutionPlan)", source)
         self.assertIn("case .preciseGaussian:", logical_body)
         self.assertIn("case .standardBlur:", logical_body)

@@ -121,7 +121,6 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "script/tests/test_scene_blend_planner.py",
             "script/tests/test_scene_depth_parallax_planner.py",
             "script/tests/test_scene_film_grain_planner.py",
-            "script/tests/test_scene_fisheye_zero_distortion_planner.py",
             "script/tests/test_scene_godrays_planner.py",
             "script/tests/test_scene_light_shafts_planner.py",
             "script/tests/test_scene_opacity_planner.py",

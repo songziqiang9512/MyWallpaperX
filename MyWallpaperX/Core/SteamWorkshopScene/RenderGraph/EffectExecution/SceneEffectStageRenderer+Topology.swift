@@ -337,9 +337,6 @@ extension SceneEffectStageRenderer {
                 return "shake-resource-missing"
             }
             return pipelines.shake == nil ? "shake-pipeline-missing" : nil
-        case .fisheyeZeroDistortion:
-            return pipelines.fisheyeZeroDistortion == nil
-                ? "fisheye-pipeline-missing" : nil
         case .pulse(let plan):
             guard let resources = inputs.masks.pulseEffects[
                 plan.effectKey.descriptorID

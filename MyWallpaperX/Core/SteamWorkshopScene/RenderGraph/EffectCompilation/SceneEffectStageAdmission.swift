@@ -197,7 +197,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         case .blend: "blend"
         case .tint: "tint"
         case .transform: "transform"
-        case .fisheyeZeroDistortion: "fisheye-zero-distortion"
         case .pulse: "pulse"
         case .godrays: "godrays"
         case .shine: "shine"

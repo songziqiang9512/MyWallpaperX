@@ -25,9 +25,6 @@ struct SceneAuthoredEffectPipelineSet {
     var xRay: SceneXRayPipeline? { repository.xRay() }
     var blend: SceneBlendPipeline? { repository.blend() }
     var tint: SceneTintPipeline? { repository.tint() }
-    var fisheyeZeroDistortion: SceneFisheyeZeroDistortionPipeline? {
-        repository.fisheyeZeroDistortion()
-    }
     var pulse: ScenePulsePipeline? { repository.pulse() }
     var godrays: SceneGodraysPipeline? { repository.godrays() }
     var shine: SceneShinePipeline? { repository.shine() }

@@ -205,13 +205,6 @@ extension SceneAuthoredTransformPlanner: SceneEffectStageGraphCandidatePlanner {
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .transform }
 }
 
-extension SceneAuthoredFisheyeZeroDistortionPlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneFisheyeZeroDistortionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
-        .fisheyeZeroDistortion
-    }
-}
-
 extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = ScenePulseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .pulse }

@@ -177,15 +177,6 @@ extension SceneEffectProgramCompiler {
                     stage(.transform($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.fisheyeZeroDistortion, {
-                SceneAuthoredFisheyeZeroDistortionPlanner.compile(input).mapAccepted {
-                    stage(
-                        .fisheyeZeroDistortion($0),
-                        stageGraph: stageGraph,
-                        inputRole: inputRole
-                    )
-                }
-            }),
             (.pulse, {
                 SceneAuthoredPulsePlanner.compile(input).mapAccepted {
                     stage(.pulse($0), stageGraph: stageGraph, inputRole: inputRole)

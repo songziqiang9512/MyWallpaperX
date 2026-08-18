@@ -59,7 +59,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneOpacityPipeline.swift",
     SOURCE_ROOT / "Effects/SceneOpacityRenderer.swift",
     SOURCE_ROOT / "Effects/SceneColorGradingPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneFisheyeZeroDistortionPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHuePipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHueRenderer.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift",
@@ -669,12 +668,6 @@ struct SceneTransformExecutionPlan {
     let renderGraph: SceneAuthoredEffectRenderPlan
 }
 
-struct SceneFisheyeZeroDistortionPlan {
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let center: SIMD2<Float>
-    let size: Float
-}
-
 struct SceneBlendEffectTextures {
     struct ResolvedArguments {
         let blend: SceneTextureSlotBinding
@@ -752,7 +745,6 @@ struct SceneLightShaftsEffectTextures {
         case blend(SceneBlendExecutionPlan)
         case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
-        case fisheyeZeroDistortion(SceneFisheyeZeroDistortionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
         case shine(SceneShineExecutionPlan)
@@ -797,7 +789,6 @@ struct SceneLightShaftsEffectTextures {
             case .blend: "blend"
             case .tint: "tint"
             case .transform: "transform"
-            case .fisheyeZeroDistortion: "fisheye-zero-distortion"
             case .pulse: "pulse"
             case .godrays: "godrays"
             case .shine: "shine"

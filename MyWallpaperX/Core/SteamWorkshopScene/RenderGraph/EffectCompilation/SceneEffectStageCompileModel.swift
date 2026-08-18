@@ -59,7 +59,6 @@ nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable
     case blend
     case tint
     case transform
-    case fisheyeZeroDistortion = "fisheye-zero-distortion"
     case pulse
     case godrays
     case shine

@@ -25,7 +25,6 @@ extension SceneEffectStageExecutionPlan {
         case blend(SceneBlendExecutionPlan)
         case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
-        case fisheyeZeroDistortion(SceneFisheyeZeroDistortionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
         case shine(SceneShineExecutionPlan)
@@ -36,8 +35,7 @@ extension SceneEffectStageExecutionPlan {
                  .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                  .workshopShadow, .filmGrain, .shake, .waterFlow,
                  .waterWaves, .waterCaustics, .waterRipple,
-                 .depthParallax, .xRay, .blend, .tint, .transform,
-                 .fisheyeZeroDistortion, .pulse:
+                 .depthParallax, .xRay, .blend, .tint, .transform, .pulse:
                 return true
             case .proceduralNoise(let plan):
                 return plan.variant == .worleyColorV1
@@ -222,11 +220,6 @@ extension SceneEffectStageExecutionPlan {
         return plan
     }
 
-    nonisolated var fisheyeZeroDistortion: SceneFisheyeZeroDistortionPlan? {
-        guard case .fisheyeZeroDistortion(let plan) = backend else { return nil }
-        return plan
-    }
-
     nonisolated var pulse: ScenePulseExecutionPlan? {
         guard case .pulse(let plan) = backend else { return nil }
         return plan
@@ -267,8 +260,6 @@ extension SceneEffectStageExecutionPlan {
         case .standardBlur:
             return true
         case .opacity:
-            return true
-        case .fisheyeZeroDistortion:
             return true
         case .proceduralNoise(let plan):
             return plan.variant == .worleyColorV1

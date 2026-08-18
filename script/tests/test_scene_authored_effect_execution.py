@@ -441,19 +441,6 @@ enum SceneAuthoredTransformPlanner {
     }
 }
 
-struct SceneFisheyeZeroDistortionPlan {}
-
-enum SceneAuthoredFisheyeZeroDistortionPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneFisheyeZeroDistortionPlan? {
-        nil
-    }
-}
-
 struct ScenePulseExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
@@ -713,12 +700,6 @@ extension SceneAuthoredTintPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredTransformPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneTransformExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .transform }
-}
-extension SceneAuthoredFisheyeZeroDistortionPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneFisheyeZeroDistortionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
-        .fisheyeZeroDistortion
-    }
 }
 extension SceneAuthoredPulsePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = ScenePulseExecutionPlan
@@ -1466,7 +1447,6 @@ enum Harness {
             case .blend: backend = "blend"
             case .tint: backend = "tint"
             case .transform: backend = "transform"
-            case .fisheyeZeroDistortion: backend = "fisheyeZeroDistortion"
             case .pulse: backend = "pulse"
             case .godrays: backend = "godrays"
             case .shine: backend = "shine"
@@ -1973,9 +1953,8 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertIn("case .depthParallax(let plan):", topology)
         self.assertIn("inputs.masks.depthParallaxEffects[", topology)
         self.assertIn('"depth-parallax-resource-missing"', topology)
-        self.assertIn(".fisheyeZeroDistortion", leaf_body)
-        self.assertIn("case .fisheyeZeroDistortion:", topology)
-        self.assertIn('"fisheye-pipeline-missing"', topology)
+        self.assertNotIn("fisheyeZeroDistortion", leaf_body)
+        self.assertNotIn("fisheye-pipeline-missing", topology)
         for backend_name in (".waterWaves", ".waterCaustics", ".waterRipple", ".pulse"):
             self.assertIn(backend_name, leaf_body)
         self.assertIn("case .proceduralNoise(let plan):", leaf_body)

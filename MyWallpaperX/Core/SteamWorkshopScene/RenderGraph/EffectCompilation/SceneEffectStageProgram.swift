@@ -89,7 +89,6 @@ nonisolated struct SceneEffectStageProgram {
              (.blend, .blend),
              (.tint, .tint),
              (.transform, .transform),
-             (.fisheyeZeroDistortion, .fisheyeZeroDistortion),
              (.pulse, .pulse),
              (.godrays, .godrays),
              (.shine, .shine):
