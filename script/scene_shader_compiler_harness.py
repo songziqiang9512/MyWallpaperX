@@ -269,6 +269,7 @@ def normalize_wallpaper_engine_pair(
     scalar_texture_rewrites = 0
     boolean_combo_rewrites = 0
     reserved_identifier_rewrites = 0
+    inactive_fragment_varyings_pruned = 0
 
     for stage in stages:
         stage_name = stage["stage"]
@@ -327,14 +328,28 @@ def normalize_wallpaper_engine_pair(
                 if existing != shape:
                     raise HarnessFailure("normalization", "attribute-conflict", [name])
             elif storage == "varying":
-                if value_type not in VALUE_TYPES or (count is not None and count > 16):
-                    raise HarnessFailure("normalization", "varying-type", [stage_name, name])
-                shape = (value_type, count)
-                existing = varying_shapes.setdefault(name, shape)
-                if existing != shape:
-                    raise HarnessFailure("normalization", "varying-conflict", [name])
-                stage_varyings[stage_name].add(name)
+                # Varying linkage is derived after the declaration-free body
+                # exists, so an unused fragment input cannot create a false
+                # cross-stage ABI conflict.
+                pass
         body = "\n".join(kept)
+        for storage, value_type, name, count in declarations:
+            if storage != "varying":
+                continue
+            if value_type not in VALUE_TYPES or (count is not None and count > 16):
+                raise HarnessFailure(
+                    "normalization", "varying-type", [stage_name, name]
+                )
+            if stage_name == "fragment" and re.search(
+                rf"\b{re.escape(name)}\b", body
+            ) is None:
+                inactive_fragment_varyings_pruned += 1
+                continue
+            shape = (value_type, count)
+            existing = varying_shapes.setdefault(name, shape)
+            if existing != shape:
+                raise HarnessFailure("normalization", "varying-conflict", [name])
+            stage_varyings[stage_name].add(name)
         body, replacements = re.subn(r"\bsample\b", "mwx_sample", body)
         reserved_identifier_rewrites += replacements
         if stage_name == "fragment":
@@ -477,6 +492,7 @@ def normalize_wallpaper_engine_pair(
         "uniformCount": len(uniform_shapes),
         "activeUniformCount": len(active_uniform_names),
         "inactiveUniformsPruned": len(uniform_shapes) - len(active_uniform_names),
+        "inactiveFragmentVaryingsPruned": inactive_fragment_varyings_pruned,
         "unusedVaryingComponentAssignmentsPruned": varying_component_prunes,
         "samplerSlots": sorted(sampler_slots.values()),
         "attributeCount": len(attribute_shapes),

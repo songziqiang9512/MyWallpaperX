@@ -34,6 +34,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     static func compile(
         template: Template,
         variantKey: SceneResolvedMaterialVariantKey,
+        outputStorage: SceneResolvedMaterialProgram.OutputStorage,
+        graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat],
         onBoundedFrontendCompilation: () -> Void
     ) throws -> Variant {
         let readinessMask = variantKey.readinessMask
@@ -58,12 +60,28 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         case .notApplicable:
             throw failure(.identityInvariant, phase: .invariant)
         }
+        let activeSamplerNames = SceneAuthoredShaderDeadBindingAnalyzer
+            .activeSamplerNames(
+                vertexSource: prepared.vertex.source,
+                fragmentSource: prepared.fragment.source
+            ) ?? []
+        let graphR8TextureSlots = Set(activeSamplerNames.compactMap { name -> Int? in
+            guard name.hasPrefix("g_Texture"),
+                  let slot = Int(name.dropFirst("g_Texture".count)),
+                  template.textureSlots.indices.contains(slot),
+                  let candidate = template.textureSlots[slot]?.candidates.last,
+                  case let .graph(identity) = candidate.reference,
+                  graphTextureFormatFacts[identity] == .r8 else { return nil }
+            return slot
+        })
         let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: prepared.vertex.source,
             fragmentSource: prepared.fragment.source,
             hasExternalProviderTexture:
                 SceneResolvedMaterialVariantCache
-                    .hasExternalProviderTexture(in: template)
+                    .hasExternalProviderTexture(in: template),
+            producesScalarRedOutput: outputStorage == .scalarRedUnorm,
+            r8TextureSlots: graphR8TextureSlots
         )
         let frontend: SceneAuthoredShaderProgram
         let boundedOutput: SceneAuthoredShaderFrontendOutput?

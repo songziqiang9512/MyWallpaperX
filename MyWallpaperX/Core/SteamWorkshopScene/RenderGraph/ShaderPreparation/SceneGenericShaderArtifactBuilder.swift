@@ -289,13 +289,20 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 throw Failure.colorTransfer
             }
             return straight
+        case let .straightAlphaPreserving(textureSlot: expectedSlot):
+            guard let preserving = straightAlphaPreserving(
+                source,
+                expectedSlot: expectedSlot
+            ) else {
+                throw Failure.colorTransfer
+            }
+            return preserving
         case .unresolved:
             // A compiler artifact may prove a form outside the bounded source
             // analyzer. The cache consumer still rejects any artifact that
             // contradicts a source fact that the shared analyzer did prove.
             return try prepareCompilerProvenColorTransfer(source)
-        case .straightAlphaPreserving,
-             .straightAlphaUNorm,
+        case .straightAlphaUNorm,
              .independentAlphaSignal,
              .independentAlphaSignalPreserving,
              .independentAlphaSignalCompositing:
@@ -374,7 +381,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         let boundSlots = Set(bindings.map(\.slot))
         switch (transfer.kind, transfer.slot, transfer.slots) {
         case let ("passthrough", slot?, nil),
-             let ("straight-alpha", slot?, nil):
+             let ("straight-alpha", slot?, nil),
+             let ("straight-alpha-preserving", slot?, nil):
             return boundSlots.contains(slot)
         case let ("interpolated-color", nil, slots?):
             return slots.count >= 2
@@ -468,6 +476,92 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             SceneGenericShaderProgramArtifact.Program.ColorTransfer(
                 kind: "straight-alpha",
                 slot: slot,
+                slots: nil
+            )
+        )
+    }
+
+    /// SPIRV-Cross samples the host's premultiplied color directly into the
+    /// authored local. A source-proven alpha-preserving RGB flow must instead
+    /// execute in straight color, then return to the compositor's
+    /// premultiplied boundary. Both rewrites are required; emitting only the
+    /// artifact tag would silently change translucent RGB math.
+    private static func straightAlphaPreserving(
+        _ source: String,
+        expectedSlot: Int
+    ) -> (
+        msl: String,
+        transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
+    )? {
+        let unpremultiply = "mwxGenericUnpremultiply"
+        let premultiply = "mwxGenericPremultiply"
+        guard !containsWord(unpremultiply, in: source),
+              !containsWord(premultiply, in: source) else { return nil }
+        let declarations = matches(
+            #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
+                + String(expectedSlot)
+                + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
+            in: source
+        )
+        guard declarations.count == 1 else {
+            return nil
+        }
+        guard let prefix = capture(declarations[0], 1, in: source),
+              let local = capture(declarations[0], 2, in: source),
+              let arguments = capture(declarations[0], 3, in: source),
+              let suffix = capture(declarations[0], 4, in: source),
+              !prefix.isEmpty, !local.isEmpty,
+              !arguments.isEmpty, !suffix.isEmpty else { return nil }
+        let outputs = matches(
+            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*"#
+                + escaped(local) + #"\s*;[ \t]*$"#,
+            in: source
+        )
+        guard outputs.count == 1,
+              declarations[0].range.location < outputs[0].range.location,
+              let outputRange = Range(outputs[0].range, in: source),
+              let indent = capture(outputs[0], 1, in: source),
+              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
+        else { return nil }
+
+        var transformed = source
+        transformed.replaceSubrange(
+            outputRange,
+            with: "\(indent)out.mwxFragColor = \(premultiply)(\(local));"
+        )
+        guard let adjustedDeclarationRange = Range(
+            declarations[0].range,
+            in: transformed
+        ) else { return nil }
+        transformed.replaceSubrange(
+            adjustedDeclarationRange,
+            with: "\(prefix)\(unpremultiply)(g_Texture\(expectedSlot).sample(\(arguments)))\(suffix)"
+        )
+        let helpers = """
+
+inline float4 \(unpremultiply)(float4 color) {
+    const float alpha = clamp(color.w, 0.0, 1.0);
+    const float3 rgb = alpha > 0.0
+        ? clamp(color.xyz / alpha, float3(0.0), float3(1.0))
+        : float3(0.0);
+    return float4(rgb, alpha);
+}
+
+inline float4 \(premultiply)(float4 color) {
+    const float alpha = clamp(color.w, 0.0, 1.0);
+    return float4(color.xyz * alpha, alpha);
+}
+"""
+        guard let namespace = transformed.range(
+            of: #"\busing\s+namespace\s+metal\s*;"#,
+            options: .regularExpression
+        ) else { return nil }
+        transformed.insert(contentsOf: helpers, at: namespace.upperBound)
+        return (
+            transformed,
+            SceneGenericShaderProgramArtifact.Program.ColorTransfer(
+                kind: "straight-alpha-preserving",
+                slot: expectedSlot,
                 slots: nil
             )
         )

@@ -115,6 +115,13 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .premultipliedAlpha
         }
+        if isOpaqueCarrierOutput(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return .opaque
+        }
         guard outputUses.count == 1,
               let assignment = outputUses.first,
               assignment + 1 < tokens.count,

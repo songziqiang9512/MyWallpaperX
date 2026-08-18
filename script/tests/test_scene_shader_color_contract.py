@@ -208,6 +208,19 @@ enum Harness {
             "opaque": transfer(
                 "vec3 total = vec3(0.2); gl_FragColor = vec4(total, 1.0);"
             ),
+            "opaqueCarrier": transfer(
+                "vec4 carrier = CAST4(1); vec3 derived = carrier.rgb; " +
+                "derived *= g_ScalarWeight; carrier.rgb = derived; " +
+                "gl_FragColor = carrier;"
+            ),
+            "opaqueCarrierAlphaWrite": transfer(
+                "vec4 carrier = CAST4(1); carrier.rgb *= g_ScalarWeight; " +
+                "carrier.a = 0.5; gl_FragColor = carrier;"
+            ),
+            "opaqueCarrierWholeWrite": transfer(
+                "vec4 carrier = CAST4(1); carrier = vec4(0.5); " +
+                "gl_FragColor = carrier;"
+            ),
             "closedControlFlowOpaque": transfer(
                 "vec3 total = vec3(0.2); " +
                 "for (int index = 0; index < 2; index++) { " +
@@ -1258,6 +1271,11 @@ class SceneShaderColorContractTests(unittest.TestCase):
 
     def test_literal_one_alpha_proves_only_opaque_output(self) -> None:
         self.assertEqual(self.result["opaque"], "opaque")
+
+    def test_opaque_carrier_allows_only_rgb_member_flow(self) -> None:
+        self.assertEqual(self.result["opaqueCarrier"], "opaque")
+        self.assertEqual(self.result["opaqueCarrierAlphaWrite"], "unresolved")
+        self.assertEqual(self.result["opaqueCarrierWholeWrite"], "unresolved")
 
     def test_scalar_red_output_fact_is_independent_of_color_transfer(self) -> None:
         self.assertEqual(self.result["scalarOutput"], "redDefined")

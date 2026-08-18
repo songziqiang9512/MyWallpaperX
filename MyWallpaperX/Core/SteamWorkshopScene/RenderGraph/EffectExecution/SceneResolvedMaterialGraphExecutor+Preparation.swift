@@ -246,6 +246,15 @@ extension SceneResolvedMaterialGraphExecutor {
                     hasExternalProviderTexture:
                         SceneResolvedMaterialVariantCache
                             .hasExternalProviderTexture(in: material.template),
+                    producesScalarRedOutput:
+                        program.outputContract == .scalarRedUnorm,
+                    r8TextureSlots: Set(program.textureSlots.compactMap { slot in
+                        guard let slot else { return nil }
+                        let candidate = slot.resource.publication.candidate
+                        guard candidate.content == .scalarRedUnorm
+                                || candidate.authoredFormat == .r8 else { return nil }
+                        return slot.index
+                    }),
                     layerID: node.effect.layerID,
                     effectIndex: node.effect.effectIndex,
                     descriptorID: node.effect.descriptorID,

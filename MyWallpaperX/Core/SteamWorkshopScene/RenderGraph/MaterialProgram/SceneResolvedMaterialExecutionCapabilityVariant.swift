@@ -35,6 +35,10 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     ]?
     private var cachedReachabilityIdentity: Graph.TextureIdentity?
     private var hasCachedReachability = false
+    private var cachedOutputStorage: SceneResolvedMaterialProgram.OutputStorage?
+    private var cachedGraphTextureFormatFacts: [
+        Graph.TextureIdentity: SceneShaderTextureFormat
+    ]?
 
     private init(
         template: Template,
@@ -176,6 +180,23 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     ) -> Result<[UInt8], LaunchEnvelopeFailure> {
         lock.lock()
         defer { lock.unlock() }
+        if let cachedOutputStorage, cachedOutputStorage != outputStorage {
+            return .failure(.material(Self.failure(
+                .identityInvariant,
+                phase: .invariant,
+                details: ["launch-output-storage-changed"]
+            )))
+        }
+        if let cachedGraphTextureFormatFacts,
+           cachedGraphTextureFormatFacts != graphTextureFormatFacts {
+            return .failure(.material(Self.failure(
+                .identityInvariant,
+                phase: .invariant,
+                details: ["launch-graph-texture-formats-changed"]
+            )))
+        }
+        cachedOutputStorage = outputStorage
+        cachedGraphTextureFormatFacts = graphTextureFormatFacts
         var reached = Set<UInt8>()
         var admittedKeys = Set<SceneResolvedMaterialVariantKey>()
         var reachableSamplers: [
@@ -239,7 +260,11 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                             return .failure(.capacity)
                         }
                         keys.append(key)
-                        variants.append(try entry(for: key))
+                        variants.append(try entry(
+                            for: key,
+                            outputStorage: outputStorage,
+                            graphTextureFormatFacts: graphTextureFormatFacts
+                        ))
                     }
                 } catch let failure as Failure {
                     return .failure(.material(failure))
@@ -419,7 +444,9 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     }
 
     private func entry(
-        for key: SceneResolvedMaterialVariantKey
+        for key: SceneResolvedMaterialVariantKey,
+        outputStorage: SceneResolvedMaterialProgram.OutputStorage,
+        graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat]
     ) throws -> Variant {
         if let entry = entries[key] {
             switch entry {
@@ -440,6 +467,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             let variant = try Self.compile(
                 template: template,
                 variantKey: key,
+                outputStorage: outputStorage,
+                graphTextureFormatFacts: graphTextureFormatFacts,
                 onBoundedFrontendCompilation: { frontendCompilations += 1 }
             )
             entries[key] = .ready(variant)

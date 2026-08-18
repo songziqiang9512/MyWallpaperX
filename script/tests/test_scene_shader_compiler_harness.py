@@ -491,7 +491,11 @@ void main() { gl_Position = vec4(a_Position, 1.0); }
 varying vec2 base;
 uniform sampler2D g_Texture0;
 uniform sampler2D g_Texture1;
-void main() { vec4 sample; gl_FragColor = texture(g_Texture0, base); }
+void main() {
+    vec4 sample;
+    vec2 arrayValue = samples[0];
+    gl_FragColor = texture(g_Texture0, base + arrayValue * 0.0);
+}
 """,
             },
         ], {})
@@ -692,6 +696,9 @@ void main() { gl_FragColor = vec4(v_TexCoord.xy, 0.0, 1.0); }
             request["stages"][1]["source"] = request["stages"][1]["source"].replace(
                 "varying vec2 v_TexCoord;",
                 "varying vec2 v_TexCoord;\nvarying vec2 v_FragmentOnly;",
+            ).replace(
+                "void main() {",
+                "void main() { vec2 liveValue = v_FragmentOnly;",
             )
             request_path = root / "request.json"
             request_path.write_text(json.dumps(request), encoding="utf-8")
@@ -703,6 +710,64 @@ void main() { gl_FragColor = vec4(v_TexCoord.xy, 0.0, 1.0); }
             self.assertEqual(failure["failure"]["phase"], "normalization")
             self.assertEqual(failure["failure"]["code"], "varying-link")
             self.assertEqual(failure["failure"]["details"], ["v_FragmentOnly"])
+
+    def test_unused_fragment_varying_is_not_part_of_linked_interface(self) -> None:
+        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
+
+        normalized, summary = normalize_wallpaper_engine_pair([
+            {
+                "stage": "vertex", "entryPoint": "main",
+                "source": """attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec2 v_Live;
+varying vec2 v_Optional;
+void main() {
+    gl_Position = vec4(a_Position, 1.0);
+    v_Live = a_TexCoord;
+    v_Optional = a_TexCoord;
+}
+""",
+            },
+            {
+                "stage": "fragment", "entryPoint": "main",
+                "source": """varying vec2 v_Live;
+varying vec4 v_Optional;
+void main() { gl_FragColor = vec4(v_Live, 0.0, 1.0); }
+""",
+            },
+        ], {})
+        self.assertEqual(summary["inactiveFragmentVaryingsPruned"], 1)
+        self.assertEqual(summary["varyingCount"], 2)
+        self.assertNotIn("in vec4 v_Optional", normalized[1]["source"])
+        self.assertIn("out vec2 v_Optional", normalized[0]["source"])
+
+    def test_live_fragment_varying_shape_mismatch_remains_rejected(self) -> None:
+        from scene_shader_compiler_harness import (
+            HarnessFailure,
+            normalize_wallpaper_engine_pair,
+        )
+
+        stages = [
+            {
+                "stage": "vertex", "entryPoint": "main",
+                "source": """attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec2 v_Live;
+void main() { gl_Position = vec4(a_Position, 1.0); v_Live = a_TexCoord; }
+""",
+            },
+            {
+                "stage": "fragment", "entryPoint": "main",
+                "source": """varying vec4 v_Live;
+void main() { gl_FragColor = v_Live; }
+""",
+            },
+        ]
+        with self.assertRaises(HarnessFailure) as failure:
+            normalize_wallpaper_engine_pair(stages, {})
+        self.assertEqual(failure.exception.phase, "normalization")
+        self.assertEqual(failure.exception.code, "varying-conflict")
+        self.assertEqual(failure.exception.details, ["v_Live"])
 
     def test_hash_mismatch_fails_before_compilation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:

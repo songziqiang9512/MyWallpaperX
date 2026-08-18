@@ -6245,6 +6245,26 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             unavailable.index("SceneAuthoredShaderFrontend.compile("),
         )
 
+    def test_generic_owner_profile_uses_graph_binding_format_facts(self) -> None:
+        compilation = VARIANT_COMPILATION_SOURCE.read_text(encoding="utf-8")
+        variant_cache = VARIANT_CACHE_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "graphTextureFormatFacts: [Graph.TextureIdentity: "
+            "SceneShaderTextureFormat]",
+            compilation,
+        )
+        self.assertIn("activeSamplerNames", compilation)
+        self.assertIn("template.textureSlots[slot]?.candidates.last", compilation)
+        self.assertIn("graphTextureFormatFacts[identity] == .r8", compilation)
+        self.assertIn("r8TextureSlots: graphR8TextureSlots", compilation)
+        self.assertNotIn(
+            "r8TextureSlots: Set(variantKey.resolvedTextureFormats",
+            compilation,
+        )
+        self.assertIn("cachedGraphTextureFormatFacts", variant_cache)
+        self.assertIn("launch-graph-texture-formats-changed", variant_cache)
+
     def test_launch_uses_one_admitted_batch_for_templates_demands_and_claims(
         self,
     ) -> None:

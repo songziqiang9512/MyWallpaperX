@@ -107,6 +107,17 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                               item.count.map({ (1 ... 16).contains($0) }) ?? true else {
                             throw Failure.varyingUnsupported
                         }
+                        // A fragment declaration that is never referenced is
+                        // not part of the linked stage interface. Some authored
+                        // variants retain a wider optional declaration after
+                        // preprocessing; rejecting it against the live vertex
+                        // output would let dead metadata revoke the shader.
+                        // Live declarations still enter the shared shape table
+                        // below, so an actual ABI mismatch remains fail-closed.
+                        if stage == "fragment",
+                           !containsWord(item.name, in: value.body) {
+                            continue
+                        }
                         try insert(shape, name: item.name, into: &varyings,
                                    failure: .varyingUnsupported)
                         stageVaryings[stage, default: []].insert(item.name)
