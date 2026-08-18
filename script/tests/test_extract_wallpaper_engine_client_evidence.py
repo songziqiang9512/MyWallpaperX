@@ -14,6 +14,14 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 import extract_wallpaper_engine_client_evidence as extractor
 
 
+class ClientRootTests(unittest.TestCase):
+    def test_default_client_root_uses_repository_reference_project(self) -> None:
+        self.assertEqual(
+            extractor.DEFAULT_CLIENT_ROOT,
+            REPOSITORY_ROOT / "Reference Project/wallpaper_engine",
+        )
+
+
 class ChangelogExtractionTests(unittest.TestCase):
     def write_scripts_js(self, directory: Path, body: str) -> Path:
         path = directory / "scripts.js"

@@ -14,7 +14,7 @@
 用法：
 
     python3 script/extract_wallpaper_engine_client_evidence.py \\
-        --client-root ~/Downloads/wallpaper_engine \\
+        --client-root "Reference Project/wallpaper_engine" \\
         --output-dir /tmp/we-evidence
 """
 
@@ -28,6 +28,8 @@ from collections import Counter
 from pathlib import Path
 
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CLIENT_ROOT = REPOSITORY_ROOT / "Reference Project/wallpaper_engine"
 CHANGELOG_HEADLINE = re.compile(r'changelogHeadline">([^<]+)<')
 CHANGELOG_BODY = re.compile(r'changelogBody">(.*?)</pre>', re.S)
 REV_NUMBER = re.compile(r'REV\s+(\d+)')
@@ -132,7 +134,7 @@ def main() -> None:
     parser.add_argument(
         "--client-root",
         type=Path,
-        default=Path.home() / "Downloads/wallpaper_engine",
+        default=DEFAULT_CLIENT_ROOT,
         help="本机合法安装的 Wallpaper Engine 客户端根目录",
     )
     parser.add_argument(
