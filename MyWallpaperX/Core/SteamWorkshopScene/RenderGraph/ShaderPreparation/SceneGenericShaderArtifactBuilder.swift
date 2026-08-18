@@ -6,7 +6,12 @@ import Foundation
 nonisolated enum SceneGenericShaderArtifactBuilder {
     struct Stage {
         let name: String
+        /// Exact normalized source compiled by glslang. This owns compiler
+        /// budgets, never authored material semantics.
         let source: String
+        /// Prepared authored source before backend normalization. Shared
+        /// material analyzers use this identity to derive semantic facts.
+        let authoredSource: String
         let msl: String
         let reflection: Data
     }
@@ -93,7 +98,10 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 throw Failure.uniformStageMismatch
             }
             let uniformLayout = alignedLayout(vertexLayout.fields)
-            let color = try prepareColorTransfer(fragmentStage.msl)
+            let color = try prepareColorTransfer(
+                msl: fragmentStage.msl,
+                authoredSource: fragmentStage.authoredSource
+            )
             var vertexMSL = try normalizeUniformStruct(vertexStage.msl)
             var fragmentMSL = try normalizeUniformStruct(color.msl)
             vertexMSL = vertexMSL.replacingOccurrences(
@@ -116,6 +124,9 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 reflections: [vertexReflection, fragmentReflection],
                 metalSource: metalSource
             )
+            guard colorTransfer(color.transfer, isBoundBy: bindings) else {
+                throw Failure.colorTransfer
+            }
             let loopWork = try staticLoopWork(stages.map(\.source))
             let outputChannelUse = fragmentOutputChannelUse(
                 fragmentStage.source
@@ -251,7 +262,48 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         return "redOnly"
     }
 
-    private static func prepareColorTransfer(_ source: String) throws -> (
+    private static func prepareColorTransfer(
+        msl source: String,
+        authoredSource: String
+    ) throws -> (
+        msl: String,
+        transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
+    ) {
+        switch SceneAuthoredShaderColorTransferAnalyzer.analyze(
+            fragmentSource: authoredSource
+        ) {
+        case let .passthrough(textureSlot: slot):
+            return (source, artifactTransfer(kind: "passthrough", slot: slot))
+        case let .interpolatedColor(textureSlots: slots):
+            return (
+                source,
+                .init(kind: "interpolated-color", slot: nil, slots: slots)
+            )
+        case .opaque:
+            return (source, artifactTransfer(kind: "opaque"))
+        case .premultipliedAlpha:
+            return (source, artifactTransfer(kind: "premultiplied"))
+        case let .straightAlpha(textureSlot: expectedSlot):
+            guard let straight = straightAlphaAttenuation(source),
+                  straight.transfer.slot == expectedSlot else {
+                throw Failure.colorTransfer
+            }
+            return straight
+        case .unresolved:
+            // A compiler artifact may prove a form outside the bounded source
+            // analyzer. The cache consumer still rejects any artifact that
+            // contradicts a source fact that the shared analyzer did prove.
+            return try prepareCompilerProvenColorTransfer(source)
+        case .straightAlphaPreserving,
+             .straightAlphaUNorm,
+             .independentAlphaSignal,
+             .independentAlphaSignalPreserving,
+             .independentAlphaSignalCompositing:
+            throw Failure.colorTransfer
+        }
+    }
+
+    private static func prepareCompilerProvenColorTransfer(_ source: String) throws -> (
         msl: String,
         transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
     ) {
@@ -304,6 +356,37 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             )
         }
         throw Failure.colorTransfer
+    }
+
+    private static func artifactTransfer(
+        kind: String,
+        slot: Int? = nil
+    ) -> SceneGenericShaderProgramArtifact.Program.ColorTransfer {
+        .init(kind: kind, slot: slot, slots: nil)
+    }
+
+    private static func colorTransfer(
+        _ transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer,
+        isBoundBy bindings: [
+            SceneGenericShaderProgramArtifact.Program.TextureBinding
+        ]
+    ) -> Bool {
+        let boundSlots = Set(bindings.map(\.slot))
+        switch (transfer.kind, transfer.slot, transfer.slots) {
+        case let ("passthrough", slot?, nil),
+             let ("straight-alpha", slot?, nil):
+            return boundSlots.contains(slot)
+        case let ("interpolated-color", nil, slots?):
+            return slots.count >= 2
+                && slots.count <= 8
+                && slots == slots.sorted()
+                && Set(slots).count == slots.count
+                && Set(slots).isSubset(of: boundSlots)
+        case ("opaque", nil, nil), ("premultiplied", nil, nil):
+            return true
+        default:
+            return false
+        }
     }
 
     private static func interpolatedColorTransfer(

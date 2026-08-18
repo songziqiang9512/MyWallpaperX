@@ -4,6 +4,23 @@ import Foundation
 /// syntax unit that the authored frontend emits. It does not inspect paths,
 /// effect identities, render state, or shader fingerprints.
 nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
+    /// Derives the shared material color contract directly from one prepared
+    /// authored fragment source. Compiler backends may translate more syntax,
+    /// but they may not contradict a fact proven here.
+    static func analyze(fragmentSource source: String) -> SceneShaderColorTransfer {
+        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: source,
+                stage: .fragment
+            ),
+            stage: .fragment
+        )
+        guard syntax.diagnostics.isEmpty, let fragment = syntax.unit else {
+            return .unresolved
+        }
+        return analyze(fragment)
+    }
+
     static func analyze(
         _ fragment: SceneAuthoredShaderSyntaxUnit
     ) -> SceneShaderColorTransfer {

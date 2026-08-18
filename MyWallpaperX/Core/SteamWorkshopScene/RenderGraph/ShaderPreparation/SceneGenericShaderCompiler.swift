@@ -16,6 +16,7 @@ nonisolated enum SceneGenericShaderCompiler {
     private struct CompiledStage {
         let name: String
         let source: String
+        let authoredSource: String
         let msl: String
         let reflection: Data
     }
@@ -161,6 +162,7 @@ nonisolated enum SceneGenericShaderCompiler {
             compiled.append(.init(
                 name: name,
                 source: source,
+                authoredSource: name == "vertex" ? vertexSource : fragmentSource,
                 msl: mslSource,
                 reflection: reflectionData
             ))
@@ -170,7 +172,8 @@ nonisolated enum SceneGenericShaderCompiler {
             requestKey: requestKey,
             backendID: configuration.backendID,
             stages: compiled.map {
-                .init(name: $0.name, source: $0.source, msl: $0.msl,
+                .init(name: $0.name, source: $0.source,
+                      authoredSource: $0.authoredSource, msl: $0.msl,
                       reflection: $0.reflection)
             },
             maximumArtifactBytes: configuration.limits.maximumArtifactBytes

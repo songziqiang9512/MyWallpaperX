@@ -75,6 +75,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
 
     func makeProgram(
         expectedKey: String,
+        expectedColorTransfer: SceneShaderColorTransfer,
         expectedFragmentOutputChannelUse:
             SceneAuthoredShaderProgram.FragmentOutputChannelUse
     ) -> SceneAuthoredShaderProgram? {
@@ -150,6 +151,10 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
             guard bindings.contains(where: { $0.slot == slot }) else { return nil }
             colorTransfer = .straightAlpha(textureSlot: slot)
         default:
+            return nil
+        }
+        guard expectedColorTransfer == .unresolved
+                || colorTransfer == expectedColorTransfer else {
             return nil
         }
         guard let fragmentOutputChannelUse =

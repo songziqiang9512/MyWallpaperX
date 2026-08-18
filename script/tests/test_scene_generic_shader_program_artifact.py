@@ -66,7 +66,6 @@ private struct BuilderOutput: Codable {
     let positiveKind: String?
     let positiveSlots: [Int]?
     let unprovenOutputChannelUse: String?
-    let provenOutputChannelUse: String?
     let positiveFailure: String?
     let vectorWeightRejected: Bool
     let mutatedColorRejected: Bool
@@ -154,12 +153,26 @@ private struct GenericShaderArtifactHarness {
                 "    float4 current = g_Texture0.sample(sourceSampler, uv);",
                 "    float4 history = g_Texture1.sample(historySampler, uv);",
                 "    float rate = uniforms.rate;",
-                "    out.mwxFragColor = mix(history, current, rate);",
+                // SPIRV-Cross may make the scalar overload explicit. The
+                // material color contract must not depend on this spelling.
+                "    out.mwxFragColor = mix(history, current, float4(rate));",
+                "}",
+            ].joined(separator: "\n")
+            let authoredInterpolation = [
+                "uniform sampler2D g_Texture0;",
+                "uniform sampler2D g_Texture1;",
+                "uniform float g_Amount;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    vec4 presentColor = texSample2D(g_Texture0, v_TexCoord);",
+                "    vec4 retainedColor = texSample2D(g_Texture1, v_TexCoord);",
+                "    float blendAmount = g_Amount;",
+                "    gl_FragColor = mix(retainedColor, presentColor, blendAmount);",
                 "}",
             ].joined(separator: "\n")
             func build(
                 _ fragment: String,
-                authoredFragment: String = "void main() {}"
+                authoredFragment: String
             ) -> Result<
                 SceneGenericShaderProgramArtifact,
                 SceneGenericShaderArtifactBuilder.Failure
@@ -170,10 +183,12 @@ private struct GenericShaderArtifactHarness {
                     stages: [
                         .init(
                             name: "vertex", source: "void main() {}",
+                            authoredSource: "void main() {}",
                             msl: vertexMSL, reflection: reflection
                         ),
                         .init(
                             name: "fragment", source: authoredFragment,
+                            authoredSource: authoredFragment,
                             msl: fragment, reflection: reflection
                         ),
                     ],
@@ -184,7 +199,7 @@ private struct GenericShaderArtifactHarness {
             let positiveSlots: [Int]?
             let unprovenOutputChannelUse: String?
             let positiveFailure: String?
-            switch build(fragmentMSL) {
+            switch build(fragmentMSL, authoredFragment: authoredInterpolation) {
             case let .success(artifact):
                 positiveKind = artifact.program.colorTransfer.kind
                 positiveSlots = artifact.program.colorTransfer.slots
@@ -196,30 +211,24 @@ private struct GenericShaderArtifactHarness {
                 unprovenOutputChannelUse = nil
                 positiveFailure = String(describing: failure)
             }
-            let provenOutputChannelUse: String?
-            switch build(
-                fragmentMSL,
-                authoredFragment: "void main() { gl_FragColor = vec4(1.0); }"
-            ) {
-            case let .success(artifact):
-                provenOutputChannelUse = artifact.program.fragmentOutputChannelUse
-            case .failure:
-                provenOutputChannelUse = nil
-            }
             let vectorWeightRejected = failedColorTransfer(build(
-                fragmentMSL.replacingOccurrences(of: "float rate =", with: "float2 rate =")
+                fragmentMSL,
+                authoredFragment: authoredInterpolation.replacingOccurrences(
+                    of: "float blendAmount = g_Amount;",
+                    with: "vec2 blendAmount = vec2(g_Amount);"
+                )
             ))
             let mutatedColorRejected = failedColorTransfer(build(
-                fragmentMSL.replacingOccurrences(
-                    of: "float4 history =",
-                    with: "current *= 0.5;\n    float4 history ="
+                fragmentMSL,
+                authoredFragment: authoredInterpolation.replacingOccurrences(
+                    of: "vec4 retainedColor =",
+                    with: "presentColor *= 0.5;\n    vec4 retainedColor ="
                 )
             ))
             let output = BuilderOutput(
                 positiveKind: positiveKind,
                 positiveSlots: positiveSlots,
                 unprovenOutputChannelUse: unprovenOutputChannelUse,
-                provenOutputChannelUse: provenOutputChannelUse,
                 positiveFailure: positiveFailure,
                 vectorWeightRejected: vectorWeightRejected,
                 mutatedColorRejected: mutatedColorRejected
@@ -343,6 +352,56 @@ void main() {
         counter += 1;
     }
     gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+}
+"""
+
+OPAQUE_FRAGMENT = """
+varying vec2 v_TexCoord;
+void main() {
+    vec3 total = vec3(v_TexCoord, 0.2);
+    gl_FragColor = vec4(total, 1.0);
+}
+"""
+
+STRAIGHT_ALPHA_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+    float mask = 0.5;
+    gl_FragColor = vec4(color.rgb, color.a * mask);
+}
+"""
+
+INTERPOLATED_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform float g_Blend;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 recent = texSample2D(g_Texture0, v_TexCoord);
+    vec4 retained = texSample2D(g_Texture1, v_TexCoord);
+    gl_FragColor = mix(retained, recent, g_Blend);
+}
+"""
+
+PREMULTIPLIED_FRAGMENT = """
+uniform float g_Weight;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return base + blend * opacity;
+}
+void main() {
+    float weight = g_Weight;
+    vec3 tint = vec3(0.8);
+    vec4 color = CAST4(0.0);
+    color.rgb = ApplyBlending(31, color.rgb, tint, weight);
+    color.a = max(color.a, weight);
+    gl_FragColor = color;
 }
 """
 
@@ -593,8 +652,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
         self.assertEqual(json.loads(completed.stdout), {
             "positiveKind": "interpolated-color",
             "positiveSlots": [0, 1],
-            "unprovenOutputChannelUse": "unproven",
-            "provenOutputChannelUse": "redDefined",
+            "unprovenOutputChannelUse": "redDefined",
             "vectorWeightRejected": True,
             "mutatedColorRejected": True,
         })
@@ -718,6 +776,24 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             )
             self.assertIn(f"request={first['requestKey']}", rejected_log)
 
+    def test_artifact_color_fact_cannot_contradict_prepared_source(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
+            root = Path(directory)
+            first, _, cache, _ = self.run_harness(root, route="observe-only")
+            artifact = self.artifact(first["requestKey"], color_transfer="opaque")
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            rejected, _, _, rejected_log = self.run_harness(
+                root, route="prefer-generic"
+            )
+            self.assertEqual(rejected["status"], "unavailable")
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertIn(
+                "outcome=fallback reason=artifact-contract-rejected",
+                rejected_log,
+            )
+
     def test_unknown_fragment_output_fact_fails_closed(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
             root = Path(directory)
@@ -806,48 +882,62 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
     def test_opaque_artifact_maps_to_opaque_program_contract(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
             root = Path(directory)
-            first, _, cache, _ = self.run_harness(root, route="observe-only")
+            first, _, cache, _ = self.run_harness(
+                root, route="observe-only", fragment=OPAQUE_FRAGMENT
+            )
             artifact = self.artifact(first["requestKey"], color_transfer="opaque")
             artifact["program"]["staticLoopWork"] = 4
             (cache / f"{first['requestKey']}.json").write_text(
                 json.dumps(artifact), encoding="utf-8"
             )
-            accepted, _, _, _ = self.run_harness(root, route="prefer-generic")
+            accepted, _, _, _ = self.run_harness(
+                root, route="prefer-generic", fragment=OPAQUE_FRAGMENT
+            )
             self.assertEqual(accepted["status"], "accepted")
             self.assertEqual(accepted["colorTransfer"], "opaque")
 
     def test_premultiplied_artifact_maps_to_program_contract(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
             root = Path(directory)
-            first, _, cache, _ = self.run_harness(root, route="observe-only")
+            first, _, cache, _ = self.run_harness(
+                root, route="observe-only", fragment=PREMULTIPLIED_FRAGMENT
+            )
             artifact = self.artifact(
                 first["requestKey"], color_transfer="premultiplied"
             )
             (cache / f"{first['requestKey']}.json").write_text(
                 json.dumps(artifact), encoding="utf-8"
             )
-            accepted, _, _, _ = self.run_harness(root, route="prefer-generic")
+            accepted, _, _, _ = self.run_harness(
+                root, route="prefer-generic", fragment=PREMULTIPLIED_FRAGMENT
+            )
             self.assertEqual(accepted["status"], "accepted")
             self.assertEqual(accepted["colorTransfer"], "premultipliedAlpha")
 
     def test_straight_alpha_artifact_maps_color_source_slot(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
             root = Path(directory)
-            first, _, cache, _ = self.run_harness(root, route="observe-only")
+            first, _, cache, _ = self.run_harness(
+                root, route="observe-only", fragment=STRAIGHT_ALPHA_FRAGMENT
+            )
             artifact = self.artifact(
                 first["requestKey"], color_transfer="straight-alpha"
             )
             (cache / f"{first['requestKey']}.json").write_text(
                 json.dumps(artifact), encoding="utf-8"
             )
-            accepted, _, _, _ = self.run_harness(root, route="prefer-generic")
+            accepted, _, _, _ = self.run_harness(
+                root, route="prefer-generic", fragment=STRAIGHT_ALPHA_FRAGMENT
+            )
             self.assertEqual(accepted["status"], "accepted")
             self.assertEqual(accepted["colorTransfer"], "straightAlpha")
 
     def test_interpolated_color_artifact_requires_sorted_bound_slots(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
             root = Path(directory)
-            first, _, cache, _ = self.run_harness(root, route="observe-only")
+            first, _, cache, _ = self.run_harness(
+                root, route="observe-only", fragment=INTERPOLATED_FRAGMENT
+            )
             artifact = self.artifact(
                 first["requestKey"], color_transfer="interpolated-color"
             )
@@ -857,7 +947,9 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             (cache / f"{first['requestKey']}.json").write_text(
                 json.dumps(artifact), encoding="utf-8"
             )
-            accepted, _, _, _ = self.run_harness(root, route="prefer-generic")
+            accepted, _, _, _ = self.run_harness(
+                root, route="prefer-generic", fragment=INTERPOLATED_FRAGMENT
+            )
             self.assertEqual(accepted["status"], "accepted")
             self.assertEqual(accepted["colorTransfer"], "interpolatedColor")
 
@@ -865,7 +957,9 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             (cache / f"{first['requestKey']}.json").write_text(
                 json.dumps(artifact), encoding="utf-8"
             )
-            rejected, _, _, _ = self.run_harness(root, route="prefer-generic")
+            rejected, _, _, _ = self.run_harness(
+                root, route="prefer-generic", fragment=INTERPOLATED_FRAGMENT
+            )
             self.assertEqual(rejected["status"], "unavailable")
             self.assertEqual(rejected["code"], "artifact-contract-rejected")
 

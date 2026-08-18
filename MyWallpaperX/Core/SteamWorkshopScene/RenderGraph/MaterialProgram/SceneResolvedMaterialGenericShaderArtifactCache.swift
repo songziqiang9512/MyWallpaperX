@@ -252,9 +252,13 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 requestKey: key
             )
         }
+        let colorTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(
+            fragmentSource: fragmentSource
+        )
         let fragmentOutputChannelUse = fragmentOutputChannelUse(fragmentSource)
         guard let program = artifact.makeProgram(
                   expectedKey: key,
+                  expectedColorTransfer: colorTransfer,
                   expectedFragmentOutputChannelUse: fragmentOutputChannelUse
               ) else {
             return fallback(
