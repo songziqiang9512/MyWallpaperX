@@ -78,7 +78,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneTintPipeline.swift",
     SOURCE_ROOT / "Effects/ScenePulsePipeline.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
-    SOURCE_ROOT / "Effects/SceneFoliageSwayRuntimePlan.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurRuntimePlan.swift",
     SOURCE_ROOT / "Rendering/SceneTextureMappedUVScale.swift",
     SOURCE_ROOT / "Effects/SceneWaterRippleRuntimePlan.swift",
@@ -747,7 +746,6 @@ struct SceneLightShaftsEffectTextures {
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
         case cursorRipple(SceneCursorRippleExecutionPlan)
-        case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
@@ -793,7 +791,6 @@ struct SceneLightShaftsEffectTextures {
             case .waterWaves: "water-waves"
             case .waterCaustics: "water-caustics"
             case .cursorRipple: "cursor-ripple"
-            case .foliageSway: "foliage-sway"
             case .waterRipple: "water-ripple"
             case .depthParallax: "depth-parallax"
             case .xRay: "x-ray"
@@ -1117,38 +1114,6 @@ enum SceneCursorRippleRenderer {
         pointerMovement: Float,
         primaryButtonIsDown: Bool,
         frameTime: Float,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        nil
-    }
-}
-
-struct SceneFoliageSwayExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-struct SceneFoliageSwayEffectTextures {
-    struct ResolvedArguments {}
-
-    let maskBinding: SceneTextureSlotBinding?
-
-    func resolvedArguments(
-        for plan: SceneFoliageSwayExecutionPlan
-    ) -> ResolvedArguments? {
-        nil
-    }
-}
-struct SceneFoliageSwayPipeline {
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-enum SceneFoliageSwayRenderer {
-    static func render(
-        plan: SceneFoliageSwayExecutionPlan,
-        sourceTexture: MTLTexture,
-        resources: SceneFoliageSwayEffectTextures,
-        target: MTLTexture,
-        time: Float,
-        pipeline: SceneFoliageSwayPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         nil
@@ -2586,7 +2551,6 @@ enum Harness {
             throw HarnessError.drawRefused
         }
         func masks(
-            foliageSwayEffects: [String: SceneFoliageSwayEffectTextures] = [:],
             waterRippleEffects: [String: SceneWaterRippleEffectTextures] = [:],
             shakeEffects: [String: SceneShakeEffectTextures] = [:],
             standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:],
@@ -2601,7 +2565,6 @@ enum Harness {
             xRay: SceneXRayEffectTextures? = nil
         ) -> SceneImageLayerMasks {
             SceneImageLayerMasks(
-                foliageSwayEffects: foliageSwayEffects,
                 waterRippleEffects: waterRippleEffects,
                 depthParallaxEffects: [:],
                 blendEffects: [:],
@@ -3156,11 +3119,6 @@ enum Harness {
         ]
         let visibleEffectID = visibleUnsupportedEffect.id
         let maskedCases: [(String, SceneImageLayerMasks)] = [
-            ("foliageSway", masks(foliageSwayEffects: [
-                visibleEffectID: SceneFoliageSwayEffectTextures(
-                    maskBinding: maskSlot1
-                ),
-            ])),
             ("waterRipple", masks(waterRippleEffects: [
                 visibleEffectID: SceneWaterRippleEffectTextures(
                     mask: dependency,
@@ -4518,7 +4476,6 @@ enum Harness {
         descriptorID: String
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            foliageSwayEffects: [:],
             waterRippleEffects: [:],
             depthParallaxEffects: [:],
             blendEffects: [:],
@@ -5474,7 +5431,6 @@ enum Harness {
         shineEffects: [String: SceneShineEffectTextures] = [:]
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            foliageSwayEffects: [:],
             waterRippleEffects: [:],
             depthParallaxEffects: [:],
             blendEffects: blendEffects,
@@ -6015,7 +5971,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "waterWavesWrongPassMasked",
                 "waterWavesStaticSourceConsumer",
                 "waterWavesWithOpacity",
-                "mask-foliageSway",
                 "mask-waterRipple",
                 "mask-shake",
                 "mask-standardBlur",

@@ -28,6 +28,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompiler.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
 ]
@@ -563,6 +565,16 @@ void main() {
     float signal = texSample2D(g_Texture1, v_TexCoord).r;
     albedo.rgb *= signal;
     gl_FragColor = albedo;
+}
+"""
+
+STAGE_UNIFORM_PASSTHROUGH_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform float g_Speed;
+varying vec2 v_TexCoord;
+void main() {
+    vec2 offset = vec2(g_Speed * 0.0);
+    gl_FragColor = texSample2D(g_Texture0, v_TexCoord + offset);
 }
 """
 
@@ -1286,6 +1298,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
     def test_migrated_profiles_revoke_bounded_owner_only_for_typed_facts(self):
         cases = [
             (
+                STAGE_UNIFORM_PASSTHROUGH_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "source-proven-graph-input-stage-uniform-passthrough",
+            ),
+            (
                 STRAIGHT_ALPHA_FRAGMENT,
                 {"graph_input_slots": (0,)},
                 "source-proven-graph-input-straight-alpha",
@@ -1359,6 +1376,15 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
         for fragment, facts in (
             (FRAGMENT, {"graph_slots": (1,)}),
             (FRAGMENT, {"graph_slots": (0,), "has_external_provider": True}),
+            (FRAGMENT, {"graph_input_slots": (0,)}),
+            (
+                STAGE_UNIFORM_PASSTHROUGH_FRAGMENT,
+                {"graph_input_slots": (1,)},
+            ),
+            (
+                STAGE_UNIFORM_PASSTHROUGH_FRAGMENT,
+                {"graph_input_slots": (0,), "has_external_provider": True},
+            ),
             (STRAIGHT_ALPHA_FRAGMENT, {"graph_input_slots": (1,)}),
             (
                 STRAIGHT_ALPHA_FRAGMENT,
@@ -1380,6 +1406,13 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
 
     def test_migrated_profiles_accept_generic_artifacts_and_fail_closed(self):
         cases = [
+            (
+                STAGE_UNIFORM_PASSTHROUGH_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "passthrough",
+                "source-proven-graph-input-stage-uniform-passthrough",
+                False,
+            ),
             (
                 STRAIGHT_ALPHA_FRAGMENT,
                 {"graph_input_slots": (0,)},

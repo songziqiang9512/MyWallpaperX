@@ -330,9 +330,13 @@ fragment void f() {
         )
         self.assertEqual(
             [field["offset"] for field in artifact["program"]["uniformLayout"]["fields"]],
-            [0, 16, 24],
+            [0],
         )
-        self.assertEqual(artifact["program"]["uniformLayout"]["byteSize"], 32)
+        self.assertEqual(
+            [field.get("stage") for field in artifact["program"]["uniformLayout"]["fields"]],
+            [None],
+        )
+        self.assertEqual(artifact["program"]["uniformLayout"]["byteSize"], 16)
         self.assertNotIn("packed_float3", artifact["program"]["metalSource"])
         kwargs["msl_sources"] = {
             "vertex": vertex_msl,
@@ -410,6 +414,67 @@ fragment void f() {
         }
         with self.assertRaisesRegex(ArtifactFailure, "color-transfer"):
             build_program_artifact(**kwargs)
+
+    def test_linked_uniform_superset_is_filtered_per_stage(self) -> None:
+        reflection = {
+            "types": {"_1": {"members": [
+                {"name": "g_Direction", "type": "vec2", "offset": 0},
+                {"name": "g_Speed", "type": "float", "offset": 8},
+                {"name": "mwxRenderSize", "type": "vec2", "offset": 16},
+            ]}},
+            "ubos": [{
+                "type": "_1", "block_size": 24, "set": 0, "binding": 8
+            }],
+            "textures": [{"name": "g_Texture0", "binding": 0}],
+        }
+        stages = [
+            {"stage": "vertex", "reflection": reflection},
+            {"stage": "fragment", "reflection": reflection},
+        ]
+        vertex_msl = """struct MWXUniforms {
+    float2 g_Direction;
+    float g_Speed;
+    float2 mwxRenderSize;
+};
+vertex void v() {
+    position.xy += uniforms.g_Direction * uniforms.g_Speed;
+    position.xy /= uniforms.mwxRenderSize;
+}
+"""
+        fragment_msl = """struct MWXUniforms {
+    float2 g_Direction;
+    float g_Speed;
+    float2 mwxRenderSize;
+};
+fragment void f() {
+    float ignored = uniforms.g_Speed * uniforms.mwxRenderSize.x;
+    out.mwxFragColor = g_Texture0.sample(sourceSampler, uv);
+}
+"""
+        artifact = build_program_artifact(
+            request_key="f" * 64,
+            backend_id="glslang-spirv-cross-msl-v1",
+            compiled_stages=stages,
+            stage_sources={
+                "vertex": "void main() {}", "fragment": "void main() {}"
+            },
+            msl_sources={"vertex": vertex_msl, "fragment": fragment_msl},
+            maximum_artifact_bytes=1_024_000,
+        )
+        fields = artifact["program"]["uniformLayout"]["fields"]
+        self.assertEqual(
+            [(field["name"], field.get("stage")) for field in fields],
+            [
+                ("g_Direction", "vertex"),
+                ("mwxV_g_Speed", "vertex"),
+                ("mwxF_g_Speed", "fragment"),
+                ("mwxRenderSize", None),
+            ],
+        )
+        source = artifact["program"]["metalSource"]
+        self.assertNotIn("mwxF_g_Direction", source)
+        self.assertIn("uniforms.mwxV_g_Speed", source)
+        self.assertIn("uniforms.mwxF_g_Speed", source)
 
     def test_two_direct_color_samples_require_scalar_unmutated_mix(self) -> None:
         reflection = {

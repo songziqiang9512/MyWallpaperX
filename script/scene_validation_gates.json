@@ -370,7 +370,7 @@
         "script/fixtures/scene_shader_compiler/**",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderCompiler*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder*.swift"
       ],
       "modules": [
         "test_scene_generic_shader_compiler_process",

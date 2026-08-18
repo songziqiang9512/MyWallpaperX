@@ -122,7 +122,6 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "script/tests/test_scene_depth_parallax_planner.py",
             "script/tests/test_scene_film_grain_planner.py",
             "script/tests/test_scene_fisheye_zero_distortion_planner.py",
-            "script/tests/test_scene_foliage_sway_profile.py",
             "script/tests/test_scene_godrays_planner.py",
             "script/tests/test_scene_light_shafts_planner.py",
             "script/tests/test_scene_opacity_planner.py",
@@ -185,7 +184,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(preprocessing[:2], environment)
         self.assertEqual(len(preparation), 14)
         self.assertEqual(preparation[:12], preprocessing)
-        self.assertEqual(len(generic_compiler), 5)
+        self.assertEqual(len(generic_compiler), 6)
         preparation_directory = (
             REPOSITORY_ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation"

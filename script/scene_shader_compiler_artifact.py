@@ -132,16 +132,78 @@ def _aligned_uniform_layout(fields: list[dict[str, Any]]) -> tuple[list[dict[str
     return aligned, (offset + 15) // 16 * 16
 
 
-def _normalize_uniform_struct(msl: str) -> str:
+def _active_uniform_fields(
+    fields: list[dict[str, Any]],
+    msl: str,
+) -> list[dict[str, Any]]:
     pattern = re.compile(r"struct\s+MWXUniforms\s*\{(?P<body>.*?)\};", re.DOTALL)
     matches = list(pattern.finditer(msl))
     if len(matches) != 1:
         raise ArtifactFailure("uniform-struct")
     match = matches[0]
-    body = match.group("body")
-    for value_type in ("float3", "int3", "uint3"):
-        body = re.sub(rf"\bpacked_{value_type}\b", value_type, body)
-    return msl[:match.start("body")] + body + msl[match.end("body"):]
+    executable = msl[:match.start()] + msl[match.end():]
+    executable = re.sub(r"/\*.*?\*/|//[^\n]*", " ", executable, flags=re.DOTALL)
+    return [
+        field for field in fields
+        if field["authoredName"] == "mwxRenderSize"
+        or re.search(
+            rf"\.\s*{re.escape(field['authoredName'])}\b", executable
+        ) is not None
+    ]
+
+
+def _stage_local_uniform_layout(
+    vertex_fields: list[dict[str, Any]],
+    fragment_fields: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int, dict[str, str], dict[str, str]]:
+    shared_internal = "mwxRenderSize"
+    vertex_names = {field["authoredName"] for field in vertex_fields}
+    fragment_names = {field["authoredName"] for field in fragment_fields}
+    duplicated = (vertex_names & fragment_names) - {shared_internal}
+    combined: list[dict[str, Any]] = []
+    mappings: dict[str, dict[str, str]] = {"vertex": {}, "fragment": {}}
+    internal: dict[str, Any] | None = None
+    for stage, fields, prefix in (
+        ("vertex", vertex_fields, "mwxV_"),
+        ("fragment", fragment_fields, "mwxF_"),
+    ):
+        for field in fields:
+            authored = field["authoredName"]
+            if authored == shared_internal:
+                if internal is not None and internal["type"] != field["type"]:
+                    raise ArtifactFailure("uniform-stage-mismatch")
+                internal = {**field, "name": shared_internal}
+                mappings[stage][authored] = shared_internal
+                continue
+            name = prefix + authored if authored in duplicated else authored
+            combined.append({**field, "name": name, "stage": stage})
+            mappings[stage][authored] = name
+    if internal is not None:
+        combined.append(internal)
+    fields, byte_size = _aligned_uniform_layout(combined)
+    return fields, byte_size, mappings["vertex"], mappings["fragment"]
+
+
+def _normalize_uniform_struct(
+    msl: str,
+    fields: list[dict[str, Any]],
+    names: dict[str, str],
+) -> str:
+    pattern = re.compile(r"struct\s+MWXUniforms\s*\{(?P<body>.*?)\};", re.DOTALL)
+    matches = list(pattern.finditer(msl))
+    if len(matches) != 1:
+        raise ArtifactFailure("uniform-struct")
+    match = matches[0]
+    body = "\n" + "\n".join(
+        f"    {field['type']} {field['name']};" for field in fields
+    ) + "\n"
+    result = msl[:match.start("body")] + body + msl[match.end("body"):]
+    for authored, field_name in names.items():
+        if authored != field_name:
+            result = re.sub(
+                rf"\.{re.escape(authored)}\b", f".{field_name}", result
+            )
+    return result
 
 
 def _sample_end(source: str, start: int) -> int | None:
@@ -422,9 +484,10 @@ def build_program_artifact(
         raise ArtifactFailure("compiled-pair")
     vertex_layout = _uniform_layout(stages["vertex"]["reflection"])
     fragment_layout = _uniform_layout(stages["fragment"]["reflection"])
-    if vertex_layout != fragment_layout:
-        raise ArtifactFailure("uniform-stage-mismatch")
-    uniform_layout = _aligned_uniform_layout(vertex_layout[0])
+    uniform_layout = _stage_local_uniform_layout(
+        _active_uniform_fields(vertex_layout[0], msl_sources["vertex"]),
+        _active_uniform_fields(fragment_layout[0], msl_sources["fragment"]),
+    )
     fragment_color_preparation = _premultiplied_alpha_attenuation(
         msl_sources["fragment"]
     )
@@ -438,10 +501,14 @@ def build_program_artifact(
         if fragment_color_preparation is not None
         else _passthrough_color_transfer(msl_sources["fragment"])
     )
-    vertex_msl = _normalize_uniform_struct(msl_sources["vertex"]).replace(
+    vertex_msl = _normalize_uniform_struct(
+        msl_sources["vertex"], uniform_layout[0], uniform_layout[2]
+    ).replace(
         "MWXUniforms", "MWXVertexUniforms"
     )
-    fragment_msl = _normalize_uniform_struct(prepared_fragment_msl).replace(
+    fragment_msl = _normalize_uniform_struct(
+        prepared_fragment_msl, uniform_layout[0], uniform_layout[3]
+    ).replace(
         "MWXUniforms", "MWXFragmentUniforms"
     )
     if vertex_msl == msl_sources["vertex"] or fragment_msl == msl_sources["fragment"]:

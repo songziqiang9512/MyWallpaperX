@@ -10,6 +10,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
             struct Field: Codable, Equatable {
                 let name: String
                 let authoredName: String
+                let stage: String?
                 let type: String
                 let offset: Int
                 let arrayCount: Int?
@@ -17,12 +18,14 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
                 init(
                     name: String,
                     authoredName: String,
+                    stage: String? = nil,
                     type: String,
                     offset: Int,
                     arrayCount: Int? = nil
                 ) {
                     self.name = name
                     self.authoredName = authoredName
+                    self.stage = stage
                     self.type = type
                     self.offset = offset
                     self.arrayCount = arrayCount
@@ -93,13 +96,15 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         }
         let fields = raw.uniformLayout.fields.compactMap { field ->
             SceneAuthoredShaderUniformLayout.Field? in
-            guard let type = SceneAuthoredShaderValueType(rawValue: field.type) else {
+            guard let type = SceneAuthoredShaderValueType(rawValue: field.type),
+                  field.stage == nil
+                    || SceneShaderContract.StageKind(rawValue: field.stage!) != nil else {
                 return nil
             }
             return .init(
                 name: field.name,
                 authoredName: field.authoredName,
-                stage: nil,
+                stage: field.stage.flatMap(SceneShaderContract.StageKind.init(rawValue:)),
                 type: type,
                 arrayCount: field.arrayCount,
                 offset: field.offset

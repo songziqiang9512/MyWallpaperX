@@ -71,13 +71,12 @@ SHAKE_TEXTURE_LOADER_SOURCE = (
 )
 
 ORDERED_STAGE_FIXTURES = {
-    "shake-foliage-xray": (
+    "shake-xray": (
         (0, "shake"),
         (1, "shake"),
         (2, "shake"),
         (3, "shake"),
-        (4, "foliageSway"),
-        (5, "xRay"),
+        (4, "xRay"),
     ),
     "xray-water-shake": (
         (0, "xRay"),
@@ -90,11 +89,6 @@ ORDERED_STAGE_FIXTURES = {
 
 STAGE_SOURCE_MARKERS = {
     "shake": ("SceneAuthoredShakePlanner.compile", "case shake", "case .shake"),
-    "foliageSway": (
-        "SceneAuthoredFoliageSwayPlanner.compile",
-        "case foliageSway",
-        "case .foliageSway",
-    ),
     "xRay": ("SceneAuthoredXRayPlanner.compile", "case xRay", "case .xRay"),
     "waterFlow": (
         "SceneAuthoredWaterFlowPlanner.compile",
@@ -357,22 +351,6 @@ enum SceneAuthoredCursorRipplePlanner {
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneCursorRippleExecutionPlan? {
         nil
-    }
-}
-
-struct SceneFoliageSwayExecutionPlan {}
-
-enum SceneAuthoredFoliageSwayPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneFoliageSwayExecutionPlan? {
-        graph.effects.first?.definitionPath.lowercased()
-            == "effects/foliagesway/effect.json"
-            ? SceneFoliageSwayExecutionPlan()
-            : nil
     }
 }
 
@@ -711,10 +689,6 @@ extension SceneAuthoredWaterCausticsPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredCursorRipplePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneCursorRippleExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .cursorRipple }
-}
-extension SceneAuthoredFoliageSwayPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneFoliageSwayExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .foliageSway }
 }
 extension SceneAuthoredWaterRipplePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWaterRippleExecutionPlan
@@ -1486,7 +1460,6 @@ enum Harness {
             case .waterWaves: backend = "waterWaves"
             case .waterCaustics: backend = "waterCaustics"
             case .cursorRipple: backend = "cursorRipple"
-            case .foliageSway: backend = "foliageSway"
             case .waterRipple: backend = "waterRipple"
             case .depthParallax: backend = "depthParallax"
             case .xRay: backend = "xRay"
@@ -1759,10 +1732,10 @@ enum Harness {
         ) -> Bool {
             SceneAuthoredStandardBlurPlanner.plan(graph: graph, descriptor: descriptor) == nil
         }
-        let shakeFoliageXRay = orderedGraph(
+        let shakeXRay = orderedGraph(
             layerID: 910,
             stageNames: [
-                "shake", "shake", "shake", "shake", "foliageSway", "xRay",
+                "shake", "shake", "shake", "shake", "xRay",
             ]
         )
         let xRayWaterShake = orderedGraph(
@@ -1932,9 +1905,9 @@ enum Harness {
                 descriptor: standardUnknownMaskComboDescriptor
             ),
             "standardMixedEffectRejected": standardRejected(graph: standardBlurGraph(extraMixedEffect: true)),
-            "shakeFoliageXRayStages": stageEvidence(
-                graph: shakeFoliageXRay.graph,
-                descriptor: shakeFoliageXRay.descriptor
+            "shakeXRayStages": stageEvidence(
+                graph: shakeXRay.graph,
+                descriptor: shakeXRay.descriptor
             ),
             "xRayWaterShakeStages": stageEvidence(
                 graph: xRayWaterShake.graph,
@@ -1988,7 +1961,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         leaf_body = backend[leaf_start:logical_start]
         topology = CHAIN_TOPOLOGY_SOURCE.read_text(encoding="utf-8")
 
-        for backend_name in (".waterFlow", ".foliageSway", ".depthParallax"):
+        for backend_name in (".waterFlow", ".depthParallax"):
             self.assertIn(backend_name, leaf_body)
         self.assertNotIn("yieldsToResolvedMaterialProgram", backend)
         self.assertNotIn(".spin", backend)
@@ -1997,11 +1970,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertIn("case .waterFlow(let plan):", topology)
         self.assertIn("inputs.masks.waterFlowEffects[", topology)
         self.assertIn("resources.matches(plan)", topology)
-        self.assertIn("case .foliageSway(let plan):", topology)
-        self.assertIn("inputs.masks.foliageSwayEffects[", topology)
-        self.assertIn("resources.resolvedArguments(for: plan)", topology)
-        self.assertIn('"foliage-sway-resource-missing"', topology)
-        self.assertIn('"foliage-sway-pipeline-missing"', topology)
         self.assertIn("case .depthParallax(let plan):", topology)
         self.assertIn("inputs.masks.depthParallaxEffects[", topology)
         self.assertIn('"depth-parallax-resource-missing"', topology)
@@ -2203,23 +2171,22 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             f"{fixture_name} must not append X-Ray outside GraphExecutor",
         )
 
-    def test_public_graph_preserves_shake_foliage_then_xray_stage_order(self) -> None:
+    def test_public_graph_preserves_shake_then_xray_stage_order(self) -> None:
         self.assertEqual(
-            ORDERED_STAGE_FIXTURES["shake-foliage-xray"],
+            ORDERED_STAGE_FIXTURES["shake-xray"],
             (
                 (0, "shake"),
                 (1, "shake"),
                 (2, "shake"),
                 (3, "shake"),
-                (4, "foliageSway"),
-                (5, "xRay"),
+                (4, "xRay"),
             ),
         )
         self.assertEqual(
-            self.result["shakeFoliageXRayStages"],
-            [list(stage) for stage in ORDERED_STAGE_FIXTURES["shake-foliage-xray"]],
+            self.result["shakeXRayStages"],
+            [list(stage) for stage in ORDERED_STAGE_FIXTURES["shake-xray"]],
         )
-        self.assert_ordered_stage_fixture("shake-foliage-xray")
+        self.assert_ordered_stage_fixture("shake-xray")
 
     def test_public_graph_preserves_xray_water_and_shake_stage_order(self) -> None:
         self.assertEqual(
@@ -2245,7 +2212,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             "waterFlowEffects",
             "waterWavesEffects",
             "waterRippleEffects",
-            "foliageSwayEffects",
             "blendEffects",
             "xRay",
         ):

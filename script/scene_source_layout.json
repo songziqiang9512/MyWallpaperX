@@ -262,7 +262,7 @@
         "role": "inventory",
         "description": "Ordered dedicated compiler probes are frozen until their product owner is transferred.",
         "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
-        "baseline_occurrences": 28,
+        "baseline_occurrences": 27,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
         ],
@@ -277,7 +277,7 @@
         "pattern": "^    case [A-Za-z][A-Za-z0-9_]*(?:\\s*=|\\s*$)",
         "start_marker": "nonisolated enum SceneEffectStageCompilerBackend",
         "end_marker": "nonisolated struct SceneEffectStageCompilerFailure",
-        "baseline_occurrences": 28,
+        "baseline_occurrences": 27,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
         ],
@@ -292,7 +292,7 @@
         "pattern": "^        case [A-Za-z][A-Za-z0-9_]*\\(",
         "start_marker": "extension SceneEffectStageExecutionPlan {",
         "end_marker": "    var gaussianBlur:",
-        "baseline_occurrences": 28,
+        "baseline_occurrences": 27,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
         ],
@@ -315,7 +315,7 @@
         "role": "inventory",
         "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
-        "baseline_occurrences": 194,
+        "baseline_occurrences": 187,
         "allowed_files": [
           "RenderGraph/SceneAuthoredBlendPlanner.swift",
           "RenderGraph/SceneAuthoredColorGradingPlanner.swift",
@@ -323,7 +323,6 @@
           "RenderGraph/SceneAuthoredDepthParallaxPlanner.swift",
           "RenderGraph/SceneAuthoredFilmGrainPlanner.swift",
           "RenderGraph/SceneAuthoredFisheyeZeroDistortionPlanner.swift",
-          "RenderGraph/SceneAuthoredFoliageSwayPlanner.swift",
           "RenderGraph/SceneAuthoredLightShaftsPlanner+AssetValidation.swift",
           "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
           "RenderGraph/SceneAuthoredOpacityPlanner.swift",
@@ -342,7 +341,6 @@
           "RenderGraph/SceneCursorRippleShaderProfile.swift",
           "RenderGraph/SceneDepthParallaxShaderProfile.swift",
           "RenderGraph/SceneFisheyeZeroDistortionShaderProfile.swift",
-          "RenderGraph/SceneFoliageSwayShaderProfile.swift",
           "RenderGraph/SceneGodraysShaderProfile.swift",
           "RenderGraph/SceneProceduralNoiseShaderProfile.swift",
           "RenderGraph/ScenePulseShaderProfile.swift",

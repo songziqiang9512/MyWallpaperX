@@ -52,15 +52,6 @@ extension SceneAuthoredCursorRipplePlanner {
     }
 }
 
-extension SceneAuthoredFoliageSwayPlanner {
-    nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        SceneEffectStageDedicatedCandidateMatcher.matches(
-            graph: graph,
-            definitionPath: "effects/foliagesway/effect.json"
-        )
-    }
-}
-
 extension SceneAuthoredWaterRipplePlanner {
     nonisolated static func containsCandidate(graph: Graph) -> Bool {
         SceneEffectStageDedicatedCandidateMatcher.matches(

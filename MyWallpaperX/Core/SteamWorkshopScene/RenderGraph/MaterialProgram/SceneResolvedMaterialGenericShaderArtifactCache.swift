@@ -76,6 +76,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             "source-proven-graph-target-passthrough"
         case sourceProvenGraphInputStraightAlpha =
             "source-proven-graph-input-straight-alpha"
+        case sourceProvenGraphInputStageUniformPassthrough =
+            "source-proven-graph-input-stage-uniform-passthrough"
 
         init(
             colorTransfer: SceneShaderColorTransfer,
@@ -83,7 +85,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             producesScalarRedOutput: Bool,
             graphTextureSlots: Set<Int>,
             graphInputTextureSlots: Set<Int>,
-            r8TextureSlots: Set<Int>
+            r8TextureSlots: Set<Int>,
+            hasStageScopedUniformBindings: Bool
         ) {
             if colorTransfer == .opaque, producesScalarRedOutput {
                 self = .sourceProvenOpaqueScalarOutput
@@ -96,6 +99,12 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                       !producesScalarRedOutput,
                       graphTextureSlots.contains(sourceSlot) {
                 self = .sourceProvenGraphTargetPassthrough
+            } else if case let .passthrough(sourceSlot) = colorTransfer,
+                      !hasExternalProviderTexture,
+                      !producesScalarRedOutput,
+                      graphInputTextureSlots.contains(sourceSlot),
+                      hasStageScopedUniformBindings {
+                self = .sourceProvenGraphInputStageUniformPassthrough
             } else if case let .straightAlpha(sourceSlot) = colorTransfer,
                       !hasExternalProviderTexture,
                       !producesScalarRedOutput,
@@ -119,7 +128,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                  .sourceProvenOpaqueScalarOutput,
                  .sourceProvenStraightAlphaR8Signal,
                  .sourceProvenGraphTargetPassthrough,
-                 .sourceProvenGraphInputStraightAlpha: .genericOnly
+                 .sourceProvenGraphInputStraightAlpha,
+                 .sourceProvenGraphInputStageUniformPassthrough: .genericOnly
             }
         }
     }
@@ -269,7 +279,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             producesScalarRedOutput: producesScalarRedOutput,
             graphTextureSlots: graphTextureSlots,
             graphInputTextureSlots: graphInputTextureSlots,
-            r8TextureSlots: r8TextureSlots
+            r8TextureSlots: r8TextureSlots,
+            hasStageScopedUniformBindings: hasStageScopedUniformBindings(
+                vertexSource: vertexSource,
+                fragmentSource: fragmentSource
+            )
         )
         let environment = ProcessInfo.processInfo.environment
         guard let routeState = RouteState.resolve(
@@ -446,6 +460,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         graphTextureSlots: Set<Int>,
         graphInputTextureSlots: Set<Int>,
         r8TextureSlots: Set<Int>,
+        hasStageScopedUniformBindings: Bool,
         layerID: Int,
         effectIndex: Int,
         descriptorID: String,
@@ -459,7 +474,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             producesScalarRedOutput: producesScalarRedOutput,
             graphTextureSlots: graphTextureSlots,
             graphInputTextureSlots: graphInputTextureSlots,
-            r8TextureSlots: r8TextureSlots
+            r8TextureSlots: r8TextureSlots,
+            hasStageScopedUniformBindings: hasStageScopedUniformBindings
         )
         guard let state = RouteState.resolve(
                   environment[routeEnvironment],
@@ -477,6 +493,41 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             nodeIndex: nodeIndex,
             preparedKey: preparedKey
         )
+    }
+
+    private static func hasStageScopedUniformBindings(
+        vertexSource: String,
+        fragmentSource: String
+    ) -> Bool {
+        func activeUniforms(
+            _ source: String,
+            stage: SceneShaderContract.StageKind
+        ) -> Set<String>? {
+            let output = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+                lexerOutput: SceneAuthoredShaderLexer.lex(
+                    source: source,
+                    stage: stage
+                ),
+                stage: stage
+            )
+            guard output.diagnostics.isEmpty, let unit = output.unit else {
+                return nil
+            }
+            return Set(unit.declarations.compactMap { declaration in
+                guard declaration.storage == .uniform,
+                      declaration.typeName != "sampler2D",
+                      SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced(
+                          declaration.name,
+                          in: unit
+                      ) else { return nil }
+                return declaration.name
+            })
+        }
+        guard let vertex = activeUniforms(vertexSource, stage: .vertex),
+              let fragment = activeUniforms(fragmentSource, stage: .fragment) else {
+            return false
+        }
+        return !vertex.isEmpty && !fragment.isEmpty
     }
 
     private static func requestKey(

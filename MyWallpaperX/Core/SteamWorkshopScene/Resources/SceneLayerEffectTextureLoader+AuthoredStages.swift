@@ -32,9 +32,6 @@ extension SceneLayerEffectTextureLoader {
             waterFlowEffectIDs: Set(stages.compactMap { $0.waterFlow?.effectKey.descriptorID }),
             waterWavesEffectIDs: Set(stages.compactMap { $0.waterWaves?.effectKey.descriptorID }),
             waterCausticsPlans: stages.compactMap(\.waterCaustics),
-            foliageSwayEffectIDs: Set(
-                stages.compactMap { $0.foliageSway?.effectKey.descriptorID }
-            ),
             waterRippleEffectIDs: Set(
                 stages.compactMap { $0.waterRipple?.effectKey.descriptorID }
             ),

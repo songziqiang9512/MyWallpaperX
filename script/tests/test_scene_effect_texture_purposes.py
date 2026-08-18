@@ -20,7 +20,6 @@ SLOT_BINDING = RESOURCE_ROOT / "SceneTextureSlotBinding.swift"
 WATER_FLOW_LOADER = RESOURCE_ROOT / "SceneWaterFlowEffectTextureLoader.swift"
 STANDARD_BLUR_LOADER = RESOURCE_ROOT / "SceneStandardBlurEffectTextureLoader.swift"
 SHAKE_LOADER = RESOURCE_ROOT / "SceneShakeEffectTextureLoader.swift"
-FOLIAGE_LOADER = RESOURCE_ROOT / "SceneFoliageSwayEffectTextureLoader.swift"
 RIPPLE_LOADER = RESOURCE_ROOT / "SceneWaterRippleEffectTextureLoader.swift"
 DEPTH_PARALLAX_LOADER = (
     RESOURCE_ROOT / "SceneDepthParallaxEffectTextureLoader.swift"
@@ -30,7 +29,6 @@ EFFECT_ROOT = (
 )
 WATER_FLOW_RENDERER = EFFECT_ROOT / "SceneWaterFlowRenderer.swift"
 SHAKE_RENDERER = EFFECT_ROOT / "SceneShakeRenderer.swift"
-FOLIAGE_RENDERER = EFFECT_ROOT / "SceneFoliageSwayRenderer.swift"
 RIPPLE_RENDERER = EFFECT_ROOT / "SceneWaterRippleRenderer.swift"
 OFFSCREEN_RENDERER = EFFECT_ROOT / "SceneOffscreenEffectRenderer.swift"
 RESOLVED_TEMPLATE_COMPILER = (
@@ -50,8 +48,6 @@ EXPECTED_PURPOSES = {
     "blend effect texture": "premultipliedColor",
     "cursor ripple collision mask": "mask",
     "film grain noise": "noise",
-    "foliagesway effect mask": "mask",
-    "foliagesway noise": "noise",
     "godrays noise": "noise",
     "godrays effect mask": "mask",
     "light shafts noise": "noise",
@@ -112,7 +108,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             {
                 "SceneBlendEffectTextureLoader.swift": 1,
                 "SceneDepthParallaxEffectTextureLoader.swift": 1,
-                "SceneFoliageSwayEffectTextureLoader.swift": 2,
                 "SceneShakeEffectTextureLoader.swift": 3,
                 "SceneStandardBlurEffectTextureLoader.swift": 1,
                 "SceneWaterFlowEffectTextureLoader.swift": 2,
@@ -165,13 +160,11 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         offscreen = OFFSCREEN_RENDERER.read_text(encoding="utf-8")
         strict_loaders = {
             SHAKE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 3"),
-            FOLIAGE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 2"),
             RIPPLE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 2"),
             DEPTH_PARALLAX_LOADER: ("expectedSlotIndex: 1",),
         }
         strict_renderers = (
             SHAKE_RENDERER,
-            FOLIAGE_RENDERER,
             RIPPLE_RENDERER,
         )
         resolved_template = RESOLVED_TEMPLATE_COMPILER.read_text(encoding="utf-8")

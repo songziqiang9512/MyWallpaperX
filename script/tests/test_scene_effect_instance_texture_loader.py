@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Foliage Sway / Water Ripple 的 effect-instance 纹理身份与 fail-closed。"""
+"""Water Ripple / Shake 的 effect-instance 纹理身份与 fail-closed。"""
 
 from __future__ import annotations
 
@@ -27,7 +27,6 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
     SCENE_ROOT / "Resources/SceneShakeEffectTextureLoader.swift",
-    SCENE_ROOT / "Resources/SceneFoliageSwayEffectTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneWaterRippleEffectTextureLoader.swift",
 ]
 
@@ -50,11 +49,6 @@ final class SceneVideoTextureSource {
     }
 }
 
-struct SceneFoliageSwayExecutionPlan {
-    let maskTexturePath: String?
-    let noiseTexturePath: String
-}
-
 struct SceneWaterRippleExecutionPlan {
     let maskTexturePath: String
     let normalTexturePath: String
@@ -64,10 +58,6 @@ struct SceneShakeExecutionPlan {
     let flowTexturePath: String
     let phaseTexturePath: String?
     let maskTexturePath: String?
-}
-
-enum SceneAuthoredFoliageSwayPlanner {
-    static let noiseAssetPath = "util/noise"
 }
 
 struct SceneTexturePathResolver {
@@ -145,17 +135,11 @@ enum SceneLayerEffectTextureLoader {
 
 @main
 enum Harness {
-    static let foliageA = "9#effect#0"
-    static let foliageB = "9#effect#1"
-    static let foliageExcluded = "9#effect#2"
     static let rippleA = "9#effect#3"
     static let rippleB = "9#effect#4"
-    static let foliageUnmasked = "9#effect#5"
     static let shakeMasked = "9#effect#6"
     static let maskA = "masks/a"
     static let maskB = "masks/b"
-    static let missingMask = "masks/missing"
-    static let noise = "util/noise"
     static let normal = "effects/waterripplenormal"
     static let flow = "masks/flow"
 
@@ -174,16 +158,10 @@ enum Harness {
         )
         let maskAURL = root.appendingPathComponent("mask-a.png")
         let maskBURL = root.appendingPathComponent("mask-b.png")
-        let noiseURL = root.appendingPathComponent("materials/util/noise.png")
         let normalURL = root.appendingPathComponent("normal.png")
         let flowURL = root.appendingPathComponent("flow.png")
-        try FileManager.default.createDirectory(
-            at: noiseURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
         try writeImage(maskAURL, red: 32)
         try writeImage(maskBURL, red: 224)
-        try writeImage(noiseURL, red: 128)
         try writeImage(normalURL, red: 192)
         try writeImage(flowURL, red: 127)
         let resolver = SceneTexturePathResolver(urlsByPath: [
@@ -193,29 +171,11 @@ enum Harness {
             flow: flowURL,
         ])
         let layer = SceneRenderDescriptor.Layer(effects: [
-            foliage(foliageA, mask: maskA),
-            foliage(foliageB, mask: maskB),
-            foliage(foliageExcluded, mask: missingMask),
-            foliage(foliageUnmasked, mask: nil),
             ripple(rippleA, mask: maskA),
             ripple(rippleB, mask: maskB),
             shake(shakeMasked, mask: maskA),
         ])
         let loader = SceneTextureLoader()
-        let foliageLoaded = SceneFoliageSwayEffectTextureLoader.load(
-            for: layer,
-            effectIDs: [foliageA, foliageB, foliageUnmasked],
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
-        let foliageMissing = SceneFoliageSwayEffectTextureLoader.load(
-            for: layer,
-            effectIDs: [foliageExcluded],
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
         let rippleLoaded = SceneWaterRippleEffectTextureLoader.load(
             for: layer,
             effectIDs: [rippleA, rippleB],
@@ -230,47 +190,10 @@ enum Harness {
             loader: loader,
             device: device
         )
-        let foliageAResources = foliageLoaded.textures[foliageA]
-        let foliageBResources = foliageLoaded.textures[foliageB]
-        let foliageUnmaskedResources = foliageLoaded.textures[foliageUnmasked]
         let rippleAResources = rippleLoaded.textures[rippleA]
         let rippleBResources = rippleLoaded.textures[rippleB]
         let shakeResources = shakeLoaded.textures[shakeMasked]
         let result: [String: Any] = [
-            "foliageKeys": foliageLoaded.textures.keys.sorted(),
-            "foliageAMatches": foliageAResources?.resolvedArguments(for: .init(
-                maskTexturePath: maskA, noiseTexturePath: noise
-            )) != nil,
-            "foliageBMatches": foliageBResources?.resolvedArguments(for: .init(
-                maskTexturePath: maskB, noiseTexturePath: noise
-            )) != nil,
-            "foliageUnmaskedMatches": foliageUnmaskedResources?
-                .resolvedArguments(for: .init(
-                maskTexturePath: nil, noiseTexturePath: noise
-            )) != nil,
-            "foliageUnmaskedMaskIsNil": foliageUnmaskedResources.map {
-                $0.maskBinding == nil
-            } ?? false,
-            "foliageUnmaskedMaskPathIsNil": foliageUnmaskedResources.map {
-                $0.maskPath == nil
-            } ?? false,
-            "foliageUnmaskedStockNoiseLoaded":
-                foliageUnmaskedResources?.noiseBinding != nil,
-            "foliageMasksDistinct":
-                foliageAResources?.maskBinding?.texture
-                    !== foliageBResources?.maskBinding?.texture,
-            "foliageNoiseShared":
-                foliageAResources?.noiseBinding?.texture
-                    === foliageBResources?.noiseBinding?.texture,
-            "foliageSlotsTyped":
-                foliageAResources?.maskBinding?.slotIndex == 1
-                    && foliageAResources?.noiseBinding?.slotIndex == 2,
-            "missingFoliageFailsClosed":
-                foliageMissing.textures[foliageExcluded]?
-                    .resolvedArguments(for: .init(
-                        maskTexturePath: missingMask,
-                        noiseTexturePath: noise
-                    )) == nil,
             "rippleKeys": rippleLoaded.textures.keys.sorted(),
             "rippleAMatches": rippleAResources?.resolvedArguments(for: .init(
                 maskTexturePath: maskA, normalTexturePath: normal
@@ -304,17 +227,6 @@ enum Harness {
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
-    }
-
-    static func foliage(
-        _ id: String,
-        mask: String?
-    ) -> SceneRenderDescriptor.EffectDescriptor {
-        .init(
-            id: id,
-            file: "effects/foliagesway/effect.json",
-            passes: [.init(textureSlots: mask.map { [nil, $0, noise] } ?? [])]
-        )
     }
 
     static func ripple(
@@ -424,17 +336,6 @@ class SceneEffectInstanceTextureLoaderTests(unittest.TestCase):
         self.assertEqual(
             result,
             {
-                "foliageAMatches": True,
-                "foliageBMatches": True,
-                "foliageKeys": ["9#effect#0", "9#effect#1", "9#effect#5"],
-                "foliageMasksDistinct": True,
-                "foliageNoiseShared": True,
-                "foliageSlotsTyped": True,
-                "foliageUnmaskedMaskIsNil": True,
-                "foliageUnmaskedMaskPathIsNil": True,
-                "foliageUnmaskedMatches": True,
-                "foliageUnmaskedStockNoiseLoaded": True,
-                "missingFoliageFailsClosed": True,
                 "rippleAMatches": True,
                 "rippleBMatches": True,
                 "rippleKeys": ["9#effect#3", "9#effect#4"],

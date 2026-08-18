@@ -84,23 +84,6 @@ targets: targets,
                 primaryButtonIsDown: primaryButtonIsDown,
                 frameTime: frameTime, commandBuffer: commandBuffer
             )
-        case .foliageSway(let foliage):
-            guard targets.plan.logicalTargets.isEmpty,
-                  let resources = masks.foliageSwayEffects[
-                      foliage.effectKey.descriptorID
-                  ],
-                  let foliageSwayPipeline = pipelines.foliageSway else {
-                return nil
-            }
-            return SceneFoliageSwayRenderer.render(
-                plan: foliage,
-                sourceTexture: sourceTexture,
-                resources: resources,
-                target: targets.outputTexture,
-                time: time,
-                pipeline: foliageSwayPipeline,
-                commandBuffer: commandBuffer
-            )
         case .waterRipple(let ripple):
             return renderWaterRipple(
                 ripple, sourceTexture: sourceTexture, masks: masks,

@@ -2,7 +2,6 @@ import Metal
 import simd
 
 struct SceneImageLayerMasks {
-    let foliageSwayEffects: [String: SceneFoliageSwayEffectTextures]
     let waterRippleEffects: [String: SceneWaterRippleEffectTextures]
     let depthParallaxEffects: [String: SceneDepthParallaxEffectTextures]
     let blendEffects: [String: SceneBlendEffectTextures]
@@ -21,7 +20,6 @@ struct SceneImageLayerMasks {
     let xRay: SceneXRayEffectTextures?
 
     static let empty = SceneImageLayerMasks(
-        foliageSwayEffects: [:],
         waterRippleEffects: [:],
         depthParallaxEffects: [:],
         blendEffects: [:],
@@ -42,7 +40,6 @@ struct SceneImageLayerMasks {
 
     static func xRayOnly(_ xRay: SceneXRayEffectTextures?) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            foliageSwayEffects: [:],
             waterRippleEffects: [:],
             depthParallaxEffects: [:],
             blendEffects: [:],
@@ -102,7 +99,6 @@ struct SceneImageLayerMasks {
             || hasUnprovenPulseResource
             || hasWaterWavesOutsideDisplacementContract
             || hasUnprovenWaterWavesDisplacementResource
-            || hasValue(foliageSwayEffects) { $0.maskBinding != nil }
             || hasValue(shakeEffects) { $0.maskBinding != nil }
             || hasValue(waterRippleEffects) { $0.maskBinding != nil }
             || hasValue(standardBlurEffects) { $0.maskCandidate != nil }

@@ -147,11 +147,6 @@ extension SceneEffectProgramCompiler {
                     )
                 }
             }),
-            (.foliageSway, {
-                SceneAuthoredFoliageSwayPlanner.compile(input).mapAccepted {
-                    stage(.foliageSway($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.waterRipple, {
                 SceneAuthoredWaterRipplePlanner.compile(input).mapAccepted {
                     stage(.waterRipple($0), stageGraph: stageGraph, inputRole: inputRole)

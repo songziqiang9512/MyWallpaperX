@@ -273,14 +273,6 @@ extension SceneEffectStageRenderer {
             }
             _ = resources
             return nil
-        case .foliageSway(let plan):
-            guard let resources = inputs.masks.foliageSwayEffects[
-                plan.effectKey.descriptorID
-            ], resources.resolvedArguments(for: plan) != nil else {
-                return "foliage-sway-resource-missing"
-            }
-            return pipelines.foliageSway == nil
-                ? "foliage-sway-pipeline-missing" : nil
         case .waterRipple(let plan):
             guard let resources = inputs.masks.waterRippleEffects[
                 plan.effectKey.descriptorID

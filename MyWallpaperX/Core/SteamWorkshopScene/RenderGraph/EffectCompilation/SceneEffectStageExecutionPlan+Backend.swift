@@ -19,7 +19,6 @@ extension SceneEffectStageExecutionPlan {
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
         case cursorRipple(SceneCursorRippleExecutionPlan)
-        case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
@@ -36,7 +35,7 @@ extension SceneEffectStageExecutionPlan {
             case .opacity, .colorGrading,
                  .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                  .workshopShadow, .filmGrain, .shake, .waterFlow,
-                 .waterWaves, .waterCaustics, .foliageSway, .waterRipple,
+                 .waterWaves, .waterCaustics, .waterRipple,
                  .depthParallax, .xRay, .blend, .tint, .transform,
                  .fisheyeZeroDistortion, .pulse:
                 return true
@@ -193,11 +192,6 @@ extension SceneEffectStageExecutionPlan {
         return plan
     }
 
-    nonisolated var foliageSway: SceneFoliageSwayExecutionPlan? {
-        guard case .foliageSway(let plan) = backend else { return nil }
-        return plan
-    }
-
     nonisolated var waterRipple: SceneWaterRippleExecutionPlan? {
         guard case .waterRipple(let plan) = backend else { return nil }
         return plan
@@ -271,8 +265,6 @@ extension SceneEffectStageExecutionPlan {
         case .colorGrading:
             return true
         case .standardBlur:
-            return true
-        case .foliageSway:
             return true
         case .opacity:
             return true

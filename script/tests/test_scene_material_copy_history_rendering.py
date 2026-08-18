@@ -212,6 +212,7 @@ class SceneMaterialCopyHistoryRenderingTests(unittest.TestCase):
             environment = os.environ.copy()
             environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
             environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+            environment["MWX_SCENE_GENERIC_SHADER_ROUTE"] = "disable-generic"
             compilation = subprocess.run(
                 [
                     "xcrun",

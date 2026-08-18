@@ -128,7 +128,7 @@ targets: targets,
         case .lightShafts:
             return nil
         case .shake, .waterFlow, .waterWaves, .waterCaustics,
-             .cursorRipple, .foliageSway, .waterRipple, .depthParallax,
+             .cursorRipple, .waterRipple, .depthParallax,
              .xRay, .blend, .tint, .transform,
              .fisheyeZeroDistortion, .godrays, .shine, .pulse:
             return renderSpecializedStage(

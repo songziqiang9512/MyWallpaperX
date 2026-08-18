@@ -64,7 +64,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         let textures: [Texture]?
     }
 
-    private struct ReflectedLayout: Equatable {
+    struct ReflectedLayout: Equatable {
         let fields: [SceneGenericShaderProgramArtifact.Program.UniformLayout.Field]
         let byteSize: Int
     }
@@ -94,16 +94,31 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             }
             let vertexLayout = try reflectedLayout(vertexReflection)
             let fragmentLayout = try reflectedLayout(fragmentReflection)
-            guard vertexLayout == fragmentLayout else {
-                throw Failure.uniformStageMismatch
-            }
-            let uniformLayout = alignedLayout(vertexLayout.fields)
+            let stagedUniforms = try stageLocalUniformLayout(
+                vertex: try activeUniformFields(
+                    vertexLayout.fields,
+                    in: vertexStage.msl
+                ),
+                fragment: try activeUniformFields(
+                    fragmentLayout.fields,
+                    in: fragmentStage.msl
+                )
+            )
+            let uniformLayout = stagedUniforms.layout
             let color = try prepareColorTransfer(
                 msl: fragmentStage.msl,
                 authoredSource: fragmentStage.authoredSource
             )
-            var vertexMSL = try normalizeUniformStruct(vertexStage.msl)
-            var fragmentMSL = try normalizeUniformStruct(color.msl)
+            var vertexMSL = try normalizeUniformStruct(
+                vertexStage.msl,
+                layout: uniformLayout,
+                fieldNames: stagedUniforms.vertexNames
+            )
+            var fragmentMSL = try normalizeUniformStruct(
+                color.msl,
+                layout: uniformLayout,
+                fieldNames: stagedUniforms.fragmentNames
+            )
             vertexMSL = vertexMSL.replacingOccurrences(
                 of: "MWXUniforms", with: "MWXVertexUniforms"
             )
@@ -199,28 +214,6 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             )
         }
         return .init(fields: fields, byteSize: align(block.blockSize, to: 16))
-    }
-
-    private static func alignedLayout(
-        _ fields: [SceneGenericShaderProgramArtifact.Program.UniformLayout.Field]
-    ) -> ReflectedLayout {
-        var offset = 0
-        let aligned = fields.compactMap { field ->
-            SceneGenericShaderProgramArtifact.Program.UniformLayout.Field? in
-            guard let type = SceneAuthoredShaderValueType(rawValue: field.type) else {
-                return nil
-            }
-            offset = align(offset, to: type.alignment)
-            let value = SceneGenericShaderProgramArtifact.Program.UniformLayout.Field(
-                name: field.name,
-                authoredName: field.authoredName,
-                type: field.type,
-                offset: offset
-            )
-            offset += type.byteSize
-            return value
-        }
-        return .init(fields: aligned, byteSize: align(offset, to: 16))
     }
 
     private static func textureBindings(
@@ -589,22 +582,35 @@ inline float4 \(premultiply)(float4 color) {
         ) == ["x", "y", "z", "w"]
     }
 
-    private static func normalizeUniformStruct(_ source: String) throws -> String {
+    private static func normalizeUniformStruct(
+        _ source: String,
+        layout: ReflectedLayout,
+        fieldNames: [String: String]
+    ) throws -> String {
         let found = matches(#"(?s)struct\s+MWXUniforms\s*\{(.*?)\};"#, in: source)
         guard found.count == 1,
               let bodyRange = Range(found[0].range(at: 1), in: source) else {
             throw Failure.uniformStruct
         }
-        var body = String(source[bodyRange])
-        for type in ["float3", "int3", "uint3"] {
-            body = body.replacingOccurrences(
-                of: #"\bpacked_"# + type + #"\b"#,
-                with: type,
+        let declarations = layout.fields.compactMap { field -> String? in
+            guard let type = SceneAuthoredShaderValueType(rawValue: field.type) else {
+                return nil
+            }
+            return "    \(type.metalName) \(field.name);"
+        }
+        guard declarations.count == layout.fields.count else {
+            throw Failure.uniformMember
+        }
+        let body = "\n" + declarations.joined(separator: "\n") + "\n"
+        var result = source
+        result.replaceSubrange(bodyRange, with: body)
+        for (authoredName, fieldName) in fieldNames where authoredName != fieldName {
+            result = result.replacingOccurrences(
+                of: #"\."# + escaped(authoredName) + #"\b"#,
+                with: ".\(fieldName)",
                 options: .regularExpression
             )
         }
-        var result = source
-        result.replaceSubrange(bodyRange, with: body)
         return result
     }
 

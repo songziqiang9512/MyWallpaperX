@@ -272,6 +272,12 @@ extension SceneResolvedMaterialGraphExecutor {
                                 || candidate.authoredFormat == .r8 else { return nil }
                         return slot.index
                     }),
+                    hasStageScopedUniformBindings: {
+                        let stages = Set(program.frontendProgram.uniformLayout.fields
+                            .compactMap(\.stage))
+                        return stages.contains(.vertex)
+                            && stages.contains(.fragment)
+                    }(),
                     layerID: node.effect.layerID,
                     effectIndex: node.effect.effectIndex,
                     descriptorID: node.effect.descriptorID,

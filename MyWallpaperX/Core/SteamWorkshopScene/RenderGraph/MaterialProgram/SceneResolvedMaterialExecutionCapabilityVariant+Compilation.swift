@@ -209,7 +209,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 prepared: prepared
             )
         } catch {
-            throw failure(.uniformBindingInvalid, phase: .uniform)
+            throw failure(
+                .uniformBindingInvalid,
+                phase: .uniform,
+                details: [String(describing: error)]
+            )
         }
         return .init(
             readinessMask: readinessMask,
