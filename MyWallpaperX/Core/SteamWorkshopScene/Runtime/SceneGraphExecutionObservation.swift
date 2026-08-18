@@ -63,6 +63,8 @@ nonisolated enum SceneGraphExecutionHistoryState: String, Hashable, Sendable {
 nonisolated enum SceneGraphExecutionResetReason: String, Hashable, Sendable {
     case initial, sceneSwitch = "scene-switch", surfaceStop = "surface-stop"
     case allocationReprepare = "allocation-reprepare"
+    case allocationRebind = "allocation-rebind"
+    case historyCopyOnWrite = "history-copy-on-write"
     case effectReparse = "effect-reparse"
     case deviceLoss = "device-loss"
     case executorInvalidation = "executor-invalidation"
@@ -86,7 +88,7 @@ nonisolated enum SceneGraphExecutionObservationError: String, Error, Sendable {
     case invalidIdentity, invalidExecutionIdentity, invalidNodeCount, invalidNodeOrder
     case invalidNodeDisposition, invalidCommandIdentity, invalidCompose, invalidOrdinals
     case invalidNodeConservation, invalidLogicalMapping, invalidTargetDescriptors
-    case invalidFinalOutput, invalidOutcome
+    case invalidLifecycle, invalidFinalOutput, invalidOutcome
 }
 
 nonisolated struct SceneGraphExecutionObservation: Sendable {
@@ -105,6 +107,9 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
     let nodeSequenceSHA256: String
     let logicalMappingBeforeSHA256, logicalMappingAfterSHA256: String
     let targetDescriptorsSHA256, targetDescriptorCounts: String?
+    let inputWidth, inputHeight: Int
+    let historyRehydrateCopyCount: Int
+    let historyContentDiscarded: Bool
     let composeSlotBefore, composeSlotAfter: SceneGraphExecutionComposeSlot
     let historyState: SceneGraphExecutionHistoryState
     let resetReason: SceneGraphExecutionResetReason?
@@ -128,6 +133,10 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
         expectedNodeCounts: SceneGraphExecutionNodeCounts,
         logicalMappingBefore: [SceneGraphExecutionLogicalBinding],
         logicalMappingAfter: [SceneGraphExecutionLogicalBinding],
+        inputWidth: Int,
+        inputHeight: Int,
+        historyRehydrateCopyCount: Int,
+        historyContentDiscarded: Bool,
         composeSlotBefore: SceneGraphExecutionComposeSlot,
         composeSlotAfter: SceneGraphExecutionComposeSlot,
         historyState: SceneGraphExecutionHistoryState,
@@ -166,6 +175,19 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
             after: logicalMappingAfter,
             nodes: nodes
         )
+        guard inputWidth > 0, inputHeight > 0,
+              historyRehydrateCopyCount >= 0,
+              !(historyContentDiscarded && historyRehydrateCopyCount > 0),
+              resetReason != .historyCopyOnWrite || (
+                  historyState == .reused
+                    && historyRehydrateCopyCount > 0
+                    && !historyContentDiscarded
+              ),
+              resetReason != .allocationRebind || (
+                  historyRehydrateCopyCount == 0 && !historyContentDiscarded
+              ) else {
+            throw SceneGraphExecutionObservationError.invalidLifecycle
+        }
         try Self.validateComposeTransition(
             count: expectedNodeCounts.compose,
             before: composeSlotBefore,
@@ -219,6 +241,10 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
         logicalMappingAfterSHA256 = mappingEvidence.after
         targetDescriptorsSHA256 = mappingEvidence.targetDescriptorsSHA256
         targetDescriptorCounts = mappingEvidence.targetDescriptorCounts
+        self.inputWidth = inputWidth
+        self.inputHeight = inputHeight
+        self.historyRehydrateCopyCount = historyRehydrateCopyCount
+        self.historyContentDiscarded = historyContentDiscarded
         self.composeSlotBefore = composeSlotBefore
         self.composeSlotAfter = composeSlotAfter
         self.historyState = historyState

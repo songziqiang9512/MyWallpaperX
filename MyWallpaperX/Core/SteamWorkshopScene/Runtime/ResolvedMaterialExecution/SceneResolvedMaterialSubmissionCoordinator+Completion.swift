@@ -341,10 +341,15 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                       previous: previous,
                       next: value.transition.nextState
                   ) else { return nil }
-            if let reason = resetReasonLocked(
+            let lifecycle = resetReasonLocked(
                 previous: previous?.state,
-                transaction: value.transition.transaction
-            ) { resets[value.effect] = reason }
+                next: value.transition.nextState,
+                transaction: value.transition.transaction,
+                historyRehydrateCopyCount: value.historyRehydrateCopyCount,
+                historyContentDiscarded: value.historyContentDiscarded
+            )
+            guard lifecycle.valid else { return nil }
+            if let reason = lifecycle.reason { resets[value.effect] = reason }
             states[value.effect] = value.transition.nextState
             resources[value.effect] = value.persistentResources
             mappings[value.effect] = generation

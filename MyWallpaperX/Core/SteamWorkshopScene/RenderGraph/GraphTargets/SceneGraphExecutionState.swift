@@ -141,6 +141,13 @@ nonisolated struct SceneGraphExecutionState: Equatable {
     private let topologySignature: Data?
     private let planSignature: Data?
 
+    func hasSameCompletePlan(as other: Self) -> Bool {
+        guard let planSignature, let otherSignature = other.planSignature else {
+            return false
+        }
+        return planSignature == otherSignature
+    }
+
     static let empty = Self(
         effectGeneration: nil, resetGeneration: nil, allocationGeneration: nil,
         authoredResources: [:], logicalMapping: [:],

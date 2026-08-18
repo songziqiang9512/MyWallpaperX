@@ -53,6 +53,9 @@ final class SceneResolvedMaterialGraphExecutor {
         let transition: State.Transition
         let programCacheKeys: [String]
         let effectLocalFailureReasonCode: String?
+        let inputWidth, inputHeight: Int
+        let historyRehydrateCopyCount: Int
+        let historyContentDiscarded: Bool
         /// Complete readable FBO publications for this frame's candidate.
         let frameResources: [Graph.TextureIdentity: SceneFrameTextureResource]
         /// History-only publications allowed to survive in a committed tail.
@@ -346,6 +349,10 @@ final class SceneResolvedMaterialGraphExecutor {
                 transition: transition,
                 programCacheKeys: programKeys,
                 effectLocalFailureReasonCode: effectLocalFailureReasonCode,
+                inputWidth: lease.table.plan.inputExtent.width,
+                inputHeight: lease.table.plan.inputExtent.height,
+                historyRehydrateCopyCount: history.commands.count,
+                historyContentDiscarded: history.discardsPreviousContent,
                 frameResources: frameResources,
                 persistentResources: persistentResources,
                 effectOutputResource: final,

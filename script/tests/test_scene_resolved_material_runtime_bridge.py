@@ -361,7 +361,7 @@ struct SceneGraphExecutionState {
     static let maximumNodeCount = 512
     static let maximumLogicalBindingCount = 512
     struct PhysicalToken: Hashable { let rawValue: String }
-    struct ResourceDescriptor {
+    struct ResourceDescriptor: Equatable {
         let extent: SceneGraphRenderTargetPlan.PixelExtent
         let format: SceneGraphRenderTargetPlan.TextureFormat
         let addressMode: SceneGraphRenderTargetPlan.UVAddressMode
@@ -444,6 +444,12 @@ struct SceneGraphExecutionState {
     let logicalMapping: [Identity: VersionedResource]
     let historyLogicalIdentities: Set<Identity>
     let historyClosureIdentities: Set<Identity>
+
+    func hasSameCompletePlan(as other: Self) -> Bool {
+        let lhs = logicalMapping.mapValues(\.descriptor)
+        let rhs = other.logicalMapping.mapValues(\.descriptor)
+        return lhs == rhs
+    }
 }
 
 enum SceneTextureLoadPurpose: Hashable { case premultipliedColor }
@@ -945,6 +951,9 @@ final class SceneResolvedMaterialGraphExecutor {
         let graph: Graph
         let pairStep: SceneLayerFullFramePairPlan.EffectStep
         let transition: State.Transition
+        let inputWidth, inputHeight: Int
+        let historyRehydrateCopyCount: Int
+        let historyContentDiscarded: Bool
         let frameResources: [Graph.TextureIdentity: SceneFrameTextureResource]
         let persistentResources: [Graph.TextureIdentity: SceneFrameTextureResource]
         let effectOutputResource: SceneFrameTextureResource
@@ -1187,6 +1196,10 @@ private func makeObservationTransition(
             )]
         ),
         transition: .init(nextState: nextState, transaction: transaction),
+        inputWidth: 2_048,
+        inputHeight: 1_152,
+        historyRehydrateCopyCount: 0,
+        historyContentDiscarded: false,
         frameResources: [:],
         persistentResources: [:],
         effectOutputResource: resource,
@@ -1274,6 +1287,10 @@ private func makeAtomicPrepared(
             )]
         ),
         transition: .init(nextState: state, transaction: transaction),
+        inputWidth: 2_048,
+        inputHeight: 1_152,
+        historyRehydrateCopyCount: 0,
+        historyContentDiscarded: false,
         frameResources: [:],
         persistentResources: [:],
         effectOutputResource: resource,
@@ -1900,6 +1917,112 @@ enum Harness {
                 .allSatisfy { !$0.contains("axis=graph-execution diagnostic=") }
         }
 
+        do {
+            let coordinator = makeCoordinator(device)
+            let priorResource = State.VersionedResource(
+                token: .init(rawValue: "prior-history"),
+                contentGeneration: 4
+            )
+            let nextResource = State.VersionedResource(
+                token: .init(rawValue: "next-history"),
+                contentGeneration: 4
+            )
+            let previous = State(
+                effectGeneration: 1,
+                resetGeneration: 1,
+                allocationGeneration: 1,
+                logicalMapping: [historyIdentity: priorResource],
+                historyLogicalIdentities: [historyIdentity],
+                historyClosureIdentities: [historyIdentity]
+            )
+            let next = State(
+                effectGeneration: 1,
+                resetGeneration: 1,
+                allocationGeneration: 2,
+                logicalMapping: [historyIdentity: nextResource],
+                historyLogicalIdentities: [historyIdentity],
+                historyClosureIdentities: [historyIdentity]
+            )
+            let transaction = State.Transaction(
+                intents: [],
+                mappingBefore: [historyIdentity: nextResource],
+                mappingAfter: [historyIdentity: nextResource],
+                allocationGeneration: 2,
+                effectGeneration: 1,
+                resetGeneration: 1
+            )
+            let copyOnWrite = coordinator.resetReasonLocked(
+                previous: previous,
+                next: next,
+                transaction: transaction,
+                historyRehydrateCopyCount: 1,
+                historyContentDiscarded: false
+            )
+            results["stableHistoryAllocationClassifiesCopyOnWrite"] =
+                copyOnWrite.valid && copyOnWrite.reason == .historyCopyOnWrite
+
+            let changedResource = State.VersionedResource(
+                token: .init(rawValue: "changed-history"),
+                descriptor: .init(
+                    extent: .init(width: 4, height: 4),
+                    addressMode: .clampToEdge
+                ),
+                contentGeneration: 0
+            )
+            let changed = State(
+                effectGeneration: 1,
+                resetGeneration: 1,
+                allocationGeneration: 2,
+                logicalMapping: [historyIdentity: changedResource],
+                historyLogicalIdentities: [historyIdentity],
+                historyClosureIdentities: [historyIdentity]
+            )
+            let reprepare = coordinator.resetReasonLocked(
+                previous: previous,
+                next: changed,
+                transaction: transaction,
+                historyRehydrateCopyCount: 0,
+                historyContentDiscarded: true
+            )
+            results["descriptorChangeClassifiesAllocationReprepare"] =
+                reprepare.valid && reprepare.reason == .allocationReprepare
+
+            let emptyPrevious = State(
+                effectGeneration: 1,
+                resetGeneration: 1,
+                allocationGeneration: 1,
+                logicalMapping: [:],
+                historyLogicalIdentities: [],
+                historyClosureIdentities: []
+            )
+            let emptyNext = State(
+                effectGeneration: 1,
+                resetGeneration: 1,
+                allocationGeneration: 2,
+                logicalMapping: [:],
+                historyLogicalIdentities: [],
+                historyClosureIdentities: []
+            )
+            let rebind = coordinator.resetReasonLocked(
+                previous: emptyPrevious,
+                next: emptyNext,
+                transaction: transaction,
+                historyRehydrateCopyCount: 0,
+                historyContentDiscarded: false
+            )
+            results["historyFreeFreshIdentityClassifiesAllocationRebind"] =
+                rebind.valid && rebind.reason == .allocationRebind
+
+            let unknown = coordinator.resetReasonLocked(
+                previous: previous,
+                next: next,
+                transaction: transaction,
+                historyRehydrateCopyCount: 0,
+                historyContentDiscarded: false
+            )
+            results["unknownHistoryTransitionRejected"] = !unknown.valid
+        }
+
         for (key, reason) in [
             ("deviceLossInvalidateHasGraphDiagnostic", SceneGraphExecutionResetReason.deviceLoss),
             ("executorInvalidateHasGraphDiagnostic", SceneGraphExecutionResetReason.executorInvalidation),
@@ -2018,6 +2141,10 @@ enum Harness {
                 && success.resetReason == .initial
                 && success.allocationGeneration == 3
                 && success.mappingGeneration == 9
+                && success.inputWidth == 2_048
+                && success.inputHeight == 1_152
+                && success.historyRehydrateCopyCount == 0
+                && !success.historyContentDiscarded
                 && success.transactionIdentity == "r4:11:12:0"
                 && success.programIdentity == "fixture-program"
 
@@ -3678,6 +3805,10 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "proceduralDependencyWrongEffectRejected",
                 "proceduralDependencyWrongPassRejected",
                 "normalInvalidateHasNoGraphDiagnostic",
+                "stableHistoryAllocationClassifiesCopyOnWrite",
+                "descriptorChangeClassifiesAllocationReprepare",
+                "historyFreeFreshIdentityClassifiesAllocationRebind",
+                "unknownHistoryTransitionRejected",
                 "deviceLossInvalidateHasGraphDiagnostic",
                 "executorInvalidateHasGraphDiagnostic",
                 "pendingSurfaceStopCancelsSilently",

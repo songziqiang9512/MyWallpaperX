@@ -156,6 +156,10 @@ enum Harness {
         counts: SceneGraphExecutionNodeCounts? = nil,
         mappingBefore customBefore: [SceneGraphExecutionLogicalBinding]? = nil,
         mappingAfter customAfter: [SceneGraphExecutionLogicalBinding]? = nil,
+        inputWidth: Int = 2_048,
+        inputHeight: Int = 1_152,
+        historyRehydrateCopyCount: Int = 0,
+        historyContentDiscarded: Bool = false,
         composeSlotBefore: SceneGraphExecutionComposeSlot = .primary,
         composeSlotAfter: SceneGraphExecutionComposeSlot = .primary,
         history: SceneGraphExecutionHistoryState = .reused,
@@ -190,6 +194,10 @@ enum Harness {
             expectedNodeCounts: selectedCounts,
             logicalMappingBefore: customBefore ?? mappingBefore,
             logicalMappingAfter: selectedAfter,
+            inputWidth: inputWidth,
+            inputHeight: inputHeight,
+            historyRehydrateCopyCount: historyRehydrateCopyCount,
+            historyContentDiscarded: historyContentDiscarded,
             composeSlotBefore: composeSlotBefore,
             composeSlotAfter: composeSlotAfter,
             historyState: history,
@@ -341,6 +349,9 @@ enum Harness {
         let resized = try observation(
             frame: 20,
             allocationGeneration: 2,
+            mappingGeneration: 2,
+            inputWidth: 962,
+            inputHeight: 542,
             reset: .allocationReprepare
         )
         let clearReset = try observation(frame: 21)
@@ -878,6 +889,24 @@ enum Harness {
                 mappingAfter: partialAfter
             )
         }
+        let copyOnWriteWithoutCopiesError = errorCode {
+            _ = try observation(
+                frame: 103,
+                allocationGeneration: 2,
+                mappingGeneration: 2,
+                reset: .historyCopyOnWrite
+            )
+        }
+        let copyAndDiscardError = errorCode {
+            _ = try observation(
+                frame: 104,
+                allocationGeneration: 2,
+                mappingGeneration: 2,
+                historyRehydrateCopyCount: 2,
+                historyContentDiscarded: true,
+                reset: .allocationReprepare
+            )
+        }
 
         let payload: [String: Any] = [
             "logs": collector.snapshot(),
@@ -934,6 +963,8 @@ enum Harness {
             "targetDescriptorCounts": describedMapping.targetDescriptorCounts ?? "",
             "descriptorTransitionError": descriptorTransitionError,
             "partialDescriptorError": partialDescriptorError,
+            "copyOnWriteWithoutCopiesError": copyOnWriteWithoutCopiesError,
+            "copyAndDiscardError": copyAndDiscardError,
             "canonicalLine": hashA.canonicalLine,
             "encodedToken": SceneGraphExecutionLogToken.encode("A %=中\n"),
         ]
@@ -1220,6 +1251,18 @@ class SceneGraphExecutionTelemetryTests(unittest.TestCase):
             self.result["partialDescriptorError"],
             "invalidTargetDescriptors",
         )
+
+    def test_lifecycle_fields_reject_inconsistent_copy_on_write(self) -> None:
+        self.assertEqual(
+            self.result["copyOnWriteWithoutCopiesError"],
+            "invalidLifecycle",
+        )
+        self.assertEqual(self.result["copyAndDiscardError"], "invalidLifecycle")
+        resized = self._line(self.logs, frame="20")
+        self.assertEqual(self._field(resized, "inputWidth"), "962")
+        self.assertEqual(self._field(resized, "inputHeight"), "542")
+        self.assertEqual(self._field(resized, "historyRehydrateCopyCount"), "0")
+        self.assertEqual(self._field(resized, "historyContentDiscarded"), "false")
 
     def test_log_schema_tokens_and_transaction_publication_are_stable(self) -> None:
         self.assertEqual(self.result["encodedToken"], "A%20%25%3D%E4%B8%AD%0A")

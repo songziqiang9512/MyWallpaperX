@@ -1714,7 +1714,11 @@ def resolved_material_graph_observation_metrics(
     }
     required_fields = {
         "frame", "layer", "trigger", "transaction", *count_fields.values(),
+        "allocationGeneration", "mappingGeneration",
+        "mappingBeforeSHA256", "mappingAfterSHA256",
         "targetDescriptorsSHA256", "targetDescriptorCounts",
+        "inputWidth", "inputHeight", "historyRehydrateCopyCount",
+        "historyContentDiscarded", "history", "reset",
         "finalOutput", "physicalIdentity", "publication",
         "publicationGeneration", "compositorConsumed", "outcome",
         "gpuCompletion",
@@ -1755,7 +1759,14 @@ def resolved_material_graph_observation_metrics(
             }
             frame = int(fields["frame"])
             layer_id = int(fields["layer"])
+            allocation_generation = int(fields["allocationGeneration"])
+            mapping_generation = int(fields["mappingGeneration"])
             publication_generation = int(fields["publicationGeneration"])
+            input_width = int(fields["inputWidth"])
+            input_height = int(fields["inputHeight"])
+            history_rehydrate_copy_count = int(
+                fields["historyRehydrateCopyCount"]
+            )
         except ValueError:
             validation_failures.append(
                 "resolved material graph observation evidence malformed"
@@ -1766,6 +1777,9 @@ def resolved_material_graph_observation_metrics(
         )
         target_descriptors_sha256 = fields["targetDescriptorsSHA256"]
         target_descriptor_counts = unquote(fields["targetDescriptorCounts"])
+        history = fields["history"]
+        reset = fields["reset"]
+        history_content_discarded = fields["historyContentDiscarded"] == "true"
         descriptor_counts_valid = target_descriptor_counts == "-" or bool(
             re.fullmatch(
                 r"\d+x\d+/[A-Za-z0-9_-]+:\d+"
@@ -1806,6 +1820,43 @@ def resolved_material_graph_observation_metrics(
                     "resolved material graph observation publication generation invalid",
                 ),
                 (
+                    allocation_generation > 0 and mapping_generation > 0,
+                    "resolved material graph lifecycle generation invalid",
+                ),
+                (
+                    input_width > 0 and input_height > 0,
+                    "resolved material graph input extent invalid",
+                ),
+                (
+                    history_rehydrate_copy_count >= 0
+                    and fields["historyContentDiscarded"] in {"true", "false"}
+                    and not (
+                        history_rehydrate_copy_count > 0
+                        and history_content_discarded
+                    ),
+                    "resolved material graph history lifecycle invalid",
+                ),
+                (
+                    history in {"none", "seeded", "reused"},
+                    "resolved material graph history state invalid",
+                ),
+                (
+                    reset in {
+                        "-", "initial", "scene-switch", "surface-stop",
+                        "allocation-reprepare", "allocation-rebind",
+                        "history-copy-on-write", "effect-reparse",
+                        "device-loss", "executor-invalidation",
+                    },
+                    "resolved material graph reset reason invalid",
+                ),
+                (
+                    all(
+                        re.fullmatch(r"[0-9a-f]{64}", fields[name])
+                        for name in ("mappingBeforeSHA256", "mappingAfterSHA256")
+                    ),
+                    "resolved material graph mapping evidence invalid",
+                ),
+                (
                     fields["compositorConsumed"] in {"true", "false"},
                     "resolved material graph observation compositor state invalid",
                 ),
@@ -1828,11 +1879,21 @@ def resolved_material_graph_observation_metrics(
             "final_physical": outputs[1],
             "final_publication": outputs[2],
             "publication_generation": publication_generation,
+            "allocation_generation": allocation_generation,
+            "mapping_generation": mapping_generation,
+            "mapping_before_sha256": fields["mappingBeforeSHA256"],
+            "mapping_after_sha256": fields["mappingAfterSHA256"],
             "compositor_consumed": fields["compositorConsumed"] == "true",
             "outcome": outcome,
             "gpu_completion": gpu_completion,
             "target_descriptors_sha256": target_descriptors_sha256,
             "target_descriptor_counts": target_descriptor_counts,
+            "input_width": input_width,
+            "input_height": input_height,
+            "history": history,
+            "reset": reset,
+            "history_rehydrate_copy_count": history_rehydrate_copy_count,
+            "history_content_discarded": history_content_discarded,
         })
 
     if diagnostic_count:
@@ -1869,6 +1930,87 @@ def resolved_material_graph_observation_metrics(
         for observation in terminal_successes
         if observation["target_descriptor_counts"] != "-"
     })
+    lifecycle_transitions: list[dict[str, Any]] = []
+    history_copy_on_write_count = 0
+    for layer_id in successful_layer_ids:
+        previous: dict[str, Any] | None = None
+        for observation in sorted(
+            (
+                value for value in terminal_successes
+                if value["layer_id"] == layer_id
+            ),
+            key=lambda value: value["frame"],
+        ):
+            reset = observation["reset"]
+            signature = (
+                observation["input_width"], observation["input_height"],
+                observation["target_descriptors_sha256"],
+                observation["target_descriptor_counts"],
+            )
+            if previous is None or signature != (
+                previous["input_width"], previous["input_height"],
+                previous["target_descriptors_sha256"],
+                previous["target_descriptor_counts"],
+            ):
+                lifecycle_transitions.append(observation)
+            if reset == "history-copy-on-write":
+                history_copy_on_write_count += 1
+                valid = (
+                    previous is not None
+                    and signature == (
+                        previous["input_width"], previous["input_height"],
+                        previous["target_descriptors_sha256"],
+                        previous["target_descriptor_counts"],
+                    )
+                    and observation["history"] == "reused"
+                    and observation["history_rehydrate_copy_count"] > 0
+                    and not observation["history_content_discarded"]
+                )
+                if not valid:
+                    validation_failures.append(
+                        "resolved material graph history copy-on-write transition invalid"
+                    )
+            elif reset == "allocation-reprepare":
+                valid = previous is not None and signature != (
+                    previous["input_width"], previous["input_height"],
+                    previous["target_descriptors_sha256"],
+                    previous["target_descriptor_counts"],
+                )
+                if not valid:
+                    validation_failures.append(
+                        "resolved material graph allocation reprepare transition invalid"
+                    )
+            elif reset == "allocation-rebind":
+                valid = (
+                    previous is not None
+                    and signature == (
+                        previous["input_width"], previous["input_height"],
+                        previous["target_descriptors_sha256"],
+                        previous["target_descriptor_counts"],
+                    )
+                    and observation["history_rehydrate_copy_count"] == 0
+                    and not observation["history_content_discarded"]
+                )
+                if not valid:
+                    validation_failures.append(
+                        "resolved material graph allocation rebind transition invalid"
+                    )
+            if reset in {
+                "history-copy-on-write", "allocation-reprepare", "allocation-rebind"
+            } and previous is not None:
+                if not (
+                    observation["allocation_generation"]
+                        > previous["allocation_generation"]
+                    and observation["mapping_generation"]
+                        > previous["mapping_generation"]
+                    and observation["final_physical"] != previous["final_physical"]
+                    and observation["final_publication"]
+                        != previous["final_publication"]
+                ):
+                    validation_failures.append(
+                        "resolved material graph allocation identity transition invalid"
+                    )
+            previous = observation
     return {
         "has_evidence": bool(payloads),
         "schema_version": 1 if payloads else None,
@@ -1881,6 +2023,8 @@ def resolved_material_graph_observation_metrics(
         "next_frame_layer_ids": next_frame_layer_ids,
         "next_frame_observed": bool(next_frame_layer_ids),
         "target_descriptor_counts": target_descriptor_counts,
+        "lifecycle_transitions": lifecycle_transitions,
+        "history_copy_on_write_count": history_copy_on_write_count,
         "terminal_compositor_consume_observed": any(
             observation["compositor_consumed"] for observation in terminal_successes
         ),
@@ -2125,6 +2269,29 @@ def resolved_material_graph_execution_metrics(
     )
     local_fallback_count = sum(
         value["local_fallbacks"] for value in executor_observations
+    )
+    fallback_route_frames: dict[int, int] = {}
+    for operation in (effect_execution or {}).get("route_operations", []):
+        layer_id = operation.get("layer_id")
+        frame_id = operation.get("frame_id")
+        if (
+            operation.get("operation") == "unclaimed-effect-product-authority"
+            and operation.get("outcome") == "failed"
+            and isinstance(layer_id, int)
+            and isinstance(frame_id, int)
+        ):
+            fallback_route_frames[layer_id] = min(
+                frame_id, fallback_route_frames.get(layer_id, frame_id)
+            )
+    transient_recovered_fallback_layer_ids = sorted(
+        layer_id for layer_id, frame_id in fallback_route_frames.items()
+        if any(
+            value["layer_id"] == layer_id and value["frame"] < frame_id
+            for value in graph_observations["terminal_success_observations"]
+        ) and any(
+            value["layer_id"] == layer_id and value["frame"] > frame_id
+            for value in graph_observations["terminal_success_observations"]
+        )
     )
     accepted_count = capability["accepted_count"] if capability else None
     observed_layer_ids = graph_observations[
@@ -2391,6 +2558,9 @@ def resolved_material_graph_execution_metrics(
                 {"layer_id": layer, "reason": reason}
                 for layer, reason in local_fallbacks
             ],
+            "transient_recovered_fallback_layer_ids": (
+                transient_recovered_fallback_layer_ids
+            ),
             "observations": executor_observations,
         },
         "graph_observations": graph_observations,
@@ -2515,7 +2685,16 @@ def resolved_material_graph_execution_failures(
             expected_fallback_keys is not None
             and actual_fallback_keys != expected_fallback_keys
         )
-        if missing_layers == fallback_layers and (
+        recovered_layers = set(
+            metrics["executor"]["transient_recovered_fallback_layer_ids"]
+        )
+        fallback_shape_matches = missing_layers == fallback_layers
+        transient_shape_matches = (
+            not missing_layers
+            and recovered_layers == fallback_layers
+            and fallback_layers.issubset(expected_success_layers)
+        )
+        if (fallback_shape_matches or transient_shape_matches) and (
             accepted_layers != expected_success_layers.union(fallback_layers)
             or set(metrics["layer_routes"]["unexpected_layer_ids"])
             or set(metrics["graph_observations"]["successful_gpu_completed_layer_ids"])
@@ -2528,8 +2707,12 @@ def resolved_material_graph_execution_failures(
             failures.append(
                 "resolved material graph local fallback evidence mismatch"
             )
-        elif missing_layers == fallback_layers:
+        elif fallback_shape_matches or transient_shape_matches:
             fallback_evidence_satisfied = True
+        else:
+            failures.append(
+                "resolved material graph local fallback evidence mismatch"
+            )
     elif (
         expected_fallback_layers is not None or expected_fallbacks is not None
     ) and not fallback_contract_valid:
@@ -2592,6 +2775,83 @@ def resolved_material_graph_execution_failures(
             failures.append(
                 "resolved material graph target descriptor evidence mismatch"
             )
+
+    expected_lifecycle = sample.get(
+        "expected_resolved_material_graph_extent_lifecycle"
+    )
+    if expected_lifecycle is not None:
+        lifecycle_keys = {
+            "input_width", "input_height", "target_descriptor_counts",
+            "history", "reset", "history_rehydrate_copy_count",
+            "history_content_discarded",
+        }
+        valid_lifecycle = (
+            isinstance(expected_lifecycle, dict)
+            and set(expected_lifecycle) == {
+                "layer_id", "anchors", "require_history_copy_on_write",
+            }
+            and isinstance(expected_lifecycle.get("layer_id"), int)
+            and not isinstance(expected_lifecycle.get("layer_id"), bool)
+            and expected_lifecycle.get("layer_id", -1) >= 0
+            and isinstance(expected_lifecycle.get("anchors"), list)
+            and len(expected_lifecycle.get("anchors", [])) >= 2
+            and isinstance(
+                expected_lifecycle.get("require_history_copy_on_write"), bool
+            )
+        )
+        if valid_lifecycle:
+            for anchor in expected_lifecycle["anchors"]:
+                if (
+                    not isinstance(anchor, dict)
+                    or set(anchor) != lifecycle_keys
+                    or not all(
+                        isinstance(anchor[key], int)
+                        and not isinstance(anchor[key], bool)
+                        and anchor[key] >= (1 if key in {
+                            "input_width", "input_height"
+                        } else 0)
+                        for key in (
+                            "input_width", "input_height",
+                            "history_rehydrate_copy_count",
+                        )
+                    )
+                    or not isinstance(anchor["target_descriptor_counts"], str)
+                    or re.fullmatch(
+                        r"\d+x\d+/[A-Za-z0-9_-]+:\d+"
+                        r"(?:,\d+x\d+/[A-Za-z0-9_-]+:\d+)*",
+                        anchor["target_descriptor_counts"],
+                    ) is None
+                    or anchor["history"] not in {"none", "seeded", "reused"}
+                    or anchor["reset"] not in {
+                        "initial", "allocation-reprepare",
+                        "allocation-rebind", "history-copy-on-write",
+                    }
+                    or not isinstance(anchor["history_content_discarded"], bool)
+                ):
+                    valid_lifecycle = False
+                    break
+        if not valid_lifecycle:
+            failures.append(
+                "resolved material graph extent lifecycle expectation invalid"
+            )
+        else:
+            layer_id = expected_lifecycle["layer_id"]
+            actual_anchors = [
+                {key: observation[key] for key in lifecycle_keys}
+                for observation in graph_observations["lifecycle_transitions"]
+                if observation["layer_id"] == layer_id
+            ]
+            if actual_anchors != expected_lifecycle["anchors"]:
+                failures.append(
+                    "resolved material graph extent lifecycle evidence mismatch"
+                )
+            if (
+                expected_lifecycle["require_history_copy_on_write"]
+                and graph_observations["history_copy_on_write_count"] <= 0
+            ):
+                failures.append(
+                    "resolved material graph history copy-on-write evidence missing"
+                )
 
     if capability["accepted_count"] <= 0:
         if require_evidence and not (

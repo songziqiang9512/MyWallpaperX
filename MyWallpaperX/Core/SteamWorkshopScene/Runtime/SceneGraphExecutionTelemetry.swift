@@ -56,6 +56,9 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
         let frameIndex, allocationGeneration, mappingGeneration: UInt64
         let nodeSequence, mappingBefore, mappingAfter: String
         let targetDescriptors: String?
+        let inputWidth, inputHeight: Int
+        let historyRehydrateCopyCount: Int
+        let historyContentDiscarded: Bool
         let composeBefore, composeAfter: SceneGraphExecutionComposeSlot
         let history: SceneGraphExecutionHistoryState
         let reset: SceneGraphExecutionResetReason?
@@ -70,6 +73,10 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
             mappingBefore = value.logicalMappingBeforeSHA256
             mappingAfter = value.logicalMappingAfterSHA256
             targetDescriptors = value.targetDescriptorsSHA256
+            inputWidth = value.inputWidth
+            inputHeight = value.inputHeight
+            historyRehydrateCopyCount = value.historyRehydrateCopyCount
+            historyContentDiscarded = value.historyContentDiscarded
             composeBefore = value.composeSlotBefore
             composeAfter = value.composeSlotAfter
             history = value.historyState
@@ -366,6 +373,10 @@ nonisolated extension SceneGraphExecutionObservation {
             "mappingAfterSHA256=\(logicalMappingAfterSHA256)",
             "targetDescriptorsSHA256=\(targetDescriptorsSHA256 ?? "-")",
             "targetDescriptorCounts=\(SceneGraphExecutionLogToken.encode(targetDescriptorCounts))",
+            "inputWidth=\(inputWidth)",
+            "inputHeight=\(inputHeight)",
+            "historyRehydrateCopyCount=\(historyRehydrateCopyCount)",
+            "historyContentDiscarded=\(historyContentDiscarded)",
             "composeSlotBefore=\(composeSlotBefore.rawValue)",
             "composeSlotAfter=\(composeSlotAfter.rawValue)",
             "history=\(historyState.rawValue)",

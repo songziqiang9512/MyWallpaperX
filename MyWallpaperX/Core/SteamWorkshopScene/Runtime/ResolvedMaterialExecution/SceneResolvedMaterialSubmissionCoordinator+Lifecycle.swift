@@ -332,20 +332,57 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 
     func resetReasonLocked(
         previous: State?,
-        transaction: State.Transaction
-    ) -> SceneGraphExecutionResetReason? {
-        guard let previous else { return .initial }
+        next: State,
+        transaction: State.Transaction,
+        historyRehydrateCopyCount: Int,
+        historyContentDiscarded: Bool
+    ) -> (valid: Bool, reason: SceneGraphExecutionResetReason?) {
+        guard historyRehydrateCopyCount >= 0,
+              !(historyContentDiscarded && historyRehydrateCopyCount > 0)
+        else { return (false, nil) }
+        guard let previous else {
+            return historyRehydrateCopyCount == 0
+                ? (true, .initial) : (false, nil)
+        }
         if previous.effectGeneration != transaction.effectGeneration {
-            return .effectReparse
+            return (true, .effectReparse)
         }
         if previous.resetGeneration != transaction.resetGeneration {
-            return resetReasonByGeneration[transaction.resetGeneration]
-                ?? .executorInvalidation
+            return (
+                true,
+                resetReasonByGeneration[transaction.resetGeneration]
+                    ?? .executorInvalidation
+            )
         }
-        if previous.allocationGeneration != transaction.allocationGeneration {
-            return .allocationReprepare
+        guard previous.allocationGeneration != transaction.allocationGeneration else {
+            return historyRehydrateCopyCount == 0 && !historyContentDiscarded
+                ? (true, nil) : (false, nil)
         }
-        return nil
+        if !previous.hasSameCompletePlan(as: next) {
+            return (true, .allocationReprepare)
+        }
+        if historyRehydrateCopyCount > 0 {
+            let readableHistoryCount = previous.logicalMapping.reduce(into: 0) {
+                count, entry in
+                if previous.historyClosureIdentities.contains(entry.key),
+                   entry.value.contentGeneration > 0 {
+                    count += 1
+                }
+            }
+            guard !historyContentDiscarded,
+                  !previous.historyClosureIdentities.isEmpty,
+                  previous.historyClosureIdentities == next.historyClosureIdentities,
+                  historyRehydrateCopyCount == readableHistoryCount else {
+                return (false, nil)
+            }
+            return (true, .historyCopyOnWrite)
+        }
+        guard !historyContentDiscarded,
+              previous.historyClosureIdentities.isEmpty,
+              next.historyClosureIdentities.isEmpty else {
+            return (false, nil)
+        }
+        return (true, .allocationRebind)
     }
 
     func physicalMapping(

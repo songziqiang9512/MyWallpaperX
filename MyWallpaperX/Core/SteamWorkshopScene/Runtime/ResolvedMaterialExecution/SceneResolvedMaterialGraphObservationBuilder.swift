@@ -84,6 +84,10 @@ enum SceneResolvedMaterialGraphObservationBuilder {
             expectedNodeCounts: counts(nodes),
             logicalMappingBefore: mapping(mappingBefore),
             logicalMappingAfter: mapping(mappingAfter),
+            inputWidth: value.inputWidth,
+            inputHeight: value.inputHeight,
+            historyRehydrateCopyCount: value.historyRehydrateCopyCount,
+            historyContentDiscarded: value.historyContentDiscarded,
             composeSlotBefore: failed ? .none : slot(value.pairStep.inputMember),
             composeSlotAfter: failed ? .none : slot(value.pairStep.outputMember),
             historyState: failed

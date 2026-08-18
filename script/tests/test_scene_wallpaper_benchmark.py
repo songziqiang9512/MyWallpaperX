@@ -216,21 +216,43 @@ def graph_execution_observation(
     publish: bool = True,
     outcome: str = "succeeded",
     gpu_completion: str = "completed",
+    allocation_generation: int | None = None,
+    mapping_generation: int | None = None,
+    mapping_before_sha256: str = "a" * 64,
+    mapping_after_sha256: str = "b" * 64,
     target_descriptors_sha256: str = "-",
     target_descriptor_counts: str = "-",
+    input_width: int = 2_048,
+    input_height: int = 1_152,
+    history: str = "none",
+    reset: str = "-",
+    history_rehydrate_copy_count: int = 0,
+    history_content_discarded: bool = False,
 ) -> str:
     final_output = f"output-{transaction}" if publish else "-"
     final_physical = f"physical-{transaction}" if publish else "-"
     final_publication = f"publication-{transaction}" if publish else "-"
     publication_generation = frame if publish else 0
+    allocation_generation = (
+        frame if allocation_generation is None else allocation_generation
+    )
+    mapping_generation = frame if mapping_generation is None else mapping_generation
     return (
         "MWX DEBUG SCENE: schema=1 axis=graph-execution "
         f"frame={frame} layer={layer} trigger={trigger} transaction={transaction} "
         f"authoredNodes={authored} materialNodes={material} "
         f"copyNodes={copy} swapNodes={swap} composeNodes={compose} "
         f"rejectedNodes={rejected} "
+        f"allocationGeneration={allocation_generation} "
+        f"mappingGeneration={mapping_generation} "
+        f"mappingBeforeSHA256={mapping_before_sha256} "
+        f"mappingAfterSHA256={mapping_after_sha256} "
         f"targetDescriptorsSHA256={target_descriptors_sha256} "
         f"targetDescriptorCounts={target_descriptor_counts} "
+        f"inputWidth={input_width} inputHeight={input_height} "
+        f"historyRehydrateCopyCount={history_rehydrate_copy_count} "
+        f"historyContentDiscarded={'true' if history_content_discarded else 'false'} "
+        f"history={history} reset={reset} "
         f"finalOutput={final_output} "
         f"physicalIdentity={final_physical} "
         f"publication={final_publication} "
@@ -3433,6 +3455,605 @@ utility layer 763: skippedHidden kind=composition
                 sample={
                     "expected_resolved_material_graph_succeeded_layer_ids": []
                 },
+            ),
+        )
+
+    def test_resolved_material_graph_extent_lifecycle_accepts_aba_profiles(
+        self,
+    ) -> None:
+        preview_text = (
+            "resolved material execution capabilities: "
+            "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
+            "rejected=0 variantLimit=8\n"
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=533 status=accepted "
+            "dependency=none dependencyReferences=0\n"
+        )
+        audit = (
+            "resolved material runtime audit: schema=scene-graph-executor-v1 "
+            "claimed=1 encoded=1 failures=0 deferred=0 pending=1 "
+            "gpuEncoded=1 localFallbacks=0"
+        )
+        disposition, exact_execution = resolved_graph_exact_evidence([533])
+        cases = (
+            {
+                "name": "scaled-target-descriptors",
+                "observations": [
+                    graph_execution_observation(
+                        frame=1,
+                        layer=533,
+                        transaction="scale-a-initial",
+                        trigger="first-frame+compositor-consume+gpu-completed",
+                        consumed=True,
+                        target_descriptors_sha256="a" * 64,
+                        target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+                        history="seeded",
+                        reset="initial",
+                    ),
+                    graph_execution_observation(
+                        frame=2,
+                        layer=533,
+                        transaction="scale-a-cow",
+                        trigger="next-frame+compositor-consume+gpu-completed",
+                        consumed=True,
+                        target_descriptors_sha256="a" * 64,
+                        target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+                        history="reused",
+                        reset="history-copy-on-write",
+                        history_rehydrate_copy_count=2,
+                    ),
+                    graph_execution_observation(
+                        frame=3,
+                        layer=533,
+                        transaction="scale-b-reprepare",
+                        trigger="next-frame+compositor-consume+gpu-completed",
+                        consumed=True,
+                        target_descriptors_sha256="b" * 64,
+                        target_descriptor_counts="481x271/rgbaBackbuffer:2",
+                        input_width=962,
+                        input_height=542,
+                        history="seeded",
+                        reset="allocation-reprepare",
+                        history_content_discarded=True,
+                    ),
+                    graph_execution_observation(
+                        frame=4,
+                        layer=533,
+                        transaction="scale-b-cow",
+                        trigger="next-frame+compositor-consume+gpu-completed",
+                        consumed=True,
+                        target_descriptors_sha256="b" * 64,
+                        target_descriptor_counts="481x271/rgbaBackbuffer:2",
+                        input_width=962,
+                        input_height=542,
+                        history="reused",
+                        reset="history-copy-on-write",
+                        history_rehydrate_copy_count=2,
+                    ),
+                    graph_execution_observation(
+                        frame=5,
+                        layer=533,
+                        transaction="scale-a-restored",
+                        trigger="next-frame+compositor-consume+gpu-completed",
+                        consumed=True,
+                        target_descriptors_sha256="a" * 64,
+                        target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+                        history="seeded",
+                        reset="allocation-reprepare",
+                        history_content_discarded=True,
+                    ),
+                ],
+                "anchors": [
+                    {
+                        "input_width": 2048,
+                        "input_height": 1152,
+                        "target_descriptor_counts":
+                            "1024x576/rgbaBackbuffer:2",
+                        "history": "seeded",
+                        "reset": "initial",
+                        "history_rehydrate_copy_count": 0,
+                        "history_content_discarded": False,
+                    },
+                    {
+                        "input_width": 962,
+                        "input_height": 542,
+                        "target_descriptor_counts":
+                            "481x271/rgbaBackbuffer:2",
+                        "history": "seeded",
+                        "reset": "allocation-reprepare",
+                        "history_rehydrate_copy_count": 0,
+                        "history_content_discarded": True,
+                    },
+                    {
+                        "input_width": 2048,
+                        "input_height": 1152,
+                        "target_descriptor_counts":
+                            "1024x576/rgbaBackbuffer:2",
+                        "history": "seeded",
+                        "reset": "allocation-reprepare",
+                        "history_rehydrate_copy_count": 0,
+                        "history_content_discarded": True,
+                    },
+                ],
+            },
+            {
+                "name": "absolute-target-descriptors",
+                "observations": [
+                    graph_execution_observation(
+                        frame=1,
+                        layer=533,
+                        transaction="absolute-a-initial",
+                        trigger="first-frame+compositor-consume+gpu-completed",
+                        consumed=True,
+                        target_descriptors_sha256="c" * 64,
+                        target_descriptor_counts="640x360/rgbaBackbuffer:2",
+                        history="seeded",
+                        reset="initial",
+                    ),
+                    graph_execution_observation(
+                        frame=2,
+                        layer=533,
+                        transaction="absolute-a-cow",
+                        trigger="next-frame+compositor-consume+gpu-completed",
+                        consumed=True,
+                        target_descriptors_sha256="c" * 64,
+                        target_descriptor_counts="640x360/rgbaBackbuffer:2",
+                        history="reused",
+                        reset="history-copy-on-write",
+                        history_rehydrate_copy_count=2,
+                    ),
+                    graph_execution_observation(
+                        frame=3,
+                        layer=533,
+                        transaction="absolute-b-reprepare",
+                        trigger="next-frame+compositor-consume+gpu-completed",
+                        consumed=True,
+                        target_descriptors_sha256="c" * 64,
+                        target_descriptor_counts="640x360/rgbaBackbuffer:2",
+                        input_width=962,
+                        input_height=542,
+                        history="reused",
+                        reset="allocation-reprepare",
+                        history_rehydrate_copy_count=2,
+                    ),
+                    graph_execution_observation(
+                        frame=4,
+                        layer=533,
+                        transaction="absolute-b-cow",
+                        trigger="next-frame+compositor-consume+gpu-completed",
+                        consumed=True,
+                        target_descriptors_sha256="c" * 64,
+                        target_descriptor_counts="640x360/rgbaBackbuffer:2",
+                        input_width=962,
+                        input_height=542,
+                        history="reused",
+                        reset="history-copy-on-write",
+                        history_rehydrate_copy_count=2,
+                    ),
+                    graph_execution_observation(
+                        frame=5,
+                        layer=533,
+                        transaction="absolute-a-restored",
+                        trigger="next-frame+compositor-consume+gpu-completed",
+                        consumed=True,
+                        target_descriptors_sha256="c" * 64,
+                        target_descriptor_counts="640x360/rgbaBackbuffer:2",
+                        history="reused",
+                        reset="allocation-reprepare",
+                        history_rehydrate_copy_count=2,
+                    ),
+                ],
+                "anchors": [
+                    {
+                        "input_width": 2048,
+                        "input_height": 1152,
+                        "target_descriptor_counts":
+                            "640x360/rgbaBackbuffer:2",
+                        "history": "seeded",
+                        "reset": "initial",
+                        "history_rehydrate_copy_count": 0,
+                        "history_content_discarded": False,
+                    },
+                    {
+                        "input_width": 962,
+                        "input_height": 542,
+                        "target_descriptor_counts":
+                            "640x360/rgbaBackbuffer:2",
+                        "history": "reused",
+                        "reset": "allocation-reprepare",
+                        "history_rehydrate_copy_count": 2,
+                        "history_content_discarded": False,
+                    },
+                    {
+                        "input_width": 2048,
+                        "input_height": 1152,
+                        "target_descriptor_counts":
+                            "640x360/rgbaBackbuffer:2",
+                        "history": "reused",
+                        "reset": "allocation-reprepare",
+                        "history_rehydrate_copy_count": 2,
+                        "history_content_discarded": False,
+                    },
+                ],
+            },
+        )
+
+        for case in cases:
+            with self.subTest(profile=case["name"]):
+                metrics = benchmark.resolved_material_graph_execution_metrics(
+                    preview_text,
+                    "\n".join([audit, *case["observations"]]),
+                    effect_execution=exact_execution,
+                    static_disposition=disposition,
+                )
+                sample = {
+                    "expected_resolved_material_graph_succeeded_layer_ids": [
+                        533
+                    ],
+                    "expected_resolved_material_graph_extent_lifecycle": {
+                        "layer_id": 533,
+                        "anchors": case["anchors"],
+                        "require_history_copy_on_write": True,
+                    },
+                }
+
+                self.assertEqual(
+                    benchmark.resolved_material_graph_execution_failures(
+                        metrics,
+                        require_evidence=True,
+                        sample=sample,
+                    ),
+                    [],
+                )
+                transitions = metrics["graph_observations"][
+                    "lifecycle_transitions"
+                ]
+                self.assertEqual(
+                    [entry["allocation_generation"] for entry in transitions],
+                    [1, 3, 5],
+                )
+                self.assertEqual(
+                    [entry["mapping_generation"] for entry in transitions],
+                    [1, 3, 5],
+                )
+                self.assertEqual(
+                    [entry["mapping_before_sha256"] for entry in transitions],
+                    ["a" * 64] * 3,
+                )
+                self.assertEqual(
+                    [entry["mapping_after_sha256"] for entry in transitions],
+                    ["b" * 64] * 3,
+                )
+                self.assertEqual(
+                    metrics["graph_observations"][
+                        "history_copy_on_write_count"
+                    ],
+                    2,
+                )
+
+    def test_resolved_material_graph_lifecycle_rejects_mislabeled_transitions(
+        self,
+    ) -> None:
+        initial = graph_execution_observation(
+            frame=1,
+            layer=533,
+            transaction="initial",
+            trigger="first-frame+compositor-consume+gpu-completed",
+            consumed=True,
+            target_descriptors_sha256="a" * 64,
+            target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+            history="seeded",
+            reset="initial",
+        )
+        cases = (
+            (
+                "unknown-reset",
+                graph_execution_observation(
+                    frame=2,
+                    layer=533,
+                    transaction="unknown-reset",
+                    trigger="next-frame+compositor-consume+gpu-completed",
+                    consumed=True,
+                    target_descriptors_sha256="a" * 64,
+                    target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+                    history="reused",
+                    reset="unknown-lifecycle",
+                    history_rehydrate_copy_count=2,
+                ),
+                "resolved material graph reset reason invalid",
+            ),
+            (
+                "copy-on-write-changed-descriptor",
+                graph_execution_observation(
+                    frame=2,
+                    layer=533,
+                    transaction="mislabeled-cow",
+                    trigger="next-frame+compositor-consume+gpu-completed",
+                    consumed=True,
+                    target_descriptors_sha256="b" * 64,
+                    target_descriptor_counts="481x271/rgbaBackbuffer:2",
+                    input_width=962,
+                    input_height=542,
+                    history="reused",
+                    reset="history-copy-on-write",
+                    history_rehydrate_copy_count=2,
+                ),
+                (
+                    "resolved material graph history copy-on-write "
+                    "transition invalid"
+                ),
+            ),
+            (
+                "reprepare-stable-descriptor",
+                graph_execution_observation(
+                    frame=2,
+                    layer=533,
+                    transaction="mislabeled-reprepare",
+                    trigger="next-frame+compositor-consume+gpu-completed",
+                    consumed=True,
+                    target_descriptors_sha256="a" * 64,
+                    target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+                    history="reused",
+                    reset="allocation-reprepare",
+                    history_rehydrate_copy_count=2,
+                ),
+                (
+                    "resolved material graph allocation reprepare "
+                    "transition invalid"
+                ),
+            ),
+        )
+
+        for name, observation, expected_failure in cases:
+            with self.subTest(case=name):
+                metrics = benchmark.resolved_material_graph_observation_metrics(
+                    "\n".join([initial, observation])
+                )
+                self.assertIn(
+                    expected_failure,
+                    metrics["validation_failures"],
+                )
+
+    def test_resolved_material_graph_extent_lifecycle_expectation_is_exact(
+        self,
+    ) -> None:
+        preview_text = (
+            "resolved material execution capabilities: "
+            "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
+            "rejected=0 variantLimit=8\n"
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=533 status=accepted\n"
+        )
+        log_text = "\n".join([
+            "resolved material runtime audit: schema=scene-graph-executor-v1 "
+            "claimed=1 encoded=1 failures=0 deferred=0 pending=1 "
+            "gpuEncoded=1 localFallbacks=0",
+            graph_execution_observation(
+                frame=1,
+                layer=533,
+                transaction="a",
+                trigger="first-frame+compositor-consume+gpu-completed",
+                consumed=True,
+                target_descriptors_sha256="a" * 64,
+                target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+                history="seeded",
+                reset="initial",
+            ),
+            graph_execution_observation(
+                frame=2,
+                layer=533,
+                transaction="b",
+                trigger="next-frame+compositor-consume+gpu-completed",
+                consumed=True,
+                target_descriptors_sha256="b" * 64,
+                target_descriptor_counts="481x271/rgbaBackbuffer:2",
+                input_width=962,
+                input_height=542,
+                history="seeded",
+                reset="allocation-reprepare",
+                history_content_discarded=True,
+            ),
+        ])
+        disposition, exact_execution = resolved_graph_exact_evidence([533])
+        metrics = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            log_text,
+            effect_execution=exact_execution,
+            static_disposition=disposition,
+        )
+        base_sample = {
+            "expected_resolved_material_graph_succeeded_layer_ids": [533],
+        }
+
+        malformed = dict(base_sample)
+        malformed["expected_resolved_material_graph_extent_lifecycle"] = {
+            "layer_id": 533,
+            "anchors": [],
+            "require_history_copy_on_write": False,
+        }
+        self.assertIn(
+            "resolved material graph extent lifecycle expectation invalid",
+            benchmark.resolved_material_graph_execution_failures(
+                metrics,
+                require_evidence=True,
+                sample=malformed,
+            ),
+        )
+
+        wrong_anchor = dict(base_sample)
+        wrong_anchor["expected_resolved_material_graph_extent_lifecycle"] = {
+            "layer_id": 533,
+            "anchors": [
+                {
+                    "input_width": 2048,
+                    "input_height": 1152,
+                    "target_descriptor_counts":
+                        "1024x576/rgbaBackbuffer:2",
+                    "history": "seeded",
+                    "reset": "initial",
+                    "history_rehydrate_copy_count": 0,
+                    "history_content_discarded": False,
+                },
+                {
+                    "input_width": 963,
+                    "input_height": 542,
+                    "target_descriptor_counts":
+                        "481x271/rgbaBackbuffer:2",
+                    "history": "seeded",
+                    "reset": "allocation-reprepare",
+                    "history_rehydrate_copy_count": 0,
+                    "history_content_discarded": True,
+                },
+            ],
+            "require_history_copy_on_write": False,
+        }
+        self.assertIn(
+            "resolved material graph extent lifecycle evidence mismatch",
+            benchmark.resolved_material_graph_execution_failures(
+                metrics,
+                require_evidence=True,
+                sample=wrong_anchor,
+            ),
+        )
+
+    def test_resolved_material_graph_typed_fallback_requires_recovery(
+        self,
+    ) -> None:
+        preview_text = (
+            "resolved material execution capabilities: "
+            "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
+            "rejected=0 variantLimit=8\n"
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=533 status=accepted\n"
+        )
+        disposition = static_effect_disposition(
+            records=[{
+                "layer_id": 533,
+                "effect_index": 0,
+                "descriptor_id": "533#effect#0",
+                "definition_path": "effects/533/effect.json",
+                "family": "generic-fragment",
+                "kind": "program",
+            }],
+            groups=[{"layer_id": 533, "kind": "authored"}],
+        )
+        cpu = effect_cpu_event(
+            frame=2,
+            origin="resolved-material-graph",
+            subject="effect",
+            layer=533,
+            effect=0,
+            descriptor="533%23effect%230",
+            family="generic-fragment",
+            backend=benchmark.RESOLVED_MATERIAL_GRAPH_BACKEND,
+        )
+        route = effect_route_event(
+            frame=2,
+            origin="solid",
+            layer=533,
+            operation="unclaimed-effect-product-authority",
+            outcome="failed",
+            reason="unclaimed-visible-effects",
+        )
+        effect_log = effect_execution_log(2, [cpu], [route])
+        effect_execution = benchmark.effect_execution_metrics(
+            effect_log,
+            disposition,
+        )
+        graph_before = graph_execution_observation(
+            frame=1,
+            layer=533,
+            transaction="before-fallback",
+            trigger="next-frame+compositor-consume+gpu-completed",
+            consumed=True,
+            target_descriptors_sha256="a" * 64,
+            target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+            history="seeded",
+            reset="initial",
+        )
+        graph_after = graph_execution_observation(
+            frame=3,
+            layer=533,
+            transaction="after-recovery",
+            trigger="next-frame+compositor-consume+gpu-completed",
+            consumed=True,
+            allocation_generation=2,
+            mapping_generation=2,
+            target_descriptors_sha256="a" * 64,
+            target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+            history="reused",
+            reset="history-copy-on-write",
+            history_rehydrate_copy_count=2,
+        )
+        common_log = [
+            "resolved material runtime audit: schema=scene-graph-executor-v1 "
+            "claimed=1 encoded=1 failures=0 deferred=0 pending=1 "
+            "gpuEncoded=1 localFallbacks=1",
+            "layer-local-fallback count=1 entries="
+            "533:frame-target-plan-unsupported-target-descriptor",
+            "schema=1 axis=graph-execution frame=2 "
+            "diagnostic=frame-target-plan-unsupported-target-descriptor",
+            graph_before,
+        ]
+        expected_graph_fallback = [{
+            "layer_id": 533,
+            "reason": "frame-target-plan-unsupported-target-descriptor",
+        }]
+        graph_sample = {
+            "expected_resolved_material_graph_succeeded_layer_ids": [533],
+            "expected_resolved_material_graph_local_fallbacks":
+                expected_graph_fallback,
+        }
+
+        recovered = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            "\n".join([*common_log, graph_after]),
+            effect_execution=effect_execution,
+            static_disposition=disposition,
+        )
+        self.assertEqual(
+            recovered["executor"][
+                "transient_recovered_fallback_layer_ids"
+            ],
+            [533],
+        )
+        self.assertEqual(
+            benchmark.resolved_material_graph_execution_failures(
+                recovered,
+                require_evidence=True,
+                sample=graph_sample,
+            ),
+            [],
+        )
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                effect_execution,
+                sample={
+                    "expected_effect_execution_local_fallbacks": [{
+                        "origin": "solid",
+                        "layer_id": 533,
+                        "operation":
+                            "unclaimed-effect-product-authority",
+                        "outcome": "failed",
+                        "reason": "unclaimed-visible-effects",
+                    }],
+                },
+            ),
+            [],
+        )
+
+        not_recovered = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            "\n".join(common_log),
+            effect_execution=effect_execution,
+            static_disposition=disposition,
+        )
+        self.assertIn(
+            "resolved material graph local fallback evidence mismatch",
+            benchmark.resolved_material_graph_execution_failures(
+                not_recovered,
+                require_evidence=True,
+                sample=graph_sample,
             ),
         )
 
