@@ -343,7 +343,11 @@ enum Harness {
         )
     }
 
-    static func incompatibleCopyFixture(layerID: Int = 533) -> Fixture {
+    static func copyExtentFixture(
+        layerID: Int,
+        firstExtent: Graph.TargetExtent,
+        secondExtent: Graph.TargetExtent
+    ) -> Fixture {
         let key = Graph.EffectKey(
             layerID: layerID,
             effectIndex: 0,
@@ -360,7 +364,7 @@ enum Harness {
         let targets: [Graph.RenderTarget] = [
             .init(
                 texture: half,
-                extent: .init(kind: .scale, first: 2, second: nil),
+                extent: firstExtent,
                 format: "rgba_backbuffer",
                 declaredUnique: true,
                 clear: nil,
@@ -369,7 +373,7 @@ enum Harness {
             ),
             .init(
                 texture: full,
-                extent: .init(kind: .scale, first: 1, second: nil),
+                extent: secondExtent,
                 format: "rgba_backbuffer",
                 declaredUnique: false,
                 clear: nil,
@@ -406,6 +410,14 @@ enum Harness {
                 inputRole: .layerSource
             ),
             framebufferIdentities: [half, full]
+        )
+    }
+
+    static func incompatibleCopyFixture(layerID: Int = 533) -> Fixture {
+        copyExtentFixture(
+            layerID: layerID,
+            firstExtent: .init(kind: .scale, first: 2, second: nil),
+            secondExtent: .init(kind: .scale, first: 1, second: nil)
         )
     }
 
@@ -738,6 +750,98 @@ enum Harness {
         case .success: incompatibleCopyFrameReason = "accepted"
         case let .failure(failure):
             incompatibleCopyFrameReason = failure.localFallbackReasonCode
+        }
+
+        let fit256 = Graph.TargetExtent(
+            kind: .fit, first: 256, second: nil
+        )
+        let fit128 = Graph.TargetExtent(
+            kind: .fit, first: 128, second: nil
+        )
+        let fitCopy = copyExtentFixture(
+            layerID: 534,
+            firstExtent: fit256,
+            secondExtent: fit256
+        )
+        let fitCopyPool = SceneOffscreenTexturePool(
+            device: device, maxDimension: 2_048
+        )
+        let fitCopyFrameExtents: [[Int]]
+        switch fitCopyPool.persistentTargetPlansResult(
+            admittedGraphs: admittedGraphs([fitCopy]),
+            pairPlan: pairPlan([fitCopy]),
+            requestedWidth: 2_048,
+            requestedHeight: 1_152
+        ) {
+        case let .success(value):
+            fitCopyFrameExtents = value.plans.flatMap(\.logicalTargets).map {
+                [$0.extent.width, $0.extent.height]
+            }.sorted { lhs, rhs in
+                lhs.lexicographicallyPrecedes(rhs)
+            }
+        case .failure:
+            fitCopyFrameExtents = []
+        }
+
+        let incompatibleFitCopy = copyExtentFixture(
+            layerID: 535,
+            firstExtent: fit256,
+            secondExtent: fit128
+        )
+        let incompatibleFitGraphs = admittedGraphs([incompatibleFitCopy])
+        let incompatibleFitPair = pairPlan([incompatibleFitCopy])
+        let incompatibleFitPool = SceneOffscreenTexturePool(
+            device: device, maxDimension: 2_048
+        )
+        let incompatibleFitProbeAccepted: Bool
+        switch incompatibleFitPool.persistentTargetPlansResult(
+            admittedGraphs: incompatibleFitGraphs,
+            pairPlan: incompatibleFitPair,
+            requestedWidth: 1,
+            requestedHeight: 1
+        ) {
+        case .success: incompatibleFitProbeAccepted = true
+        case .failure: incompatibleFitProbeAccepted = false
+        }
+        let incompatibleFitFrameReason: String
+        switch incompatibleFitPool.framePlanResultForPersistentGraphTargets(
+            admittedGraphs: incompatibleFitGraphs,
+            pairPlan: incompatibleFitPair,
+            requestedWidth: 2_048,
+            requestedHeight: 1_152,
+            sharesFullFramePairWhenHistoryFree: true
+        ) {
+        case .success: incompatibleFitFrameReason = "accepted"
+        case let .failure(failure):
+            incompatibleFitFrameReason = failure.localFallbackReasonCode
+        }
+
+        let fitScale = Graph.TargetExtent(
+            width: nil,
+            height: nil,
+            fit: 256,
+            scale: 2
+        )
+        let fitScaleCopy = copyExtentFixture(
+            layerID: 536,
+            firstExtent: fitScale,
+            secondExtent: fitScale
+        )
+        let fitScaleFrameExtents: [[Int]]
+        switch fitCopyPool.persistentTargetPlansResult(
+            admittedGraphs: admittedGraphs([fitScaleCopy]),
+            pairPlan: pairPlan([fitScaleCopy]),
+            requestedWidth: 2_048,
+            requestedHeight: 1_152
+        ) {
+        case let .success(value):
+            fitScaleFrameExtents = value.plans.flatMap(\.logicalTargets).map {
+                [$0.extent.width, $0.extent.height]
+            }.sorted { lhs, rhs in
+                lhs.lexicographicallyPrecedes(rhs)
+            }
+        case .failure:
+            fitScaleFrameExtents = []
         }
 
         func directChain(layerID: Int, count: Int) -> [Fixture] {
@@ -2913,6 +3017,10 @@ enum Harness {
             "explicit128BudgetIsPreserved": explicit128BudgetIsPreserved,
             "incompatibleCopyProbeAccepted": incompatibleCopyProbeAccepted,
             "incompatibleCopyFrameReason": incompatibleCopyFrameReason,
+            "fitCopyFrameExtents": fitCopyFrameExtents,
+            "incompatibleFitProbeAccepted": incompatibleFitProbeAccepted,
+            "incompatibleFitFrameReason": incompatibleFitFrameReason,
+            "fitScaleFrameExtents": fitScaleFrameExtents,
             "sample302RequiredBytes": sample302RequiredBytes,
             "sample302ShapeIsExact": sample302ShapeIsExact,
             "sample302FitsAutomaticBudget": sample302FitsAutomaticBudget,
@@ -3155,6 +3263,23 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertEqual(
             self.result["incompatibleCopyFrameReason"],
             "frame-target-plan-unsupported-target-descriptor",
+        )
+
+    def test_fit_extent_reaches_actual_plan_and_keeps_typed_mismatch(self) -> None:
+        self.assertEqual(
+            self.result["fitCopyFrameExtents"],
+            [[256, 144], [256, 144]],
+        )
+        self.assertTrue(self.result["incompatibleFitProbeAccepted"])
+        self.assertEqual(
+            self.result["incompatibleFitFrameReason"],
+            "frame-target-plan-unsupported-target-descriptor",
+        )
+
+    def test_fit_scale_unseen_combination_uses_the_same_actual_plan(self) -> None:
+        self.assertEqual(
+            self.result["fitScaleFrameExtents"],
+            [[128, 72], [128, 72]],
         )
 
     def test_resolved_batch_shares_history_free_full_frame_pair(self) -> None:
