@@ -28,6 +28,7 @@
 - 一次性分析使用 `/private/tmp` 下精确的任务目录；正式工具和测试仍进入仓库规定位置。
 - 用户源视频、真实 Workshop/Scene 根、原始 `project.json` 和资产永远是只读输入，不是 cache、property injection、manifest 或 report 输出根。
 - `.codex` 是可重建工作区，不是源码或长期知识库；但归属不明和唯一证据仍不能自动删除。
+- `docs/scene/evidence/` 是由仓库级 ignore 保护的本机证据缓存，不是源码或 Git 事实入口。可用 `script/promote_scene_evidence.py` 在清理 runtime 前提纯最终报告、日志和截图，但不得暂存或提交；权威文档只记录有界结论、输入/App/report/manifest identity 与 SHA-256，不链接或依赖该目录。
 
 ## 高体量生命周期卡
 

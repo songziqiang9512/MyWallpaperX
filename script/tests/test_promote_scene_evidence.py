@@ -42,7 +42,7 @@ class PromoteSceneEvidenceTests(unittest.TestCase):
         report_path.write_text(json.dumps(report), encoding="utf-8")
         return report_path
 
-    def test_promotes_only_bounded_evidence_and_preserves_report(self) -> None:
+    def test_caches_only_bounded_evidence_and_preserves_report(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-evidence-promotion-") as directory:
             root = Path(directory)
             report = self.make_report(root)
@@ -58,7 +58,10 @@ class PromoteSceneEvidenceTests(unittest.TestCase):
             self.assertEqual(archived_report.read_bytes(), report.read_bytes())
             self.assertFalse((destination / "positive/runtime").exists())
             manifest = json.loads((destination / "manifest.json").read_text())
-            self.assertEqual(manifest["retention_class"], "repository-evidence")
+            self.assertEqual(
+                manifest["retention_class"],
+                "local-ignored-evidence-cache",
+            )
             self.assertEqual(len(manifest["runs"][0]["files"]), 5)
             self.assertEqual(
                 manifest["runs"][0]["report_sha256"],

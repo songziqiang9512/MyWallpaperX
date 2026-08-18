@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 AGENT_RULES = ROOT / "AGENTS.md"
+GITIGNORE = ROOT / ".gitignore"
 ROADMAP = ROOT / "docs/scene/scene-compatibility-roadmap.md"
 RUNTIME_ARCHITECTURE = ROOT / "docs/scene/runtime-architecture.md"
 SCENE_README = ROOT / "docs/scene/README.md"
@@ -201,6 +202,15 @@ class SceneGovernanceContractTests(unittest.TestCase):
         ):
             with self.subTest(correctionField=correction_field):
                 self.assertIn(correction_field, roadmap)
+
+    def test_scene_evidence_is_a_local_ignored_cache(self) -> None:
+        rules = AGENT_RULES.read_text(encoding="utf-8")
+        evidence = RUNTIME_EVIDENCE.read_text(encoding="utf-8")
+        ignored = GITIGNORE.read_text(encoding="utf-8").splitlines()
+        self.assertIn("docs/scene/evidence/", ignored)
+        self.assertIn("仓库忽略的本机证据缓存", rules)
+        self.assertIn("仓库忽略的本机证据缓存", evidence)
+        self.assertNotIn("](../evidence/", evidence)
 
     def test_named_source_taxonomy_is_single_and_complete(self) -> None:
         rules = AGENT_RULES.read_text(encoding="utf-8")

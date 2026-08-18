@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Promote a bounded Scene benchmark evidence set into the repository."""
+"""Copy a bounded Scene benchmark evidence set into the local ignored cache."""
 
 from __future__ import annotations
 
@@ -155,7 +155,7 @@ def promote(
             })
         manifest = {
             "schema_version": 1,
-            "retention_class": "repository-evidence",
+            "retention_class": "local-ignored-evidence-cache",
             "excluded_classes": [
                 "staged-app",
                 "runtime-sample",
@@ -207,7 +207,7 @@ def main() -> int:
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"Scene evidence promotion failed: {error}")
         return 2
-    print(f"Scene evidence promoted: {destination}")
+    print(f"Scene evidence cached locally: {destination}")
     return 0
 
 
