@@ -42,6 +42,10 @@ VARIANT_COMPILATION_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
 )
+GENERIC_SHADER_CACHE_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift"
+)
 DEPENDENCY_OWNERSHIP_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift"
@@ -4309,6 +4313,10 @@ private func compiledChannelUseCount(
 @main
 private enum EnvelopeHarness {
     static func main() throws {
+        // This harness validates bounded envelope/capacity behavior without the
+        // signed generic compiler bundle. Use the registered rollback instead
+        // of depending on compiler failure to restore a migrated old owner.
+        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
         let boundGraph = graph(withPrimaryBinding: true)
         let unboundGraph = graph(withPrimaryBinding: false)
 
@@ -6255,11 +6263,36 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             compilation,
         )
         self.assertIn("activeSamplerNames", compilation)
+        self.assertIn("sourceActiveSamplers", compilation)
         self.assertIn("activeGraphTextureIdentities", compilation)
-        self.assertIn("identity.kind == .framebuffer", compilation)
+        self.assertIn("$0.value.kind == .framebuffer", compilation)
         self.assertIn("graphTextureSlots: graphTextureSlots", compilation)
+        self.assertIn("template.graphRole.bindings", compilation)
+        self.assertIn("implicitFramebufferIdentity != nil", compilation)
+        self.assertIn("implicitFramebufferSlots", compilation)
+        self.assertIn("usesGraphInputMaterialAlias", compilation)
+        self.assertIn(
+            "graphInputTextureSlots: graphInputTextureSlots",
+            compilation,
+        )
         self.assertIn("graphR8TextureSlots", compilation)
         self.assertIn("r8TextureSlots: graphR8TextureSlots", compilation)
+        stages = (
+            SCENE_ROOT
+            / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
+        ).read_text(encoding="utf-8")
+        program_first = (
+            SCENE_ROOT
+            / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("bounded-frontend-owner-revoked", stages)
+        generic_cache = GENERIC_SHADER_CACHE_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("state != .observeOnly", generic_cache)
+        self.assertIn('rejection("material-generic-owner-revoked")', stages)
+        self.assertIn(
+            'programFailure.code != "material-generic-owner-revoked"',
+            program_first,
+        )
         self.assertNotIn(
             "r8TextureSlots: Set(variantKey.resolvedTextureFormats",
             compilation,

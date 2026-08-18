@@ -35,6 +35,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         template: Template,
         variantKey: SceneResolvedMaterialVariantKey,
         outputStorage: SceneResolvedMaterialProgram.OutputStorage,
+        implicitFramebufferIdentity: Graph.TextureIdentity?,
         graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat],
         onBoundedFrontendCompilation: () -> Void
     ) throws -> Variant {
@@ -60,22 +61,55 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         case .notApplicable:
             throw failure(.identityInvariant, phase: .invariant)
         }
+        let runtimeLoopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
+            template: template,
+            prepared: prepared
+        )
         let activeSamplerNames = SceneAuthoredShaderDeadBindingAnalyzer
             .activeSamplerNames(
                 vertexSource: prepared.vertex.source,
-                fragmentSource: prepared.fragment.source
+                fragmentSource: prepared.fragment.source,
+                runtimeLoopBounds: runtimeLoopBounds
             ) ?? []
+        let sourceActiveSamplers: [
+            Int: SceneResolvedMaterialShaderSchema.Sampler
+        ]
+        do {
+            sourceActiveSamplers = try SceneResolvedMaterialShaderSchema.activeSamplers(
+                prepared,
+                activeNames: Set(activeSamplerNames)
+            )
+        } catch {
+            throw failure(.authoredSamplerSchemaInvalid)
+        }
         let activeGraphTextureIdentities = Dictionary(uniqueKeysWithValues:
             activeSamplerNames.compactMap { name -> (Int, Graph.TextureIdentity)? in
                 guard name.hasPrefix("g_Texture"),
                       let slot = Int(name.dropFirst("g_Texture".count)),
                       template.textureSlots.indices.contains(slot),
                       let candidate = template.textureSlots[slot]?.candidates.last,
-                      case let .graph(identity) = candidate.reference,
-                      identity.kind == .framebuffer else { return nil }
+                      case let .graph(identity) = candidate.reference
+                else { return nil }
                 return (slot, identity)
             })
-        let graphTextureSlots = Set(activeGraphTextureIdentities.keys)
+        let graphTextureSlots = Set(activeGraphTextureIdentities.compactMap {
+            $0.value.kind == .framebuffer ? $0.key : nil
+        })
+        var graphInputTextureSlots = Set(activeGraphTextureIdentities.keys)
+        graphInputTextureSlots.formUnion(template.graphRole.bindings.compactMap {
+            sourceActiveSamplers[$0.slot] == nil ? nil : $0.slot
+        })
+        if implicitFramebufferIdentity != nil {
+            graphInputTextureSlots.formUnion(
+                SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
+                    template: template,
+                    samplers: sourceActiveSamplers
+                )
+            )
+            graphInputTextureSlots.formUnion(sourceActiveSamplers.compactMap {
+                $0.value.usesGraphInputMaterialAlias ? $0.key : nil
+            })
+        }
         let graphR8TextureSlots = Set(activeGraphTextureIdentities.compactMap {
             graphTextureFormatFacts[$0.value] == .r8 ? $0.key : nil
         })
@@ -87,6 +121,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     .hasExternalProviderTexture(in: template),
             producesScalarRedOutput: outputStorage == .scalarRedUnorm,
             graphTextureSlots: graphTextureSlots,
+            graphInputTextureSlots: graphInputTextureSlots,
             r8TextureSlots: graphR8TextureSlots
         )
         let frontend: SceneAuthoredShaderProgram
@@ -109,10 +144,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 )
             }
             onBoundedFrontendCompilation()
-            let runtimeLoopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
-                template: template,
-                prepared: prepared
-            )
             let output = SceneAuthoredShaderFrontend.compile(
                 vertexSource: prepared.vertex.source,
                 fragmentSource: prepared.fragment.source,
@@ -146,15 +177,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 } ?? []) + artifactFailure
             )
         }
-        let samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
-        do {
-            samplers = try SceneResolvedMaterialShaderSchema.activeSamplers(
-                prepared,
-                activeNames: Set(frontend.textureBindings.map(\.name))
-            )
-        } catch {
-            throw failure(.authoredSamplerSchemaInvalid)
-        }
+        let samplers = sourceActiveSamplers
         let bindings = frontend.textureBindings
         if let internalTarget = internalTarget(in: samplers) {
             throw failure(

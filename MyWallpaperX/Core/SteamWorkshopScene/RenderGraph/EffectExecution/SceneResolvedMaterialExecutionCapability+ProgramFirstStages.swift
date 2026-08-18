@@ -91,6 +91,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 allMaterials.merge(compiled.materials) { current, _ in current }
 
             case let .failure(programFailure):
+                guard programFailure.code != "material-generic-owner-revoked" else {
+                    return .failure(programFailure)
+                }
                 guard product.clearFunctions.functions.isEmpty else {
                     return .failure(rejection("function-invocation-executor-unavailable"))
                 }

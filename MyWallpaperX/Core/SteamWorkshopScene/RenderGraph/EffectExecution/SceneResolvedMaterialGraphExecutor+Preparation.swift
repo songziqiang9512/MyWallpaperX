@@ -256,6 +256,15 @@ extension SceneResolvedMaterialGraphExecutor {
                         else { return nil }
                         return slot.index
                     }),
+                    graphInputTextureSlots: Set(
+                        program.textureSlots.compactMap { slot in
+                            guard let slot,
+                                  case .graph =
+                                      slot.resource.publication.requestIdentity
+                            else { return nil }
+                            return slot.index
+                        }
+                    ),
                     r8TextureSlots: Set(program.textureSlots.compactMap { slot in
                         guard let slot else { return nil }
                         let candidate = slot.resource.publication.candidate

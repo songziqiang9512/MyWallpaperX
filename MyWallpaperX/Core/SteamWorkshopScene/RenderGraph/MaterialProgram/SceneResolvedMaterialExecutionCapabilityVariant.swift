@@ -263,6 +263,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         variants.append(try entry(
                             for: key,
                             outputStorage: outputStorage,
+                            implicitFramebufferIdentity: implicitFramebufferIdentity,
                             graphTextureFormatFacts: graphTextureFormatFacts
                         ))
                     }
@@ -446,6 +447,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     private func entry(
         for key: SceneResolvedMaterialVariantKey,
         outputStorage: SceneResolvedMaterialProgram.OutputStorage,
+        implicitFramebufferIdentity: Graph.TextureIdentity?,
         graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat]
     ) throws -> Variant {
         if let entry = entries[key] {
@@ -468,6 +470,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 template: template,
                 variantKey: key,
                 outputStorage: outputStorage,
+                implicitFramebufferIdentity: implicitFramebufferIdentity,
                 graphTextureFormatFacts: graphTextureFormatFacts,
                 onBoundedFrontendCompilation: { frontendCompilations += 1 }
             )

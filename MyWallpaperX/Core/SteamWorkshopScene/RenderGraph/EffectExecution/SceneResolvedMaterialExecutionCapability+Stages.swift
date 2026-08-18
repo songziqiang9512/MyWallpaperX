@@ -144,6 +144,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             ) {
                 SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
                     .launchEnvelopeFailure(template: template, failure: failure)
+                if case let .material(materialFailure) = failure,
+                   materialFailure.boundedDetails.contains(
+                       "bounded-frontend-owner-revoked"
+                   ) {
+                    return .failure(rejection("material-generic-owner-revoked"))
+                }
                 return .failure(rejection(
                     "material-variant-envelope-\(failure.kind.rawValue)"
                 ))
