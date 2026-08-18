@@ -83,6 +83,7 @@ final class SceneDesktopWallpaperHost {
     var nextSceneScriptGeneration: UInt64 = 0
 #if DEBUG
     var debugPointerOverride: SceneSurfacePointerState?
+    var debugSurfaceReferenceFrames: [CGDirectDisplayID: NSRect] = [:]
     var debugDropDynamicValuesFrameIndex: UInt64?
     var debugDidDropDynamicValues = false
     var debugDidLogDynamicValuesRecovery = false
@@ -267,6 +268,32 @@ final class SceneDesktopWallpaperHost {
     func setDebugPointerOverride(_ state: SceneSurfacePointerState?) {
         debugPointerOverride = state
         updateMouseLocations()
+    }
+
+    @discardableResult
+    func debugResizeSurfaces(scale: CGFloat) -> Bool {
+        guard Self.usesDebugEvidenceWindow,
+              scale.isFinite,
+              scale > 0,
+              scale <= 1,
+              !surfaces.isEmpty else { return false }
+        for (screenID, surface) in surfaces {
+            let reference = debugSurfaceReferenceFrames[screenID]
+                ?? surface.window.frame
+            debugSurfaceReferenceFrames[screenID] = reference
+            let size = CGSize(
+                width: max(1, reference.width * scale),
+                height: max(1, reference.height * scale)
+            )
+            let frame = NSRect(
+                x: reference.midX - size.width / 2,
+                y: reference.midY - size.height / 2,
+                width: size.width,
+                height: size.height
+            )
+            surface.window.setFrame(frame, display: true, animate: false)
+        }
+        return true
     }
 
     @discardableResult

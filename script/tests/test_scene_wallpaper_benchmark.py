@@ -701,6 +701,22 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             benchmark.copy_sample(source, destination)
             self.assertEqual((destination / "scene.pkg").read_bytes(), b"PKGV")
 
+    def test_resize_sequence_argument_is_forwarded_atomically(self) -> None:
+        command = ["MyWallpaperX"]
+        benchmark.append_resize_sequence_argument(
+            command,
+            "1.5:0.6,3.5:1.0",
+        )
+        self.assertEqual(command, [
+            "MyWallpaperX",
+            "--mwx-debug-scene-resize-sequence",
+            "1.5:0.6,3.5:1.0",
+        ])
+
+        unchanged = ["MyWallpaperX"]
+        benchmark.append_resize_sequence_argument(unchanged, None)
+        self.assertEqual(unchanged, ["MyWallpaperX"])
+
     def test_passing_runtime_is_removed_without_keep_flag(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-retention-") as directory:
             root = Path(directory)

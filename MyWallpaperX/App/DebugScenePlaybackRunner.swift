@@ -147,6 +147,7 @@ enum DebugScenePlaybackRunner {
                 } else {
                     scheduleSnapshots(outputDirectory: evidenceDirectory)
                 }
+                scheduleResizeSequence(outputDirectory: evidenceDirectory)
             }
             let livePropertyOverrides = requestedLivePropertyOverrides
             if !livePropertyOverrides.isEmpty {
@@ -251,6 +252,28 @@ enum DebugScenePlaybackRunner {
             }
         }
         schedulePeriodicSnapshots(outputDirectory: outputDirectory)
+    }
+
+    private static func scheduleResizeSequence(outputDirectory: URL) {
+        for (index, event) in requestedResizeSequence.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + event.delay) {
+                let accepted = SceneDesktopWallpaperHost.shared
+                    .debugResizeSurfaces(scale: event.scale)
+                NSLog(
+                    "MWX DEBUG SCENE: phase=surface-resize index=%d scale=%.4f accepted=%@",
+                    index,
+                    event.scale,
+                    accepted ? "true" : "false"
+                )
+                guard accepted else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    requestSnapshot(
+                        reason: String(format: "resize-%02d", index),
+                        outputDirectory: outputDirectory
+                    )
+                }
+            }
+        }
     }
 
     private static func schedulePeriodicSnapshots(outputDirectory: URL) {
@@ -434,6 +457,24 @@ enum DebugScenePlaybackRunner {
         return ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-periodic-snapshots"
         ) ? 5 : nil
+    }
+
+    private static var requestedResizeSequence: [(delay: TimeInterval, scale: CGFloat)] {
+        guard let raw = argumentValue(after: "--mwx-debug-scene-resize-sequence") else {
+            return []
+        }
+        return raw.split(separator: ",").compactMap { item in
+            let parts = item.split(separator: ":", maxSplits: 1)
+            guard parts.count == 2,
+                  let delay = TimeInterval(String(parts[0])),
+                  let scale = Double(String(parts[1])),
+                  delay > 0,
+                  delay < requestedDuration - 0.75,
+                  scale.isFinite,
+                  scale > 0,
+                  scale <= 1 else { return nil }
+            return (delay, CGFloat(scale))
+        }.sorted { $0.delay < $1.delay }
     }
 
     private static var requestedHoverPointer: SIMD2<Float>? {

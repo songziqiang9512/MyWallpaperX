@@ -55,6 +55,9 @@ extension SceneDesktopWallpaperHost {
             surface.window.close()
         }
         surfaces.removeAll()
+#if DEBUG
+        debugSurfaceReferenceFrames.removeAll(keepingCapacity: false)
+#endif
         if clearContext {
             SceneAudioSpectrumInbox.shared.setDemand(false)
             sharedLayerAlphaRuntime = .init(program: .empty)

@@ -4347,6 +4347,17 @@ def append_dynamic_values_fault_argument(
         ])
 
 
+def append_resize_sequence_argument(
+    command: list[str],
+    resize_sequence: str | None,
+) -> None:
+    if resize_sequence is not None:
+        command.extend([
+            "--mwx-debug-scene-resize-sequence",
+            resize_sequence,
+        ])
+
+
 def append_media_thumbnail_argument(
     command: list[str],
     media_thumbnail_path: Any,
@@ -4812,6 +4823,7 @@ def run_sample(
     duration: float,
     after_snapshot_delay: float | None,
     periodic_snapshot_interval: float | None = None,
+    resize_sequence: str | None = None,
     drop_dynamic_values_frame: int | None = None,
     audio_spectrum_fixture: bool = False,
     audio_spectrum_silence_fixture: bool = False,
@@ -4864,6 +4876,7 @@ def run_sample(
             "--mwx-debug-scene-periodic-snapshot-interval",
             str(periodic_snapshot_interval),
         ])
+    append_resize_sequence_argument(command, resize_sequence)
     append_dynamic_values_fault_argument(command, drop_dynamic_values_frame)
     sample_audio_fixture = sample.get("audio_spectrum_fixture") is True
     sample_silence_fixture = sample.get("audio_spectrum_silence_fixture") is True
@@ -5858,6 +5871,13 @@ def parse_args() -> argparse.Namespace:
         help="capture a continuous Scene series at this interval in seconds",
     )
     parser.add_argument(
+        "--resize-sequence",
+        help=(
+            "DEBUG evidence-window resize events as delay:scale pairs, "
+            "for example 1.5:0.6,3.5:1.0"
+        ),
+    )
+    parser.add_argument(
         "--drop-dynamic-values-frame",
         type=positive_uint64,
         help=(
@@ -5965,6 +5985,7 @@ def main() -> int:
             duration=duration,
             after_snapshot_delay=args.after_snapshot_delay,
             periodic_snapshot_interval=args.periodic_snapshot_interval,
+            resize_sequence=args.resize_sequence,
             drop_dynamic_values_frame=args.drop_dynamic_values_frame,
             audio_spectrum_fixture=args.audio_spectrum_fixture,
             audio_spectrum_silence_fixture=args.audio_spectrum_silence_fixture,
