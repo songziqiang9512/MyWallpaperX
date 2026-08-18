@@ -176,13 +176,15 @@ enum Harness {
     static func requirePlan(
         _ graph: Graph,
         width: Int = 100,
-        height: Int = 50
+        height: Int = 50,
+        materialFunctionTargets: Set<Graph.TextureIdentity> = []
     ) -> Plan {
         guard case .success(let plan) = Plan.make(
             graph: graph,
             inputRole: .layerSource,
             inputWidth: width,
-            inputHeight: height
+            inputHeight: height,
+            materialFunctionTargets: materialFunctionTargets
         ) else { fatalError("expected target plan") }
         return plan
     }
@@ -599,11 +601,13 @@ enum Harness {
         let functionGraph = graph(
             targets: [rawTarget(q1, unique: true)],
             nodes: [
-                material(0, ordinal: 0, target: output, reads: [q1]),
-                material(1, ordinal: 1, target: q1, reads: [input]),
+                material(0, ordinal: 0, target: output, reads: [q1, input]),
             ]
         )
-        let functionPlan = requirePlan(functionGraph)
+        let functionPlan = requirePlan(
+            functionGraph,
+            materialFunctionTargets: [q1]
+        )
         let functionPair = requirePair(functionGraph)
         let functionAllocation = allocation(
             plan: functionPlan, generation: 1, prefix: "function"
@@ -1200,7 +1204,7 @@ class SceneGraphExecutionStateTests(unittest.TestCase):
             self.result["functionClearReasons"],
             ["reset:0:0", "reset:0:1", "reset:1:0", "reset:1:1"],
         )
-        self.assertEqual(self.result["functionClearGeneration"], 6)
+        self.assertEqual(self.result["functionClearGeneration"], 4)
         self.assertEqual(
             self.result["functionClearMissingTargetFailure"],
             "functionUnavailable",

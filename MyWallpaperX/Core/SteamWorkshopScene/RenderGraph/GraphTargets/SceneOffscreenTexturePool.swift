@@ -130,6 +130,7 @@ final class SceneOffscreenTexturePool {
     func preparePersistentGraphTargets(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
         targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
+        materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
@@ -139,6 +140,7 @@ final class SceneOffscreenTexturePool {
               let prepared = persistentTargetPlans(
                   admittedGraphs: admittedGraphs,
                   targetExecutionPlans: targetExecutionPlans,
+                  materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
                   pairPlan: pairPlan,
                   extentPolicy: extentPolicy,
                   requestedWidth: requestedWidth,
@@ -156,6 +158,7 @@ final class SceneOffscreenTexturePool {
     func persistentTargetPlans(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
         targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
+        materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
@@ -187,17 +190,19 @@ final class SceneOffscreenTexturePool {
                     executionPlan: $0,
                     graph: graph,
                     inputWidth: size.0,
-                    inputHeight: size.1
+                    inputHeight: size.1,
+                    materialFunctionTargets: materialFunctionTargetsByEffect[pairStep.effect] ?? []
                 )
             } ?? SceneGraphRenderTargetPlan.make(
                 graph: graph,
                 inputRole: inputRole,
                 inputWidth: size.0,
-                inputHeight: size.1
+                inputHeight: size.1,
+                materialFunctionTargets: materialFunctionTargetsByEffect[pairStep.effect] ?? []
             )
             guard graph.effects.first?.key == pairStep.effect,
-                  case .success(let plan) = planResult,
-                  plan.inputRole == inputRole,
+                  case .success(let plan) = planResult else { return nil }
+            guard plan.inputRole == inputRole,
                   plan.input == pairStep.inputIdentity,
                   plan.output == pairStep.outputIdentity else { return nil }
             plans.append(plan)

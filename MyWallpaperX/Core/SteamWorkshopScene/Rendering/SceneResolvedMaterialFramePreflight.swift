@@ -32,11 +32,20 @@ extension SceneMetalRenderer {
             parallaxConfiguration: parallaxConfiguration,
             commandBuffer: commandBuffer
         ) {
-        case .ready(let plans):
+        case let .ready(plans, localFallbacks):
             beginTextureFrame(
                 imageTextures, userPropertyTextures, userPropertyStates,
                 mediaThumbnail, frameContext
             )
+            guard imageCompositor.installResolvedMaterialFrameLocalFallbacks(
+                localFallbacks
+            ) else {
+                imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                    "frame-local-fallback-install-rejected"
+                )
+                _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
+                return nil
+            }
             guard let requests = resolvedMaterialFramePreparationRequests(
                 plans: plans,
                 imageTextures: imageTextures,
@@ -99,6 +108,29 @@ extension SceneMetalRenderer {
         var requests: [
             SceneResolvedMaterialGraphComposition.FrameTargetRequest
         ] = []
+        func materialFunctionInvocations(
+            for layer: SceneRenderDescriptor.Layer
+        ) -> [SceneGraphMaterialFunctionInvocationRequest] {
+            frameContext.materialFunctionMutations
+                .filter { $0.layerID == layer.id }
+                .map { mutation in
+                    let descriptorID: String
+                    if layer.effects.indices.contains(mutation.effectIndex) {
+                        descriptorID = layer.effects[mutation.effectIndex].id
+                    } else {
+                        descriptorID = "invalid-effect-index-\(mutation.effectIndex)"
+                    }
+                    return SceneGraphMaterialFunctionInvocationRequest(
+                        effect: .init(
+                            layerID: layer.id,
+                            effectIndex: mutation.effectIndex,
+                            descriptorID: descriptorID
+                        ),
+                        functionName: mutation.functionName,
+                        frameEpoch: textureRegistry.frameEpoch
+                    )
+                }
+        }
         for layer in orderedLayers {
             let route = imageCompositor.preflightResolvedMaterialClaim(
                 layerID: layer.id
@@ -107,6 +139,8 @@ extension SceneMetalRenderer {
             switch route {
             case .unclaimed:
                 continue
+            case let .localFallback(reasonCode):
+                return .rejected(reasonCode: reasonCode)
             case let .rejected(reasonCode):
                 return .rejected(reasonCode: reasonCode)
             case let .claimed(value):
@@ -191,10 +225,13 @@ extension SceneMetalRenderer {
                 claim: claim,
                 fullFrameExtentPolicy: claim.fullFrameExtentPolicy,
                 requestedWidth: max(1, Int(desiredSize.width.rounded(.up))),
-                requestedHeight: max(1, Int(desiredSize.height.rounded(.up)))
+                requestedHeight: max(1, Int(desiredSize.height.rounded(.up))),
+                materialFunctionInvocations: materialFunctionInvocations(for: layer)
             ))
         }
-        guard !requests.isEmpty else { return .ready([:]) }
+        guard !requests.isEmpty else {
+            return .ready(plans: [:], localFallbacks: [:])
+        }
         guard let offscreenTexturePool else {
             return .rejected(reasonCode: "frame-target-pool-unavailable")
         }
@@ -413,9 +450,29 @@ extension SceneMetalRenderer {
                     audioSpectrum: frameContext.audioSpectrum,
                     dependencyEffect: dependencyEffect
                 )
+            let materialFunctionInvocations = frameContext.materialFunctionMutations
+                .filter { $0.layerID == layerID }
+                .map { mutation in
+                    let descriptorID: String
+                    if layer.effects.indices.contains(mutation.effectIndex) {
+                        descriptorID = layer.effects[mutation.effectIndex].id
+                    } else {
+                        descriptorID = "invalid-effect-index-\(mutation.effectIndex)"
+                    }
+                    return SceneGraphMaterialFunctionInvocationRequest(
+                        effect: .init(
+                            layerID: layerID,
+                            effectIndex: mutation.effectIndex,
+                            descriptorID: descriptorID
+                        ),
+                        functionName: mutation.functionName,
+                        frameEpoch: textureRegistry.frameEpoch
+                    )
+                }
             let request = SceneResolvedMaterialRuntimeBridge.FramePreparationRequest(
                 claim: claim,
                 targetPlan: plan,
+                materialFunctionInvocations: materialFunctionInvocations,
                 sceneBackgroundResource: sceneBackgroundResource,
                 sourceTexture: sourceTexture,
                 sourceUniforms: sourceUniforms,

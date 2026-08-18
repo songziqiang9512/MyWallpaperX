@@ -14,10 +14,29 @@ enum SceneResolvedMaterialGraphComposition {
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let requestedWidth: Int
         let requestedHeight: Int
+        let materialFunctionInvocations: [SceneGraphMaterialFunctionInvocationRequest]
+
+        init(
+            claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution,
+            fullFrameExtentPolicy: SceneFullFrameExtentPolicy,
+            requestedWidth: Int,
+            requestedHeight: Int,
+            materialFunctionInvocations:
+                [SceneGraphMaterialFunctionInvocationRequest] = []
+        ) {
+            self.claim = claim
+            self.fullFrameExtentPolicy = fullFrameExtentPolicy
+            self.requestedWidth = requestedWidth
+            self.requestedHeight = requestedHeight
+            self.materialFunctionInvocations = materialFunctionInvocations
+        }
     }
 
     enum FramePreflightResult {
-        case ready([Int: SceneResolvedMaterialFrameTargetPlan])
+        case ready(
+            plans: [Int: SceneResolvedMaterialFrameTargetPlan],
+            localFallbacks: [Int: String]
+        )
         case deferred
         case rejected(reasonCode: String)
     }
@@ -150,17 +169,44 @@ enum SceneResolvedMaterialGraphComposition {
             return .rejected(reasonCode: "frame-target-layer-ambiguous")
         }
         var byLayerID: [Int: SceneResolvedMaterialFrameTargetPlan] = [:]
+        var localFallbacks: [Int: String] = [:]
         var allocationPlans: [ScenePersistentGraphTargetFramePlan] = []
         let orderingContext = commandBuffer.map {
             SceneGraphCommandQueueOrderingContext(commandBuffer: $0)
         }
         for request in requests {
+            var invocationFailure: String?
+            var materialFunctionTargetsByEffect: [
+                SceneAuthoredEffectRenderPlan.EffectKey:
+                    Set<SceneAuthoredEffectRenderPlan.TextureIdentity>
+            ] = [:]
+            for invocation in request.materialFunctionInvocations {
+                guard request.claim.admittedGraphs.contains(where: {
+                    $0.effects.first?.key == invocation.effect
+                }) else {
+                    invocationFailure = "function-invocation-unknown-effect"
+                    break
+                }
+                guard let function = request.claim.clearFunctionsByEffect[invocation.effect]
+                    .flatMap({ $0.function(named: invocation.functionName) }) else {
+                    invocationFailure = "function-invocation-unknown-function"
+                    break
+                }
+                materialFunctionTargetsByEffect[invocation.effect, default: []]
+                    .formUnion(function.targets)
+            }
+            if let invocationFailure {
+                localFallbacks[request.claim.layerID] = invocationFailure
+                continue
+            }
             guard request.requestedWidth > 0, request.requestedHeight > 0,
                   request.fullFrameExtentPolicy
                     == request.claim.fullFrameExtentPolicy,
                   let allocation = pool.framePlanForPersistentGraphTargets(
                       admittedGraphs: request.claim.admittedGraphs,
                       targetExecutionPlans: request.claim.targetExecutionPlans,
+                      materialFunctionTargetsByEffect:
+                        materialFunctionTargetsByEffect,
                       pairPlan: request.claim.pairPlan,
                       extentPolicy: request.fullFrameExtentPolicy,
                       requestedWidth: request.requestedWidth,
@@ -172,13 +218,18 @@ enum SceneResolvedMaterialGraphComposition {
                       token: request.claim.token,
                       allocation: allocation
                   ), forKey: request.claim.layerID) == nil else {
-                return .rejected(reasonCode: "frame-target-plan-rejected")
+                localFallbacks[request.claim.layerID] =
+                    "frame-target-plan-rejected"
+                continue
             }
             allocationPlans.append(allocation)
         }
         switch pool.preflightPersistentGraphTargets(allocationPlans) {
         case .ready:
-            return .ready(byLayerID)
+            return .ready(
+                plans: byLayerID,
+                localFallbacks: localFallbacks
+            )
         case .temporarilyBlocked:
             return .deferred
         case .rejected(let reasonCode):
@@ -189,6 +240,7 @@ enum SceneResolvedMaterialGraphComposition {
 
 enum SceneResolvedMaterialClaimRoute {
     case unclaimed
+    case localFallback(reasonCode: String)
     case rejected(reasonCode: String)
     case claimed(SceneResolvedMaterialRuntimeBridge.ClaimedExecution)
 
@@ -200,6 +252,15 @@ enum SceneResolvedMaterialClaimRoute {
     var isRejected: Bool {
         guard case .rejected = self else { return false }
         return true
+    }
+
+    var allowsLayerSourcePassthrough: Bool {
+        switch self {
+        case .unclaimed, .localFallback:
+            return true
+        case .rejected, .claimed:
+            return false
+        }
     }
 }
 
@@ -318,6 +379,11 @@ extension SceneImageLayerCompositor {
         case .notMigrated:
             return .unclaimed
         case let .rejected(reasonCode):
+            if reasonCode == "function-invocation-unknown-effect"
+                || reasonCode == "function-invocation-unknown-function"
+                || reasonCode == "frame-target-plan-rejected" {
+                return .localFallback(reasonCode: reasonCode)
+            }
             resolvedMaterialRuntime.recordClaimedFailure(reasonCode: reasonCode)
             return .rejected(reasonCode: reasonCode)
         case let .claimed(claim):
@@ -364,6 +430,13 @@ extension SceneImageLayerCompositor {
 
     func recordResolvedMaterialFramePreflightFailure(_ reasonCode: String) {
         resolvedMaterialRuntime?.recordClaimedFailure(reasonCode: reasonCode)
+    }
+
+    func installResolvedMaterialFrameLocalFallbacks(
+        _ fallbacks: [Int: String]
+    ) -> Bool {
+        resolvedMaterialRuntime?.installFrameLocalFallbacks(fallbacks)
+            ?? fallbacks.isEmpty
     }
 
     func deferResolvedMaterialFrame() -> Bool {

@@ -4,7 +4,10 @@ import simd
 extension SceneResolvedMaterialGraphExecutor {
     func validate(
         capability: SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability,
-        leases: [SceneGraphRenderTargetLease]
+        leases: [SceneGraphRenderTargetLease],
+        materialFunctionTargetsByEffect: [
+            Graph.EffectKey: Set<Graph.TextureIdentity>
+        ] = [:]
     ) -> Bool {
         let products = capability.admittedProducts
         let pairPlan = capability.pairPlan
@@ -29,13 +32,17 @@ extension SceneResolvedMaterialGraphExecutor {
                     executionPlan: $0,
                     graph: graph,
                     inputWidth: lease.table.plan.inputExtent.width,
-                    inputHeight: lease.table.plan.inputExtent.height
+                    inputHeight: lease.table.plan.inputExtent.height,
+                    materialFunctionTargets:
+                        materialFunctionTargetsByEffect[step.effect] ?? []
                 )
             } ?? SceneGraphRenderTargetPlan.make(
                 graph: graph,
                 inputRole: index == 0 ? .layerSource : .priorEffectOutput,
                 inputWidth: lease.table.plan.inputExtent.width,
-                inputHeight: lease.table.plan.inputExtent.height
+                inputHeight: lease.table.plan.inputExtent.height,
+                materialFunctionTargets:
+                    materialFunctionTargetsByEffect[step.effect] ?? []
             )
             let role: SceneAuthoredEffectInputRole = index == 0
                 ? .layerSource : .priorEffectOutput

@@ -9,6 +9,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS 16
+#define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_NAME 128
+
+typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
+    uint32_t effect_index;
+    char function_name[MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_NAME];
+} MWXSceneQuickJSMaterialFunctionMutationRecord;
+
 struct MWXSceneQuickJSDomain {
     JSRuntime *runtime;
     JSContext *context;
@@ -22,7 +30,18 @@ struct MWXSceneQuickJSOwner {
     uint64_t generation;
     bool initialized;
     bool disabled;
+    JSValue material_function_layer;
+    size_t material_function_count;
+    bool material_function_overflow;
+    MWXSceneQuickJSMaterialFunctionMutationRecord material_functions[
+        MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS
+    ];
 };
+
+typedef struct MWXSceneQuickJSEffectHandle {
+    MWXSceneQuickJSOwner *owner;
+    uint32_t effect_index;
+} MWXSceneQuickJSEffectHandle;
 
 static void clear_diagnostic(char *diagnostic, size_t capacity) {
     if (diagnostic != NULL && capacity > 0) {
@@ -67,6 +86,165 @@ static void write_value_diagnostic(
     if (message != NULL) {
         JS_FreeCString(domain->context, message);
     }
+}
+
+static JSValue execute_material_function(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv,
+    int magic,
+    void *opaque
+) {
+    (void)this_value;
+    (void)magic;
+    MWXSceneQuickJSEffectHandle *handle = (MWXSceneQuickJSEffectHandle *)opaque;
+    if (handle == NULL || handle->owner == NULL || argc != 1 ||
+        !JS_IsString(argv[0])) {
+        return JS_ThrowTypeError(context, "executeMaterialFunction expects one string");
+    }
+    MWXSceneQuickJSOwner *owner = handle->owner;
+    if (owner->material_function_count >=
+        MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS) {
+        owner->material_function_overflow = true;
+        return JS_ThrowInternalError(context, "material function mutation buffer exceeded");
+    }
+    size_t length = 0;
+    const char *name = JS_ToCStringLen(context, &length, argv[0]);
+    if (name == NULL || length == 0 || length >= MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_NAME) {
+        if (name != NULL) {
+            JS_FreeCString(context, name);
+        }
+        return JS_ThrowTypeError(context, "material function name is invalid");
+    }
+    MWXSceneQuickJSMaterialFunctionMutationRecord *record =
+        &owner->material_functions[owner->material_function_count];
+    record->effect_index = handle->effect_index;
+    memcpy(record->function_name, name, length);
+    record->function_name[length] = '\0';
+    owner->material_function_count += 1;
+    JS_FreeCString(context, name);
+    return JS_UNDEFINED;
+}
+
+static void free_effect_handle(void *opaque) {
+    free(opaque);
+}
+
+static JSValue get_effect(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv,
+    int magic,
+    void *opaque
+) {
+    (void)this_value;
+    (void)magic;
+    MWXSceneQuickJSOwner *owner = (MWXSceneQuickJSOwner *)opaque;
+    if (owner == NULL || argc != 1) {
+        return JS_ThrowTypeError(context, "getEffect expects one index");
+    }
+    int64_t index = -1;
+    if (JS_ToInt64(context, &index, argv[0]) < 0 || index < 0 || index > UINT32_MAX) {
+        return JS_ThrowTypeError(context, "getEffect index is invalid");
+    }
+    JSValue effect = JS_NewObject(context);
+    if (JS_IsException(effect)) {
+        return effect;
+    }
+    MWXSceneQuickJSEffectHandle *handle = calloc(1, sizeof(*handle));
+    if (handle == NULL) {
+        JS_FreeValue(context, effect);
+        return JS_ThrowInternalError(context, "material effect handle allocation failed");
+    }
+    handle->owner = owner;
+    handle->effect_index = (uint32_t)index;
+    JSValue callback = JS_NewCClosure(
+        context,
+        execute_material_function,
+        "executeMaterialFunction",
+        free_effect_handle,
+        1,
+        0,
+        handle
+    );
+    if (JS_IsException(callback) ||
+        JS_SetPropertyStr(context, effect, "executeMaterialFunction", callback) < 0) {
+        JS_FreeValue(context, effect);
+        return JS_EXCEPTION;
+    }
+    return effect;
+}
+
+static bool install_material_function_host(MWXSceneQuickJSOwner *owner) {
+    JSContext *context = owner->domain->context;
+    JSValue layer = JS_NewObject(context);
+    if (JS_IsException(layer)) {
+        return false;
+    }
+    JSValue getter = JS_NewCClosure(
+        context,
+        get_effect,
+        "getEffect",
+        NULL,
+        1,
+        0,
+        owner
+    );
+    if (JS_IsException(getter) ||
+        JS_SetPropertyStr(context, layer, "getEffect", getter) < 0) {
+        JS_FreeValue(context, layer);
+        return false;
+    }
+    owner->material_function_layer = JS_DupValue(context, layer);
+    JS_FreeValue(context, layer);
+    return true;
+}
+
+static bool bind_material_function_host(
+    MWXSceneQuickJSOwner *owner,
+    JSValue *previous_global_layer
+) {
+    if (owner == NULL || previous_global_layer == NULL ||
+        JS_IsUndefined(owner->material_function_layer)) {
+        return false;
+    }
+    JSContext *context = owner->domain->context;
+    JSValue global = JS_GetGlobalObject(context);
+    JSValue previous = JS_GetPropertyStr(context, global, "thisLayer");
+    if (JS_IsException(previous)) {
+        JS_FreeValue(context, global);
+        return false;
+    }
+    JSValue layer = JS_DupValue(context, owner->material_function_layer);
+    if (JS_SetPropertyStr(context, global, "thisLayer", layer) < 0) {
+        JS_FreeValue(context, previous);
+        JS_FreeValue(context, global);
+        return false;
+    }
+    *previous_global_layer = previous;
+    JS_FreeValue(context, global);
+    return true;
+}
+
+static bool restore_material_function_host(
+    MWXSceneQuickJSOwner *owner,
+    JSValue previous_global_layer
+) {
+    if (owner == NULL) {
+        return false;
+    }
+    JSContext *context = owner->domain->context;
+    JSValue global = JS_GetGlobalObject(context);
+    int result = JS_SetPropertyStr(
+        context,
+        global,
+        "thisLayer",
+        previous_global_layer
+    );
+    JS_FreeValue(context, global);
+    return result >= 0;
 }
 
 static int interrupt_handler(JSRuntime *runtime, void *opaque) {
@@ -126,6 +304,15 @@ static MWXSceneQuickJSResult call_scalar(
     size_t diagnostic_capacity
 ) {
     MWXSceneQuickJSDomain *domain = owner->domain;
+    JSValue previous_global_layer = JS_UNDEFINED;
+    if (!bind_material_function_host(owner, &previous_global_layer)) {
+        write_diagnostic(
+            diagnostic,
+            diagnostic_capacity,
+            "SceneScript material function host unavailable"
+        );
+        return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
     JSValue argument = JS_NewFloat64(domain->context, input);
     JSValue result = JS_Call(
         domain->context,
@@ -135,11 +322,29 @@ static MWXSceneQuickJSResult call_scalar(
         &argument
     );
     JS_FreeValue(domain->context, argument);
+    const bool restored = restore_material_function_host(owner, previous_global_layer);
+    if (!restored) {
+        JS_FreeValue(domain->context, result);
+        write_diagnostic(
+            diagnostic,
+            diagnostic_capacity,
+            "SceneScript material function host restore failed"
+        );
+        return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
     if (JS_IsException(result)) {
         MWXSceneQuickJSResult failure = exception_result(
             domain, diagnostic, diagnostic_capacity
         );
         JS_FreeValue(domain->context, result);
+        if (owner->material_function_overflow) {
+            write_diagnostic(
+                diagnostic,
+                diagnostic_capacity,
+                "material function mutation buffer exceeded"
+            );
+            return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
+        }
         return failure;
     }
     if (JS_IsUndefined(result)) {
@@ -312,6 +517,13 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     owner->domain = domain;
     owner->module = namespace;
     owner->generation = generation;
+    owner->material_function_layer = JS_UNDEFINED;
+    if (!install_material_function_host(owner)) {
+        JS_FreeValue(domain->context, owner->module);
+        free(owner);
+        write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript material function host unavailable");
+        return NULL;
+    }
     return owner;
 }
 
@@ -320,6 +532,7 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
         return;
     }
     if (owner->domain != NULL && owner->domain->context != NULL) {
+        JS_FreeValue(owner->domain->context, owner->material_function_layer);
         JS_FreeValue(owner->domain->context, owner->module);
     }
     free(owner);
@@ -348,6 +561,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(
     }
     MWXSceneQuickJSDomain *domain = owner->domain;
     domain->interrupted = false;
+    owner->material_function_count = 0;
+    owner->material_function_overflow = false;
     if (!owner->initialized) {
         JSValue init = JS_UNDEFINED;
         if (!get_function(owner, "init", &init, diagnostic, diagnostic_capacity)) {
@@ -384,6 +599,39 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(
         owner->disabled = true;
     }
     return result;
+}
+
+size_t mwx_scene_quickjs_owner_material_function_count(
+    const MWXSceneQuickJSOwner *owner
+) {
+    return owner == NULL ? 0 : owner->material_function_count;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_material_function_at(
+    const MWXSceneQuickJSOwner *owner,
+    size_t index,
+    uint32_t *effect_index,
+    char *function_name,
+    size_t function_name_capacity,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    clear_diagnostic(diagnostic, diagnostic_capacity);
+    if (owner == NULL || effect_index == NULL || function_name == NULL ||
+        function_name_capacity == 0 || index >= owner->material_function_count) {
+        write_diagnostic(diagnostic, diagnostic_capacity, "invalid material function mutation");
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    const MWXSceneQuickJSMaterialFunctionMutationRecord *record =
+        &owner->material_functions[index];
+    size_t length = strlen(record->function_name);
+    if (length + 1 > function_name_capacity) {
+        write_diagnostic(diagnostic, diagnostic_capacity, "material function name buffer is too small");
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    *effect_index = record->effect_index;
+    memcpy(function_name, record->function_name, length + 1);
+    return MWX_SCENE_QUICKJS_OK;
 }
 
 void mwx_scene_quickjs_owner_invalidate(MWXSceneQuickJSOwner *owner) {

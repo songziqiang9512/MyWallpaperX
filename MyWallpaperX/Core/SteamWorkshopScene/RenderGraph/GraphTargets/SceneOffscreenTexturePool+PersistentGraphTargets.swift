@@ -195,6 +195,7 @@ extension SceneOffscreenTexturePool {
     func framePlanForPersistentGraphTargets(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
         targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
+        materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
@@ -206,6 +207,7 @@ extension SceneOffscreenTexturePool {
               let prepared = persistentTargetPlans(
                   admittedGraphs: admittedGraphs,
                   targetExecutionPlans: targetExecutionPlans,
+                  materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
                   pairPlan: pairPlan,
                   extentPolicy: extentPolicy,
                   requestedWidth: requestedWidth,

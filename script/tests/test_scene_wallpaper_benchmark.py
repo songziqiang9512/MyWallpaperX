@@ -3223,6 +3223,44 @@ utility layer 763: skippedHidden kind=composition
             malformed_metrics["validation_failures"],
         )
 
+    def test_effect_execution_expected_local_fallback_is_bounded(self) -> None:
+        route = effect_route_event(
+            frame=20,
+            origin="image",
+            layer=17,
+            operation="unclaimed-effect-product-authority",
+            outcome="failed",
+            reason="unclaimed-visible-effects",
+        )
+        metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(20, [], [route])
+        )
+        expected = [{
+            "origin": "image",
+            "layer_id": 17,
+            "operation": "unclaimed-effect-product-authority",
+            "outcome": "failed",
+            "reason": "unclaimed-visible-effects",
+        }]
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                metrics,
+                sample={
+                    "expected_effect_execution_local_fallbacks": expected,
+                },
+            ),
+            [],
+        )
+        self.assertIn(
+            "effect execution local fallback expectation mismatch",
+            benchmark.effect_execution_failures(
+                metrics,
+                sample={
+                    "expected_effect_execution_local_fallbacks": [],
+                },
+            ),
+        )
+
 
     def test_resolved_material_graph_execution_gate_accepts_conserved_evidence(
         self,
@@ -3241,10 +3279,10 @@ utility layer 763: skippedHidden kind=composition
         log_text = "\n".join([
             "resolved material runtime audit: schema=scene-graph-executor-v1 "
             "claimed=1 encoded=0 failures=0 deferred=1 pending=1 "
-            "gpuEncoded=0",
+            "gpuEncoded=0 localFallbacks=0",
             "resolved material runtime audit: schema=scene-graph-executor-v1 "
             "claimed=1 encoded=1 failures=0 deferred=0 pending=1 "
-            "gpuEncoded=1",
+            "gpuEncoded=1 localFallbacks=0",
             graph_execution_observation(
                 frame=10,
                 transaction="tx-10",

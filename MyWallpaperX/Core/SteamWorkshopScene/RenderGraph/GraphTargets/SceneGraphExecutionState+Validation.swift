@@ -199,7 +199,8 @@ nonisolated extension SceneGraphExecutionState {
     static func validateAllocation(
         graph: Graph,
         plan: Plan,
-        allocation: Allocation
+        allocation: Allocation,
+        materialFunctionTargets: Set<Identity> = []
     ) -> Result<Void, Failure> {
         let required = Set(plan.logicalTargets.map(\.identity))
         guard required.count == plan.logicalTargets.count,
@@ -223,7 +224,11 @@ nonisolated extension SceneGraphExecutionState {
               allocation.resources.allSatisfy({
                   expected[$0.key] == $0.value.descriptor
               }),
-              lifetimesMatch(graph: graph, plan: plan) else {
+              lifetimesMatch(
+                  graph: graph,
+                  plan: plan,
+                  materialFunctionTargets: materialFunctionTargets
+              ) else {
             return .failure(.descriptorMismatch)
         }
         for command in plan.commands {
@@ -248,7 +253,11 @@ nonisolated extension SceneGraphExecutionState {
         return .success(())
     }
 
-    static func lifetimesMatch(graph: Graph, plan: Plan) -> Bool {
+    static func lifetimesMatch(
+        graph: Graph,
+        plan: Plan,
+        materialFunctionTargets: Set<Identity> = []
+    ) -> Bool {
         var observed = Dictionary(uniqueKeysWithValues: plan.logicalTargets.map {
             ($0.identity, SceneGraphObservedLifetime())
         })
@@ -263,6 +272,14 @@ nonisolated extension SceneGraphExecutionState {
             value.firstWrite = value.firstWrite ?? index
             value.lastWrite = index
             observed[identity] = value
+        }
+        guard materialFunctionTargets.allSatisfy({ observed[$0] != nil }) else {
+            return false
+        }
+        if let firstNodeIndex = graph.nodes.first?.nodeIndex {
+            materialFunctionTargets.forEach {
+                recordWrite($0, at: firstNodeIndex)
+            }
         }
         for node in graph.nodes {
             switch node.kind {

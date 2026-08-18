@@ -49,6 +49,28 @@ static int update(
     );
 }
 
+static int mutation(
+    MWXSceneQuickJSOwner *owner,
+    size_t index,
+    uint32_t expected_effect,
+    const char *expected_name,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    char name[128] = {0};
+    uint32_t effect = 0;
+    MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_material_function_at(
+        owner, index, &effect, name, sizeof(name), diagnostic, sizeof(diagnostic)
+    );
+    return check(
+        result == MWX_SCENE_QUICKJS_OK
+            && effect == expected_effect
+            && strcmp(name, expected_name) == 0,
+        label,
+        diagnostic
+    );
+}
+
 int main(void) {
     char diagnostic[512] = {0};
     MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
@@ -62,12 +84,18 @@ int main(void) {
         "'use strict';\n"
         "export let __workshopId = 'contract';\n"
         "export function init(value) { return value + 1; }\n"
-        "export function update(value) { return value * 2; }",
+        "export function update(value) {\n"
+        "  thisLayer.getEffect(2).executeMaterialFunction('clearHistory');\n"
+        "  return value * 2;\n"
+        "}",
         strlen(
             "'use strict';\n"
             "export let __workshopId = 'contract';\n"
             "export function init(value) { return value + 1; }\n"
-            "export function update(value) { return value * 2; }"
+            "export function update(value) {\n"
+            "  thisLayer.getEffect(2).executeMaterialFunction('clearHistory');\n"
+            "  return value * 2;\n"
+            "}"
         ),
         1,
         diagnostic,
@@ -77,8 +105,44 @@ int main(void) {
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_OK, 8, "init/update"
     );
+    failures += check(
+        mwx_scene_quickjs_owner_material_function_count(positive) == 1,
+        "mutation count",
+        ""
+    );
+    failures += mutation(positive, 0, 2, "clearHistory", "mutation identity");
+
+    MWXSceneQuickJSOwner *cross_owner = mwx_scene_quickjs_owner_create(
+        domain,
+        "export function update(value) {\n"
+        "  thisLayer.getEffect(9).executeMaterialFunction('crossOwner');\n"
+        "  return value;\n"
+        "}",
+        strlen(
+            "export function update(value) {\n"
+            "  thisLayer.getEffect(9).executeMaterialFunction('crossOwner');\n"
+            "  return value;\n"
+            "}"
+        ),
+        10, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(cross_owner != NULL, "cross-owner compile", diagnostic);
+    failures += update(
+        cross_owner, 10, 3, MWX_SCENE_QUICKJS_OK, 3, "cross-owner callback"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_material_function_count(cross_owner) == 1,
+        "cross-owner mutation count",
+        ""
+    );
     failures += update(
         positive, 1, 7, MWX_SCENE_QUICKJS_OK, 14, "second callback"
+    );
+    failures += mutation(positive, 0, 2, "clearHistory", "cross-owner isolation");
+    failures += check(
+        mwx_scene_quickjs_owner_material_function_count(positive) == 1,
+        "mutation reset",
+        ""
     );
 
     MWXSceneQuickJSOwner *isolated = mwx_scene_quickjs_owner_create(
@@ -164,12 +228,38 @@ int main(void) {
         budget, 6, 1, MWX_SCENE_QUICKJS_BUDGET_EXCEEDED, 0, "interrupt budget"
     );
 
+    MWXSceneQuickJSOwner *mutation_overflow = mwx_scene_quickjs_owner_create(
+        domain,
+        "export function update(value) {\n"
+        "  for (let i = 0; i < 17; ++i) {\n"
+        "    thisLayer.getEffect(i).executeMaterialFunction('clear');\n"
+        "  }\n"
+        "  return value;\n"
+        "}",
+        strlen(
+            "export function update(value) {\n"
+            "  for (let i = 0; i < 17; ++i) {\n"
+            "    thisLayer.getEffect(i).executeMaterialFunction('clear');\n"
+            "  }\n"
+            "  return value;\n"
+            "}"
+        ),
+        9, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(mutation_overflow != NULL, "mutation overflow compile", diagnostic);
+    failures += update(
+        mutation_overflow, 9, 1, MWX_SCENE_QUICKJS_MUTATION_OVERFLOW, 0,
+        "mutation overflow"
+    );
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
     );
 
     mwx_scene_quickjs_owner_destroy(budget);
+    mwx_scene_quickjs_owner_destroy(cross_owner);
+    mwx_scene_quickjs_owner_destroy(mutation_overflow);
     mwx_scene_quickjs_owner_destroy(bad_return);
     mwx_scene_quickjs_owner_destroy(callback_error);
     mwx_scene_quickjs_owner_destroy(isolated);

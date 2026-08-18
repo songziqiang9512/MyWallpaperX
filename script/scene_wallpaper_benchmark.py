@@ -512,7 +512,8 @@ RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE = re.compile(
     r"resolved material runtime audit: schema=scene-graph-executor-v1 "
     r"claimed=(?P<claimed>\d+) encoded=(?P<encoded>\d+) "
     r"failures=(?P<failures>\d+) deferred=(?P<deferred>\d+) "
-    r"pending=(?P<pending>\d+) gpuEncoded=(?P<gpu_encoded>\d+)(?=\s|$)"
+    r"pending=(?P<pending>\d+) gpuEncoded=(?P<gpu_encoded>\d+)"
+    r"(?: localFallbacks=(?P<local_fallbacks>\d+))?(?=\s|$)"
 )
 RESOLVED_MATERIAL_GRAPH_OBSERVATION_RE = re.compile(
     r"schema=1 axis=graph-execution (?P<fields>[^\r\n]+)"
@@ -2018,6 +2019,7 @@ def resolved_material_graph_execution_metrics(
             "deferred": int(match.group("deferred")),
             "pending": int(match.group("pending")),
             "gpu_encoded": int(match.group("gpu_encoded")),
+            "local_fallbacks": int(match.group("local_fallbacks") or 0),
         }
         for match in RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE.finditer(log_text)
     ]
@@ -2053,6 +2055,9 @@ def resolved_material_graph_execution_metrics(
     failure_count = sum(value["failures"] for value in executor_observations)
     gpu_encoded_count = sum(
         value["gpu_encoded"] for value in executor_observations
+    )
+    local_fallback_count = sum(
+        value["local_fallbacks"] for value in executor_observations
     )
     accepted_count = capability["accepted_count"] if capability else None
     observed_layer_ids = graph_observations[
@@ -2314,6 +2319,7 @@ def resolved_material_graph_execution_metrics(
                 default=0,
             ),
             "gpu_encoded_count": gpu_encoded_count,
+            "local_fallback_count": local_fallback_count,
             "observations": executor_observations,
         },
         "graph_observations": graph_observations,
@@ -2357,8 +2363,63 @@ def resolved_material_graph_execution_failures(
     *,
     sample: dict[str, Any] | None = None,
 ) -> list[str]:
-    failures = list(metrics["validation_failures"])
     sample = sample or {}
+    expected_fallback_layers = sample.get(
+        "expected_resolved_material_graph_local_fallback_layer_ids"
+    )
+    fallback_layers: set[int] = set()
+    fallback_contract_valid = expected_fallback_layers is None
+    if expected_fallback_layers is not None:
+        fallback_contract_valid = True
+        valid_layer_ids = (
+            isinstance(expected_fallback_layers, list)
+            and all(
+                isinstance(layer_id, int)
+                and not isinstance(layer_id, bool)
+                and layer_id >= 0
+                for layer_id in expected_fallback_layers
+            )
+        )
+        if not valid_layer_ids or len(set(expected_fallback_layers)) != len(
+            expected_fallback_layers
+        ):
+            fallback_contract_valid = False
+        else:
+            fallback_layers = set(expected_fallback_layers)
+
+    allowlisted_local_failures = {
+        "resolved material graph accepted layer GPU completion missing",
+        "resolved material graph accepted layer compositor consumption missing",
+        "resolved material graph accepted layer next-frame evidence missing",
+        "resolved material graph accepted layer exact backend evidence missing",
+        "resolved material graph observation diagnostic reported",
+    }
+    failures = list(metrics["validation_failures"])
+    if fallback_contract_valid and fallback_layers:
+        missing_layers = set(metrics["layer_routes"]["missing_layer_ids"])
+        accepted_layers = set(metrics["capability"]["accepted_layer_ids"])
+        expected_success_layers = set(
+            sample.get("expected_resolved_material_graph_succeeded_layer_ids", [])
+        )
+        if missing_layers == fallback_layers and (
+            accepted_layers != expected_success_layers.union(fallback_layers)
+            or set(metrics["layer_routes"]["unexpected_layer_ids"])
+            or set(metrics["graph_observations"]["successful_gpu_completed_layer_ids"])
+            != expected_success_layers
+            or metrics["graph_observations"]["diagnostic_count"] <= 0
+        ):
+            failures.append(
+                "resolved material graph local fallback evidence mismatch"
+            )
+        elif missing_layers == fallback_layers:
+            failures = [
+                failure for failure in failures
+                if failure not in allowlisted_local_failures
+            ]
+    elif expected_fallback_layers is not None and not fallback_contract_valid:
+        failures.append(
+            "resolved material graph local fallback expectation invalid"
+        )
     expectation = RESOLVED_MATERIAL_GRAPH_EXPECTATIONS[0]
     expects_evidence = expectation.matrix_key in sample
     if not require_evidence and not expects_evidence:
@@ -3958,6 +4019,67 @@ def effect_execution_failures(
             failures.append("effect execution evidence missing")
         return failures
     failures = list(metrics["validation_failures"])
+    expected_local_fallbacks = sample.get(
+        "expected_effect_execution_local_fallbacks"
+    )
+    expected_local_fallback_keys: set[tuple[Any, ...]] = set()
+    local_fallback_contract_valid = expected_local_fallbacks is None
+    if expected_local_fallbacks is not None:
+        local_fallback_contract_valid = True
+        if not isinstance(expected_local_fallbacks, list):
+            failures.append("effect execution local fallback expectation invalid")
+            local_fallback_contract_valid = False
+        else:
+            for expected in expected_local_fallbacks:
+                if not isinstance(expected, dict) or set(expected) != {
+                    "origin", "layer_id", "operation", "outcome", "reason",
+                }:
+                    failures.append(
+                        "effect execution local fallback expectation invalid"
+                    )
+                    local_fallback_contract_valid = False
+                    continue
+                if (
+                    not isinstance(expected["origin"], str)
+                    or not isinstance(expected["layer_id"], int)
+                    or isinstance(expected["layer_id"], bool)
+                    or not isinstance(expected["operation"], str)
+                    or not isinstance(expected["outcome"], str)
+                    or (
+                        expected["reason"] is not None
+                        and not isinstance(expected["reason"], str)
+                    )
+                ):
+                    failures.append(
+                        "effect execution local fallback expectation invalid"
+                    )
+                    local_fallback_contract_valid = False
+                    continue
+                expected_local_fallback_keys.add((
+                    expected["origin"],
+                    expected["layer_id"],
+                    expected["operation"],
+                    expected["outcome"],
+                    expected["reason"],
+                ))
+    actual_local_fallback_keys = {
+        (
+            route["origin"],
+            route["layer_id"],
+            route["operation"],
+            route["outcome"],
+            route["reason"],
+        )
+        for route in metrics["route_operations"]
+        if route["outcome"] == "failed"
+        or (
+            route["outcome"] == "encoded"
+            and route["operation"] == "degraded-layer-source-passthrough"
+        )
+    }
+    if expected_local_fallbacks is not None and local_fallback_contract_valid:
+        if actual_local_fallback_keys != expected_local_fallback_keys:
+            failures.append("effect execution local fallback expectation mismatch")
     if static_disposition_failure:
         failures.append(
             "effect execution static disposition unavailable or invalid"
@@ -3978,9 +4100,9 @@ def effect_execution_failures(
             failures.append(expectation.failure_message)
     if metrics["failed_exact_effects"]:
         failures.append("effect execution CPU invocation failed")
-    if metrics.get("degraded_route_operations", []):
+    if metrics.get("degraded_route_operations", []) and expected_local_fallbacks is None:
         failures.append("effect execution degraded layer source passthrough")
-    if metrics["failed_route_operations"]:
+    if metrics["failed_route_operations"] and expected_local_fallbacks is None:
         failures.append("effect execution route operation failed")
     if metrics["failed_frame_ids"]:
         failures.append("effect execution frame command buffer failed")

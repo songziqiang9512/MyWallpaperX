@@ -293,6 +293,9 @@ import Foundation
 import Metal
 
 struct SceneGraphMaterialFunctionInvocationRequest {}
+struct SceneGraphClearFunctionRegistry {
+    init() {}
+}
 
 struct SceneAuthoredEffectRenderPlan {
     struct EffectKey: Hashable {
@@ -680,7 +683,18 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     }
     struct Token: Hashable { let value: Int }
     struct Claim { let token: Token }
-    struct AdmittedProduct { let graph: SceneAuthoredEffectRenderPlan }
+    struct AdmittedProduct {
+        let graph: SceneAuthoredEffectRenderPlan
+        let clearFunctions: SceneGraphClearFunctionRegistry
+
+        init(
+            graph: SceneAuthoredEffectRenderPlan,
+            clearFunctions: SceneGraphClearFunctionRegistry = .init()
+        ) {
+            self.graph = graph
+            self.clearFunctions = clearFunctions
+        }
+    }
     struct ExactEffectSubject: Hashable {
         let key: SceneAuthoredEffectRenderPlan.EffectKey
         let family: String
@@ -3242,7 +3256,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "request.resolvedMaterialFrameTargetPlan == nil",
             passthrough_plan,
         )
-        self.assertIn("guard case .unclaimed = route,", passthrough_plan)
+        self.assertIn("route.allowsLayerSourcePassthrough", passthrough_plan)
         self.assertIn("request.dependencyEffect == nil", passthrough_plan)
         self.assertIn("!request.requiresDependencyEffect", passthrough_plan)
         fallback_start = compositor.index(

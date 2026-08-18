@@ -22,6 +22,7 @@ nonisolated enum SceneScriptScalarRuntimeFailure: Error, Equatable, Sendable {
     case disabled(String)
     case staleOwner
     case invalidArgument(String)
+    case mutationOverflow(String)
 
     var code: String {
         switch self {
@@ -34,8 +35,14 @@ nonisolated enum SceneScriptScalarRuntimeFailure: Error, Equatable, Sendable {
         case .disabled: "disabled"
         case .staleOwner: "stale-owner"
         case .invalidArgument: "invalid-argument"
+        case .mutationOverflow: "mutation-overflow"
         }
     }
+}
+
+nonisolated struct SceneScriptScalarEvaluation: Equatable, Sendable {
+    let value: SceneDynamicValue
+    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
 }
 
 /// Owns one scalar property binding inside a shared per-scene QuickJS domain.
@@ -94,7 +101,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         input: Double,
         expectedGeneration: UInt64,
         interruptBudget: UInt64? = nil
-    ) -> Result<SceneDynamicValue, SceneScriptScalarRuntimeFailure> {
+    ) -> Result<SceneScriptScalarEvaluation, SceneScriptScalarRuntimeFailure> {
         guard input.isFinite else {
             return .failure(.invalidArgument("non-finite input"))
         }
@@ -121,7 +128,43 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         guard output.isFinite else {
             return .failure(.badReturn("non-finite output"))
         }
-        return .success(.scalar(output))
+        var mutations: [SceneScriptMaterialFunctionMutation] = []
+        let count = mwx_scene_quickjs_owner_material_function_count(handle)
+        for index in 0..<count {
+            var effectIndex: UInt32 = 0
+            var name = [CChar](repeating: 0, count: 128)
+            var mutationDiagnostic = [CChar](repeating: 0, count: 256)
+            let mutationResult = mwx_scene_quickjs_owner_material_function_at(
+                handle,
+                index,
+                &effectIndex,
+                &name,
+                name.count,
+                &mutationDiagnostic,
+                mutationDiagnostic.count
+            )
+            guard mutationResult == MWX_SCENE_QUICKJS_OK else {
+                return .failure(Self.failure(
+                    raw: mutationResult,
+                    diagnostic: Self.diagnostic(mutationDiagnostic)
+                ))
+            }
+            let nameBytes = name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+            let functionName = String(decoding: nameBytes, as: UTF8.self)
+            guard !functionName.isEmpty,
+                  case let .effectConstant(layerID, _, _, _) = target else {
+                return .failure(.invalidArgument("material function owner identity unavailable"))
+            }
+            mutations.append(.init(
+                layerID: layerID,
+                effectIndex: Int(effectIndex),
+                functionName: functionName
+            ))
+        }
+        return .success(.init(
+            value: .scalar(output),
+            materialFunctionMutations: mutations
+        ))
     }
 
     func invalidate() {
@@ -152,6 +195,8 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             .disabled(diagnostic)
         case MWX_SCENE_QUICKJS_STALE_OWNER:
             .staleOwner
+        case MWX_SCENE_QUICKJS_MUTATION_OVERFLOW:
+            .mutationOverflow(diagnostic)
         default:
             .invalidArgument(diagnostic)
         }

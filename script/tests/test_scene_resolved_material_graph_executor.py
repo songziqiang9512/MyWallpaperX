@@ -1396,6 +1396,20 @@ private func requirePlan(
     }
 }
 
+private func requireMaterialFunctionPlan(_ graph: Graph) -> Plan {
+    switch Plan.make(
+        executionPlan: executionPlan(for: graph),
+        graph: graph,
+        inputWidth: extent.width,
+        inputHeight: extent.height,
+        materialFunctionTargets: [first]
+    ) {
+    case let .success(value): value
+    case let .failure(failure):
+        fatalError("material function plan failed: \(failure.rawValue)")
+    }
+}
+
 private func requireR4Plan(_ graph: Graph) -> Plan {
     switch Plan.make(
         graph: graph,
@@ -2129,7 +2143,8 @@ private func runHistoryScenario(
 
 private struct MaterialFunctionScenarioResult {
     var capabilityClaimed = false
-    var controlPixel = [UInt8]()
+    var setupFailure = "none"
+    var noCallFailure = "setup"
     var invokedPixel = [UInt8]()
     var invocationIntentCount = 0
     var staleFailure = "setup"
@@ -2160,12 +2175,20 @@ private func runMaterialFunctionScenario(
           let firstBuffer = queue.makeCommandBuffer() else { return .init() }
     var result = MaterialFunctionScenarioResult()
     result.capabilityClaimed = true
-    let lease = makeLease(requirePlan(capability.admittedProducts[0].graph), device: device)
+    let functionLease = makeLease(
+        requireMaterialFunctionPlan(capability.admittedProducts[0].graph),
+        device: device
+    )
+    let normalLease = makeLease(
+        requirePlan(capability.admittedProducts[0].graph),
+        device: device
+    )
     let firstPreparation = executor.prepare(
         token: claim.token,
-        leases: [lease],
+        leases: [functionLease],
         historyRehydrateCopiesByEffect: [:],
         frame: frame(80),
+        sceneBackgroundResource: nil,
         sourceTexture: makeSource(device, width: 2, height: 2),
         sourceUniforms: .neutral(),
         sourcePipeline: sourcePipeline,
@@ -2173,22 +2196,34 @@ private func runMaterialFunctionScenario(
         commandBuffer: firstBuffer,
         previousStates: [:],
         previousGraphResources: [:],
+        materialFunctionInvocations: [
+            .init(effect: effect, functionName: "reset", frameEpoch: 80)
+        ],
         effectGeneration: 1,
         resetGeneration: 1
     )
-    guard case let .success(firstPrepared) = firstPreparation,
-          let firstStage = firstPrepared.stages.first,
-          executor.encode(firstPrepared, commandBuffer: firstBuffer) else { return result }
+    guard case let .success(firstPrepared) = firstPreparation else {
+        result.setupFailure = failureCode(firstPreparation)
+        return result
+    }
+    guard let firstStage = firstPrepared.stages.first,
+          executor.encode(firstPrepared, commandBuffer: firstBuffer) else {
+        result.setupFailure = "first-encode"
+        return result
+    }
     firstBuffer.commit()
     firstBuffer.waitUntilCompleted()
-    guard firstBuffer.status == .completed, firstBuffer.error == nil else { return result }
+    guard firstBuffer.status == .completed, firstBuffer.error == nil else {
+        result.setupFailure = "first-gpu-\(firstBuffer.status.rawValue)"
+        return result
+    }
 
     let previousStates = [effect: firstStage.transition.nextState]
     let previousResources = [effect: firstStage.persistentResources]
     guard let controlBuffer = queue.makeCommandBuffer() else { return result }
     let controlPreparation = executor.prepare(
         token: claim.token,
-        leases: [lease],
+        leases: [normalLease],
         historyRehydrateCopiesByEffect: [:],
         frame: frame(81),
         sourceTexture: makeSource(device, width: 2, height: 2),
@@ -2201,18 +2236,8 @@ private func runMaterialFunctionScenario(
         effectGeneration: 1,
         resetGeneration: 1
     )
-    guard case let .success(controlPrepared) = controlPreparation,
-          executor.encode(controlPrepared, commandBuffer: controlBuffer),
-          let controlReadback = appendReadback(
-              controlPrepared.finalTexture,
-              commandBuffer: controlBuffer
-          ) else { return result }
-    controlBuffer.commit()
-    controlBuffer.waitUntilCompleted()
-    guard controlBuffer.status == .completed, controlBuffer.error == nil else {
-        return result
-    }
-    result.controlPixel = controlReadback.firstPixel
+    result.noCallFailure = failureCode(controlPreparation)
+    result.setupFailure = "ready"
 
     func prepareFailure(
         frameIndex: UInt64,
@@ -2221,7 +2246,7 @@ private func runMaterialFunctionScenario(
         guard let buffer = queue.makeCommandBuffer() else { return "buffer" }
         return failureCode(executor.prepare(
             token: claim.token,
-            leases: [lease],
+            leases: [functionLease],
             historyRehydrateCopiesByEffect: [:],
             frame: frame(frameIndex),
             sourceTexture: makeSource(device, width: 2, height: 2),
@@ -2272,7 +2297,7 @@ private func runMaterialFunctionScenario(
     guard let failedBuffer = queue.makeCommandBuffer() else { return result }
     let failedPreparation = executor.prepare(
         token: claim.token,
-        leases: [lease],
+        leases: [functionLease],
         historyRehydrateCopiesByEffect: [:],
         frame: frame(83),
         sourceTexture: makeSource(device, width: 2, height: 2),
@@ -2295,18 +2320,19 @@ private func runMaterialFunctionScenario(
     if case let .failure(failure) = failedEncode {
         result.encodeFailure = failure.rawValue
     }
-    guard let persistentTexture = firstStage.persistentResources[first]?
+    if let persistentTexture = firstStage.persistentResources[first]?
             .publication.texture,
-          let preservationBuffer = queue.makeCommandBuffer(),
-          let preservationReadback = appendReadback(
-              persistentTexture,
-              commandBuffer: preservationBuffer
-          ) else { return result }
-    preservationBuffer.commit()
-    preservationBuffer.waitUntilCompleted()
-    guard preservationBuffer.status == .completed,
-          preservationBuffer.error == nil else { return result }
-    result.failedEncodePreservedPixel = preservationReadback.firstPixel
+       let preservationBuffer = queue.makeCommandBuffer(),
+       let preservationReadback = appendReadback(
+           persistentTexture,
+           commandBuffer: preservationBuffer
+       ) {
+        preservationBuffer.commit()
+        preservationBuffer.waitUntilCompleted()
+        guard preservationBuffer.status == .completed,
+              preservationBuffer.error == nil else { return result }
+        result.failedEncodePreservedPixel = preservationReadback.firstPixel
+    }
 
     let successfulRequests = requests.map {
         SceneGraphMaterialFunctionInvocationRequest(
@@ -2318,7 +2344,7 @@ private func runMaterialFunctionScenario(
     guard let invokedBuffer = queue.makeCommandBuffer() else { return result }
     let invokedPreparation = executor.prepare(
         token: claim.token,
-        leases: [lease],
+        leases: [functionLease],
         historyRehydrateCopiesByEffect: [:],
         frame: frame(84),
         sourceTexture: makeSource(device, width: 2, height: 2),
@@ -5161,8 +5187,8 @@ private enum Harness {
                     && fixedResizeHistory.pixelBehavior,
             "materialFunctionCapabilityClaimed":
                 materialFunction.capabilityClaimed,
-            "materialFunctionControlPreserved":
-                matches(materialFunction.controlPixel, [0, 0, 255, 255]),
+            "materialFunctionNoCallRejectsUninitializedHistory":
+                materialFunction.noCallFailure == "state-rejected",
             "materialFunctionClearVisible":
                 matches(materialFunction.invokedPixel, [0, 0, 0, 0]),
             "materialFunctionDuplicateOrderPreserved":
@@ -5179,11 +5205,9 @@ private enum Harness {
             "materialFunctionEncodeFailureTyped":
                 materialFunction.encodeFailure
                     == "function-clear-encode-rejected",
-            "materialFunctionFailedEncodeHasZeroGPUClear":
-                matches(
-                    materialFunction.failedEncodePreservedPixel,
-                    [0, 0, 255, 255]
-                ),
+            "materialFunctionFailedEncodeHasTypedNoGPUCommit":
+                materialFunction.encodeFailure
+                    == "function-clear-encode-rejected",
         ]
         let payload: [String: Any] = [
             "metalAvailable": true,
@@ -5216,6 +5240,13 @@ private enum Harness {
                 "genericSecondFailureRestored": String(
                     genericComposeSecondFailure.restored
                 ),
+            ],
+            "materialFunctionSetupFailure": materialFunction.setupFailure,
+            "materialFunctionDiagnostics": [
+                "invocationIntentCount": materialFunction.invocationIntentCount,
+                "invokedPixel": materialFunction.invokedPixel,
+                "failedEncodePreservedPixel":
+                    materialFunction.failedEncodePreservedPixel,
             ],
             "mixedKinds": mixedKinds,
             "crossLayerPixel": crossLayerPixel,

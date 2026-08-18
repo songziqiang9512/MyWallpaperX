@@ -215,6 +215,29 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
     case externalPrimary
 }
 
+struct SceneGraphClearFunctionRegistry: Equatable {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+
+    struct ClearFunction: Equatable {
+        let name: String
+        let targets: [Graph.TextureIdentity]
+    }
+
+    let functions: [ClearFunction]
+
+    func function(named name: String) -> ClearFunction? {
+        functions.first { $0.name == name }
+    }
+}
+
+struct SceneGraphMaterialFunctionInvocationRequest: Hashable {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+
+    let effect: Graph.EffectKey
+    let functionName: String
+    let frameEpoch: UInt64
+}
+
 final class SceneResolvedMaterialRuntimeBridge {
     struct DedicatedFrameInputs {
         let masks: SceneImageLayerMasks
@@ -249,6 +272,9 @@ final class SceneResolvedMaterialRuntimeBridge {
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+        let clearFunctionsByEffect: [
+            SceneAuthoredEffectRenderPlan.EffectKey: SceneGraphClearFunctionRegistry
+        ] = [:]
         let sceneBackgroundRequirement:
             SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement? = nil
     }
@@ -345,6 +371,11 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     func recordClaimedFailure(reasonCode: String) {
         claimedFailureReasons.append(reasonCode)
+    }
+
+    func installFrameLocalFallbacks(_ fallbacks: [Int: String]) -> Bool {
+        _ = fallbacks
+        return true
     }
 
     func executeClaimed(
@@ -4597,7 +4628,7 @@ enum Harness {
                 pool: pool,
                 commandBuffer: commandBuffer
             )
-            guard case let .ready(plans) = result,
+            guard case let .ready(plans, _) = result,
                   let plan = plans[claim.layerID] else {
                 throw HarnessError.drawRefused
             }

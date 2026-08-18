@@ -289,7 +289,7 @@ existing inline source/binding IR
 | camera shake | enable/speed/amplitude/roughness | `L0` | 静态 Scene `general` 已有 bounded orthographic consumer，但没有 JS bridge；这不升级 SceneScript API | same-frame typed scene target、作者关闭、静态/JS 冲突顺序、pause/seek 与 2D/3D 门 |
 | camera parallax | enable/amount/delay/mouseInfluence | `L0` | 静态作者参数的 renderer 子集不是 JS API | JS 动态写、同帧 pointer、关闭反例、WE 幅度/delay golden |
 | `CameraTransforms` | `eye`, `center`, `up`, `zoom` 的 scene camera DTO | `L0` | `G` 确认四成员 native DTO、base getter 与逐成员 partial setter；默认 `(eye 2,2,2 / center 0,0,0 / up 0,1,0 / zoom 1)`，无 authored camera 的正交 fallback 为 `(eye 0,0,0 / center 0,0,-1 / up 0,1,0)`；项目无 bridge，`N` | getter/setter round-trip、finite/type validation、authored/animation conflict 和 2D/3D 门 |
-| material property/function | effect 的 `setMaterialProperty` 和 `executeMaterialFunction` | `L0` | `G` 确认 ordered instance metadata lookup、scalar/Vec2/3/4 typed write、int/float 与 degree-to-radian metadata，以及 descriptor-defined ordered synchronous function execution；项目无 bridge，`N` | descriptor/pass identity、同帧 graph invalidation、function side effect 和 unsupported fail closed |
+| material property/function | effect 的 `setMaterialProperty` 和 `executeMaterialFunction` | `L0` | `G` 确认 ordered instance metadata lookup、scalar/Vec2/3/4 typed write、int/float 与 degree-to-radian metadata，以及 descriptor-defined ordered synchronous function execution；项目现有 bounded QuickJS-NG scalar owner 可把 mutation buffer 投影为 typed material-function request，并对 unknown/no-call/invalid target 做 layer-local fail-closed，但尚无通用 `IEffect` handle/API bridge | descriptor/pass identity、同帧 graph invalidation、通用 VM handle/API、function side effect、float/utility target 与 unsupported fail closed |
 
 ## 8. Storage 与 timers
 

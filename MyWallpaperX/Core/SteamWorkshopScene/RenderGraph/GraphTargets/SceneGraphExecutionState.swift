@@ -170,7 +170,17 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         case .failure(let failure): return .failure(failure)
         case .success(let value): operations = value
         }
-        switch validateAllocation(graph: graph, plan: targetPlan, allocation: allocation) {
+        let materialFunctionTargets = Set(materialFunctionInvocations.flatMap(\.targets))
+        let plannedTargets = Set(targetPlan.logicalTargets.map(\.identity))
+        guard materialFunctionTargets.isSubset(of: plannedTargets) else {
+            return .failure(.functionUnavailable)
+        }
+        switch validateAllocation(
+            graph: graph,
+            plan: targetPlan,
+            allocation: allocation,
+            materialFunctionTargets: materialFunctionTargets
+        ) {
         case .failure(let failure): return .failure(failure)
         case .success: break
         }

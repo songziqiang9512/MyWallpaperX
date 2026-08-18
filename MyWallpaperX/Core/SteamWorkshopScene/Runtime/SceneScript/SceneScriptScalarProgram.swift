@@ -3,6 +3,7 @@ import Foundation
 nonisolated struct SceneScriptScalarFrameResult: Equatable, Sendable {
     let values: [SceneDynamicTarget: SceneDynamicValue]
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
+    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
 }
 
 /// Generic pass-constant SceneScript owners. The program is deliberately
@@ -82,6 +83,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     ) -> SceneScriptScalarFrameResult {
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
+        var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         for binding in bindings {
             guard !disabledTargets.contains(binding.target) else { continue }
             guard let input = inputs[binding.target],
@@ -91,16 +93,22 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 expectedGeneration: generation,
                 interruptBudget: interruptBudget
             ) {
-            case let .success(output):
-                values[binding.target] = output
+            case let .success(evaluation):
+                values[binding.target] = evaluation.value
+                materialFunctionMutations.append(contentsOf: evaluation.materialFunctionMutations)
                 if reportedTargets.insert(binding.target).inserted,
                    case let .scalar(inputValue) = input,
-                   case let .scalar(outputValue) = output {
+                   case let .scalar(outputValue) = evaluation.value {
+                    let mutationSummary = evaluation.materialFunctionMutations.map {
+                        "\($0.effectIndex):\($0.functionName)"
+                    }.joined(separator: ",")
                     NSLog(
-                        "MWX SceneScript VM: target=%@ callback=completed input=%.9g output=%.9g route=prefer-generic",
+                        "MWX SceneScript VM: target=%@ callback=completed input=%.9g output=%.9g mutations=%d mutationTargets=%@ route=prefer-generic",
                         String(describing: binding.target),
                         inputValue,
-                        outputValue
+                        outputValue,
+                        evaluation.materialFunctionMutations.count,
+                        mutationSummary
                     )
                 }
             case let .failure(failure):
@@ -108,7 +116,11 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 disabledTargets.insert(binding.target)
             }
         }
-        return .init(values: values, failures: failures)
+        return .init(
+            values: values,
+            failures: failures,
+            materialFunctionMutations: materialFunctionMutations
+        )
     }
 
     func invalidate() {

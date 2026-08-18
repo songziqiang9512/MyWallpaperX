@@ -431,7 +431,10 @@ extension SceneDesktopWallpaperHost {
             let dynamicValues = resolvedDynamicValues
 #endif
             surface.metalView.renderFrame(
-                timing: timing, dynamicValues: dynamicValues, mediaInput: mediaInput,
+                timing: timing, dynamicValues: dynamicValues,
+                materialFunctionMutations:
+                    sceneScriptResult.materialFunctionMutations,
+                mediaInput: mediaInput,
                 audioSpectrum: audioSpectrum,
                 performanceTelemetry: Self.usesDebugEvidenceWindow
                     ? SceneFramePerformanceTelemetry.debugEvidence : nil

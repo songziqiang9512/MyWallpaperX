@@ -299,6 +299,7 @@ class SceneMetalView: NSView {
 
     func renderFrame(
         timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
+        materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
         mediaInput: SceneMediaThumbnailInbox.Snapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
@@ -312,6 +313,7 @@ class SceneMetalView: NSView {
         let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.simulationFrameTime)
         let frameContext = makeFrameContext(
             timing: timing, dynamicValues: dynamicValues,
+            materialFunctionMutations: materialFunctionMutations,
             parallax: parallaxMouseNormalized, audioSpectrum: audioSpectrum)
         let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
         pointerState.previous = pointerState.current

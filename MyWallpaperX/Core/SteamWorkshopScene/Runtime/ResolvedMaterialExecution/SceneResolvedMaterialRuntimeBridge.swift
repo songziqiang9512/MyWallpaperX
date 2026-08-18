@@ -15,6 +15,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     struct ClaimedExecution {
         let layerID: Int
         let admittedGraphs: [Graph]
+        let clearFunctionsByEffect: [Graph.EffectKey: SceneGraphClearFunctionRegistry]
         /// Stage-aligned target semantics. A non-nil entry is accepted only
         /// after the same dedicated typed program won capability ownership.
         let targetExecutionPlans: [SceneEffectStageExecutionPlan?]
@@ -30,6 +31,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         fileprivate init(
             layerID: Int,
             admittedGraphs: [Graph],
+            clearFunctionsByEffect: [Graph.EffectKey: SceneGraphClearFunctionRegistry],
             targetExecutionPlans: [SceneEffectStageExecutionPlan?],
             pairPlan: SceneLayerFullFramePairPlan,
             fullFrameExtentPolicy: SceneFullFrameExtentPolicy,
@@ -42,6 +44,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         ) {
             self.layerID = layerID
             self.admittedGraphs = admittedGraphs
+            self.clearFunctionsByEffect = clearFunctionsByEffect
             self.targetExecutionPlans = targetExecutionPlans
             self.pairPlan = pairPlan
             self.fullFrameExtentPolicy = fullFrameExtentPolicy
@@ -252,6 +255,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         submissions.recordClaimedFailure(reasonCode: reasonCode)
     }
 
+    func installFrameLocalFallbacks(_ fallbacks: [Int: String]) -> Bool {
+        submissions.installFrameLocalFallbacks(fallbacks)
+    }
+
     func deferPreparedFrame() -> Bool {
         submissions.deferPreparedFrame()
     }
@@ -425,6 +432,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         let execution = Bridge.ClaimedExecution(
             layerID: layerID,
             admittedGraphs: capability.admittedProducts.map(\.graph),
+            clearFunctionsByEffect: Dictionary(uniqueKeysWithValues: capability.admittedProducts.compactMap {
+                guard let effect = $0.graph.effects.first?.key else { return nil }
+                return (effect, $0.clearFunctions)
+            }),
             targetExecutionPlans: capability.stages.map(\.dedicatedExecutionPlan),
             pairPlan: capability.pairPlan,
             fullFrameExtentPolicy: capability.fullFrameExtentPolicy,
@@ -438,6 +449,12 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         guard recordsClaim else { return .claimed(execution) }
 
         lock.lock()
+        if let reasonCode = frameLocalFallbacks[layerID] {
+            lock.unlock()
+            // The existing claim contract remains rejected until the compositor
+            // explicitly recognizes this bounded local fallback reason.
+            return .rejected(reasonCode: reasonCode)
+        }
         guard frameIsActive, framePreparationComplete,
               !frameRequiresDrop, frameFailure == nil,
               let identity = preparedLedgerByLayerID[layerID],

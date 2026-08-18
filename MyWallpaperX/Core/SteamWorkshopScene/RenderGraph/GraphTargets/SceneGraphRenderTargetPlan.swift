@@ -121,7 +121,8 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         executionPlan: SceneEffectStageExecutionPlan,
         graph: Graph,
         inputWidth: Int,
-        inputHeight: Int
+        inputHeight: Int,
+        materialFunctionTargets: Set<Graph.TextureIdentity> = []
     ) -> Result<Self, Failure> {
         let materialNodeCount = graph.nodes.filter { $0.kind == .material }.count
         guard executionPlan.layerID == graph.layerID,
@@ -134,7 +135,8 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             inputRole: executionPlan.inputRole,
             inputWidth: inputWidth,
             inputHeight: inputHeight,
-            stageExecutionPlan: executionPlan
+            stageExecutionPlan: executionPlan,
+            materialFunctionTargets: materialFunctionTargets
         )
     }
 
@@ -144,14 +146,16 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         graph: Graph,
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
-        inputHeight: Int
+        inputHeight: Int,
+        materialFunctionTargets: Set<Graph.TextureIdentity> = []
     ) -> Result<Self, Failure> {
         makeValidated(
             graph: graph,
             inputRole: inputRole,
             inputWidth: inputWidth,
             inputHeight: inputHeight,
-            stageExecutionPlan: nil
+            stageExecutionPlan: nil,
+            materialFunctionTargets: materialFunctionTargets
         )
     }
 
@@ -160,7 +164,8 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
-        stageExecutionPlan: SceneEffectStageExecutionPlan?
+        stageExecutionPlan: SceneEffectStageExecutionPlan?,
+        materialFunctionTargets: Set<Graph.TextureIdentity>
     ) -> Result<Self, Failure> {
         guard inputWidth > 0, inputHeight > 0 else {
             return .failure(.invalidInputExtent)
@@ -223,6 +228,19 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         var outputComposeFlags: [Bool] = []
         var previousNodeIndex: Int?
         var commands: [Command] = []
+
+        let functionTargets = materialFunctionTargets.filter {
+            declarations[$0] != nil
+        }
+        guard functionTargets == materialFunctionTargets else {
+            return .failure(.invalidAccess)
+        }
+        if let firstNodeIndex = graph.nodes.first?.nodeIndex {
+            for identity in functionTargets {
+                firstWrites[identity] = firstNodeIndex
+                lastWrites[identity] = firstNodeIndex
+            }
+        }
 
         func permitsFirstRead(_ identity: Graph.TextureIdentity) -> Bool {
             guard let descriptor = descriptors[identity] else { return false }

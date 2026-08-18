@@ -16,8 +16,14 @@ typedef enum MWXSceneQuickJSResult {
     MWX_SCENE_QUICKJS_MEMORY_EXCEEDED = 5,
     MWX_SCENE_QUICKJS_BAD_RETURN = 6,
     MWX_SCENE_QUICKJS_DISABLED = 7,
-    MWX_SCENE_QUICKJS_STALE_OWNER = 8
+    MWX_SCENE_QUICKJS_STALE_OWNER = 8,
+    MWX_SCENE_QUICKJS_MUTATION_OVERFLOW = 9
 } MWXSceneQuickJSResult;
+
+typedef struct MWXSceneQuickJSMaterialFunctionMutation {
+    uint32_t effect_index;
+    const char *function_name;
+} MWXSceneQuickJSMaterialFunctionMutation;
 
 MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     size_t heap_limit,
@@ -50,6 +56,20 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(
     uint64_t expected_generation,
     double input,
     double *output,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+size_t mwx_scene_quickjs_owner_material_function_count(
+    const MWXSceneQuickJSOwner *owner
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_material_function_at(
+    const MWXSceneQuickJSOwner *owner,
+    size_t index,
+    uint32_t *effect_index,
+    char *function_name,
+    size_t function_name_capacity,
     char *diagnostic,
     size_t diagnostic_capacity
 );

@@ -59,6 +59,18 @@ VIEW_FRAME_CONTEXT_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView+FrameContext.swift"
 )
+PREPFLIGHT_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneResolvedMaterialFramePreflight.swift"
+)
+SCALAR_PROGRAM_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptScalarProgram.swift"
+)
+SCALAR_RUNTIME_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptScalarRuntime.swift"
+)
 PARTICLE_PLAYBACK_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticlePlaybackState.swift"
@@ -119,6 +131,9 @@ enum Harness {
                 isPrimaryButtonDown: false
             ),
             cameraParallaxPosition: SIMD2(0.1, 0.2),
+            materialFunctionMutations: [
+                .init(layerID: 17, effectIndex: 2, functionName: "clearHistory")
+            ],
             audioSpectrum: .silent
         )
         let payload: [String: Any] = [
@@ -141,6 +156,9 @@ enum Harness {
                 "pointerPrevious": [context.pointerPrevious.x, context.pointerPrevious.y],
                 "canvas": [context.canvasSize.width, context.canvasSize.height],
                 "screen": [context.screenSize.width, context.screenSize.height],
+                "materialFunctionMutations": context.materialFunctionMutations.map {
+                    ["layerID": $0.layerID, "effectIndex": $0.effectIndex, "functionName": $0.functionName]
+                },
             ],
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
@@ -395,6 +413,10 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertEqual(self.result["context"]["pointerPrevious"], [0.25, -0.5])
         self.assertEqual(self.result["context"]["canvas"], [1920, 1080])
         self.assertEqual(self.result["context"]["screen"], [3024, 1964])
+        self.assertEqual(
+            self.result["context"]["materialFunctionMutations"],
+            [{"layerID": 17, "effectIndex": 2, "functionName": "clearHistory"}],
+        )
 
     def test_view_publishes_camera_parallax_only_when_the_camera_enables_it(self) -> None:
         source = VIEW_FRAME_CONTEXT_SOURCE.read_text(encoding="utf-8")
@@ -404,6 +426,48 @@ class SceneFrameContextTests(unittest.TestCase):
             "cameraParallaxPosition: camera.parallaxEnabled ? parallax : .zero",
             make_context,
         )
+
+    def test_scenescript_material_mutation_stays_on_existing_frame_and_graph_chain(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        view = VIEW_SOURCE.read_text(encoding="utf-8")
+        view_frame_context = VIEW_FRAME_CONTEXT_SOURCE.read_text(encoding="utf-8")
+        preflight = PREPFLIGHT_SOURCE.read_text(encoding="utf-8")
+        scalar_program = SCALAR_PROGRAM_SOURCE.read_text(encoding="utf-8")
+        scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn("sceneScriptResult.materialFunctionMutations", frame_driver)
+        self.assertIn(
+            "materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []",
+            view,
+        )
+        self.assertIn("materialFunctionMutations: materialFunctionMutations", view)
+        self.assertIn(
+            "materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []",
+            view_frame_context,
+        )
+        self.assertIn(
+            "materialFunctionMutations: [SceneScriptMaterialFunctionMutation]",
+            view_frame_context,
+        )
+        self.assertIn(
+            "let materialFunctionInvocations = frameContext.materialFunctionMutations",
+            preflight,
+        )
+        self.assertIn("frameEpoch: textureRegistry.frameEpoch", preflight)
+        self.assertIn("effectIndex: mutation.effectIndex", preflight)
+        self.assertIn("functionName: mutation.functionName", preflight)
+        self.assertIn("materialFunctionMutations.append(contentsOf: evaluation.materialFunctionMutations)", scalar_program)
+        self.assertIn("case let .effectConstant(layerID, _, _, _) = target", scalar_runtime)
+        self.assertIn("mutationOverflow", scalar_runtime)
+        self.assertIn("invalid-effect-index-\\(mutation.effectIndex)", preflight)
+
+    def test_material_mutation_failure_remains_typed_and_local(self) -> None:
+        scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        preflight = PREPFLIGHT_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("case .mutationOverflow: \"mutation-overflow\"", scalar_runtime)
+        self.assertIn("guard !functionName.isEmpty", scalar_runtime)
+        self.assertIn("return result.count == plans.count ? result : nil", preflight)
+        self.assertIn("SceneGraphMaterialFunctionInvocationRequest", preflight)
 
     def test_host_owns_the_only_scene_frame_timer_and_per_surface_snapshots(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")

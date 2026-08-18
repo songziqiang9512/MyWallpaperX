@@ -21,6 +21,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         frameSealed = false
         framePreparationComplete = false
         preparedLedgerByLayerID.removeAll(keepingCapacity: true)
+        frameLocalFallbacks.removeAll(keepingCapacity: true)
         let waits = !submissionQueueAcceptsFrameLocked()
         frameRequiresDrop = waits
         frameWaitsForPendingSubmission = waits
@@ -82,6 +83,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         scheduledTails.removeAll(keepingCapacity: false)
         activeTransactions.removeAll(keepingCapacity: false)
         preparedLedgerByLayerID.removeAll(keepingCapacity: false)
+        frameLocalFallbacks.removeAll(keepingCapacity: false)
         frame = nil
         frameFailure = nil
         frameIsActive = false
@@ -158,6 +160,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             + " claimed=\(frameClaimed) encoded=\(frameEncoded)"
             + " failures=\(frameFailures) deferred=\(frameDeferred)"
             + " pending=\(pendingCount) gpuEncoded=\(frameEncoded)"
+            + " localFallbacks=\(frameLocalFallbacks.count)"
         let shouldLog = line != lastReportSignature
         if shouldLog { lastReportSignature = line }
         frame = nil
@@ -168,6 +171,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         frameWaitsForPendingSubmission = false
         framePreparationComplete = false
         preparedLedgerByLayerID.removeAll(keepingCapacity: true)
+        frameLocalFallbacks.removeAll(keepingCapacity: true)
         lock.unlock()
         emit(emission)
         if shouldLog { logSink(line) }

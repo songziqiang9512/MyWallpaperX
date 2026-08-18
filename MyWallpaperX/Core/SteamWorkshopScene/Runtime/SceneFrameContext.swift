@@ -1,6 +1,12 @@
 import CoreGraphics
 import Foundation
 
+nonisolated struct SceneScriptMaterialFunctionMutation: Equatable, Hashable, Sendable {
+    let layerID: Int
+    let effectIndex: Int
+    let functionName: String
+}
+
 nonisolated struct SceneFrameTiming: Equatable, Sendable {
     let frameIndex: UInt64
     let hostTime: TimeInterval
@@ -21,8 +27,29 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
     let screenSize: CGSize
     let pointer: SceneSurfacePointerState
     let cameraParallaxPosition: SIMD2<Float>
+    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     /// host-shared 频谱输入。无消费者或采集不可用时为稳定零输入。
     let audioSpectrum: SceneAudioSpectrumSnapshot
+
+    nonisolated init(
+        timing: SceneFrameTiming,
+        dynamicValues: SceneDynamicSnapshot,
+        canvasSize: CGSize,
+        screenSize: CGSize,
+        pointer: SceneSurfacePointerState,
+        cameraParallaxPosition: SIMD2<Float>,
+        materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
+        audioSpectrum: SceneAudioSpectrumSnapshot
+    ) {
+        self.timing = timing
+        self.dynamicValues = dynamicValues
+        self.canvasSize = canvasSize
+        self.screenSize = screenSize
+        self.pointer = pointer
+        self.cameraParallaxPosition = cameraParallaxPosition
+        self.materialFunctionMutations = materialFunctionMutations
+        self.audioSpectrum = audioSpectrum
+    }
 
     nonisolated var pointerCurrent: SIMD2<Float> { pointer.current }
     nonisolated var pointerPrevious: SIMD2<Float> { pointer.previous }

@@ -16,6 +16,7 @@ extension SceneMetalView {
     func makeFrameContext(
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
+        materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
         parallax: SIMD2<Float>,
         audioSpectrum: SceneAudioSpectrumSnapshot
     ) -> SceneFrameContext {
@@ -31,6 +32,7 @@ extension SceneMetalView {
             screenSize: screenSize,
             pointer: pointerState,
             cameraParallaxPosition: camera.parallaxEnabled ? parallax : .zero,
+            materialFunctionMutations: materialFunctionMutations,
             audioSpectrum: audioSpectrum
         )
     }

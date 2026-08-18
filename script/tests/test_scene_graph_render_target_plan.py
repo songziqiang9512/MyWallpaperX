@@ -165,7 +165,8 @@ enum Harness {
         _ graph: Graph,
         materialNodeCount: Int? = nil,
         inputRole: SceneAuthoredEffectInputRole = .layerSource,
-        supportsUnifiedFullFrameComposeStage: Bool = false
+        supportsUnifiedFullFrameComposeStage: Bool = false,
+        materialFunctionTargets: Set<Graph.TextureIdentity> = []
     ) -> String {
         let result = SceneGraphRenderTargetPlan.make(
             executionPlan: .init(
@@ -178,7 +179,8 @@ enum Harness {
             ),
             graph: graph,
             inputWidth: 1920,
-            inputHeight: 1080
+            inputHeight: 1080,
+            materialFunctionTargets: materialFunctionTargets
         )
         switch result {
         case .success:
@@ -190,7 +192,8 @@ enum Harness {
 
     static func requirePlan(
         _ graph: Graph,
-        materialNodeCount: Int
+        materialNodeCount: Int,
+        materialFunctionTargets: Set<Graph.TextureIdentity> = []
     ) -> SceneGraphRenderTargetPlan {
         let result = SceneGraphRenderTargetPlan.make(
             executionPlan: .init(
@@ -200,7 +203,8 @@ enum Harness {
             ),
             graph: graph,
             inputWidth: 1920,
-            inputHeight: 1080
+            inputHeight: 1080,
+            materialFunctionTargets: materialFunctionTargets
         )
         guard case .success(let plan) = result else {
             fatalError("expected render target plan")
@@ -362,6 +366,24 @@ enum Harness {
         guard case .success(let precisePlan) = preciseResult else {
             fatalError("precise fixture rejected")
         }
+        let functionOnly = graph(
+            targets: [target(full, extent: inputExtent)],
+            nodes: [
+                node(0, key: key, target: output, reads: [full, input]),
+            ],
+            key: key,
+            input: input,
+            output: output
+        )
+        let functionOnlyWithoutInvocation = failure(
+            functionOnly,
+            materialNodeCount: 1
+        )
+        let functionOnlyPlan = requirePlan(
+            functionOnly,
+            materialNodeCount: 1,
+            materialFunctionTargets: [full]
+        )
         let zeroClearArray = graph(
             targets: [
                 target(
@@ -750,6 +772,8 @@ enum Harness {
                 precisePlan.inputExtent.width, precisePlan.inputExtent.height,
             ],
             "preciseTargets": targetSummary(precisePlan),
+            "functionOnlyWithoutInvocation": functionOnlyWithoutInvocation,
+            "functionOnlyTargets": targetSummary(functionOnlyPlan),
             "zeroClearArray": clearSummary(
                 requirePlan(zeroClearArray, materialNodeCount: 4)
             ),
@@ -969,6 +993,25 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
     def test_read_before_first_write_requires_history(self) -> None:
         self.assertEqual(self.result["historyFailure"], "historyRequired")
         self.assertEqual(self.result["commandBeforeWriteFailure"], "historyRequired")
+
+    def test_material_function_target_is_a_typed_graph_write(self) -> None:
+        self.assertEqual(self.result["functionOnlyWithoutInvocation"], "historyRequired")
+        self.assertEqual(
+            self.result["functionOnlyTargets"],
+            [
+                {
+                    "name": "full",
+                    "size": [1920, 1080],
+                    "format": "rgbaBackbuffer",
+                    "firstWrite": 0,
+                    "lastWrite": 0,
+                    "firstRead": 0,
+                    "lastRead": 0,
+                    "persistent": False,
+                    "historySeed": False,
+                }
+            ],
+        )
 
     def test_unique_read_before_write_is_a_seeded_persistent_target(self) -> None:
         self.assertEqual(

@@ -159,7 +159,6 @@ final class SceneResolvedMaterialGraphExecutor {
         resetGeneration: UInt64
     ) -> Result<PreparedGraph, Failure> {
         guard let capability = capabilities.resolve(token),
-              validate(capability: capability, leases: leases),
               commandBuffer.status == .notEnqueued,
               commandBuffer.commandQueue.device.registryID == device.registryID,
               ensureResourceEncoder(commandBuffer.commandQueue),
@@ -177,6 +176,15 @@ final class SceneResolvedMaterialGraphExecutor {
         ) {
         case let .success(value): resolvedInvocations = value
         case let .failure(failure): return .failure(failure)
+        }
+        guard validate(
+            capability: capability,
+            leases: leases,
+            materialFunctionTargetsByEffect: resolvedInvocations.mapValues {
+                Set($0.flatMap(\.targets))
+            }
+        ) else {
+            return .failure(.invalidClaim)
         }
         let executionFrame: SceneResolvedMaterialFrameSnapshot
         switch (capability.sceneBackgroundRequirement, sceneBackgroundResource) {

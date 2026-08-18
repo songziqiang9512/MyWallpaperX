@@ -105,6 +105,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     /// Ordered ledgers belonging to the currently open command-buffer frame.
     var activeTransactions: [UInt64] = []
     var preparedLedgerByLayerID: [Int: UInt64] = [:]
+    var frameLocalFallbacks: [Int: String] = [:]
     var framePreparationComplete = false
     var pendingSubmissions: [PendingSubmission] = []
     var commandBufferRecords: [ObjectIdentifier: CommandBufferRecord] = [:]
@@ -120,6 +121,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     var frameFailures = 0
     var frameDeferred = 0
     var lastReportSignature: String?
+    var lastLocalFallbackSignature: String?
 
     init(
         device: MTLDevice,
@@ -130,6 +132,42 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         executor = .init(device: device, capabilities: capabilities)
         telemetry = .init(logSink: logSink)
         self.logSink = logSink
+    }
+
+    func installFrameLocalFallbacks(_ fallbacks: [Int: String]) -> Bool {
+        let allowedReasons: Set<String> = [
+            "function-invocation-unknown-effect",
+            "function-invocation-unknown-function",
+            "frame-target-plan-rejected",
+        ]
+        var diagnostic: String?
+        lock.lock()
+        guard frameIsActive, !framePreparationComplete,
+              !frameRequiresDrop, frameFailure == nil,
+              frameLocalFallbacks.isEmpty,
+              fallbacks.allSatisfy({ layerID, reasonCode in
+                  capabilities.claim(layerID: layerID) != nil
+                      && allowedReasons.contains(reasonCode)
+              }) else {
+            lock.unlock()
+            return false
+        }
+        frameLocalFallbacks = fallbacks
+        let entries = fallbacks.keys.sorted().compactMap { layerID in
+            fallbacks[layerID].map { "\(layerID):\($0)" }
+        }.joined(separator: ",")
+        let signature = "count=\(fallbacks.count) entries=\(entries)"
+        if !fallbacks.isEmpty, signature != lastLocalFallbackSignature {
+            lastLocalFallbackSignature = signature
+            diagnostic = "layer-local-fallback \(signature)"
+        }
+        lock.unlock()
+        if let diagnostic {
+            logSink(
+                "MWX DEBUG SCENE: schema=1 axis=graph-execution diagnostic=\(diagnostic)"
+            )
+        }
+        return true
     }
 
     /// A rollback suffix keeps every predecessor allocation pinned until all

@@ -60,7 +60,7 @@ struct SceneLayerSourcePassthroughPlan {
         publication: SceneTextureProviderPublication?,
         route: SceneResolvedMaterialClaimRoute
     ) -> Self? {
-        guard case .unclaimed = route,
+        guard route.allowsLayerSourcePassthrough,
               let publication,
               request.layer.contentKind == "image",
               request.layer.visible != false,
