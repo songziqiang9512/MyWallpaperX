@@ -28,9 +28,9 @@ nonisolated extension SceneGraphRenderTargetPlan {
             return nil
         }
         let initialClear: ClearColor?
-        if let authoredClear = target.clear {
-            guard let zeroClear = zeroClear(authoredClear) else { return nil }
-            initialClear = zeroClear
+        if let rawClear = target.clear {
+            guard let clear = authoredClear(rawClear) else { return nil }
+            initialClear = clear
         } else {
             initialClear = nil
         }

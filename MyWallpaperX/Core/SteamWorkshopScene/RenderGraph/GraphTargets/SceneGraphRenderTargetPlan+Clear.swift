@@ -1,7 +1,7 @@
 import Foundation
 
 extension SceneGraphRenderTargetPlan {
-    nonisolated static func zeroClear(_ clear: SceneJSONValue) -> ClearColor? {
+    nonisolated static func authoredClear(_ clear: SceneJSONValue) -> ClearColor? {
         let components: [Double]
         switch clear {
         case .string(let value):
@@ -15,7 +15,7 @@ extension SceneGraphRenderTargetPlan {
             return nil
         }
         guard components.count == 4,
-              components.allSatisfy({ $0.isFinite && $0 == 0 }) else {
+              components.allSatisfy({ $0.isFinite && (0 ... 1).contains($0) }) else {
             return nil
         }
         return ClearColor(

@@ -4908,9 +4908,9 @@ private enum Harness {
                 rgbaRepeatProbe.first,
                 [0, 0, 64, 255]
             ) && matches(rgbaRepeatProbe.last, [0, 0, 255, 255]),
-            "nonzeroClearRejectedBeforeFrame": nonzeroClearCapabilities.claim(
+            "nonzeroClearAdmittedBeforeFrame": nonzeroClearCapabilities.claim(
                 admittedGraph(nonzeroClearGraph)
-            ) == nil,
+            ) != nil,
             "oversizedNodeGraphRejectedBeforeGPU": capabilities(
                 admittedGraph(oversizedNodeGraph), catalog: catalog(for: oversizedNodeGraph)
             ).claim(admittedGraph(oversizedNodeGraph)) == nil,

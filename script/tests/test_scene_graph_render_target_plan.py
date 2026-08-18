@@ -384,7 +384,7 @@ enum Harness {
             materialNodeCount: 1,
             materialFunctionTargets: [full]
         )
-        let zeroClearArray = graph(
+        let authoredZeroClearArray = graph(
             targets: [
                 target(
                     q1,
@@ -398,7 +398,7 @@ enum Harness {
             input: input,
             output: output
         )
-        let zeroClearString = graph(
+        let authoredZeroClearString = graph(
             targets: [
                 target(q1, extent: scaleFour, clear: .string("0 0 0 0")),
                 target(q2, extent: scaleFour),
@@ -774,13 +774,13 @@ enum Harness {
             "preciseTargets": targetSummary(precisePlan),
             "functionOnlyWithoutInvocation": functionOnlyWithoutInvocation,
             "functionOnlyTargets": targetSummary(functionOnlyPlan),
-            "zeroClearArray": clearSummary(
-                requirePlan(zeroClearArray, materialNodeCount: 4)
+            "authoredZeroClearArray": clearSummary(
+                requirePlan(authoredZeroClearArray, materialNodeCount: 4)
             ),
-            "zeroClearString": clearSummary(
-                requirePlan(zeroClearString, materialNodeCount: 4)
+            "authoredZeroClearString": clearSummary(
+                requirePlan(authoredZeroClearString, materialNodeCount: 4)
             ),
-            "nonZeroClearFailure": failure(nonZeroClear),
+            "authoredNonZeroClearResult": failure(nonZeroClear),
             "malformedClearFailure": failure(malformedClear),
             "commandTargets": targetSummary(commandsPlan),
             "persistentHistoryTargets": targetSummary(persistentHistoryPlan),
@@ -1216,18 +1216,18 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
         self.assertEqual(self.result["countMismatchFailure"], "executionMismatch")
         self.assertEqual(self.result["roleMismatchFailure"], "executionMismatch")
 
-    def test_only_transparent_zero_authored_clear_is_admitted(self) -> None:
+    def test_bounded_authored_clear_is_preserved_and_malformed_clear_rejected(self) -> None:
         self.assertEqual(
-            self.result["zeroClearArray"],
+            self.result["authoredZeroClearArray"],
             [[0.0, 0.0, 0.0, 0.0], []],
         )
         self.assertEqual(
-            self.result["zeroClearString"],
+            self.result["authoredZeroClearString"],
             [[0.0, 0.0, 0.0, 0.0], []],
         )
         self.assertEqual(
-            self.result["nonZeroClearFailure"],
-            "unsupportedTargetDescriptor",
+            self.result["authoredNonZeroClearResult"],
+            "success",
         )
         self.assertEqual(
             self.result["malformedClearFailure"],

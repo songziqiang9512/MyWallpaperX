@@ -388,8 +388,6 @@ extension SceneResolvedMaterialGraphExecutor {
         case .transparentHistorySeed, .materialFunctionClear:
             clear = .init(red: 0, green: 0, blue: 0, alpha: 0)
         }
-        guard clear.red == 0, clear.green == 0,
-              clear.blue == 0, clear.alpha == 0 else { return nil }
         return (clear, .premultipliedAlpha)
     }
 
