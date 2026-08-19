@@ -79,6 +79,7 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureProviderPublication.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneFrameTextureRegistry.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialProgram.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialProgramIdentity.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialEffectIngress.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialScriptBindingClassifier.swift",

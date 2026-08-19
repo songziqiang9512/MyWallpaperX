@@ -1,6 +1,15 @@
 import CryptoKit
 import Foundation
 
+/// Immutable route authority captured during preparation and carried through
+/// Program/execution telemetry. It contains no sample or layer identity and
+/// is available to every standalone material source set.
+nonisolated struct SceneGenericShaderRouteDecision: Hashable, Sendable {
+    let profile: String
+    let state: String
+    let fallbackOwner: String
+}
+
 /// Source-keyed compiler output shared by the product preparation worker and
 /// the independent cache reader. Decoding this value never grants execution;
 /// `makeProgram` revalidates every ABI and color contract before publication.

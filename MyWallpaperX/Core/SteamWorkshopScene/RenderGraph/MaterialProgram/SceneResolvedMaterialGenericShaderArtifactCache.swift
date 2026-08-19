@@ -5,12 +5,19 @@ import Foundation
 /// malformed or failed output is either an effect-local typed fallback or a
 /// profile-local rejection after the bounded product owner has been revoked.
 nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
+    typealias RouteDecision = SceneGenericShaderRouteDecision
+
     enum Resolution {
-        case accepted(program: SceneAuthoredShaderProgram, requestKey: String)
+        case accepted(
+            program: SceneAuthoredShaderProgram,
+            requestKey: String,
+            routeDecision: RouteDecision
+        )
         case unavailable(
             code: String,
             requestKey: String,
-            permitsBoundedFrontend: Bool
+            permitsBoundedFrontend: Bool,
+            routeDecision: RouteDecision
         )
     }
 
@@ -29,6 +36,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     }
 
     private static let routeEnvironment = "MWX_SCENE_GENERIC_SHADER_ROUTE"
+    /// Comma-separated profile-local route overrides.
+    private static let profileRouteEnvironment =
+        "MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES"
     private static let cacheEnvironment = "MWX_SCENE_GENERIC_SHADER_CACHE"
     private static let requestEnvironment = "MWX_SCENE_GENERIC_SHADER_REQUESTS"
     private static let maximumArtifactBytes = 2 * 1_024 * 1_024
@@ -60,6 +70,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 return requested
             }
         }
+    }
+
+    private enum FallbackOwner: String {
+        case boundedFrontend = "bounded-frontend"
+        case none
     }
 
     private enum CapabilityProfile: String {
@@ -140,6 +155,27 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                  .sourceProvenGraphInputStageUniformPassthrough: .genericOnly
             }
         }
+
+        /// A future generic-only profile must opt in here only after its own
+        /// bounded rollback evidence and owner contract have been verified.
+        var validatedRollbackOwner: FallbackOwner {
+            switch self {
+            case .ordinaryShader,
+                 .providerBackedScalarColorInterpolation,
+                 .sourceProvenGraphInputStraightAlpha,
+                 .sourceProvenGraphInputStraightAlphaPreserving:
+                // These profiles retain their ordinary bounded product owner.
+                return .boundedFrontend
+            case .sourceProvenScalarColorInterpolation,
+                 .sourceProvenOpaqueScalarOutput,
+                 .sourceProvenStraightAlphaR8Signal,
+                 .sourceProvenGraphTargetPassthrough,
+                 .sourceProvenGraphInputStageUniformPassthrough:
+                // These migrated profiles use bounded Swift only for the
+                // separately validated, explicit disable-generic rollback.
+                return .boundedFrontend
+            }
+        }
     }
 
     private final class RouteTelemetry: @unchecked Sendable {
@@ -173,9 +209,30 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             )
         }
 
-        func recordExecution(
-            state: RouteState,
+        func recordInvalid(
             profile: CapabilityProfile,
+            requestKey: String,
+            reason: String
+        ) {
+            let count = lock.withLock {
+                let identity = [
+                    "route-invalid", profile.rawValue, reason,
+                ].joined(separator: ":")
+                let updated = counts[identity, default: 0] + 1
+                counts[identity] = updated
+                return updated
+            }
+            NSLog(
+                "MWX generic shader route-invalid profile=%@ reason=%@ request=%@ count=%d",
+                profile.rawValue,
+                reason,
+                requestKey,
+                count
+            )
+        }
+
+        func recordExecution(
+            routeDecision: RouteDecision,
             backend: SceneAuthoredShaderProgram.Backend,
             layerID: Int,
             effectIndex: Int,
@@ -192,8 +249,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             }
             NSLog(
                 "MWX generic shader execution state=%@ profile=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@",
-                state.rawValue,
-                profile.rawValue,
+                routeDecision.state,
+                routeDecision.profile,
                 layerID,
                 effectIndex,
                 descriptorID,
@@ -294,17 +351,31 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             )
         )
         let environment = ProcessInfo.processInfo.environment
-        guard let routeState = RouteState.resolve(
-            environment[routeEnvironment],
-            defaultState: profile.defaultRouteState
+        guard let routeState = routeState(
+            for: profile,
+            environment: environment
         ) else {
+            routeTelemetry.recordInvalid(
+                profile: profile,
+                requestKey: key,
+                reason: "route-configuration-invalid"
+            )
             return .unavailable(
                 code: "route-invalid",
                 requestKey: key,
                 permitsBoundedFrontend:
                     profile.defaultRouteState != .genericOnly
+                        && profile.validatedRollbackOwner == .boundedFrontend,
+                routeDecision: makeRouteDecision(
+                    profile: profile,
+                    state: "route-invalid"
+                )
             )
         }
+        let routeDecision = makeRouteDecision(
+            profile: profile,
+            state: routeState.rawValue
+        )
         guard routeState != .disableGeneric else {
             routeTelemetry.record(
                 state: routeState,
@@ -316,7 +387,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             return .unavailable(
                 code: "route-disabled",
                 requestKey: key,
-                permitsBoundedFrontend: true
+                permitsBoundedFrontend:
+                    profile.validatedRollbackOwner == .boundedFrontend,
+                routeDecision: routeDecision
             )
         }
         exportRequest(
@@ -330,6 +403,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 requestKey: key,
                 permitsBoundedFrontend:
                     profile.defaultRouteState != .genericOnly
+                        && profile.validatedRollbackOwner == .boundedFrontend,
+                routeDecision: routeDecision
             )
         }
         guard let root = cacheDirectory(environment: environment) else {
@@ -421,7 +496,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             reason: "-",
             requestKey: key
         )
-        return .accepted(program: program, requestKey: key)
+        return .accepted(
+            program: program,
+            requestKey: key,
+            routeDecision: routeDecision
+        )
     }
 
     private static func fragmentOutputChannelUse(
@@ -456,50 +535,98 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         return .unavailable(
             code: code,
             requestKey: requestKey,
-            permitsBoundedFrontend: state != .genericOnly
+            permitsBoundedFrontend:
+                state != .genericOnly
+                    && profile.validatedRollbackOwner == .boundedFrontend,
+            routeDecision: makeRouteDecision(
+                profile: profile,
+                state: state.rawValue
+            )
         )
     }
 
     static func recordExecution(
+        routeDecision: RouteDecision?,
         backend: SceneAuthoredShaderProgram.Backend,
-        colorTransfer: SceneShaderColorTransfer,
-        hasExternalProviderTexture: Bool,
-        producesScalarRedOutput: Bool,
-        graphTextureSlots: Set<Int>,
-        graphInputTextureSlots: Set<Int>,
-        r8TextureSlots: Set<Int>,
-        hasStageScopedUniformBindings: Bool,
         layerID: Int,
         effectIndex: Int,
         descriptorID: String,
         nodeIndex: Int,
         preparedKey: String
     ) {
-        let environment = ProcessInfo.processInfo.environment
-        let profile = CapabilityProfile(
-            colorTransfer: colorTransfer,
-            hasExternalProviderTexture: hasExternalProviderTexture,
-            producesScalarRedOutput: producesScalarRedOutput,
-            graphTextureSlots: graphTextureSlots,
-            graphInputTextureSlots: graphInputTextureSlots,
-            r8TextureSlots: r8TextureSlots,
-            hasStageScopedUniformBindings: hasStageScopedUniformBindings
-        )
-        guard let state = RouteState.resolve(
-                  environment[routeEnvironment],
-                  defaultState: profile.defaultRouteState
-              ), state != .observeOnly else {
-            return
-        }
+        guard let routeDecision else { return }
         routeTelemetry.recordExecution(
-            state: state,
-            profile: profile,
+            routeDecision: routeDecision,
             backend: backend,
             layerID: layerID,
             effectIndex: effectIndex,
             descriptorID: descriptorID,
             nodeIndex: nodeIndex,
             preparedKey: preparedKey
+        )
+    }
+    private static func makeRouteDecision(
+        profile: CapabilityProfile,
+        state: String
+    ) -> RouteDecision {
+        RouteDecision(
+            profile: profile.rawValue,
+            state: state,
+            fallbackOwner: profile.validatedRollbackOwner.rawValue
+        )
+    }
+
+    /// Resolve a strict profile map, then the legacy process route.
+    private static func routeState(
+        for profile: CapabilityProfile,
+        environment: [String: String]
+    ) -> RouteState? {
+        if let rawOverrides = environment[profileRouteEnvironment] {
+            guard !rawOverrides.isEmpty else { return nil }
+            var overrides: [CapabilityProfile: RouteState] = [:]
+            for rawEntry in rawOverrides.split(
+                separator: ",",
+                omittingEmptySubsequences: false
+            ) {
+                let pair = rawEntry.split(
+                    separator: "=",
+                    maxSplits: 1,
+                    omittingEmptySubsequences: false
+                )
+                guard pair.count == 2,
+                      let mappedProfile = CapabilityProfile(
+                          rawValue: String(pair[0])
+                      ),
+                      let requestedState = RouteState(
+                          rawValue: String(pair[1])
+                      ),
+                      overrides[mappedProfile] == nil else {
+                    return nil
+                }
+                overrides[mappedProfile] = requestedState
+            }
+            if let requestedState = overrides[profile] {
+                switch requestedState {
+                case .genericOnly:
+                    guard profile.defaultRouteState == .genericOnly else {
+                        return nil
+                    }
+                case .preferGeneric, .observeOnly:
+                    guard profile.defaultRouteState != .genericOnly else {
+                        return nil
+                    }
+                case .disableGeneric: break
+                }
+                return requestedState
+            }
+            // A validated registry owns the full profile map. An omitted
+            // profile retains its own default and never inherits the legacy
+            // process-wide switch.
+            return profile.defaultRouteState
+        }
+        return RouteState.resolve(
+            environment[routeEnvironment],
+            defaultState: profile.defaultRouteState
         )
     }
 

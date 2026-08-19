@@ -241,47 +241,8 @@ extension SceneResolvedMaterialGraphExecutor {
                 commands.append(.material(prepared))
                 programKeys.append(program.preparedShader.cacheKey)
                 SceneResolvedMaterialGenericShaderArtifactCache.recordExecution(
+                    routeDecision: program.routeDecision,
                     backend: program.frontendProgram.backend,
-                    colorTransfer: program.frontendProgram.colorTransfer,
-                    hasExternalProviderTexture:
-                        SceneResolvedMaterialVariantCache.hasExternalProviderTexture(
-                            in: material.template,
-                            activeTextureSlots: Set(
-                                program.textureSlots.compactMap { $0?.index }
-                            )
-                        ),
-                    producesScalarRedOutput:
-                        program.outputContract == .scalarRedUnorm,
-                    graphTextureSlots: Set(program.textureSlots.compactMap { slot in
-                        guard let slot,
-                              case let .graph(identity) =
-                                  slot.resource.publication.requestIdentity,
-                              identity.kind == .framebuffer
-                        else { return nil }
-                        return slot.index
-                    }),
-                    graphInputTextureSlots: Set(
-                        program.textureSlots.compactMap { slot in
-                            guard let slot,
-                                  case .graph =
-                                      slot.resource.publication.requestIdentity
-                            else { return nil }
-                            return slot.index
-                        }
-                    ),
-                    r8TextureSlots: Set(program.textureSlots.compactMap { slot in
-                        guard let slot else { return nil }
-                        let candidate = slot.resource.publication.candidate
-                        guard candidate.content == .scalarRedUnorm
-                                || candidate.authoredFormat == .r8 else { return nil }
-                        return slot.index
-                    }),
-                    hasStageScopedUniformBindings: {
-                        let stages = Set(program.frontendProgram.uniformLayout.fields
-                            .compactMap(\.stage))
-                        return stages.contains(.vertex)
-                            && stages.contains(.fragment)
-                    }(),
                     layerID: node.effect.layerID,
                     effectIndex: node.effect.effectIndex,
                     descriptorID: node.effect.descriptorID,

@@ -57,6 +57,9 @@ private struct Output: Codable {
     let textureSlots: [Int]?
     let colorTransfer: String?
     let fragmentOutputChannelUse: String?
+    let routeProfile: String?
+    let routeState: String?
+    let fallbackOwner: String?
 }
 
 private struct CoordinatorOutput: Codable {
@@ -818,7 +821,7 @@ private struct GenericShaderArtifactHarness {
                     .split(separator: ",").compactMap { Int($0) }
             )
         ) {
-        case let .accepted(program, requestKey):
+        case let .accepted(program, requestKey, decision):
             result = .init(
                 status: "accepted", code: nil, requestKey: requestKey,
                 permitsBoundedFrontend: nil,
@@ -827,15 +830,21 @@ private struct GenericShaderArtifactHarness {
                 uniformNames: program.uniformLayout.fields.map(\.name),
                 textureSlots: program.textureBindings.map(\.slot),
                 colorTransfer: colorTransferName(program.colorTransfer),
-                fragmentOutputChannelUse: program.fragmentOutputChannelUse.rawValue
+                fragmentOutputChannelUse: program.fragmentOutputChannelUse.rawValue,
+                routeProfile: decision.profile,
+                routeState: decision.state,
+                fallbackOwner: decision.fallbackOwner
             )
-        case let .unavailable(code, requestKey, permitsBoundedFrontend):
+        case let .unavailable(code, requestKey, permitsBoundedFrontend, decision):
             result = .init(
                 status: "unavailable", code: code, requestKey: requestKey,
                 permitsBoundedFrontend: permitsBoundedFrontend,
                 backend: nil, uniformBufferIndex: nil,
                 uniformNames: nil, textureSlots: nil, colorTransfer: nil,
-                fragmentOutputChannelUse: nil
+                fragmentOutputChannelUse: nil,
+                routeProfile: decision.profile,
+                routeState: decision.state,
+                fallbackOwner: decision.fallbackOwner
             )
         }
         let data = try JSONEncoder().encode(result)
@@ -1039,6 +1048,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         root: Path,
         *,
         route: str | None,
+        profile_routes: str | None = None,
         fragment: str = FRAGMENT,
         has_external_provider: bool = False,
         produces_scalar_output: bool = False,
@@ -1063,6 +1073,10 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             environment.pop("MWX_SCENE_GENERIC_SHADER_ROUTE", None)
         else:
             environment["MWX_SCENE_GENERIC_SHADER_ROUTE"] = route
+        if profile_routes is None:
+            environment.pop("MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES", None)
+        else:
+            environment["MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES"] = profile_routes
         if has_external_provider:
             environment["MWX_TEST_EXTERNAL_PROVIDER"] = "1"
         else:
@@ -1782,6 +1796,131 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 log,
             )
             self.assertIn("outcome=fallback", log)
+
+    def test_profile_local_route_rollback_does_not_disable_other_profiles(self):
+        profile_routes = "source-proven-opaque-scalar-output=disable-generic"
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-generic-artifact-test-"
+        ) as directory:
+            root = Path(directory)
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=profile_routes,
+                fragment=OPAQUE_FRAGMENT,
+                produces_scalar_output=True,
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertEqual(
+                rolled_back["routeProfile"],
+                "source-proven-opaque-scalar-output",
+            )
+            self.assertEqual(rolled_back["routeState"], "disable-generic")
+            self.assertEqual(rolled_back["fallbackOwner"], "bounded-frontend")
+            self.assertIn(
+                "state=disable-generic "
+                "profile=source-proven-opaque-scalar-output",
+                rollback_log,
+            )
+
+            still_generic, _, _, generic_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=profile_routes,
+                fragment=STAGE_UNIFORM_PASSTHROUGH_FRAGMENT,
+                graph_input_slots=(0,),
+            )
+            self.assertEqual(still_generic["status"], "unavailable")
+            self.assertFalse(still_generic["permitsBoundedFrontend"])
+            self.assertNotEqual(still_generic["code"], "route-disabled")
+            self.assertEqual(
+                still_generic["routeProfile"],
+                "source-proven-graph-input-stage-uniform-passthrough",
+            )
+            self.assertEqual(still_generic["routeState"], "generic-only")
+            self.assertIn(
+                "state=generic-only "
+                "profile=source-proven-graph-input-stage-uniform-passthrough",
+                generic_log,
+            )
+
+    def test_profile_local_prefer_generic_cannot_downgrade_generic_only(self):
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-generic-artifact-test-"
+        ) as directory:
+            result, _, _, log = self.run_harness(
+                Path(directory),
+                route=None,
+                profile_routes=(
+                    "source-proven-opaque-scalar-output=prefer-generic"
+                ),
+                fragment=OPAQUE_FRAGMENT,
+                produces_scalar_output=True,
+            )
+            self.assertEqual(result["code"], "route-invalid")
+            self.assertFalse(result["permitsBoundedFrontend"])
+            self.assertIn(
+                "route-invalid profile=source-proven-opaque-scalar-output",
+                log,
+            )
+
+    def test_profile_local_route_rejects_invalid_or_unauthorized_mapping(self):
+        cases = [
+            (
+                "source-proven-opaque-scalar-output=not-a-route",
+                OPAQUE_FRAGMENT,
+                {"produces_scalar_output": True},
+                False,
+            ),
+            (
+                "source-proven-opaque-scalar-output=disable-generic,"
+                "source-proven-opaque-scalar-output=prefer-generic",
+                OPAQUE_FRAGMENT,
+                {"produces_scalar_output": True},
+                False,
+            ),
+            (
+                "ordinary-shader=generic-only",
+                FRAGMENT,
+                {},
+                True,
+            ),
+        ]
+        for profile_routes, fragment, facts, permits_bounded in cases:
+            with self.subTest(profile_routes=profile_routes), tempfile.TemporaryDirectory(
+                prefix="mwx-generic-artifact-test-"
+            ) as directory:
+                result, _, _, invalid_log = self.run_harness(
+                    Path(directory),
+                    route=None,
+                    profile_routes=profile_routes,
+                    fragment=fragment,
+                    **facts,
+                )
+                self.assertEqual(result["code"], "route-invalid")
+                self.assertEqual(result["permitsBoundedFrontend"], permits_bounded)
+                self.assertIn("route-invalid profile=", invalid_log)
+                self.assertIn("reason=route-configuration-invalid", invalid_log)
+
+    def test_profile_registry_isolated_from_legacy_global_route(self):
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-generic-artifact-test-"
+        ) as directory:
+            result, _, _, log = self.run_harness(
+                Path(directory),
+                route="disable-generic",
+                profile_routes=(
+                    "source-proven-graph-input-stage-uniform-passthrough="
+                    "disable-generic"
+                ),
+                fragment=FRAGMENT,
+            )
+            self.assertNotEqual(result["code"], "route-disabled")
+            self.assertIn(
+                "state=prefer-generic profile=ordinary-shader",
+                log,
+            )
 
     def test_profile_routes_preserve_only_evidenced_owner_authority(self):
         cases = [

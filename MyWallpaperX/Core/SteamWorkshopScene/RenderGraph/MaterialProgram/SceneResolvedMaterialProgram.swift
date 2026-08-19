@@ -350,6 +350,7 @@ nonisolated struct SceneResolvedMaterialProgram {
     }
 
     let preparedShader: SceneShaderPreparedProgram
+    let routeDecision: SceneGenericShaderRouteDecision?
     let frontendProgram: SceneAuthoredShaderProgram
     let textureSlots: [TextureSlot?]
     let resolvedUniforms: [ResolvedUniform]
@@ -368,17 +369,40 @@ nonisolated struct SceneResolvedMaterialProgram {
 
     static func assembleCompiled(
         _ input: AssemblyInput,
-        frontend: SceneAuthoredShaderProgram
+        frontend: SceneAuthoredShaderProgram,
+        routeDecision: SceneGenericShaderRouteDecision
     ) -> Self? {
         guard let derived = SceneResolvedMaterialProgramDerivation.deriveCompiled(
             input,
             frontend: frontend
         ) else { return nil }
-        return Self(input: input, derived: derived)
+        return Self(
+            input: input,
+            derived: derived,
+            routeDecision: routeDecision
+        )
     }
 
     private init(input: AssemblyInput, derived: Derived) {
         preparedShader = input.preparedShader
+        routeDecision = nil
+        frontendProgram = derived.frontendProgram
+        textureSlots = input.textureSlots
+        resolvedUniforms = input.resolvedUniforms
+        uniformBytes = derived.uniformBytes
+        renderState = input.renderState
+        outputContract = derived.outputContract
+        semanticIdentity = derived.semanticIdentity
+        exactIdentity = derived.exactIdentity
+    }
+
+    private init(
+        input: AssemblyInput,
+        derived: Derived,
+        routeDecision: SceneGenericShaderRouteDecision
+    ) {
+        preparedShader = input.preparedShader
+        self.routeDecision = routeDecision
         frontendProgram = derived.frontendProgram
         textureSlots = input.textureSlots
         resolvedUniforms = input.resolvedUniforms

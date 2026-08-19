@@ -10,6 +10,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     let textureFormats: [SceneShaderTextureFormat?]
     let preparedShader: SceneShaderPreparedProgram
     let frontendProgram: SceneAuthoredShaderProgram
+    let routeDecision: SceneGenericShaderRouteDecision
     let activeSamplers: [Int: Sampler]
     let activeUniforms: [String: Uniform]
 
@@ -18,6 +19,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         textureFormats: [SceneShaderTextureFormat?],
         preparedShader: SceneShaderPreparedProgram,
         frontendProgram: SceneAuthoredShaderProgram,
+        routeDecision: SceneGenericShaderRouteDecision,
         activeSamplers: [Int: Sampler],
         activeUniforms: [String: Uniform]
     ) {
@@ -25,6 +27,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.textureFormats = textureFormats
         self.preparedShader = preparedShader
         self.frontendProgram = frontendProgram
+        self.routeDecision = routeDecision
         self.activeSamplers = activeSamplers
         self.activeUniforms = activeUniforms
     }
@@ -134,14 +137,23 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             r8TextureSlots: graphR8TextureSlots
         )
         let frontend: SceneAuthoredShaderProgram
+        let routeDecision:
+            SceneGenericShaderRouteDecision
         let boundedOutput: SceneAuthoredShaderFrontendOutput?
         let artifactFailure: [String]
         switch artifactResolution {
-        case let .accepted(program, requestKey):
+        case let .accepted(program, requestKey, decision):
             frontend = program
+            routeDecision = decision
             boundedOutput = nil
             artifactFailure = ["generic-artifact-accepted", requestKey]
-        case let .unavailable(code, requestKey, permitsBoundedFrontend):
+        case let .unavailable(
+            code,
+            requestKey,
+            permitsBoundedFrontend,
+            decision
+        ):
+            routeDecision = decision
             guard permitsBoundedFrontend else {
                 throw failure(
                     .shaderFrontendFailed,
@@ -229,6 +241,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             textureFormats: variantKey.textureFormats,
             preparedShader: prepared,
             frontendProgram: frontend,
+            routeDecision: routeDecision,
             activeSamplers: samplers,
             activeUniforms: uniforms
         )
