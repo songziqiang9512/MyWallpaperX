@@ -283,11 +283,12 @@ struct SceneMetalRenderer {
                 if !drawQuadLayer(
                     layer: layer,
                     resolvedFramePlan: resolvedMaterialFrameTargetPlans[layer.id],
-                    imagePipeline: imagePipeline,
+                    imagePipeline: imagePipeline, effectTextures: effectTextures,
                     frameContext: frameContext, worldFramesByLayerID: frameWorldFrames,
                     cameraFrame: cameraFrame, parallaxConfiguration: parallaxConfiguration,
-                    mainPass: mainPass,
-                    executionTrace: effectExecutionTrace
+                    time: time, mainPass: mainPass, commandBuffer: commandBuffer,
+                    executionTrace: effectExecutionTrace,
+                    makeLightShaftsPipeline: { pipelineRepository.lightShafts() }
                 ) {
                     stopsAfterClaimedFailure = true
                     break frameLayers

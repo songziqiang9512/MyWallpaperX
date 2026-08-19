@@ -1,13 +1,13 @@
 import simd
 
-/// Shared transparent direct-draw quad geometry.
+/// Clean-room standalone Light Shafts geometry.
 ///
 /// Stock presets and real projects omit `size` while keeping authored scale
 /// near 2 across 256-, 2560-, and 3840-wide canvases. This bounded profile
 /// therefore treats the unscaled quad as half of the authored canvas. The
 /// effect's perspective points remain texture-space inputs and never alter
 /// this layer-space extent.
-enum SceneDirectDrawQuadGeometry {
+enum SceneLightShaftsQuadGeometry {
     static func baseExtent(
         canvasSize: SIMD2<Float>
     ) -> SIMD2<Float>? {

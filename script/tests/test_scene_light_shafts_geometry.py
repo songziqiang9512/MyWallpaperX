@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
     SCENE_ROOT / "Rendering/SceneMatrix.swift",
-    SCENE_ROOT / "Rendering/SceneDirectDrawQuadGeometry.swift",
+    SCENE_ROOT / "Rendering/SceneLightShaftsQuadGeometry.swift",
 ]
 
 
@@ -29,13 +29,13 @@ enum Harness {
     }
 
     static func main() throws {
-        let extent = SceneDirectDrawQuadGeometry.baseExtent(
+        let extent = SceneLightShaftsQuadGeometry.baseExtent(
             canvasSize: SIMD2<Float>(3840, 2160)
         )
         let world = SceneMatrix.translation(SIMD3<Float>(100, 200, 0))
             * SceneMatrix.rotationZ(.pi / 2)
             * SceneMatrix.scale(SIMD3<Float>(2, 3, 1))
-        let model = SceneDirectDrawQuadGeometry.modelMatrix(
+        let model = SceneLightShaftsQuadGeometry.modelMatrix(
             worldFrame: world,
             parallaxOffset: SIMD2<Float>(5, -7),
             canvasSize: SIMD2<Float>(3840, 2160)
@@ -48,9 +48,9 @@ enum Harness {
                 matrix * SIMD4<Float>(0.5, 0.5, 0, 1),
             ]
         }
-        let invalid = SceneDirectDrawQuadGeometry.baseExtent(
+        let invalid = SceneLightShaftsQuadGeometry.baseExtent(
             canvasSize: SIMD2<Float>(.nan, 2160)
-        ) == nil && SceneDirectDrawQuadGeometry.modelMatrix(
+        ) == nil && SceneLightShaftsQuadGeometry.modelMatrix(
             worldFrame: SceneMatrix.identity(),
             parallaxOffset: .zero,
             canvasSize: SIMD2<Float>(0, 2160)
@@ -76,16 +76,16 @@ enum Harness {
 '''
 
 
-class SceneDirectDrawGeometryTests(unittest.TestCase):
+class SceneLightShaftsGeometryTests(unittest.TestCase):
     def test_half_canvas_quad_is_independent_from_effect_points(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
         with tempfile.TemporaryDirectory(
-            prefix="scene-direct-draw-geometry-"
+            prefix="scene-light-shafts-geometry-"
         ) as directory:
             temporary = Path(directory)
             harness = temporary / "Harness.swift"
-            binary = temporary / "scene-direct-draw-geometry"
+            binary = temporary / "scene-light-shafts-geometry"
             harness.write_text(HARNESS, encoding="utf-8")
             compilation = subprocess.run(
                 [

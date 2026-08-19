@@ -60,7 +60,7 @@ extension SceneMetalRenderer {
         )
     }
 
-    func directDrawModelMatrix(
+    func lightShaftsModelMatrix(
         for layer: SceneRenderDescriptor.Layer,
         worldFramesByLayerID: [Int: simd_float4x4],
         parallaxMouseNormalized: SIMD2<Float>,
@@ -73,7 +73,7 @@ extension SceneMetalRenderer {
             mouseNormalized: parallaxMouseNormalized,
             configuration: configuration
         )
-        return SceneDirectDrawQuadGeometry.modelMatrix(
+        return SceneLightShaftsQuadGeometry.modelMatrix(
             worldFrame: world,
             parallaxOffset: parallax,
             canvasSize: configuration.orthoSize
