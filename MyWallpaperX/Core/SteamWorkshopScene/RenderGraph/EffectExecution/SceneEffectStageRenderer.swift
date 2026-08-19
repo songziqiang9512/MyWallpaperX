@@ -109,8 +109,6 @@ targets: targets,
                 time: time,
                 commandBuffer: commandBuffer
             )
-        case .lightShafts:
-            return nil
         case .shake, .waterFlow, .waterWaves, .waterCaustics,
              .cursorRipple, .waterRipple, .depthParallax,
              .xRay, .blend, .transform,

@@ -66,7 +66,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneLightShaftsPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWaterRipplePipeline.swift",
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
@@ -82,7 +81,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
     SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseExecutionPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift",
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
@@ -646,29 +644,6 @@ struct SceneBlendEffectTextures {
     }
 }
 
-struct SceneLightShaftsEffectTextures {
-    let noise: MTLTexture?
-    let gradient: MTLTexture?
-    let noisePath: String
-    let gradientPath: String
-
-    func matches(_ plan: SceneLightShaftsExecutionPlan) -> Bool {
-        guard noise != nil,
-              normalized(noisePath) == normalized(plan.noiseTexturePath) else {
-            return false
-        }
-        return !plan.profile.requiresGradientTexture
-            || (
-                gradient != nil
-                    && normalized(gradientPath) == normalized(plan.gradientTexturePath)
-            )
-    }
-
-    private func normalized(_ path: String) -> String {
-        path.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
-}
-
     struct SceneEffectStageExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
@@ -680,7 +655,6 @@ struct SceneLightShaftsEffectTextures {
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
-        case lightShafts(SceneLightShaftsExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
@@ -720,7 +694,6 @@ struct SceneLightShaftsEffectTextures {
             case .workshopGradient: "workshop-gradient"
             case .workshopShadow: "workshop-shadow"
             case .proceduralNoise: "procedural-noise"
-            case .lightShafts: "light-shafts"
             case .shake: "shake"
             case .waterFlow: "water-flow"
             case .waterWaves: "water-waves"

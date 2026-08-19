@@ -204,7 +204,7 @@ extension SceneMetalRenderer {
                 desiredSize = geometry.pixelSize
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
-                      let model = lightShaftsModelMatrix(
+                      let model = directDrawModelMatrix(
                           for: layer,
                           worldFramesByLayerID: worldFramesByLayerID,
                           parallaxMouseNormalized:
@@ -343,7 +343,7 @@ extension SceneMetalRenderer {
                 capturesMainTarget = true
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
-                      let directDrawModel = lightShaftsModelMatrix(
+                      let directDrawModel = directDrawModelMatrix(
                           for: layer,
                           worldFramesByLayerID: worldFramesByLayerID,
                           parallaxMouseNormalized:

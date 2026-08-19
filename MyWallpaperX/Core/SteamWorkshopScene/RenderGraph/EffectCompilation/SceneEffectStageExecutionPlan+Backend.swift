@@ -11,7 +11,6 @@ extension SceneEffectStageExecutionPlan {
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
-        case lightShafts(SceneLightShaftsExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
@@ -144,11 +143,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var proceduralNoise: SceneProceduralNoiseExecutionPlan? {
         guard case .proceduralNoise(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var lightShafts: SceneLightShaftsExecutionPlan? {
-        guard case .lightShafts(let plan) = backend else { return nil }
         return plan
     }
 
