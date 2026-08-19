@@ -726,7 +726,8 @@ private func logicalTargetDescriptor(
 private func fullFrameComposeGraph(
     compose: SceneJSONValue? = .bool(true),
     includeHistory: Bool = false,
-    includeThirdNode: Bool = false
+    includeThirdNode: Bool = false,
+    validThirdNode: Bool = false
 ) -> Graph {
     let graphInput = source()
     let graphOutput = output(firstKey)
@@ -755,7 +756,11 @@ private func fullFrameComposeGraph(
     }
     var nodes = [
         node(0, compose: compose),
-        node(1, compose: nil, bindings: includeHistory ? [binding(history)] : []),
+        node(
+            1,
+            compose: validThirdNode ? .bool(true) : nil,
+            bindings: includeHistory ? [binding(history)] : []
+        ),
     ]
     if includeThirdNode {
         nodes.append(node(2, compose: nil))
@@ -1695,11 +1700,11 @@ private func admissionRejects(
     return failure.code == reason
 }
 
-private func dynamicTarget() -> SceneDynamicTarget {
+private func dynamicTarget(passIndex: Int = 0) -> SceneDynamicTarget {
     .effectConstant(
         layerID: layerID,
         effectIndex: firstKey.effectIndex,
-        passIndex: 0,
+        passIndex: passIndex,
         name: "strength"
     )
 }
@@ -1707,12 +1712,13 @@ private func dynamicTarget() -> SceneDynamicTarget {
 private func dynamicUniform(
     contributors: [Template.DynamicUniformSource],
     attachments: [Template.DynamicUniformScriptAttachment] = [],
-    hasAuthoredFallback: Bool = true
+    hasAuthoredFallback: Bool = true,
+    passIndex: Int = 0
 ) -> Template.UniformDeclaration {
     .init(
         name: "strength",
         value: .dynamic(.init(
-            target: dynamicTarget(),
+            target: dynamicTarget(passIndex: passIndex),
             valueContributors: contributors,
             scriptAttachments: attachments,
             authoredFallback: hasAuthoredFallback ? .init() : nil
@@ -2376,6 +2382,28 @@ private enum Harness {
         let composeFailureCapability = composeFailureCatalog
             .claim(layerID: layerID)
             .flatMap { composeFailureCatalog.resolve($0.token) }
+        let composeSecondNodeFailureCatalog = catalog(
+            descriptor: fullFrameComposeDescriptor(),
+            graphs: [composeFailureGraph],
+            materials: materialCatalog(
+                graph: composeFailureGraph,
+                uniformsByNode: [1: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("strength-property")],
+                    passIndex: 1
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget(passIndex: 1)
+                )],
+                timelineTargets: [dynamicTarget(passIndex: 1)],
+                sceneScriptTargets: []
+            )
+        )
+        let composeSecondNodeFailureCapability = composeSecondNodeFailureCatalog
+            .claim(layerID: layerID)
+            .flatMap { composeSecondNodeFailureCatalog.resolve($0.token) }
         let historyComposeFailureGraph = fullFrameComposeGraph(includeHistory: true)
         let historyComposeFailureCatalog = catalog(
             descriptor: fullFrameComposeDescriptor(),
@@ -2871,6 +2899,31 @@ private enum Harness {
             descriptor: fullFrameComposeDescriptor(passCount: 3),
             allowDedicated: true
         )
+        let validThreeNodeComposeGraph = fullFrameComposeGraph(
+            includeThirdNode: true,
+            validThirdNode: true
+        )
+        let validThreeNodeComposeCatalog = catalog(
+            descriptor: fullFrameComposeDescriptor(passCount: 3),
+            graphs: [validThreeNodeComposeGraph],
+            materials: materialCatalog(
+                graph: validThreeNodeComposeGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("strength-property")]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget()
+                )],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
+        let validThreeNodeComposeCapability = validThreeNodeComposeCatalog
+            .claim(layerID: layerID)
+            .flatMap { validThreeNodeComposeCatalog.resolve($0.token) }
         let fullFrameComposeCapability = admittedComposeCatalog
             .claim(layerID: layerID)
             .flatMap { admittedComposeCatalog.resolve($0.token) }
@@ -3051,6 +3104,18 @@ private enum Harness {
                             + " reason=material-dynamic-uniform-contributor-policy"
                             + " count=1"
                     },
+                "multipleProducerSecondNodePassthrough":
+                    composeSecondNodeFailureCapability?.stages.first?
+                        .visualFailureReasonCode
+                        == "material-dynamic-uniform-contributor-policy",
+                "validThreeNodeComposePassthrough":
+                    validThreeNodeComposeCapability?.stages.first?
+                        .visualFailureReasonCode
+                        == "material-dynamic-uniform-contributor-policy"
+                    && validThreeNodeComposeCapability?.pairPlan.effects.first?
+                        .nodes.count == 3
+                    && validThreeNodeComposeCapability?.pairPlan.effects.first?
+                        .composeTransitionCount == 2,
                 "multipleProducerHistoryComposeRemainsHard": reportHas(
                     historyComposeFailureCatalog,
                     "material-dynamic-uniform-contributor-policy"
@@ -3577,12 +3642,21 @@ struct SceneGraphClearFunctionRegistry {
 }
 
 struct SceneLayerFullFramePairPlan {
+    enum NodeKind { case material }
+
+    struct NodeStep {
+        let nodeIndex: Int
+        let definitionPassIndex: Int
+        let kind: NodeKind
+    }
+
     struct EffectStep {
         let effect: SceneAuthoredEffectRenderPlan.EffectKey
         let composeTransitionCount: Int
         let fullFrameOutputWriteCount: Int
         let inputMember: Int
         let outputMember: Int
+        let nodes: [NodeStep]
     }
 
     let baseCaptureIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity
@@ -6753,6 +6827,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "multipleProducerPairLeafCounted": True,
                 "multipleProducerComposeEffectPassthrough": True,
                 "multipleProducerComposeEffectCounted": True,
+                "multipleProducerSecondNodePassthrough": True,
+                "validThreeNodeComposePassthrough": True,
                 "multipleProducerHistoryComposeRemainsHard": True,
                 "multipleProducerMalformedComposeRemainsHard": True,
                 "multipleProducerMissingNonLeafRemainsRejected": True,

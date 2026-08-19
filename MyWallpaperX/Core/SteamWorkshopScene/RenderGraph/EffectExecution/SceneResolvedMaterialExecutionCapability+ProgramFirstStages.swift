@@ -314,6 +314,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               let pairStep = pairPlan.effects.first(where: {
                   $0.effect == effect.key
               }),
+              pairStep.nodes.count == product.graph.nodes.count,
               pairStep.fullFrameOutputWriteCount == product.graph.nodes.count,
               (pairStep.inputMember == pairStep.outputMember)
                 == product.graph.nodes.count.isMultiple(of: 2) else { return false }
@@ -331,14 +332,23 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               pairStep.composeTransitionCount
                 == max(0, product.graph.nodes.count - 1) else { return false }
 
-        return product.graph.nodes.allSatisfy { node in
-            node.effect == effect.key
-                && node.kind == .material
-                && node.target == effect.output
-                && node.commandSource == nil
-                && node.commandTarget == nil
-                && node.bindings.allSatisfy({ $0.texture == effect.input })
+        let ordinals = product.graph.nodes.compactMap(\.materialOrdinal)
+        guard ordinals.count == product.graph.nodes.count,
+              zip(ordinals, ordinals.dropFirst()).allSatisfy({ $0 < $1 }) else {
+            return false
         }
+        for (node, pairNode) in zip(product.graph.nodes, pairStep.nodes) {
+            guard node.effect == effect.key,
+                  node.kind == .material,
+                  node.target == effect.output,
+                  node.commandSource == nil,
+                  node.commandTarget == nil,
+                  node.bindings.allSatisfy({ $0.texture == effect.input }),
+                  pairNode.nodeIndex == node.nodeIndex,
+                  pairNode.definitionPassIndex == node.definitionPassIndex,
+                  pairNode.kind == .material else { return false }
+        }
+        return true
     }
 
     /// Dedicated stages consume the same launch-scoped producer catalog as
