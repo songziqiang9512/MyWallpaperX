@@ -18,7 +18,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWaterFlowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneGodraysPipeline.swift",
     SOURCE_ROOT / "Effects/SceneGodraysPipeline+Encoding.swift",
-    SOURCE_ROOT / "Effects/SceneTintPipeline.swift",
 ]
 
 HARNESS = r'''
@@ -205,38 +204,6 @@ enum Harness {
         )
     }
 
-    static func tintAcceptsAuxiliaryMips(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneTintPipeline
-    ) -> Bool {
-        let source = texture(
-            device: device, format: .bgra8Unorm,
-            mipmapped: false, usage: .shaderRead
-        )
-        let target = texture(
-            device: device, format: .bgra8Unorm,
-            mipmapped: false, usage: .renderTarget
-        )
-        let mask = texture(
-            device: device, format: .r8Unorm,
-            mipmapped: true, usage: .shaderRead
-        )
-        let command = queue.makeCommandBuffer()!
-        let accepted = pipeline.encode(
-            source: source,
-            mask: mask,
-            target: target,
-            color: SIMD3(repeating: 1),
-            alpha: 1,
-            blendMode: 9,
-            commandBuffer: command
-        )
-        command.commit()
-        command.waitUntilCompleted()
-        return accepted && command.status == .completed
-    }
-
     static func godraysPlan() -> SceneGodraysPlan {
         .init(
             threshold: 0.5,
@@ -262,8 +229,7 @@ enum Harness {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
               let waterFlow = SceneWaterFlowPipeline(device: device),
-              let godrays = SceneGodraysPipeline(device: device),
-              let tint = SceneTintPipeline(device: device) else {
+              let godrays = SceneGodraysPipeline(device: device) else {
             print("SKIP")
             return
         }
@@ -279,9 +245,6 @@ enum Harness {
             ),
             "godraysMipmappedTargetRejected": godraysRejectsMipmappedTarget(
                 device: device, queue: queue, pipeline: godrays
-            ),
-            "tintAuxiliaryMips": tintAcceptsAuxiliaryMips(
-                device: device, queue: queue, pipeline: tint
             ),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -328,7 +291,6 @@ class SceneEffectAuxiliaryMipTests(unittest.TestCase):
                 {
                     "godraysAuxiliaryMips": True,
                     "godraysMipmappedTargetRejected": True,
-                    "tintAuxiliaryMips": True,
                     "waterFlowAuxiliaryMips": True,
                     "waterFlowMipmappedTargetRejected": True,
                 },

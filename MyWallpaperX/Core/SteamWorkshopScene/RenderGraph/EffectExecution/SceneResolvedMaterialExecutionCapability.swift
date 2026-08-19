@@ -151,6 +151,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
     private let ownerID = UUID()
     private let capabilitiesByLayerID: [Int: LayerCapability]
+    private let productAuthorityRejectionReasonsByLayerID: [Int: String]
     private let rejectedReasons: [String: Int]
     private let visualFailurePassthroughReasons: [String: Int]
     private let candidateCount: Int
@@ -174,12 +175,16 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         candidateCount = admissionCandidates.count
         variantLimit = maximumVariantsPerMaterial
         var accepted: [Int: LayerCapability] = [:]
+        var productAuthorityRejectedByLayerID: [Int: String] = [:]
         var rejected: [String: Int] = [:]
         var passthroughs: [String: Int] = [:]
         for candidate in admissionCandidates {
             switch candidate.result {
             case let .failure(failure):
                 rejected[failure.code, default: 0] += 1
+                if failure.code == "material-generic-owner-revoked" {
+                    productAuthorityRejectedByLayerID[candidate.layerID] = failure.code
+                }
             case let .success(admitted):
                 switch Self.compileProgramFirstStages(
                     admitted,
@@ -198,6 +203,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 ) {
                 case let .failure(failure):
                     rejected[failure.code, default: 0] += 1
+                    if failure.code == "material-generic-owner-revoked" {
+                        productAuthorityRejectedByLayerID[candidate.layerID] = failure.code
+                    }
                 case let .success(compiled):
                     accepted[candidate.layerID] = .init(
                         admitted: admitted,
@@ -205,6 +213,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                         materials: compiled.materials,
                         sceneBackgroundRequirement:
                             compiled.sceneBackgroundRequirement
+                    )
+                    productAuthorityRejectedByLayerID.removeValue(
+                        forKey: candidate.layerID
                     )
                     for reason in compiled.stages.compactMap(
                         \.visualFailureReasonCode
@@ -215,6 +226,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             }
         }
         capabilitiesByLayerID = accepted
+        productAuthorityRejectionReasonsByLayerID =
+            productAuthorityRejectedByLayerID
         rejectedReasons = rejected
         visualFailurePassthroughReasons = passthroughs
     }
@@ -229,6 +242,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             ),
             layerID: layerID
         )
+    }
+
+    func productAuthorityRejectionReason(layerID: Int) -> String? {
+        productAuthorityRejectionReasonsByLayerID[layerID]
     }
 
     func resolve(_ token: Token) -> LayerCapability? {

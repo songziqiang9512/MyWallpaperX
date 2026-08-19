@@ -63,14 +63,6 @@ enum SceneEffectStageRenderer {
                 localContrastPipeline: localContrastPipeline,
                 commandBuffer: commandBuffer
             )
-        case .opacity(let opacity):
-            guard let opacityPipeline = pipelines.opacity else { return nil }
-            return renderOpacity(
-                opacity, stage: stage, sourceTexture: sourceTexture, masks: masks,
-targets: targets, dynamicValues: dynamicValues,
-                sourceUniforms: sourceUniforms, pipeline: pipeline,
-                opacityPipeline: opacityPipeline, commandBuffer: commandBuffer
-            )
         case .colorGrading:
             return renderColorStage(
                 stage, sourceTexture: sourceTexture, masks: masks,
@@ -117,19 +109,11 @@ targets: targets,
                 time: time,
                 commandBuffer: commandBuffer
             )
-        case .filmGrain(let filmGrain):
-            guard let filmGrainPipeline = pipelines.filmGrain else { return nil }
-            return renderFilmGrain(
-                filmGrain, sourceTexture: sourceTexture, masks: masks,
-                targets: targets, sourceUniforms: sourceUniforms, pipeline: pipeline,
-                filmGrainPipeline: filmGrainPipeline, time: time,
-                commandBuffer: commandBuffer
-            )
         case .lightShafts:
             return nil
         case .shake, .waterFlow, .waterWaves, .waterCaustics,
              .cursorRipple, .waterRipple, .depthParallax,
-             .xRay, .blend, .tint, .transform,
+             .xRay, .blend, .transform,
              .godrays, .shine, .pulse:
             return renderSpecializedStage(
                 stage, sourceTexture: sourceTexture, masks: masks,

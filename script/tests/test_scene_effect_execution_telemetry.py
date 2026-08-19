@@ -66,19 +66,19 @@ enum Harness {
             layerID: 7, effectIndex: 2, descriptorID: "descriptor A"
         )
         failureThenSuccess.recordExact(
-            identity: identityA, origin: .image, family: "Tint Family",
+            identity: identityA, origin: .image, family: "Program Family",
             backend: "program", outcome: .failed(reasonCode: "pipeline-missing")
         )
         failureThenSuccess.recordExact(
-            identity: identityA, origin: .image, family: "Tint Family",
+            identity: identityA, origin: .image, family: "Program Family",
             backend: "program", outcome: .failed(reasonCode: "pipeline-missing")
         )
         failureThenSuccess.recordExact(
-            identity: identityA, origin: .image, family: "Tint Family",
+            identity: identityA, origin: .image, family: "Program Family",
             backend: "program", outcome: .encodedOutput
         )
         failureThenSuccess.recordExact(
-            identity: identityA, origin: .image, family: "Tint Family",
+            identity: identityA, origin: .image, family: "Program Family",
             backend: "program", outcome: .encodedOutput
         )
 
@@ -87,12 +87,12 @@ enum Harness {
             layerID: 8, effectIndex: 5, descriptorID: "descriptor-B"
         )
         successThenFailure.recordExact(
-            identity: identityB, origin: .text, family: "Opacity",
-            backend: "dedicated", outcome: .encodedOutput
+            identity: identityB, origin: .text, family: "Standard Blur",
+            backend: "standard-blur", outcome: .encodedOutput
         )
         successThenFailure.recordExact(
-            identity: identityB, origin: .text, family: "Opacity",
-            backend: "dedicated", outcome: .failed(reasonCode: "late-failure")
+            identity: identityB, origin: .text, family: "Standard Blur",
+            backend: "standard-blur", outcome: .failed(reasonCode: "late-failure")
         )
 
         let concurrentDuplicates = telemetry.makeFrame(frameIndex: 3)
@@ -192,7 +192,7 @@ enum Harness {
                 identity: SceneEffectExecutionIdentity(
                     layerID: 400, effectIndex: 6, descriptorID: "metal-completion"
                 ),
-                origin: .solid, family: "Opacity", backend: "program",
+                origin: .solid, family: "Resolved Material", backend: "program",
                 outcome: .encodedOutput
             )
             realObserved = metalTelemetry.observeSharedCommandBuffer(
@@ -355,7 +355,7 @@ class SceneEffectExecutionTelemetryTests(unittest.TestCase):
             re.compile(
                 r"^MWX DEBUG SCENE: schema=1 axis=effect-cpu-invocation "
                 r"frame=1 origin=image subject=effect layer=7 effect=2 "
-                r"descriptor=descriptor%20A family=Tint%20Family "
+                r"descriptor=descriptor%20A family=Program%20Family "
                 r"backend=program outcome=failed reason=pipeline-missing$"
             ),
         )

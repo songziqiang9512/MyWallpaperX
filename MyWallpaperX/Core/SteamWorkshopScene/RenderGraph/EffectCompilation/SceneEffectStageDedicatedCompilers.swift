@@ -97,11 +97,6 @@ extension SceneAuthoredLocalContrastPlanner: SceneEffectStageGraphCandidatePlann
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .localContrast }
 }
 
-extension SceneAuthoredOpacityPlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneOpacityExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .opacity }
-}
-
 extension SceneAuthoredColorGradingPlanner: SceneEffectStageDedicatedPlanner {
     typealias DedicatedPlan = SceneColorGradingExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorGrading }
@@ -134,11 +129,6 @@ extension SceneAuthoredWorkshopShadowPlanner: SceneEffectStageGraphCandidatePlan
 extension SceneAuthoredProceduralNoisePlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }
-}
-
-extension SceneAuthoredFilmGrainPlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneFilmGrainExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .filmGrain }
 }
 
 extension SceneAuthoredLightShaftsPlanner: SceneEffectStageGraphCandidatePlanner {
@@ -189,15 +179,6 @@ extension SceneAuthoredXRayPlanner: SceneEffectStageGraphCandidatePlanner {
 extension SceneAuthoredBlendPlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneBlendExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .blend }
-}
-
-extension SceneAuthoredTintPlanner: SceneEffectStageDedicatedPlanner {
-    typealias DedicatedPlan = SceneTintExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .tint }
-
-    nonisolated static func isCandidate(_ input: SceneEffectStageCompileInput) -> Bool {
-        containsCandidate(graph: input.stageGraph, descriptor: input.descriptor)
-    }
 }
 
 extension SceneAuthoredTransformPlanner: SceneEffectStageGraphCandidatePlanner {

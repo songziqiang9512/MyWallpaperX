@@ -297,7 +297,6 @@ struct SceneCursorRippleExecutionPlan {
 struct SceneDepthParallaxExecutionPlan {}
 struct SceneXRayExecutionPlan {}
 
-struct SceneOpacityExecutionPlan {}
 struct SceneProceduralNoiseExecutionPlan {
     enum Variant { case colorPerlinRGB, worleyColorV1 }
 
@@ -322,7 +321,6 @@ struct SceneEffectStageExecutionPlan {
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
     let cursorRipple: SceneCursorRippleExecutionPlan?
-    let opacity: SceneOpacityExecutionPlan?
     var depthParallax: SceneDepthParallaxExecutionPlan? = nil
     var xRay: SceneXRayExecutionPlan? = nil
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil
@@ -333,7 +331,7 @@ struct SceneEffectStageExecutionPlan {
     var supportsUtilityCapture = true
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
     var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
-    var workshopAudioBars: SceneOpacityExecutionPlan? { nil }
+    var workshopAudioBars: HarnessDedicatedAudioExecutionPlan? { nil }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
@@ -1203,10 +1201,9 @@ private func externalResolvedMaterialCatalog(
             graph: graph,
             effectIndex: 1,
             inputRole: .priorEffectOutput,
-            opacity: true,
             supportsUtilityCapture: true
         ))
-        families[secondKey] = "opacity"
+        families[secondKey] = "fixture-dedicated"
         leafKeys.insert(secondKey)
     }
     let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
@@ -1404,7 +1401,6 @@ private func dedicatedProgram(
     graph: Graph,
     effectIndex: Int,
     inputRole: SceneAuthoredEffectInputRole,
-    opacity: Bool = false,
     proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil,
     logicalTargetStage: Bool = false,
     fullFrameComposeStage: Bool = false,
@@ -1430,7 +1426,6 @@ private func dedicatedProgram(
                 ? stageGraph.renderTargets.count : 0,
             inputRole: inputRole,
             cursorRipple: nil,
-            opacity: opacity ? .init() : nil,
             proceduralNoise: proceduralNoise,
             supportsUnifiedLogicalTargetStage: logicalTargetStage,
             supportsUnifiedFullFrameComposeStage: fullFrameComposeStage,
@@ -1810,16 +1805,16 @@ private enum Harness {
         let resolvedMaterialOpacityGraph = externalResolvedMaterialGraph(
             includeOpacity: true
         )
-        let utilityResolvedMaterialOpacity = externalResolvedMaterialCatalog(
+        let utilityResolvedMaterialAdapter = externalResolvedMaterialCatalog(
             descriptor: externalResolvedMaterialDescriptor(
                 utilityConsumer: true,
                 includeOpacity: true
             ),
             graph: resolvedMaterialOpacityGraph
         )
-        let utilityResolvedMaterialOpacityCapability = utilityResolvedMaterialOpacity
+        let utilityResolvedMaterialAdapterCapability = utilityResolvedMaterialAdapter
             .claim(layerID: layerID)
-            .flatMap { utilityResolvedMaterialOpacity.resolve($0.token) }
+            .flatMap { utilityResolvedMaterialAdapter.resolve($0.token) }
         let secondaryExternalResolvedMaterial = externalResolvedMaterialCatalog(
             descriptor: externalResolvedMaterialDescriptor(references: [namedReference(
                 effectID: firstKey.descriptorID,
@@ -2096,7 +2091,6 @@ private enum Harness {
                     graph: utilityPairGraph,
                     effectIndex: 1,
                     inputRole: .priorEffectOutput,
-                    opacity: true,
                     supportsUtilityCapture: true
                 )]
             )
@@ -2106,7 +2100,7 @@ private enum Harness {
                 graph: utilityPairGraph,
                 omitNode: 1
             ),
-            dedicatedStageFamilies: [secondKey: "opacity"],
+            dedicatedStageFamilies: [secondKey: "fixture-dedicated"],
             dedicatedLeafKeys: [secondKey]
         )
         let utilityAdapterCapability = utilityAdapterCatalog.claim(layerID: layerID)
@@ -2118,8 +2112,7 @@ private enum Harness {
                 dedicatedStagePrograms: [dedicatedProgram(
                     graph: utilityPairGraph,
                     effectIndex: 1,
-                    inputRole: .priorEffectOutput,
-                    opacity: true
+                    inputRole: .priorEffectOutput
                 )]
             )
         let downstreamUtilityAdapterCatalog = Catalog(
@@ -2128,7 +2121,7 @@ private enum Harness {
                 graph: utilityPairGraph,
                 omitNode: 1
             ),
-            dedicatedStageFamilies: [secondKey: "opacity"],
+            dedicatedStageFamilies: [secondKey: "fixture-dedicated"],
             dedicatedLeafKeys: [secondKey]
         )
         let resolvedUtilityChainCatalog = catalog(
@@ -2642,8 +2635,7 @@ private enum Harness {
                 dedicatedStagePrograms: [dedicatedProgram(
                     graph: pairGraph,
                     effectIndex: 1,
-                    inputRole: .priorEffectOutput,
-                    opacity: true
+                    inputRole: .priorEffectOutput
                 )]
             )
         let resolvedBeforeDedicatedCatalog = Catalog(
@@ -2888,7 +2880,7 @@ private enum Harness {
                 }) ?? "",
                 "externalUtilityRoute": utilityExternalResolvedMaterialCapability?
                     .sourceRoute == .capturedMainTargetTexture,
-                "externalUtilityStages": utilityResolvedMaterialOpacityCapability?
+                "externalUtilityStages": utilityResolvedMaterialAdapterCapability?
                     .stages.count == 2,
                 "externalProcedural": externalProceduralCapability.map {
                     capability in
@@ -3278,7 +3270,7 @@ private enum Harness {
                     let subjects = capability.stages.compactMap(\.subject)
                     return capability.sourceRoute == .capturedMainTargetTexture
                         && subjects.map(\.key) == [firstKey, secondKey]
-                        && subjects.map(\.family) == ["resolved-material", "opacity"]
+                        && subjects.map(\.family) == ["resolved-material", "fixture-dedicated"]
                         && capability.stages.count == 2
                         && capability.materials.keys.allSatisfy {
                             $0.effect == firstKey
@@ -3429,7 +3421,6 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
     }
 }
 
-struct SceneOpacityExecutionPlan {}
 struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
@@ -3454,7 +3445,6 @@ struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 
 struct SceneEffectStageExecutionPlan {
     let logicalRenderTargetCount: Int
-    let opacity: SceneOpacityExecutionPlan?
     var layerID: Int { 0 }
     var materialNodeCount: Int { 0 }
     var cursorRipple: SceneCursorRippleExecutionPlan? = nil
@@ -3469,7 +3459,7 @@ struct SceneEffectStageExecutionPlan {
     var supportsUtilityCapture = true
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
     var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
-    var workshopAudioBars: SceneOpacityExecutionPlan? { nil }
+    var workshopAudioBars: HarnessDedicatedAudioExecutionPlan? { nil }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
@@ -4269,7 +4259,6 @@ private func dedicatedCatalog(
         stageGraph: graph,
         executionPlan: .init(
             logicalRenderTargetCount: 0,
-            opacity: pointerSensitive ? nil : .init(),
             cursorRipple: pointerSensitive
                 ? .init(effectKey: effectKey) : nil
         )
@@ -6099,7 +6088,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         logical_body = source[logical_start:logical_end]
 
         for backend_name in (
-            ".blend", ".filmGrain", ".waterFlow", ".waterWaves",
+            ".blend", ".waterFlow", ".waterWaves",
             ".waterCaustics", ".waterRipple",
             ".depthParallax", ".xRay", ".pulse",
         ):
@@ -6116,7 +6105,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertNotIn(".spin", source)
         self.assertIn(".workshopAudioBars", leaf_body)
         self.assertNotIn("fisheyeZeroDistortion", leaf_body)
-        self.assertIn("case filmGrain(SceneFilmGrainExecutionPlan)", source)
         self.assertIn("case .preciseGaussian:", logical_body)
         self.assertIn("case .standardBlur:", logical_body)
         self.assertIn("case .localContrast:", logical_body)

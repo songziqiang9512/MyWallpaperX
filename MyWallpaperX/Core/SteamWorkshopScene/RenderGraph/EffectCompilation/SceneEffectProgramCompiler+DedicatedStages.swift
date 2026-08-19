@@ -71,11 +71,6 @@ extension SceneEffectProgramCompiler {
                     )
                 }
             }),
-            (.opacity, {
-                SceneAuthoredOpacityPlanner.compile(input).mapAccepted {
-                    stage(.opacity($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.colorGrading, {
                 SceneAuthoredColorGradingPlanner.compile(input).mapAccepted {
                     stage(.colorGrading($0), stageGraph: stageGraph, inputRole: inputRole)
@@ -104,11 +99,6 @@ extension SceneEffectProgramCompiler {
             (.proceduralNoise, {
                 SceneAuthoredProceduralNoisePlanner.compile(input).mapAccepted {
                     stage(.proceduralNoise($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
-            (.filmGrain, {
-                SceneAuthoredFilmGrainPlanner.compile(input).mapAccepted {
-                    stage(.filmGrain($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
             (.lightShafts, {
@@ -165,11 +155,6 @@ extension SceneEffectProgramCompiler {
             (.blend, {
                 SceneAuthoredBlendPlanner.compile(input).mapAccepted {
                     stage(.blend($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
-            (.tint, {
-                SceneAuthoredTintPlanner.compile(input).mapAccepted {
-                    stage(.tint($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
             (.transform, {

@@ -132,11 +132,8 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertNotIn("supportsCompleteAuthoredCapture", runtime_plan)
         self.assertNotIn("partialEffects", runtime_plan)
         backend = BACKEND_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            "case .opacity:",
-            backend,
-            "static/direct opacity must admit utility capture",
-        )
+        self.assertIn("case .colorGrading:", backend)
+        self.assertIn("case .standardBlur:", backend)
         self.assertIn("case .proceduralNoise(let plan):", backend)
         for contract in (
             "plan.variant == .worleyColorV1",

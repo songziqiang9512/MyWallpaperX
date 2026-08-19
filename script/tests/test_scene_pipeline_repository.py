@@ -41,7 +41,6 @@ final class Counter {
 final class SceneGaussianBlurPipeline { init?(device: MTLDevice) {} }
 final class SceneStandardBlurPipeline { init?(device: MTLDevice) {} }
 final class SceneLocalContrastPipeline { init?(device: MTLDevice) {} }
-final class SceneOpacityPipeline { init?(device: MTLDevice) {} }
 final class SceneColorKeyPipeline { init?(device: MTLDevice) {} }
 final class SceneColorGradingPipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopShiftHuePipeline { init?(device: MTLDevice) {} }
@@ -49,11 +48,9 @@ final class SceneWorkshopAudioBarsPipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopGradientPipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopShadowPipeline { init?(device: MTLDevice) {} }
 final class SceneProceduralNoisePipeline { init?(device: MTLDevice) {} }
-final class SceneFilmGrainPipeline { init?(device: MTLDevice) {} }
 final class SceneLightShaftsPipeline { init?(device: MTLDevice) {} }
 final class SceneSpotLightPipeline { init?(device: MTLDevice) {} }
 final class SceneShakePipeline { init?(device: MTLDevice) {} }
-final class SceneWaterFlowPipeline { init?(device: MTLDevice) {} }
 final class SceneWaterWavesPipeline { init?(device: MTLDevice) {} }
 final class SceneWaterCausticsPipeline { init?(device: MTLDevice) {} }
 final class SceneCursorRipplePipeline { init?(device: MTLDevice) {} }
@@ -64,7 +61,7 @@ final class SceneBlendPipeline { init?(device: MTLDevice) {} }
 final class ScenePulsePipeline { init?(device: MTLDevice) {} }
 final class SceneShinePipeline { init?(device: MTLDevice) {} }
 
-final class SceneTintPipeline {
+final class SceneWaterFlowPipeline {
     static let attempts = Counter()
     let deviceRegistryID: UInt64
 
@@ -85,21 +82,21 @@ final class SceneGodraysPipeline {
 
 @main
 enum Harness {
-    static func concurrentTint(
+    static func concurrentWaterFlow(
         _ repository: SceneImageEffectPipelineRepository,
         count: Int
-    ) -> [SceneTintPipeline] {
+    ) -> [SceneWaterFlowPipeline] {
         let queue = DispatchQueue(
-            label: "scene.pipeline.repository.tint",
+            label: "scene.pipeline.repository.water-flow",
             attributes: .concurrent
         )
         let group = DispatchGroup()
         let lock = NSLock()
-        var values: [SceneTintPipeline] = []
+        var values: [SceneWaterFlowPipeline] = []
         for _ in 0..<count {
             group.enter()
             queue.async {
-                if let value = repository.tint() {
+                if let value = repository.waterFlow() {
                     lock.lock()
                     values.append(value)
                     lock.unlock()
@@ -140,19 +137,19 @@ enum Harness {
         }
         let first = SceneImageEffectPipelineRepository(device: device)
         let second = SceneImageEffectPipelineRepository(device: device)
-        let attemptsAfterConstruction = SceneTintPipeline.attempts.read()
+        let attemptsAfterConstruction = SceneWaterFlowPipeline.attempts.read()
             + SceneGodraysPipeline.attempts.read()
 
-        let firstValues = concurrentTint(first, count: 128)
+        let firstValues = concurrentWaterFlow(first, count: 128)
         let firstIDs = Set(firstValues.map(ObjectIdentifier.init))
         let failedSuccesses = concurrentFailure(first, count: 128)
-        _ = second.tint()
+        _ = second.waterFlow()
 
         let result: [String: Any] = [
             "attemptsAfterConstruction": attemptsAfterConstruction,
-            "firstTintValueCount": firstValues.count,
-            "firstTintIdentityCount": firstIDs.count,
-            "tintAttemptsAcrossTwoRepositories": SceneTintPipeline.attempts.read(),
+            "firstWaterFlowValueCount": firstValues.count,
+            "firstWaterFlowIdentityCount": firstIDs.count,
+            "waterFlowAttemptsAcrossTwoRepositories": SceneWaterFlowPipeline.attempts.read(),
             "failedSuccesses": failedSuccesses,
             "failedAttempts": SceneGodraysPipeline.attempts.read(),
             "deviceMatches": firstValues.allSatisfy {
@@ -200,9 +197,9 @@ class ScenePipelineRepositoryTests(unittest.TestCase):
             result = json.loads(completed.stdout)
 
         self.assertEqual(result["attemptsAfterConstruction"], 0)
-        self.assertEqual(result["firstTintValueCount"], 128)
-        self.assertEqual(result["firstTintIdentityCount"], 1)
-        self.assertEqual(result["tintAttemptsAcrossTwoRepositories"], 2)
+        self.assertEqual(result["firstWaterFlowValueCount"], 128)
+        self.assertEqual(result["firstWaterFlowIdentityCount"], 1)
+        self.assertEqual(result["waterFlowAttemptsAcrossTwoRepositories"], 2)
         self.assertEqual(result["failedSuccesses"], 0)
         self.assertEqual(result["failedAttempts"], 1)
         self.assertTrue(result["deviceMatches"])

@@ -9,7 +9,6 @@ enum SceneLayerEffectTextureLoader {
         device: MTLDevice,
         blendEffectIDs: Set<String> = [],
         shakeEffectIDs: Set<String> = [],
-        filmGrainEffectIDs: Set<String> = [],
         standardBlurEffectIDs: Set<String> = [],
         lightShaftsEffectIDs: Set<String> = [],
         waterFlowEffectIDs: Set<String> = [],
@@ -18,7 +17,6 @@ enum SceneLayerEffectTextureLoader {
         waterRippleEffectIDs: Set<String> = [],
         depthParallaxEffectIDs: Set<String> = [],
         cursorRippleEffectIDs: Set<String> = [],
-        tintEffectIDs: Set<String> = [],
         godraysEffectIDs: Set<String> = [],
         shineEffectIDs: Set<String> = [],
         userPropertyTextures: [String: MTLTexture] = [:],
@@ -36,13 +34,6 @@ enum SceneLayerEffectTextureLoader {
         let shake = SceneShakeEffectTextureLoader.load(
             for: layer,
             effectIDs: shakeEffectIDs,
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
-        let filmGrain = SceneFilmGrainEffectTextureLoader.load(
-            for: layer,
-            effectIDs: filmGrainEffectIDs,
             resolver: resolver,
             loader: loader,
             device: device
@@ -111,21 +102,8 @@ enum SceneLayerEffectTextureLoader {
             straightAlbedoUserPropertyTextures: straightAlbedoUserPropertyTextures,
             preservedUserPropertyTextures: preservedUserPropertyTextures
         )
-        let opacityEffects = SceneOpacityEffectTextureLoader.load(
-            for: layer,
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
         let pulseEffects = ScenePulseEffectTextureLoader.load(
             for: layer,
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
-        let tintEffects = SceneTintEffectTextureLoader.load(
-            for: layer,
-            effectIDs: tintEffectIDs,
             resolver: resolver,
             loader: loader,
             device: device
@@ -149,28 +127,24 @@ enum SceneLayerEffectTextureLoader {
             depthParallaxEffects: depthParallax.textures,
             blendEffects: blend.textures,
             shakeEffects: shake.textures,
-            filmGrainEffects: filmGrain.textures,
             standardBlurEffects: standardBlur.textures,
             lightShaftsEffects: lightShafts.textures,
             waterFlowEffects: waterFlow.textures,
             waterWavesEffects: waterWaves.textures,
             waterCausticsEffects: waterCaustics.textures,
             cursorRippleEffects: cursorRipple.textures,
-            opacityEffects: opacityEffects.textures,
             pulseEffects: pulseEffects.textures,
-            tintEffects: tintEffects.textures,
             godraysEffects: godraysEffects.textures,
             shineEffects: shineEffects.textures,
             xRay: xRay.textures,
             message: [
-                blend.message, shake.message, filmGrain.message,
+                blend.message, shake.message,
                 standardBlur.message,
                 lightShafts.message,
                 waterFlow.message, waterWaves.message, cursorRipple.message,
                 waterCaustics.message,
                 waterRipple.message, depthParallax.message,
-                opacityEffects.message,
-                pulseEffects.message, tintEffects.message, godraysEffects.message,
+                pulseEffects.message, godraysEffects.message,
                 shineEffects.message,
                 xRay.message,
             ].joined()

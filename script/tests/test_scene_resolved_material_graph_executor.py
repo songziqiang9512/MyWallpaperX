@@ -113,7 +113,7 @@ extension SceneEffectStageExecutionPlan {
     var blend: SceneBlendExecutionPlan? { nil }
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
     var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
-    var workshopAudioBars: SceneOpacityExecutionPlan? { nil }
+    var workshopAudioBars: HarnessDedicatedAudioExecutionPlan? { nil }
 }
 
 struct SceneEffectExactRuntimeSubject: Hashable {

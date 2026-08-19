@@ -56,8 +56,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
     SOURCE_ROOT / "Effects/SceneLocalContrastPipeline.swift",
     SOURCE_ROOT / "Effects/SceneLocalContrastRenderer.swift",
-    SOURCE_ROOT / "Effects/SceneOpacityPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneOpacityRenderer.swift",
     SOURCE_ROOT / "Effects/SceneColorGradingPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHuePipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHueRenderer.swift",
@@ -65,7 +63,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopGradientPipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline+Support.swift",
-    SOURCE_ROOT / "Effects/SceneFilmGrainPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
@@ -74,7 +71,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
     SOURCE_ROOT / "Rendering/SceneLayerColorBlendPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneTintPipeline.swift",
     SOURCE_ROOT / "Effects/ScenePulsePipeline.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurRuntimePlan.swift",
@@ -86,7 +82,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
     SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseExecutionPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneFilmGrainExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift",
     SOURCE_ROOT
@@ -95,15 +90,12 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterRipple.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Rays.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Opacity.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+AudioBars.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WorkshopGradient.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ColorGrading.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ShiftHue.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ProceduralNoise.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+FilmGrain.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Tint.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+XRay.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift",
@@ -566,32 +558,6 @@ struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
     let offset: SIMD2<Float>
 }
 
-struct SceneOpacityExecutionPlan: Equatable, Sendable {
-    let staticOrFallbackAlpha: Float
-    let liveEffectIndex: Int?
-    let maskTexturePath: String?
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-
-    init(
-        staticOrFallbackAlpha: Float,
-        liveEffectIndex: Int? = nil,
-        maskTexturePath: String? = nil,
-        effectKey: SceneAuthoredEffectRenderPlan.EffectKey = .init(
-            layerID: 0, effectIndex: 0, descriptorID: ""
-        )
-    ) {
-        self.staticOrFallbackAlpha = staticOrFallbackAlpha
-        self.liveEffectIndex = liveEffectIndex
-        self.maskTexturePath = maskTexturePath
-        self.effectKey = effectKey
-    }
-
-    func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
-        liveEffectIndex.flatMap { snapshot.opacitiesByEffectIndex[$0] }
-            ?? staticOrFallbackAlpha
-    }
-}
-
 struct SceneColorGradingExecutionPlan: Sendable {
     let luminance: Float
     let saturation: Float
@@ -624,23 +590,6 @@ struct SceneWorkshopGradientExecutionPlan: Sendable {
 }
 
 struct SceneAuthoredShaderFrameInputs: Sendable {}
-
-// 与 SceneOpacityEffectTextureLoader.swift 里的同名结构保持一致的替身：那个文件还依赖
-// SceneTexturePathResolver/SceneTextureLoader，整条链拉进来会和本 harness 自带的
-// SceneRenderDescriptor 桩冲突，沿用本文件对 SceneShakeEffectTextures 等的同类做法。
-struct SceneOpacityEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let maskPath: String
-
-    func matches(_ plan: SceneOpacityExecutionPlan) -> Bool {
-        mask != nil && normalized(maskPath) == plan.maskTexturePath.map(normalized)
-    }
-
-    private func normalized(_ path: String) -> String {
-        path.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
-}
 
 enum SceneBlendShaderProfile {
     case singleTextureV1
@@ -725,14 +674,12 @@ struct SceneLightShaftsEffectTextures {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
-        case opacity(SceneOpacityExecutionPlan)
         case colorGrading(SceneColorGradingExecutionPlan)
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
-        case filmGrain(SceneFilmGrainExecutionPlan)
         case lightShafts(SceneLightShaftsExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
@@ -743,7 +690,6 @@ struct SceneLightShaftsEffectTextures {
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
-        case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
@@ -752,8 +698,7 @@ struct SceneLightShaftsEffectTextures {
         var supportsUnifiedPairLeaf: Bool {
             switch self {
             case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
-                 .workshopShadow,
-                 .filmGrain, .shake:
+                 .workshopShadow, .shake:
                 return true
             case .proceduralNoise(let plan):
                 return plan.variant == .worleyColorV1
@@ -769,14 +714,12 @@ struct SceneLightShaftsEffectTextures {
             case .preciseGaussian: "precise-gaussian"
             case .standardBlur: "standard-blur"
             case .localContrast: "local-contrast"
-            case .opacity: "opacity"
             case .colorGrading: "color-grading"
             case .workshopShiftHue: "workshop-shift-hue"
             case .workshopAudioBars: "workshop-audio-bars"
             case .workshopGradient: "workshop-gradient"
             case .workshopShadow: "workshop-shadow"
             case .proceduralNoise: "procedural-noise"
-            case .filmGrain: "film-grain"
             case .lightShafts: "light-shafts"
             case .shake: "shake"
             case .waterFlow: "water-flow"
@@ -787,7 +730,6 @@ struct SceneLightShaftsEffectTextures {
             case .depthParallax: "depth-parallax"
             case .xRay: "x-ray"
             case .blend: "blend"
-            case .tint: "tint"
             case .transform: "transform"
             case .pulse: "pulse"
             case .godrays: "godrays"
@@ -841,11 +783,6 @@ struct SceneLightShaftsEffectTextures {
 
     var shine: SceneShineExecutionPlan? {
         guard case .shine(let plan) = backend else { return nil }
-        return plan
-    }
-
-    var opacity: SceneOpacityExecutionPlan? {
-        guard case .opacity(let plan) = backend else { return nil }
         return plan
     }
 
@@ -947,10 +884,6 @@ struct SceneLightShaftsEffectTextures {
             ?? localContrast.staticOrFallbackStrength
     }
 
-    func opacityAlpha(in snapshot: SceneDynamicSnapshot) -> Float? {
-        opacity?.resolvedAlpha(in: snapshot)
-    }
-
 }
 
 struct SceneShakeExecutionPlan {
@@ -964,15 +897,6 @@ struct SceneShakeEffectTextures {
 
 struct SceneSpotLightPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-struct SceneFilmGrainEffectTextures {
-    let noise: MTLTexture?
-    let noisePath: String
-
-    func matches(_ plan: SceneFilmGrainExecutionPlan) -> Bool {
-        noise != nil && noisePath == plan.noiseTexturePath
-    }
 }
 
 struct SceneShakePipeline {
@@ -1181,40 +1105,6 @@ enum SceneWaterRippleRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         nil
-    }
-}
-
-struct SceneTintShaderProfile {
-    let maskMultipliesBlendAlpha: Bool
-
-    static let stock = SceneTintShaderProfile(maskMultipliesBlendAlpha: true)
-}
-
-struct SceneTintExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let shaderProfile: SceneTintShaderProfile
-    let blendMode: Int
-    let staticOrFallbackColor: SIMD3<Float>
-    let staticOrFallbackAlpha: Float
-    let maskTexturePath: String?
-
-    func resolvedColor(in snapshot: SceneDynamicSnapshot) -> SIMD3<Float> {
-        staticOrFallbackColor
-    }
-
-    func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
-        staticOrFallbackAlpha
-    }
-}
-
-struct SceneTintEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let maskPath: String?
-
-    func matches(_ plan: SceneTintExecutionPlan) -> Bool {
-        guard let planPath = plan.maskTexturePath else { return maskPath == nil }
-        return mask != nil && maskPath == planPath
     }
 }
 
@@ -2011,7 +1901,6 @@ enum Harness {
             queue: queue,
             pipeline: pipeline
         )
-        let filmGrain = try filmGrainEvidence(device: device, queue: queue)
         let baseColorCandidate = try baseColorCandidateEvidence(
             device: device,
             queue: queue,
@@ -2061,7 +1950,6 @@ enum Harness {
             "mappedMaskScale": [mappedMaskScale.x, mappedMaskScale.y],
             "decodedMappedScale": [decodedMappedScale.x, decodedMappedScale.y],
             "resolvedMaterialComposition": resolvedMaterialComposition,
-            "filmGrain": filmGrain,
             "baseColorCandidate": baseColorCandidate,
             "layerSourcePassthrough": layerSourcePassthrough,
             "gpuCompletionTelemetry": telemetryEvidence,
@@ -2124,101 +2012,6 @@ enum Harness {
             "commandBufferFailureObserved": snapshot.commandBufferFailureObserved,
             "reportedSuccess": snapshot.reportedSuccess,
             "reportedFailure": snapshot.reportedFailure,
-        ]
-    }
-
-    static func filmGrainEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue
-    ) throws -> [String: Any] {
-        let noiseDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm, width: 8, height: 8, mipmapped: false
-        )
-        noiseDescriptor.storageMode = .shared
-        noiseDescriptor.usage = .shaderRead
-        guard let pipeline = SceneFilmGrainPipeline(device: device),
-              let source = makeTexture(device: device, size: 8, usage: .shaderRead),
-              let noise = device.makeTexture(descriptor: noiseDescriptor),
-              let first = makeTexture(
-                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
-              ),
-              let second = makeTexture(
-                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
-              ) else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: [64, 96, 128, 200])
-        fillPixels(noise) { x, y in
-            [
-                UInt8(128 + ((x * 31 + y * 17) % 128)),
-                UInt8(128 + ((x * 13 + y * 47) % 128)),
-                UInt8(128 + ((x * 59 + y * 7) % 128)),
-                255,
-            ]
-        }
-        let graph = preciseBlurGraph()
-        let plan = SceneFilmGrainExecutionPlan(
-            layerID: graph.layerID,
-            effectKey: graph.effects[0].key,
-            renderGraph: graph,
-            scale: 12.75,
-            strength: 1.79,
-            exponent: 3.8,
-            blendMode: 14,
-            greyscale: false,
-            noiseTexturePath: "util/noise"
-        )
-        func render(_ target: MTLTexture, time: Float) throws -> [UInt8] {
-            guard let command = queue.makeCommandBuffer(),
-                  pipeline.encode(
-                      source: source,
-                      noise: noise,
-                      target: target,
-                      plan: plan,
-                      time: time,
-                      commandBuffer: command
-                  ) else {
-                throw HarnessError.drawRefused
-            }
-            command.commit()
-            command.waitUntilCompleted()
-            guard command.status == .completed else { throw HarnessError.commandFailed }
-            return try textureBytes(target, queue: queue)
-        }
-        let firstBytes = try render(first, time: 0)
-        let secondBytes = try render(second, time: 0.37)
-        let sourceBytes = try textureBytes(source, queue: queue)
-        let alphaPreserved = stride(from: 3, to: firstBytes.count, by: 4).allSatisfy {
-            firstBytes[$0] == sourceBytes[$0]
-        }
-        let changedRGB = stride(from: 0, to: firstBytes.count, by: 4).filter { offset in
-            firstBytes[offset..<(offset + 3)] != sourceBytes[offset..<(offset + 3)]
-        }.count
-        let animatedRGB = stride(from: 0, to: firstBytes.count, by: 4).filter { offset in
-            firstBytes[offset..<(offset + 3)] != secondBytes[offset..<(offset + 3)]
-        }.count
-        let invalidPlan = SceneFilmGrainExecutionPlan(
-            layerID: plan.layerID,
-            effectKey: plan.effectKey,
-            renderGraph: plan.renderGraph,
-            scale: plan.scale,
-            strength: plan.strength,
-            exponent: plan.exponent,
-            blendMode: 13,
-            greyscale: plan.greyscale,
-            noiseTexturePath: plan.noiseTexturePath
-        )
-        let invalidRejected = queue.makeCommandBuffer().map {
-            !pipeline.encode(
-                source: source, noise: noise, target: second,
-                plan: invalidPlan, time: 0, commandBuffer: $0
-            )
-        } ?? false
-        return [
-            "alphaPreserved": alphaPreserved,
-            "changedRGB": changedRGB,
-            "animatedRGB": animatedRGB,
-            "invalidRejected": invalidRejected,
         ]
     }
 
@@ -2548,9 +2341,7 @@ enum Harness {
             waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:],
             waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:],
             cursorRippleEffects: [String: SceneCursorRippleEffectTextures] = [:],
-            opacityEffects: [String: SceneOpacityEffectTextures] = [:],
             pulseEffects: [String: ScenePulseEffectTextures] = [:],
-            tintEffects: [String: SceneTintEffectTextures] = [:],
             godraysEffects: [String: SceneGodraysEffectTextures] = [:],
             shineEffects: [String: SceneShineEffectTextures] = [:],
             xRay: SceneXRayEffectTextures? = nil
@@ -2560,15 +2351,12 @@ enum Harness {
                 depthParallaxEffects: [:],
                 blendEffects: [:],
                 shakeEffects: shakeEffects,
-                filmGrainEffects: [:],
                 standardBlurEffects: standardBlurEffects,
                 waterFlowEffects: [:],
                 waterWavesEffects: waterWavesEffects,
                 waterCausticsEffects: waterCausticsEffects,
                 cursorRippleEffects: cursorRippleEffects,
-                opacityEffects: opacityEffects,
                 pulseEffects: pulseEffects,
-                tintEffects: tintEffects,
                 godraysEffects: godraysEffects,
                 shineEffects: shineEffects,
                 xRay: xRay
@@ -2851,6 +2639,12 @@ enum Harness {
                 claimRejectionReason: "fixture-claimed-route-rejected"
             )
         )
+        let localFallbackRouteCompositor = SceneImageLayerCompositor(
+            pipelineRepository: SceneImageEffectPipelineRepository(device: device),
+            resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge(
+                claimRejectionReason: "function-invocation-unknown-effect"
+            )
+        )
         let claimedGraph = xRayStage(layerID: 0).renderGraph
         let claimedPairPlan: SceneLayerFullFramePairPlan
         switch SceneLayerFullFramePairPlan.make(
@@ -2994,6 +2788,10 @@ enum Harness {
                 publication: exactCurrentMedia,
                 compositor: rejectedRouteCompositor
             ),
+            "localFallback": try run(
+                publication: exactCurrentMedia,
+                compositor: localFallbackRouteCompositor
+            ),
             "pulseAlphaOneMasked": try run(
                 publication: exactCurrentMedia,
                 layer: pulseLayer(combos: ["PULSEALPHA": 1]),
@@ -3091,22 +2889,6 @@ enum Harness {
                 masks: waterWavesMasks(),
                 blocksStaticLayerSourcePassthrough: true
             ),
-            "waterWavesWithOpacity": try run(
-                publication: exactStaticFile,
-                layer: waterWavesLayer(),
-                baseTextureCandidate: staticFileCandidate,
-                masks: masks(
-                    waterWavesEffects: waterWavesMasks().waterWavesEffects,
-                    opacityEffects: [
-                        "effects/waterwaves/effect.json":
-                            SceneOpacityEffectTextures(
-                                mask: dependency,
-                                maskUVScale: SIMD2(repeating: 1),
-                                maskPath: "fixture/mask"
-                            ),
-                    ]
-                )
-            ),
         ]
         let visibleEffectID = visibleUnsupportedEffect.id
         let maskedCases: [(String, SceneImageLayerMasks)] = [
@@ -3142,27 +2924,6 @@ enum Harness {
             ("cursorRipple", masks(cursorRippleEffects: [
                 visibleEffectID: SceneCursorRippleEffectTextures(
                     mask: dependency
-                ),
-            ])),
-            ("opacity", masks(opacityEffects: [
-                visibleEffectID: SceneOpacityEffectTextures(
-                    mask: dependency,
-                    maskUVScale: SIMD2(repeating: 1),
-                    maskPath: "fixture/mask"
-                ),
-            ])),
-            ("opacity-missing-texture", masks(opacityEffects: [
-                visibleEffectID: SceneOpacityEffectTextures(
-                    mask: nil,
-                    maskUVScale: SIMD2(repeating: 1),
-                    maskPath: "fixture/missing"
-                ),
-            ])),
-            ("tint", masks(tintEffects: [
-                visibleEffectID: SceneTintEffectTextures(
-                    mask: dependency,
-                    maskUVScale: SIMD2(repeating: 1),
-                    maskPath: "fixture/mask"
                 ),
             ])),
             ("godrays", masks(godraysEffects: [
@@ -4471,7 +4232,6 @@ enum Harness {
             depthParallaxEffects: [:],
             blendEffects: [:],
             shakeEffects: [:],
-            filmGrainEffects: [:],
             standardBlurEffects: [
                 descriptorID: SceneStandardBlurEffectTextures(
                     maskCandidate: candidate,
@@ -4482,9 +4242,7 @@ enum Harness {
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
             cursorRippleEffects: [:],
-            opacityEffects: [:],
             pulseEffects: [:],
-            tintEffects: [:],
             godraysEffects: [:],
             shineEffects: [:],
             xRay: nil
@@ -4780,6 +4538,28 @@ enum Harness {
         let rejectedClaimStayedClosed = rejectedRoute.isRejected
             && rejectedRoute.execution == nil
             && rejectedRuntime.claimedFailureReasons == ["fixture-route-rejected"]
+        let revokedAuthorityRuntime = SceneResolvedMaterialRuntimeBridge(
+            claimRejectionReason: "material-generic-owner-revoked"
+        )
+        let revokedAuthorityCompositor = SceneImageLayerCompositor(
+            pipelineRepository: SceneImageEffectPipelineRepository(device: device),
+            resolvedMaterialRuntime: revokedAuthorityRuntime
+        )
+        let revokedAuthorityDrawRoute = revokedAuthorityCompositor
+            .resolvedMaterialClaim(for: request)
+        let revokedAuthorityPreflightRoute = revokedAuthorityCompositor
+            .preflightResolvedMaterialClaim(layerID: request.layer.id)
+        let revokedAuthorityStayedLocal =
+            revokedAuthorityDrawRoute.isRejected
+            && revokedAuthorityDrawRoute.rejectsUnclaimedProductAuthority
+            && revokedAuthorityDrawRoute.execution == nil
+            && {
+                guard case .unclaimed = revokedAuthorityPreflightRoute else {
+                    return false
+                }
+                return true
+            }()
+            && revokedAuthorityRuntime.claimedFailureReasons.isEmpty
 
         guard successBuffer.status == .completed,
               failedBuffer.status == .completed,
@@ -4811,6 +4591,7 @@ enum Harness {
             "unavailableRuntimeStayedClosed": unavailableRuntimeStayedClosed,
             "unavailableRuntimeEvidence": unavailableRuntimeRecorder.lines,
             "rejectedClaimStayedClosed": rejectedClaimStayedClosed,
+            "revokedAuthorityStayedLocal": revokedAuthorityStayedLocal,
         ]
     }
 
@@ -5416,8 +5197,6 @@ enum Harness {
 
     static func authoredEffectMasks(
         blendEffects: [String: SceneBlendEffectTextures] = [:],
-        tintMask: MTLTexture? = nil,
-        tintMaskPath: String? = nil,
         godraysEffects: [String: SceneGodraysEffectTextures] = [:],
         shineEffects: [String: SceneShineEffectTextures] = [:]
     ) -> SceneImageLayerMasks {
@@ -5426,19 +5205,12 @@ enum Harness {
             depthParallaxEffects: [:],
             blendEffects: blendEffects,
             shakeEffects: [:],
-            filmGrainEffects: [:],
             standardBlurEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
             cursorRippleEffects: [:],
-            opacityEffects: [:],
             pulseEffects: [:],
-            tintEffects: ["851#effect#0": SceneTintEffectTextures(
-                mask: tintMask,
-                maskUVScale: SIMD2(repeating: 1),
-                maskPath: tintMaskPath
-            )],
             godraysEffects: godraysEffects,
             shineEffects: shineEffects,
             xRay: nil
@@ -5809,13 +5581,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertEqual(self.result["centerBGRA"], [0, 0, 255, 255])
         self.assertEqual(self.result["bottomRightBGRA"], [255, 255, 255, 255])
 
-    def test_film_grain_uses_noise_without_corrupting_alpha(self) -> None:
-        evidence = self.result["filmGrain"]
-        self.assertTrue(evidence["alphaPreserved"], evidence)
-        self.assertGreater(evidence["changedRGB"], 16, evidence)
-        self.assertGreater(evidence["animatedRGB"], 4, evidence)
-        self.assertTrue(evidence["invalidRejected"], evidence)
-
     def test_static_base_color_candidate_is_atomic_at_final_gpu_split(self) -> None:
         evidence = self.result["baseColorCandidate"]
         self.assertTrue(evidence["referenceEncoded"], evidence)
@@ -5944,6 +5709,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "layerColorBlend",
                 "claimed",
                 "rejected",
+                "localFallback",
                 "pulseAlphaOneMasked",
                 "pulseAlphaOneUnmasked",
                 "pulseInvalidCombo",
@@ -5961,16 +5727,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "waterWavesMultiplePassesMasked",
                 "waterWavesWrongPassMasked",
                 "waterWavesStaticSourceConsumer",
-                "waterWavesWithOpacity",
                 "mask-waterRipple",
                 "mask-shake",
                 "mask-standardBlur",
                 "mask-waterWaves",
                 "mask-waterCaustics",
                 "mask-cursorRipple",
-                "mask-opacity",
-                "mask-opacity-missing-texture",
-                "mask-tint",
                 "mask-godrays",
                 "mask-shine",
                 "mask-xray",
@@ -6320,6 +6082,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             evidence["unavailableRuntimeEvidence"][0],
         )
         self.assertTrue(evidence["rejectedClaimStayedClosed"], evidence)
+        self.assertTrue(evidence["revokedAuthorityStayedLocal"], evidence)
 
     def test_standard_blur_downsample_is_alpha_aware(self) -> None:
         self.assert_pixel_close(

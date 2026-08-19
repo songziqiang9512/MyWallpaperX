@@ -37,14 +37,12 @@ final class SceneImageEffectPipelineRepository {
     private let gaussianBlurSlot: ScenePipelineSlot<SceneGaussianBlurPipeline>
     private let standardBlurSlot: ScenePipelineSlot<SceneStandardBlurPipeline>
     private let localContrastSlot: ScenePipelineSlot<SceneLocalContrastPipeline>
-    private let opacitySlot: ScenePipelineSlot<SceneOpacityPipeline>
     private let colorGradingSlot: ScenePipelineSlot<SceneColorGradingPipeline>
     private let shiftHueSlot: ScenePipelineSlot<SceneWorkshopShiftHuePipeline>
     private let audioBarsSlot: ScenePipelineSlot<SceneWorkshopAudioBarsPipeline>
     private let workshopGradientSlot: ScenePipelineSlot<SceneWorkshopGradientPipeline>
     private let workshopShadowSlot: ScenePipelineSlot<SceneWorkshopShadowPipeline>
     private let proceduralNoiseSlot: ScenePipelineSlot<SceneProceduralNoisePipeline>
-    private let filmGrainSlot: ScenePipelineSlot<SceneFilmGrainPipeline>
     private let lightShaftsSlot: ScenePipelineSlot<SceneLightShaftsPipeline>
     private let spotLightSlot: ScenePipelineSlot<SceneSpotLightPipeline>
     private let shakeSlot: ScenePipelineSlot<SceneShakePipeline>
@@ -56,7 +54,6 @@ final class SceneImageEffectPipelineRepository {
     private let depthParallaxSlot: ScenePipelineSlot<SceneDepthParallaxPipeline>
     private let xRaySlot: ScenePipelineSlot<SceneXRayPipeline>
     private let blendSlot: ScenePipelineSlot<SceneBlendPipeline>
-    private let tintSlot: ScenePipelineSlot<SceneTintPipeline>
     private let pulseSlot: ScenePipelineSlot<ScenePulsePipeline>
     private let godraysSlot: ScenePipelineSlot<SceneGodraysPipeline>
     private let shineSlot: ScenePipelineSlot<SceneShinePipeline>
@@ -66,14 +63,12 @@ final class SceneImageEffectPipelineRepository {
         gaussianBlurSlot = .init { SceneGaussianBlurPipeline(device: device) }
         standardBlurSlot = .init { SceneStandardBlurPipeline(device: device) }
         localContrastSlot = .init { SceneLocalContrastPipeline(device: device) }
-        opacitySlot = .init { SceneOpacityPipeline(device: device) }
         colorGradingSlot = .init { SceneColorGradingPipeline(device: device) }
         shiftHueSlot = .init { SceneWorkshopShiftHuePipeline(device: device) }
         audioBarsSlot = .init { SceneWorkshopAudioBarsPipeline(device: device) }
         workshopGradientSlot = .init { SceneWorkshopGradientPipeline(device: device) }
         workshopShadowSlot = .init { SceneWorkshopShadowPipeline(device: device) }
         proceduralNoiseSlot = .init { SceneProceduralNoisePipeline(device: device) }
-        filmGrainSlot = .init { SceneFilmGrainPipeline(device: device) }
         lightShaftsSlot = .init { SceneLightShaftsPipeline(device: device) }
         spotLightSlot = .init { SceneSpotLightPipeline(device: device) }
         shakeSlot = .init { SceneShakePipeline(device: device) }
@@ -85,7 +80,6 @@ final class SceneImageEffectPipelineRepository {
         depthParallaxSlot = .init { SceneDepthParallaxPipeline(device: device) }
         xRaySlot = .init { SceneXRayPipeline(device: device) }
         blendSlot = .init { SceneBlendPipeline(device: device) }
-        tintSlot = .init { SceneTintPipeline(device: device) }
         pulseSlot = .init { ScenePulsePipeline(device: device) }
         godraysSlot = .init { SceneGodraysPipeline(device: device) }
         shineSlot = .init { SceneShinePipeline(device: device) }
@@ -94,7 +88,6 @@ final class SceneImageEffectPipelineRepository {
     func gaussianBlur() -> SceneGaussianBlurPipeline? { gaussianBlurSlot.resolve() }
     func standardBlur() -> SceneStandardBlurPipeline? { standardBlurSlot.resolve() }
     func localContrast() -> SceneLocalContrastPipeline? { localContrastSlot.resolve() }
-    func opacity() -> SceneOpacityPipeline? { opacitySlot.resolve() }
     func colorGrading() -> SceneColorGradingPipeline? { colorGradingSlot.resolve() }
     func shiftHue() -> SceneWorkshopShiftHuePipeline? { shiftHueSlot.resolve() }
     func audioBars() -> SceneWorkshopAudioBarsPipeline? { audioBarsSlot.resolve() }
@@ -105,7 +98,6 @@ final class SceneImageEffectPipelineRepository {
     func proceduralNoise() -> SceneProceduralNoisePipeline? {
         proceduralNoiseSlot.resolve()
     }
-    func filmGrain() -> SceneFilmGrainPipeline? { filmGrainSlot.resolve() }
     func lightShafts() -> SceneLightShaftsPipeline? { lightShaftsSlot.resolve() }
     func spotLight() -> SceneSpotLightPipeline? { spotLightSlot.resolve() }
     func shake() -> SceneShakePipeline? { shakeSlot.resolve() }
@@ -119,7 +111,6 @@ final class SceneImageEffectPipelineRepository {
     }
     func xRay() -> SceneXRayPipeline? { xRaySlot.resolve() }
     func blend() -> SceneBlendPipeline? { blendSlot.resolve() }
-    func tint() -> SceneTintPipeline? { tintSlot.resolve() }
     func pulse() -> ScenePulsePipeline? { pulseSlot.resolve() }
     func godrays() -> SceneGodraysPipeline? { godraysSlot.resolve() }
     func shine() -> SceneShinePipeline? { shineSlot.resolve() }

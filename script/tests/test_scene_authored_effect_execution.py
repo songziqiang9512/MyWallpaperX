@@ -154,12 +154,6 @@ struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
     let offset: SIMD2<Float>
 }
 
-struct SceneOpacityExecutionPlan: Sendable {
-    var liveAlphaTarget: SceneDynamicTarget? { nil }
-
-    func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float { 1 }
-}
-
 struct SceneColorGradingExecutionPlan: Sendable {}
 struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
@@ -181,19 +175,7 @@ struct SceneProceduralNoiseExecutionPlan: Sendable {
     let dependencyProviderLayerID: Int?
     let dependencySlotIndex: Int?
 }
-struct SceneFilmGrainExecutionPlan: Sendable {}
 struct SceneLightShaftsExecutionPlan: Sendable {}
-
-enum SceneAuthoredOpacityPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneOpacityExecutionPlan? {
-        nil
-    }
-}
 
 enum SceneAuthoredColorGradingPlanner {
     static func plan(
@@ -257,17 +239,6 @@ enum SceneAuthoredProceduralNoisePlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneProceduralNoiseExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredFilmGrainPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneFilmGrainExecutionPlan? {
         nil
     }
 }
@@ -418,10 +389,6 @@ enum SceneAuthoredBlendPlanner {
     }
 }
 
-struct SceneTintExecutionPlan {
-    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
-}
-
 struct SceneTransformStaticFallbackDiagnostic {
     var reportValue: String { "" }
 }
@@ -490,18 +457,6 @@ enum SceneAuthoredShinePlanner {
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneShineExecutionPlan? {
         nil
-    }
-}
-
-enum SceneAuthoredTintPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneTintExecutionPlan? {
-        graph.effects.first?.definitionPath.lowercased()
-            == "effects/tint/effect.json" ? SceneTintExecutionPlan() : nil
     }
 }
 
@@ -621,10 +576,6 @@ extension SceneAuthoredLocalContrastPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneLocalContrastPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .localContrast }
 }
-extension SceneAuthoredOpacityPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneOpacityExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .opacity }
-}
 extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneColorGradingExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorGrading }
@@ -648,10 +599,6 @@ extension SceneAuthoredWorkshopShadowPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }
-}
-extension SceneAuthoredFilmGrainPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneFilmGrainExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .filmGrain }
 }
 extension SceneAuthoredLightShaftsPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneLightShaftsExecutionPlan
@@ -692,10 +639,6 @@ extension SceneAuthoredXRayPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredBlendPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneBlendExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .blend }
-}
-extension SceneAuthoredTintPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneTintExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .tint }
 }
 extension SceneAuthoredTransformPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneTransformExecutionPlan
@@ -1427,14 +1370,12 @@ enum Harness {
             case .preciseGaussian: backend = "preciseGaussian"
             case .standardBlur: backend = "standardBlur"
             case .localContrast: backend = "localContrast"
-            case .opacity: backend = "opacity"
             case .colorGrading: backend = "colorGrading"
             case .workshopShiftHue: backend = "workshopShiftHue"
             case .workshopAudioBars: backend = "workshopAudioBars"
             case .workshopGradient: backend = "workshopGradient"
             case .workshopShadow: backend = "workshopShadow"
             case .proceduralNoise: backend = "proceduralNoise"
-            case .filmGrain: backend = "filmGrain"
             case .lightShafts: backend = "lightShafts"
             case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"
@@ -1445,7 +1386,6 @@ enum Harness {
             case .depthParallax: backend = "depthParallax"
             case .xRay: backend = "xRay"
             case .blend: backend = "blend"
-            case .tint: backend = "tint"
             case .transform: backend = "transform"
             case .pulse: backend = "pulse"
             case .godrays: backend = "godrays"

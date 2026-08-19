@@ -198,18 +198,6 @@ extension SceneEffectStageRenderer {
                 return "shine-resource-missing"
             }
             return nil
-        case .opacity(let plan):
-            guard pipelines.opacity != nil,
-                  stage.opacityAlpha(in: inputs.dynamicValues) != nil else {
-                return "opacity-input-unavailable"
-            }
-            guard plan.maskTexturePath != nil else { return nil }
-            guard let resources = inputs.masks.opacityEffects[
-                plan.effectKey.descriptorID
-            ], resources.matches(plan), resources.mask != nil else {
-                return "opacity-resource-missing"
-            }
-            return nil
         case .colorGrading:
             return pipelines.colorGrading == nil
                 ? "color-grading-pipeline-missing" : nil
@@ -232,14 +220,6 @@ extension SceneEffectStageRenderer {
             ) else { return "procedural-noise-dependency-missing" }
             return pipelines.proceduralNoise == nil
                 ? "procedural-noise-pipeline-missing" : nil
-        case .filmGrain(let plan):
-            guard let resources = inputs.masks.filmGrainEffects[
-                plan.effectKey.descriptorID
-            ] else { return "film-grain-resource-missing" }
-            guard resources.matches(plan), resources.noise != nil else {
-                return "film-grain-resource-mismatch"
-            }
-            return pipelines.filmGrain == nil ? "film-grain-pipeline-missing" : nil
         case .waterFlow(let plan):
             guard let resources = inputs.masks.waterFlowEffects[
                 plan.effectKey.descriptorID
@@ -323,13 +303,6 @@ extension SceneEffectStageRenderer {
                 return "blend-resource-missing"
             }
             return pipelines.blend == nil ? "blend-pipeline-missing" : nil
-        case .tint(let plan):
-            guard let resources = inputs.masks.tintEffects[
-                plan.effectKey.descriptorID
-            ], resources.matches(plan) else {
-                return "tint-resource-missing"
-            }
-            return pipelines.tint == nil ? "tint-pipeline-missing" : nil
         case .transform:
             return nil
         case .shake(let plan):
