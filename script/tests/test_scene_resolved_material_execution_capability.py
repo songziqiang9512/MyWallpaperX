@@ -6099,7 +6099,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         logical_body = source[logical_start:logical_end]
 
         for backend_name in (
-            ".blend", ".filmGrain", ".waterFlow", ".waterWaves",
+            ".blend", ".waterFlow", ".waterWaves",
             ".waterCaustics", ".waterRipple",
             ".depthParallax", ".xRay", ".pulse",
         ):
@@ -6116,7 +6116,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertNotIn(".spin", source)
         self.assertIn(".workshopAudioBars", leaf_body)
         self.assertNotIn("fisheyeZeroDistortion", leaf_body)
-        self.assertIn("case filmGrain(SceneFilmGrainExecutionPlan)", source)
         self.assertIn("case .preciseGaussian:", logical_body)
         self.assertIn("case .standardBlur:", logical_body)
         self.assertIn("case .localContrast:", logical_body)

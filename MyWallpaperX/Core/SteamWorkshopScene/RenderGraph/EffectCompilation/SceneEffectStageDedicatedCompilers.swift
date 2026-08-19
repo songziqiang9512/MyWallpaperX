@@ -136,11 +136,6 @@ extension SceneAuthoredProceduralNoisePlanner: SceneEffectStageGraphCandidatePla
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }
 }
 
-extension SceneAuthoredFilmGrainPlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneFilmGrainExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .filmGrain }
-}
-
 extension SceneAuthoredLightShaftsPlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneLightShaftsExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .lightShafts }

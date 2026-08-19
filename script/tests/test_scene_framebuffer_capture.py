@@ -65,7 +65,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopGradientPipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline+Support.swift",
-    SOURCE_ROOT / "Effects/SceneFilmGrainPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
@@ -86,7 +85,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
     SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseExecutionPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneFilmGrainExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift",
     SOURCE_ROOT
@@ -102,7 +100,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ShiftHue.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ProceduralNoise.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+FilmGrain.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Tint.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+XRay.swift",
@@ -732,7 +729,6 @@ struct SceneLightShaftsEffectTextures {
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
-        case filmGrain(SceneFilmGrainExecutionPlan)
         case lightShafts(SceneLightShaftsExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
@@ -753,7 +749,7 @@ struct SceneLightShaftsEffectTextures {
             switch self {
             case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                  .workshopShadow,
-                 .filmGrain, .shake:
+                 .shake:
                 return true
             case .proceduralNoise(let plan):
                 return plan.variant == .worleyColorV1
@@ -776,7 +772,6 @@ struct SceneLightShaftsEffectTextures {
             case .workshopGradient: "workshop-gradient"
             case .workshopShadow: "workshop-shadow"
             case .proceduralNoise: "procedural-noise"
-            case .filmGrain: "film-grain"
             case .lightShafts: "light-shafts"
             case .shake: "shake"
             case .waterFlow: "water-flow"
@@ -964,15 +959,6 @@ struct SceneShakeEffectTextures {
 
 struct SceneSpotLightPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-struct SceneFilmGrainEffectTextures {
-    let noise: MTLTexture?
-    let noisePath: String
-
-    func matches(_ plan: SceneFilmGrainExecutionPlan) -> Bool {
-        noise != nil && noisePath == plan.noiseTexturePath
-    }
 }
 
 struct SceneShakePipeline {
@@ -2011,7 +1997,6 @@ enum Harness {
             queue: queue,
             pipeline: pipeline
         )
-        let filmGrain = try filmGrainEvidence(device: device, queue: queue)
         let baseColorCandidate = try baseColorCandidateEvidence(
             device: device,
             queue: queue,
@@ -2061,7 +2046,6 @@ enum Harness {
             "mappedMaskScale": [mappedMaskScale.x, mappedMaskScale.y],
             "decodedMappedScale": [decodedMappedScale.x, decodedMappedScale.y],
             "resolvedMaterialComposition": resolvedMaterialComposition,
-            "filmGrain": filmGrain,
             "baseColorCandidate": baseColorCandidate,
             "layerSourcePassthrough": layerSourcePassthrough,
             "gpuCompletionTelemetry": telemetryEvidence,
@@ -2124,101 +2108,6 @@ enum Harness {
             "commandBufferFailureObserved": snapshot.commandBufferFailureObserved,
             "reportedSuccess": snapshot.reportedSuccess,
             "reportedFailure": snapshot.reportedFailure,
-        ]
-    }
-
-    static func filmGrainEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue
-    ) throws -> [String: Any] {
-        let noiseDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm, width: 8, height: 8, mipmapped: false
-        )
-        noiseDescriptor.storageMode = .shared
-        noiseDescriptor.usage = .shaderRead
-        guard let pipeline = SceneFilmGrainPipeline(device: device),
-              let source = makeTexture(device: device, size: 8, usage: .shaderRead),
-              let noise = device.makeTexture(descriptor: noiseDescriptor),
-              let first = makeTexture(
-                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
-              ),
-              let second = makeTexture(
-                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
-              ) else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: [64, 96, 128, 200])
-        fillPixels(noise) { x, y in
-            [
-                UInt8(128 + ((x * 31 + y * 17) % 128)),
-                UInt8(128 + ((x * 13 + y * 47) % 128)),
-                UInt8(128 + ((x * 59 + y * 7) % 128)),
-                255,
-            ]
-        }
-        let graph = preciseBlurGraph()
-        let plan = SceneFilmGrainExecutionPlan(
-            layerID: graph.layerID,
-            effectKey: graph.effects[0].key,
-            renderGraph: graph,
-            scale: 12.75,
-            strength: 1.79,
-            exponent: 3.8,
-            blendMode: 14,
-            greyscale: false,
-            noiseTexturePath: "util/noise"
-        )
-        func render(_ target: MTLTexture, time: Float) throws -> [UInt8] {
-            guard let command = queue.makeCommandBuffer(),
-                  pipeline.encode(
-                      source: source,
-                      noise: noise,
-                      target: target,
-                      plan: plan,
-                      time: time,
-                      commandBuffer: command
-                  ) else {
-                throw HarnessError.drawRefused
-            }
-            command.commit()
-            command.waitUntilCompleted()
-            guard command.status == .completed else { throw HarnessError.commandFailed }
-            return try textureBytes(target, queue: queue)
-        }
-        let firstBytes = try render(first, time: 0)
-        let secondBytes = try render(second, time: 0.37)
-        let sourceBytes = try textureBytes(source, queue: queue)
-        let alphaPreserved = stride(from: 3, to: firstBytes.count, by: 4).allSatisfy {
-            firstBytes[$0] == sourceBytes[$0]
-        }
-        let changedRGB = stride(from: 0, to: firstBytes.count, by: 4).filter { offset in
-            firstBytes[offset..<(offset + 3)] != sourceBytes[offset..<(offset + 3)]
-        }.count
-        let animatedRGB = stride(from: 0, to: firstBytes.count, by: 4).filter { offset in
-            firstBytes[offset..<(offset + 3)] != secondBytes[offset..<(offset + 3)]
-        }.count
-        let invalidPlan = SceneFilmGrainExecutionPlan(
-            layerID: plan.layerID,
-            effectKey: plan.effectKey,
-            renderGraph: plan.renderGraph,
-            scale: plan.scale,
-            strength: plan.strength,
-            exponent: plan.exponent,
-            blendMode: 13,
-            greyscale: plan.greyscale,
-            noiseTexturePath: plan.noiseTexturePath
-        )
-        let invalidRejected = queue.makeCommandBuffer().map {
-            !pipeline.encode(
-                source: source, noise: noise, target: second,
-                plan: invalidPlan, time: 0, commandBuffer: $0
-            )
-        } ?? false
-        return [
-            "alphaPreserved": alphaPreserved,
-            "changedRGB": changedRGB,
-            "animatedRGB": animatedRGB,
-            "invalidRejected": invalidRejected,
         ]
     }
 
@@ -2560,7 +2449,6 @@ enum Harness {
                 depthParallaxEffects: [:],
                 blendEffects: [:],
                 shakeEffects: shakeEffects,
-                filmGrainEffects: [:],
                 standardBlurEffects: standardBlurEffects,
                 waterFlowEffects: [:],
                 waterWavesEffects: waterWavesEffects,
@@ -4471,7 +4359,6 @@ enum Harness {
             depthParallaxEffects: [:],
             blendEffects: [:],
             shakeEffects: [:],
-            filmGrainEffects: [:],
             standardBlurEffects: [
                 descriptorID: SceneStandardBlurEffectTextures(
                     maskCandidate: candidate,
@@ -5449,7 +5336,6 @@ enum Harness {
             depthParallaxEffects: [:],
             blendEffects: blendEffects,
             shakeEffects: [:],
-            filmGrainEffects: [:],
             standardBlurEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
@@ -5831,13 +5717,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertFalse(self.result["refusedWithoutPool"])
         self.assertEqual(self.result["centerBGRA"], [0, 0, 255, 255])
         self.assertEqual(self.result["bottomRightBGRA"], [255, 255, 255, 255])
-
-    def test_film_grain_uses_noise_without_corrupting_alpha(self) -> None:
-        evidence = self.result["filmGrain"]
-        self.assertTrue(evidence["alphaPreserved"], evidence)
-        self.assertGreater(evidence["changedRGB"], 16, evidence)
-        self.assertGreater(evidence["animatedRGB"], 4, evidence)
-        self.assertTrue(evidence["invalidRejected"], evidence)
 
     def test_static_base_color_candidate_is_atomic_at_final_gpu_split(self) -> None:
         evidence = self.result["baseColorCandidate"]

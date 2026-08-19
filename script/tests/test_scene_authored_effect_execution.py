@@ -181,7 +181,6 @@ struct SceneProceduralNoiseExecutionPlan: Sendable {
     let dependencyProviderLayerID: Int?
     let dependencySlotIndex: Int?
 }
-struct SceneFilmGrainExecutionPlan: Sendable {}
 struct SceneLightShaftsExecutionPlan: Sendable {}
 
 enum SceneAuthoredOpacityPlanner {
@@ -257,17 +256,6 @@ enum SceneAuthoredProceduralNoisePlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneProceduralNoiseExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredFilmGrainPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneFilmGrainExecutionPlan? {
         nil
     }
 }
@@ -648,10 +636,6 @@ extension SceneAuthoredWorkshopShadowPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }
-}
-extension SceneAuthoredFilmGrainPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneFilmGrainExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .filmGrain }
 }
 extension SceneAuthoredLightShaftsPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneLightShaftsExecutionPlan
@@ -1434,7 +1418,6 @@ enum Harness {
             case .workshopGradient: backend = "workshopGradient"
             case .workshopShadow: backend = "workshopShadow"
             case .proceduralNoise: backend = "proceduralNoise"
-            case .filmGrain: backend = "filmGrain"
             case .lightShafts: backend = "lightShafts"
             case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"

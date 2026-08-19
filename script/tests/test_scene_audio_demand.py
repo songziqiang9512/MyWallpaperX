@@ -233,6 +233,7 @@ struct MaterialCapability {
 enum StageCapability {
     case resolved(Int, [String: MaterialCapability])
     case dedicated(Int, Program, Int)
+    case visualFailurePassthrough
 }
 
 struct LayerCapability {

@@ -106,11 +106,6 @@ extension SceneEffectProgramCompiler {
                     stage(.proceduralNoise($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.filmGrain, {
-                SceneAuthoredFilmGrainPlanner.compile(input).mapAccepted {
-                    stage(.filmGrain($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.lightShafts, {
                 SceneAuthoredLightShaftsPlanner.compile(input).mapAccepted {
                     stage(.lightShafts($0), stageGraph: stageGraph, inputRole: inputRole)

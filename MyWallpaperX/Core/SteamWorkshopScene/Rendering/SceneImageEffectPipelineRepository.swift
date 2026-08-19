@@ -44,7 +44,6 @@ final class SceneImageEffectPipelineRepository {
     private let workshopGradientSlot: ScenePipelineSlot<SceneWorkshopGradientPipeline>
     private let workshopShadowSlot: ScenePipelineSlot<SceneWorkshopShadowPipeline>
     private let proceduralNoiseSlot: ScenePipelineSlot<SceneProceduralNoisePipeline>
-    private let filmGrainSlot: ScenePipelineSlot<SceneFilmGrainPipeline>
     private let lightShaftsSlot: ScenePipelineSlot<SceneLightShaftsPipeline>
     private let spotLightSlot: ScenePipelineSlot<SceneSpotLightPipeline>
     private let shakeSlot: ScenePipelineSlot<SceneShakePipeline>
@@ -73,7 +72,6 @@ final class SceneImageEffectPipelineRepository {
         workshopGradientSlot = .init { SceneWorkshopGradientPipeline(device: device) }
         workshopShadowSlot = .init { SceneWorkshopShadowPipeline(device: device) }
         proceduralNoiseSlot = .init { SceneProceduralNoisePipeline(device: device) }
-        filmGrainSlot = .init { SceneFilmGrainPipeline(device: device) }
         lightShaftsSlot = .init { SceneLightShaftsPipeline(device: device) }
         spotLightSlot = .init { SceneSpotLightPipeline(device: device) }
         shakeSlot = .init { SceneShakePipeline(device: device) }
@@ -105,7 +103,6 @@ final class SceneImageEffectPipelineRepository {
     func proceduralNoise() -> SceneProceduralNoisePipeline? {
         proceduralNoiseSlot.resolve()
     }
-    func filmGrain() -> SceneFilmGrainPipeline? { filmGrainSlot.resolve() }
     func lightShafts() -> SceneLightShaftsPipeline? { lightShaftsSlot.resolve() }
     func spotLight() -> SceneSpotLightPipeline? { spotLightSlot.resolve() }
     func shake() -> SceneShakePipeline? { shakeSlot.resolve() }

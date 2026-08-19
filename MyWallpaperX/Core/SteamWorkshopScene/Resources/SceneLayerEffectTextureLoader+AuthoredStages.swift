@@ -22,7 +22,6 @@ extension SceneLayerEffectTextureLoader {
             device: device,
             blendEffectIDs: Set(stages.compactMap { $0.blend?.effectKey.descriptorID }),
             shakeEffectIDs: Set(stages.compactMap { $0.shake?.effectKey.descriptorID }),
-            filmGrainEffectIDs: Set(stages.compactMap { $0.filmGrain?.effectKey.descriptorID }),
             standardBlurEffectIDs: Set(stages.compactMap {
                 $0.standardBlur?.effectDescriptorID
             }),

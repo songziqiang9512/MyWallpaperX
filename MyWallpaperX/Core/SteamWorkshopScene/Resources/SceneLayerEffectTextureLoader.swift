@@ -9,7 +9,6 @@ enum SceneLayerEffectTextureLoader {
         device: MTLDevice,
         blendEffectIDs: Set<String> = [],
         shakeEffectIDs: Set<String> = [],
-        filmGrainEffectIDs: Set<String> = [],
         standardBlurEffectIDs: Set<String> = [],
         lightShaftsEffectIDs: Set<String> = [],
         waterFlowEffectIDs: Set<String> = [],
@@ -36,13 +35,6 @@ enum SceneLayerEffectTextureLoader {
         let shake = SceneShakeEffectTextureLoader.load(
             for: layer,
             effectIDs: shakeEffectIDs,
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
-        let filmGrain = SceneFilmGrainEffectTextureLoader.load(
-            for: layer,
-            effectIDs: filmGrainEffectIDs,
             resolver: resolver,
             loader: loader,
             device: device
@@ -149,7 +141,6 @@ enum SceneLayerEffectTextureLoader {
             depthParallaxEffects: depthParallax.textures,
             blendEffects: blend.textures,
             shakeEffects: shake.textures,
-            filmGrainEffects: filmGrain.textures,
             standardBlurEffects: standardBlur.textures,
             lightShaftsEffects: lightShafts.textures,
             waterFlowEffects: waterFlow.textures,
@@ -163,7 +154,7 @@ enum SceneLayerEffectTextureLoader {
             shineEffects: shineEffects.textures,
             xRay: xRay.textures,
             message: [
-                blend.message, shake.message, filmGrain.message,
+                blend.message, shake.message,
                 standardBlur.message,
                 lightShafts.message,
                 waterFlow.message, waterWaves.message, cursorRipple.message,

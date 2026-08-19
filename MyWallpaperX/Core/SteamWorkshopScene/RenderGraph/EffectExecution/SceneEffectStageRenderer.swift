@@ -117,14 +117,6 @@ targets: targets,
                 time: time,
                 commandBuffer: commandBuffer
             )
-        case .filmGrain(let filmGrain):
-            guard let filmGrainPipeline = pipelines.filmGrain else { return nil }
-            return renderFilmGrain(
-                filmGrain, sourceTexture: sourceTexture, masks: masks,
-                targets: targets, sourceUniforms: sourceUniforms, pipeline: pipeline,
-                filmGrainPipeline: filmGrainPipeline, time: time,
-                commandBuffer: commandBuffer
-            )
         case .lightShafts:
             return nil
         case .shake, .waterFlow, .waterWaves, .waterCaustics,

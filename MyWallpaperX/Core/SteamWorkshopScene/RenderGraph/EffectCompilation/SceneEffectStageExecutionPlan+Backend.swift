@@ -12,7 +12,6 @@ extension SceneEffectStageExecutionPlan {
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
-        case filmGrain(SceneFilmGrainExecutionPlan)
         case lightShafts(SceneLightShaftsExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
@@ -33,7 +32,7 @@ extension SceneEffectStageExecutionPlan {
             switch self {
             case .opacity, .colorGrading,
                  .workshopShiftHue, .workshopAudioBars, .workshopGradient,
-                 .workshopShadow, .filmGrain, .shake, .waterFlow,
+                 .workshopShadow, .shake, .waterFlow,
                  .waterWaves, .waterCaustics, .waterRipple,
                  .depthParallax, .xRay, .blend, .tint, .transform, .pulse:
                 return true
@@ -155,10 +154,6 @@ extension SceneEffectStageExecutionPlan {
         return plan
     }
 
-    nonisolated var filmGrain: SceneFilmGrainExecutionPlan? {
-        guard case .filmGrain(let plan) = backend else { return nil }
-        return plan
-    }
 
     nonisolated var lightShafts: SceneLightShaftsExecutionPlan? {
         guard case .lightShafts(let plan) = backend else { return nil }

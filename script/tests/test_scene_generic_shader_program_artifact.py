@@ -977,6 +977,21 @@ void main() {
 }
 """
 
+FILM_GRAIN_STOCK_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1; // {"default":"util/noise"}
+uniform sampler2D g_Texture2; // {"mode":"opacitymask","combo":"MASK"}
+uniform float g_Time;
+uniform float g_NoiseAlpha;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 albedo = texSample2D(g_Texture0, v_TexCoord);
+    vec3 noise = texSample2D(g_Texture1, v_TexCoord + g_Time).rgb;
+    albedo.rgb = mix(albedo.rgb, noise, g_NoiseAlpha);
+    gl_FragColor = albedo;
+}
+"""
+
 STAGE_UNIFORM_PASSTHROUGH_FRAGMENT = """
 uniform sampler2D g_Texture0;
 uniform float g_Speed;
@@ -2219,6 +2234,57 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                     "reason=artifact-contract-rejected",
                     fallback_log,
                 )
+
+    def test_film_grain_stock_shape_uses_shared_program_and_local_artifact_fallback(
+        self,
+    ):
+        facts = {"graph_input_slots": (0,)}
+        profile = "source-proven-graph-input-straight-alpha-preserving"
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-film-grain-shared-artifact-test-"
+        ) as directory:
+            root = Path(directory)
+            observed, _, cache, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=FILM_GRAIN_STOCK_FRAGMENT,
+                **facts,
+            )
+            artifact = self.artifact(
+                observed["requestKey"],
+                color_transfer="straight-alpha-preserving",
+            )
+            artifact_path = cache / f"{observed['requestKey']}.json"
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=FILM_GRAIN_STOCK_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["backend"], "genericCompilerArtifact")
+            self.assertIn(
+                f"state=prefer-generic profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+            artifact["program"]["metalSourceSHA256"] = "0" * 64
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            fallback, _, _, fallback_log = self.run_harness(
+                root,
+                route=None,
+                fragment=FILM_GRAIN_STOCK_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(fallback["code"], "artifact-contract-rejected")
+            self.assertTrue(fallback["permitsBoundedFrontend"])
+            self.assertIn(
+                f"state=prefer-generic profile={profile} outcome=fallback "
+                "reason=artifact-contract-rejected",
+                fallback_log,
+            )
 
 
 if __name__ == "__main__":

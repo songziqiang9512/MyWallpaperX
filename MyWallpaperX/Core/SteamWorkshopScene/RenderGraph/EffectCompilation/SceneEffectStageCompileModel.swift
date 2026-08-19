@@ -46,7 +46,6 @@ nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable
     case workshopGradient = "workshop-gradient"
     case workshopShadow = "workshop-shadow"
     case proceduralNoise = "procedural-noise"
-    case filmGrain = "film-grain"
     case lightShafts = "light-shafts"
     case shake
     case waterFlow = "water-flow"

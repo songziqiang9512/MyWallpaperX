@@ -120,7 +120,6 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         planning_consumers = [
             "script/tests/test_scene_blend_planner.py",
             "script/tests/test_scene_depth_parallax_planner.py",
-            "script/tests/test_scene_film_grain_planner.py",
             "script/tests/test_scene_godrays_planner.py",
             "script/tests/test_scene_light_shafts_planner.py",
             "script/tests/test_scene_opacity_planner.py",

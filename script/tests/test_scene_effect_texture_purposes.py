@@ -47,7 +47,6 @@ EXPECTED_PURPOSES = {
     "shake mask": "mask",
     "blend effect texture": "premultipliedColor",
     "cursor ripple collision mask": "mask",
-    "film grain noise": "noise",
     "godrays noise": "noise",
     "godrays effect mask": "mask",
     "light shafts noise": "noise",
