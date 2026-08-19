@@ -6,12 +6,15 @@ struct SceneImageLayerMasks {
     let depthParallaxEffects: [String: SceneDepthParallaxEffectTextures]
     let blendEffects: [String: SceneBlendEffectTextures]
     let shakeEffects: [String: SceneShakeEffectTextures]
+    let filmGrainEffects: [String: SceneFilmGrainEffectTextures]
     let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let waterCausticsEffects: [String: SceneWaterCausticsEffectTextures]
     let cursorRippleEffects: [String: SceneCursorRippleEffectTextures]
+    let opacityEffects: [String: SceneOpacityEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
+    let tintEffects: [String: SceneTintEffectTextures]
     let godraysEffects: [String: SceneGodraysEffectTextures]
     let shineEffects: [String: SceneShineEffectTextures]
     let xRay: SceneXRayEffectTextures?
@@ -21,12 +24,15 @@ struct SceneImageLayerMasks {
         depthParallaxEffects: [:],
         blendEffects: [:],
         shakeEffects: [:],
+        filmGrainEffects: [:],
         standardBlurEffects: [:],
         waterFlowEffects: [:],
         waterWavesEffects: [:],
         waterCausticsEffects: [:],
         cursorRippleEffects: [:],
+        opacityEffects: [:],
         pulseEffects: [:],
+        tintEffects: [:],
         godraysEffects: [:],
         shineEffects: [:],
         xRay: nil
@@ -38,12 +44,15 @@ struct SceneImageLayerMasks {
             depthParallaxEffects: [:],
             blendEffects: [:],
             shakeEffects: [:],
+            filmGrainEffects: [:],
             standardBlurEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
             cursorRippleEffects: [:],
+            opacityEffects: [:],
             pulseEffects: [:],
+            tintEffects: [:],
             godraysEffects: [:],
             shineEffects: [:],
             xRay: xRay
@@ -84,7 +93,9 @@ struct SceneImageLayerMasks {
                 !Self.waterWavesUsesOnlyEffectLocalDisplacementInputs($0)
             } ?? true
         }
-        return hasCoverageMutatingPulse
+        return hasValue(opacityEffects) { _ in true }
+            || hasValue(tintEffects) { $0.mask != nil }
+            || hasCoverageMutatingPulse
             || hasUnprovenPulseResource
             || hasWaterWavesOutsideDisplacementContract
             || hasUnprovenWaterWavesDisplacementResource

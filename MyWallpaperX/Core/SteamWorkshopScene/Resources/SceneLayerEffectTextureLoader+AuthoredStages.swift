@@ -22,6 +22,7 @@ extension SceneLayerEffectTextureLoader {
             device: device,
             blendEffectIDs: Set(stages.compactMap { $0.blend?.effectKey.descriptorID }),
             shakeEffectIDs: Set(stages.compactMap { $0.shake?.effectKey.descriptorID }),
+            filmGrainEffectIDs: Set(stages.compactMap { $0.filmGrain?.effectKey.descriptorID }),
             standardBlurEffectIDs: Set(stages.compactMap {
                 $0.standardBlur?.effectDescriptorID
             }),
@@ -40,6 +41,7 @@ extension SceneLayerEffectTextureLoader {
             cursorRippleEffectIDs: Set(
                 stages.compactMap { $0.cursorRipple?.effectKey.descriptorID }
             ),
+            tintEffectIDs: Set(stages.compactMap { $0.tint?.effectKey.descriptorID }),
             godraysEffectIDs: Set(stages.compactMap { $0.godrays?.effectKey.descriptorID }),
             shineEffectIDs: Set(stages.compactMap { $0.shine?.effectKey.descriptorID }),
             userPropertyTextures: userPropertyTextures,

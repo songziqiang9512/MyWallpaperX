@@ -109,12 +109,15 @@ struct SceneCursorRippleExecutionPlan {
 struct SceneDepthParallaxExecutionPlan {}
 struct SceneXRayExecutionPlan {}
 
+struct SceneOpacityExecutionPlan {}
+
 struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
     let cursorRipple: SceneCursorRippleExecutionPlan?
+    let opacity: SceneOpacityExecutionPlan? = nil
     var depthParallax: SceneDepthParallaxExecutionPlan? { nil }
     var xRay: SceneXRayExecutionPlan? { nil }
 

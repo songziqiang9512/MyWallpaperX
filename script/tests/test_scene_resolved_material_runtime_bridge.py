@@ -776,7 +776,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         capabilitiesByLayerID[layerID] == nil
             ? nil : .init(token: .init(value: layerID))
     }
-    func productAuthorityRejectionReason(layerID: Int) -> String? { nil }
     func resolve(_ token: Token) -> ChainCapability? {
         resolvesClaims ? capabilitiesByLayerID[token.value] : nil
     }
@@ -3424,11 +3423,9 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             compositor,
         )
         self.assertIn(
-            "if let rejectionReasonCode = "
-            "resolvedMaterialRoute.rejectionReasonCode",
+            "guard !resolvedMaterialRoute.isRejected else { return .failed }",
             compositor,
         )
-        self.assertIn('"unclaimed-effect-product-authority"', compositor)
         self.assertIn(
             "request.resolvedMaterialFrameTargetPlan == nil",
             passthrough_plan,

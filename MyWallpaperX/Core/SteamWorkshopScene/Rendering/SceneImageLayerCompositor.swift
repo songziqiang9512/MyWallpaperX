@@ -81,17 +81,7 @@ struct SceneImageLayerCompositor {
             return .failed
         }
         let resolvedMaterialRoute = resolvedMaterialClaim(for: request)
-        if let rejectionReasonCode = resolvedMaterialRoute.rejectionReasonCode {
-            executionTrace?.recordRouteOperation(
-                layerID: request.layer.id,
-                origin: executionOrigin,
-                operation: resolvedMaterialRoute.rejectsUnclaimedProductAuthority
-                    ? "unclaimed-effect-product-authority"
-                    : "resolved-material-claim",
-                outcome: .failed(reasonCode: rejectionReasonCode)
-            )
-            return .failed
-        }
+        guard !resolvedMaterialRoute.isRejected else { return .failed }
         let resolvedMaterialClaim = resolvedMaterialRoute.execution
         let hasUnclaimedVisibleEffects = request.layer.effects.contains {
             $0.visible != false

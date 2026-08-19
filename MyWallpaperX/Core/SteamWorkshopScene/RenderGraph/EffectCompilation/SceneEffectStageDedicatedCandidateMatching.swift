@@ -79,6 +79,25 @@ extension SceneAuthoredXRayPlanner {
     }
 }
 
+extension SceneAuthoredTintPlanner {
+    nonisolated static func containsCandidate(
+        graph: Graph,
+        descriptor: SceneRenderDescriptor
+    ) -> Bool {
+        SceneEffectStageDedicatedCandidateMatcher.matchesDefinition(
+            graph: graph,
+            descriptor: descriptor
+        ) { definition in
+            definition.replacementKey?.lowercased() == "tint"
+                || (
+                    definition.name == "ui_editor_effect_tint_title"
+                        && definition.description == "ui_editor_effect_tint_description"
+                        && definition.group?.lowercased() == "colorize"
+                )
+        }
+    }
+}
+
 extension SceneAuthoredColorGradingPlanner {
     nonisolated static func containsCandidate(
         graph: Graph,

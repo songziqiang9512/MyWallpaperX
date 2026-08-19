@@ -265,20 +265,11 @@ enum SceneResolvedMaterialClaimRoute {
         return true
     }
 
-    var rejectionReasonCode: String? {
-        guard case let .rejected(reasonCode) = self else { return nil }
-        return reasonCode
-    }
-
-    var rejectsUnclaimedProductAuthority: Bool {
-        rejectionReasonCode == "material-generic-owner-revoked"
-    }
-
     var allowsLayerSourcePassthrough: Bool {
         switch self {
-        case .unclaimed:
+        case .unclaimed, .localFallback:
             return true
-        case .localFallback, .rejected, .claimed:
+        case .rejected, .claimed:
             return false
         }
     }
@@ -385,12 +376,6 @@ extension SceneImageLayerCompositor {
         case .notMigrated:
             return .unclaimed
         case let .rejected(reasonCode):
-            if reasonCode == "material-generic-owner-revoked" {
-                // This layer has no executable capability to allocate this
-                // frame, but its revoked legacy owner must remain visible to
-                // the draw route so raw source cannot masquerade as output.
-                return .unclaimed
-            }
             return .rejected(reasonCode: reasonCode)
         case let .claimed(claim):
             return .claimed(claim)
@@ -410,11 +395,6 @@ extension SceneImageLayerCompositor {
                 || ScenePersistentGraphTargetPlanningFailure
                     .isLocalFallbackReasonCode(reasonCode) {
                 return .localFallback(reasonCode: reasonCode)
-            }
-            if reasonCode == "material-generic-owner-revoked" {
-                // No claim entered this frame transaction. Refuse this layer's
-                // product output without poisoning unrelated claimed graphs.
-                return .rejected(reasonCode: reasonCode)
             }
             resolvedMaterialRuntime.recordClaimedFailure(reasonCode: reasonCode)
             return .rejected(reasonCode: reasonCode)

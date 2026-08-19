@@ -24,99 +24,18 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
+    SOURCE_ROOT / "Effects/SceneTintPipeline.swift",
 ]
 
-# authored corpus 中实际使用过的混合色与不透明度组合。
-BLEND_COLORS = [(1.0, 0.0, 0.0), (0.25, 0.6, 0.9), (1.0, 1.0, 1.0)]
-BLEND_ALPHAS = [0.35, 1.0]
+# 官方 tint.frag 的默认值，以及语料里实际出现过的另外两组取值。
+TINT_COLORS = [(1.0, 0.0, 0.0), (0.25, 0.6, 0.9), (1.0, 1.0, 1.0)]
+TINT_ALPHAS = [0.35, 1.0]
 MAX_MODE = 32
 
 HARNESS = r'''
 import Foundation
 import Metal
 import simd
-
-final class HarnessBlendModePipeline {
-    private let state: MTLRenderPipelineState
-
-    init?(device: MTLDevice) {
-        let shaderSource = SceneBlendModeShaderSource.blendFunctions + """
-
-        vertex float4 harnessBlendVertex(uint vertexID [[vertex_id]]) {
-            const float2 positions[6] = {
-                float2(-1.0, -1.0), float2(1.0, -1.0), float2(-1.0, 1.0),
-                float2(-1.0, 1.0), float2(1.0, -1.0), float2(1.0, 1.0)
-            };
-            return float4(positions[vertexID], 0.0, 1.0);
-        }
-
-        fragment float4 harnessBlendFragment(
-            float4 position [[position]],
-            texture2d<float, access::read> source [[texture(0)]],
-            constant float4 &parameters [[buffer(0)]],
-            constant int &mode [[buffer(1)]]) {
-            float4 sampled = source.read(uint2(position.xy));
-            float3 blended = sceneApplyBlending(
-                mode, sampled.rgb, parameters.rgb, parameters.a
-            );
-            return float4(blended, mode == 0 ? 1.0 : sampled.a);
-        }
-        """
-        guard let library = try? device.makeLibrary(source: shaderSource, options: nil),
-              let vertex = library.makeFunction(name: "harnessBlendVertex"),
-              let fragment = library.makeFunction(name: "harnessBlendFragment") else {
-            return nil
-        }
-        let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = vertex
-        descriptor.fragmentFunction = fragment
-        descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-        guard let state = try? device.makeRenderPipelineState(descriptor: descriptor) else {
-            return nil
-        }
-        self.state = state
-    }
-
-    func encode(
-        source: MTLTexture,
-        target: MTLTexture,
-        color: SIMD3<Float>,
-        alpha: Float,
-        blendMode: Int,
-        commandBuffer: MTLCommandBuffer
-    ) -> Bool {
-        guard (0 ... SceneBlendModeShaderSource.maximumMode).contains(blendMode),
-              color.x.isFinite, color.y.isFinite, color.z.isFinite,
-              alpha.isFinite, (0 ... 1).contains(alpha),
-              source.textureType == .type2D, target.textureType == .type2D,
-              source.width == target.width, source.height == target.height,
-              source.pixelFormat == .bgra8Unorm, target.pixelFormat == .bgra8Unorm,
-              source.sampleCount == 1, target.sampleCount == 1,
-              source.usage.contains(.shaderRead), target.usage.contains(.renderTarget),
-              source.device.registryID == target.device.registryID,
-              source.device.registryID == commandBuffer.device.registryID else {
-            return false
-        }
-        let pass = MTLRenderPassDescriptor()
-        pass.colorAttachments[0].texture = target
-        pass.colorAttachments[0].loadAction = .dontCare
-        pass.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass) else {
-            return false
-        }
-        var parameters = SIMD4<Float>(color, alpha)
-        var mode = Int32(blendMode)
-        encoder.setRenderPipelineState(state)
-        encoder.setFragmentTexture(source, index: 0)
-        encoder.setFragmentBytes(
-            &parameters, length: MemoryLayout<SIMD4<Float>>.stride, index: 0
-        )
-        encoder.setFragmentBytes(&mode, length: MemoryLayout<Int32>.stride, index: 1)
-        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
-        encoder.endEncoding()
-        return true
-    }
-}
 
 @main
 enum Harness {
@@ -178,7 +97,7 @@ enum Harness {
     static func main() {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
-              let pipeline = HarnessBlendModePipeline(device: device),
+              let pipeline = SceneTintPipeline(device: device),
               let source = makeTexture(device: device, usage: [.shaderRead, .shaderWrite]),
               let target = makeTexture(device: device, usage: [.renderTarget, .shaderRead])
         else {
@@ -514,9 +433,9 @@ class SceneBlendModeTableTests(unittest.TestCase):
         for entry in self.result["cases"]:
             mode = entry["mode"]
             color = np.asarray(
-                BLEND_COLORS[entry["colorIndex"]], dtype=np.float64
+                TINT_COLORS[entry["colorIndex"]], dtype=np.float64
             )
-            alpha = BLEND_ALPHAS[entry["alphaIndex"]]
+            alpha = TINT_ALPHAS[entry["alphaIndex"]]
             blend = np.broadcast_to(color, base.shape)
             expected = np.clip(apply_blending(mode, base, blend, alpha), 0.0, 1.0)
             actual = np.asarray(entry["pixels"], dtype=np.float64)[:, :3] / 255.0
@@ -545,7 +464,7 @@ class SceneBlendModeTableTests(unittest.TestCase):
                 grouped.setdefault(entry["colorIndex"], []).append(entry["pixels"])
             for color_index, pixel_sets in grouped.items():
                 self.assertEqual(
-                    len(pixel_sets), len(BLEND_ALPHAS), f"mode={mode} 用例不全"
+                    len(pixel_sets), len(TINT_ALPHAS), f"mode={mode} 用例不全"
                 )
                 self.assertEqual(
                     pixel_sets[0],
@@ -554,7 +473,7 @@ class SceneBlendModeTableTests(unittest.TestCase):
                 )
 
     def test_mode_zero_forces_opaque_alpha(self) -> None:
-        # authored blending contract 在 BLENDMODE == 0 时把输出 alpha 写死为 1。
+        # 官方 tint.frag 在 BLENDMODE == 0 时把 albedo.a 写死为 1。
         for entry in self.result["cases"]:
             if entry["mode"] != 0:
                 continue

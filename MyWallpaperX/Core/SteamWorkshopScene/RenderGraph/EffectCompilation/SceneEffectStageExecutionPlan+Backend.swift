@@ -5,12 +5,14 @@ extension SceneEffectStageExecutionPlan {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
+        case opacity(SceneOpacityExecutionPlan)
         case colorGrading(SceneColorGradingExecutionPlan)
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
+        case filmGrain(SceneFilmGrainExecutionPlan)
         case lightShafts(SceneLightShaftsExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
@@ -21,6 +23,7 @@ extension SceneEffectStageExecutionPlan {
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
+        case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
@@ -28,11 +31,11 @@ extension SceneEffectStageExecutionPlan {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .colorGrading,
+            case .opacity, .colorGrading,
                  .workshopShiftHue, .workshopAudioBars, .workshopGradient,
-                 .workshopShadow, .shake, .waterFlow,
+                 .workshopShadow, .filmGrain, .shake, .waterFlow,
                  .waterWaves, .waterCaustics, .waterRipple,
-                 .depthParallax, .xRay, .blend, .transform, .pulse:
+                 .depthParallax, .xRay, .blend, .tint, .transform, .pulse:
                 return true
             case .proceduralNoise(let plan):
                 return plan.variant == .worleyColorV1
@@ -117,6 +120,11 @@ extension SceneEffectStageExecutionPlan {
         return plan
     }
 
+    nonisolated var opacity: SceneOpacityExecutionPlan? {
+        guard case .opacity(let plan) = backend else { return nil }
+        return plan
+    }
+
     nonisolated var colorGrading: SceneColorGradingExecutionPlan? {
         guard case .colorGrading(let plan) = backend else { return nil }
         return plan
@@ -144,6 +152,11 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var proceduralNoise: SceneProceduralNoiseExecutionPlan? {
         guard case .proceduralNoise(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var filmGrain: SceneFilmGrainExecutionPlan? {
+        guard case .filmGrain(let plan) = backend else { return nil }
         return plan
     }
 
@@ -197,6 +210,11 @@ extension SceneEffectStageExecutionPlan {
         return plan
     }
 
+    nonisolated var tint: SceneTintExecutionPlan? {
+        guard case .tint(let plan) = backend else { return nil }
+        return plan
+    }
+
     nonisolated var transform: SceneTransformExecutionPlan? {
         guard case .transform(let plan) = backend else { return nil }
         return plan
@@ -224,8 +242,10 @@ extension SceneEffectStageExecutionPlan {
     nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {
         var targets = Set<SceneDynamicTarget>()
         if let target = localContrast?.liveStrengthTarget { targets.insert(target) }
+        if let target = opacity?.liveAlphaTarget { targets.insert(target) }
         if let target = blend?.liveMultiplyTarget { targets.insert(target) }
         if let xRay { targets.formUnion(xRay.liveConsumerTargets) }
+        if let tint { targets.formUnion(tint.liveConsumerTargets) }
         if let pulse { targets.formUnion(pulse.liveConsumerTargets) }
         if let workshopAudioBars {
             targets.formUnion(workshopAudioBars.liveConsumerTargets)
@@ -239,6 +259,8 @@ extension SceneEffectStageExecutionPlan {
             return true
         case .standardBlur:
             return true
+        case .opacity:
+            return true
         case .proceduralNoise(let plan):
             return plan.variant == .worleyColorV1
                 && plan.dependencyProviderLayerID != nil
@@ -250,6 +272,10 @@ extension SceneEffectStageExecutionPlan {
 
     func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {
         localContrast?.resolvedStrength(in: snapshot)
+    }
+
+    func opacityAlpha(in snapshot: SceneDynamicSnapshot) -> Float? {
+        opacity?.resolvedAlpha(in: snapshot)
     }
 
     var requiresExactInputExtent: Bool {
