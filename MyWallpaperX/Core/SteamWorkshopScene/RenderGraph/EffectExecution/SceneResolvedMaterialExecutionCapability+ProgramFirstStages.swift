@@ -282,9 +282,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     /// Only a launch-time visual contract or ambiguous dynamic value-owner
     /// failure may become a visual no-op. Dynamic producer availability,
     /// resource, target, dependency, state and lifecycle failures remain hard
-    /// rejections. The admitted effect must be one current-in/current-out leaf
-    /// so an exact full-frame copy preserves the previous current without
-    /// fabricating an authored texture, uniform value or graph resource.
+    /// rejections. The admitted effect must be a pair-only full-frame stage so
+    /// its whole transaction can preserve previous current without fabricating
+    /// an authored texture, uniform value or graph resource. Multi-node stages
+    /// are admitted only as one atomic effect; a failed intermediate Program
+    /// never publishes a partial authored result.
     private static func visualFailureMayPassthrough(
         _ failure: Rejection,
         product: SceneGraphAdmissionProduct,
@@ -305,21 +307,38 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         ].contains(failure.code),
               dependencyOwnership == .none,
               product.graph.effects.count == 1,
-              product.graph.nodes.count == 1,
+              !product.graph.nodes.isEmpty,
               product.graph.renderTargets.isEmpty,
               product.graph.blockers.isEmpty,
               let effect = product.graph.effects.first,
-              let node = product.graph.nodes.first,
-              node.effect == effect.key,
-              node.kind == .material,
-              node.target == effect.output,
-              node.bindings.allSatisfy({ $0.texture == effect.input }),
               let pairStep = pairPlan.effects.first(where: {
                   $0.effect == effect.key
               }),
-              pairStep.inputMember != pairStep.outputMember,
-              pairStep.composeTransitionCount == 0 else { return false }
-        return true
+              pairStep.fullFrameOutputWriteCount == product.graph.nodes.count,
+              (pairStep.inputMember == pairStep.outputMember)
+                == product.graph.nodes.count.isMultiple(of: 2) else { return false }
+
+        let composeFlags: [Bool] = product.graph.nodes.compactMap { node in
+            switch node.compose {
+            case nil, .some(.bool(false)): false
+            case .some(.bool(true)): true
+            default: nil
+            }
+        }
+        guard composeFlags.count == product.graph.nodes.count,
+              composeFlags.last == false,
+              composeFlags.dropLast().allSatisfy({ $0 }),
+              pairStep.composeTransitionCount
+                == max(0, product.graph.nodes.count - 1) else { return false }
+
+        return product.graph.nodes.allSatisfy { node in
+            node.effect == effect.key
+                && node.kind == .material
+                && node.target == effect.output
+                && node.commandSource == nil
+                && node.commandTarget == nil
+                && node.bindings.allSatisfy({ $0.texture == effect.input })
+        }
     }
 
     /// Dedicated stages consume the same launch-scoped producer catalog as

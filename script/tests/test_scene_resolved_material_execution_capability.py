@@ -2354,6 +2354,68 @@ private enum Harness {
         let pairMultipleProducerCapability = pairMultipleProducerCatalog
             .claim(layerID: layerID)
             .flatMap { pairMultipleProducerCatalog.resolve($0.token) }
+        let composeFailureGraph = fullFrameComposeGraph()
+        let composeFailureCatalog = catalog(
+            descriptor: fullFrameComposeDescriptor(),
+            graphs: [composeFailureGraph],
+            materials: materialCatalog(
+                graph: composeFailureGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("strength-property")]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget()
+                )],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
+        let composeFailureCapability = composeFailureCatalog
+            .claim(layerID: layerID)
+            .flatMap { composeFailureCatalog.resolve($0.token) }
+        let historyComposeFailureGraph = fullFrameComposeGraph(includeHistory: true)
+        let historyComposeFailureCatalog = catalog(
+            descriptor: fullFrameComposeDescriptor(),
+            graphs: [historyComposeFailureGraph],
+            materials: materialCatalog(
+                graph: historyComposeFailureGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("strength-property")]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget()
+                )],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
+        let malformedComposeFailureGraph = fullFrameComposeGraph(
+            includeThirdNode: true
+        )
+        let malformedComposeFailureCatalog = catalog(
+            descriptor: fullFrameComposeDescriptor(passCount: 3),
+            graphs: [malformedComposeFailureGraph],
+            materials: materialCatalog(
+                graph: malformedComposeFailureGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("strength-property")]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget()
+                )],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
         let pairMultipleProducerMissingCatalog = catalog(
             descriptor: pairDescriptor,
             graphs: [pairGraph],
@@ -2977,6 +3039,24 @@ private enum Harness {
                             + " reason=material-dynamic-uniform-contributor-policy"
                             + " count=1"
                     },
+                "multipleProducerComposeEffectPassthrough":
+                    composeFailureCapability?.stages.first?
+                        .visualFailureReasonCode
+                        == "material-dynamic-uniform-contributor-policy",
+                "multipleProducerComposeEffectCounted":
+                    composeFailureCatalog.reportLines.contains {
+                        $0 == "resolved material execution capability fallback:"
+                            + " state=prefer-generic"
+                            + " outcome=effect-local-passthrough"
+                            + " reason=material-dynamic-uniform-contributor-policy"
+                            + " count=1"
+                    },
+                "multipleProducerHistoryComposeRemainsHard": reportHas(
+                    historyComposeFailureCatalog,
+                    "material-dynamic-uniform-contributor-policy"
+                ) && historyComposeFailureCatalog.claim(layerID: layerID) == nil,
+                "multipleProducerMalformedComposeRemainsHard":
+                    malformedComposeFailureCatalog.claim(layerID: layerID) == nil,
                 "multipleProducerMissingNonLeafRemainsRejected": reportHas(
                     multipleProducerMissingCatalog,
                     "material-dynamic-uniform-contributor-producer-unavailable"
@@ -6671,6 +6751,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "multipleProducerNonLeafRemainsRejected": True,
                 "multipleProducerPairLeafPassthrough": True,
                 "multipleProducerPairLeafCounted": True,
+                "multipleProducerComposeEffectPassthrough": True,
+                "multipleProducerComposeEffectCounted": True,
+                "multipleProducerHistoryComposeRemainsHard": True,
+                "multipleProducerMalformedComposeRemainsHard": True,
                 "multipleProducerMissingNonLeafRemainsRejected": True,
                 "multipleProducerMissingPairLeafPassthrough": True,
                 "multipleProducerMissingPairLeafCounted": True,
