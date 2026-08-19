@@ -16,6 +16,7 @@ struct SceneImageLayerMasks {
     let tintEffects: [String: SceneTintEffectTextures]
     let godraysEffects: [String: SceneGodraysEffectTextures]
     let shineEffects: [String: SceneShineEffectTextures]
+    let lightShaftsEffects: [String: SceneLightShaftsEffectTextures]
     let xRay: SceneXRayEffectTextures?
 
     static let empty = SceneImageLayerMasks(
@@ -33,6 +34,7 @@ struct SceneImageLayerMasks {
         tintEffects: [:],
         godraysEffects: [:],
         shineEffects: [:],
+        lightShaftsEffects: [:],
         xRay: nil
     )
 
@@ -52,6 +54,7 @@ struct SceneImageLayerMasks {
             tintEffects: [:],
             godraysEffects: [:],
             shineEffects: [:],
+            lightShaftsEffects: [:],
             xRay: xRay
         )
     }

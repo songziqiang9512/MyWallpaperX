@@ -18,6 +18,7 @@ extension SceneMetalRenderer {
             tintEffects: store.tintEffects,
             godraysEffects: store.godraysEffects,
             shineEffects: store.shineEffects,
+            lightShaftsEffects: store.lightShaftsEffects,
             xRay: store.xRayEffects[layerID]
         )
     }

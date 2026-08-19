@@ -300,6 +300,54 @@ final class SceneLightShaftsPipeline {
         return true
     }
 
+    func renderOffscreen(
+        plan: SceneLightShaftsExecutionPlan,
+        resources: SceneLightShaftsEffectTextures,
+        target: MTLTexture,
+        time: Float,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        guard target.pixelFormat == .bgra8Unorm,
+              target.textureType == .type2D,
+              target.usage.contains(.renderTarget),
+              target.width > 0,
+              target.height > 0,
+              target.device.registryID == deviceRegistryID,
+              commandBuffer.status == .notEnqueued,
+              commandBuffer.commandQueue.device.registryID == deviceRegistryID else {
+            return nil
+        }
+        let descriptor = MTLRenderPassDescriptor()
+        descriptor.colorAttachments[0].texture = target
+        descriptor.colorAttachments[0].loadAction = .clear
+        descriptor.colorAttachments[0].clearColor = .init(
+            red: 0,
+            green: 0,
+            blue: 0,
+            alpha: 0
+        )
+        descriptor.colorAttachments[0].storeAction = .store
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(
+            descriptor: descriptor
+        ) else { return nil }
+        encoder.label = "Scene Light Shafts unified pair leaf"
+        let encoded = draw(
+            plan: plan,
+            resources: resources,
+            mvp: simd_float4x4(columns: (
+                SIMD4<Float>(2, 0, 0, 0),
+                SIMD4<Float>(0, 2, 0, 0),
+                SIMD4<Float>(0, 0, 1, 0),
+                SIMD4<Float>(0, 0, 0, 1)
+            )),
+            time: time,
+            alpha: 1,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        return encoded ? target : nil
+    }
+
     private func valid(
         plan: SceneLightShaftsExecutionPlan,
         time: Float,

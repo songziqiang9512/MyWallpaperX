@@ -304,6 +304,28 @@ class SceneUtilityLayerTests(unittest.TestCase):
             metal_renderer,
         )
 
+    def test_procedural_noise_hidden_solid_provider_uses_source_texture_capture(self) -> None:
+        dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        self.assertNotIn(
+            "case .resolvedMaterial, .proceduralNoiseLayer:",
+            dependency_runtime,
+        )
+        self.assertGreaterEqual(
+            dependency_runtime.count("case .proceduralNoiseLayer:"),
+            2,
+        )
+        procedural_branch = dependency_runtime[
+            dependency_runtime.index("case .proceduralNoiseLayer:"):]
+        self.assertIn("guard let sourceTexture else", procedural_branch)
+        self.assertIn("uniforms.tint = SIMD4", procedural_branch)
+        self.assertIn("providerTexture.width", procedural_branch)
+        self.assertIn(
+            'failureReason = "procedural-provider-texture-missing"',
+            procedural_branch,
+        )
+        self.assertIn('failureReason = "reservation-mismatch"', dependency_runtime)
+        self.assertIn('failureReason = "frame-epoch-invalid"', dependency_runtime)
+
     def test_rejected_graph_suppression_does_not_retire_typed_dependencies(
         self,
     ) -> None:

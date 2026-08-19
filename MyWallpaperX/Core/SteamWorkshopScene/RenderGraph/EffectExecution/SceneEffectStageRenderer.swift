@@ -117,8 +117,19 @@ targets: targets,
                 time: time,
                 commandBuffer: commandBuffer
             )
-        case .lightShafts:
-            return nil
+        case .lightShafts(let lightShafts):
+            guard let resources = masks.lightShaftsEffects[
+                      lightShafts.effectKey.descriptorID
+                  ], let lightShaftsPipeline = pipelines.lightShafts else {
+                return nil
+            }
+            return lightShaftsPipeline.renderOffscreen(
+                plan: lightShafts,
+                resources: resources,
+                target: targets.outputTexture,
+                time: time,
+                commandBuffer: commandBuffer
+            )
         case .shake, .waterFlow, .waterWaves, .waterCaustics,
              .cursorRipple, .waterRipple, .depthParallax,
              .xRay, .blend, .tint, .transform,

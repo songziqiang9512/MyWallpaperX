@@ -748,7 +748,7 @@ struct SceneLightShaftsEffectTextures {
         var supportsUnifiedPairLeaf: Bool {
             switch self {
             case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
-                 .workshopShadow,
+                 .workshopShadow, .lightShafts,
                  .shake:
                 return true
             case .proceduralNoise(let plan):
@@ -1965,6 +1965,11 @@ enum Harness {
             queue: queue,
             pipeline: pipeline
         )
+        let authoredLightShaftsPrepared = try Self.authoredLightShaftsPreparedEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline
+        )
         let authoredShinePrepared = try authoredShinePreparedEvidence(
             device: device,
             queue: queue,
@@ -2040,6 +2045,7 @@ enum Harness {
             "authoredStandardCandidate": authoredStandardCandidate,
             "authoredLocalContrastPrepared": authoredLocalContrastPrepared,
             "authoredGodraysPrepared": authoredGodraysPrepared,
+            "authoredLightShaftsPrepared": authoredLightShaftsPrepared,
             "authoredShinePrepared": authoredShinePrepared,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
             "standardBlurMaskPixels": standardBlurMaskPixels,
@@ -2459,6 +2465,7 @@ enum Harness {
                 tintEffects: tintEffects,
                 godraysEffects: godraysEffects,
                 shineEffects: shineEffects,
+                lightShaftsEffects: [:],
                 xRay: xRay
             )
         }
@@ -4229,6 +4236,99 @@ enum Harness {
         ]
     }
 
+    static func authoredLightShaftsPreparedEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline
+    ) throws -> [String: Any] {
+        let size = 32
+        guard let noise = makeTexture(
+                  device: device, size: size, usage: .shaderRead
+              ), let gradient = makeTexture(
+                  device: device, size: size, usage: .shaderRead
+              ), let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(noise, bgra: [127, 96, 64, 255])
+        fill(gradient, bgra: [255, 128, 64, 255])
+        let plan = authoredLightShaftsPlan()
+        guard case let .lightShafts(lightShafts) = plan.backend else {
+            throw HarnessError.drawRefused
+        }
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        let frameTables = try prepareStageTargets(
+            plan: plan,
+            pool: pool,
+            width: size,
+            height: size,
+            commandBuffer: commandBuffer
+        )
+        defer { frameTables.commit.releaseAll() }
+        guard let table = frameTables.tables.first else {
+            throw HarnessError.drawRefused
+        }
+        let resources = SceneLightShaftsEffectTextures(
+            noise: noise,
+            gradient: gradient,
+            noisePath: lightShafts.noiseTexturePath,
+            gradientPath: lightShafts.gradientTexturePath
+        )
+        func preparation(
+            resources: [String: SceneLightShaftsEffectTextures]
+        ) -> SceneEffectStageRenderer.StagePreparation {
+            SceneEffectStageRenderer.prepareStage(
+                plan,
+                sourceTexture: table.inputTexture,
+                targets: table,
+                inputs: .init(
+                    masks: authoredEffectMasks(lightShaftsEffects: resources),
+                    dynamicValues: .empty(frameIndex: 1),
+                    pipelines: .init(
+                        repository: SceneImageEffectPipelineRepository(device: device)
+                    ),
+                    cursorUV: .zero,
+                    previousCursorUV: .zero,
+                    pointerIsInside: false,
+                    previousPointerIsInside: false,
+                    pointerMovement: 0,
+                    primaryButtonIsDown: false,
+                    frameTime: 1 / 60,
+                    time: 0,
+                    audioSpectrum: .silent,
+                    dependencyEffect: nil
+                ),
+                sourcePipeline: pipeline,
+                time: 0
+            )
+        }
+        let missing = preparation(resources: [:])
+        let missingReason: String?
+        if case let .rejected(reason) = missing { missingReason = reason }
+        else { missingReason = nil }
+        guard case let .ready(prepared) = preparation(resources: [
+                  lightShafts.effectKey.descriptorID: resources,
+              ]), SceneEffectStageRenderer.encodePreparedStage(
+                  prepared,
+                  commandBuffer: commandBuffer
+              ) else {
+            throw HarnessError.drawRefused
+        }
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed,
+              commandBuffer.error == nil else {
+            throw HarnessError.commandFailed
+        }
+        let output = try textureBytes(table.outputTexture, queue: queue)
+        return [
+            "preparedStageEncoded": true,
+            "outputHasPixels": stride(from: 3, to: output.count, by: 4)
+                .contains { output[$0] > 0 },
+            "missingResourceReason": missingReason as Any,
+            "pairInputOutputDistinct": table.inputTexture !== table.outputTexture,
+        ]
+    }
+
     static func authoredShinePreparedEvidence(
         device: MTLDevice,
         queue: MTLCommandQueue,
@@ -4374,6 +4474,7 @@ enum Harness {
             tintEffects: [:],
             godraysEffects: [:],
             shineEffects: [:],
+            lightShaftsEffects: [:],
             xRay: nil
         )
     }
@@ -4777,6 +4878,91 @@ enum Harness {
             logicalRenderTargetCount: 0
         )
         return stage
+    }
+
+    static func authoredLightShaftsPlan(
+        layerID: Int = 860
+    ) -> SceneEffectStageExecutionPlan {
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#0"
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(
+            .effectOutput,
+            layerID: layerID,
+            effect: effectKey
+        )
+        let node = Graph.Node(
+            nodeIndex: 0,
+            effect: effectKey,
+            definitionPassIndex: 0,
+            materialOrdinal: 0,
+            instancePassIndex: 0,
+            kind: .material,
+            materialPath: "materials/effects/lightshafts.json",
+            materialPassID: "materials/effects/lightshafts.json#0",
+            target: output,
+            bindings: [],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/lightshafts/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: [0]
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: [],
+            nodes: [node],
+            finalOutput: output,
+            blockers: []
+        )
+        let points = (
+            SIMD2<Float>(0, 0), SIMD2<Float>(1, 0),
+            SIMD2<Float>(1, 1), SIMD2<Float>(0, 1)
+        )
+        let transform = SceneLightShaftsPerspectiveTransform(
+            row0: SIMD3<Float>(1, 0, 0),
+            row1: SIMD3<Float>(0, 1, 0),
+            row2: SIMD3<Float>(0, 0, 1)
+        )
+        return SceneEffectStageExecutionPlan(
+            layerID: layerID,
+            renderGraph: graph,
+            backend: .lightShafts(SceneLightShaftsExecutionPlan(
+                layerID: layerID,
+                effectKey: effectKey,
+                renderGraph: graph,
+                profile: .linearGradient,
+                points: points,
+                effectUVTransform: transform,
+                startColor: SIMD3(repeating: 1),
+                endColor: SIMD3(0.4, 0.8, 1),
+                feather: SIMD2(repeating: 0.1),
+                scale: SIMD2(0.8, 0.5),
+                radius: 0.14,
+                noiseAmount: 0.33,
+                noiseScale: 1.17,
+                smoothness: 0.85,
+                speed: 0.7,
+                intensity: 2.5,
+                exponent: 0.6,
+                startAngle: 0,
+                endAngle: 1,
+                noiseTexturePath: "materials/util/noise",
+                gradientTexturePath: "materials/gradient/gradient_iridescent"
+            )),
+            materialNodeCount: 1,
+            logicalRenderTargetCount: 0
+        )
     }
 
     static func prepareStageTargets(
@@ -5329,7 +5515,8 @@ enum Harness {
         tintMask: MTLTexture? = nil,
         tintMaskPath: String? = nil,
         godraysEffects: [String: SceneGodraysEffectTextures] = [:],
-        shineEffects: [String: SceneShineEffectTextures] = [:]
+        shineEffects: [String: SceneShineEffectTextures] = [:],
+        lightShaftsEffects: [String: SceneLightShaftsEffectTextures] = [:]
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
             waterRippleEffects: [:],
@@ -5350,6 +5537,7 @@ enum Harness {
             )],
             godraysEffects: godraysEffects,
             shineEffects: shineEffects,
+            lightShaftsEffects: lightShaftsEffects,
             xRay: nil
         )
     }
@@ -6156,6 +6344,19 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertEqual(
             evidence["legacyMissingResourceReason"],
             "godrays-resource-missing",
+            evidence,
+        )
+
+    def test_light_shafts_prepared_stage_uses_shared_pair_and_requires_resources(
+        self,
+    ) -> None:
+        evidence = self.result["authoredLightShaftsPrepared"]
+        self.assertTrue(evidence["preparedStageEncoded"], evidence)
+        self.assertTrue(evidence["outputHasPixels"], evidence)
+        self.assertTrue(evidence["pairInputOutputDistinct"], evidence)
+        self.assertEqual(
+            evidence["missingResourceReason"],
+            "light-shafts-resource-missing",
             evidence,
         )
 

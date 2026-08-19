@@ -30,7 +30,7 @@ extension SceneEffectStageExecutionPlan {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .opacity, .colorGrading,
+            case .opacity, .colorGrading, .lightShafts,
                  .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                  .workshopShadow, .shake, .waterFlow,
                  .waterWaves, .waterCaustics, .waterRipple,

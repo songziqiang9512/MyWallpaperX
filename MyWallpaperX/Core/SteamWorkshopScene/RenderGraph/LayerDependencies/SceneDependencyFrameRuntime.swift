@@ -54,19 +54,30 @@ final class SceneDependencyFrameRuntime {
         providerCandidate: SceneTextureCandidate?,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
-        frameEpoch: UInt64
+        frameEpoch: UInt64,
+        failureReason: inout String?
     ) -> SceneDependencyEffectInput? {
-        guard frameEpoch > 0,
-              binding.providerLayerID == providerLayer.id,
-              plan.bindingsByConsumerLayerID[binding.consumerLayerID] == binding,
-              let extent = Self.captureExtent(
-                  binding: binding,
-                  providerLayer: providerLayer,
-                  providerTexture: providerTexture,
-                  providerCandidate: providerCandidate,
-                  layerMVP: layerMVP,
-                  viewportSize: viewportSize
-              ) else {
+        guard frameEpoch > 0 else {
+            failureReason = "frame-epoch-invalid"
+            return nil
+        }
+        guard binding.providerLayerID == providerLayer.id else {
+            failureReason = "provider-layer-mismatch"
+            return nil
+        }
+        guard plan.bindingsByConsumerLayerID[binding.consumerLayerID] == binding else {
+            failureReason = "binding-not-planned"
+            return nil
+        }
+        guard let extent = Self.captureExtent(
+            binding: binding,
+            providerLayer: providerLayer,
+            providerTexture: providerTexture,
+            providerCandidate: providerCandidate,
+            layerMVP: layerMVP,
+            viewportSize: viewportSize,
+            failureReason: &failureReason
+        ) else {
             return nil
         }
         synchronizeReservations(to: frameEpoch)
@@ -78,6 +89,7 @@ final class SceneDependencyFrameRuntime {
                   reservation.kind == binding.kind,
                   reservation.width == extent.width,
                   reservation.height == extent.height else {
+                failureReason = "reservation-mismatch"
                 return nil
             }
             texture = reservation.texture
@@ -88,6 +100,7 @@ final class SceneDependencyFrameRuntime {
                       height: extent.height
                   ), reservedTexture.width == extent.width,
                   reservedTexture.height == extent.height else {
+                failureReason = "target-pool-unavailable"
                 return nil
             }
             reservationsByProviderLayerID[providerLayer.id] = EffectTargetReservation(
@@ -172,6 +185,7 @@ final class SceneDependencyFrameRuntime {
         let providerBindings = plan.bindingsByConsumerLayerID.values.filter {
             $0.providerLayerID == layer.id
         }
+        var captureFailureReason: String?
         guard let binding = providerBindings.first,
               providerBindings.allSatisfy({ $0.kind == binding.kind }),
               let extent = Self.captureExtent(
@@ -180,7 +194,8 @@ final class SceneDependencyFrameRuntime {
                   providerTexture: sourceTexture,
                   providerCandidate: sourceCandidate,
                   layerMVP: layerMVP,
-                  viewportSize: viewportSize
+                  viewportSize: viewportSize,
+                  failureReason: &captureFailureReason
               ) else {
             captureTelemetry.recordFailure(layerID: layer.id)
             return false
@@ -247,7 +262,7 @@ final class SceneDependencyFrameRuntime {
                 )
                 return didEncode
             }
-        case .resolvedMaterial, .proceduralNoiseLayer:
+        case .resolvedMaterial:
             guard let utility = layer.utilityLayer,
                   let geometry = SceneCaptureGeometryResolver.resolve(
                       kind: utility.kind,
@@ -279,6 +294,32 @@ final class SceneDependencyFrameRuntime {
             } ?? false
             if !didObserveCommandBuffer {
                 captureTelemetry.recordFailure(layerID: layer.id)
+            }
+        case .proceduralNoiseLayer:
+            guard let sourceTexture else {
+                captureTelemetry.recordFailure(layerID: layer.id)
+                return false
+            }
+            var uniforms = SceneLayerFragmentUniforms.neutral()
+            uniforms.alpha = max(0, Float(layer.alpha ?? 1))
+            let color = SIMD3(layer.colorRGB ?? [], fill: 1)
+            uniforms.tint = SIMD4(color.x, color.y, color.z, 1)
+            uniforms.textureFrame0 = SceneTextureUVTransform.identity.uniform0
+            uniforms.textureFrame1 = SceneTextureUVTransform.identity.uniform1
+            encoded = mainPass.encodeOffscreen { commandBuffer in
+                let didEncode = SceneOffscreenEffectRenderer.captureSource(
+                    sourceTexture: sourceTexture,
+                    target: target,
+                    sourceUniforms: uniforms,
+                    pipeline: pipeline,
+                    commandBuffer: commandBuffer
+                )
+                captureTelemetry.record(
+                    layerID: layer.id,
+                    encoded: didEncode,
+                    on: commandBuffer
+                )
+                return didEncode
             }
         }
         if encoded {
@@ -332,7 +373,8 @@ final class SceneDependencyFrameRuntime {
         providerTexture: MTLTexture?,
         providerCandidate: SceneTextureCandidate?,
         layerMVP: simd_float4x4,
-        viewportSize: CGSize
+        viewportSize: CGSize,
+        failureReason: inout String?
     ) -> (width: Int, height: Int)? {
         switch binding.kind {
         case .imageLayerBlend:
@@ -342,21 +384,40 @@ final class SceneDependencyFrameRuntime {
                   isExactImageProviderCandidate(
                       providerCandidate,
                       matching: providerTexture
-                  ) else { return nil }
+                  ) else {
+                failureReason = "image-provider-invalid"
+                return nil
+            }
             return normalizedExtent(
                 width: providerTexture.width,
                 height: providerTexture.height
             )
-        case .resolvedMaterial, .proceduralNoiseLayer:
+        case .resolvedMaterial:
             guard let utility = providerLayer.utilityLayer,
                   let geometry = SceneCaptureGeometryResolver.resolve(
                       kind: utility.kind,
                       layerMVP: layerMVP,
                       viewportSize: viewportSize
-                  ) else { return nil }
+                  ) else {
+                failureReason = "resolved-material-geometry-invalid"
+                return nil
+            }
             return normalizedExtent(
                 width: Int(geometry.pixelSize.width.rounded(.up)),
                 height: Int(geometry.pixelSize.height.rounded(.up))
+            )
+        case .proceduralNoiseLayer:
+            guard binding.providerLayerID == providerLayer.id else {
+                failureReason = "provider-layer-mismatch"
+                return nil
+            }
+            guard let providerTexture else {
+                failureReason = "procedural-provider-texture-missing"
+                return nil
+            }
+            return normalizedExtent(
+                width: providerTexture.width,
+                height: providerTexture.height
             )
         }
     }

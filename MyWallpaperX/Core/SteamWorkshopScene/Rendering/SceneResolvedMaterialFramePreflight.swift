@@ -46,6 +46,7 @@ extension SceneMetalRenderer {
                 _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
                 return nil
             }
+            var requestFailureReason: String?
             guard let requests = resolvedMaterialFramePreparationRequests(
                 plans: plans,
                 imageTextures: imageTextures,
@@ -58,10 +59,11 @@ extension SceneMetalRenderer {
                 worldFramesByLayerID: worldFramesByLayerID,
                 cameraFrame: cameraFrame,
                 parallaxConfiguration: parallaxConfiguration,
-                mainTarget: mainTarget
+                mainTarget: mainTarget,
+                failureReason: &requestFailureReason
             ) else {
                 imageCompositor.recordResolvedMaterialFramePreflightFailure(
-                    "frame-preparation-request-invalid"
+                    requestFailureReason ?? "frame-preparation-request-invalid"
                 )
                 _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
                 return nil
@@ -254,10 +256,19 @@ extension SceneMetalRenderer {
         worldFramesByLayerID: [Int: simd_float4x4],
         cameraFrame: SceneParticleCameraFrame,
         parallaxConfiguration: SceneLayerParallax.Configuration,
-        mainTarget: MTLTexture
+        mainTarget: MTLTexture,
+        failureReason: inout String?
     ) -> [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]? {
+        func invalid(_ reasonCode: String) -> [
+            SceneResolvedMaterialRuntimeBridge.FramePreparationRequest
+        ]? {
+            failureReason = "frame-preparation-request-invalid:\(reasonCode)"
+            return nil
+        }
         guard !plans.isEmpty else { return [] }
-        guard let imagePipeline, offscreenTexturePool != nil else { return nil }
+        guard let imagePipeline, offscreenTexturePool != nil else {
+            return invalid("shared-input-unavailable")
+        }
         let time = Float(frameContext.sceneTime)
         let imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4 = {
             layer, renderSizeOverride in
@@ -275,25 +286,28 @@ extension SceneMetalRenderer {
             guard let plan = plans[layerID] else { continue }
             guard let layer = layersByID[layerID],
                   let layerModelMatrix = worldFramesByLayerID[layerID] else {
-                return nil
+                return invalid("layer-\(layerID)-world-frame-missing")
             }
             let route = imageCompositor.preflightResolvedMaterialClaim(
                 layerID: layerID
             )
             guard case let .claimed(claim) = route,
-                  claim.token == plan.token else { return nil }
+                  claim.token == plan.token else {
+                return invalid("layer-\(layerID)-claim-token-mismatch")
+            }
             let dependencyEffect: SceneDependencyEffectInput?
             switch claim.dependencyOwnership {
             case .none, .graphInternal: dependencyEffect = nil
             case .externalPrimary(let binding):
                 guard binding.consumerLayerID == layerID,
                       let providerLayer = layersByID[binding.providerLayerID] else {
-                    return nil
+                    return invalid("layer-\(layerID)-dependency-binding-invalid")
                 }
                 let providerMVP = imageMVP(
                     providerLayer,
                     dynamicTextRenderSizes[providerLayer.id]
                 )
+                var dependencyFailureReason: String?
                 guard let reservedInput = dependencyRuntime.reserveEffectInput(
                     for: binding,
                     providerLayer: providerLayer,
@@ -306,8 +320,14 @@ extension SceneMetalRenderer {
                     },
                     layerMVP: providerMVP,
                     viewportSize: frameContext.screenSize,
-                    frameEpoch: textureRegistry.frameEpoch
-                ) else { return nil }
+                    frameEpoch: textureRegistry.frameEpoch,
+                    failureReason: &dependencyFailureReason
+                ) else {
+                    return invalid(
+                        "layer-\(layerID)-dependency-input-invalid"
+                            + (dependencyFailureReason.map { "-\($0)" } ?? "")
+                    )
+                }
                 dependencyEffect = reservedInput
             }
             let sourceMVP: simd_float4x4
@@ -318,7 +338,9 @@ extension SceneMetalRenderer {
             var sourceUniforms: SceneLayerFragmentUniforms? = nil
             switch claim.sourceRoute {
             case .capturedLayerTexture:
-                guard let texture = imageTextures[layerID] else { return nil }
+                guard let texture = imageTextures[layerID] else {
+                    return invalid("layer-\(layerID)-source-texture-missing")
+                }
                 sourceMVP = imageMVP(
                     layer,
                     dynamicTextRenderSizes[layerID]
@@ -330,13 +352,17 @@ extension SceneMetalRenderer {
             case .capturedMainTargetTexture:
                 guard let utility = layer.utilityLayer,
                       layer.contentKind == utility.kind.rawValue,
-                      layer.childLayerIDs.isEmpty else { return nil }
+                      layer.childLayerIDs.isEmpty else {
+                    return invalid("layer-\(layerID)-utility-source-shape-invalid")
+                }
                 sourceMVP = imageMVP(layer, nil)
                 guard let geometry = SceneCaptureGeometryResolver.resolve(
                     kind: utility.kind,
                     layerMVP: sourceMVP,
                     viewportSize: frameContext.screenSize
-                ) else { return nil }
+                ) else {
+                    return invalid("layer-\(layerID)-utility-geometry-invalid")
+                }
                 outputMVP = geometry.outputMVP
                 sourceTexture = mainTarget
                 textureFrame = geometry.sourceUV
@@ -349,7 +375,9 @@ extension SceneMetalRenderer {
                           parallaxMouseNormalized:
                               frameContext.cameraParallaxPosition,
                           configuration: parallaxConfiguration
-                      ) else { return nil }
+                      ) else {
+                    return invalid("layer-\(layerID)-direct-draw-model-invalid")
+                }
                 sourceMVP = cameraFrame.orthographicViewProjection * directDrawModel
                 outputMVP = sourceMVP
                 sourceTexture = nil
@@ -360,7 +388,9 @@ extension SceneMetalRenderer {
                     SceneLayerCursorGeometry.effectProjectionInverse(
                         outputMVP,
                         required: claim.requiresInvertibleEffectTextureProjection
-                    ) else { return nil }
+                    ) else {
+                return invalid("layer-\(layerID)-effect-projection-inverse-invalid")
+            }
             let cursor = SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: frameContext.pointer.current,
                 modelViewProjection: sourceMVP
@@ -411,7 +441,9 @@ extension SceneMetalRenderer {
                 guard let uniforms = imageCompositor.sourceFragmentUniforms(
                     for: request,
                     routesOffscreen: true
-                ) else { return nil }
+                ) else {
+                    return invalid("layer-\(layerID)-source-uniforms-invalid")
+                }
                 sourceUniforms = uniforms
             }
             let sceneBackgroundResource: SceneFrameTextureResource?
@@ -422,7 +454,9 @@ extension SceneMetalRenderer {
                             consumerLayerID: layerID,
                             frameEpoch: textureRegistry.frameEpoch,
                             texture: mainTarget
-                        ) else { return nil }
+                        ) else {
+                    return invalid("layer-\(layerID)-scene-background-invalid")
+                }
                 sceneBackgroundResource = resource
             } else {
                 sceneBackgroundResource = nil
@@ -481,6 +515,9 @@ extension SceneMetalRenderer {
             )
             result.append(request)
         }
-        return result.count == plans.count ? result : nil
+        guard result.count == plans.count else {
+            return invalid("plan-count-mismatch")
+        }
+        return result
     }
 }

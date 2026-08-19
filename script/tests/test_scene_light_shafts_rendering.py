@@ -257,6 +257,98 @@ enum Harness {
         return (accepted, bytes)
     }
 
+    static func renderUnifiedLeaf(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneLightShaftsPipeline,
+        resources: SceneLightShaftsEffectTextures,
+        plan: SceneLightShaftsExecutionPlan,
+        time: Float
+    ) -> (accepted: Bool, bytes: [UInt8]) {
+        let target = texture(
+            device: device,
+            width: size,
+            height: size,
+            format: .bgra8Unorm,
+            usage: [.renderTarget]
+        )
+        let command = queue.makeCommandBuffer()!
+        let accepted = pipeline.renderOffscreen(
+            plan: plan,
+            resources: resources,
+            target: target,
+            time: time,
+            commandBuffer: command
+        ) === target
+        command.commit()
+        command.waitUntilCompleted()
+        var bytes = [UInt8](repeating: 0, count: size * size * 4)
+        target.getBytes(
+            &bytes,
+            bytesPerRow: size * 4,
+            from: MTLRegionMake2D(0, 0, size, size),
+            mipmapLevel: 0
+        )
+        return (accepted, bytes)
+    }
+
+    static func unifiedLeafRejectsInvalidExecutionState(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneLightShaftsPipeline,
+        resources: SceneLightShaftsEffectTextures,
+        plan: SceneLightShaftsExecutionPlan
+    ) -> Bool {
+        let invalidFormat = texture(
+            device: device,
+            width: size,
+            height: size,
+            format: .rgba8Unorm,
+            usage: [.renderTarget]
+        )
+        let invalidUsage = texture(
+            device: device,
+            width: size,
+            height: size,
+            format: .bgra8Unorm,
+            usage: [.shaderRead]
+        )
+        let validTarget = texture(
+            device: device,
+            width: size,
+            height: size,
+            format: .bgra8Unorm,
+            usage: [.renderTarget]
+        )
+        let formatCommand = queue.makeCommandBuffer()!
+        let formatRejected = pipeline.renderOffscreen(
+            plan: plan,
+            resources: resources,
+            target: invalidFormat,
+            time: 0,
+            commandBuffer: formatCommand
+        ) == nil
+        let usageCommand = queue.makeCommandBuffer()!
+        let usageRejected = pipeline.renderOffscreen(
+            plan: plan,
+            resources: resources,
+            target: invalidUsage,
+            time: 0,
+            commandBuffer: usageCommand
+        ) == nil
+        let completedCommand = queue.makeCommandBuffer()!
+        completedCommand.commit()
+        completedCommand.waitUntilCompleted()
+        let completedRejected = pipeline.renderOffscreen(
+            plan: plan,
+            resources: resources,
+            target: validTarget,
+            time: 0,
+            commandBuffer: completedCommand
+        ) == nil
+        return formatRejected && usageRejected && completedRejected
+    }
+
     static func alphaTotal(_ bytes: [UInt8], xRange: Range<Int>) -> Int {
         var total = 0
         for y in 16..<48 {
@@ -322,6 +414,21 @@ enum Harness {
             plan: authoredPlan,
             time: 1.25,
             alpha: 1
+        )
+        let unifiedLeaf = renderUnifiedLeaf(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            resources: resources,
+            plan: authoredPlan,
+            time: 0
+        )
+        let unifiedLeafRejectsInvalidState = unifiedLeafRejectsInvalidExecutionState(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            resources: resources,
+            plan: authoredPlan
         )
         let phaseFrames = [Float(0), 3, 6, 9].map { phaseTime in
             render(
@@ -529,6 +636,9 @@ enum Harness {
         let result: [String: Any] = [
             "metalUnavailable": false,
             "accepted": first.accepted && second.accepted && half.accepted,
+            "unifiedLeafMatchesDirectDraw":
+                unifiedLeaf.accepted && unifiedLeaf.bytes == first.bytes,
+            "unifiedLeafRejectsInvalidState": unifiedLeafRejectsInvalidState,
             "invalidRejected": !invalid.accepted && !invalidPlan.accepted,
             "centerAlpha": first.bytes[centerOffset + 3],
             "cornerAlpha": first.bytes[3],
@@ -567,14 +677,11 @@ enum Harness {
 
 
 class SceneLightShaftsRenderingTests(unittest.TestCase):
-    def test_product_quad_route_is_resolved_only_and_legacy_renderer_is_unit_only(
+    def test_product_quad_route_is_resolved_only_and_old_renderer_is_removed(
         self,
     ) -> None:
         source = LAYER_RENDERER.read_text(encoding="utf-8")
-        legacy_renderer, product_routes = source.split(
-            "extension SceneMetalRenderer {",
-            maxsplit=1,
-        )
+        product_routes = source.split("extension SceneMetalRenderer {", maxsplit=1)[1]
         draw_quad, resolved_direct = product_routes.split(
             "    func drawResolvedDirectDrawQuad(",
             maxsplit=1,
@@ -597,10 +704,9 @@ class SceneLightShaftsRenderingTests(unittest.TestCase):
         self.assertIn("framePlan: framePlan", resolved_direct)
         self.assertIn("executionTrace: executionTrace", resolved_direct)
 
-        self.assertIn("enum SceneLightShaftsLayerRenderer", legacy_renderer)
-        self.assertIn("let encoded = pipeline.draw(", legacy_renderer)
-        self.assertIn("executionTrace.recordExact(", legacy_renderer)
-        self.assertIn('family: "light-shafts"', legacy_renderer)
+        self.assertNotIn("enum SceneLightShaftsLayerRenderer", source)
+        self.assertNotIn("pipeline.draw(", source)
+        self.assertNotIn('family: "light-shafts"', source)
 
     def test_quad_is_animated_feathered_and_premultiplied(self) -> None:
         if shutil.which("swiftc") is None:
@@ -637,6 +743,8 @@ class SceneLightShaftsRenderingTests(unittest.TestCase):
         if result["metalUnavailable"]:
             self.skipTest("Metal is unavailable")
         self.assertTrue(result["accepted"], result)
+        self.assertTrue(result["unifiedLeafMatchesDirectDraw"], result)
+        self.assertTrue(result["unifiedLeafRejectsInvalidState"], result)
         self.assertTrue(result["invalidRejected"], result)
         self.assertGreater(result["centerAlpha"], 0, result)
         self.assertEqual(result["cornerAlpha"], 0, result)

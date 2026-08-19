@@ -14,6 +14,7 @@ struct SceneAuthoredEffectPipelineSet {
     }
     var workshopShadow: SceneWorkshopShadowPipeline? { repository.workshopShadow() }
     var proceduralNoise: SceneProceduralNoisePipeline? { repository.proceduralNoise() }
+    var lightShafts: SceneLightShaftsPipeline? { repository.lightShafts() }
     var shake: SceneShakePipeline? { repository.shake() }
     var waterFlow: SceneWaterFlowPipeline? { repository.waterFlow() }
     var waterWaves: SceneWaterWavesPipeline? { repository.waterWaves() }

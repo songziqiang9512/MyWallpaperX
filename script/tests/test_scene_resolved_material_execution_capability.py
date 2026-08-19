@@ -6259,7 +6259,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         ):
             self.assertIn(backend_name, leaf_body)
         self.assertNotIn("yieldsToResolvedMaterialProgram", source)
-        self.assertNotIn(".lightShafts", leaf_body)
+        self.assertIn(".lightShafts", leaf_body)
         self.assertIn("case .proceduralNoise(let plan):", leaf_body)
         for contract in (
             "plan.variant == .worleyColorV1",
