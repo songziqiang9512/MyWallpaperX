@@ -26,7 +26,7 @@
 
 ### 2026-08-20 迁移纠偏覆盖结论
 
-Film Grain、Opacity、Tint、Light Shafts 的现役事实以当前代码和恢复提交为准：Program 成功时由共享 MaterialProgram/GraphExecutor 执行；Program 失败时旧专用 owner 仍可作为带 typed reason 的 fallback。`3767460992`当前已恢复26/26 active effect，Film Grain `20#effect#702`以`genericCompilerArtifact`闭合GPU/compositor/next-frame，同时Enhanced Audio Bars、Workshop Gradient与shift_hue继续由现役dedicated leaf接管；这证明能力止跌，不证明上述四个owner已迁移。下一批优先把`material-generic-owner-revoked`收窄到eligible effect/stage-local previous-current，并建立profile-local route；各owner只有在自己的共享正反/未见/回滚门闭合后才批量撤权。
+Film Grain、Opacity、Tint、Light Shafts 的现役事实以当前代码和恢复提交为准：Program 成功时由共享 MaterialProgram/GraphExecutor 执行；Program 失败时旧专用 owner 仍可作为带 typed reason 的 fallback。`3767460992`当前已恢复26/26 active effect，Film Grain `20#effect#702`以`genericCompilerArtifact`闭合GPU/compositor/next-frame，同时Enhanced Audio Bars、Workshop Gradient与shift_hue继续由现役dedicated leaf接管；这证明能力止跌，不证明上述四个owner已迁移。eligible 单叶 `material-generic-owner-revoked` 已能在 GraphExecutor 中保留 previous-current 并继续 suffix，但真实坏 artifact/owner-revoked GPU 失败注入与 profile-local route 仍缺；各owner只有在自己的共享正反/未见/回滚门闭合后才批量撤权。
 
 effect visibility 是共享 activation/lifecycle 能力，不是新 Effect family。当前只有 exact X-Ray 等有界 live target；generic visibility、同 key 混合 owner 和 VM mutation 仍未闭合。静态 admission、route/disposition、共享 command-buffer completion 都不能证明逐 stage GPU 成功或视觉正确；精确运行身份和旧批次只查[运行证据索引](runtime-evidence-index.md)。
 

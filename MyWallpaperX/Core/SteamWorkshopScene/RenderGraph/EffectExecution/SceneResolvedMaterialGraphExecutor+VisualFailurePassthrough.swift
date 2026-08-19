@@ -28,6 +28,7 @@ extension SceneResolvedMaterialGraphExecutor {
         rejection: Failure = .graphStructureRejected
     ) -> Failure? {
         guard [
+            "material-generic-owner-revoked",
             "material-variant-envelope-frontend",
             "material-variant-envelope-shader-preparation",
             "material-variant-envelope-color-contract",

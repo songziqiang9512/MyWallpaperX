@@ -91,7 +91,20 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 allMaterials.merge(compiled.materials) { current, _ in current }
 
             case let .failure(programFailure):
-                guard programFailure.code != "material-generic-owner-revoked" else {
+                if programFailure.code == "material-generic-owner-revoked" {
+                    if product.clearFunctions.functions.isEmpty,
+                       visualFailureMayPassthrough(
+                           programFailure,
+                           product: product,
+                           pairPlan: admitted.pairPlan,
+                           dependencyOwnership: admitted.dependencyOwnership
+                       ) {
+                        stages.append(.visualFailurePassthrough(
+                            product: product,
+                            reasonCode: programFailure.code
+                        ))
+                        continue
+                    }
                     return .failure(programFailure)
                 }
                 guard product.clearFunctions.functions.isEmpty else {
@@ -279,6 +292,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership
     ) -> Bool {
         guard [
+            "material-generic-owner-revoked",
             "material-variant-envelope-frontend",
             "material-variant-envelope-shader-preparation",
             "material-variant-envelope-color-contract",

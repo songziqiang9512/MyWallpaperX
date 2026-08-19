@@ -6290,9 +6290,32 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("state != .observeOnly", generic_cache)
         self.assertIn('rejection("material-generic-owner-revoked")', stages)
         self.assertIn(
-            'programFailure.code != "material-generic-owner-revoked"',
+            'programFailure.code == "material-generic-owner-revoked"',
             program_first,
         )
+        self.assertIn(
+            '"material-generic-owner-revoked",',
+            program_first,
+        )
+        self.assertIn(
+            "visualFailureMayPassthrough(\n"
+            "                           programFailure,",
+            program_first,
+        )
+        owner_revoked_branch = program_first[
+            program_first.index(
+                'if programFailure.code == "material-generic-owner-revoked"'
+            ):
+            program_first.index(
+                "guard product.clearFunctions.functions.isEmpty else",
+                program_first.index(
+                    'if programFailure.code == "material-generic-owner-revoked"'
+                )
+            )
+        ]
+        self.assertIn("product.clearFunctions.functions.isEmpty", owner_revoked_branch)
+        self.assertIn("dependencyOwnership: admitted.dependencyOwnership", owner_revoked_branch)
+        self.assertIn("return .failure(programFailure)", owner_revoked_branch)
         self.assertNotIn(
             "r8TextureSlots: Set(variantKey.resolvedTextureFormats",
             compilation,

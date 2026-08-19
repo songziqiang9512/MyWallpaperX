@@ -5306,6 +5306,7 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
                 '"material-variant-envelope-shader-preparation"',
                 text,
             )
+            self.assertIn('"material-generic-owner-revoked"', text)
             self.assertIn(
                 '"material-variant-envelope-color-contract"',
                 text,
