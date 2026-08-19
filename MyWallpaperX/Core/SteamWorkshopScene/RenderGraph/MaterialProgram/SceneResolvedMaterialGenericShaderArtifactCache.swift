@@ -130,13 +130,13 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         var defaultRouteState: RouteState {
             switch self {
             case .ordinaryShader,
-                 .providerBackedScalarColorInterpolation: .preferGeneric
+                 .providerBackedScalarColorInterpolation,
+                 .sourceProvenGraphInputStraightAlpha,
+                 .sourceProvenGraphInputStraightAlphaPreserving: .preferGeneric
             case .sourceProvenScalarColorInterpolation,
                  .sourceProvenOpaqueScalarOutput,
                  .sourceProvenStraightAlphaR8Signal,
                  .sourceProvenGraphTargetPassthrough,
-                 .sourceProvenGraphInputStraightAlpha,
-                 .sourceProvenGraphInputStraightAlphaPreserving,
                  .sourceProvenGraphInputStageUniformPassthrough: .genericOnly
             }
         }

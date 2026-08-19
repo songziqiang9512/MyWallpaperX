@@ -62,9 +62,17 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             return .failure(.sourceTooLarge)
         }
         do {
+            let typedVertexSource = rewriteBuiltInVectorArguments(
+                vertexSource,
+                stage: .vertex
+            )
+            let typedFragmentSource = rewriteBuiltInVectorArguments(
+                fragmentSource,
+                stage: .fragment
+            )
             var parsed: [String: ParsedStage] = [
-                "vertex": try parse(vertexSource),
-                "fragment": try parse(fragmentSource),
+                "vertex": try parse(typedVertexSource),
+                "fragment": try parse(typedFragmentSource),
             ]
             var uniforms: [String: Shape] = [:]
             var samplers: [String: Int] = [:]
@@ -325,6 +333,69 @@ void main() {
             range: NSRange(source.startIndex..., in: source),
             withTemplate: "$1$2.r$3"
         )
+    }
+
+    /// Wallpaper Engine authored GLSL permits the established bounded frontend
+    /// conversion where one `mix`/`lerp` color argument is wider than the
+    /// other. Reuse that typed rule before Vulkan GLSL validation so the two
+    /// compiler paths do not disagree about the same authored expression.
+    /// Unknown expressions, weights, and user-defined built-ins remain
+    /// untouched and therefore fail closed in the helper compiler.
+    private static func rewriteBuiltInVectorArguments(
+        _ source: String,
+        stage: SceneShaderContract.StageKind
+    ) -> String {
+        let normalized = source
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let analysisSource = normalized.components(separatedBy: "\n").map { line in
+            line.trimmingCharacters(in: .whitespaces).hasPrefix("#version")
+                ? "" : line
+        }.joined(separator: "\n")
+        let lexer = SceneAuthoredShaderLexer.lex(source: analysisSource, stage: stage)
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: lexer,
+            stage: stage
+        )
+        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else {
+            return normalized
+        }
+
+        var lineStarts = [0]
+        var scalarOffset = 0
+        for scalar in normalized.unicodeScalars {
+            scalarOffset += 1
+            if scalar == "\n" { lineStarts.append(scalarOffset) }
+        }
+        let insertions = unit.tokens.indices.compactMap { index -> (Int, String)? in
+            let token = unit.tokens[index]
+            guard token.kind == .identifier,
+                  let suffix = SceneAuthoredShaderBuiltInVectorConversion.suffix(
+                      forIdentifierAt: index,
+                      in: unit.tokens,
+                      unit: unit
+                  ), token.line > 0, token.line <= lineStarts.count else {
+                return nil
+            }
+            let end = lineStarts[token.line - 1] + token.column - 1
+                + token.text.unicodeScalars.count
+            guard end <= normalized.unicodeScalars.count else { return nil }
+            return (end, ".\(suffix)")
+        }.sorted { $0.0 > $1.0 }
+        guard !insertions.isEmpty else { return normalized }
+
+        var result = normalized
+        for (offset, suffix) in insertions {
+            let scalarIndex = result.unicodeScalars.index(
+                result.unicodeScalars.startIndex,
+                offsetBy: offset
+            )
+            guard let index = String.Index(scalarIndex, within: result) else {
+                return normalized
+            }
+            result.insert(contentsOf: suffix, at: index)
+        }
+        return result
     }
 
     /// The authored sampler accepts a float2 coordinate, while the common

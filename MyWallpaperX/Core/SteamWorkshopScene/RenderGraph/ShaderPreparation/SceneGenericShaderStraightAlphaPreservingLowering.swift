@@ -77,6 +77,103 @@ inline float4 \(premultiply)(float4 color) {
         return transformed
     }
 
+    /// Applies one straight-color boundary to a source-proven conditional
+    /// union whose terminal branches either forward the base sample or write
+    /// RGB and alpha independently. The source analyzer owns branch semantics;
+    /// this verifier only accepts the corresponding bounded compiler shape.
+    static func lowerConditionalUnion(
+        _ source: String,
+        expectedSlot: Int
+    ) -> String? {
+        guard !containsWord(unpremultiply, in: source),
+              !containsWord(premultiply, in: source),
+              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1 else {
+            return nil
+        }
+        let declarations = matches(
+            #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
+                + String(expectedSlot)
+                + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
+            in: source
+        )
+        let outputWrites = matches(
+            #"(?m)^[ \t]*out\.mwxFragColor(?:\.([xyzwrgba]{1,4}))?\s*="#,
+            in: source
+        )
+        let wholeWrites = outputWrites.filter {
+            capture($0, 1, in: source) == nil
+        }
+        let componentWrites = outputWrites.compactMap {
+            capture($0, 1, in: source)
+        }.sorted()
+        let completeColorWrite = componentWrites == ["w", "xyz"]
+            || componentWrites == ["w", "x", "y", "z"]
+        let returns = matches(
+            #"(?m)^([ \t]*)return\s+out\s*;[ \t]*$"#,
+            in: source
+        )
+        guard declarations.count == 2,
+              wholeWrites.count == 2,
+              completeColorWrite,
+              returns.count == 1,
+              let terminalReturn = returns.first,
+              let returnIndent = capture(terminalReturn, 1, in: source),
+              declarations.allSatisfy({ $0.range.location < terminalReturn.range.location }),
+              outputWrites.allSatisfy({ $0.range.location < terminalReturn.range.location }),
+              matches(#"\bout\.mwxFragColor\b"#, in: source).count
+                == outputWrites.count else {
+            return nil
+        }
+
+        var transformed = source
+        guard let returnRange = Range(terminalReturn.range, in: transformed) else {
+            return nil
+        }
+        transformed.replaceSubrange(
+            returnRange,
+            with: "\(returnIndent)out.mwxFragColor = \(premultiply)(out.mwxFragColor);\n"
+                + "\(returnIndent)return out;"
+        )
+        for declaration in declarations.sorted(by: { $0.range.location > $1.range.location }) {
+            guard let prefix = capture(declaration, 1, in: source),
+                  let arguments = capture(declaration, 3, in: source),
+                  let suffix = capture(declaration, 4, in: source),
+                  let range = Range(declaration.range, in: transformed) else {
+                return nil
+            }
+            transformed.replaceSubrange(
+                range,
+                with: "\(prefix)\(unpremultiply)(g_Texture\(expectedSlot).sample(\(arguments)))\(suffix)"
+            )
+        }
+        return insertingBoundaryHelpers(into: transformed)
+    }
+
+    private static func insertingBoundaryHelpers(into source: String) -> String? {
+        let helpers = """
+
+inline float4 \(unpremultiply)(float4 color) {
+    const float alpha = clamp(color.w, 0.0, 1.0);
+    const float3 rgb = alpha > 0.0
+        ? clamp(color.xyz / alpha, float3(0.0), float3(1.0))
+        : float3(0.0);
+    return float4(rgb, alpha);
+}
+
+inline float4 \(premultiply)(float4 color) {
+    const float alpha = clamp(color.w, 0.0, 1.0);
+    return float4(color.xyz * alpha, alpha);
+}
+"""
+        guard let namespace = source.range(
+            of: #"\busing\s+namespace\s+metal\s*;"#,
+            options: .regularExpression
+        ) else { return nil }
+        var transformed = source
+        transformed.insert(contentsOf: helpers, at: namespace.upperBound)
+        return transformed
+    }
+
     private static func containsWord(_ word: String, in source: String) -> Bool {
         !matches(#"\b"# + escaped(word) + #"\b"#, in: source).isEmpty
     }

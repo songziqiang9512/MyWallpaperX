@@ -297,11 +297,12 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         case .premultipliedAlpha:
             return (source, artifactTransfer(kind: "premultiplied"))
         case let .straightAlpha(textureSlot: expectedSlot):
-            guard let straight = straightAlphaAttenuation(source),
-                  straight.transfer.slot == expectedSlot else {
-                throw Failure.colorTransfer
-            }
-            return straight
+            let direct = straightAlphaAttenuation(source)
+            let lowered = direct?.transfer.slot == expectedSlot ? direct?.msl
+                : SceneGenericShaderStraightAlphaPreservingLowering
+                    .lowerConditionalUnion(source, expectedSlot: expectedSlot)
+            guard let lowered else { throw Failure.colorTransfer }
+            return (lowered, artifactTransfer(kind: "straight-alpha", slot: expectedSlot))
         case let .straightAlphaPreserving(textureSlot: expectedSlot):
             guard let preserving = straightAlphaPreserving(
                 source,
@@ -472,8 +473,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         guard attenuation.count == 1,
               let indent = capture(attenuation[0], 1, in: source),
               let factor = capture(attenuation[0], 2, in: source),
-              !containsWord(name, in: factor),
-              countWord(name, in: source) == 3 else { return nil }
+              !containsWord(name, in: factor) else { return nil }
         let writes = capturesAll(
             #"(?m)^\s*"# + namePattern
                 + #"(?:\.([xyzwrgba]{1,4}))?\s*(?:[+\-*/]?=)"#,
@@ -481,6 +481,9 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             group: 1
         )
         guard writes == ["w"],
+              countWord(name, in: source) == 3 + matches(
+                  #"\b"# + namePattern + #"\.(?:[xyzrgb]{1,3})\b"#, in: source
+              ).count,
               let replaceRange = Range(attenuation[0].range, in: source) else { return nil }
         var transformed = source
         transformed.replaceSubrange(replaceRange, with: "\(indent)\(name) *= \(factor);")
