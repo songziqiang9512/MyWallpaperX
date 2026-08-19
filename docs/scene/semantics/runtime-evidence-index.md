@@ -2,7 +2,7 @@
 
 > 状态：现役证据入口
 >
-> 最近核对：2026-08-19
+> 最近核对：2026-08-20
 >
 > 当前核对分支：`codex/scene-capability-baseline`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。
 >
@@ -370,6 +370,13 @@
 - 最终默认正门：隔离根`/private/tmp/mwx-v1-r8-owner-generic-final2.J3rWf9`，project/package/matrix SHA-256分别为`97dc2022c38b2c1be9aa061a032e0063f3f5b5c80f50cfed72c6cc4166b8fade`、`9a485dfe1cbd695b35a446f769083911872ffea703baafc11d42a8cf03bed5ae`、`f66a12bbd6d2a2def015006034c2f6cf809cd0689aee926f5654859a97b5629a`；`output/report.json` SHA-256为`3caccbb49a89a7a1a062ea9a3c2c69f1cd28703a9938dd416cce6dedb4e337ec`，targeted **1/1 PASS**、loaded ratio 1、failure `[]`、`sample_root_residue=[]`。layer 73 prepare/combine request分别以两个typed profile记录`generic-only / accepted`，frame 0与next-frame两个node backend均为`genericCompilerArtifact`；transaction `r4:1:1:0`与`r4:1:7:0`均为2 material node、`256x256/r8:1`、GPU completed、terminal compositor consumed且publication存在。after PNG SHA-256为`dfa5445613798d973d31a9b1efc00358c360f734747610610f83f77dc608b041`，motion mean delta `0.0060848933`、changed ratio `0.1930205`；人工只确认完整场景与局部动态仍可见，不据此声称官方画面等价。运行App为`com.songziqiang.MyWallpaperX` 2.0.8 (268)、Team`H9QWU9XN8R`，executable SHA-256`b4c8b1e7486c95e6eda1b2d164fc603f44f3b4736f7fac36e42592d3f2dc1702`、CDHash`c07333f5b367027af6641ed034291585485874e9`，source/runtime签名前后verified。
 - 显式回滚与故障反门：`/private/tmp/mwx-v1-r8-owner-rollback-final.qosSd0/output/report.json` SHA-256为`c3b7a0da49dd46ebea4c89b3a9cc9a9f796c9ac660caccf01c81137967a2d65b`，targeted **1/1 PASS**；两个profile均记录`disable-generic / fallback / route-disabled`，layer 73 frame 0/next-frame仍完成GPU/compositor，证明回滚是显式原子route而非静默双执行。故障矩阵SHA-256 `e4d6ae08d0d2ccf77289dd5216511eda689471f9b9b4258533f0e0ae296bf759`向combine cache注入wrong-key但结构合法的artifact；`/private/tmp/mwx-v1-r8-owner-negative-final.DGjSQ4/output/report.json` SHA-256为`a23e5d668e3e695af9e6739f806452ce9d4da010d7dbfe5a99d47454618a1183`，benchmark按全局effect降级警戒预期为 **0/1 NON-PASS**，唯一失败是`effect execution degraded layer source passthrough`。独立断言确认combine记录`generic-only / rejected / artifact-contract-rejected`与`bounded-frontend-owner-revoked`，layer 73编码`degraded-layer-source-passthrough`，preview admission为not-admitted且没有旧产品owner。该反门的外层NON-PASS不能改名为PASS；它证明错误artifact只移除最小effect并保留安全compositor，不证明故障画面fidelity。
 - 完成层级与偏差债务：该exact two-node、R8 repeat、无condition/clear/unique/copy/swap profile达到`S4 slice-visible / representative-content / owner-migration`。bounded frontend仅在显式`disable-generic`下作局部回滚/oracle，不再是默认或故障fallback。尚未运行Fast Suite、fixed/full、官方黑盒、性能/长稳、notarization或release；conditional/component/multiple writer、其他R8/format、其他Glitter revision/property/topology、clear/history/copy/swap及其他ordinary/provider-backed shader profile仍未迁移。因此本包不升级整个Glitter、shader/FBO family或V1。
+
+<a id="e-v1-product-authority-rejection-20260820"></a>
+### E-V1-PRODUCT-AUTHORITY-REJECTION-20260820: generic 失败的 layer-scoped authority safety atom
+
+- 当前事实与改动：前两个 owner 删除批次已回滚后，公共 capability catalog 现在按 layer 保存 `material-generic-owner-revoked`；runtime bridge 在无 claim 时返回 typed rejection，compositor 将该原因记录为 `unclaimed-effect-product-authority` 并拒绝该 layer 的产品输出。只有真正 `.unclaimed` 路由允许 strict source-stage passthrough；`.localFallback`、`.rejected` 与 `.claimed` 均阻断 raw-source passthrough。Film Grain、Opacity、Tint、Light Shafts 旧 owner 仍保留为 `prefer-generic` fallback，尚未进入 owner-migration。
+- 自动门：`verify_scene_change.py --phase inner --base HEAD --run` 选择的 61 个 Scene 模块全部 **ALL OK**；其中 capability、framebuffer、graph executor、runtime bridge 与 source update 门覆盖 typed rejection、claim closure、GPU transaction safety。`verify_scene_change.py --phase checkpoint --base HEAD --run` 同组 **ALL OK**，code health **896 Swift / 11 locked legacy / 82 warnings / PASS**，`script/build_and_run.sh verify` **BUILD SUCCEEDED**。本批没有以该 atom 声称新的可见 sample parity；它只证明失败半径与 authority 归属安全。
+- 证据边界与下一门：尚未重跑代表性真实 Film Grain mixed chain，因此不能把本条写成 Film Grain、Opacity、Tint、Light Shafts 的 generic-only 或 owner migration 完成。下一批必须先闭合 Film Grain stock/no-mask 的前置 generic chain，并取得 Program → GraphExecutor → GPU/publication → compositor → next-frame、未见组合、坏 artifact 局部拒绝与 `disable-generic` 回滚证据后，才能撤旧 owner。
 
 <a id="e-v1-generic-layer-local-compose"></a>
 ### E-V1-GENERIC-LAYER-LOCAL-COMPOSE: ordinary Program的layer-local full-frame pair

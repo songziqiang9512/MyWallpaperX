@@ -776,6 +776,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         capabilitiesByLayerID[layerID] == nil
             ? nil : .init(token: .init(value: layerID))
     }
+    func productAuthorityRejectionReason(layerID: Int) -> String? { nil }
     func resolve(_ token: Token) -> ChainCapability? {
         resolvesClaims ? capabilitiesByLayerID[token.value] : nil
     }

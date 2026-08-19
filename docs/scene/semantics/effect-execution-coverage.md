@@ -2,7 +2,7 @@
 
 > 状态：现役专项能力表
 >
-> 最近核对：2026-08-18
+> 最近核对：2026-08-20
 >
 > 实现基线、当前 tracked matrix 状态、历史 fixed13、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 
@@ -22,7 +22,11 @@
 
 执行通道：`IR-only` 只保留数据；`graph-only` 只建图或 route；`inline-profile` 是项目自写的有界 Metal 近似；`strict-graph-profile` 先匹配完整 graph/material 形状再执行固定 backend；`bounded-authored-profile` 由有界 frontend 翻译并执行作者 source；`provider-profile` 是受限跨层纹理 consumer。当前 authored stage 的 source-key compiler artifact route 按公共 capability profile 迁移：无外部provider texture的source-proven scalar interpolation、仅消费authored internal framebuffer的source-proven graph-target passthrough、active typed graph-input straight-alpha、typed graph-input stage-uniform passthrough、typed R8 writer/signal、opaque scalar output与typed graph-input straight-alpha-preserving等已登记profile为`generic-only`，失败不再回到bounded frontend，只有`disable-generic`可回滚；其余ordinary/provider-backed shader仍为`prefer-generic`。它仍只覆盖已登记 Program/GraphExecutor 子集，也没有任何 `L4` Effect。
 
-现役产品只有 typed admission → Program/resource → GraphExecutor → compositor 主链；旧 whole-chain、standalone、frame-batch 和 planner authority 已退役，迁移过程只在[运行证据索引](runtime-evidence-index.md)中作为 sealed evidence 保留。当前代码在 active stage 不受支持时仍可能拒绝整 effect chain，claimed draw 失败还可能停止后续 layer suffix；这是 V0/V1 要修复的现役缺口，不是长期合同。目标是失败 effect 保留 previous current、失败 pass 只影响真实依赖子图，并继续执行无关 effect/layer。
+现役产品主链是 typed admission → Program/resource → GraphExecutor → compositor。2026-08-20 纠偏确认：Film Grain、Opacity、Tint 与 Light Shafts 的旧 planner/pipeline/renderer/texture-loader 仍可达，当前均为 `prefer-generic` 下的可观测 fallback，不是已撤权 owner；generic 失败必须按 layer 保留 `material-generic-owner-revoked` 产品权威拒绝并阻断 raw-source passthrough，不能把失败效果伪装成成功。当前 active stage 不受支持时仍可能拒绝整 effect chain，失败半径收窄与 previous-current/suffix 继续属于 V1 欠债。
+
+### 2026-08-20 迁移纠偏覆盖结论
+
+Film Grain、Opacity、Tint、Light Shafts 的现役事实以当前代码和本次恢复提交为准：Program 成功时由共享 MaterialProgram/GraphExecutor 执行；Program 失败时旧专用 owner 仍可作为带 typed reason 的 fallback。它们均不得写成 `generic-only`、owner-migration-complete 或“旧 owner 已删除”。下一批优先闭合 Film Grain stock/no-mask 的公共资源与前置 generic chain，再加入未见组合、坏 artifact 局部拒绝和 `disable-generic` 原子回滚，最后才撤销旧 owner；Opacity 的 mask/dynamic 输入与 Tint 的 mask/blend/timeline 边界保持独立批次。
 
 effect visibility 是共享 activation/lifecycle 能力，不是新 Effect family。当前只有 exact X-Ray 等有界 live target；generic visibility、同 key 混合 owner 和 VM mutation 仍未闭合。静态 admission、route/disposition、共享 command-buffer completion 都不能证明逐 stage GPU 成功或视觉正确；精确运行身份和旧批次只查[运行证据索引](runtime-evidence-index.md)。
 

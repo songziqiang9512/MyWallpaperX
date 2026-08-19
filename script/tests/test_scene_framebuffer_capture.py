@@ -4780,6 +4780,28 @@ enum Harness {
         let rejectedClaimStayedClosed = rejectedRoute.isRejected
             && rejectedRoute.execution == nil
             && rejectedRuntime.claimedFailureReasons == ["fixture-route-rejected"]
+        let revokedAuthorityRuntime = SceneResolvedMaterialRuntimeBridge(
+            claimRejectionReason: "material-generic-owner-revoked"
+        )
+        let revokedAuthorityCompositor = SceneImageLayerCompositor(
+            pipelineRepository: SceneImageEffectPipelineRepository(device: device),
+            resolvedMaterialRuntime: revokedAuthorityRuntime
+        )
+        let revokedAuthorityDrawRoute = revokedAuthorityCompositor
+            .resolvedMaterialClaim(for: request)
+        let revokedAuthorityPreflightRoute = revokedAuthorityCompositor
+            .preflightResolvedMaterialClaim(layerID: request.layer.id)
+        let revokedAuthorityStayedLocal =
+            revokedAuthorityDrawRoute.isRejected
+            && revokedAuthorityDrawRoute.rejectsUnclaimedProductAuthority
+            && revokedAuthorityDrawRoute.execution == nil
+            && {
+                guard case .unclaimed = revokedAuthorityPreflightRoute else {
+                    return false
+                }
+                return true
+            }()
+            && revokedAuthorityRuntime.claimedFailureReasons.isEmpty
 
         guard successBuffer.status == .completed,
               failedBuffer.status == .completed,
@@ -4811,6 +4833,7 @@ enum Harness {
             "unavailableRuntimeStayedClosed": unavailableRuntimeStayedClosed,
             "unavailableRuntimeEvidence": unavailableRuntimeRecorder.lines,
             "rejectedClaimStayedClosed": rejectedClaimStayedClosed,
+            "revokedAuthorityStayedLocal": revokedAuthorityStayedLocal,
         ]
     }
 
@@ -6320,6 +6343,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             evidence["unavailableRuntimeEvidence"][0],
         )
         self.assertTrue(evidence["rejectedClaimStayedClosed"], evidence)
+        self.assertTrue(evidence["revokedAuthorityStayedLocal"], evidence)
 
     def test_standard_blur_downsample_is_alpha_aware(self) -> None:
         self.assert_pixel_close(

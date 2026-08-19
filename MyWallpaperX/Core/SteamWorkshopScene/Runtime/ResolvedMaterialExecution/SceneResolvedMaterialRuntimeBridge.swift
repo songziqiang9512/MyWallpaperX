@@ -421,6 +421,11 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         recordsClaim: Bool
     ) -> Bridge.Claim {
         guard let claim = capabilities.claim(layerID: layerID) else {
+            if let reasonCode = capabilities.productAuthorityRejectionReason(
+                layerID: layerID
+            ) {
+                return .rejected(reasonCode: reasonCode)
+            }
             return .notMigrated
         }
         guard let capability = capabilities.resolve(claim.token),
