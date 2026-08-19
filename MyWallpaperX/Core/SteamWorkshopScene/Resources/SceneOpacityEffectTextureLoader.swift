@@ -2,16 +2,18 @@ import Metal
 import simd
 
 struct SceneOpacityEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let maskPath: String
+    let binding: SceneEffectTextureBinding
+
+    var mask: MTLTexture? { binding.texture }
+    var maskUVScale: SIMD2<Float> { binding.mappedUVScale }
+    var maskPath: String { binding.path ?? "" }
+    var state: SceneEffectTextureBinding.State { binding.state }
+    var generation: SceneTextureResourceGeneration? { binding.generation }
 
     func matches(_ plan: SceneOpacityExecutionPlan) -> Bool {
-        mask != nil && normalized(maskPath) == plan.maskTexturePath.map(normalized)
-    }
-
-    private func normalized(_ path: String) -> String {
-        path.replacingOccurrences(of: "\\", with: "/").lowercased()
+        binding.purpose == .mask
+            && binding.matches(path: plan.maskTexturePath)
+            && mask === binding.texture
     }
 }
 
@@ -38,7 +40,7 @@ enum SceneOpacityEffectTextureLoader {
                 continue
             }
             let maskURL = resolver.resolveTextureFile(named: maskPath)
-            let loaded = SceneLayerEffectTextureLoader.loadTexture(
+            let loaded = SceneLayerEffectTextureLoader.loadTextureCandidate(
                 url: maskURL,
                 label: "opacity effect mask",
                 purpose: .mask,
@@ -46,12 +48,11 @@ enum SceneOpacityEffectTextureLoader {
                 device: device
             )
             textures[effect.id] = SceneOpacityEffectTextures(
-                mask: loaded.texture,
-                maskUVScale: SceneLayerEffectTextureLoader.mappedUVScale(
-                    for: maskURL,
-                    texture: loaded.texture
-                ),
-                maskPath: maskPath
+                binding: SceneEffectTextureBinding(
+                    path: maskPath,
+                    purpose: .mask,
+                    loadResult: loaded
+                )
             )
             messages.append(maskURL == nil
                 ? "; opacity effect mask missing \(maskPath)"

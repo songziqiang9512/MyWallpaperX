@@ -3,17 +3,18 @@ import Metal
 import simd
 
 struct SceneTintEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let maskPath: String?
+    let binding: SceneEffectTextureBinding
+
+    var mask: MTLTexture? { binding.texture }
+    var maskUVScale: SIMD2<Float> { binding.mappedUVScale }
+    var maskPath: String? { binding.path }
+    var state: SceneEffectTextureBinding.State { binding.state }
+    var generation: SceneTextureResourceGeneration? { binding.generation }
 
     func matches(_ plan: SceneTintExecutionPlan) -> Bool {
-        guard let planPath = plan.maskTexturePath else { return maskPath == nil }
-        return mask != nil && maskPath.map(normalized) == normalized(planPath)
-    }
-
-    private func normalized(_ path: String) -> String {
-        path.replacingOccurrences(of: "\\", with: "/").lowercased()
+        binding.purpose == .mask
+            && binding.matches(path: plan.maskTexturePath)
+            && mask === binding.texture
     }
 }
 
@@ -43,9 +44,7 @@ enum SceneTintEffectTextureLoader {
             }
             if pass.texturePaths.isEmpty && pass.textureSlots.isEmpty {
                 textures[effect.id] = SceneTintEffectTextures(
-                    mask: nil,
-                    maskUVScale: SIMD2(repeating: 1),
-                    maskPath: nil
+                    binding: .absent(purpose: .mask)
                 )
                 continue
             }
@@ -57,7 +56,7 @@ enum SceneTintEffectTextureLoader {
                 continue
             }
             let maskURL = resolver.resolveTextureFile(named: maskPath)
-            let loaded = SceneLayerEffectTextureLoader.loadTexture(
+            let loaded = SceneLayerEffectTextureLoader.loadTextureCandidate(
                 url: maskURL,
                 label: "tint effect mask",
                 purpose: .mask,
@@ -65,12 +64,11 @@ enum SceneTintEffectTextureLoader {
                 device: device
             )
             textures[effect.id] = SceneTintEffectTextures(
-                mask: loaded.texture,
-                maskUVScale: SceneLayerEffectTextureLoader.mappedUVScale(
-                    for: maskURL,
-                    texture: loaded.texture
-                ),
-                maskPath: maskPath
+                binding: SceneEffectTextureBinding(
+                    path: maskPath,
+                    purpose: .mask,
+                    loadResult: loaded
+                )
             )
             messages.append(maskURL == nil
                 ? "; tint effect mask missing \(maskPath)"

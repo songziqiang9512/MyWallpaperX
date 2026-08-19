@@ -13,6 +13,7 @@ LAYER_LOADER = RESOURCE_ROOT / "SceneLayerEffectTextureLoader.swift"
 TEXTURE_LOADING = (
     RESOURCE_ROOT / "SceneLayerEffectTextureLoader+TextureLoading.swift"
 )
+EFFECT_TEXTURE_LOAD_RESULT = RESOURCE_ROOT / "SceneEffectTextureLoadResult.swift"
 XRAY_LOADER = RESOURCE_ROOT / "SceneXRayEffectTextureLoader.swift"
 BLEND_LOADER = RESOURCE_ROOT / "SceneBlendEffectTextureLoader.swift"
 TEXTURE_CANDIDATE = RESOURCE_ROOT / "SceneTextureCandidate.swift"
@@ -24,6 +25,8 @@ RIPPLE_LOADER = RESOURCE_ROOT / "SceneWaterRippleEffectTextureLoader.swift"
 DEPTH_PARALLAX_LOADER = (
     RESOURCE_ROOT / "SceneDepthParallaxEffectTextureLoader.swift"
 )
+OPACITY_LOADER = RESOURCE_ROOT / "SceneOpacityEffectTextureLoader.swift"
+TINT_LOADER = RESOURCE_ROOT / "SceneTintEffectTextureLoader.swift"
 EFFECT_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects"
 )
@@ -107,8 +110,10 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             {
                 "SceneBlendEffectTextureLoader.swift": 1,
                 "SceneDepthParallaxEffectTextureLoader.swift": 1,
+                "SceneOpacityEffectTextureLoader.swift": 1,
                 "SceneShakeEffectTextureLoader.swift": 3,
                 "SceneStandardBlurEffectTextureLoader.swift": 1,
+                "SceneTintEffectTextureLoader.swift": 1,
                 "SceneWaterFlowEffectTextureLoader.swift": 2,
                 "SceneWaterRippleEffectTextureLoader.swift": 2,
             },
@@ -151,6 +156,7 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
 
     def test_typed_candidate_and_slot_binding_reach_bounded_consumers(self) -> None:
         candidate = TEXTURE_CANDIDATE.read_text(encoding="utf-8")
+        effect_binding = EFFECT_TEXTURE_LOAD_RESULT.read_text(encoding="utf-8")
         slot_binding = SLOT_BINDING.read_text(encoding="utf-8")
         helper = TEXTURE_LOADING.read_text(encoding="utf-8")
         water_loader = WATER_FLOW_LOADER.read_text(encoding="utf-8")
@@ -191,6 +197,19 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         ):
             self.assertIn(field, slot_binding)
         self.assertIn("loader.loadCandidate(", helper)
+        for field in (
+            "let candidate: SceneTextureCandidate?",
+            "var texture: MTLTexture? { candidate?.texture }",
+            "var generation: SceneTextureResourceGeneration? { candidate?.generation }",
+            "var physicalSize: CGSize? { candidate?.physicalSize }",
+            "var mappedSize: CGSize? { candidate?.mappedSize }",
+        ):
+            self.assertIn(field, effect_binding)
+        for path in (OPACITY_LOADER, TINT_LOADER):
+            source = path.read_text(encoding="utf-8")
+            self.assertIn("let binding: SceneEffectTextureBinding", source)
+            self.assertEqual(source.count("loadTextureCandidate("), 1)
+            self.assertNotIn("let mask: MTLTexture?", source)
         self.assertIn("let flowCandidate: SceneTextureCandidate?", water_loader)
         self.assertIn("let phaseCandidate: SceneTextureCandidate?", water_loader)
         self.assertIn("expectedPurpose: .flow", water_renderer)
