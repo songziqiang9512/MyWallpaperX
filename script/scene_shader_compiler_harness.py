@@ -256,6 +256,75 @@ def _prune_unused_varying_component_assignments(
     return vertex_body, pruned
 
 
+def _rewrite_texture_coordinates(
+    source: str,
+    shapes: dict[str, tuple[str, int | None]],
+) -> str:
+    """Apply the shared sampler float2 narrowing rule to declared vec3/vec4 names."""
+    pattern = re.compile(
+        r"\btexSample2D\(\s*(g_Texture[0-7])\s*,\s*"
+        r"([A-Za-z_][A-Za-z0-9_]*)\s*\)"
+    )
+
+    def replacement(match: re.Match[str]) -> str:
+        texture, coordinate = match.groups()
+        value_type, _ = shapes.get(coordinate, ("", None))
+        if value_type not in {"vec3", "vec4"}:
+            return match.group(0)
+        return f"texSample2D({texture}, {coordinate}.xy)"
+
+    return pattern.sub(replacement, source)
+
+
+def _rewrite_scalar_vector_assignments(
+    source: str,
+    shapes: dict[str, tuple[str, int | None]],
+) -> str:
+    vector_names = {
+        name for name, (value_type, _) in shapes.items()
+        if value_type in {"vec2", "vec3", "vec4"}
+    }
+    if not vector_names:
+        return source
+    assignment = re.compile(
+        r"\bfloat\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*([^;]+);"
+    )
+    vector = re.compile(
+        r"\b(?:" + "|".join(map(re.escape, sorted(vector_names))) + r")\b"
+    )
+
+    def replacement(match: re.Match[str]) -> str:
+        expression = match.group(1)
+        if not vector.search(expression):
+            return match.group(0)
+        if expression.strip().startswith("vec"):
+            return match.group(0)
+        return match.group(0).replace(expression, f"({expression}).x", 1)
+
+    return assignment.sub(replacement, source)
+
+
+def _rewrite_vector_constructor_assignments(
+    source: str,
+    shapes: dict[str, tuple[str, int | None]],
+) -> str:
+    assignment = re.compile(
+        r"\b(vec[2-4])\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"
+        r"(vec[2-4])\s*\(([^;]*)\);"
+    )
+
+    def replacement(match: re.Match[str]) -> str:
+        target, name, constructor, arguments = match.groups()
+        target_width = int(target[3:])
+        source_width = int(constructor[3:])
+        if source_width <= target_width:
+            return match.group(0)
+        suffix = ".xy" if target_width == 2 else ".xyz"
+        return f"{target} {name} = {constructor}({arguments}){suffix};"
+
+    return assignment.sub(replacement, source)
+
+
 def normalize_wallpaper_engine_pair(
     stages: list[dict[str, str]],
     defines: dict[str, int],
@@ -312,7 +381,17 @@ def normalize_wallpaper_engine_pair(
                     if existing_slot != slot:
                         raise HarnessFailure("normalization", "sampler-conflict", [name])
                 else:
-                    if value_type not in VALUE_TYPES:
+                    audio_array = (
+                        value_type == "float"
+                        and count in (16, 32, 64)
+                        and name in (
+                            f"g_AudioSpectrum{count}Left",
+                            f"g_AudioSpectrum{count}Right",
+                        )
+                    )
+                    if value_type not in VALUE_TYPES or (
+                        count is not None and not audio_array
+                    ):
                         raise HarnessFailure(
                             "normalization", "uniform-type", [stage_name, name, value_type]
                         )
@@ -342,7 +421,10 @@ def normalize_wallpaper_engine_pair(
                 )
             if stage_name == "fragment" and re.search(
                 rf"\b{re.escape(name)}\b", body
-            ) is None:
+            ) is None or (
+                stage_name == "fragment"
+                and _has_local_declaration(name, body)
+            ):
                 inactive_fragment_varyings_pruned += 1
                 continue
             shape = (value_type, count)
@@ -415,6 +497,22 @@ def normalize_wallpaper_engine_pair(
         )
     )
     parsed["vertex"]["body"] = vertex_body
+    parsed["vertex"]["body"] = _rewrite_texture_coordinates(
+        parsed["vertex"]["body"],
+        {**attribute_shapes, **varying_shapes, **uniform_shapes},
+    )
+    parsed["fragment"]["body"] = _rewrite_texture_coordinates(
+        parsed["fragment"]["body"],
+        {**varying_shapes, **uniform_shapes},
+    )
+    parsed["fragment"]["body"] = _rewrite_scalar_vector_assignments(
+        parsed["fragment"]["body"],
+        {**varying_shapes, **uniform_shapes},
+    )
+    parsed["fragment"]["body"] = _rewrite_vector_constructor_assignments(
+        parsed["fragment"]["body"],
+        {**varying_shapes, **uniform_shapes},
+    )
 
     attribute_order = sorted(
         attribute_shapes,
@@ -505,6 +603,13 @@ def normalize_wallpaper_engine_pair(
             "target-pixels" if uses_target_pixel_position else "clip-space"
         ),
     }
+
+
+def _has_local_declaration(name: str, source: str) -> bool:
+    types = "|".join(re.escape(value) for value in sorted(VALUE_TYPES))
+    return re.search(
+        rf"\b(?:{types})\s+{re.escape(name)}\b", source
+    ) is not None
 
 
 def normalize_request(

@@ -30,6 +30,10 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompiler.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
 ]
@@ -82,6 +86,13 @@ private struct StraightPreservingBuilderOutput: Codable {
     let helperPairPresent: Bool
     let wrongSlotRejected: Bool
     let helperConflictRejected: Bool
+    let composedKind: String?
+    let composedFailure: String?
+    let composedSampleCount: Int
+    let composedOutputPremultiplied: Bool
+    let composedMetal: String?
+    let unrelatedAlphaRejected: Bool
+    let mixedSlotRejected: Bool
 }
 
 private struct PositionInputOutput: Codable {
@@ -333,6 +344,26 @@ private struct GenericShaderArtifactHarness {
                 "    gl_FragColor = albedo;",
                 "}",
             ].joined(separator: "\n")
+            let composedMSL = [
+                "#include <metal_stdlib>",
+                "using namespace metal;",
+                "struct MWXUniforms { float2 mwxRenderSize; };",
+                "struct Output { float4 mwxFragColor [[color(0)]]; };",
+                "fragment Output f() {",
+                "    Output out;",
+                "    float4 scene = g_Texture0.sample(sourceSampler, uv);",
+                "    float4 rValue = g_Texture0.sample(sourceSampler, uv);",
+                "    float4 gValue = g_Texture0.sample(sourceSampler, uv);",
+                "    float4 bValue = g_Texture0.sample(sourceSampler, uv);",
+                "    float signal = g_Texture1.sample(signalSampler, uv).x;",
+                "    float3 finalColor = scene.rgb;",
+                "    finalColor = mix(finalColor, rValue.rgb, 0.5);",
+                "    finalColor += gValue.rgb * 0.1 + bValue.rgb * 0.1 + signal;",
+                "    float alpha = scene.w;",
+                "    out.mwxFragColor = float4(finalColor, alpha);",
+                "    return out;",
+                "}",
+            ].joined(separator: "\n")
             func build(_ msl: String) -> Result<
                 SceneGenericShaderProgramArtifact,
                 SceneGenericShaderArtifactBuilder.Failure
@@ -361,6 +392,25 @@ private struct GenericShaderArtifactHarness {
             case .failure: positive = nil
             }
             let metal = positive?.program.metalSource ?? ""
+            let composed: SceneGenericShaderProgramArtifact?
+            let composedFailure: String?
+            switch build(composedMSL) {
+            case let .success(artifact): composed = artifact; composedFailure = nil
+            case let .failure(failure): composed = nil; composedFailure = String(describing: failure)
+            }
+            let composedMetal = composed?.program.metalSource ?? ""
+            let unrelatedAlphaRejected = failedColorTransfer(build(
+                composedMSL.replacingOccurrences(
+                    of: "float alpha = scene.w;",
+                    with: "float alpha = g_Texture1.sample(signalSampler, uv).w;"
+                )
+            ))
+            let mixedSlotRejected = failedColorTransfer(build(
+                composedMSL.replacingOccurrences(
+                    of: "float4 scene = g_Texture0.sample",
+                    with: "float4 scene = g_Texture1.sample"
+                )
+            ))
             let output = StraightPreservingBuilderOutput(
                 positiveKind: positive?.program.colorTransfer.kind,
                 positiveSlot: positive?.program.colorTransfer.slot,
@@ -384,7 +434,16 @@ private struct GenericShaderArtifactHarness {
                         of: "using namespace metal;",
                         with: "using namespace metal;\nfloat4 mwxGenericPremultiply(float4 value);"
                     )
-                ))
+                )),
+                composedKind: composed?.program.colorTransfer.kind,
+                composedFailure: composedFailure,
+                composedSampleCount: composedMetal.components(separatedBy: "mwxGenericUnpremultiply(g_Texture0.sample").count - 1,
+                composedOutputPremultiplied: composedMetal.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply(float4(finalColor, alpha));"
+                ),
+                composedMetal: composed?.program.metalSource,
+                unrelatedAlphaRejected: unrelatedAlphaRejected,
+                mixedSlotRejected: mixedSlotRejected
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -565,6 +624,26 @@ void main() {
     float signal = texSample2D(g_Texture1, v_TexCoord).r;
     albedo.rgb *= signal;
     gl_FragColor = albedo;
+}
+"""
+
+CHANNEL_RECONSTRUCTION_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform float g_Opacity;
+uniform vec3 g_Tint;
+varying vec2 v_TexCoord;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return mix(base, blend, opacity);
+}
+void main() {
+    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+    color.rgb = ApplyBlending(0, color.rgb, g_Tint, g_Opacity);
+    gl_FragColor = color;
 }
 """
 
@@ -868,6 +947,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             text=True,
         )
         output = json.loads(completed.stdout)
+        self.assertIsNone(output.get("composedFailure"))
         self.assertEqual(output, {
             "operationCount": 2,
             "firstSource": "spawn",
@@ -877,6 +957,34 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             "repeatedFailed": True,
             "independentSucceeded": True,
         })
+
+    def test_straight_alpha_preserving_proves_composed_same_slot_output(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-straight-preserving"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(completed.stdout)
+        self.assertEqual(output["positiveKind"], "straight-alpha-preserving")
+        self.assertEqual(output["positiveSlot"], 0)
+        self.assertEqual(output["composedKind"], "straight-alpha-preserving")
+        self.assertEqual(output["composedSampleCount"], 4)
+        self.assertTrue(output["composedOutputPremultiplied"])
+        self.assertTrue(output["unrelatedAlphaRejected"])
+        self.assertTrue(output["mixedSlotRejected"])
+
+    def test_audio_scalar_array_swizzle_is_removed_from_metal_abi(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-straight-preserving"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(completed.stdout)
+        self.assertNotIn("g_AudioSpectrum16Left[0].x", output.get("composedMetal", ""))
 
     def test_product_builder_proves_scalar_two_color_interpolation(self):
         completed = subprocess.run(
@@ -902,7 +1010,12 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             capture_output=True,
             text=True,
         )
-        self.assertEqual(json.loads(completed.stdout), {
+        output = json.loads(completed.stdout)
+        self.assertEqual({key: output[key] for key in (
+            "positiveKind", "positiveSlot", "sampleUnpremultiplied",
+            "outputPremultiplied", "helperPairPresent", "wrongSlotRejected",
+            "helperConflictRejected"
+        )}, {
             "positiveKind": "straight-alpha-preserving",
             "positiveSlot": 0,
             "sampleUnpremultiplied": True,
@@ -1322,6 +1435,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 {"r8_slots": (1,)},
                 "source-proven-straight-alpha-r8-signal",
             ),
+            (
+                CHANNEL_RECONSTRUCTION_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "source-proven-graph-input-straight-alpha-preserving",
+            ),
         ]
         for fragment, facts, profile in cases:
             with self.subTest(profile=profile), tempfile.TemporaryDirectory(
@@ -1390,6 +1508,14 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 STRAIGHT_ALPHA_FRAGMENT,
                 {"graph_input_slots": (0,), "has_external_provider": True},
             ),
+            (
+                CHANNEL_RECONSTRUCTION_FRAGMENT,
+                {"graph_input_slots": (1,)},
+            ),
+            (
+                CHANNEL_RECONSTRUCTION_FRAGMENT,
+                {"graph_input_slots": (0,), "has_external_provider": True},
+            ),
         ):
             with self.subTest(facts=facts), tempfile.TemporaryDirectory(
                 prefix="mwx-generic-artifact-test-"
@@ -1440,6 +1566,13 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "straight-alpha-preserving",
                 "source-proven-straight-alpha-r8-signal",
                 True,
+            ),
+            (
+                CHANNEL_RECONSTRUCTION_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "straight-alpha-preserving",
+                "source-proven-graph-input-straight-alpha-preserving",
+                False,
             ),
         ]
         for fragment, facts, transfer, profile, needs_aux in cases:

@@ -100,19 +100,35 @@ def _uniform_layout(reflection: dict[str, Any]) -> tuple[list[dict[str, Any]], i
         if not isinstance(member, dict):
             raise ArtifactFailure("uniform-member")
         name, value_type, offset = member.get("name"), member.get("type"), member.get("offset")
+        dimensions = member.get("array")
+        array_count = dimensions[0] if (
+            isinstance(dimensions, list) and len(dimensions) == 1
+            and isinstance(dimensions[0], int)
+        ) else None
+        audio_array = (
+            value_type == "float"
+            and array_count in (16, 32, 64)
+            and name in (
+                f"g_AudioSpectrum{array_count}Left",
+                f"g_AudioSpectrum{array_count}Right",
+            )
+        )
         if (
             not isinstance(name, str)
             or value_type not in TYPE_NAMES
             or not isinstance(offset, int)
-            or member.get("array") is not None
+            or (dimensions is not None and not audio_array)
         ):
             raise ArtifactFailure("uniform-member")
-        fields.append({
+        field = {
             "name": name,
             "authoredName": name,
             "type": TYPE_NAMES[value_type],
             "offset": offset,
-        })
+        }
+        if array_count is not None:
+            field["arrayCount"] = array_count
+        fields.append(field)
     block_size = ubo.get("block_size")
     if not isinstance(block_size, int) or block_size < 0 or block_size > 4096:
         raise ArtifactFailure("uniform-size")
@@ -128,7 +144,7 @@ def _aligned_uniform_layout(fields: list[dict[str, Any]]) -> tuple[list[dict[str
         alignment = TYPE_ALIGNMENT[value_type]
         offset = (offset + alignment - 1) // alignment * alignment
         aligned.append({**field, "offset": offset})
-        offset += TYPE_BYTE_SIZE[value_type]
+        offset += TYPE_BYTE_SIZE[value_type] * field.get("arrayCount", 1)
     return aligned, (offset + 15) // 16 * 16
 
 
@@ -195,7 +211,9 @@ def _normalize_uniform_struct(
         raise ArtifactFailure("uniform-struct")
     match = matches[0]
     body = "\n" + "\n".join(
-        f"    {field['type']} {field['name']};" for field in fields
+        f"    {field['type']} {field['name']}"
+        f"{'[' + str(field['arrayCount']) + ']' if 'arrayCount' in field else ''};"
+        for field in fields
     ) + "\n"
     result = msl[:match.start("body")] + body + msl[match.end("body"):]
     for authored, field_name in names.items():

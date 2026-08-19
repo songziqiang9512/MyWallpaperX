@@ -89,7 +89,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                             }
                             samplers[item.name] = slot
                         } else {
-                            guard valueTypes.contains(item.type), item.count == nil else {
+                            guard valueTypes.contains(item.type),
+                                  item.count == nil || isAudioSpectrumArray(item) else {
                                 throw Failure.uniformUnsupported
                             }
                             try insert(shape, name: item.name, into: &uniforms,
@@ -115,7 +116,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                         // Live declarations still enter the shared shape table
                         // below, so an actual ABI mismatch remains fail-closed.
                         if stage == "fragment",
-                           !containsWord(item.name, in: value.body) {
+                           (!containsWord(item.name, in: value.body)
+                            || hasLocalDeclaration(item.name, in: value.body)) {
                             continue
                         }
                         try insert(shape, name: item.name, into: &varyings,
@@ -142,7 +144,24 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             vertex.body = replaceWord("sample", with: "mwx_sample", in: vertex.body)
             fragment.body = replaceWord("sample", with: "mwx_sample", in: fragment.body)
             fragment.body = replaceWord("gl_FragColor", with: "mwxFragColor", in: fragment.body)
+            vertex.body = rewriteTextureCoordinates(
+                vertex.body,
+                shapes: attributes.merging(varyings) { current, _ in current }
+                    .merging(uniforms) { current, _ in current }
+            )
+            fragment.body = rewriteTextureCoordinates(
+                fragment.body,
+                shapes: varyings.merging(uniforms) { current, _ in current }
+            )
             fragment.body = rewriteScalarTextureAssignments(fragment.body)
+            fragment.body = rewriteScalarVectorAssignments(
+                fragment.body,
+                shapes: varyings.merging(uniforms) { current, _ in current }
+            )
+            fragment.body = rewriteVectorConstructorAssignments(
+                fragment.body,
+                shapes: varyings.merging(uniforms) { current, _ in current }
+            )
             let usesTargetPixelPosition = containsWord(
                 "g_ModelViewProjectionMatrix", in: vertex.body
             )
@@ -164,7 +183,9 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 [vertex.body, fragment.body].contains { containsWord(name, in: $0) }
             }.sorted()
             let uniformLines = activeUniforms.map { name in
-                "    \(uniforms[name]!.type) \(name);"
+                let shape = uniforms[name]!
+                let suffix = shape.count.map { "[\($0)]" } ?? ""
+                return "    \(shape.type) \(name)\(suffix);"
             } + ["    vec2 mwxRenderSize;"]
             let varyingOrder = varyings.keys.sorted()
             var nextLocation = 0
@@ -263,6 +284,13 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         return slot
     }
 
+    private static func isAudioSpectrumArray(_ declaration: Declaration) -> Bool {
+        guard declaration.type == "float", let count = declaration.count,
+              [16, 32, 64].contains(count) else { return false }
+        return declaration.name == "g_AudioSpectrum\(count)Left"
+            || declaration.name == "g_AudioSpectrum\(count)Right"
+    }
+
     private static func injectVertexMain(
         _ source: String,
         usesTargetPixelPosition: Bool
@@ -297,6 +325,104 @@ void main() {
             range: NSRange(source.startIndex..., in: source),
             withTemplate: "$1$2.r$3"
         )
+    }
+
+    /// The authored sampler accepts a float2 coordinate, while the common
+    /// shader ABI exposes several texture-coordinate varyings as vec4. Apply
+    /// the existing narrowing rule only when the coordinate is a declared
+    /// vector identifier; complex expressions remain untouched and fail closed
+    /// in the helper compiler.
+    private static func rewriteTextureCoordinates(
+        _ source: String,
+        shapes: [String: Shape]
+    ) -> String {
+        let regex = try! NSRegularExpression(pattern:
+            #"\btexSample2D\(\s*(g_Texture[0-7])\s*,\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)"#
+        )
+        var result = source
+        for match in regex.matches(
+            in: source,
+            range: NSRange(source.startIndex..., in: source)
+        ).reversed() {
+            guard let textureRange = Range(match.range(at: 1), in: source),
+                  let coordinateRange = Range(match.range(at: 2), in: source),
+                  let coordinateShape = shapes[String(source[coordinateRange])],
+                  ["vec3", "vec4"].contains(coordinateShape.type),
+                  let fullRange = Range(match.range, in: result) else {
+                continue
+            }
+            let texture = String(source[textureRange])
+            let coordinate = String(source[coordinateRange])
+            result.replaceSubrange(
+                fullRange,
+                with: "texSample2D(\(texture), \(coordinate).xy)"
+            )
+        }
+        return result
+    }
+
+    private static func rewriteScalarVectorAssignments(
+        _ source: String,
+        shapes: [String: Shape]
+    ) -> String {
+        let regex = try! NSRegularExpression(pattern:
+            #"\bfloat\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*([^;]+);"#
+        )
+        let vectorNames = shapes.compactMap { name, shape in
+            ["vec2", "vec3", "vec4"].contains(shape.type) ? name : nil
+        }
+        guard !vectorNames.isEmpty else { return source }
+        let vectorRegex = try! NSRegularExpression(pattern:
+            #"\b(?:"# + vectorNames.map(NSRegularExpression.escapedPattern).joined(separator: "|") + #")\b"#
+        )
+        var result = source
+        for match in regex.matches(
+            in: source,
+            range: NSRange(source.startIndex..., in: source)
+        ).reversed() {
+            guard let expressionRange = Range(match.range(at: 1), in: result) else { continue }
+            let expression = String(result[expressionRange])
+            guard vectorRegex.firstMatch(
+                in: expression,
+                range: NSRange(expression.startIndex..., in: expression)
+            ) != nil,
+            !expression.trimmingCharacters(in: .whitespaces).hasPrefix("vec") else { continue }
+            result.replaceSubrange(expressionRange, with: "(\(expression)).x")
+        }
+        return result
+    }
+
+    private static func rewriteVectorConstructorAssignments(
+        _ source: String,
+        shapes: [String: Shape]
+    ) -> String {
+        let regex = try! NSRegularExpression(pattern:
+            #"\b(vec[2-4])\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(vec[2-4])\s*\(([^;]*)\);"#
+        )
+        var result = source
+        for match in regex.matches(
+            in: source,
+            range: NSRange(source.startIndex..., in: source)
+        ).reversed() {
+            guard let targetRange = Range(match.range(at: 1), in: source),
+                  let nameRange = Range(match.range(at: 2), in: source),
+                  let sourceRange = Range(match.range(at: 3), in: source),
+                  let targetWidth = Int(source[targetRange].dropFirst(3)),
+                  let sourceWidth = Int(source[sourceRange].dropFirst(3)),
+                  sourceWidth > targetWidth,
+                  let argumentsRange = Range(match.range(at: 4), in: source),
+                  let range = Range(match.range, in: result) else { continue }
+            let target = String(source[targetRange])
+            let name = String(source[nameRange])
+            let constructor = String(source[sourceRange])
+            let arguments = String(source[argumentsRange])
+            let suffix = targetWidth == 2 ? ".xy" : ".xyz"
+            result.replaceSubrange(
+                range,
+                with: "\(target) \(name) = \(constructor)(\(arguments))\(suffix);"
+            )
+        }
+        return result
     }
 
     private static func pruneUnusedVaryingComponentAssignments(
@@ -371,6 +497,18 @@ void main() {
     private static func containsWord(_ word: String, in source: String) -> Bool {
         let regex = try! NSRegularExpression(pattern:
             #"\b"# + NSRegularExpression.escapedPattern(for: word) + #"\b"#
+        )
+        return regex.firstMatch(
+            in: source,
+            range: NSRange(source.startIndex..., in: source)
+        ) != nil
+    }
+
+    private static func hasLocalDeclaration(_ name: String, in source: String) -> Bool {
+        let types = valueTypes.map(NSRegularExpression.escapedPattern).joined(separator: "|")
+        let regex = try! NSRegularExpression(pattern:
+            #"\b(?:"# + types + #")\s+"#
+                + NSRegularExpression.escapedPattern(for: name) + #"\b"#
         )
         return regex.firstMatch(
             in: source,

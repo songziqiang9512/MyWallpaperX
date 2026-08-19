@@ -244,8 +244,12 @@ extension SceneResolvedMaterialGraphExecutor {
                     backend: program.frontendProgram.backend,
                     colorTransfer: program.frontendProgram.colorTransfer,
                     hasExternalProviderTexture:
-                        SceneResolvedMaterialVariantCache
-                            .hasExternalProviderTexture(in: material.template),
+                        SceneResolvedMaterialVariantCache.hasExternalProviderTexture(
+                            in: material.template,
+                            activeTextureSlots: Set(
+                                program.textureSlots.compactMap { $0?.index }
+                            )
+                        ),
                     producesScalarRedOutput:
                         program.outputContract == .scalarRedUnorm,
                     graphTextureSlots: Set(program.textureSlots.compactMap { slot in

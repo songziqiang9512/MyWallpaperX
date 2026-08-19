@@ -201,19 +201,39 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         }
         let fields = try type.members.map { member ->
             SceneGenericShaderProgramArtifact.Program.UniformLayout.Field in
-            guard member.array == nil,
-                  let valueType = SceneAuthoredShaderValueType(authoredName: member.type),
+            guard let valueType = SceneAuthoredShaderValueType(authoredName: member.type),
                   let offset = member.offset, offset >= 0 else {
                 throw Failure.uniformMember
             }
+            let arrayCount = try reflectedArrayCount(
+                member.array,
+                name: member.name,
+                type: valueType
+            )
             return .init(
                 name: member.name,
                 authoredName: member.name,
                 type: valueType.rawValue,
-                offset: offset
+                offset: offset,
+                arrayCount: arrayCount
             )
         }
         return .init(fields: fields, byteSize: align(block.blockSize, to: 16))
+    }
+
+    private static func reflectedArrayCount(
+        _ dimensions: [Int]?,
+        name: String,
+        type: SceneAuthoredShaderValueType
+    ) throws -> Int? {
+        guard let dimensions else { return nil }
+        guard dimensions.count == 1, let count = dimensions.first,
+              type == .float, [16, 32, 64].contains(count),
+              name == "g_AudioSpectrum\(count)Left"
+                || name == "g_AudioSpectrum\(count)Right" else {
+            throw Failure.uniformMember
+        }
+        return count
     }
 
     private static func textureBindings(
@@ -497,7 +517,16 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             in: source
         )
         guard declarations.count == 1 else {
-            return nil
+            guard let transformed = SceneGenericShaderStraightAlphaPreservingLowering
+                .lowerComposed(source, expectedSlot: expectedSlot) else { return nil }
+            return (
+                transformed,
+                .init(
+                    kind: "straight-alpha-preserving",
+                    slot: expectedSlot,
+                    slots: nil
+                )
+            )
         }
         guard let prefix = capture(declarations[0], 1, in: source),
               let local = capture(declarations[0], 2, in: source),
@@ -596,7 +625,8 @@ inline float4 \(premultiply)(float4 color) {
             guard let type = SceneAuthoredShaderValueType(rawValue: field.type) else {
                 return nil
             }
-            return "    \(type.metalName) \(field.name);"
+            let suffix = field.arrayCount.map { "[\($0)]" } ?? ""
+            return "    \(type.metalName) \(field.name)\(suffix);"
         }
         guard declarations.count == layout.fields.count else {
             throw Failure.uniformMember
@@ -610,6 +640,16 @@ inline float4 \(premultiply)(float4 color) {
                 with: ".\(fieldName)",
                 options: .regularExpression
             )
+        }
+        for count in [16, 32, 64] {
+            for side in ["Left", "Right"] {
+                result = result.replacingOccurrences(
+                    of: #"(g_AudioSpectrum"# + String(count) + side
+                        + #"\s*\[\s*\d+\s*\])\.x\b"#,
+                    with: "$1",
+                    options: .regularExpression
+                )
+            }
         }
         return result
     }
@@ -658,6 +698,11 @@ inline float4 \(premultiply)(float4 color) {
                 }
                 total += limit
                 body.removeSubrange(range)
+            }
+            let audioLoops = SceneGenericShaderBoundedLoopWork.consumeAudioLoops(in: &body)
+            if audioLoops.found {
+                guard let work = audioLoops.work else { throw Failure.loopUnbounded }
+                total += work
             }
             if regexMatches(#"\b(for|while|do)\b"#, body) {
                 throw Failure.loopUnbounded

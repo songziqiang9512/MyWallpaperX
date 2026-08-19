@@ -183,7 +183,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(preprocessing[:2], environment)
         self.assertEqual(len(preparation), 14)
         self.assertEqual(preparation[:12], preprocessing)
-        self.assertEqual(len(generic_compiler), 6)
+        self.assertEqual(len(generic_compiler), 8)
         preparation_directory = (
             REPOSITORY_ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation"

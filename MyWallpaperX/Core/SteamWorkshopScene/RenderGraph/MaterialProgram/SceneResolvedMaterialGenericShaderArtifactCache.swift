@@ -76,6 +76,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             "source-proven-graph-target-passthrough"
         case sourceProvenGraphInputStraightAlpha =
             "source-proven-graph-input-straight-alpha"
+        case sourceProvenGraphInputStraightAlphaPreserving =
+            "source-proven-graph-input-straight-alpha-preserving"
         case sourceProvenGraphInputStageUniformPassthrough =
             "source-proven-graph-input-stage-uniform-passthrough"
 
@@ -110,6 +112,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                       !producesScalarRedOutput,
                       graphInputTextureSlots.contains(sourceSlot) {
                 self = .sourceProvenGraphInputStraightAlpha
+            } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
+                      !hasExternalProviderTexture,
+                      !producesScalarRedOutput,
+                      graphInputTextureSlots.contains(sourceSlot) {
+                self = .sourceProvenGraphInputStraightAlphaPreserving
             } else if case .interpolatedColor = colorTransfer,
                hasExternalProviderTexture {
                 self = .providerBackedScalarColorInterpolation
@@ -129,6 +136,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                  .sourceProvenStraightAlphaR8Signal,
                  .sourceProvenGraphTargetPassthrough,
                  .sourceProvenGraphInputStraightAlpha,
+                 .sourceProvenGraphInputStraightAlphaPreserving,
                  .sourceProvenGraphInputStageUniformPassthrough: .genericOnly
             }
         }

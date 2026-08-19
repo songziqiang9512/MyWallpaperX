@@ -661,6 +661,41 @@ void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord.xy); }
         self.assertEqual(summary["inactiveUniformsPruned"], 1)
         self.assertEqual(summary["unusedVaryingComponentAssignmentsPruned"], 1)
 
+    def test_shared_vector_narrowing_rules_cover_sampler_coordinates_scalars_and_constructors(self) -> None:
+        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
+
+        normalized, _ = normalize_wallpaper_engine_pair([
+            {
+                "stage": "vertex", "entryPoint": "main",
+                "source": """uniform mat4 g_ModelViewProjectionMatrix;
+attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec4 v_TexCoord;
+void main() {
+    gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);
+    v_TexCoord = vec4(a_TexCoord, 0.0, 1.0);
+}
+""",
+            },
+            {
+                "stage": "fragment", "entryPoint": "main",
+                "source": """uniform sampler2D g_Texture0;
+uniform vec2 g_PointerPosition;
+varying vec4 v_TexCoord;
+void main() {
+    vec4 scene = texSample2D(g_Texture0, v_TexCoord);
+    float pointer = g_PointerPosition * 0.5;
+    vec3 finalColor = vec4(scene.r, scene.g, scene.b, 1.0);
+    gl_FragColor = vec4(finalColor + pointer.x, scene.a);
+}
+""",
+            },
+        ], {})
+        fragment = normalized[1]["source"]
+        self.assertIn("texSample2D(g_Texture0, v_TexCoord.xy)", fragment)
+        self.assertIn("(g_PointerPosition * 0.5).x", fragment)
+        self.assertIn("vec3 finalColor = vec4(scene.r, scene.g, scene.b, 1.0).xyz;", fragment)
+
     def test_inactive_varying_call_is_not_pruned_without_purity_proof(self) -> None:
         from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
 

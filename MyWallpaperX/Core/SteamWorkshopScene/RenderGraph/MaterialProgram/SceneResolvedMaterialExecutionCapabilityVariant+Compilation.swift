@@ -113,12 +113,21 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let graphR8TextureSlots = Set(activeGraphTextureIdentities.compactMap {
             graphTextureFormatFacts[$0.value] == .r8 ? $0.key : nil
         })
+        let activeTextureSlots: Set<Int> = Set(activeSamplerNames.compactMap { name -> Int? in
+            guard name.hasPrefix("g_Texture"),
+                  let slot = Int(name.dropFirst("g_Texture".count)) else {
+                return nil
+            }
+            return slot
+        })
         let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: prepared.vertex.source,
             fragmentSource: prepared.fragment.source,
             hasExternalProviderTexture:
-                SceneResolvedMaterialVariantCache
-                    .hasExternalProviderTexture(in: template),
+                SceneResolvedMaterialVariantCache.hasExternalProviderTexture(
+                    in: template,
+                    activeTextureSlots: activeTextureSlots
+                ),
             producesScalarRedOutput: outputStorage == .scalarRedUnorm,
             graphTextureSlots: graphTextureSlots,
             graphInputTextureSlots: graphInputTextureSlots,
@@ -237,10 +246,13 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     }
 
     static func hasExternalProviderTexture(
-        in template: Template
+        in template: Template,
+        activeTextureSlots: Set<Int>? = nil
     ) -> Bool {
-        template.textureSlots.compactMap { $0 }.contains { slot in
-            slot.candidates.contains { candidate in
+        template.textureSlots.enumerated().contains { index, slot in
+            guard activeTextureSlots?.contains(index) != false,
+                  let slot else { return false }
+            return slot.candidates.contains { candidate in
                 if case .provider = candidate.reference { return true }
                 return false
             }

@@ -71,7 +71,8 @@ extension SceneGenericShaderArtifactBuilder {
                         name: sharedInternal,
                         authoredName: sharedInternal,
                         type: field.type,
-                        offset: 0
+                        offset: 0,
+                        arrayCount: field.arrayCount
                     )
                     names[field.authoredName] = sharedInternal
                     continue
@@ -83,7 +84,8 @@ extension SceneGenericShaderArtifactBuilder {
                     authoredName: field.authoredName,
                     stage: stage.rawValue,
                     type: field.type,
-                    offset: 0
+                    offset: 0,
+                    arrayCount: field.arrayCount
                 ))
                 names[field.authoredName] = name
             }
@@ -120,9 +122,10 @@ extension SceneGenericShaderArtifactBuilder {
                 authoredName: field.authoredName,
                 stage: field.stage,
                 type: field.type,
-                offset: offset
+                offset: offset,
+                arrayCount: field.arrayCount
             )
-            offset += type.byteSize
+            offset += type.byteSize * (field.arrayCount ?? 1)
             return value
         }
         return .init(

@@ -157,6 +157,8 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompiler.swift"
       ]
