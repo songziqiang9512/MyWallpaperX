@@ -50,8 +50,6 @@ EXPECTED_PURPOSES = {
     "cursor ripple collision mask": "mask",
     "godrays noise": "noise",
     "godrays effect mask": "mask",
-    "light shafts noise": "noise",
-    "light shafts gradient": "preservedChannels",
     "pulse noise": "noise",
     "pulse effect mask": "mask",
     "shine noise": "noise",

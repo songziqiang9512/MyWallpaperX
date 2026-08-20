@@ -466,7 +466,7 @@ class SceneFrameContextTests(unittest.TestCase):
         preflight = PREPFLIGHT_SOURCE.read_text(encoding="utf-8")
         self.assertIn("case .mutationOverflow: \"mutation-overflow\"", scalar_runtime)
         self.assertIn("guard !functionName.isEmpty", scalar_runtime)
-        self.assertIn("return result.count == plans.count ? result : nil", preflight)
+        self.assertIn('return invalid("plan-count-mismatch")', preflight)
         self.assertIn("SceneGraphMaterialFunctionInvocationRequest", preflight)
 
     def test_host_owns_the_only_scene_frame_timer_and_per_surface_snapshots(self) -> None:
