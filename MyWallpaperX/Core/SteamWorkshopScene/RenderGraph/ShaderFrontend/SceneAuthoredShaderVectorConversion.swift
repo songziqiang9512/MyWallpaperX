@@ -35,6 +35,16 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
             ) {
                 return [conversion]
             }
+            if targetWidth > 1,
+               let conversion = componentWiseBuiltInConversion(
+                   expression: (index + 1)..<end,
+                   targetWidth: targetWidth,
+                   before: index,
+                   tokens: tokens,
+                   unit: unit
+               ) {
+                return [conversion]
+            }
             guard let operands = multiplicativeOperands(
                 tokens[(index + 1)..<end],
                 before: index,
@@ -90,6 +100,80 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                 from: sourceWidth,
                 to: targetWidth
               ) else { return nil }
+        return .init(range: expression, suffix: suffix)
+    }
+
+    /// Component-wise GLSL built-ins preserve the single active vector width
+    /// when every other argument is scalar. If that proven result is assigned
+    /// to a narrower vector, apply the same explicit shrink used elsewhere.
+    /// User-defined overloads, mixed vector widths, swizzles wider than the
+    /// target, and compound expressions remain closed.
+    private static func componentWiseBuiltInConversion(
+        expression: Range<Int>,
+        targetWidth: Int,
+        before limit: Int,
+        tokens: [SceneAuthoredShaderToken],
+        unit: SceneAuthoredShaderSyntaxUnit
+    ) -> Conversion? {
+        guard expression.count >= 3,
+              tokens[expression.lowerBound].kind == .identifier,
+              tokens[expression.lowerBound + 1].text == "(",
+              matchingParenthesis(
+                  tokens: tokens,
+                  opening: expression.lowerBound + 1
+              ) == expression.upperBound - 1 else { return nil }
+        let function = tokens[expression.lowerBound].text
+        let builtIns = Set([
+            "abs", "clamp", "max", "min", "pow", "saturate",
+            "smoothstep", "step",
+        ])
+        guard builtIns.contains(function),
+              !unit.functions.contains(where: { $0.name == function }) else { return nil }
+        var widths = Set<Int>()
+        var index = expression.lowerBound + 2
+        while index < expression.upperBound - 1 {
+            let token = tokens[index]
+            guard token.kind == .identifier else {
+                index += 1
+                continue
+            }
+            if index + 1 < expression.upperBound,
+               tokens[index + 1].text == "(" {
+                guard builtIns.contains(token.text)
+                        || SceneAuthoredShaderValueType(authoredName: token.text) != nil
+                else { return nil }
+                index += 1
+                continue
+            }
+            if index > expression.lowerBound,
+               tokens[index - 1].text == "." {
+                index += 1
+                continue
+            }
+            guard let source = declaredType(
+                of: token.text,
+                before: limit,
+                tokens: tokens,
+                unit: unit
+            ) else { return nil }
+            var width = floatVectorWidth(source)
+            if index + 2 < expression.upperBound,
+               tokens[index + 1].text == ".",
+               tokens[index + 2].kind == .identifier {
+                guard let swizzle = swizzleType(tokens[index + 2].text) else {
+                    return nil
+                }
+                width = floatVectorWidth(swizzle)
+                index += 2
+            }
+            if let width { widths.insert(width) }
+            else if ![.float, .int, .uint].contains(source) { return nil }
+            index += 1
+        }
+        guard widths.count == 1, let sourceWidth = widths.first,
+              sourceWidth > targetWidth,
+              let suffix = narrowingSuffix(from: sourceWidth, to: targetWidth)
+        else { return nil }
         return .init(range: expression, suffix: suffix)
     }
 

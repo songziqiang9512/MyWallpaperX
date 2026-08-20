@@ -157,7 +157,6 @@ struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
     let profile: Profile
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
-struct SceneWorkshopGradientExecutionPlan: Sendable {}
 struct SceneProceduralNoiseExecutionPlan: Sendable {
     enum Variant: Sendable {
         case colorPerlinRGB
@@ -187,17 +186,6 @@ enum SceneAuthoredWorkshopAudioBarsPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopAudioBarsExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredWorkshopGradientPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWorkshopGradientExecutionPlan? {
         nil
     }
 }
@@ -542,10 +530,6 @@ extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredWorkshopAudioBarsPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopAudioBars }
-}
-extension SceneAuthoredWorkshopGradientPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWorkshopGradientExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopGradient }
 }
 extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
@@ -1319,7 +1303,6 @@ enum Harness {
             case .localContrast: backend = "localContrast"
             case .colorGrading: backend = "colorGrading"
             case .workshopAudioBars: backend = "workshopAudioBars"
-            case .workshopGradient: backend = "workshopGradient"
             case .proceduralNoise: backend = "proceduralNoise"
             case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"

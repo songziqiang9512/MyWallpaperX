@@ -62,12 +62,12 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             return .failure(.sourceTooLarge)
         }
         do {
-            let typedVertexSource = rewriteBuiltInVectorArguments(
-                vertexSource,
+            let typedVertexSource = rewriteAssignmentVectorConversions(
+                rewriteBuiltInVectorArguments(vertexSource, stage: .vertex),
                 stage: .vertex
             )
-            let typedFragmentSource = rewriteBuiltInVectorArguments(
-                fragmentSource,
+            let typedFragmentSource = rewriteAssignmentVectorConversions(
+                rewriteBuiltInVectorArguments(fragmentSource, stage: .fragment),
                 stage: .fragment
             )
             var parsed: [String: ParsedStage] = [
@@ -149,6 +149,15 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             guard var vertex = parsed["vertex"], var fragment = parsed["fragment"] else {
                 throw Failure.stageLinkMismatch
             }
+            let expressionShapes = varyings.merging(uniforms) { current, _ in current }
+            vertex.body = rewriteComponentWiseBuiltInAssignmentResults(
+                vertex.body,
+                shapes: expressionShapes
+            )
+            fragment.body = rewriteComponentWiseBuiltInAssignmentResults(
+                fragment.body,
+                shapes: expressionShapes
+            )
             vertex.body = replaceWord("sample", with: "mwx_sample", in: vertex.body)
             fragment.body = replaceWord("sample", with: "mwx_sample", in: fragment.body)
             fragment.body = replaceWord("gl_FragColor", with: "mwxFragColor", in: fragment.body)
@@ -335,6 +344,89 @@ void main() {
         )
     }
 
+    /// Some valid prepared programs exceed the bounded syntax analyzer's
+    /// broader language envelope before this normalizer runs. Preserve the
+    /// same typed conversion with a declaration-driven fallback: exactly one
+    /// component-wise built-in result, exactly one wider declared vector
+    /// width, and no user-defined overload of that built-in.
+    private static func rewriteComponentWiseBuiltInAssignmentResults(
+        _ source: String,
+        shapes: [String: Shape]
+    ) -> String {
+        let pattern = #"\b(vec[23])\s+([A-Za-z_]\w*)\s*=\s*((abs|clamp|max|min|pow|saturate|smoothstep|step)\s*\([^;]+\))\s*;"#
+        let matcher = try! NSRegularExpression(pattern: pattern)
+        var result = source
+        for match in matcher.matches(
+            in: source,
+            range: NSRange(source.startIndex..., in: source)
+        ).reversed() {
+            guard let targetRange = Range(match.range(at: 1), in: source),
+                  let nameRange = Range(match.range(at: 2), in: source),
+                  let expressionRange = Range(match.range(at: 3), in: source),
+                  let functionRange = Range(match.range(at: 4), in: source),
+                  let targetWidth = Int(source[targetRange].dropFirst(3)),
+                  let fullRange = Range(match.range, in: result) else { continue }
+            let function = String(source[functionRange])
+            let declarationPattern = #"\b(?:bool|int|uint|float|[biu]?vec[2-4]|mat[2-4])\s+"#
+                + NSRegularExpression.escapedPattern(for: function) + #"\s*\("#
+            let declarationMatcher = try! NSRegularExpression(
+                pattern: declarationPattern
+            )
+            guard declarationMatcher.firstMatch(
+                in: source,
+                range: NSRange(source.startIndex..., in: source)
+            ) == nil else { continue }
+            let expression = String(source[expressionRange])
+            let widths = Set(shapes.compactMap { name, shape -> Int? in
+                guard containsWord(name, in: expression),
+                      shape.count == nil,
+                      shape.type.hasPrefix("vec"),
+                      let width = Int(shape.type.dropFirst(3)) else { return nil }
+                return width
+            })
+            guard widths.count == 1, let sourceWidth = widths.first,
+                  sourceWidth > targetWidth,
+                  expressionIdentifiersAreKnown(
+                      expression,
+                      shapes: shapes,
+                      builtIns: [function]
+                  ) else { continue }
+            let target = String(source[targetRange])
+            let name = String(source[nameRange])
+            let suffix = targetWidth == 2 ? "xy" : "xyz"
+            result.replaceSubrange(
+                fullRange,
+                with: "\(target) \(name) = (\(expression)).\(suffix);"
+            )
+        }
+        return result
+    }
+
+    private static func expressionIdentifiersAreKnown(
+        _ expression: String,
+        shapes: [String: Shape],
+        builtIns: Set<String>
+    ) -> Bool {
+        let known = Set(shapes.keys).union(builtIns).union([
+            "bool", "int", "uint", "float",
+            "vec2", "vec3", "vec4", "mat2", "mat3", "mat4",
+            "true", "false",
+        ])
+        let matcher = try! NSRegularExpression(pattern: #"\b[A-Za-z_]\w*\b"#)
+        let range = NSRange(expression.startIndex..., in: expression)
+        for match in matcher.matches(in: expression, range: range) {
+            guard let tokenRange = Range(match.range, in: expression) else {
+                return false
+            }
+            if tokenRange.lowerBound > expression.startIndex {
+                let previous = expression.index(before: tokenRange.lowerBound)
+                if expression[previous] == "." { continue }
+            }
+            guard known.contains(String(expression[tokenRange])) else { return false }
+        }
+        return true
+    }
+
     /// Wallpaper Engine authored GLSL permits the established bounded frontend
     /// conversion where one `mix`/`lerp` color argument is wider than the
     /// other. Reuse that typed rule before Vulkan GLSL validation so the two
@@ -394,6 +486,74 @@ void main() {
                 return normalized
             }
             result.insert(contentsOf: suffix, at: index)
+        }
+        return result
+    }
+
+    /// Reuse the bounded frontend's typed assignment conversion around a
+    /// complete expression. This covers source-proven vector shrinkage such
+    /// as a vec3 built-in result assigned to vec2 without teaching the helper
+    /// compiler a second type-inference rule.
+    private static func rewriteAssignmentVectorConversions(
+        _ source: String,
+        stage: SceneShaderContract.StageKind
+    ) -> String {
+        let normalized = source
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let analysisSource = normalized.components(separatedBy: "\n").map { line in
+            line.trimmingCharacters(in: .whitespaces).hasPrefix("#version")
+                ? "" : line
+        }.joined(separator: "\n")
+        let lexer = SceneAuthoredShaderLexer.lex(source: analysisSource, stage: stage)
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: lexer,
+            stage: stage
+        )
+        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else {
+            return normalized
+        }
+        let boundaries = SceneAuthoredShaderVectorConversion.assignmentBoundaries(
+            in: unit.tokens,
+            unit: unit
+        )
+        guard !boundaries.starts.isEmpty || !boundaries.ends.isEmpty else {
+            return normalized
+        }
+
+        var lineStarts = [0]
+        var scalarOffset = 0
+        for scalar in normalized.unicodeScalars {
+            scalarOffset += 1
+            if scalar == "\n" { lineStarts.append(scalarOffset) }
+        }
+        func offset(for tokenIndex: Int) -> Int? {
+            guard unit.tokens.indices.contains(tokenIndex) else { return nil }
+            let token = unit.tokens[tokenIndex]
+            guard token.line > 0, token.line <= lineStarts.count else { return nil }
+            return lineStarts[token.line - 1] + token.column - 1
+        }
+        var insertions: [(offset: Int, text: String)] = []
+        for (tokenIndex, count) in boundaries.starts {
+            guard count > 0, let value = offset(for: tokenIndex) else { continue }
+            insertions.append((value, String(repeating: "(", count: count)))
+        }
+        for (tokenIndex, suffixes) in boundaries.ends {
+            guard !suffixes.isEmpty, let value = offset(for: tokenIndex) else { continue }
+            insertions.append((value, suffixes.map { ").\($0)" }.joined()))
+        }
+        guard !insertions.isEmpty else { return normalized }
+        var result = normalized
+        for insertion in insertions.sorted(by: { $0.offset > $1.offset }) {
+            guard insertion.offset <= result.unicodeScalars.count else { return normalized }
+            let scalarIndex = result.unicodeScalars.index(
+                result.unicodeScalars.startIndex,
+                offsetBy: insertion.offset
+            )
+            guard let index = String.Index(scalarIndex, within: result) else {
+                return normalized
+            }
+            result.insert(contentsOf: insertion.text, at: index)
         }
         return result
     }

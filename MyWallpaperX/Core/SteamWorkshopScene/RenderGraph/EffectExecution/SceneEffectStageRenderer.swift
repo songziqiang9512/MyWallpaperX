@@ -70,7 +70,7 @@ enum SceneEffectStageRenderer {
                 sourcePipeline: pipeline, pipelines: pipelines,
                 commandBuffer: commandBuffer
             )
-        case .workshopAudioBars, .workshopGradient:
+        case .workshopAudioBars:
             return renderWorkshopStage(
                 stage,
                 sourceTexture: sourceTexture,

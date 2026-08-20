@@ -64,14 +64,18 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         case .notApplicable:
             throw failure(.identityInvariant, phase: .invariant)
         }
+        let compilerSources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+            vertex: prepared.vertex.source,
+            fragment: prepared.fragment.source
+        )
         let runtimeLoopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
             template: template,
             prepared: prepared
         )
         let activeSamplerNames = SceneAuthoredShaderDeadBindingAnalyzer
             .activeSamplerNames(
-                vertexSource: prepared.vertex.source,
-                fragmentSource: prepared.fragment.source,
+                vertexSource: compilerSources.vertex,
+                fragmentSource: compilerSources.fragment,
                 runtimeLoopBounds: runtimeLoopBounds
             ) ?? []
         let sourceActiveSamplers: [
@@ -141,8 +145,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 implicitFramebufferIdentity: implicitFramebufferIdentity
             )
         let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
-            vertexSource: prepared.vertex.source,
-            fragmentSource: prepared.fragment.source,
+            vertexSource: compilerSources.vertex,
+            fragmentSource: compilerSources.fragment,
             alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
             colorBlendSourceSlot: colorBlendSourceSlot,
             hasExternalProviderTexture:
@@ -162,7 +166,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 SceneResolvedMaterialShaderSchema.hasOnlyDefaultedOpacityMaskAuxiliary(
                     sourceActiveSamplers,
                     graphInputSlots: graphInputTextureSlots
-                )
+                ),
+            hasOnlyGraphInputSampler:
+                sourceActiveSamplers.count == 1
+                    && Set(sourceActiveSamplers.keys) == graphInputTextureSlots
         )
         let frontend: SceneAuthoredShaderProgram
         let routeDecision:
@@ -194,8 +201,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             }
             onBoundedFrontendCompilation()
             let output = SceneAuthoredShaderFrontend.compile(
-                vertexSource: prepared.vertex.source,
-                fragmentSource: prepared.fragment.source,
+                vertexSource: compilerSources.vertex,
+                fragmentSource: compilerSources.fragment,
                 runtimeLoopBounds: runtimeLoopBounds
             )
             guard output.diagnostics.isEmpty,

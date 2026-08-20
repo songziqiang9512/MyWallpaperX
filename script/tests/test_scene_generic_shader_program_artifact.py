@@ -26,6 +26,8 @@ SWIFT_SOURCES = [
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerBundle.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
     SCENE_ROOT
@@ -142,6 +144,17 @@ private struct TypedMixNormalizationOutput: Codable {
     let invalidWeightPreserved: Bool
 }
 
+private struct CanonicalizerOutput: Codable {
+    let arraysCompacted: Bool
+    let loopsUnrolled: Bool
+    let boundedFrontendAccepted: Bool
+    let genericNormalizerAccepted: Bool
+    let assignmentNarrowed: Bool
+    let dynamicBoundPreserved: Bool
+    let controlFlowPreserved: Bool
+    let outOfPrefixPreserved: Bool
+}
+
 private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
     switch transfer {
     case .passthrough: return "passthrough"
@@ -157,6 +170,109 @@ private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
 @main
 private struct GenericShaderArtifactHarness {
     static func main() throws {
+        if CommandLine.arguments[1] == "--backend-canonicalizer" {
+            let vertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec2 v_TexCoord;",
+                "varying vec3 v_Mask;",
+                "varying vec3 v_Colors[24];",
+                "varying vec3 v_Settings[24];",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    v_TexCoord = a_TexCoord;",
+                "    v_Mask = vec3(a_TexCoord, 1.0);",
+                "    for (int i = 0; i < int(float(24) * 0.25); ++i) v_Settings[i] = vec3(0.0);",
+                "    v_Colors[0] = vec3(0.0); v_Colors[1] = vec3(0.1);",
+                "    v_Colors[2] = vec3(0.2); v_Colors[3] = vec3(0.3);",
+                "    v_Colors[4] = vec3(0.4); v_Colors[5] = vec3(0.5);",
+                "}",
+            ].joined(separator: "\n")
+            let fragment = [
+                "varying vec2 v_TexCoord;",
+                "varying vec3 v_Mask;",
+                "varying vec3 v_Colors[24];",
+                "varying vec3 v_Settings[24];",
+                "void main() {",
+                "    float nColors = float(24) * 0.25;",
+                "    vec3 color = vec3(0.0);",
+                "    for (int i = 0; i < int(nColors); ++i) {",
+                "        /* A comment brace } must not terminate the loop body. */",
+                "        color += v_Colors[i] + v_Settings[i] * float(i);",
+                "    }",
+                "    vec2 norm = step(0.5, abs(v_Mask - 0.5));",
+                "    gl_FragColor = vec4(color + vec3(norm, 0.0), 1.0);",
+                "}",
+            ].joined(separator: "\n")
+            let canonical = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: vertex,
+                fragment: fragment
+            )
+            let bounded = SceneAuthoredShaderFrontend.compile(
+                vertexSource: canonical.vertex,
+                fragmentSource: canonical.fragment
+            )
+            let normalized: SceneGenericShaderSourceNormalizer.Pair?
+            switch SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: canonical.vertex,
+                fragmentSource: canonical.fragment,
+                maximumStageSourceBytes: 64 * 1_024
+            ) {
+            case let .success(pair): normalized = pair
+            case .failure: normalized = nil
+            }
+            let dynamicVertex = vertex.replacingOccurrences(
+                of: "int(float(24) * 0.25)",
+                with: "g_Count"
+            ).replacingOccurrences(
+                of: "attribute vec3 a_Position;",
+                with: "uniform int g_Count;\nattribute vec3 a_Position;"
+            )
+            let dynamic = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: dynamicVertex,
+                fragment: fragment
+            )
+            let controlVertex = vertex.replacingOccurrences(
+                of: "v_Settings[i] = vec3(0.0);",
+                with: "{ v_Settings[i] = vec3(0.0); break; }"
+            )
+            let controlled = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: controlVertex,
+                fragment: fragment
+            )
+            let prefixVertex = vertex.replacingOccurrences(
+                of: "v_Colors[5] = vec3(0.5);",
+                with: "v_Colors[5] = vec3(0.5); v_Colors[20] = vec3(1.0);"
+            )
+            let prefix = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: prefixVertex,
+                fragment: fragment
+            )
+            let output = CanonicalizerOutput(
+                arraysCompacted:
+                    canonical.vertex.contains("v_Colors[6]")
+                    && canonical.fragment.contains("v_Settings[6]"),
+                loopsUnrolled:
+                    !canonical.vertex.contains("for (")
+                    && !canonical.fragment.contains("for ("),
+                boundedFrontendAccepted:
+                    bounded.diagnostics.isEmpty && bounded.program != nil,
+                genericNormalizerAccepted: normalized != nil,
+                assignmentNarrowed:
+                    normalized?.fragment.contains(").xy") == true,
+                dynamicBoundPreserved:
+                    dynamic.vertex.contains("v_Settings[24]")
+                    && dynamic.vertex.contains("g_Count"),
+                controlFlowPreserved:
+                    controlled.vertex.contains("break")
+                    && controlled.vertex.contains("v_Settings[24]"),
+                outOfPrefixPreserved:
+                    prefix.vertex.contains("v_Colors[24]")
+                    && prefix.vertex.contains("v_Colors[20]")
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
         if CommandLine.arguments[1] == "--normalizer-typed-mix" {
             let vertex = [
                 "attribute vec3 a_Position;",
@@ -835,6 +951,10 @@ private struct GenericShaderArtifactHarness {
             hasDefaultedOpacityMaskSampler:
                 ProcessInfo.processInfo.environment[
                     "MWX_TEST_DEFAULTED_OPACITY_MASK"
+                ] == "1",
+            hasOnlyGraphInputSampler:
+                ProcessInfo.processInfo.environment[
+                    "MWX_TEST_ONLY_GRAPH_INPUT_SAMPLER"
                 ] == "1"
         ) {
         case let .accepted(program, requestKey, decision):
@@ -1020,6 +1140,17 @@ void main() {
 }
 """
 
+STAGE_UNIFORM_NO_AUX_STRAIGHT_PRESERVING_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform float g_Time;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+    color.rgb = color.rgb + vec3(g_Time * 0.0);
+    gl_FragColor = color;
+}
+"""
+
 FILM_GRAIN_STOCK_FRAGMENT = """
 uniform sampler2D g_Texture0;
 uniform sampler2D g_Texture1; // {"default":"util/noise"}
@@ -1175,6 +1306,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         graph_input_slots: tuple[int, ...] = (),
         r8_slots: tuple[int, ...] = (),
         has_defaulted_opacity_mask: bool = False,
+        has_only_graph_input_sampler: bool = False,
         alpha_attenuation_source_slot: int | None = None,
         color_blend_source_slot: int | None = None,
     ):
@@ -1233,6 +1365,10 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             environment["MWX_TEST_DEFAULTED_OPACITY_MASK"] = "1"
         else:
             environment.pop("MWX_TEST_DEFAULTED_OPACITY_MASK", None)
+        if has_only_graph_input_sampler:
+            environment["MWX_TEST_ONLY_GRAPH_INPUT_SAMPLER"] = "1"
+        else:
+            environment.pop("MWX_TEST_ONLY_GRAPH_INPUT_SAMPLER", None)
         if alpha_attenuation_source_slot is not None:
             environment["MWX_TEST_ALPHA_ATTENUATION_SOURCE_SLOT"] = str(
                 alpha_attenuation_source_slot
@@ -1417,6 +1553,25 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             "deadMismatchAccepted": True,
             "deadFragmentInterfaceRemoved": True,
             "liveMismatchRejected": True,
+        })
+
+    def test_backend_canonicalizer_unrolls_only_proven_varying_prefix(self):
+        completed = subprocess.run(
+            [str(self.binary), "--backend-canonicalizer"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "arraysCompacted": True,
+            "loopsUnrolled": True,
+            "boundedFrontendAccepted": True,
+            "genericNormalizerAccepted": True,
+            "assignmentNarrowed": True,
+            "dynamicBoundPreserved": True,
+            "controlFlowPreserved": True,
+            "outOfPrefixPreserved": True,
         })
 
     def test_compilation_coordinator_restarts_for_independent_key(self):
@@ -2300,6 +2455,14 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "source-proven-graph-input-stage-uniform-straight-alpha-preserving",
             ),
             (
+                STAGE_UNIFORM_NO_AUX_STRAIGHT_PRESERVING_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "source-proven-graph-input-stage-uniform-straight-alpha-preserving-no-auxiliary",
+            ),
+            (
                 FRAGMENT,
                 {"graph_slots": (0,)},
                 "source-proven-graph-target-passthrough",
@@ -2520,6 +2683,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "straight-alpha-preserving",
                 "source-proven-graph-input-stage-uniform-straight-alpha-preserving",
                 True,
+            ),
+            (
+                STAGE_UNIFORM_NO_AUX_STRAIGHT_PRESERVING_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "straight-alpha-preserving",
+                "source-proven-graph-input-stage-uniform-straight-alpha-preserving-no-auxiliary",
+                False,
             ),
             (
                 FRAGMENT,

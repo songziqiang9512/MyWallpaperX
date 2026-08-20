@@ -7,9 +7,6 @@ struct SceneAuthoredEffectPipelineSet {
     var localContrast: SceneLocalContrastPipeline? { repository.localContrast() }
     var colorGrading: SceneColorGradingPipeline? { repository.colorGrading() }
     var audioBars: SceneWorkshopAudioBarsPipeline? { repository.audioBars() }
-    var workshopGradient: SceneWorkshopGradientPipeline? {
-        repository.workshopGradient()
-    }
     var proceduralNoise: SceneProceduralNoisePipeline? { repository.proceduralNoise() }
     var shake: SceneShakePipeline? { repository.shake() }
     var waterFlow: SceneWaterFlowPipeline? { repository.waterFlow() }

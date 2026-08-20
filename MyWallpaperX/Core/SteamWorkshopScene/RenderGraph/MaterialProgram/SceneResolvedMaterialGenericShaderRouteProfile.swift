@@ -59,6 +59,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-straight-alpha-preserving"
     case sourceProvenGraphInputStageUniformStraightAlphaPreserving =
         "source-proven-graph-input-stage-uniform-straight-alpha-preserving"
+    case sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary =
+        "source-proven-graph-input-stage-uniform-straight-alpha-preserving-no-auxiliary"
     case sourceProvenGraphInputStageUniformPassthrough =
         "source-proven-graph-input-stage-uniform-passthrough"
 
@@ -74,6 +76,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         graphInputTextureSlots: Set<Int>,
         r8TextureSlots: Set<Int>,
         hasDefaultedOpacityMaskSampler: Bool,
+        hasOnlyGraphInputSampler: Bool = false,
         hasStageScopedUniformBindings: Bool
     ) {
         if colorTransfer == .premultipliedAlpha,
@@ -128,6 +131,14 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   !producesScalarRedOutput,
                   graphTextureSlots.isEmpty,
                   graphInputTextureSlots == Set([sourceSlot]),
+                  hasOnlyGraphInputSampler,
+                  hasStageScopedUniformBindings {
+            self = .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
+        } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]),
                   hasDefaultedOpacityMaskSampler,
                   hasStageScopedUniformBindings {
             self = .sourceProvenGraphInputStageUniformStraightAlphaPreserving
@@ -162,6 +173,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputColorBlend,
              .sourceProvenGraphInputConditionalStraightUnion,
              .sourceProvenGraphInputStageUniformStraightAlphaPreserving,
+             .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary,
              .sourceProvenGraphInputStageUniformPassthrough:
             .genericOnly
         }

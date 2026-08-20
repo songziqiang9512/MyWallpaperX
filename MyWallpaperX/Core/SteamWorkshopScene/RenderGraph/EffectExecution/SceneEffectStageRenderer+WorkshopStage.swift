@@ -29,18 +29,6 @@ targets: targets,
                 spectrum: audioSpectrum,
                 commandBuffer: commandBuffer
             )
-        case .workshopGradient(let gradient):
-            guard let gradientPipeline = pipelines.workshopGradient else { return nil }
-            return renderWorkshopGradient(
-                gradient,
-                sourceTexture: sourceTexture,
-                masks: masks,
-targets: targets,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                gradientPipeline: gradientPipeline,
-                commandBuffer: commandBuffer
-            )
         default:
             return nil
         }

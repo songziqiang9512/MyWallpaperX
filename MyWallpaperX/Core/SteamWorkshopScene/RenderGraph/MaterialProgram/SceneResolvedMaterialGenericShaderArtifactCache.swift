@@ -203,7 +203,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         graphTextureSlots: Set<Int> = [],
         graphInputTextureSlots: Set<Int> = [],
         r8TextureSlots: Set<Int> = [],
-        hasDefaultedOpacityMaskSampler: Bool = false
+        hasDefaultedOpacityMaskSampler: Bool = false,
+        hasOnlyGraphInputSampler: Bool = false
     ) -> Resolution {
         let key = requestKey(
             vertexSource: vertexSource,
@@ -231,6 +232,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             graphInputTextureSlots: graphInputTextureSlots,
             r8TextureSlots: r8TextureSlots,
             hasDefaultedOpacityMaskSampler: hasDefaultedOpacityMaskSampler,
+            hasOnlyGraphInputSampler: hasOnlyGraphInputSampler,
             hasStageScopedUniformBindings: hasStageScopedUniformBindings(
                 vertexSource: vertexSource,
                 fragmentSource: fragmentSource

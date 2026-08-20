@@ -158,6 +158,7 @@
       "description": "Signed generic shader helper resolution, isolated execution, source normalization, and artifact lowering.",
       "includes": [],
       "sources": [
+        "RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerBundle.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",

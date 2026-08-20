@@ -206,9 +206,6 @@ extension SceneEffectStageRenderer {
                 return pipelines.audioBars == nil ? "audio-bars-pipeline-missing" : nil
             }
             return "audio-bars-profile-unsupported"
-        case .workshopGradient:
-            return pipelines.workshopGradient == nil
-                ? "gradient-pipeline-missing" : nil
         case .proceduralNoise(let plan):
             guard proceduralNoiseDependencyMatches(
                 inputs.dependencyEffect,
