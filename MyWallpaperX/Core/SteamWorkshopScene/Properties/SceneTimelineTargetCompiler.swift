@@ -143,6 +143,12 @@ nonisolated enum SceneTimelineTargetCompiler {
                         "\(label): \($0)"
                     })
                     guard let animation = value.timeline else { continue }
+                    guard let dynamicValue = effectConstantValue(value) else {
+                        diagnostics.append(
+                            "\(label): \(Diagnostic.invalidAuthoredValue.rawValue)"
+                        )
+                        continue
+                    }
                     append(
                         animation: animation,
                         target: .effectConstant(
@@ -151,14 +157,37 @@ nonisolated enum SceneTimelineTargetCompiler {
                             passIndex: pass.passIndex,
                             name: name
                         ),
-                        valueType: .scalar,
-                        authoredValue: .scalar(value.components?.first ?? 0),
+                        valueType: dynamicValue.type,
+                        authoredValue: dynamicValue.value,
                         label: label,
                         into: &candidates,
                         diagnostics: &diagnostics
                     )
                 }
             }
+        }
+    }
+
+    private nonisolated static func effectConstantValue(
+        _ shaderValue: SceneDocument.ShaderValue
+    ) -> (type: SceneDynamicValueType, value: SceneDynamicValue)? {
+        let tokens = shaderValue.rawValue.split(
+            whereSeparator: { $0 == " " || $0 == "," || $0 == "\t" }
+        )
+        guard (1...4).contains(tokens.count) else { return nil }
+        let values = tokens.compactMap { Double($0) }
+        guard values.count == tokens.count,
+              values.allSatisfy(\.isFinite) else { return nil }
+        switch values.count {
+        case 1: return (.scalar, .scalar(values[0]))
+        case 2: return (.vector2, .vector2(values[0], values[1]))
+        case 3: return (.vector3, .vector3(values[0], values[1], values[2]))
+        case 4:
+            return (
+                .vector4,
+                .vector4(values[0], values[1], values[2], values[3])
+            )
+        default: return nil
         }
     }
 

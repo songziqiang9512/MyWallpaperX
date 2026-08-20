@@ -16,6 +16,8 @@
 
 上段口径中的“Opacity、Tint、Light Shafts 旧 owner 仍继续作为现役 fallback”已由本日后续运行事实部分替代：当前仅 Opacity/Tint 仍保留旧产品 fallback；Light Shafts 不再有旧 main-pass 第二输出路径，但 strict fallback 仍由专用 plan/pipeline/resource leaf 在 GraphExecutor 内执行。真实 `3768903841:162` 命中的是 generic artifact，不是该 dedicated leaf；因此不得把第二输出撤销写成整个 profile/family owner migration complete，也不得删除尚无普通 authored compiler 平替的 leaf producer。
 
+同日的 typed Timeline effect-vector 原子又纠正了公共 producer 把所有 effect constant 压成 scalar 的偏差：`SceneTimelineTargetCompiler` 现在从完整作者 raw value 严格形成 1–4 维 scalar/vector definition，缺失、空、畸形、非有限、超过四维或 animation lane 数不一致时不生成 target；合法普通值沿唯一 per-surface snapshot 进入 MaterialProgram uniform，值变化不改变 Program semantic identity 或 prepared shader cache key。真实资源派生的 representative Tint color vector3 已经由 shared Program/GraphExecutor 产生红降绿升的 next-frame 可见变化，lane mismatch 只让该 effect 做 previous-current passthrough，`disable-generic` 回滚到 shared `boundedSwift` frontend；真实 `3748311238:728` 的两个 Shake `friction` vector2 consumer 也进入普通 Program/GPU/publication/compositor，frame-1 dynamic snapshot 故障只局部复制 previous current 并在 frame 2 恢复原 Program。该结论只到 `slice-visible/slice-executable / representative-content / prefer-generic`；Opacity/Tint/Shake 的旧专用 owner 均未因本 atom 撤权，当前 Workshop 根的新增 authored occurrence 也尚未按现役 census 口径刷新，不能外推其余 vector consumer、整个 effect family、owner migration 或 parity。
+
 2026-08-19 的 graph-input straight-alpha 原子证明了一个不按 Fisheye、definition/material path、sample/layer/hash 准入的 bounded 形态：prepared source 必须证明 `.straightAlpha(sourceSlot)`，输出为 color、无 external provider，且 active slot 由 typed graph binding、material graph-input alias 或既有 `implicitFramebufferSlots` 结构规范化证明；真实 `3765760121:96` 曾以 `genericCompilerArtifact` 闭合 GPU/publication/compositor/next-frame，旧 Fisheye 专用产品链也已删除。2026-08-20 的更广真实 mixed-chain 随后反证该 profile 的默认 `generic-only` 范围过宽：同一 profile 内既有 Color Key/Shadow 的合法 generic artifact，也有 Enhanced Audio Bars 的 compiler/uniform 缺口。现役 route 因此为 `prefer-generic`，不撤销上述 bounded 正证，但撤销 profile-level owner-migration 完成声明；精确恢复证据见 [E-V1-ORDINARY-SHADER-REGRESSION-RECOVERY](runtime-evidence-index.md#e-v1-ordinary-shader-regression-recovery)。
 
 同日的 stage-uniform graph-input owner 原子修复 linked reflection 把vertex/fragment共享UBO超集误当成两个stage都主动消费的ABI问题：artifact现在为每个field保存实际stage，Program只要求对应stage声明/使用的作者uniform，共享host `mwxRenderSize`仍保持跨stage。`source-proven-graph-input-stage-uniform-passthrough`只由prepared passthrough、无external provider、active typed graph input以及vertex/fragment均存在source-proven非sampleruniform事实准入，不含Foliage、definition/material path、sample/layer/hash。真实`3765760121:187`两个连续Foliage effect默认均为`generic-only / genericCompilerArtifact`并闭合GPU/publication/compositor/next-frame；损坏exact artifact时以`artifact-contract-rejected / bounded-frontend-owner-revoked`在claim前失败关闭；同一坏artifact下`disable-generic`只回滚共享`boundedSwift` frontend。旧Foliage dedicated planner、pipeline、renderer、texture loader与专用测试owner已经删除，生产Scene树无`SceneFoliageSway*`引用。精确证据见[E-V1-STAGE-UNIFORM-GRAPH-INPUT](runtime-evidence-index.md#e-v1-stage-uniform-graph-input)。
@@ -268,6 +270,8 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 ## 6. 动态运行系统覆盖
 
 ### 6.1 Timeline 与 SceneScript
+
+> 当前纠偏：下表中的 **48/48** 是既有 44 个已解包 `scene.json` 快照，不是对当前 Workshop 根的实时总数。当前代码能力已经扩大为 effect constant 严格 1–4 维 typed shape，并有 vector3 representative-content 的 shared Program/GPU/compositor/next-frame 正证，以及真实 `3748311238:728` 两个 vector2 Shake consumer 的 Program/GPU/publication/compositor 与局部 frame fault 恢复证据；corpus fingerprint/schema 未在本批正式刷新，因此旧快照数字只保留其原始统计边界，不再用于声称“当前根全部枚举”。
 
 | 能力 | 当前级别 | 升级门 |
 |---|---|---|

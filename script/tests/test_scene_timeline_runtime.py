@@ -111,6 +111,19 @@ SCENE_FIXTURE = {
                                             "mode": "single",
                                         },
                                     },
+                                },
+                                "neutralVector": {
+                                    "value": "0.2 0.4 0.6",
+                                    "animation": {
+                                        "c0": [keyframe(0, 0.2), keyframe(15, 0.8)],
+                                        "c1": [keyframe(0, 0.4), keyframe(15, 0.1)],
+                                        "c2": [keyframe(0, 0.6), keyframe(15, 0.3)],
+                                        "options": {
+                                            "fps": 15,
+                                            "length": 15,
+                                            "mode": "single",
+                                        },
+                                    },
                                 }
                             }
                         }
@@ -323,19 +336,22 @@ enum Harness {
 
         // 走真实 resolver：断言 Timeline 值真的落进 snapshot 而不是被丢弃。
         var samples: [String: Any] = [:]
-        for (label, seconds) in [
-            ("t0", 0.0), ("half", 1.0), ("closing", 1.5), ("late", 5.0)
-        ] {
-            var transaction = SceneSurfaceEvaluationTransaction()
+        var transaction = SceneSurfaceEvaluationTransaction()
+        for (frameIndex, sample) in [
+            ("t0", 0.0), ("half", 1.0), ("closing", 1.5), ("late", 5.0),
+            ("lateAgain", 5.0),
+        ].enumerated() {
+            let (label, seconds) = sample
             let values = SceneTimelineRuntime.values(program: program, sceneTime: seconds)
             let resolution = transaction.evaluate(
-                frameIndex: 0,
+                frameIndex: UInt64(frameIndex),
                 definitions: merged,
                 userValues: [sharedTarget: .scalar(0.25)],
                 timelineValues: values
             )
             var entry: [String: Any] = [
                 "diagnostics": resolution.diagnostics.map { $0.code.rawValue },
+                "generation": resolution.snapshot.generation,
             ]
             for (name, target) in [
                 ("layer10Alpha", sharedTarget),
@@ -353,6 +369,15 @@ enum Harness {
             if let resolved = resolution.snapshot[relativeTarget],
                case let .vector3(x, y, z) = resolved.value {
                 entry["relativeAngles"] = [
+                    "value": [x, y, z], "source": resolved.source.rawValue,
+                ]
+            }
+            let effectVectorTarget = SceneDynamicTarget.effectConstant(
+                layerID: 20, effectIndex: 0, passIndex: 0, name: "neutralVector"
+            )
+            if let resolved = resolution.snapshot[effectVectorTarget],
+               case let .vector3(x, y, z) = resolved.value {
+                entry["effectVector"] = [
                     "value": [x, y, z], "source": resolved.source.rawValue,
                 ]
             }
@@ -414,15 +439,15 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_shared_target_is_not_duplicated_in_definitions(self) -> None:
-        # 六条 binding：既有四条 + camera origin/zoom 原子组。
-        self.assertEqual(self.result["bindingCount"], 6)
+        # 七条 binding：既有四条、vector effect constant、camera origin/zoom 原子组。
+        self.assertEqual(self.result["bindingCount"], 7)
         # layer10 alpha 两边都声明，合并后只能有一份，否则 resolver 会整个丢弃
         self.assertEqual(self.result["sharedTargetDefinitionCount"], 1)
-        # 1 条 property + 5 条 timeline 独有
-        self.assertEqual(self.result["definitionCount"], 6)
+        # 1 条 property + 6 条 timeline 独有
+        self.assertEqual(self.result["definitionCount"], 7)
 
     def test_resolver_accepts_every_timeline_value(self) -> None:
-        for label in ("t0", "half", "closing", "late"):
+        for label in ("t0", "half", "closing", "late", "lateAgain"):
             with self.subTest(sample=label):
                 self.assertEqual(self.result["samples"][label]["diagnostics"], [])
 
@@ -467,6 +492,26 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
             self.result["samples"]["half"]["relativeAngles"]["source"],
             "timeline",
         )
+
+    def test_effect_vector_flows_through_evaluator_and_snapshot(self) -> None:
+        self.assertEqual(
+            self.result["samples"]["t0"]["effectVector"],
+            {"value": [0.2, 0.4, 0.6], "source": "timeline"},
+        )
+        self.assertEqual(
+            self.result["samples"]["half"]["effectVector"],
+            {"value": [0.8, 0.1, 0.3], "source": "timeline"},
+        )
+        self.assertEqual(
+            self.result["samples"]["late"]["effectVector"],
+            {"value": [0.8, 0.1, 0.3], "source": "timeline"},
+        )
+
+    def test_value_change_advances_generation_but_same_value_does_not(self) -> None:
+        samples = self.result["samples"]
+        self.assertGreater(samples["half"]["generation"], samples["t0"]["generation"])
+        self.assertGreater(samples["late"]["generation"], samples["closing"]["generation"])
+        self.assertEqual(samples["lateAgain"]["generation"], samples["late"]["generation"])
 
     def test_combined_camera_members_share_the_owner_clock_and_snapshot(self) -> None:
         self.assertEqual(

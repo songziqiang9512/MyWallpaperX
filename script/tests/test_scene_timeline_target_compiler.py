@@ -44,8 +44,11 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+AuthoredAssets.swift",
     SOURCE_ROOT / "Text/SceneTextDescriptor.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "Format/SceneTimelineEvaluator.swift",
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler.swift",
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler+Camera.swift",
+    SOURCE_ROOT / "Properties/SceneTimelineRuntime.swift",
+    SOURCE_ROOT / "Properties/SceneSurfaceEvaluationTransaction.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleInitializer.swift",
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
@@ -126,7 +129,115 @@ SCENE_FIXTURE = {
                                         fps=15,
                                         length=15,
                                     ),
-                                }
+                                },
+                                "neutralVector": {
+                                    "value": "0.2 0.4 0.6",
+                                    "animation": animation(
+                                        [
+                                            [keyframe(0, 0.2), keyframe(15, 0.8)],
+                                            [keyframe(0, 0.4), keyframe(15, 0.1)],
+                                            [keyframe(0, 0.6), keyframe(15, 0.3)],
+                                        ],
+                                        mode="single",
+                                        fps=15,
+                                        length=15,
+                                    ),
+                                },
+                                "neutralVector2": {
+                                    "value": "0.25 0.75",
+                                    "animation": animation(
+                                        [
+                                            [keyframe(0, 0.25), keyframe(15, 0.5)],
+                                            [keyframe(0, 0.75), keyframe(15, 0.125)],
+                                        ],
+                                        mode="single",
+                                        fps=15,
+                                        length=15,
+                                    ),
+                                },
+                                "neutralVector4": {
+                                    "value": "0.1 0.2 0.3 0.4",
+                                    "animation": animation(
+                                        [
+                                            [keyframe(0, 0.1), keyframe(15, 0.4)],
+                                            [keyframe(0, 0.2), keyframe(15, 0.3)],
+                                            [keyframe(0, 0.3), keyframe(15, 0.2)],
+                                            [keyframe(0, 0.4), keyframe(15, 0.1)],
+                                        ],
+                                        mode="single",
+                                        fps=15,
+                                        length=15,
+                                    ),
+                                },
+                                "mismatchedVector": {
+                                    "value": "0.1 0.2 0.3",
+                                    "animation": animation(
+                                        [
+                                            [keyframe(0, 0.1), keyframe(15, 0.2)],
+                                            [keyframe(0, 0.2), keyframe(15, 0.3)],
+                                        ],
+                                        mode="single",
+                                        fps=15,
+                                        length=15,
+                                    ),
+                                },
+                                "malformedVector": {
+                                    "value": "0.1 nope 0.3",
+                                    "animation": animation(
+                                        [
+                                            [keyframe(0, 0.1), keyframe(15, 0.2)],
+                                            [keyframe(0, 0.3), keyframe(15, 0.4)],
+                                        ],
+                                        mode="single",
+                                        fps=15,
+                                        length=15,
+                                    ),
+                                },
+                                "emptyVector": {
+                                    "value": "",
+                                    "animation": animation(
+                                        [[keyframe(0, 0.1), keyframe(15, 0.2)]],
+                                        mode="single",
+                                        fps=15,
+                                        length=15,
+                                    ),
+                                },
+                                "oversizedVector": {
+                                    "value": "0.1 0.2 0.3 0.4 0.5",
+                                    "animation": animation(
+                                        [
+                                            [keyframe(0, 0.1), keyframe(15, 0.2)],
+                                            [keyframe(0, 0.2), keyframe(15, 0.3)],
+                                            [keyframe(0, 0.3), keyframe(15, 0.4)],
+                                            [keyframe(0, 0.4), keyframe(15, 0.5)],
+                                            [keyframe(0, 0.5), keyframe(15, 0.6)],
+                                        ],
+                                        mode="single",
+                                        fps=15,
+                                        length=15,
+                                    ),
+                                },
+                                "nonFiniteVector": {
+                                    "value": "0.1 nan 0.3",
+                                    "animation": animation(
+                                        [
+                                            [keyframe(0, 0.1), keyframe(15, 0.2)],
+                                            [keyframe(0, 0.2), keyframe(15, 0.3)],
+                                            [keyframe(0, 0.3), keyframe(15, 0.4)],
+                                        ],
+                                        mode="single",
+                                        fps=15,
+                                        length=15,
+                                    ),
+                                },
+                                "missingValue": {
+                                    "animation": animation(
+                                        [[keyframe(0, 0.1), keyframe(15, 0.2)]],
+                                        mode="single",
+                                        fps=15,
+                                        length=15,
+                                    ),
+                                },
                             }
                         },
                     ],
@@ -503,8 +614,47 @@ enum Harness {
             throw HarnessError.descriptorRejected
         }
         let program = SceneTimelineTargetCompiler.compile(descriptor: descriptor)
+        let vectorTarget = SceneDynamicTarget.effectConstant(
+            layerID: 30,
+            effectIndex: 1,
+            passIndex: 1,
+            name: "neutralVector"
+        )
+        let definitions = SceneTimelineRuntime.mergedDefinitions(
+            propertyDefinitions: [],
+            timelineProgram: program
+        )
+        var transaction = SceneSurfaceEvaluationTransaction()
+        let first = transaction.evaluate(
+            frameIndex: 1,
+            definitions: definitions,
+            timelineValues: SceneTimelineRuntime.values(
+                program: program,
+                sceneTime: 0
+            )
+        )
+        let second = transaction.evaluate(
+            frameIndex: 2,
+            definitions: definitions,
+            timelineValues: SceneTimelineRuntime.values(
+                program: program,
+                sceneTime: 1
+            )
+        )
+        let firstVector = first.snapshot[vectorTarget]
+        let secondVector = second.snapshot[vectorTarget]
         let payload: [String: Any] = [
             "diagnostics": program.diagnostics,
+            "vectorRuntime": [
+                "firstValue": firstVector.map { describe($0.value) } ?? "missing",
+                "firstSource": firstVector?.source.rawValue ?? "missing",
+                "firstGeneration": first.snapshot.generation,
+                "firstDiagnostics": first.diagnostics.map(\.code.rawValue),
+                "secondValue": secondVector.map { describe($0.value) } ?? "missing",
+                "secondSource": secondVector?.source.rawValue ?? "missing",
+                "secondGeneration": second.snapshot.generation,
+                "secondDiagnostics": second.diagnostics.map(\.code.rawValue),
+            ],
             "bindings": program.bindings.map { binding in
                 [
                     "target": describe(binding.definition.target),
@@ -544,8 +694,10 @@ enum Harness {
     static func describe(_ value: SceneDynamicValue) -> String {
         switch value {
         case let .scalar(v): "scalar(\(v))"
+        case let .vector2(x, y): "vector2(\(x),\(y))"
         case let .vector3(x, y, z): "vector3(\(x),\(y),\(z))"
-        default: "other"
+        case let .vector4(x, y, z, w): "vector4(\(x),\(y),\(z),\(w))"
+        case .bool, .string: "other"
         }
     }
 }
@@ -623,6 +775,61 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         self.assertEqual(binding["valueType"], "scalar")
         self.assertEqual(binding["authored"], "scalar(0.75)")
         self.assertEqual(binding["mode"], "single")
+
+    def test_effect_constant_preserves_unseen_vector_shape(self) -> None:
+        expected = {
+            "neutralVector2": ("vector2", "vector2(0.25,0.75)", 2),
+            "neutralVector": ("vector3", "vector3(0.2,0.4,0.6)", 3),
+            "neutralVector4": ("vector4", "vector4(0.1,0.2,0.3,0.4)", 4),
+        }
+        for name, (value_type, authored, component_count) in expected.items():
+            with self.subTest(name=name):
+                binding = self.binding(f"constant:30:1:1:{name}")
+                self.assertEqual(binding["valueType"], value_type)
+                self.assertEqual(binding["authored"], authored)
+                self.assertEqual(binding["componentCount"], component_count)
+                self.assertNotIn(
+                    f"layer 30 effect 1 pass 1 {name}: componentMismatch",
+                    self.result["diagnostics"],
+                )
+
+    def test_vector_compiler_evaluator_and_snapshot_share_one_typed_target(self) -> None:
+        self.assertEqual(
+            self.result["vectorRuntime"],
+            {
+                "firstValue": "vector3(0.2,0.4,0.6)",
+                "firstSource": "timeline",
+                "firstGeneration": 1,
+                "firstDiagnostics": [],
+                "secondValue": "vector3(0.8,0.1,0.3)",
+                "secondSource": "timeline",
+                "secondGeneration": 2,
+                "secondDiagnostics": [],
+            },
+            self.result,
+        )
+
+    def test_effect_constant_vector_lane_mismatch_fails_closed(self) -> None:
+        self.assertNotIn("constant:30:1:1:mismatchedVector", self.targets())
+        self.assertIn(
+            "layer 30 effect 1 pass 1 mismatchedVector: componentMismatch",
+            self.result["diagnostics"],
+        )
+
+    def test_effect_constant_rejects_lossy_or_unbounded_authored_vectors(self) -> None:
+        targets = self.targets()
+        for name in (
+            "malformedVector",
+            "emptyVector",
+            "oversizedVector",
+            "nonFiniteVector",
+            "missingValue",
+        ):
+            self.assertNotIn(f"constant:30:1:1:{name}", targets)
+            self.assertIn(
+                f"layer 30 effect 1 pass 1 {name}: invalidAuthoredValue",
+                self.result["diagnostics"],
+            )
 
     def test_relative_layer_transform_uses_additive_composition(self) -> None:
         expected = {
@@ -855,6 +1062,9 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
                 "layer:41:origin",
                 "layer:42:scale",
                 "constant:30:1:1:multiply",
+                "constant:30:1:1:neutralVector",
+                "constant:30:1:1:neutralVector2",
+                "constant:30:1:1:neutralVector4",
                 "layer:70:alpha",
                 "text:61:maxWidth",
                 "particle:80:alpha",

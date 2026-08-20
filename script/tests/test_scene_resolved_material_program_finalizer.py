@@ -808,7 +808,9 @@ private func frameInputs(
 
 private func dynamicSnapshot(
     frameIndex: UInt64,
-    source: SceneDynamicSource?
+    source: SceneDynamicSource?,
+    tintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
+    authoredTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25)
 ) -> SceneDynamicSnapshot {
     let tintTarget = SceneDynamicTarget.effectConstant(
         layerID: fixtureLayerID,
@@ -822,7 +824,6 @@ private func dynamicSnapshot(
         passIndex: 0,
         name: "alpha"
     )
-    let tintValue = SceneDynamicValue.vector3(1, 0.5, 0.25)
     let alphaValue = SceneDynamicValue.scalar(0.25)
     var user: [SceneDynamicTarget: SceneDynamicValue] = [:]
     var timeline: [SceneDynamicTarget: SceneDynamicValue] = [:]
@@ -845,8 +846,8 @@ private func dynamicSnapshot(
         definitions: [
             .init(
                 target: tintTarget,
-                valueType: .vector3,
-                authoredValue: tintValue
+                valueType: authoredTintValue.valueType,
+                authoredValue: authoredTintValue
             ),
             .init(
                 target: alphaTarget,
@@ -880,6 +881,8 @@ private func finalize(
     dynamicFrameIndex: UInt64 = 1,
     frameInputIndex: UInt64 = 1,
     dynamicSource: SceneDynamicSource? = nil,
+    dynamicTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
+    authoredTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
     renderState: SceneMaterialRenderState = state(),
     resolvedLayerModelMatrix: simd_float4x4 = layerModelMatrix,
     implicitFramebufferIdentity: Graph.TextureIdentity? = nil,
@@ -899,7 +902,9 @@ private func finalize(
         ),
         dynamicSnapshot: dynamicSnapshot(
             frameIndex: dynamicFrameIndex,
-            source: dynamicSource
+            source: dynamicSource,
+            tintValue: dynamicTintValue,
+            authoredTintValue: authoredTintValue
         ),
         frameInputs: frameInputs(
             frameIndex: frameInputIndex,
@@ -1897,6 +1902,46 @@ private enum Harness {
             else { return false }
             return float(program.uniformBytes, at: field.offset) == 0.25
         }()
+        let timelineVectorA = finalize(
+            shader: contract(revision: "timeline-vector-shared"),
+            device: device,
+            uniformDeclarations: [dynamicDeclaration([.timeline])],
+            textureFrameIndex: 5,
+            dynamicFrameIndex: 5,
+            frameInputIndex: 5,
+            dynamicSource: .timeline,
+            dynamicTintValue: .vector3(0.1, 0.2, 0.3)
+        )
+        let timelineVectorB = finalize(
+            shader: contract(revision: "timeline-vector-shared"),
+            device: device,
+            uniformDeclarations: [dynamicDeclaration([.timeline])],
+            textureFrameIndex: 6,
+            dynamicFrameIndex: 6,
+            frameInputIndex: 6,
+            dynamicSource: .timeline,
+            dynamicTintValue: .vector3(0.7, 0.6, 0.5)
+        )
+        let timelineVectorTypeMismatch = finalize(
+            shader: contract(revision: "timeline-vector-type-mismatch"),
+            device: device,
+            uniformDeclarations: [dynamicDeclaration([.timeline])],
+            dynamicSource: .timeline,
+            dynamicTintValue: .vector2(0.1, 0.2),
+            authoredTintValue: .vector2(1, 0.5)
+        )
+        let timelineVectorUpdatesProgramWithoutTopologyChange: Bool = {
+            guard case let .success(first) = timelineVectorA,
+                  case let .success(second) = timelineVectorB,
+                  let field = first.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "u_Tint" }
+                  ) else { return false }
+            let range = field.offset ..< field.offset + field.type.byteSize
+            return first.semanticIdentity == second.semanticIdentity
+                && first.preparedShader.cacheKey == second.preparedShader.cacheKey
+                && first.uniformBytes.subdata(in: range)
+                    != second.uniformBytes.subdata(in: range)
+        }()
         let overlayPath = SceneVFSAssetPath("textures/overlay-data.tex")!
         let overlayIdentity = SceneFrameTextureIdentity.asset(.init(
             path: overlayPath,
@@ -2760,6 +2805,7 @@ private enum Harness {
                 optionalMaskWrongPurpose
             ),
             "activeDefaultMaskMissing": failureToken(activeDefaultMaskMissing),
+            "timelineVectorTypeMismatch": failureToken(timelineVectorTypeMismatch),
         ]
 
         let result: [String: Any] = [
@@ -2792,6 +2838,8 @@ private enum Harness {
                 "providerReferenceTyped": failureToken(providerProgram) == "success",
                 "maskedDynamicAlphaEncoded": maskedDynamicAlphaEncoded,
                 "sceneScriptDynamicAlphaEncoded": sceneScriptDynamicAlphaEncoded,
+                "timelineVectorUpdatesProgramWithoutTopologyChange":
+                    timelineVectorUpdatesProgramWithoutTopologyChange,
                 "overlayDataTyped": overlayDataTyped,
                 "optionalMaskWithoutResourceAccepted":
                     optionalMaskWithoutResourceAccepted,
@@ -3240,6 +3288,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "unknownTimelineScriptAttachment": "uniform/uniformScriptAttachmentUnproven",
             "authoredDynamicFallback": "success",
             "dynamicSourceMismatch": "uniform/dynamicUniformBindingInvalid",
+            "timelineVectorTypeMismatch": "uniform/dynamicUniformBindingInvalid",
             "multipleValueContributors": "uniform/uniformContributorPolicyUnproven",
             "runtimeLoopMetadataOnly": "frontend/shaderFrontendFailed",
             "runtimeLoopDynamicProducer": "frontend/shaderFrontendFailed",
