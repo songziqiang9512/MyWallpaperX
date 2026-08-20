@@ -27,6 +27,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerBundle.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
     SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
+    SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
@@ -100,6 +102,7 @@ private struct StraightPreservingBuilderOutput: Codable {
     let composedMetal: String?
     let unrelatedAlphaRejected: Bool
     let mixedSlotRejected: Bool
+    let nonAudioVectorArrayRejected: Bool
 }
 
 private struct StraightAttenuationBuilderOutput: Codable {
@@ -110,6 +113,17 @@ private struct StraightAttenuationBuilderOutput: Codable {
     let unrelatedAlphaReadRejected: Bool
     let wholeVectorUseRejected: Bool
     let rgbWriteRejected: Bool
+}
+
+private struct StraightOutputBuilderOutput: Codable {
+    let analyzedTransfer: String
+    let positiveKind: String?
+    let positiveSlot: Int?
+    let sampleUnpremultiplied: Bool
+    let outputPremultiplied: Bool
+    let wrongSlotRejected: Bool
+    let duplicateOutputRejected: Bool
+    let helperConflictRejected: Bool
 }
 
 private struct ConditionalStraightBuilderOutput: Codable {
@@ -133,6 +147,14 @@ private struct VaryingLinkOutput: Codable {
     let deadMismatchAccepted: Bool
     let deadFragmentInterfaceRemoved: Bool
     let liveMismatchRejected: Bool
+}
+
+private struct MutableFragmentVaryingOutput: Codable {
+    let mainMutationLowered: Bool
+    let interfacePreserved: Bool
+    let helperMutationRejected: Bool
+    let arrayMutationRejected: Bool
+    let readOnlyPreserved: Bool
 }
 
 private struct TypedMixNormalizationOutput: Codable {
@@ -410,6 +432,101 @@ private struct GenericShaderArtifactHarness {
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
         }
+        if CommandLine.arguments[1] == "--normalizer-mutable-fragment-varying" {
+            let vertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    v_TexCoord = a_TexCoord;",
+                "}",
+            ].joined(separator: "\n")
+            func normalized(_ fragment: String) -> Result<
+                SceneGenericShaderSourceNormalizer.Pair,
+                SceneGenericShaderSourceNormalizer.Failure
+            > {
+                SceneGenericShaderSourceNormalizer.normalize(
+                    vertexSource: vertex,
+                    fragmentSource: fragment,
+                    maximumStageSourceBytes: 64 * 1_024
+                )
+            }
+            let mutable = normalized([
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    v_TexCoord.y = 1.0 - v_TexCoord.y;",
+                "    v_TexCoord += vec2(0.25);",
+                "    gl_FragColor = vec4(v_TexCoord, 0.0, 1.0);",
+                "}",
+            ].joined(separator: "\n"))
+            let helper = normalized([
+                "varying vec2 v_TexCoord;",
+                "vec2 helper() { return v_TexCoord; }",
+                "void main() {",
+                "    v_TexCoord.y = 1.0 - v_TexCoord.y;",
+                "    gl_FragColor = vec4(helper(), 0.0, 1.0);",
+                "}",
+            ].joined(separator: "\n"))
+            let arrayVertex = vertex.replacingOccurrences(
+                of: "varying vec2 v_TexCoord;",
+                with: "varying vec2 v_TexCoord[2];"
+            ).replacingOccurrences(
+                of: "v_TexCoord = a_TexCoord;",
+                with: "v_TexCoord[0] = a_TexCoord;"
+            )
+            let array = SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: arrayVertex,
+                fragmentSource: [
+                    "varying vec2 v_TexCoord[2];",
+                    "void main() {",
+                    "    v_TexCoord[0].y = 1.0 - v_TexCoord[0].y;",
+                    "    gl_FragColor = vec4(v_TexCoord[0], 0.0, 1.0);",
+                    "}",
+                ].joined(separator: "\n"),
+                maximumStageSourceBytes: 64 * 1_024
+            )
+            let readOnly = normalized([
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    gl_FragColor = vec4(v_TexCoord, 0.0, 1.0);",
+                "}",
+            ].joined(separator: "\n"))
+            let mutableSource: String
+            switch mutable {
+            case let .success(pair): mutableSource = pair.fragment
+            case .failure: mutableSource = ""
+            }
+            let output = MutableFragmentVaryingOutput(
+                mainMutationLowered:
+                    mutableSource.contains(
+                        "vec2 mwxMutable_v_TexCoord = v_TexCoord;"
+                    )
+                    && mutableSource.contains(
+                        "mwxMutable_v_TexCoord.y = 1.0 - mwxMutable_v_TexCoord.y"
+                    )
+                    && mutableSource.contains(
+                        "mwxMutable_v_TexCoord += vec2(0.25)"
+                    ),
+                interfacePreserved: mutableSource.contains(
+                    "in vec2 v_TexCoord;"
+                ),
+                helperMutationRejected: {
+                    if case .failure(.varyingUnsupported) = helper { return true }
+                    return false
+                }(),
+                arrayMutationRejected: {
+                    if case .failure(.varyingUnsupported) = array { return true }
+                    return false
+                }(),
+                readOnlyPreserved: {
+                    guard case let .success(pair) = readOnly else { return false }
+                    return !pair.fragment.contains("mwxMutable_v_TexCoord")
+                }()
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
         if CommandLine.arguments[1] == "--normalizer-position" {
             let fragment = [
                 "varying vec2 v_TexCoord;",
@@ -556,17 +673,19 @@ private struct GenericShaderArtifactHarness {
             return
         }
         if CommandLine.arguments[1] == "--builder-straight-preserving" {
-            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0}]}},"ubos":[{"type":"_1","block_size":8,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
+            let vertexReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0}]}},"ubos":[{"type":"_1","block_size":8,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
+            let fragmentReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"g_AudioSpectrum16Left","type":"float","offset":16,"array":[16]}]}},"ubos":[{"type":"_1","block_size":80,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
             let vertexMSL = "struct MWXUniforms { float2 mwxRenderSize; };"
             let fragmentMSL = [
                 "#include <metal_stdlib>",
                 "using namespace metal;",
-                "struct MWXUniforms { float2 mwxRenderSize; };",
+                "struct MWXUniforms { float2 mwxRenderSize; float g_AudioSpectrum16Left[16]; };",
                 "struct Output { float4 mwxFragColor [[color(0)]]; };",
                 "fragment Output f() {",
                 "    Output out;",
                 "    float4 albedo = g_Texture0.sample(sourceSampler, uv);",
                 "    float signal = g_Texture1.sample(signalSampler, uv).x;",
+                "    float audio = uniforms.g_AudioSpectrum16Left[int(signal)].x;",
                 "    albedo.xyz *= signal;",
                 "    out.mwxFragColor = albedo;",
                 "    return out;",
@@ -575,6 +694,7 @@ private struct GenericShaderArtifactHarness {
             let authored = [
                 "uniform sampler2D g_Texture0;",
                 "uniform sampler2D g_Texture1;",
+                "uniform float g_AudioSpectrum16Left[16];",
                 "varying vec2 v_TexCoord;",
                 "void main() {",
                 "    vec4 albedo = texSample2D(g_Texture0, v_TexCoord);",
@@ -586,7 +706,7 @@ private struct GenericShaderArtifactHarness {
             let composedMSL = [
                 "#include <metal_stdlib>",
                 "using namespace metal;",
-                "struct MWXUniforms { float2 mwxRenderSize; };",
+                "struct MWXUniforms { float2 mwxRenderSize; float g_AudioSpectrum16Left[16]; };",
                 "struct Output { float4 mwxFragColor [[color(0)]]; };",
                 "fragment Output f() {",
                 "    Output out;",
@@ -595,6 +715,7 @@ private struct GenericShaderArtifactHarness {
                 "    float4 gValue = g_Texture0.sample(sourceSampler, uv);",
                 "    float4 bValue = g_Texture0.sample(sourceSampler, uv);",
                 "    float signal = g_Texture1.sample(signalSampler, uv).x;",
+                "    float audio = uniforms.g_AudioSpectrum16Left[int(signal)].x;",
                 "    float3 finalColor = scene.rgb;",
                 "    finalColor = mix(finalColor, rValue.rgb, 0.5);",
                 "    finalColor += gValue.rgb * 0.1 + bValue.rgb * 0.1 + signal;",
@@ -603,23 +724,28 @@ private struct GenericShaderArtifactHarness {
                 "    return out;",
                 "}",
             ].joined(separator: "\n")
-            func build(_ msl: String) -> Result<
+            func build(
+                _ msl: String,
+                authoredSource: String? = nil,
+                reflection: Data? = nil
+            ) -> Result<
                 SceneGenericShaderProgramArtifact,
                 SceneGenericShaderArtifactBuilder.Failure
             > {
-                SceneGenericShaderArtifactBuilder.build(
+                let authoredSource = authoredSource ?? authored
+                return SceneGenericShaderArtifactBuilder.build(
                     requestKey: String(repeating: "b", count: 64),
                     backendID: "glslang-spirv-cross-msl-v1",
                     stages: [
                         .init(
                             name: "vertex", source: "void main() {}",
                             authoredSource: "void main() {}",
-                            msl: vertexMSL, reflection: reflection
+                            msl: vertexMSL, reflection: vertexReflection
                         ),
                         .init(
-                            name: "fragment", source: authored,
-                            authoredSource: authored,
-                            msl: msl, reflection: reflection
+                            name: "fragment", source: authoredSource,
+                            authoredSource: authoredSource,
+                            msl: msl, reflection: reflection ?? fragmentReflection
                         ),
                     ],
                     maximumArtifactBytes: 1_024_000
@@ -650,6 +776,21 @@ private struct GenericShaderArtifactHarness {
                     with: "float4 scene = g_Texture1.sample"
                 )
             ))
+            let nonAudioVectorReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"g_ColorArray","type":"vec4","offset":16,"array":[16]}]}},"ubos":[{"type":"_1","block_size":272,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
+            let nonAudioVectorMetal = composedMSL
+                .replacingOccurrences(
+                    of: "float g_AudioSpectrum16Left[16]",
+                    with: "float4 g_ColorArray[16]"
+                )
+                .replacingOccurrences(
+                    of: "g_AudioSpectrum16Left[int(signal)].x",
+                    with: "g_ColorArray[int(signal)].x"
+                )
+            let nonAudioVectorAuthored = authored
+                .replacingOccurrences(
+                    of: "uniform float g_AudioSpectrum16Left[16];",
+                    with: "uniform vec4 g_ColorArray[16];"
+                )
             let output = StraightPreservingBuilderOutput(
                 positiveKind: positive?.program.colorTransfer.kind,
                 positiveSlot: positive?.program.colorTransfer.slot,
@@ -682,7 +823,12 @@ private struct GenericShaderArtifactHarness {
                 ),
                 composedMetal: composed?.program.metalSource,
                 unrelatedAlphaRejected: unrelatedAlphaRejected,
-                mixedSlotRejected: mixedSlotRejected
+                mixedSlotRejected: mixedSlotRejected,
+                nonAudioVectorArrayRejected: failedUniformMember(build(
+                    nonAudioVectorMetal,
+                    authoredSource: nonAudioVectorAuthored,
+                    reflection: nonAudioVectorReflection
+                ))
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -771,6 +917,104 @@ private struct GenericShaderArtifactHarness {
                     fragmentMSL.replacingOccurrences(
                         of: "    albedo.w *= mix(keyAlpha, 1.0, blend);",
                         with: "    albedo.xyz *= blend;\n    albedo.w *= mix(keyAlpha, 1.0, blend);"
+                    )
+                ))
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--builder-straight-output" {
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0}]}},"ubos":[{"type":"_1","block_size":8,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float2 mwxRenderSize; };"
+            let fragmentMSL = [
+                "#include <metal_stdlib>",
+                "using namespace metal;",
+                "struct MWXUniforms { float2 mwxRenderSize; };",
+                "struct Output { float4 mwxFragColor [[color(0)]]; };",
+                "fragment Output f() {",
+                "    Output out;",
+                "    float4 scene = g_Texture0.sample(sourceSampler, uv);",
+                "    float3 finalColor = mix(float3(1.0), scene.xyz, scene.w);",
+                "    float alpha = bar;",
+                "    out.mwxFragColor = float4(finalColor, alpha);",
+                "    return out;",
+                "}",
+            ].joined(separator: "\n")
+            let authored = [
+                "uniform sampler2D g_Texture0;",
+                "uniform vec3 u_BarColor;",
+                "uniform float u_BarOpacity;",
+                "varying vec2 v_TexCoord;",
+                "vec3 ApplyBlending(const int mode, in vec3 A, in vec3 B, in float opacity) {",
+                "    return mix(A, (B), opacity);",
+                "}",
+                "void main() {",
+                "    float bar = v_TexCoord.x;",
+                "    vec3 finalColor = u_BarColor;",
+                "    vec4 scene = texSample2D(g_Texture0, v_TexCoord);",
+                "    finalColor = ApplyBlending(0, mix(finalColor.rgb, scene.rgb, scene.a), finalColor.rgb, bar * u_BarOpacity);",
+                "    float alpha = bar * u_BarOpacity;",
+                "    gl_FragColor = vec4(finalColor, alpha);",
+                "}",
+            ].joined(separator: "\n")
+            func build(_ msl: String) -> Result<
+                SceneGenericShaderProgramArtifact,
+                SceneGenericShaderArtifactBuilder.Failure
+            > {
+                SceneGenericShaderArtifactBuilder.build(
+                    requestKey: String(repeating: "e", count: 64),
+                    backendID: "glslang-spirv-cross-msl-v1",
+                    stages: [
+                        .init(
+                            name: "vertex", source: "void main() {}",
+                            authoredSource: "void main() {}",
+                            msl: vertexMSL, reflection: reflection
+                        ),
+                        .init(
+                            name: "fragment", source: authored,
+                            authoredSource: authored,
+                            msl: msl, reflection: reflection
+                        ),
+                    ],
+                    maximumArtifactBytes: 1_024_000
+                )
+            }
+            let positive: SceneGenericShaderProgramArtifact?
+            switch build(fragmentMSL) {
+            case let .success(artifact): positive = artifact
+            case .failure: positive = nil
+            }
+            let metal = positive?.program.metalSource ?? ""
+            let output = StraightOutputBuilderOutput(
+                analyzedTransfer: colorTransferName(
+                    SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                        fragmentSource: authored
+                    )
+                ),
+                positiveKind: positive?.program.colorTransfer.kind,
+                positiveSlot: positive?.program.colorTransfer.slot,
+                sampleUnpremultiplied: metal.contains(
+                    "mwxGenericUnpremultiply(g_Texture0.sample(sourceSampler, uv))"
+                ),
+                outputPremultiplied: metal.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply(float4(finalColor, alpha));"
+                ),
+                wrongSlotRejected: failedColorTransfer(build(
+                    fragmentMSL.replacingOccurrences(
+                        of: "float4 scene = g_Texture0.sample",
+                        with: "float4 scene = g_Texture1.sample"
+                    )
+                )),
+                duplicateOutputRejected: failedColorTransfer(build(
+                    fragmentMSL.replacingOccurrences(
+                        of: "    return out;",
+                        with: "    out.mwxFragColor = float4(finalColor, alpha);\n    return out;"
+                    )
+                )),
+                helperConflictRejected: failedColorTransfer(build(
+                    fragmentMSL.replacingOccurrences(
+                        of: "using namespace metal;",
+                        with: "using namespace metal;\nfloat4 mwxGenericPremultiply(float4 value);"
                     )
                 ))
             )
@@ -1007,6 +1251,16 @@ private func failedColorTransfer(
     if case .failure(.colorTransfer) = result { return true }
     return false
 }
+
+private func failedUniformMember(
+    _ result: Result<
+        SceneGenericShaderProgramArtifact,
+        SceneGenericShaderArtifactBuilder.Failure
+    >
+) -> Bool {
+    if case .failure(.uniformMember) = result { return true }
+    return false
+}
 """
 
 VERTEX = """
@@ -1065,6 +1319,24 @@ varying vec2 v_TexCoord;
 void main() {
     vec4 color = texSample2D(g_Texture0, v_TexCoord);
     float mask = 0.5;
+    gl_FragColor = vec4(color.rgb, color.a * mask);
+}
+"""
+
+AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform float g_AudioSpectrum64Left[64];
+uniform float g_AudioSpectrum64Right[64];
+varying vec2 v_TexCoord;
+void main() {
+    v_TexCoord.y = 1.0 - v_TexCoord.y;
+    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+    int bin = int(clamp(v_TexCoord.x * 63.0, 0.0, 63.0));
+    float mask = clamp(
+        g_AudioSpectrum64Left[bin] + g_AudioSpectrum64Right[bin],
+        0.0,
+        1.0
+    );
     gl_FragColor = vec4(color.rgb, color.a * mask);
 }
 """
@@ -1555,6 +1827,22 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             "liveMismatchRejected": True,
         })
 
+    def test_swift_normalizer_localizes_only_main_scoped_mutable_varying(self):
+        completed = subprocess.run(
+            [str(self.binary), "--normalizer-mutable-fragment-varying"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "mainMutationLowered": True,
+            "interfacePreserved": True,
+            "helperMutationRejected": True,
+            "arrayMutationRejected": True,
+            "readOnlyPreserved": True,
+        })
+
     def test_backend_canonicalizer_unrolls_only_proven_varying_prefix(self):
         completed = subprocess.run(
             [str(self.binary), "--backend-canonicalizer"],
@@ -1621,6 +1909,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
         )
         output = json.loads(completed.stdout)
         self.assertNotIn("g_AudioSpectrum16Left[0].x", output.get("composedMetal", ""))
+        self.assertNotIn(
+            "g_AudioSpectrum16Left[int(signal)].x",
+            output.get("composedMetal", ""),
+        )
+        self.assertTrue(output["nonAudioVectorArrayRejected"])
 
     def test_product_builder_proves_scalar_two_color_interpolation(self):
         completed = subprocess.run(
@@ -1677,6 +1970,25 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             "unrelatedAlphaReadRejected": True,
             "wholeVectorUseRejected": True,
             "rgbWriteRejected": True,
+        })
+
+    def test_product_builder_conserves_source_proven_independent_straight_output(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-straight-output"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "analyzedTransfer": "straightAlpha",
+            "positiveKind": "straight-alpha",
+            "positiveSlot": 0,
+            "sampleUnpremultiplied": True,
+            "outputPremultiplied": True,
+            "wrongSlotRejected": True,
+            "duplicateOutputRejected": True,
+            "helperConflictRejected": True,
         })
 
     def test_product_builder_lowers_source_proven_conditional_straight_union(self):
@@ -2189,6 +2501,120 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             )
             self.assertEqual(accepted["status"], "accepted")
             self.assertEqual(accepted["colorTransfer"], "straightAlpha")
+
+    def test_audio_stage_uniform_mutable_straight_alpha_has_narrow_product_authority(
+        self,
+    ):
+        profile = (
+            "source-proven-graph-input-audio-stage-uniform-straight-alpha-"
+            "no-auxiliary"
+        )
+        facts = {
+            "graph_input_slots": (0,),
+            "has_only_graph_input_sampler": True,
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-generic-artifact-test-"
+        ) as directory:
+            root = Path(directory)
+            rejected, _, cache, rejected_log = self.run_harness(
+                root,
+                route=None,
+                fragment=AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(rejected["status"], "unavailable")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+            self.assertEqual(rejected["routeProfile"], profile)
+            self.assertEqual(rejected["routeState"], "generic-only")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=rejected",
+                rejected_log,
+            )
+
+            artifact = self.artifact(
+                rejected["requestKey"], color_transfer="straight-alpha"
+            )
+            (cache / f"{rejected['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeProfile"], profile)
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=f"{profile}=disable-generic",
+                fragment=AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertEqual(rolled_back["fallbackOwner"], "bounded-frontend")
+            self.assertIn(
+                f"state=disable-generic profile={profile} "
+                "outcome=fallback reason=route-disabled",
+                rollback_log,
+            )
+
+    def test_audio_stage_uniform_mutable_straight_alpha_profile_is_structurally_narrow(
+        self,
+    ):
+        profile = (
+            "source-proven-graph-input-audio-stage-uniform-straight-alpha-"
+            "no-auxiliary"
+        )
+        without_right = AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT.replace(
+            "uniform float g_AudioSpectrum64Right[64];\n", ""
+        ).replace(" + g_AudioSpectrum64Right[bin]", "")
+        without_mutation = AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT.replace(
+            "    v_TexCoord.y = 1.0 - v_TexCoord.y;\n", ""
+        )
+        cases = [
+            (without_right, {"graph_input_slots": (0,), "has_only_graph_input_sampler": True}),
+            (without_mutation, {"graph_input_slots": (0,), "has_only_graph_input_sampler": True}),
+            (
+                AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT,
+                {"graph_input_slots": (0,)},
+            ),
+            (
+                AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                    "has_external_provider": True,
+                },
+            ),
+            (
+                AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "graph_slots": (1,),
+                    "has_only_graph_input_sampler": True,
+                },
+            ),
+        ]
+        for fragment, facts in cases:
+            with self.subTest(facts=facts), tempfile.TemporaryDirectory(
+                prefix="mwx-generic-artifact-test-"
+            ) as directory:
+                result, _, _, log = self.run_harness(
+                    Path(directory), route=None, fragment=fragment, **facts
+                )
+                self.assertNotEqual(result["routeProfile"], profile)
+                self.assertTrue(result["permitsBoundedFrontend"])
+                self.assertIn("state=prefer-generic", log)
 
     def test_interpolated_color_artifact_requires_sorted_bound_slots(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:

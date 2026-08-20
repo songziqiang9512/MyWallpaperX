@@ -28,12 +28,6 @@ SPECIALIZED_STAGE_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift"
 )
-WORKSHOP_STAGE_SOURCE = (
-    SCENE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WorkshopStage.swift"
-)
-WORKSHOP_AUDIO_BARS_PIPELINE_SOURCE = (
-    SCENE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift"
-)
 FRAME_PREFLIGHT_SOURCE = (
     SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
 )
@@ -69,7 +63,8 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         source = DEMAND_SOURCE.read_text(encoding="utf-8")
         capability = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
         self.assertIn("plan.shake?.audio != nil", capability)
-        self.assertIn("plan.workshopAudioBars != nil", capability)
+        self.assertIn("$0.variants.hasAudioSpectrumConsumer", capability)
+        self.assertNotIn("workshopAudioBars", capability)
         self.assertIn(
             "resolvedMaterialExecutionCapabilities.hasAudioSpectrumConsumer",
             source,
@@ -166,19 +161,6 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
             "统一 GraphExecutor 的 dedicated inputs 必须收到同一帧频谱",
         )
 
-    def test_spectrum_reaches_remaining_dedicated_workshop_audio_bars(self) -> None:
-        workshop_stage = WORKSHOP_STAGE_SOURCE.read_text(encoding="utf-8")
-        audio_bars_pipeline = WORKSHOP_AUDIO_BARS_PIPELINE_SOURCE.read_text(
-            encoding="utf-8"
-        )
-        self.assertEqual(
-            workshop_stage.count("spectrum: audioSpectrum"),
-            1,
-            "only enhanced Audio Bars remains a dedicated Workshop consumer",
-        )
-        self.assertIn("spectrum.left64", audio_bars_pipeline)
-        self.assertIn("spectrum.right64", audio_bars_pipeline)
-
     def test_unified_dedicated_audio_consumer_source_contract(self) -> None:
         source = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
         body = swift_body(source, "var hasAudioSpectrumConsumer: Bool")
@@ -189,10 +171,10 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         self.assertRegex(
             body,
             r"plan\.shake\?\.audio != nil\s*"
-            r"\|\| plan\.pulse\?\.audio != nil\s*"
-            r"\|\| plan\.workshopAudioBars != nil",
+            r"\|\| plan\.pulse\?\.audio != nil",
             "unified owner transfer must retain every dedicated audio consumer",
         )
+        self.assertNotIn("workshopAudioBars", body)
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_compiled_unified_dedicated_audio_consumer_truth_table(self) -> None:
@@ -210,12 +192,9 @@ struct PulsePlan {
     let audio: AudioParameters?
 }
 
-struct WorkshopAudioBarsPlan {}
-
 struct ExecutionPlan {
     let shake: ShakePlan?
     let pulse: PulsePlan?
-    let workshopAudioBars: WorkshopAudioBarsPlan?
 }
 
 struct Program {
@@ -260,23 +239,15 @@ enum AudioDemandHarness {
         let audio = AudioParameters()
         let silent = ExecutionPlan(
             shake: ShakePlan(audio: nil),
-            pulse: PulsePlan(audio: nil),
-            workshopAudioBars: nil
+            pulse: PulsePlan(audio: nil)
         )
         let shake = ExecutionPlan(
             shake: ShakePlan(audio: audio),
-            pulse: nil,
-            workshopAudioBars: nil
+            pulse: nil
         )
         let pulse = ExecutionPlan(
             shake: nil,
-            pulse: PulsePlan(audio: audio),
-            workshopAudioBars: nil
-        )
-        let workshop = ExecutionPlan(
-            shake: nil,
-            pulse: nil,
-            workshopAudioBars: WorkshopAudioBarsPlan()
+            pulse: PulsePlan(audio: audio)
         )
         let checks: [(String, Bool, Bool)] = [
             (
@@ -317,15 +288,6 @@ enum AudioDemandHarness {
                 demandsAudio(.dedicated(
                     1,
                     Program(executionPlan: pulse),
-                    1
-                )),
-                true
-            ),
-            (
-                "dedicated-workshop-audio-bars",
-                demandsAudio(.dedicated(
-                    1,
-                    Program(executionPlan: workshop),
                     1
                 )),
                 true

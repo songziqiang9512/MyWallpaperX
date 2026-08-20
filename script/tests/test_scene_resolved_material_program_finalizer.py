@@ -3129,6 +3129,20 @@ private enum Harness {
                 ),
                 device: device
             )),
+            "exactWhitespaceUniformBindingKey": failureToken(finalize(
+                shader: contract(
+                    revision: "exact-whitespace-uniform-binding-key",
+                    uniformMetadata:
+                        #"{"material":"Anti-alias blurring ","default":"1 0.5 0.25"}"#
+                ),
+                device: device,
+                uniformDeclarations: [
+                    staticDeclaration(
+                        "Anti-alias blurring ",
+                        components: [0.2, 0.3, 0.4]
+                    ),
+                ]
+            )),
             "malformedStaticDeclaration": failureToken(finalize(
                 shader: contract(revision: "malformed-static-declaration"),
                 device: device,
@@ -3869,6 +3883,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         expected = {
             "missingUniformDefault": "uniform/staticUniformBindingInvalid",
             "malformedUniformDefault": "uniform/uniformBindingInvalid",
+            "exactWhitespaceUniformBindingKey": "success",
             "malformedStaticDeclaration": "uniform/staticUniformBindingInvalid",
             "uniformDeclarationConflict": "uniform/uniformDeclarationConflict",
             "hostUniformDeclarationConflict":

@@ -55,6 +55,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-conditional-straight-union"
     case sourceProvenGraphInputStraightAlpha =
         "source-proven-graph-input-straight-alpha"
+    case sourceProvenGraphInputAudioStageUniformStraightAlphaNoAuxiliary =
+        "source-proven-graph-input-audio-stage-uniform-straight-alpha-no-auxiliary"
     case sourceProvenGraphInputStraightAlphaPreserving =
         "source-proven-graph-input-straight-alpha-preserving"
     case sourceProvenGraphInputStageUniformStraightAlphaPreserving =
@@ -77,7 +79,9 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         r8TextureSlots: Set<Int>,
         hasDefaultedOpacityMaskSampler: Bool,
         hasOnlyGraphInputSampler: Bool = false,
-        hasStageScopedUniformBindings: Bool
+        hasStageScopedUniformBindings: Bool,
+        hasStereoAudioSpectrumArrays: Bool,
+        hasLocalizedMutableFragmentVarying: Bool
     ) {
         if colorTransfer == .premultipliedAlpha,
            isSourceIndependentPremultipliedOutput,
@@ -121,6 +125,16 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   !producesScalarRedOutput,
                   graphInputTextureSlots.contains(sourceSlot) {
             self = .sourceProvenGraphInputAlphaAttenuation
+        } else if case let .straightAlpha(sourceSlot) = colorTransfer,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]),
+                  hasOnlyGraphInputSampler,
+                  hasStageScopedUniformBindings,
+                  hasStereoAudioSpectrumArrays,
+                  hasLocalizedMutableFragmentVarying {
+            self = .sourceProvenGraphInputAudioStageUniformStraightAlphaNoAuxiliary
         } else if case let .straightAlpha(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
@@ -172,6 +186,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
              .sourceProvenGraphInputConditionalStraightUnion,
+             .sourceProvenGraphInputAudioStageUniformStraightAlphaNoAuxiliary,
              .sourceProvenGraphInputStageUniformStraightAlphaPreserving,
              .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary,
              .sourceProvenGraphInputStageUniformPassthrough:

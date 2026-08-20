@@ -106,11 +106,6 @@ extension SceneAuthoredColorGradingPlanner: SceneEffectStageDedicatedPlanner {
     }
 }
 
-extension SceneAuthoredWorkshopAudioBarsPlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopAudioBars }
-}
-
 extension SceneAuthoredProceduralNoisePlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }

@@ -161,6 +161,7 @@
         "RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerBundle.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",

@@ -301,6 +301,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             let lowered = direct?.transfer.slot == expectedSlot ? direct?.msl
                 : SceneGenericShaderStraightAlphaPreservingLowering
                     .lowerConditionalUnion(source, expectedSlot: expectedSlot)
+                    ?? SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerStraightOutput(source, expectedSlot: expectedSlot)
             guard let lowered else { throw Failure.colorTransfer }
             return (lowered, artifactTransfer(kind: "straight-alpha", slot: expectedSlot))
         case let .straightAlphaPreserving(textureSlot: expectedSlot):
@@ -509,79 +511,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         msl: String,
         transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
     )? {
-        let unpremultiply = "mwxGenericUnpremultiply"
-        let premultiply = "mwxGenericPremultiply"
-        guard !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source) else { return nil }
-        let declarations = matches(
-            #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
-                + String(expectedSlot)
-                + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
-            in: source
-        )
-        guard declarations.count == 1 else {
-            guard let transformed = SceneGenericShaderStraightAlphaPreservingLowering
-                .lowerComposed(source, expectedSlot: expectedSlot) else { return nil }
-            return (
-                transformed,
-                .init(
-                    kind: "straight-alpha-preserving",
-                    slot: expectedSlot,
-                    slots: nil
-                )
-            )
-        }
-        guard let prefix = capture(declarations[0], 1, in: source),
-              let local = capture(declarations[0], 2, in: source),
-              let arguments = capture(declarations[0], 3, in: source),
-              let suffix = capture(declarations[0], 4, in: source),
-              !prefix.isEmpty, !local.isEmpty,
-              !arguments.isEmpty, !suffix.isEmpty else { return nil }
-        let outputs = matches(
-            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*"#
-                + escaped(local) + #"\s*;[ \t]*$"#,
-            in: source
-        )
-        guard outputs.count == 1,
-              declarations[0].range.location < outputs[0].range.location,
-              let outputRange = Range(outputs[0].range, in: source),
-              let indent = capture(outputs[0], 1, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
-        else { return nil }
-
-        var transformed = source
-        transformed.replaceSubrange(
-            outputRange,
-            with: "\(indent)out.mwxFragColor = \(premultiply)(\(local));"
-        )
-        guard let adjustedDeclarationRange = Range(
-            declarations[0].range,
-            in: transformed
-        ) else { return nil }
-        transformed.replaceSubrange(
-            adjustedDeclarationRange,
-            with: "\(prefix)\(unpremultiply)(g_Texture\(expectedSlot).sample(\(arguments)))\(suffix)"
-        )
-        let helpers = """
-
-inline float4 \(unpremultiply)(float4 color) {
-    const float alpha = clamp(color.w, 0.0, 1.0);
-    const float3 rgb = alpha > 0.0
-        ? clamp(color.xyz / alpha, float3(0.0), float3(1.0))
-        : float3(0.0);
-    return float4(rgb, alpha);
-}
-
-inline float4 \(premultiply)(float4 color) {
-    const float alpha = clamp(color.w, 0.0, 1.0);
-    return float4(color.xyz * alpha, alpha);
-}
-"""
-        guard let namespace = transformed.range(
-            of: #"\busing\s+namespace\s+metal\s*;"#,
-            options: .regularExpression
-        ) else { return nil }
-        transformed.insert(contentsOf: helpers, at: namespace.upperBound)
+        guard let transformed = SceneGenericShaderStraightAlphaPreservingLowering
+            .lowerPreserving(source, expectedSlot: expectedSlot) else { return nil }
         return (
             transformed,
             SceneGenericShaderProgramArtifact.Program.ColorTransfer(
@@ -644,15 +575,13 @@ inline float4 \(premultiply)(float4 color) {
                 options: .regularExpression
             )
         }
-        for count in [16, 32, 64] {
-            for side in ["Left", "Right"] {
-                result = result.replacingOccurrences(
-                    of: #"(g_AudioSpectrum"# + String(count) + side
-                        + #"\s*\[\s*\d+\s*\])\.x\b"#,
-                    with: "$1",
-                    options: .regularExpression
-                )
-            }
+        for field in layout.fields where field.arrayCount != nil {
+            result = result.replacingOccurrences(
+                of: #"("# + escaped(field.name)
+                    + #"\s*\[[^\]\r\n]+\])\.x\b"#,
+                with: "$1",
+                options: .regularExpression
+            )
         }
         return result
     }

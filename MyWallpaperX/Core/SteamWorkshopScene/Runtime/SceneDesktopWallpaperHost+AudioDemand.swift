@@ -26,8 +26,8 @@ extension SceneDesktopWallpaperHost {
     /// 会让没有任何 consumer 的壁纸也去占用系统音频权限。
     ///
     /// 当前 consumer 包括 stock Shake/Pulse 的 `AUDIOPROCESSING` 分支、
-    /// 严格准入的 Workshop Audio Bars，以及 surface 资源装载后确认可执行的
-    /// bounded particle audio plan，以及已准入的 particle-rate 16-band
+    /// 统一 Program 的 active audio host uniforms、surface 资源装载后确认
+    /// 可执行的 bounded particle audio plan，以及已准入的 particle-rate 16-band
     /// SceneScript typed producer；
     /// 新增 consumer 时必须同批扩充这里，否则采集不会启动。
     static func requiresAudioSpectrum(

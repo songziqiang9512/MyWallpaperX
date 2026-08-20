@@ -45,6 +45,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     private static let cacheEnvironment = "MWX_SCENE_GENERIC_SHADER_CACHE"
     private static let requestEnvironment = "MWX_SCENE_GENERIC_SHADER_REQUESTS"
     private static let maximumArtifactBytes = 2 * 1_024 * 1_024
+    private static let maximumRouteAnalysisSourceBytes = 512 * 1_024
     private static let routeTelemetry = RouteTelemetry()
     private static let compilationCoordinator = CompilationCoordinator()
 
@@ -218,6 +219,17 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 .conditionalStraightUnionSourceSlot(
                     fragmentSource: fragmentSource
                 )
+        let normalizedRouteFacts: SceneGenericShaderSourceNormalizer.Pair?
+        switch SceneGenericShaderSourceNormalizer.normalize(
+            vertexSource: vertexSource,
+            fragmentSource: fragmentSource,
+            maximumStageSourceBytes: maximumRouteAnalysisSourceBytes
+        ) {
+        case let .success(value): normalizedRouteFacts = value
+        case .failure: normalizedRouteFacts = nil
+        }
+        let activeAudioSpectrumArrays =
+            normalizedRouteFacts?.activeAudioSpectrumArrays ?? []
         let profile = CapabilityProfile(
             colorTransfer: colorTransfer,
             alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
@@ -236,7 +248,16 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             hasStageScopedUniformBindings: hasStageScopedUniformBindings(
                 vertexSource: vertexSource,
                 fragmentSource: fragmentSource
-            )
+            ),
+            hasStereoAudioSpectrumArrays: [16, 32, 64].contains { count in
+                activeAudioSpectrumArrays.isSuperset(of: [
+                    "g_AudioSpectrum\(count)Left",
+                    "g_AudioSpectrum\(count)Right",
+                ])
+            },
+            hasLocalizedMutableFragmentVarying:
+                normalizedRouteFacts?.localizedMutableFragmentVaryings.isEmpty
+                    == false
         )
         let environment = ProcessInfo.processInfo.environment
         guard let routeState = routeState(

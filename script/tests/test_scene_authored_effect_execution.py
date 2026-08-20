@@ -149,14 +149,6 @@ struct SceneGaussianBlurPlan {
 }
 
 struct SceneColorGradingExecutionPlan: Sendable {}
-struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
-    enum Profile: Sendable {
-        case enhancedSegmented(shape: Int)
-    }
-
-    let profile: Profile
-    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
-}
 struct SceneProceduralNoiseExecutionPlan: Sendable {
     enum Variant: Sendable {
         case colorPerlinRGB
@@ -175,17 +167,6 @@ enum SceneAuthoredColorGradingPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneColorGradingExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredWorkshopAudioBarsPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWorkshopAudioBarsExecutionPlan? {
         nil
     }
 }
@@ -526,10 +507,6 @@ extension SceneAuthoredLocalContrastPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneColorGradingExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorGrading }
-}
-extension SceneAuthoredWorkshopAudioBarsPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopAudioBars }
 }
 extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
@@ -1302,7 +1279,6 @@ enum Harness {
             case .standardBlur: backend = "standardBlur"
             case .localContrast: backend = "localContrast"
             case .colorGrading: backend = "colorGrading"
-            case .workshopAudioBars: backend = "workshopAudioBars"
             case .proceduralNoise: backend = "proceduralNoise"
             case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"
@@ -1813,7 +1789,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertNotIn("yieldsToResolvedMaterialProgram", backend)
         self.assertNotIn(".spin", backend)
 
-        self.assertIn(".workshopAudioBars", leaf_body)
+        self.assertNotIn(".workshopAudioBars", leaf_body)
         self.assertIn("case .waterFlow(let plan):", topology)
         self.assertIn("inputs.masks.waterFlowEffects[", topology)
         self.assertIn("resources.matches(plan)", topology)

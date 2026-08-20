@@ -57,7 +57,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneLocalContrastPipeline.swift",
     SOURCE_ROOT / "Effects/SceneLocalContrastRenderer.swift",
     SOURCE_ROOT / "Effects/SceneColorGradingPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline+Support.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
@@ -83,14 +82,12 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterRipple.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Rays.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+AudioBars.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ColorGrading.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ProceduralNoise.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+XRay.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WorkshopStage.swift",
     SOURCE_ROOT / "Rendering/SceneImageEffectPipelineRepository.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectPipelineSet.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
@@ -550,20 +547,6 @@ struct SceneColorGradingExecutionPlan: Sendable {
     let channelInfluence: SIMD3<Float>
 }
 
-struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
-    enum Profile: Sendable {
-        case enhancedSegmented(shape: Int)
-    }
-
-    let profile: Profile
-
-    var shape: Int {
-        switch profile {
-        case .enhancedSegmented(let shape): shape
-        }
-    }
-}
-
 struct SceneAuthoredShaderFrameInputs: Sendable {}
 
 enum SceneBlendShaderProfile {
@@ -627,7 +610,6 @@ struct SceneBlendEffectTextures {
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
         case colorGrading(SceneColorGradingExecutionPlan)
-        case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
@@ -645,8 +627,7 @@ struct SceneBlendEffectTextures {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .workshopAudioBars,
-                 .shake:
+            case .shake:
                 return true
             case .proceduralNoise(let plan):
                 return plan.variant == .worleyColorV1
@@ -663,7 +644,6 @@ struct SceneBlendEffectTextures {
             case .standardBlur: "standard-blur"
             case .localContrast: "local-contrast"
             case .colorGrading: "color-grading"
-            case .workshopAudioBars: "workshop-audio-bars"
             case .proceduralNoise: "procedural-noise"
             case .shake: "shake"
             case .waterFlow: "water-flow"
@@ -746,11 +726,6 @@ struct SceneBlendEffectTextures {
 
     var blend: SceneBlendExecutionPlan? {
         guard case .blend(let plan) = backend else { return nil }
-        return plan
-    }
-
-    var workshopAudioBars: SceneWorkshopAudioBarsExecutionPlan? {
-        guard case .workshopAudioBars(let plan) = backend else { return nil }
         return plan
     }
 

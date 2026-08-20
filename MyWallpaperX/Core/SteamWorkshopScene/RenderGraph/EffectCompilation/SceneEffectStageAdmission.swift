@@ -178,7 +178,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         case .standardBlur: "standard-blur"
         case .localContrast: "local-contrast"
         case .colorGrading: "color-grading"
-        case .workshopAudioBars: "workshop-audio-bars"
         case .proceduralNoise: "procedural-noise"
         case .shake: "shake"
         case .waterFlow: "water-flow"

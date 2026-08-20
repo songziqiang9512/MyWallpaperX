@@ -331,7 +331,6 @@ struct SceneEffectStageExecutionPlan {
     var supportsUtilityCapture = true
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
     var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
-    var workshopAudioBars: HarnessDedicatedAudioExecutionPlan? { nil }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
@@ -3605,7 +3604,6 @@ struct SceneEffectStageExecutionPlan {
     var supportsUtilityCapture = true
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
     var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
-    var workshopAudioBars: HarnessDedicatedAudioExecutionPlan? { nil }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
@@ -6307,7 +6305,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         ):
             self.assertIn(contract, leaf_body)
         self.assertNotIn(".spin", source)
-        self.assertIn(".workshopAudioBars", leaf_body)
+        self.assertNotIn(".workshopAudioBars", leaf_body)
         self.assertNotIn("fisheyeZeroDistortion", leaf_body)
         self.assertIn("case .preciseGaussian:", logical_body)
         self.assertIn("case .standardBlur:", logical_body)

@@ -70,20 +70,6 @@ enum SceneEffectStageRenderer {
                 sourcePipeline: pipeline, pipelines: pipelines,
                 commandBuffer: commandBuffer
             )
-        case .workshopAudioBars:
-            return renderWorkshopStage(
-                stage,
-                sourceTexture: sourceTexture,
-                masks: masks,
-targets: targets,
-                dynamicValues: dynamicValues,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                pipelines: pipelines,
-                time: time,
-                audioSpectrum: audioSpectrum,
-                commandBuffer: commandBuffer
-            )
         case .proceduralNoise(let noise):
             guard let noisePipeline = pipelines.proceduralNoise else { return nil }
             return renderProceduralNoise(

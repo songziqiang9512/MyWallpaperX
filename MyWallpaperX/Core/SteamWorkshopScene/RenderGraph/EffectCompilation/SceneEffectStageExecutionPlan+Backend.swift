@@ -6,7 +6,6 @@ extension SceneEffectStageExecutionPlan {
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
         case colorGrading(SceneColorGradingExecutionPlan)
-        case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
@@ -25,7 +24,6 @@ extension SceneEffectStageExecutionPlan {
         var supportsUnifiedPairLeaf: Bool {
             switch self {
             case .colorGrading,
-                 .workshopAudioBars,
                  .shake, .waterFlow,
                  .waterWaves, .waterCaustics, .waterRipple,
                  .depthParallax, .xRay, .blend, .transform, .pulse:
@@ -118,11 +116,6 @@ extension SceneEffectStageExecutionPlan {
         return plan
     }
 
-    nonisolated var workshopAudioBars: SceneWorkshopAudioBarsExecutionPlan? {
-        guard case .workshopAudioBars(let plan) = backend else { return nil }
-        return plan
-    }
-
     nonisolated var proceduralNoise: SceneProceduralNoiseExecutionPlan? {
         guard case .proceduralNoise(let plan) = backend else { return nil }
         return plan
@@ -204,9 +197,6 @@ extension SceneEffectStageExecutionPlan {
         if let target = blend?.liveMultiplyTarget { targets.insert(target) }
         if let xRay { targets.formUnion(xRay.liveConsumerTargets) }
         if let pulse { targets.formUnion(pulse.liveConsumerTargets) }
-        if let workshopAudioBars {
-            targets.formUnion(workshopAudioBars.liveConsumerTargets)
-        }
         return targets
     }
 

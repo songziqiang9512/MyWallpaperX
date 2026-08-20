@@ -370,7 +370,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     return materials.values.contains { $0.variants.hasAudioSpectrumConsumer }
                 case .dedicated(_, let program, _):
                     let plan = program.executionPlan
-                    return plan.shake?.audio != nil || plan.pulse?.audio != nil || plan.workshopAudioBars != nil
+                    return plan.shake?.audio != nil || plan.pulse?.audio != nil
                 case .visualFailurePassthrough:
                     return false
                 }

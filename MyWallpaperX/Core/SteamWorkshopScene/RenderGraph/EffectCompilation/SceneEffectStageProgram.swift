@@ -86,9 +86,6 @@ nonisolated struct SceneEffectStageProgram {
              (.godrays, .godrays),
              (.shine, .shine):
             return true
-        case (.workshopAudioBars, .workshopAudioBars(let plan)):
-            if case .enhancedSegmented = plan.profile { return true }
-            return false
         default:
             return false
         }

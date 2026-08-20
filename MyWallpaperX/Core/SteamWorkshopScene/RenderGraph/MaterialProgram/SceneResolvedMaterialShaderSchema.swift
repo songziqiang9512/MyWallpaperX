@@ -237,7 +237,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                     return object
                 }
             }
-            let material = try normalizedString(
+            let material = try authoredBindingKey(
                 value("material", in: objects),
                 name: name
             )
@@ -314,6 +314,26 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                   $0.value < 32 || $0.value == 127
               }) else {
             throw Issue.sampler(name)
+        }
+        return raw
+    }
+
+    /// Material binding keys are authored identities, not display strings.
+    /// Preserve significant leading/trailing whitespace so the shader-side
+    /// key can match the instance constant exactly, while still rejecting
+    /// empty, whitespace-only, or control-character identities.
+    private static func authoredBindingKey(
+        _ value: SceneShaderAnnotationValue?,
+        name: String
+    ) throws -> String? {
+        guard let value else { return nil }
+        guard let raw = value.stringValue,
+              !raw.isEmpty,
+              raw.contains(where: { !$0.isWhitespace }),
+              !raw.unicodeScalars.contains(where: {
+                  $0.value < 32 || $0.value == 127
+              }) else {
+            throw Issue.uniform(name)
         }
         return raw
     }

@@ -7,6 +7,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
     struct Pair {
         let vertex: String
         let fragment: String
+        let localizedMutableFragmentVaryings: Set<String>
+        let activeAudioSpectrumArrays: Set<String>
     }
 
     enum Failure: Error, Equatable {
@@ -179,6 +181,16 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 fragment.body,
                 shapes: varyings.merging(uniforms) { current, _ in current }
             )
+            guard let mutableVaryings = SceneGenericShaderMutableFragmentVaryingNormalizer
+                .rewrite(
+                    fragment.body,
+                    varyings: varyings.mapValues {
+                        .init(type: $0.type, count: $0.count)
+                    }
+                ) else {
+                throw Failure.varyingUnsupported
+            }
+            fragment.body = mutableVaryings.source
             let usesTargetPixelPosition = containsWord(
                 "g_ModelViewProjectionMatrix", in: vertex.body
             )
@@ -243,9 +255,18 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 ] + uniformLines + ["};"] + samplerLines + interface + [value.body])
                     .joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
             }
+            let activeAudioSpectrumArrays = Set(activeUniforms.filter { name in
+                guard let declaration = [vertex, fragment]
+                    .flatMap(\.declarations)
+                    .first(where: { $0.name == name }) else { return false }
+                return isAudioSpectrumArray(declaration)
+            })
             return .success(.init(
                 vertex: source(stage: "vertex", value: vertex),
-                fragment: source(stage: "fragment", value: fragment)
+                fragment: source(stage: "fragment", value: fragment),
+                localizedMutableFragmentVaryings:
+                    mutableVaryings.localizedNames,
+                activeAudioSpectrumArrays: activeAudioSpectrumArrays
             ))
         } catch let failure as Failure {
             return .failure(failure)
