@@ -1749,12 +1749,39 @@ uniform sampler2D g_Texture1; // {"default":"util/noise"}
 uniform sampler2D g_Texture2; // {"mode":"opacitymask","combo":"MASK"}
 uniform float g_Time;
 uniform float g_NoiseAlpha;
+uniform float g_NoisePower;
 varying vec2 v_TexCoord;
+varying vec4 v_TexCoordNoise;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return mix(base, blend, opacity);
+}
 void main() {
     vec4 albedo = texSample2D(g_Texture0, v_TexCoord);
-    vec3 noise = texSample2D(g_Texture1, v_TexCoord + g_Time).rgb;
-    albedo.rgb = mix(albedo.rgb, noise, g_NoiseAlpha);
+    vec3 noise = texSample2D(g_Texture1, v_TexCoordNoise.xy).rgb;
+    vec3 noise2 = texSample2D(g_Texture1, v_TexCoordNoise.zw).gbr;
+    noise = saturate(noise * noise2);
+    noise = pow(noise, CAST3(g_NoisePower));
+    float blend = g_NoiseAlpha;
+    albedo.rgb = ApplyBlending(14, albedo.rgb, noise, blend);
     gl_FragColor = albedo;
+}
+"""
+
+AUXILIARY_RGB_MIX_RENAMED_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture3; // {"default":"util/noise"}
+uniform float g_Weight;
+varying vec2 v_UV;
+void main() {
+    vec4 carrier = texSample2D(g_Texture0, v_UV);
+    vec3 detail = texSample2D(g_Texture3, v_UV).rgb;
+    carrier.rgb = mix(carrier.rgb, detail, g_Weight);
+    gl_FragColor = carrier;
 }
 """
 
@@ -3285,6 +3312,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "source-proven-graph-input-same-slot-channel-reconstruction",
             ),
             (
+                FILM_GRAIN_STOCK_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving",
+            ),
+            (
+                AUXILIARY_RGB_MIX_RENAMED_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving",
+            ),
+            (
                 STAGE_UNIFORM_PASSTHROUGH_FRAGMENT,
                 {"graph_input_slots": (0,)},
                 "source-proven-graph-input-stage-uniform-passthrough",
@@ -3609,6 +3646,20 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 False,
             ),
             (
+                FILM_GRAIN_STOCK_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "straight-alpha-preserving",
+                "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving",
+                True,
+            ),
+            (
+                AUXILIARY_RGB_MIX_RENAMED_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "straight-alpha-preserving",
+                "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving",
+                True,
+            ),
+            (
                 STAGE_UNIFORM_PASSTHROUGH_FRAGMENT,
                 {"graph_input_slots": (0,)},
                 "passthrough",
@@ -3754,11 +3805,13 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                     fallback_log,
                 )
 
-    def test_film_grain_stock_shape_uses_shared_program_and_local_artifact_fallback(
+    def test_auxiliary_rgb_mix_shape_uses_narrow_generic_only_route(
         self,
     ):
         facts = {"graph_input_slots": (0,)}
-        profile = "source-proven-graph-input-straight-alpha-preserving"
+        profile = (
+            "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving"
+        )
         with tempfile.TemporaryDirectory(
             prefix="mwx-film-grain-shared-artifact-test-"
         ) as directory:
@@ -3785,25 +3838,83 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             self.assertEqual(accepted["status"], "accepted")
             self.assertEqual(accepted["backend"], "genericCompilerArtifact")
             self.assertIn(
-                f"state=prefer-generic profile={profile} outcome=accepted",
+                f"state=generic-only profile={profile} outcome=accepted",
                 accepted_log,
             )
 
             artifact["program"]["metalSourceSHA256"] = "0" * 64
             artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
-            fallback, _, _, fallback_log = self.run_harness(
+            rejected, _, _, rejected_log = self.run_harness(
                 root,
                 route=None,
                 fragment=FILM_GRAIN_STOCK_FRAGMENT,
                 **facts,
             )
-            self.assertEqual(fallback["code"], "artifact-contract-rejected")
-            self.assertTrue(fallback["permitsBoundedFrontend"])
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertIn(
-                f"state=prefer-generic profile={profile} outcome=fallback "
+                f"state=generic-only profile={profile} outcome=rejected "
                 "reason=artifact-contract-rejected",
-                fallback_log,
+                rejected_log,
             )
+
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=f"{profile}=disable-generic",
+                fragment=FILM_GRAIN_STOCK_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertIn(
+                f"state=disable-generic profile={profile} outcome=fallback "
+                "reason=route-disabled",
+                rollback_log,
+            )
+
+    def test_auxiliary_rgb_mix_profile_rejects_broader_alpha_preserving_shapes(
+        self,
+    ):
+        profile = (
+            "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving"
+        )
+        cases = [
+            FILM_GRAIN_STOCK_FRAGMENT.replace(
+                "g_Texture1", "g_Texture0"
+            ),
+            FILM_GRAIN_STOCK_FRAGMENT.replace(
+                "albedo.rgb = ApplyBlending",
+                "albedo.a *= 0.5;\n    albedo.rgb = ApplyBlending",
+            ),
+            FILM_GRAIN_STOCK_FRAGMENT.replace(
+                "float blend = g_NoiseAlpha;", "float blend = noise.r;"
+            ),
+            FILM_GRAIN_STOCK_FRAGMENT.replace(
+                "gl_FragColor = albedo;",
+                "vec4 hidden = texSample2D(g_Texture1, v_TexCoord);\n"
+                "    gl_FragColor = albedo;",
+            ),
+            AUXILIARY_RGB_MIX_RENAMED_FRAGMENT.replace(
+                "void main() {",
+                "vec4 hiddenSample() {\n"
+                "    return texSample2D(g_Texture3, v_UV);\n"
+                "}\n"
+                "void main() {",
+            ),
+        ]
+        for fragment in cases:
+            with self.subTest(fragment=fragment[-160:]), tempfile.TemporaryDirectory(
+                prefix="mwx-auxiliary-rgb-mix-route-test-"
+            ) as directory:
+                result, _, _, log = self.run_harness(
+                    Path(directory),
+                    route=None,
+                    fragment=fragment,
+                    graph_input_slots=(0,),
+                )
+                self.assertTrue(result["permitsBoundedFrontend"])
+                self.assertNotIn(f"profile={profile}", log)
 
 
 if __name__ == "__main__":

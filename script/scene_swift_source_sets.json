@@ -76,6 +76,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderUniformRGBMixAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderAuxiliaryRGBMixAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderUniformRGBMixAnalyzer+Scalar.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderConditionalStraightUnionAnalyzer.swift",

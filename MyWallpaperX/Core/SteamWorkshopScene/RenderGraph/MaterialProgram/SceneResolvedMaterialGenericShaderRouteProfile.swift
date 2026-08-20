@@ -59,6 +59,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-single-sampler-alpha-mutation"
     case sourceProvenGraphInputSameSlotChannelReconstruction =
         "source-proven-graph-input-same-slot-channel-reconstruction"
+    case sourceProvenGraphInputAuxiliaryRGBBlendAlphaPreserving =
+        "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving"
     case sourceProvenGraphInputStraightAlpha =
         "source-proven-graph-input-straight-alpha"
     case sourceProvenGraphInputAudioStageUniformStraightAlphaNoAuxiliary =
@@ -79,6 +81,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         conditionalStraightUnionSourceSlot: Int?,
         singleSamplerAlphaMutationSourceSlot: Int?,
         sameSlotChannelReconstructionSourceSlot: Int?,
+        auxiliaryRGBMixSourceSlot: Int?,
         normalizedSampleSumSourceSlot: Int?,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
@@ -171,6 +174,13 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   hasOnlyGraphInputSampler {
             self = .sourceProvenGraphInputSameSlotChannelReconstruction
         } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
+                  auxiliaryRGBMixSourceSlot == sourceSlot,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]) {
+            self = .sourceProvenGraphInputAuxiliaryRGBBlendAlphaPreserving
+        } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
                   graphTextureSlots.isEmpty,
@@ -219,6 +229,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputConditionalStraightUnion,
              .sourceProvenGraphInputSingleSamplerAlphaMutation,
              .sourceProvenGraphInputSameSlotChannelReconstruction,
+             .sourceProvenGraphInputAuxiliaryRGBBlendAlphaPreserving,
              .sourceProvenGraphInputAudioStageUniformStraightAlphaNoAuxiliary,
              .sourceProvenGraphInputStageUniformStraightAlphaPreserving,
              .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary,
