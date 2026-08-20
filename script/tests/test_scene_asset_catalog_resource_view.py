@@ -36,6 +36,9 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneShaderSourceGraph.swift"],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
+        "SceneShaderLegacyAnnotationJSON.swift"
+    ],
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneShaderContract.swift"],
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
         "SceneShaderSourceGraphBuilder.swift"

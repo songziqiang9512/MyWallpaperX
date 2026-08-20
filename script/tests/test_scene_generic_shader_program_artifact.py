@@ -831,7 +831,11 @@ private struct GenericShaderArtifactHarness {
             r8TextureSlots: Set(
                 (ProcessInfo.processInfo.environment["MWX_TEST_R8_SLOTS"] ?? "")
                     .split(separator: ",").compactMap { Int($0) }
-            )
+            ),
+            hasDefaultedOpacityMaskSampler:
+                ProcessInfo.processInfo.environment[
+                    "MWX_TEST_DEFAULTED_OPACITY_MASK"
+                ] == "1"
         ) {
         case let .accepted(program, requestKey, decision):
             result = .init(
@@ -1000,6 +1004,22 @@ void main() {
 }
 """
 
+STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform float g_Time;
+uniform float u_Speed;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+    float mask = texSample2D(g_Texture1, v_TexCoord).r;
+    vec3 transformed = color.rgb;
+    transformed.x = frac(transformed.x + g_Time * u_Speed);
+    color.rgb = mix(color, transformed, mask);
+    gl_FragColor = color;
+}
+"""
+
 FILM_GRAIN_STOCK_FRAGMENT = """
 uniform sampler2D g_Texture0;
 uniform sampler2D g_Texture1; // {"default":"util/noise"}
@@ -1154,6 +1174,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         graph_slots: tuple[int, ...] = (),
         graph_input_slots: tuple[int, ...] = (),
         r8_slots: tuple[int, ...] = (),
+        has_defaulted_opacity_mask: bool = False,
         alpha_attenuation_source_slot: int | None = None,
         color_blend_source_slot: int | None = None,
     ):
@@ -1208,6 +1229,10 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             environment["MWX_TEST_R8_SLOTS"] = ",".join(map(str, r8_slots))
         else:
             environment.pop("MWX_TEST_R8_SLOTS", None)
+        if has_defaulted_opacity_mask:
+            environment["MWX_TEST_DEFAULTED_OPACITY_MASK"] = "1"
+        else:
+            environment.pop("MWX_TEST_DEFAULTED_OPACITY_MASK", None)
         if alpha_attenuation_source_slot is not None:
             environment["MWX_TEST_ALPHA_ATTENUATION_SOURCE_SLOT"] = str(
                 alpha_attenuation_source_slot
@@ -2267,6 +2292,14 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "source-proven-graph-input-stage-uniform-passthrough",
             ),
             (
+                STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_defaulted_opacity_mask": True,
+                },
+                "source-proven-graph-input-stage-uniform-straight-alpha-preserving",
+            ),
+            (
                 FRAGMENT,
                 {"graph_slots": (0,)},
                 "source-proven-graph-target-passthrough",
@@ -2326,6 +2359,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             ),
             (
                 CHANNEL_RECONSTRUCTION_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "source-proven-graph-input-straight-alpha-preserving",
+            ),
+            (
+                STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT,
                 {"graph_input_slots": (0,)},
                 "source-proven-graph-input-straight-alpha-preserving",
             ),
@@ -2472,6 +2510,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "passthrough",
                 "source-proven-graph-input-stage-uniform-passthrough",
                 False,
+            ),
+            (
+                STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_defaulted_opacity_mask": True,
+                },
+                "straight-alpha-preserving",
+                "source-proven-graph-input-stage-uniform-straight-alpha-preserving",
+                True,
             ),
             (
                 FRAGMENT,

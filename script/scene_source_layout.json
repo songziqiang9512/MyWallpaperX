@@ -127,6 +127,7 @@
       "ShaderContract": {
         "file_globs": [
           "SceneShaderContract.swift",
+          "SceneShaderLegacyAnnotationJSON.swift",
           "SceneShaderContractLoader+SourceGraph.swift",
           "SceneShaderContractLoader.swift",
           "SceneShaderSourceGraph.swift"
@@ -264,7 +265,7 @@
         "role": "inventory",
         "description": "Ordered dedicated compiler probes are frozen until their product owner is transferred.",
         "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
-        "baseline_occurrences": 21,
+        "baseline_occurrences": 20,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
         ],
@@ -279,7 +280,7 @@
         "pattern": "^    case [A-Za-z][A-Za-z0-9_]*(?:\\s*=|\\s*$)",
         "start_marker": "nonisolated enum SceneEffectStageCompilerBackend",
         "end_marker": "nonisolated struct SceneEffectStageCompilerFailure",
-        "baseline_occurrences": 21,
+        "baseline_occurrences": 20,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
         ],
@@ -294,7 +295,7 @@
         "pattern": "^        case [A-Za-z][A-Za-z0-9_]*\\(",
         "start_marker": "extension SceneEffectStageExecutionPlan {",
         "end_marker": "    var gaussianBlur:",
-        "baseline_occurrences": 21,
+        "baseline_occurrences": 20,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
         ],
@@ -317,7 +318,7 @@
         "role": "inventory",
         "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
-        "baseline_occurrences": 161,
+        "baseline_occurrences": 157,
         "allowed_files": [
           "RenderGraph/SceneAuthoredBlendPlanner.swift",
           "RenderGraph/SceneAuthoredColorGradingPlanner.swift",
@@ -332,7 +333,6 @@
           "RenderGraph/SceneAuthoredWaterRipplePlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopGradientPlanner.swift",
-          "RenderGraph/SceneAuthoredWorkshopShiftHuePlanner.swift",
           "RenderGraph/SceneAuthoredXRayPlanner.swift",
           "RenderGraph/SceneBlendShaderProfile.swift",
           "RenderGraph/SceneCursorRippleShaderProfile.swift",
@@ -354,12 +354,11 @@
         "role": "inventory",
         "description": "Numeric Workshop paths are frozen until source profiles become public typed capabilities.",
         "pattern": "workshop/[0-9]+",
-        "baseline_occurrences": 26,
+        "baseline_occurrences": 19,
         "allowed_files": [
           "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
           "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopGradientPlanner.swift",
-          "RenderGraph/SceneAuthoredWorkshopShiftHuePlanner.swift",
           "RenderGraph/SceneProceduralNoiseShaderProfile.swift"
         ]
       },

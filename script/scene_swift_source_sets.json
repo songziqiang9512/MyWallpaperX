@@ -8,6 +8,7 @@
       "sources": [
         "Format/SceneJSONValue.swift",
         "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+        "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
         "RenderGraph/ShaderContract/SceneShaderContract.swift"
       ]
     },
@@ -34,6 +35,7 @@
         "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
         "RenderGraph/SceneAuthoredMaterialResolver.swift",
         "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+        "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
         "RenderGraph/ShaderContract/SceneShaderContract.swift",
         "Resources/SceneShaderSourceGraphBuilder.swift",
         "Resources/SceneShaderSourceResolver.swift",
@@ -147,6 +149,7 @@
         "RenderGraph/AuthoredGraph/SceneGraphConditionAdmission.swift",
         "RenderGraph/AuthoredGraph/SceneGraphConditionSchemaEvidenceCompiler.swift",
         "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+        "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
         "RenderGraph/ShaderContract/SceneShaderContract.swift",
         "Resources/SceneTextureSampling.swift"
       ]

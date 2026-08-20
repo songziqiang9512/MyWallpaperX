@@ -29,7 +29,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         core = scene_swift_source_relpaths("authored_shader_frontend_core")
 
-        self.assertEqual(len(support), 3)
+        self.assertEqual(len(support), 4)
         self.assertEqual(len(implementation), 43)
         self.assertEqual(core, (*support, *implementation))
         syntax = next(
@@ -68,10 +68,10 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "authored_effect_planning_support"
         )
 
-        self.assertEqual(len(resolution), 9)
-        self.assertEqual(resolution[:3], frontend_support)
+        self.assertEqual(len(resolution), 10)
+        self.assertEqual(resolution[:4], frontend_support)
         self.assertEqual(
-            resolution[3:],
+            resolution[4:],
             (
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceGraphBuilder.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceResolver.swift",
@@ -81,7 +81,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
             ),
         )
-        self.assertEqual(len(planning), 12)
+        self.assertEqual(len(planning), 13)
         self.assertEqual(
             planning,
             (
@@ -90,6 +90,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredMaterialResolver.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContract.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceGraphBuilder.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceResolver.swift",
@@ -127,7 +128,6 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "script/tests/test_scene_transform_planner.py",
             "script/tests/test_scene_water_ripple_planner.py",
             "script/tests/test_scene_waterwaves_profile.py",
-            "script/tests/test_scene_workshop_shift_hue_planner.py",
         ]
         for relative in resolution_consumers:
             text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")

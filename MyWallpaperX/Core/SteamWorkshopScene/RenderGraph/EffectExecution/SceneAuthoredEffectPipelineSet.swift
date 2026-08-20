@@ -6,7 +6,6 @@ struct SceneAuthoredEffectPipelineSet {
     var standardBlur: SceneStandardBlurPipeline? { repository.standardBlur() }
     var localContrast: SceneLocalContrastPipeline? { repository.localContrast() }
     var colorGrading: SceneColorGradingPipeline? { repository.colorGrading() }
-    var shiftHue: SceneWorkshopShiftHuePipeline? { repository.shiftHue() }
     var audioBars: SceneWorkshopAudioBarsPipeline? { repository.audioBars() }
     var workshopGradient: SceneWorkshopGradientPipeline? {
         repository.workshopGradient()

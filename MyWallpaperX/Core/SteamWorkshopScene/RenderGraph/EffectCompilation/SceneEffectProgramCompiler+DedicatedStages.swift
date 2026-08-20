@@ -76,11 +76,6 @@ extension SceneEffectProgramCompiler {
                     stage(.colorGrading($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.workshopShiftHue, {
-                SceneAuthoredWorkshopShiftHuePlanner.compile(input).mapAccepted {
-                    stage(.workshopShiftHue($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.workshopAudioBars, {
                 SceneAuthoredWorkshopAudioBarsPlanner.compile(input).mapAccepted {
                     stage(.workshopAudioBars($0), stageGraph: stageGraph, inputRole: inputRole)

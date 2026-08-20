@@ -22,6 +22,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneResourceIndex.swift",
     SCENE_ROOT / "Resources/SceneResourceView.swift",
     SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
     SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     *scene_swift_sources("shader_preprocessing_and_variant_implementation"),

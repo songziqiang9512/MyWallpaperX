@@ -57,6 +57,9 @@ private struct ShaderContractHarness {
             "effects/malformed",
             "effects/stageskip",
             "effects/malformedforms",
+            "effects/legacynumber",
+            "effects/malformednumeric",
+            "effects/legacyoversized",
             "effects/invalid",
             "effects/unreadable",
             "effects/symlink",
@@ -243,10 +246,36 @@ class SceneShaderContractTests(unittest.TestCase):
             (effects / "malformedforms.vert").write_text(
                 '// [COMBO] {"value":broken}\n'
                 '// [COMBO] {hyphen-key:1}\n'
-                '// [COMBO] {"range":[0,01]}\n',
+                '// [COMBO] {"range":[0,01.0]}\n',
                 encoding="utf-8",
             )
             (effects / "malformedforms.frag").write_text(
+                "void main() {}\n", encoding="utf-8"
+            )
+            (effects / "legacynumber.vert").write_text(
+                'uniform float u_Speed; // {"material":"Speed","default":1,'
+                '"range":[0,01]}\n'
+                'uniform float u_Label; // {"material":"Label","default":"01"}\n',
+                encoding="utf-8",
+            )
+            (effects / "legacynumber.frag").write_text(
+                "void main() {}\n", encoding="utf-8"
+            )
+            (effects / "malformednumeric.vert").write_text(
+                '// [COMBO] {"range":[0,01.0]}\n'
+                '// [COMBO] {"range":[0,01e2]}\n'
+                '// [COMBO] {"range":[0,+01]}\n'
+                '// [COMBO] {"range":[0,01}\n',
+                encoding="utf-8",
+            )
+            (effects / "malformednumeric.frag").write_text(
+                "void main() {}\n", encoding="utf-8"
+            )
+            (effects / "legacyoversized.vert").write_text(
+                '// [COMBO] {"padding":"' + ("x" * 16_384) + '","range":[0,01]}\n',
+                encoding="utf-8",
+            )
+            (effects / "legacyoversized.frag").write_text(
                 "void main() {}\n", encoding="utf-8"
             )
             (effects / "invalid.vert").write_bytes(b"\xff\xfeinvalid")
@@ -438,6 +467,24 @@ class SceneShaderContractTests(unittest.TestCase):
             ["malformedAnnotation", "malformedAnnotation", "malformedAnnotation"],
         )
         self.assertEqual(malformedforms["stages"][0]["annotations"], [])
+        legacynumber = by_identity["effects/legacynumber"]
+        self.assertEqual(self._diagnostic_codes(legacynumber), [])
+        legacy_vertex = legacynumber["stages"][0]
+        self.assertEqual(legacy_vertex["annotations"][0]["value"]["range"], [0, 1])
+        self.assertIn('"range":[0,01]', legacy_vertex["annotations"][0]["raw"])
+        self.assertEqual(legacy_vertex["annotations"][1]["value"]["default"], "01")
+        malformednumeric = by_identity["effects/malformednumeric"]
+        self.assertEqual(
+            self._diagnostic_codes(malformednumeric),
+            ["malformedAnnotation"] * 4,
+        )
+        self.assertEqual(malformednumeric["stages"][0]["annotations"], [])
+        legacyoversized = by_identity["effects/legacyoversized"]
+        self.assertEqual(
+            self._diagnostic_codes(legacyoversized),
+            ["malformedAnnotation"],
+        )
+        self.assertEqual(legacyoversized["stages"][0]["annotations"], [])
         self.assertIn("invalidUTF8", self._diagnostic_codes(by_identity["effects/invalid"]))
         self.assertIn("unreadableSource", self._diagnostic_codes(by_identity["effects/unreadable"]))
         self.assertIn("symlinkEscape", self._diagnostic_codes(by_identity["effects/symlink"]))

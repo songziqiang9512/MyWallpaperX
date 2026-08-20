@@ -23,6 +23,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneShaderMalformedMetadataAdmission.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
     SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",

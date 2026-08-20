@@ -20,6 +20,7 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
     SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     *scene_swift_sources("shader_preprocessing_and_variant_implementation"),

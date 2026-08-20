@@ -11,6 +11,21 @@ extension SceneResolvedMaterialShaderSchema.TextureMode {
 }
 
 extension SceneResolvedMaterialShaderSchema {
+    nonisolated static func hasOnlyDefaultedOpacityMaskAuxiliary(
+        _ samplers: [Int: Sampler],
+        graphInputSlots: Set<Int>
+    ) -> Bool {
+        guard graphInputSlots.count == 1,
+              graphInputSlots.allSatisfy({ slot in
+                guard let sampler = samplers[slot] else { return false }
+                return sampler.mode == .regular && sampler.defaultTexture == nil
+              }) else { return false }
+        let auxiliaries = samplers.filter { !graphInputSlots.contains($0.key) }
+        guard auxiliaries.count == 1,
+              let auxiliary = auxiliaries.values.first else { return false }
+        return auxiliary.mode == .opacityMask && auxiliary.defaultTexture != nil
+    }
+
     /// A structural compatibility normalization for historical authored
     /// materials that omitted the explicit framebuffer annotation.
     nonisolated static func implicitFramebufferSlots(

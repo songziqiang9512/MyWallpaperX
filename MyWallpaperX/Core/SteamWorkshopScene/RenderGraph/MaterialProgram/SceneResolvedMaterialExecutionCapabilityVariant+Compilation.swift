@@ -157,7 +157,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     && graphInputTextureSlots.isEmpty,
             graphTextureSlots: graphTextureSlots,
             graphInputTextureSlots: graphInputTextureSlots,
-            r8TextureSlots: graphR8TextureSlots
+            r8TextureSlots: graphR8TextureSlots,
+            hasDefaultedOpacityMaskSampler:
+                SceneResolvedMaterialShaderSchema.hasOnlyDefaultedOpacityMaskAuxiliary(
+                    sourceActiveSamplers,
+                    graphInputSlots: graphInputTextureSlots
+                )
         )
         let frontend: SceneAuthoredShaderProgram
         let routeDecision:

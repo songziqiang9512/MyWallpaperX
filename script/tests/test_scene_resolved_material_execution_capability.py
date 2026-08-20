@@ -5355,7 +5355,45 @@ private enum EnvelopeHarness {
             ]
         )
 
+        let sourceSampler = SceneResolvedMaterialShaderSchema.Sampler(
+            name: "g_Texture0", slot: 0, mode: .regular,
+            materialKey: nil, isHidden: true, defaultTexture: nil,
+            readinessCombo: nil
+        )
+        let opacityMaskSampler = SceneResolvedMaterialShaderSchema.Sampler(
+            name: "g_Texture1", slot: 1, mode: .opacityMask,
+            materialKey: "mask", isHidden: false,
+            defaultTexture: .asset(SceneVFSAssetPath("util/white")!),
+            readinessCombo: nil
+        )
+        let extraSampler = SceneResolvedMaterialShaderSchema.Sampler(
+            name: "g_Texture2", slot: 2, mode: .regular,
+            materialKey: nil, isHidden: false,
+            defaultTexture: .asset(SceneVFSAssetPath("util/noise")!),
+            readinessCombo: nil
+        )
         let result: [String: Any] = [
+            "exclusiveDefaultedOpacityMask": [
+                "positive": SceneResolvedMaterialShaderSchema
+                    .hasOnlyDefaultedOpacityMaskAuxiliary(
+                        [0: sourceSampler, 1: opacityMaskSampler],
+                        graphInputSlots: [0]
+                    ),
+                "extraSampler": SceneResolvedMaterialShaderSchema
+                    .hasOnlyDefaultedOpacityMaskAuxiliary(
+                        [0: sourceSampler, 1: opacityMaskSampler, 2: extraSampler],
+                        graphInputSlots: [0]
+                    ),
+                "missingMask": SceneResolvedMaterialShaderSchema
+                    .hasOnlyDefaultedOpacityMaskAuxiliary(
+                        [0: sourceSampler], graphInputSlots: [0]
+                    ),
+                "missingGraphInput": SceneResolvedMaterialShaderSchema
+                    .hasOnlyDefaultedOpacityMaskAuxiliary(
+                        [0: sourceSampler, 1: opacityMaskSampler],
+                        graphInputSlots: [2]
+                    ),
+            ],
             "positiveClaim": positive.claim(layerID: layerID) != nil,
             "positiveCounters": counters(positive, graph: boundGraph),
             "effectProjectionRequirements": [
@@ -7075,6 +7113,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneAuthoredShaderFrontend.swift",
                 "SceneAuthoredShaderPreparation.swift",
                 "SceneAuthoredShaderPreparation+Support.swift",
+                "SceneShaderLegacyAnnotationJSON.swift",
                 "SceneShaderContract.swift",
                 "SceneShaderMalformedMetadataAdmission.swift",
                 "SceneShaderPreprocessor.swift",
@@ -7131,6 +7170,16 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
 
         payload = json.loads(completed.stdout)
+        self.assertEqual(
+            payload["exclusiveDefaultedOpacityMask"],
+            {
+                "positive": True,
+                "extraSampler": False,
+                "missingMask": False,
+                "missingGraphInput": False,
+            },
+            payload,
+        )
         self.assertTrue(payload["positiveClaim"])
         self.assertEqual(
             payload["positiveCounters"],

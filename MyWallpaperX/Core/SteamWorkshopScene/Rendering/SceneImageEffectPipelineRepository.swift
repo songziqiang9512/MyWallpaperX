@@ -38,7 +38,6 @@ final class SceneImageEffectPipelineRepository {
     private let standardBlurSlot: ScenePipelineSlot<SceneStandardBlurPipeline>
     private let localContrastSlot: ScenePipelineSlot<SceneLocalContrastPipeline>
     private let colorGradingSlot: ScenePipelineSlot<SceneColorGradingPipeline>
-    private let shiftHueSlot: ScenePipelineSlot<SceneWorkshopShiftHuePipeline>
     private let audioBarsSlot: ScenePipelineSlot<SceneWorkshopAudioBarsPipeline>
     private let workshopGradientSlot: ScenePipelineSlot<SceneWorkshopGradientPipeline>
     private let proceduralNoiseSlot: ScenePipelineSlot<SceneProceduralNoisePipeline>
@@ -62,7 +61,6 @@ final class SceneImageEffectPipelineRepository {
         standardBlurSlot = .init { SceneStandardBlurPipeline(device: device) }
         localContrastSlot = .init { SceneLocalContrastPipeline(device: device) }
         colorGradingSlot = .init { SceneColorGradingPipeline(device: device) }
-        shiftHueSlot = .init { SceneWorkshopShiftHuePipeline(device: device) }
         audioBarsSlot = .init { SceneWorkshopAudioBarsPipeline(device: device) }
         workshopGradientSlot = .init { SceneWorkshopGradientPipeline(device: device) }
         proceduralNoiseSlot = .init { SceneProceduralNoisePipeline(device: device) }
@@ -85,7 +83,6 @@ final class SceneImageEffectPipelineRepository {
     func standardBlur() -> SceneStandardBlurPipeline? { standardBlurSlot.resolve() }
     func localContrast() -> SceneLocalContrastPipeline? { localContrastSlot.resolve() }
     func colorGrading() -> SceneColorGradingPipeline? { colorGradingSlot.resolve() }
-    func shiftHue() -> SceneWorkshopShiftHuePipeline? { shiftHueSlot.resolve() }
     func audioBars() -> SceneWorkshopAudioBarsPipeline? { audioBarsSlot.resolve() }
     func workshopGradient() -> SceneWorkshopGradientPipeline? {
         workshopGradientSlot.resolve()

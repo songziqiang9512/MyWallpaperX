@@ -201,8 +201,6 @@ extension SceneEffectStageRenderer {
         case .colorGrading:
             return pipelines.colorGrading == nil
                 ? "color-grading-pipeline-missing" : nil
-        case .workshopShiftHue:
-            return pipelines.shiftHue == nil ? "shift-hue-pipeline-missing" : nil
         case .workshopAudioBars(let plan):
             if case .enhancedSegmented = plan.profile {
                 return pipelines.audioBars == nil ? "audio-bars-pipeline-missing" : nil

@@ -57,8 +57,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneLocalContrastPipeline.swift",
     SOURCE_ROOT / "Effects/SceneLocalContrastRenderer.swift",
     SOURCE_ROOT / "Effects/SceneColorGradingPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneWorkshopShiftHuePipeline.swift",
-    SOURCE_ROOT / "Effects/SceneWorkshopShiftHueRenderer.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopGradientPipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
@@ -90,7 +88,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WorkshopGradient.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ColorGrading.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ShiftHue.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ProceduralNoise.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+XRay.swift",
@@ -555,10 +552,6 @@ struct SceneColorGradingExecutionPlan: Sendable {
     let channelInfluence: SIMD3<Float>
 }
 
-struct SceneWorkshopShiftHueExecutionPlan: Sendable {
-    let speed: Float
-}
-
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
     enum Profile: Sendable {
         case enhancedSegmented(shape: Int)
@@ -641,7 +634,6 @@ struct SceneBlendEffectTextures {
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
         case colorGrading(SceneColorGradingExecutionPlan)
-        case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
@@ -661,7 +653,7 @@ struct SceneBlendEffectTextures {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
+            case .workshopAudioBars, .workshopGradient,
                  .shake:
                 return true
             case .proceduralNoise(let plan):
@@ -679,7 +671,6 @@ struct SceneBlendEffectTextures {
             case .standardBlur: "standard-blur"
             case .localContrast: "local-contrast"
             case .colorGrading: "color-grading"
-            case .workshopShiftHue: "workshop-shift-hue"
             case .workshopAudioBars: "workshop-audio-bars"
             case .workshopGradient: "workshop-gradient"
             case .proceduralNoise: "procedural-noise"

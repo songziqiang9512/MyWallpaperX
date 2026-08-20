@@ -326,15 +326,8 @@ nonisolated struct SceneShaderContractSourceParser {
                 continue
             }
             guard !jsonText.isEmpty,
-                  let jsonData = jsonText.data(using: .utf8),
-                  let object = try? JSONSerialization.jsonObject(
-                    with: jsonData,
-                    options: [.fragmentsAllowed]
-                  ),
-                  let value = SceneJSONValue(jsonObject: object),
-                  let variantValue = try? JSONDecoder().decode(
-                    SceneShaderAnnotationValue.self,
-                    from: jsonData
+                  let (value, variantValue) = SceneShaderLegacyAnnotationJSON.decodedValues(
+                    from: jsonText
                   ) else {
                 diagnostics.append(.init(
                     code: .malformedAnnotation,

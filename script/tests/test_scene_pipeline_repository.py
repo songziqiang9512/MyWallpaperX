@@ -43,7 +43,6 @@ final class SceneStandardBlurPipeline { init?(device: MTLDevice) {} }
 final class SceneLocalContrastPipeline { init?(device: MTLDevice) {} }
 final class SceneColorKeyPipeline { init?(device: MTLDevice) {} }
 final class SceneColorGradingPipeline { init?(device: MTLDevice) {} }
-final class SceneWorkshopShiftHuePipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopAudioBarsPipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopGradientPipeline { init?(device: MTLDevice) {} }
 final class SceneProceduralNoisePipeline { init?(device: MTLDevice) {} }

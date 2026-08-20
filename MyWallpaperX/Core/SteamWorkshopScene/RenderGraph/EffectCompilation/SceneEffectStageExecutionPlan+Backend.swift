@@ -6,7 +6,6 @@ extension SceneEffectStageExecutionPlan {
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
         case colorGrading(SceneColorGradingExecutionPlan)
-        case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
@@ -27,7 +26,7 @@ extension SceneEffectStageExecutionPlan {
         var supportsUnifiedPairLeaf: Bool {
             switch self {
             case .colorGrading,
-                 .workshopShiftHue, .workshopAudioBars, .workshopGradient,
+                 .workshopAudioBars, .workshopGradient,
                  .shake, .waterFlow,
                  .waterWaves, .waterCaustics, .waterRipple,
                  .depthParallax, .xRay, .blend, .transform, .pulse:
@@ -117,11 +116,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var colorGrading: SceneColorGradingExecutionPlan? {
         guard case .colorGrading(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var workshopShiftHue: SceneWorkshopShiftHueExecutionPlan? {
-        guard case .workshopShiftHue(let plan) = backend else { return nil }
         return plan
     }
 

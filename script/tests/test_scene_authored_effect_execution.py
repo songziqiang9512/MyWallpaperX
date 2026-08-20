@@ -15,6 +15,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
     SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
@@ -148,7 +149,6 @@ struct SceneGaussianBlurPlan {
 }
 
 struct SceneColorGradingExecutionPlan: Sendable {}
-struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
     enum Profile: Sendable {
         case enhancedSegmented(shape: Int)
@@ -176,17 +176,6 @@ enum SceneAuthoredColorGradingPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneColorGradingExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredWorkshopShiftHuePlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWorkshopShiftHueExecutionPlan? {
         nil
     }
 }
@@ -549,10 +538,6 @@ extension SceneAuthoredLocalContrastPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneColorGradingExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorGrading }
-}
-extension SceneAuthoredWorkshopShiftHuePlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWorkshopShiftHueExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopShiftHue }
 }
 extension SceneAuthoredWorkshopAudioBarsPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
@@ -1333,7 +1318,6 @@ enum Harness {
             case .standardBlur: backend = "standardBlur"
             case .localContrast: backend = "localContrast"
             case .colorGrading: backend = "colorGrading"
-            case .workshopShiftHue: backend = "workshopShiftHue"
             case .workshopAudioBars: backend = "workshopAudioBars"
             case .workshopGradient: backend = "workshopGradient"
             case .proceduralNoise: backend = "proceduralNoise"

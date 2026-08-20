@@ -40,7 +40,6 @@ nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable
     case standardBlur = "standard-blur"
     case localContrast = "local-contrast"
     case colorGrading = "color-grading"
-    case workshopShiftHue = "workshop-shift-hue"
     case workshopAudioBars = "workshop-audio-bars"
     case workshopGradient = "workshop-gradient"
     case proceduralNoise = "procedural-noise"

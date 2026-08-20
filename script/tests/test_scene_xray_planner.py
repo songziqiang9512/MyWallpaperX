@@ -30,6 +30,7 @@ IDENTITY_SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
+    SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
     SOURCE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
     AUTHORED_XRAY_STOCK_IDENTITY_SOURCE,
 ]
