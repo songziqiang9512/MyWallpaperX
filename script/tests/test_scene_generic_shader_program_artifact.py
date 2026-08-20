@@ -115,6 +115,13 @@ private struct StraightPreservingBuilderOutput: Codable {
     let composedMetal: String?
     let unrelatedAlphaRejected: Bool
     let mixedSlotRejected: Bool
+    let directKind: String?
+    let directFailure: String?
+    let directSampleCount: Int
+    let directOutputPremultiplied: Bool
+    let directAlphaWriteRejected: Bool
+    let directHiddenSampleRejected: Bool
+    let directWrongSlotRejected: Bool
     let nonAudioVectorArrayRejected: Bool
 }
 
@@ -122,7 +129,9 @@ private struct StraightAttenuationBuilderOutput: Codable {
     let analyzedTransfer: String
     let positiveKind: String?
     let positiveSlot: Int?
-    let wholeColorAttenuated: Bool
+    let sampleUnpremultiplied: Bool
+    let alphaOnlyMutationPreserved: Bool
+    let outputPremultiplied: Bool
     let unrelatedAlphaReadRejected: Bool
     let wholeVectorUseRejected: Bool
     let rgbWriteRejected: Bool
@@ -628,7 +637,7 @@ private struct GenericShaderArtifactHarness {
             }
             let built = SceneGenericShaderArtifactBuilder.build(
                 requestKey: String(repeating: "f", count: 64),
-                backendID: "glslang-spirv-cross-msl-v1",
+                backendID: "glslang-spirv-cross-msl-v2",
                 stages: [
                     .init(
                         name: "vertex", source: "void main() {}",
@@ -726,7 +735,7 @@ private struct GenericShaderArtifactHarness {
             > {
                 SceneGenericShaderArtifactBuilder.build(
                     requestKey: String(repeating: "a", count: 64),
-                    backendID: "glslang-spirv-cross-msl-v1",
+                    backendID: "glslang-spirv-cross-msl-v2",
                     stages: [
                         .init(
                             name: "vertex", source: "void main() {}",
@@ -835,10 +844,43 @@ private struct GenericShaderArtifactHarness {
                 "    return out;",
                 "}",
             ].joined(separator: "\n")
+            let directMSL = [
+                "#include <metal_stdlib>",
+                "using namespace metal;",
+                "struct MWXUniforms { float2 mwxRenderSize; float g_AudioSpectrum16Left[16]; };",
+                "struct Output { float4 mwxFragColor [[color(0)]]; };",
+                "fragment Output f() {",
+                "    Output out;",
+                "    float4 retained = g_Texture0.sample(sourceSampler, uv);",
+                "    float4 shiftedRed = g_Texture0.sample(sourceSampler, uv + 0.01);",
+                "    float4 shiftedBlue = g_Texture0.sample(sourceSampler, uv - 0.01);",
+                "    float4 renamedCarrier = retained;",
+                "    renamedCarrier.x = shiftedRed.x;",
+                "    renamedCarrier.z = shiftedBlue.z;",
+                "    out.mwxFragColor = renamedCarrier;",
+                "    return out;",
+                "}",
+            ].joined(separator: "\n")
+            let directAuthored = [
+                "uniform sampler2D g_Texture0;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    vec4 retained = texSample2D(g_Texture0, v_TexCoord);",
+                "    vec4 shiftedRed = texSample2D(g_Texture0, v_TexCoord + 0.01);",
+                "    vec4 shiftedBlue = texSample2D(g_Texture0, v_TexCoord - 0.01);",
+                "    vec4 renamedCarrier = retained;",
+                "    renamedCarrier.r = shiftedRed.r;",
+                "    renamedCarrier.b = shiftedBlue.b;",
+                "    gl_FragColor = renamedCarrier;",
+                "}",
+            ].joined(separator: "\n")
+            let directReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"g_AudioSpectrum16Left","type":"float","offset":16,"array":[16]}]}},"ubos":[{"type":"_1","block_size":80,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let directVertexReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0}]}},"ubos":[{"type":"_1","block_size":8,"set":0,"binding":8}],"textures":[]}"#.utf8)
             func build(
                 _ msl: String,
                 authoredSource: String? = nil,
-                reflection: Data? = nil
+                reflection: Data? = nil,
+                vertexReflectionValue: Data? = nil
             ) -> Result<
                 SceneGenericShaderProgramArtifact,
                 SceneGenericShaderArtifactBuilder.Failure
@@ -846,12 +888,13 @@ private struct GenericShaderArtifactHarness {
                 let authoredSource = authoredSource ?? authored
                 return SceneGenericShaderArtifactBuilder.build(
                     requestKey: String(repeating: "b", count: 64),
-                    backendID: "glslang-spirv-cross-msl-v1",
+                    backendID: "glslang-spirv-cross-msl-v2",
                     stages: [
                         .init(
                             name: "vertex", source: "void main() {}",
                             authoredSource: "void main() {}",
-                            msl: vertexMSL, reflection: vertexReflection
+                            msl: vertexMSL,
+                            reflection: vertexReflectionValue ?? vertexReflection
                         ),
                         .init(
                             name: "fragment", source: authoredSource,
@@ -875,6 +918,22 @@ private struct GenericShaderArtifactHarness {
             case let .failure(failure): composed = nil; composedFailure = String(describing: failure)
             }
             let composedMetal = composed?.program.metalSource ?? ""
+            let direct: SceneGenericShaderProgramArtifact?
+            let directFailure: String?
+            switch build(
+                directMSL,
+                authoredSource: directAuthored,
+                reflection: directReflection,
+                vertexReflectionValue: directVertexReflection
+            ) {
+            case let .success(artifact):
+                direct = artifact
+                directFailure = nil
+            case let .failure(failure):
+                direct = nil
+                directFailure = String(describing: failure)
+            }
+            let directMetal = direct?.program.metalSource ?? ""
             let unrelatedAlphaRejected = failedColorTransfer(build(
                 composedMSL.replacingOccurrences(
                     of: "float alpha = scene.w;",
@@ -935,6 +994,42 @@ private struct GenericShaderArtifactHarness {
                 composedMetal: composed?.program.metalSource,
                 unrelatedAlphaRejected: unrelatedAlphaRejected,
                 mixedSlotRejected: mixedSlotRejected,
+                directKind: direct?.program.colorTransfer.kind,
+                directFailure: directFailure,
+                directSampleCount: directMetal.components(
+                    separatedBy: "mwxGenericUnpremultiply(g_Texture0.sample"
+                ).count - 1,
+                directOutputPremultiplied: directMetal.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply(renamedCarrier);"
+                ),
+                directAlphaWriteRejected: failedColorTransfer(build(
+                    directMSL.replacingOccurrences(
+                        of: "    out.mwxFragColor = renamedCarrier;",
+                        with: "    renamedCarrier.w *= 0.5;\n"
+                            + "    out.mwxFragColor = renamedCarrier;"
+                    ),
+                    authoredSource: directAuthored,
+                    reflection: directReflection,
+                    vertexReflectionValue: directVertexReflection
+                )),
+                directHiddenSampleRejected: failedColorTransfer(build(
+                    directMSL.replacingOccurrences(
+                        of: "    float4 renamedCarrier = retained;",
+                        with: "    float4 hiddenSample = g_Texture0.sample(sourceSampler, uv * 0.5);\n"
+                            + "    float4 renamedCarrier = retained;"
+                    ),
+                    authoredSource: directAuthored,
+                    reflection: directReflection,
+                    vertexReflectionValue: directVertexReflection
+                )),
+                directWrongSlotRejected: failedColorTransfer(build(
+                    directMSL.replacingOccurrences(
+                        of: "float4 shiftedBlue = g_Texture0.sample",
+                        with: "float4 shiftedBlue = g_Texture1.sample"
+                    ),
+                    authoredSource: directAuthored,
+                    vertexReflectionValue: directVertexReflection
+                )),
                 nonAudioVectorArrayRejected: failedUniformMember(build(
                     nonAudioVectorMetal,
                     authoredSource: nonAudioVectorAuthored,
@@ -979,7 +1074,7 @@ private struct GenericShaderArtifactHarness {
             > {
                 SceneGenericShaderArtifactBuilder.build(
                     requestKey: String(repeating: "c", count: 64),
-                    backendID: "glslang-spirv-cross-msl-v1",
+                    backendID: "glslang-spirv-cross-msl-v2",
                     stages: [
                         .init(
                             name: "vertex", source: "void main() {}",
@@ -1009,8 +1104,17 @@ private struct GenericShaderArtifactHarness {
                 ),
                 positiveKind: positive?.program.colorTransfer.kind,
                 positiveSlot: positive?.program.colorTransfer.slot,
-                wholeColorAttenuated: metal.contains(
+                sampleUnpremultiplied: metal.contains(
+                    "float4 albedo = mwxGenericUnpremultiply("
+                        + "g_Texture0.sample(sourceSampler, uv));"
+                ),
+                alphaOnlyMutationPreserved: metal.contains(
+                    "albedo.w *= mix(keyAlpha, 1.0, blend);"
+                ) && !metal.contains(
                     "albedo *= mix(keyAlpha, 1.0, blend);"
+                ),
+                outputPremultiplied: metal.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply(albedo);"
                 ),
                 unrelatedAlphaReadRejected: failedColorTransfer(build(
                     fragmentMSL.replacingOccurrences(
@@ -1074,7 +1178,7 @@ private struct GenericShaderArtifactHarness {
             > {
                 SceneGenericShaderArtifactBuilder.build(
                     requestKey: String(repeating: "e", count: 64),
-                    backendID: "glslang-spirv-cross-msl-v1",
+                    backendID: "glslang-spirv-cross-msl-v2",
                     stages: [
                         .init(
                             name: "vertex", source: "void main() {}",
@@ -1186,7 +1290,7 @@ private struct GenericShaderArtifactHarness {
             > {
                 SceneGenericShaderArtifactBuilder.build(
                     requestKey: String(repeating: "d", count: 64),
-                    backendID: "glslang-spirv-cross-msl-v1",
+                    backendID: "glslang-spirv-cross-msl-v2",
                     stages: [
                         .init(
                             name: "vertex", source: "void main() {}",
@@ -1431,6 +1535,98 @@ void main() {
     vec4 color = texSample2D(g_Texture0, v_TexCoord);
     float mask = 0.5;
     gl_FragColor = vec4(color.rgb, color.a * mask);
+}
+"""
+
+SINGLE_SAMPLER_ALPHA_MUTATION_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform float g_EdgeAlpha;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 renamedCarrier = texSample2D(g_Texture0, v_TexCoord);
+    renamedCarrier.a *= g_EdgeAlpha;
+    gl_FragColor = renamedCarrier;
+}
+"""
+
+SAME_SLOT_CHANNEL_RECONSTRUCTION_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 retained = texSample2D(g_Texture0, v_TexCoord);
+    vec4 shiftedRed = texSample2D(g_Texture0, v_TexCoord + vec2(0.01, 0.0));
+    vec4 shiftedBlue = texSample2D(g_Texture0, v_TexCoord - vec2(0.01, 0.0));
+    vec4 renamedCarrier = retained;
+    renamedCarrier.r = shiftedRed.r;
+    renamedCarrier.b = shiftedBlue.b;
+    gl_FragColor = renamedCarrier;
+}
+"""
+
+SAME_SLOT_CHANNEL_RECONSTRUCTION_WRONG_SLOT_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 retained = texSample2D(g_Texture0, v_TexCoord);
+    vec4 shiftedRed = texSample2D(g_Texture1, v_TexCoord + vec2(0.01, 0.0));
+    vec4 renamedCarrier = retained;
+    renamedCarrier.r = shiftedRed.r;
+    gl_FragColor = renamedCarrier;
+}
+"""
+
+SAME_SLOT_CHANNEL_RECONSTRUCTION_ALPHA_WRITE_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 retained = texSample2D(g_Texture0, v_TexCoord);
+    vec4 shiftedRed = texSample2D(g_Texture0, v_TexCoord + vec2(0.01, 0.0));
+    vec4 renamedCarrier = retained;
+    renamedCarrier.r = shiftedRed.r;
+    renamedCarrier.a *= 0.5;
+    gl_FragColor = renamedCarrier;
+}
+"""
+
+SAME_SLOT_CHANNEL_RECONSTRUCTION_EXTRA_SAMPLE_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 retained = texSample2D(g_Texture0, v_TexCoord);
+    vec4 shiftedRed = texSample2D(g_Texture0, v_TexCoord + vec2(0.01, 0.0));
+    vec4 hiddenSample = texSample2D(g_Texture0, v_TexCoord * 0.5);
+    vec4 renamedCarrier = retained;
+    renamedCarrier.r = shiftedRed.r;
+    gl_FragColor = renamedCarrier;
+}
+"""
+
+SAME_SLOT_CHANNEL_RECONSTRUCTION_CONTROL_FLOW_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform float g_Choice;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 retained = texSample2D(g_Texture0, v_TexCoord);
+    vec4 shiftedRed = texSample2D(g_Texture0, v_TexCoord + vec2(0.01, 0.0));
+    vec4 renamedCarrier = retained;
+    if (g_Choice > 0.5) {
+        renamedCarrier.r = shiftedRed.r;
+    }
+    gl_FragColor = renamedCarrier;
+}
+"""
+
+SINGLE_SAMPLER_ALPHA_MUTATION_CONTROL_FLOW_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform float g_EdgeAlpha;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 renamedCarrier = texSample2D(g_Texture0, v_TexCoord);
+    if (g_EdgeAlpha > 0.5) {
+        renamedCarrier.a *= g_EdgeAlpha;
+    }
+    gl_FragColor = renamedCarrier;
 }
 """
 
@@ -1800,7 +1996,7 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
         return {
             "schemaVersion": 3,
             "kind": "scene-generic-shader-program-artifact",
-            "backendID": "glslang-spirv-cross-msl-v1",
+            "backendID": "glslang-spirv-cross-msl-v2",
             "requestKey": key,
             "program": {
                 "metalSource": metal,
@@ -1877,7 +2073,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
 """
         return build_program_artifact(
             request_key=key,
-            backend_id="glslang-spirv-cross-msl-v1",
+            backend_id="glslang-spirv-cross-msl-v2",
             compiled_stages=stages,
             stage_sources={
                 "vertex": vertex_source,
@@ -2022,6 +2218,12 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
         self.assertTrue(output["composedOutputPremultiplied"])
         self.assertTrue(output["unrelatedAlphaRejected"])
         self.assertTrue(output["mixedSlotRejected"])
+        self.assertEqual(output["directKind"], "straight-alpha-preserving")
+        self.assertEqual(output["directSampleCount"], 3)
+        self.assertTrue(output["directOutputPremultiplied"])
+        self.assertTrue(output["directAlphaWriteRejected"])
+        self.assertTrue(output["directHiddenSampleRejected"])
+        self.assertTrue(output["directWrongSlotRejected"])
 
     def test_audio_scalar_array_swizzle_is_removed_from_metal_abi(self):
         completed = subprocess.run(
@@ -2111,7 +2313,9 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             "analyzedTransfer": "straightAlpha",
             "positiveKind": "straight-alpha",
             "positiveSlot": 0,
-            "wholeColorAttenuated": True,
+            "sampleUnpremultiplied": True,
+            "alphaOnlyMutationPreserved": True,
+            "outputPremultiplied": True,
             "unrelatedAlphaReadRejected": True,
             "wholeVectorUseRejected": True,
             "rgbWriteRejected": True,
@@ -3065,6 +3269,22 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "source-proven-graph-input-alpha-attenuation",
             ),
             (
+                SINGLE_SAMPLER_ALPHA_MUTATION_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "source-proven-graph-input-single-sampler-alpha-mutation",
+            ),
+            (
+                SAME_SLOT_CHANNEL_RECONSTRUCTION_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "source-proven-graph-input-same-slot-channel-reconstruction",
+            ),
+            (
                 STAGE_UNIFORM_PASSTHROUGH_FRAGMENT,
                 {"graph_input_slots": (0,)},
                 "source-proven-graph-input-stage-uniform-passthrough",
@@ -3268,6 +3488,84 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                     ordinary_log,
                 )
 
+    def test_narrow_alpha_and_channel_profiles_reject_unproven_shapes(self):
+        cases = [
+            (
+                SINGLE_SAMPLER_ALPHA_MUTATION_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "source-proven-graph-input-single-sampler-alpha-mutation",
+            ),
+            (
+                SINGLE_SAMPLER_ALPHA_MUTATION_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                    "has_external_provider": True,
+                },
+                "source-proven-graph-input-single-sampler-alpha-mutation",
+            ),
+            (
+                SINGLE_SAMPLER_ALPHA_MUTATION_FRAGMENT,
+                {
+                    "graph_input_slots": (1,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "source-proven-graph-input-single-sampler-alpha-mutation",
+            ),
+            (
+                SINGLE_SAMPLER_ALPHA_MUTATION_CONTROL_FLOW_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "source-proven-graph-input-single-sampler-alpha-mutation",
+            ),
+            (
+                SAME_SLOT_CHANNEL_RECONSTRUCTION_WRONG_SLOT_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "source-proven-graph-input-same-slot-channel-reconstruction",
+            ),
+            (
+                SAME_SLOT_CHANNEL_RECONSTRUCTION_ALPHA_WRITE_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "source-proven-graph-input-same-slot-channel-reconstruction",
+            ),
+            (
+                SAME_SLOT_CHANNEL_RECONSTRUCTION_EXTRA_SAMPLE_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "source-proven-graph-input-same-slot-channel-reconstruction",
+            ),
+            (
+                SAME_SLOT_CHANNEL_RECONSTRUCTION_CONTROL_FLOW_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "source-proven-graph-input-same-slot-channel-reconstruction",
+            ),
+        ]
+        for fragment, facts, rejected_profile in cases:
+            with self.subTest(fragment=fragment[:80]), tempfile.TemporaryDirectory(
+                prefix="mwx-generic-artifact-test-"
+            ) as directory:
+                result, _, _, log = self.run_harness(
+                    Path(directory),
+                    route="prefer-generic",
+                    fragment=fragment,
+                    **facts,
+                )
+                self.assertTrue(result["permitsBoundedFrontend"])
+                self.assertNotIn(f"profile={rejected_profile}", log)
+
     def test_migrated_profiles_accept_generic_artifacts_and_fail_closed(self):
         cases = [
             (
@@ -3288,6 +3586,26 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 },
                 "straight-alpha",
                 "source-proven-graph-input-alpha-attenuation",
+                False,
+            ),
+            (
+                SINGLE_SAMPLER_ALPHA_MUTATION_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "straight-alpha",
+                "source-proven-graph-input-single-sampler-alpha-mutation",
+                False,
+            ),
+            (
+                SAME_SLOT_CHANNEL_RECONSTRUCTION_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                },
+                "straight-alpha-preserving",
+                "source-proven-graph-input-same-slot-channel-reconstruction",
                 False,
             ),
             (

@@ -91,7 +91,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
     ) -> SceneAuthoredShaderProgram? {
         guard schemaVersion == 3,
               kind == "scene-generic-shader-program-artifact",
-              backendID == "glslang-spirv-cross-msl-v1",
+              backendID == "glslang-spirv-cross-msl-v2",
               requestKey == expectedKey else { return nil }
         let raw = program
         guard raw.vertexFunctionName == "mwxGenericVertex",

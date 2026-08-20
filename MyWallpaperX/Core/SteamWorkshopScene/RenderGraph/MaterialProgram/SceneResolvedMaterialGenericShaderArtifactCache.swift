@@ -219,6 +219,16 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 .conditionalStraightUnionSourceSlot(
                     fragmentSource: fragmentSource
                 )
+        let singleSamplerAlphaMutationSourceSlot =
+            SceneAuthoredShaderColorTransferAnalyzer
+                .singleSamplerAlphaMutationSourceSlot(
+                    fragmentSource: fragmentSource
+                )
+        let sameSlotChannelReconstructionSourceSlot =
+            SceneAuthoredShaderColorTransferAnalyzer
+                .sameSlotChannelReconstructionSourceSlot(
+                    fragmentSource: fragmentSource
+                )
         let normalizedSampleSumSourceSlot =
             SceneAuthoredShaderNormalizedSampleSumAnalyzer.sourceSlot(
                 fragmentSource: fragmentSource
@@ -240,6 +250,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             colorBlendSourceSlot: colorBlendSourceSlot,
             conditionalStraightUnionSourceSlot:
                 conditionalStraightUnionSourceSlot,
+            singleSamplerAlphaMutationSourceSlot:
+                singleSamplerAlphaMutationSourceSlot,
+            sameSlotChannelReconstructionSourceSlot:
+                sameSlotChannelReconstructionSourceSlot,
             normalizedSampleSumSourceSlot: normalizedSampleSumSourceSlot,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,

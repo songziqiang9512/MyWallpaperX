@@ -17,7 +17,10 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
             in: source
         )
         guard declarations.count == 1 else {
-            return lowerComposed(source, expectedSlot: expectedSlot)
+            return lowerDirectComponentReconstruction(
+                source,
+                expectedSlot: expectedSlot
+            ) ?? lowerComposed(source, expectedSlot: expectedSlot)
         }
         guard let prefix = capture(declarations[0], 1, in: source),
               let local = capture(declarations[0], 2, in: source),
@@ -50,6 +53,106 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
             adjustedDeclarationRange,
             with: "\(prefix)\(unpremultiply)(g_Texture\(expectedSlot).sample(\(arguments)))\(suffix)"
         )
+        return insertingBoundaryHelpers(into: transformed)
+    }
+
+    /// Conserves a source-proven, same-slot RGB component reconstruction
+    /// through SPIRV-Cross. The authored analyzer owns the semantic proof; this
+    /// pass independently verifies the corresponding compiler shape before
+    /// moving all samples into straight color and restoring the one compositor
+    /// boundary at output.
+    static func lowerDirectComponentReconstruction(
+        _ source: String,
+        expectedSlot: Int
+    ) -> String? {
+        guard !containsWord(unpremultiply, in: source),
+              !containsWord(premultiply, in: source),
+              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
+        else { return nil }
+        let declarations = matches(
+            #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
+                + String(expectedSlot)
+                + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
+            in: source
+        )
+        let allSampleCalls = matches(
+            #"\bg_Texture[0-7]\.sample\s*\("#,
+            in: source
+        )
+        let outputs = matches(
+            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
+            in: source
+        )
+        guard declarations.count >= 2,
+              allSampleCalls.count == declarations.count,
+              outputs.count == 1,
+              let output = outputs.first,
+              let outputRange = Range(output.range, in: source),
+              let indent = capture(output, 1, in: source),
+              let carrier = capture(output, 2, in: source),
+              declarations.allSatisfy({ $0.range.location < output.range.location })
+        else { return nil }
+
+        let sampledNames = declarations.compactMap { capture($0, 2, in: source) }
+        guard sampledNames.count == declarations.count,
+              Set(sampledNames).count == sampledNames.count else { return nil }
+        let carrierPattern = escaped(carrier)
+        let carrierDefinitions = matches(
+            #"(?m)^[ \t]*float4\s+"# + carrierPattern
+                + #"\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
+            in: source
+        )
+        guard carrierDefinitions.count == 1,
+              let base = capture(carrierDefinitions[0], 1, in: source),
+              sampledNames.contains(base),
+              carrierDefinitions[0].range.location < output.range.location else {
+            return nil
+        }
+        let writes = matches(
+            #"(?m)^[ \t]*"# + carrierPattern
+                + #"\.([xyz])\s*=\s*([A-Za-z_]\w*)\.([xyz])\s*;[ \t]*$"#,
+            in: source
+        )
+        let writeComponents = writes.compactMap { capture($0, 1, in: source) }
+        let writeSources = writes.compactMap { capture($0, 2, in: source) }
+        let sourceComponents = writes.compactMap { capture($0, 3, in: source) }
+        guard !writes.isEmpty,
+              writeComponents.count == writes.count,
+              writeSources.count == writes.count,
+              sourceComponents.count == writes.count,
+              writeComponents == sourceComponents,
+              Set(writeComponents).count == writes.count,
+              Set(writeSources).count == writes.count,
+              !writeSources.contains(base),
+              Set(sampledNames) == Set(writeSources + [base]),
+              writes.allSatisfy({
+                  carrierDefinitions[0].range.location < $0.range.location
+                      && $0.range.location < output.range.location
+              }),
+              countWord(base, in: source) == 2,
+              writeSources.allSatisfy({ countWord($0, in: source) == 2 }),
+              countWord(carrier, in: source) == writes.count + 2,
+              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1 else {
+            return nil
+        }
+
+        var transformed = source
+        transformed.replaceSubrange(
+            outputRange,
+            with: "\(indent)out.mwxFragColor = \(premultiply)(\(carrier));"
+        )
+        for declaration in declarations.sorted(by: { $0.range.location > $1.range.location }) {
+            guard let prefix = capture(declaration, 1, in: source),
+                  let arguments = capture(declaration, 3, in: source),
+                  let suffix = capture(declaration, 4, in: source),
+                  let range = Range(declaration.range, in: transformed) else {
+                return nil
+            }
+            transformed.replaceSubrange(
+                range,
+                with: "\(prefix)\(unpremultiply)(g_Texture\(expectedSlot).sample(\(arguments)))\(suffix)"
+            )
+        }
         return insertingBoundaryHelpers(into: transformed)
     }
 
@@ -281,6 +384,10 @@ inline float4 \(premultiply)(float4 color) {
 
     private static func containsWord(_ word: String, in source: String) -> Bool {
         !matches(#"\b"# + escaped(word) + #"\b"#, in: source).isEmpty
+    }
+
+    private static func countWord(_ word: String, in source: String) -> Int {
+        matches(#"\b"# + escaped(word) + #"\b"#, in: source).count
     }
 
     private static func matches(

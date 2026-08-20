@@ -54,7 +54,7 @@ nonisolated enum SceneGenericShaderCompilerBundle {
         let limits: Limits
     }
 
-    private static let expectedBackendID = "glslang-spirv-cross-msl-v1"
+    private static let expectedBackendID = "glslang-spirv-cross-msl-v2"
     private static let expectedTeamID = "H9QWU9XN8R"
 
     static func resolve(bundle: Bundle = .main) -> Result<Configuration, Failure> {

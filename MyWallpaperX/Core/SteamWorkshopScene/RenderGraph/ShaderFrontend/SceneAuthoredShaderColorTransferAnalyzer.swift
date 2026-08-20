@@ -49,6 +49,42 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         )
     }
 
+    /// Returns the source slot only when one sampled color is preserved in RGB
+    /// and receives exactly one unconditional alpha mutation before output.
+    /// This provenance is deliberately narrower than `.straightAlpha`: it can
+    /// own a route without upgrading conditional, reconstructed, or auxiliary
+    /// sampler forms that merely share the same compositor representation.
+    static func singleSamplerAlphaMutationSourceSlot(
+        fragmentSource source: String
+    ) -> Int? {
+        guard let (fragment, main, outputUses) = analyzedMain(source) else {
+            return nil
+        }
+        return mutatedStraightAlphaSlot(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        )
+    }
+
+    /// Returns the source slot only for a bounded same-slot channel
+    /// reconstruction: either the existing composed RGB proof or a base sample
+    /// with one or more distinct shifted RGB component writes. Both shapes
+    /// preserve the base alpha and reject hidden samples and control flow, so
+    /// the fact remains independent of effect identity or variable spelling.
+    static func sameSlotChannelReconstructionSourceSlot(
+        fragmentSource source: String
+    ) -> Int? {
+        guard let (fragment, main, outputUses) = analyzedMain(source) else {
+            return nil
+        }
+        return SceneAuthoredShaderSameSlotChannelReconstructionAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        )
+    }
+
     static func analyze(
         _ fragment: SceneAuthoredShaderSyntaxUnit
     ) -> SceneShaderColorTransfer {
@@ -280,6 +316,63 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             }
         }
         return alphaWrites == 1 ? slot : nil
+    }
+
+    private static func mutatedStraightAlphaSlot(
+        outputUses: [Int],
+        fragment: SceneAuthoredShaderSyntaxUnit,
+        main: SceneAuthoredShaderSyntaxUnit.Function
+    ) -> Int? {
+        guard outputUses.count == 1,
+              let output = outputUses.first,
+              output + 1 < fragment.tokens.count,
+              fragment.tokens[output + 1].text == "=",
+              main.bodyRange.contains(output),
+              isUnconditionalWrite(
+                  output,
+                  tokens: fragment.tokens,
+                  body: main.bodyRange
+              ),
+              let expression = assignmentExpression(
+                  after: output,
+                  in: fragment.tokens,
+                  body: main.bodyRange
+              ) else {
+            return nil
+        }
+        return mutatedStraightAlphaSlot(
+            expression,
+            outputAssignment: output,
+            tokens: fragment.tokens,
+            body: main.bodyRange
+        )
+    }
+
+    private static func analyzedMain(
+        _ source: String
+    ) -> (
+        fragment: SceneAuthoredShaderSyntaxUnit,
+        main: SceneAuthoredShaderSyntaxUnit.Function,
+        outputUses: [Int]
+    )? {
+        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: source,
+                stage: .fragment
+            ),
+            stage: .fragment
+        )
+        guard syntax.diagnostics.isEmpty,
+              let fragment = syntax.unit,
+              let main = fragment.functions.first(where: { $0.name == "main" })
+        else { return nil }
+        return (
+            fragment,
+            main,
+            fragment.tokens.indices.filter {
+                fragment.tokens[$0].text == "gl_FragColor"
+            }
+        )
     }
 
     private static func textureSampleSlots(

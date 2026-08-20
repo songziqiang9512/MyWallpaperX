@@ -55,6 +55,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-color-blend"
     case sourceProvenGraphInputConditionalStraightUnion =
         "source-proven-graph-input-conditional-straight-union"
+    case sourceProvenGraphInputSingleSamplerAlphaMutation =
+        "source-proven-graph-input-single-sampler-alpha-mutation"
+    case sourceProvenGraphInputSameSlotChannelReconstruction =
+        "source-proven-graph-input-same-slot-channel-reconstruction"
     case sourceProvenGraphInputStraightAlpha =
         "source-proven-graph-input-straight-alpha"
     case sourceProvenGraphInputAudioStageUniformStraightAlphaNoAuxiliary =
@@ -73,6 +77,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         alphaAttenuationSourceSlot: Int?,
         colorBlendSourceSlot: Int?,
         conditionalStraightUnionSourceSlot: Int?,
+        singleSamplerAlphaMutationSourceSlot: Int?,
+        sameSlotChannelReconstructionSourceSlot: Int?,
         normalizedSampleSumSourceSlot: Int?,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
@@ -134,6 +140,14 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots.contains(sourceSlot) {
             self = .sourceProvenGraphInputAlphaAttenuation
         } else if case let .straightAlpha(sourceSlot) = colorTransfer,
+                  singleSamplerAlphaMutationSourceSlot == sourceSlot,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]),
+                  hasOnlyGraphInputSampler {
+            self = .sourceProvenGraphInputSingleSamplerAlphaMutation
+        } else if case let .straightAlpha(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
                   graphTextureSlots.isEmpty,
@@ -148,6 +162,14 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   !producesScalarRedOutput,
                   graphInputTextureSlots.contains(sourceSlot) {
             self = .sourceProvenGraphInputStraightAlpha
+        } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
+                  sameSlotChannelReconstructionSourceSlot == sourceSlot,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]),
+                  hasOnlyGraphInputSampler {
+            self = .sourceProvenGraphInputSameSlotChannelReconstruction
         } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
@@ -195,6 +217,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
              .sourceProvenGraphInputConditionalStraightUnion,
+             .sourceProvenGraphInputSingleSamplerAlphaMutation,
+             .sourceProvenGraphInputSameSlotChannelReconstruction,
              .sourceProvenGraphInputAudioStageUniformStraightAlphaNoAuxiliary,
              .sourceProvenGraphInputStageUniformStraightAlphaPreserving,
              .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary,

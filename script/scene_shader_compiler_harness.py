@@ -888,7 +888,7 @@ def compile_request(
             try:
                 artifact = build_program_artifact(
                     request_key=request_cache_key(request),
-                    backend_id="glslang-spirv-cross-msl-v1",
+                    backend_id="glslang-spirv-cross-msl-v2",
                     compiled_stages=compiled,
                     stage_sources={stage["stage"]: stage["source"] for stage in stages},
                     msl_sources={

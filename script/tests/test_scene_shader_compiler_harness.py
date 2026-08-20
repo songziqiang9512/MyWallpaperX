@@ -239,7 +239,7 @@ fragment void f() {
 """
         artifact = build_program_artifact(
             request_key="a" * 64,
-            backend_id="glslang-spirv-cross-msl-v1",
+            backend_id="glslang-spirv-cross-msl-v2",
             compiled_stages=stages,
             stage_sources={
                 "vertex": "void main() {}",
@@ -258,7 +258,7 @@ fragment void f() {
         with self.assertRaisesRegex(ArtifactFailure, "loop-unbounded"):
             build_program_artifact(
                 request_key="b" * 64,
-                backend_id="glslang-spirv-cross-msl-v1",
+                backend_id="glslang-spirv-cross-msl-v2",
                 compiled_stages=stages,
                 stage_sources={
                     "vertex": "void main() {}",
@@ -316,7 +316,7 @@ fragment void f() {
 """
         kwargs = {
             "request_key": "c" * 64,
-            "backend_id": "glslang-spirv-cross-msl-v1",
+            "backend_id": "glslang-spirv-cross-msl-v2",
             "compiled_stages": stages,
             "stage_sources": {
                 "vertex": "void main() {}", "fragment": "void main() {}"
@@ -377,7 +377,7 @@ fragment void f() {
 """
         kwargs = {
             "request_key": "d" * 64,
-            "backend_id": "glslang-spirv-cross-msl-v1",
+            "backend_id": "glslang-spirv-cross-msl-v2",
             "compiled_stages": stages,
             "stage_sources": {
                 "vertex": "void main() {}", "fragment": "void main() {}"
@@ -453,7 +453,7 @@ fragment void f() {
 """
         artifact = build_program_artifact(
             request_key="f" * 64,
-            backend_id="glslang-spirv-cross-msl-v1",
+            backend_id="glslang-spirv-cross-msl-v2",
             compiled_stages=stages,
             stage_sources={
                 "vertex": "void main() {}", "fragment": "void main() {}"
@@ -505,7 +505,7 @@ fragment void f() {
 """
         kwargs = {
             "request_key": "e" * 64,
-            "backend_id": "glslang-spirv-cross-msl-v1",
+            "backend_id": "glslang-spirv-cross-msl-v2",
             "compiled_stages": stages,
             "stage_sources": {
                 "vertex": "void main() {}", "fragment": "void main() {}"

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "backendID": "glslang-spirv-cross-msl-v1",
+  "backendID": "glslang-spirv-cross-msl-v2",
   "routeState": "observe-only",
   "productExecutionAuthorized": false,
   "tools": {

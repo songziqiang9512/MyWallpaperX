@@ -26,23 +26,36 @@ nonisolated enum SceneAuthoredShaderSameSlotChannelReconstructionAnalyzer {
               statements.last?.contains(output) == true,
               !containsControlFlow(main.bodyRange, tokens: tokens),
               helperFunctionsDoNotSampleTextures(fragment, excluding: main),
-              SceneAuthoredShaderStraightBlendOutputAnalyzer
-                .hasNormalBlendHelper(fragment),
               let outputExpression = SceneAuthoredShaderColorTransferAnalyzer
                 .assignmentExpression(after: output, in: tokens, body: main.bodyRange),
-              let outputArguments = callArguments(
-                outputExpression, names: ["vec4", "float4"], count: 2
-              ), let color = identifier(outputArguments[0]),
-              let alpha = identifier(outputArguments[1]),
               let samples = samples(
                 statements: statements,
                 before: output,
                 fragment: fragment,
                 body: main.bodyRange
-              ), samples.count >= 4,
+              ),
               let slot = samples.first?.slot,
               samples.allSatisfy({ $0.slot == slot }),
-              Set(samples.map(\.name)).count == samples.count,
+              Set(samples.map(\.name)).count == samples.count else {
+            return nil
+        }
+        if directComponentReconstructionSlot(
+            outputExpression: outputExpression,
+            output: output,
+            statements: statements,
+            samples: samples,
+            tokens: tokens,
+            body: main.bodyRange
+        ) == slot {
+            return slot
+        }
+        guard SceneAuthoredShaderStraightBlendOutputAnalyzer
+                .hasNormalBlendHelper(fragment),
+              let outputArguments = callArguments(
+                outputExpression, names: ["vec4", "float4"], count: 2
+              ), let color = identifier(outputArguments[0]),
+              let alpha = identifier(outputArguments[1]),
+              samples.count >= 4,
               let alphaDefinition = definition(
                 alpha, type: ["float"], statements: statements,
                 before: output, tokens: tokens
@@ -110,6 +123,100 @@ nonisolated enum SceneAuthoredShaderSameSlotChannelReconstructionAnalyzer {
             return nil
         }
         return slot
+    }
+
+    /// Proves the post-preprocessing stock channel-offset shape without
+    /// depending on its variable spelling or effect identity:
+    ///
+    ///     vec4 output = baseSample;
+    ///     output.r = shiftedRed.r;
+    ///     output.b = shiftedBlue.b;
+    ///     gl_FragColor = output;
+    ///
+    /// Every sampled value must come from the same slot, every non-base sample
+    /// must feed exactly one matching RGB component, and alpha must have no
+    /// write at all.
+    private static func directComponentReconstructionSlot(
+        outputExpression: ArraySlice<Token>,
+        output: Int,
+        statements: [Range<Int>],
+        samples: [Sample],
+        tokens: [Token],
+        body: Range<Int>
+    ) -> Int? {
+        guard samples.count >= 2,
+              let carrier = identifier(outputExpression),
+              let carrierDefinition = definition(
+                carrier,
+                type: ["vec4", "float4"],
+                statements: statements,
+                before: output,
+                tokens: tokens
+              ),
+              let carrierExpression = SceneAuthoredShaderColorTransferAnalyzer
+                .assignmentExpression(
+                    after: carrierDefinition,
+                    in: tokens,
+                    body: body
+                ),
+              let base = identifier(carrierExpression),
+              let baseSample = samples.first(where: { $0.name == base }) else {
+            return nil
+        }
+
+        var carrierWrites: [Int] = []
+        var sourceUses: [(sample: Sample, use: Int, component: String)] = []
+        for index in (carrierDefinition + 1)..<output where tokens[index].text == carrier {
+            guard index + 3 < output,
+                  tokens[index + 1].text == ".",
+                  ["r", "g", "b"].contains(tokens[index + 2].text),
+                  tokens[index + 3].text == "=",
+                  let expression = SceneAuthoredShaderColorTransferAnalyzer
+                    .assignmentExpression(
+                        after: index + 2,
+                        in: tokens,
+                        body: body
+                    ),
+                  let source = memberName(
+                    expression,
+                    component: tokens[index + 2].text
+                  ),
+                  source != base,
+                  let sample = samples.first(where: { $0.name == source }) else {
+                return nil
+            }
+            carrierWrites.append(index)
+            sourceUses.append((sample, expression.startIndex, tokens[index + 2].text))
+        }
+
+        guard !carrierWrites.isEmpty,
+              Set(sourceUses.map(\.component)).count == sourceUses.count,
+              Set(sourceUses.map({ $0.sample.name })).count == sourceUses.count,
+              samples.count == sourceUses.count + 1,
+              exactUses(
+                baseSample,
+                expected: [carrierExpression.startIndex],
+                before: output,
+                tokens: tokens
+              ),
+              sourceUses.allSatisfy({ use in
+                  exactUses(
+                    use.sample,
+                    expected: [use.use],
+                    before: output,
+                    tokens: tokens
+                  )
+              }),
+              exactUses(
+                named: carrier,
+                definition: carrierDefinition,
+                expected: carrierWrites + [outputExpression.startIndex],
+                before: outputExpression.endIndex,
+                tokens: tokens
+              ) else {
+            return nil
+        }
+        return baseSample.slot
     }
 
     private static func samples(

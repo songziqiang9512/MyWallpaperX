@@ -297,7 +297,15 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         case .premultipliedAlpha:
             return (source, artifactTransfer(kind: "premultiplied"))
         case let .straightAlpha(textureSlot: expectedSlot):
-            let direct = straightAlphaAttenuation(source)
+            let requiresStraightColorBoundary =
+                SceneAuthoredShaderColorTransferAnalyzer
+                    .singleSamplerAlphaMutationSourceSlot(
+                        fragmentSource: authoredSource
+                    ) == expectedSlot
+            let direct = straightAlphaAttenuation(
+                source,
+                requiresStraightColorBoundary: requiresStraightColorBoundary
+            )
             let lowered = direct?.transfer.slot == expectedSlot ? direct?.msl
                 : SceneGenericShaderStraightAlphaPreservingLowering
                     .lowerConditionalUnion(source, expectedSlot: expectedSlot)
@@ -449,7 +457,10 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         return .init(kind: "interpolated-color", slot: nil, slots: slots)
     }
 
-    private static func straightAlphaAttenuation(_ source: String) -> (
+    private static func straightAlphaAttenuation(
+        _ source: String,
+        requiresStraightColorBoundary: Bool = false
+    ) -> (
         msl: String,
         transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
     )? {
@@ -487,6 +498,21 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                   #"\b"# + namePattern + #"\.(?:[xyzrgb]{1,3})\b"#, in: source
               ).count,
               let replaceRange = Range(attenuation[0].range, in: source) else { return nil }
+        if requiresStraightColorBoundary {
+            guard let transformed =
+                SceneGenericShaderStraightAlphaPreservingLowering
+                    .lowerPreserving(source, expectedSlot: slot) else {
+                return nil
+            }
+            return (
+                transformed,
+                SceneGenericShaderProgramArtifact.Program.ColorTransfer(
+                    kind: "straight-alpha",
+                    slot: slot,
+                    slots: nil
+                )
+            )
+        }
         var transformed = source
         transformed.replaceSubrange(replaceRange, with: "\(indent)\(name) *= \(factor);")
         return (
