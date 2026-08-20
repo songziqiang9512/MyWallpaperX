@@ -31,6 +31,9 @@ EXECUTOR_SOURCE = SCENE_ROOT / (
 PROGRAM_FIRST_STAGES_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
 )
+VISUAL_FAILURE_TOPOLOGY_SOURCE = SCENE_ROOT / (
+    "RenderGraph/EffectExecution/SceneResolvedMaterialVisualFailureTopology.swift"
+)
 VISUAL_FAILURE_PASSTHROUGH_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
 )
@@ -63,6 +66,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
     PROGRAM_FIRST_STAGES_SOURCE,
+    VISUAL_FAILURE_TOPOLOGY_SOURCE,
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
     SCENE_ROOT

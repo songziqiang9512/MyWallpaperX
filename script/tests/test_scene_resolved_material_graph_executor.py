@@ -3740,6 +3740,42 @@ private enum Harness {
                 material(1, ordinal: 1, target: output, read: first),
             ]
         )
+        let commandVisualFailureGraph = graph(
+            targets: [rawTarget(first), rawTarget(second)],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                command(1, kind: .copy, source: first, target: second),
+                material(2, ordinal: 1, target: output, read: second),
+            ]
+        )
+        let commandVisualFailureChain = admittedGraph(commandVisualFailureGraph)
+        let commandVisualFailureCapabilities = capabilities(
+            commandVisualFailureChain,
+            catalog: catalog(
+                for: commandVisualFailureGraph,
+                uniformSchemaInvalidNodes: [0]
+            )
+        )
+        let commandDynamicTarget = dynamicUniformTarget(
+            commandVisualFailureGraph.nodes[2]
+        )
+        let commandDynamicDefinition = SceneDynamicTargetDefinition(
+            target: commandDynamicTarget,
+            valueType: .scalar,
+            authoredValue: .scalar(1)
+        )
+        let commandDynamicCapabilities = capabilities(
+            commandVisualFailureChain,
+            catalog: catalog(
+                for: commandVisualFailureGraph,
+                dynamicUniformNodes: [2]
+            ),
+            dynamicProducers: .init(
+                userProperties: [],
+                timelineTargets: [commandDynamicTarget],
+                sceneScriptTargets: []
+            )
+        )
         let ordinaryChain = admittedGraph(ordinaryGraph)
         let ordinaryCatalog = catalog(for: ordinaryGraph)
         let ordinaryCapabilities = capabilities(
@@ -3965,6 +4001,114 @@ private enum Harness {
                         recoveryCommand.waitUntilCompleted()
                         fboVisualFailureRecoveredNextFrame =
                             fboVisualFailureRecoveredNextFrame
+                            && recoveryCommand.status == .completed
+                            && recoveryCommand.error == nil
+                    }
+                }
+            }
+        }
+
+        var commandVisualFailurePrepared = false
+        var commandVisualFailureEncoded = false
+        var commandVisualFailureGPUCompleted = false
+        var commandVisualFailurePreservedPreviousCurrent = false
+        var commandVisualFailureDiscardedPreparedPrefix = false
+        var commandVisualFailureRecoveredNextFrame = false
+        if let claim = commandDynamicCapabilities.claim(commandVisualFailureChain),
+           let executor = Executor(
+               device: device,
+               capabilities: commandDynamicCapabilities
+           ), let firstCommand = queue.makeCommandBuffer() {
+            let plan = requirePlan(commandVisualFailureGraph)
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: [makeLease(plan, device: device, generation: 32)],
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(32),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: firstCommand,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 32,
+                resetGeneration: 32
+            )
+            if case let .success(prepared) = preparation,
+               let stage = prepared.stages.first,
+               stage.effectLocalFailureReasonCode
+                    == "material-finalizer-dynamic-uniform-binding",
+               stage.programCacheKeys == [
+                   "visual-failure-passthrough:"
+                       + "material-finalizer-dynamic-uniform-binding"
+               ] {
+                commandVisualFailurePrepared = true
+                commandVisualFailureDiscardedPreparedPrefix =
+                    stage.transition.transaction.intents.isEmpty
+                    && stage.transition.transaction.mappingBefore.isEmpty
+                    && stage.transition.transaction.mappingAfter.isEmpty
+                    && stage.transition.nextState.logicalMapping.isEmpty
+                    && stage.frameResources.isEmpty
+                    && stage.persistentResources.isEmpty
+                commandVisualFailureEncoded = executor.encode(
+                    prepared,
+                    commandBuffer: firstCommand
+                )
+                let readback = commandVisualFailureEncoded
+                    ? appendReadback(
+                        prepared.finalTexture,
+                        commandBuffer: firstCommand
+                    ) : nil
+                firstCommand.commit()
+                firstCommand.waitUntilCompleted()
+                commandVisualFailureGPUCompleted =
+                    firstCommand.status == .completed && firstCommand.error == nil
+                commandVisualFailurePreservedPreviousCurrent = readback.map {
+                    matches($0.firstPixel, [0, 0, 255, 255])
+                        && matches($0.lastPixel, [0, 0, 255, 255])
+                } ?? false
+
+                if let recoveryCommand = queue.makeCommandBuffer() {
+                    let recovery = executor.prepare(
+                        token: claim.token,
+                        leases: [makeLease(
+                            plan,
+                            device: device,
+                            generation: 33
+                        )],
+                        historyRehydrateCopiesByEffect: [:],
+                        frame: frame(
+                            33,
+                            dynamicDefinitions: [commandDynamicDefinition],
+                            timelineValues: [commandDynamicTarget: .scalar(1)]
+                        ),
+                        sourceTexture: source,
+                        sourceUniforms: .neutral(),
+                        sourcePipeline: sourcePipeline,
+                        dedicatedInputs: .init(),
+                        commandBuffer: recoveryCommand,
+                        previousStates: [effect: stage.transition.nextState],
+                        previousGraphResources: [effect: [:]],
+                        effectGeneration: 32,
+                        resetGeneration: 32
+                    )
+                    if case let .success(recovered) = recovery,
+                       let recoveredStage = recovered.stages.first {
+                        commandVisualFailureRecoveredNextFrame =
+                            recoveredStage.effectLocalFailureReasonCode == nil
+                            && recoveredStage.programCacheKeys.count == 2
+                            && intentKinds(recovered) == [
+                                "material", "copy", "material",
+                            ]
+                            && executor.encode(
+                                recovered,
+                                commandBuffer: recoveryCommand
+                            )
+                        recoveryCommand.commit()
+                        recoveryCommand.waitUntilCompleted()
+                        commandVisualFailureRecoveredNextFrame =
+                            commandVisualFailureRecoveredNextFrame
                             && recoveryCommand.status == .completed
                             && recoveryCommand.error == nil
                     }
@@ -4509,12 +4653,20 @@ private enum Harness {
                 material(1, ordinal: 1, target: output, read: first),
             ]
         )
-        let commandVisualFailureGraph = graph(
+        let readBeforeWriteVisualFailureGraph = graph(
+            targets: [rawTarget(first), rawTarget(second)],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: second),
+                material(1, ordinal: 1, target: second, read: input),
+                material(2, ordinal: 2, target: output, read: first),
+            ]
+        )
+        let unusedTargetVisualFailureGraph = graph(
             targets: [rawTarget(first), rawTarget(second)],
             nodes: [
                 material(0, ordinal: 0, target: first, read: input),
-                command(1, kind: .copy, source: first, target: second),
-                material(2, ordinal: 1, target: output, read: second),
+                material(1, ordinal: 1, target: second, read: input),
+                material(2, ordinal: 2, target: output, read: first),
             ]
         )
         let passCapabilities = capabilities(
@@ -4555,10 +4707,17 @@ private enum Harness {
                 uniformSchemaInvalidNodes: [0]
             )
         )
-        let commandVisualFailureCapabilities = capabilities(
-            admittedGraph(commandVisualFailureGraph),
+        let readBeforeWriteVisualFailureCapabilities = capabilities(
+            admittedGraph(readBeforeWriteVisualFailureGraph),
             catalog: catalog(
-                for: commandVisualFailureGraph,
+                for: readBeforeWriteVisualFailureGraph,
+                uniformSchemaInvalidNodes: [0]
+            )
+        )
+        let unusedTargetVisualFailureCapabilities = capabilities(
+            admittedGraph(unusedTargetVisualFailureGraph),
+            catalog: catalog(
+                for: unusedTargetVisualFailureGraph,
                 uniformSchemaInvalidNodes: [0]
             )
         )
@@ -4994,6 +5153,19 @@ private enum Harness {
             mixedChain,
             catalog: catalog(for: mixedGraph)
         )
+        let mixedVisualFailureTarget = dynamicUniformTarget(mixedGraph.nodes[4])
+        let mixedVisualFailureCapabilities = capabilities(
+            mixedChain,
+            catalog: catalog(
+                for: mixedGraph,
+                dynamicUniformNodes: [4]
+            ),
+            dynamicProducers: .init(
+                userProperties: [],
+                timelineTargets: [mixedVisualFailureTarget],
+                sceneScriptTargets: []
+            )
+        )
         let mixedClaim = mixedCapabilities.claim(mixedChain)!
         let mixedExecutor = Executor(
             device: device,
@@ -5018,6 +5190,59 @@ private enum Harness {
             effectGeneration: 1,
             resetGeneration: 1
         )
+        var mixedVisualFailureRollsBackWholeEffect = false
+        if let claim = mixedVisualFailureCapabilities.claim(mixedChain),
+           let executor = Executor(
+               device: device,
+               capabilities: mixedVisualFailureCapabilities
+           ), let command = queue.makeCommandBuffer() {
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: [makeLease(
+                    requirePlan(mixedGraph),
+                    device: device,
+                    generation: 34
+                )],
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(34),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 34,
+                resetGeneration: 34
+            )
+            if case let .success(prepared) = preparation,
+               let stage = prepared.stages.first,
+               stage.effectLocalFailureReasonCode
+                    == "material-finalizer-dynamic-uniform-binding",
+               stage.programCacheKeys == [
+                   "visual-failure-passthrough:"
+                       + "material-finalizer-dynamic-uniform-binding"
+               ],
+               stage.transition.transaction.intents.isEmpty,
+               stage.transition.transaction.mappingBefore.isEmpty,
+               stage.transition.transaction.mappingAfter.isEmpty,
+               stage.transition.nextState.logicalMapping.isEmpty,
+               stage.frameResources.isEmpty,
+               stage.persistentResources.isEmpty,
+               executor.encode(prepared, commandBuffer: command),
+               let readback = appendReadback(
+                   prepared.finalTexture,
+                   commandBuffer: command
+               ) {
+                command.commit()
+                command.waitUntilCompleted()
+                mixedVisualFailureRollsBackWholeEffect =
+                    command.status == .completed
+                    && command.error == nil
+                    && matches(readback.firstPixel, [0, 0, 255, 255])
+                    && matches(readback.lastPixel, [0, 0, 255, 255])
+            }
+        }
 
         let freshCopyGraph = graph(
             targets: [rawTarget(first), rawTarget(second)],
@@ -5360,10 +5585,18 @@ private enum Harness {
                 uniqueVisualFailureCapabilities.claim(
                     admittedGraph(uniqueVisualFailureGraph)
                 ) == nil,
-            "commandGraphVisualFailureRemainsHardRejected":
+            "readBeforeWriteHistoryVisualFailureRemainsHardRejected":
+                readBeforeWriteVisualFailureCapabilities.claim(
+                    admittedGraph(readBeforeWriteVisualFailureGraph)
+                ) == nil,
+            "unusedTargetVisualFailureRemainsHardRejected":
+                unusedTargetVisualFailureCapabilities.claim(
+                    admittedGraph(unusedTargetVisualFailureGraph)
+                ) == nil,
+            "commandGraphLaunchVisualFailureCanClaimWholeEffectPassthrough":
                 commandVisualFailureCapabilities.claim(
                     admittedGraph(commandVisualFailureGraph)
-                ) == nil,
+                ) != nil,
             "oversizedNodeGraphRejectedBeforeGPU": capabilities(
                 admittedGraph(oversizedNodeGraph), catalog: catalog(for: oversizedNodeGraph)
             ).claim(admittedGraph(oversizedNodeGraph)) == nil,
@@ -5594,6 +5827,18 @@ private enum Harness {
                 fboVisualFailureDiscardedUncommittedTargetState,
             "fboVisualFailureRecoversOnNextFrame":
                 fboVisualFailureRecoveredNextFrame,
+            "commandVisualFailurePassthroughPrepared":
+                commandVisualFailurePrepared,
+            "commandVisualFailurePassthroughEncoded":
+                commandVisualFailureEncoded,
+            "commandVisualFailurePassthroughGPUCompleted":
+                commandVisualFailureGPUCompleted,
+            "commandVisualFailurePreservesPreviousCurrent":
+                commandVisualFailurePreservedPreviousCurrent,
+            "commandVisualFailureDiscardsPreparedMaterialAndCopyPrefix":
+                commandVisualFailureDiscardedPreparedPrefix,
+            "commandVisualFailureRecoversOnNextFrame":
+                commandVisualFailureRecoveredNextFrame,
             "visualUniformSchemaFailureCanClaimEffectLocalPassthrough":
                 visualFailureCanClaimEffectLocalPassthrough,
             "visualUniformSchemaFailurePassthroughPrepared":
@@ -5675,6 +5920,8 @@ private enum Harness {
                 && mixedKinds.contains("copy")
                 && mixedKinds.contains("swap")
                 && mixedPublicationChain,
+            "unseenMixedCopySwapVisualFailureRollsBackWholeEffect":
+                mixedVisualFailureRollsBackWholeEffect,
             "freshCopyTargetPreparedAndEncoded":
                 failureCode(freshCopyPreparation) == "success"
                     && freshCopyPreparedAndEncoded,

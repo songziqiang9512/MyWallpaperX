@@ -271,8 +271,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     /// resource, target, dependency, state and lifecycle failures remain hard
     /// rejections. Multi-node stages are admitted only as one atomic effect; a
     /// failed intermediate Program never publishes a partial authored result.
-    /// Besides the pair-only compose shape, this admits one ordinary two-pass
-    /// framebuffer shape whose target has no persistent lifetime or commands.
+    /// Besides the pair-only compose shape, this admits an ordinary
+    /// non-persistent framebuffer command graph. Every framebuffer read must
+    /// follow a same-effect write, so no history can be hidden in this gate.
     private static func visualFailureMayPassthrough(
         _ failure: Rejection,
         product: SceneGraphAdmissionProduct,
@@ -342,54 +343,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                   pairNode.kind == .material else { return false }
         }
         return true
-    }
-
-    private static func visualFailureFramebufferTopologyMayPassthrough(
-        _ graph: Graph,
-        effect: Graph.Effect,
-        pairStep: SceneLayerFullFramePairPlan.EffectStep
-    ) -> Bool {
-        guard graph.renderTargets.count == 1,
-              let target = graph.renderTargets.first,
-              !target.declaredUnique,
-              target.clear == nil,
-              target.conditions == nil,
-              graph.nodes.count == 2,
-              pairStep.nodes.count == 2,
-              pairStep.fullFrameOutputWriteCount == 1,
-              pairStep.composeTransitionCount == 0,
-              pairStep.inputMember != pairStep.outputMember else { return false }
-        let first = graph.nodes[0]
-        let terminal = graph.nodes[1]
-        guard first.effect == effect.key,
-              first.kind == .material,
-              first.materialOrdinal == 0,
-              first.target == target.texture,
-              first.commandSource == nil,
-              first.commandTarget == nil,
-              first.compose == nil || first.compose == .bool(false),
-              first.conditions == nil,
-              first.bindings.contains(where: { $0.texture == effect.input }),
-              first.bindings.allSatisfy({
-                  $0.texture == effect.input && $0.conditions == nil
-              }),
-              terminal.effect == effect.key,
-              terminal.kind == .material,
-              terminal.materialOrdinal == 1,
-              terminal.target == effect.output,
-              terminal.commandSource == nil,
-              terminal.commandTarget == nil,
-              terminal.compose == nil || terminal.compose == .bool(false),
-              terminal.conditions == nil,
-              terminal.bindings.contains(where: { $0.texture == target.texture }),
-              terminal.bindings.allSatisfy({
-                  ($0.texture == target.texture || $0.texture == effect.input)
-                    && $0.conditions == nil
-              }) else { return false }
-        return pairStep.nodes[0].nodeIndex == first.nodeIndex
-            && pairStep.nodes[0].kind == .material
-            && pairStep.nodes[1].nodeIndex == terminal.nodeIndex
-            && pairStep.nodes[1].kind == .material
     }
 
     /// Dedicated stages consume the same launch-scoped producer catalog as

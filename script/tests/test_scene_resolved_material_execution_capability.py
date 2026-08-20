@@ -34,6 +34,10 @@ CAPABILITY_PROGRAM_FIRST_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
 )
+VISUAL_FAILURE_TOPOLOGY_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialVisualFailureTopology.swift"
+)
 VARIANT_CACHE_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant.swift"
@@ -82,6 +86,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
     CAPABILITY_PROGRAM_FIRST_SOURCE,
+    VISUAL_FAILURE_TOPOLOGY_SOURCE,
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
     SCENE_ROOT
@@ -110,6 +115,7 @@ ENVELOPE_SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
     CAPABILITY_PROGRAM_FIRST_SOURCE,
+    VISUAL_FAILURE_TOPOLOGY_SOURCE,
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
     SCENE_ROOT
@@ -3604,12 +3610,17 @@ struct SceneGraphClearFunctionRegistry {
 }
 
 struct SceneLayerFullFramePairPlan {
-    enum NodeKind { case material }
+    enum NodeKind { case material, copy, swap }
 
     struct NodeStep {
         let nodeIndex: Int
         let definitionPassIndex: Int
         let kind: NodeKind
+        let currentMemberBeforeNode: Int = 0
+        let fullFrameReadMember: Int? = nil
+        let fullFrameWriteMember: Int? = nil
+        let rotatesAfterNode = false
+        let currentMemberAfterNode: Int = 0
     }
 
     struct EffectStep {

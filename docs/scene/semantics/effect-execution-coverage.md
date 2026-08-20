@@ -10,7 +10,7 @@
 
 所有 Effect 的第一启用条件相同：对象 `effects[]` 显式引用、effect 自身有效可见、owner layer 最终可见。表中的运行时拥有某个 profile 不会让未声明 Effect 自动启用。
 
-共享failure-radius现只额外覆盖exact单effect的普通`effect input → FBO → effect output`两material形态：无clear/unique/condition/command/history/dependency/compose，且第二node读取第一node FBO；eligible frontend/uniform/optional texture失败时整个effect回滚到进入前的previous current，未提交FBO state被丢弃并在下一帧重建。format仍由既有target/attachment admission决定，自动门覆盖RGBA与已准入R8形态，fresh App可见门只覆盖RGBA。它不按Motion Blur或样本身份准入，也不升级任何下表Effect family；target/ABI/generation/hazard/lifecycle/runtime encode及其他topology仍硬拒绝。项目正反门与刻意NON-PASS故障运行见[E-V1-ORDINARY-FBO-VISUAL-FAILURE-PASSTHROUGH](runtime-evidence-index.md#e-v1-ordinary-fbo-visual-failure-passthrough)。
+共享failure-radius现额外覆盖两类exact单effect ordinary FBO topology。第一类是无command的`effect input → FBO → effect output`两material形态；第二类允许同一effect内由已写target支配所有读取的ordinary material/copy/swap有序链，要求无clear/unique/read-before-write history/condition/function/dependency/compose、material ordinal严格递增、所有target都被初始化和消费、且只有末node全帧写effect output。eligible frontend/uniform/optional texture失败时，两类都把整个effect回滚到进入前的previous current，丢弃全部prepared material/command prefix和未提交FBO mapping/resources，并在下一帧重建。format仍由既有target/attachment admission决定；项目Metal正反门覆盖未见mixed command组合，fresh App只以RGBA两material/两copy闭合可见安全链。它们都不按Motion Blur或样本身份准入，也不升级任何下表Effect family；target/ABI/generation/epoch/hazard/lifecycle/runtime encode及其他topology仍硬拒绝。项目正反门与刻意NON-PASS故障运行见[E-V1-ORDINARY-FBO-VISUAL-FAILURE-PASSTHROUGH](runtime-evidence-index.md#e-v1-ordinary-fbo-visual-failure-passthrough)和[E-V1-ORDINARY-FBO-COMMAND-VISUAL-FAILURE-PASSTHROUGH](runtime-evidence-index.md#e-v1-ordinary-fbo-command-visual-failure-passthrough)。
 
 ## 1. 等级与执行通道
 

@@ -58,6 +58,7 @@
           "SceneResolvedMaterialExecutionCapability.swift",
           "SceneResolvedMaterialExecutionCapabilityAdmission.swift",
           "SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
+          "SceneResolvedMaterialVisualFailureTopology.swift",
           "SceneResolvedMaterialGraphExecutor*.swift",
           "SceneResolvedMaterialAttachment*.swift",
           "SceneResolvedMaterialPassEncoder*.swift"
