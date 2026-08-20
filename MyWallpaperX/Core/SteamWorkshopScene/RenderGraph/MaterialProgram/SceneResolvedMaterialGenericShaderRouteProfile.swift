@@ -51,6 +51,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-alpha-attenuation"
     case sourceProvenGraphInputColorBlend =
         "source-proven-graph-input-color-blend"
+    case sourceProvenGraphInputConditionalStraightUnion =
+        "source-proven-graph-input-conditional-straight-union"
     case sourceProvenGraphInputStraightAlpha =
         "source-proven-graph-input-straight-alpha"
     case sourceProvenGraphInputStraightAlphaPreserving =
@@ -62,6 +64,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         colorTransfer: SceneShaderColorTransfer,
         alphaAttenuationSourceSlot: Int?,
         colorBlendSourceSlot: Int?,
+        conditionalStraightUnionSourceSlot: Int?,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
         isSourceIndependentPremultipliedOutput: Bool,
@@ -82,6 +85,13 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
            !producesScalarRedOutput,
            graphInputTextureSlots.contains(colorBlendSourceSlot) {
             self = .sourceProvenGraphInputColorBlend
+        } else if case let .straightAlpha(sourceSlot) = colorTransfer,
+                  conditionalStraightUnionSourceSlot == sourceSlot,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]) {
+            self = .sourceProvenGraphInputConditionalStraightUnion
         } else if colorTransfer == .opaque, producesScalarRedOutput {
             self = .sourceProvenOpaqueScalarOutput
         } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
@@ -139,6 +149,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphTargetPassthrough,
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
+             .sourceProvenGraphInputConditionalStraightUnion,
              .sourceProvenGraphInputStageUniformPassthrough:
             .genericOnly
         }

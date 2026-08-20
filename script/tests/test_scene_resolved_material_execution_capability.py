@@ -6446,6 +6446,11 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("bounded-frontend-owner-revoked", stages)
         generic_cache = GENERIC_SHADER_CACHE_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            ".conditionalStraightUnionSourceSlot(",
+            generic_cache,
+        )
+        self.assertNotIn("WorkshopShadow", generic_cache)
         self.assertIn("routeDecision", generic_cache)
         self.assertIn("recordExecution(", generic_cache)
         self.assertIn('rejection("material-generic-owner-revoked")', stages)

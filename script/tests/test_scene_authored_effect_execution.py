@@ -147,13 +147,6 @@ struct SceneGaussianBlurPlan {
     let kernel: SceneGaussianBlurKernel
 }
 
-struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
-    let alpha: Float
-    let color: SIMD3<Float>
-    let drawBorder: Float
-    let offset: SIMD2<Float>
-}
-
 struct SceneColorGradingExecutionPlan: Sendable {}
 struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
@@ -216,17 +209,6 @@ enum SceneAuthoredWorkshopGradientPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopGradientExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredWorkshopShadowPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWorkshopShadowExecutionPlan? {
         nil
     }
 }
@@ -579,10 +561,6 @@ extension SceneAuthoredWorkshopAudioBarsPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredWorkshopGradientPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWorkshopGradientExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopGradient }
-}
-extension SceneAuthoredWorkshopShadowPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWorkshopShadowExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopShadow }
 }
 extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
@@ -1358,7 +1336,6 @@ enum Harness {
             case .workshopShiftHue: backend = "workshopShiftHue"
             case .workshopAudioBars: backend = "workshopAudioBars"
             case .workshopGradient: backend = "workshopGradient"
-            case .workshopShadow: backend = "workshopShadow"
             case .proceduralNoise: backend = "proceduralNoise"
             case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"

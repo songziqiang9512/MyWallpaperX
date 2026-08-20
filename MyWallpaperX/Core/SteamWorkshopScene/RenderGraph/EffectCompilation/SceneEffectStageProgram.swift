@@ -73,7 +73,6 @@ nonisolated struct SceneEffectStageProgram {
              (.colorGrading, .colorGrading),
              (.workshopShiftHue, .workshopShiftHue),
              (.workshopGradient, .workshopGradient),
-             (.workshopShadow, .workshopShadow),
              (.proceduralNoise, .proceduralNoise),
              (.shake, .shake),
              (.waterFlow, .waterFlow),

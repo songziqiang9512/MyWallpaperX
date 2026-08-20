@@ -181,7 +181,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         case .workshopShiftHue: "workshop-shift-hue"
         case .workshopAudioBars: "workshop-audio-bars"
         case .workshopGradient: "workshop-gradient"
-        case .workshopShadow: "workshop-shadow"
         case .proceduralNoise: "procedural-noise"
         case .shake: "shake"
         case .waterFlow: "water-flow"

@@ -211,10 +211,17 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         let colorTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(
             fragmentSource: fragmentSource
         )
+        let conditionalStraightUnionSourceSlot =
+            SceneAuthoredShaderColorTransferAnalyzer
+                .conditionalStraightUnionSourceSlot(
+                    fragmentSource: fragmentSource
+                )
         let profile = CapabilityProfile(
             colorTransfer: colorTransfer,
             alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
             colorBlendSourceSlot: colorBlendSourceSlot,
+            conditionalStraightUnionSourceSlot:
+                conditionalStraightUnionSourceSlot,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
             isSourceIndependentPremultipliedOutput:

@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated extension SceneAuthoredShaderConditionalShadowAnalyzer {
+nonisolated extension SceneAuthoredShaderConditionalStraightUnionAnalyzer {
     static func terminalBranches(
         main: Unit.Function,
         tokens: [Token]

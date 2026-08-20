@@ -1,9 +1,9 @@
 import Foundation
 
-/// Proves a bounded same-source shadow union in the authored straight-color
+/// Proves a bounded same-source conditional union in the authored straight-color
 /// domain. Both color leaves sample one slot and every terminal branch is
 /// explicit, so the emitter can unpremultiply both reads and premultiply once.
-nonisolated enum SceneAuthoredShaderConditionalShadowAnalyzer {
+nonisolated enum SceneAuthoredShaderConditionalStraightUnionAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
 

@@ -91,11 +91,6 @@ extension SceneEffectProgramCompiler {
                     stage(.workshopGradient($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.workshopShadow, {
-                SceneAuthoredWorkshopShadowPlanner.compile(input).mapAccepted {
-                    stage(.workshopShadow($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.proceduralNoise, {
                 SceneAuthoredProceduralNoisePlanner.compile(input).mapAccepted {
                     stage(.proceduralNoise($0), stageGraph: stageGraph, inputRole: inputRole)

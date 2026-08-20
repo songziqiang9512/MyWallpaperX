@@ -46,7 +46,6 @@ final class SceneColorGradingPipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopShiftHuePipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopAudioBarsPipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopGradientPipeline { init?(device: MTLDevice) {} }
-final class SceneWorkshopShadowPipeline { init?(device: MTLDevice) {} }
 final class SceneProceduralNoisePipeline { init?(device: MTLDevice) {} }
 final class SceneSpotLightPipeline { init?(device: MTLDevice) {} }
 final class SceneShakePipeline { init?(device: MTLDevice) {} }

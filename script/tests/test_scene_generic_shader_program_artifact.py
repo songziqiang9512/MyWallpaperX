@@ -1066,6 +1066,45 @@ void main() {
 }
 """
 
+CONDITIONAL_STRAIGHT_UNION_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform float g_Border;
+uniform float g_ScalarWeight;
+uniform vec3 g_Shadow;
+varying vec2 v_TexCoord;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return mix(base, blend, opacity);
+}
+void main() {
+    vec4 base = texSample2D(g_Texture0, v_TexCoord);
+    vec4 reflected = texSample2D(
+        g_Texture0,
+        v_TexCoord + vec2(0.25, 0.0)
+    );
+    if (base.a > g_Border) {
+        gl_FragColor = base;
+    } else if (reflected.a > 0.0) {
+        gl_FragColor.rgb = ApplyBlending(
+            0,
+            base.rgb,
+            g_Shadow,
+            g_ScalarWeight
+        );
+        gl_FragColor.a = min(
+            1.0,
+            base.a + reflected.a * g_ScalarWeight
+        );
+    } else {
+        gl_FragColor = base;
+    }
+}
+"""
+
 
 class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
     @classmethod
@@ -1837,6 +1876,121 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 self.assertNotEqual(result["routeProfile"], profile)
                 self.assertTrue(result["permitsBoundedFrontend"])
                 self.assertIn("state=prefer-generic", log)
+
+    def test_conditional_straight_union_has_profile_local_product_authority(self):
+        profile = "source-proven-graph-input-conditional-straight-union"
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-generic-artifact-test-"
+        ) as directory:
+            root = Path(directory)
+            rejected, _, cache, rejected_log = self.run_harness(
+                root,
+                route=None,
+                fragment=CONDITIONAL_STRAIGHT_UNION_FRAGMENT,
+                graph_input_slots=(0,),
+            )
+            self.assertEqual(rejected["status"], "unavailable")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+            self.assertEqual(rejected["routeProfile"], profile)
+            self.assertEqual(rejected["routeState"], "generic-only")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=rejected",
+                rejected_log,
+            )
+
+            artifact = self.artifact(
+                rejected["requestKey"], color_transfer="straight-alpha"
+            )
+            artifact["program"]["fragmentOutputChannelUse"] = "unproven"
+            (cache / f"{rejected['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=CONDITIONAL_STRAIGHT_UNION_FRAGMENT,
+                graph_input_slots=(0,),
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeProfile"], profile)
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=f"{profile}=disable-generic",
+                fragment=CONDITIONAL_STRAIGHT_UNION_FRAGMENT,
+                graph_input_slots=(0,),
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertEqual(rolled_back["routeProfile"], profile)
+            self.assertEqual(rolled_back["fallbackOwner"], "bounded-frontend")
+            self.assertIn(
+                f"state=disable-generic profile={profile} "
+                "outcome=fallback reason=route-disabled",
+                rollback_log,
+            )
+
+    def test_conditional_straight_union_profile_is_source_derived_and_narrow(self):
+        profile = "source-proven-graph-input-conditional-straight-union"
+        renamed = CONDITIONAL_STRAIGHT_UNION_FRAGMENT.replace(
+            "g_Shadow", "g_UnseenTint"
+        ).replace("g_ScalarWeight", "g_UnseenWeight")
+        cases = [
+            (renamed, {"graph_input_slots": (0,)}, profile, False),
+            (STRAIGHT_ALPHA_FRAGMENT, {"graph_input_slots": (0,)}, None, True),
+            (
+                CONDITIONAL_STRAIGHT_UNION_FRAGMENT,
+                {"graph_input_slots": ()},
+                None,
+                True,
+            ),
+            (
+                CONDITIONAL_STRAIGHT_UNION_FRAGMENT,
+                {"graph_input_slots": (0, 1)},
+                None,
+                True,
+            ),
+            (
+                CONDITIONAL_STRAIGHT_UNION_FRAGMENT,
+                {"graph_input_slots": (0,), "graph_slots": (1,)},
+                None,
+                True,
+            ),
+            (
+                CONDITIONAL_STRAIGHT_UNION_FRAGMENT,
+                {"graph_input_slots": (0,), "has_external_provider": True},
+                None,
+                True,
+            ),
+        ]
+        for fragment, facts, expected_profile, permits_bounded in cases:
+            with self.subTest(
+                expected_profile=expected_profile, facts=facts
+            ), tempfile.TemporaryDirectory(
+                prefix="mwx-generic-artifact-test-"
+            ) as directory:
+                result, _, _, log = self.run_harness(
+                    Path(directory),
+                    route=None,
+                    fragment=fragment,
+                    **facts,
+                )
+                if expected_profile is not None:
+                    self.assertEqual(result["routeProfile"], expected_profile)
+                    self.assertFalse(result["permitsBoundedFrontend"])
+                    self.assertIn("state=generic-only", log)
+                else:
+                    self.assertNotEqual(result["routeProfile"], profile)
+                    self.assertEqual(
+                        result["permitsBoundedFrontend"], permits_bounded
+                    )
+                    self.assertIn("state=prefer-generic", log)
 
     def test_straight_alpha_artifact_maps_color_source_slot(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:

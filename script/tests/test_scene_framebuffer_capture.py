@@ -63,8 +63,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopGradientPipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline+Support.swift",
-    SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWaterRipplePipeline.swift",
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
@@ -549,13 +547,6 @@ struct SceneTexContainerReader {
     }
 }
 
-struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
-    let alpha: Float
-    let color: SIMD3<Float>
-    let drawBorder: Float
-    let offset: SIMD2<Float>
-}
-
 struct SceneColorGradingExecutionPlan: Sendable {
     let luminance: Float
     let saturation: Float
@@ -653,7 +644,6 @@ struct SceneBlendEffectTextures {
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
-        case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
@@ -672,7 +662,6 @@ struct SceneBlendEffectTextures {
         var supportsUnifiedPairLeaf: Bool {
             switch self {
             case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
-                 .workshopShadow,
                  .shake:
                 return true
             case .proceduralNoise(let plan):
@@ -693,7 +682,6 @@ struct SceneBlendEffectTextures {
             case .workshopShiftHue: "workshop-shift-hue"
             case .workshopAudioBars: "workshop-audio-bars"
             case .workshopGradient: "workshop-gradient"
-            case .workshopShadow: "workshop-shadow"
             case .proceduralNoise: "procedural-noise"
             case .shake: "shake"
             case .waterFlow: "water-flow"
@@ -776,11 +764,6 @@ struct SceneBlendEffectTextures {
 
     var blend: SceneBlendExecutionPlan? {
         guard case .blend(let plan) = backend else { return nil }
-        return plan
-    }
-
-    var workshopShadow: SceneWorkshopShadowExecutionPlan? {
-        guard case .workshopShadow(let plan) = backend else { return nil }
         return plan
     }
 

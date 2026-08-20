@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated extension SceneAuthoredShaderConditionalShadowAnalyzer {
+nonisolated extension SceneAuthoredShaderConditionalStraightUnionAnalyzer {
     struct ScalarOneDefinition {
         let name: String
         let nameIndex: Int

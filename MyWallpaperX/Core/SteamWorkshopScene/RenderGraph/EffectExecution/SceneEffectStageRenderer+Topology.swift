@@ -211,8 +211,6 @@ extension SceneEffectStageRenderer {
         case .workshopGradient:
             return pipelines.workshopGradient == nil
                 ? "gradient-pipeline-missing" : nil
-        case .workshopShadow:
-            return pipelines.workshopShadow == nil ? "shadow-pipeline-missing" : nil
         case .proceduralNoise(let plan):
             guard proceduralNoiseDependencyMatches(
                 inputs.dependencyEffect,

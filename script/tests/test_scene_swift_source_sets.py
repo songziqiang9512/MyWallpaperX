@@ -127,7 +127,6 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "script/tests/test_scene_transform_planner.py",
             "script/tests/test_scene_water_ripple_planner.py",
             "script/tests/test_scene_waterwaves_profile.py",
-            "script/tests/test_scene_workshop_shadow_planner.py",
             "script/tests/test_scene_workshop_shift_hue_planner.py",
         ]
         for relative in resolution_consumers:

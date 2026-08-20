@@ -21,6 +21,34 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         return analyze(fragment)
     }
 
+    /// Returns the source slot only when the prepared fragment proves the
+    /// bounded conditional straight-color union. This provenance is narrower
+    /// than the resulting `.straightAlpha` color representation and can own a
+    /// route without broadening every straight-alpha shader.
+    static func conditionalStraightUnionSourceSlot(
+        fragmentSource source: String
+    ) -> Int? {
+        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: source,
+                stage: .fragment
+            ),
+            stage: .fragment
+        )
+        guard syntax.diagnostics.isEmpty,
+              let fragment = syntax.unit,
+              let main = fragment.functions.first(where: { $0.name == "main" })
+        else { return nil }
+        let outputUses = fragment.tokens.indices.filter {
+            fragment.tokens[$0].text == "gl_FragColor"
+        }
+        return SceneAuthoredShaderConditionalStraightUnionAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        )
+    }
+
     static func analyze(
         _ fragment: SceneAuthoredShaderSyntaxUnit
     ) -> SceneShaderColorTransfer {
@@ -43,7 +71,7 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlphaPreserving(textureSlot: slot)
         }
-        if let slot = SceneAuthoredShaderConditionalShadowAnalyzer.analyze(
+        if let slot = SceneAuthoredShaderConditionalStraightUnionAnalyzer.analyze(
             outputUses: outputUses, fragment: fragment, main: main
         ) {
             return .straightAlpha(textureSlot: slot)

@@ -84,17 +84,6 @@ targets: targets,
                 audioSpectrum: audioSpectrum,
                 commandBuffer: commandBuffer
             )
-        case .workshopShadow(let shadow):
-            guard let workshopShadowPipeline = pipelines.workshopShadow else { return nil }
-            return SceneOffscreenEffectRenderer.renderWorkshopShadow(
-                sourceTexture: sourceTexture,
-                targets: targets,
-                plan: shadow,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                workshopShadowPipeline: workshopShadowPipeline,
-                commandBuffer: commandBuffer
-            )
         case .proceduralNoise(let noise):
             guard let noisePipeline = pipelines.proceduralNoise else { return nil }
             return renderProceduralNoise(
