@@ -6260,7 +6260,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         ):
             self.assertIn(backend_name, leaf_body)
         self.assertNotIn("yieldsToResolvedMaterialProgram", source)
-        self.assertIn(".lightShafts", leaf_body)
+        self.assertNotIn(".lightShafts", leaf_body)
         self.assertIn("case .proceduralNoise(let plan):", leaf_body)
         for contract in (
             "plan.variant == .worleyColorV1",
@@ -6418,6 +6418,11 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         )
         self.assertIn("activeSamplerNames", compilation)
         self.assertIn("sourceActiveSamplers", compilation)
+        self.assertIn("sourceActiveSamplers[0] == nil", compilation)
+        self.assertIn(
+            "isSourceIndependentPremultipliedOutput:",
+            compilation,
+        )
         self.assertIn("activeGraphTextureIdentities", compilation)
         self.assertIn("$0.value.kind == .framebuffer", compilation)
         self.assertIn("graphTextureSlots: graphTextureSlots", compilation)

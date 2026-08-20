@@ -816,6 +816,10 @@ private struct GenericShaderArtifactHarness {
                 ProcessInfo.processInfo.environment["MWX_TEST_EXTERNAL_PROVIDER"] == "1",
             producesScalarRedOutput:
                 ProcessInfo.processInfo.environment["MWX_TEST_SCALAR_OUTPUT"] == "1",
+            isSourceIndependentPremultipliedOutput:
+                ProcessInfo.processInfo.environment[
+                    "MWX_TEST_SOURCE_INDEPENDENT_PREMULTIPLIED_OUTPUT"
+                ] == "1",
             graphTextureSlots: Set(
                 (ProcessInfo.processInfo.environment["MWX_TEST_GRAPH_SLOTS"] ?? "")
                     .split(separator: ",").compactMap { Int($0) }
@@ -1107,6 +1111,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         fragment: str = FRAGMENT,
         has_external_provider: bool = False,
         produces_scalar_output: bool = False,
+        source_independent_premultiplied_output: bool = False,
         graph_slots: tuple[int, ...] = (),
         graph_input_slots: tuple[int, ...] = (),
         r8_slots: tuple[int, ...] = (),
@@ -1142,6 +1147,14 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             environment["MWX_TEST_SCALAR_OUTPUT"] = "1"
         else:
             environment.pop("MWX_TEST_SCALAR_OUTPUT", None)
+        if source_independent_premultiplied_output:
+            environment[
+                "MWX_TEST_SOURCE_INDEPENDENT_PREMULTIPLIED_OUTPUT"
+            ] = "1"
+        else:
+            environment.pop(
+                "MWX_TEST_SOURCE_INDEPENDENT_PREMULTIPLIED_OUTPUT", None
+            )
         if graph_slots:
             environment["MWX_TEST_GRAPH_SLOTS"] = ",".join(map(str, graph_slots))
         else:
@@ -1745,6 +1758,86 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             self.assertEqual(accepted["status"], "accepted")
             self.assertEqual(accepted["colorTransfer"], "premultipliedAlpha")
 
+    def test_source_independent_premultiplied_output_has_profile_local_product_authority(self):
+        profile = "source-proven-independent-premultiplied-output"
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-generic-artifact-test-"
+        ) as directory:
+            root = Path(directory)
+            rejected, _, cache, rejected_log = self.run_harness(
+                root,
+                route=None,
+                fragment=PREMULTIPLIED_FRAGMENT,
+                source_independent_premultiplied_output=True,
+            )
+            self.assertEqual(rejected["status"], "unavailable")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+            self.assertEqual(rejected["routeProfile"], profile)
+            self.assertEqual(rejected["routeState"], "generic-only")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=rejected",
+                rejected_log,
+            )
+
+            artifact = self.artifact(
+                rejected["requestKey"], color_transfer="premultiplied"
+            )
+            (cache / f"{rejected['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=PREMULTIPLIED_FRAGMENT,
+                source_independent_premultiplied_output=True,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeProfile"], profile)
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root,
+                route="disable-generic",
+                fragment=PREMULTIPLIED_FRAGMENT,
+                source_independent_premultiplied_output=True,
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertEqual(rolled_back["routeProfile"], profile)
+            self.assertIn(
+                f"state=disable-generic profile={profile} "
+                "outcome=fallback reason=route-disabled",
+                rollback_log,
+            )
+
+    def test_source_independent_premultiplied_output_profile_rejects_broader_ownership(self):
+        cases = [
+            {},
+            {"has_external_provider": True},
+            {"graph_slots": (0,)},
+            {"graph_input_slots": (0,)},
+            {"produces_scalar_output": True},
+        ]
+        profile = "source-proven-independent-premultiplied-output"
+        for facts in cases:
+            with self.subTest(facts=facts), tempfile.TemporaryDirectory(
+                prefix="mwx-generic-artifact-test-"
+            ) as directory:
+                result, _, _, log = self.run_harness(
+                    Path(directory),
+                    route=None,
+                    fragment=PREMULTIPLIED_FRAGMENT,
+                    source_independent_premultiplied_output=bool(facts),
+                    **facts,
+                )
+                self.assertNotEqual(result["routeProfile"], profile)
+                self.assertTrue(result["permitsBoundedFrontend"])
+                self.assertIn("state=prefer-generic", log)
+
     def test_straight_alpha_artifact_maps_color_source_slot(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
             root = Path(directory)
@@ -1993,6 +2086,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
 
     def test_profile_routes_preserve_only_evidenced_owner_authority(self):
         cases = [
+            (
+                PREMULTIPLIED_FRAGMENT,
+                {"source_independent_premultiplied_output": True},
+                "source-proven-independent-premultiplied-output",
+            ),
             (
                 GRAPH_INPUT_COLOR_BLEND_FRAGMENT,
                 {

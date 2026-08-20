@@ -220,16 +220,6 @@ extension SceneEffectStageRenderer {
             ) else { return "procedural-noise-dependency-missing" }
             return pipelines.proceduralNoise == nil
                 ? "procedural-noise-pipeline-missing" : nil
-        case .lightShafts(let plan):
-            guard pipelines.lightShafts != nil else {
-                return "light-shafts-pipeline-missing"
-            }
-            guard let resources = inputs.masks.lightShaftsEffects[
-                      plan.effectKey.descriptorID
-                  ], resources.matches(plan) else {
-                return "light-shafts-resource-missing"
-            }
-            return nil
         case .waterFlow(let plan):
             guard let resources = inputs.masks.waterFlowEffects[
                 plan.effectKey.descriptorID
