@@ -198,18 +198,6 @@ extension SceneEffectStageRenderer {
                 return "shine-resource-missing"
             }
             return nil
-        case .opacity(let plan):
-            guard pipelines.opacity != nil,
-                  stage.opacityAlpha(in: inputs.dynamicValues) != nil else {
-                return "opacity-input-unavailable"
-            }
-            guard plan.maskTexturePath != nil else { return nil }
-            guard let resources = inputs.masks.opacityEffects[
-                plan.effectKey.descriptorID
-            ], resources.matches(plan), resources.mask != nil else {
-                return "opacity-resource-missing"
-            }
-            return nil
         case .colorGrading:
             return pipelines.colorGrading == nil
                 ? "color-grading-pipeline-missing" : nil

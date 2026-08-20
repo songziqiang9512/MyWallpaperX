@@ -11,7 +11,6 @@ struct SceneImageLayerMasks {
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let waterCausticsEffects: [String: SceneWaterCausticsEffectTextures]
     let cursorRippleEffects: [String: SceneCursorRippleEffectTextures]
-    let opacityEffects: [String: SceneOpacityEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
     let tintEffects: [String: SceneTintEffectTextures]
     let godraysEffects: [String: SceneGodraysEffectTextures]
@@ -29,7 +28,6 @@ struct SceneImageLayerMasks {
         waterWavesEffects: [:],
         waterCausticsEffects: [:],
         cursorRippleEffects: [:],
-        opacityEffects: [:],
         pulseEffects: [:],
         tintEffects: [:],
         godraysEffects: [:],
@@ -49,7 +47,6 @@ struct SceneImageLayerMasks {
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
             cursorRippleEffects: [:],
-            opacityEffects: [:],
             pulseEffects: [:],
             tintEffects: [:],
             godraysEffects: [:],
@@ -93,8 +90,7 @@ struct SceneImageLayerMasks {
                 !Self.waterWavesUsesOnlyEffectLocalDisplacementInputs($0)
             } ?? true
         }
-        return hasValue(opacityEffects) { _ in true }
-            || hasValue(tintEffects) { $0.mask != nil }
+        return hasValue(tintEffects) { $0.mask != nil }
             || hasCoverageMutatingPulse
             || hasUnprovenPulseResource
             || hasWaterWavesOutsideDisplacementContract

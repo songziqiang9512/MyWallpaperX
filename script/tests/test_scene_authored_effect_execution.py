@@ -154,12 +154,6 @@ struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
     let offset: SIMD2<Float>
 }
 
-struct SceneOpacityExecutionPlan: Sendable {
-    var liveAlphaTarget: SceneDynamicTarget? { nil }
-
-    func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float { 1 }
-}
-
 struct SceneColorGradingExecutionPlan: Sendable {}
 struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
@@ -182,17 +176,6 @@ struct SceneProceduralNoiseExecutionPlan: Sendable {
     let dependencySlotIndex: Int?
 }
 struct SceneLightShaftsExecutionPlan: Sendable {}
-
-enum SceneAuthoredOpacityPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneOpacityExecutionPlan? {
-        nil
-    }
-}
 
 enum SceneAuthoredColorGradingPlanner {
     static func plan(
@@ -608,10 +591,6 @@ extension SceneAuthoredStandardBlurPlanner {
 extension SceneAuthoredLocalContrastPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneLocalContrastPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .localContrast }
-}
-extension SceneAuthoredOpacityPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneOpacityExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .opacity }
 }
 extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneColorGradingExecutionPlan
@@ -1411,7 +1390,6 @@ enum Harness {
             case .preciseGaussian: backend = "preciseGaussian"
             case .standardBlur: backend = "standardBlur"
             case .localContrast: backend = "localContrast"
-            case .opacity: backend = "opacity"
             case .colorGrading: backend = "colorGrading"
             case .workshopShiftHue: backend = "workshopShiftHue"
             case .workshopAudioBars: backend = "workshopAudioBars"

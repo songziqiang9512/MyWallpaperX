@@ -123,9 +123,17 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             }
             return slot
         })
+        let alphaAttenuationSourceSlot =
+            SceneResolvedMaterialAlphaAttenuationEligibility.sourceSlot(
+                    fragmentSource: prepared.fragment.source,
+                    samplers: sourceActiveSamplers,
+                    template: template,
+                    implicitFramebufferIdentity: implicitFramebufferIdentity
+                )
         let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: prepared.vertex.source,
             fragmentSource: prepared.fragment.source,
+            alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
             hasExternalProviderTexture:
                 SceneResolvedMaterialVariantCache.hasExternalProviderTexture(
                     in: template,

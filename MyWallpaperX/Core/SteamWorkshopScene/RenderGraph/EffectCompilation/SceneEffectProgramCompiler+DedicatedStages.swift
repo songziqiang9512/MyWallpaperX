@@ -71,11 +71,6 @@ extension SceneEffectProgramCompiler {
                     )
                 }
             }),
-            (.opacity, {
-                SceneAuthoredOpacityPlanner.compile(input).mapAccepted {
-                    stage(.opacity($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.colorGrading, {
                 SceneAuthoredColorGradingPlanner.compile(input).mapAccepted {
                     stage(.colorGrading($0), stageGraph: stageGraph, inputRole: inputRole)

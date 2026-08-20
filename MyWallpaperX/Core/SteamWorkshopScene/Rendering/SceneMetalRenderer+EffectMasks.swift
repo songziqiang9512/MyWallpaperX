@@ -13,7 +13,6 @@ extension SceneMetalRenderer {
             waterWavesEffects: store.waterWavesEffects,
             waterCausticsEffects: store.waterCausticsEffects,
             cursorRippleEffects: store.cursorRippleEffects,
-            opacityEffects: store.opacityEffects,
             pulseEffects: store.pulseEffects,
             tintEffects: store.tintEffects,
             godraysEffects: store.godraysEffects,

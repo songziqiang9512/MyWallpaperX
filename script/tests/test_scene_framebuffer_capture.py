@@ -56,8 +56,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
     SOURCE_ROOT / "Effects/SceneLocalContrastPipeline.swift",
     SOURCE_ROOT / "Effects/SceneLocalContrastRenderer.swift",
-    SOURCE_ROOT / "Effects/SceneOpacityPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneOpacityRenderer.swift",
     SOURCE_ROOT / "Effects/SceneColorGradingPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHuePipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHueRenderer.swift",
@@ -93,7 +91,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterRipple.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Rays.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Opacity.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+AudioBars.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WorkshopGradient.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ColorGrading.swift",
@@ -563,32 +560,6 @@ struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
     let offset: SIMD2<Float>
 }
 
-struct SceneOpacityExecutionPlan: Equatable, Sendable {
-    let staticOrFallbackAlpha: Float
-    let liveEffectIndex: Int?
-    let maskTexturePath: String?
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-
-    init(
-        staticOrFallbackAlpha: Float,
-        liveEffectIndex: Int? = nil,
-        maskTexturePath: String? = nil,
-        effectKey: SceneAuthoredEffectRenderPlan.EffectKey = .init(
-            layerID: 0, effectIndex: 0, descriptorID: ""
-        )
-    ) {
-        self.staticOrFallbackAlpha = staticOrFallbackAlpha
-        self.liveEffectIndex = liveEffectIndex
-        self.maskTexturePath = maskTexturePath
-        self.effectKey = effectKey
-    }
-
-    func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
-        liveEffectIndex.flatMap { snapshot.opacitiesByEffectIndex[$0] }
-            ?? staticOrFallbackAlpha
-    }
-}
-
 struct SceneColorGradingExecutionPlan: Sendable {
     let luminance: Float
     let saturation: Float
@@ -621,23 +592,6 @@ struct SceneWorkshopGradientExecutionPlan: Sendable {
 }
 
 struct SceneAuthoredShaderFrameInputs: Sendable {}
-
-// 与 SceneOpacityEffectTextureLoader.swift 里的同名结构保持一致的替身：那个文件还依赖
-// SceneTexturePathResolver/SceneTextureLoader，整条链拉进来会和本 harness 自带的
-// SceneRenderDescriptor 桩冲突，沿用本文件对 SceneShakeEffectTextures 等的同类做法。
-struct SceneOpacityEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let maskPath: String
-
-    func matches(_ plan: SceneOpacityExecutionPlan) -> Bool {
-        mask != nil && normalized(maskPath) == plan.maskTexturePath.map(normalized)
-    }
-
-    private func normalized(_ path: String) -> String {
-        path.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
-}
 
 enum SceneBlendShaderProfile {
     case singleTextureV1
@@ -722,7 +676,6 @@ struct SceneLightShaftsEffectTextures {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
-        case opacity(SceneOpacityExecutionPlan)
         case colorGrading(SceneColorGradingExecutionPlan)
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
@@ -765,7 +718,6 @@ struct SceneLightShaftsEffectTextures {
             case .preciseGaussian: "precise-gaussian"
             case .standardBlur: "standard-blur"
             case .localContrast: "local-contrast"
-            case .opacity: "opacity"
             case .colorGrading: "color-grading"
             case .workshopShiftHue: "workshop-shift-hue"
             case .workshopAudioBars: "workshop-audio-bars"
@@ -836,11 +788,6 @@ struct SceneLightShaftsEffectTextures {
 
     var shine: SceneShineExecutionPlan? {
         guard case .shine(let plan) = backend else { return nil }
-        return plan
-    }
-
-    var opacity: SceneOpacityExecutionPlan? {
-        guard case .opacity(let plan) = backend else { return nil }
         return plan
     }
 
@@ -940,10 +887,6 @@ struct SceneLightShaftsEffectTextures {
         let effectIndex = renderGraph.effects.first?.key.effectIndex ?? -1
         return snapshot.strengthsByEffectIndex[effectIndex]
             ?? localContrast.staticOrFallbackStrength
-    }
-
-    func opacityAlpha(in snapshot: SceneDynamicSnapshot) -> Float? {
-        opacity?.resolvedAlpha(in: snapshot)
     }
 
 }
@@ -2443,7 +2386,6 @@ enum Harness {
             waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:],
             waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:],
             cursorRippleEffects: [String: SceneCursorRippleEffectTextures] = [:],
-            opacityEffects: [String: SceneOpacityEffectTextures] = [:],
             pulseEffects: [String: ScenePulseEffectTextures] = [:],
             tintEffects: [String: SceneTintEffectTextures] = [:],
             godraysEffects: [String: SceneGodraysEffectTextures] = [:],
@@ -2460,7 +2402,6 @@ enum Harness {
                 waterWavesEffects: waterWavesEffects,
                 waterCausticsEffects: waterCausticsEffects,
                 cursorRippleEffects: cursorRippleEffects,
-                opacityEffects: opacityEffects,
                 pulseEffects: pulseEffects,
                 tintEffects: tintEffects,
                 godraysEffects: godraysEffects,
@@ -2986,22 +2927,6 @@ enum Harness {
                 masks: waterWavesMasks(),
                 blocksStaticLayerSourcePassthrough: true
             ),
-            "waterWavesWithOpacity": try run(
-                publication: exactStaticFile,
-                layer: waterWavesLayer(),
-                baseTextureCandidate: staticFileCandidate,
-                masks: masks(
-                    waterWavesEffects: waterWavesMasks().waterWavesEffects,
-                    opacityEffects: [
-                        "effects/waterwaves/effect.json":
-                            SceneOpacityEffectTextures(
-                                mask: dependency,
-                                maskUVScale: SIMD2(repeating: 1),
-                                maskPath: "fixture/mask"
-                            ),
-                    ]
-                )
-            ),
         ]
         let visibleEffectID = visibleUnsupportedEffect.id
         let maskedCases: [(String, SceneImageLayerMasks)] = [
@@ -3037,20 +2962,6 @@ enum Harness {
             ("cursorRipple", masks(cursorRippleEffects: [
                 visibleEffectID: SceneCursorRippleEffectTextures(
                     mask: dependency
-                ),
-            ])),
-            ("opacity", masks(opacityEffects: [
-                visibleEffectID: SceneOpacityEffectTextures(
-                    mask: dependency,
-                    maskUVScale: SIMD2(repeating: 1),
-                    maskPath: "fixture/mask"
-                ),
-            ])),
-            ("opacity-missing-texture", masks(opacityEffects: [
-                visibleEffectID: SceneOpacityEffectTextures(
-                    mask: nil,
-                    maskUVScale: SIMD2(repeating: 1),
-                    maskPath: "fixture/missing"
                 ),
             ])),
             ("tint", masks(tintEffects: [
@@ -4469,7 +4380,6 @@ enum Harness {
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
             cursorRippleEffects: [:],
-            opacityEffects: [:],
             pulseEffects: [:],
             tintEffects: [:],
             godraysEffects: [:],
@@ -5528,7 +5438,6 @@ enum Harness {
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
             cursorRippleEffects: [:],
-            opacityEffects: [:],
             pulseEffects: [:],
             tintEffects: ["851#effect#0": SceneTintEffectTextures(
                 mask: tintMask,
@@ -6051,15 +5960,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "waterWavesMultiplePassesMasked",
                 "waterWavesWrongPassMasked",
                 "waterWavesStaticSourceConsumer",
-                "waterWavesWithOpacity",
                 "mask-waterRipple",
                 "mask-shake",
                 "mask-standardBlur",
                 "mask-waterWaves",
                 "mask-waterCaustics",
                 "mask-cursorRipple",
-                "mask-opacity",
-                "mask-opacity-missing-texture",
                 "mask-tint",
                 "mask-godrays",
                 "mask-shine",

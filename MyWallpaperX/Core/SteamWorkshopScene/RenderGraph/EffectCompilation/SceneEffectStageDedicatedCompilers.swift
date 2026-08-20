@@ -97,11 +97,6 @@ extension SceneAuthoredLocalContrastPlanner: SceneEffectStageGraphCandidatePlann
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .localContrast }
 }
 
-extension SceneAuthoredOpacityPlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneOpacityExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .opacity }
-}
-
 extension SceneAuthoredColorGradingPlanner: SceneEffectStageDedicatedPlanner {
     typealias DedicatedPlan = SceneColorGradingExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorGrading }

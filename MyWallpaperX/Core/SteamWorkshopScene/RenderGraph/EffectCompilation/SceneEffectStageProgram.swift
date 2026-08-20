@@ -70,7 +70,6 @@ nonisolated struct SceneEffectStageProgram {
         case (.preciseGaussian, .preciseGaussian),
              (.standardBlur, .standardBlur),
              (.localContrast, .localContrast),
-             (.opacity, .opacity),
              (.colorGrading, .colorGrading),
              (.workshopShiftHue, .workshopShiftHue),
              (.workshopGradient, .workshopGradient),

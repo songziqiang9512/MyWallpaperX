@@ -177,7 +177,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         case .preciseGaussian: "precise-gaussian"
         case .standardBlur: "standard-blur"
         case .localContrast: "local-contrast"
-        case .opacity: "opacity"
         case .colorGrading: "color-grading"
         case .workshopShiftHue: "workshop-shift-hue"
         case .workshopAudioBars: "workshop-audio-bars"

@@ -103,12 +103,6 @@ enum SceneLayerEffectTextureLoader {
             straightAlbedoUserPropertyTextures: straightAlbedoUserPropertyTextures,
             preservedUserPropertyTextures: preservedUserPropertyTextures
         )
-        let opacityEffects = SceneOpacityEffectTextureLoader.load(
-            for: layer,
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
         let pulseEffects = ScenePulseEffectTextureLoader.load(
             for: layer,
             resolver: resolver,
@@ -147,7 +141,6 @@ enum SceneLayerEffectTextureLoader {
             waterWavesEffects: waterWaves.textures,
             waterCausticsEffects: waterCaustics.textures,
             cursorRippleEffects: cursorRipple.textures,
-            opacityEffects: opacityEffects.textures,
             pulseEffects: pulseEffects.textures,
             tintEffects: tintEffects.textures,
             godraysEffects: godraysEffects.textures,
@@ -160,7 +153,6 @@ enum SceneLayerEffectTextureLoader {
                 waterFlow.message, waterWaves.message, cursorRipple.message,
                 waterCaustics.message,
                 waterRipple.message, depthParallax.message,
-                opacityEffects.message,
                 pulseEffects.message, tintEffects.message, godraysEffects.message,
                 shineEffects.message,
                 xRay.message,

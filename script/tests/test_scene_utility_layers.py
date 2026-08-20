@@ -132,10 +132,10 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertNotIn("supportsCompleteAuthoredCapture", runtime_plan)
         self.assertNotIn("partialEffects", runtime_plan)
         backend = BACKEND_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
+        self.assertNotIn(
             "case .opacity:",
             backend,
-            "static/direct opacity must admit utility capture",
+            "retired Opacity owner must not remain a utility-capture backend",
         )
         self.assertIn("case .proceduralNoise(let plan):", backend)
         for contract in (

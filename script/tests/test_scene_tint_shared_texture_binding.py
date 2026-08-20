@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opacity/Tint loaders publish the shared typed effect texture binding."""
+"""Tint's remaining dedicated loader preserves typed mask publications."""
 
 from __future__ import annotations
 
@@ -29,7 +29,6 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Rendering/SceneTextureMappedUVScale.swift",
     SCENE_ROOT / "Resources/SceneLayerEffectTextureLoader+TextureLoading.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
-    SCENE_ROOT / "Resources/SceneOpacityEffectTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneTintEffectTextureLoader.swift",
 ]
 
@@ -48,7 +47,6 @@ final class SceneVideoTextureSource {
     ) { return nil }
 }
 
-struct SceneOpacityExecutionPlan { let maskTexturePath: String? }
 struct SceneTintExecutionPlan { let maskTexturePath: String? }
 
 struct SceneTexturePathResolver {
@@ -86,7 +84,7 @@ enum Harness {
             return
         }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
-            "mwx-opacity-tint-shared-binding-\(UUID().uuidString)",
+            "mwx-tint-shared-binding-\(UUID().uuidString)",
             isDirectory: true
         )
         try FileManager.default.createDirectory(
@@ -102,46 +100,31 @@ enum Harness {
             imageHeight: 4
         ).write(to: url)
         let resolver = SceneTexturePathResolver(urlsByPath: [path: url])
-        let loader = SceneTextureLoader()
-        let opacity = SceneOpacityEffectTextureLoader.load(
-            for: .init(effects: [
-                effect(id: "opacity-ready", file: "effects/opacity/effect.json", mask: path),
-                effect(id: "opacity-missing", file: "effects/opacity/effect.json", mask: missingPath),
-            ]),
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
         let tint = SceneTintEffectTextureLoader.load(
             for: .init(effects: [
-                effect(id: "tint-ready", file: "effects/tint/effect.json", mask: path),
-                effect(id: "tint-absent", file: "effects/tint/effect.json", mask: nil),
-                effect(id: "tint-missing", file: "effects/tint/effect.json", mask: missingPath),
+                effect(id: "tint-ready", mask: path),
+                effect(id: "tint-absent", mask: nil),
+                effect(id: "tint-missing", mask: missingPath),
             ]),
             effectIDs: ["tint-ready", "tint-absent", "tint-missing"],
             resolver: resolver,
-            loader: loader,
+            loader: SceneTextureLoader(),
             device: device
         )
-        let opacityReady = opacity.textures["opacity-ready"]!
-        let tintReady = tint.textures["tint-ready"]!
+        let ready = tint.textures["tint-ready"]!
         let result: [String: Any] = [
             "available": true,
-            "opacityReady": opacityReady.state == .ready
-                && opacityReady.binding.purpose == .mask
-                && opacityReady.binding.matches(path: path)
-                && opacityReady.matches(.init(maskTexturePath: path)),
-            "opacityGeneration": isFile(opacityReady.generation),
-            "opacityScale": opacityReady.maskUVScale == SIMD2<Float>(0.5, 1),
-            "opacityMissing": opacity.textures["opacity-missing"]?.state == .unavailable,
-            "tintReady": tintReady.state == .ready
-                && tintReady.binding.purpose == .mask
-                && tintReady.matches(.init(maskTexturePath: path)),
-            "tintGeneration": isFile(tintReady.generation),
-            "tintScale": tintReady.maskUVScale == SIMD2<Float>(0.5, 1),
-            "tintAbsent": tint.textures["tint-absent"]?.state == .absent
-                && tint.textures["tint-absent"]?.matches(.init(maskTexturePath: nil)) == true,
-            "tintMissing": tint.textures["tint-missing"]?.state == .unavailable
+            "ready": ready.state == .ready
+                && ready.binding.purpose == .mask
+                && ready.binding.matches(path: path)
+                && ready.matches(.init(maskTexturePath: path)),
+            "generation": isFile(ready.generation),
+            "scale": ready.maskUVScale == SIMD2<Float>(0.5, 1),
+            "absent": tint.textures["tint-absent"]?.state == .absent
+                && tint.textures["tint-absent"]?.matches(
+                    .init(maskTexturePath: nil)
+                ) == true,
+            "missing": tint.textures["tint-missing"]?.state == .unavailable
                 && tint.textures["tint-missing"]?.matches(
                     .init(maskTexturePath: missingPath)
                 ) == false,
@@ -157,14 +140,13 @@ enum Harness {
 
     static func effect(
         id: String,
-        file: String,
         mask: String?
     ) -> SceneRenderDescriptor.EffectDescriptor {
         let paths = mask.map { [$0] } ?? []
         let slots: [String?] = mask.map { [nil, $0] } ?? []
         return .init(
             id: id,
-            file: file,
+            file: "effects/tint/effect.json",
             visible: true,
             passes: [.init(
                 passIndex: 0,
@@ -217,12 +199,12 @@ enum Harness {
 
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
-class SceneOpacityTintSharedTextureBindingTests(unittest.TestCase):
-    def test_loaders_publish_shared_typed_mask_state(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="mwx-opacity-tint-binding-") as directory:
+class SceneTintSharedTextureBindingTests(unittest.TestCase):
+    def test_loader_preserves_typed_mask_state(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-tint-binding-") as directory:
             root = Path(directory)
             harness = root / "Harness.swift"
-            binary = root / "opacity-tint-binding-test"
+            binary = root / "tint-binding-test"
             harness.write_text(HARNESS, encoding="utf-8")
             compilation = subprocess.run(
                 [

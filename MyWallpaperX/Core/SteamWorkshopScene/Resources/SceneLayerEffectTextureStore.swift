@@ -12,7 +12,6 @@ struct SceneLayerEffectTextures {
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let waterCausticsEffects: [String: SceneWaterCausticsEffectTextures]
     let cursorRippleEffects: [String: SceneCursorRippleEffectTextures]
-    let opacityEffects: [String: SceneOpacityEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
     let tintEffects: [String: SceneTintEffectTextures]
     let godraysEffects: [String: SceneGodraysEffectTextures]
@@ -32,7 +31,6 @@ struct SceneLayerEffectTextureStore {
     var waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:]
     var waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:]
     var cursorRippleEffects: [String: SceneCursorRippleEffectTextures] = [:]
-    var opacityEffects: [String: SceneOpacityEffectTextures] = [:]
     var pulseEffects: [String: ScenePulseEffectTextures] = [:]
     var tintEffects: [String: SceneTintEffectTextures] = [:]
     var godraysEffects: [String: SceneGodraysEffectTextures] = [:]
@@ -52,7 +50,6 @@ struct SceneLayerEffectTextureStore {
         waterWavesEffects.merge(textures.waterWavesEffects) { _, incoming in incoming }
         waterCausticsEffects.merge(textures.waterCausticsEffects) { _, incoming in incoming }
         cursorRippleEffects.merge(textures.cursorRippleEffects) { _, incoming in incoming }
-        opacityEffects.merge(textures.opacityEffects) { _, incoming in incoming }
         pulseEffects.merge(textures.pulseEffects) { _, incoming in incoming }
         tintEffects.merge(textures.tintEffects) { _, incoming in incoming }
         godraysEffects.merge(textures.godraysEffects) { _, incoming in incoming }

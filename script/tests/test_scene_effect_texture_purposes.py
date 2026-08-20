@@ -25,7 +25,6 @@ RIPPLE_LOADER = RESOURCE_ROOT / "SceneWaterRippleEffectTextureLoader.swift"
 DEPTH_PARALLAX_LOADER = (
     RESOURCE_ROOT / "SceneDepthParallaxEffectTextureLoader.swift"
 )
-OPACITY_LOADER = RESOURCE_ROOT / "SceneOpacityEffectTextureLoader.swift"
 TINT_LOADER = RESOURCE_ROOT / "SceneTintEffectTextureLoader.swift"
 EFFECT_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects"
@@ -54,7 +53,6 @@ EXPECTED_PURPOSES = {
     "godrays effect mask": "mask",
     "light shafts noise": "noise",
     "light shafts gradient": "preservedChannels",
-    "opacity effect mask": "mask",
     "pulse noise": "noise",
     "pulse effect mask": "mask",
     "shine noise": "noise",
@@ -110,7 +108,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             {
                 "SceneBlendEffectTextureLoader.swift": 1,
                 "SceneDepthParallaxEffectTextureLoader.swift": 1,
-                "SceneOpacityEffectTextureLoader.swift": 1,
                 "SceneShakeEffectTextureLoader.swift": 3,
                 "SceneStandardBlurEffectTextureLoader.swift": 1,
                 "SceneTintEffectTextureLoader.swift": 1,
@@ -205,11 +202,10 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             "var mappedSize: CGSize? { candidate?.mappedSize }",
         ):
             self.assertIn(field, effect_binding)
-        for path in (OPACITY_LOADER, TINT_LOADER):
-            source = path.read_text(encoding="utf-8")
-            self.assertIn("let binding: SceneEffectTextureBinding", source)
-            self.assertEqual(source.count("loadTextureCandidate("), 1)
-            self.assertNotIn("let mask: MTLTexture?", source)
+        tint_source = TINT_LOADER.read_text(encoding="utf-8")
+        self.assertIn("let binding: SceneEffectTextureBinding", tint_source)
+        self.assertEqual(tint_source.count("loadTextureCandidate("), 1)
+        self.assertNotIn("let mask: MTLTexture?", tint_source)
         self.assertIn("let flowCandidate: SceneTextureCandidate?", water_loader)
         self.assertIn("let phaseCandidate: SceneTextureCandidate?", water_loader)
         self.assertIn("expectedPurpose: .flow", water_renderer)

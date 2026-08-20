@@ -297,7 +297,6 @@ struct SceneCursorRippleExecutionPlan {
 struct SceneDepthParallaxExecutionPlan {}
 struct SceneXRayExecutionPlan {}
 
-struct SceneOpacityExecutionPlan {}
 struct SceneProceduralNoiseExecutionPlan {
     enum Variant { case colorPerlinRGB, worleyColorV1 }
 
@@ -322,7 +321,6 @@ struct SceneEffectStageExecutionPlan {
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
     let cursorRipple: SceneCursorRippleExecutionPlan?
-    let opacity: SceneOpacityExecutionPlan?
     var depthParallax: SceneDepthParallaxExecutionPlan? = nil
     var xRay: SceneXRayExecutionPlan? = nil
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil
@@ -333,7 +331,7 @@ struct SceneEffectStageExecutionPlan {
     var supportsUtilityCapture = true
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
     var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
-    var workshopAudioBars: SceneOpacityExecutionPlan? { nil }
+    var workshopAudioBars: HarnessDedicatedAudioExecutionPlan? { nil }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
@@ -1208,10 +1206,9 @@ private func externalResolvedMaterialCatalog(
             graph: graph,
             effectIndex: 1,
             inputRole: .priorEffectOutput,
-            opacity: true,
             supportsUtilityCapture: true
         ))
-        families[secondKey] = "opacity"
+        families[secondKey] = "fixture-dedicated"
         leafKeys.insert(secondKey)
     }
     let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
@@ -1409,7 +1406,6 @@ private func dedicatedProgram(
     graph: Graph,
     effectIndex: Int,
     inputRole: SceneAuthoredEffectInputRole,
-    opacity: Bool = false,
     proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil,
     logicalTargetStage: Bool = false,
     fullFrameComposeStage: Bool = false,
@@ -1435,7 +1431,6 @@ private func dedicatedProgram(
                 ? stageGraph.renderTargets.count : 0,
             inputRole: inputRole,
             cursorRipple: nil,
-            opacity: opacity ? .init() : nil,
             proceduralNoise: proceduralNoise,
             supportsUnifiedLogicalTargetStage: logicalTargetStage,
             supportsUnifiedFullFrameComposeStage: fullFrameComposeStage,
@@ -2102,7 +2097,6 @@ private enum Harness {
                     graph: utilityPairGraph,
                     effectIndex: 1,
                     inputRole: .priorEffectOutput,
-                    opacity: true,
                     supportsUtilityCapture: true
                 )]
             )
@@ -2112,7 +2106,7 @@ private enum Harness {
                 graph: utilityPairGraph,
                 omitNode: 1
             ),
-            dedicatedStageFamilies: [secondKey: "opacity"],
+            dedicatedStageFamilies: [secondKey: "fixture-dedicated"],
             dedicatedLeafKeys: [secondKey]
         )
         let utilityAdapterCapability = utilityAdapterCatalog.claim(layerID: layerID)
@@ -2125,7 +2119,6 @@ private enum Harness {
                     graph: utilityPairGraph,
                     effectIndex: 1,
                     inputRole: .priorEffectOutput,
-                    opacity: true
                 )]
             )
         let downstreamUtilityAdapterCatalog = Catalog(
@@ -2134,7 +2127,7 @@ private enum Harness {
                 graph: utilityPairGraph,
                 omitNode: 1
             ),
-            dedicatedStageFamilies: [secondKey: "opacity"],
+            dedicatedStageFamilies: [secondKey: "fixture-dedicated"],
             dedicatedLeafKeys: [secondKey]
         )
         let resolvedUtilityChainCatalog = catalog(
@@ -2733,7 +2726,6 @@ private enum Harness {
                     graph: pairGraph,
                     effectIndex: 1,
                     inputRole: .priorEffectOutput,
-                    opacity: true
                 )]
             )
         let resolvedBeforeDedicatedCatalog = Catalog(
@@ -3423,7 +3415,8 @@ private enum Harness {
                     let subjects = capability.stages.compactMap(\.subject)
                     return capability.sourceRoute == .capturedMainTargetTexture
                         && subjects.map(\.key) == [firstKey, secondKey]
-                        && subjects.map(\.family) == ["resolved-material", "opacity"]
+                        && subjects.map(\.family)
+                            == ["resolved-material", "fixture-dedicated"]
                         && capability.stages.count == 2
                         && capability.materials.keys.allSatisfy {
                             $0.effect == firstKey
@@ -3574,7 +3567,6 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
     }
 }
 
-struct SceneOpacityExecutionPlan {}
 struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
@@ -3599,7 +3591,6 @@ struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 
 struct SceneEffectStageExecutionPlan {
     let logicalRenderTargetCount: Int
-    let opacity: SceneOpacityExecutionPlan?
     var layerID: Int { 0 }
     var materialNodeCount: Int { 0 }
     var cursorRipple: SceneCursorRippleExecutionPlan? = nil
@@ -3614,7 +3605,7 @@ struct SceneEffectStageExecutionPlan {
     var supportsUtilityCapture = true
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
     var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
-    var workshopAudioBars: SceneOpacityExecutionPlan? { nil }
+    var workshopAudioBars: HarnessDedicatedAudioExecutionPlan? { nil }
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
@@ -4423,7 +4414,6 @@ private func dedicatedCatalog(
         stageGraph: graph,
         executionPlan: .init(
             logicalRenderTargetCount: 0,
-            opacity: pointerSensitive ? nil : .init(),
             cursorRipple: pointerSensitive
                 ? .init(effectKey: effectKey) : nil
         )
@@ -5947,7 +5937,8 @@ private func contract(
     readinessCombo: String? = nil,
     conditionalReadinessUse: Bool = true,
     graphInputAlias: Bool = false,
-    formatCombo: Bool = false
+    formatCombo: Bool = false,
+    attenuation: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -5968,18 +5959,28 @@ private func contract(
             declarations: parsed.declarations
         )
     }
+    let fragment = attenuation ? """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    uniform float u_Attenuation;
+    void main() {
+        vec4 renamedSurface = texSample2D(g_Texture0, v_TexCoord);
+        renamedSurface.a *= u_Attenuation;
+        gl_FragColor = renamedSurface;
+    }
+    """ : fragmentSource(
+        defaultPath: defaultPath,
+        readinessCombo: readinessCombo,
+        conditionalReadinessUse: conditionalReadinessUse,
+        graphInputAlias: graphInputAlias,
+        formatCombo: formatCombo
+    )
     let stages = [
         stage(.vertex, path: "catalog/root.vert", source: vertexSource),
         stage(
             .fragment,
             path: "catalog/root.frag",
-            source: fragmentSource(
-                defaultPath: defaultPath,
-                readinessCombo: readinessCombo,
-                conditionalReadinessUse: conditionalReadinessUse,
-                graphInputAlias: graphInputAlias,
-                formatCombo: formatCombo
-            )
+            source: fragment
         ),
     ]
     return .init(
@@ -6014,7 +6015,7 @@ private func catalog(
     graph: Graph,
     contract: SceneShaderContract
 ) -> SceneResolvedMaterialRuntimeCatalog {
-    .init(
+    return .init(
         descriptor: .init(),
         admissionCandidates: [.init(result: .success(.init(
             products: [.init(graph: graph)]

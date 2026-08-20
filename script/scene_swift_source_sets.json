@@ -57,6 +57,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderGlobalReferenceAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderDeadBindingAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderTextureChannelAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderAlphaAttenuationAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderSameSlotChannelReconstructionAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderMetalSource.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderBuiltInVectorConversion.swift",
@@ -211,6 +212,8 @@
       "includes": [],
       "sources": [
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRouteProfile.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialAlphaAttenuationEligibility.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",

@@ -63,14 +63,6 @@ enum SceneEffectStageRenderer {
                 localContrastPipeline: localContrastPipeline,
                 commandBuffer: commandBuffer
             )
-        case .opacity(let opacity):
-            guard let opacityPipeline = pipelines.opacity else { return nil }
-            return renderOpacity(
-                opacity, stage: stage, sourceTexture: sourceTexture, masks: masks,
-targets: targets, dynamicValues: dynamicValues,
-                sourceUniforms: sourceUniforms, pipeline: pipeline,
-                opacityPipeline: opacityPipeline, commandBuffer: commandBuffer
-            )
         case .colorGrading:
             return renderColorStage(
                 stage, sourceTexture: sourceTexture, masks: masks,

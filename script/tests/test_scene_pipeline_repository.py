@@ -41,7 +41,6 @@ final class Counter {
 final class SceneGaussianBlurPipeline { init?(device: MTLDevice) {} }
 final class SceneStandardBlurPipeline { init?(device: MTLDevice) {} }
 final class SceneLocalContrastPipeline { init?(device: MTLDevice) {} }
-final class SceneOpacityPipeline { init?(device: MTLDevice) {} }
 final class SceneColorKeyPipeline { init?(device: MTLDevice) {} }
 final class SceneColorGradingPipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopShiftHuePipeline { init?(device: MTLDevice) {} }

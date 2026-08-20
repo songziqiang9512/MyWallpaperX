@@ -206,7 +206,8 @@ private func fragmentSource(
     directRedInput: Bool = false,
     stageLocalUniforms: Bool = false,
     runtimeLoop: Bool = false,
-    runtimeLoopEditorHints: Bool = false
+    runtimeLoopEditorHints: Bool = false,
+    semanticProbes: Bool = true
 ) -> String {
     let annotation = samplerMetadata.map { " // \($0)" } ?? ""
     let uniformAnnotation = uniformMetadata.map { " // \($0)" } ?? ""
@@ -301,6 +302,9 @@ private func fragmentSource(
         ? #"uniform float g_Gain; // {"material":"fragmentGain","default":3}"#
         : ""
     let stageLocalProbe = stageLocalUniforms ? "float fragmentProbe = g_Gain;" : ""
+    let metadataProbes = semanticProbes
+        ? "vec3 tintProbe = u_Tint;\nfloat timeProbe = g_Time;"
+        : ""
     let runtimeLoopMetadata = runtimeLoopEditorHints
         ? #"{"material":"Fractals","int":true,"default":5,"range":[1,10]}"#
         : #"{"material":"Fractals"}"#
@@ -336,8 +340,7 @@ private func fragmentSource(
         \(stageLocalProbe)
         \(runtimeLoopProbe)
         \(audioProbe)
-        vec3 tintProbe = u_Tint;
-        float timeProbe = g_Time;
+        \(metadataProbes)
         \(output)
     }
     """
@@ -360,6 +363,7 @@ private func contract(
     stageLocalUniforms: Bool = false,
     runtimeLoop: Bool = false,
     runtimeLoopEditorHints: Bool = false,
+    semanticProbes: Bool = true,
     includeSourceGraph: Bool = true
 ) -> SceneShaderContract {
     func stage(
@@ -407,7 +411,8 @@ private func contract(
                 directRedInput: directRedInput,
                 stageLocalUniforms: stageLocalUniforms,
                 runtimeLoop: runtimeLoop,
-                runtimeLoopEditorHints: runtimeLoopEditorHints
+                runtimeLoopEditorHints: runtimeLoopEditorHints,
+                semanticProbes: semanticProbes
             )
         ),
     ]
@@ -453,6 +458,32 @@ private func framebufferTexture() -> Graph.TextureIdentity {
             descriptorID: "fixture-scalar-producer"
         ),
         name: nil
+    )
+}
+
+private func effectOutputTexture(_ descriptorID: String) -> Graph.TextureIdentity {
+    .init(
+        kind: .effectOutput,
+        layerID: fixtureLayerID,
+        effect: .init(
+            layerID: fixtureLayerID,
+            effectIndex: descriptorID == "fixture-prior" ? 0 : 1,
+            descriptorID: descriptorID
+        ),
+        name: nil
+    )
+}
+
+private func namedFramebufferTexture() -> Graph.TextureIdentity {
+    .init(
+        kind: .framebuffer,
+        layerID: fixtureLayerID,
+        effect: .init(
+            layerID: fixtureLayerID,
+            effectIndex: 1,
+            descriptorID: "fixture-current"
+        ),
+        name: "fixture-history-target"
     )
 }
 
@@ -560,6 +591,7 @@ private func template(
     candidateCount: Int = 1,
     includePrimaryCandidate: Bool = true,
     primaryReference: Template.TextureReference = .graph(graphTexture()),
+    effectInputGraphTextureRole: Template.GraphTextureRole = .layerSource,
     primaryGraphTextureRole: Template.GraphTextureRole = .layerSource,
     graphBindingsOverride: [Template.GraphBindingRole]? = nil,
     secondReference: Template.TextureReference? = nil,
@@ -590,7 +622,7 @@ private func template(
         uniformDeclarations: uniformDeclarations,
         renderState: renderState,
         graphRole: .init(
-            effectInput: .layerSource,
+            effectInput: effectInputGraphTextureRole,
             effectOutput: .effectOutput,
             nodeTarget: .effectOutput,
             bindings: graphBindingsOverride ?? (includePrimaryCandidate
@@ -1355,6 +1387,204 @@ private func positiveDiagnostic(_ shader: SceneShaderContract) -> String {
     case .notApplicable:
         return "preparation=not-applicable"
     }
+}
+
+private func attenuationEligibilityTokens() -> [String: Bool] {
+    let maskMetadata = #"{"mode":"opacitymask","combo":"MASK"}"#
+    let maskPath = SceneVFSAssetPath("textures/eligibility-mask.tex")!
+    let shader = contract(
+        revision: "eligibility-mask",
+        secondSamplerMetadata: maskMetadata,
+        maskedAlpha: true,
+        optionalMask: true,
+        semanticProbes: false
+    )
+    let fixtureTemplate = template(
+        shader,
+        includePrimaryCandidate: false,
+        secondReference: .asset(maskPath)
+    )
+
+    func prepared(
+        _ readiness: [Int: Bool]
+    ) -> (SceneShaderPreparedProgram, [Int: SceneResolvedMaterialShaderSchema.Sampler])? {
+        guard case let .accepted(value) =
+                SceneAuthoredShaderPreparation.prepareShaderStages(
+                    contract: shader,
+                    combos: [:],
+                    textureReadiness: readiness
+                ),
+              let activeNames = SceneAuthoredShaderDeadBindingAnalyzer
+                .activeSamplerNames(
+                    vertexSource: value.vertex.source,
+                    fragmentSource: value.fragment.source
+                ),
+              let samplers = try? SceneResolvedMaterialShaderSchema.activeSamplers(
+                  value,
+                  activeNames: activeNames
+              ) else { return nil }
+        return (value, samplers)
+    }
+
+    func proven(
+        _ preparedValue: SceneShaderPreparedProgram,
+        _ samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        _ materialTemplate: Template = fixtureTemplate,
+        inputIdentity: Graph.TextureIdentity = graphTexture()
+    ) -> Bool {
+        guard let fact = SceneAuthoredShaderAlphaAttenuationAnalyzer.analyze(
+            fragmentSource: preparedValue.fragment.source
+        ) else { return false }
+        return SceneResolvedMaterialAlphaAttenuationEligibility.validated(
+            fact: fact,
+            samplers: samplers,
+            template: materialTemplate,
+            implicitFramebufferIdentity: inputIdentity
+        )
+    }
+
+    let maskOff = prepared([0: true, 1: false]).map {
+        proven($0.0, $0.1)
+    } ?? false
+    let maskOn = prepared([0: true, 1: true]).map {
+        proven($0.0, $0.1)
+    } ?? false
+
+    let wrongSamplerMode: Bool = {
+        let wrongShader = contract(
+            revision: "eligibility-wrong-mode",
+            secondSamplerMetadata: #"{"mode":"rgbmask"}"#,
+            maskedAlpha: true,
+            semanticProbes: false
+        )
+        let wrongTemplate = template(
+            wrongShader,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskPath)
+        )
+        guard case let .accepted(value) =
+                SceneAuthoredShaderPreparation.prepareShaderStages(
+                    contract: wrongShader,
+                    combos: [:],
+                    textureReadiness: [0: true, 1: true]
+                ),
+              let activeNames = SceneAuthoredShaderDeadBindingAnalyzer
+                .activeSamplerNames(
+                    vertexSource: value.vertex.source,
+                    fragmentSource: value.fragment.source
+                ),
+              let samplers = try? SceneResolvedMaterialShaderSchema.activeSamplers(
+                  value,
+                  activeNames: activeNames
+              ),
+              let fact = SceneAuthoredShaderAlphaAttenuationAnalyzer.analyze(
+                  fragmentSource: value.fragment.source
+              ) else { return true }
+        return !SceneResolvedMaterialAlphaAttenuationEligibility.validated(
+            fact: fact,
+            samplers: samplers,
+            template: wrongTemplate,
+            implicitFramebufferIdentity: graphTexture()
+        )
+    }()
+
+    let auxiliaryGraphInputRejected: Bool = {
+        guard let value = prepared([0: true, 1: true]) else { return false }
+        let graphAuxiliaryTemplate = template(
+            shader,
+            includePrimaryCandidate: false,
+            graphBindingsOverride: [.init(slot: 1, texture: .layerSource)],
+            secondReference: .asset(maskPath)
+        )
+        return !proven(value.0, value.1, graphAuxiliaryTemplate)
+    }()
+
+    let extraActiveSamplerRejected: Bool = {
+        guard let value = prepared([0: true, 1: true]),
+              let auxiliary = value.1[1] else { return false }
+        var samplers = value.1
+        samplers[2] = .init(
+            name: "g_Texture2",
+            slot: 2,
+            mode: auxiliary.mode,
+            materialKey: auxiliary.materialKey,
+            isHidden: auxiliary.isHidden,
+            defaultTexture: auxiliary.defaultTexture,
+            readinessCombo: auxiliary.readinessCombo
+        )
+        return !proven(value.0, samplers)
+    }()
+
+    let priorEffectOutputAccepted: Bool = {
+        guard let value = prepared([0: true, 1: true]) else { return false }
+        let prior = effectOutputTexture("fixture-prior")
+        let priorTemplate = template(
+            shader,
+            includePrimaryCandidate: true,
+            primaryReference: .graph(prior),
+            effectInputGraphTextureRole: .effectOutput,
+            primaryGraphTextureRole: .effectOutput,
+            secondReference: .asset(maskPath)
+        )
+        return proven(
+            value.0,
+            value.1,
+            priorTemplate,
+            inputIdentity: prior
+        )
+    }()
+
+    let internalFramebufferRejected: Bool = {
+        guard let value = prepared([0: true, 1: true]) else { return false }
+        let internalTemplate = template(
+            shader,
+            primaryReference: .graph(namedFramebufferTexture()),
+            primaryGraphTextureRole: .framebuffer,
+            secondReference: .asset(maskPath)
+        )
+        return !proven(value.0, value.1, internalTemplate)
+    }()
+
+    let differentEffectOutputRejected: Bool = {
+        guard let value = prepared([0: true, 1: true]) else { return false }
+        let prior = effectOutputTexture("fixture-prior")
+        let different = effectOutputTexture("fixture-other")
+        let differentTemplate = template(
+            shader,
+            primaryReference: .graph(different),
+            effectInputGraphTextureRole: .effectOutput,
+            primaryGraphTextureRole: .effectOutput,
+            secondReference: .asset(maskPath)
+        )
+        return !proven(
+            value.0,
+            value.1,
+            differentTemplate,
+            inputIdentity: prior
+        )
+    }()
+
+    let fallbackCandidateRejected: Bool = {
+        guard let value = prepared([0: true, 1: true]) else { return false }
+        let fallbackTemplate = template(
+            shader,
+            candidateCount: 2,
+            secondReference: .asset(maskPath)
+        )
+        return !proven(value.0, value.1, fallbackTemplate)
+    }()
+
+    return [
+        "maskOffPreparedVariant": maskOff,
+        "maskOnPreparedVariant": maskOn,
+        "wrongSamplerModeRejected": wrongSamplerMode,
+        "auxiliaryGraphInputRejected": auxiliaryGraphInputRejected,
+        "extraActiveSamplerRejected": extraActiveSamplerRejected,
+        "priorEffectOutputAccepted": priorEffectOutputAccepted,
+        "internalFramebufferRejected": internalFramebufferRejected,
+        "differentEffectOutputRejected": differentEffectOutputRejected,
+        "fallbackCandidateRejected": fallbackCandidateRejected,
+    ]
 }
 
 private func missingSourceGraphDiagnostic() -> String {
@@ -2808,8 +3038,10 @@ private enum Harness {
             "timelineVectorTypeMismatch": failureToken(timelineVectorTypeMismatch),
         ]
 
+        let attenuationEligibility = attenuationEligibilityTokens()
         let result: [String: Any] = [
             "metalAvailable": true,
+            "attenuationEligibilityCases": attenuationEligibility,
             "activeDefaultCache": [
                 "launchMasks": activeDefaultLaunchMasks?.map(Int.init) ?? [-1],
                 "failure": failureToken(activeDefaultMaskProgram),
@@ -2819,6 +3051,7 @@ private enum Harness {
                 "capacity": activeDefaultMaskCache.counters.capacityRejectionCount,
             ],
             "positive": [
+                "attenuationEligibility": attenuationEligibility.values.allSatisfy { $0 },
                 "fixedEightSlots": programA.textureSlots.count == 8
                     && programA.textureSlots[0] != nil
                     && programA.textureSlots.dropFirst().allSatisfy { $0 == nil },
@@ -3098,6 +3331,25 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "prepared": 1,
                 "frontend": 1,
                 "capacity": 0,
+            },
+            self.result,
+        )
+
+    def test_alpha_attenuation_eligibility_cross_checks_schema_and_graph_identity(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["attenuationEligibilityCases"],
+            {
+                "maskOffPreparedVariant": True,
+                "maskOnPreparedVariant": True,
+                "wrongSamplerModeRejected": True,
+                "auxiliaryGraphInputRejected": True,
+                "extraActiveSamplerRejected": True,
+                "priorEffectOutputAccepted": True,
+                "internalFramebufferRejected": True,
+                "differentEffectOutputRejected": True,
+                "fallbackCandidateRejected": True,
             },
             self.result,
         )

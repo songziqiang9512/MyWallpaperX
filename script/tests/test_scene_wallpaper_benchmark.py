@@ -72,7 +72,7 @@ def effect_runtime_disposition_preview() -> str:
         "effectStageInactiveAdmissionConserved: true",
         "effectStageActiveAdmissionConserved: true",
         "effectStageExecutionIdentityConserved: true",
-        "effectStageAdmission: layer=2 effect=0 descriptor=2%23effect%230 activity=active admission=admitted-dedicated coverage=complete backend=opacity profile=- reason=- path=effects/opacity/effect.json",
+        "effectStageAdmission: layer=2 effect=0 descriptor=2%23effect%230 activity=active admission=admitted-dedicated coverage=complete backend=fixture-dedicated profile=- reason=- path=effects/fixture-dedicated/effect.json",
         "effectStageAdmission: layer=2 effect=1 descriptor=2%23effect%231 activity=active admission=admitted-generic coverage=complete backend=resolved-material profile=program reason=- path=effects/generic/effect.json",
         "effectStageRuntimeDispositionSchema: 1",
         "effectStageRuntimeRouteScope: unified-effect-graph",
@@ -87,7 +87,7 @@ def effect_runtime_disposition_preview() -> str:
         "effectStageRuntimeAdmissionIdentityConserved: true",
         "effectStageRuntimeResolvedMaterialOwnershipConserved: true",
         "effectStaticRouteGroup: layer=2 scope=unified-effect-graph kind=resolved effects=2 owners=2 reason=-",
-        "effectStageRuntimeDisposition: layer=2 effect=0 descriptor=2%23effect%230 kind=dedicated attribution=exact-key family=opacity group=2 role=owner reason=- path=effects/opacity/effect.json",
+        "effectStageRuntimeDisposition: layer=2 effect=0 descriptor=2%23effect%230 kind=dedicated attribution=exact-key family=fixture-dedicated group=2 role=owner reason=- path=effects/fixture-dedicated/effect.json",
         "effectStageRuntimeDisposition: layer=2 effect=1 descriptor=2%23effect%231 kind=program attribution=exact-key family=resolved-material group=2 role=owner reason=resolved-material-capability-owner path=effects/generic/effect.json",
     ])
 
@@ -2682,7 +2682,7 @@ utility layer 763: skippedHidden kind=composition
             "effectStageActiveAdmissionConserved: true",
             "effectStageExecutionIdentityConserved: true",
             "effectStageAdmission: layer=1 effect=0 descriptor=1%23effect%230 activity=author-disabled admission=inactive coverage=inactive backend=- profile=- reason=- path=effects/disabled/effect.json",
-            "effectStageAdmission: layer=1 effect=1 descriptor=1%23effect%231 activity=active admission=admitted-dedicated coverage=complete backend=opacity profile=- reason=- path=effects/opacity/effect.json",
+            "effectStageAdmission: layer=1 effect=1 descriptor=1%23effect%231 activity=active admission=admitted-dedicated coverage=complete backend=fixture-dedicated profile=- reason=- path=effects/fixture-dedicated/effect.json",
             "effectStageAdmission: layer=1 effect=2 descriptor=1%23effect%232 activity=active admission=not-admitted coverage=rejected-capability backend=- profile=- reason=unified-capability-unavailable path=effects/unknown/effect.json",
         ])
         metrics = benchmark.effect_stage_admission_metrics(preview)
@@ -2715,7 +2715,7 @@ utility layer 763: skippedHidden kind=composition
 
         invalid_combination = preview.replace(
             "admission=not-admitted coverage=rejected-capability backend=- profile=- reason=unified-capability-unavailable",
-            "admission=not-admitted coverage=complete backend=opacity profile=- reason=unified-capability-unavailable",
+            "admission=not-admitted coverage=complete backend=fixture-dedicated profile=- reason=unified-capability-unavailable",
         )
         invalid_combination_metrics = (
             benchmark.effect_stage_admission_metrics(invalid_combination)
@@ -3084,8 +3084,8 @@ utility layer 763: skippedHidden kind=composition
             layer=2,
             effect=0,
             descriptor="2%23effect%230",
-            family="opacity",
-            backend="opacity",
+            family="fixture-dedicated",
+            backend="fixture-dedicated",
         )
         failure = effect_cpu_event(
             frame=12,
@@ -3094,8 +3094,8 @@ utility layer 763: skippedHidden kind=composition
             layer=2,
             effect=0,
             descriptor="2%23effect%230",
-            family="opacity",
-            backend="opacity",
+            family="fixture-dedicated",
+            backend="fixture-dedicated",
             outcome="failed",
             reason="encoder-refused",
         )
@@ -3106,8 +3106,8 @@ utility layer 763: skippedHidden kind=composition
             layer=2,
             effect=0,
             descriptor="2%23effect%230",
-            family="opacity",
-            backend="opacity",
+            family="fixture-dedicated",
+            backend="fixture-dedicated",
         )
         metrics = benchmark.effect_execution_metrics(
             "\n".join([
@@ -3208,8 +3208,8 @@ utility layer 763: skippedHidden kind=composition
             layer=2,
             effect=0,
             descriptor="2%23effect%230",
-            family="opacity",
-            backend="opacity",
+            family="fixture-dedicated",
+            backend="fixture-dedicated",
         )
         bad_returned = benchmark.effect_execution_metrics(
             effect_execution_log(

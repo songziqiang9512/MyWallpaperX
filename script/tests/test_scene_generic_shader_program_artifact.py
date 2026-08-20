@@ -35,6 +35,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompiler.swift",
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRouteProfile.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
 ]
 
@@ -804,6 +806,9 @@ private struct GenericShaderArtifactHarness {
         switch SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: vertex,
             fragmentSource: fragment,
+            alphaAttenuationSourceSlot: ProcessInfo.processInfo.environment[
+                "MWX_TEST_ALPHA_ATTENUATION_SOURCE_SLOT"
+            ].flatMap(Int.init),
             hasExternalProviderTexture:
                 ProcessInfo.processInfo.environment["MWX_TEST_EXTERNAL_PROVIDER"] == "1",
             producesScalarRedOutput:
@@ -930,6 +935,17 @@ void main() {
     vec4 color = texSample2D(g_Texture0, v_TexCoord);
     float mask = 0.5;
     gl_FragColor = vec4(color.rgb, color.a * mask);
+}
+"""
+
+ALPHA_ATTENUATION_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform float g_UserAlpha;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 carrier = texSample2D(g_Texture0, v_TexCoord);
+    carrier.a *= 0.5 * g_UserAlpha;
+    gl_FragColor = carrier;
 }
 """
 
@@ -1070,6 +1086,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         graph_slots: tuple[int, ...] = (),
         graph_input_slots: tuple[int, ...] = (),
         r8_slots: tuple[int, ...] = (),
+        alpha_attenuation_source_slot: int | None = None,
     ):
         vertex_path = root / "fixture.vert"
         fragment_path = root / "fixture.frag"
@@ -1114,6 +1131,12 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             environment["MWX_TEST_R8_SLOTS"] = ",".join(map(str, r8_slots))
         else:
             environment.pop("MWX_TEST_R8_SLOTS", None)
+        if alpha_attenuation_source_slot is not None:
+            environment["MWX_TEST_ALPHA_ATTENUATION_SOURCE_SLOT"] = str(
+                alpha_attenuation_source_slot
+            )
+        else:
+            environment.pop("MWX_TEST_ALPHA_ATTENUATION_SOURCE_SLOT", None)
         completed = subprocess.run(
             [str(self.binary), str(vertex_path), str(fragment_path)],
             cwd=REPOSITORY_ROOT,
@@ -1940,6 +1963,14 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
     def test_profile_routes_preserve_only_evidenced_owner_authority(self):
         cases = [
             (
+                ALPHA_ATTENUATION_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "alpha_attenuation_source_slot": 0,
+                },
+                "source-proven-graph-input-alpha-attenuation",
+            ),
+            (
                 STAGE_UNIFORM_PASSTHROUGH_FRAGMENT,
                 {"graph_input_slots": (0,)},
                 "source-proven-graph-input-stage-uniform-passthrough",
@@ -2109,6 +2140,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
 
     def test_migrated_profiles_accept_generic_artifacts_and_fail_closed(self):
         cases = [
+            (
+                ALPHA_ATTENUATION_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "alpha_attenuation_source_slot": 0,
+                },
+                "straight-alpha",
+                "source-proven-graph-input-alpha-attenuation",
+                False,
+            ),
             (
                 STAGE_UNIFORM_PASSTHROUGH_FRAGMENT,
                 {"graph_input_slots": (0,)},
