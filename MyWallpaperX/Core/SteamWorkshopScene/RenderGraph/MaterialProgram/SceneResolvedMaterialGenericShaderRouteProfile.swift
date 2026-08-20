@@ -47,6 +47,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-target-passthrough"
     case sourceProvenGraphInputAlphaAttenuation =
         "source-proven-graph-input-alpha-attenuation"
+    case sourceProvenGraphInputColorBlend =
+        "source-proven-graph-input-color-blend"
     case sourceProvenGraphInputStraightAlpha =
         "source-proven-graph-input-straight-alpha"
     case sourceProvenGraphInputStraightAlphaPreserving =
@@ -57,6 +59,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
     init(
         colorTransfer: SceneShaderColorTransfer,
         alphaAttenuationSourceSlot: Int?,
+        colorBlendSourceSlot: Int?,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
         graphTextureSlots: Set<Int>,
@@ -64,7 +67,12 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         r8TextureSlots: Set<Int>,
         hasStageScopedUniformBindings: Bool
     ) {
-        if colorTransfer == .opaque, producesScalarRedOutput {
+        if let colorBlendSourceSlot,
+           !hasExternalProviderTexture,
+           !producesScalarRedOutput,
+           graphInputTextureSlots.contains(colorBlendSourceSlot) {
+            self = .sourceProvenGraphInputColorBlend
+        } else if colorTransfer == .opaque, producesScalarRedOutput {
             self = .sourceProvenOpaqueScalarOutput
         } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
                   !producesScalarRedOutput,
@@ -119,6 +127,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenStraightAlphaR8Signal,
              .sourceProvenGraphTargetPassthrough,
              .sourceProvenGraphInputAlphaAttenuation,
+             .sourceProvenGraphInputColorBlend,
              .sourceProvenGraphInputStageUniformPassthrough:
             .genericOnly
         }

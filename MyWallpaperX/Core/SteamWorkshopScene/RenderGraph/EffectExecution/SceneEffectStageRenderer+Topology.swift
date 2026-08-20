@@ -313,13 +313,6 @@ extension SceneEffectStageRenderer {
                 return "blend-resource-missing"
             }
             return pipelines.blend == nil ? "blend-pipeline-missing" : nil
-        case .tint(let plan):
-            guard let resources = inputs.masks.tintEffects[
-                plan.effectKey.descriptorID
-            ], resources.matches(plan) else {
-                return "tint-resource-missing"
-            }
-            return pipelines.tint == nil ? "tint-pipeline-missing" : nil
         case .transform:
             return nil
         case .shake(let plan):

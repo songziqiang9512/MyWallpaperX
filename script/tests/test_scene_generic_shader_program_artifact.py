@@ -809,6 +809,9 @@ private struct GenericShaderArtifactHarness {
             alphaAttenuationSourceSlot: ProcessInfo.processInfo.environment[
                 "MWX_TEST_ALPHA_ATTENUATION_SOURCE_SLOT"
             ].flatMap(Int.init),
+            colorBlendSourceSlot: ProcessInfo.processInfo.environment[
+                "MWX_TEST_COLOR_BLEND_SOURCE_SLOT"
+            ].flatMap(Int.init),
             hasExternalProviderTexture:
                 ProcessInfo.processInfo.environment["MWX_TEST_EXTERNAL_PROVIDER"] == "1",
             producesScalarRedOutput:
@@ -1018,6 +1021,27 @@ void main() {
 }
 """
 
+GRAPH_INPUT_COLOR_BLEND_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform float g_Opacity;
+uniform vec3 g_Color;
+varying vec2 v_TexCoord;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return mix(base, blend, opacity);
+}
+void main() {
+    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+    float weight = g_Opacity;
+    color.rgb = ApplyBlending(30, color.rgb, g_Color, weight);
+    gl_FragColor = color;
+}
+"""
+
 PREMULTIPLIED_FRAGMENT = """
 uniform float g_Weight;
 vec3 ApplyBlending(
@@ -1087,6 +1111,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         graph_input_slots: tuple[int, ...] = (),
         r8_slots: tuple[int, ...] = (),
         alpha_attenuation_source_slot: int | None = None,
+        color_blend_source_slot: int | None = None,
     ):
         vertex_path = root / "fixture.vert"
         fragment_path = root / "fixture.frag"
@@ -1137,6 +1162,12 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             )
         else:
             environment.pop("MWX_TEST_ALPHA_ATTENUATION_SOURCE_SLOT", None)
+        if color_blend_source_slot is not None:
+            environment["MWX_TEST_COLOR_BLEND_SOURCE_SLOT"] = str(
+                color_blend_source_slot
+            )
+        else:
+            environment.pop("MWX_TEST_COLOR_BLEND_SOURCE_SLOT", None)
         completed = subprocess.run(
             [str(self.binary), str(vertex_path), str(fragment_path)],
             cwd=REPOSITORY_ROOT,
@@ -1963,6 +1994,14 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
     def test_profile_routes_preserve_only_evidenced_owner_authority(self):
         cases = [
             (
+                GRAPH_INPUT_COLOR_BLEND_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "color_blend_source_slot": 0,
+                },
+                "source-proven-graph-input-color-blend",
+            ),
+            (
                 ALPHA_ATTENUATION_FRAGMENT,
                 {
                     "graph_input_slots": (0,),
@@ -2124,6 +2163,21 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 CHANNEL_RECONSTRUCTION_FRAGMENT,
                 {"graph_input_slots": (0,), "has_external_provider": True},
             ),
+            (
+                GRAPH_INPUT_COLOR_BLEND_FRAGMENT,
+                {
+                    "graph_input_slots": (1,),
+                    "color_blend_source_slot": 0,
+                },
+            ),
+            (
+                GRAPH_INPUT_COLOR_BLEND_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "color_blend_source_slot": 0,
+                    "has_external_provider": True,
+                },
+            ),
         ):
             with self.subTest(facts=facts), tempfile.TemporaryDirectory(
                 prefix="mwx-generic-artifact-test-"
@@ -2140,6 +2194,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
 
     def test_migrated_profiles_accept_generic_artifacts_and_fail_closed(self):
         cases = [
+            (
+                GRAPH_INPUT_COLOR_BLEND_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "color_blend_source_slot": 0,
+                },
+                "straight-alpha-preserving",
+                "source-proven-graph-input-color-blend",
+                False,
+            ),
             (
                 ALPHA_ATTENUATION_FRAGMENT,
                 {

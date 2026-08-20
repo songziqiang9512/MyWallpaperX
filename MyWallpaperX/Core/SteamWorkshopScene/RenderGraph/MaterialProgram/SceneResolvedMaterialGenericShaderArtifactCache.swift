@@ -196,6 +196,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         vertexSource: String,
         fragmentSource: String,
         alphaAttenuationSourceSlot: Int? = nil,
+        colorBlendSourceSlot: Int? = nil,
         hasExternalProviderTexture: Bool = false,
         producesScalarRedOutput: Bool = false,
         graphTextureSlots: Set<Int> = [],
@@ -212,6 +213,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         let profile = CapabilityProfile(
             colorTransfer: colorTransfer,
             alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
+            colorBlendSourceSlot: colorBlendSourceSlot,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
             graphTextureSlots: graphTextureSlots,

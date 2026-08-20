@@ -55,7 +55,6 @@ nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable
     case depthParallax = "depth-parallax"
     case xRay = "x-ray"
     case blend
-    case tint
     case transform
     case pulse
     case godrays

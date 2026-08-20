@@ -71,7 +71,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
     SOURCE_ROOT / "Rendering/SceneLayerColorBlendPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneTintPipeline.swift",
     SOURCE_ROOT / "Effects/ScenePulsePipeline.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurRuntimePlan.swift",
@@ -97,7 +96,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ShiftHue.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ProceduralNoise.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Tint.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+XRay.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift",
@@ -692,7 +690,6 @@ struct SceneLightShaftsEffectTextures {
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
-        case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
@@ -734,7 +731,6 @@ struct SceneLightShaftsEffectTextures {
             case .depthParallax: "depth-parallax"
             case .xRay: "x-ray"
             case .blend: "blend"
-            case .tint: "tint"
             case .transform: "transform"
             case .pulse: "pulse"
             case .godrays: "godrays"
@@ -1110,40 +1106,6 @@ enum SceneWaterRippleRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         nil
-    }
-}
-
-struct SceneTintShaderProfile {
-    let maskMultipliesBlendAlpha: Bool
-
-    static let stock = SceneTintShaderProfile(maskMultipliesBlendAlpha: true)
-}
-
-struct SceneTintExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let shaderProfile: SceneTintShaderProfile
-    let blendMode: Int
-    let staticOrFallbackColor: SIMD3<Float>
-    let staticOrFallbackAlpha: Float
-    let maskTexturePath: String?
-
-    func resolvedColor(in snapshot: SceneDynamicSnapshot) -> SIMD3<Float> {
-        staticOrFallbackColor
-    }
-
-    func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
-        staticOrFallbackAlpha
-    }
-}
-
-struct SceneTintEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let maskPath: String?
-
-    func matches(_ plan: SceneTintExecutionPlan) -> Bool {
-        guard let planPath = plan.maskTexturePath else { return maskPath == nil }
-        return mask != nil && maskPath == planPath
     }
 }
 
@@ -2387,7 +2349,6 @@ enum Harness {
             waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:],
             cursorRippleEffects: [String: SceneCursorRippleEffectTextures] = [:],
             pulseEffects: [String: ScenePulseEffectTextures] = [:],
-            tintEffects: [String: SceneTintEffectTextures] = [:],
             godraysEffects: [String: SceneGodraysEffectTextures] = [:],
             shineEffects: [String: SceneShineEffectTextures] = [:],
             xRay: SceneXRayEffectTextures? = nil
@@ -2403,7 +2364,6 @@ enum Harness {
                 waterCausticsEffects: waterCausticsEffects,
                 cursorRippleEffects: cursorRippleEffects,
                 pulseEffects: pulseEffects,
-                tintEffects: tintEffects,
                 godraysEffects: godraysEffects,
                 shineEffects: shineEffects,
                 lightShaftsEffects: [:],
@@ -2962,13 +2922,6 @@ enum Harness {
             ("cursorRipple", masks(cursorRippleEffects: [
                 visibleEffectID: SceneCursorRippleEffectTextures(
                     mask: dependency
-                ),
-            ])),
-            ("tint", masks(tintEffects: [
-                visibleEffectID: SceneTintEffectTextures(
-                    mask: dependency,
-                    maskUVScale: SIMD2(repeating: 1),
-                    maskPath: "fixture/mask"
                 ),
             ])),
             ("godrays", masks(godraysEffects: [
@@ -4381,7 +4334,6 @@ enum Harness {
             waterCausticsEffects: [:],
             cursorRippleEffects: [:],
             pulseEffects: [:],
-            tintEffects: [:],
             godraysEffects: [:],
             shineEffects: [:],
             lightShaftsEffects: [:],
@@ -5422,8 +5374,6 @@ enum Harness {
 
     static func authoredEffectMasks(
         blendEffects: [String: SceneBlendEffectTextures] = [:],
-        tintMask: MTLTexture? = nil,
-        tintMaskPath: String? = nil,
         godraysEffects: [String: SceneGodraysEffectTextures] = [:],
         shineEffects: [String: SceneShineEffectTextures] = [:],
         lightShaftsEffects: [String: SceneLightShaftsEffectTextures] = [:]
@@ -5439,11 +5389,6 @@ enum Harness {
             waterCausticsEffects: [:],
             cursorRippleEffects: [:],
             pulseEffects: [:],
-            tintEffects: ["851#effect#0": SceneTintEffectTextures(
-                mask: tintMask,
-                maskUVScale: SIMD2(repeating: 1),
-                maskPath: tintMaskPath
-            )],
             godraysEffects: godraysEffects,
             shineEffects: shineEffects,
             lightShaftsEffects: lightShaftsEffects,
@@ -5966,7 +5911,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "mask-waterWaves",
                 "mask-waterCaustics",
                 "mask-cursorRipple",
-                "mask-tint",
                 "mask-godrays",
                 "mask-shine",
                 "mask-xray",

@@ -389,10 +389,6 @@ enum SceneAuthoredBlendPlanner {
     }
 }
 
-struct SceneTintExecutionPlan {
-    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
-}
-
 struct SceneTransformStaticFallbackDiagnostic {
     var reportValue: String { "" }
 }
@@ -461,18 +457,6 @@ enum SceneAuthoredShinePlanner {
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneShineExecutionPlan? {
         nil
-    }
-}
-
-enum SceneAuthoredTintPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneTintExecutionPlan? {
-        graph.effects.first?.definitionPath.lowercased()
-            == "effects/tint/effect.json" ? SceneTintExecutionPlan() : nil
     }
 }
 
@@ -655,10 +639,6 @@ extension SceneAuthoredXRayPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredBlendPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneBlendExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .blend }
-}
-extension SceneAuthoredTintPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneTintExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .tint }
 }
 extension SceneAuthoredTransformPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneTransformExecutionPlan
@@ -1406,7 +1386,6 @@ enum Harness {
             case .depthParallax: backend = "depthParallax"
             case .xRay: backend = "xRay"
             case .blend: backend = "blend"
-            case .tint: backend = "tint"
             case .transform: backend = "transform"
             case .pulse: backend = "pulse"
             case .godrays: backend = "godrays"

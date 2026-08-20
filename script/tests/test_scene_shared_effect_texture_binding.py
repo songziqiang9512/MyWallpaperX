@@ -53,9 +53,9 @@ enum Harness {
         }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .r8Unorm,
-            width: 2,
-            height: 2,
-            mipmapped: false
+            width: 8,
+            height: 4,
+            mipmapped: true
         )
         descriptor.usage = .shaderRead
         let texture = device.makeTexture(descriptor: descriptor)!
@@ -65,15 +65,19 @@ enum Harness {
             generation: .immutable(revision: 7),
             purpose: .mask,
             content: .data,
-            physicalSize: CGSize(width: 2, height: 2),
-            mappedSize: CGSize(width: 2, height: 2),
-            uvTransform: .identity,
+            physicalSize: CGSize(width: 8, height: 4),
+            mappedSize: CGSize(width: 4, height: 4),
+            uvTransform: .init(
+                origin: .zero,
+                xAxis: SIMD2(0.5, 0),
+                yAxis: SIMD2(0, 1)
+            ),
             sampling: .linearClamp
         )
         let readyResult = SceneEffectTextureLoadResult(
             candidate: candidate,
             texture: texture,
-            mappedUVScale: SIMD2(repeating: 1),
+            mappedUVScale: SIMD2(0.5, 1),
             sampling: .linearClamp,
             message: ""
         )
@@ -107,8 +111,10 @@ enum Harness {
                 && ready.matches(path: "masks/ready")
                 && ready.texture === texture,
             "generation": generationIsRevisionSeven(ready.generation),
-            "extent": ready.physicalSize == CGSize(width: 2, height: 2)
-                && ready.mappedSize == CGSize(width: 2, height: 2),
+            "extent": ready.physicalSize == CGSize(width: 8, height: 4)
+                && ready.mappedSize == CGSize(width: 4, height: 4)
+                && ready.mappedUVScale == SIMD2<Float>(0.5, 1)
+                && (ready.texture?.mipmapLevelCount ?? 0) > 1,
             "pending": pending.state == .pending
                 && !pending.isReady
                 && !pending.matches(path: "masks/pending"),

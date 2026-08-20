@@ -157,11 +157,6 @@ extension SceneEffectProgramCompiler {
                     stage(.blend($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.tint, {
-                SceneAuthoredTintPlanner.compile(input).mapAccepted {
-                    stage(.tint($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.transform, {
                 SceneAuthoredTransformPlanner.compile(input).mapAccepted {
                     stage(.transform($0), stageGraph: stageGraph, inputRole: inputRole)

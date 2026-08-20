@@ -85,7 +85,6 @@ nonisolated struct SceneEffectStageProgram {
              (.depthParallax, .depthParallax),
              (.xRay, .xRay),
              (.blend, .blend),
-             (.tint, .tint),
              (.transform, .transform),
              (.pulse, .pulse),
              (.godrays, .godrays),

@@ -130,10 +130,21 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     template: template,
                     implicitFramebufferIdentity: implicitFramebufferIdentity
                 )
+        let colorBlendSourceSlot =
+            SceneResolvedMaterialColorBlendEligibility.sourceSlot(
+                fragmentSource: prepared.fragment.source,
+                colorTransfer: SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                    fragmentSource: prepared.fragment.source
+                ),
+                samplers: sourceActiveSamplers,
+                template: template,
+                implicitFramebufferIdentity: implicitFramebufferIdentity
+            )
         let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: prepared.vertex.source,
             fragmentSource: prepared.fragment.source,
             alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
+            colorBlendSourceSlot: colorBlendSourceSlot,
             hasExternalProviderTexture:
                 SceneResolvedMaterialVariantCache.hasExternalProviderTexture(
                     in: template,

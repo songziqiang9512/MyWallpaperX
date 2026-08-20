@@ -207,8 +207,41 @@ private func fragmentSource(
     stageLocalUniforms: Bool = false,
     runtimeLoop: Bool = false,
     runtimeLoopEditorHints: Bool = false,
-    semanticProbes: Bool = true
+    semanticProbes: Bool = true,
+    colorBlend: Bool = false,
+    legacyMaskOverride: Bool = false
 ) -> String {
+    if colorBlend {
+        let maskMutation = legacyMaskOverride ? "=" : "*="
+        return """
+        // [COMBO] {"material":"ui_editor_properties_blend_mode","combo":"BLENDMODE","type":"imageblending","default":30}
+        varying vec4 v_TexCoord;
+        uniform sampler2D g_Texture0; // {"hidden":true}
+        uniform sampler2D g_Texture1; // {"mode":"opacitymask","combo":"MASK"}
+        uniform float g_BlendAlpha; // {"material":"alpha","default":1}
+        uniform vec3 g_TintColor; // {"material":"color","type":"color","default":"1 0 0"}
+        vec3 ApplyBlending(
+            const int mode,
+            in vec3 base,
+            in vec3 blend,
+            in float opacity
+        ) {
+            return mix(base, blend, opacity);
+        }
+        void main() {
+            vec4 albedo = texSample2D(g_Texture0, v_TexCoord.xy);
+            float mask = g_BlendAlpha;
+        #if MASK
+            mask \(maskMutation) texSample2D(g_Texture1, v_TexCoord.zw).r;
+        #endif
+            albedo.rgb = ApplyBlending(BLENDMODE, albedo.rgb, g_TintColor, mask);
+        #if BLENDMODE == 0
+            albedo.a = 1.0;
+        #endif
+            gl_FragColor = albedo;
+        }
+        """
+    }
     let annotation = samplerMetadata.map { " // \($0)" } ?? ""
     let uniformAnnotation = uniformMetadata.map { " // \($0)" } ?? ""
     let secondSampler = secondSamplerMetadata.map { metadata in
@@ -364,6 +397,8 @@ private func contract(
     runtimeLoop: Bool = false,
     runtimeLoopEditorHints: Bool = false,
     semanticProbes: Bool = true,
+    colorBlend: Bool = false,
+    legacyMaskOverride: Bool = false,
     includeSourceGraph: Bool = true
 ) -> SceneShaderContract {
     func stage(
@@ -391,7 +426,7 @@ private func contract(
             path: "\(revision)/root.vert",
             source: vertexSource(
                 samplerMetadata: vertexSamplerMetadata,
-                deadMaskCoordinates: deadMaskCoordinates,
+                deadMaskCoordinates: deadMaskCoordinates || colorBlend,
                 stageLocalUniforms: stageLocalUniforms
             )
         ),
@@ -412,7 +447,9 @@ private func contract(
                 stageLocalUniforms: stageLocalUniforms,
                 runtimeLoop: runtimeLoop,
                 runtimeLoopEditorHints: runtimeLoopEditorHints,
-                semanticProbes: semanticProbes
+                semanticProbes: semanticProbes,
+                colorBlend: colorBlend,
+                legacyMaskOverride: legacyMaskOverride
             )
         ),
     ]
@@ -596,6 +633,7 @@ private func template(
     graphBindingsOverride: [Template.GraphBindingRole]? = nil,
     secondReference: Template.TextureReference? = nil,
     secondCandidates: [Template.TextureCandidate]? = nil,
+    comboValues: [String: Int] = [:],
     uniformDeclarations: [Template.UniformDeclaration] = [],
     renderState: SceneMaterialRenderState = state()
 ) -> Template {
@@ -618,7 +656,7 @@ private func template(
     }
     return Template.validated(
         textureSlots: slots,
-        combos: [],
+        combos: comboValues.map { .init(name: $0.key, value: $0.value) },
         uniformDeclarations: uniformDeclarations,
         renderState: renderState,
         graphRole: .init(
@@ -1578,6 +1616,275 @@ private func attenuationEligibilityTokens() -> [String: Bool] {
         "maskOffPreparedVariant": maskOff,
         "maskOnPreparedVariant": maskOn,
         "wrongSamplerModeRejected": wrongSamplerMode,
+        "auxiliaryGraphInputRejected": auxiliaryGraphInputRejected,
+        "extraActiveSamplerRejected": extraActiveSamplerRejected,
+        "priorEffectOutputAccepted": priorEffectOutputAccepted,
+        "internalFramebufferRejected": internalFramebufferRejected,
+        "differentEffectOutputRejected": differentEffectOutputRejected,
+        "fallbackCandidateRejected": fallbackCandidateRejected,
+    ]
+}
+
+private func colorBlendEligibilityTokens() -> [String: Bool] {
+    let maskPath = SceneVFSAssetPath("textures/color-blend-mask.tex")!
+
+    struct Prepared {
+        let program: SceneShaderPreparedProgram
+        let samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+        let shader: SceneShaderContract
+        let combos: [String: Int]
+    }
+
+    func prepared(
+        blendMode: Int,
+        mask: Bool,
+        legacyMaskOverride: Bool = false
+    ) -> Prepared? {
+        let shader = contract(
+            revision: "color-blend-\(blendMode)-\(mask)-\(legacyMaskOverride)",
+            semanticProbes: false,
+            colorBlend: true,
+            legacyMaskOverride: legacyMaskOverride
+        )
+        // MASK is a readiness-derived combo; passing it explicitly would
+        // conflict with the active sampler schema when the mask is absent.
+        let combos = ["BLENDMODE": blendMode]
+        let program: SceneShaderPreparedProgram
+        switch SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: shader,
+            combos: combos,
+            textureReadiness: [0: true, 1: mask]
+        ) {
+        case let .accepted(value):
+            program = value
+        case let .rejected(failure):
+            fatalError(
+                "COLOR-BLEND-PREPARATION=\(blendMode)/\(mask)/"
+                    + "\(failure.phase.rawValue)/\(failure.code.rawValue)/"
+                    + "\(failure.details)"
+            )
+        case .notApplicable:
+            fatalError("COLOR-BLEND-PREPARATION-NOT-APPLICABLE=\(blendMode)/\(mask)")
+        }
+        guard let activeNames = SceneAuthoredShaderDeadBindingAnalyzer
+                .activeSamplerNames(
+                    vertexSource: program.vertex.source,
+                    fragmentSource: program.fragment.source
+                ) else {
+            fatalError("COLOR-BLEND-ACTIVE-NAMES=\(blendMode)/\(mask)")
+        }
+        let samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+        do {
+            samplers = try SceneResolvedMaterialShaderSchema.activeSamplers(
+                program,
+                activeNames: activeNames
+            )
+        } catch {
+            fatalError(
+                "COLOR-BLEND-SAMPLERS=\(blendMode)/\(mask)/\(activeNames)/\(error)"
+            )
+        }
+        return .init(
+            program: program,
+            samplers: samplers,
+            shader: shader,
+            combos: combos
+        )
+    }
+
+    func materialTemplate(
+        _ value: Prepared,
+        input: Graph.TextureIdentity = graphTexture(),
+        inputRole: Template.GraphTextureRole = .layerSource,
+        auxiliaryReference: Template.TextureReference? = nil,
+        auxiliaryGraphBinding: Bool = false,
+        candidateCount: Int = 1
+    ) -> Template {
+        template(
+            value.shader,
+            candidateCount: candidateCount,
+            includePrimaryCandidate: true,
+            primaryReference: .graph(input),
+            effectInputGraphTextureRole: inputRole,
+            primaryGraphTextureRole: inputRole,
+            graphBindingsOverride: auxiliaryGraphBinding
+                ? [
+                    .init(slot: 0, texture: inputRole),
+                    .init(slot: 1, texture: inputRole),
+                ]
+                : [.init(slot: 0, texture: inputRole)],
+            secondReference: auxiliaryReference,
+            comboValues: value.combos
+        )
+    }
+
+    func proven(
+        _ value: Prepared,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]? = nil,
+        templateValue: Template? = nil,
+        input: Graph.TextureIdentity = graphTexture()
+    ) -> Bool {
+        SceneResolvedMaterialColorBlendEligibility.sourceSlot(
+            fragmentSource: value.program.fragment.source,
+            colorTransfer: SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                fragmentSource: value.program.fragment.source
+            ),
+            samplers: samplers ?? value.samplers,
+            template: templateValue ?? materialTemplate(
+                value,
+                auxiliaryReference: value.samplers[1].map { _ in .asset(maskPath) }
+            ),
+            implicitFramebufferIdentity: input
+        ) == 0
+    }
+
+    let unmasked = prepared(blendMode: 30, mask: false)
+    let stockMasked = prepared(blendMode: 12, mask: true)
+    let legacyMasked = prepared(
+        blendMode: 18,
+        mask: true,
+        legacyMaskOverride: true
+    )
+    let opaque = prepared(blendMode: 0, mask: false)
+
+    let wrongSamplerModeRejected: Bool = {
+        guard let value = stockMasked, let auxiliary = value.samplers[1] else {
+            return false
+        }
+        var samplers = value.samplers
+        samplers[1] = .init(
+            name: auxiliary.name,
+            slot: auxiliary.slot,
+            mode: .regular,
+            materialKey: auxiliary.materialKey,
+            isHidden: auxiliary.isHidden,
+            defaultTexture: auxiliary.defaultTexture,
+            readinessCombo: auxiliary.readinessCombo
+        )
+        return !proven(value, samplers: samplers)
+    }()
+
+    let auxiliaryGraphInputRejected: Bool = {
+        guard let value = stockMasked else { return false }
+        return !proven(
+            value,
+            templateValue: materialTemplate(
+                value,
+                auxiliaryReference: .asset(maskPath),
+                auxiliaryGraphBinding: true
+            )
+        )
+    }()
+
+    let extraActiveSamplerRejected: Bool = {
+        guard let value = stockMasked, let auxiliary = value.samplers[1] else {
+            return false
+        }
+        var samplers = value.samplers
+        samplers[2] = .init(
+            name: "g_Texture2",
+            slot: 2,
+            mode: auxiliary.mode,
+            materialKey: auxiliary.materialKey,
+            isHidden: auxiliary.isHidden,
+            defaultTexture: auxiliary.defaultTexture,
+            readinessCombo: auxiliary.readinessCombo
+        )
+        return !proven(value, samplers: samplers)
+    }()
+
+    let priorEffectOutputAccepted: Bool = {
+        guard let value = stockMasked else { return false }
+        let prior = effectOutputTexture("fixture-prior")
+        return proven(
+            value,
+            templateValue: materialTemplate(
+                value,
+                input: prior,
+                inputRole: .effectOutput,
+                auxiliaryReference: .asset(maskPath)
+            ),
+            input: prior
+        )
+    }()
+
+    let internalFramebufferRejected: Bool = {
+        guard let value = stockMasked else { return false }
+        let internalTarget = namedFramebufferTexture()
+        return !proven(
+            value,
+            templateValue: materialTemplate(
+                value,
+                input: internalTarget,
+                inputRole: .framebuffer,
+                auxiliaryReference: .asset(maskPath)
+            ),
+            input: internalTarget
+        )
+    }()
+
+    let differentEffectOutputRejected: Bool = {
+        guard let value = stockMasked else { return false }
+        let prior = effectOutputTexture("fixture-prior")
+        let different = effectOutputTexture("fixture-other")
+        return !proven(
+            value,
+            templateValue: materialTemplate(
+                value,
+                input: different,
+                inputRole: .effectOutput,
+                auxiliaryReference: .asset(maskPath)
+            ),
+            input: prior
+        )
+    }()
+
+    let fallbackCandidateRejected: Bool = {
+        guard let value = stockMasked else { return false }
+        return !proven(
+            value,
+            templateValue: materialTemplate(
+                value,
+                auxiliaryReference: .asset(maskPath),
+                candidateCount: 2
+            )
+        )
+    }()
+
+    return [
+        "unmaskedSourceFact": unmasked.map {
+            SceneAuthoredShaderGraphInputColorBlendAnalyzer.analyze(
+                fragmentSource: $0.program.fragment.source
+            ) != nil
+        } ?? false,
+        "unmaskedTransferProven": unmasked.map {
+            if case .straightAlphaPreserving(textureSlot: 0) =
+                SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                    fragmentSource: $0.program.fragment.source
+                ) { return true }
+            return false
+        } ?? false,
+        "unmaskedSamplerSetExact": unmasked.map {
+            Set($0.samplers.keys) == [0]
+        } ?? false,
+        "modeZeroSourceFact": opaque.map {
+            SceneAuthoredShaderGraphInputColorBlendAnalyzer.analyze(
+                fragmentSource: $0.program.fragment.source
+            ) != nil
+        } ?? false,
+        "modeZeroTransferProven": opaque.map {
+            SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                fragmentSource: $0.program.fragment.source
+            ) == .opaque
+        } ?? false,
+        "modeZeroSamplerSetExact": opaque.map {
+            Set($0.samplers.keys) == [0]
+        } ?? false,
+        "unmaskedPreparedVariant": unmasked.map { proven($0) } ?? false,
+        "stockMaskMultiplyPreparedVariant": stockMasked.map { proven($0) } ?? false,
+        "legacyMaskOverridePreparedVariant": legacyMasked.map { proven($0) } ?? false,
+        "modeZeroOpaquePreparedVariant": opaque.map { proven($0) } ?? false,
+        "wrongSamplerModeRejected": wrongSamplerModeRejected,
         "auxiliaryGraphInputRejected": auxiliaryGraphInputRejected,
         "extraActiveSamplerRejected": extraActiveSamplerRejected,
         "priorEffectOutputAccepted": priorEffectOutputAccepted,
@@ -3039,9 +3346,11 @@ private enum Harness {
         ]
 
         let attenuationEligibility = attenuationEligibilityTokens()
+        let colorBlendEligibility = colorBlendEligibilityTokens()
         let result: [String: Any] = [
             "metalAvailable": true,
             "attenuationEligibilityCases": attenuationEligibility,
+            "colorBlendEligibilityCases": colorBlendEligibility,
             "activeDefaultCache": [
                 "launchMasks": activeDefaultLaunchMasks?.map(Int.init) ?? [-1],
                 "failure": failureToken(activeDefaultMaskProgram),
@@ -3052,6 +3361,7 @@ private enum Harness {
             ],
             "positive": [
                 "attenuationEligibility": attenuationEligibility.values.allSatisfy { $0 },
+                "colorBlendEligibility": colorBlendEligibility.values.allSatisfy { $0 },
                 "fixedEightSlots": programA.textureSlots.count == 8
                     && programA.textureSlots[0] != nil
                     && programA.textureSlots.dropFirst().allSatisfy { $0 == nil },
@@ -3343,6 +3653,33 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             {
                 "maskOffPreparedVariant": True,
                 "maskOnPreparedVariant": True,
+                "wrongSamplerModeRejected": True,
+                "auxiliaryGraphInputRejected": True,
+                "extraActiveSamplerRejected": True,
+                "priorEffectOutputAccepted": True,
+                "internalFramebufferRejected": True,
+                "differentEffectOutputRejected": True,
+                "fallbackCandidateRejected": True,
+            },
+            self.result,
+        )
+
+    def test_color_blend_eligibility_uses_prepared_source_schema_and_graph_identity(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["colorBlendEligibilityCases"],
+            {
+                "unmaskedSourceFact": True,
+                "unmaskedTransferProven": True,
+                "unmaskedSamplerSetExact": True,
+                "modeZeroSourceFact": True,
+                "modeZeroTransferProven": True,
+                "modeZeroSamplerSetExact": True,
+                "unmaskedPreparedVariant": True,
+                "stockMaskMultiplyPreparedVariant": True,
+                "legacyMaskOverridePreparedVariant": True,
+                "modeZeroOpaquePreparedVariant": True,
                 "wrongSamplerModeRejected": True,
                 "auxiliaryGraphInputRejected": True,
                 "extraActiveSamplerRejected": True,

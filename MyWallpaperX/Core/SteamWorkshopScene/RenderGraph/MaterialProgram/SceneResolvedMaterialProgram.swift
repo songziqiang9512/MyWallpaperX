@@ -1,6 +1,17 @@
 import Foundation
 
 nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
+    enum EffectLocalVisualFallback: String, Equatable {
+        case optionalTextureUnavailable =
+            "material-finalizer-optional-texture-unavailable"
+        case optionalTexturePurposeMismatch =
+            "material-finalizer-optional-texture-purpose-mismatch"
+        case optionalTextureContentMismatch =
+            "material-finalizer-optional-texture-content-mismatch"
+        case optionalTextureSamplingUnresolved =
+            "material-finalizer-optional-texture-sampling-unresolved"
+    }
+
     enum Phase: String, Equatable {
         case graph
         case shaderContract
@@ -63,6 +74,10 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
     let code: Code
     let slot: Int?
     let provenance: SceneResolvedMaterialNode.TextureProvenance?
+    /// A typed local-failure hint, never standalone fallback authority.
+    /// GraphExecutor must still prove the exact shared capability profile,
+    /// optional sampler role, pair topology and previous-current rollback.
+    let effectLocalVisualFallback: EffectLocalVisualFallback?
     let boundedDetails: [String]
 
     init(
@@ -70,12 +85,14 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         code: Code,
         slot: Int? = nil,
         provenance: SceneResolvedMaterialNode.TextureProvenance? = nil,
+        effectLocalVisualFallback: EffectLocalVisualFallback? = nil,
         details: [String] = []
     ) {
         self.phase = phase
         self.code = code
         self.slot = slot
         self.provenance = provenance
+        self.effectLocalVisualFallback = effectLocalVisualFallback
         boundedDetails = details.prefix(8).map { String($0.prefix(160)) }
     }
 }

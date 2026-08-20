@@ -6,7 +6,8 @@ import simd
 ///
 /// 与官方的两处已知偏差，均沿用项目 premultiplied 合成链的既有边界：
 /// - `PULSEALPHA` 在官方 straight alpha 下只乘 `albedo.a`，这里四通道同乘；
-/// - `PULSECOLOR` 的 `ApplyBlending` 直接作用在 premultiplied rgb 上（同 Tint backend）。
+/// - `PULSECOLOR` 的 `ApplyBlending` 直接作用在 premultiplied rgb 上，复用共享
+///   blend-mode 数学合同。
 private let scenePulseShaderSource = SceneBlendModeShaderSource.blendFunctions + """
 
 struct PulseVaryings {

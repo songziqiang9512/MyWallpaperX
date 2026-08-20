@@ -116,15 +116,6 @@ targets: targets,
                 dependencyEffect: dependencyEffect,
                 commandBuffer: commandBuffer
             )
-        case .tint(let tint):
-            guard let tintPipeline = pipelines.tint else { return nil }
-            return renderTint(
-                tint, sourceTexture: sourceTexture, masks: masks,
-targets: targets,
-                dynamicValues: dynamicValues, sourceUniforms: sourceUniforms,
-                pipeline: pipeline, tintPipeline: tintPipeline,
-                commandBuffer: commandBuffer
-            )
         case .transform:
             return renderTransform(
                 stage, sourceTexture: sourceTexture, targets: targets,

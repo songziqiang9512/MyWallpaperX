@@ -54,7 +54,6 @@ final class SceneImageEffectPipelineRepository {
     private let depthParallaxSlot: ScenePipelineSlot<SceneDepthParallaxPipeline>
     private let xRaySlot: ScenePipelineSlot<SceneXRayPipeline>
     private let blendSlot: ScenePipelineSlot<SceneBlendPipeline>
-    private let tintSlot: ScenePipelineSlot<SceneTintPipeline>
     private let pulseSlot: ScenePipelineSlot<ScenePulsePipeline>
     private let godraysSlot: ScenePipelineSlot<SceneGodraysPipeline>
     private let shineSlot: ScenePipelineSlot<SceneShinePipeline>
@@ -81,7 +80,6 @@ final class SceneImageEffectPipelineRepository {
         depthParallaxSlot = .init { SceneDepthParallaxPipeline(device: device) }
         xRaySlot = .init { SceneXRayPipeline(device: device) }
         blendSlot = .init { SceneBlendPipeline(device: device) }
-        tintSlot = .init { SceneTintPipeline(device: device) }
         pulseSlot = .init { ScenePulsePipeline(device: device) }
         godraysSlot = .init { SceneGodraysPipeline(device: device) }
         shineSlot = .init { SceneShinePipeline(device: device) }
@@ -113,7 +111,6 @@ final class SceneImageEffectPipelineRepository {
     }
     func xRay() -> SceneXRayPipeline? { xRaySlot.resolve() }
     func blend() -> SceneBlendPipeline? { blendSlot.resolve() }
-    func tint() -> SceneTintPipeline? { tintSlot.resolve() }
     func pulse() -> ScenePulsePipeline? { pulseSlot.resolve() }
     func godrays() -> SceneGodraysPipeline? { godraysSlot.resolve() }
     func shine() -> SceneShinePipeline? { shineSlot.resolve() }

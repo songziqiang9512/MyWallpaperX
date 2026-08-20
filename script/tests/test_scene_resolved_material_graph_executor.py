@@ -581,6 +581,13 @@ private let second = Graph.TextureIdentity(
     name: "second"
 )
 private let extent = Plan.PixelExtent(width: 2, height: 2)
+private let colorBlendMaskPath = SceneVFSAssetPath(
+    "textures/unseen-color-blend-mask.tex"
+)!
+private let colorBlendMaskIdentity = SceneAssetTextureIdentity(
+    path: colorBlendMaskPath,
+    purpose: .mask
+)
 
 private let vertexSource = """
 attribute vec3 a_Position;
@@ -589,6 +596,32 @@ varying vec2 v_TexCoord;
 void main() {
     v_TexCoord = a_TexCoord;
     gl_Position = vec4(a_Position, 1.0);
+}
+"""
+
+private let colorBlendVertexSource = """
+uniform mat4 g_ModelViewProjectionMatrix;
+
+#if MASK
+uniform vec4 g_Texture1Resolution;
+#endif
+
+attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec4 v_TexCoord;
+void main() {
+    gl_Position = mul(
+        vec4(a_Position, 1.0),
+        g_ModelViewProjectionMatrix
+    );
+    v_TexCoord = a_TexCoord.xyxy;
+
+#if MASK
+    v_TexCoord.zw = vec2(
+        v_TexCoord.x * g_Texture1Resolution.z / g_Texture1Resolution.x,
+        v_TexCoord.y * g_Texture1Resolution.w / g_Texture1Resolution.y
+    );
+#endif
 }
 """
 
@@ -607,8 +640,41 @@ private func fragmentSource(
     scalarProducerUnproven: Bool = false,
     scalarConsumer: String? = nil,
     repeatProbe: Bool = false,
-    crossLayerMix: Bool = false
+    crossLayerMix: Bool = false,
+    colorBlend: Bool = false
 ) -> String {
+    if colorBlend {
+        return """
+        // [COMBO] {"material":"ui_editor_properties_blend_mode","combo":"BLENDMODE","type":"imageblending","default":30}
+        varying vec4 v_TexCoord;
+        uniform sampler2D g_Texture0; // {"hidden":true}
+        uniform sampler2D g_Texture1; // {"mode":"opacitymask","combo":"MASK"}
+        uniform float g_BlendAlpha; // {"material":"alpha","default":1}
+        uniform vec3 g_TintColor; // {"material":"color","type":"color","default":"1 0 0"}
+        vec3 ApplyBlending(
+            const int mode,
+            in vec3 base,
+            in vec3 blend,
+            in float opacity
+        ) {
+            return mix(base, blend, opacity);
+        }
+        void main() {
+            vec4 carrier = texSample2D(g_Texture0, v_TexCoord.xy);
+            float influence = g_BlendAlpha;
+        #if MASK
+            influence *= texSample2D(g_Texture1, v_TexCoord.zw).r;
+        #endif
+            carrier.rgb = ApplyBlending(
+                BLENDMODE,
+                carrier.rgb,
+                g_TintColor,
+                influence
+            );
+            gl_FragColor = carrier;
+        }
+        """
+    }
     let annotation = pass ? "// [PASS] shadow shadowcasterdemo\n" : ""
     let primarySampler = internalDefault
         ? #"uniform sampler2D g_Texture0; // {"default":"_rt_history"}"#
@@ -994,7 +1060,8 @@ private func shaderContract(
     scalarProducerUnproven: Bool = false,
     scalarConsumer: String? = nil,
     repeatProbe: Bool = false,
-    crossLayerMix: Bool = false
+    crossLayerMix: Bool = false,
+    colorBlend: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -1053,10 +1120,15 @@ private func shaderContract(
         scalarProducerUnproven: scalarProducerUnproven,
         scalarConsumer: scalarConsumer,
         repeatProbe: repeatProbe,
-        crossLayerMix: crossLayerMix
+        crossLayerMix: crossLayerMix,
+        colorBlend: colorBlend
     )
     let stages = [
-        stage(.vertex, path: "\(prefix).vert", source: vertexSource),
+        stage(
+            .vertex,
+            path: "\(prefix).vert",
+            source: colorBlend ? colorBlendVertexSource : vertexSource
+        ),
         stage(
             .fragment,
             path: "\(prefix).frag",
@@ -1151,7 +1223,8 @@ private func template(
     scalarConsumer: String? = nil,
     repeatProbe: Bool = false,
     pixelTransform explicitPixelTransform: Int? = nil,
-    namedProvider: SceneNamedTextureReference? = nil
+    namedProvider: SceneNamedTextureReference? = nil,
+    colorBlendMaskPath: SceneVFSAssetPath? = nil
 ) -> Template {
     guard let target = node.target,
           let inputBinding = node.bindings.first,
@@ -1185,7 +1258,8 @@ private func template(
         scalarProducerUnproven: scalarProducerUnproven,
         scalarConsumer: scalarConsumer,
         repeatProbe: repeatProbe,
-        crossLayerMix: namedProvider != nil
+        crossLayerMix: namedProvider != nil,
+        colorBlend: colorBlendMaskPath != nil
     )
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     slots[slot] = .init(index: slot, candidates: [
@@ -1202,6 +1276,14 @@ private func template(
             ),
         ])
     }
+    if let colorBlendMaskPath {
+        slots[1] = .init(index: 1, candidates: [
+            .init(
+                reference: .asset(colorBlendMaskPath),
+                provenance: .material
+            ),
+        ])
+    }
     let effectInput: Template.GraphTextureRole
     if node.effect == chainedSecondEffect {
         effectInput = role(chainedFirstOutput)
@@ -1212,7 +1294,8 @@ private func template(
     }
     return Template.validated(
         textureSlots: slots,
-        combos: [],
+        combos: colorBlendMaskPath == nil
+            ? [] : [.init(name: "BLENDMODE", value: 30)],
         uniformDeclarations: dynamicUniform
             ? [dynamicUniformDeclaration(for: node)]
             : uniformDeclarationConflict
@@ -1327,7 +1410,8 @@ private func catalog(
     scalarConsumerNodes: [Int: String] = [:],
     repeatProbeNodes: Set<Int> = [],
     pixelTransformsByNode: [Int: Int] = [:],
-    namedProvidersByNode: [Int: SceneNamedTextureReference] = [:]
+    namedProvidersByNode: [Int: SceneNamedTextureReference] = [:],
+    colorBlendNodes: Set<Int> = []
 ) -> SceneResolvedMaterialRuntimeCatalog {
     var entries: [
         SceneResolvedMaterialRuntimeCatalog.Key:
@@ -1363,7 +1447,9 @@ private func catalog(
                 scalarConsumer: scalarConsumerNodes[node.nodeIndex],
                 repeatProbe: repeatProbeNodes.contains(node.nodeIndex),
                 pixelTransform: pixelTransformsByNode[node.nodeIndex],
-                namedProvider: namedProvidersByNode[node.nodeIndex]
+                namedProvider: namedProvidersByNode[node.nodeIndex],
+                colorBlendMaskPath: colorBlendNodes.contains(node.nodeIndex)
+                    ? colorBlendMaskPath : nil
             )
         entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)] = .template(value)
     }
@@ -1631,7 +1717,10 @@ private func frame(
     width: Int = extent.width,
     height: Int = extent.height,
     dynamicDefinitions: [SceneDynamicTargetDefinition] = [],
-    timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+    textureEntries: [
+        SceneFrameTextureIdentity: SceneFrameTextureLookupStatus
+    ] = [:]
 ) -> SceneResolvedMaterialFrameSnapshot {
     let dynamic = SceneDynamicSnapshotResolver().resolve(
         frameIndex: index,
@@ -1643,7 +1732,7 @@ private func frame(
         textureSnapshot: .init(
             frameEpoch: index,
             frameIndex: index,
-            entries: [:]
+            entries: textureEntries
         ),
         dynamicSnapshot: dynamic.snapshot,
         frameInputs: .init(
@@ -1660,6 +1749,103 @@ private func frame(
         fatalError("frame snapshot failed")
     }
     return value
+}
+
+private enum ColorBlendMaskFixtureStatus: Equatable {
+    case ready
+    case pending
+    case unavailable
+    case wrongPurpose
+    case wrongContent
+    case samplingUnresolved
+    case generationMismatch
+    case requestIdentityMismatch
+}
+
+private func colorBlendMaskStatus(
+    _ kind: ColorBlendMaskFixtureStatus,
+    device: MTLDevice,
+    generation: UInt64
+) -> SceneFrameTextureLookupStatus {
+    if kind == .pending { return .pending }
+    if kind == .unavailable { return .unavailable }
+
+    let purpose: SceneTextureLoadPurpose = kind == .wrongPurpose ? .noise : .mask
+    let content: SceneTextureContent = kind == .wrongContent
+        ? .color(.resolved(.straightAlpha)) : .data
+    let candidateGeneration = generation
+    let contentGeneration = kind == .generationMismatch
+        ? generation + 1 : generation
+    let requestIdentity: SceneFrameTextureIdentity = kind == .requestIdentityMismatch
+        ? .asset(.init(
+            path: SceneVFSAssetPath("textures/other-mask.tex")!,
+            purpose: .mask
+        ))
+        : .asset(colorBlendMaskIdentity)
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .r8Unorm,
+        width: 8,
+        height: 4,
+        mipmapped: true
+    )
+    descriptor.storageMode = .shared
+    descriptor.usage = .shaderRead
+    let texture = device.makeTexture(descriptor: descriptor)!
+    for level in 0 ..< texture.mipmapLevelCount {
+        let width = max(1, texture.width >> level)
+        let height = max(1, texture.height >> level)
+        let mappedWidth = max(1, width / 2)
+        let bytes = (0 ..< width * height).map { index in
+            index % width < mappedWidth ? UInt8(255) : UInt8(0)
+        }
+        texture.replace(
+            region: MTLRegionMake2D(0, 0, width, height),
+            mipmapLevel: level,
+            withBytes: bytes,
+            bytesPerRow: width
+        )
+    }
+    let physicalSize = CGSize(width: texture.width, height: texture.height)
+    let mappedSize = CGSize(width: 4, height: 4)
+    let publication = SceneTextureProviderPublication(
+        requestIdentity: requestIdentity,
+        candidate: .init(
+            texture: texture,
+            identity: .provider(.video(
+                layerID: layerID,
+                lifecycleEpoch: generation
+            )),
+            generation: .provider(contentGeneration: candidateGeneration),
+            purpose: purpose,
+            content: content,
+            physicalSize: physicalSize,
+            mappedSize: mappedSize,
+            uvTransform: .init(
+                origin: .zero,
+                xAxis: SIMD2(0.5, 0),
+                yAxis: SIMD2(0, 1)
+            ),
+            sampling: kind == .samplingUnresolved
+                ? .init(texFlags: 8) : .linearClamp,
+            authoredFormat: .r8
+        ),
+        contentGeneration: contentGeneration
+    )
+    let resource = SceneFrameTextureResource(
+        publication: publication,
+        resourceGeneration: generation
+    )
+    switch kind {
+    case .ready, .samplingUnresolved, .requestIdentityMismatch:
+        return .ready(resource)
+    case .wrongPurpose, .wrongContent, .generationMismatch:
+        return .incomplete(.publication(
+            publication,
+            resourceGeneration: generation
+        ))
+    case .pending, .unavailable:
+        fatalError("handled before publication construction")
+    }
 }
 
 private func clear(
@@ -1788,6 +1974,15 @@ private func matches(_ pixel: [UInt8], _ expected: [UInt8]) -> Bool {
     pixel.count == expected.count && zip(pixel, expected).allSatisfy {
         abs(Int($0) - Int($1)) <= 2
     }
+}
+
+private func isPremultiplied(_ pixel: [UInt8]) -> Bool {
+    guard pixel.count == 4 else { return false }
+    let alpha = Int(pixel[3])
+    return Int(pixel[0]) <= alpha + 1
+        && Int(pixel[1]) <= alpha + 1
+        && Int(pixel[2]) <= alpha + 1
+        && (alpha != 0 || pixel[0 ... 2].allSatisfy { $0 == 0 })
 }
 
 private func fill(
@@ -2421,7 +2616,9 @@ private func capabilities(
     dedicatedFullFrameComposeStageKeys: Set<Graph.EffectKey> = [],
     namedProvider: SceneNamedTextureReference? = nil,
     dependencyBinding: SceneDependencyRenderPlan.Binding? = nil,
-    functionsByEffect: [Graph.EffectKey: SceneJSONValue] = [:]
+    functionsByEffect: [Graph.EffectKey: SceneJSONValue] = [:],
+    assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
+    assetFormatFacts: [String: Int] = [:]
 ) -> Capabilities {
     let graph = admittedGraph.renderGraph
     let materialNodes = graph.nodes.filter { $0.kind == .material }
@@ -2488,6 +2685,8 @@ private func capabilities(
         admissionCandidates: candidates,
         materialCatalog: catalog,
         dynamicProducers: dynamicProducers,
+        assetFormatFacts: assetFormatFacts,
+        assetStates: assetStates,
         dedicatedStageFamilies: Dictionary(
             uniqueKeysWithValues: dedicatedFullFrameComposeStageKeys.map {
                 ($0, "fixture-full-frame-compose")
@@ -2988,6 +3187,33 @@ private enum Harness {
         let hostConflictPixelCapability = hostConflictPixelClaim.flatMap {
             hostConflictPixelCapabilities.resolve($0.token, for: pixelChain)
         }
+        let colorBlendCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(
+                for: pixelGraph,
+                colorBlendNodes: [1]
+            ),
+            assetStates: [colorBlendMaskIdentity: .ready(.data)],
+            assetFormatFacts: [
+                colorBlendMaskIdentity.reportToken:
+                    SceneShaderTextureFormat.r8.macroValue,
+            ]
+        )
+        let colorBlendClaim = colorBlendCapabilities.claim(pixelChain)
+        let colorBlendCapability = colorBlendClaim.flatMap {
+            colorBlendCapabilities.resolve($0.token, for: pixelChain)
+        }
+        let colorBlendMaterial = colorBlendCapability?.material(
+            effect: chainedSecondEffect,
+            nodeIndex: 1
+        )
+        let colorBlendSnapshot = colorBlendMaterial?.variants
+            .launchEnvelopeCapabilitySnapshot()
+        let colorBlendProfiles = colorBlendSnapshot?.variants.map {
+            $0.routeDecision.profile
+        } ?? []
+        let colorBlendOptionalMaskProof = colorBlendMaterial?.variants
+            .provesEffectLocalOptionalColorBlendTextureFailure(slot: 1) == true
         var dynamicUniformValidFramePrepares = false
         if let claim = dynamicPixelClaim,
            let capability = dynamicPixelCapability,
@@ -3024,13 +3250,22 @@ private enum Harness {
             }
         }
 
-        func executeUniformFailurePassthrough(
+        func executeVisualFailurePassthrough(
             claim: Capabilities.ClaimedLayer?,
             capability: Capabilities.LayerCapability?,
             capabilities: Capabilities,
             generation: UInt64,
-            reason: String
-        ) -> (prepared: Bool, encoded: Bool, gpuCompleted: Bool, continued: Bool) {
+            reason: String,
+            textureEntries: [
+                SceneFrameTextureIdentity: SceneFrameTextureLookupStatus
+            ] = [:]
+        ) -> (
+            prepared: Bool,
+            encoded: Bool,
+            gpuCompleted: Bool,
+            continued: Bool,
+            failureCode: String
+        ) {
             guard let claim, let capability,
                   let leases = makeChainedLeases(
                       capability,
@@ -3040,13 +3275,16 @@ private enum Harness {
                       device: device,
                       capabilities: capabilities
                   ), let command = queue.makeCommandBuffer() else {
-                return (false, false, false, false)
+                return (false, false, false, false, "setup")
             }
             let preparation = executor.prepare(
                 token: claim.token,
                 leases: leases,
                 historyRehydrateCopiesByEffect: [:],
-                frame: frame(generation),
+                frame: frame(
+                    generation,
+                    textureEntries: textureEntries
+                ),
                 sourceTexture: source,
                 sourceUniforms: .neutral(),
                 sourcePipeline: sourcePipeline,
@@ -3057,12 +3295,19 @@ private enum Harness {
                 effectGeneration: generation,
                 resetGeneration: generation
             )
+            let preparationFailureCode = failureCode(preparation)
             guard case let .success(prepared) = preparation,
                   prepared.stages.count == 3,
                   prepared.stages[1].programCacheKeys == [
                       "visual-failure-passthrough:" + reason
-                  ], prepared.stages[1].effectLocalFailureReasonCode == reason else {
-                return (false, false, false, false)
+                  ], prepared.stages[1].effectLocalFailureReasonCode == reason,
+                  prepared.stages[0].programCacheKeys.allSatisfy({
+                      !$0.hasPrefix("visual-failure-passthrough:")
+                  }), prepared.stages[2].programCacheKeys.allSatisfy({
+                      !$0.hasPrefix("visual-failure-passthrough:")
+                  }), prepared.finalResource.publication.requestIdentity
+                    == .graph(chainedFinalOutput) else {
+                return (false, false, false, false, preparationFailureCode)
             }
             var observedStageIndices: [Int] = []
             var stageReadbacks: [Readback] = []
@@ -3083,7 +3328,9 @@ private enum Harness {
                   let finalReadback = appendReadback(
                       prepared.finalTexture,
                       commandBuffer: command
-                  ) else { return (true, encoded, false, false) }
+                  ) else {
+                return (true, encoded, false, false, preparationFailureCode)
+            }
             command.commit()
             command.waitUntilCompleted()
             let expectedPixels: [[UInt8]] = [
@@ -3102,11 +3349,12 @@ private enum Harness {
                 true,
                 encoded,
                 command.status == .completed && command.error == nil,
-                continued
+                continued,
+                preparationFailureCode
             )
         }
 
-        let dynamicUniformFailure = executeUniformFailurePassthrough(
+        let dynamicUniformFailure = executeVisualFailurePassthrough(
             claim: dynamicPixelClaim,
             capability: dynamicPixelCapability,
             capabilities: dynamicPixelCapabilities,
@@ -3114,7 +3362,7 @@ private enum Harness {
             reason: "material-finalizer-dynamic-uniform-binding"
         )
 
-        let staticUniformFailure = executeUniformFailurePassthrough(
+        let staticUniformFailure = executeVisualFailurePassthrough(
             claim: staticPixelClaim,
             capability: staticPixelCapability,
             capabilities: staticPixelCapabilities,
@@ -3122,7 +3370,7 @@ private enum Harness {
             reason: "material-finalizer-static-uniform-binding"
         )
 
-        let samplerSchemaFailure = executeUniformFailurePassthrough(
+        let samplerSchemaFailure = executeVisualFailurePassthrough(
             claim: samplerSchemaPixelClaim,
             capability: samplerSchemaPixelCapability,
             capabilities: samplerSchemaPixelCapabilities,
@@ -3130,20 +3378,260 @@ private enum Harness {
             reason: "material-variant-envelope-sampler-schema"
         )
 
-        let hostConflictFailure = executeUniformFailurePassthrough(
+        let hostConflictFailure = executeVisualFailurePassthrough(
             claim: hostConflictPixelClaim,
             capability: hostConflictPixelCapability,
             capabilities: hostConflictPixelCapabilities,
             generation: 9,
             reason: "material-finalizer-host-uniform-declaration-conflict"
         )
-        let declarationConflictFailure = executeUniformFailurePassthrough(
+        let declarationConflictFailure = executeVisualFailurePassthrough(
             claim: declarationConflictPixelClaim,
             capability: declarationConflictPixelCapability,
             capabilities: declarationConflictPixelCapabilities,
             generation: 11,
             reason: "material-finalizer-uniform-declaration-conflict"
         )
+
+        func colorBlendEntries(
+            _ kind: ColorBlendMaskFixtureStatus,
+            generation: UInt64
+        ) -> [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus] {
+            [
+                .asset(colorBlendMaskIdentity): colorBlendMaskStatus(
+                    kind,
+                    device: device,
+                    generation: generation
+                ),
+            ]
+        }
+
+        let colorBlendPendingFailure = executeVisualFailurePassthrough(
+            claim: colorBlendClaim,
+            capability: colorBlendCapability,
+            capabilities: colorBlendCapabilities,
+            generation: 12,
+            reason: "material-finalizer-optional-texture-unavailable",
+            textureEntries: colorBlendEntries(.pending, generation: 12)
+        )
+        let colorBlendUnavailableFailure = executeVisualFailurePassthrough(
+            claim: colorBlendClaim,
+            capability: colorBlendCapability,
+            capabilities: colorBlendCapabilities,
+            generation: 13,
+            reason: "material-finalizer-optional-texture-unavailable",
+            textureEntries: colorBlendEntries(.unavailable, generation: 13)
+        )
+        let colorBlendWrongPurposeFailure = executeVisualFailurePassthrough(
+            claim: colorBlendClaim,
+            capability: colorBlendCapability,
+            capabilities: colorBlendCapabilities,
+            generation: 14,
+            reason: "material-finalizer-optional-texture-purpose-mismatch",
+            textureEntries: colorBlendEntries(.wrongPurpose, generation: 14)
+        )
+        let colorBlendWrongContentFailure = executeVisualFailurePassthrough(
+            claim: colorBlendClaim,
+            capability: colorBlendCapability,
+            capabilities: colorBlendCapabilities,
+            generation: 15,
+            reason: "material-finalizer-optional-texture-content-mismatch",
+            textureEntries: colorBlendEntries(.wrongContent, generation: 15)
+        )
+        let colorBlendSamplingFailure = executeVisualFailurePassthrough(
+            claim: colorBlendClaim,
+            capability: colorBlendCapability,
+            capabilities: colorBlendCapabilities,
+            generation: 16,
+            reason: "material-finalizer-optional-texture-sampling-unresolved",
+            textureEntries: colorBlendEntries(.samplingUnresolved, generation: 16)
+        )
+
+        func executeColorBlendReady(
+            generation: UInt64,
+            sourceTexture: MTLTexture,
+            expectedPixels: [[UInt8]]?
+        ) -> (
+            prepared: Bool,
+            encoded: Bool,
+            gpuCompleted: Bool,
+            visible: Bool,
+            premultiplied: Bool
+        ) {
+            guard let claim = colorBlendClaim,
+                  let capability = colorBlendCapability,
+                  let leases = makeChainedLeases(
+                    capability,
+                    device: device,
+                    generation: generation
+                  ), let executor = Executor(
+                    device: device,
+                    capabilities: colorBlendCapabilities
+                  ), let command = queue.makeCommandBuffer() else {
+                return (false, false, false, false, false)
+            }
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(
+                    generation,
+                    textureEntries: colorBlendEntries(.ready, generation: generation)
+                ),
+                sourceTexture: sourceTexture,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: generation,
+                resetGeneration: generation
+            )
+            guard case let .success(prepared) = preparation,
+                  prepared.stages.count == 3,
+                  prepared.stages[1].effectLocalFailureReasonCode == nil,
+                  prepared.stages.allSatisfy({ stage in
+                      stage.programCacheKeys.allSatisfy {
+                          !$0.hasPrefix("visual-failure-passthrough:")
+                      }
+                  }), prepared.finalResource.publication.requestIdentity
+                    == .graph(chainedFinalOutput) else {
+                return (false, false, false, false, false)
+            }
+            var observedStageIndices: [Int] = []
+            var stageReadbacks: [Readback] = []
+            let encoded = executor.encode(
+                prepared,
+                commandBuffer: command,
+                stageBoundaryObserver: { stageIndex, transition, buffer in
+                    guard let readback = appendReadback(
+                        transition.effectOutputResource.publication.texture,
+                        commandBuffer: buffer
+                    ) else { return false }
+                    observedStageIndices.append(stageIndex)
+                    stageReadbacks.append(readback)
+                    return true
+                }
+            )
+            guard encoded,
+                  let finalReadback = appendReadback(
+                    prepared.finalTexture,
+                    commandBuffer: command
+                  ) else { return (true, encoded, false, false, false) }
+            command.commit()
+            command.waitUntilCompleted()
+            let visible = observedStageIndices == [0, 1, 2]
+                && stageReadbacks.count == 3
+                && (expectedPixels.map { expected in
+                    expected.count == 3
+                        && zip(stageReadbacks, expected).allSatisfy {
+                            matches($0.firstPixel, $1)
+                                && matches($0.lastPixel, $1)
+                        }
+                        && matches(finalReadback.firstPixel, expected[2])
+                        && matches(finalReadback.lastPixel, expected[2])
+                } ?? true)
+            let allReadbacks = stageReadbacks + [finalReadback]
+            let premultiplied = allReadbacks.allSatisfy { readback in
+                isPremultiplied(readback.firstPixel)
+                    && isPremultiplied(readback.lastPixel)
+            }
+            return (
+                true,
+                encoded,
+                command.status == .completed && command.error == nil,
+                visible,
+                premultiplied
+            )
+        }
+        let colorBlendReady = executeColorBlendReady(
+            generation: 19,
+            sourceTexture: source,
+            expectedPixels: [
+                [255, 0, 0, 255],
+                [0, 0, 255, 255],
+                [255, 0, 0, 255],
+            ]
+        )
+        let premultipliedSource = makeSource(
+            device,
+            width: 2,
+            height: 2,
+            pixelsBGRA: [
+                0, 0, 0, 0,
+                8, 16, 48, 64,
+                16, 32, 96, 128,
+                0, 0, 0, 0,
+            ]
+        )
+        let colorBlendPremultiplied = executeColorBlendReady(
+            generation: 20,
+            sourceTexture: premultipliedSource,
+            expectedPixels: nil
+        )
+
+        func colorBlendIntegrityFailureRemainsHard(
+            _ kind: ColorBlendMaskFixtureStatus,
+            generation: UInt64
+        ) -> Bool {
+            guard let claim = colorBlendClaim,
+                  let capability = colorBlendCapability,
+                  let leases = makeChainedLeases(
+                    capability,
+                    device: device,
+                    generation: generation
+                  ), let executor = Executor(
+                    device: device,
+                    capabilities: colorBlendCapabilities
+                  ), let command = queue.makeCommandBuffer() else {
+                return false
+            }
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(
+                    generation,
+                    textureEntries: colorBlendEntries(kind, generation: generation)
+                ),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: generation,
+                resetGeneration: generation
+            )
+            guard case let .failure(.materialFinalizerRejected(
+                stageIndex,
+                effect,
+                nodeIndex,
+                materialOrdinal,
+                failure
+            )) = preparation else { return false }
+            return stageIndex == 1
+                && effect == chainedSecondEffect
+                && nodeIndex == 1
+                && materialOrdinal == 0
+                && failure.phase == .texture
+                && failure.code == .textureMetadataIncomplete
+                && failure.slot == 1
+                && failure.effectLocalVisualFallback == nil
+                && command.status == .notEnqueued
+        }
+        let colorBlendGenerationMismatchRemainsHard =
+            colorBlendIntegrityFailureRemainsHard(
+                .generationMismatch,
+                generation: 17
+            )
+        let colorBlendRequestIdentityMismatchRemainsHard =
+            colorBlendIntegrityFailureRemainsHard(
+                .requestIdentityMismatch,
+                generation: 18
+            )
 
         var rendererFailurePassthroughPrepared = false
         var rendererFailurePassthroughEncoded = false
@@ -5065,6 +5553,59 @@ private enum Harness {
                 declarationConflictFailure.gpuCompleted,
             "declarationConflictFailurePreservesPreviousAndContinuesSuffix":
                 declarationConflictFailure.continued,
+            "colorBlendMaskPendingPassthroughPrepared":
+                colorBlendPendingFailure.prepared,
+            "colorBlendReadyPrepared": colorBlendReady.prepared,
+            "colorBlendReadyEncoded": colorBlendReady.encoded,
+            "colorBlendReadyGPUCompleted": colorBlendReady.gpuCompleted,
+            "colorBlendReadyChangesPixelsAndPublishesFinal":
+                colorBlendReady.visible,
+            "colorBlendReadyPreservesPremultipliedBoundary":
+                colorBlendReady.premultiplied,
+            "colorBlendTransparentAndPartialAlphaStayPremultiplied":
+                colorBlendPremultiplied.prepared
+                    && colorBlendPremultiplied.encoded
+                    && colorBlendPremultiplied.gpuCompleted
+                    && colorBlendPremultiplied.visible
+                    && colorBlendPremultiplied.premultiplied,
+            "colorBlendOptionalMaskLaunchEnvelopeProved":
+                colorBlendOptionalMaskProof
+                    && colorBlendSnapshot?.variants.count == 2
+                    && colorBlendSnapshot?.allEntriesReady == true
+                    && Set(colorBlendProfiles) == [
+                        SceneGenericShaderCapabilityProfile
+                            .sourceProvenGraphInputColorBlend.rawValue,
+                    ],
+            "colorBlendMaskPendingPassthroughEncoded":
+                colorBlendPendingFailure.encoded,
+            "colorBlendMaskPendingGPUCompleted":
+                colorBlendPendingFailure.gpuCompleted,
+            "colorBlendMaskPendingPreservesPreviousAndContinuesSuffix":
+                colorBlendPendingFailure.continued,
+            "colorBlendMaskUnavailableIsEffectLocal":
+                colorBlendUnavailableFailure.prepared
+                    && colorBlendUnavailableFailure.encoded
+                    && colorBlendUnavailableFailure.gpuCompleted
+                    && colorBlendUnavailableFailure.continued,
+            "colorBlendMaskWrongPurposeIsEffectLocal":
+                colorBlendWrongPurposeFailure.prepared
+                    && colorBlendWrongPurposeFailure.encoded
+                    && colorBlendWrongPurposeFailure.gpuCompleted
+                    && colorBlendWrongPurposeFailure.continued,
+            "colorBlendMaskWrongContentIsEffectLocal":
+                colorBlendWrongContentFailure.prepared
+                    && colorBlendWrongContentFailure.encoded
+                    && colorBlendWrongContentFailure.gpuCompleted
+                    && colorBlendWrongContentFailure.continued,
+            "colorBlendMaskSamplingFailureIsEffectLocal":
+                colorBlendSamplingFailure.prepared
+                    && colorBlendSamplingFailure.encoded
+                    && colorBlendSamplingFailure.gpuCompleted
+                    && colorBlendSamplingFailure.continued,
+            "colorBlendMaskGenerationMismatchRemainsHard":
+                colorBlendGenerationMismatchRemainsHard,
+            "colorBlendMaskRequestIdentityMismatchRemainsHard":
+                colorBlendRequestIdentityMismatchRemainsHard,
             "dynamicUniformMultiNodeRemainsHardRejected":
                 dynamicUniformMultiNodeRemainsHardRejected,
             "staticUniformMultiNodeRemainsHardRejected":
@@ -5266,6 +5807,20 @@ private enum Harness {
             ],
             "pixelChainCanClaim": pixelCapabilities.claim(pixelChain) != nil,
             "pixelChainReport": pixelCapabilities.reportLines,
+            "colorBlendCanClaim": colorBlendClaim != nil,
+            "colorBlendCapabilityResolved": colorBlendCapability != nil,
+            "colorBlendOptionalMaskProof": colorBlendOptionalMaskProof,
+            "colorBlendProfiles": colorBlendProfiles,
+            "colorBlendVariantCount": colorBlendSnapshot?.variants.count ?? -1,
+            "colorBlendAllEntriesReady":
+                colorBlendSnapshot?.allEntriesReady == true,
+            "colorBlendLeasesAvailable": colorBlendCapability.flatMap {
+                makeChainedLeases($0, device: device, generation: 91)
+            } != nil,
+            "colorBlendReport": colorBlendCapabilities.reportLines,
+            "colorBlendPendingPreparation": colorBlendPendingFailure.failureCode,
+            "colorBlendWrongPurposePreparation":
+                colorBlendWrongPurposeFailure.failureCode,
             "pixelChainFailure": pixelChainFailure,
             "visualFailureObservedPixels": visualFailureObservedPixels,
             "dynamicUniformMultiNodeFailure": dynamicUniformMultiNodeFailure,
@@ -5335,6 +5890,15 @@ class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
             '"material-finalizer-uniform-declaration-conflict"',
             visual_text,
         )
+        for reason in (
+            "material-finalizer-optional-texture-unavailable",
+            "material-finalizer-optional-texture-purpose-mismatch",
+            "material-finalizer-optional-texture-content-mismatch",
+            "material-finalizer-optional-texture-sampling-unresolved",
+        ):
+            self.assertIn(f'"{reason}"', visual_text)
+        self.assertNotIn('"material-finalizer-resource"', visual_text)
+        self.assertNotIn('"material-finalizer-texture"', visual_text)
         self.assertNotIn(
             '"material-finalizer-host-uniform-binding"',
             visual_text,

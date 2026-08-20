@@ -17,7 +17,6 @@ enum SceneLayerEffectTextureLoader {
         waterRippleEffectIDs: Set<String> = [],
         depthParallaxEffectIDs: Set<String> = [],
         cursorRippleEffectIDs: Set<String> = [],
-        tintEffectIDs: Set<String> = [],
         godraysEffectIDs: Set<String> = [],
         shineEffectIDs: Set<String> = [],
         userPropertyTextures: [String: MTLTexture] = [:],
@@ -109,13 +108,6 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
-        let tintEffects = SceneTintEffectTextureLoader.load(
-            for: layer,
-            effectIDs: tintEffectIDs,
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
         let godraysEffects = SceneGodraysEffectTextureLoader.load(
             for: layer,
             effectIDs: godraysEffectIDs,
@@ -142,7 +134,6 @@ enum SceneLayerEffectTextureLoader {
             waterCausticsEffects: waterCaustics.textures,
             cursorRippleEffects: cursorRipple.textures,
             pulseEffects: pulseEffects.textures,
-            tintEffects: tintEffects.textures,
             godraysEffects: godraysEffects.textures,
             shineEffects: shineEffects.textures,
             xRay: xRay.textures,
@@ -153,7 +144,7 @@ enum SceneLayerEffectTextureLoader {
                 waterFlow.message, waterWaves.message, cursorRipple.message,
                 waterCaustics.message,
                 waterRipple.message, depthParallax.message,
-                pulseEffects.message, tintEffects.message, godraysEffects.message,
+                pulseEffects.message, godraysEffects.message,
                 shineEffects.message,
                 xRay.message,
             ].joined()

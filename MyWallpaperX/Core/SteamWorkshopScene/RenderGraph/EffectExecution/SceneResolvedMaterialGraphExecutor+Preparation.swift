@@ -169,21 +169,34 @@ extension SceneResolvedMaterialGraphExecutor {
                         materialOrdinal: ordinal,
                         failure: failure
                     )
-                    guard failure.phase == .uniform else {
-                        return rejection
-                    }
                     let reasonCode: String
-                    switch failure.code {
-                    case .dynamicUniformBindingInvalid:
-                        reasonCode = "material-finalizer-dynamic-uniform-binding"
-                    case .staticUniformBindingInvalid:
-                        reasonCode = "material-finalizer-static-uniform-binding"
-                    case .hostUniformDeclarationConflict:
-                        reasonCode = "material-finalizer-host-uniform-declaration-conflict"
-                    case .uniformDeclarationConflict:
-                        reasonCode = "material-finalizer-uniform-declaration-conflict"
-                    default:
-                        return rejection
+                    if let fallback = failure.effectLocalVisualFallback,
+                       let slot = failure.slot,
+                       material.variants
+                        .provesEffectLocalOptionalColorBlendTextureFailure(
+                            slot: slot
+                        ) {
+                        reasonCode = fallback.rawValue
+                    } else {
+                        guard failure.phase == .uniform else {
+                            return rejection
+                        }
+                        switch failure.code {
+                        case .dynamicUniformBindingInvalid:
+                            reasonCode =
+                                "material-finalizer-dynamic-uniform-binding"
+                        case .staticUniformBindingInvalid:
+                            reasonCode =
+                                "material-finalizer-static-uniform-binding"
+                        case .hostUniformDeclarationConflict:
+                            reasonCode =
+                                "material-finalizer-host-uniform-declaration-conflict"
+                        case .uniformDeclarationConflict:
+                            reasonCode =
+                                "material-finalizer-uniform-declaration-conflict"
+                        default:
+                            return rejection
+                        }
                     }
                     return prepareVisualFailurePassthrough(
                         reasonCode: reasonCode,

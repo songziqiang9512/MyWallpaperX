@@ -40,7 +40,6 @@ extension SceneLayerEffectTextureLoader {
             cursorRippleEffectIDs: Set(
                 stages.compactMap { $0.cursorRipple?.effectKey.descriptorID }
             ),
-            tintEffectIDs: Set(stages.compactMap { $0.tint?.effectKey.descriptorID }),
             godraysEffectIDs: Set(stages.compactMap { $0.godrays?.effectKey.descriptorID }),
             shineEffectIDs: Set(stages.compactMap { $0.shine?.effectKey.descriptorID }),
             userPropertyTextures: userPropertyTextures,

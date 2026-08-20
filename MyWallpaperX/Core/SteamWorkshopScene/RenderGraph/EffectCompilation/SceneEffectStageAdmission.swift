@@ -193,7 +193,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         case .depthParallax: "depth-parallax"
         case .xRay: "x-ray"
         case .blend: "blend"
-        case .tint: "tint"
         case .transform: "transform"
         case .pulse: "pulse"
         case .godrays: "godrays"

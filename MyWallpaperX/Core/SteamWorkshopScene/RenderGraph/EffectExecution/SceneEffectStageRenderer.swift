@@ -124,7 +124,7 @@ targets: targets,
             )
         case .shake, .waterFlow, .waterWaves, .waterCaustics,
              .cursorRipple, .waterRipple, .depthParallax,
-             .xRay, .blend, .tint, .transform,
+             .xRay, .blend, .transform,
              .godrays, .shine, .pulse:
             return renderSpecializedStage(
                 stage, sourceTexture: sourceTexture, masks: masks,

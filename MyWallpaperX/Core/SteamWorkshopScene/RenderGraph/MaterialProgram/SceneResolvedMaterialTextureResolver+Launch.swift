@@ -66,8 +66,18 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                         assetStates: assetStates
                     ) {
                     case .selected:
-                        required |= bit
-                        reachesFallback = false
+                        // A readiness-combo asset may disappear between the
+                        // immutable launch census and a concrete frame. Cache
+                        // both combo-off and combo-on Programs even when the
+                        // launch snapshot is ready; frame selection still
+                        // refuses pending/unavailable instead of silently
+                        // substituting the combo-off result.
+                        if sampler?.readinessCombo != nil {
+                            hasOptionalSource = true
+                        } else {
+                            required |= bit
+                            reachesFallback = false
+                        }
                     case .none:
                         break
                     case .deferred:

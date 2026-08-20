@@ -23,7 +23,6 @@ struct SceneAuthoredEffectPipelineSet {
     var depthParallax: SceneDepthParallaxPipeline? { repository.depthParallax() }
     var xRay: SceneXRayPipeline? { repository.xRay() }
     var blend: SceneBlendPipeline? { repository.blend() }
-    var tint: SceneTintPipeline? { repository.tint() }
     var pulse: ScenePulsePipeline? { repository.pulse() }
     var godrays: SceneGodraysPipeline? { repository.godrays() }
     var shine: SceneShinePipeline? { repository.shine() }

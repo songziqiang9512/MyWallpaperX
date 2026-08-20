@@ -30,7 +30,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         core = scene_swift_source_relpaths("authored_shader_frontend_core")
 
         self.assertEqual(len(support), 3)
-        self.assertEqual(len(implementation), 42)
+        self.assertEqual(len(implementation), 43)
         self.assertEqual(core, (*support, *implementation))
         syntax = next(
             index for index, path in enumerate(implementation)
@@ -125,7 +125,6 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "script/tests/test_scene_pulse_planner.py",
             "script/tests/test_scene_shake_planner.py",
             "script/tests/test_scene_shine_planner.py",
-            "script/tests/test_scene_tint_planner.py",
             "script/tests/test_scene_transform_planner.py",
             "script/tests/test_scene_water_ripple_planner.py",
             "script/tests/test_scene_waterwaves_profile.py",
@@ -222,7 +221,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(len(uniform), 1)
         self.assertEqual(len(schema), 4)
         self.assertEqual(len(texture_finalization), 7)
-        self.assertEqual(len(variant_preparation), 8)
+        self.assertEqual(len(variant_preparation), 9)
         self.assertEqual(
             frame_finalization,
             (
@@ -233,7 +232,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 27)
+        self.assertEqual(len(frame_finalization), 28)
         self.assertEqual(len(template_compilation), 3)
         self.assertEqual(
             complete,
@@ -242,7 +241,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ),
         )
-        self.assertEqual(len(complete), 30)
+        self.assertEqual(len(complete), 31)
 
         material_program_directory = (
             REPOSITORY_ROOT

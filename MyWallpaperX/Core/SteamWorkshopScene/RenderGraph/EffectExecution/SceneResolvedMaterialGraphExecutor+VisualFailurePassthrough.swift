@@ -46,6 +46,10 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-finalizer-static-uniform-binding",
             "material-finalizer-host-uniform-declaration-conflict",
             "material-finalizer-uniform-declaration-conflict",
+            "material-finalizer-optional-texture-unavailable",
+            "material-finalizer-optional-texture-purpose-mismatch",
+            "material-finalizer-optional-texture-content-mismatch",
+            "material-finalizer-optional-texture-sampling-unresolved",
         ].contains(reasonCode),
               visualFailureTopologyIsSupported(
                   transition: transition,

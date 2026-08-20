@@ -24,18 +24,36 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
-    SOURCE_ROOT / "Effects/SceneTintPipeline.swift",
 ]
 
-# 官方 tint.frag 的默认值，以及语料里实际出现过的另外两组取值。
-TINT_COLORS = [(1.0, 0.0, 0.0), (0.25, 0.6, 0.9), (1.0, 1.0, 1.0)]
-TINT_ALPHAS = [0.35, 1.0]
+# authored color-blend 的默认值，以及语料里实际出现过的另外两组取值。
+BLEND_COLORS = [(1.0, 0.0, 0.0), (0.25, 0.6, 0.9), (1.0, 1.0, 1.0)]
+BLEND_OPACITIES = [0.35, 1.0]
 MAX_MODE = 32
 
 HARNESS = r'''
 import Foundation
 import Metal
 import simd
+
+private let blendModeTableShaderSource = SceneBlendModeShaderSource.blendFunctions + """
+kernel void sceneBlendModeTable(
+    texture2d<float, access::read> source [[texture(0)]],
+    texture2d<float, access::write> target [[texture(1)]],
+    constant int &mode [[buffer(0)]],
+    constant float3 &blendColor [[buffer(1)]],
+    constant float &opacity [[buffer(2)]],
+    uint2 position [[thread_position_in_grid]]
+) {
+    if (position.x >= source.get_width() || position.y >= source.get_height()) {
+        return;
+    }
+    float4 base = source.read(position);
+    float3 blended = sceneApplyBlending(mode, base.rgb, blendColor, opacity);
+    float outputAlpha = mode == 0 ? 1.0 : base.a;
+    target.write(float4(blended, outputAlpha), position);
+}
+"""
 
 @main
 enum Harness {
@@ -50,7 +68,7 @@ enum Harness {
             bytes[index * 4 + 0] = b
             bytes[index * 4 + 1] = g
             bytes[index * 4 + 2] = r
-            bytes[index * 4 + 3] = 255
+            bytes[index * 4 + 3] = UInt8((Double(index % 5) / 4.0 * 255.0).rounded())
         }
         return bytes
     }
@@ -97,9 +115,14 @@ enum Harness {
     static func main() {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
-              let pipeline = SceneTintPipeline(device: device),
+              let library = try? device.makeLibrary(
+                  source: blendModeTableShaderSource,
+                  options: nil
+              ),
+              let function = library.makeFunction(name: "sceneBlendModeTable"),
+              let pipeline = try? device.makeComputePipelineState(function: function),
               let source = makeTexture(device: device, usage: [.shaderRead, .shaderWrite]),
-              let target = makeTexture(device: device, usage: [.renderTarget, .shaderRead])
+              let target = makeTexture(device: device, usage: [.shaderRead, .shaderWrite])
         else {
             print("{\"metalUnavailable\": true}")
             return
@@ -121,26 +144,52 @@ enum Harness {
         let alphas: [Float] = [0.35, 1.0]
 
         var cases: [[String: Any]] = []
-        var rejected: [[String: Any]] = []
 
         for mode in 0 ... 32 {
             for (colorIndex, color) in colors.enumerated() {
                 for (alphaIndex, alpha) in alphas.enumerated() {
-                    guard let buffer = queue.makeCommandBuffer() else { continue }
-                    let encoded = pipeline.encode(
-                        source: source,
-                        target: target,
-                        color: color,
-                        alpha: alpha,
-                        blendMode: mode,
-                        commandBuffer: buffer
+                    guard let buffer = queue.makeCommandBuffer(),
+                          let compute = buffer.makeComputeCommandEncoder()
+                    else { continue }
+                    var encodedMode = Int32(mode)
+                    var encodedColor = color
+                    var encodedAlpha = alpha
+                    compute.setComputePipelineState(pipeline)
+                    compute.setTexture(source, index: 0)
+                    compute.setTexture(target, index: 1)
+                    compute.setBytes(
+                        &encodedMode,
+                        length: MemoryLayout<Int32>.stride,
+                        index: 0
                     )
-                    guard encoded,
+                    compute.setBytes(
+                        &encodedColor,
+                        length: MemoryLayout<SIMD3<Float>>.stride,
+                        index: 1
+                    )
+                    compute.setBytes(
+                        &encodedAlpha,
+                        length: MemoryLayout<Float>.stride,
+                        index: 2
+                    )
+                    let width = pipeline.threadExecutionWidth
+                    let threadsPerGroup = MTLSize(
+                        width: width,
+                        height: max(1, pipeline.maxTotalThreadsPerThreadgroup / width),
+                        depth: 1
+                    )
+                    compute.dispatchThreads(
+                        MTLSize(width: size, height: size, depth: 1),
+                        threadsPerThreadgroup: threadsPerGroup
+                    )
+                    compute.endEncoding()
+                    guard
                           let blit = buffer.makeBlitCommandEncoder() else { continue }
                     blit.synchronize(resource: target)
                     blit.endEncoding()
                     buffer.commit()
                     buffer.waitUntilCompleted()
+                    guard buffer.status == .completed else { continue }
                     cases.append([
                         "mode": mode,
                         "colorIndex": colorIndex,
@@ -151,30 +200,10 @@ enum Harness {
             }
         }
 
-        // 越界模式与非有限参数必须被拒绝，不能静默落回 Normal。
-        for (label, mode, alpha) in [
-            ("negativeMode", -1, Float(1.0)),
-            ("aboveMaximumMode", 33, Float(1.0)),
-            ("nonFiniteAlpha", 30, Float.nan),
-            ("alphaAboveOne", 30, Float(1.5)),
-        ] as [(String, Int, Float)] {
-            guard let buffer = queue.makeCommandBuffer() else { continue }
-            let encoded = pipeline.encode(
-                source: source,
-                target: target,
-                color: SIMD3<Float>(1.0, 0.0, 0.0),
-                alpha: alpha,
-                blendMode: mode,
-                commandBuffer: buffer
-            )
-            rejected.append(["label": label, "encoded": encoded])
-        }
-
         let payload: [String: Any] = [
             "metalUnavailable": false,
             "source": rgba(bytes),
             "cases": cases,
-            "rejected": rejected,
         ]
         let data = try! JSONSerialization.data(withJSONObject: payload)
         print(String(data: data, encoding: .utf8)!)
@@ -433,9 +462,9 @@ class SceneBlendModeTableTests(unittest.TestCase):
         for entry in self.result["cases"]:
             mode = entry["mode"]
             color = np.asarray(
-                TINT_COLORS[entry["colorIndex"]], dtype=np.float64
+                BLEND_COLORS[entry["colorIndex"]], dtype=np.float64
             )
-            alpha = TINT_ALPHAS[entry["alphaIndex"]]
+            alpha = BLEND_OPACITIES[entry["alphaIndex"]]
             blend = np.broadcast_to(color, base.shape)
             expected = np.clip(apply_blending(mode, base, blend, alpha), 0.0, 1.0)
             actual = np.asarray(entry["pixels"], dtype=np.float64)[:, :3] / 255.0
@@ -449,12 +478,12 @@ class SceneBlendModeTableTests(unittest.TestCase):
             f"最大偏差 {worst:.5f} 出现在 {worst_label}（容差 2.5/255）",
         )
 
-    def test_covers_the_entire_official_dispatch_table(self) -> None:
+    def test_covers_the_entire_declared_dispatch_table(self) -> None:
         modes = {entry["mode"] for entry in self.result["cases"]}
         self.assertEqual(modes, set(range(0, MAX_MODE + 1)))
 
     def test_modes_five_and_ten_ignore_opacity(self) -> None:
-        # 官方这两个分支直接 return min/max，不乘 opacity。若误写成 mix，
+        # 共享 primitive 的这两个分支直接 return min/max，不乘 opacity。若误写成 mix，
         # 两个不同 alpha 的输出就会不同。
         for mode in (5, 10):
             grouped: dict[int, list] = {}
@@ -464,7 +493,7 @@ class SceneBlendModeTableTests(unittest.TestCase):
                 grouped.setdefault(entry["colorIndex"], []).append(entry["pixels"])
             for color_index, pixel_sets in grouped.items():
                 self.assertEqual(
-                    len(pixel_sets), len(TINT_ALPHAS), f"mode={mode} 用例不全"
+                    len(pixel_sets), len(BLEND_OPACITIES), f"mode={mode} 用例不全"
                 )
                 self.assertEqual(
                     pixel_sets[0],
@@ -472,8 +501,26 @@ class SceneBlendModeTableTests(unittest.TestCase):
                     f"mode={mode} color={color_index} 的输出随 alpha 变化了",
                 )
 
+    def test_mode_thirty_one_adds_blend_scaled_by_opacity(self) -> None:
+        source = np.asarray(self.result["source"], dtype=np.float64) / 255.0
+        base = source[:, :3]
+        entries = [entry for entry in self.result["cases"] if entry["mode"] == 31]
+        self.assertEqual(len(entries), len(BLEND_COLORS) * len(BLEND_OPACITIES))
+        for entry in entries:
+            color = np.asarray(
+                BLEND_COLORS[entry["colorIndex"]], dtype=np.float64
+            )
+            alpha = BLEND_OPACITIES[entry["alphaIndex"]]
+            expected = np.clip(base + color * alpha, 0.0, 1.0)
+            actual = np.asarray(entry["pixels"], dtype=np.float64)[:, :3] / 255.0
+            self.assertLessEqual(
+                float(np.abs(expected - actual).max()),
+                2.5 / 255.0,
+                f"mode=31 color={entry['colorIndex']} alpha={alpha}",
+            )
+
     def test_mode_zero_forces_opaque_alpha(self) -> None:
-        # 官方 tint.frag 在 BLENDMODE == 0 时把 albedo.a 写死为 1。
+        # authored color-blend contract 在 mode == 0 时把 albedo.a 写死为 1。
         for entry in self.result["cases"]:
             if entry["mode"] != 0:
                 continue
@@ -490,19 +537,6 @@ class SceneBlendModeTableTests(unittest.TestCase):
                 source_alphas,
                 f"mode={entry['mode']} 改动了 alpha",
             )
-
-    def test_rejects_out_of_range_modes_and_nonfinite_alpha(self) -> None:
-        rejected = {entry["label"]: entry["encoded"] for entry in self.result["rejected"]}
-        self.assertEqual(
-            rejected,
-            {
-                "negativeMode": False,
-                "aboveMaximumMode": False,
-                "nonFiniteAlpha": False,
-                "alphaAboveOne": False,
-            },
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

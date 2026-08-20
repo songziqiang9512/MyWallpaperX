@@ -21,7 +21,6 @@ extension SceneEffectStageExecutionPlan {
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
-        case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
@@ -33,7 +32,7 @@ extension SceneEffectStageExecutionPlan {
                  .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                  .workshopShadow, .shake, .waterFlow,
                  .waterWaves, .waterCaustics, .waterRipple,
-                 .depthParallax, .xRay, .blend, .tint, .transform, .pulse:
+                 .depthParallax, .xRay, .blend, .transform, .pulse:
                 return true
             case .proceduralNoise(let plan):
                 return plan.variant == .worleyColorV1
@@ -199,11 +198,6 @@ extension SceneEffectStageExecutionPlan {
         return plan
     }
 
-    nonisolated var tint: SceneTintExecutionPlan? {
-        guard case .tint(let plan) = backend else { return nil }
-        return plan
-    }
-
     nonisolated var transform: SceneTransformExecutionPlan? {
         guard case .transform(let plan) = backend else { return nil }
         return plan
@@ -233,7 +227,6 @@ extension SceneEffectStageExecutionPlan {
         if let target = localContrast?.liveStrengthTarget { targets.insert(target) }
         if let target = blend?.liveMultiplyTarget { targets.insert(target) }
         if let xRay { targets.formUnion(xRay.liveConsumerTargets) }
-        if let tint { targets.formUnion(tint.liveConsumerTargets) }
         if let pulse { targets.formUnion(pulse.liveConsumerTargets) }
         if let workshopAudioBars {
             targets.formUnion(workshopAudioBars.liveConsumerTargets)

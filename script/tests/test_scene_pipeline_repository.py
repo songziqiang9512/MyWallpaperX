@@ -58,11 +58,7 @@ final class SceneCursorRipplePipeline { init?(device: MTLDevice) {} }
 final class SceneWaterRipplePipeline { init?(device: MTLDevice) {} }
 final class SceneDepthParallaxPipeline { init?(device: MTLDevice) {} }
 final class SceneXRayPipeline { init?(device: MTLDevice) {} }
-final class SceneBlendPipeline { init?(device: MTLDevice) {} }
-final class ScenePulsePipeline { init?(device: MTLDevice) {} }
-final class SceneShinePipeline { init?(device: MTLDevice) {} }
-
-final class SceneTintPipeline {
+final class SceneBlendPipeline {
     static let attempts = Counter()
     let deviceRegistryID: UInt64
 
@@ -71,6 +67,8 @@ final class SceneTintPipeline {
         deviceRegistryID = device.registryID
     }
 }
+final class ScenePulsePipeline { init?(device: MTLDevice) {} }
+final class SceneShinePipeline { init?(device: MTLDevice) {} }
 
 final class SceneGodraysPipeline {
     static let attempts = Counter()
@@ -83,21 +81,21 @@ final class SceneGodraysPipeline {
 
 @main
 enum Harness {
-    static func concurrentTint(
+    static func concurrentBlend(
         _ repository: SceneImageEffectPipelineRepository,
         count: Int
-    ) -> [SceneTintPipeline] {
+    ) -> [SceneBlendPipeline] {
         let queue = DispatchQueue(
-            label: "scene.pipeline.repository.tint",
+            label: "scene.pipeline.repository.blend",
             attributes: .concurrent
         )
         let group = DispatchGroup()
         let lock = NSLock()
-        var values: [SceneTintPipeline] = []
+        var values: [SceneBlendPipeline] = []
         for _ in 0..<count {
             group.enter()
             queue.async {
-                if let value = repository.tint() {
+                if let value = repository.blend() {
                     lock.lock()
                     values.append(value)
                     lock.unlock()
@@ -138,19 +136,19 @@ enum Harness {
         }
         let first = SceneImageEffectPipelineRepository(device: device)
         let second = SceneImageEffectPipelineRepository(device: device)
-        let attemptsAfterConstruction = SceneTintPipeline.attempts.read()
+        let attemptsAfterConstruction = SceneBlendPipeline.attempts.read()
             + SceneGodraysPipeline.attempts.read()
 
-        let firstValues = concurrentTint(first, count: 128)
+        let firstValues = concurrentBlend(first, count: 128)
         let firstIDs = Set(firstValues.map(ObjectIdentifier.init))
         let failedSuccesses = concurrentFailure(first, count: 128)
-        _ = second.tint()
+        _ = second.blend()
 
         let result: [String: Any] = [
             "attemptsAfterConstruction": attemptsAfterConstruction,
-            "firstTintValueCount": firstValues.count,
-            "firstTintIdentityCount": firstIDs.count,
-            "tintAttemptsAcrossTwoRepositories": SceneTintPipeline.attempts.read(),
+            "firstBlendValueCount": firstValues.count,
+            "firstBlendIdentityCount": firstIDs.count,
+            "blendAttemptsAcrossTwoRepositories": SceneBlendPipeline.attempts.read(),
             "failedSuccesses": failedSuccesses,
             "failedAttempts": SceneGodraysPipeline.attempts.read(),
             "deviceMatches": firstValues.allSatisfy {
@@ -198,9 +196,9 @@ class ScenePipelineRepositoryTests(unittest.TestCase):
             result = json.loads(completed.stdout)
 
         self.assertEqual(result["attemptsAfterConstruction"], 0)
-        self.assertEqual(result["firstTintValueCount"], 128)
-        self.assertEqual(result["firstTintIdentityCount"], 1)
-        self.assertEqual(result["tintAttemptsAcrossTwoRepositories"], 2)
+        self.assertEqual(result["firstBlendValueCount"], 128)
+        self.assertEqual(result["firstBlendIdentityCount"], 1)
+        self.assertEqual(result["blendAttemptsAcrossTwoRepositories"], 2)
         self.assertEqual(result["failedSuccesses"], 0)
         self.assertEqual(result["failedAttempts"], 1)
         self.assertTrue(result["deviceMatches"])

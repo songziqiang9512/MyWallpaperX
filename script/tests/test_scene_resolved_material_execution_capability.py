@@ -7277,7 +7277,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertEqual(payload["maskedPositiveFailure"], "")
         self.assertEqual(
             payload["maskedPositiveCounters"],
-            {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+            {"cached": 2, "prepared": 2, "frontend": 2, "capacity": 0},
             payload,
         )
         for key in ("maskedMissingConflict", "maskedPresentConflict"):

@@ -181,15 +181,6 @@ extension SceneAuthoredBlendPlanner: SceneEffectStageGraphCandidatePlanner {
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .blend }
 }
 
-extension SceneAuthoredTintPlanner: SceneEffectStageDedicatedPlanner {
-    typealias DedicatedPlan = SceneTintExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .tint }
-
-    nonisolated static func isCandidate(_ input: SceneEffectStageCompileInput) -> Bool {
-        containsCandidate(graph: input.stageGraph, descriptor: input.descriptor)
-    }
-}
-
 extension SceneAuthoredTransformPlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneTransformExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .transform }

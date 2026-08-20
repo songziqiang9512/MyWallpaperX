@@ -72,6 +72,16 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             }
             return .interpolatedColor(textureSlots: slots)
         }
+        if let fact = SceneAuthoredShaderGraphInputColorBlendAnalyzer.analyze(
+            fragment
+        ) {
+            switch fact.alphaOutput {
+            case .preserved:
+                return .straightAlphaPreserving(textureSlot: fact.sourceSlot)
+            case .opaque:
+                return .opaque
+            }
+        }
         if let slot = SceneAuthoredShaderOpaqueInputAlphaAnalyzer.analyze(
             outputUses: outputUses,
             fragment: fragment,

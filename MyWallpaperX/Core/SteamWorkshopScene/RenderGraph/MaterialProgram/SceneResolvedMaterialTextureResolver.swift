@@ -267,36 +267,150 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     ) throws -> ResolvedResource {
         let identity = try runtimeIdentity(reference, purpose: purpose)
         guard let status = input.textureSnapshot.lookup(identity) else {
-            throw failure(.resourceSnapshotUnresolved, slot: slot)
+            throw failure(
+                .resourceSnapshotUnresolved,
+                slot: slot,
+                effectLocalVisualFallback: optionalVisualFallback(
+                    .optionalTextureUnavailable,
+                    reference: reference,
+                    purpose: purpose
+                )
+            )
         }
         guard case let .ready(resource) = status else {
             let code: Failure.Code
+            let fallback: Failure.EffectLocalVisualFallback?
             switch status {
-            case .incomplete:
+            case let .incomplete(incomplete):
                 code = .textureMetadataIncomplete
+                fallback = optionalIncompleteVisualFallback(
+                    incomplete,
+                    identity: identity,
+                    reference: reference,
+                    purpose: purpose
+                )
             case .absent, .pending, .unavailable:
                 code = .resourceSnapshotUnresolved
+                fallback = optionalVisualFallback(
+                    .optionalTextureUnavailable,
+                    reference: reference,
+                    purpose: purpose
+                )
             case .ready:
                 code = .identityInvariant
+                fallback = nil
             }
-            throw failure(code, slot: slot)
+            throw failure(
+                code,
+                slot: slot,
+                effectLocalVisualFallback: fallback
+            )
         }
         let publication = resource.publication
         guard publication.requestIdentity == identity,
-              publication.isComplete,
-              publication.candidate.purpose == purpose,
-              publication.candidate.sampling.isResolvedForMaterialProgram else {
+              publication.isComplete else {
             throw failure(.textureMetadataIncomplete, slot: slot)
         }
+        guard publication.candidate.purpose == purpose else {
+            throw failure(
+                .textureMetadataIncomplete,
+                slot: slot,
+                effectLocalVisualFallback: optionalVisualFallback(
+                    .optionalTexturePurposeMismatch,
+                    reference: reference,
+                    purpose: purpose
+                )
+            )
+        }
+        guard publication.candidate.sampling.isResolvedForMaterialProgram else {
+            throw failure(
+                .textureMetadataIncomplete,
+                slot: slot,
+                effectLocalVisualFallback: optionalVisualFallback(
+                    .optionalTextureSamplingUnresolved,
+                    reference: reference,
+                    purpose: purpose
+                )
+            )
+        }
         return (identity, resource)
+    }
+
+    private static func optionalIncompleteVisualFallback(
+        _ incomplete: SceneFrameTextureIncompleteResource,
+        identity: SceneFrameTextureIdentity,
+        reference: Template.TextureReference,
+        purpose: SceneTextureLoadPurpose
+    ) -> Failure.EffectLocalVisualFallback? {
+        guard optionalVisualReference(reference, purpose: purpose) else {
+            return nil
+        }
+        guard case let .publication(publication, resourceGeneration) = incomplete,
+              resourceGeneration > 0,
+              publication.contentGeneration > 0,
+              publication.requestIdentity == identity,
+              publicationGenerationIsCurrent(publication) else {
+            return nil
+        }
+        if publication.candidate.purpose != purpose {
+            return .optionalTexturePurposeMismatch
+        }
+        guard publication.candidate.content == .data else {
+            return .optionalTextureContentMismatch
+        }
+        return nil
+    }
+
+    private static func publicationGenerationIsCurrent(
+        _ publication: SceneTextureProviderPublication
+    ) -> Bool {
+        switch (
+            publication.candidate.identity,
+            publication.candidate.generation
+        ) {
+        case (.file, .file), (.builtIn, .immutable):
+            return true
+        case let (.provider, .provider(contentGeneration)):
+            return contentGeneration == publication.contentGeneration
+        default:
+            return false
+        }
+    }
+
+    private static func optionalVisualFallback(
+        _ fallback: Failure.EffectLocalVisualFallback,
+        reference: Template.TextureReference,
+        purpose: SceneTextureLoadPurpose
+    ) -> Failure.EffectLocalVisualFallback? {
+        optionalVisualReference(reference, purpose: purpose) ? fallback : nil
+    }
+
+    private static func optionalVisualReference(
+        _ reference: Template.TextureReference,
+        purpose: SceneTextureLoadPurpose
+    ) -> Bool {
+        guard purpose == .mask else { return false }
+        switch reference {
+        case .asset, .userProperty:
+            return true
+        case .provider, .graph:
+            return false
+        }
     }
 
     private static func failure(
         _ code: Failure.Code,
         phase: Failure.Phase = .texture,
         slot: Int? = nil,
+        effectLocalVisualFallback: Failure.EffectLocalVisualFallback? = nil,
         details: [String] = []
     ) -> Failure {
-        .init(phase: phase, code: code, slot: slot, details: details)
+        .init(
+            phase: phase,
+            code: code,
+            slot: slot,
+            effectLocalVisualFallback: effectLocalVisualFallback,
+            details: details
+        )
     }
 }

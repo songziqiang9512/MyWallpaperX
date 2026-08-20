@@ -25,7 +25,6 @@ RIPPLE_LOADER = RESOURCE_ROOT / "SceneWaterRippleEffectTextureLoader.swift"
 DEPTH_PARALLAX_LOADER = (
     RESOURCE_ROOT / "SceneDepthParallaxEffectTextureLoader.swift"
 )
-TINT_LOADER = RESOURCE_ROOT / "SceneTintEffectTextureLoader.swift"
 EFFECT_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects"
 )
@@ -58,7 +57,6 @@ EXPECTED_PURPOSES = {
     "shine noise": "noise",
     "shine effect mask": "mask",
     "standard blur mask": "mask",
-    "tint effect mask": "mask",
     "waterflow flow": "flow",
     "waterflow phase": "phase",
     "waterripple effect mask": "mask",
@@ -110,7 +108,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
                 "SceneDepthParallaxEffectTextureLoader.swift": 1,
                 "SceneShakeEffectTextureLoader.swift": 3,
                 "SceneStandardBlurEffectTextureLoader.swift": 1,
-                "SceneTintEffectTextureLoader.swift": 1,
                 "SceneWaterFlowEffectTextureLoader.swift": 2,
                 "SceneWaterRippleEffectTextureLoader.swift": 2,
             },
@@ -202,10 +199,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             "var mappedSize: CGSize? { candidate?.mappedSize }",
         ):
             self.assertIn(field, effect_binding)
-        tint_source = TINT_LOADER.read_text(encoding="utf-8")
-        self.assertIn("let binding: SceneEffectTextureBinding", tint_source)
-        self.assertEqual(tint_source.count("loadTextureCandidate("), 1)
-        self.assertNotIn("let mask: MTLTexture?", tint_source)
         self.assertIn("let flowCandidate: SceneTextureCandidate?", water_loader)
         self.assertIn("let phaseCandidate: SceneTextureCandidate?", water_loader)
         self.assertIn("expectedPurpose: .flow", water_renderer)
