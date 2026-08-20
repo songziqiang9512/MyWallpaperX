@@ -7,7 +7,6 @@ enum SceneOffscreenEffectRenderer {
         sourceTexture: MTLTexture,
         targets: SceneGraphRenderTargetTable,
         sourceUniforms: SceneLayerFragmentUniforms,
-        sampleNormalizationExtent: SIMD2<Float>? = nil,
         pipeline: SceneImageLayerPipeline,
         gaussianBlurPipeline: SceneGaussianBlurPipeline,
         commandBuffer: MTLCommandBuffer
@@ -26,9 +25,7 @@ enum SceneOffscreenEffectRenderer {
         let currentExtent = SIMD2<Float>(
             Float(sourceTexture.width), Float(sourceTexture.height)
         )
-        let normalizationExtent = executionPlan.supportsUnifiedFullFrameComposeStage
-            ? sampleNormalizationExtent ?? currentExtent
-            : currentExtent
+        let normalizationExtent = currentExtent
         guard normalizationExtent.x.isFinite,
               normalizationExtent.y.isFinite,
               normalizationExtent.x > 0,
@@ -37,33 +34,6 @@ enum SceneOffscreenEffectRenderer {
             * plan.sampleResolutionScale / normalizationExtent.x
         let verticalStep = plan.verticalStep
             * plan.sampleResolutionScale / normalizationExtent.y
-        if executionPlan.supportsUnifiedFullFrameComposeStage {
-            guard targets.plan.logicalTargets.isEmpty,
-                  targets.inputOutputAliased,
-                  targets.inputTexture === targets.outputTexture else { return nil }
-            let intermediate: MTLTexture
-            if targets.fullFramePair.first === targets.inputTexture {
-                intermediate = targets.fullFramePair.second
-            } else if targets.fullFramePair.second === targets.inputTexture {
-                intermediate = targets.fullFramePair.first
-            } else {
-                return nil
-            }
-            guard gaussianBlurPipeline.encode(
-                source: targets.inputTexture,
-                target: intermediate,
-                step: SIMD2(horizontalStep, 0),
-                kernel: plan.kernel,
-                commandBuffer: commandBuffer
-            ), gaussianBlurPipeline.encode(
-                source: intermediate,
-                target: targets.outputTexture,
-                step: SIMD2(0, verticalStep),
-                kernel: plan.kernel,
-                commandBuffer: commandBuffer
-            ) else { return nil }
-            return targets.outputTexture
-        }
         let result = SceneGraphNodeScheduler.encode(
             graph: executionPlan.renderGraph,
             targets: targets,

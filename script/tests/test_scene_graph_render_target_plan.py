@@ -791,11 +791,11 @@ enum Harness {
             "composeFalseAccepted": composeFalsePlan.logicalTargets.isEmpty,
             "composeTrueFailure": failure(composeTrue, materialNodeCount: 1),
             "composeStringFailure": failure(composeString, materialNodeCount: 1),
-            "typedFullFrameComposeAccepted": failure(
+            "dedicatedFullFrameComposeRejected": failure(
                 composeTransition,
                 materialNodeCount: 2,
                 supportsUnifiedFullFrameComposeStage: true
-            ) == "success",
+            ),
             "genericComposeAccepted": genericComposePlan.output == output,
             "cursorHistoryTargets": targetSummary(cursorHistoryPlan),
             "commands": commandsPlan.commands.map {
@@ -1064,7 +1064,10 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
         self.assertTrue(self.result["composeFalseAccepted"])
         self.assertEqual(self.result["composeTrueFailure"], "executionMismatch")
         self.assertEqual(self.result["composeStringFailure"], "executionMismatch")
-        self.assertTrue(self.result["typedFullFrameComposeAccepted"])
+        self.assertEqual(
+            self.result["dedicatedFullFrameComposeRejected"],
+            "executionMismatch",
+        )
         self.assertTrue(self.result["genericComposeAccepted"])
 
     def test_cursor_ripple_admits_only_its_named_history_and_fit_extent(self) -> None:

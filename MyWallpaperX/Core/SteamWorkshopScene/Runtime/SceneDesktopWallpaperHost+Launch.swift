@@ -255,12 +255,6 @@ extension SceneDesktopWallpaperHost {
                 || $0.executionPlan.supportsUnifiedHistoryTargetStage)
                 ? $0.effectKey : nil
         })
-        let dedicatedFullFrameComposeStageKeys = Set(
-            dedicatedStageLeaves.compactMap {
-                $0.executionPlan.supportsUnifiedFullFrameComposeStage
-                    ? $0.effectKey : nil
-            }
-        )
         let timeOfDayEffectScriptCandidates = dedicatedStageLeaves.compactMap {
             $0.executionPlan.blend?.dynamicMultiplyBinding
         }
@@ -392,9 +386,7 @@ extension SceneDesktopWallpaperHost {
                 assetStates: materialAssetCatalog.launchStates,
                 dedicatedStageFamilies: dedicatedStageFamilies,
                 dedicatedLeafKeys: dedicatedLeafKeys,
-                dedicatedGraphStageKeys: dedicatedGraphStageKeys,
-                dedicatedFullFrameComposeStageKeys:
-                    dedicatedFullFrameComposeStageKeys
+                dedicatedGraphStageKeys: dedicatedGraphStageKeys
             )
         let resolvedMaterialSubjects = resolvedMaterialExecutionCapabilities
             .runtimeDispositionOwnerships.flatMap(\.subjects)

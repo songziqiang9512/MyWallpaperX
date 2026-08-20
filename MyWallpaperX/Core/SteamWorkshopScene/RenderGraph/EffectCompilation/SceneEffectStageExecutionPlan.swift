@@ -53,8 +53,7 @@ enum SceneEffectStageExecutionPlanner {
         guard let topology = preciseBlurTopology(
             horizontalNode: horizontalNode,
             verticalNode: verticalNode,
-            effect: effect,
-            commandNodeCount: commandNodes.count
+            effect: effect
         ) else {
             return nil
         }
@@ -73,13 +72,6 @@ enum SceneEffectStageExecutionPlanner {
             return nil
         }
         switch topology {
-        case .fullFrameCompose:
-            guard commandNodes.isEmpty,
-                  graph.renderTargets.isEmpty,
-                  graph.nodes[0].nodeIndex == horizontalNode.nodeIndex,
-                  graph.nodes[1].nodeIndex == verticalNode.nodeIndex else {
-                return nil
-            }
         case let .authoredIntermediate(horizontalTarget, verticalInput):
             guard graph.renderTargets.count == 1 + commandNodes.count else {
                 return nil
@@ -135,13 +127,11 @@ enum SceneEffectStageExecutionPlanner {
               supportedState(verticalMaterial.renderState),
               let horizontalKernel = supportedKernel(
                   horizontalMaterial.combos,
-                  vertical: false,
-                  fullFrameCompose: topology.usesFullFrameCompose
+                  vertical: false
               ),
               let verticalKernel = supportedKernel(
                   verticalMaterial.combos,
-                  vertical: true,
-                  fullFrameCompose: topology.usesFullFrameCompose
+                  vertical: true
               ),
               horizontalKernel == verticalKernel,
               validMaterialSlots(
@@ -218,8 +208,7 @@ enum SceneEffectStageExecutionPlanner {
 
     private nonisolated static func supportedKernel(
         _ combos: [String: Int],
-        vertical: Bool,
-        fullFrameCompose: Bool
+        vertical: Bool
     ) -> SceneGaussianBlurKernel? {
         var normalized: [String: Int] = [:]
         for (key, value) in combos {
@@ -232,7 +221,7 @@ enum SceneEffectStageExecutionPlanner {
               }),
               normalized["VERTICAL", default: 0] == (vertical ? 1 : 0),
               normalized["ENABLEMASK", default: 0]
-                == (vertical && !fullFrameCompose ? 1 : 0),
+                == (vertical ? 1 : 0),
               let kernel = SceneGaussianBlurKernel(
                   rawValue: normalized["KERNEL", default: 0]
               ) else {

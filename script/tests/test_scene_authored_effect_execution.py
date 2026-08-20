@@ -1459,33 +1459,6 @@ enum Harness {
             graph: fullFrameComposeGraph,
             descriptor: fullFrameComposeDescriptor
         )
-        let fullFrameComposeTargetPlan = fullFrameComposePlan.flatMap {
-            executionPlan -> SceneGraphRenderTargetPlan? in
-            guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
-                graph: executionPlan.renderGraph,
-                inputRole: executionPlan.inputRole,
-                inputWidth: 1920,
-                inputHeight: 1080
-            ) else { return nil }
-            return plan
-        }
-        let fullFrameSmallPlan = SceneEffectStageExecutionPlanner.plan(
-            graph: graph(layerID: 10, fullFrameCompose: true),
-            descriptor: SceneRenderDescriptor(
-                layers: [
-                    .init(
-                        id: 10, parentID: nil, visible: true, contentKind: "text",
-                        effects: [
-                            instanceEffect(
-                                layerID: 10, scale: 1.28,
-                                fullFrameCompose: true, kernel: 2
-                            ),
-                        ]
-                    ),
-                ],
-                materialPasses: materials(verticalCombos: ["VERTICAL": 1])
-            )
-        )
         let mediumPlan = SceneEffectStageExecutionPlanner.plan(
             graph: graph(layerID: 10),
             descriptor: descriptorForLayer10(
@@ -1587,11 +1560,7 @@ enum Harness {
             "swapInterleavedPlanned": swapPlan?.logicalRenderTargetCount == 2
                 && swapTargetPlan?.commands.map(\.nodeIndex) == [1]
                 && swapTargetPlan?.logicalTargets.filter(\.lifetime.requiresHistorySeed).count == 1,
-            "fullFrameComposePlanned":
-                fullFrameComposePlan?.supportsUnifiedFullFrameComposeStage == true
-                && fullFrameComposePlan?.logicalRenderTargetCount == 0
-                && fullFrameComposePlan?.requiresExactInputExtent == false
-                && fullFrameComposeTargetPlan?.logicalTargets.isEmpty == true,
+            "fullFrameComposeDedicatedRejected": fullFrameComposePlan == nil,
             "fullFrameComposeRawGraph":
                 fullFrameComposeGraph.renderTargets.isEmpty
                 && fullFrameComposeGraph.nodes.count == 2
@@ -1646,7 +1615,6 @@ enum Harness {
                 preciseBlur.kernel.rawValue,
                 mediumPlan?.gaussianBlur?.kernel.rawValue ?? -1,
                 smallPlan?.gaussianBlur?.kernel.rawValue ?? -1,
-                fullFrameSmallPlan?.gaussianBlur?.kernel.rawValue ?? -1,
             ],
             "mismatchedKernelRejected": mismatchedKernelRejected,
             "invalidKernelRejected": invalidKernelRejected,
@@ -1851,14 +1819,14 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertTrue(self.result["swapTargetOnlyUniqueRejected"])
 
     def test_precise_blur_accepts_all_bounded_kernel_sizes(self) -> None:
-        self.assertTrue(self.result["fullFrameComposePlanned"])
-        self.assertTrue(self.result["fullFrameComposeRawGraph"])
-        self.assertEqual(self.result["preciseKernels"], [0, 1, 2, 2])
+        self.assertEqual(self.result["preciseKernels"], [0, 1, 2])
         self.assertTrue(self.result["mismatchedKernelRejected"])
         self.assertTrue(self.result["invalidKernelRejected"])
         self.assertTrue(self.result["maskAndBlurAlphaRejected"])
 
     def test_precise_full_frame_compose_profile_fails_closed(self) -> None:
+        self.assertTrue(self.result["fullFrameComposeDedicatedRejected"])
+        self.assertTrue(self.result["fullFrameComposeRawGraph"])
         for key in (
             "fullFrameComposeFalseRejected",
             "fullFrameComposeStringRejected",

@@ -42,7 +42,6 @@ extension SceneEffectStageExecutionPlan {
         switch backend {
         case .preciseGaussian:
             return logicalRenderTargetCount > 0
-                && !supportsUnifiedFullFrameComposeStage
         case .standardBlur:
             return true
         case .localContrast:
@@ -77,23 +76,6 @@ extension SceneEffectStageExecutionPlan {
                 == renderGraph.nodes.map(\.nodeIndex)
             && plan.renderGraph.renderTargets.map(\.texture)
                 == renderGraph.renderTargets.map(\.texture)
-    }
-
-    nonisolated var supportsUnifiedFullFrameComposeStage: Bool {
-        guard case .preciseGaussian = backend,
-              logicalRenderTargetCount == 0,
-              renderGraph.renderTargets.isEmpty,
-              renderGraph.effects.count == 1,
-              let effect = renderGraph.effects.first else { return false }
-        let materialNodes = renderGraph.nodes.filter { $0.kind == .material }
-        return materialNodes.count == 2
-            && renderGraph.nodes.count == 2
-            && SceneEffectStageExecutionPlanner.preciseBlurTopology(
-                horizontalNode: materialNodes[0],
-                verticalNode: materialNodes[1],
-                effect: effect,
-                commandNodeCount: 0
-            ) == .fullFrameCompose
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
@@ -221,7 +203,7 @@ extension SceneEffectStageExecutionPlan {
 
     var requiresExactInputExtent: Bool {
         if case .preciseGaussian = backend {
-            return !supportsUnifiedFullFrameComposeStage
+            return true
         }
         return false
     }

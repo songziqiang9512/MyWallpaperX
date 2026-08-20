@@ -14,7 +14,6 @@ extension SceneEffectStageRenderer {
         let inputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs
         let sourcePipeline: SceneImageLayerPipeline
         let time: Float
-        let sourceSampleExtent: SIMD2<Float>
     }
 
     static func prepareStage(
@@ -23,8 +22,7 @@ extension SceneEffectStageRenderer {
         targets: SceneGraphRenderTargetTable,
         inputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
         sourcePipeline: SceneImageLayerPipeline,
-        time: Float,
-        sourceSampleExtent: SIMD2<Float>? = nil
+        time: Float
     ) -> StagePreparation {
         let pairLeaf = stage.backend.supportsUnifiedPairLeaf
             && stage.logicalRenderTargetCount == 0
@@ -40,37 +38,15 @@ extension SceneEffectStageRenderer {
             && stage.renderGraph.renderTargets.count == stage.logicalRenderTargetCount
             && targets.plan.logicalTargets.count == stage.logicalRenderTargetCount
             && stage.renderGraph.renderTargets.allSatisfy { !$0.declaredUnique }
-        let fullFrameComposeStage = stage.supportsUnifiedFullFrameComposeStage
-            && stage.logicalRenderTargetCount == 0
-            && stage.renderGraph.renderTargets.isEmpty
-            && targets.plan.logicalTargets.isEmpty
-        guard pairLeaf || logicalTargetStage || historyTargetStage
-                || fullFrameComposeStage else {
+        guard pairLeaf || logicalTargetStage || historyTargetStage else {
             return .rejected(reason: "backend-unsupported")
-        }
-        let resolvedSampleExtent = sourceSampleExtent ?? SIMD2<Float>(
-            Float(sourceTexture.width),
-            Float(sourceTexture.height)
-        )
-        guard resolvedSampleExtent.x.isFinite,
-              resolvedSampleExtent.y.isFinite,
-              resolvedSampleExtent.x > 0,
-              resolvedSampleExtent.y > 0 else {
-            return .rejected(reason: "source-sample-extent-invalid")
         }
         guard targets.inputTexture === sourceTexture else {
             return .rejected(reason: "source-texture-mismatch")
         }
-        if fullFrameComposeStage {
-            guard targets.inputOutputAliased,
-                  targets.inputTexture === targets.outputTexture else {
-                return .rejected(reason: "compose-pair-endpoint-mismatch")
-            }
-        } else {
-            guard !targets.inputOutputAliased,
-                  targets.inputTexture !== targets.outputTexture else {
-                return .rejected(reason: "pair-texture-aliased")
-            }
+        guard !targets.inputOutputAliased,
+              targets.inputTexture !== targets.outputTexture else {
+            return .rejected(reason: "pair-texture-aliased")
         }
         guard targets.plan.input == stage.renderGraph.effects.first?.input else {
             return .rejected(reason: "stage-input-mismatch")
@@ -87,8 +63,7 @@ extension SceneEffectStageRenderer {
             targets: targets,
             inputs: inputs,
             sourcePipeline: sourcePipeline,
-            time: time,
-            sourceSampleExtent: resolvedSampleExtent
+            time: time
         ))
     }
 
@@ -120,7 +95,6 @@ extension SceneEffectStageRenderer {
             time: prepared.time,
             audioSpectrum: inputs.audioSpectrum,
             dependencyEffect: inputs.dependencyEffect,
-            preciseBlurSampleExtent: prepared.sourceSampleExtent,
             commandBuffer: commandBuffer
         ) else {
             logEncodeFailure(prepared.stage, phase: "render")

@@ -87,6 +87,19 @@ private struct BuilderOutput: Codable {
     let mutatedColorRejected: Bool
 }
 
+private struct NormalizedSampleSumOutput: Codable {
+    let analyzedTransfer: String
+    let positiveKind: String?
+    let positiveSlot: Int?
+    let renamedHelperAccepted: Bool
+    let nonNormalizedRejected: Bool
+    let negativeWeightRejected: Bool
+    let zeroWeightRejected: Bool
+    let mixedSlotRejected: Bool
+    let hiddenSampleRejected: Bool
+    let branchingHelperRejected: Bool
+}
+
 private struct StraightPreservingBuilderOutput: Codable {
     let positiveKind: String?
     let positiveSlot: Int?
@@ -575,6 +588,104 @@ private struct GenericShaderArtifactHarness {
                 ),
                 projectedUsesTargetPixels: projected.contains(
                     "(mwxPosition - vec2(0.5)) * mwxRenderSize"
+                )
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--builder-normalized-sample-sum" {
+            let reflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms {};"
+            let fragmentMSL = [
+                "struct MWXUniforms {};",
+                "fragment void f() {",
+                "    float4 color = g_Texture0.sample(s, uv - delta) * 0.25",
+                "        + g_Texture0.sample(s, uv) * 0.5",
+                "        + g_Texture0.sample(s, uv + delta) * 0.25;",
+                "    out.mwxFragColor = color;",
+                "}",
+            ].joined(separator: "\n")
+            let authored = [
+                "uniform sampler2D g_Texture0;",
+                "varying vec2 v_TexCoord;",
+                "vec4 sharedKernel(vec2 uv, vec2 delta) {",
+                "    vec2 offset = delta * 1.0;",
+                "    return texSample2D(g_Texture0, uv - offset) * 0.25",
+                "        + texSample2D(g_Texture0, uv) * 0.5",
+                "        + texSample2D(g_Texture0, uv + offset) * 0.25;",
+                "}",
+                "void main() {",
+                "    gl_FragColor = sharedKernel(v_TexCoord, vec2(0.01));",
+                "}",
+            ].joined(separator: "\n")
+            func transfer(_ source: String) -> SceneShaderColorTransfer {
+                SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                    fragmentSource: source
+                )
+            }
+            func isPassthrough(_ source: String) -> Bool {
+                transfer(source) == .passthrough(textureSlot: 0)
+            }
+            let built = SceneGenericShaderArtifactBuilder.build(
+                requestKey: String(repeating: "f", count: 64),
+                backendID: "glslang-spirv-cross-msl-v1",
+                stages: [
+                    .init(
+                        name: "vertex", source: "void main() {}",
+                        authoredSource: "void main() {}",
+                        msl: vertexMSL, reflection: reflection
+                    ),
+                    .init(
+                        name: "fragment", source: authored,
+                        authoredSource: authored,
+                        msl: fragmentMSL, reflection: reflection
+                    ),
+                ],
+                maximumArtifactBytes: 1_024_000
+            )
+            let artifact: SceneGenericShaderProgramArtifact?
+            switch built {
+            case let .success(value): artifact = value
+            case .failure: artifact = nil
+            }
+            let output = NormalizedSampleSumOutput(
+                analyzedTransfer: colorTransferName(transfer(authored)),
+                positiveKind: artifact?.program.colorTransfer.kind,
+                positiveSlot: artifact?.program.colorTransfer.slot,
+                renamedHelperAccepted: isPassthrough(
+                    authored.replacingOccurrences(
+                        of: "sharedKernel", with: "unseenFilter"
+                    )
+                ),
+                nonNormalizedRejected: !isPassthrough(
+                    authored.replacingOccurrences(of: "* 0.5", with: "* 0.4")
+                ),
+                negativeWeightRejected: !isPassthrough(
+                    authored.replacingOccurrences(
+                        of: "+ texSample2D(g_Texture0, uv + offset) * 0.25",
+                        with: "- texSample2D(g_Texture0, uv + offset) * 0.25"
+                    )
+                ),
+                zeroWeightRejected: !isPassthrough(
+                    authored.replacingOccurrences(of: "* 0.5", with: "* 0.0")
+                ),
+                mixedSlotRejected: !isPassthrough(
+                    authored.replacingOccurrences(
+                        of: "texSample2D(g_Texture0, uv + offset)",
+                        with: "texSample2D(g_Texture1, uv + offset)"
+                    )
+                ),
+                hiddenSampleRejected: !isPassthrough(
+                    authored.replacingOccurrences(
+                        of: "vec2 offset = delta * 1.0;",
+                        with: "vec2 offset = texSample2D(g_Texture0, uv).xy * delta;"
+                    )
+                ),
+                branchingHelperRejected: !isPassthrough(
+                    authored.replacingOccurrences(
+                        of: "vec2 offset = delta * 1.0;",
+                        with: "vec2 offset = delta * 1.0; if (uv.x < 0.0) return vec4(0.0);"
+                    )
                 )
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
@@ -1364,6 +1475,19 @@ void main() {
 }
 """
 
+NORMALIZED_SAMPLE_SUM_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+vec4 unseenFilter(vec2 uv, vec2 delta) {
+    return texSample2D(g_Texture0, uv - delta) * 0.25
+        + texSample2D(g_Texture0, uv) * 0.5
+        + texSample2D(g_Texture0, uv + delta) * 0.25;
+}
+void main() {
+    gl_FragColor = unseenFilter(v_TexCoord, vec2(0.01));
+}
+"""
+
 STRAIGHT_PRESERVING_R8_FRAGMENT = """
 uniform sampler2D g_Texture0;
 uniform sampler2D g_Texture1;
@@ -1931,6 +2055,27 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             "mutatedColorRejected": True,
         })
 
+    def test_product_builder_proves_normalized_same_slot_sample_sum(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-normalized-sample-sum"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "analyzedTransfer": "passthrough",
+            "positiveKind": "passthrough",
+            "positiveSlot": 0,
+            "renamedHelperAccepted": True,
+            "nonNormalizedRejected": True,
+            "negativeWeightRejected": True,
+            "zeroWeightRejected": True,
+            "mixedSlotRejected": True,
+            "hiddenSampleRejected": True,
+            "branchingHelperRejected": True,
+        })
+
     def test_product_builder_preserves_straight_rgb_alpha_boundary(self):
         completed = subprocess.run(
             [str(self.binary), "--builder-straight-preserving"],
@@ -2128,6 +2273,58 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "profile=ordinary-shader outcome=fallback "
                 "reason=compiler-configuration-licensebundleunavailable",
                 changed_log,
+            )
+
+    def test_normalized_sample_sum_profile_is_generic_only_and_reversible(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-sum-route-") as directory:
+            root = Path(directory)
+            first, _, cache, _ = self.run_harness(
+                root,
+                route=None,
+                fragment=NORMALIZED_SAMPLE_SUM_FRAGMENT,
+            )
+            self.assertEqual(
+                first["routeProfile"],
+                "source-proven-normalized-sample-sum",
+            )
+            self.assertEqual(first["routeState"], "generic-only")
+            self.assertFalse(first["permitsBoundedFrontend"])
+
+            artifact = self.python_artifact(
+                first["requestKey"],
+                fragment_source=NORMALIZED_SAMPLE_SUM_FRAGMENT,
+            )
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=NORMALIZED_SAMPLE_SUM_FRAGMENT,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertIn(
+                "state=generic-only "
+                "profile=source-proven-normalized-sample-sum outcome=accepted",
+                accepted_log,
+            )
+
+            disabled, _, _, disabled_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=(
+                    "source-proven-normalized-sample-sum=disable-generic"
+                ),
+                fragment=NORMALIZED_SAMPLE_SUM_FRAGMENT,
+            )
+            self.assertEqual(disabled["status"], "unavailable")
+            self.assertEqual(disabled["code"], "route-disabled")
+            self.assertTrue(disabled["permitsBoundedFrontend"])
+            self.assertIn(
+                "state=disable-generic "
+                "profile=source-proven-normalized-sample-sum outcome=fallback",
+                disabled_log,
             )
 
     def test_corrupt_metal_digest_fails_closed(self):

@@ -100,6 +100,13 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             }
             return .interpolatedColor(textureSlots: slots)
         }
+        if let slot = SceneAuthoredShaderNormalizedSampleSumAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return .passthrough(textureSlot: slot)
+        }
         if let fact = SceneAuthoredShaderGraphInputColorBlendAnalyzer.analyze(
             fragment
         ) {

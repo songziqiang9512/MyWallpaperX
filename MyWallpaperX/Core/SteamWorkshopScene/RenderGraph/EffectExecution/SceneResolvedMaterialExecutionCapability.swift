@@ -168,7 +168,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         dedicatedStageFamilies: [Graph.EffectKey: String] = [:],
         dedicatedLeafKeys: Set<Graph.EffectKey> = [],
         dedicatedGraphStageKeys: Set<Graph.EffectKey> = [],
-        dedicatedFullFrameComposeStageKeys: Set<Graph.EffectKey> = [],
         maximumVariantsPerMaterial: Int = 16
     ) {
         let demandIssues = materialCatalog.resourceDemandIssues
@@ -197,8 +196,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     dedicatedStageFamilies: dedicatedStageFamilies,
                     dedicatedLeafKeys: dedicatedLeafKeys,
                     dedicatedGraphStageKeys: dedicatedGraphStageKeys,
-                    dedicatedFullFrameComposeStageKeys:
-                        dedicatedFullFrameComposeStageKeys,
                     maximumVariantsPerMaterial: maximumVariantsPerMaterial
                 ) {
                 case let .failure(failure):

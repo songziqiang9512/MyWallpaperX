@@ -262,9 +262,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             case .some(.bool(true)): composes = true
             default: return .failure(.executionMismatch)
             }
-            if composes,
-               let stageExecutionPlan,
-               !stageExecutionPlan.supportsUnifiedFullFrameComposeStage {
+            if composes, stageExecutionPlan != nil {
                 return .failure(.executionMismatch)
             }
             if let previousNodeIndex, node.nodeIndex <= previousNodeIndex {

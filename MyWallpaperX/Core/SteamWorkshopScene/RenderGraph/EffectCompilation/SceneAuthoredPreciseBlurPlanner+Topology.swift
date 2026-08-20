@@ -3,12 +3,6 @@ import Foundation
 extension SceneEffectStageExecutionPlanner {
     nonisolated enum PreciseBlurTopology: Equatable {
         case authoredIntermediate(horizontal: Graph.TextureIdentity, vertical: Graph.TextureIdentity)
-        case fullFrameCompose
-
-        nonisolated var usesFullFrameCompose: Bool {
-            if case .fullFrameCompose = self { return true }
-            return false
-        }
     }
 
     nonisolated static func binding(
@@ -29,18 +23,8 @@ extension SceneEffectStageExecutionPlanner {
     nonisolated static func preciseBlurTopology(
         horizontalNode: Graph.Node,
         verticalNode: Graph.Node,
-        effect: Graph.Effect,
-        commandNodeCount: Int
+        effect: Graph.Effect
     ) -> PreciseBlurTopology? {
-        if commandNodeCount == 0,
-           horizontalNode.target == effect.output,
-           horizontalNode.bindings.isEmpty,
-           horizontalNode.compose == .bool(true),
-           verticalNode.target == effect.output,
-           verticalNode.bindings.isEmpty,
-           verticalNode.compose == nil {
-            return .fullFrameCompose
-        }
         guard horizontalNode.compose == nil,
               verticalNode.compose == nil,
               horizontalNode.bindings.isEmpty,
@@ -63,9 +47,6 @@ extension SceneEffectStageExecutionPlanner {
         topology: PreciseBlurTopology
     ) -> Bool {
         switch topology {
-        case .fullFrameCompose:
-            return horizontal.textureSlots.allSatisfy { $0 == nil }
-                && vertical.textureSlots.allSatisfy { $0 == nil }
         case .authoredIntermediate(_, let verticalInput):
             return horizontal.textureSlots.allSatisfy { $0 == nil }
                 && graphSlot(vertical.textureSlots[0]) == verticalInput

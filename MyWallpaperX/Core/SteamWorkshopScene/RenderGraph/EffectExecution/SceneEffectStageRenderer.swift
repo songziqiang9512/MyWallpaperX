@@ -20,7 +20,6 @@ enum SceneEffectStageRenderer {
         time: Float,
         audioSpectrum: SceneAudioSpectrumSnapshot,
         dependencyEffect: SceneDependencyEffectInput?,
-        preciseBlurSampleExtent: SIMD2<Float>? = nil,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         switch stage.backend {
@@ -31,7 +30,6 @@ enum SceneEffectStageRenderer {
                 sourceTexture: sourceTexture,
                 targets: targets,
                 sourceUniforms: sourceUniforms,
-                sampleNormalizationExtent: preciseBlurSampleExtent,
                 pipeline: pipeline,
                 gaussianBlurPipeline: gaussianBlurPipeline,
                 commandBuffer: commandBuffer

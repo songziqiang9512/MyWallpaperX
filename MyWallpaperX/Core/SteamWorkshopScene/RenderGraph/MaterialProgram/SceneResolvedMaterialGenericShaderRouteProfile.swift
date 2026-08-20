@@ -47,6 +47,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-independent-premultiplied-output"
     case sourceProvenGraphTargetPassthrough =
         "source-proven-graph-target-passthrough"
+    case sourceProvenNormalizedSampleSum =
+        "source-proven-normalized-sample-sum"
     case sourceProvenGraphInputAlphaAttenuation =
         "source-proven-graph-input-alpha-attenuation"
     case sourceProvenGraphInputColorBlend =
@@ -71,6 +73,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         alphaAttenuationSourceSlot: Int?,
         colorBlendSourceSlot: Int?,
         conditionalStraightUnionSourceSlot: Int?,
+        normalizedSampleSumSourceSlot: Int?,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
         isSourceIndependentPremultipliedOutput: Bool,
@@ -108,6 +111,11 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   !producesScalarRedOutput,
                   r8TextureSlots.contains(where: { $0 != sourceSlot }) {
             self = .sourceProvenStraightAlphaR8Signal
+        } else if case let .passthrough(sourceSlot) = colorTransfer,
+                  normalizedSampleSumSourceSlot == sourceSlot,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput {
+            self = .sourceProvenNormalizedSampleSum
         } else if case let .passthrough(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
@@ -183,6 +191,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenStraightAlphaR8Signal,
              .sourceProvenIndependentPremultipliedOutput,
              .sourceProvenGraphTargetPassthrough,
+             .sourceProvenNormalizedSampleSum,
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
              .sourceProvenGraphInputConditionalStraightUnion,

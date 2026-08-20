@@ -1648,7 +1648,6 @@ private func catalog(
 private func fullFrameComposeCatalog(
     graph: Graph,
     descriptor: SceneRenderDescriptor,
-    allowDedicated: Bool,
     supportsUtilityCapture: Bool = false
 ) -> Catalog {
     let program = dedicatedProgram(
@@ -1669,8 +1668,7 @@ private func fullFrameComposeCatalog(
             graph: graph,
             demandIssueNodes: Set(graph.nodes.map(\.nodeIndex))
         ),
-        dedicatedStageFamilies: [firstKey: "precise-gaussian"],
-        dedicatedFullFrameComposeStageKeys: allowDedicated ? [firstKey] : []
+        dedicatedStageFamilies: [firstKey: "precise-gaussian"]
     )
 }
 
@@ -2858,37 +2856,27 @@ private enum Harness {
         let composeDescriptor = fullFrameComposeDescriptor()
         let admittedComposeCatalog = fullFrameComposeCatalog(
             graph: composeGraph,
-            descriptor: composeDescriptor,
-            allowDedicated: true
-        )
-        let fullFrameComposeWithoutAllowlist = fullFrameComposeCatalog(
-            graph: composeGraph,
-            descriptor: composeDescriptor,
-            allowDedicated: false
+            descriptor: composeDescriptor
         )
         let capturedMainComposeCatalog = fullFrameComposeCatalog(
             graph: composeGraph,
             descriptor: fullFrameComposeDescriptor(capturedMain: true),
-            allowDedicated: true,
             supportsUtilityCapture: true
         )
         let historyComposeGraph = fullFrameComposeGraph(includeHistory: true)
         let historyComposeCatalog = fullFrameComposeCatalog(
             graph: historyComposeGraph,
-            descriptor: fullFrameComposeDescriptor(),
-            allowDedicated: true
+            descriptor: fullFrameComposeDescriptor()
         )
         let missingComposeGraph = fullFrameComposeGraph(compose: nil)
         let missingComposeCatalog = fullFrameComposeCatalog(
             graph: missingComposeGraph,
-            descriptor: fullFrameComposeDescriptor(),
-            allowDedicated: true
+            descriptor: fullFrameComposeDescriptor()
         )
         let extraNodeComposeGraph = fullFrameComposeGraph(includeThirdNode: true)
         let extraNodeComposeCatalog = fullFrameComposeCatalog(
             graph: extraNodeComposeGraph,
-            descriptor: fullFrameComposeDescriptor(passCount: 3),
-            allowDedicated: true
+            descriptor: fullFrameComposeDescriptor(passCount: 3)
         )
         let validThreeNodeComposeGraph = fullFrameComposeGraph(
             includeThirdNode: true,
@@ -2915,11 +2903,6 @@ private enum Harness {
         let validThreeNodeComposeCapability = validThreeNodeComposeCatalog
             .claim(layerID: layerID)
             .flatMap { validThreeNodeComposeCatalog.resolve($0.token) }
-        let fullFrameComposeCapability = admittedComposeCatalog
-            .claim(layerID: layerID)
-            .flatMap { admittedComposeCatalog.resolve($0.token) }
-        let fullFrameComposeStep = fullFrameComposeCapability?.pairPlan.effects.first
-
         let firstProduct = capability.admittedProducts[0]
         let result: [String: Any] = [
             "claim": claim.layerID == layerID
@@ -3279,20 +3262,10 @@ private enum Harness {
                 ) && capturedMainLogicalWithoutSupportCatalog.claim(
                     layerID: layerID
                 ) == nil,
-                "fullFrameComposeStageAccepted":
-                    fullFrameComposeCapability != nil,
-                "fullFrameComposeStageContract":
-                    fullFrameComposeCapability?.stages.count == 1
-                    && fullFrameComposeCapability?.materials.isEmpty == true
-                    && fullFrameComposeStep?.nodes.count == 2
-                    && fullFrameComposeStep?.composeTransitionCount == 1
-                    && fullFrameComposeStep?.fullFrameOutputWriteCount == 2
-                    && fullFrameComposeStep?.inputMember
-                        == fullFrameComposeStep?.outputMember,
-                "fullFrameComposeStageRequiresAllowlist": reportHas(
-                    fullFrameComposeWithoutAllowlist,
+                "fullFrameComposeDedicatedOwnerRevoked": reportHas(
+                    admittedComposeCatalog,
                     "dedicated-leaf-unsupported"
-                ) && fullFrameComposeWithoutAllowlist.claim(layerID: layerID) == nil,
+                ) && admittedComposeCatalog.claim(layerID: layerID) == nil,
                 "fullFrameComposeStageRejectsCapturedMain": reportHas(
                     capturedMainComposeCatalog,
                     "dedicated-leaf-unsupported"
@@ -6345,15 +6318,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("dedicatedLeafKeys.contains(effect.key)", program_first)
         self.assertIn("dedicatedGraphStageKeys.contains(effect.key)", program_first)
         self.assertIn("supportsUnifiedLogicalTargetStage", program_first)
-        self.assertIn(
-            "dedicatedFullFrameComposeStageKeys.contains(effect.key)",
-            program_first,
-        )
-        self.assertIn("supportsUnifiedFullFrameComposeStage", program_first)
-        self.assertIn("product.graph.nodes.count == 2", program_first)
-        self.assertIn("product.graph.renderTargets.isEmpty", program_first)
-        self.assertIn("pairStep?.composeTransitionCount == 1", program_first)
-        self.assertIn("pairStep?.fullFrameOutputWriteCount == 2", program_first)
+        self.assertNotIn("dedicatedFullFrameComposeStageKeys", program_first)
+        self.assertNotIn("supportsUnifiedFullFrameComposeStage", program_first)
         self.assertIn(
             "effect.input == admitted.pairPlan.baseCaptureIdentity",
             program_first,
@@ -6363,7 +6329,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "let sourceRouteExecutable ="
         )
         captured_route_end = program_first.index(
-            "guard pairLeaf || logicalTargetStage || fullFrameComposeStage,",
+            "guard pairLeaf || logicalTargetStage,",
             captured_route_start,
         )
         captured_route_guard = program_first[
@@ -6913,9 +6879,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "logicalTargetStageRejectsHistory": True,
                 "logicalTargetStageAcceptsCapturedMain": True,
                 "logicalTargetStageCapturedMainRequiresUtilitySupport": True,
-                "fullFrameComposeStageAccepted": True,
-                "fullFrameComposeStageContract": True,
-                "fullFrameComposeStageRequiresAllowlist": True,
+                "fullFrameComposeDedicatedOwnerRevoked": True,
                 "fullFrameComposeStageRejectsCapturedMain": True,
                 "fullFrameComposeStageRejectsHistory": True,
                 "fullFrameComposeStageRejectsMissingCompose": True,

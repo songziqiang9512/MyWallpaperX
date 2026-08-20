@@ -14,7 +14,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dedicatedStageFamilies: [Graph.EffectKey: String],
         dedicatedLeafKeys: Set<Graph.EffectKey>,
         dedicatedGraphStageKeys: Set<Graph.EffectKey>,
-        dedicatedFullFrameComposeStageKeys: Set<Graph.EffectKey>,
         maximumVariantsPerMaterial: Int
     ) -> Result<CompiledStages, Rejection> {
         let programsByKey = Dictionary(grouping: dedicatedStagePrograms, by: \.effectKey)
@@ -137,18 +136,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     && product.graph.renderTargets.count
                         == program.executionPlan.logicalRenderTargetCount
                     && product.graph.renderTargets.allSatisfy { !$0.declaredUnique }
-                let pairStep = admitted.pairPlan.effects.first {
-                    $0.effect == effect.key
-                }
-                let fullFrameComposeStage =
-                    dedicatedFullFrameComposeStageKeys.contains(effect.key)
-                    && program.executionPlan.supportsUnifiedFullFrameComposeStage
-                    && program.executionPlan.logicalRenderTargetCount == 0
-                    && product.graph.nodes.count == 2
-                    && product.graph.renderTargets.isEmpty
-                    && pairStep?.composeTransitionCount == 1
-                    && pairStep?.fullFrameOutputWriteCount == 2
-                    && pairStep?.inputMember == pairStep?.outputMember
                 let identityMatches = program.effectKey == effect.key
                     && program.stageGraph.effects.first?.key == effect.key
                 let dynamicTargetsExecutable = dedicatedDynamicTargetsAreExecutable(
@@ -159,7 +146,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     stageSourceRoute != .capturedMainTargetTexture
                     || ((pairLeaf || logicalTargetStage)
                         && program.executionPlan.supportsUtilityCapture)
-                guard pairLeaf || logicalTargetStage || fullFrameComposeStage,
+                guard pairLeaf || logicalTargetStage,
                       identityMatches,
                       dynamicTargetsExecutable,
                       sourceRouteExecutable else {

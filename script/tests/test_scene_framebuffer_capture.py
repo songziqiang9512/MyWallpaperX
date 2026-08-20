@@ -1744,22 +1744,6 @@ enum Harness {
             device: device,
             queue: queue
         )
-        let authoredFullFrameComposeImpulse = try authoredPreciseBlurImpulseEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor,
-            fullFrameCompose: true
-        )
-        let authoredFullFrameComposeScaled = try authoredPreciseBlurImpulseEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor,
-            fullFrameCompose: true,
-            sourceSize: 16,
-            maxDimension: 8
-        )
         let authoredStandardCheckerboard = try authoredStandardBlurCheckerboardEvidence(
             device: device,
             queue: queue,
@@ -1852,8 +1836,6 @@ enum Harness {
             ) ?? -1,
             "authoredPreciseImpulse": authoredPreciseImpulse,
             "gaussianKernelPixels": gaussianKernelPixels,
-            "authoredFullFrameComposeImpulse": authoredFullFrameComposeImpulse,
-            "authoredFullFrameComposeScaled": authoredFullFrameComposeScaled,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredStandardCandidate": authoredStandardCandidate,
             "authoredLocalContrastPrepared": authoredLocalContrastPrepared,
@@ -3405,8 +3387,7 @@ enum Harness {
                     targets: table,
                     inputs: preparedInputs,
                     sourcePipeline: pipeline,
-                    time: 0,
-                    sourceSampleExtent: SIMD2(Float(size), Float(size))
+                    time: 0
                 ),
               SceneEffectStageRenderer.encodePreparedStage(
                   preparedStage,
@@ -5812,47 +5793,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertEqual(evidence["smallAlpha"], [0, 0, 0, 64, 128, 64, 0, 0, 0])
         self.assertNotEqual(evidence["largeAlpha"], evidence["mediumAlpha"])
         self.assertNotEqual(evidence["largeAlpha"], evidence["smallAlpha"])
-
-    def test_raw_full_frame_compose_blur_uses_pair_without_a_logical_target(self) -> None:
-        explicit = self.result["authoredPreciseImpulse"]
-        compose = self.result["authoredFullFrameComposeImpulse"]
-        self.assertTrue(compose["encoded"])
-        self.assertTrue(compose["preparedStageEncoded"])
-        self.assertEqual(compose["logicalTargetCount"], 0)
-        self.assertTrue(compose["inputOutputAliased"])
-        self.assertTrue(compose["intermediateUsesOtherPairMember"])
-        self.assertEqual(compose["pairComposeTransitionCount"], 1)
-        for key in (
-            "inputMaxDelta",
-            "horizontalMaxDelta",
-            "outputMaxDelta",
-            "mainMaxDelta",
-        ):
-            self.assertLessEqual(compose[key], 2, (key, compose))
-            self.assertLessEqual(
-                abs(compose[key] - explicit[key]), 1, (key, explicit, compose)
-            )
-        self.assertTrue(compose["sourceHasMixedAlpha"])
-        self.assertTrue(compose["outputHasPixels"])
-        self.assertTrue(compose["outputIsPremultiplied"])
-        self.assertGreater(compose["horizontalToOutputDelta"], 2, compose)
-        self.assertGreater(compose["sourceToOutputDelta"], 20, compose)
-
-    def test_raw_full_frame_compose_preserves_source_extent_after_cap(self) -> None:
-        evidence = self.result["authoredFullFrameComposeScaled"]
-        self.assertTrue(evidence["encoded"])
-        self.assertTrue(evidence["preparedStageEncoded"])
-        self.assertEqual(evidence["sourceWidth"], 16)
-        self.assertEqual(evidence["inputWidth"], 8)
-        self.assertEqual(evidence["logicalTargetCount"], 0)
-        self.assertTrue(evidence["inputOutputAliased"])
-        self.assertTrue(evidence["intermediateUsesOtherPairMember"])
-        self.assertEqual(evidence["pairComposeTransitionCount"], 1)
-        self.assertLessEqual(evidence["horizontalMaxDelta"], 1, evidence)
-        self.assertLessEqual(evidence["outputMaxDelta"], 1, evidence)
-        self.assertGreater(evidence["targetNormalizedOutputDelta"], 1, evidence)
-        self.assertTrue(evidence["outputHasPixels"])
-        self.assertTrue(evidence["outputIsPremultiplied"])
 
     def test_standard_graph_blur_runs_full_ping_pong_chain_on_mixed_alpha(self) -> None:
         evidence = self.result["authoredStandardCheckerboard"]
