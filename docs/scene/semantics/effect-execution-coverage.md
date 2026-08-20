@@ -2,13 +2,15 @@
 
 > 状态：现役专项能力表
 >
-> 最近核对：2026-08-20
+> 最近核对：2026-08-21
 >
 > 实现基线、当前 tracked matrix 状态、历史 fixed13、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 
 本文把 45 个官方用户 Effect 逐项映射到 MyWallpaperX 当前执行级别和公共依赖。作者语义、输入槽和 pass/RT 结构见 [Effects 语义全集](effects-reference.md)，Graph/Shader 原子能力见 [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)，依赖 ID 见 [公共能力依赖图](capability-dependency-map.md)。
 
 所有 Effect 的第一启用条件相同：对象 `effects[]` 显式引用、effect 自身有效可见、owner layer 最终可见。表中的运行时拥有某个 profile 不会让未声明 Effect 自动启用。
+
+共享failure-radius现只额外覆盖exact单effect的普通`effect input → FBO → effect output`两material形态：无clear/unique/condition/command/history/dependency/compose，且第二node读取第一node FBO；eligible frontend/uniform/optional texture失败时整个effect回滚到进入前的previous current，未提交FBO state被丢弃并在下一帧重建。format仍由既有target/attachment admission决定，自动门覆盖RGBA与已准入R8形态，fresh App可见门只覆盖RGBA。它不按Motion Blur或样本身份准入，也不升级任何下表Effect family；target/ABI/generation/hazard/lifecycle/runtime encode及其他topology仍硬拒绝。项目正反门与刻意NON-PASS故障运行见[E-V1-ORDINARY-FBO-VISUAL-FAILURE-PASSTHROUGH](runtime-evidence-index.md#e-v1-ordinary-fbo-visual-failure-passthrough)。
 
 ## 1. 等级与执行通道
 

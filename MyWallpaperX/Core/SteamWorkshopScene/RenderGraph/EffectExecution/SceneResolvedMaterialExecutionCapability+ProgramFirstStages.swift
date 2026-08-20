@@ -269,11 +269,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     /// Only a launch-time visual contract or ambiguous dynamic value-owner
     /// failure may become a visual no-op. Dynamic producer availability,
     /// resource, target, dependency, state and lifecycle failures remain hard
-    /// rejections. The admitted effect must be a pair-only full-frame stage so
-    /// its whole transaction can preserve previous current without fabricating
-    /// an authored texture, uniform value or graph resource. Multi-node stages
-    /// are admitted only as one atomic effect; a failed intermediate Program
-    /// never publishes a partial authored result.
+    /// rejections. Multi-node stages are admitted only as one atomic effect; a
+    /// failed intermediate Program never publishes a partial authored result.
+    /// Besides the pair-only compose shape, this admits one ordinary two-pass
+    /// framebuffer shape whose target has no persistent lifetime or commands.
     private static func visualFailureMayPassthrough(
         _ failure: Rejection,
         product: SceneGraphAdmissionProduct,
@@ -295,14 +294,21 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               dependencyOwnership == .none,
               product.graph.effects.count == 1,
               !product.graph.nodes.isEmpty,
-              product.graph.renderTargets.isEmpty,
               product.graph.blockers.isEmpty,
               let effect = product.graph.effects.first,
               let pairStep = pairPlan.effects.first(where: {
                   $0.effect == effect.key
               }),
-              pairStep.nodes.count == product.graph.nodes.count,
-              pairStep.fullFrameOutputWriteCount == product.graph.nodes.count,
+              pairStep.nodes.count == product.graph.nodes.count else { return false }
+
+        if !product.graph.renderTargets.isEmpty {
+            return visualFailureFramebufferTopologyMayPassthrough(
+                product.graph,
+                effect: effect,
+                pairStep: pairStep
+            )
+        }
+        guard pairStep.fullFrameOutputWriteCount == product.graph.nodes.count,
               (pairStep.inputMember == pairStep.outputMember)
                 == product.graph.nodes.count.isMultiple(of: 2) else { return false }
 
@@ -336,6 +342,54 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                   pairNode.kind == .material else { return false }
         }
         return true
+    }
+
+    private static func visualFailureFramebufferTopologyMayPassthrough(
+        _ graph: Graph,
+        effect: Graph.Effect,
+        pairStep: SceneLayerFullFramePairPlan.EffectStep
+    ) -> Bool {
+        guard graph.renderTargets.count == 1,
+              let target = graph.renderTargets.first,
+              !target.declaredUnique,
+              target.clear == nil,
+              target.conditions == nil,
+              graph.nodes.count == 2,
+              pairStep.nodes.count == 2,
+              pairStep.fullFrameOutputWriteCount == 1,
+              pairStep.composeTransitionCount == 0,
+              pairStep.inputMember != pairStep.outputMember else { return false }
+        let first = graph.nodes[0]
+        let terminal = graph.nodes[1]
+        guard first.effect == effect.key,
+              first.kind == .material,
+              first.materialOrdinal == 0,
+              first.target == target.texture,
+              first.commandSource == nil,
+              first.commandTarget == nil,
+              first.compose == nil || first.compose == .bool(false),
+              first.conditions == nil,
+              first.bindings.contains(where: { $0.texture == effect.input }),
+              first.bindings.allSatisfy({
+                  $0.texture == effect.input && $0.conditions == nil
+              }),
+              terminal.effect == effect.key,
+              terminal.kind == .material,
+              terminal.materialOrdinal == 1,
+              terminal.target == effect.output,
+              terminal.commandSource == nil,
+              terminal.commandTarget == nil,
+              terminal.compose == nil || terminal.compose == .bool(false),
+              terminal.conditions == nil,
+              terminal.bindings.contains(where: { $0.texture == target.texture }),
+              terminal.bindings.allSatisfy({
+                  ($0.texture == target.texture || $0.texture == effect.input)
+                    && $0.conditions == nil
+              }) else { return false }
+        return pairStep.nodes[0].nodeIndex == first.nodeIndex
+            && pairStep.nodes[0].kind == .material
+            && pairStep.nodes[1].nodeIndex == terminal.nodeIndex
+            && pairStep.nodes[1].kind == .material
     }
 
     /// Dedicated stages consume the same launch-scoped producer catalog as

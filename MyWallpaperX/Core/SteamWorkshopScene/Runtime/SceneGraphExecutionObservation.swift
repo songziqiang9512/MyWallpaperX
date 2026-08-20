@@ -208,7 +208,16 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
 
         switch outcome {
         case .succeeded:
-            guard expectedNodeCounts.rejected == 0,
+            let visualFailurePassthrough =
+                expectedNodeCounts.authored > 0
+                && expectedNodeCounts.rejected == expectedNodeCounts.authored
+                && expectedNodeCounts.material == 0
+                && expectedNodeCounts.copy == 0
+                && expectedNodeCounts.swap == 0
+                && expectedNodeCounts.compose == 0
+                && programIdentity.hasPrefix("visual-failure-passthrough:")
+            guard (expectedNodeCounts.rejected == 0
+                    || visualFailurePassthrough),
                   finalOutput != nil,
                   gpuCompletionStatus == .completed else {
                 throw SceneGraphExecutionObservationError.invalidOutcome

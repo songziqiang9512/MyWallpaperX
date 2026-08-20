@@ -220,7 +220,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
             "letsourceRouteExecutable="
         )
         end = compact_program.index(
-            "guardpairLeaf||logicalTargetStage||fullFrameComposeStage,", start
+            "guardpairLeaf||logicalTargetStage,", start
         )
         captured_main_gate = compact_program[start:end]
         self.assertIn(
@@ -230,8 +230,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
             captured_main_gate,
         )
         self.assertNotIn(
-            "fullFrameComposeStage)&&"
-            "program.executionPlan.supportsUtilityCapture",
+            "fullFrameComposeStage",
             captured_main_gate,
         )
         self.assertIn(

@@ -5,79 +5,18 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 import runpy
 import shutil
-import subprocess
-import tempfile
 import unittest
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-PUBLICATION_GATE = Path(__file__).with_name(
-    "test_scene_graph_texture_publication.py"
+CONTRACT_GATE = Path(__file__).with_name(
+    "test_scene_resolved_material_graph_visual_failure_contract.py"
 )
-PUBLICATION_FIXTURE = runpy.run_path(str(PUBLICATION_GATE))
-RESOURCE_ENCODER_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectExecution/SceneGraphResourcePassEncoder.swift"
-)
-EXECUTOR_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor.swift"
-)
-PROGRAM_FIRST_STAGES_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
-)
-VISUAL_FAILURE_PASSTHROUGH_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
-)
-SWIFT_SOURCES = [
-    *PUBLICATION_FIXTURE["SWIFT_SOURCES"],
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentKind.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentStorage.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Failure.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Warmup.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder.swift",
-    RESOURCE_ENCODER_SOURCE,
-    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift",
-    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneGraphConditionAdmission.swift",
-    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneGraphAdmissionCompiler.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Material.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+PipelineWarmup.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
-    EXECUTOR_SOURCE,
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Attachment.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+DedicatedPreparation.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Validation.swift",
-]
+CONTRACT_FIXTURE = runpy.run_path(str(CONTRACT_GATE))
+PUBLICATION_FIXTURE = CONTRACT_FIXTURE["PUBLICATION_FIXTURE"]
+compile_harness = CONTRACT_FIXTURE["compile_harness"]
 
 
 SUPPORT = PUBLICATION_FIXTURE["SUPPORT"] + r'''
@@ -3831,10 +3770,10 @@ private enum Harness {
             .pipelineCompilationAttemptCount
         let ordinaryPlan = requirePlan(ordinaryGraph)
         let ordinaryLease = makeLease(ordinaryPlan, device: device)
-        let dynamicMultiTarget = dynamicUniformTarget(ordinaryGraph.nodes[0])
+        let dynamicMultiTarget = dynamicUniformTarget(ordinaryGraph.nodes[1])
         let dynamicMultiCapabilities = capabilities(
             ordinaryChain,
-            catalog: catalog(for: ordinaryGraph, dynamicUniformNodes: [0]),
+            catalog: catalog(for: ordinaryGraph, dynamicUniformNodes: [1]),
             dynamicProducers: .init(
                 userProperties: [],
                 timelineTargets: [dynamicMultiTarget],
@@ -3893,34 +3832,145 @@ private enum Harness {
             dynamicMultiCapabilities,
             generation: 6
         )
-        let dynamicUniformMultiNodeRemainsHardRejected =
-            dynamicUniformMultiNodeFailure.contains(
-                "finalizer-uniform-dynamicUniformBindingInvalid"
-            )
+        let dynamicUniformMultiNodeUsesWholeEffectPassthrough =
+            dynamicUniformMultiNodeFailure == "success"
         let staticUniformMultiNodeFailure = uniformMultiNodeFailure(
             staticUniformMultiNodeCapabilities,
             generation: 8
         )
-        let staticUniformMultiNodeRemainsHardRejected =
-            staticUniformMultiNodeFailure.contains(
-                "finalizer-uniform-staticUniformBindingInvalid"
-            )
+        let staticUniformMultiNodeUsesWholeEffectPassthrough =
+            staticUniformMultiNodeFailure == "success"
         let hostConflictMultiNodeFailure = uniformMultiNodeFailure(
             hostConflictMultiNodeCapabilities,
             generation: 10
         )
-        let hostConflictMultiNodeRemainsHardRejected =
-            hostConflictMultiNodeFailure.contains(
-                "finalizer-uniform-hostUniformDeclarationConflict"
-            )
+        let hostConflictMultiNodeUsesWholeEffectPassthrough =
+            hostConflictMultiNodeFailure == "success"
         let declarationConflictMultiNodeFailure = uniformMultiNodeFailure(
             declarationConflictMultiNodeCapabilities,
             generation: 12
         )
-        let declarationConflictMultiNodeRemainsHardRejected =
-            declarationConflictMultiNodeFailure.contains(
-                "finalizer-uniform-uniformDeclarationConflict"
+        let declarationConflictMultiNodeUsesWholeEffectPassthrough =
+            declarationConflictMultiNodeFailure == "success"
+
+        let dynamicMultiDefinition = SceneDynamicTargetDefinition(
+            target: dynamicMultiTarget,
+            valueType: .scalar,
+            authoredValue: .scalar(1)
+        )
+        var fboVisualFailurePrepared = false
+        var fboVisualFailureEncoded = false
+        var fboVisualFailureGPUCompleted = false
+        var fboVisualFailurePreservedPreviousCurrent = false
+        var fboVisualFailureDiscardedUncommittedTargetState = false
+        var fboVisualFailureRecoveredNextFrame = false
+        if let claim = dynamicMultiCapabilities.claim(ordinaryChain),
+           let capability = dynamicMultiCapabilities.resolve(
+               claim.token,
+               for: ordinaryChain
+           ), let executor = Executor(
+               device: device,
+               capabilities: dynamicMultiCapabilities
+           ), let firstCommand = queue.makeCommandBuffer() {
+            let firstLease = makeLease(
+                ordinaryPlan,
+                device: device,
+                generation: 30
             )
+            let firstPreparation = executor.prepare(
+                token: claim.token,
+                leases: [firstLease],
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(30),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: firstCommand,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 30,
+                resetGeneration: 30
+            )
+            if case let .success(prepared) = firstPreparation,
+               let stage = prepared.stages.first,
+               stage.effectLocalFailureReasonCode
+                    == "material-finalizer-dynamic-uniform-binding",
+               stage.programCacheKeys == [
+                   "visual-failure-passthrough:"
+                       + "material-finalizer-dynamic-uniform-binding"
+               ] {
+                fboVisualFailurePrepared = true
+                fboVisualFailureDiscardedUncommittedTargetState =
+                    stage.transition.transaction.intents.isEmpty
+                    && stage.transition.transaction.mappingBefore.isEmpty
+                    && stage.transition.transaction.mappingAfter.isEmpty
+                    && stage.transition.nextState.logicalMapping.isEmpty
+                    && stage.transition.nextState.historyClosureIdentities.isEmpty
+                    && stage.frameResources.isEmpty
+                    && stage.persistentResources.isEmpty
+                fboVisualFailureEncoded = executor.encode(
+                    prepared,
+                    commandBuffer: firstCommand
+                )
+                let readback = fboVisualFailureEncoded
+                    ? appendReadback(
+                        prepared.finalTexture,
+                        commandBuffer: firstCommand
+                    ) : nil
+                firstCommand.commit()
+                firstCommand.waitUntilCompleted()
+                fboVisualFailureGPUCompleted = firstCommand.status == .completed
+                    && firstCommand.error == nil
+                fboVisualFailurePreservedPreviousCurrent = readback.map {
+                    matches($0.firstPixel, [0, 0, 255, 255])
+                        && matches($0.lastPixel, [0, 0, 255, 255])
+                } ?? false
+
+                if let recoveryCommand = queue.makeCommandBuffer() {
+                    let recovery = executor.prepare(
+                        token: claim.token,
+                        leases: [makeLease(
+                            ordinaryPlan,
+                            device: device,
+                            generation: 31
+                        )],
+                        historyRehydrateCopiesByEffect: [:],
+                        frame: frame(
+                            31,
+                            dynamicDefinitions: [dynamicMultiDefinition],
+                            timelineValues: [dynamicMultiTarget: .scalar(1)]
+                        ),
+                        sourceTexture: source,
+                        sourceUniforms: .neutral(),
+                        sourcePipeline: sourcePipeline,
+                        dedicatedInputs: .init(),
+                        commandBuffer: recoveryCommand,
+                        previousStates: [effect: stage.transition.nextState],
+                        previousGraphResources: [effect: [:]],
+                        effectGeneration: 30,
+                        resetGeneration: 30
+                    )
+                    if case let .success(recovered) = recovery,
+                       let recoveredStage = recovered.stages.first {
+                        fboVisualFailureRecoveredNextFrame =
+                            recoveredStage.effectLocalFailureReasonCode == nil
+                            && recoveredStage.programCacheKeys.count == 2
+                            && !recoveredStage.transition.transaction.mappingAfter.isEmpty
+                            && executor.encode(
+                                recovered,
+                                commandBuffer: recoveryCommand
+                            )
+                        recoveryCommand.commit()
+                        recoveryCommand.waitUntilCompleted()
+                        fboVisualFailureRecoveredNextFrame =
+                            fboVisualFailureRecoveredNextFrame
+                            && recoveryCommand.status == .completed
+                            && recoveryCommand.error == nil
+                    }
+                }
+            }
+        }
 
         let scalarGraph = graph(
             targets: [rawTarget(first, format: "r8")],
@@ -4452,6 +4502,21 @@ private enum Harness {
                 material(1, ordinal: 1, target: output, read: first),
             ]
         )
+        let uniqueVisualFailureGraph = graph(
+            targets: [rawTarget(first, unique: true)],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: output, read: first),
+            ]
+        )
+        let commandVisualFailureGraph = graph(
+            targets: [rawTarget(first), rawTarget(second)],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                command(1, kind: .copy, source: first, target: second),
+                material(2, ordinal: 1, target: output, read: second),
+            ]
+        )
         let passCapabilities = capabilities(
             ordinaryChain,
             catalog: catalog(for: ordinaryGraph, passNodes: [1])
@@ -4475,6 +4540,27 @@ private enum Harness {
         let nonzeroClearCapabilities = capabilities(
             admittedGraph(nonzeroClearGraph),
             catalog: catalog(for: nonzeroClearGraph)
+        )
+        let clearVisualFailureCapabilities = capabilities(
+            admittedGraph(nonzeroClearGraph),
+            catalog: catalog(
+                for: nonzeroClearGraph,
+                uniformSchemaInvalidNodes: [0]
+            )
+        )
+        let uniqueVisualFailureCapabilities = capabilities(
+            admittedGraph(uniqueVisualFailureGraph),
+            catalog: catalog(
+                for: uniqueVisualFailureGraph,
+                uniformSchemaInvalidNodes: [0]
+            )
+        )
+        let commandVisualFailureCapabilities = capabilities(
+            admittedGraph(commandVisualFailureGraph),
+            catalog: catalog(
+                for: commandVisualFailureGraph,
+                uniformSchemaInvalidNodes: [0]
+            )
         )
         let oversizedNodeGraph = graph(
             targets: [],
@@ -5266,6 +5352,18 @@ private enum Harness {
             "nonzeroClearAdmittedBeforeFrame": nonzeroClearCapabilities.claim(
                 admittedGraph(nonzeroClearGraph)
             ) != nil,
+            "authoredClearVisualFailureRemainsHardRejected":
+                clearVisualFailureCapabilities.claim(
+                    admittedGraph(nonzeroClearGraph)
+                ) == nil,
+            "uniqueTargetVisualFailureRemainsHardRejected":
+                uniqueVisualFailureCapabilities.claim(
+                    admittedGraph(uniqueVisualFailureGraph)
+                ) == nil,
+            "commandGraphVisualFailureRemainsHardRejected":
+                commandVisualFailureCapabilities.claim(
+                    admittedGraph(commandVisualFailureGraph)
+                ) == nil,
             "oversizedNodeGraphRejectedBeforeGPU": capabilities(
                 admittedGraph(oversizedNodeGraph), catalog: catalog(for: oversizedNodeGraph)
             ).claim(admittedGraph(oversizedNodeGraph)) == nil,
@@ -5327,12 +5425,22 @@ private enum Harness {
                 scalarAliasGraph,
                 consumers: [1: "alias"]
             ),
-            "scalarConditionalWriterRejectedAtLaunchEnvelope": scalarRejection(
-                scalarConditionalWriterGraph,
-                consumers: [1: "red"],
-                unprovenProducer: true,
-                expectedCode: "material-variant-envelope-color-contract"
-            ),
+            "scalarConditionalWriterUsesWholeEffectPassthrough": {
+                let chain = admittedGraph(scalarConditionalWriterGraph)
+                let values = capabilities(
+                    chain,
+                    catalog: catalog(
+                        for: scalarConditionalWriterGraph,
+                        scalarProducerUnprovenNodes: [0],
+                        scalarConsumerNodes: [1: "red"]
+                    )
+                )
+                guard let claim = values.claim(chain),
+                      let capability = values.resolve(claim.token, for: chain)
+                else { return false }
+                return capability.stages.first?.visualFailureReasonCode
+                    == "material-variant-envelope-color-contract"
+            }(),
             "scalarClearRejectedBeforeFrame": scalarRejection(
                 scalarClearGraph,
                 consumers: [1: "red"]
@@ -5468,14 +5576,24 @@ private enum Harness {
                 colorBlendGenerationMismatchRemainsHard,
             "colorBlendMaskRequestIdentityMismatchRemainsHard":
                 colorBlendRequestIdentityMismatchRemainsHard,
-            "dynamicUniformMultiNodeRemainsHardRejected":
-                dynamicUniformMultiNodeRemainsHardRejected,
-            "staticUniformMultiNodeRemainsHardRejected":
-                staticUniformMultiNodeRemainsHardRejected,
-            "hostConflictMultiNodeRemainsHardRejected":
-                hostConflictMultiNodeRemainsHardRejected,
-            "declarationConflictMultiNodeRemainsHardRejected":
-                declarationConflictMultiNodeRemainsHardRejected,
+            "dynamicUniformMultiNodeUsesWholeEffectPassthrough":
+                dynamicUniformMultiNodeUsesWholeEffectPassthrough,
+            "staticUniformMultiNodeUsesWholeEffectPassthrough":
+                staticUniformMultiNodeUsesWholeEffectPassthrough,
+            "hostConflictMultiNodeUsesWholeEffectPassthrough":
+                hostConflictMultiNodeUsesWholeEffectPassthrough,
+            "declarationConflictMultiNodeUsesWholeEffectPassthrough":
+                declarationConflictMultiNodeUsesWholeEffectPassthrough,
+            "fboVisualFailurePassthroughPrepared": fboVisualFailurePrepared,
+            "fboVisualFailurePassthroughEncoded": fboVisualFailureEncoded,
+            "fboVisualFailurePassthroughGPUCompleted":
+                fboVisualFailureGPUCompleted,
+            "fboVisualFailurePreservesPreviousCurrent":
+                fboVisualFailurePreservedPreviousCurrent,
+            "fboVisualFailureDiscardsUncommittedTargetState":
+                fboVisualFailureDiscardedUncommittedTargetState,
+            "fboVisualFailureRecoversOnNextFrame":
+                fboVisualFailureRecoveredNextFrame,
             "visualUniformSchemaFailureCanClaimEffectLocalPassthrough":
                 visualFailureCanClaimEffectLocalPassthrough,
             "visualUniformSchemaFailurePassthroughPrepared":
@@ -5488,22 +5606,26 @@ private enum Harness {
                 visualFailurePreservesPreviousAndContinuesSuffix,
             "visualUniformSchemaFailurePassthroughIsTypedAndCounted":
                 visualFailurePassthroughIsTypedAndCounted,
-            "visualUniformSchemaMultiNodeRemainsHardRejected":
-                uniformSchemaMultiNodeCapabilities.claim(ordinaryChain) == nil
-                    && uniformSchemaMultiNodeCapabilities.reportLines.contains {
-                        $0.contains(
-                            "rejection: material-variant-envelope-uniform-schema"
-                                + " count=1"
-                        )
-                    },
-            "visualSamplerSchemaMultiNodeRemainsHardRejected":
-                samplerSchemaMultiNodeCapabilities.claim(ordinaryChain) == nil
-                    && samplerSchemaMultiNodeCapabilities.reportLines.contains {
-                        $0.contains(
-                            "rejection: material-variant-envelope-sampler-schema"
-                                + " count=1"
-                        )
-                    },
+            "visualUniformSchemaMultiNodeUsesWholeEffectPassthrough": {
+                guard let claim = uniformSchemaMultiNodeCapabilities.claim(
+                          ordinaryChain
+                      ), let capability = uniformSchemaMultiNodeCapabilities.resolve(
+                          claim.token,
+                          for: ordinaryChain
+                      ) else { return false }
+                return capability.stages.first?.visualFailureReasonCode
+                    == "material-variant-envelope-uniform-schema"
+            }(),
+            "visualSamplerSchemaMultiNodeUsesWholeEffectPassthrough": {
+                guard let claim = samplerSchemaMultiNodeCapabilities.claim(
+                          ordinaryChain
+                      ), let capability = samplerSchemaMultiNodeCapabilities.resolve(
+                          claim.token,
+                          for: ordinaryChain
+                      ) else { return false }
+                return capability.stages.first?.visualFailureReasonCode
+                    == "material-variant-envelope-sampler-schema"
+            }(),
             "rendererFailurePassthroughPrepared":
                 rendererFailurePassthroughPrepared,
             "rendererFailurePassthroughEncoded":
@@ -5540,13 +5662,15 @@ private enum Harness {
                 unplannedVariantRejectedWithoutCompilation,
             "independentLaunchVariantRejectionIsCached":
                 failedVariantRejectionIsCached,
-            "frontendInvalidRejectedByLaunchEnvelope":
-                failingCapabilities.claim(ordinaryChain) == nil
-                    && failingCapabilities.reportLines.contains {
-                        $0.contains(
-                            "rejection: material-variant-envelope-frontend count=1"
-                        )
-                    },
+            "frontendInvalidUsesWholeEffectPassthrough": {
+                guard let claim = failingCapabilities.claim(ordinaryChain),
+                      let capability = failingCapabilities.resolve(
+                          claim.token,
+                          for: ordinaryChain
+                      ) else { return false }
+                return capability.stages.first?.visualFailureReasonCode
+                    == "material-variant-envelope-frontend"
+            }(),
             "copyAndSwapPrepared": failureCode(mixedPreparation) == "success"
                 && mixedKinds.contains("copy")
                 && mixedKinds.contains("swap")
@@ -5701,138 +5825,12 @@ private enum Harness {
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
-    def test_visual_failure_passthrough_keeps_exact_launch_reason_allowlist(
-        self,
-    ) -> None:
-        for source in (
-            PROGRAM_FIRST_STAGES_SOURCE,
-            VISUAL_FAILURE_PASSTHROUGH_SOURCE,
-        ):
-            text = source.read_text(encoding="utf-8")
-            self.assertIn('"material-variant-envelope-frontend"', text)
-            self.assertIn(
-                '"material-variant-envelope-shader-preparation"',
-                text,
-            )
-            self.assertIn('"material-generic-owner-revoked"', text)
-            self.assertIn(
-                '"material-variant-envelope-color-contract"',
-                text,
-            )
-            self.assertIn(
-                '"material-variant-envelope-uniform-schema"',
-                text,
-            )
-            self.assertNotIn('"material-variant-envelope-texture"', text)
-            self.assertNotIn('"material-variant-envelope-target"', text)
-            self.assertNotIn('"material-variant-envelope-runtime-encode"', text)
-        visual_text = VISUAL_FAILURE_PASSTHROUGH_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            '"material-finalizer-dynamic-uniform-binding"',
-            visual_text,
-        )
-        self.assertIn(
-            '"material-finalizer-static-uniform-binding"',
-            visual_text,
-        )
-        self.assertIn(
-            '"material-finalizer-host-uniform-declaration-conflict"',
-            visual_text,
-        )
-        self.assertIn(
-            '"material-finalizer-uniform-declaration-conflict"',
-            visual_text,
-        )
-        for reason in (
-            "material-finalizer-optional-texture-unavailable",
-            "material-finalizer-optional-texture-purpose-mismatch",
-            "material-finalizer-optional-texture-content-mismatch",
-            "material-finalizer-optional-texture-sampling-unresolved",
-        ):
-            self.assertIn(f'"{reason}"', visual_text)
-        self.assertNotIn('"material-finalizer-resource"', visual_text)
-        self.assertNotIn('"material-finalizer-texture"', visual_text)
-        self.assertNotIn(
-            '"material-finalizer-host-uniform-binding"',
-            visual_text,
-        )
-        self.assertNotIn(
-            '"material-finalizer-active-uniform-schema"',
-            visual_text,
-        )
-        self.assertIn(
-            '"material-dynamic-uniform-contributor-policy"',
-            visual_text,
-        )
-        self.assertIn(
-            '"material-dynamic-uniform-contributor-producer-unavailable"',
-            visual_text,
-        )
-        self.assertIn(
-            '"material-dynamic-uniform-script-attachment-unproven"',
-            visual_text,
-        )
-        self.assertIn(
-            '"material-dynamic-uniform-producer-unavailable"',
-            visual_text,
-        )
-
     def test_production_executor_preflights_and_executes_atomic_graph(self) -> None:
-        with tempfile.TemporaryDirectory(
-            prefix="mwx-resolved-material-graph-executor-"
-        ) as directory:
-            root = Path(directory)
-            support = root / "Support.swift"
-            harness = root / "Harness.swift"
-            binary = root / "resolved-material-graph-executor-test"
-            support.write_text(SUPPORT, encoding="utf-8")
-            harness.write_text(HARNESS, encoding="utf-8")
-            environment = os.environ.copy()
-            environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
-            environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
-            compilation = subprocess.run(
-                [
-                    "xcrun",
-                    "--sdk",
-                    "macosx",
-                    "swiftc",
-                    "-parse-as-library",
-                    "-D",
-                    "SCENE_GRAPH_TESTING",
-                    str(support),
-                    *(str(path) for path in SWIFT_SOURCES),
-                    str(harness),
-                    "-framework",
-                    "Metal",
-                    "-framework",
-                    "CoreGraphics",
-                    "-framework",
-                    "ImageIO",
-                    "-module-cache-path",
-                    str(root / "module-cache"),
-                    "-o",
-                    str(binary),
-                ],
-                cwd=REPOSITORY_ROOT,
-                env=environment,
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(compilation.returncode, 0, compilation.stderr)
-            completed = subprocess.run(
-                [str(binary)],
-                cwd=REPOSITORY_ROOT,
-                env=environment,
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(completed.returncode, 0, completed.stderr)
-
-        self.assertNotIn(
-            "SceneOffscreenEffectRenderer",
-            EXECUTOR_SOURCE.read_text(encoding="utf-8"),
-        )
-        self.assertNotIn("SceneOffscreenEffectRenderer", SUPPORT)
+        compilation, completed = compile_harness(SUPPORT, HARNESS)
+        self.assertEqual(compilation.returncode, 0, compilation.stderr)
+        self.assertIsNotNone(completed)
+        assert completed is not None
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
         payload = json.loads(completed.stdout)
         if not payload["metalAvailable"]:

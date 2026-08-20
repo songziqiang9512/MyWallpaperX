@@ -45,6 +45,7 @@ enum SceneResolvedMaterialGraphObservationBuilder {
         let nodes = try nodeObservations(
             value,
             rejectedReason: failedReason
+                ?? value.effectLocalFailureReasonCode
         )
         guard nodes.count == value.graph.nodes.count,
               !value.programCacheKeys.isEmpty else {
@@ -144,9 +145,58 @@ enum SceneResolvedMaterialGraphObservationBuilder {
             value.pairStep.nodes.map { ($0.nodeIndex, $0) })
         let graphNodes = Dictionary(uniqueKeysWithValues:
             value.graph.nodes.map { ($0.nodeIndex, $0) })
-        let disposition: SceneGraphExecutionNodeDisposition = rejectedReason.map {
-            .rejected(reasonCode: $0)
-        } ?? .executed
+        if let rejectedReason {
+            var commandOrdinal = 0
+            return try value.graph.nodes.map { node in
+                guard let pair = pairNodes[node.nodeIndex] else {
+                    throw Failure.invalidGraph
+                }
+                let kindsMatch = switch (pair.kind, node.kind) {
+                case (.material, .material), (.copy, .copy), (.swap, .swap):
+                    true
+                default:
+                    false
+                }
+                guard kindsMatch else { throw Failure.invalidGraph }
+                let disposition = SceneGraphExecutionNodeDisposition.rejected(
+                    reasonCode: rejectedReason
+                )
+                switch node.kind {
+                case .material:
+                    guard let ordinal = node.materialOrdinal else {
+                        throw Failure.invalidGraph
+                    }
+                    return .init(
+                        nodeIndex: node.nodeIndex,
+                        kind: .material,
+                        materialOrdinal: ordinal,
+                        commandOrdinal: nil,
+                        commandSource: nil,
+                        commandTarget: nil,
+                        advancesComposePair: false,
+                        disposition: disposition
+                    )
+                case .copy, .swap:
+                    guard let source = node.commandSource,
+                          let target = node.commandTarget else {
+                        throw Failure.invalidGraph
+                    }
+                    let ordinal = commandOrdinal
+                    commandOrdinal += 1
+                    return commandObservation(
+                        node: node.nodeIndex,
+                        ordinal: ordinal,
+                        kind: node.kind == .copy ? .copy : .swap,
+                        source: source,
+                        target: target,
+                        disposition: disposition
+                    )
+                default:
+                    throw Failure.invalidGraph
+                }
+            }
+        }
+        let disposition = SceneGraphExecutionNodeDisposition.executed
         var visited = Set<Int>()
         var nodes: [SceneGraphExecutionNodeObservation] = []
         for intent in value.transition.transaction.intents {

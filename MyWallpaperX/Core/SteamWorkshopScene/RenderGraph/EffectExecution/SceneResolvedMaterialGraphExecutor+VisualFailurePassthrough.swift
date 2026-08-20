@@ -118,14 +118,23 @@ extension SceneResolvedMaterialGraphExecutor {
     ) -> Bool {
         guard graph.effects.count == 1,
               !graph.nodes.isEmpty,
-              graph.renderTargets.isEmpty,
               graph.blockers.isEmpty,
               let effect = graph.effects.first,
               effect.key == pairStep.effect,
               pairStep.inputMember == snapshot.pair.member,
               pairStep.nodes.count == graph.nodes.count,
-              pairStep.fullFrameOutputWriteCount == graph.nodes.count,
-              transition.nextState.historyClosureIdentities.isEmpty,
+              transition.nextState.historyClosureIdentities.isEmpty else {
+            return false
+        }
+        if !graph.renderTargets.isEmpty {
+            return visualFailureFramebufferTopologyIsSupported(
+                transition: transition,
+                graph: graph,
+                effect: effect,
+                pairStep: pairStep
+            )
+        }
+        guard pairStep.fullFrameOutputWriteCount == graph.nodes.count,
               transition.transaction.intents.count == graph.nodes.count else {
             return false
         }
@@ -171,6 +180,89 @@ extension SceneResolvedMaterialGraphExecutor {
             current = pairNode.currentMemberAfterNode
         }
         return pairStep.outputMember == current.opposite
+    }
+
+    private func visualFailureFramebufferTopologyIsSupported(
+        transition: State.Transition,
+        graph: Graph,
+        effect: Graph.Effect,
+        pairStep: Pair.EffectStep
+    ) -> Bool {
+        guard graph.renderTargets.count == 1,
+              let target = graph.renderTargets.first,
+              !target.declaredUnique,
+              target.clear == nil,
+              target.conditions == nil,
+              graph.nodes.count == 2,
+              pairStep.nodes.count == 2,
+              pairStep.fullFrameOutputWriteCount == 1,
+              pairStep.composeTransitionCount == 0,
+              pairStep.inputMember != pairStep.outputMember,
+              transition.transaction.intents.count == 2,
+              Set(transition.transaction.mappingBefore.keys) == [target.texture],
+              Set(transition.transaction.mappingAfter.keys) == [target.texture]
+        else { return false }
+        let first = graph.nodes[0]
+        let terminal = graph.nodes[1]
+        let firstStep = pairStep.nodes[0]
+        let terminalStep = pairStep.nodes[1]
+        guard first.effect == effect.key,
+              first.kind == .material,
+              first.materialOrdinal == 0,
+              first.target == target.texture,
+              first.commandSource == nil,
+              first.commandTarget == nil,
+              first.compose == nil || first.compose == .bool(false),
+              first.conditions == nil,
+              first.bindings.contains(where: { $0.texture == effect.input }),
+              first.bindings.allSatisfy({
+                  $0.texture == effect.input && $0.conditions == nil
+              }),
+              terminal.effect == effect.key,
+              terminal.kind == .material,
+              terminal.materialOrdinal == 1,
+              terminal.target == effect.output,
+              terminal.commandSource == nil,
+              terminal.commandTarget == nil,
+              terminal.compose == nil || terminal.compose == .bool(false),
+              terminal.conditions == nil,
+              terminal.bindings.contains(where: { $0.texture == target.texture }),
+              terminal.bindings.allSatisfy({
+                  ($0.texture == target.texture || $0.texture == effect.input)
+                    && $0.conditions == nil
+              }),
+              firstStep.nodeIndex == first.nodeIndex,
+              firstStep.kind == .material,
+              firstStep.currentMemberBeforeNode == pairStep.inputMember,
+              firstStep.currentMemberAfterNode == pairStep.inputMember,
+              firstStep.fullFrameWriteMember == nil,
+              !firstStep.rotatesAfterNode,
+              terminalStep.nodeIndex == terminal.nodeIndex,
+              terminalStep.kind == .material,
+              terminalStep.currentMemberBeforeNode == pairStep.inputMember,
+              terminalStep.currentMemberAfterNode == pairStep.inputMember,
+              terminalStep.fullFrameWriteMember == pairStep.outputMember,
+              !terminalStep.rotatesAfterNode else { return false }
+        guard case let .material(
+                  firstNode, firstOrdinal, firstBindings, firstTarget
+              ) = transition.transaction.intents[0],
+              firstNode == first.nodeIndex,
+              firstOrdinal == 0,
+              firstBindings.isEmpty,
+              firstTarget?.identity == target.texture,
+              case let .material(
+                  terminalNode, terminalOrdinal, terminalBindings, terminalTarget
+              ) = transition.transaction.intents[1],
+              terminalNode == terminal.nodeIndex,
+              terminalOrdinal == 1,
+              terminalBindings.count == terminal.bindings.filter({
+                  $0.texture.kind == .framebuffer
+              }).count,
+              terminalBindings.contains(where: {
+                  $0.identity == target.texture
+              }),
+              terminalTarget == nil else { return false }
+        return true
     }
 
     private func recordEffectLocalFramePreparationFallback(

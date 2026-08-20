@@ -156,6 +156,41 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         topologySignature: nil, planSignature: nil
     )
 
+    /// Invalidates an uncommitted, non-persistent framebuffer candidate after
+    /// a whole-effect visual fallback. The allocation generation remains in
+    /// the transaction for lifecycle accounting, while target mappings and
+    /// signatures are deliberately discarded so the next frame reparses the
+    /// authored graph instead of treating skipped writes as committed state.
+    static func discardingUncommittedVisualFailure(
+        _ candidate: Transition
+    ) -> Transition? {
+        guard candidate.nextState.historyClosureIdentities.isEmpty,
+              candidate.nextState.historyLogicalIdentities.isEmpty,
+              candidate.transaction.allocationGeneration > 0 else { return nil }
+        let transaction = Transaction(
+            intents: [],
+            mappingBefore: [:],
+            mappingAfter: [:],
+            allocationGeneration: candidate.transaction.allocationGeneration,
+            effectGeneration: candidate.transaction.effectGeneration,
+            resetGeneration: candidate.transaction.resetGeneration
+        )
+        let next = Self(
+            effectGeneration: nil,
+            resetGeneration: nil,
+            allocationGeneration: candidate.transaction.allocationGeneration,
+            authoredResources: [:],
+            logicalMapping: [:],
+            initializedPhysicalTokens: [],
+            historyLogicalIdentities: [],
+            historyClosureIdentities: [],
+            lastContentGeneration: 0,
+            topologySignature: nil,
+            planSignature: nil
+        )
+        return .init(nextState: next, transaction: transaction)
+    }
+
     static func reduce(
         graph: Graph,
         targetPlan: Plan,

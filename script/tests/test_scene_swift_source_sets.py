@@ -340,6 +340,10 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             ),
             "script/tests/test_scene_resolved_material_graph_executor.py": (
                 "runpy.run_path",
+                "test_scene_resolved_material_graph_visual_failure_contract.py",
+            ),
+            "script/tests/test_scene_resolved_material_graph_visual_failure_contract.py": (
+                "runpy.run_path",
                 "test_scene_graph_texture_publication.py",
             ),
         }

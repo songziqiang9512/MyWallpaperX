@@ -327,6 +327,16 @@ final class SceneResolvedMaterialGraphExecutor {
             ) {
                 return .failure(failure)
             }
+            let committedTransition: State.Transition
+            if effectLocalFailureReasonCode != nil,
+               !graph.renderTargets.isEmpty {
+                guard let discarded = State.discardingUncommittedVisualFailure(
+                    transition
+                ) else { return .failure(.stateRejected) }
+                committedTransition = discarded
+            } else {
+                committedTransition = transition
+            }
             guard !stageCommands.isEmpty || effectLocalFailureReasonCode != nil,
                   pair.member == pairStep.outputMember,
                   let final = publications[pairStep.outputIdentity],
@@ -334,17 +344,17 @@ final class SceneResolvedMaterialGraphExecutor {
                   final.resourceGeneration == pair.resource.resourceGeneration,
                   final.publication.isSameAtom(as: pair.resource.publication),
                   let frameResources = resources(
-                      matching: transition.transaction.mappingAfter,
+                      matching: committedTransition.transaction.mappingAfter,
                       from: publications
                   ), let persistentResources = resources(
-                      matching: transition.nextState.logicalMapping,
+                      matching: committedTransition.nextState.logicalMapping,
                       from: publications
                   ) else { return .failure(.graphPublicationRejected) }
             stages.append(.init(
                 effect: effect,
                 graph: graph,
                 pairStep: pairStep,
-                transition: transition,
+                transition: committedTransition,
                 programCacheKeys: programKeys,
                 effectLocalFailureReasonCode: effectLocalFailureReasonCode,
                 inputWidth: lease.table.plan.inputExtent.width,
