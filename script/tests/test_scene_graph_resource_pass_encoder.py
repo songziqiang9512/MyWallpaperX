@@ -159,7 +159,13 @@ private func target(
 }
 
 private func pixels(_ texture: MTLTexture) -> [UInt8] {
-    let bytesPerPixel = texture.pixelFormat == .r8Unorm ? 1 : 4
+    let bytesPerPixel: Int
+    switch texture.pixelFormat {
+    case .r8Unorm: bytesPerPixel = 1
+    case .rg8Unorm, .r16Float: bytesPerPixel = 2
+    case .rg16Float: bytesPerPixel = 4
+    default: bytesPerPixel = 4
+    }
     var result = [UInt8](
         repeating: 0,
         count: texture.width * texture.height * bytesPerPixel
@@ -167,6 +173,21 @@ private func pixels(_ texture: MTLTexture) -> [UInt8] {
     texture.getBytes(
         &result,
         bytesPerRow: texture.width * bytesPerPixel,
+        from: MTLRegionMake2D(0, 0, texture.width, texture.height),
+        mipmapLevel: 0
+    )
+    return result
+}
+
+private func halfPixels(_ texture: MTLTexture) -> [UInt16] {
+    let componentCount = texture.pixelFormat == .rg16Float ? 2 : 1
+    var result = [UInt16](
+        repeating: 0,
+        count: texture.width * texture.height * componentCount
+    )
+    texture.getBytes(
+        &result,
+        bytesPerRow: texture.width * componentCount * MemoryLayout<UInt16>.stride,
         from: MTLRegionMake2D(0, 0, texture.width, texture.height),
         mipmapLevel: 0
     )
@@ -444,6 +465,42 @@ private enum Harness {
         }
         let r8CopyMatches = pixels(r8CopyTarget) == r8SourceBytes
 
+        let halfClear = Clear(red: 1, green: 0.25, blue: 0.75, alpha: 0.5)
+        let r16ClearTarget = target(device: device, format: .r16Float)
+        let preparedR16Clear = encoder.prepareInitialization(
+            target: r16ClearTarget,
+            clear: halfClear
+        )
+        var r16ClearEncoded = false
+        var r16ClearGPUCompleted = false
+        if let preparedR16Clear, let command = queue.makeCommandBuffer() {
+            r16ClearEncoded = encoder.encode(
+                preparedR16Clear,
+                commandBuffer: command
+            )
+            r16ClearGPUCompleted = completed(command, encoded: r16ClearEncoded)
+        }
+        let r16ClearMatches = halfPixels(r16ClearTarget)
+            == [UInt16](repeating: 0x3c00, count: 4)
+
+        let rg16ClearTarget = target(device: device, format: .rg16Float)
+        let preparedRG16Clear = encoder.prepareInitialization(
+            target: rg16ClearTarget,
+            clear: halfClear
+        )
+        var rg16ClearEncoded = false
+        var rg16ClearGPUCompleted = false
+        if let preparedRG16Clear, let command = queue.makeCommandBuffer() {
+            rg16ClearEncoded = encoder.encode(
+                preparedRG16Clear,
+                commandBuffer: command
+            )
+            rg16ClearGPUCompleted = completed(command, encoded: rg16ClearEncoded)
+        }
+        let rg16ClearMatches = halfPixels(rg16ClearTarget)
+            == Array(repeating: [UInt16(0x3c00), UInt16(0x3400)], count: 4)
+                .flatMap { $0 }
+
         let wrongExtent = texture(
             device: device,
             width: 1,
@@ -507,7 +564,7 @@ private enum Harness {
             source: copySource,
             target: mipTarget
         ) == nil
-        let unsupportedTarget = target(device: device, format: .rg16Float)
+        let unsupportedTarget = target(device: device, format: .r32Float)
         let unsupportedTargetFormatRejected = encoder.prepareInitialization(
             target: unsupportedTarget,
             clear: clear
@@ -666,6 +723,14 @@ private enum Harness {
             "r8CopyEncoded": r8CopyEncoded,
             "r8CopyGPUCompleted": r8CopyGPUCompleted,
             "r8CopyReadbackMatches": r8CopyMatches,
+            "r16ClearPrepared": preparedR16Clear?.kind == .initialization,
+            "r16ClearEncoded": r16ClearEncoded,
+            "r16ClearGPUCompleted": r16ClearGPUCompleted,
+            "r16ClearStoresRedHalf": r16ClearMatches,
+            "rg16ClearPrepared": preparedRG16Clear?.kind == .initialization,
+            "rg16ClearEncoded": rg16ClearEncoded,
+            "rg16ClearGPUCompleted": rg16ClearGPUCompleted,
+            "rg16ClearStoresRedGreenHalf": rg16ClearMatches,
             "extentMismatchRejected": extentMismatchRejected,
             "formatMismatchRejected": formatMismatchRejected,
             "aliasRejected": aliasRejected,

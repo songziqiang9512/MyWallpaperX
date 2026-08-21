@@ -4581,8 +4581,20 @@ private enum Harness {
         }
         let redGreenRedConsumerGraph = redGreenConsumerGraph()
         let redGreenWholeConsumerGraph = redGreenConsumerGraph()
-        let redGreenClearGraph = redGreenConsumerGraph(
-            clear: .string("0 0 0 0")
+        let redGreenClearGraph = graph(
+            targets: [
+                rawTarget(
+                    first,
+                    format: "rg88",
+                    clear: .string("0.25 0.5 0.75 1")
+                ),
+                rawTarget(second, format: "rg88"),
+            ],
+            nodes: [
+                material(0, ordinal: 0, target: second, read: first),
+                material(1, ordinal: 1, target: first, read: second),
+                material(2, ordinal: 2, target: output, read: first),
+            ]
         )
         let redGreenUniqueGraph = redGreenConsumerGraph(unique: true)
         let redGreenMultipleWriterGraph = graph(
@@ -4627,16 +4639,150 @@ private enum Harness {
         let scalarAliasGraph = scalarConsumerGraph()
         let scalarConditionalWriterGraph = scalarConsumerGraph()
         let scalarClearGraph = graph(
-            targets: [rawTarget(
-                first,
-                format: "r8",
-                clear: .string("0 0 0 0")
-            )],
+            targets: [
+                rawTarget(
+                    first,
+                    format: "r8",
+                    clear: .string("0.25 0 0 0")
+                ),
+                rawTarget(second, format: "r8"),
+            ],
             nodes: [
-                material(0, ordinal: 0, target: first, read: input),
-                material(1, ordinal: 1, target: output, read: first),
+                material(0, ordinal: 0, target: second, read: first),
+                material(1, ordinal: 1, target: first, read: second),
+                material(2, ordinal: 2, target: output, read: first),
             ]
         )
+        let redGreenClearChain = admittedGraph(redGreenClearGraph)
+        let redGreenClearCapabilities = capabilities(
+            redGreenClearChain,
+            catalog: catalog(
+                for: redGreenClearGraph,
+                scalarConsumerNodes: [0: "rg", 1: "rg", 2: "rg"]
+            )
+        )
+        let redGreenClearClaim = redGreenClearCapabilities.claim(
+            redGreenClearChain
+        )
+        var redGreenClearSeededFirstFrame = false
+        var redGreenClearSeededNextFrame = false
+        if let claim = redGreenClearClaim,
+           let executor = Executor(
+               device: device,
+               capabilities: redGreenClearCapabilities
+           ) {
+            let lease = makeLease(
+                requirePlan(redGreenClearGraph),
+                device: device,
+                generation: 41
+            )
+            if let firstBuffer = queue.makeCommandBuffer() {
+                let firstPreparation = executor.prepare(
+                    token: claim.token,
+                    leases: [lease],
+                    historyRehydrateCopiesByEffect: [:],
+                    frame: frame(40),
+                    sourceTexture: source,
+                    sourceUniforms: .neutral(),
+                    sourcePipeline: sourcePipeline,
+                    dedicatedInputs: .init(),
+                    commandBuffer: firstBuffer,
+                    previousStates: [:],
+                    previousGraphResources: [:],
+                    effectGeneration: 40,
+                    resetGeneration: 40
+                )
+                if case let .success(firstPrepared) = firstPreparation,
+                   firstPrepared.stages.count == 1,
+                   intentKinds(firstPrepared) == [
+                       "initialize", "material", "material", "material",
+                   ],
+                   firstPrepared.stages[0].persistentResources[first] != nil,
+                   executor.encode(firstPrepared, commandBuffer: firstBuffer),
+                   let firstTarget = lease.texture(for: first),
+                   let secondTarget = lease.texture(for: second),
+                   let firstRead = appendRedGreenReadback(
+                       firstTarget,
+                       commandBuffer: firstBuffer
+                   ),
+                   let secondRead = appendRedGreenReadback(
+                       secondTarget,
+                       commandBuffer: firstBuffer
+                   ),
+                   let terminalRead = appendReadback(
+                       firstPrepared.finalTexture,
+                       commandBuffer: firstBuffer
+                   ) {
+                    firstBuffer.commit()
+                    firstBuffer.waitUntilCompleted()
+                    redGreenClearSeededFirstFrame =
+                        firstBuffer.status == .completed
+                        && firstBuffer.error == nil
+                        && firstRead.first == [64, 128]
+                        && firstRead.last == [64, 128]
+                        && secondRead.first == [64, 128]
+                        && secondRead.last == [64, 128]
+                        && matches(
+                            terminalRead.firstPixel,
+                            [0, 128, 64, 255]
+                        )
+                        && matches(
+                            terminalRead.lastPixel,
+                            [0, 128, 64, 255]
+                        )
+
+                    if redGreenClearSeededFirstFrame,
+                       let nextBuffer = queue.makeCommandBuffer() {
+                        let firstStage = firstPrepared.stages[0]
+                        let nextPreparation = executor.prepare(
+                            token: claim.token,
+                            leases: [lease],
+                            historyRehydrateCopiesByEffect: [:],
+                            frame: frame(41),
+                            sourceTexture: source,
+                            sourceUniforms: .neutral(),
+                            sourcePipeline: sourcePipeline,
+                            dedicatedInputs: .init(),
+                            commandBuffer: nextBuffer,
+                            previousStates: [
+                                effect: firstStage.transition.nextState,
+                            ],
+                            previousGraphResources: [
+                                effect: firstStage.persistentResources,
+                            ],
+                            effectGeneration: 40,
+                            resetGeneration: 40
+                        )
+                        if case let .success(nextPrepared) = nextPreparation,
+                           intentKinds(nextPrepared) == [
+                               "material", "material", "material",
+                           ],
+                           executor.encode(
+                               nextPrepared,
+                               commandBuffer: nextBuffer
+                           ),
+                           let nextRead = appendReadback(
+                               nextPrepared.finalTexture,
+                               commandBuffer: nextBuffer
+                           ) {
+                            nextBuffer.commit()
+                            nextBuffer.waitUntilCompleted()
+                            redGreenClearSeededNextFrame =
+                                nextBuffer.status == .completed
+                                && nextBuffer.error == nil
+                                && matches(
+                                    nextRead.firstPixel,
+                                    [0, 128, 64, 255]
+                                )
+                                && matches(
+                                    nextRead.lastPixel,
+                                    [0, 128, 64, 255]
+                                )
+                        }
+                    }
+                }
+            }
+        }
         let scalarUniqueGraph = graph(
             targets: [rawTarget(first, format: "r8", unique: true)],
             nodes: [
@@ -6048,10 +6194,10 @@ private enum Harness {
                 redGreenWholeConsumerGraph,
                 consumers: [1: "whole"]
             ),
-            "redGreenClearRejectedBeforeFrame": redGreenRejection(
-                redGreenClearGraph,
-                consumers: [1: "rg"]
-            ),
+            "redGreenClearSeedFirstFrameExecutes":
+                redGreenClearSeededFirstFrame,
+            "redGreenClearSeedPersistsIntoNextFrame":
+                redGreenClearSeededNextFrame,
             "redGreenUniqueRejectedBeforeFrame": redGreenRejection(
                 redGreenUniqueGraph,
                 consumers: [1: "rg"]
@@ -6088,10 +6234,19 @@ private enum Harness {
                 return capability.stages.first?.visualFailureReasonCode
                     == "material-variant-envelope-color-contract"
             }(),
-            "scalarClearRejectedBeforeFrame": scalarRejection(
-                scalarClearGraph,
-                consumers: [1: "red"]
-            ),
+            "scalarClearSeedAdmittedBeforeFrame": {
+                let chain = admittedGraph(scalarClearGraph)
+                let values = capabilities(
+                    chain,
+                    catalog: catalog(
+                        for: scalarClearGraph,
+                        scalarConsumerNodes: [
+                            0: "red", 1: "red", 2: "red",
+                        ]
+                    )
+                )
+                return values.claim(chain) != nil
+            }(),
             "scalarUniqueHistoryRejectedBeforeFrame": scalarRejection(
                 scalarUniqueGraph,
                 consumers: [1: "red"]
