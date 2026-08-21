@@ -54,6 +54,14 @@ enum DebugScenePlaybackRunner {
             return
         }
         let environment = ProcessInfo.processInfo.environment
+        guard environment[executorInvalidationDelayEnvironmentKey] == nil
+                || requestedExecutorInvalidationDelay != nil else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=precondition-failed reason=invalid-executor-invalidation-delay"
+            )
+            terminate(after: 0.1)
+            return
+        }
         guard !SceneDependencyCaptureFault.containsRequest(in: environment)
                 || SceneDependencyCaptureFault.requestedOrdinal(
                     in: environment
@@ -113,6 +121,12 @@ enum DebugScenePlaybackRunner {
                     ordinal
                 )
             }
+            if let delay = requestedExecutorInvalidationDelay {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=executor-invalidation state=configured delay=%.3f",
+                    delay
+                )
+            }
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
             publishRequestedMediaThumbnail(rootURL: rootURL)
@@ -167,6 +181,9 @@ enum DebugScenePlaybackRunner {
                     scheduleSnapshots(outputDirectory: evidenceDirectory)
                 }
                 scheduleResizeSequence(outputDirectory: evidenceDirectory)
+                scheduleExecutorInvalidation(
+                    outputDirectory: evidenceDirectory
+                )
             }
             let livePropertyOverrides = requestedLivePropertyOverrides
             if !livePropertyOverrides.isEmpty {
@@ -291,6 +308,31 @@ enum DebugScenePlaybackRunner {
                         outputDirectory: outputDirectory
                     )
                 }
+            }
+        }
+    }
+
+    private static func scheduleExecutorInvalidation(outputDirectory: URL) {
+        guard let delay = requestedExecutorInvalidationDelay else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            let before = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            let accepted = SceneDesktopWallpaperHost.shared
+                .debugInvalidateResolvedMaterialRuntimes(
+                    reason: .executorInvalidation
+                )
+            let after = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            NSLog(
+                "MWX DEBUG SCENE: phase=executor-invalidation state=triggered accepted=%@ surfacesBefore=%d surfacesAfter=%d",
+                accepted ? "true" : "false",
+                before.surfaceCount,
+                after.surfaceCount
+            )
+            guard accepted else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                requestSnapshot(
+                    reason: "executor-invalidation-after",
+                    outputDirectory: outputDirectory
+                )
             }
         }
     }
@@ -454,6 +496,18 @@ enum DebugScenePlaybackRunner {
             return nil
         }
         return frameIndex
+    }
+
+    private static let executorInvalidationDelayEnvironmentKey =
+        "MWX_SCENE_DEBUG_EXECUTOR_INVALIDATE_AFTER"
+
+    private static var requestedExecutorInvalidationDelay: TimeInterval? {
+        guard let raw = ProcessInfo.processInfo.environment[
+            executorInvalidationDelayEnvironmentKey
+        ], let delay = TimeInterval(raw), delay.isFinite,
+              delay >= 1,
+              delay < requestedDuration - 0.75 else { return nil }
+        return delay
     }
 
     private static var requestedAfterSnapshotDelay: TimeInterval {

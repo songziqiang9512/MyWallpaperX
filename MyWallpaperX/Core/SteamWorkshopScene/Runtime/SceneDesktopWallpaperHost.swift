@@ -297,6 +297,18 @@ final class SceneDesktopWallpaperHost {
     }
 
     @discardableResult
+    func debugInvalidateResolvedMaterialRuntimes(
+        reason: SceneGraphExecutionResetReason
+    ) -> Bool {
+        guard Self.usesDebugEvidenceWindow,
+              !surfaces.isEmpty else { return false }
+        surfaces.values.forEach {
+            $0.metalView.invalidateResolvedMaterialRuntime(reason: reason)
+        }
+        return true
+    }
+
+    @discardableResult
     func setDebugDropDynamicValuesFrameIndex(_ frameIndex: UInt64?) -> Bool {
         guard Self.usesDebugEvidenceWindow else { return false }
         debugDropDynamicValuesFrameIndex = frameIndex

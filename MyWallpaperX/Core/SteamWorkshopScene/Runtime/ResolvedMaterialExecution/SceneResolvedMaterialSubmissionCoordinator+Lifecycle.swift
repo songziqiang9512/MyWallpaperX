@@ -341,8 +341,14 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               !(historyContentDiscarded && historyRehydrateCopyCount > 0)
         else { return (false, nil) }
         guard let previous else {
-            return historyRehydrateCopyCount == 0
-                ? (true, .initial) : (false, nil)
+            guard historyRehydrateCopyCount == 0 else {
+                return (false, nil)
+            }
+            return (
+                true,
+                resetReasonByGeneration[transaction.resetGeneration]
+                    ?? .initial
+            )
         }
         if previous.effectGeneration != transaction.effectGeneration {
             return (true, .effectReparse)

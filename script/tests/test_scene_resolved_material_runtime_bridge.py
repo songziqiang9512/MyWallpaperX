@@ -68,6 +68,7 @@ METAL_VIEW_FRAME_CONTEXT = (
 METAL_VIEW = SCENE_ROOT / "Rendering/SceneMetalView.swift"
 TEXT_TEXTURE_LOADER = SCENE_ROOT / "Text/SceneTextTextureLoader.swift"
 HOST = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
+DEBUG_RUNNER = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
 HOST_FRAME_DRIVER = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
@@ -2045,6 +2046,42 @@ enum Harness {
                 historyContentDiscarded: false
             )
             results["unknownHistoryTransitionRejected"] = !unknown.valid
+
+            let initial = coordinator.resetReasonLocked(
+                previous: nil,
+                next: next,
+                transaction: transaction,
+                historyRehydrateCopyCount: 0,
+                historyContentDiscarded: false
+            )
+            coordinator.invalidate(reason: .executorInvalidation)
+            let invalidatedTransaction = State.Transaction(
+                intents: [],
+                mappingBefore: [:],
+                mappingAfter: [:],
+                allocationGeneration: 3,
+                effectGeneration: 1,
+                resetGeneration: coordinator.resetGeneration
+            )
+            let invalidatedNext = State(
+                effectGeneration: 1,
+                resetGeneration: coordinator.resetGeneration,
+                allocationGeneration: 3,
+                logicalMapping: [:],
+                historyLogicalIdentities: [],
+                historyClosureIdentities: []
+            )
+            let invalidated = coordinator.resetReasonLocked(
+                previous: nil,
+                next: invalidatedNext,
+                transaction: invalidatedTransaction,
+                historyRehydrateCopyCount: 0,
+                historyContentDiscarded: false
+            )
+            results["freshAndInvalidatedInitialStatesKeepDistinctReasons"] =
+                initial.valid && initial.reason == .initial
+                && invalidated.valid
+                && invalidated.reason == .executorInvalidation
         }
 
         for (key, reason) in [
@@ -3903,6 +3940,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
         view = METAL_VIEW_FRAME_CONTEXT.read_text(encoding="utf-8")
         host = HOST.read_text(encoding="utf-8")
+        runner = DEBUG_RUNNER.read_text(encoding="utf-8")
         host_driver = HOST_FRAME_DRIVER.read_text(encoding="utf-8")
 
         self.assertIn("submissions.invalidate(reason: reason)", bridge)
@@ -3928,6 +3966,14 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             host_driver,
         )
         self.assertNotIn("clearContext\n            ? .sceneSwitch", host_driver)
+        self.assertIn("debugInvalidateResolvedMaterialRuntimes(", host)
+        self.assertIn("invalidateResolvedMaterialRuntime(reason: reason)", host)
+        self.assertIn(
+            '"MWX_SCENE_DEBUG_EXECUTOR_INVALIDATE_AFTER"',
+            runner,
+        )
+        self.assertIn("reason: .executorInvalidation", runner)
+        self.assertIn('reason: "executor-invalidation-after"', runner)
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_current_submission_coordinator_lifecycle_behaviors(self) -> None:
@@ -4027,6 +4073,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "historyFreeFailureDoesNotCancelIndependentSuccess",
                 "sameFrameTransactionsSealAsOneSubmission",
                 "aSuccessBFailureCReusesAWithoutReset",
+                "freshAndInvalidatedInitialStatesKeepDistinctReasons",
             }
             self.assertEqual(set(result["results"]), expected)
             self.assertTrue(all(result["results"].values()), result)
