@@ -200,6 +200,7 @@ struct SceneRenderDescriptor {
     let layers: [Layer]
     let materialPasses: [MaterialPassDescriptor]
     let effectDefinitions: [SceneEffectDefinition]
+    var renderOrderLayerIDs: [Int] { layers.map(\.id) }
 }
 
 enum SceneLayerVisibility {
@@ -1097,6 +1098,90 @@ private func pairOnlyDescriptor() -> SceneRenderDescriptor {
             .init(relativePath: "effects/first/effect.json", functions: nil),
             .init(relativePath: "effects/second/effect.json", functions: nil),
         ]
+    )
+}
+
+private func forwardUnavailableGraph() -> Graph {
+    let input = source()
+    let firstOutput = output(firstKey)
+    let secondOutput = output(secondKey)
+    let firstNode = Graph.Node(
+        nodeIndex: 0,
+        effect: firstKey,
+        definitionPassIndex: 0,
+        materialOrdinal: 0,
+        instancePassIndex: 0,
+        kind: .material,
+        materialPath: "materials/m0.json",
+        materialPassID: "m0",
+        target: firstOutput,
+        bindings: [],
+        commandSource: nil,
+        commandTarget: nil,
+        compose: nil,
+        conditions: nil
+    )
+    let secondNode = material(
+        index: 1,
+        ordinal: 0,
+        effect: secondKey,
+        target: secondOutput,
+        input: firstOutput
+    )
+    return .init(
+        layerID: layerID,
+        effects: [
+            .init(
+                key: firstKey,
+                definitionPath: "effects/first/effect.json",
+                input: input,
+                output: firstOutput,
+                nodeIndices: [0]
+            ),
+            .init(
+                key: secondKey,
+                definitionPath: "effects/second/effect.json",
+                input: firstOutput,
+                output: secondOutput,
+                nodeIndices: [1]
+            ),
+        ],
+        renderTargets: [],
+        nodes: [firstNode, secondNode],
+        finalOutput: secondOutput,
+        blockers: []
+    )
+}
+
+private func forwardUnavailableDescriptor(
+    includeSecondReference: Bool = false
+) -> SceneRenderDescriptor {
+    let base = pairOnlyDescriptor()
+    var references = [namedReference(
+        effectID: firstKey.descriptorID,
+        providerLayerID: providerLayerID,
+        slotIndex: 1
+    )]
+    if includeSecondReference {
+        references.append(namedReference(
+            effectID: secondKey.descriptorID,
+            providerLayerID: providerLayerID,
+            slotIndex: 1
+        ))
+    }
+    let consumer = SceneRenderDescriptor.Layer(
+        id: layerID,
+        effects: base.layers[0].effects,
+        dependencyLayerIDs: [providerLayerID],
+        namedReferences: references
+    )
+    return .init(
+        layers: [
+            consumer,
+            .init(id: providerLayerID, effects: [], visible: true),
+        ],
+        materialPasses: base.materialPasses,
+        effectDefinitions: base.effectDefinitions
     )
 }
 
@@ -2365,6 +2450,22 @@ private enum Harness {
         )
         let pairGraph = pairOnlyGraph()
         let pairDescriptor = pairOnlyDescriptor()
+        let forwardGraph = forwardUnavailableGraph()
+        let forwardDescriptor = forwardUnavailableDescriptor()
+        let forwardCatalog = catalog(
+            descriptor: forwardDescriptor,
+            graphs: [forwardGraph],
+            materials: materialCatalog(graph: forwardGraph)
+        )
+        let forwardCapability = forwardCatalog.claim(layerID: layerID)
+            .flatMap { forwardCatalog.resolve($0.token) }
+        let forwardMultipleReferenceCatalog = catalog(
+            descriptor: forwardUnavailableDescriptor(
+                includeSecondReference: true
+            ),
+            graphs: [forwardGraph],
+            materials: materialCatalog(graph: forwardGraph)
+        )
         let pairMultipleProducerCatalog = catalog(
             descriptor: pairDescriptor,
             graphs: [pairGraph],
@@ -3275,6 +3376,14 @@ private enum Harness {
                         programFirstCatalog,
                         "dedicated-leaf-unsupported"
                     ),
+                "forwardDependencyFailureIsEffectLocal":
+                    forwardCapability?.stages.compactMap(\.subject).map(\.family)
+                        == ["visual-failure-passthrough", "resolved-material"]
+                    && forwardCapability?.stages.first?.visualFailureReasonCode
+                        == "dependency-stage-reference-unavailable",
+                "forwardMultipleReferenceRemainsRejected":
+                    forwardMultipleReferenceCatalog.claim(layerID: layerID)
+                        == nil,
                 "inactiveResourceDemandDoesNotRevokeProgram":
                     inactiveDemandIssueCatalog.claim(layerID: layerID) != nil,
                 "logicalTargetStageAccepted":
@@ -3679,6 +3788,9 @@ struct SceneResolvedMaterialAdmittedLayer {
     let products: [SceneGraphAdmissionProduct]
     let pairPlan: SceneLayerFullFramePairPlan
     let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+    let unavailableDependencyStageKeys: Set<
+        SceneAuthoredEffectRenderPlan.EffectKey
+    >
     let sourceRoute: SourceRoute
     var isVisibleExecutionRoot: Bool = true
     var isGraphOutputProvider: Bool = false
@@ -3689,6 +3801,9 @@ struct SceneResolvedMaterialAdmittedLayer {
         products: [SceneGraphAdmissionProduct],
         pairPlan: SceneLayerFullFramePairPlan,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        unavailableDependencyStageKeys: Set<
+            SceneAuthoredEffectRenderPlan.EffectKey
+        > = [],
         sourceRoute: SourceRoute,
         isVisibleExecutionRoot: Bool = true,
         isGraphOutputProvider: Bool = false,
@@ -3698,6 +3813,7 @@ struct SceneResolvedMaterialAdmittedLayer {
         self.products = products
         self.pairPlan = pairPlan
         self.dependencyOwnership = dependencyOwnership
+        self.unavailableDependencyStageKeys = unavailableDependencyStageKeys
         self.sourceRoute = sourceRoute
         self.isVisibleExecutionRoot = isVisibleExecutionRoot
         self.isGraphOutputProvider = isGraphOutputProvider
@@ -6942,6 +7058,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "fallbackDedicatedLeaf": True,
                 "emptyDedicatedLeafDoesNotUseDedicated": True,
                 "programFirstPrefersResolvedStage": True,
+                "forwardDependencyFailureIsEffectLocal": True,
+                "forwardMultipleReferenceRemainsRejected": True,
                 "inactiveResourceDemandDoesNotRevokeProgram": True,
                 "logicalTargetStageAccepted": True,
                 "logicalTargetStageRequiresAllowlist": True,

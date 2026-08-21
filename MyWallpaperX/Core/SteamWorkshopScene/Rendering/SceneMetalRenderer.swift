@@ -194,10 +194,10 @@ struct SceneMetalRenderer {
             switch layer.contentKind {
             case "image", "solid", "text":
                 guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }
-                let requiresDependencyEffect = dependencyRuntime.requiresEffect(
-                    for: layer.id
-                )
                 let resolvedFramePlan = resolvedMaterialFrameTargetPlans[layer.id]
+                let requiresDependencyEffect = resolvedFramePlan?
+                    .consumesExternalPrimaryDependency
+                    ?? dependencyRuntime.requiresEffect(for: layer.id)
                 let dependencyEffect: SceneDependencyEffectInput?
                 let resolvedDependencyFailure: (
                     reasonCode: String,

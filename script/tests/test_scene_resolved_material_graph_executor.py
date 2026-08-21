@@ -97,6 +97,10 @@ struct SceneRenderDescriptor {
     let layers: [Layer]
     let materialPasses: [MaterialPassDescriptor]
     let effectDefinitions: [SceneEffectDefinition]
+
+    var renderOrderLayerIDs: [Int] {
+        layers.map(\.id)
+    }
 }
 
 enum SceneLayerVisibility {
@@ -2548,6 +2552,7 @@ private func capabilities(
     dynamicProducers: Capabilities.DynamicProducerCatalog = .empty,
     namedProvider: SceneNamedTextureReference? = nil,
     dependencyBinding: SceneDependencyRenderPlan.Binding? = nil,
+    forwardUnavailableReference: SceneDependencyRenderPlan.Reference? = nil,
     functionsByEffect: [Graph.EffectKey: SceneJSONValue] = [:],
     assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
     assetFormatFacts: [String: Int] = [:]
@@ -2595,6 +2600,18 @@ private func capabilities(
         layers = [
             .init(id: dependencyBinding.providerLayerID, effects: []),
             consumer,
+        ]
+    } else if let forwardUnavailableReference {
+        consumer.dependencyLayerIDs = [
+            forwardUnavailableReference.providerLayerID
+        ]
+        consumer.namedReferences = [forwardUnavailableReference]
+        layers = [
+            consumer,
+            .init(
+                id: forwardUnavailableReference.providerLayerID,
+                effects: []
+            ),
         ]
     }
     let descriptor = SceneRenderDescriptor(
@@ -2943,6 +2960,27 @@ private enum Harness {
             pixelChain,
             catalog: catalog(for: pixelGraph)
         )
+        let forwardUnavailableReference = SceneDependencyRenderPlan.Reference(
+            consumerLayerID: layerID,
+            providerLayerID: layerID + 1,
+            slot: .init(
+                effectID: chainedSecondEffect.descriptorID,
+                passIndex: 0,
+                slotIndex: 0
+            ),
+            variant: .primary
+        )
+        let forwardUnavailableCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(for: pixelGraph),
+            forwardUnavailableReference: forwardUnavailableReference
+        )
+        let forwardUnavailableClaim = forwardUnavailableCapabilities.claim(
+            pixelChain
+        )
+        let forwardUnavailableCapability = forwardUnavailableClaim.flatMap {
+            forwardUnavailableCapabilities.resolve($0.token, for: pixelChain)
+        }
         var chainedStagesPrepared = false
         var chainedStagesEncoded = false
         var chainedStagesGPUCompleted = false
@@ -3284,6 +3322,14 @@ private enum Harness {
             capabilities: dynamicPixelCapabilities,
             generation: 5,
             reason: "material-finalizer-dynamic-uniform-binding"
+        )
+
+        let forwardUnavailableFailure = executeVisualFailurePassthrough(
+            claim: forwardUnavailableClaim,
+            capability: forwardUnavailableCapability,
+            capabilities: forwardUnavailableCapabilities,
+            generation: 49,
+            reason: "dependency-stage-reference-unavailable"
         )
 
         let staticUniformFailure = executeVisualFailurePassthrough(
@@ -5859,6 +5905,12 @@ private enum Harness {
                 visualFailurePreservesPreviousAndContinuesSuffix,
             "visualUniformSchemaFailurePassthroughIsTypedAndCounted":
                 visualFailurePassthroughIsTypedAndCounted,
+            "forwardUnavailableDependencyPreservesPreviousAndContinuesSuffix":
+                forwardUnavailableFailure.prepared
+                    && forwardUnavailableFailure.encoded
+                    && forwardUnavailableFailure.gpuCompleted
+                    && forwardUnavailableFailure.continued
+                    && forwardUnavailableFailure.failureCode == "success",
             "visualUniformSchemaMultiNodeUsesWholeEffectPassthrough": {
                 guard let claim = uniformSchemaMultiNodeCapabilities.claim(
                           ordinaryChain

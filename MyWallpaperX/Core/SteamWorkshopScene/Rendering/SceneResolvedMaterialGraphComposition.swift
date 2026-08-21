@@ -4,6 +4,18 @@ import simd
 struct SceneResolvedMaterialFrameTargetPlan {
     let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
     let allocation: ScenePersistentGraphTargetFramePlan
+    let consumesExternalPrimaryDependency: Bool
+
+    init(
+        token: SceneResolvedMaterialExecutionCapabilityCatalog.Token,
+        allocation: ScenePersistentGraphTargetFramePlan,
+        consumesExternalPrimaryDependency: Bool = false
+    ) {
+        self.token = token
+        self.allocation = allocation
+        self.consumesExternalPrimaryDependency =
+            consumesExternalPrimaryDependency
+    }
 }
 
 /// The compositor-facing claim handshake. Only a static `notMigrated` result may
@@ -224,10 +236,19 @@ enum SceneResolvedMaterialGraphComposition {
                     failure.localFallbackReasonCode
                 continue
             }
+            let consumesExternalPrimaryDependency: Bool
+            switch request.claim.dependencyOwnership {
+            case .externalPrimary:
+                consumesExternalPrimaryDependency = true
+            default:
+                consumesExternalPrimaryDependency = false
+            }
             guard allocation.graphPlan.key.layerID == request.claim.layerID,
                   byLayerID.updateValue(.init(
                       token: request.claim.token,
-                      allocation: allocation
+                      allocation: allocation,
+                      consumesExternalPrimaryDependency:
+                        consumesExternalPrimaryDependency
                   ), forKey: request.claim.layerID) == nil else {
                 localFallbacks[request.claim.layerID] =
                     "frame-target-plan-rejected"

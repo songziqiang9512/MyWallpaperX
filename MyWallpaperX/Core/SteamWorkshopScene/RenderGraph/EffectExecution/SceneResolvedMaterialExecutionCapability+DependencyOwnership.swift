@@ -28,6 +28,7 @@ nonisolated enum SceneResolvedMaterialDependencyOwnership: Equatable {
             binding.referenceSlots.count
         }
     }
+
 }
 
 /// Separates dependency metadata already conserved by the authored graph from
@@ -107,6 +108,83 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
             return nil
         }
         return .graphInternal(referenceCount: references.count)
+    }
+
+    /// A forward primary provider is not executable in the current frame
+    /// order. When every such reference belongs to an exact ordinary
+    /// single-pass effect, that effect may be replaced by previous-current
+    /// while unrelated suffix effects keep the layer-local pair chain. This
+    /// does not authorize the provider or change dependency ordering.
+    static func forwardUnavailableEffectKeys(
+        layer: SceneRenderDescriptor.Layer,
+        graph: Graph?,
+        descriptor: SceneRenderDescriptor,
+        references: [Reference],
+        binding: SceneDependencyRenderPlan.Binding?
+    ) -> Set<Graph.EffectKey>? {
+        guard binding == nil,
+              layer.authoredDependencies.isEmpty,
+              references.count == 1,
+              Set(references).count == references.count,
+              references.allSatisfy({
+                  $0.consumerLayerID == layer.id
+                    && $0.providerLayerID != layer.id
+                    && $0.variant == .primary
+              }),
+              let graph, graph.layerID == layer.id,
+              graph.blockers.isEmpty,
+              let consumerOrder = descriptor.renderOrderLayerIDs.firstIndex(
+                  of: layer.id
+              ) else { return nil }
+
+        let providerIDs = Set(references.map(\.providerLayerID))
+        guard providerIDs.count == 1,
+              layer.dependencyLayerIDs.count == 1,
+              Set(layer.dependencyLayerIDs) == providerIDs,
+              providerIDs.allSatisfy({ providerID in
+                  descriptor.layers.filter({ $0.id == providerID }).count == 1
+                    && descriptor.renderOrderLayerIDs.firstIndex(of: providerID)
+                        .map({ $0 > consumerOrder }) == true
+              }) else { return nil }
+
+        var keys = Set<Graph.EffectKey>()
+        for reference in references {
+            let descriptorMatches = layer.effects.enumerated().filter {
+                $0.element.id == reference.slot.effectID
+                    && $0.element.visible != false
+            }
+            guard descriptorMatches.count == 1,
+                  let descriptorMatch = descriptorMatches.first,
+                  descriptorMatch.element.passes.filter({
+                      $0.passIndex == reference.slot.passIndex
+                  }).count == 1 else { return nil }
+            let key = Graph.EffectKey(
+                layerID: layer.id,
+                effectIndex: descriptorMatch.offset,
+                descriptorID: descriptorMatch.element.id
+            )
+            let effectMatches = graph.effects.filter { $0.key == key }
+            guard effectMatches.count == 1, let effect = effectMatches.first,
+                  effect.nodeIndices.count == 1,
+                  graph.renderTargets.allSatisfy({ $0.texture.effect != key })
+            else { return nil }
+            let nodes = graph.nodes.filter { $0.effect == key }
+            guard nodes.count == 1, let node = nodes.first,
+                  node.kind == .material,
+                  node.instancePassIndex == reference.slot.passIndex,
+                  node.target == effect.output,
+                  node.commandSource == nil,
+                  node.commandTarget == nil,
+                  node.conditions == nil,
+                  node.compose == nil || node.compose == .bool(false),
+                  node.bindings.isEmpty || node.bindings.contains(where: {
+                      $0.slot == reference.slot.slotIndex
+                        && ($0.texture == effect.input
+                            || $0.texture.kind == .unresolved)
+                  }) else { return nil }
+            keys.insert(key)
+        }
+        return keys.isEmpty ? nil : keys
     }
 
     private static func graphOwns(_ reference: Reference, graph: Graph) -> Bool {

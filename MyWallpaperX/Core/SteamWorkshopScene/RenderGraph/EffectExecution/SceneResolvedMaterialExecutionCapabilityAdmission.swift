@@ -13,10 +13,33 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     let products: [SceneGraphAdmissionProduct]
     let pairPlan: SceneLayerFullFramePairPlan
     let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+    let unavailableDependencyStageKeys: Set<Graph.EffectKey>
     let sourceRoute: SourceRoute
     let isVisibleExecutionRoot: Bool
     let isGraphOutputProvider: Bool
     let requiresGraphOutputProvider: Bool
+
+    init(
+        layerID: Int,
+        products: [SceneGraphAdmissionProduct],
+        pairPlan: SceneLayerFullFramePairPlan,
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        unavailableDependencyStageKeys: Set<Graph.EffectKey> = [],
+        sourceRoute: SourceRoute,
+        isVisibleExecutionRoot: Bool,
+        isGraphOutputProvider: Bool,
+        requiresGraphOutputProvider: Bool
+    ) {
+        self.layerID = layerID
+        self.products = products
+        self.pairPlan = pairPlan
+        self.dependencyOwnership = dependencyOwnership
+        self.unavailableDependencyStageKeys = unavailableDependencyStageKeys
+        self.sourceRoute = sourceRoute
+        self.isVisibleExecutionRoot = isVisibleExecutionRoot
+        self.isGraphOutputProvider = isGraphOutputProvider
+        self.requiresGraphOutputProvider = requiresGraphOutputProvider
+    }
 }
 
 /// Raw-graph conservation and condition/function admission for one launch.
@@ -93,16 +116,34 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     result: .failure(failure("descriptor-layer-count"))
                 )
             }
-            let dependencyOwnership = SceneResolvedMaterialDependencyOwnershipCompiler
+            let layerReferences = dependencyPlan.references.filter {
+                $0.consumerLayerID == layerID
+            }
+            let binding = dependencyPlan.bindingsByConsumerLayerID[layerID]
+            let compiledDependencyOwnership =
+                SceneResolvedMaterialDependencyOwnershipCompiler
                 .compile(
                     layer: layer,
                     graph: (rawGroups[layerID]?.count == 1)
                         ? rawGroups[layerID]?.first : nil,
-                    references: dependencyPlan.references.filter {
-                        $0.consumerLayerID == layerID
-                    },
-                    binding: dependencyPlan.bindingsByConsumerLayerID[layerID]
+                    references: layerReferences,
+                    binding: binding
                 )
+            let unavailableDependencyStageKeys =
+                compiledDependencyOwnership == nil
+                ? SceneResolvedMaterialDependencyOwnershipCompiler
+                    .forwardUnavailableEffectKeys(
+                        layer: layer,
+                        graph: (rawGroups[layerID]?.count == 1)
+                            ? rawGroups[layerID]?.first : nil,
+                        descriptor: descriptor,
+                        references: layerReferences,
+                        binding: binding
+                    ) ?? []
+                : []
+            let dependencyOwnership = compiledDependencyOwnership
+                ?? (unavailableDependencyStageKeys.isEmpty
+                    ? nil : SceneResolvedMaterialDependencyOwnership.none)
             let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
             switch executionSourceRoute(
                 layer,
@@ -149,6 +190,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     activeEffects: activeEffects,
                     descriptor: descriptor,
                     dependencyOwnership: dependencyOwnership,
+                    unavailableDependencyStageKeys:
+                        unavailableDependencyStageKeys,
                     sourceRoute: sourceRoute,
                     isVisibleExecutionRoot: visibleLayerIDs.contains(layerID),
                     isGraphOutputProvider:
@@ -221,6 +264,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         activeEffects: [(offset: Int, element: SceneRenderDescriptor.EffectDescriptor)],
         descriptor: SceneRenderDescriptor,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        unavailableDependencyStageKeys: Set<Graph.EffectKey>,
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
         isVisibleExecutionRoot: Bool,
         isGraphOutputProvider: Bool,
@@ -282,6 +326,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 products: products,
                 pairPlan: pair,
                 dependencyOwnership: dependencyOwnership,
+                unavailableDependencyStageKeys:
+                    unavailableDependencyStageKeys,
                 sourceRoute: sourceRoute,
                 isVisibleExecutionRoot: isVisibleExecutionRoot,
                 isGraphOutputProvider: isGraphOutputProvider,

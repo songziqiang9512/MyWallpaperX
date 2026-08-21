@@ -50,8 +50,10 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-finalizer-optional-texture-purpose-mismatch",
             "material-finalizer-optional-texture-content-mismatch",
             "material-finalizer-optional-texture-sampling-unresolved",
+            "dependency-stage-reference-unavailable",
         ].contains(reasonCode),
               visualFailureTopologyIsSupported(
+                  reasonCode: reasonCode,
                   transition: transition,
                   graph: graph,
                   pairStep: pairStep,
@@ -111,6 +113,7 @@ extension SceneResolvedMaterialGraphExecutor {
     }
 
     private func visualFailureTopologyIsSupported(
+        reasonCode: String,
         transition: State.Transition,
         graph: Graph,
         pairStep: Pair.EffectStep,
@@ -125,6 +128,14 @@ extension SceneResolvedMaterialGraphExecutor {
               pairStep.nodes.count == graph.nodes.count,
               transition.nextState.historyClosureIdentities.isEmpty else {
             return false
+        }
+        if reasonCode == "dependency-stage-reference-unavailable" {
+            return dependencyStageFailureTopologyIsSupported(
+                transition: transition,
+                graph: graph,
+                pairStep: pairStep,
+                snapshot: snapshot
+            )
         }
         if !graph.renderTargets.isEmpty {
             return visualFailureFramebufferTopologyIsSupported(
@@ -180,6 +191,39 @@ extension SceneResolvedMaterialGraphExecutor {
             current = pairNode.currentMemberAfterNode
         }
         return pairStep.outputMember == current.opposite
+    }
+
+    private func dependencyStageFailureTopologyIsSupported(
+        transition: State.Transition,
+        graph: Graph,
+        pairStep: Pair.EffectStep,
+        snapshot: VisualFailureSnapshot
+    ) -> Bool {
+        guard SceneResolvedMaterialExecutionCapabilityCatalog
+                .dependencyStageFailureMayPassthrough(
+                    graph,
+                    pairStep: pairStep
+                ),
+              pairStep.inputMember == snapshot.pair.member,
+              transition.transaction.intents.count == 1,
+              let node = graph.nodes.first,
+              let pairNode = pairStep.nodes.first,
+              case let .material(
+                  nodeIndex, materialOrdinal, bindings, target
+              ) = transition.transaction.intents[0],
+              nodeIndex == node.nodeIndex,
+              materialOrdinal == node.materialOrdinal,
+              bindings.isEmpty,
+              target == nil,
+              pairNode.nodeIndex == node.nodeIndex,
+              pairNode.kind == .material,
+              pairNode.currentMemberBeforeNode == snapshot.pair.member,
+              pairNode.fullFrameWriteMember == snapshot.pair.member.opposite,
+              !pairNode.rotatesAfterNode,
+              pairStep.outputMember == snapshot.pair.member.opposite else {
+            return false
+        }
+        return true
     }
 
     private func visualFailureFramebufferTopologyIsSupported(

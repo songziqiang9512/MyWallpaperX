@@ -41,12 +41,34 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 products: [product],
                 pairPlan: admitted.pairPlan,
                 dependencyOwnership: admitted.dependencyOwnership,
+                unavailableDependencyStageKeys:
+                    admitted.unavailableDependencyStageKeys.intersection(
+                        Set([effect.key])
+                    ),
                 sourceRoute: stageSourceRoute,
                 isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
                 isGraphOutputProvider: admitted.isGraphOutputProvider,
                 requiresGraphOutputProvider:
                     admitted.requiresGraphOutputProvider
             )
+            if admitted.unavailableDependencyStageKeys.contains(effect.key) {
+                guard product.clearFunctions.functions.isEmpty,
+                      dependencyStageFailureMayPassthrough(
+                          product.graph,
+                          pairStep: admitted.pairPlan.effects.first(where: {
+                              $0.effect == effect.key
+                          })
+                      ) else {
+                    return .failure(rejection(
+                        "dependency-stage-visual-failure-unsafe"
+                    ))
+                }
+                stages.append(.visualFailurePassthrough(
+                    product: product,
+                    reasonCode: "dependency-stage-reference-unavailable"
+                ))
+                continue
+            }
             if let program = externallyOwnedImageBlendProgram(
                 for: effect.key,
                 ownership: admitted.dependencyOwnership,

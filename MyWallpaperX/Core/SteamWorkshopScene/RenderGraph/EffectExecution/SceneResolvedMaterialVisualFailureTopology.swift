@@ -1,6 +1,39 @@
 import Foundation
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
+    /// Bounded launch-time isolation for one ordinary effect whose only
+    /// missing input is an unavailable forward named provider. The provider
+    /// is not fabricated or reordered; the exact effect becomes a pair copy.
+    static func dependencyStageFailureMayPassthrough(
+        _ graph: Graph,
+        pairStep: SceneLayerFullFramePairPlan.EffectStep?
+    ) -> Bool {
+        guard graph.effects.count == 1,
+              graph.renderTargets.isEmpty,
+              graph.nodes.count == 1,
+              graph.blockers.isEmpty,
+              let effect = graph.effects.first,
+              let node = graph.nodes.first,
+              let pairStep, pairStep.effect == effect.key,
+              pairStep.nodes.count == 1,
+              pairStep.fullFrameOutputWriteCount == 1,
+              pairStep.composeTransitionCount == 0,
+              pairStep.inputMember != pairStep.outputMember,
+              node.effect == effect.key,
+              node.kind == .material,
+              node.target == effect.output,
+              node.commandSource == nil,
+              node.commandTarget == nil,
+              node.conditions == nil,
+              node.compose == nil || node.compose == .bool(false),
+              node.bindings.allSatisfy({
+                  $0.conditions == nil
+                    && ($0.texture == effect.input
+                        || $0.texture.kind == .unresolved)
+              }) else { return false }
+        return true
+    }
+
     /// Admits only a same-effect, non-persistent FBO graph whose reads are
     /// dominated by authored writes. The graph may interleave ordinary
     /// material, copy and swap nodes, but it must have one terminal full-frame
