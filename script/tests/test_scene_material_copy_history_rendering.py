@@ -26,7 +26,7 @@ RUNTIME_FIXTURE = runpy.run_path(
     str(Path(__file__).with_name("test_scene_resolved_material_runtime_bridge.py"))
 )
 SWIFT_SOURCES = list(dict.fromkeys([
-    *EXECUTOR_FIXTURE["SWIFT_SOURCES"],
+    *EXECUTOR_FIXTURE["CONTRACT_FIXTURE"]["SWIFT_SOURCES"],
     *POOL_FIXTURE["SWIFT_SOURCES"],
     *(
         path
