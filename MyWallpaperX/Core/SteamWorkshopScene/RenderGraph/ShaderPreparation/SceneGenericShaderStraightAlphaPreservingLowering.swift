@@ -357,6 +357,151 @@ inline float4 \(premultiply)(float4 color) {
         return insertingBoundaryHelpers(into: transformed)
     }
 
+    /// Conserves a source-proven alpha-weighted same-slot sample average
+    /// through the fixed SPIRV-Cross shape. Every sample enters authored math
+    /// as straight color and the one terminal result returns to premultiplied
+    /// compositor storage. The source analyzer owns the semantic proof; this
+    /// verifier rejects compiler drift, hidden samples, and count mismatch.
+    static func lowerAlphaWeightedSampleAverage(
+        _ source: String,
+        expectedSlot: Int,
+        sampleCount: Int
+    ) -> String? {
+        guard (1 ... 16).contains(sampleCount),
+              !containsWord(unpremultiply, in: source),
+              !containsWord(premultiply, in: source),
+              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              matches(#"\b(if|for|while|do|switch|discard)\b"#, in: source).isEmpty
+        else { return nil }
+
+        let denominator = String(sampleCount) + #"(?:\.0+)?"#
+        let outputs = matches(
+            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*float4\(\s*([A-Za-z_]\w*)\.xyz\s*,\s*\2\.w\s*/\s*"#
+                + denominator + #"\s*\);[ \t]*$"#,
+            in: source
+        )
+        guard outputs.count == 1,
+              let output = outputs.first,
+              let outputRange = Range(output.range, in: source),
+              let indent = capture(output, 1, in: source),
+              let accumulator = capture(output, 2, in: source),
+              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1 else {
+            return nil
+        }
+
+        let firstSamples = matches(
+            #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
+                + String(expectedSlot)
+                + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
+            in: source
+        )
+        guard firstSamples.count == 1,
+              let firstSample = firstSamples.first,
+              let sample = capture(firstSample, 2, in: source) else { return nil }
+        let repeatedSamples = matches(
+            #"(?m)^([ \t]*"# + escaped(sample)
+                + #"\s*=\s*)g_Texture"# + String(expectedSlot)
+                + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
+            in: source
+        )
+        let sampleStatements = firstSamples + repeatedSamples
+        guard sampleStatements.count == sampleCount,
+              matches(#"\bg_Texture[0-7]\.sample\s*\("#, in: source).count
+                == sampleCount,
+              sampleStatements.allSatisfy({ $0.range.location < output.range.location })
+        else { return nil }
+
+        let accumulatorPattern = escaped(accumulator)
+        let samplePattern = escaped(sample)
+        let accumulatorDeclarations = matches(
+            #"(?m)^[ \t]*float4\s+"# + accumulatorPattern
+                + #"\s*=\s*float4\(\s*0(?:\.0+)?\s*\)\s*;[ \t]*$"#,
+            in: source
+        )
+        let accumulatorWrites = matches(
+            #"(?m)^[ \t]*"# + accumulatorPattern + #"\s*\+=\s*\(\s*"#
+                + samplePattern + #"\s*\*\s*"# + samplePattern
+                + #"\.w\s*\)\s*;[ \t]*$"#,
+            in: source
+        )
+        guard accumulatorDeclarations.count == 1,
+              accumulatorWrites.count == sampleCount else { return nil }
+
+        let weightDeclarations = matches(
+            #"(?m)^[ \t]*float\s+([A-Za-z_]\w*)\s*=\s*0(?:\.0+)?\s*;[ \t]*$"#,
+            in: source
+        ).filter { match in
+            guard let name = capture(match, 1, in: source) else { return false }
+            return matches(
+                #"(?m)^[ \t]*"# + escaped(name) + #"\s*\+=\s*"#
+                    + samplePattern + #"\.w\s*;[ \t]*$"#,
+                in: source
+            ).count == sampleCount
+        }
+        guard weightDeclarations.count == 1,
+              let weight = capture(weightDeclarations[0], 1, in: source) else {
+            return nil
+        }
+        let weightPattern = escaped(weight)
+
+        let accumulatorCopies = matches(
+            #"(?m)^[ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*"#
+                + accumulatorPattern + #"\s*;[ \t]*$"#,
+            in: source
+        )
+        guard accumulatorCopies.count == 1,
+              let copy = capture(accumulatorCopies[0], 1, in: source) else {
+            return nil
+        }
+        let normalizedDeclarations = matches(
+            #"(?m)^[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*"#
+                + escaped(copy)
+                + #"\.xyz\s*/\s*float3\(\s*fast::max\(\s*[0-9]+(?:\.[0-9]+)?\s*,\s*"#
+                + weightPattern + #"\s*\)\s*\)\s*;[ \t]*$"#,
+            in: source
+        )
+        guard normalizedDeclarations.count == 1,
+              let normalized = capture(normalizedDeclarations[0], 1, in: source),
+              ["x", "y", "z"].allSatisfy({ component in
+                  matches(
+                      #"(?m)^[ \t]*"# + accumulatorPattern + #"\."#
+                          + component + #"\s*=\s*"# + escaped(normalized)
+                          + #"\."# + component + #"\s*;[ \t]*$"#,
+                      in: source
+                  ).count == 1
+              }),
+              countWord(accumulator, in: source) == sampleCount + 7,
+              countWord(sample, in: source) == sampleCount * 4,
+              countWord(weight, in: source) == sampleCount + 2,
+              countWord(copy, in: source) == 2,
+              countWord(normalized, in: source) == 4 else { return nil }
+
+        var transformed = source
+        transformed.replaceSubrange(
+            outputRange,
+            with: "\(indent)out.mwxFragColor = \(premultiply)(float4(\(accumulator).xyz, \(accumulator).w / \(sampleCount).0));"
+        )
+        for statement in sampleStatements.sorted(by: {
+            $0.range.location > $1.range.location
+        }) {
+            let isDeclaration = statement.numberOfRanges == 5
+            let prefixIndex = 1
+            let argumentsIndex = isDeclaration ? 3 : 2
+            let suffixIndex = isDeclaration ? 4 : 3
+            guard let prefix = capture(statement, prefixIndex, in: source),
+                  let arguments = capture(statement, argumentsIndex, in: source),
+                  let suffix = capture(statement, suffixIndex, in: source),
+                  let range = Range(statement.range, in: transformed) else {
+                return nil
+            }
+            transformed.replaceSubrange(
+                range,
+                with: "\(prefix)\(unpremultiply)(g_Texture\(expectedSlot).sample(\(arguments)))\(suffix)"
+            )
+        }
+        return insertingBoundaryHelpers(into: transformed)
+    }
+
     private static func insertingBoundaryHelpers(into source: String) -> String? {
         let helpers = """
 

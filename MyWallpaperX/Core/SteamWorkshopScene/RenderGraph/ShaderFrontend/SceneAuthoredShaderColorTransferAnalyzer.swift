@@ -158,6 +158,11 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .passthrough(textureSlot: slot)
         }
+        if let fact = SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
+            fragment
+        ) {
+            return .straightAlpha(textureSlot: fact.textureSlot)
+        }
         if let fact = SceneAuthoredShaderGraphInputColorBlendAnalyzer.analyze(
             fragment
         ) {

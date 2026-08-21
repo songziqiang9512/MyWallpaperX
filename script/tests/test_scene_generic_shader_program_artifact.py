@@ -109,6 +109,28 @@ private struct NormalizedSampleSumOutput: Codable {
     let branchingHelperRejected: Bool
 }
 
+private struct AlphaWeightedSampleAverageOutput: Codable {
+    let analyzedTransfer: String
+    let sourceSlot: Int?
+    let sampleCount: Int?
+    let renamedLocalsAccepted: Bool
+    let threeSampleCombinationAccepted: Bool
+    let boundedFrontendAccepted: Bool
+    let boundedSampleUnpremultipliedCount: Int
+    let boundedOutputPremultiplied: Bool
+    let positiveKind: String?
+    let positiveSlot: Int?
+    let genericSampleUnpremultipliedCount: Int
+    let genericOutputPremultiplied: Bool
+    let denominatorMismatchRejected: Bool
+    let hiddenSampleRejected: Bool
+    let wrongWeightRejected: Bool
+    let wrongNormalizationRejected: Bool
+    let earlyNormalizationRejected: Bool
+    let compilerDriftRejected: Bool
+    let helperConflictRejected: Bool
+}
+
 private struct StraightPreservingBuilderOutput: Codable {
     let positiveKind: String?
     let positiveSlot: Int?
@@ -683,6 +705,207 @@ private struct GenericShaderArtifactHarness {
                 projectedUsesTargetPixels: projected.contains(
                     "(mwxPosition - vec2(0.5)) * mwxRenderSize"
                 )
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--builder-alpha-weighted-sample-average" {
+            func authoredSource(
+                count: Int,
+                accumulator: String = "result",
+                sample: String = "sample",
+                weight: String = "weight"
+            ) -> String {
+                let samples = (0..<count).map { index in
+                    [
+                        "    {",
+                        "        \(sample) = texSample2D(g_Texture0, v_TexCoord[\(index)]);",
+                        "        \(accumulator) += \(sample) * \(sample).a;",
+                        "        \(weight) += \(sample).a;",
+                        "    }",
+                    ].joined(separator: "\n")
+                }.joined(separator: "\n")
+                return [
+                    "uniform sampler2D g_Texture0;",
+                    "varying vec2 v_TexCoord[\(count)];",
+                    "void main() {",
+                    "    float \(weight) = 0.0;",
+                    "    vec4 \(accumulator) = CAST4(0.0), \(sample);",
+                    samples,
+                    "    \(accumulator).rgb /= max(0.001, \(weight));",
+                    "    gl_FragColor = vec4(\(accumulator).rgb, \(accumulator).a / \(count).0);",
+                    "}",
+                ].joined(separator: "\n")
+            }
+            func vertexSource(count: Int) -> String {
+                let assignments = (0..<count).map {
+                    "    v_TexCoord[\($0)] = a_TexCoord + vec2(\(Double($0) * 0.01));"
+                }.joined(separator: "\n")
+                return [
+                    "attribute vec3 a_Position;",
+                    "attribute vec2 a_TexCoord;",
+                    "varying vec2 v_TexCoord[\(count)];",
+                    "void main() {",
+                    "    gl_Position = vec4(a_Position, 1.0);",
+                    assignments,
+                    "}",
+                ].joined(separator: "\n")
+            }
+            func metalSource(count: Int) -> String {
+                let samples = (0..<count).map { index in
+                    let assignment = index == 0
+                        ? "    float4 mwx_sample = g_Texture0.sample(g_Texture0Smplr, v_TexCoord[\(index)]);"
+                        : "    mwx_sample = g_Texture0.sample(g_Texture0Smplr, v_TexCoord[\(index)]);"
+                    return [
+                        assignment,
+                        "    result += (mwx_sample * mwx_sample.w);",
+                        "    weight += mwx_sample.w;",
+                    ].joined(separator: "\n")
+                }.joined(separator: "\n")
+                return [
+                    "#include <metal_stdlib>",
+                    "using namespace metal;",
+                    "struct MWXUniforms {};",
+                    "fragment void f() {",
+                    "    float weight = 0.0;",
+                    "    float4 result = float4(0.0);",
+                    samples,
+                    "    float4 _92 = result;",
+                    "    float3 _95 = _92.xyz / float3(fast::max(0.001, weight));",
+                    "    result.x = _95.x;",
+                    "    result.y = _95.y;",
+                    "    result.z = _95.z;",
+                    "    out.mwxFragColor = float4(result.xyz, result.w / \(count).0);",
+                    "}",
+                ].joined(separator: "\n")
+            }
+            let reflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms {};"
+            func artifact(authored: String, msl: String) -> SceneGenericShaderProgramArtifact? {
+                let built = SceneGenericShaderArtifactBuilder.build(
+                    requestKey: String(repeating: "a", count: 64),
+                    backendID: "glslang-spirv-cross-msl-v2",
+                    stages: [
+                        .init(
+                            name: "vertex", source: "void main() {}",
+                            authoredSource: "void main() {}",
+                            msl: vertexMSL,
+                            reflection: reflection
+                        ),
+                        .init(
+                            name: "fragment", source: authored,
+                            authoredSource: authored,
+                            msl: msl,
+                            reflection: reflection
+                        ),
+                    ],
+                    maximumArtifactBytes: 1_024_000
+                )
+                guard case let .success(value) = built else { return nil }
+                return value
+            }
+            let authored = authoredSource(count: 4)
+            let fact = SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
+                fragmentSource: authored
+            )
+            let bounded = SceneAuthoredShaderFrontend.compile(
+                vertexSource: vertexSource(count: 4),
+                fragmentSource: authored
+            ).program
+            let positive = artifact(authored: authored, msl: metalSource(count: 4))
+            let genericMetal = positive?.program.metalSource ?? ""
+            let boundedMetal = bounded?.metalSource ?? ""
+            let renamed = authoredSource(
+                count: 4,
+                accumulator: "unseenColor",
+                sample: "unseenTap",
+                weight: "unseenWeight"
+            )
+            let compilerDrift = metalSource(count: 4).replacingOccurrences(
+                of: "    out.mwxFragColor =",
+                with: "    float4 hidden = g_Texture0.sample(g_Texture0Smplr, float2(0.5));\n    out.mwxFragColor ="
+            )
+            let helperConflict = metalSource(count: 4).replacingOccurrences(
+                of: "using namespace metal;",
+                with: "using namespace metal;\nfloat4 mwxGenericUnpremultiply(float4 value) { return value; }"
+            )
+            let output = AlphaWeightedSampleAverageOutput(
+                analyzedTransfer: colorTransferName(
+                    SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                        fragmentSource: authored
+                    )
+                ),
+                sourceSlot: fact?.textureSlot,
+                sampleCount: fact?.sampleCount,
+                renamedLocalsAccepted:
+                    SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
+                        fragmentSource: renamed
+                    ) == .init(textureSlot: 0, sampleCount: 4),
+                threeSampleCombinationAccepted:
+                    SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
+                        fragmentSource: authoredSource(count: 3)
+                    ) == .init(textureSlot: 0, sampleCount: 3),
+                boundedFrontendAccepted: bounded != nil,
+                boundedSampleUnpremultipliedCount:
+                    boundedMetal.components(
+                        separatedBy: "mwxUnpremultiply(mwxTexture0.sample("
+                    ).count - 1,
+                boundedOutputPremultiplied:
+                    boundedMetal.contains("return mwxPremultiply(mwxFragColor);"),
+                positiveKind: positive?.program.colorTransfer.kind,
+                positiveSlot: positive?.program.colorTransfer.slot,
+                genericSampleUnpremultipliedCount:
+                    genericMetal.components(
+                        separatedBy: "mwxGenericUnpremultiply(g_Texture0.sample("
+                    ).count - 1,
+                genericOutputPremultiplied:
+                    genericMetal.contains(
+                        "out.mwxFragColor = mwxGenericPremultiply(float4(result.xyz, result.w / 4.0));"
+                    ),
+                denominatorMismatchRejected:
+                    SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
+                        fragmentSource: authored.replacingOccurrences(
+                            of: "result.a / 4.0", with: "result.a / 3.0"
+                        )
+                    ) == nil,
+                hiddenSampleRejected:
+                    SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
+                        fragmentSource: authored.replacingOccurrences(
+                            of: "    result.rgb /=",
+                            with: "    vec4 hidden = texSample2D(g_Texture0, vec2(0.5));\n    result.rgb /="
+                        )
+                    ) == nil,
+                wrongWeightRejected:
+                    SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
+                        fragmentSource: authored.replacingOccurrences(
+                            of: "result += sample * sample.a;",
+                            with: "result += sample * 0.5;",
+                            options: [],
+                            range: authored.range(of: "result += sample * sample.a;")
+                        )
+                    ) == nil,
+                wrongNormalizationRejected:
+                    SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
+                        fragmentSource: authored.replacingOccurrences(
+                            of: "max(0.001, weight)", with: "max(0.001, weight + 1.0)"
+                        )
+                    ) == nil,
+                earlyNormalizationRejected:
+                    SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
+                        fragmentSource: authored.replacingOccurrences(
+                            of: "    result.rgb /= max(0.001, weight);",
+                            with: ""
+                        ).replacingOccurrences(
+                            of: "    {\n        sample = texSample2D(g_Texture0, v_TexCoord[3]);",
+                            with: "    result.rgb /= max(0.001, weight);\n    {\n        sample = texSample2D(g_Texture0, v_TexCoord[3]);"
+                        )
+                    ) == nil,
+                compilerDriftRejected: artifact(
+                    authored: authored, msl: compilerDrift
+                ) == nil,
+                helperConflictRejected: artifact(
+                    authored: authored, msl: helperConflict
+                ) == nil
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -2494,6 +2717,36 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             "mixedSlotRejected": True,
             "hiddenSampleRejected": True,
             "branchingHelperRejected": True,
+        })
+
+    def test_product_builder_preserves_alpha_weighted_sample_average(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-alpha-weighted-sample-average"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "analyzedTransfer": "straightAlpha",
+            "sourceSlot": 0,
+            "sampleCount": 4,
+            "renamedLocalsAccepted": True,
+            "threeSampleCombinationAccepted": True,
+            "boundedFrontendAccepted": True,
+            "boundedSampleUnpremultipliedCount": 4,
+            "boundedOutputPremultiplied": True,
+            "positiveKind": "straight-alpha",
+            "positiveSlot": 0,
+            "genericSampleUnpremultipliedCount": 4,
+            "genericOutputPremultiplied": True,
+            "denominatorMismatchRejected": True,
+            "hiddenSampleRejected": True,
+            "wrongWeightRejected": True,
+            "wrongNormalizationRejected": True,
+            "earlyNormalizationRejected": True,
+            "compilerDriftRejected": True,
+            "helperConflictRejected": True,
         })
 
     def test_product_builder_preserves_straight_rgb_alpha_boundary(self):

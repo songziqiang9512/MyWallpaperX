@@ -303,6 +303,17 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         case .premultipliedAlpha:
             return (source, artifactTransfer(kind: "premultiplied"))
         case let .straightAlpha(textureSlot: expectedSlot):
+            let weightedAverage = SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer
+                .analyze(fragmentSource: authoredSource)
+            let weightedLowering: String? = weightedAverage.flatMap { fact in
+                guard fact.textureSlot == expectedSlot else { return nil }
+                return SceneGenericShaderStraightAlphaPreservingLowering
+                    .lowerAlphaWeightedSampleAverage(
+                        source,
+                        expectedSlot: expectedSlot,
+                        sampleCount: fact.sampleCount
+                    )
+            }
             let requiresStraightColorBoundary =
                 SceneAuthoredShaderColorTransferAnalyzer
                     .singleSamplerAlphaMutationSourceSlot(
@@ -312,8 +323,9 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 source,
                 requiresStraightColorBoundary: requiresStraightColorBoundary
             )
-            let lowered = direct?.transfer.slot == expectedSlot ? direct?.msl
-                : SceneGenericShaderStraightAlphaPreservingLowering
+            let lowered = weightedLowering
+                ?? (direct?.transfer.slot == expectedSlot ? direct?.msl : nil)
+                ?? SceneGenericShaderStraightAlphaPreservingLowering
                     .lowerConditionalUnion(source, expectedSlot: expectedSlot)
                     ?? SceneGenericShaderStraightAlphaPreservingLowering
                         .lowerStraightOutput(source, expectedSlot: expectedSlot)
