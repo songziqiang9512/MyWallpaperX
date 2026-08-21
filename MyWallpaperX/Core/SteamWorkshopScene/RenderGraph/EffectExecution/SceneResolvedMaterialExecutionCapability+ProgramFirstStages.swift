@@ -41,17 +41,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 products: [product],
                 pairPlan: admitted.pairPlan,
                 dependencyOwnership: admitted.dependencyOwnership,
-                unavailableDependencyStageKeys:
-                    admitted.unavailableDependencyStageKeys.intersection(
-                        Set([effect.key])
-                    ),
+                unavailableDependencyStageReasons:
+                    admitted.unavailableDependencyStageReasons.filter {
+                        $0.key == effect.key
+                    },
                 sourceRoute: stageSourceRoute,
                 isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
                 isGraphOutputProvider: admitted.isGraphOutputProvider,
                 requiresGraphOutputProvider:
                     admitted.requiresGraphOutputProvider
             )
-            if admitted.unavailableDependencyStageKeys.contains(effect.key) {
+            if let reasonCode =
+                    admitted.unavailableDependencyStageReasons[effect.key] {
                 guard product.clearFunctions.functions.isEmpty,
                       dependencyStageFailureMayPassthrough(
                           product.graph,
@@ -65,7 +66,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 }
                 stages.append(.visualFailurePassthrough(
                     product: product,
-                    reasonCode: "dependency-stage-reference-unavailable"
+                    reasonCode: reasonCode
                 ))
                 continue
             }

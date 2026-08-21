@@ -51,6 +51,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-finalizer-optional-texture-content-mismatch",
             "material-finalizer-optional-texture-sampling-unresolved",
             "dependency-stage-reference-unavailable",
+            "dependency-stage-secondary-reference-unavailable",
         ].contains(reasonCode),
               visualFailureTopologyIsSupported(
                   reasonCode: reasonCode,
@@ -129,7 +130,8 @@ extension SceneResolvedMaterialGraphExecutor {
               transition.nextState.historyClosureIdentities.isEmpty else {
             return false
         }
-        if reasonCode == "dependency-stage-reference-unavailable" {
+        if reasonCode == "dependency-stage-reference-unavailable"
+            || reasonCode == "dependency-stage-secondary-reference-unavailable" {
             return dependencyStageFailureTopologyIsSupported(
                 transition: transition,
                 graph: graph,
@@ -199,6 +201,15 @@ extension SceneResolvedMaterialGraphExecutor {
         pairStep: Pair.EffectStep,
         snapshot: VisualFailureSnapshot
     ) -> Bool {
+        if !graph.renderTargets.isEmpty {
+            guard let effect = graph.effects.first else { return false }
+            return visualFailureFramebufferTopologyIsSupported(
+                transition: transition,
+                graph: graph,
+                effect: effect,
+                pairStep: pairStep
+            )
+        }
         guard SceneResolvedMaterialExecutionCapabilityCatalog
                 .dependencyStageFailureMayPassthrough(
                     graph,

@@ -735,6 +735,77 @@ private func logicalTargetDescriptor(
     )
 }
 
+private func secondarySelfUnavailableGraph(
+    mapsReferenceToEffectInput: Bool = true,
+    uniqueIntermediate: Bool = false
+) -> Graph {
+    let graphInput = source()
+    let intermediate = framebuffer(firstKey, "secondary-intermediate")
+    let graphOutput = output(firstKey)
+    let first = material(
+        index: 0,
+        ordinal: 0,
+        effect: firstKey,
+        target: intermediate,
+        input: graphInput
+    )
+    let second = Graph.Node(
+        nodeIndex: 1,
+        effect: firstKey,
+        definitionPassIndex: 1,
+        materialOrdinal: 1,
+        instancePassIndex: 1,
+        kind: .material,
+        materialPath: "materials/m1.json",
+        materialPassID: "m1",
+        target: graphOutput,
+        bindings: [
+            binding(intermediate),
+            .init(
+                slot: 1,
+                authoredName: "previous",
+                texture: mapsReferenceToEffectInput
+                    ? graphInput : intermediate,
+                conditions: nil
+            ),
+        ],
+        commandSource: nil,
+        commandTarget: nil,
+        compose: nil,
+        conditions: nil
+    )
+    return .init(
+        layerID: layerID,
+        effects: [.init(
+            key: firstKey,
+            definitionPath: "effects/blurprecise/effect.json",
+            input: graphInput,
+            output: graphOutput,
+            nodeIndices: [0, 1]
+        )],
+        renderTargets: [target(intermediate, unique: uniqueIntermediate)],
+        nodes: [first, second],
+        finalOutput: graphOutput,
+        blockers: []
+    )
+}
+
+private func secondarySelfUnavailableDescriptor() -> SceneRenderDescriptor {
+    let base = logicalTargetDescriptor()
+    var consumer = base.layers[0]
+    consumer.namedReferences = [namedReference(
+        effectID: firstKey.descriptorID,
+        passIndex: 1,
+        slotIndex: 1,
+        variant: .secondary
+    )]
+    return .init(
+        layers: [consumer],
+        materialPasses: base.materialPasses,
+        effectDefinitions: base.effectDefinitions
+    )
+}
+
 private func fullFrameComposeGraph(
     compose: SceneJSONValue? = .bool(true),
     includeHistory: Bool = false,
@@ -2466,6 +2537,31 @@ private enum Harness {
             graphs: [forwardGraph],
             materials: materialCatalog(graph: forwardGraph)
         )
+        let secondarySelfGraph = secondarySelfUnavailableGraph()
+        let secondarySelfCatalog = catalog(
+            descriptor: secondarySelfUnavailableDescriptor(),
+            graphs: [secondarySelfGraph],
+            materials: materialCatalog(graph: secondarySelfGraph)
+        )
+        let secondarySelfCapability = secondarySelfCatalog.claim(
+            layerID: layerID
+        ).flatMap { secondarySelfCatalog.resolve($0.token) }
+        let secondarySelfMismatchedGraph = secondarySelfUnavailableGraph(
+            mapsReferenceToEffectInput: false
+        )
+        let secondarySelfMismatchCatalog = catalog(
+            descriptor: secondarySelfUnavailableDescriptor(),
+            graphs: [secondarySelfMismatchedGraph],
+            materials: materialCatalog(graph: secondarySelfMismatchedGraph)
+        )
+        let secondarySelfHistoryGraph = secondarySelfUnavailableGraph(
+            uniqueIntermediate: true
+        )
+        let secondarySelfHistoryCatalog = catalog(
+            descriptor: secondarySelfUnavailableDescriptor(),
+            graphs: [secondarySelfHistoryGraph],
+            materials: materialCatalog(graph: secondarySelfHistoryGraph)
+        )
         let pairMultipleProducerCatalog = catalog(
             descriptor: pairDescriptor,
             graphs: [pairGraph],
@@ -3384,6 +3480,17 @@ private enum Harness {
                 "forwardMultipleReferenceRemainsRejected":
                     forwardMultipleReferenceCatalog.claim(layerID: layerID)
                         == nil,
+                "secondarySelfFBOFailureIsEffectLocal":
+                    secondarySelfCapability?.stages.compactMap(\.subject)
+                        .map(\.family)
+                        == ["visual-failure-passthrough"]
+                    && secondarySelfCapability?.stages.first?
+                        .visualFailureReasonCode
+                        == "dependency-stage-secondary-reference-unavailable",
+                "secondarySelfRequiresExactEffectInputMapping":
+                    secondarySelfMismatchCatalog.claim(layerID: layerID) == nil,
+                "secondarySelfHistoryRemainsRejected":
+                    secondarySelfHistoryCatalog.claim(layerID: layerID) == nil,
                 "inactiveResourceDemandDoesNotRevokeProgram":
                     inactiveDemandIssueCatalog.claim(layerID: layerID) != nil,
                 "logicalTargetStageAccepted":
@@ -3788,9 +3895,9 @@ struct SceneResolvedMaterialAdmittedLayer {
     let products: [SceneGraphAdmissionProduct]
     let pairPlan: SceneLayerFullFramePairPlan
     let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
-    let unavailableDependencyStageKeys: Set<
-        SceneAuthoredEffectRenderPlan.EffectKey
-    >
+    let unavailableDependencyStageReasons: [
+        SceneAuthoredEffectRenderPlan.EffectKey: String
+    ]
     let sourceRoute: SourceRoute
     var isVisibleExecutionRoot: Bool = true
     var isGraphOutputProvider: Bool = false
@@ -3801,9 +3908,9 @@ struct SceneResolvedMaterialAdmittedLayer {
         products: [SceneGraphAdmissionProduct],
         pairPlan: SceneLayerFullFramePairPlan,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
-        unavailableDependencyStageKeys: Set<
-            SceneAuthoredEffectRenderPlan.EffectKey
-        > = [],
+        unavailableDependencyStageReasons: [
+            SceneAuthoredEffectRenderPlan.EffectKey: String
+        ] = [:],
         sourceRoute: SourceRoute,
         isVisibleExecutionRoot: Bool = true,
         isGraphOutputProvider: Bool = false,
@@ -3813,7 +3920,7 @@ struct SceneResolvedMaterialAdmittedLayer {
         self.products = products
         self.pairPlan = pairPlan
         self.dependencyOwnership = dependencyOwnership
-        self.unavailableDependencyStageKeys = unavailableDependencyStageKeys
+        self.unavailableDependencyStageReasons = unavailableDependencyStageReasons
         self.sourceRoute = sourceRoute
         self.isVisibleExecutionRoot = isVisibleExecutionRoot
         self.isGraphOutputProvider = isGraphOutputProvider
@@ -7060,6 +7167,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "programFirstPrefersResolvedStage": True,
                 "forwardDependencyFailureIsEffectLocal": True,
                 "forwardMultipleReferenceRemainsRejected": True,
+                "secondarySelfFBOFailureIsEffectLocal": True,
+                "secondarySelfRequiresExactEffectInputMapping": True,
+                "secondarySelfHistoryRemainsRejected": True,
                 "inactiveResourceDemandDoesNotRevokeProgram": True,
                 "logicalTargetStageAccepted": True,
                 "logicalTargetStageRequiresAllowlist": True,

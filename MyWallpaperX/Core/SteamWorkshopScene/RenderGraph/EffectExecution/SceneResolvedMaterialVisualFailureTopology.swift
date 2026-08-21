@@ -9,12 +9,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         pairStep: SceneLayerFullFramePairPlan.EffectStep?
     ) -> Bool {
         guard graph.effects.count == 1,
-              graph.renderTargets.isEmpty,
-              graph.nodes.count == 1,
               graph.blockers.isEmpty,
               let effect = graph.effects.first,
+              let pairStep, pairStep.effect == effect.key else { return false }
+        if !graph.renderTargets.isEmpty {
+            return visualFailureFramebufferTopologyMayPassthrough(
+                graph,
+                effect: effect,
+                pairStep: pairStep
+            )
+        }
+        guard graph.nodes.count == 1,
               let node = graph.nodes.first,
-              let pairStep, pairStep.effect == effect.key,
               pairStep.nodes.count == 1,
               pairStep.fullFrameOutputWriteCount == 1,
               pairStep.composeTransitionCount == 0,

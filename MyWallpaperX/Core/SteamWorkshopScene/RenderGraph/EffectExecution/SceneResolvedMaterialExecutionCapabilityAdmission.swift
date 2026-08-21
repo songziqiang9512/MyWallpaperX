@@ -13,7 +13,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     let products: [SceneGraphAdmissionProduct]
     let pairPlan: SceneLayerFullFramePairPlan
     let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
-    let unavailableDependencyStageKeys: Set<Graph.EffectKey>
+    let unavailableDependencyStageReasons: [Graph.EffectKey: String]
     let sourceRoute: SourceRoute
     let isVisibleExecutionRoot: Bool
     let isGraphOutputProvider: Bool
@@ -24,7 +24,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         products: [SceneGraphAdmissionProduct],
         pairPlan: SceneLayerFullFramePairPlan,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
-        unavailableDependencyStageKeys: Set<Graph.EffectKey> = [],
+        unavailableDependencyStageReasons: [Graph.EffectKey: String] = [:],
         sourceRoute: SourceRoute,
         isVisibleExecutionRoot: Bool,
         isGraphOutputProvider: Bool,
@@ -34,7 +34,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         self.products = products
         self.pairPlan = pairPlan
         self.dependencyOwnership = dependencyOwnership
-        self.unavailableDependencyStageKeys = unavailableDependencyStageKeys
+        self.unavailableDependencyStageReasons = unavailableDependencyStageReasons
         self.sourceRoute = sourceRoute
         self.isVisibleExecutionRoot = isVisibleExecutionRoot
         self.isGraphOutputProvider = isGraphOutputProvider
@@ -129,20 +129,43 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     references: layerReferences,
                     binding: binding
                 )
-            let unavailableDependencyStageKeys =
-                compiledDependencyOwnership == nil
-                ? SceneResolvedMaterialDependencyOwnershipCompiler
-                    .forwardUnavailableEffectKeys(
-                        layer: layer,
-                        graph: (rawGroups[layerID]?.count == 1)
-                            ? rawGroups[layerID]?.first : nil,
-                        descriptor: descriptor,
-                        references: layerReferences,
-                        binding: binding
-                    ) ?? []
-                : []
+            let unavailableDependencyStageReasons: [Graph.EffectKey: String]
+            if compiledDependencyOwnership != nil {
+                unavailableDependencyStageReasons = [:]
+            } else if let keys =
+                        SceneResolvedMaterialDependencyOwnershipCompiler
+                            .forwardUnavailableEffectKeys(
+                                layer: layer,
+                                graph: (rawGroups[layerID]?.count == 1)
+                                    ? rawGroups[layerID]?.first : nil,
+                                descriptor: descriptor,
+                                references: layerReferences,
+                                binding: binding
+                            ) {
+                unavailableDependencyStageReasons = Dictionary(
+                    uniqueKeysWithValues: keys.map {
+                        ($0, "dependency-stage-reference-unavailable")
+                    }
+                )
+            } else if let keys =
+                        SceneResolvedMaterialDependencyOwnershipCompiler
+                            .secondarySelfUnavailableEffectKeys(
+                                layer: layer,
+                                graph: (rawGroups[layerID]?.count == 1)
+                                    ? rawGroups[layerID]?.first : nil,
+                                references: layerReferences,
+                                binding: binding
+                            ) {
+                unavailableDependencyStageReasons = Dictionary(
+                    uniqueKeysWithValues: keys.map {
+                        ($0, "dependency-stage-secondary-reference-unavailable")
+                    }
+                )
+            } else {
+                unavailableDependencyStageReasons = [:]
+            }
             let dependencyOwnership = compiledDependencyOwnership
-                ?? (unavailableDependencyStageKeys.isEmpty
+                ?? (unavailableDependencyStageReasons.isEmpty
                     ? nil : SceneResolvedMaterialDependencyOwnership.none)
             let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
             switch executionSourceRoute(
@@ -190,8 +213,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     activeEffects: activeEffects,
                     descriptor: descriptor,
                     dependencyOwnership: dependencyOwnership,
-                    unavailableDependencyStageKeys:
-                        unavailableDependencyStageKeys,
+                    unavailableDependencyStageReasons:
+                        unavailableDependencyStageReasons,
                     sourceRoute: sourceRoute,
                     isVisibleExecutionRoot: visibleLayerIDs.contains(layerID),
                     isGraphOutputProvider:
@@ -264,7 +287,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         activeEffects: [(offset: Int, element: SceneRenderDescriptor.EffectDescriptor)],
         descriptor: SceneRenderDescriptor,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
-        unavailableDependencyStageKeys: Set<Graph.EffectKey>,
+        unavailableDependencyStageReasons: [Graph.EffectKey: String],
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
         isVisibleExecutionRoot: Bool,
         isGraphOutputProvider: Bool,
@@ -326,8 +349,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 products: products,
                 pairPlan: pair,
                 dependencyOwnership: dependencyOwnership,
-                unavailableDependencyStageKeys:
-                    unavailableDependencyStageKeys,
+                unavailableDependencyStageReasons:
+                    unavailableDependencyStageReasons,
                 sourceRoute: sourceRoute,
                 isVisibleExecutionRoot: isVisibleExecutionRoot,
                 isGraphOutputProvider: isGraphOutputProvider,

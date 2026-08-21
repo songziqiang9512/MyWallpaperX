@@ -710,11 +710,13 @@ private func fragmentSource(
 
 private func binding(
     _ identity: Graph.TextureIdentity,
+    slot: Int = 0,
+    authoredName: String? = nil,
     conditions: SceneJSONValue? = nil
 ) -> Graph.Binding {
     return .init(
-        slot: 0,
-        authoredName: identity.name ?? "previous",
+        slot: slot,
+        authoredName: authoredName ?? identity.name ?? "previous",
         texture: identity,
         conditions: conditions
     )
@@ -727,6 +729,7 @@ private func material(
     read: Graph.TextureIdentity,
     compose: SceneJSONValue? = nil,
     conditions: SceneJSONValue? = nil,
+    additionalBindings: [Graph.Binding] = [],
     owner: Graph.EffectKey = effect
 ) -> Graph.Node {
     .init(
@@ -739,7 +742,7 @@ private func material(
         materialPath: "materials/executor-\(owner.effectIndex).json",
         materialPassID: "executor-\(owner.effectIndex)#\(ordinal)",
         target: target,
-        bindings: [binding(read)],
+        bindings: [binding(read)] + additionalBindings,
         commandSource: nil,
         commandTarget: nil,
         compose: compose,
@@ -2553,6 +2556,8 @@ private func capabilities(
     namedProvider: SceneNamedTextureReference? = nil,
     dependencyBinding: SceneDependencyRenderPlan.Binding? = nil,
     forwardUnavailableReference: SceneDependencyRenderPlan.Reference? = nil,
+    secondarySelfUnavailableReference:
+        SceneDependencyRenderPlan.Reference? = nil,
     functionsByEffect: [Graph.EffectKey: SceneJSONValue] = [:],
     assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
     assetFormatFacts: [String: Int] = [:]
@@ -2601,6 +2606,9 @@ private func capabilities(
             .init(id: dependencyBinding.providerLayerID, effects: []),
             consumer,
         ]
+    } else if let secondarySelfUnavailableReference {
+        consumer.namedReferences = [secondarySelfUnavailableReference]
+        layers = [consumer]
     } else if let forwardUnavailableReference {
         consumer.dependencyLayerIDs = [
             forwardUnavailableReference.providerLayerID
@@ -3794,6 +3802,43 @@ private enum Harness {
                 material(1, ordinal: 1, target: output, read: first),
             ]
         )
+        let secondarySelfUnavailableGraph = graph(
+            targets: [rawTarget(first)],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(
+                    1,
+                    ordinal: 1,
+                    target: output,
+                    read: first,
+                    additionalBindings: [binding(
+                        input,
+                        slot: 1,
+                        authoredName: "previous"
+                    )]
+                ),
+            ]
+        )
+        let secondarySelfUnavailableChain = admittedGraph(
+            secondarySelfUnavailableGraph
+        )
+        let secondarySelfUnavailableReference =
+            SceneDependencyRenderPlan.Reference(
+                consumerLayerID: layerID,
+                providerLayerID: layerID,
+                slot: .init(
+                    effectID: effect.descriptorID,
+                    passIndex: 1,
+                    slotIndex: 1
+                ),
+                variant: .secondary
+            )
+        let secondarySelfUnavailableCapabilities = capabilities(
+            secondarySelfUnavailableChain,
+            catalog: catalog(for: secondarySelfUnavailableGraph),
+            secondarySelfUnavailableReference:
+                secondarySelfUnavailableReference
+        )
         let commandVisualFailureGraph = graph(
             targets: [rawTarget(first), rawTarget(second)],
             nodes: [
@@ -4167,6 +4212,75 @@ private enum Harness {
                             && recoveryCommand.error == nil
                     }
                 }
+            }
+        }
+
+        var secondarySelfUnavailablePrepared = false
+        var secondarySelfUnavailableEncoded = false
+        var secondarySelfUnavailableGPUCompleted = false
+        var secondarySelfUnavailablePreservedPreviousCurrent = false
+        var secondarySelfUnavailableDiscardedTargetState = false
+        if let claim = secondarySelfUnavailableCapabilities.claim(
+                secondarySelfUnavailableChain
+           ), let executor = Executor(
+               device: device,
+               capabilities: secondarySelfUnavailableCapabilities
+           ), let commandBuffer = queue.makeCommandBuffer() {
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: [makeLease(
+                    requirePlan(secondarySelfUnavailableGraph),
+                    device: device,
+                    generation: 50
+                )],
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(50),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: commandBuffer,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 50,
+                resetGeneration: 50
+            )
+            if case let .success(prepared) = preparation,
+               let stage = prepared.stages.first,
+               stage.effectLocalFailureReasonCode
+                    == "dependency-stage-secondary-reference-unavailable",
+               stage.programCacheKeys == [
+                   "visual-failure-passthrough:"
+                       + "dependency-stage-secondary-reference-unavailable"
+               ] {
+                secondarySelfUnavailablePrepared = true
+                secondarySelfUnavailableDiscardedTargetState =
+                    stage.transition.transaction.intents.isEmpty
+                    && stage.transition.transaction.mappingBefore.isEmpty
+                    && stage.transition.transaction.mappingAfter.isEmpty
+                    && stage.transition.nextState.logicalMapping.isEmpty
+                    && stage.transition.nextState.historyClosureIdentities.isEmpty
+                    && stage.frameResources.isEmpty
+                    && stage.persistentResources.isEmpty
+                secondarySelfUnavailableEncoded = executor.encode(
+                    prepared,
+                    commandBuffer: commandBuffer
+                )
+                let readback = secondarySelfUnavailableEncoded
+                    ? appendReadback(
+                        prepared.finalTexture,
+                        commandBuffer: commandBuffer
+                    ) : nil
+                commandBuffer.commit()
+                commandBuffer.waitUntilCompleted()
+                secondarySelfUnavailableGPUCompleted =
+                    commandBuffer.status == .completed
+                    && commandBuffer.error == nil
+                secondarySelfUnavailablePreservedPreviousCurrent =
+                    readback.map {
+                        matches($0.firstPixel, [0, 0, 255, 255])
+                            && matches($0.lastPixel, [0, 0, 255, 255])
+                    } ?? false
             }
         }
 
@@ -5911,6 +6025,16 @@ private enum Harness {
                     && forwardUnavailableFailure.gpuCompleted
                     && forwardUnavailableFailure.continued
                     && forwardUnavailableFailure.failureCode == "success",
+            "secondarySelfUnavailableFBOFailurePrepared":
+                secondarySelfUnavailablePrepared,
+            "secondarySelfUnavailableFBOFailureEncoded":
+                secondarySelfUnavailableEncoded,
+            "secondarySelfUnavailableFBOFailureGPUCompleted":
+                secondarySelfUnavailableGPUCompleted,
+            "secondarySelfUnavailableFBOPreservesPreviousCurrent":
+                secondarySelfUnavailablePreservedPreviousCurrent,
+            "secondarySelfUnavailableFBODiscardsTargetState":
+                secondarySelfUnavailableDiscardedTargetState,
             "visualUniformSchemaMultiNodeUsesWholeEffectPassthrough": {
                 guard let claim = uniformSchemaMultiNodeCapabilities.claim(
                           ordinaryChain
