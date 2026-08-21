@@ -53,6 +53,17 @@ enum DebugScenePlaybackRunner {
             terminate(after: 0.1)
             return
         }
+        let environment = ProcessInfo.processInfo.environment
+        guard !SceneDependencyCaptureFault.containsRequest(in: environment)
+                || SceneDependencyCaptureFault.requestedOrdinal(
+                    in: environment
+                ) != nil else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=precondition-failed reason=invalid-named-provider-capture-fault"
+            )
+            terminate(after: 0.1)
+            return
+        }
 
         let evidenceDirectory = argumentValue(after: "--mwx-debug-scene-evidence-dir")
             .map { URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL }
@@ -92,6 +103,14 @@ enum DebugScenePlaybackRunner {
                 NSLog(
                     "MWX DEBUG SCENE: phase=dynamic-snapshot-fault state=configured frame=%llu",
                     frameIndex
+                )
+            }
+            if let ordinal = SceneDependencyCaptureFault.requestedOrdinal(
+                in: ProcessInfo.processInfo.environment
+            ) {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=named-provider-capture-fault state=configured providerOrdinal=%d",
+                    ordinal
                 )
             }
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")

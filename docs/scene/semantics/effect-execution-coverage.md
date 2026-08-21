@@ -12,6 +12,8 @@
 
 共享failure-radius现额外覆盖两类exact单effect ordinary FBO topology。第一类是无command的`effect input → FBO → effect output`两material形态；第二类允许同一effect内由已写target支配所有读取的ordinary material/copy/swap有序链，要求无clear/unique/read-before-write history/condition/function/dependency/compose、material ordinal严格递增、所有target都被初始化和消费、且只有末node全帧写effect output。eligible frontend/uniform/optional texture失败时，两类都把整个effect回滚到进入前的previous current，丢弃全部prepared material/command prefix和未提交FBO mapping/resources，并在下一帧重建。format仍由既有target/attachment admission决定；项目Metal正反门覆盖未见mixed command组合，fresh App只以RGBA两material/两copy闭合可见安全链。它们都不按Motion Blur或样本身份准入，也不升级任何下表Effect family；target/ABI/generation/epoch/hazard/lifecycle/runtime encode及其他topology仍硬拒绝。项目正反门与刻意NON-PASS故障运行见[E-V1-ORDINARY-FBO-VISUAL-FAILURE-PASSTHROUGH](runtime-evidence-index.md#e-v1-ordinary-fbo-visual-failure-passthrough)和[E-V1-ORDINARY-FBO-COMMAND-VISUAL-FAILURE-PASSTHROUGH](runtime-evidence-index.md#e-v1-ordinary-fbo-command-visual-failure-passthrough)。
 
+跨层failure-radius另增加一个exact运行时边界：classic primary external dependency已在unified frame preparation持有同epoch reservation、但普通provider capture未形成当帧publication时，只撤销对应无history consumer transaction并保留独立provider→consumer分支；下一帧publication恢复后重新进入普通Program。reservation/epoch/provider/kind/object mismatch、history-bearing transaction及其他resource/lifecycle错误不进入该门。两个独立分支的Debug一次性capture-miss运行证明故障consumer `70`不再污染consumer `182`所在的共享command buffer，后者同帧GPU/publication/compositor成功；故障consumer下一帧恢复。classic Clipping primary route仍为既有`generic-only / owner-migration-complete`，本批不新增Effect能力或owner迁移；见[E-V1-DEPENDENCY-SUBGRAPH-CAPTURE-FAILURE-CONTAINMENT](runtime-evidence-index.md#e-v1-dependency-subgraph-capture-failure-containment)。
+
 ## 1. 等级与执行通道
 
 | 等级 | 本表唯一含义 |

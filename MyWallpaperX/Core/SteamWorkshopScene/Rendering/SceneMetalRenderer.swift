@@ -179,13 +179,37 @@ struct SceneMetalRenderer {
             switch layer.contentKind {
             case "image", "solid", "text":
                 guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }
-                let dependencyEffect = dependencyRuntime.effectInput(
-                    for: layer.id,
-                    textureRegistry: textureRegistry
-                )
                 let requiresDependencyEffect = dependencyRuntime.requiresEffect(
                     for: layer.id
                 )
+                let resolvedFramePlan = resolvedMaterialFrameTargetPlans[layer.id]
+                let dependencyEffect: SceneDependencyEffectInput?
+                let resolvedDependencyFailure: (
+                    reasonCode: String,
+                    isOrdinaryUnavailable: Bool
+                )?
+                if requiresDependencyEffect, resolvedFramePlan != nil {
+                    switch dependencyRuntime.resolvedMaterialEffectInputResolution(
+                        for: layer.id,
+                        textureRegistry: textureRegistry
+                    ) {
+                    case let .ready(input):
+                        dependencyEffect = input
+                        resolvedDependencyFailure = nil
+                    case let .unavailable(reasonCode):
+                        dependencyEffect = nil
+                        resolvedDependencyFailure = (reasonCode, true)
+                    case let .invalid(reasonCode):
+                        dependencyEffect = nil
+                        resolvedDependencyFailure = (reasonCode, false)
+                    }
+                } else {
+                    dependencyEffect = dependencyRuntime.effectInput(
+                        for: layer.id,
+                        textureRegistry: textureRegistry
+                    )
+                    resolvedDependencyFailure = nil
+                }
                 let layerAlpha = SceneDynamicLayerValues.alpha(
                     layerID: layer.id, authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
@@ -233,7 +257,7 @@ struct SceneMetalRenderer {
                     ),
                     offscreenTexturePool: offscreenTexturePool,
                     resolvedMaterialFrameTargetPlan:
-                        resolvedMaterialFrameTargetPlans[layer.id],
+                        resolvedFramePlan,
                     offscreenSize: layer.contentKind == "solid" ? SceneCaptureGeometryResolver.projectedPixelSize(layerMVP: mvp, viewportSize: viewportSize) : nil,
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
@@ -252,6 +276,22 @@ struct SceneMetalRenderer {
                         for: layer.id,
                         matching: texture
                     )
+                if let failure = resolvedDependencyFailure {
+                    dependencyRuntime.recordBindingFailure(for: layer.id)
+                    if failure.isOrdinaryUnavailable,
+                       imageCompositor
+                        .rejectResolvedMaterialDependencySubgraphLocally(
+                            layerID: layer.id,
+                            reasonCode: failure.reasonCode
+                        ) {
+                        continue
+                    }
+                    imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                        failure.reasonCode
+                    )
+                    stopsAfterClaimedFailure = true
+                    break frameLayers
+                }
                 if request.requiresDependencyEffect,
                    request.dependencyEffect == nil {
                     dependencyRuntime.recordBindingFailure(for: layer.id)

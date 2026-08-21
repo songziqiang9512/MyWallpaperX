@@ -2,6 +2,12 @@ import CoreGraphics
 import Metal
 import simd
 
+enum SceneResolvedMaterialDependencyInputResolution {
+    case ready(SceneDependencyEffectInput)
+    case unavailable(reasonCode: String)
+    case invalid(reasonCode: String)
+}
+
 final class SceneDependencyFrameRuntime {
     private struct EffectTargetReservation {
         let providerLayerID: Int
@@ -18,6 +24,9 @@ final class SceneDependencyFrameRuntime {
     private let bindingTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-binding")
     private var reservationFrameEpoch: UInt64?
     private var reservationsByProviderLayerID: [Int: EffectTargetReservation] = [:]
+#if DEBUG
+    private var debugCaptureFault = SceneDependencyCaptureFault()
+#endif
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -146,6 +155,53 @@ final class SceneDependencyFrameRuntime {
         )
     }
 
+    /// Resolves a dependency already reserved by unified frame preparation.
+    /// A valid reservation without a same-frame publication is an ordinary
+    /// provider visual failure; reservation/epoch/object drift remains an
+    /// integrity rejection and must not enter the local passthrough path.
+    func resolvedMaterialEffectInputResolution(
+        for consumerLayerID: Int,
+        textureRegistry: SceneFrameTextureRegistry
+    ) -> SceneResolvedMaterialDependencyInputResolution {
+        guard let binding = plan.bindingsByConsumerLayerID[consumerLayerID] else {
+            return .invalid(reasonCode: "external-primary-binding-missing")
+        }
+        let frameEpoch = textureRegistry.frameEpoch
+        guard frameEpoch > 0 else {
+            return .invalid(reasonCode: "external-primary-frame-epoch-invalid")
+        }
+        synchronizeReservations(to: frameEpoch)
+        guard let reservation = reservationsByProviderLayerID[
+            binding.providerLayerID
+        ] else {
+            return .invalid(reasonCode: "external-primary-reservation-missing")
+        }
+        guard reservation.frameEpoch == frameEpoch,
+              reservation.providerLayerID == binding.providerLayerID,
+              reservation.kind == binding.kind else {
+            return .invalid(reasonCode: "external-primary-reservation-mismatch")
+        }
+        let identity = SceneFrameTextureIdentity.namedLayerTarget(
+            SceneNamedTextureReference(
+                providerLayerID: binding.providerLayerID,
+                variant: .primary
+            )
+        )
+        guard let texture = textureRegistry.texture(for: identity) else {
+            return .unavailable(
+                reasonCode: "external-primary-provider-capture-unavailable"
+            )
+        }
+        guard texture === reservation.texture else {
+            return .invalid(reasonCode: "external-primary-publication-mismatch")
+        }
+        return .ready(makeEffectInput(
+            binding: binding,
+            frameEpoch: frameEpoch,
+            texture: texture
+        ))
+    }
+
     func recordBindingIfRequired(
         for consumerLayerID: Int,
         encoded: Bool,
@@ -172,6 +228,19 @@ final class SceneDependencyFrameRuntime {
         mainPass: SceneMainPassEncoder
     ) -> Bool? {
         guard plan.requiredProviderLayerIDs.contains(layer.id) else { return nil }
+#if DEBUG
+        if debugCaptureFault.shouldDropCapture(
+            for: layer.id,
+            orderedProviderLayerIDs: plan.requiredProviderLayerIDs.sorted()
+        ) {
+            captureTelemetry.recordFailure(layerID: layer.id)
+            NSLog(
+                "MWX DEBUG SCENE: phase=named-provider-capture-fault state=dropped provider=%d reason=debug-evidence-injected-capture-failure",
+                layer.id
+            )
+            return false
+        }
+#endif
         let frameEpoch = textureRegistry.frameEpoch
         synchronizeReservations(to: frameEpoch)
         let identity = SceneFrameTextureIdentity.namedLayerTarget(SceneNamedTextureReference(
@@ -324,6 +393,15 @@ final class SceneDependencyFrameRuntime {
         }
         if encoded {
             textureRegistry.set(.ready(target), for: identity)
+#if DEBUG
+            if debugCaptureFault.observeSuccessfulCapture(for: layer.id) {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=named-provider-capture-fault state=recovered provider=%d frameEpoch=%llu",
+                    layer.id,
+                    frameEpoch
+                )
+            }
+#endif
         }
         return encoded
     }

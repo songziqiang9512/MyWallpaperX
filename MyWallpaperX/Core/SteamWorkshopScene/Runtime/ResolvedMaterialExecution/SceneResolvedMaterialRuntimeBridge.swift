@@ -374,6 +374,16 @@ final class SceneResolvedMaterialRuntimeBridge {
         )
     }
 
+    func rejectPreparedExternalDependencyLocally(
+        layerID: Int,
+        reasonCode: String
+    ) -> Bool {
+        submissions.rejectPreparedExternalDependencyLocally(
+            layerID: layerID,
+            reasonCode: reasonCode
+        )
+    }
+
     func markComposite(
         _ ticket: ExecutionTicket,
         texture: MTLTexture,

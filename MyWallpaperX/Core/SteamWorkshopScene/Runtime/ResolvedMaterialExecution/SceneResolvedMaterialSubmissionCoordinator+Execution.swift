@@ -1,6 +1,90 @@
 import Metal
 
 extension SceneResolvedMaterialSubmissionCoordinator {
+    /// Rejects one prepared external-dependency transaction before encoding,
+    /// releases only its allocation, and rebases independent successors on the
+    /// last composited tails. Integrity failures still use the frame-failure
+    /// path; this entry point accepts only the typed ordinary capture miss.
+    func rejectPreparedExternalDependencyLocally(
+        layerID: Int,
+        reasonCode: String
+    ) -> Bool {
+        guard reasonCode == "external-primary-provider-capture-unavailable"
+        else { return false }
+        var emission = Emission()
+        lock.lock()
+        guard terminalFailureReason == nil, frameIsActive,
+              framePreparationComplete, !frameRequiresDrop,
+              frameFailure == nil,
+              frameLocalFallbacks[layerID] == nil,
+              let identity = preparedLedgerByLayerID[layerID],
+              let index = activeTransactions.firstIndex(of: identity),
+              let ledger = activeByID[identity],
+              ledger.layerID == layerID,
+              let capability = capabilities.resolve(ledger.capabilityToken),
+              capability.layerID == layerID,
+              case .externalPrimary = capability.dependencyOwnership,
+              ledger.phase == .allocationCommitted,
+              !ledger.claimConsumed,
+              dependencyReservationMatches(
+                  ledger.preparedDependencyEffect,
+                  ownership: capability.dependencyOwnership
+              ),
+              ledger.prepared.historyTokensByEffect.isEmpty,
+              ledger.prepared.stages.allSatisfy({
+                  $0.transition.nextState.historyClosureIdentities.isEmpty
+                      && ledger.committedBaseTails[$0.effect] == nil
+              }),
+              ledger.commandBuffer.status == .notEnqueued,
+              activeTransactions[..<index].allSatisfy({
+                  activeByID[$0]?.phase == .composited
+              }) else {
+            lock.unlock()
+            return false
+        }
+        let successorIDs = Array(
+            activeTransactions[activeTransactions.index(after: index)...]
+        )
+        var rebasedTails = scheduledTails
+        var rebasedByIdentity: [UInt64: [Graph.EffectKey: Tail]] = [:]
+        for successorID in successorIDs {
+            guard let successor = activeByID[successorID],
+                  successor.phase == .allocationCommitted,
+                  let blueprint = successor.blueprint,
+                  let commit = successor.commit else {
+                lock.unlock()
+                return false
+            }
+            rebasedTails = committedCandidateTailsLocked(
+                blueprint: blueprint,
+                startingAt: rebasedTails,
+                commit: commit,
+                prepared: successor.prepared
+            )
+            guard tailsAreValid(rebasedTails) else {
+                lock.unlock()
+                return false
+            }
+            rebasedByIdentity[successorID] = rebasedTails
+        }
+        emission = terminalizeLedgerLocked(
+            identity,
+            as: .failed(reasonCode: reasonCode, gpu: nil)
+        )
+        preparedLedgerByLayerID.removeValue(forKey: layerID)
+        frameLocalFallbacks[layerID] = reasonCode
+        for successorID in successorIDs {
+            activeByID[successorID]?.candidateTails =
+                rebasedByIdentity[successorID]
+        }
+        emission.diagnostics.append(
+            "dependency-subgraph-local-rejection layer=\(layerID) reason=\(reasonCode)"
+        )
+        lock.unlock()
+        emit(emission)
+        return true
+    }
+
     func executeClaimed(
         claim: Bridge.ClaimedExecution,
         dependencyEffect: SceneDependencyEffectInput?,

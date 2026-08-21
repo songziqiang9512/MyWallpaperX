@@ -81,6 +81,7 @@
       },
       "LayerDependencies": {
         "file_globs": [
+          "SceneDependencyCaptureFault.swift",
           "SceneDependencyFrameRuntime.swift",
           "SceneDependencyGraphAnalysis.swift",
           "SceneImageLayerBlendDependencyContract.swift",

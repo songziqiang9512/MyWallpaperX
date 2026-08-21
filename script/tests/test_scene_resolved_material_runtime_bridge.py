@@ -939,6 +939,29 @@ extension SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs {
         audioSpectrum: .init(),
         dependencyEffect: nil
     )
+
+    func replacingDependencyEffect(
+        _ dependencyEffect: SceneDependencyEffectInput?
+    ) -> Self {
+        .init(
+            masks: masks,
+            dynamicValues: dynamicValues,
+            pipelines: pipelines,
+            cursorUV: cursorUV,
+            previousCursorUV: previousCursorUV,
+            pointerIsInside: pointerIsInside,
+            previousPointerIsInside: previousPointerIsInside,
+            pointerMovement: pointerMovement,
+            primaryButtonIsDown: primaryButtonIsDown,
+            layerModelMatrix: layerModelMatrix,
+            effectTextureProjectionMatrixInverse:
+                effectTextureProjectionMatrixInverse,
+            frameTime: frameTime,
+            time: time,
+            audioSpectrum: audioSpectrum,
+            dependencyEffect: dependencyEffect
+        )
+    }
 }
 
 final class SceneResolvedMaterialGraphExecutor {
@@ -2316,6 +2339,158 @@ enum Harness {
                 && postFailureClaimRejected
             targets7.commit.releaseAll()
             targets8.commit.releaseAll()
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
+        }
+
+        do {
+            SceneResolvedMaterialGraphExecutor.prepareCallCount = 0
+            SceneResolvedMaterialGraphExecutor.prepareTokens = []
+            SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [
+                7: makeAtomicPrepared(device: device, layerID: 7, generation: 1),
+                8: makeAtomicPrepared(device: device, layerID: 8, generation: 2),
+            ]
+            let binding = externalPrimaryBinding(consumerLayerID: 7)
+            let dependencyTexture = makeTexture(
+                device, "local-dependency-failure-reservation"
+            )
+            let dependency = dependencyInput(
+                binding: binding,
+                texture: dependencyTexture,
+                frameEpoch: 3
+            )
+            let recorder = LogRecorder()
+            let coordinator = makeCoordinator(
+                device,
+                layerIDs: [7, 8],
+                dependencyOwnershipByLayerID: [7: .externalPrimary(binding)],
+                logSink: recorder.append
+            )
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 3, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            func preflightClaim(_ layerID: Int) ->
+                SceneResolvedMaterialRuntimeBridge.ClaimedExecution {
+                switch coordinator.preflightClaim(layerID: layerID) {
+                case let .claimed(value): return value
+                case let .rejected(reasonCode): fatalError(reasonCode)
+                case .notMigrated: fatalError("claim unavailable")
+                }
+            }
+            let claim7 = preflightClaim(7)
+            let claim8 = preflightClaim(8)
+            let targets7 = makeAtomicTargets(layerID: 7, generation: 1)
+            let targets8 = makeAtomicTargets(layerID: 8, generation: 2)
+            let pool = SceneOffscreenTexturePool(factory: { plan in
+                switch plan.graphPlan.key.layerID {
+                case 7: targets7.prepared
+                case 8: targets8.prepared
+                default: nil
+                }
+            })
+            let prepared = coordinator.prepareFrame(
+                [
+                    .init(
+                        claim: claim7,
+                        targetPlan: .init(
+                            token: claim7.token,
+                            allocation: .init(
+                                graphPlan: .init(key: .init(layerID: 7))
+                            )
+                        ),
+                        sourceTexture: makeTexture(device, "local-source-7"),
+                        sourceUniforms: .init(),
+                        sourcePipeline: .init(),
+                        dedicatedInputs: .fixture.replacingDependencyEffect(
+                            dependency
+                        )
+                    ),
+                    .init(
+                        claim: claim8,
+                        targetPlan: .init(
+                            token: claim8.token,
+                            allocation: .init(
+                                graphPlan: .init(key: .init(layerID: 8))
+                            )
+                        ),
+                        sourceTexture: makeTexture(device, "local-source-8"),
+                        sourceUniforms: .init(),
+                        sourcePipeline: .init(),
+                        dedicatedInputs: .fixture
+                    ),
+                ],
+                pool: pool,
+                commandBuffer: buffer
+            )
+            let preparedReady: Bool
+            if case .ready = prepared { preparedReady = true }
+            else { preparedReady = false }
+            let integrityReasonRejected = !coordinator
+                .rejectPreparedExternalDependencyLocally(
+                    layerID: 7,
+                    reasonCode: "external-primary-reservation-missing"
+                )
+            let rejectedLocally = coordinator
+                .rejectPreparedExternalDependencyLocally(
+                    layerID: 7,
+                    reasonCode:
+                        "external-primary-provider-capture-unavailable"
+                )
+            let claim8ForExecution: SceneResolvedMaterialRuntimeBridge
+                .ClaimedExecution
+            switch coordinator.claim(layerID: 8) {
+            case let .claimed(value): claim8ForExecution = value
+            case let .rejected(reasonCode): fatalError(reasonCode)
+            case .notMigrated: fatalError("claim unavailable")
+            }
+            let execution = coordinator.executeClaimed(
+                claim: claim8ForExecution,
+                dependencyEffect: nil,
+                commandBuffer: buffer
+            )
+            let encoded: Bool
+            let composited: Bool
+            switch execution {
+            case let .encoded(texture, ticket):
+                encoded = true
+                if case .consumed = coordinator.markComposite(
+                    ticket, texture: texture, consumed: true
+                ) {
+                    composited = true
+                } else {
+                    composited = false
+                }
+            case .failed:
+                encoded = false
+                composited = false
+            }
+            let sealed = coordinator.sealFrame(on: buffer)
+            buffer.commit()
+            buffer.waitUntilCompleted()
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(buffer),
+                status: buffer.status == .completed && buffer.error == nil
+                    ? .completed : .failed
+            )
+            _ = coordinator.endFrame()
+            results["externalDependencyCaptureFailureRejectsOnlyItsSubgraph"] =
+                preparedReady
+                && integrityReasonRejected
+                && rejectedLocally
+                && encoded
+                && composited
+                && sealed
+                && buffer.status == .completed
+                && buffer.error == nil
+                && targets7.commit.submissionPin.releaseCount == 1
+                && targets8.commit.submissionPin.releaseCount == 1
+                && coordinator.frameFailures == 0
+                && recorder.lines.contains(where: {
+                    $0.contains("dependency-subgraph-local-rejection layer=7")
+                })
             SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
         }
 
@@ -3837,6 +4012,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "preflightFailureReasonReachesCoordinatorEvidence",
                 "claimWaitsForAtomicFramePreparation",
                 "secondPreparationFailureRollsBackWholeFrame",
+                "externalDependencyCaptureFailureRejectsOnlyItsSubgraph",
                 "repeatTerminalPublicationRejectsBeforeLedgerAndPreservesPreviousCurrent",
                 "twoCandidatesPublishConsumeAndCommitAtomically",
                 "postClaimFailureDropsWholeFrame",

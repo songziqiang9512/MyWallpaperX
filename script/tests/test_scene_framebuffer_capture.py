@@ -356,6 +356,15 @@ final class SceneResolvedMaterialRuntimeBridge {
         return true
     }
 
+    func rejectPreparedExternalDependencyLocally(
+        layerID: Int,
+        reasonCode: String
+    ) -> Bool {
+        _ = layerID
+        _ = reasonCode
+        return true
+    }
+
     func executeClaimed(
         claim: ClaimedExecution,
         dependencyEffect: SceneDependencyEffectInput?,

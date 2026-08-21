@@ -221,6 +221,7 @@
       "id": "layer-dependencies",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/LayerDependencies/**"],
       "modules": [
+        "test_scene_dependency_capture_fault",
         "test_scene_dependency_render_plan",
         "test_scene_named_render_target_pool",
         "test_scene_framebuffer_capture",
