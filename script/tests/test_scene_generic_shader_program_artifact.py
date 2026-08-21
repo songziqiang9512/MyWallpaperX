@@ -203,6 +203,11 @@ private struct CanonicalizerOutput: Codable {
     let boundedFrontendAccepted: Bool
     let genericNormalizerAccepted: Bool
     let assignmentNarrowed: Bool
+    let smallArrayLoopUnrolled: Bool
+    let smallArrayBoundedFrontendAccepted: Bool
+    let smallArrayGenericNormalizerAccepted: Bool
+    let smallArrayDynamicBoundPreserved: Bool
+    let smallArrayOutOfBoundsPreserved: Bool
     let dynamicBoundPreserved: Bool
     let controlFlowPreserved: Bool
     let outOfPrefixPreserved: Bool
@@ -301,6 +306,63 @@ private struct GenericShaderArtifactHarness {
                 vertex: prefixVertex,
                 fragment: fragment
             )
+            let smallVertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec2 v_Samples[4];",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    v_Samples[0] = a_TexCoord - vec2(0.1);",
+                "    v_Samples[1] = a_TexCoord + vec2(0.1, -0.1);",
+                "    v_Samples[2] = a_TexCoord + vec2(-0.1, 0.1);",
+                "    v_Samples[3] = a_TexCoord + vec2(0.1);",
+                "}",
+            ].joined(separator: "\n")
+            let smallFragment = [
+                "uniform sampler2D g_Texture0;",
+                "varying vec2 v_Samples[4];",
+                "void main() {",
+                "    vec4 total = vec4(0.0);",
+                "    for (int i = 0; i < 4; ++i) {",
+                "        total += texSample2D(g_Texture0, v_Samples[i]) * 0.25;",
+                "    }",
+                "    gl_FragColor = total;",
+                "}",
+            ].joined(separator: "\n")
+            let small = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: smallVertex,
+                fragment: smallFragment
+            )
+            let smallBounded = SceneAuthoredShaderFrontend.compile(
+                vertexSource: small.vertex,
+                fragmentSource: small.fragment
+            )
+            let smallNormalized: SceneGenericShaderSourceNormalizer.Pair?
+            switch SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: small.vertex,
+                fragmentSource: small.fragment,
+                maximumStageSourceBytes: 64 * 1_024
+            ) {
+            case let .success(pair): smallNormalized = pair
+            case .failure: smallNormalized = nil
+            }
+            let smallDynamicSource = smallFragment.replacingOccurrences(
+                of: "i < 4", with: "i < g_Count"
+            ).replacingOccurrences(
+                of: "uniform sampler2D g_Texture0;",
+                with: "uniform int g_Count;\nuniform sampler2D g_Texture0;"
+            )
+            let smallDynamic = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: smallVertex,
+                fragment: smallDynamicSource
+            )
+            let smallOutOfBoundsSource = smallFragment.replacingOccurrences(
+                of: "i < 4", with: "i < 5"
+            )
+            let smallOutOfBounds = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: smallVertex,
+                fragment: smallOutOfBoundsSource
+            )
             let output = CanonicalizerOutput(
                 arraysCompacted:
                     canonical.vertex.contains("v_Colors[6]")
@@ -313,6 +375,20 @@ private struct GenericShaderArtifactHarness {
                 genericNormalizerAccepted: normalized != nil,
                 assignmentNarrowed:
                     normalized?.fragment.contains(").xy") == true,
+                smallArrayLoopUnrolled:
+                    !small.fragment.contains("for (")
+                    && (0 ..< 4).allSatisfy {
+                        small.fragment.contains("v_Samples[\($0)]")
+                    },
+                smallArrayBoundedFrontendAccepted:
+                    smallBounded.diagnostics.isEmpty && smallBounded.program != nil,
+                smallArrayGenericNormalizerAccepted: smallNormalized != nil,
+                smallArrayDynamicBoundPreserved:
+                    smallDynamic.fragment.contains("v_Samples[i]")
+                    && smallDynamic.fragment.contains("g_Count"),
+                smallArrayOutOfBoundsPreserved:
+                    smallOutOfBounds.fragment.contains("v_Samples[i]")
+                    && smallOutOfBounds.fragment.contains("i < 5"),
                 dynamicBoundPreserved:
                     dynamic.vertex.contains("v_Settings[24]")
                     && dynamic.vertex.contains("g_Count"),
@@ -2297,6 +2373,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             "boundedFrontendAccepted": True,
             "genericNormalizerAccepted": True,
             "assignmentNarrowed": True,
+            "smallArrayLoopUnrolled": True,
+            "smallArrayBoundedFrontendAccepted": True,
+            "smallArrayGenericNormalizerAccepted": True,
+            "smallArrayDynamicBoundPreserved": True,
+            "smallArrayOutOfBoundsPreserved": True,
             "dynamicBoundPreserved": True,
             "controlFlowPreserved": True,
             "outOfPrefixPreserved": True,

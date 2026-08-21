@@ -25,14 +25,17 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
 
     static func canonicalize(vertex: String, fragment: String) -> Pair {
         let original = Pair(vertex: vertex, fragment: fragment)
-        let arrays = oversizedVaryingArrays(vertex: vertex, fragment: fragment)
+        let arrays = linkedVaryingArrays(vertex: vertex, fragment: fragment)
         guard !arrays.isEmpty else { return original }
 
         var result = Pair(
-            vertex: unrollStaticVaryingLoops(in: vertex, arrays: Set(arrays.keys)),
-            fragment: unrollStaticVaryingLoops(in: fragment, arrays: Set(arrays.keys))
+            vertex: unrollStaticVaryingLoops(in: vertex, arrays: arrays),
+            fragment: unrollStaticVaryingLoops(in: fragment, arrays: arrays)
         )
-        result = compactVaryingArrays(result, arrays: arrays)
+        result = compactVaryingArrays(
+            result,
+            arrays: arrays.filter { $0.value.count > maximumUnrolledIterations }
+        )
         guard result.vertex.utf8.count <= maximumSourceBytes,
               result.fragment.utf8.count <= maximumSourceBytes else {
             return original
@@ -40,15 +43,14 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
         return result
     }
 
-    private static func oversizedVaryingArrays(
+    private static func linkedVaryingArrays(
         vertex: String,
         fragment: String
     ) -> [String: VaryingArray] {
         let vertexArrays = varyingArrays(in: vertex)
         let fragmentArrays = varyingArrays(in: fragment)
         return vertexArrays.filter { name, value in
-            value.count > maximumUnrolledIterations
-                && fragmentArrays[name] == value
+            fragmentArrays[name] == value
         }
     }
 
@@ -74,7 +76,7 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
 
     private static func unrollStaticVaryingLoops(
         in source: String,
-        arrays: Set<String>
+        arrays: [String: VaryingArray]
     ) -> String {
         guard !arrays.isEmpty else { return source }
         let headerPattern = #"\bfor\s*\(\s*int\s+([A-Za-z_]\w*)\s*=\s*0\s*;\s*\1\s*<\s*([^;]+?)\s*;\s*(?:(?:\+\+\s*\1)|(?:\1\s*\+\+))\s*\)"#
@@ -94,7 +96,12 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
                       ), (1 ... maximumUnrolledIterations).contains(iterations),
                       let headerRange = Range(match.range, in: result),
                       let body = loopBody(after: headerRange.upperBound, in: result),
-                      eligible(body.content, variable: variable, arrays: arrays)
+                      eligible(
+                          body.content,
+                          variable: variable,
+                          iterations: iterations,
+                          arrays: arrays
+                      )
                 else { continue }
                 let variablePattern = #"\b"#
                     + NSRegularExpression.escapedPattern(for: variable) + #"\b"#
@@ -173,7 +180,8 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
     private static func eligible(
         _ body: String,
         variable: String,
-        arrays: Set<String>
+        iterations: Int,
+        arrays: [String: VaryingArray]
     ) -> Bool {
         let escapedVariable = NSRegularExpression.escapedPattern(for: variable)
         let code = withoutComments(body)
@@ -184,12 +192,14 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
                 + #"\s*(?:[+\-*/%]?=|\+\+|--)|(?:\+\+|--)\s*\b"#
                 + escapedVariable + #"\b"#
         ).numberOfMatches(in: body, range: fullRange(body)) == 0 else { return false }
-        let referencesVarying = arrays.contains { name in
+        let referencedArrays = arrays.compactMap { name, shape in
             let pattern = #"\b"# + NSRegularExpression.escapedPattern(for: name)
                 + #"\s*\[\s*"# + escapedVariable + #"\s*\]"#
-            return regex(pattern).firstMatch(in: body, range: fullRange(body)) != nil
+            return regex(pattern).firstMatch(in: body, range: fullRange(body)) == nil
+                ? nil : shape
         }
-        return referencesVarying
+        return !referencedArrays.isEmpty
+            && referencedArrays.allSatisfy { iterations <= $0.count }
     }
 
     private static func loopBody(
