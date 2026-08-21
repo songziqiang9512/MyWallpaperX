@@ -22,6 +22,7 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         case ("g_Frametime", .float): .frameTime
         case ("g_PointerPosition", .float2): .pointerPosition
         case ("g_PointerPositionLast", .float2): .pointerPositionLast
+        case ("g_PointerState", .float4): .pointerState
         case ("g_ParallaxPosition", .float2): .parallaxPosition
         case ("g_Screen", .float3): .screen
         case ("g_TexelSize", .float2):

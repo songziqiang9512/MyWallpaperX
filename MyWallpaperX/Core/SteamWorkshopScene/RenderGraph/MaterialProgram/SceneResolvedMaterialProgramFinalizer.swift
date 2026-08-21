@@ -127,6 +127,8 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
             frameTime: frameSnapshot.frameInputs.frameTime,
             pointerCurrentNDC: frameSnapshot.frameInputs.pointerCurrentNDC,
             pointerPreviousNDC: frameSnapshot.frameInputs.pointerPreviousNDC,
+            pointerPrimaryButtonDown:
+                frameSnapshot.frameInputs.pointerPrimaryButtonDown,
             parallaxPositionNDC:
                 frameSnapshot.frameInputs.parallaxPositionNDC,
             texturePhysicalSizes: Dictionary(
@@ -153,9 +155,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         outputStorage: SceneResolvedMaterialProgram.OutputStorage = .color
     ) -> Result<Program, Failure> {
         do {
-            guard input.template.renderState.matchesFullscreenOverwrite(
-                alphaWriting: .unspecified
-            ) else {
+            guard input.template.renderState.supportsResolvedMaterialFullscreenOverwrite else {
                 throw failure(.state, .renderStateInvalid)
             }
             let selection: SceneResolvedMaterialVariantCache.Selection
@@ -181,6 +181,10 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     throw failure(.color, .colorContractUnproven)
                 }
             case .redGreenUnorm:
+                guard texture.frontend.fragmentOutputChannelUse == .redDefined else {
+                    throw failure(.color, .colorContractUnproven)
+                }
+            case .preservedRGBAUnorm:
                 guard texture.frontend.fragmentOutputChannelUse == .redDefined else {
                     throw failure(.color, .colorContractUnproven)
                 }

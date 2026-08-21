@@ -44,18 +44,6 @@ targets: targets,
                 sourceUniforms: sourceUniforms, sourcePipeline: pipeline,
                 pipelines: pipelines, time: time, commandBuffer: commandBuffer
             )
-        case .cursorRipple(let cursorRipple):
-            return renderCursorRipple(
-                cursorRipple, sourceTexture: sourceTexture, masks: masks,
-                targets: targets, sourceUniforms: sourceUniforms,
-                pipeline: pipeline, pipelines: pipelines,
-                cursorUV: cursorUV, previousCursorUV: previousCursorUV,
-                pointerIsInside: pointerIsInside,
-                previousPointerIsInside: previousPointerIsInside,
-                pointerMovement: pointerMovement,
-                primaryButtonIsDown: primaryButtonIsDown,
-                frameTime: frameTime, commandBuffer: commandBuffer
-            )
         case .depthParallax(let depthParallax):
             return renderDepthParallax(
                 depthParallax, sourceTexture: sourceTexture, masks: masks,

@@ -146,8 +146,10 @@ def parse_limits(manifest: dict[str, Any]) -> Limits:
 
 
 def validate_request(payload: dict[str, Any], limits: Limits) -> list[dict[str, str]]:
-    if payload.get("schemaVersion") != 1:
+    if payload.get("schemaVersion") != 2:
         raise HarnessFailure("request", "schema-version")
+    if payload.get("outputSemantics") != "color":
+        raise HarnessFailure("request", "output-semantics")
     request_id = payload.get("requestID")
     if not isinstance(request_id, str) or not request_id or len(request_id) > 128:
         raise HarnessFailure("request", "request-id")
@@ -898,6 +900,7 @@ def compile_request(
                         for stage in stages
                     },
                     maximum_artifact_bytes=limits.maximum_artifact_bytes,
+                    output_semantics=request["outputSemantics"],
                 )
             except ArtifactFailure as error:
                 raise HarnessFailure("artifact", str(error)) from error

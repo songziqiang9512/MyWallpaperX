@@ -28,6 +28,7 @@ nonisolated struct SceneAuthoredShaderFrameInputs {
     let frameTime: Float
     let pointerCurrentNDC: SIMD2<Float>
     let pointerPreviousNDC: SIMD2<Float>
+    let pointerPrimaryButtonDown: Bool
     let parallaxPositionNDC: SIMD2<Float>
     let audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs
 
@@ -39,6 +40,7 @@ nonisolated struct SceneAuthoredShaderFrameInputs {
         frameTime: Float,
         pointerCurrentNDC: SIMD2<Float>,
         pointerPreviousNDC: SIMD2<Float>,
+        pointerPrimaryButtonDown: Bool = false,
         parallaxPositionNDC: SIMD2<Float> = .zero,
         audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent
     ) {
@@ -49,6 +51,7 @@ nonisolated struct SceneAuthoredShaderFrameInputs {
         self.frameTime = frameTime
         self.pointerCurrentNDC = pointerCurrentNDC
         self.pointerPreviousNDC = pointerPreviousNDC
+        self.pointerPrimaryButtonDown = pointerPrimaryButtonDown
         self.parallaxPositionNDC = parallaxPositionNDC
         self.audioSpectrum = audioSpectrum
     }
@@ -67,6 +70,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let frameTime: Float
     let pointerCurrentNDC: SIMD2<Float>
     let pointerPreviousNDC: SIMD2<Float>
+    let pointerPrimaryButtonDown: Bool
     let parallaxPositionNDC: SIMD2<Float>
     let texturePhysicalSizes: [Int: CGSize]
     let audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs
@@ -84,6 +88,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         frameTime: Float,
         pointerCurrentNDC: SIMD2<Float>,
         pointerPreviousNDC: SIMD2<Float>,
+        pointerPrimaryButtonDown: Bool = false,
         parallaxPositionNDC: SIMD2<Float> = .zero,
         texturePhysicalSizes: [Int: CGSize],
         audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent
@@ -100,6 +105,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         self.frameTime = frameTime
         self.pointerCurrentNDC = pointerCurrentNDC
         self.pointerPreviousNDC = pointerPreviousNDC
+        self.pointerPrimaryButtonDown = pointerPrimaryButtonDown
         self.parallaxPositionNDC = parallaxPositionNDC
         self.texturePhysicalSizes = texturePhysicalSizes
         self.audioSpectrum = audioSpectrum

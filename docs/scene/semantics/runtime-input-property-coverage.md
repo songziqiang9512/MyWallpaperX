@@ -2,11 +2,11 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-08-15
+> 最近核对：2026-08-22
 >
 > 本页维护当前能力与缺口；精确运行身份见 [运行证据索引](runtime-evidence-index.md)，唯一实现顺序见 [Scene 兼容执行路线](../scene-compatibility-roadmap.md)。旧 R/B 批次只作证据 provenance。
 >
-> `311115e3` 新增的hover/click、shared alpha、audio-scaled value、property→Vec3、media colors/title/artist已有产品接线与自动测试，但没有该接线后的真实可见证据；本页统一标为`S2 wired / visible unknown`。
+> `311115e3` 新增的click、shared alpha、audio-scaled value、property→Vec3、media colors/title/artist仍只有产品接线与自动测试，统一标为`S2 wired / visible unknown`。hover坐标现有一个shared Cursor feedback真实consumer，但只证明bounded Program输入与整层安全输出，不升级generic pointer event能力。
 
 本表把 Frame Context、动态目标、Timeline、用户属性、文字、光标、音频、媒体和纹理 provider 放在同一执行合同下。官方语义摘要见 [`runtime-systems-reference.md`](runtime-systems-reference.md)，等级口径见 [`coverage-ledger.md`](coverage-ledger.md)。
 
@@ -325,10 +325,10 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 
 | 输入/provider | 等级 | 当前能力 | 下一门 |
 |---|---|---|---|
-| current pointer bounded projection | `L3` | view-normalized -> scene world，以及忽略 parent/rotation/scale/parallax 的 axis-aligned authored layer UV；[E-PARALLAX](runtime-evidence-index.md#e-parallax) | 完整层级逆矩阵前不得宣称通用 layer-local |
+| current pointer bounded projection | `L3 bounded` | view-normalized -> scene world；image-effect Frame Context 另把current/previous投影到同一Program host schema。fresh `3767343314:17#effect#234`固定hover输入已由共享Program/GraphExecutor消费并闭合GPU/publication/compositor/next-frame；[E-V1-CURSOR-RIPPLE-SHARED-FEEDBACK-OWNER](runtime-evidence-index.md#e-v1-cursor-ripple-shared-feedback-owner) | 只证明一个image-effect/effect-matrix consumer和整层安全输出；完整parent/world/control-point逆矩阵、outside/rotation/scale/parallax正反golden与独立Cursor ROI仍缺 |
 | full layer/effect/control-point local pointer | `L0` | 无 parent/world inverse 或 effect/control-point 投影 | hierarchy/rotation/scale/parallax 正反 golden |
-| previous pointer storage | `L2` | Frame Context 保存；renderer 未消费 | shader built-in 和 event delta consumer |
-| pointer buttons/down/up/click | `L2 bounded wiring；generic L0` | AppKit down/up更新per-surface primary-button state；admitted launch-origin master在button edge使用实际camera/world-frame/quad UV hit-test并toggle cohort。只有代码与自动测试证据 | generic有序event queue、multi-button、capture/drag、VM dispatch与fresh visible门 |
+| previous pointer storage | `L3 bounded` | Frame Context 保存并由Program的`g_PointerPositionLast` host uniform消费；fresh Cursor feedback运行与current pointer同链闭合，但没有单独方向性ROI或event-delta断言 | 其他shader consumer、通用event delta、完整坐标逆变换与Windows同输入golden |
+| pointer buttons/down/up/click | `L2 bounded wiring；generic L0` | AppKit down/up更新per-surface primary-button state；Program host schema把primary状态编码到bounded `g_PointerState.z`，其余分量保持0；admitted launch-origin master仍在button edge使用实际camera/world-frame/quad UV hit-test并toggle cohort。当前点击只由代码与自动测试证明，fresh Cursor门只注入hover未按下 | `g_PointerState`不是已登记的`official-public-contract`；完整分量/多button、generic有序event queue、capture/drag、VM dispatch与fresh click可见门 |
 | bounded hover-origin projection | `L2 wired` | AppKit move/enter/exit与同一camera/world/UV hit-test驱动已准入hover cohort；不是SceneScript `cursorEnter/Leave` | fresh surface-local可见门、generic callback/event ordering、完整坐标空间 |
 | audio declarations | `L3` | effect 与粒子两套 schema 分别保真解析（字段名不同，粒子无 `audioamount`）；[E-AUDIO-EFFECT](runtime-evidence-index.md#e-audio-effect) | 粒子声明保真不等于可执行 |
 | 16 stereo buffers | `L3` | left/right host-shared 快照每帧广播给所有 surface，静音/无权限稳定归零；stock effect 与统一Program中的relocated Simple Audio Bars stereo up/down作者shader已消费；旧Simple专用consumer已删除；[E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input) | 频段划分与归一化是工程选择，无官方数值合同；采集 30 Hz 与渲染 60 Hz 之间不插值 |

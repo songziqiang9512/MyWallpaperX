@@ -1,5 +1,4 @@
 import Metal
-import simd
 
 extension SceneEffectStageRenderer {
     static func renderWaterFlow(
@@ -28,9 +27,15 @@ extension SceneEffectStageRenderer {
             )
         }
         return SceneWaterFlowRenderer.renderCaptured(
-            plan: plan, sourceTexture: sourceTexture, masks: masks, targets: targets,
-            sourceUniforms: sourceUniforms, sourcePipeline: pipeline,
-            waterFlowPipeline: effectPipeline, time: time, commandBuffer: commandBuffer
+            plan: plan,
+            sourceTexture: sourceTexture,
+            masks: masks,
+            targets: targets,
+            sourceUniforms: sourceUniforms,
+            sourcePipeline: pipeline,
+            waterFlowPipeline: effectPipeline,
+            time: time,
+            commandBuffer: commandBuffer
         )
     }
 
@@ -47,45 +52,14 @@ extension SceneEffectStageRenderer {
     ) -> MTLTexture? {
         guard let effectPipeline = pipelines.waterWaves else { return nil }
         return SceneWaterWavesRenderer.renderCaptured(
-            plan: plan, sourceTexture: sourceTexture, masks: masks, targets: targets,
-            sourceUniforms: sourceUniforms, sourcePipeline: pipeline,
-            waterWavesPipeline: effectPipeline, time: time, commandBuffer: commandBuffer
-        )
-    }
-
-    static func renderCursorRipple(
-        _ plan: SceneCursorRippleExecutionPlan,
-        sourceTexture: MTLTexture,
-        masks: SceneImageLayerMasks,
-        targets: SceneGraphRenderTargetTable,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        pipeline: SceneImageLayerPipeline,
-        pipelines: SceneAuthoredEffectPipelineSet,
-        cursorUV: SIMD2<Float>,
-        previousCursorUV: SIMD2<Float>,
-        pointerIsInside: Bool,
-        previousPointerIsInside: Bool,
-        pointerMovement: Float,
-        primaryButtonIsDown: Bool,
-        frameTime: Float,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        guard let cursorRipplePipeline = pipelines.cursorRipple else { return nil }
-        return SceneCursorRippleRenderer.renderCaptured(
             plan: plan,
             sourceTexture: sourceTexture,
             masks: masks,
             targets: targets,
             sourceUniforms: sourceUniforms,
             sourcePipeline: pipeline,
-            cursorRipplePipeline: cursorRipplePipeline,
-            currentCursorUV: cursorUV,
-            previousCursorUV: previousCursorUV,
-            pointerIsInside: pointerIsInside,
-            previousPointerIsInside: previousPointerIsInside,
-            pointerMovement: pointerMovement,
-            primaryButtonIsDown: primaryButtonIsDown,
-            frameTime: frameTime,
+            waterWavesPipeline: effectPipeline,
+            time: time,
             commandBuffer: commandBuffer
         )
     }

@@ -83,7 +83,7 @@ targets: targets,
                 commandBuffer: commandBuffer
             )
         case .waterFlow, .waterWaves, .waterCaustics,
-             .cursorRipple, .depthParallax,
+             .depthParallax,
              .xRay, .blend, .transform,
              .godrays, .shine, .pulse:
             return renderSpecializedStage(

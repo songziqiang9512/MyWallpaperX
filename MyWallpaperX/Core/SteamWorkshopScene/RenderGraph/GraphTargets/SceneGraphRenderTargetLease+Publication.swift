@@ -204,11 +204,9 @@ extension SceneGraphRenderTargetLease {
         switch content {
         case let .color(.resolved(representation)) where representation != .straightAlpha:
             purpose = .premultipliedColor
-        case .scalarRedUnorm:
+        case .scalarRedUnorm, .redGreenUnorm, .data:
             purpose = .preservedChannels
-        case .redGreenUnorm:
-            purpose = .preservedChannels
-        case .color, .data:
+        case .color:
             return .failure(.colorRepresentationUnresolved)
         }
         let extent = descriptor.extent
@@ -251,6 +249,8 @@ extension SceneGraphRenderTargetLease {
         case (.r8, .scalarRedUnorm):
             return true
         case (.rg88, .redGreenUnorm):
+            return true
+        case (.rgba8888, .data):
             return true
         case (.rgbaBackbuffer, .color(.resolved(let representation))),
              (.rgba8888, .color(.resolved(let representation))):

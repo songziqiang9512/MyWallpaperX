@@ -33,12 +33,7 @@ extension SceneEffectStageRenderer {
             && stage.renderGraph.renderTargets.count == stage.logicalRenderTargetCount
             && targets.plan.logicalTargets.count == stage.logicalRenderTargetCount
             && stage.renderGraph.renderTargets.allSatisfy { !$0.declaredUnique }
-        let historyTargetStage = stage.supportsUnifiedHistoryTargetStage
-            && stage.logicalRenderTargetCount > 0
-            && stage.renderGraph.renderTargets.count == stage.logicalRenderTargetCount
-            && targets.plan.logicalTargets.count == stage.logicalRenderTargetCount
-            && stage.renderGraph.renderTargets.allSatisfy { !$0.declaredUnique }
-        guard pairLeaf || logicalTargetStage || historyTargetStage else {
+        guard pairLeaf || logicalTargetStage else {
             return .rejected(reason: "backend-unsupported")
         }
         guard targets.inputTexture === sourceTexture else {
@@ -204,17 +199,6 @@ extension SceneEffectStageRenderer {
             }
             return pipelines.waterCaustics == nil
                 ? "water-caustics-pipeline-missing" : nil
-        case .cursorRipple(let plan):
-            guard pipelines.cursorRipple != nil else {
-                return "cursor-ripple-pipeline-missing"
-            }
-            guard let resources = inputs.masks.cursorRippleEffects[
-                plan.effectKey.descriptorID
-            ] else {
-                return "cursor-ripple-resource-missing"
-            }
-            _ = resources
-            return nil
         case .depthParallax(let plan):
             guard let resources = inputs.masks.depthParallaxEffects[
                 plan.effectKey.descriptorID
@@ -268,8 +252,6 @@ extension SceneEffectStageRenderer {
             let bounds = plan.resolvedComponents(.bounds, in: inputs.dynamicValues)
             guard bounds.x < bounds.y else { return "pulse-bounds-invalid" }
             return pipelines.pulse == nil ? "pulse-pipeline-missing" : nil
-        default:
-            return "backend-unhandled"
         }
     }
 

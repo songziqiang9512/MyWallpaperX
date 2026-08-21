@@ -30,9 +30,6 @@ extension SceneLayerEffectTextureLoader {
             depthParallaxEffectIDs: Set(
                 stages.compactMap { $0.depthParallax?.effectKey.descriptorID }
             ),
-            cursorRippleEffectIDs: Set(
-                stages.compactMap { $0.cursorRipple?.effectKey.descriptorID }
-            ),
             godraysEffectIDs: Set(stages.compactMap { $0.godrays?.effectKey.descriptorID }),
             shineEffectIDs: Set(stages.compactMap { $0.shine?.effectKey.descriptorID }),
             userPropertyTextures: userPropertyTextures,

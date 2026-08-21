@@ -156,8 +156,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     && product.graph.nodes.count == 1
                     && product.graph.renderTargets.isEmpty
                 let logicalTargetStage = dedicatedGraphStageKeys.contains(effect.key)
-                    && (program.executionPlan.supportsUnifiedLogicalTargetStage
-                        || program.executionPlan.supportsUnifiedHistoryTargetStage)
+                    && program.executionPlan.supportsUnifiedLogicalTargetStage
                     && program.executionPlan.logicalRenderTargetCount > 0
                     && product.graph.nodes.count > 1
                     && product.graph.renderTargets.count

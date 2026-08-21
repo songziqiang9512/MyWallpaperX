@@ -92,6 +92,13 @@ private struct PreservedChannelUseOutput: Codable {
     let mixedProjection: String?
 }
 
+private struct PreservedRGBADataBuilderOutput: Codable {
+    let outputSemantics: String?
+    let colorTransfer: String?
+    let wholeOutputAccepted: Bool
+    let helperOutputRejected: Bool
+}
+
 private struct NormalizedSampleSumOutput: Codable {
     let analyzedTransfer: String
     let positiveKind: String?
@@ -243,6 +250,7 @@ private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
     case .straightAlphaPreserving: return "straightAlphaPreserving"
     case .premultipliedAlpha: return "premultipliedAlpha"
     case .opaque: return "opaque"
+    case .unresolved: return "unresolved"
     default: return "other"
     }
 }
@@ -959,6 +967,66 @@ private struct GenericShaderArtifactHarness {
             let output = PreservedChannelUseOutput(
                 directRedGreen: channelUse(direct),
                 mixedProjection: channelUse(mixed)
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--builder-preserved-rgba-data" {
+            let reflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms {};"
+            let wholeOutput = [
+                "uniform sampler2D g_Texture0;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    vec4 state = texSample2D(g_Texture0, v_TexCoord);",
+                "    state.rg += state.ba * 0.25;",
+                "    gl_FragColor = state;",
+                "}",
+            ].joined(separator: "\n")
+            let helperOutput = wholeOutput.replacingOccurrences(
+                of: "    gl_FragColor = state;",
+                with: "    WriteOutput(state);"
+            )
+            let fragmentMSL = [
+                "struct MWXUniforms {};",
+                "fragment void f() {",
+                "    float4 state = g_Texture0.sample(s, uv);",
+                "    state.xy += state.zw * 0.25;",
+                "    out.mwxFragColor = state;",
+                "}",
+            ].joined(separator: "\n")
+            func build(_ source: String) -> Result<
+                SceneGenericShaderProgramArtifact,
+                SceneGenericShaderArtifactBuilder.Failure
+            > {
+                SceneGenericShaderArtifactBuilder.build(
+                    requestKey: String(repeating: "9", count: 64),
+                    backendID: "glslang-spirv-cross-msl-v2",
+                    outputSemantics: .preservedRGBAUnorm,
+                    stages: [
+                        .init(
+                            name: "vertex", source: "void main() {}",
+                            authoredSource: "void main() {}",
+                            msl: vertexMSL, reflection: reflection
+                        ),
+                        .init(
+                            name: "fragment", source: source,
+                            authoredSource: source,
+                            msl: fragmentMSL, reflection: reflection
+                        ),
+                    ],
+                    maximumArtifactBytes: 1_024_000
+                )
+            }
+            let accepted = build(wholeOutput)
+            let artifact: SceneGenericShaderProgramArtifact?
+            if case let .success(value) = accepted { artifact = value }
+            else { artifact = nil }
+            let output = PreservedRGBADataBuilderOutput(
+                outputSemantics: artifact?.outputSemantics.rawValue,
+                colorTransfer: artifact?.program.colorTransfer.kind,
+                wholeOutputAccepted: artifact != nil,
+                helperOutputRejected: failedColorTransfer(build(helperOutput))
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -1806,7 +1874,11 @@ private struct GenericShaderArtifactHarness {
             hasOnlyGraphInputSampler:
                 ProcessInfo.processInfo.environment[
                     "MWX_TEST_ONLY_GRAPH_INPUT_SAMPLER"
-                ] == "1"
+                ] == "1",
+            outputSemantics:
+                ProcessInfo.processInfo.environment[
+                    "MWX_TEST_PRESERVED_RGBA_OUTPUT"
+                ] == "1" ? .preservedRGBAUnorm : .color
         ) {
         case let .accepted(program, requestKey, decision):
             result = .init(
@@ -1897,6 +1969,16 @@ void WriteOutput() {
 }
 void main() {
     WriteOutput();
+}
+"""
+
+PRESERVED_RGBA_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 state = texSample2D(g_Texture0, v_TexCoord);
+    state.rg += state.ba * 0.25;
+    gl_FragColor = state;
 }
 """
 
@@ -2320,6 +2402,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         has_only_graph_input_sampler: bool = False,
         alpha_attenuation_source_slot: int | None = None,
         color_blend_source_slot: int | None = None,
+        preserved_rgba_output: bool = False,
     ):
         vertex_path = root / "fixture.vert"
         fragment_path = root / "fixture.frag"
@@ -2392,6 +2475,10 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             )
         else:
             environment.pop("MWX_TEST_COLOR_BLEND_SOURCE_SLOT", None)
+        if preserved_rgba_output:
+            environment["MWX_TEST_PRESERVED_RGBA_OUTPUT"] = "1"
+        else:
+            environment.pop("MWX_TEST_PRESERVED_RGBA_OUTPUT", None)
         completed = subprocess.run(
             [str(self.binary), str(vertex_path), str(fragment_path)],
             cwd=REPOSITORY_ROOT,
@@ -2403,7 +2490,12 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         return json.loads(completed.stdout), requests, cache, completed.stderr
 
     def artifact(
-        self, key: str, *, color_transfer: str = "passthrough"
+        self,
+        key: str,
+        *,
+        color_transfer: str = "passthrough",
+        output_semantics: str = "color",
+        output_channel_use: str = "redDefined",
     ) -> dict:
         metal = """
 #include <metal_stdlib>
@@ -2413,10 +2505,11 @@ vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u
 fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) { return float4(1.0); }
 """.strip() + "\n"
         return {
-            "schemaVersion": 3,
+            "schemaVersion": 4,
             "kind": "scene-generic-shader-program-artifact",
             "backendID": "glslang-spirv-cross-msl-v2",
             "requestKey": key,
+            "outputSemantics": output_semantics,
             "program": {
                 "metalSource": metal,
                 "metalSourceSHA256": hashlib.sha256(metal.encode()).hexdigest(),
@@ -2436,7 +2529,7 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                     "name": "g_Texture0", "slot": 0, "channelUse": "unproven"
                 }],
                 "staticLoopWork": 0,
-                "fragmentOutputChannelUse": "redDefined",
+                "fragmentOutputChannelUse": output_channel_use,
                 "colorTransfer": (
                     {"kind": color_transfer, "slot": 0}
                     if color_transfer in (
@@ -2508,6 +2601,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
         for value in (
             seed,
             "wallpaper-engine-glsl-like-v0",
+            "color",
             vertex_source,
             fragment_source,
             "{}",
@@ -2517,18 +2611,18 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             digest.update(encoded)
         return digest.hexdigest()
 
-    def test_schema_two_request_and_default_cache_namespaces_are_isolated(self):
+    def test_schema_four_request_and_default_cache_namespaces_are_isolated(self):
         source = CACHE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn('"mwx-generic-shader-request-v3"', source)
-        self.assertIn('"SceneGenericShaderPrograms-v3"', source)
-        self.assertNotIn('"mwx-generic-shader-request-v2"', source)
-        self.assertNotIn('"SceneGenericShaderPrograms-v2"', source)
+        self.assertIn('"mwx-generic-shader-request-v4"', source)
+        self.assertIn('"SceneGenericShaderPrograms-v4"', source)
+        self.assertNotIn('"mwx-generic-shader-request-v3"', source)
+        self.assertNotIn('"SceneGenericShaderPrograms-v3"', source)
 
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
             root = Path(directory)
             observed, _, cache, _ = self.run_harness(root, route="observe-only")
             current_key = self.request_key(
-                "mwx-generic-shader-request-v3", VERTEX, FRAGMENT
+                "mwx-generic-shader-request-v4", VERTEX, FRAGMENT
             )
             legacy_key = self.request_key(
                 "mwx-generic-shader-request-v1", VERTEX, FRAGMENT
@@ -2893,6 +2987,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             self.assertEqual(accepted["uniformBufferIndex"], 8)
             self.assertEqual(accepted["uniformNames"], ["mwxRenderSize"])
             self.assertEqual(accepted["textureSlots"], [0])
+
             self.assertEqual(accepted["colorTransfer"], "passthrough")
             self.assertEqual(accepted["fragmentOutputChannelUse"], "redDefined")
             self.assertIn(
@@ -2949,6 +3044,73 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "reason=compiler-configuration-licensebundleunavailable",
                 changed_log,
             )
+
+    def test_preserved_rgba_output_has_distinct_raw_data_artifact_contract(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-rgba-data-") as directory:
+            root = Path(directory)
+            color, _, _, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=PRESERVED_RGBA_FRAGMENT,
+            )
+            data, requests, cache, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=PRESERVED_RGBA_FRAGMENT,
+                preserved_rgba_output=True,
+            )
+            self.assertNotEqual(color["requestKey"], data["requestKey"])
+            request = json.loads(
+                (requests / f"{data['requestKey']}.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(request["schemaVersion"], 2)
+            self.assertEqual(request["outputSemantics"], "preserved-rgba-unorm")
+
+            artifact = self.artifact(
+                data["requestKey"],
+                color_transfer="preserved-rgba-data",
+                output_semantics="preserved-rgba-unorm",
+            )
+            (cache / f"{data['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, _ = self.run_harness(
+                root,
+                route="prefer-generic",
+                fragment=PRESERVED_RGBA_FRAGMENT,
+                preserved_rgba_output=True,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["colorTransfer"], "unresolved")
+            self.assertEqual(accepted["fragmentOutputChannelUse"], "redDefined")
+
+            artifact["program"]["fragmentOutputChannelUse"] = "unproven"
+            (cache / f"{data['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            rejected, _, _, _ = self.run_harness(
+                root,
+                route="prefer-generic",
+                fragment=PRESERVED_RGBA_FRAGMENT,
+                preserved_rgba_output=True,
+            )
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+
+    def test_preserved_rgba_builder_requires_definite_whole_output(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-preserved-rgba-data"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        observed = json.loads(completed.stdout)
+        self.assertEqual(observed, {
+            "outputSemantics": "preserved-rgba-unorm",
+            "colorTransfer": "preserved-rgba-data",
+            "wholeOutputAccepted": True,
+            "helperOutputRejected": True,
+        })
 
     def test_normalized_sample_sum_profile_is_generic_only_and_reversible(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-sum-route-") as directory:

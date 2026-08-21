@@ -45,6 +45,11 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         let initialClear: ClearColor?
     }
 
+    struct FeedbackHistoryProfile: Equatable {
+        let seedTargets: Set<Graph.TextureIdentity>
+        let stateTargets: Set<Graph.TextureIdentity>
+    }
+
     enum CommandKind: String, Equatable {
         case copy
         case swap
@@ -219,6 +224,10 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         guard authoredSwapDescriptorsAreCompatible(in: graph) else {
             return .failure(.unsupportedTargetDescriptor)
         }
+        let feedbackHistory = boundedFeedbackHistoryProfile(
+            graph: graph,
+            descriptors: descriptors
+        )
 
         var firstReads: [Graph.TextureIdentity: Int] = [:]
         var lastReads: [Graph.TextureIdentity: Int] = [:]
@@ -247,7 +256,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             guard let descriptor = descriptors[identity] else { return false }
             return descriptor.initialClear != nil || permitsHistorySeed(
                 identity,
-                stageExecutionPlan: stageExecutionPlan,
+                feedbackHistory: feedbackHistory,
                 declarations: declarations
             )
         }
@@ -422,6 +431,82 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             logicalTargets: targets,
             commands: commands
         ))
+    }
+
+    /// Shared two-target feedback primitive: one history-seeded target feeds
+    /// a first state update, the second update writes back to the seed target,
+    /// and one terminal material combines that state with the effect input.
+    /// Names, paths and effect identities never participate in admission.
+    static func boundedFeedbackHistoryProfile(
+        in graph: Graph
+    ) -> FeedbackHistoryProfile? {
+        guard authoredTargetDescriptorsAreEquivalent(graph.renderTargets) else {
+            return nil
+        }
+        var descriptors: [Graph.TextureIdentity: TargetDescriptor] = [:]
+        for target in graph.renderTargets {
+            guard let descriptor = targetDescriptor(
+                target,
+                inputWidth: 1,
+                inputHeight: 1
+            ), descriptors.updateValue(
+                descriptor,
+                forKey: target.texture
+            ) == nil else { return nil }
+        }
+        return boundedFeedbackHistoryProfile(
+            graph: graph,
+            descriptors: descriptors
+        )
+    }
+
+    private static func boundedFeedbackHistoryProfile(
+        graph: Graph,
+        descriptors: [Graph.TextureIdentity: TargetDescriptor]
+    ) -> FeedbackHistoryProfile? {
+        guard graph.blockers.isEmpty,
+              graph.effects.count == 1,
+              graph.renderTargets.count == 2,
+              graph.nodes.count == 3,
+              let effect = graph.effects.first else { return nil }
+        let targets = Set(graph.renderTargets.map(\.texture))
+        guard let firstDescriptor = descriptors.values.first else { return nil }
+        guard targets.count == 2,
+              descriptors.count == 2,
+              targets.allSatisfy({
+                  $0.kind == .framebuffer
+                      && $0.layerID == effect.key.layerID
+                      && $0.effect == effect.key
+              }),
+              descriptors.values.allSatisfy({
+                  $0.format == .rgba8888
+                      && !$0.isUnique
+                      && $0.initialClear == nil
+                      && $0 == firstDescriptor
+              }) else { return nil }
+        let nodes = graph.nodes.sorted { $0.nodeIndex < $1.nodeIndex }
+        guard nodes.allSatisfy({
+            $0.kind == .material
+                && $0.effect == effect.key
+                && $0.conditions == nil
+                && $0.commandSource == nil
+                && $0.commandTarget == nil
+                && ($0.compose == nil || $0.compose == .bool(false))
+                && $0.bindings.allSatisfy({ $0.conditions == nil })
+        }), let firstTarget = nodes[0].target,
+          nodes[0].bindings.count == 1,
+          let seedTarget = nodes[0].bindings.first?.texture,
+          targets.contains(seedTarget),
+          firstTarget != seedTarget,
+          targets == Set([firstTarget, seedTarget]),
+          nodes[1].target == seedTarget,
+          nodes[1].bindings.count == 1,
+          nodes[1].bindings.first?.texture == firstTarget,
+          nodes[2].target == effect.output,
+          nodes[2].bindings.count == 2,
+          Set(nodes[2].bindings.map(\.texture))
+              == Set([seedTarget, effect.input]) else { return nil }
+        return .init(seedTargets: [seedTarget], stateTargets: targets)
     }
 
 }

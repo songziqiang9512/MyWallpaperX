@@ -406,9 +406,9 @@ final class SceneResolvedMaterialPassEncoder {
             }
         }
         compilationAttempts += 1
-        guard renderState.matchesFullscreenOverwrite(
-            alphaWriting: .unspecified
-        ) else { return cacheFailure(.renderStateRejected, for: key, origin: origin) }
+        guard renderState.supportsResolvedMaterialFullscreenOverwrite else {
+            return cacheFailure(.renderStateRejected, for: key, origin: origin)
+        }
         let library: MTLLibrary
         do {
             library = try device.makeLibrary(

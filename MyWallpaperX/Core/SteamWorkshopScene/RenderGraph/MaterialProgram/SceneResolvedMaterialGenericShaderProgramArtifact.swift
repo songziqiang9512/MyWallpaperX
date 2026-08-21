@@ -1,6 +1,14 @@
 import CryptoKit
 import Foundation
 
+/// Output ABI requested from the generic compiler. It is source-independent
+/// and participates in the request key so color-lowered and raw-data Metal can
+/// never share an artifact.
+nonisolated enum SceneGenericShaderOutputSemantics: String, Codable, Sendable {
+    case color
+    case preservedRGBAUnorm = "preserved-rgba-unorm"
+}
+
 /// Immutable route authority captured during preparation and carried through
 /// Program/execution telemetry. It contains no sample or layer identity and
 /// is available to every standalone material source set.
@@ -73,26 +81,35 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
     let kind: String
     let backendID: String
     let requestKey: String
+    let outputSemantics: SceneGenericShaderOutputSemantics
     let program: Program
 
-    init(backendID: String, requestKey: String, program: Program) {
-        schemaVersion = 3
+    init(
+        backendID: String,
+        requestKey: String,
+        outputSemantics: SceneGenericShaderOutputSemantics = .color,
+        program: Program
+    ) {
+        schemaVersion = 4
         kind = "scene-generic-shader-program-artifact"
         self.backendID = backendID
         self.requestKey = requestKey
+        self.outputSemantics = outputSemantics
         self.program = program
     }
 
     func makeProgram(
         expectedKey: String,
+        expectedOutputSemantics: SceneGenericShaderOutputSemantics = .color,
         expectedColorTransfer: SceneShaderColorTransfer,
         expectedFragmentOutputChannelUse:
             SceneAuthoredShaderProgram.FragmentOutputChannelUse
     ) -> SceneAuthoredShaderProgram? {
-        guard schemaVersion == 3,
+        guard schemaVersion == 4,
               kind == "scene-generic-shader-program-artifact",
               backendID == "glslang-spirv-cross-msl-v2",
-              requestKey == expectedKey else { return nil }
+              requestKey == expectedKey,
+              outputSemantics == expectedOutputSemantics else { return nil }
         let raw = program
         guard raw.vertexFunctionName == "mwxGenericVertex",
               raw.fragmentFunctionName == "mwxGenericFragment",
@@ -164,11 +181,16 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         case let ("straight-alpha-preserving", slot?, nil):
             guard bindings.contains(where: { $0.slot == slot }) else { return nil }
             colorTransfer = .straightAlphaPreserving(textureSlot: slot)
+        case ("preserved-rgba-data", nil, nil):
+            guard outputSemantics == .preservedRGBAUnorm else { return nil }
+            colorTransfer = .unresolved
         default:
             return nil
         }
-        guard expectedColorTransfer == .unresolved
-                || colorTransfer == expectedColorTransfer else {
+        guard outputSemantics == .preservedRGBAUnorm
+                ? colorTransfer == .unresolved
+                : expectedColorTransfer == .unresolved
+                    || colorTransfer == expectedColorTransfer else {
             return nil
         }
         guard let fragmentOutputChannelUse =
@@ -179,8 +201,11 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         }
         // The producer may conservatively decline to prove this fact. The
         // current Swift source analyzer owns any promotion used by Program.
-        guard fragmentOutputChannelUse == .unproven
-                || expectedFragmentOutputChannelUse == .redDefined else {
+        guard expectedOutputSemantics == .preservedRGBAUnorm
+                ? fragmentOutputChannelUse == .redDefined
+                    && expectedFragmentOutputChannelUse == .redDefined
+                : fragmentOutputChannelUse == .unproven
+                    || expectedFragmentOutputChannelUse == .redDefined else {
             return nil
         }
         return .init(

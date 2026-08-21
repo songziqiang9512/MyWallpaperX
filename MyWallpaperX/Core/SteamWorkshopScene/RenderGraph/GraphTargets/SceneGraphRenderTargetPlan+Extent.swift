@@ -84,6 +84,32 @@ nonisolated extension SceneGraphRenderTargetPlan {
         return true
     }
 
+    /// Capability probes must compare authored descriptor expressions, not a
+    /// 1x1 resolved extent where different fit/scale values can both clamp to
+    /// one pixel and appear equivalent.
+    nonisolated static func authoredTargetDescriptorsAreEquivalent(
+        _ targets: [Graph.RenderTarget]
+    ) -> Bool {
+        guard let first = targets.first,
+              let firstDescriptor = targetDescriptor(
+                  first,
+                  inputWidth: 1,
+                  inputHeight: 1
+              ) else { return false }
+        return targets.dropFirst().allSatisfy { target in
+            guard authoredExtentsAreEquivalent(first.extent, target.extent),
+                  let descriptor = targetDescriptor(
+                      target,
+                      inputWidth: 1,
+                      inputHeight: 1
+                  ) else { return false }
+            return descriptor.format == firstDescriptor.format
+                && descriptor.addressMode == firstDescriptor.addressMode
+                && descriptor.isUnique == firstDescriptor.isUnique
+                && descriptor.initialClear == firstDescriptor.initialClear
+        }
+    }
+
     private nonisolated static func normalizedExtent(
         _ authored: Graph.TargetExtent
     ) -> Graph.TargetExtent {
@@ -93,6 +119,19 @@ nonisolated extension SceneGraphRenderTargetPlan {
             fit: authored.fit,
             scale: authored.scale == 1 ? nil : authored.scale
         )
+    }
+
+    private nonisolated static func authoredExtentsAreEquivalent(
+        _ lhs: Graph.TargetExtent,
+        _ rhs: Graph.TargetExtent
+    ) -> Bool {
+        let left = normalizedExtent(lhs)
+        let right = normalizedExtent(rhs)
+        return left.kind == right.kind
+            && left.width == right.width
+            && left.height == right.height
+            && left.fit == right.fit
+            && left.scale == right.scale
     }
 
     /// Confirms that this typed Plan is the canonical interpretation of the
@@ -177,18 +216,11 @@ nonisolated extension SceneGraphRenderTargetPlan {
 
     nonisolated static func permitsHistorySeed(
         _ identity: Graph.TextureIdentity,
-        stageExecutionPlan: SceneEffectStageExecutionPlan?,
+        feedbackHistory: FeedbackHistoryProfile?,
         declarations: [Graph.TextureIdentity: Graph.RenderTarget]
     ) -> Bool {
         if declarations[identity]?.declaredUnique == true { return true }
-        // The typed Cursor Ripple contract uses its second ping-pong target as
-        // the frame-to-frame history seed. The planner validates that exact
-        // topology before this target planner is allowed to preserve it.
-        guard let cursorRipple = stageExecutionPlan?.cursorRipple,
-              identity.effect == cursorRipple.effectKey else {
-            return false
-        }
-        return identity.name?.lowercased() == "_rt_eightbuffer2"
+        return feedbackHistory?.seedTargets.contains(identity) == true
     }
 
     nonisolated static func validEffectKey(

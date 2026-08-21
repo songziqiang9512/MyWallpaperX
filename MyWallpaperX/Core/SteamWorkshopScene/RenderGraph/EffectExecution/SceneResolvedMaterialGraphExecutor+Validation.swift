@@ -264,6 +264,7 @@ extension SceneResolvedMaterialGraphExecutor {
         }
         return resources.allSatisfy { identity, resource in
             guard let versioned = readable[identity],
+                  resource.isCompleteGraphResource,
                   SceneGraphRenderTargetLease.graphSamplingMatches(
                       resource,
                       descriptor: versioned.descriptor
@@ -327,11 +328,10 @@ extension SceneResolvedMaterialGraphExecutor {
                     || (history.rehydration[old.token] == nil
                         && old.token == resource.token),
                   let prior = previousResources[identity],
-                  let representation = representation(prior),
                   case let .success(published) = lease.graphResource(
                       for: identity,
                       versionedResource: resource,
-                      fragmentColorRepresentation: .resolved(representation)
+                      storedContent: prior.publication.candidate.content
                   ) else { return false }
             publications[identity] = published
         }

@@ -75,7 +75,6 @@ nonisolated struct SceneEffectStageProgram {
              (.waterFlow, .waterFlow),
              (.waterWaves, .waterWaves),
              (.waterCaustics, .waterCaustics),
-             (.cursorRipple, .cursorRipple),
              (.depthParallax, .depthParallax),
              (.xRay, .xRay),
              (.blend, .blend),

@@ -306,9 +306,6 @@ struct SceneEffectPassSlot: Hashable {
     let slotIndex: Int
 }
 
-struct SceneCursorRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
 struct SceneDepthParallaxExecutionPlan {}
 struct SceneXRayExecutionPlan {}
 
@@ -335,7 +332,6 @@ struct SceneEffectStageExecutionPlan {
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
-    let cursorRipple: SceneCursorRippleExecutionPlan?
     var depthParallax: SceneDepthParallaxExecutionPlan? = nil
     var xRay: SceneXRayExecutionPlan? = nil
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil
@@ -466,6 +462,8 @@ struct SceneResolvedMaterialTemplate {
             _ = alphaWriting
             return overwrite
         }
+
+        var supportsResolvedMaterialFullscreenOverwrite: Bool { overwrite }
     }
 
     enum AlphaWriting { case unspecified }
@@ -545,7 +543,9 @@ struct SceneResolvedMaterialRuntimeCatalog {
 }
 
 final class SceneResolvedMaterialVariantCache {
-    enum OutputStorage { case color, scalarRedUnorm, redGreenUnorm }
+    enum OutputStorage {
+        case color, scalarRedUnorm, redGreenUnorm, preservedRGBAUnorm
+    }
 
     enum LaunchEnvelopeFailure: Error {
         enum Kind: String { case capacity, invariant }
@@ -1629,7 +1629,6 @@ private func dedicatedProgram(
             logicalRenderTargetCount: logicalTargetStage
                 ? stageGraph.renderTargets.count : 0,
             inputRole: inputRole,
-            cursorRipple: nil,
             proceduralNoise: proceduralNoise,
             supportsUnifiedLogicalTargetStage: logicalTargetStage,
             supportsUnifiedFullFrameComposeStage: fullFrameComposeStage,
@@ -3846,9 +3845,6 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
     }
 }
 
-struct SceneCursorRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
 struct SceneDepthParallaxExecutionPlan {}
 struct SceneXRayExecutionPlan {}
 struct SceneProceduralNoiseExecutionPlan {
@@ -3872,7 +3868,6 @@ struct SceneEffectStageExecutionPlan {
     let logicalRenderTargetCount: Int
     var layerID: Int { 0 }
     var materialNodeCount: Int { 0 }
-    var cursorRipple: SceneCursorRippleExecutionPlan? = nil
     var depthParallax: SceneDepthParallaxExecutionPlan? = nil
     var xRay: SceneXRayExecutionPlan? = nil
     var inputRole: SceneAuthoredEffectInputRole { .layerSource }
@@ -4713,7 +4708,7 @@ private func requiresInvertibleEffectTextureProjection(
 
 private func dedicatedCatalog(
     graph: Graph,
-    pointerSensitive: Bool
+    projectionSensitive: Bool
 ) -> Catalog {
     let admitted = SceneResolvedMaterialAdmittedLayer(
         layerID: layerID,
@@ -4727,8 +4722,7 @@ private func dedicatedCatalog(
         stageGraph: graph,
         executionPlan: .init(
             logicalRenderTargetCount: 0,
-            cursorRipple: pointerSensitive
-                ? .init(effectKey: effectKey) : nil
+            depthParallax: projectionSensitive ? .init() : nil
         )
     )
     return .init(
@@ -4833,11 +4827,11 @@ private enum EnvelopeHarness {
         )
         let ordinaryDedicatedProjectionRequirement = dedicatedCatalog(
             graph: boundGraph,
-            pointerSensitive: false
+            projectionSensitive: false
         )
-        let pointerDedicatedProjectionRequirement = dedicatedCatalog(
+        let projectionDedicatedProjectionRequirement = dedicatedCatalog(
             graph: boundGraph,
-            pointerSensitive: true
+            projectionSensitive: true
         )
         guard case let .success(uncompiledProjectionCache) =
                 SceneResolvedMaterialVariantCache.launchValidated(
@@ -5731,8 +5725,8 @@ private enum EnvelopeHarness {
                 "ordinaryDedicated": requiresInvertibleEffectTextureProjection(
                     ordinaryDedicatedProjectionRequirement
                 ) == false,
-                "pointerDedicated": requiresInvertibleEffectTextureProjection(
-                    pointerDedicatedProjectionRequirement
+                "projectionDedicated": requiresInvertibleEffectTextureProjection(
+                    projectionDedicatedProjectionRequirement
                 ) == true,
                 "uncompiledResolvedCacheFailsClosed":
                     uncompiledProjectionRequirement,
@@ -7520,7 +7514,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "unusedEffectProjectionDeclaration": True,
                 "effectProjectionInverse": True,
                 "ordinaryDedicated": True,
-                "pointerDedicated": True,
+                "projectionDedicated": True,
                 "uncompiledResolvedCacheFailsClosed": True,
             },
             payload,

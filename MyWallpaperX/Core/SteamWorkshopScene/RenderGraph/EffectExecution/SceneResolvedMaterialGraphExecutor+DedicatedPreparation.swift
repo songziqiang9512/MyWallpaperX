@@ -14,8 +14,7 @@ extension SceneResolvedMaterialGraphExecutor {
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command]
     ) -> Failure? {
-        if program.executionPlan.supportsUnifiedLogicalTargetStage
-            || program.executionPlan.supportsUnifiedHistoryTargetStage {
+        if program.executionPlan.supportsUnifiedLogicalTargetStage {
             return prepareDedicatedGraphStage(
                 program: program,
                 transition: transition,
@@ -93,7 +92,6 @@ extension SceneResolvedMaterialGraphExecutor {
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command]
     ) -> Failure? {
-        let isHistoryStage = program.executionPlan.supportsUnifiedHistoryTargetStage
         let historyIdentities = Set(lease.table.plan.logicalTargets.compactMap {
             $0.lifetime.requiresHistorySeed ? $0.identity : nil
         })
@@ -117,20 +115,15 @@ extension SceneResolvedMaterialGraphExecutor {
         )
         guard program.effectKey == pairStep.effect,
               program.stageGraph.effects.first?.key == pairStep.effect,
-              program.executionPlan.supportsUnifiedLogicalTargetStage
-                || isHistoryStage,
+              program.executionPlan.supportsUnifiedLogicalTargetStage,
               program.executionPlan.logicalRenderTargetCount > 0,
               graph.nodes.count > 1,
               graph.nodes.count == pairStep.nodes.count,
               graph.renderTargets.count
                 == program.executionPlan.logicalRenderTargetCount,
               graph.renderTargets.allSatisfy({ !$0.declaredUnique }),
-              isHistoryStage
-                ? (!historyIdentities.isEmpty
-                    && transition.nextState.historyClosureIdentities
-                        == historyIdentities)
-                : (historyIdentities.isEmpty
-                    && transition.nextState.historyClosureIdentities.isEmpty),
+              historyIdentities.isEmpty,
+              transition.nextState.historyClosureIdentities.isEmpty,
               Set(initializationIntents.map(\.0))
                 == expectedInitializationIdentities,
               initializationIntents.count == expectedInitializationIdentities.count,
@@ -154,27 +147,6 @@ extension SceneResolvedMaterialGraphExecutor {
         }
         guard pairStep.nodes.last?.fullFrameWriteMember == pairStep.outputMember else {
             return .dedicatedLeafRejected(reason: "graph-stage-output")
-        }
-
-        for (identity, resource, reason) in initializationIntents {
-            guard isHistoryStage,
-                  historyIdentities.contains(identity),
-                  reason == .transparentHistorySeed,
-                  let target = lease.texturesByToken[resource.token],
-                  let initialization = initialization(reason),
-                  let prepared = resourceEncoder?.prepareInitialization(
-                      target: target,
-                      clear: initialization.clear
-                  ), let publication = framebufferResource(
-                      lease: lease,
-                      identity: identity,
-                      resource: resource,
-                      representation: initialization.representation
-                  ) else {
-                return .resourceCommandRejected
-            }
-            commands.append(.resource(prepared))
-            publications[identity] = publication
         }
 
         let stagePreparation = SceneEffectStageRenderer.prepareStage(

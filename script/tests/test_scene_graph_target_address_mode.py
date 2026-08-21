@@ -24,16 +24,11 @@ SWIFT_SOURCES = [
 HARNESS = r'''
 import Foundation
 
-struct SceneCursorRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-
 struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
-    let cursorRipple: SceneCursorRippleExecutionPlan?
     let supportsUnifiedFullFrameComposeStage: Bool
 }
 
@@ -172,7 +167,6 @@ enum Harness {
                 materialNodeCount: materialNodeCount,
                 logicalRenderTargetCount: graph.renderTargets.count,
                 inputRole: .layerSource,
-                cursorRipple: nil,
                 supportsUnifiedFullFrameComposeStage: false
             ),
             graph: graph,

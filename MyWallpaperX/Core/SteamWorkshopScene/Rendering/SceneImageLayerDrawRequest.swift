@@ -8,7 +8,6 @@ struct SceneImageLayerMasks {
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let waterCausticsEffects: [String: SceneWaterCausticsEffectTextures]
-    let cursorRippleEffects: [String: SceneCursorRippleEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
     let godraysEffects: [String: SceneGodraysEffectTextures]
     let shineEffects: [String: SceneShineEffectTextures]
@@ -21,7 +20,6 @@ struct SceneImageLayerMasks {
         waterFlowEffects: [:],
         waterWavesEffects: [:],
         waterCausticsEffects: [:],
-        cursorRippleEffects: [:],
         pulseEffects: [:],
         godraysEffects: [:],
         shineEffects: [:],
@@ -36,7 +34,6 @@ struct SceneImageLayerMasks {
             waterFlowEffects: [:],
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
-            cursorRippleEffects: [:],
             pulseEffects: [:],
             godraysEffects: [:],
             shineEffects: [:],
@@ -84,7 +81,6 @@ struct SceneImageLayerMasks {
             || hasUnprovenWaterWavesDisplacementResource
             || hasValue(standardBlurEffects) { $0.maskCandidate != nil }
             || hasValue(waterCausticsEffects) { $0.mask != nil }
-            || hasValue(cursorRippleEffects) { $0.mask != nil }
             || hasValue(godraysEffects) { $0.mask != nil }
             || hasValue(shineEffects) { $0.mask != nil }
             || (xRay.map {

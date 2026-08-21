@@ -24,10 +24,6 @@ SWIFT_SOURCES = [
 HARNESS = r'''
 import Foundation
 
-struct SceneCursorRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-
 struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let renderGraph: SceneAuthoredEffectRenderPlan
@@ -35,7 +31,6 @@ struct SceneEffectStageExecutionPlan {
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
 
-    var cursorRipple: SceneCursorRippleExecutionPlan? { nil }
 }
 
 @main

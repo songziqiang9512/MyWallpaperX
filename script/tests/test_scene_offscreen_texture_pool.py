@@ -48,10 +48,6 @@ HARNESS = r'''
 import Foundation
 import Metal
 
-struct SceneCursorRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-
 struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let renderGraph: SceneAuthoredEffectRenderPlan
@@ -63,7 +59,6 @@ struct SceneEffectStageExecutionPlan {
     var authoredShader: Int? {
         renderGraph.effects.first?.definitionPath.contains("/direct/") == true ? 1 : nil
     }
-    var cursorRipple: SceneCursorRippleExecutionPlan? { nil }
     var supportsUnifiedFullFrameComposeStage: Bool { false }
 }
 

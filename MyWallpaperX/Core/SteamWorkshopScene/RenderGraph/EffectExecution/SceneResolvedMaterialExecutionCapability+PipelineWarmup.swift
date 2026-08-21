@@ -16,6 +16,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 case .color: .all
                 case .scalarRedUnorm: .red
                 case .redGreenUnorm: [.red, .green]
+                case .preservedRGBAUnorm: .all
                 }
                 return snapshot.variants.compactMap { variant in
                     SceneResolvedMaterialPassEncoder.WarmupPlan(

@@ -7,6 +7,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
     typealias Variant = SceneResolvedMaterialCompiledVariant
+    typealias OutputStorage = SceneResolvedMaterialProgram.OutputStorage
 
     struct Selection {
         let variant: Variant

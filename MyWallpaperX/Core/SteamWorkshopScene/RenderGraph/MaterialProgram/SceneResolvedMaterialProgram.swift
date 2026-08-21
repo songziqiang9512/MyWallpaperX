@@ -277,12 +277,14 @@ nonisolated struct SceneResolvedMaterialProgram {
         case color
         case scalarRedUnorm
         case redGreenUnorm
+        case preservedRGBAUnorm
     }
 
     enum OutputContract: Hashable {
         case color(SceneShaderColorContract)
         case scalarRedUnorm
         case redGreenUnorm
+        case preservedRGBAUnorm
     }
 
     enum HostUniform: Hashable {
@@ -291,7 +293,8 @@ nonisolated struct SceneResolvedMaterialProgram {
         case effectTextureProjectionMatrix
         case effectTextureProjectionMatrixInverse
         case time, dayTime, frameTime
-        case pointerPosition, pointerPositionLast, parallaxPosition, screen
+        case pointerPosition, pointerPositionLast, pointerState
+        case parallaxPosition, screen
         case texelSize(scaleBitPattern: UInt64)
         case textureResolution(slot: Int)
         case audioSpectrumLeft(count: Int)

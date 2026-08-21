@@ -58,13 +58,16 @@ enum Harness {
             "enabledDoesNotMatchUnspecified": enabled?.matchesFullscreenOverwrite(
                 alphaWriting: .unspecified
             ) == false,
+            "enabledResolvedOverwrite": enabled?.supportsResolvedMaterialFullscreenOverwrite == true,
             "unspecifiedMatches": unspecified?.matchesFullscreenOverwrite(
                 alphaWriting: .unspecified
             ) == true,
+            "unspecifiedResolvedOverwrite": unspecified?.supportsResolvedMaterialFullscreenOverwrite == true,
             "defaultPreserved": defaultAlpha?.alphaWriting == .default,
             "defaultNotExecutableAsEnabled": defaultAlpha?.matchesFullscreenOverwrite(
                 alphaWriting: .enabled
             ) == false,
+            "defaultResolvedOverwriteRejected": defaultAlpha?.supportsResolvedMaterialFullscreenOverwrite == false,
             "particleDefaultTyped": particleDefault?.blending == .translucent,
             "particleDefaultRawMissing": particleDefault?.rawValues.blending == nil,
             "stateIdentityIncludesAlpha": enabled != unspecified,

@@ -32,16 +32,11 @@ import Foundation
 import Metal
 import simd
 
-struct SceneCursorRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-
 struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
-    var cursorRipple: SceneCursorRippleExecutionPlan? { nil }
     var supportsUnifiedFullFrameComposeStage: Bool { false }
 }
 

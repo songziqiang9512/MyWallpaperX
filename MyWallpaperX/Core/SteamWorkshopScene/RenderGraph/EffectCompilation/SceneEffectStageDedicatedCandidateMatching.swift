@@ -43,15 +43,6 @@ extension SceneAuthoredLocalContrastPlanner {
     }
 }
 
-extension SceneAuthoredCursorRipplePlanner {
-    nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        SceneEffectStageDedicatedCandidateMatcher.matches(
-            graph: graph,
-            definitionPath: "effects/cursorripple/effect.json"
-        )
-    }
-}
-
 extension SceneAuthoredDepthParallaxPlanner {
     nonisolated static func containsCandidate(graph: Graph) -> Bool {
         SceneEffectStageDedicatedCandidateMatcher.matches(

@@ -182,7 +182,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         case .waterFlow: "water-flow"
         case .waterWaves: "water-waves"
         case .waterCaustics: "water-caustics"
-        case .cursorRipple: "cursor-ripple"
         case .depthParallax: "depth-parallax"
         case .xRay: "x-ray"
         case .blend: "blend"

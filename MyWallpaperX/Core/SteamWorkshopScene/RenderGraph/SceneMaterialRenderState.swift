@@ -91,6 +91,17 @@ nonisolated struct SceneMaterialRenderState: Equatable, Hashable, Sendable {
             && alphaWriting == expectedAlphaWriting
     }
 
+    /// Resolved full-screen material passes write every attachment channel.
+    /// Both an omitted alpha-writing field and the authored `enabled` value
+    /// are executable overwrite states; `default` remains unproven.
+    var supportsResolvedMaterialFullscreenOverwrite: Bool {
+        blending == .normal
+            && depthTest == .disabled
+            && depthWrite == .disabled
+            && cullMode == .noCull
+            && (alphaWriting == .unspecified || alphaWriting == .enabled)
+    }
+
     private static func typed<Value: RawRepresentable>(
         _ rawValue: String?,
         as type: Value.Type,

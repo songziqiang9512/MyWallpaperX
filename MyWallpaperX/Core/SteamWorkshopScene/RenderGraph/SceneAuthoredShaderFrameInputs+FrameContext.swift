@@ -17,6 +17,7 @@ extension SceneAuthoredShaderFrameInputs {
         frameTime = Float(frameContext.frameTime)
         pointerCurrentNDC = frameContext.pointerCurrent
         pointerPreviousNDC = frameContext.pointerPrevious
+        pointerPrimaryButtonDown = frameContext.pointer.isPrimaryButtonDown
         parallaxPositionNDC = frameContext.cameraParallaxPosition
         let spectrum = frameContext.audioSpectrum
         audioSpectrum = .init(

@@ -927,8 +927,7 @@ private func executionPlan(
         layerID: graph.layerID,
         materialNodeCount: graph.nodes.filter { $0.kind == .material }.count,
         logicalRenderTargetCount: graph.renderTargets.count,
-        inputRole: inputRole,
-        cursorRipple: nil
+        inputRole: inputRole
     )
 }
 

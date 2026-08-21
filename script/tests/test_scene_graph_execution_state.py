@@ -31,16 +31,11 @@ SWIFT_SOURCES = [
 HARNESS = r'''
 import Foundation
 
-struct SceneCursorRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-
 struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
-    let cursorRipple: SceneCursorRippleExecutionPlan?
     var supportsUnifiedFullFrameComposeStage: Bool { false }
 }
 

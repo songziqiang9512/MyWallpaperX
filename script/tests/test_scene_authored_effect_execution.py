@@ -56,7 +56,7 @@ CHAIN_TOPOLOGY_SOURCE = (
 )
 CHAIN_WATER_FLOW_SOURCE = (
     SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+CursorRipple.swift"
+    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterFlow.swift"
 )
 CHAIN_DEPTH_PARALLAX_SOURCE = (
     SOURCE_ROOT
@@ -181,23 +181,6 @@ enum SceneAuthoredWaterCausticsPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole
     ) -> SceneWaterCausticsExecutionPlan? {
-        nil
-    }
-}
-
-struct SceneCursorRippleExecutionPlan {
-    let layerID: Int
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let renderGraph: SceneAuthoredEffectRenderPlan
-}
-
-enum SceneAuthoredCursorRipplePlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneCursorRippleExecutionPlan? {
         nil
     }
 }
@@ -456,10 +439,6 @@ extension SceneAuthoredWaterWavesPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredWaterCausticsPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWaterCausticsExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterCaustics }
-}
-extension SceneAuthoredCursorRipplePlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneCursorRippleExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .cursorRipple }
 }
 extension SceneAuthoredDepthParallaxPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneDepthParallaxExecutionPlan
@@ -1262,7 +1241,6 @@ enum Harness {
             case .waterFlow: backend = "waterFlow"
             case .waterWaves: backend = "waterWaves"
             case .waterCaustics: backend = "waterCaustics"
-            case .cursorRipple: backend = "cursorRipple"
             case .depthParallax: backend = "depthParallax"
             case .xRay: backend = "xRay"
             case .blend: backend = "blend"

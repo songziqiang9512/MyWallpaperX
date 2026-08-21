@@ -28,6 +28,8 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
         switch (target.pixelFormat, content) {
         case (.r8Unorm, .scalarRedUnorm),
              (.rg8Unorm, .redGreenUnorm),
+             (.rgba8Unorm, .data),
+             (.bgra8Unorm, .data),
              (.bgra8Unorm, .color(.resolved)),
              (.rgba8Unorm, .color(.resolved)):
             formatMatchesContent = true
@@ -76,9 +78,9 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
                 content: .redGreenUnorm,
                 colorRepresentation: nil
             )
-        case (.color, .scalarRedUnorm), (.color, .redGreenUnorm),
-             (.scalarRedUnorm, .color), (.scalarRedUnorm, .redGreenUnorm),
-             (.redGreenUnorm, .color), (.redGreenUnorm, .scalarRedUnorm):
+        case (.preservedRGBAUnorm, .preservedRGBAUnorm):
+            return .init(content: .data, colorRepresentation: nil)
+        default:
             return nil
         }
     }

@@ -70,10 +70,14 @@ def request_cache_key(request: dict[str, Any]) -> str:
         sources[name] = source
     if set(sources) != {"vertex", "fragment"}:
         raise ArtifactFailure("request-pair")
+    output_semantics = request.get("outputSemantics")
+    if output_semantics != "color":
+        raise ArtifactFailure("output-semantics")
     digest = hashlib.sha256()
     for value in (
-        "mwx-generic-shader-request-v3",
+        "mwx-generic-shader-request-v4",
         str(request.get("sourceDialect", "glsl-450")),
+        output_semantics,
         sources["vertex"],
         sources["fragment"],
         json.dumps(request.get("defines", {}), sort_keys=True, separators=(",", ":")),
@@ -493,7 +497,10 @@ def build_program_artifact(
     stage_sources: dict[str, str],
     msl_sources: dict[str, str],
     maximum_artifact_bytes: int,
+    output_semantics: str = "color",
 ) -> dict[str, Any]:
+    if output_semantics != "color":
+        raise ArtifactFailure("output-semantics")
     if set(stage_sources) != {"vertex", "fragment"} or set(msl_sources) != set(stage_sources):
         raise ArtifactFailure("stage-pair")
     static_loop_work = _static_loop_work(stage_sources)
@@ -536,10 +543,11 @@ def build_program_artifact(
     if len(metal_source.encode("utf-8")) > maximum_artifact_bytes:
         raise ArtifactFailure("metal-size")
     return {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "kind": "scene-generic-shader-program-artifact",
         "backendID": backend_id,
         "requestKey": request_key,
+        "outputSemantics": output_semantics,
         "program": {
             "metalSource": metal_source,
             "metalSourceSHA256": sha256_bytes(metal_source.encode("utf-8")),

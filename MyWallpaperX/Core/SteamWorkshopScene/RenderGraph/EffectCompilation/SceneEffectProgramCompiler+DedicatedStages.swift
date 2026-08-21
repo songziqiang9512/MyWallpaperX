@@ -97,17 +97,6 @@ extension SceneEffectProgramCompiler {
                     stage(.waterCaustics($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.cursorRipple, {
-                SceneAuthoredCursorRipplePlanner.compile(input).mapAccepted {
-                    stage(
-                        .cursorRipple($0),
-                        stageGraph: stageGraph,
-                        inputRole: inputRole,
-                        materialNodeCount: 3,
-                        logicalRenderTargetCount: 2
-                    )
-                }
-            }),
             (.depthParallax, {
                 SceneAuthoredDepthParallaxPlanner.compile(input).mapAccepted {
                     stage(.depthParallax($0), stageGraph: stageGraph, inputRole: inputRole)

@@ -32,9 +32,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                   role: input.graphRole,
                   textureSlots: input.textureSlots
               ),
-              input.renderState.matchesFullscreenOverwrite(
-                  alphaWriting: .unspecified
-              ),
+              input.renderState.supportsResolvedMaterialFullscreenOverwrite,
               let textures = resolveTextures(
                   input.textureSlots,
                   frontend: frontend
@@ -137,6 +135,14 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             return .init(
                 contract: .redGreenUnorm,
                 identity: .redGreenUnorm
+            )
+        case .preservedRGBAUnorm:
+            guard frontend.fragmentOutputChannelUse == .redDefined else {
+                return nil
+            }
+            return .init(
+                contract: .preservedRGBAUnorm,
+                identity: .preservedRGBAUnorm
             )
         }
     }

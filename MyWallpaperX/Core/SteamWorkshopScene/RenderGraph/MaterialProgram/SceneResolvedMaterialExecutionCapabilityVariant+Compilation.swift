@@ -171,7 +171,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 ),
             hasOnlyGraphInputSampler:
                 sourceActiveSamplers.count == 1
-                    && Set(sourceActiveSamplers.keys) == graphInputTextureSlots
+                    && Set(sourceActiveSamplers.keys) == graphInputTextureSlots,
+            outputSemantics: outputStorage == .preservedRGBAUnorm
+                ? .preservedRGBAUnorm : .color
         )
         let frontend: SceneAuthoredShaderProgram
         let routeDecision:

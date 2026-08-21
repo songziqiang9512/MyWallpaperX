@@ -25,16 +25,11 @@ SWIFT_SOURCES = [
 HARNESS = r'''
 import Foundation
 
-struct SceneCursorRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-
 struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
-    let cursorRipple: SceneCursorRippleExecutionPlan?
     let supportsUnifiedFullFrameComposeStage: Bool
 
     init(
@@ -42,14 +37,12 @@ struct SceneEffectStageExecutionPlan {
         materialNodeCount: Int,
         logicalRenderTargetCount: Int,
         inputRole: SceneAuthoredEffectInputRole = .layerSource,
-        cursorRipple: SceneCursorRippleExecutionPlan? = nil,
         supportsUnifiedFullFrameComposeStage: Bool = false
     ) {
         self.layerID = layerID
         self.materialNodeCount = materialNodeCount
         self.logicalRenderTargetCount = logicalRenderTargetCount
         self.inputRole = inputRole
-        self.cursorRipple = cursorRipple
         self.supportsUnifiedFullFrameComposeStage =
             supportsUnifiedFullFrameComposeStage
     }
@@ -672,8 +665,8 @@ enum Harness {
             ) else {
             fatalError("typed compose target plan rejected")
         }
-        let rippleBuffer1 = texture(.framebuffer, key: key, name: "_rt_EightBuffer1")
-        let rippleBuffer2 = texture(.framebuffer, key: key, name: "_rt_EightBuffer2")
+        let rippleBuffer1 = texture(.framebuffer, key: key, name: "state_alpha")
+        let rippleBuffer2 = texture(.framebuffer, key: key, name: "state_omega")
         let fit512 = Graph.TargetExtent(kind: .fit, first: 512, second: nil)
         let cursorHistory = graph(
             targets: [
@@ -690,19 +683,42 @@ enum Harness {
             output: output
         )
         let cursorHistoryResult = SceneGraphRenderTargetPlan.make(
-            executionPlan: .init(
-                layerID: 10,
-                materialNodeCount: 3,
-                logicalRenderTargetCount: 2,
-                cursorRipple: .init(effectKey: key)
-            ),
             graph: cursorHistory,
+            inputRole: .layerSource,
             inputWidth: 1920,
             inputHeight: 1080
         )
         guard case .success(let cursorHistoryPlan) = cursorHistoryResult else {
             fatalError("cursor history fixture rejected")
         }
+        let cursorHistoryExtraFirstInput = graph(
+            targets: cursorHistory.renderTargets,
+            nodes: [
+                node(
+                    0, key: key, target: rippleBuffer1,
+                    reads: [rippleBuffer2, input]
+                ),
+                node(1, key: key, target: rippleBuffer2, reads: [rippleBuffer1]),
+                node(2, key: key, target: output, reads: [rippleBuffer2, input]),
+            ],
+            key: key,
+            input: input,
+            output: output
+        )
+        let cursorHistoryCollapsedProbeMismatch = graph(
+            targets: [
+                target(rippleBuffer1, extent: fit512, format: "rgba8888"),
+                target(
+                    rippleBuffer2,
+                    extent: .init(kind: .fit, first: 256, second: nil),
+                    format: "rgba8888"
+                ),
+            ],
+            nodes: cursorHistory.nodes,
+            key: key,
+            input: input,
+            output: output
+        )
         let duplicate = graph(
             targets: [target(q1, extent: scaleFour), target(q1, extent: scaleFour)],
             nodes: standard.nodes,
@@ -819,6 +835,14 @@ enum Harness {
             ),
             "genericComposeAccepted": genericComposePlan.output == output,
             "cursorHistoryTargets": targetSummary(cursorHistoryPlan),
+            "cursorHistoryExtraFirstInputFailure": failure(
+                cursorHistoryExtraFirstInput,
+                materialNodeCount: 3
+            ),
+            "cursorHistoryCollapsedProbeMismatchRejected":
+                SceneGraphRenderTargetPlan.boundedFeedbackHistoryProfile(
+                    in: cursorHistoryCollapsedProbeMismatch
+                ) == nil,
             "commands": commandsPlan.commands.map {
                 [
                     "node": $0.nodeIndex,
@@ -1110,12 +1134,12 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
         )
         self.assertTrue(self.result["genericComposeAccepted"])
 
-    def test_cursor_ripple_admits_only_its_named_history_and_fit_extent(self) -> None:
+    def test_structural_feedback_profile_admits_unseen_names_and_fit_extent(self) -> None:
         self.assertEqual(
             self.result["cursorHistoryTargets"],
             [
                 {
-                    "name": "_rt_EightBuffer1",
+                    "name": "state_alpha",
                     "size": [512, 288],
                     "format": "rgba8888",
                     "firstWrite": 0,
@@ -1126,7 +1150,7 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
                     "historySeed": False,
                 },
                 {
-                    "name": "_rt_EightBuffer2",
+                    "name": "state_omega",
                     "size": [512, 288],
                     "format": "rgba8888",
                     "firstWrite": 1,
@@ -1137,6 +1161,13 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
                     "historySeed": True,
                 },
             ],
+        )
+        self.assertEqual(
+            self.result["cursorHistoryExtraFirstInputFailure"],
+            "historyRequired",
+        )
+        self.assertTrue(
+            self.result["cursorHistoryCollapsedProbeMismatchRejected"]
         )
 
     def test_copy_and_swap_extend_target_lifetimes_in_authored_order(self) -> None:

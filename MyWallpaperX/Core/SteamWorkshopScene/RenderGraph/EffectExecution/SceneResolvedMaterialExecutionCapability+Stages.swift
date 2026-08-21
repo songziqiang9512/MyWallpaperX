@@ -9,8 +9,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability {
             }
         case .dedicated(_, let program, _):
             let plan = program.executionPlan
-            return plan.cursorRipple != nil
-                || plan.depthParallax != nil
+            return plan.depthParallax != nil
                 || plan.xRay != nil
         case .visualFailurePassthrough:
             return false
@@ -100,6 +99,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         ) else {
             return .failure(rejection("material-target-storage-unproven"))
         }
+        let preservedRGBADataTargets = preservedRGBADataTargets(in: product.graph)
         var materials: [MaterialKey: MaterialCapability] = [:]
         for node in product.graph.nodes {
             guard case .material = node.kind else { continue }
@@ -116,7 +116,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             guard let attachment = attachment(
                 for: node,
-                in: product.graph
+                in: product.graph,
+                preservedRGBADataTargets: preservedRGBADataTargets
             ) else { return .failure(rejection("material-target-storage-unproven")) }
             let variants: SceneResolvedMaterialVariantCache
             switch SceneResolvedMaterialVariantCache.launchValidated(
@@ -137,10 +138,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             if case let .failure(failure) = variants.precompileLaunchEnvelope(
                 implicitFramebufferIdentity: effect.input,
-                outputStorage: attachment.storage == .color
-                    ? .color
-                    : attachment.storage == .scalarRedUnorm
-                        ? .scalarRedUnorm : .redGreenUnorm,
+                outputStorage: outputStorage(for: attachment.storage),
                 graphTextureFormatFacts: graphTextureFormatFacts,
                 assetStates: assetStates
             ) {
@@ -233,7 +231,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
     private static func attachment(
         for node: Graph.Node,
-        in graph: Graph
+        in graph: Graph,
+        preservedRGBADataTargets: Set<Graph.TextureIdentity>
     ) -> (
         storage: SceneResolvedMaterialAttachmentKind,
         format: SceneGraphRenderTargetPlan.TextureFormat
@@ -256,11 +255,37 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             case .rg88:
                 return (.redGreenUnorm, .rg88)
             case .rgbaBackbuffer, .rgba8888:
-                return (.color, descriptor.format)
+                return (
+                    preservedRGBADataTargets.contains(target)
+                        ? .preservedRGBAUnorm : .color,
+                    descriptor.format
+                )
             }
         case .layerSource, .unresolved:
             return nil
         }
+    }
+
+    private static func outputStorage(
+        for attachment: SceneResolvedMaterialAttachmentKind
+    ) -> SceneResolvedMaterialVariantCache.OutputStorage {
+        switch attachment {
+        case .color: .color
+        case .scalarRedUnorm: .scalarRedUnorm
+        case .redGreenUnorm: .redGreenUnorm
+        case .preservedRGBAUnorm: .preservedRGBAUnorm
+        }
+    }
+
+    /// Finds the smallest framebuffer dependency component rooted in an
+    /// authored first-read-before-write RGBA8 target. The result is only a
+    /// candidate storage fact: Program compilation must independently prove a
+    /// whole-output raw-data shader contract before it can execute.
+    private static func preservedRGBADataTargets(
+        in graph: Graph
+    ) -> Set<Graph.TextureIdentity> {
+        SceneGraphRenderTargetPlan
+            .boundedFeedbackHistoryProfile(in: graph)?.stateTargets ?? []
     }
 
     /// Preserved-channel targets become product capability only as one complete

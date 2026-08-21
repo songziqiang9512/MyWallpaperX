@@ -76,7 +76,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift",
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+CursorRipple.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterFlow.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Rays.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ColorGrading.swift",
@@ -633,7 +633,6 @@ struct SceneBlendEffectTextures {
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
-        case cursorRipple(SceneCursorRippleExecutionPlan)
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
@@ -663,7 +662,6 @@ struct SceneBlendEffectTextures {
             case .waterFlow: "water-flow"
             case .waterWaves: "water-waves"
             case .waterCaustics: "water-caustics"
-            case .cursorRipple: "cursor-ripple"
             case .depthParallax: "depth-parallax"
             case .xRay: "x-ray"
             case .blend: "blend"
@@ -723,11 +721,6 @@ struct SceneBlendEffectTextures {
         return plan
     }
 
-    var cursorRipple: SceneCursorRippleExecutionPlan? {
-        guard case .cursorRipple(let plan) = backend else { return nil }
-        return plan
-    }
-
     var depthParallax: SceneDepthParallaxExecutionPlan? {
         guard case .depthParallax(let plan) = backend else { return nil }
         return plan
@@ -776,14 +769,6 @@ struct SceneBlendEffectTextures {
         default:
             return false
         }
-    }
-
-    var supportsUnifiedHistoryTargetStage: Bool {
-        guard case .cursorRipple = backend else { return false }
-        return logicalRenderTargetCount == 2
-            && renderGraph.nodes.count == 3
-            && renderGraph.renderTargets.count == 2
-            && renderGraph.renderTargets.allSatisfy { !$0.declaredUnique }
     }
 
     var supportsUnifiedFullFrameComposeStage: Bool {
@@ -901,38 +886,6 @@ enum SceneWaterWavesRenderer {
     }
 }
 
-struct SceneCursorRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-struct SceneCursorRippleEffectTextures {
-    let mask: MTLTexture?
-}
-
-struct SceneCursorRipplePipeline {
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-enum SceneCursorRippleRenderer {
-    static func renderCaptured(
-        plan: SceneCursorRippleExecutionPlan,
-        sourceTexture: MTLTexture,
-        masks: SceneImageLayerMasks,
-        targets: SceneGraphRenderTargetTable,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        sourcePipeline: SceneImageLayerPipeline,
-        cursorRipplePipeline: SceneCursorRipplePipeline,
-        currentCursorUV: SIMD2<Float>,
-        previousCursorUV: SIMD2<Float>,
-        pointerIsInside: Bool,
-        previousPointerIsInside: Bool,
-        pointerMovement: Float,
-        primaryButtonIsDown: Bool,
-        frameTime: Float,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        nil
-    }
-}
 
 struct SceneDepthParallaxExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
@@ -2184,7 +2137,6 @@ enum Harness {
             standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:],
             waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:],
             waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:],
-            cursorRippleEffects: [String: SceneCursorRippleEffectTextures] = [:],
             pulseEffects: [String: ScenePulseEffectTextures] = [:],
             godraysEffects: [String: SceneGodraysEffectTextures] = [:],
             shineEffects: [String: SceneShineEffectTextures] = [:],
@@ -2197,7 +2149,6 @@ enum Harness {
                 waterFlowEffects: [:],
                 waterWavesEffects: waterWavesEffects,
                 waterCausticsEffects: waterCausticsEffects,
-                cursorRippleEffects: cursorRippleEffects,
                 pulseEffects: pulseEffects,
                 godraysEffects: godraysEffects,
                 shineEffects: shineEffects,
@@ -2737,11 +2688,6 @@ enum Harness {
             ])),
             ("waterCaustics", masks(waterCausticsEffects: [
                 visibleEffectID: SceneWaterCausticsEffectTextures(
-                    mask: dependency
-                ),
-            ])),
-            ("cursorRipple", masks(cursorRippleEffects: [
-                visibleEffectID: SceneCursorRippleEffectTextures(
                     mask: dependency
                 ),
             ])),
@@ -4057,7 +4003,6 @@ enum Harness {
             waterFlowEffects: [:],
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
-            cursorRippleEffects: [:],
             pulseEffects: [:],
             godraysEffects: [:],
             shineEffects: [:],
@@ -5023,7 +4968,6 @@ enum Harness {
             waterFlowEffects: [:],
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
-            cursorRippleEffects: [:],
             pulseEffects: [:],
             godraysEffects: godraysEffects,
             shineEffects: shineEffects,
@@ -5543,7 +5487,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "mask-standardBlur",
                 "mask-waterWaves",
                 "mask-waterCaustics",
-                "mask-cursorRipple",
                 "mask-godrays",
                 "mask-shine",
                 "mask-xray",

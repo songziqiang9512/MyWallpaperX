@@ -72,6 +72,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
     static func build(
         requestKey: String,
         backendID: String,
+        outputSemantics: SceneGenericShaderOutputSemantics = .color,
         stages: [Stage],
         maximumArtifactBytes: Int
     ) -> Result<SceneGenericShaderProgramArtifact, Failure> {
@@ -105,10 +106,28 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 )
             )
             let uniformLayout = stagedUniforms.layout
-            let color = try prepareColorTransfer(
-                msl: fragmentStage.msl,
-                authoredSource: fragmentStage.authoredSource
+            let outputChannelUse = fragmentOutputChannelUse(
+                fragmentStage.source
             )
+            let color: (
+                msl: String,
+                transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
+            )
+            switch outputSemantics {
+            case .color:
+                color = try prepareColorTransfer(
+                    msl: fragmentStage.msl,
+                    authoredSource: fragmentStage.authoredSource
+                )
+            case .preservedRGBAUnorm:
+                guard outputChannelUse == .redDefined else {
+                    throw Failure.colorTransfer
+                }
+                color = (
+                    fragmentStage.msl,
+                    .init(kind: "preserved-rgba-data", slot: nil, slots: nil)
+                )
+            }
             var vertexMSL = try normalizeUniformStruct(
                 vertexStage.msl,
                 layout: uniformLayout,
@@ -153,9 +172,6 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             case .failure(.budget):
                 throw Failure.loopBudget
             }
-            let outputChannelUse = fragmentOutputChannelUse(
-                fragmentStage.source
-            )
             let program = SceneGenericShaderProgramArtifact.Program(
                 metalSource: metalSource,
                 metalSourceSHA256: SceneGenericShaderProgramArtifact.sha256(
@@ -176,6 +192,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             return .success(.init(
                 backendID: backendID,
                 requestKey: requestKey,
+                outputSemantics: outputSemantics,
                 program: program
             ))
         } catch let failure as Failure {
@@ -468,7 +485,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 && slots == slots.sorted()
                 && Set(slots).count == slots.count
                 && Set(slots).isSubset(of: boundSlots)
-        case ("opaque", nil, nil), ("premultiplied", nil, nil):
+        case ("opaque", nil, nil), ("premultiplied", nil, nil),
+             ("preserved-rgba-data", nil, nil):
             return true
         default:
             return false

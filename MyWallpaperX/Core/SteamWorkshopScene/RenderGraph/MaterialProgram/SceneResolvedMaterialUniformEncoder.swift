@@ -65,6 +65,11 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             return encodePointer(inputs.pointerCurrentNDC, type: type)
         case .pointerPositionLast:
             return encodePointer(inputs.pointerPreviousNDC, type: type)
+        case .pointerState:
+            return encodeComponents(
+                [0, 0, inputs.pointerPrimaryButtonDown ? 1 : 0, 0],
+                as: type
+            )
         case .parallaxPosition:
             return encodePointer(inputs.parallaxPositionNDC, type: type)
         case .screen:

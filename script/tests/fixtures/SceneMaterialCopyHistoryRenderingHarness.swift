@@ -356,8 +356,7 @@ private func admitted(_ graph: Graph) -> AdmittedLayerGraph {
         layerID: layerID,
         materialNodeCount: 2,
         logicalRenderTargetCount: 2,
-        inputRole: .layerSource,
-        cursorRipple: nil
+        inputRole: .layerSource
     )
     return .init(
         layerID: layerID,

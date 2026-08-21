@@ -261,16 +261,11 @@ struct SceneRenderDescriptor {
     let materialPasses: [MaterialPassDescriptor]
 }
 
-struct SceneCursorRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-
 struct SceneEffectStageExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
-    let cursorRipple: SceneCursorRippleExecutionPlan?
     var supportsUnifiedFullFrameComposeStage: Bool { false }
 }
 
@@ -309,8 +304,7 @@ enum Harness {
                 layerID: graph.layerID,
                 materialNodeCount: graph.nodes.filter { $0.kind == .material }.count,
                 logicalRenderTargetCount: graph.renderTargets.count,
-                inputRole: .layerSource,
-                cursorRipple: nil
+                inputRole: .layerSource
             ),
             graph: graph,
             inputWidth: width,

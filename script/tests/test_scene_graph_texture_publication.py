@@ -104,9 +104,6 @@ nonisolated struct SceneResolvedMaterialNode {
     }
 }
 
-struct SceneCursorRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
 struct SceneDepthParallaxExecutionPlan {}
 struct SceneXRayExecutionPlan {}
 
@@ -115,7 +112,6 @@ struct SceneEffectStageExecutionPlan {
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
-    let cursorRipple: SceneCursorRippleExecutionPlan?
     var depthParallax: SceneDepthParallaxExecutionPlan? { nil }
     var xRay: SceneXRayExecutionPlan? { nil }
 
@@ -240,11 +236,13 @@ private func makeLease(
 }
 
 private func require(
-    _ result: Result<SceneFrameTextureResource, SceneGraphRenderTargetLease.PublicationFailure>
+    _ result: Result<SceneFrameTextureResource, SceneGraphRenderTargetLease.PublicationFailure>,
+    line: Int = #line
 ) -> SceneFrameTextureResource {
     switch result {
     case .success(let value): return value
-    case .failure(let failure): fatalError("publication failed: \(failure.rawValue)")
+    case .failure(let failure):
+        fatalError("publication failed at fixture line \(line): \(failure.rawValue)")
     }
 }
 
@@ -422,6 +420,7 @@ private enum Harness {
         let lease = makeLease(device)
         let r8Lease = makeLease(device, format: .r8)
         let rg88Lease = makeLease(device, format: .rg88)
+        let rgbaDataLease = makeLease(device, format: .rgba8888)
         let repeatLease = makeLease(device, addressMode: .repeatWrap)
         let r8RepeatLease = makeLease(
             device,
@@ -724,6 +723,24 @@ private enum Harness {
             versionedResource: rg88Physical,
             storedContent: .scalarRedUnorm
         ))
+        let rgbaDataPhysical = rgbaDataLease.allocation.resources[first]!
+            .versioned(17)
+        let rgbaDataResource = require(rgbaDataLease.graphResource(
+            for: first,
+            versionedResource: rgbaDataPhysical,
+            storedContent: .data
+        ))
+        let rgbaDataCandidate = rgbaDataResource.publication.candidate
+        let rgbaDataPublicationContract = rgbaDataResource.isCompleteGraphResource
+            && rgbaDataCandidate.purpose == .preservedChannels
+            && rgbaDataCandidate.content == .data
+            && rgbaDataCandidate.pixelFormat == .rgba8Unorm
+            && rgbaDataCandidate.authoredFormat == nil
+        let backbufferDataFailure = failure(lease.graphResource(
+            for: first,
+            versionedResource: firstPhysical,
+            storedContent: .data
+        ))
         let repeatPhysical = repeatLease.allocation.resources[first]!.versioned(15)
         let repeatResource = require(repeatLease.graphResource(
             for: first,
@@ -858,6 +875,7 @@ private enum Harness {
                 "nonIdempotentProviderResolvedOnce": nonIdempotentProviderResolvedOnce,
             "r8ScalarPublication": r8ScalarPublication,
             "rg88Publication": rg88PublicationContract,
+            "rgbaDataPublication": rgbaDataPublicationContract,
             "r8ScalarCannotRewrapAsLayerSource":
                 r8ScalarCannotRewrapAsLayerSource,
                 "r8ScalarCannotRewrapAsEffectOutput":
@@ -879,6 +897,7 @@ private enum Harness {
                 "pairToken": pairTokenFailure,
                 "r8Publication": r8PublicationFailure,
                 "rg88WrongStorage": rg88WrongStorageFailure,
+                "backbufferData": backbufferDataFailure,
                 "forgedR8AuthoredFormat": forgedR8AuthoredFormat
                     .isCompleteGraphResource ? "accepted" : "rejected",
                 "forgedR8WrongAuthoredFormat": forgedR8WrongAuthoredFormat
@@ -988,6 +1007,7 @@ class SceneGraphTexturePublicationTests(unittest.TestCase):
                 "pairToken": "unknownPhysicalToken",
                 "r8Publication": "storageSemanticUnavailable",
                 "rg88WrongStorage": "storageSemanticUnavailable",
+                "backbufferData": "storageSemanticUnavailable",
                 "forgedR8AuthoredFormat": "rejected",
                 "forgedR8WrongAuthoredFormat": "rejected",
                 "forgedR8ColorPurpose": "rejected",

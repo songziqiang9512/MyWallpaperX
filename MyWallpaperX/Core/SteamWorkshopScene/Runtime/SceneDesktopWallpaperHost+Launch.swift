@@ -251,8 +251,7 @@ extension SceneDesktopWallpaperHost {
             $0.executionPlan.backend.supportsUnifiedPairLeaf ? $0.effectKey : nil
         })
         let dedicatedGraphStageKeys = Set(dedicatedStageLeaves.compactMap {
-            ($0.executionPlan.supportsUnifiedLogicalTargetStage
-                || $0.executionPlan.supportsUnifiedHistoryTargetStage)
+            $0.executionPlan.supportsUnifiedLogicalTargetStage
                 ? $0.effectKey : nil
         })
         let timeOfDayEffectScriptCandidates = dedicatedStageLeaves.compactMap {

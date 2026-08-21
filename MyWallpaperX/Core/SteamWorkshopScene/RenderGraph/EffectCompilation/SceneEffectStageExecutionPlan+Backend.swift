@@ -10,7 +10,6 @@ extension SceneEffectStageExecutionPlan {
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
-        case cursorRipple(SceneCursorRippleExecutionPlan)
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
@@ -54,28 +53,6 @@ extension SceneEffectStageExecutionPlan {
         }
     }
 
-    /// A dedicated authored stage whose typed planner is the sole authority
-    /// allowed to opt a non-unique framebuffer into persistent history.  Keep
-    /// this separate from ordinary logical-target stages so generic graphs can
-    /// never acquire history merely by resembling the topology.
-    nonisolated var supportsUnifiedHistoryTargetStage: Bool {
-        guard case let .cursorRipple(plan) = backend,
-              logicalRenderTargetCount == 2,
-              renderGraph.nodes.count == 3,
-              renderGraph.renderTargets.count == 2,
-              renderGraph.renderTargets.allSatisfy({ !$0.declaredUnique }) else {
-            return false
-        }
-        return plan.layerID == layerID
-            && plan.effectKey == renderGraph.effects.first?.key
-            && plan.renderGraph.layerID == renderGraph.layerID
-            && plan.renderGraph.finalOutput == renderGraph.finalOutput
-            && plan.renderGraph.nodes.map(\.nodeIndex)
-                == renderGraph.nodes.map(\.nodeIndex)
-            && plan.renderGraph.renderTargets.map(\.texture)
-                == renderGraph.renderTargets.map(\.texture)
-    }
-
     var gaussianBlur: SceneGaussianBlurPlan? {
         guard case .preciseGaussian(let plan) = backend else { return nil }
         return plan
@@ -113,11 +90,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var waterCaustics: SceneWaterCausticsExecutionPlan? {
         guard case .waterCaustics(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var cursorRipple: SceneCursorRippleExecutionPlan? {
-        guard case .cursorRipple(let plan) = backend else { return nil }
         return plan
     }
 

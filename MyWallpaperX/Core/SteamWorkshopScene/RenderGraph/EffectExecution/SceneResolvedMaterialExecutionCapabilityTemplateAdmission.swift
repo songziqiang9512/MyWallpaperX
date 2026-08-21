@@ -28,9 +28,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityTemplateAdmission {
             diagnose(node, reason: "identity-mismatch")
             return nil
         }
-        guard template.renderState.matchesFullscreenOverwrite(
-            alphaWriting: .unspecified
-        ) else {
+        guard template.renderState.supportsResolvedMaterialFullscreenOverwrite else {
             diagnose(node, reason: "render-state")
             return nil
         }

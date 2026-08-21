@@ -99,6 +99,9 @@ extension SceneResolvedMaterialGraphExecutor {
                           resource: resource,
                           content: initializationContent(
                               format: resource.descriptor.format,
+                              identity: identity,
+                              graph: graph,
+                              capability: capability,
                               representation: initialization.representation
                           )
                       ) else { return .resourceCommandRejected }
@@ -505,12 +508,24 @@ extension SceneResolvedMaterialGraphExecutor {
 
     private func initializationContent(
         format: SceneGraphRenderTargetPlan.TextureFormat,
+        identity: Graph.TextureIdentity,
+        graph: Graph,
+        capability:
+            SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability,
         representation: SceneShaderColorRepresentation
     ) -> SceneTextureContent {
         switch format {
-        case .r8: .scalarRedUnorm
-        case .rg88: .redGreenUnorm
-        case .rgbaBackbuffer, .rgba8888: .color(.resolved(representation))
+        case .r8: return .scalarRedUnorm
+        case .rg88: return .redGreenUnorm
+        case .rgbaBackbuffer: return .color(.resolved(representation))
+        case .rgba8888:
+            let isPreservedData = graph.nodes.contains { node in
+                node.target == identity
+                    && capability.material(for: node)?.attachmentStorage
+                        == .preservedRGBAUnorm
+            }
+            return isPreservedData
+                ? .data : .color(.resolved(representation))
         }
     }
 
@@ -521,6 +536,7 @@ extension SceneResolvedMaterialGraphExecutor {
         case .color: .color
         case .scalarRedUnorm: .scalarRedUnorm
         case .redGreenUnorm: .redGreenUnorm
+        case .preservedRGBAUnorm: .preservedRGBAUnorm
         }
     }
 

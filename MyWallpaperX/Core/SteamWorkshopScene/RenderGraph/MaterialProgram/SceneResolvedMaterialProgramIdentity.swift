@@ -87,6 +87,7 @@ extension SceneResolvedMaterialProgram {
         case color(ColorContractIdentity)
         case scalarRedUnorm
         case redGreenUnorm
+        case preservedRGBAUnorm
     }
 
     struct ActiveUniformIdentity: Hashable {
@@ -412,7 +413,7 @@ extension SceneResolvedMaterialProgramIdentity {
               sampleCount > 0,
               colorWriteMaskRawValue != MTLColorWriteMask().rawValue,
               deviceRegistryID != 0,
-              renderState.matchesFullscreenOverwrite(alphaWriting: .unspecified),
+              renderState.supportsResolvedMaterialFullscreenOverwrite,
               SceneResolvedMaterialProgramDerivation.uniqueAndValid(
                   frontend.uniformLayout
               ) else { return nil }

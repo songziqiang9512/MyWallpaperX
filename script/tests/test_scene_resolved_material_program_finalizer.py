@@ -208,6 +208,7 @@ private func fragmentSource(
     stageLocalUniforms: Bool = false,
     runtimeLoop: Bool = false,
     runtimeLoopEditorHints: Bool = false,
+    pointerState: Bool = false,
     semanticProbes: Bool = true,
     colorBlend: Bool = false,
     legacyMaskOverride: Bool = false
@@ -357,11 +358,14 @@ private func fragmentSource(
         }
         """
         : ""
+    let pointerStateUniform = pointerState ? "uniform vec4 g_PointerState;" : ""
+    let pointerStateProbe = pointerState ? "vec4 pointerState = g_PointerState;" : ""
     return """
     varying \(optionalMask ? "vec4" : "vec2") v_TexCoord;
     \(combo)
     uniform sampler2D g_Texture0;\(annotation)
     \(secondSampler)
+    \(pointerStateUniform)
     \(audioUniforms)
     uniform vec3 u_Tint;\(uniformAnnotation)
     \(alphaUniform)
@@ -373,6 +377,7 @@ private func fragmentSource(
     void main() {
         \(stageLocalProbe)
         \(runtimeLoopProbe)
+        \(pointerStateProbe)
         \(audioProbe)
         \(metadataProbes)
         \(output)
@@ -397,6 +402,7 @@ private func contract(
     stageLocalUniforms: Bool = false,
     runtimeLoop: Bool = false,
     runtimeLoopEditorHints: Bool = false,
+    pointerState: Bool = false,
     semanticProbes: Bool = true,
     colorBlend: Bool = false,
     legacyMaskOverride: Bool = false,
@@ -448,6 +454,7 @@ private func contract(
                 stageLocalUniforms: stageLocalUniforms,
                 runtimeLoop: runtimeLoop,
                 runtimeLoopEditorHints: runtimeLoopEditorHints,
+                pointerState: pointerState,
                 semanticProbes: semanticProbes,
                 colorBlend: colorBlend,
                 legacyMaskOverride: legacyMaskOverride
@@ -862,6 +869,7 @@ private func uniformInputs() -> SceneAuthoredShaderUniformInputs {
 
 private func frameInputs(
     frameIndex: UInt64,
+    primaryButtonIsDown: Bool = false,
     audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent
 ) -> SceneAuthoredShaderFrameInputs {
     .init(
@@ -872,6 +880,7 @@ private func frameInputs(
         frameTime: 1 / 60,
         pointerCurrentNDC: SIMD2(0.25, -0.5),
         pointerPreviousNDC: .zero,
+        pointerPrimaryButtonDown: primaryButtonIsDown,
         parallaxPositionNDC: SIMD2(0.5, -0.25),
         audioSpectrum: audioSpectrum
     )
@@ -951,6 +960,7 @@ private func finalize(
     textureFrameIndex: UInt64 = 1,
     dynamicFrameIndex: UInt64 = 1,
     frameInputIndex: UInt64 = 1,
+    primaryButtonIsDown: Bool = false,
     dynamicSource: SceneDynamicSource? = nil,
     dynamicTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
     authoredTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
@@ -979,6 +989,7 @@ private func finalize(
         ),
         frameInputs: frameInputs(
             frameIndex: frameInputIndex,
+            primaryButtonIsDown: primaryButtonIsDown,
             audioSpectrum: audioSpectrum
         )
     )
@@ -2055,6 +2066,25 @@ private enum Harness {
                 && compactSource.contains("int(mwxUniforms.u_fractals)")
                 && !compactSource.contains("clamp(mwxUniforms.u_fractals")
         }()
+        let pointerStateProgram = finalize(
+            shader: contract(
+                revision: "pointer-state-host-uniform",
+                pointerState: true
+            ),
+            device: device,
+            primaryButtonIsDown: true
+        )
+        let pointerStateEncoded: Bool = {
+            guard case let .success(program) = pointerStateProgram,
+                  let field = program.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "g_PointerState" }
+                  ) else { return false }
+            return field.type == .float4
+                && float(program.uniformBytes, at: field.offset) == 0
+                && float(program.uniformBytes, at: field.offset + 4) == 0
+                && float(program.uniformBytes, at: field.offset + 8) == 1
+                && float(program.uniformBytes, at: field.offset + 12) == 0
+        }()
 
         let implicitFramebufferProgram = finalize(
             shader: contract(
@@ -2196,6 +2226,42 @@ private enum Harness {
                   slot.resource.publication.candidate.sampling == .linearRepeat,
                   program.frontendProgram.textureBindings.first?.channelUse == .redOnly,
                   case .scalarRedUnorm = program.outputContract else {
+                return false
+            }
+            return true
+        }()
+        let rgbaDataConsumerProgram = finalize(
+            shader: contract(revision: "rgba-data-consumer"),
+            device: device,
+            primaryReference: .graph(framebufferTexture()),
+            primaryGraphTextureRole: .framebuffer,
+            additionalEntries: [
+                .graph(framebufferTexture()): .ready(.init(
+                    publication: publication(
+                        device,
+                        requestIdentity: .graph(framebufferTexture()),
+                        purpose: .preservedChannels,
+                        content: .data,
+                        sampling: .linearRepeat,
+                        pixelFormat: .rgba8Unorm,
+                        candidateIdentity: .provider(.graph(
+                            allocationGeneration: 1,
+                            physicalToken: "fixture-rgba-data-target"
+                        ))
+                    ),
+                    resourceGeneration: 1
+                )),
+            ],
+            outputStorage: .preservedRGBAUnorm
+        )
+        let rgbaDataConsumerIdentity: Bool = {
+            guard case let .success(program) = rgbaDataConsumerProgram,
+                  let slot = program.textureSlots[0],
+                  slot.expectedPurpose == .preservedChannels,
+                  slot.resource.publication.candidate.content == .data,
+                  slot.resource.publication.candidate.authoredFormat == nil,
+                  slot.resource.publication.candidate.sampling == .linearRepeat,
+                  case .preservedRGBAUnorm = program.outputContract else {
                 return false
             }
             return true
@@ -3365,6 +3431,7 @@ private enum Harness {
                 outputStorage: .scalarRedUnorm
             )),
             "scalarRedConsumer": failureToken(scalarRedConsumerProgram),
+            "rgbaDataConsumer": failureToken(rgbaDataConsumerProgram),
             "scalarRedForgedTEXFormat": failureToken(scalarRedForgedTEXFormat),
             "scalarRedWrongFormat": failureToken(scalarRedWrongFormat),
             "graphRoleIdentityInvariant": failureToken(graphRoleIdentityFailure),
@@ -3450,11 +3517,13 @@ private enum Harness {
                 "audioSpectrumArraysEncoded": audioSpectrumEncoded,
                 "runtimeLoopStaticProducerAccepted":
                     runtimeLoopStaticProducerAccepted,
+                "pointerStatePrimaryButtonEncoded": pointerStateEncoded,
             ],
             "identity": [
                 "semanticStable": programA.semanticIdentity == programB.semanticIdentity,
                 "exactRevisionSensitive": programA.exactIdentity != programB.exactIdentity,
                 "scalarFramebufferDirectRedConsumer": scalarRedConsumerIdentity,
+                "rgbaFramebufferDataConsumer": rgbaDataConsumerIdentity,
             ],
             "samplerSchema": [
                 "regularGraph": samplerPurposeToken(nil),

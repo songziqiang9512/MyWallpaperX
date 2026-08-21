@@ -25,6 +25,7 @@ nonisolated enum SceneGenericShaderCompiler {
         requestKey: String,
         vertexSource: String,
         fragmentSource: String,
+        outputSemantics: SceneGenericShaderOutputSemantics = .color,
         cacheRoot: URL,
         bundle: Bundle = .main
     ) -> Result<URL, Failure> {
@@ -171,6 +172,7 @@ nonisolated enum SceneGenericShaderCompiler {
         switch SceneGenericShaderArtifactBuilder.build(
             requestKey: requestKey,
             backendID: configuration.backendID,
+            outputSemantics: outputSemantics,
             stages: compiled.map {
                 .init(name: $0.name, source: $0.source,
                       authoredSource: $0.authoredSource, msl: $0.msl,
