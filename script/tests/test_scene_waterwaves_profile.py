@@ -431,9 +431,9 @@ enum Harness {
                 && profiles[2] == .directV1
                 && profiles[3] == .directV1
                 && profiles[4] == .reducedV2,
-            "dedicatedFallbackRetainedOnlyForLegacy":
+            "dedicatedFallbackRetainedOnlyForUnmigratedProfiles":
                 !profiles[0]!.retainsDedicatedFallback
-                && profiles[1]!.retainsDedicatedFallback
+                && !profiles[1]!.retainsDedicatedFallback
                 && profiles[2]!.retainsDedicatedFallback
                 && profiles[3]!.retainsDedicatedFallback
                 && profiles[4]!.retainsDedicatedFallback,

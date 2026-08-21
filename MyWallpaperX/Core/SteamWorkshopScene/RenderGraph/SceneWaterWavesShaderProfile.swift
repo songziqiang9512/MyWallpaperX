@@ -62,10 +62,11 @@ nonisolated enum SceneWaterWavesShaderProfile: Equatable {
         self != .reversedDirectionV1 && self != .directV1
     }
 
-    /// The stock profile is now owned by MaterialProgram/GraphExecutor. The
-    /// dedicated renderer remains only for the four legacy source profiles.
+    /// The stock and reversed-direction v1 profiles are now owned by
+    /// MaterialProgram/GraphExecutor. The dedicated renderer remains only for
+    /// the two direct-v1 source fingerprints and reduced-v2 profile.
     var retainsDedicatedFallback: Bool {
-        self != .stock2842
+        self == .directV1 || self == .reducedV2
     }
 
     static func resolve(_ contracts: [SceneShaderContract]) -> SceneWaterWavesShaderProfile? {
