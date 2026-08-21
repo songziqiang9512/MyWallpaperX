@@ -41,7 +41,6 @@ nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable
     case localContrast = "local-contrast"
     case colorGrading = "color-grading"
     case proceduralNoise = "procedural-noise"
-    case shake
     case waterFlow = "water-flow"
     case waterWaves = "water-waves"
     case waterCaustics = "water-caustics"

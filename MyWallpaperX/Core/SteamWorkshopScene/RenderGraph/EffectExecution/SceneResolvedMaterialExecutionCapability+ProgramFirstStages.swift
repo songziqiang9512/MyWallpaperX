@@ -307,6 +307,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         pairPlan: SceneLayerFullFramePairPlan,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership
     ) -> Bool {
+        switch dependencyOwnership {
+        case .none, .graphInternal:
+            break
+        case .externalPrimary:
+            return false
+        }
         guard [
             "material-generic-owner-revoked",
             "material-variant-envelope-frontend",
@@ -319,7 +325,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             "material-dynamic-uniform-script-attachment-unproven",
             "material-dynamic-uniform-producer-unavailable",
         ].contains(failure.code),
-              dependencyOwnership == .none,
               product.graph.effects.count == 1,
               !product.graph.nodes.isEmpty,
               product.graph.blockers.isEmpty,

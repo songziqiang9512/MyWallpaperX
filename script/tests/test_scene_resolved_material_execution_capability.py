@@ -1172,6 +1172,24 @@ private func pairOnlyDescriptor() -> SceneRenderDescriptor {
     )
 }
 
+private func pairGraphInternalDescriptor() -> SceneRenderDescriptor {
+    let base = pairOnlyDescriptor()
+    return .init(
+        layers: [.init(
+            id: layerID,
+            effects: base.layers[0].effects,
+            dependencyLayerIDs: [layerID],
+            namedReferences: [namedReference(
+                effectID: secondKey.descriptorID,
+                providerLayerID: layerID,
+                slotIndex: 0
+            )]
+        )],
+        materialPasses: base.materialPasses,
+        effectDefinitions: base.effectDefinitions
+    )
+}
+
 private func forwardUnavailableGraph() -> Graph {
     let input = source()
     let firstOutput = output(firstKey)
@@ -2583,6 +2601,27 @@ private enum Harness {
         let pairMultipleProducerCapability = pairMultipleProducerCatalog
             .claim(layerID: layerID)
             .flatMap { pairMultipleProducerCatalog.resolve($0.token) }
+        let pairGraphInternalFailureCatalog = catalog(
+            descriptor: pairGraphInternalDescriptor(),
+            graphs: [pairGraph],
+            materials: materialCatalog(
+                graph: pairGraph,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.timeline, .userProperty("strength-property")]
+                )]]
+            ),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget()
+                )],
+                timelineTargets: [dynamicTarget()],
+                sceneScriptTargets: []
+            )
+        )
+        let pairGraphInternalFailureCapability = pairGraphInternalFailureCatalog
+            .claim(layerID: layerID)
+            .flatMap { pairGraphInternalFailureCatalog.resolve($0.token) }
         let composeFailureGraph = fullFrameComposeGraph()
         let composeFailureCatalog = catalog(
             descriptor: fullFrameComposeDescriptor(),
@@ -3299,6 +3338,16 @@ private enum Harness {
                             + " reason=material-dynamic-uniform-contributor-policy"
                             + " count=1"
                     },
+                "graphInternalVisualFailureIsEffectLocal":
+                    pairGraphInternalFailureCapability?.dependencyOwnership
+                        .reportKind == "graph-internal"
+                    && pairGraphInternalFailureCapability?.stages.compactMap(
+                        \.subject
+                    ).map(\.family)
+                        == ["visual-failure-passthrough", "resolved-material"]
+                    && pairGraphInternalFailureCapability?.stages.first?
+                        .visualFailureReasonCode
+                        == "material-dynamic-uniform-contributor-policy",
                 "multipleProducerComposeEffectPassthrough":
                     composeFailureCapability?.stages.first?
                         .visualFailureReasonCode
@@ -6774,6 +6823,17 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         ]
         self.assertIn("product.clearFunctions.functions.isEmpty", owner_revoked_branch)
         self.assertIn("dependencyOwnership: admitted.dependencyOwnership", owner_revoked_branch)
+        passthrough_start = program_first.index(
+            "private static func visualFailureMayPassthrough("
+        )
+        passthrough_end = program_first.index(
+            "private static func dedicatedDynamicTargetsAreExecutable(",
+            passthrough_start,
+        )
+        passthrough = program_first[passthrough_start:passthrough_end]
+        self.assertIn("case .none, .graphInternal:", passthrough)
+        self.assertIn("case .externalPrimary:", passthrough)
+        self.assertIn("return false", passthrough)
         self.assertIn("return .failure(programFailure)", owner_revoked_branch)
         self.assertNotIn(
             "r8TextureSlots: Set(variantKey.resolvedTextureFormats",
@@ -7130,6 +7190,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "multipleProducerNonLeafRemainsRejected": True,
                 "multipleProducerPairLeafPassthrough": True,
                 "multipleProducerPairLeafCounted": True,
+                "graphInternalVisualFailureIsEffectLocal": True,
                 "multipleProducerComposeEffectPassthrough": True,
                 "multipleProducerComposeEffectCounted": True,
                 "multipleProducerSecondNodePassthrough": True,

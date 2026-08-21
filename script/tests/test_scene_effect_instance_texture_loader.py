@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Water Ripple / Shake 的 effect-instance 纹理身份与 fail-closed。"""
+"""Water Ripple 的 effect-instance 纹理身份与 fail-closed。"""
 
 from __future__ import annotations
 
@@ -26,7 +26,6 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
-    SCENE_ROOT / "Resources/SceneShakeEffectTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneWaterRippleEffectTextureLoader.swift",
 ]
 
@@ -52,12 +51,6 @@ final class SceneVideoTextureSource {
 struct SceneWaterRippleExecutionPlan {
     let maskTexturePath: String
     let normalTexturePath: String
-}
-
-struct SceneShakeExecutionPlan {
-    let flowTexturePath: String
-    let phaseTexturePath: String?
-    let maskTexturePath: String?
 }
 
 struct SceneTexturePathResolver {
@@ -137,11 +130,9 @@ enum SceneLayerEffectTextureLoader {
 enum Harness {
     static let rippleA = "9#effect#3"
     static let rippleB = "9#effect#4"
-    static let shakeMasked = "9#effect#6"
     static let maskA = "masks/a"
     static let maskB = "masks/b"
     static let normal = "effects/waterripplenormal"
-    static let flow = "masks/flow"
 
     static func main() throws {
         guard CommandLine.arguments.count == 2 else {
@@ -159,21 +150,17 @@ enum Harness {
         let maskAURL = root.appendingPathComponent("mask-a.png")
         let maskBURL = root.appendingPathComponent("mask-b.png")
         let normalURL = root.appendingPathComponent("normal.png")
-        let flowURL = root.appendingPathComponent("flow.png")
         try writeImage(maskAURL, red: 32)
         try writeImage(maskBURL, red: 224)
         try writeImage(normalURL, red: 192)
-        try writeImage(flowURL, red: 127)
         let resolver = SceneTexturePathResolver(urlsByPath: [
             maskA: maskAURL,
             maskB: maskBURL,
             normal: normalURL,
-            flow: flowURL,
         ])
         let layer = SceneRenderDescriptor.Layer(effects: [
             ripple(rippleA, mask: maskA),
             ripple(rippleB, mask: maskB),
-            shake(shakeMasked, mask: maskA),
         ])
         let loader = SceneTextureLoader()
         let rippleLoaded = SceneWaterRippleEffectTextureLoader.load(
@@ -183,16 +170,8 @@ enum Harness {
             loader: loader,
             device: device
         )
-        let shakeLoaded = SceneShakeEffectTextureLoader.load(
-            for: layer,
-            effectIDs: [shakeMasked],
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
         let rippleAResources = rippleLoaded.textures[rippleA]
         let rippleBResources = rippleLoaded.textures[rippleB]
-        let shakeResources = shakeLoaded.textures[shakeMasked]
         let result: [String: Any] = [
             "rippleKeys": rippleLoaded.textures.keys.sorted(),
             "rippleAMatches": rippleAResources?.resolvedArguments(for: .init(
@@ -210,20 +189,6 @@ enum Harness {
             "rippleSlotsTyped":
                 rippleAResources?.maskBinding?.slotIndex == 1
                     && rippleAResources?.normalBinding?.slotIndex == 2,
-            "shakeWhitePhaseFallback":
-                shakeResources?.phaseBinding == nil
-                    && shakeResources?.phasePath == nil,
-            "shakeMatches":
-                shakeResources?.resolvedArguments(for: .init(
-                    flowTexturePath: flow,
-                    phaseTexturePath: nil,
-                    maskTexturePath: maskA
-                )) != nil,
-            "shakeSlotsTyped":
-                shakeResources?.flowBinding?.slotIndex == 1
-                    && shakeResources?.flowBinding?.purpose == .flow
-                    && shakeResources?.maskBinding?.slotIndex == 3
-                    && shakeResources?.maskBinding?.purpose == .mask,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -237,17 +202,6 @@ enum Harness {
             id: id,
             file: "effects/waterripple/effect.json",
             passes: [.init(textureSlots: [nil, mask, normal])]
-        )
-    }
-
-    static func shake(
-        _ id: String,
-        mask: String
-    ) -> SceneRenderDescriptor.EffectDescriptor {
-        .init(
-            id: id,
-            file: "effects/shake/effect.json",
-            passes: [.init(textureSlots: [nil, flow, "util/white", mask])]
         )
     }
 
@@ -342,9 +296,6 @@ class SceneEffectInstanceTextureLoaderTests(unittest.TestCase):
                 "rippleMasksDistinct": True,
                 "rippleNormalShared": True,
                 "rippleSlotsTyped": True,
-                "shakeMatches": True,
-                "shakeSlotsTyped": True,
-                "shakeWhitePhaseFallback": True,
             },
         )
 

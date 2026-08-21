@@ -5,7 +5,6 @@ struct SceneImageLayerMasks {
     let waterRippleEffects: [String: SceneWaterRippleEffectTextures]
     let depthParallaxEffects: [String: SceneDepthParallaxEffectTextures]
     let blendEffects: [String: SceneBlendEffectTextures]
-    let shakeEffects: [String: SceneShakeEffectTextures]
     let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
@@ -20,7 +19,6 @@ struct SceneImageLayerMasks {
         waterRippleEffects: [:],
         depthParallaxEffects: [:],
         blendEffects: [:],
-        shakeEffects: [:],
         standardBlurEffects: [:],
         waterFlowEffects: [:],
         waterWavesEffects: [:],
@@ -37,7 +35,6 @@ struct SceneImageLayerMasks {
             waterRippleEffects: [:],
             depthParallaxEffects: [:],
             blendEffects: [:],
-            shakeEffects: [:],
             standardBlurEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
@@ -88,7 +85,6 @@ struct SceneImageLayerMasks {
             || hasUnprovenPulseResource
             || hasWaterWavesOutsideDisplacementContract
             || hasUnprovenWaterWavesDisplacementResource
-            || hasValue(shakeEffects) { $0.maskBinding != nil }
             || hasValue(waterRippleEffects) { $0.maskBinding != nil }
             || hasValue(standardBlurEffects) { $0.maskCandidate != nil }
             || hasValue(waterCausticsEffects) { $0.mask != nil }

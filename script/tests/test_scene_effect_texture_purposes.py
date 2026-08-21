@@ -20,7 +20,6 @@ TEXTURE_CANDIDATE = RESOURCE_ROOT / "SceneTextureCandidate.swift"
 SLOT_BINDING = RESOURCE_ROOT / "SceneTextureSlotBinding.swift"
 WATER_FLOW_LOADER = RESOURCE_ROOT / "SceneWaterFlowEffectTextureLoader.swift"
 STANDARD_BLUR_LOADER = RESOURCE_ROOT / "SceneStandardBlurEffectTextureLoader.swift"
-SHAKE_LOADER = RESOURCE_ROOT / "SceneShakeEffectTextureLoader.swift"
 RIPPLE_LOADER = RESOURCE_ROOT / "SceneWaterRippleEffectTextureLoader.swift"
 DEPTH_PARALLAX_LOADER = (
     RESOURCE_ROOT / "SceneDepthParallaxEffectTextureLoader.swift"
@@ -29,7 +28,6 @@ EFFECT_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects"
 )
 WATER_FLOW_RENDERER = EFFECT_ROOT / "SceneWaterFlowRenderer.swift"
-SHAKE_RENDERER = EFFECT_ROOT / "SceneShakeRenderer.swift"
 RIPPLE_RENDERER = EFFECT_ROOT / "SceneWaterRippleRenderer.swift"
 OFFSCREEN_RENDERER = EFFECT_ROOT / "SceneOffscreenEffectRenderer.swift"
 RESOLVED_TEMPLATE_COMPILER = (
@@ -43,9 +41,6 @@ METAL_VIEW = (
 )
 LOADER_SOURCES = sorted(RESOURCE_ROOT.glob("*EffectTextureLoader*.swift"))
 EXPECTED_PURPOSES = {
-    "shake flow": "flow",
-    "shake phase": "phase",
-    "shake mask": "mask",
     "blend effect texture": "premultipliedColor",
     "cursor ripple collision mask": "mask",
     "godrays noise": "noise",
@@ -104,7 +99,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             {
                 "SceneBlendEffectTextureLoader.swift": 1,
                 "SceneDepthParallaxEffectTextureLoader.swift": 1,
-                "SceneShakeEffectTextureLoader.swift": 3,
                 "SceneStandardBlurEffectTextureLoader.swift": 1,
                 "SceneWaterFlowEffectTextureLoader.swift": 2,
                 "SceneWaterRippleEffectTextureLoader.swift": 2,
@@ -156,12 +150,10 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         blur_loader = STANDARD_BLUR_LOADER.read_text(encoding="utf-8")
         offscreen = OFFSCREEN_RENDERER.read_text(encoding="utf-8")
         strict_loaders = {
-            SHAKE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 3"),
             RIPPLE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 2"),
             DEPTH_PARALLAX_LOADER: ("expectedSlotIndex: 1",),
         }
         strict_renderers = (
-            SHAKE_RENDERER,
             RIPPLE_RENDERER,
         )
         resolved_template = RESOLVED_TEMPLATE_COMPILER.read_text(encoding="utf-8")

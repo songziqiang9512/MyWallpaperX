@@ -633,7 +633,6 @@ struct SceneBlendEffectTextures {
         case localContrast(SceneLocalContrastPlan)
         case colorGrading(SceneColorGradingExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
-        case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
@@ -649,8 +648,6 @@ struct SceneBlendEffectTextures {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .shake:
-                return true
             case .proceduralNoise(let plan):
                 return plan.variant == .worleyColorV1
                     && plan.dependencyProviderLayerID != nil
@@ -667,7 +664,6 @@ struct SceneBlendEffectTextures {
             case .localContrast: "local-contrast"
             case .colorGrading: "color-grading"
             case .proceduralNoise: "procedural-noise"
-            case .shake: "shake"
             case .waterFlow: "water-flow"
             case .waterWaves: "water-waves"
             case .waterCaustics: "water-caustics"
@@ -822,36 +818,8 @@ struct SceneBlendEffectTextures {
 
 }
 
-struct SceneShakeExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    var audio: SceneAudioResponse.Parameters? = nil
-}
-
-struct SceneShakeEffectTextures {
-    let maskBinding: SceneTextureSlotBinding?
-}
-
 struct SceneSpotLightPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-struct SceneShakePipeline {
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-enum SceneShakeRenderer {
-    static func render(
-        plan: SceneShakeExecutionPlan,
-        resources: SceneShakeEffectTextures,
-        time: Float,
-        audioPulse: Float?,
-        inputTexture: MTLTexture,
-        outputTexture: MTLTexture,
-        pipeline: SceneShakePipeline,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        nil
-    }
 }
 
 struct SceneWaterFlowExecutionPlan {
@@ -2247,14 +2215,11 @@ enum Harness {
         )
         guard let maskSlot1 = SceneTextureSlotBinding(
                   slotIndex: 1, candidate: maskCandidate
-              ), let maskSlot3 = SceneTextureSlotBinding(
-                  slotIndex: 3, candidate: maskCandidate
               ) else {
             throw HarnessError.drawRefused
         }
         func masks(
             waterRippleEffects: [String: SceneWaterRippleEffectTextures] = [:],
-            shakeEffects: [String: SceneShakeEffectTextures] = [:],
             standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:],
             waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:],
             waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:],
@@ -2268,7 +2233,6 @@ enum Harness {
                 waterRippleEffects: waterRippleEffects,
                 depthParallaxEffects: [:],
                 blendEffects: [:],
-                shakeEffects: shakeEffects,
                 standardBlurEffects: standardBlurEffects,
                 waterFlowEffects: [:],
                 waterWavesEffects: waterWavesEffects,
@@ -2806,11 +2770,6 @@ enum Harness {
                     maskUVScale: SIMD2(repeating: 1),
                     normal: nil,
                     maskBinding: maskSlot1
-                ),
-            ])),
-            ("shake", masks(shakeEffects: [
-                visibleEffectID: SceneShakeEffectTextures(
-                    maskBinding: maskSlot3
                 ),
             ])),
             ("standardBlur", masks(standardBlurEffects: [
@@ -4138,7 +4097,6 @@ enum Harness {
             waterRippleEffects: [:],
             depthParallaxEffects: [:],
             blendEffects: [:],
-            shakeEffects: [:],
             standardBlurEffects: [
                 descriptorID: SceneStandardBlurEffectTextures(
                     maskCandidate: candidate,
@@ -5111,7 +5069,6 @@ enum Harness {
             waterRippleEffects: [:],
             depthParallaxEffects: [:],
             blendEffects: blendEffects,
-            shakeEffects: [:],
             standardBlurEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
@@ -5634,7 +5591,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "waterWavesWrongPassMasked",
                 "waterWavesStaticSourceConsumer",
                 "mask-waterRipple",
-                "mask-shake",
                 "mask-standardBlur",
                 "mask-waterWaves",
                 "mask-waterCaustics",

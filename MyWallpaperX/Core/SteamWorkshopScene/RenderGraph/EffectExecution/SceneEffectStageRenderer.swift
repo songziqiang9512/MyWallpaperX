@@ -82,7 +82,7 @@ targets: targets,
                 time: time,
                 commandBuffer: commandBuffer
             )
-        case .shake, .waterFlow, .waterWaves, .waterCaustics,
+        case .waterFlow, .waterWaves, .waterCaustics,
              .cursorRipple, .waterRipple, .depthParallax,
              .xRay, .blend, .transform,
              .godrays, .shine, .pulse:

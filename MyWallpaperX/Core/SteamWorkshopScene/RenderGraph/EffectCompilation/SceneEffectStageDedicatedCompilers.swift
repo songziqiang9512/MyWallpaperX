@@ -111,11 +111,6 @@ extension SceneAuthoredProceduralNoisePlanner: SceneEffectStageGraphCandidatePla
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }
 }
 
-extension SceneAuthoredShakePlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneShakeExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .shake }
-}
-
 extension SceneAuthoredWaterFlowPlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneWaterFlowExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterFlow }

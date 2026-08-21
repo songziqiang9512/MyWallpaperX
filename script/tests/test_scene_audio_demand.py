@@ -31,8 +31,6 @@ SPECIALIZED_STAGE_SOURCE = (
 FRAME_PREFLIGHT_SOURCE = (
     SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
 )
-SHAKE_PIPELINE_SOURCE = SCENE_ROOT / "Effects/SceneShakePipeline.swift"
-SHAKE_PLANNER_AUDIO_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredShakePlanner+Audio.swift"
 AUDIO_ADMISSION_SOURCE = SCENE_ROOT / "RenderGraph/SceneAudioResponseAdmission.swift"
 PULSE_CONSTANTS_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneAuthoredPulsePlanner+Constants.swift"
@@ -62,7 +60,7 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
     def test_demand_is_driven_by_actual_consumers(self) -> None:
         source = DEMAND_SOURCE.read_text(encoding="utf-8")
         capability = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("plan.shake?.audio != nil", capability)
+        self.assertIn("program.executionPlan.pulse?.audio != nil", capability)
         self.assertIn("$0.variants.hasAudioSpectrumConsumer", capability)
         self.assertNotIn("workshopAudioBars", capability)
         self.assertIn(
@@ -143,17 +141,8 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
             "频谱必须每帧采样一次并广播，不能逐 surface 各取一次",
         )
 
-    def test_spectrum_reaches_the_shake_backend(self) -> None:
+    def test_spectrum_reaches_the_unified_executor_inputs(self) -> None:
         self.assertIn("let audioSpectrum: SceneAudioSpectrumSnapshot", FRAME_CONTEXT_SOURCE.read_text(encoding="utf-8"))
-        chain = CHAIN_RENDERER_SOURCE.read_text(encoding="utf-8") \
-            + SPECIALIZED_STAGE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            "SceneAudioResponse.evaluate(",
-            chain,
-            "chain 路径必须用共享求值器，不得就地另写一份公式",
-        )
-        self.assertIn("spectrum: audioSpectrum", chain)
-        self.assertIn("parameters: $0", chain)
         frame_preflight = FRAME_PREFLIGHT_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
             "audioSpectrum: frameContext.audioSpectrum",
@@ -167,13 +156,7 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         self.assertIn("case .resolved(_, let materials):", body)
         self.assertIn("$0.variants.hasAudioSpectrumConsumer", body)
         self.assertIn("case .dedicated(_, let program, _):", body)
-        self.assertIn("let plan = program.executionPlan", body)
-        self.assertRegex(
-            body,
-            r"plan\.shake\?\.audio != nil\s*"
-            r"\|\| plan\.pulse\?\.audio != nil",
-            "unified owner transfer must retain every dedicated audio consumer",
-        )
+        self.assertIn("program.executionPlan.pulse?.audio != nil", body)
         self.assertNotIn("workshopAudioBars", body)
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
@@ -184,16 +167,11 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         harness = """
 struct AudioParameters {}
 
-struct ShakePlan {
-    let audio: AudioParameters?
-}
-
 struct PulsePlan {
     let audio: AudioParameters?
 }
 
 struct ExecutionPlan {
-    let shake: ShakePlan?
     let pulse: PulsePlan?
 }
 
@@ -237,18 +215,8 @@ func demandsAudio(_ stage: StageCapability) -> Bool {
 enum AudioDemandHarness {
     static func main() {
         let audio = AudioParameters()
-        let silent = ExecutionPlan(
-            shake: ShakePlan(audio: nil),
-            pulse: PulsePlan(audio: nil)
-        )
-        let shake = ExecutionPlan(
-            shake: ShakePlan(audio: audio),
-            pulse: nil
-        )
-        let pulse = ExecutionPlan(
-            shake: nil,
-            pulse: PulsePlan(audio: audio)
-        )
+        let silent = ExecutionPlan(pulse: PulsePlan(audio: nil))
+        let pulse = ExecutionPlan(pulse: PulsePlan(audio: audio))
         let checks: [(String, Bool, Bool)] = [
             (
                 "resolved-positive",
@@ -273,15 +241,6 @@ enum AudioDemandHarness {
                     )]
                 )),
                 false
-            ),
-            (
-                "dedicated-shake-audio",
-                demandsAudio(.dedicated(
-                    1,
-                    Program(executionPlan: shake),
-                    1
-                )),
-                true
             ),
             (
                 "dedicated-pulse-audio",
@@ -349,27 +308,8 @@ enum AudioDemandHarness {
             self.assertEqual(run_result.stdout.strip(), "audio-demand-ok")
 
 
-class SceneShakeAudioContractTests(unittest.TestCase):
-    def test_verified_legacy_shake_profile_accepts_audio(self) -> None:
-        source = SHAKE_PLANNER_AUDIO_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            ".unconditionalPhaseV1",
-            source,
-            "legacy Shake 的同源 vertex 与真实 mode 1/3 语料已验证，可走共享 audio 求值",
-        )
-        self.assertNotRegex(
-            source,
-            r"case \.unconditionalPhaseV1:\s*\n\s*return false",
-        )
-        self.assertIn(
-            "isAudioCapableProfile: profile.isAudioCapable",
-            PULSE_CONSTANTS_SOURCE.read_text(encoding="utf-8"),
-            "两个 legacy Pulse 指纹同样继续拒绝 audio",
-        )
-
-    def test_audio_defaults_match_the_official_annotations(self) -> None:
-        # 四个共享默认值来自 shake/pulse 同名 annotation：frequencymin 0、
-        # frequencymax 1、audioexponent 1.0、audioamount 1。
+class SceneAudioResponseContractTests(unittest.TestCase):
+    def test_shared_defaults_remain_parameterized_for_pulse(self) -> None:
         shared = AUDIO_ADMISSION_SOURCE.read_text(encoding="utf-8")
         for pattern in (
             r'values\["frequencymin"\], range: 0 ?\.\.\. ?15, fallback: 0',
@@ -378,36 +318,12 @@ class SceneShakeAudioContractTests(unittest.TestCase):
             r'values\["audioamount"\], range: 0 ?\.\.\. ?2, fallback: 1',
         ):
             self.assertRegex(shared, pattern)
-        # audiobounds 默认值两个 effect 不同，必须由各自 planner 给出。
-        self.assertIn(
-            "defaultBounds: SIMD2(0, 1.2)",
-            SHAKE_PLANNER_AUDIO_SOURCE.read_text(encoding="utf-8"),
-            "stock shake.vert 的 audiobounds 默认值是 0.0 1.2",
-        )
         self.assertIn(
             "defaultBounds: SIMD2(0.5, 1)",
             PULSE_CONSTANTS_SOURCE.read_text(encoding="utf-8"),
             "stock pulse.vert 的 audiobounds 默认值是 0.5 1.0",
         )
-        for literal in ("SIMD2(0, 1.2)", "SIMD2(0.5, 1)"):
-            self.assertNotIn(
-                literal,
-                shared,
-                "共享层只接收 defaultBounds 参数，不得内置任一 effect 的默认值",
-            )
-
-    def test_shader_skips_the_time_driven_block_when_audio_is_enabled(self) -> None:
-        source = SHAKE_PIPELINE_SOURCE.read_text(encoding="utf-8")
-        # 官方 shake.frag 把时间驱动整段包在 `#if AUDIOPROCESSING == 0` 内。
-        match = re.search(
-            r"if \(uniforms\.audio\.y > 0\.5\) \{\s*\n\s*offset = uniforms\.audio\.x;\s*\n\s*\} else \{",
-            source,
-        )
-        self.assertIsNotNone(
-            match,
-            "启用 audio 后 speed/friction/bounds/flowPhase 都不得参与 offset 计算",
-        )
-        self.assertIn("float4 audio;", source)
+        self.assertNotIn("SIMD2(0.5, 1)", shared)
 
 
 if __name__ == "__main__":

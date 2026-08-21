@@ -8,7 +8,6 @@ enum SceneLayerEffectTextureLoader {
         loader: SceneTextureLoader,
         device: MTLDevice,
         blendEffectIDs: Set<String> = [],
-        shakeEffectIDs: Set<String> = [],
         standardBlurEffectIDs: Set<String> = [],
         waterFlowEffectIDs: Set<String> = [],
         waterWavesEffectIDs: Set<String> = [],
@@ -29,13 +28,6 @@ enum SceneLayerEffectTextureLoader {
             for: layer, effectIDs: blendEffectIDs, resolver: resolver, loader: loader,
             device: device,
             userPropertyTextureStates: userPropertyTextureStates
-        )
-        let shake = SceneShakeEffectTextureLoader.load(
-            for: layer,
-            effectIDs: shakeEffectIDs,
-            resolver: resolver,
-            loader: loader,
-            device: device
         )
         let standardBlur = SceneStandardBlurEffectTextureLoader.load(
             for: layer,
@@ -118,7 +110,6 @@ enum SceneLayerEffectTextureLoader {
             waterRippleEffects: waterRipple.textures,
             depthParallaxEffects: depthParallax.textures,
             blendEffects: blend.textures,
-            shakeEffects: shake.textures,
             standardBlurEffects: standardBlur.textures,
             waterFlowEffects: waterFlow.textures,
             waterWavesEffects: waterWaves.textures,
@@ -129,7 +120,7 @@ enum SceneLayerEffectTextureLoader {
             shineEffects: shineEffects.textures,
             xRay: xRay.textures,
             message: [
-                blend.message, shake.message,
+                blend.message,
                 standardBlur.message,
                 waterFlow.message, waterWaves.message, cursorRipple.message,
                 waterCaustics.message,

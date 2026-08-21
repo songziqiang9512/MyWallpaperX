@@ -67,43 +67,6 @@ DRAW_REQUEST_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift"
 EFFECT_TEXTURE_LOADER_SOURCE = (
     SOURCE_ROOT / "Resources/SceneLayerEffectTextureLoader.swift"
 )
-SHAKE_TEXTURE_LOADER_SOURCE = (
-    SOURCE_ROOT / "Resources/SceneShakeEffectTextureLoader.swift"
-)
-
-ORDERED_STAGE_FIXTURES = {
-    "shake-xray": (
-        (0, "shake"),
-        (1, "shake"),
-        (2, "shake"),
-        (3, "shake"),
-        (4, "xRay"),
-    ),
-    "xray-water-shake": (
-        (0, "xRay"),
-        (1, "waterFlow"),
-        (2, "waterRipple"),
-        (3, "waterFlow"),
-        (4, "shake"),
-    ),
-}
-
-STAGE_SOURCE_MARKERS = {
-    "shake": ("SceneAuthoredShakePlanner.compile", "case shake", "case .shake"),
-    "xRay": ("SceneAuthoredXRayPlanner.compile", "case xRay", "case .xRay"),
-    "waterFlow": (
-        "SceneAuthoredWaterFlowPlanner.compile",
-        "case waterFlow",
-        "case .waterFlow",
-    ),
-    "waterRipple": (
-        "SceneAuthoredWaterRipplePlanner.compile",
-        "case waterRipple",
-        "case .waterRipple",
-    ),
-}
-
-
 HARNESS = r'''
 import Foundation
 
@@ -179,20 +142,6 @@ enum SceneAuthoredProceduralNoisePlanner {
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneProceduralNoiseExecutionPlan? {
         nil
-    }
-}
-
-struct SceneShakeExecutionPlan {}
-
-enum SceneAuthoredShakePlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneShakeExecutionPlan? {
-        graph.effects.first?.definitionPath.lowercased()
-            == "effects/shake/effect.json" ? SceneShakeExecutionPlan() : nil
     }
 }
 
@@ -511,10 +460,6 @@ extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }
-}
-extension SceneAuthoredShakePlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneShakeExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .shake }
 }
 extension SceneAuthoredWaterFlowPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWaterFlowExecutionPlan
@@ -1334,7 +1279,6 @@ enum Harness {
             case .localContrast: backend = "localContrast"
             case .colorGrading: backend = "colorGrading"
             case .proceduralNoise: backend = "proceduralNoise"
-            case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"
             case .waterWaves: backend = "waterWaves"
             case .waterCaustics: backend = "waterCaustics"
@@ -1582,16 +1526,6 @@ enum Harness {
         ) -> Bool {
             SceneAuthoredStandardBlurPlanner.plan(graph: graph, descriptor: descriptor) == nil
         }
-        let shakeXRay = orderedGraph(
-            layerID: 910,
-            stageNames: [
-                "shake", "shake", "shake", "shake", "xRay",
-            ]
-        )
-        let xRayWaterShake = orderedGraph(
-            layerID: 920,
-            stageNames: ["xRay", "waterFlow", "waterRipple", "waterFlow", "shake"]
-        )
         let result: [String: Any] = [
             "scale": [preciseBlur.horizontalStep, preciseBlur.verticalStep],
             "nodes": visiblePlan.materialNodeCount,
@@ -1751,14 +1685,6 @@ enum Harness {
                 descriptor: standardUnknownMaskComboDescriptor
             ),
             "standardMixedEffectRejected": standardRejected(graph: standardBlurGraph(extraMixedEffect: true)),
-            "shakeXRayStages": stageEvidence(
-                graph: shakeXRay.graph,
-                descriptor: shakeXRay.descriptor
-            ),
-            "xRayWaterShakeStages": stageEvidence(
-                graph: xRayWaterShake.graph,
-                descriptor: xRayWaterShake.descriptor
-            ),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -2009,81 +1935,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             compiler,
         )
 
-    def assert_ordered_stage_fixture(self, fixture_name: str) -> None:
-        compiler = PROGRAM_COMPILER_SOURCE.read_text(encoding="utf-8")
-        backend = CHAIN_BACKEND_SOURCE.read_text(encoding="utf-8")
-        renderer = CHAIN_RENDERER_SOURCE.read_text(encoding="utf-8") \
-            + CHAIN_SPECIALIZED_STAGE_SOURCE.read_text(encoding="utf-8")
-        compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
-        fixture = ORDERED_STAGE_FIXTURES[fixture_name]
-
-        self.assertEqual(
-            [effect_index for effect_index, _ in fixture],
-            list(range(len(fixture))),
-            f"{fixture_name} fixture must preserve authored effect indexes",
-        )
-        loop = compiler.index("graph.effects.enumerated().compactMap")
-        compile_program = compiler.index("return SceneEffectStageProgram(", loop)
-        self.assertLess(loop, compile_program)
-
-        for stage in dict.fromkeys(stage for _, stage in fixture):
-            planner_marker, backend_marker, renderer_marker = STAGE_SOURCE_MARKERS[stage]
-            self.assertIn(
-                planner_marker,
-                compiler,
-                f"{fixture_name} is missing the {stage} compiler",
-            )
-            self.assertIn(
-                backend_marker,
-                backend,
-                f"{fixture_name} is missing the {stage} backend",
-            )
-            self.assertIn(
-                renderer_marker,
-                renderer,
-                f"{fixture_name} is missing the {stage} ordered renderer",
-            )
-
-        self.assertNotIn(
-            "if let xRayPlan",
-            compositor,
-            f"{fixture_name} must not append X-Ray outside GraphExecutor",
-        )
-
-    def test_public_graph_preserves_shake_then_xray_stage_order(self) -> None:
-        self.assertEqual(
-            ORDERED_STAGE_FIXTURES["shake-xray"],
-            (
-                (0, "shake"),
-                (1, "shake"),
-                (2, "shake"),
-                (3, "shake"),
-                (4, "xRay"),
-            ),
-        )
-        self.assertEqual(
-            self.result["shakeXRayStages"],
-            [list(stage) for stage in ORDERED_STAGE_FIXTURES["shake-xray"]],
-        )
-        self.assert_ordered_stage_fixture("shake-xray")
-
-    def test_public_graph_preserves_xray_water_and_shake_stage_order(self) -> None:
-        self.assertEqual(
-            ORDERED_STAGE_FIXTURES["xray-water-shake"],
-            (
-                (0, "xRay"),
-                (1, "waterFlow"),
-                (2, "waterRipple"),
-                (3, "waterFlow"),
-                (4, "shake"),
-            ),
-        )
-        self.assertEqual(
-            self.result["xRayWaterShakeStages"],
-            [list(stage) for stage in ORDERED_STAGE_FIXTURES["xray-water-shake"]],
-        )
-        self.assert_ordered_stage_fixture("xray-water-shake")
-
     def test_later_authored_stages_retain_required_resources(self) -> None:
         source = DRAW_REQUEST_SOURCE.read_text(encoding="utf-8")
         self.assertNotIn("authoredEffectResourcesOnly", source)
@@ -2097,22 +1948,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             self.assertIn(f"let {resource}", source)
 
         layer_loader = EFFECT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            "SceneShakeEffectTextureLoader.load(",
-            layer_loader,
-        )
-        loader = SHAKE_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            "(2 ... 4).contains(pass.textureSlots.count)",
-            loader,
-        )
-        for marker in (
-            'label: "shake mask"',
-            "maskBinding: mask.candidate.flatMap",
-            "SceneTextureSlotBinding(slotIndex: 3, candidate: $0)",
-            "maskPath: maskPath",
-        ):
-            self.assertIn(marker, loader)
+        self.assertNotIn("SceneShakeEffectTextureLoader", layer_loader)
 
     def test_partial_recovery_helpers_and_iris_composite_path_are_absent(self) -> None:
         compiler = PROGRAM_COMPILER_SOURCE.read_text(encoding="utf-8")

@@ -40,7 +40,6 @@ final class SceneImageEffectPipelineRepository {
     private let colorGradingSlot: ScenePipelineSlot<SceneColorGradingPipeline>
     private let proceduralNoiseSlot: ScenePipelineSlot<SceneProceduralNoisePipeline>
     private let spotLightSlot: ScenePipelineSlot<SceneSpotLightPipeline>
-    private let shakeSlot: ScenePipelineSlot<SceneShakePipeline>
     private let waterFlowSlot: ScenePipelineSlot<SceneWaterFlowPipeline>
     private let waterWavesSlot: ScenePipelineSlot<SceneWaterWavesPipeline>
     private let waterCausticsSlot: ScenePipelineSlot<SceneWaterCausticsPipeline>
@@ -61,7 +60,6 @@ final class SceneImageEffectPipelineRepository {
         colorGradingSlot = .init { SceneColorGradingPipeline(device: device) }
         proceduralNoiseSlot = .init { SceneProceduralNoisePipeline(device: device) }
         spotLightSlot = .init { SceneSpotLightPipeline(device: device) }
-        shakeSlot = .init { SceneShakePipeline(device: device) }
         waterFlowSlot = .init { SceneWaterFlowPipeline(device: device) }
         waterWavesSlot = .init { SceneWaterWavesPipeline(device: device) }
         waterCausticsSlot = .init { SceneWaterCausticsPipeline(device: device) }
@@ -83,7 +81,6 @@ final class SceneImageEffectPipelineRepository {
         proceduralNoiseSlot.resolve()
     }
     func spotLight() -> SceneSpotLightPipeline? { spotLightSlot.resolve() }
-    func shake() -> SceneShakePipeline? { shakeSlot.resolve() }
     func waterFlow() -> SceneWaterFlowPipeline? { waterFlowSlot.resolve() }
     func waterWaves() -> SceneWaterWavesPipeline? { waterWavesSlot.resolve() }
     func waterCaustics() -> SceneWaterCausticsPipeline? { waterCausticsSlot.resolve() }

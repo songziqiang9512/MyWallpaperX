@@ -82,11 +82,6 @@ extension SceneEffectProgramCompiler {
                     stage(.proceduralNoise($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.shake, {
-                SceneAuthoredShakePlanner.compile(input).mapAccepted {
-                    stage(.shake($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.waterFlow, {
                 SceneAuthoredWaterFlowPlanner.compile(input).mapAccepted {
                     stage(.waterFlow($0), stageGraph: stageGraph, inputRole: inputRole)

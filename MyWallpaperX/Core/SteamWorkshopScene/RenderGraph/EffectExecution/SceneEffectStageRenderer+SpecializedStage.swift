@@ -23,34 +23,6 @@ extension SceneEffectStageRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         switch stage.backend {
-        case .shake(let shake):
-            guard let resources = masks.shakeEffects[shake.effectKey.descriptorID],
-                  let shakePipeline = pipelines.shake,
-                  targets.plan.logicalTargets.isEmpty,
-                  SceneOffscreenEffectRenderer.captureSource(
-                      sourceTexture: sourceTexture,
-                      target: targets.inputTexture,
-                      sourceUniforms: sourceUniforms,
-                      pipeline: pipeline,
-                      commandBuffer: commandBuffer
-                  ) else {
-                return nil
-            }
-            return SceneShakeRenderer.render(
-                plan: shake,
-                resources: resources,
-                time: time,
-                audioPulse: shake.audio.map {
-                    SceneAudioResponse.evaluate(
-                        spectrum: audioSpectrum,
-                        parameters: $0
-                    )
-                },
-                inputTexture: targets.inputTexture,
-                outputTexture: targets.outputTexture,
-                pipeline: shakePipeline,
-                commandBuffer: commandBuffer
-            )
         case .waterFlow(let waterFlow):
             return renderWaterFlow(
                 waterFlow, sourceTexture: sourceTexture, masks: masks,

@@ -267,11 +267,6 @@ extension SceneEffectStageRenderer {
             return pipelines.blend == nil ? "blend-pipeline-missing" : nil
         case .transform:
             return nil
-        case .shake(let plan):
-            guard inputs.masks.shakeEffects[plan.effectKey.descriptorID] != nil else {
-                return "shake-resource-missing"
-            }
-            return pipelines.shake == nil ? "shake-pipeline-missing" : nil
         case .pulse(let plan):
             guard let resources = inputs.masks.pulseEffects[
                 plan.effectKey.descriptorID
