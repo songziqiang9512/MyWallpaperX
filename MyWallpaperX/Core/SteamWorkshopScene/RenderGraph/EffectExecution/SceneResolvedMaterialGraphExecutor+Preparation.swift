@@ -517,6 +517,8 @@ extension SceneResolvedMaterialGraphExecutor {
         switch format {
         case .r8: return .scalarRedUnorm
         case .rg88: return .redGreenUnorm
+        case .r16f: return .scalarRedFloat16
+        case .rg1616f: return .redGreenFloat16
         case .rgbaBackbuffer: return .color(.resolved(representation))
         case .rgba8888:
             let isPreservedData = graph.nodes.contains { node in
@@ -536,6 +538,8 @@ extension SceneResolvedMaterialGraphExecutor {
         case .color: .color
         case .scalarRedUnorm: .scalarRedUnorm
         case .redGreenUnorm: .redGreenUnorm
+        case .scalarRedFloat16: .scalarRedFloat16
+        case .redGreenFloat16: .redGreenFloat16
         case .preservedRGBAUnorm: .preservedRGBAUnorm
         }
     }

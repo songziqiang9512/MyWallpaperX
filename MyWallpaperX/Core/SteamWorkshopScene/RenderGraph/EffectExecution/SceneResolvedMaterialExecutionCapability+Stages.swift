@@ -197,13 +197,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             product.graph,
             materials: materials
         ) else {
-            let hasRG88 = product.graph.renderTargets.contains {
-                $0.format?.lowercased() == "rg88"
-            }
-            return .failure(rejection(
-                hasRG88 ? "rg88-red-green-graph-unproven"
-                    : "r8-scalar-graph-unproven"
-            ))
+            let reasonCode = product.graph.renderTargets.compactMap { target in
+                switch target.format?.lowercased() {
+                case "r8": "r8-scalar-graph-unproven"
+                case "rg88": "rg88-red-green-graph-unproven"
+                case "r16f": "r16f-scalar-graph-unproven"
+                case "rg1616f": "rg1616f-red-green-graph-unproven"
+                default: nil
+                }
+            }.first ?? "preserved-channel-graph-unproven"
+            return .failure(rejection(reasonCode))
         }
         return .success(materials)
     }
@@ -223,6 +226,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             switch descriptor.format {
             case .r8: result[target.texture] = .r8
             case .rg88: result[target.texture] = .rg88
+            case .r16f: result[target.texture] = .r16f
+            case .rg1616f: result[target.texture] = .rg1616f
             case .rgbaBackbuffer, .rgba8888: break
             }
         }
@@ -254,6 +259,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return (.scalarRedUnorm, .r8)
             case .rg88:
                 return (.redGreenUnorm, .rg88)
+            case .r16f:
+                return (.scalarRedFloat16, .r16f)
+            case .rg1616f:
+                return (.redGreenFloat16, .rg1616f)
             case .rgbaBackbuffer, .rgba8888:
                 return (
                     preservedRGBADataTargets.contains(target)
@@ -273,6 +282,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         case .color: .color
         case .scalarRedUnorm: .scalarRedUnorm
         case .redGreenUnorm: .redGreenUnorm
+        case .scalarRedFloat16: .scalarRedFloat16
+        case .redGreenFloat16: .redGreenFloat16
         case .preservedRGBAUnorm: .preservedRGBAUnorm
         }
     }
@@ -297,7 +308,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         materials: [MaterialKey: MaterialCapability]
     ) -> Bool {
         let targets = graph.renderTargets.filter {
-            ["r8", "rg88"].contains($0.format?.lowercased() ?? "")
+            ["r8", "rg88", "r16f", "rg1616f"]
+                .contains($0.format?.lowercased() ?? "")
         }
         guard !targets.isEmpty else { return true }
         for target in targets {
@@ -305,11 +317,17 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 target,
                 inputWidth: 1,
                 inputHeight: 1
-            ), descriptor.format == .r8 || descriptor.format == .rg88,
+            ), [.r8, .rg88, .r16f, .rg1616f].contains(descriptor.format),
               !descriptor.isUnique,
               descriptor.initialClear == nil else { return false }
-            let expectedStorage: SceneResolvedMaterialAttachmentKind =
-                descriptor.format == .r8 ? .scalarRedUnorm : .redGreenUnorm
+            let expectedStorage: SceneResolvedMaterialAttachmentKind
+            switch descriptor.format {
+            case .r8: expectedStorage = .scalarRedUnorm
+            case .rg88: expectedStorage = .redGreenUnorm
+            case .r16f: expectedStorage = .scalarRedFloat16
+            case .rg1616f: expectedStorage = .redGreenFloat16
+            case .rgbaBackbuffer, .rgba8888: return false
+            }
             let writers = graph.nodes.filter {
                 $0.kind == .material && $0.target == target.texture
             }
@@ -341,6 +359,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                                     nodeIndex: reader.nodeIndex
                                 )] else { return false }
                           return descriptor.format == .r8
+                              || descriptor.format == .r16f
                               ? material.variants.provesRedOnlyConsumer(slot: slot)
                               : material.variants.provesRedGreenOnlyConsumer(slot: slot)
                       }) else { return false }

@@ -10,6 +10,10 @@ extension SceneGraphRenderTargetPlan.TextureFormat {
             1
         case .rg88:
             2
+        case .r16f:
+            2
+        case .rg1616f:
+            4
         case .rgbaBackbuffer, .rgba8888:
             4
         }
@@ -21,6 +25,10 @@ extension SceneGraphRenderTargetPlan.TextureFormat {
             .r8Unorm
         case .rg88:
             .rg8Unorm
+        case .r16f:
+            .r16Float
+        case .rg1616f:
+            .rg16Float
         case .rgbaBackbuffer:
             .bgra8Unorm
         case .rgba8888:

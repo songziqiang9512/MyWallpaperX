@@ -115,10 +115,10 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                         identity: identity,
                         slot: slot
                     )
-                    guard resolved.resource.publication.candidate.content
-                            == .scalarRedUnorm
-                            || resolved.resource.publication.candidate.content
-                            == .redGreenUnorm else {
+                    guard [.scalarRedUnorm, .redGreenUnorm,
+                           .scalarRedFloat16, .redGreenFloat16].contains(
+                            resolved.resource.publication.candidate.content
+                           ) else {
                         throw failure(
                             .texturePurposeUnproven,
                             slot: slot,
@@ -170,6 +170,10 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             return .r8
         case .redGreenUnorm:
             return .rg88
+        case .scalarRedFloat16:
+            return .r16f
+        case .redGreenFloat16:
+            return .rg1616f
         case .color:
             return nil
         case .data:

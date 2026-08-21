@@ -255,6 +255,33 @@ private func failure(
     }
 }
 
+private func forgedGraphResource(
+    _ resource: SceneFrameTextureResource,
+    purpose: SceneTextureLoadPurpose,
+    authoredFormat: SceneShaderTextureFormat?
+) -> SceneFrameTextureResource {
+    let candidate = resource.publication.candidate
+    return .init(
+        publication: .init(
+            requestIdentity: resource.publication.requestIdentity,
+            candidate: .init(
+                texture: candidate.texture,
+                identity: candidate.identity,
+                generation: candidate.generation,
+                purpose: purpose,
+                content: candidate.content,
+                physicalSize: candidate.physicalSize,
+                mappedSize: candidate.mappedSize,
+                uvTransform: candidate.uvTransform,
+                sampling: candidate.sampling,
+                authoredFormat: authoredFormat
+            ),
+            contentGeneration: resource.publication.contentGeneration
+        ),
+        resourceGeneration: resource.resourceGeneration
+    )
+}
+
 private let vertexSource = """
 attribute vec3 a_Position;
 attribute vec2 a_TexCoord;
@@ -420,6 +447,8 @@ private enum Harness {
         let lease = makeLease(device)
         let r8Lease = makeLease(device, format: .r8)
         let rg88Lease = makeLease(device, format: .rg88)
+        let r16Lease = makeLease(device, format: .r16f)
+        let rg16Lease = makeLease(device, format: .rg1616f)
         let rgbaDataLease = makeLease(device, format: .rgba8888)
         let repeatLease = makeLease(device, addressMode: .repeatWrap)
         let r8RepeatLease = makeLease(
@@ -641,88 +670,52 @@ private enum Harness {
             r8ScalarResource.rewrappedForGraphIdentity(input) == nil
         let r8ScalarCannotRewrapAsEffectOutput =
             r8ScalarResource.rewrappedForGraphIdentity(output) == nil
-        let forgedR8AuthoredFormat = SceneFrameTextureResource(
-            publication: .init(
-                requestIdentity: r8ScalarResource.publication.requestIdentity,
-                candidate: .init(
-                    texture: r8ScalarCandidate.texture,
-                    identity: r8ScalarCandidate.identity,
-                    generation: r8ScalarCandidate.generation,
-                    purpose: r8ScalarCandidate.purpose,
-                    content: r8ScalarCandidate.content,
-                    physicalSize: r8ScalarCandidate.physicalSize,
-                    mappedSize: r8ScalarCandidate.mappedSize,
-                    uvTransform: r8ScalarCandidate.uvTransform,
-                    sampling: r8ScalarCandidate.sampling,
-                    authoredFormat: .r8
-                ),
-                contentGeneration: r8ScalarResource.publication.contentGeneration
-            ),
-            resourceGeneration: r8ScalarResource.resourceGeneration
+        let forgedR8AuthoredFormat = forgedGraphResource(
+            r8ScalarResource,
+            purpose: .preservedChannels,
+            authoredFormat: .r8
         )
-        let forgedR8WrongAuthoredFormat = SceneFrameTextureResource(
-            publication: .init(
-                requestIdentity: r8ScalarResource.publication.requestIdentity,
-                candidate: .init(
-                    texture: r8ScalarCandidate.texture,
-                    identity: r8ScalarCandidate.identity,
-                    generation: r8ScalarCandidate.generation,
-                    purpose: r8ScalarCandidate.purpose,
-                    content: r8ScalarCandidate.content,
-                    physicalSize: r8ScalarCandidate.physicalSize,
-                    mappedSize: r8ScalarCandidate.mappedSize,
-                    uvTransform: r8ScalarCandidate.uvTransform,
-                    sampling: r8ScalarCandidate.sampling,
-                    authoredFormat: .rgba8888
-                ),
-                contentGeneration: r8ScalarResource.publication.contentGeneration
-            ),
-            resourceGeneration: r8ScalarResource.resourceGeneration
+        let forgedR8WrongAuthoredFormat = forgedGraphResource(
+            r8ScalarResource,
+            purpose: .preservedChannels,
+            authoredFormat: .rgba8888
         )
-        let forgedR8ColorPurpose = SceneFrameTextureResource(
-            publication: .init(
-                requestIdentity: r8ScalarResource.publication.requestIdentity,
-                candidate: .init(
-                    texture: r8ScalarCandidate.texture,
-                    identity: r8ScalarCandidate.identity,
-                    generation: r8ScalarCandidate.generation,
-                    purpose: .premultipliedColor,
-                    content: r8ScalarCandidate.content,
-                    physicalSize: r8ScalarCandidate.physicalSize,
-                    mappedSize: r8ScalarCandidate.mappedSize,
-                    uvTransform: r8ScalarCandidate.uvTransform,
-                    sampling: r8ScalarCandidate.sampling
-                ),
-                contentGeneration: r8ScalarResource.publication.contentGeneration
-            ),
-            resourceGeneration: r8ScalarResource.resourceGeneration
+        let forgedR8ColorPurpose = forgedGraphResource(
+            r8ScalarResource,
+            purpose: .premultipliedColor,
+            authoredFormat: nil
         )
         let r8PublicationFailure = failure(r8Lease.graphResource(
             for: first,
             versionedResource: r8Physical,
             fragmentColorRepresentation: .resolved(.opaque)
         ))
-        let rg88Physical = rg88Lease.allocation.resources[first]!.versioned(16)
-        let rg88Resource = require(rg88Lease.graphResource(
-            for: first,
-            versionedResource: rg88Physical,
-            storedContent: .redGreenUnorm
-        ))
-        let rg88Candidate = rg88Resource.publication.candidate
-        let rg88PublicationContract = rg88Resource.isCompleteGraphResource
-            && rg88Candidate.purpose == .preservedChannels
-            && rg88Candidate.content == .redGreenUnorm
-            && rg88Candidate.pixelFormat == .rg8Unorm
-            && rg88Candidate.authoredFormat == nil
-            && SceneGraphRenderTargetLease.graphSamplingMatches(
-                rg88Resource,
-                descriptor: rg88Physical.descriptor
-            )
-        let rg88WrongStorageFailure = failure(rg88Lease.graphResource(
-            for: first,
-            versionedResource: rg88Physical,
-            storedContent: .scalarRedUnorm
-        ))
+        let channelCases: [(String, SceneGraphRenderTargetLease,
+            SceneTextureContent, SceneTextureContent, MTLPixelFormat)] = [
+            ("rg88", rg88Lease, .redGreenUnorm, .scalarRedUnorm, .rg8Unorm),
+            ("r16", r16Lease, .scalarRedFloat16, .scalarRedUnorm, .r16Float),
+            ("rg16", rg16Lease, .redGreenFloat16, .redGreenUnorm, .rg16Float),
+        ]
+        var channelPublicationContracts: [String: Bool] = [:]
+        var channelWrongStorageFailures: [String: String] = [:]
+        for (ordinal, item) in channelCases.enumerated() {
+            let physical = item.1.allocation.resources[first]!
+                .versioned(UInt64(16 + ordinal))
+            let resource = require(item.1.graphResource(
+                for: first, versionedResource: physical, storedContent: item.2
+            ))
+            let candidate = resource.publication.candidate
+            channelPublicationContracts[item.0] = resource.isCompleteGraphResource
+                && candidate.purpose == .preservedChannels
+                && candidate.content == item.2 && candidate.pixelFormat == item.4
+                && candidate.authoredFormat == nil
+                && SceneGraphRenderTargetLease.graphSamplingMatches(
+                    resource, descriptor: physical.descriptor
+                )
+            channelWrongStorageFailures[item.0] = failure(item.1.graphResource(
+                for: first, versionedResource: physical, storedContent: item.3
+            ))
+        }
         let rgbaDataPhysical = rgbaDataLease.allocation.resources[first]!
             .versioned(17)
         let rgbaDataResource = require(rgbaDataLease.graphResource(
@@ -874,7 +867,9 @@ private enum Harness {
                 "aliasedEndpointPublication": aliasedEndpointPublication,
                 "nonIdempotentProviderResolvedOnce": nonIdempotentProviderResolvedOnce,
             "r8ScalarPublication": r8ScalarPublication,
-            "rg88Publication": rg88PublicationContract,
+            "rg88Publication": channelPublicationContracts["rg88"] ?? false,
+            "r16Publication": channelPublicationContracts["r16"] ?? false,
+            "rg16Publication": channelPublicationContracts["rg16"] ?? false,
             "rgbaDataPublication": rgbaDataPublicationContract,
             "r8ScalarCannotRewrapAsLayerSource":
                 r8ScalarCannotRewrapAsLayerSource,
@@ -896,7 +891,9 @@ private enum Harness {
                 "wrongDescriptor": wrongDescriptorFailure,
                 "pairToken": pairTokenFailure,
                 "r8Publication": r8PublicationFailure,
-                "rg88WrongStorage": rg88WrongStorageFailure,
+                "rg88WrongStorage": channelWrongStorageFailures["rg88"],
+                "r16WrongStorage": channelWrongStorageFailures["r16"],
+                "rg16WrongStorage": channelWrongStorageFailures["rg16"],
                 "backbufferData": backbufferDataFailure,
                 "forgedR8AuthoredFormat": forgedR8AuthoredFormat
                     .isCompleteGraphResource ? "accepted" : "rejected",
@@ -1007,6 +1004,8 @@ class SceneGraphTexturePublicationTests(unittest.TestCase):
                 "pairToken": "unknownPhysicalToken",
                 "r8Publication": "storageSemanticUnavailable",
                 "rg88WrongStorage": "storageSemanticUnavailable",
+                "r16WrongStorage": "storageSemanticUnavailable",
+                "rg16WrongStorage": "storageSemanticUnavailable",
                 "backbufferData": "storageSemanticUnavailable",
                 "forgedR8AuthoredFormat": "rejected",
                 "forgedR8WrongAuthoredFormat": "rejected",

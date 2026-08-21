@@ -277,6 +277,8 @@ nonisolated struct SceneResolvedMaterialProgram {
         case color
         case scalarRedUnorm
         case redGreenUnorm
+        case scalarRedFloat16
+        case redGreenFloat16
         case preservedRGBAUnorm
     }
 
@@ -284,6 +286,8 @@ nonisolated struct SceneResolvedMaterialProgram {
         case color(SceneShaderColorContract)
         case scalarRedUnorm
         case redGreenUnorm
+        case scalarRedFloat16
+        case redGreenFloat16
         case preservedRGBAUnorm
     }
 

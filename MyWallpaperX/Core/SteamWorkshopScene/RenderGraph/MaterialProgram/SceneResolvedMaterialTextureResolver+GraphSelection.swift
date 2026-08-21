@@ -22,12 +22,12 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         guard case let .ready(resource)? = input.textureSnapshot.lookup(.graph(identity))
         else { return declared }
         switch resource.publication.candidate.content {
-        case .scalarRedUnorm:
+        case .scalarRedUnorm, .scalarRedFloat16:
             guard let channelUse,
                   channelUse == .redOnly,
                   activeSampler?.mode == .regular else { return nil }
             return .preservedChannels
-        case .redGreenUnorm:
+        case .redGreenUnorm, .redGreenFloat16:
             guard let channelUse,
                   channelUse == .redGreenOnly,
                   activeSampler?.mode == .regular else { return nil }

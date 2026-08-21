@@ -59,7 +59,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                 framebufferRepresentations.insert(representation)
             case .color(.unresolved):
                 return nil
-            case .scalarRedUnorm, .redGreenUnorm, .data:
+            case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
+                 .redGreenFloat16, .data:
                 continue
             }
         }
@@ -98,7 +99,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         case .premultipliedAlpha:
             guard textureFacts.compactMap({ $0 }).allSatisfy({ fact in
                 switch fact.content {
-                case .scalarRedUnorm, .redGreenUnorm, .data:
+                case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
+                     .redGreenFloat16, .data:
                     return true
                 case .color:
                     return false
@@ -192,7 +194,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         textureFacts.enumerated().allSatisfy { index, fact in
             guard index != colorSlot, let fact else { return true }
             switch fact.content {
-            case .scalarRedUnorm, .redGreenUnorm, .data:
+            case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
+                 .redGreenFloat16, .data:
                 return true
             case .color:
                 return false

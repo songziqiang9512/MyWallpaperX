@@ -133,7 +133,14 @@ nonisolated struct SceneTextureSlotBinding {
         case (.preservedChannels, .redGreenUnorm):
             guard case .provider(.graph) = identity else { return false }
             return pixelFormat == .rg8Unorm && authoredFormat == nil
-        case (_, .scalarRedUnorm), (_, .redGreenUnorm):
+        case (.preservedChannels, .scalarRedFloat16):
+            guard case .provider(.graph) = identity else { return false }
+            return pixelFormat == .r16Float && authoredFormat == nil
+        case (.preservedChannels, .redGreenFloat16):
+            guard case .provider(.graph) = identity else { return false }
+            return pixelFormat == .rg16Float && authoredFormat == nil
+        case (_, .scalarRedUnorm), (_, .redGreenUnorm),
+             (_, .scalarRedFloat16), (_, .redGreenFloat16):
             return false
         case (.premultipliedColor, _), (.straightAlbedo, _):
             return false

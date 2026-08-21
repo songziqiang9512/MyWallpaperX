@@ -6,6 +6,8 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
     enum TextureFormat: String {
         case r8
         case rg88
+        case r16f
+        case rg1616f
         case rgbaBackbuffer
         case rgba8888
     }

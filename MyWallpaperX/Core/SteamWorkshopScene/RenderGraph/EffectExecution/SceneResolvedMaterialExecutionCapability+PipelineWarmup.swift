@@ -14,8 +14,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 }
                 let writeMask: MTLColorWriteMask = switch material.attachmentStorage {
                 case .color: .all
-                case .scalarRedUnorm: .red
-                case .redGreenUnorm: [.red, .green]
+                case .scalarRedUnorm, .scalarRedFloat16: .red
+                case .redGreenUnorm, .redGreenFloat16: [.red, .green]
                 case .preservedRGBAUnorm: .all
                 }
                 return snapshot.variants.compactMap { variant in

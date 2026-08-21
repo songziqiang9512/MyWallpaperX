@@ -50,6 +50,8 @@ extension SceneResolvedMaterialProgram {
         case data
         case scalarRedUnorm
         case redGreenUnorm
+        case scalarRedFloat16
+        case redGreenFloat16
         case opaque
         case straightAlpha
         case premultipliedAlpha
@@ -87,6 +89,8 @@ extension SceneResolvedMaterialProgram {
         case color(ColorContractIdentity)
         case scalarRedUnorm
         case redGreenUnorm
+        case scalarRedFloat16
+        case redGreenFloat16
         case preservedRGBAUnorm
     }
 
@@ -284,6 +288,8 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         case .data: return .data
         case .scalarRedUnorm: return .scalarRedUnorm
         case .redGreenUnorm: return .redGreenUnorm
+        case .scalarRedFloat16: return .scalarRedFloat16
+        case .redGreenFloat16: return .redGreenFloat16
         case .color(.unresolved): return nil
         case .color(.resolved(.opaque)): return .opaque
         case .color(.resolved(.straightAlpha)): return .straightAlpha

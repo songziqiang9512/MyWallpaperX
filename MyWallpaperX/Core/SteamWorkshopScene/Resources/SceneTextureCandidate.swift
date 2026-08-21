@@ -136,13 +136,18 @@ nonisolated enum SceneTextureContent: Hashable, Sendable {
     /// Two normalized red/green components stored by a graph-owned RG88 target.
     /// Sampled B=0 and A=1 backend defaults are not part of this data semantic.
     case redGreenUnorm
+    /// One half-float red component stored by a graph-owned R16F target.
+    case scalarRedFloat16
+    /// Two half-float red/green components stored by a graph-owned RG1616F target.
+    case redGreenFloat16
     case data
 
     var isResolved: Bool {
         switch self {
         case let .color(resolution):
             return resolution.isResolved
-        case .scalarRedUnorm, .redGreenUnorm, .data:
+        case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
+             .redGreenFloat16, .data:
             return true
         }
     }
@@ -263,6 +268,10 @@ private nonisolated extension SceneTextureContent {
             return "scalar-red-unorm"
         case .redGreenUnorm:
             return "red-green-unorm"
+        case .scalarRedFloat16:
+            return "scalar-red-float16"
+        case .redGreenFloat16:
+            return "red-green-float16"
         case .data:
             return "data"
         }

@@ -261,6 +261,8 @@ nonisolated extension SceneGraphRenderTargetPlan {
         switch authored?.lowercased() {
         case "r8": return .r8
         case "rg88": return .rg88
+        case "r16f": return .r16f
+        case "rg1616f": return .rg1616f
         case "rgba_backbuffer": return .rgbaBackbuffer
         case "rgba8888": return .rgba8888
         default: return nil

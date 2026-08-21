@@ -254,6 +254,18 @@ nonisolated struct SceneFrameTextureResource {
                 && publication.candidate.pixelFormat == .rg8Unorm
                 && publication.candidate.authoredFormat == nil
                 && identityUVScale(expectedPurpose: .preservedChannels)
+        case .scalarRedFloat16:
+            return request.kind == .framebuffer
+                && publication.candidate.purpose == .preservedChannels
+                && publication.candidate.pixelFormat == .r16Float
+                && publication.candidate.authoredFormat == nil
+                && identityUVScale(expectedPurpose: .preservedChannels)
+        case .redGreenFloat16:
+            return request.kind == .framebuffer
+                && publication.candidate.purpose == .preservedChannels
+                && publication.candidate.pixelFormat == .rg16Float
+                && publication.candidate.authoredFormat == nil
+                && identityUVScale(expectedPurpose: .preservedChannels)
         case .data:
             let format = publication.candidate.pixelFormat
             return request.kind == .framebuffer

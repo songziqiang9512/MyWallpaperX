@@ -155,7 +155,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     in: template,
                     activeTextureSlots: activeTextureSlots
                 ),
-            producesScalarRedOutput: outputStorage == .scalarRedUnorm,
+            producesScalarRedOutput: outputStorage == .scalarRedUnorm
+                || outputStorage == .scalarRedFloat16,
             isSourceIndependentPremultipliedOutput:
                 outputStorage == .color
                     && sourceActiveSamplers[0] == nil

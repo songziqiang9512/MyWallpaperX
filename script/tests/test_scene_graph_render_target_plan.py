@@ -24,6 +24,7 @@ SWIFT_SOURCES = [
 
 HARNESS = r'''
 import Foundation
+import Metal
 
 struct SceneEffectStageExecutionPlan {
     let layerID: Int
@@ -744,41 +745,34 @@ enum Harness {
             input: input,
             output: output
         )
-        let r8 = graph(
-            targets: [target(full, extent: inputExtent, format: "r8")],
-            nodes: precise.nodes,
-            key: key,
-            input: input,
-            output: output
-        )
-        guard case .success(let r8Plan) = SceneGraphRenderTargetPlan.make(
-            executionPlan: .init(
-                layerID: 10,
-                materialNodeCount: 2,
-                logicalRenderTargetCount: 1
-            ),
-            graph: r8,
-            inputWidth: 256,
-            inputHeight: 256
-        ) else { fatalError("r8 fixture rejected") }
-        let rg88 = graph(
-            targets: [target(full, extent: inputExtent, format: "rg88")],
-            nodes: precise.nodes,
-            key: key,
-            input: input,
-            output: output
-        )
-        guard case .success(let rg88Plan) = SceneGraphRenderTargetPlan.make(
-            executionPlan: .init(
-                layerID: 10,
-                materialNodeCount: 2,
-                logicalRenderTargetCount: 1
-            ),
-            graph: rg88,
-            inputWidth: 256,
-            inputHeight: 256
-        ) else { fatalError("rg88 fixture rejected") }
-        let unsupportedFormats = ["r16f", "rg1616f", "unknown"]
+        var channelTargets: [String: [[String: Any]]] = [:]
+        var channelLogicalBytes: [String: Int] = [:]
+        var channelMetalFormats: [String: Int] = [:]
+        for format in ["r8", "rg88", "r16f", "rg1616f"] {
+            let channelGraph = graph(
+                targets: [target(full, extent: inputExtent, format: format)],
+                nodes: precise.nodes,
+                key: key,
+                input: input,
+                output: output
+            )
+            guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
+                executionPlan: .init(
+                    layerID: 10,
+                    materialNodeCount: 2,
+                    logicalRenderTargetCount: 1
+                ),
+                graph: channelGraph,
+                inputWidth: 256,
+                inputHeight: 256
+            ), let target = plan.logicalTargets.first else {
+                fatalError("\(format) fixture rejected")
+            }
+            channelTargets[format] = targetSummary(plan)
+            channelLogicalBytes[format] = target.format.logicalBytesPerPixel
+            channelMetalFormats[format] = Int(target.format.metalPixelFormat.rawValue)
+        }
+        let unsupportedFormats = ["unknown"]
         let priorKey = Graph.EffectKey(
             layerID: 10,
             effectIndex: 0,
@@ -801,10 +795,9 @@ enum Harness {
             ],
             "standardTargets": targetSummary(standardPlan),
             "rgba8888Targets": targetSummary(rgba8888Plan),
-            "r8Targets": targetSummary(r8Plan),
-            "rg88Targets": targetSummary(rg88Plan),
-            "rg88LogicalBytesPerPixel":
-                SceneGraphRenderTargetPlan.TextureFormat.rg88.logicalBytesPerPixel,
+            "channelTargets": channelTargets,
+            "channelLogicalBytes": channelLogicalBytes,
+            "channelMetalFormats": channelMetalFormats,
             "preciseInputExtent": [
                 precisePlan.inputExtent.width, precisePlan.inputExtent.height,
             ],
@@ -1017,14 +1010,21 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
             ["rgba8888", "rgba8888"],
         )
 
-    def test_r8_target_preserves_authored_format_and_extent(self) -> None:
+    def test_channel_targets_preserve_exact_format_extent_and_budget(self) -> None:
         self.assertEqual(
-            self.result["r8Targets"],
-            [
+            self.result["channelLogicalBytes"],
+            {"r8": 1, "rg88": 2, "r16f": 2, "rg1616f": 4},
+        )
+        self.assertEqual(
+            self.result["channelMetalFormats"],
+            {"r8": 10, "rg88": 30, "r16f": 25, "rg1616f": 65},
+        )
+        for authored_format in ["r8", "rg88", "r16f", "rg1616f"]:
+            self.assertEqual(self.result["channelTargets"][authored_format], [
                 {
                     "name": "full",
                     "size": [256, 256],
-                    "format": "r8",
+                    "format": authored_format,
                     "firstWrite": 0,
                     "lastWrite": 0,
                     "firstRead": 1,
@@ -1032,27 +1032,7 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
                     "persistent": False,
                     "historySeed": False,
                 }
-            ],
-        )
-
-    def test_rg88_target_preserves_authored_format_extent_and_budget(self) -> None:
-        self.assertEqual(self.result["rg88LogicalBytesPerPixel"], 2)
-        self.assertEqual(
-            self.result["rg88Targets"],
-            [
-                {
-                    "name": "full",
-                    "size": [256, 256],
-                    "format": "rg88",
-                    "firstWrite": 0,
-                    "lastWrite": 0,
-                    "firstRead": 1,
-                    "lastRead": 1,
-                    "persistent": False,
-                    "historySeed": False,
-                }
-            ],
-        )
+            ])
 
     def test_read_before_first_write_requires_history(self) -> None:
         self.assertEqual(self.result["historyFailure"], "historyRequired")
@@ -1285,7 +1265,7 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
         self.assertEqual(self.result["uniqueFailure"], "success")
         self.assertEqual(
             self.result["unsupportedFormatFailures"],
-            ["unsupportedTargetDescriptor"] * 3,
+            ["unsupportedTargetDescriptor"],
         )
         self.assertEqual(self.result["countMismatchFailure"], "executionMismatch")
         self.assertEqual(self.result["roleMismatchFailure"], "executionMismatch")

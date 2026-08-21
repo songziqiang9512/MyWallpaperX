@@ -28,6 +28,8 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
         switch (target.pixelFormat, content) {
         case (.r8Unorm, .scalarRedUnorm),
              (.rg8Unorm, .redGreenUnorm),
+             (.r16Float, .scalarRedFloat16),
+             (.rg16Float, .redGreenFloat16),
              (.rgba8Unorm, .data),
              (.bgra8Unorm, .data),
              (.bgra8Unorm, .color(.resolved)),
@@ -49,8 +51,8 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
 
     static func writeMask(for content: SceneTextureContent) -> MTLColorWriteMask {
         switch content {
-        case .scalarRedUnorm: .red
-        case .redGreenUnorm: [.red, .green]
+        case .scalarRedUnorm, .scalarRedFloat16: .red
+        case .redGreenUnorm, .redGreenFloat16: [.red, .green]
         case .color, .data: .all
         }
     }
@@ -76,6 +78,16 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
         case (.redGreenUnorm, .redGreenUnorm):
             return .init(
                 content: .redGreenUnorm,
+                colorRepresentation: nil
+            )
+        case (.scalarRedFloat16, .scalarRedFloat16):
+            return .init(
+                content: .scalarRedFloat16,
+                colorRepresentation: nil
+            )
+        case (.redGreenFloat16, .redGreenFloat16):
+            return .init(
+                content: .redGreenFloat16,
                 colorRepresentation: nil
             )
         case (.preservedRGBAUnorm, .preservedRGBAUnorm):

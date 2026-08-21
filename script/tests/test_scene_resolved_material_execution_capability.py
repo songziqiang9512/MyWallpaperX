@@ -131,7 +131,7 @@ CATALOG_DEMAND_SWIFT_SOURCES = [
 SUPPORT = r'''
 import Foundation
 
-enum SceneShaderTextureFormat { case r8, rg88 }
+enum SceneShaderTextureFormat { case r8, rg88, r16f, rg1616f }
 
 struct SceneAssetTextureIdentity: Hashable {}
 enum SceneTextureContent: Hashable {}
@@ -544,7 +544,7 @@ struct SceneResolvedMaterialRuntimeCatalog {
 
 final class SceneResolvedMaterialVariantCache {
     enum OutputStorage {
-        case color, scalarRedUnorm, redGreenUnorm, preservedRGBAUnorm
+        case color, scalarRedUnorm, redGreenUnorm, scalarRedFloat16, redGreenFloat16, preservedRGBAUnorm
     }
 
     enum LaunchEnvelopeFailure: Error {

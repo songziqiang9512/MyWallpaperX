@@ -11,6 +11,8 @@ extension SceneResolvedMaterialGraphExecutor {
         let matches = switch (material.targetFormat, descriptor?.format) {
         case (.r8, .r8),
              (.rg88, .rg88),
+             (.r16f, .r16f),
+             (.rg1616f, .rg1616f),
              (.rgbaBackbuffer, .rgbaBackbuffer),
              (.rgba8888, .rgba8888),
              (.rgbaBackbuffer, nil):

@@ -136,6 +136,22 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                 contract: .redGreenUnorm,
                 identity: .redGreenUnorm
             )
+        case .scalarRedFloat16:
+            guard frontend.fragmentOutputChannelUse == .redDefined else {
+                return nil
+            }
+            return .init(
+                contract: .scalarRedFloat16,
+                identity: .scalarRedFloat16
+            )
+        case .redGreenFloat16:
+            guard frontend.fragmentOutputChannelUse == .redDefined else {
+                return nil
+            }
+            return .init(
+                contract: .redGreenFloat16,
+                identity: .redGreenFloat16
+            )
         case .preservedRGBAUnorm:
             guard frontend.fragmentOutputChannelUse == .redDefined else {
                 return nil
@@ -294,11 +310,13 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                 return nil
             }
             let candidate = slot.resource.publication.candidate
-            if candidate.content == .scalarRedUnorm,
+            if candidate.content == .scalarRedUnorm
+                || candidate.content == .scalarRedFloat16,
                frontendBinding.channelUse != .redOnly {
                 return nil
             }
-            if candidate.content == .redGreenUnorm,
+            if candidate.content == .redGreenUnorm
+                || candidate.content == .redGreenFloat16,
                frontendBinding.channelUse != .redGreenOnly {
                 return nil
             }

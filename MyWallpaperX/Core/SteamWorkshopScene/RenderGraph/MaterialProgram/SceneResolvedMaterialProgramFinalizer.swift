@@ -176,11 +176,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 ) else {
                     throw failure(.color, .colorContractUnproven)
                 }
-            case .scalarRedUnorm:
+            case .scalarRedUnorm, .scalarRedFloat16:
                 guard texture.frontend.fragmentOutputChannelUse == .redDefined else {
                     throw failure(.color, .colorContractUnproven)
                 }
-            case .redGreenUnorm:
+            case .redGreenUnorm, .redGreenFloat16:
                 guard texture.frontend.fragmentOutputChannelUse == .redDefined else {
                     throw failure(.color, .colorContractUnproven)
                 }
