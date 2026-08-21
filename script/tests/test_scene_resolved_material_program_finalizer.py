@@ -94,7 +94,7 @@ nonisolated struct SceneEffectStageCompilerFailure {
         case shaderIncludeMissing = "shader-include-missing"
         case shaderIncludeAmbiguous = "shader-include-ambiguous"
         case shaderIncludeCycle = "shader-include-cycle"
-        case shaderDirectiveUnsupported = "shader-directive-unsupported"
+        case shaderDirectiveUnsupported = "shader-directive-unsupported", shaderModuleResolutionRejected = "shader-module-resolution-rejected"
         case shaderConditionInvalid = "shader-condition-invalid"
         case shaderPreprocessorBudgetExceeded = "shader-preprocessor-budget-exceeded"
         case shaderPreprocessorDiagnostic = "shader-preprocessor-diagnostic"

@@ -171,11 +171,11 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "generic_shader_compiler_preparation_implementation"
         )
 
-        self.assertEqual(len(environment), 2)
-        self.assertEqual(len(preprocessing), 12)
-        self.assertEqual(preprocessing[:2], environment)
-        self.assertEqual(len(preparation), 14)
-        self.assertEqual(preparation[:12], preprocessing)
+        self.assertEqual(len(environment), 3)
+        self.assertEqual(len(preprocessing), 13)
+        self.assertEqual(preprocessing[:3], environment)
+        self.assertEqual(len(preparation), 15)
+        self.assertEqual(preparation[:13], preprocessing)
         self.assertEqual(len(generic_compiler), 11)
         preparation_directory = (
             REPOSITORY_ROOT

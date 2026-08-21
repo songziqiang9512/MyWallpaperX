@@ -105,6 +105,7 @@ nonisolated struct SceneEffectStageCompilerFailure: Equatable {
         case shaderIncludeAmbiguous = "shader-include-ambiguous"
         case shaderIncludeCycle = "shader-include-cycle"
         case shaderDirectiveUnsupported = "shader-directive-unsupported"
+        case shaderModuleResolutionRejected = "shader-module-resolution-rejected"
         case shaderConditionInvalid = "shader-condition-invalid"
         case shaderPreprocessorBudgetExceeded = "shader-preprocessor-budget-exceeded"
         case shaderPreprocessorDiagnostic = "shader-preprocessor-diagnostic"

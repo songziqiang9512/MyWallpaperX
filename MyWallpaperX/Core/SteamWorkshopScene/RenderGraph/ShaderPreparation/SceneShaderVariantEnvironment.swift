@@ -34,8 +34,45 @@ nonisolated struct SceneShaderPreparedSource: Codable, Equatable, Sendable {
     let activeDeclarations: [SceneShaderActiveDeclaration]
     let dependencies: [SceneShaderSourceDependency]
     let dependencySHA256: String
+    let moduleDependencies: [SceneShaderModuleDependency]
+    let moduleDependencySHA256: String
     let variantSHA256: String
     let preparedSHA256: String
+
+    init(
+        frontendSchemaVersion: Int,
+        sourceDialect: SceneShaderSourceDialect,
+        backend: SceneShaderBackendIdentity,
+        stage: SceneShaderContract.StageKind,
+        rootRelativePath: String,
+        source: String,
+        sourceMap: [SceneShaderSourceMapEntry],
+        activeAnnotations: [SceneShaderActiveAnnotation],
+        activeDeclarations: [SceneShaderActiveDeclaration],
+        dependencies: [SceneShaderSourceDependency],
+        dependencySHA256: String,
+        moduleDependencies: [SceneShaderModuleDependency] = [],
+        moduleDependencySHA256: String? = nil,
+        variantSHA256: String,
+        preparedSHA256: String
+    ) {
+        self.frontendSchemaVersion = frontendSchemaVersion
+        self.sourceDialect = sourceDialect
+        self.backend = backend
+        self.stage = stage
+        self.rootRelativePath = rootRelativePath
+        self.source = source
+        self.sourceMap = sourceMap
+        self.activeAnnotations = activeAnnotations
+        self.activeDeclarations = activeDeclarations
+        self.dependencies = dependencies
+        self.dependencySHA256 = dependencySHA256
+        self.moduleDependencies = moduleDependencies
+        self.moduleDependencySHA256 = moduleDependencySHA256
+            ?? SceneShaderStableDigest.hash(moduleDependencies)
+        self.variantSHA256 = variantSHA256
+        self.preparedSHA256 = preparedSHA256
+    }
 }
 
 nonisolated struct SceneShaderColorContract: Codable, Equatable, Hashable, Sendable {
@@ -171,7 +208,7 @@ nonisolated struct SceneShaderVariantFailure: Error, Codable, Equatable, Sendabl
 }
 
 nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
-    static let frontendSchemaVersion = 24
+    static let frontendSchemaVersion = 25
 
     let sourceDialect: SceneShaderSourceDialect
     let backend: SceneShaderBackendIdentity

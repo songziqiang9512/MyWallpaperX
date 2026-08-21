@@ -114,9 +114,11 @@ extension SceneResolvedMaterialProgram {
     struct ExactPreparedIdentity: Hashable {
         let cacheKey: String
         let vertexDependency: String
+        let vertexModuleDependency: String
         let vertexVariant: String
         let vertexPrepared: String
         let fragmentDependency: String
+        let fragmentModuleDependency: String
         let fragmentVariant: String
         let fragmentPrepared: String
     }
@@ -366,9 +368,11 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         .init(
             cacheKey: prepared.cacheKey,
             vertexDependency: prepared.vertex.dependencySHA256,
+            vertexModuleDependency: prepared.vertex.moduleDependencySHA256,
             vertexVariant: prepared.vertex.variantSHA256,
             vertexPrepared: prepared.vertex.preparedSHA256,
             fragmentDependency: prepared.fragment.dependencySHA256,
+            fragmentModuleDependency: prepared.fragment.moduleDependencySHA256,
             fragmentVariant: prepared.fragment.variantSHA256,
             fragmentPrepared: prepared.fragment.preparedSHA256
         )

@@ -216,7 +216,12 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
     private static func digestFields(
         _ source: SceneShaderPreparedSource
     ) -> [String] {
-        [source.dependencySHA256, source.variantSHA256, source.preparedSHA256]
+        [
+            source.dependencySHA256,
+            source.moduleDependencySHA256,
+            source.variantSHA256,
+            source.preparedSHA256,
+        ]
     }
 
     private static func compileFrontend(

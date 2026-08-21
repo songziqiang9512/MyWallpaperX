@@ -292,7 +292,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
                         reasons.insert("prepared-directive")
                     }
                 case .defineFunction, .undef, .include, .ifExpression, .ifdef,
-                     .elifExpression,
+                     .require, .malformedRequire, .elifExpression,
                      .elseDirective, .endif, .unsupported, .unknown,
                      .unsupportedFunctionMacro, .malformed:
                     reasons.insert("prepared-directive")
@@ -367,6 +367,10 @@ nonisolated enum SceneAuthoredShaderPreparation {
         case .unsupportedDirective, .unknownDirective, .functionLikeMacro,
              .malformedDirective:
             code = .shaderDirectiveUnsupported
+        case .moduleDirectiveSyntax, .moduleUnknown, .moduleCaseMismatch,
+             .moduleLightingNonzero, .moduleLightingMacroMissing,
+             .moduleLightingMacroNoninteger:
+            code = .shaderModuleResolutionRejected
         case .invalidExpression, .unmatchedElse, .duplicateElse,
              .unmatchedEndif, .unmatchedElif, .elifAfterElse,
              .unterminatedConditional:

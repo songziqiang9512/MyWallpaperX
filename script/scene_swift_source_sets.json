@@ -111,6 +111,7 @@
       "description": "Host facts and immutable inputs used to resolve authored-shader variants.",
       "includes": [],
       "sources": [
+        "RenderGraph/ShaderPreparation/SceneShaderVariantEnvironment+ModuleResolution.swift",
         "RenderGraph/ShaderPreparation/SceneShaderVariantEnvironment.swift",
         "RenderGraph/ShaderPreparation/SceneShaderVariantEnvironment+HostFacts.swift"
       ]

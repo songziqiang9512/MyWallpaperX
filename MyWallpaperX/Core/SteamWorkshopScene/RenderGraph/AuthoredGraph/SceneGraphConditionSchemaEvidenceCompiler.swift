@@ -180,11 +180,10 @@ nonisolated enum SceneGraphConditionSchemaEvidenceCompiler {
                         conditionalElse.removeLast()
                     case .include(let includePath) where conditionalElse.isEmpty:
                         includes.append((line, includePath))
-                    case .unknown("require"):
+                    case .define, .defineFunction, .undef, .include, .require:
                         break
-                    case .define, .defineFunction, .undef, .include:
-                        break
-                    case .unsupported, .unknown, .unsupportedFunctionMacro, .malformed:
+                    case .malformedRequire, .unsupported, .unknown,
+                         .unsupportedFunctionMacro, .malformed:
                         return false
                     }
                     continue

@@ -118,6 +118,22 @@ extension SceneShaderPreprocessor.State {
         case let .include(path):
             guard currentActive else { return }
             try include(path, node: node, line: line, stack: stack)
+        case let .require(name):
+            requireDirectiveOrdinal += 1
+            guard currentActive else { return }
+            try resolveModule(
+                name,
+                node: node,
+                line: line,
+                ordinal: requireDirectiveOrdinal
+            )
+        case let .malformedRequire(message):
+            throw failure(
+                .moduleDirectiveSyntax,
+                message,
+                node.virtualPath,
+                line
+            )
         case let .ifExpression(expression):
             let parent = currentActive
             let result = parent
@@ -195,5 +211,71 @@ extension SceneShaderPreprocessor.State {
         case let .malformed(message):
             throw failure(.malformedDirective, message, node.virtualPath, line)
         }
+    }
+
+    nonisolated mutating func resolveModule(
+        _ name: String,
+        node: SceneShaderSourceGraph.Node,
+        line: Int,
+        ordinal: Int
+    ) throws {
+        let lighting = SceneShaderModuleIdentity.lightingV1
+        guard name == lighting.rawValue else {
+            let code: SceneShaderPreprocessor.DiagnosticCode =
+                name.caseInsensitiveCompare(lighting.rawValue) == .orderedSame
+                    ? .moduleCaseMismatch : .moduleUnknown
+            let message = code == .moduleCaseMismatch
+                ? "Shader module names are case-sensitive."
+                : "Shader module '\(name)' is unsupported."
+            throw failure(code, message, node.virtualPath, line)
+        }
+        guard let value = macros["LIGHTING"] else {
+            let code: SceneShaderPreprocessor.DiagnosticCode =
+                functionMacros["LIGHTING"] == nil
+                    ? .moduleLightingMacroMissing
+                    : .moduleLightingMacroNoninteger
+            throw failure(
+                code,
+                code == .moduleLightingMacroMissing
+                    ? "LightingV1 requires a typed integer LIGHTING macro."
+                    : "LightingV1 does not accept a function-like LIGHTING macro.",
+                node.virtualPath,
+                line
+            )
+        }
+        guard case let .integer(integer) = value else {
+            throw failure(
+                .moduleLightingMacroNoninteger,
+                "LightingV1 requires LIGHTING to be a typed integer.",
+                node.virtualPath,
+                line
+            )
+        }
+        guard integer == 0 else {
+            throw failure(
+                .moduleLightingNonzero,
+                "LightingV1 only accepts the bounded LIGHTING=0 profile.",
+                node.virtualPath,
+                line
+            )
+        }
+        moduleDependencies.append(.init(
+            module: lighting,
+            stage: environment.stage,
+            sourcePath: node.virtualPath,
+            sourceLine: line,
+            directiveOrdinal: ordinal,
+            macroEnvironmentSHA256: SceneShaderModuleMacroEnvironment.digest(
+                objectMacros: macros,
+                functionMacros: functionMacros.values.map {
+                    .init(
+                        name: $0.name,
+                        parameters: $0.parameters,
+                        replacement: $0.replacement
+                    )
+                }
+            ),
+            outcome: .zeroSourceContribution
+        ))
     }
 }

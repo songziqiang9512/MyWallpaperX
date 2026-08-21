@@ -5,6 +5,8 @@ nonisolated enum SceneShaderDirective {
     case defineFunction(SceneShaderFunctionMacro)
     case undef(String)
     case include(String)
+    case require(String)
+    case malformedRequire(String)
     case ifExpression(String)
     case ifdef(String, inverted: Bool)
     case elifExpression(String)
@@ -29,6 +31,7 @@ nonisolated enum SceneShaderDirective {
         case "undef": return identifierOnly(operand).map(SceneShaderDirective.undef)
             ?? .malformed("Malformed #undef directive.")
         case "include": return parseInclude(operand)
+        case "require": return parseRequire(operand)
         case "if": return operand.isEmpty
             ? .malformed("Shader #if has no expression.")
             : .ifExpression(operand)
@@ -103,6 +106,20 @@ nonisolated enum SceneShaderDirective {
         return .include(path)
     }
 
+    private static func parseRequire(_ operand: String) -> SceneShaderDirective {
+        guard !operand.isEmpty else {
+            return .malformedRequire("Shader #require has no module identifier.")
+        }
+        if let identifier = identifierOnly(operand) {
+            return .require(identifier)
+        }
+        let name = operand.prefix { $0 == "_" || $0.isLetter || $0.isNumber }
+        if identifierOnly(String(name)) != nil {
+            return .malformedRequire("Shader #require has extra tokens.")
+        }
+        return .malformedRequire("Shader #require has an invalid module identifier.")
+    }
+
     private static func identifierOnly(_ text: String) -> String? {
         guard let first = text.first, first == "_" || first.isLetter,
               text.dropFirst().allSatisfy({
@@ -170,6 +187,8 @@ extension SceneShaderPreprocessor {
         let activeAnnotations: [SceneShaderActiveAnnotation]
         let activeDeclarations: [SceneShaderActiveDeclaration]
         let dependencySHA256: String
+        let moduleDependencies: [SceneShaderModuleDependency]
+        let moduleDependencySHA256: String
         let variantSHA256: String
     }
 
@@ -177,6 +196,12 @@ extension SceneShaderPreprocessor {
         case missingRoot = "missing-root", sourceIdentityMismatch = "source-identity-mismatch"
         case malformedDirective = "malformed-directive", unsupportedDirective = "unsupported-directive"
         case unknownDirective = "unknown-directive", functionLikeMacro = "function-like-macro"
+        case moduleDirectiveSyntax = "module-directive-syntax"
+        case moduleUnknown = "module-unknown"
+        case moduleCaseMismatch = "module-case-mismatch"
+        case moduleLightingNonzero = "module-lighting-nonzero"
+        case moduleLightingMacroMissing = "module-lighting-macro-missing"
+        case moduleLightingMacroNoninteger = "module-lighting-macro-noninteger"
         case conflictingMacro = "conflicting-macro", invalidExpression = "invalid-expression"
         case unresolvedEnvironmentDefine = "unresolved-environment-define"
         case malformedSourceAnnotation = "malformed-source-annotation"

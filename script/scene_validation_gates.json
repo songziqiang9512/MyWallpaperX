@@ -261,6 +261,21 @@
       ]
     },
     {
+      "id": "shader-preparation",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/**"],
+      "modules": [
+        "test_scene_graph_condition_schema_evidence",
+        "test_scene_graph_texture_publication",
+        "test_scene_resolved_material_program_derivation",
+        "test_scene_resolved_material_program_finalizer",
+        "test_scene_shader_module_resolution",
+        "test_scene_shader_preparation_census",
+        "test_scene_shader_preprocessor",
+        "test_scene_shader_variant_environment",
+        "test_scene_swift_source_sets"
+      ]
+    },
+    {
       "id": "effects",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Effects/**"],
       "keywords": ["effect", "rendering", "planner"]

@@ -41,6 +41,8 @@ extension SceneShaderPreprocessor {
         var annotations: [SceneShaderActiveAnnotation] = []
         var declarations: [SceneShaderActiveDeclaration] = []
         var dependencies: [String: String] = [:]
+        var moduleDependencies: [SceneShaderModuleDependency] = []
+        var requireDirectiveOrdinal = 0
         var inputBytes = 0
         var outputBytes = 0
 
@@ -168,6 +170,9 @@ extension SceneShaderPreprocessor {
                 SceneShaderSourceDependency(relativePath: $0, rawSHA256: dependencies[$0]!)
             }
             let dependencyHash = SceneShaderStableDigest.hash(sortedDependencies)
+            let moduleDependencyHash = SceneShaderStableDigest.hash(
+                moduleDependencies
+            )
             let source = outputLines.joined(separator: "\n")
             let payload = PreparedDigestPayload(
                 frontendSchemaVersion: SceneShaderVariantEnvironment.frontendSchemaVersion,
@@ -180,6 +185,8 @@ extension SceneShaderPreprocessor {
                 activeAnnotations: annotations,
                 activeDeclarations: declarations,
                 dependencySHA256: dependencyHash,
+                moduleDependencies: moduleDependencies,
+                moduleDependencySHA256: moduleDependencyHash,
                 variantSHA256: environment.variantSHA256
             )
             return SceneShaderPreparedSource(
@@ -194,6 +201,8 @@ extension SceneShaderPreprocessor {
                 activeDeclarations: declarations,
                 dependencies: sortedDependencies,
                 dependencySHA256: dependencyHash,
+                moduleDependencies: moduleDependencies,
+                moduleDependencySHA256: moduleDependencyHash,
                 variantSHA256: environment.variantSHA256,
                 preparedSHA256: SceneShaderStableDigest.hash(payload)
             )

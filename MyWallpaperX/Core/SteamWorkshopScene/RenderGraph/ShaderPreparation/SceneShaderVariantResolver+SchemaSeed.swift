@@ -156,9 +156,10 @@ nonisolated enum SceneShaderVariantSchemaSeed {
                         conditionalElse.removeLast()
                     case .include(let includePath) where conditionalElse.isEmpty:
                         includes.append((line, includePath))
-                    case .define, .defineFunction, .undef, .include:
+                    case .define, .defineFunction, .undef, .include, .require:
                         break
-                    case .unsupported, .unknown, .unsupportedFunctionMacro, .malformed:
+                    case .malformedRequire, .unsupported, .unknown,
+                         .unsupportedFunctionMacro, .malformed:
                         return
                     }
                     continue
