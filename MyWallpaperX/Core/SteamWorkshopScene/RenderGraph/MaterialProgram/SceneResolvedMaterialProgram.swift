@@ -276,11 +276,13 @@ nonisolated struct SceneResolvedMaterialProgram {
     enum OutputStorage: Hashable {
         case color
         case scalarRedUnorm
+        case redGreenUnorm
     }
 
     enum OutputContract: Hashable {
         case color(SceneShaderColorContract)
         case scalarRedUnorm
+        case redGreenUnorm
     }
 
     enum HostUniform: Hashable {

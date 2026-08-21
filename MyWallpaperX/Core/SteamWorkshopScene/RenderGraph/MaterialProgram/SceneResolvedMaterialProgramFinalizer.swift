@@ -180,6 +180,10 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 guard texture.frontend.fragmentOutputChannelUse == .redDefined else {
                     throw failure(.color, .colorContractUnproven)
                 }
+            case .redGreenUnorm:
+                guard texture.frontend.fragmentOutputChannelUse == .redDefined else {
+                    throw failure(.color, .colorContractUnproven)
+                }
             }
             let uniformInputs = input.uniformInputs(textureSlots: texture.slots)
             let uniforms = try resolvedUniforms(

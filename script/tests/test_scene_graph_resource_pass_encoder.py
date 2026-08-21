@@ -507,7 +507,7 @@ private enum Harness {
             source: copySource,
             target: mipTarget
         ) == nil
-        let unsupportedTarget = target(device: device, format: .rg8Unorm)
+        let unsupportedTarget = target(device: device, format: .rg16Float)
         let unsupportedTargetFormatRejected = encoder.prepareInitialization(
             target: unsupportedTarget,
             clear: clear

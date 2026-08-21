@@ -97,9 +97,10 @@ extension SceneResolvedMaterialGraphExecutor {
                           lease: lease,
                           identity: identity,
                           resource: resource,
-                          content: resource.descriptor.format == .r8
-                              ? .scalarRedUnorm
-                              : .color(.resolved(initialization.representation))
+                          content: initializationContent(
+                              format: resource.descriptor.format,
+                              representation: initialization.representation
+                          )
                       ) else { return .resourceCommandRejected }
                 if case let .materialFunctionClear(
                     _, invocationOrdinal, targetOrdinal
@@ -152,8 +153,9 @@ extension SceneResolvedMaterialGraphExecutor {
                         implicitFramebufferIdentity: pairStep.inputIdentity
                     ),
                     variantCache: material.variants,
-                    outputStorage: material.attachmentStorage == .color
-                        ? .color : .scalarRedUnorm
+                    outputStorage: outputStorage(
+                        for: material.attachmentStorage
+                    )
                 )
                 let program: SceneResolvedMaterialProgram
                 switch finalized {
@@ -499,6 +501,27 @@ extension SceneResolvedMaterialGraphExecutor {
             storedContent: content
         ) else { return nil }
         return publication
+    }
+
+    private func initializationContent(
+        format: SceneGraphRenderTargetPlan.TextureFormat,
+        representation: SceneShaderColorRepresentation
+    ) -> SceneTextureContent {
+        switch format {
+        case .r8: .scalarRedUnorm
+        case .rg88: .redGreenUnorm
+        case .rgbaBackbuffer, .rgba8888: .color(.resolved(representation))
+        }
+    }
+
+    private func outputStorage(
+        for attachment: SceneResolvedMaterialAttachmentKind
+    ) -> SceneResolvedMaterialProgram.OutputStorage {
+        switch attachment {
+        case .color: .color
+        case .scalarRedUnorm: .scalarRedUnorm
+        case .redGreenUnorm: .redGreenUnorm
+        }
     }
 
     private func publication(

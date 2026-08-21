@@ -10,6 +10,7 @@ extension SceneResolvedMaterialGraphExecutor {
         SceneResolvedMaterialPassEncoder.PreparationFailure>? {
         let matches = switch (material.targetFormat, descriptor?.format) {
         case (.r8, .r8),
+             (.rg88, .rg88),
              (.rgbaBackbuffer, .rgbaBackbuffer),
              (.rgba8888, .rgba8888),
              (.rgbaBackbuffer, nil):

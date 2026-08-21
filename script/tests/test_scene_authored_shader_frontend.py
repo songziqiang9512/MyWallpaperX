@@ -427,6 +427,23 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(red_only["textureSlots"], [1])
         self.assertEqual(red_only["textureChannelUses"], ["redOnly"])
 
+        red_green_only = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture1;
+            varying vec2 v_TexCoord;
+            void main() {
+                vec2 first = texSample2D(g_Texture1, v_TexCoord).rg;
+                vec2 second = texture2D(g_Texture1, v_TexCoord * 0.5).rg;
+                gl_FragColor = vec4(first + second, 0.0, 1.0);
+            }
+            """,
+        )
+        self.assertEqual(red_green_only["textureSlots"], [1])
+        self.assertEqual(
+            red_green_only["textureChannelUses"], ["redGreenOnly"]
+        )
+
         unproven_fragments = {
             "green": "float value = texSample2D(g_Texture1, v_TexCoord).g;",
             "rgb": "vec3 value = texSample2D(g_Texture1, v_TexCoord).rgb;",
@@ -434,6 +451,10 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             "alias": (
                 "vec4 sampled = texSample2D(g_Texture1, v_TexCoord); "
                 "float value = sampled.r;"
+            ),
+            "mixed-red-rg": (
+                "float red = texSample2D(g_Texture1, v_TexCoord).r; "
+                "vec2 pair = texSample2D(g_Texture1, v_TexCoord).rg;"
             ),
         }
         for name, statement in unproven_fragments.items():

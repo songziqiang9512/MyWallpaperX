@@ -87,6 +87,11 @@ private struct BuilderOutput: Codable {
     let mutatedColorRejected: Bool
 }
 
+private struct PreservedChannelUseOutput: Codable {
+    let directRedGreen: String?
+    let mixedProjection: String?
+}
+
 private struct NormalizedSampleSumOutput: Codable {
     let analyzedTransfer: String
     let positiveKind: String?
@@ -602,6 +607,59 @@ private struct GenericShaderArtifactHarness {
                 projectedUsesTargetPixels: projected.contains(
                     "(mwxPosition - vec2(0.5)) * mwxRenderSize"
                 )
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--builder-preserved-channel-use" {
+            let reflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms {};"
+            let authored = [
+                "uniform sampler2D g_Texture0;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    vec2 pair = texSample2D(g_Texture0, v_TexCoord).rg;",
+                "    gl_FragColor = vec4(pair, 0.0, 1.0);",
+                "}",
+            ].joined(separator: "\n")
+            func channelUse(_ fragmentMSL: String) -> String? {
+                let built = SceneGenericShaderArtifactBuilder.build(
+                    requestKey: String(repeating: "e", count: 64),
+                    backendID: "glslang-spirv-cross-msl-v2",
+                    stages: [
+                        .init(
+                            name: "vertex", source: "void main() {}",
+                            authoredSource: "void main() {}",
+                            msl: vertexMSL, reflection: reflection
+                        ),
+                        .init(
+                            name: "fragment", source: authored,
+                            authoredSource: authored,
+                            msl: fragmentMSL, reflection: reflection
+                        ),
+                    ],
+                    maximumArtifactBytes: 1_024_000
+                )
+                guard case let .success(artifact) = built else { return nil }
+                return artifact.program.textureBindings.first?.channelUse
+            }
+            let direct = [
+                "struct MWXUniforms {};",
+                "fragment void f() {",
+                "    float2 pair = g_Texture0.sample(s, uv).xy;",
+                "    out.mwxFragColor = float4(pair, 0.0, 1.0);",
+                "}",
+            ].joined(separator: "\n")
+            let mixed = direct.replacingOccurrences(
+                of: "out.mwxFragColor = float4(pair, 0.0, 1.0);",
+                with: [
+                    "float red = g_Texture0.sample(s, uv).x;",
+                    "    out.mwxFragColor = float4(pair.x + red, pair.y, 0.0, 1.0);",
+                ].joined(separator: "\n")
+            )
+            let output = PreservedChannelUseOutput(
+                directRedGreen: channelUse(direct),
+                mixedProjection: channelUse(mixed)
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -2317,6 +2375,19 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             "unprovenOutputChannelUse": "redDefined",
             "vectorWeightRejected": True,
             "mutatedColorRejected": True,
+        })
+
+    def test_product_builder_proves_exact_red_green_projection(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-preserved-channel-use"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "directRedGreen": "redGreenOnly",
+            "mixedProjection": "unproven",
         })
 
     def test_product_builder_proves_normalized_same_slot_sample_sum(self):

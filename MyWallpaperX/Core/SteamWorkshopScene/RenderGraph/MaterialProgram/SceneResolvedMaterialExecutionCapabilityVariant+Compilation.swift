@@ -157,7 +157,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 ),
             producesScalarRedOutput: outputStorage == .scalarRedUnorm,
             isSourceIndependentPremultipliedOutput:
-                sourceActiveSamplers[0] == nil
+                outputStorage == .color
+                    && sourceActiveSamplers[0] == nil
                     && graphTextureSlots.isEmpty
                     && graphInputTextureSlots.isEmpty,
             graphTextureSlots: graphTextureSlots,

@@ -12,8 +12,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 guard snapshot.allEntriesReady, !snapshot.variants.isEmpty else {
                     return []
                 }
-                let writeMask: MTLColorWriteMask =
-                    material.attachmentStorage == .scalarRedUnorm ? .red : .all
+                let writeMask: MTLColorWriteMask = switch material.attachmentStorage {
+                case .color: .all
+                case .scalarRedUnorm: .red
+                case .redGreenUnorm: [.red, .green]
+                }
                 return snapshot.variants.compactMap { variant in
                     SceneResolvedMaterialPassEncoder.WarmupPlan(
                         identity: identity(material.key),

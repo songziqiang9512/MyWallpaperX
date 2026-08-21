@@ -661,6 +661,9 @@ private func fragmentSource(
     } else if scalarConsumer == "red" {
         "float scalar = texSample2D(g_Texture0, \(sampleCoordinate)).r;"
             + " gl_FragColor = vec4(scalar, 0.0, 0.0, 1.0);"
+    } else if scalarConsumer == "rg" {
+        "vec2 pair = texSample2D(g_Texture0, \(sampleCoordinate)).rg;"
+            + " gl_FragColor = vec4(pair, 0.0, 1.0);"
     } else if scalarConsumer == "green" {
         "float scalar = texSample2D(g_Texture0, v_TexCoord).g;"
             + " gl_FragColor = vec4(scalar, 0.0, 0.0, 1.0);"
@@ -1896,6 +1899,59 @@ private func appendScalarReadback(
         sourceLevel: 0,
         sourceOrigin: .init(x: 0, y: 0, z: 0),
         sourceSize: .init(width: texture.width, height: texture.height, depth: 1),
+        to: destination,
+        destinationOffset: 0,
+        destinationBytesPerRow: bytesPerRow,
+        destinationBytesPerImage: bytesPerRow * texture.height
+    )
+    encoder.endEncoding()
+    return .init(
+        buffer: destination,
+        bytesPerRow: bytesPerRow,
+        width: texture.width,
+        height: texture.height
+    )
+}
+
+private struct RedGreenReadback {
+    let buffer: MTLBuffer
+    let bytesPerRow: Int
+    let width: Int
+    let height: Int
+
+    var first: [UInt8] {
+        let pointer = buffer.contents().assumingMemoryBound(to: UInt8.self)
+        return Array(UnsafeBufferPointer(start: pointer, count: 2))
+    }
+
+    var last: [UInt8] {
+        let offset = (height - 1) * bytesPerRow + (width - 1) * 2
+        let pointer = buffer.contents().advanced(by: offset)
+            .assumingMemoryBound(to: UInt8.self)
+        return Array(UnsafeBufferPointer(start: pointer, count: 2))
+    }
+}
+
+private func appendRedGreenReadback(
+    _ texture: MTLTexture,
+    commandBuffer: MTLCommandBuffer
+) -> RedGreenReadback? {
+    guard texture.pixelFormat == .rg8Unorm else { return nil }
+    let bytesPerRow = 256
+    guard let destination = texture.device.makeBuffer(
+        length: bytesPerRow * texture.height,
+        options: .storageModeShared
+    ), let encoder = commandBuffer.makeBlitCommandEncoder() else { return nil }
+    encoder.copy(
+        from: texture,
+        sourceSlice: 0,
+        sourceLevel: 0,
+        sourceOrigin: .init(x: 0, y: 0, z: 0),
+        sourceSize: .init(
+            width: texture.width,
+            height: texture.height,
+            depth: 1
+        ),
         to: destination,
         destinationOffset: 0,
         destinationBytesPerRow: bytesPerRow,
@@ -4384,6 +4440,160 @@ private enum Harness {
             scalarFinalRead.firstPixel,
             [0, 0, 64, 255]
         ) && matches(scalarFinalRead.lastPixel, [0, 0, 64, 255])
+        let redGreenGraph = graph(
+            targets: [rawTarget(first, format: "rg88")],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: output, read: first),
+            ]
+        )
+        let redGreenChain = admittedGraph(redGreenGraph)
+        let redGreenCapabilities = capabilities(
+            redGreenChain,
+            catalog: catalog(
+                for: redGreenGraph,
+                scalarConsumerNodes: [1: "rg"]
+            )
+        )
+        guard let redGreenClaim = redGreenCapabilities.claim(redGreenChain) else {
+            fatalError(
+                "red-green capability rejected: \(redGreenCapabilities.reportLines)"
+            )
+        }
+        let redGreenExecutor = Executor(
+            device: device,
+            capabilities: redGreenCapabilities
+        )!
+        let redGreenLease = makeLease(requirePlan(redGreenGraph), device: device)
+        guard let redGreenTarget = redGreenLease.texture(for: first),
+              fill(
+                  redGreenTarget,
+                  color: MTLClearColorMake(1, 1, 0, 1),
+                  queue: queue
+              ), let redGreenPreparationBuffer = queue.makeCommandBuffer() else {
+            fatalError("red-green preparation setup failed")
+        }
+        let redGreenPreparation = redGreenExecutor.prepare(
+            token: redGreenClaim.token,
+            leases: [redGreenLease],
+            historyRehydrateCopiesByEffect: [:],
+            frame: frame(0),
+            sourceTexture: scalarSource,
+            sourceUniforms: .neutral(),
+            sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
+            commandBuffer: redGreenPreparationBuffer,
+            previousStates: [:],
+            previousGraphResources: [:],
+            effectGeneration: 2,
+            resetGeneration: 1
+        )
+        guard case let .success(redGreenPrepared) = redGreenPreparation,
+              let redGreenPrepareRead = appendRedGreenReadback(
+                  redGreenTarget,
+                  commandBuffer: redGreenPreparationBuffer
+              ) else {
+            fatalError(
+                "red-green preparation failed: \(failureCode(redGreenPreparation))"
+            )
+        }
+        redGreenPreparationBuffer.commit()
+        redGreenPreparationBuffer.waitUntilCompleted()
+        let redGreenPrepareHasNoWrite =
+            redGreenPreparationBuffer.status == .completed
+                && redGreenPrepareRead.first == [255, 255]
+                && redGreenPrepareRead.last == [255, 255]
+        let redGreenStage = redGreenPrepared.stages[0]
+        let redGreenPublication = redGreenStage.frameResources[first]
+        let redGreenPublicationContract = redGreenPrepared.stages.count == 1
+            && redGreenStage.programCacheKeys.count == 2
+            && intentKinds(redGreenPrepared) == ["material", "material"]
+            && redGreenPublication?.publication.requestIdentity == .graph(first)
+            && redGreenPublication?.publication.candidate.content == .redGreenUnorm
+            && redGreenPublication?.publication.candidate.purpose
+                == .preservedChannels
+            && redGreenPublication?.publication.candidate.pixelFormat == .rg8Unorm
+            && redGreenPublication?.publication.candidate.authoredFormat == nil
+            && redGreenPrepared.finalResource.publication.candidate.content
+                != .redGreenUnorm
+        guard let redGreenEncodeBuffer = queue.makeCommandBuffer() else {
+            fatalError("red-green encode buffer unavailable")
+        }
+        let redGreenEncoded = redGreenExecutor.encode(
+            redGreenPrepared,
+            commandBuffer: redGreenEncodeBuffer
+        )
+        guard let redGreenStorageRead = appendRedGreenReadback(
+                  redGreenTarget,
+                  commandBuffer: redGreenEncodeBuffer
+              ), let redGreenFinalRead = appendReadback(
+                  redGreenPrepared.finalTexture,
+                  commandBuffer: redGreenEncodeBuffer
+              ) else { fatalError("red-green readback unavailable") }
+        redGreenEncodeBuffer.commit()
+        redGreenEncodeBuffer.waitUntilCompleted()
+        let redGreenGPUCompleted = redGreenEncoded
+            && redGreenEncodeBuffer.status == .completed
+            && redGreenEncodeBuffer.error == nil
+        let redGreenPairStored = matches(
+            redGreenStorageRead.first,
+            [64, 128]
+        ) && matches(redGreenStorageRead.last, [64, 128])
+        let redGreenTerminalMatches = matches(
+            redGreenFinalRead.firstPixel,
+            [0, 128, 64, 255]
+        ) && matches(redGreenFinalRead.lastPixel, [0, 128, 64, 255])
+
+        func redGreenConsumerGraph(
+            clear: SceneJSONValue? = nil,
+            unique: Bool = false
+        ) -> Graph {
+            graph(
+                targets: [rawTarget(
+                    first,
+                    format: "rg88",
+                    unique: unique,
+                    clear: clear
+                )],
+                nodes: [
+                    material(0, ordinal: 0, target: first, read: input),
+                    material(1, ordinal: 1, target: output, read: first),
+                ]
+            )
+        }
+        func redGreenRejection(
+            _ candidateGraph: Graph,
+            consumers: [Int: String]
+        ) -> Bool {
+            let chain = admittedGraph(candidateGraph)
+            let candidateCapabilities = capabilities(
+                chain,
+                catalog: catalog(
+                    for: candidateGraph,
+                    scalarConsumerNodes: consumers
+                )
+            )
+            return candidateCapabilities.claim(chain) == nil
+                && candidateCapabilities.reportLines.contains {
+                    $0.contains(
+                        "rejection: rg88-red-green-graph-unproven count=1"
+                    )
+                }
+        }
+        let redGreenRedConsumerGraph = redGreenConsumerGraph()
+        let redGreenWholeConsumerGraph = redGreenConsumerGraph()
+        let redGreenClearGraph = redGreenConsumerGraph(
+            clear: .string("0 0 0 0")
+        )
+        let redGreenUniqueGraph = redGreenConsumerGraph(unique: true)
+        let redGreenMultipleWriterGraph = graph(
+            targets: [rawTarget(first, format: "rg88")],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: first, read: input),
+                material(2, ordinal: 2, target: output, read: first),
+            ]
+        )
         func scalarRejection(
             _ candidateGraph: Graph,
             consumers: [Int: String] = [:],
@@ -5814,6 +6024,43 @@ private enum Harness {
             "scalarGraphGPUCompleted": scalarGPUCompleted,
             "scalarProducerStoresRedComponent": scalarRedStored,
             "scalarDirectRedConsumerReachesColorTerminal": scalarTerminalMatches,
+            "redGreenCapabilityCarriesExactAttachmentKinds": {
+                guard let capability = redGreenCapabilities.resolve(
+                    redGreenClaim.token,
+                    for: redGreenChain
+                ) else { return false }
+                return capability.material(for: redGreenGraph.nodes[0])?
+                        .attachmentStorage == .redGreenUnorm
+                    && capability.material(for: redGreenGraph.nodes[1])?
+                        .attachmentStorage == .color
+            }(),
+            "redGreenPrepareHasNoEncodingSideEffect": redGreenPrepareHasNoWrite,
+            "redGreenPublicationIsTypedAndComplete": redGreenPublicationContract,
+            "redGreenGraphEncoded": redGreenEncoded,
+            "redGreenGraphGPUCompleted": redGreenGPUCompleted,
+            "redGreenProducerStoresExactPair": redGreenPairStored,
+            "redGreenDirectPairConsumerReachesColorTerminal":
+                redGreenTerminalMatches,
+            "redGreenRedOnlyConsumerRejectedBeforeFrame": redGreenRejection(
+                redGreenRedConsumerGraph,
+                consumers: [1: "red"]
+            ),
+            "redGreenWholeConsumerRejectedBeforeFrame": redGreenRejection(
+                redGreenWholeConsumerGraph,
+                consumers: [1: "whole"]
+            ),
+            "redGreenClearRejectedBeforeFrame": redGreenRejection(
+                redGreenClearGraph,
+                consumers: [1: "rg"]
+            ),
+            "redGreenUniqueRejectedBeforeFrame": redGreenRejection(
+                redGreenUniqueGraph,
+                consumers: [1: "rg"]
+            ),
+            "redGreenMultipleWriterRejectedBeforeFrame": redGreenRejection(
+                redGreenMultipleWriterGraph,
+                consumers: [2: "rg"]
+            ),
             "scalarGreenConsumerRejectedBeforeFrame": scalarRejection(
                 scalarGreenGraph,
                 consumers: [1: "green"]

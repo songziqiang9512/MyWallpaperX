@@ -210,6 +210,8 @@ nonisolated struct SceneAuthoredShaderProgram {
         enum ChannelUse: String, Equatable, Hashable, Sendable {
             /// Every active sample result is immediately projected to `.r`.
             case redOnly
+            /// Every active sample result is immediately projected to `.rg`.
+            case redGreenOnly
             /// The bounded frontend cannot prove a single stored component.
             case unproven
         }
@@ -220,8 +222,9 @@ nonisolated struct SceneAuthoredShaderProgram {
     }
 
     enum FragmentOutputChannelUse: String, Equatable, Hashable, Sendable {
-        /// Every reachable fragment exit defines red through one root-level,
-        /// unconditional whole-output write.
+        /// Every reachable fragment exit defines the attachment channels through
+        /// one root-level, unconditional whole-output write. The historical case
+        /// name is retained because it participates in stable shader identities.
         case redDefined
         case unproven
     }

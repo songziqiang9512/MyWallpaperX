@@ -247,7 +247,7 @@ final class SceneGraphResourcePassEncoder {
 
     private func validTarget(_ texture: MTLTexture) -> Bool {
         let supportedFormats: Set<MTLPixelFormat> = [
-            .bgra8Unorm, .r8Unorm, .rgba8Unorm,
+            .bgra8Unorm, .r8Unorm, .rg8Unorm, .rgba8Unorm,
         ]
         return texture.device.registryID == device.registryID
             && texture.textureType == .type2D

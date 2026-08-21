@@ -131,7 +131,7 @@ CATALOG_DEMAND_SWIFT_SOURCES = [
 SUPPORT = r'''
 import Foundation
 
-enum SceneShaderTextureFormat { case r8 }
+enum SceneShaderTextureFormat { case r8, rg88 }
 
 struct SceneAssetTextureIdentity: Hashable {}
 enum SceneTextureContent: Hashable {}
@@ -545,7 +545,7 @@ struct SceneResolvedMaterialRuntimeCatalog {
 }
 
 final class SceneResolvedMaterialVariantCache {
-    enum OutputStorage { case color, scalarRedUnorm }
+    enum OutputStorage { case color, scalarRedUnorm, redGreenUnorm }
 
     enum LaunchEnvelopeFailure: Error {
         enum Kind: String { case capacity, invariant }
@@ -615,6 +615,10 @@ final class SceneResolvedMaterialVariantCache {
     }
     var requiresInvertibleEffectTextureProjection: Bool { false }
     func provesRedOnlyConsumer(slot: Int) -> Bool {
+        _ = slot
+        return false
+    }
+    func provesRedGreenOnlyConsumer(slot: Int) -> Bool {
         _ = slot
         return false
     }

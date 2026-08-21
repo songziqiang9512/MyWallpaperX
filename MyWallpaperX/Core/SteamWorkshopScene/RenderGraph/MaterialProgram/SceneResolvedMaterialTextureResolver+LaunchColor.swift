@@ -28,8 +28,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     return failure(.textureBindingInvalid, slot: binding.slot)
                 }
             }
-            let scalarOutput = outputStorage == .scalarRedUnorm
-            if scalarOutput {
+            let preservedChannelOutput = outputStorage != .color
+            if preservedChannelOutput {
                 guard variant.frontendProgram.fragmentOutputChannelUse == .redDefined else {
                     return failure(
                         .colorContractUnproven,
@@ -44,7 +44,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     details: ["shader-color-transfer-unresolved"]
                 )
             }
-            if !scalarOutput, case let .straightAlphaUNorm(slot) =
+            if !preservedChannelOutput, case let .straightAlphaUNorm(slot) =
                 variant.frontendProgram.colorTransfer {
                 guard implicitFramebufferIdentity?.kind == .layerSource,
                       template.graphRole.effectInput == .layerSource,
@@ -70,7 +70,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 assetStates: assetStates
             ) {
             case .unknownInternalGraph:
-                if !scalarOutput, case .straightAlphaUNorm =
+                if !preservedChannelOutput, case .straightAlphaUNorm =
                     variant.frontendProgram.colorTransfer {
                     return failure(
                         .colorContractUnproven,
@@ -84,7 +84,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             case .profiles(let value):
                 profiles = value
             }
-            if scalarOutput { continue }
+            if preservedChannelOutput { continue }
             if case let .straightAlphaUNorm(slot) =
                 variant.frontendProgram.colorTransfer {
                 guard profiles.allSatisfy({ profile in

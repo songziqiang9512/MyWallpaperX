@@ -60,8 +60,19 @@ extension SceneResolvedMaterialVariantCache {
         return Self.channelEnvelopeIsRedOnly(uses)
     }
 
+    /// At least one launch-envelope variant must consume the slot, and every
+    /// consuming variant must observe exactly the stored red/green pair.
+    func provesRedGreenOnlyConsumer(slot: Int) -> Bool {
+        guard let uses = compiledChannelUses(for: slot) else { return false }
+        return Self.channelEnvelopeIsRedGreenOnly(uses)
+    }
+
     static func channelEnvelopeIsRedOnly(_ uses: [ChannelUse]) -> Bool {
         !uses.isEmpty && uses.allSatisfy { $0 == .redOnly }
+    }
+
+    static func channelEnvelopeIsRedGreenOnly(_ uses: [ChannelUse]) -> Bool {
+        !uses.isEmpty && uses.allSatisfy { $0 == .redGreenOnly }
     }
 
     struct Counters: Equatable {

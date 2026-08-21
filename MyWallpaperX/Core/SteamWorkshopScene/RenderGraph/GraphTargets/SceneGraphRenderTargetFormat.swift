@@ -8,6 +8,8 @@ extension SceneGraphRenderTargetPlan.TextureFormat {
         switch self {
         case .r8:
             1
+        case .rg88:
+            2
         case .rgbaBackbuffer, .rgba8888:
             4
         }
@@ -17,6 +19,8 @@ extension SceneGraphRenderTargetPlan.TextureFormat {
         switch self {
         case .r8:
             .r8Unorm
+        case .rg88:
+            .rg8Unorm
         case .rgbaBackbuffer:
             .bgra8Unorm
         case .rgba8888:

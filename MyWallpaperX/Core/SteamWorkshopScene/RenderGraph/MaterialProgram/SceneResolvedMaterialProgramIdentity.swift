@@ -49,6 +49,7 @@ extension SceneResolvedMaterialProgram {
     enum TextureContentIdentity: Hashable {
         case data
         case scalarRedUnorm
+        case redGreenUnorm
         case opaque
         case straightAlpha
         case premultipliedAlpha
@@ -85,6 +86,7 @@ extension SceneResolvedMaterialProgram {
     enum OutputContractIdentity: Hashable {
         case color(ColorContractIdentity)
         case scalarRedUnorm
+        case redGreenUnorm
     }
 
     struct ActiveUniformIdentity: Hashable {
@@ -280,6 +282,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         switch content {
         case .data: return .data
         case .scalarRedUnorm: return .scalarRedUnorm
+        case .redGreenUnorm: return .redGreenUnorm
         case .color(.unresolved): return nil
         case .color(.resolved(.opaque)): return .opaque
         case .color(.resolved(.straightAlpha)): return .straightAlpha

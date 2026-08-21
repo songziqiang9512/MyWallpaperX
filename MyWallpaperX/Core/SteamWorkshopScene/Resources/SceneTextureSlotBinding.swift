@@ -130,7 +130,10 @@ nonisolated struct SceneTextureSlotBinding {
         case (.preservedChannels, .scalarRedUnorm):
             guard case .provider(.graph) = identity else { return false }
             return pixelFormat == .r8Unorm && authoredFormat == nil
-        case (_, .scalarRedUnorm):
+        case (.preservedChannels, .redGreenUnorm):
+            guard case .provider(.graph) = identity else { return false }
+            return pixelFormat == .rg8Unorm && authoredFormat == nil
+        case (_, .scalarRedUnorm), (_, .redGreenUnorm):
             return false
         case (.premultipliedColor, _), (.straightAlbedo, _):
             return false

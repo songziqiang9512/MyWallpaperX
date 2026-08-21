@@ -421,6 +421,7 @@ private enum Harness {
         }
         let lease = makeLease(device)
         let r8Lease = makeLease(device, format: .r8)
+        let rg88Lease = makeLease(device, format: .rg88)
         let repeatLease = makeLease(device, addressMode: .repeatWrap)
         let r8RepeatLease = makeLease(
             device,
@@ -702,6 +703,27 @@ private enum Harness {
             versionedResource: r8Physical,
             fragmentColorRepresentation: .resolved(.opaque)
         ))
+        let rg88Physical = rg88Lease.allocation.resources[first]!.versioned(16)
+        let rg88Resource = require(rg88Lease.graphResource(
+            for: first,
+            versionedResource: rg88Physical,
+            storedContent: .redGreenUnorm
+        ))
+        let rg88Candidate = rg88Resource.publication.candidate
+        let rg88PublicationContract = rg88Resource.isCompleteGraphResource
+            && rg88Candidate.purpose == .preservedChannels
+            && rg88Candidate.content == .redGreenUnorm
+            && rg88Candidate.pixelFormat == .rg8Unorm
+            && rg88Candidate.authoredFormat == nil
+            && SceneGraphRenderTargetLease.graphSamplingMatches(
+                rg88Resource,
+                descriptor: rg88Physical.descriptor
+            )
+        let rg88WrongStorageFailure = failure(rg88Lease.graphResource(
+            for: first,
+            versionedResource: rg88Physical,
+            storedContent: .scalarRedUnorm
+        ))
         let repeatPhysical = repeatLease.allocation.resources[first]!.versioned(15)
         let repeatResource = require(repeatLease.graphResource(
             for: first,
@@ -835,6 +857,7 @@ private enum Harness {
                 "aliasedEndpointPublication": aliasedEndpointPublication,
                 "nonIdempotentProviderResolvedOnce": nonIdempotentProviderResolvedOnce,
             "r8ScalarPublication": r8ScalarPublication,
+            "rg88Publication": rg88PublicationContract,
             "r8ScalarCannotRewrapAsLayerSource":
                 r8ScalarCannotRewrapAsLayerSource,
                 "r8ScalarCannotRewrapAsEffectOutput":
@@ -855,6 +878,7 @@ private enum Harness {
                 "wrongDescriptor": wrongDescriptorFailure,
                 "pairToken": pairTokenFailure,
                 "r8Publication": r8PublicationFailure,
+                "rg88WrongStorage": rg88WrongStorageFailure,
                 "forgedR8AuthoredFormat": forgedR8AuthoredFormat
                     .isCompleteGraphResource ? "accepted" : "rejected",
                 "forgedR8WrongAuthoredFormat": forgedR8WrongAuthoredFormat
@@ -963,6 +987,7 @@ class SceneGraphTexturePublicationTests(unittest.TestCase):
                 "wrongDescriptor": "descriptorMismatch",
                 "pairToken": "unknownPhysicalToken",
                 "r8Publication": "storageSemanticUnavailable",
+                "rg88WrongStorage": "storageSemanticUnavailable",
                 "forgedR8AuthoredFormat": "rejected",
                 "forgedR8WrongAuthoredFormat": "rejected",
                 "forgedR8ColorPurpose": "rejected",

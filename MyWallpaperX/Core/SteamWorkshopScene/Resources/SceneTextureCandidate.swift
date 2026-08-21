@@ -133,13 +133,16 @@ nonisolated enum SceneTextureContent: Hashable, Sendable {
     /// Metal exposes unspecified sampled components as G=0, B=0, A=1, but
     /// those backend defaults are not part of this scalar graph semantic.
     case scalarRedUnorm
+    /// Two normalized red/green components stored by a graph-owned RG88 target.
+    /// Sampled B=0 and A=1 backend defaults are not part of this data semantic.
+    case redGreenUnorm
     case data
 
     var isResolved: Bool {
         switch self {
         case let .color(resolution):
             return resolution.isResolved
-        case .scalarRedUnorm, .data:
+        case .scalarRedUnorm, .redGreenUnorm, .data:
             return true
         }
     }
@@ -258,6 +261,8 @@ private nonisolated extension SceneTextureContent {
             return "color/\(representation.rawValue)"
         case .scalarRedUnorm:
             return "scalar-red-unorm"
+        case .redGreenUnorm:
+            return "red-green-unorm"
         case .data:
             return "data"
         }

@@ -138,7 +138,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             if case let .failure(failure) = variants.precompileLaunchEnvelope(
                 implicitFramebufferIdentity: effect.input,
                 outputStorage: attachment.storage == .color
-                    ? .color : .scalarRedUnorm,
+                    ? .color
+                    : attachment.storage == .scalarRedUnorm
+                        ? .scalarRedUnorm : .redGreenUnorm,
                 graphTextureFormatFacts: graphTextureFormatFacts,
                 assetStates: assetStates
             ) {
@@ -193,8 +195,17 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         guard !materials.isEmpty else {
             return .failure(rejection("material-capability-empty"))
         }
-        guard r8ScalarGraphIsExecutable(product.graph, materials: materials) else {
-            return .failure(rejection("r8-scalar-graph-unproven"))
+        guard preservedChannelGraphIsExecutable(
+            product.graph,
+            materials: materials
+        ) else {
+            let hasRG88 = product.graph.renderTargets.contains {
+                $0.format?.lowercased() == "rg88"
+            }
+            return .failure(rejection(
+                hasRG88 ? "rg88-red-green-graph-unproven"
+                    : "r8-scalar-graph-unproven"
+            ))
         }
         return .success(materials)
     }
@@ -211,8 +222,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                       inputWidth: 1,
                       inputHeight: 1
                   ) else { return nil }
-            if descriptor.format == .r8 {
-                result[target.texture] = .r8
+            switch descriptor.format {
+            case .r8: result[target.texture] = .r8
+            case .rg88: result[target.texture] = .rg88
+            case .rgbaBackbuffer, .rgba8888: break
             }
         }
         return result
@@ -240,6 +253,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             switch descriptor.format {
             case .r8:
                 return (.scalarRedUnorm, .r8)
+            case .rg88:
+                return (.redGreenUnorm, .rg88)
             case .rgbaBackbuffer, .rgba8888:
                 return (.color, descriptor.format)
             }
@@ -248,15 +263,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
-    /// R8 becomes a product capability only as one complete producer ->
-    /// scalar publication -> red-only consumer atom. Clear/history/commands
-    /// remain closed until their scalar lifecycle semantics are proven.
-    private static func r8ScalarGraphIsExecutable(
+    /// Preserved-channel targets become product capability only as one complete
+    /// producer -> typed publication -> exact-channel consumer atom. Clear,
+    /// history, commands and unique targets remain closed until their distinct
+    /// lifecycle semantics are proven.
+    private static func preservedChannelGraphIsExecutable(
         _ graph: Graph,
         materials: [MaterialKey: MaterialCapability]
     ) -> Bool {
         let targets = graph.renderTargets.filter {
-            $0.format?.lowercased() == "r8"
+            ["r8", "rg88"].contains($0.format?.lowercased() ?? "")
         }
         guard !targets.isEmpty else { return true }
         for target in targets {
@@ -264,9 +280,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 target,
                 inputWidth: 1,
                 inputHeight: 1
-            ), descriptor.format == .r8,
+            ), descriptor.format == .r8 || descriptor.format == .rg88,
               !descriptor.isUnique,
               descriptor.initialClear == nil else { return false }
+            let expectedStorage: SceneResolvedMaterialAttachmentKind =
+                descriptor.format == .r8 ? .scalarRedUnorm : .redGreenUnorm
             let writers = graph.nodes.filter {
                 $0.kind == .material && $0.target == target.texture
             }
@@ -279,7 +297,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                   materials[.init(
                       effect: writer.effect,
                       nodeIndex: writer.nodeIndex
-                  )]?.attachmentStorage == .scalarRedUnorm,
+                  )]?.attachmentStorage == expectedStorage,
                   !readers.isEmpty,
                   readers.allSatisfy({ $0.nodeIndex > writer.nodeIndex }),
                   graph.nodes.allSatisfy({ node in
@@ -297,7 +315,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                                     effect: reader.effect,
                                     nodeIndex: reader.nodeIndex
                                 )] else { return false }
-                          return material.variants.provesRedOnlyConsumer(slot: slot)
+                          return descriptor.format == .r8
+                              ? material.variants.provesRedOnlyConsumer(slot: slot)
+                              : material.variants.provesRedGreenOnlyConsumer(slot: slot)
                       }) else { return false }
             }
         }

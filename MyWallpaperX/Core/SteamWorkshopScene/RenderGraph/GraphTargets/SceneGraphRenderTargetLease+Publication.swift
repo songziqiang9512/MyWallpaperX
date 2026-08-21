@@ -206,6 +206,8 @@ extension SceneGraphRenderTargetLease {
             purpose = .premultipliedColor
         case .scalarRedUnorm:
             purpose = .preservedChannels
+        case .redGreenUnorm:
+            purpose = .preservedChannels
         case .color, .data:
             return .failure(.colorRepresentationUnresolved)
         }
@@ -247,6 +249,8 @@ extension SceneGraphRenderTargetLease {
     ) -> Bool {
         switch (format, content) {
         case (.r8, .scalarRedUnorm):
+            return true
+        case (.rg88, .redGreenUnorm):
             return true
         case (.rgbaBackbuffer, .color(.resolved(let representation))),
              (.rgba8888, .color(.resolved(let representation))):

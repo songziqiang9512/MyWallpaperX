@@ -130,6 +130,14 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                 contract: .scalarRedUnorm,
                 identity: .scalarRedUnorm
             )
+        case .redGreenUnorm:
+            guard frontend.fragmentOutputChannelUse == .redDefined else {
+                return nil
+            }
+            return .init(
+                contract: .redGreenUnorm,
+                identity: .redGreenUnorm
+            )
         }
     }
 
@@ -282,6 +290,10 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             let candidate = slot.resource.publication.candidate
             if candidate.content == .scalarRedUnorm,
                frontendBinding.channelUse != .redOnly {
+                return nil
+            }
+            if candidate.content == .redGreenUnorm,
+               frontendBinding.channelUse != .redGreenOnly {
                 return nil
             }
             let exactIdentity = SceneResolvedMaterialProgramIdentity.exactTexture(slot)

@@ -261,6 +261,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         let marker = regex(#"\b"# + escaped(name) + #"\.sample\s*\("#)
         let matches = marker.matches(in: source, range: fullRange(source))
         guard !matches.isEmpty else { throw Failure.textureUnused }
+        var channelUse: String?
         for match in matches {
             guard let range = Range(match.range, in: source),
                   let opening = source[range].lastIndex(of: "("),
@@ -268,11 +269,16 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 return "unproven"
             }
             let suffix = source[end...]
-            if suffix.range(of: #"^\s*\.x\b"#, options: .regularExpression) == nil {
-                return "unproven"
-            }
+            let current: String
+            if suffix.range(of: #"^\s*\.x\b"#, options: .regularExpression) != nil {
+                current = "redOnly"
+            } else if suffix.range(of: #"^\s*\.xy\b"#, options: .regularExpression) != nil {
+                current = "redGreenOnly"
+            } else { return "unproven" }
+            guard channelUse == nil || channelUse == current else { return "unproven" }
+            channelUse = current
         }
-        return "redOnly"
+        return channelUse ?? "unproven"
     }
 
     private static func prepareColorTransfer(

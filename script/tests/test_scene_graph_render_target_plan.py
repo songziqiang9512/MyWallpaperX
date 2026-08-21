@@ -18,6 +18,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
+    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetFormat.swift",
 ]
 
 
@@ -744,7 +745,24 @@ enum Harness {
             inputWidth: 256,
             inputHeight: 256
         ) else { fatalError("r8 fixture rejected") }
-        let unsupportedFormats = ["rg88", "r16f", "rg1616f", "unknown"]
+        let rg88 = graph(
+            targets: [target(full, extent: inputExtent, format: "rg88")],
+            nodes: precise.nodes,
+            key: key,
+            input: input,
+            output: output
+        )
+        guard case .success(let rg88Plan) = SceneGraphRenderTargetPlan.make(
+            executionPlan: .init(
+                layerID: 10,
+                materialNodeCount: 2,
+                logicalRenderTargetCount: 1
+            ),
+            graph: rg88,
+            inputWidth: 256,
+            inputHeight: 256
+        ) else { fatalError("rg88 fixture rejected") }
+        let unsupportedFormats = ["r16f", "rg1616f", "unknown"]
         let priorKey = Graph.EffectKey(
             layerID: 10,
             effectIndex: 0,
@@ -768,6 +786,9 @@ enum Harness {
             "standardTargets": targetSummary(standardPlan),
             "rgba8888Targets": targetSummary(rgba8888Plan),
             "r8Targets": targetSummary(r8Plan),
+            "rg88Targets": targetSummary(rg88Plan),
+            "rg88LogicalBytesPerPixel":
+                SceneGraphRenderTargetPlan.TextureFormat.rg88.logicalBytesPerPixel,
             "preciseInputExtent": [
                 precisePlan.inputExtent.width, precisePlan.inputExtent.height,
             ],
@@ -980,6 +1001,25 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
                     "name": "full",
                     "size": [256, 256],
                     "format": "r8",
+                    "firstWrite": 0,
+                    "lastWrite": 0,
+                    "firstRead": 1,
+                    "lastRead": 1,
+                    "persistent": False,
+                    "historySeed": False,
+                }
+            ],
+        )
+
+    def test_rg88_target_preserves_authored_format_extent_and_budget(self) -> None:
+        self.assertEqual(self.result["rg88LogicalBytesPerPixel"], 2)
+        self.assertEqual(
+            self.result["rg88Targets"],
+            [
+                {
+                    "name": "full",
+                    "size": [256, 256],
+                    "format": "rg88",
                     "firstWrite": 0,
                     "lastWrite": 0,
                     "firstRead": 1,
@@ -1214,7 +1254,7 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
         self.assertEqual(self.result["uniqueFailure"], "success")
         self.assertEqual(
             self.result["unsupportedFormatFailures"],
-            ["unsupportedTargetDescriptor"] * 4,
+            ["unsupportedTargetDescriptor"] * 3,
         )
         self.assertEqual(self.result["countMismatchFailure"], "executionMismatch")
         self.assertEqual(self.result["roleMismatchFailure"], "executionMismatch")

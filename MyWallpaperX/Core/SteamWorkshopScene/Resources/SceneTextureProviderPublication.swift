@@ -248,6 +248,12 @@ nonisolated struct SceneFrameTextureResource {
                 && publication.candidate.pixelFormat == .r8Unorm
                 && publication.candidate.authoredFormat == nil
                 && identityUVScale(expectedPurpose: .preservedChannels)
+        case .redGreenUnorm:
+            return request.kind == .framebuffer
+                && publication.candidate.purpose == .preservedChannels
+                && publication.candidate.pixelFormat == .rg8Unorm
+                && publication.candidate.authoredFormat == nil
+                && identityUVScale(expectedPurpose: .preservedChannels)
         case .color(.resolved(.straightAlpha)), .color(.unresolved), .data:
             return false
         }
