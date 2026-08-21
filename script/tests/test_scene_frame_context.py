@@ -90,6 +90,10 @@ PIPELINE_REPOSITORY_SOURCE = (
 )
 COORDINATOR_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/MainWindowCoordinator.swift"
 DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
+DEBUG_PAUSE_RESUME_RUNNER_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/App/DebugScenePlaybackRunner+PauseResume.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -771,6 +775,26 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("SceneDesktopWallpaperHost.shared", is_playing)
         self.assertIn("activeRecordID", is_playing)
         self.assertIn("isPlaybackActive", is_playing)
+
+    def test_debug_pause_resume_probe_uses_formal_playback_owner(self) -> None:
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
+        probe = DEBUG_PAUSE_RESUME_RUNNER_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn("let isPlaybackPaused: Bool", host)
+        self.assertIn("let isFrameDriverActive: Bool", host)
+        snapshot = swift_body(host, "func debugSnapshot() -> DebugSnapshot")
+        self.assertIn("isPlaybackPaused: sceneClock.isPaused", snapshot)
+        self.assertIn("isFrameDriverActive: frameTimer?.isValid == true", snapshot)
+        self.assertIn('"MWX_SCENE_DEBUG_PAUSE_RESUME_AFTER"', probe)
+        self.assertIn("WallpaperEngine.shared.pauseAllPlayers()", probe)
+        self.assertIn("WallpaperEngine.shared.resumeAllPlayers()", probe)
+        self.assertNotIn("setPlaybackPaused(", probe)
+        self.assertIn('state=paused accepted=%@', probe)
+        self.assertIn('state=resumed accepted=%@', probe)
+        self.assertIn('reason: "pause-resume-after"', probe)
+        self.assertIn("pauseResumeRequest != nil", runner)
+        self.assertIn("runtimeLifecycleProbeCount <= 1", runner)
 
     def test_launch_callers_forward_raw_root_and_host_owns_runtime_input(self) -> None:
         host = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")

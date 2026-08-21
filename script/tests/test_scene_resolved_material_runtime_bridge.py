@@ -73,6 +73,10 @@ DEBUG_SURFACE_STOP_RELAUNCH_RUNNER = (
     REPOSITORY_ROOT
     / "MyWallpaperX/App/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift"
 )
+DEBUG_PAUSE_RESUME_RUNNER = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/App/DebugScenePlaybackRunner+PauseResume.swift"
+)
 HOST_FRAME_DRIVER = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
@@ -3950,7 +3954,10 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         surface_stop_runner = DEBUG_SURFACE_STOP_RELAUNCH_RUNNER.read_text(
             encoding="utf-8"
         )
-        lifecycle_runner = runner + surface_stop_runner
+        pause_resume_runner = DEBUG_PAUSE_RESUME_RUNNER.read_text(
+            encoding="utf-8"
+        )
+        lifecycle_runner = runner + surface_stop_runner + pause_resume_runner
         host_driver = HOST_FRAME_DRIVER.read_text(encoding="utf-8")
 
         self.assertIn("submissions.invalidate(reason: reason)", bridge)
@@ -4008,6 +4015,24 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn(
             'reason: "surface-stop-relaunch-after"',
             surface_stop_runner,
+        )
+        self.assertIn(
+            '"MWX_SCENE_DEBUG_PAUSE_RESUME_AFTER"',
+            lifecycle_runner,
+        )
+        self.assertIn(
+            "WallpaperEngine.shared.pauseAllPlayers()",
+            pause_resume_runner,
+        )
+        self.assertIn(
+            "WallpaperEngine.shared.resumeAllPlayers()",
+            pause_resume_runner,
+        )
+        self.assertIn('state=paused accepted=%@', pause_resume_runner)
+        self.assertIn('state=resumed accepted=%@', pause_resume_runner)
+        self.assertIn(
+            'reason: "pause-resume-after"',
+            pause_resume_runner,
         )
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")

@@ -57,6 +57,9 @@ enum DebugScenePlaybackRunner {
         let surfaceStopRelaunchDelay = requestedSurfaceStopRelaunchDelay(
             duration: requestedDuration
         )
+        let pauseResumeRequest = requestedPauseResumeRequest(
+            duration: requestedDuration
+        )
         guard environment[executorInvalidationDelayEnvironmentKey] == nil
                 || requestedExecutorInvalidationDelay != nil else {
             NSLog(
@@ -81,12 +84,21 @@ enum DebugScenePlaybackRunner {
             terminate(after: 0.1)
             return
         }
-        guard requestedExecutorInvalidationDelay == nil
-                || requestedSceneSwitchDelay == nil,
-              requestedExecutorInvalidationDelay == nil
-                || surfaceStopRelaunchDelay == nil,
-              requestedSceneSwitchDelay == nil
-                || surfaceStopRelaunchDelay == nil else {
+        guard environment[pauseResumeRequestEnvironmentKey] == nil
+                || pauseResumeRequest != nil else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=precondition-failed reason=invalid-pause-resume-request"
+            )
+            terminate(after: 0.1)
+            return
+        }
+        let runtimeLifecycleProbeCount = [
+            requestedExecutorInvalidationDelay != nil,
+            requestedSceneSwitchDelay != nil,
+            surfaceStopRelaunchDelay != nil,
+            pauseResumeRequest != nil,
+        ].filter { $0 }.count
+        guard runtimeLifecycleProbeCount <= 1 else {
             NSLog(
                 "MWX DEBUG SCENE: phase=precondition-failed reason=multiple-runtime-lifecycle-faults"
             )
@@ -170,6 +182,13 @@ enum DebugScenePlaybackRunner {
                     delay
                 )
             }
+            if let request = pauseResumeRequest {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=pause-resume state=configured delay=%.3f dwell=%.3f",
+                    request.delay,
+                    request.dwell
+                )
+            }
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
             publishRequestedMediaThumbnail(rootURL: rootURL)
@@ -241,6 +260,10 @@ enum DebugScenePlaybackRunner {
                     propertyOverrides: requestedPropertyOverrides,
                     userPropertyTextureURLs: userPropertyTextureURLs,
                     logURL: previewLogURL,
+                    outputDirectory: evidenceDirectory
+                )
+                schedulePauseResume(
+                    request: pauseResumeRequest,
                     outputDirectory: evidenceDirectory
                 )
             }

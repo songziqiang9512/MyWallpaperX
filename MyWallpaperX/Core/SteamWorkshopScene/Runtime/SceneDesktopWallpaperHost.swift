@@ -15,6 +15,8 @@ final class SceneDesktopWallpaperHost {
     struct DebugSnapshot {
         let surfaceCount: Int
         let windowNumbers: [Int]
+        let isPlaybackPaused: Bool
+        let isFrameDriverActive: Bool
     }
 
     struct DebugAudioScaledValueBindingSnapshot: Encodable {
@@ -191,7 +193,9 @@ final class SceneDesktopWallpaperHost {
     func debugSnapshot() -> DebugSnapshot {
         DebugSnapshot(
             surfaceCount: surfaces.count,
-            windowNumbers: surfaces.values.map { $0.window.windowNumber }.sorted()
+            windowNumbers: surfaces.values.map { $0.window.windowNumber }.sorted(),
+            isPlaybackPaused: sceneClock.isPaused,
+            isFrameDriverActive: frameTimer?.isValid == true
         )
     }
 
