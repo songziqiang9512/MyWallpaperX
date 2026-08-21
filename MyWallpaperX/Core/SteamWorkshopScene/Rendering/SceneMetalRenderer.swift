@@ -427,16 +427,6 @@ struct SceneMetalRenderer {
         // downstream consumer then takes the ordinary provider-miss path.
         guard framePlan != nil else { return true }
 
-        let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
-        switch imageCompositor.resolvedMaterialClaim(layerID: layer.id) {
-        case let .claimed(value):
-            claim = value
-        case .localFallback:
-            return true
-        case .unclaimed, .rejected:
-            return false
-        }
-
         let dependencyEffect: SceneDependencyEffectInput?
         if dependencyRuntime.requiresEffect(for: layer.id) {
             switch dependencyRuntime.resolvedMaterialEffectInputResolution(
@@ -461,6 +451,20 @@ struct SceneMetalRenderer {
             }
         } else {
             dependencyEffect = nil
+        }
+
+        // Resolve an external provider before consuming the execution claim.
+        // An ordinary missing publication can then remove this unencoded
+        // transaction locally and let the same rule cascade through later
+        // hidden providers without invalidating independent frame work.
+        let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
+        switch imageCompositor.resolvedMaterialClaim(layerID: layer.id) {
+        case let .claimed(value):
+            claim = value
+        case .localFallback:
+            return true
+        case .unclaimed, .rejected:
+            return false
         }
 
         guard let resolvedMaterialRuntime = imageCompositor.resolvedMaterialRuntime
