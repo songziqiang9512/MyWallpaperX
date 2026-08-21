@@ -1780,6 +1780,7 @@ def resolved_material_graph_observation_metrics(
         target_descriptor_counts = unquote(fields["targetDescriptorCounts"])
         history = fields["history"]
         reset = fields["reset"]
+        runtime_instance_identity = fields.get("runtime", "legacy")
         history_content_discarded = fields["historyContentDiscarded"] == "true"
         descriptor_counts_valid = target_descriptor_counts == "-" or bool(
             re.fullmatch(
@@ -1795,6 +1796,12 @@ def resolved_material_graph_observation_metrics(
         )
         terminal_failures = [
             message for valid, message in (
+                (
+                    runtime_instance_identity == "legacy" or bool(re.fullmatch(
+                        r"[A-Za-z0-9._:-]+", runtime_instance_identity
+                    )),
+                    "resolved material graph runtime identity invalid",
+                ),
                 (
                     layer_id >= 0 and all(value >= 0 for value in counts.values()),
                     "resolved material graph observation node count invalid",
@@ -1871,6 +1878,7 @@ def resolved_material_graph_observation_metrics(
         if terminal_failures:
             continue
         terminal_successes.append({
+            "runtime_instance_identity": runtime_instance_identity,
             "frame": frame,
             "layer_id": layer_id,
             "trigger": trigger.split("+"),
@@ -1910,7 +1918,17 @@ def resolved_material_graph_observation_metrics(
             "resolved material graph observation GPU failure reported"
         )
     successful_transactions = sorted({
-        observation["transaction"] for observation in terminal_successes
+        observation["transaction"]
+            if observation["runtime_instance_identity"] == "legacy"
+            else (
+                observation["runtime_instance_identity"]
+                + ":" + observation["transaction"]
+            )
+        for observation in terminal_successes
+    })
+    runtime_instance_identities = sorted({
+        observation["runtime_instance_identity"]
+        for observation in terminal_successes
     })
     successful_layer_ids = sorted({
         observation["layer_id"] for observation in terminal_successes
@@ -1933,12 +1951,17 @@ def resolved_material_graph_observation_metrics(
     })
     lifecycle_transitions: list[dict[str, Any]] = []
     history_copy_on_write_count = 0
-    for layer_id in successful_layer_ids:
+    lifecycle_subjects = sorted({
+        (observation["runtime_instance_identity"], observation["layer_id"])
+        for observation in terminal_successes
+    })
+    for runtime_instance_identity, layer_id in lifecycle_subjects:
         previous: dict[str, Any] | None = None
         for observation in sorted(
             (
                 value for value in terminal_successes
-                if value["layer_id"] == layer_id
+                if value["runtime_instance_identity"] == runtime_instance_identity
+                and value["layer_id"] == layer_id
             ),
             key=lambda value: value["frame"],
         ):
@@ -2019,6 +2042,8 @@ def resolved_material_graph_observation_metrics(
         "terminal_success_count": len(terminal_successes),
         "successful_transaction_count": len(successful_transactions),
         "successful_transactions": successful_transactions,
+        "runtime_instance_identities": runtime_instance_identities,
+        "runtime_instance_identity_count": len(runtime_instance_identities),
         "successful_gpu_completed_layer_ids": successful_layer_ids,
         "compositor_consumed_layer_ids": compositor_consumed_layer_ids,
         "next_frame_layer_ids": next_frame_layer_ids,

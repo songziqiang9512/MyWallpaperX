@@ -96,6 +96,7 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
     // the equality before it can authorize a committed graph tail.
     static let maximumNodeCount = 512, maximumLogicalBindingCount = 512
 
+    let runtimeInstanceIdentity: String
     let identity: SceneGraphExecutionEffectIdentity
     let graphIdentity, programIdentity, programSequenceIdentity: String
     let transactionIdentity: String
@@ -119,6 +120,7 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
     let gpuCompletionStatus: SceneGraphExecutionGPUCompletionStatus?
 
     init(
+        runtimeInstanceIdentity: String,
         identity: SceneGraphExecutionEffectIdentity,
         graphIdentity: String,
         programIdentity: String,
@@ -146,7 +148,8 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
         outcome: SceneGraphExecutionOutcome,
         gpuCompletionStatus: SceneGraphExecutionGPUCompletionStatus? = nil
     ) throws {
-        guard identity.layerID >= 0,
+        guard Self.hasText(runtimeInstanceIdentity),
+              identity.layerID >= 0,
               identity.effectIndex >= 0,
               Self.hasText(identity.descriptorID) else {
             throw SceneGraphExecutionObservationError.invalidIdentity
@@ -232,6 +235,7 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
             }
         }
 
+        self.runtimeInstanceIdentity = runtimeInstanceIdentity
         self.identity = identity
         self.graphIdentity = graphIdentity
         self.programIdentity = programIdentity

@@ -180,6 +180,7 @@ enum Harness {
             $0.logicalIdentity == outputIdentity
         })?.physicalIdentity ?? "missing-physical-output"
         return try .init(
+            runtimeInstanceIdentity: "runtime-fixture",
             identity: identity,
             graphIdentity: graphIdentity,
             programIdentity: programIdentity,
@@ -1226,7 +1227,9 @@ class SceneGraphExecutionTelemetryTests(unittest.TestCase):
         self.assertEqual(self.result["mappingBeforeHashB"], before)
         self.assertEqual(self.result["mappingAfterHashA"], after)
         self.assertEqual(self.result["mappingAfterHashB"], after)
-        self.assertTrue(self.result["canonicalLine"].startswith("graph-execution|frame=90|"))
+        self.assertTrue(self.result["canonicalLine"].startswith(
+            "graph-execution|runtime=runtime-fixture|frame=90|"
+        ))
 
     def test_target_descriptors_are_complete_stable_and_transition_safe(self) -> None:
         lines = sorted(
@@ -1271,7 +1274,8 @@ class SceneGraphExecutionTelemetryTests(unittest.TestCase):
             first,
             re.compile(
                 r"^MWX DEBUG SCENE: schema=1 axis=graph-execution "
-                r"frame=10 trigger=first-frame\+reset\+first-success\+gpu-completed "
+                r"runtime=runtime-fixture frame=10 "
+                r"trigger=first-frame\+reset\+first-success\+gpu-completed "
                 r"layer=7 effect=2 descriptor=Graph%20A%25%3D%E4%B8%AD "
             ),
         )

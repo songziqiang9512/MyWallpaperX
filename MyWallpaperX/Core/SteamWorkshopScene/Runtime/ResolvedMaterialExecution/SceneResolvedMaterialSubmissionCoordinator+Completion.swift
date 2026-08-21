@@ -264,6 +264,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                     observations.append(try
                         SceneResolvedMaterialGraphObservationBuilder.make(
                             value,
+                            runtimeInstanceIdentity: runtimeInstanceIdentity,
                             frameIndex: ledger.frameIndex,
                             transactionID: ledger.identity,
                             executionEpoch: ledger.epoch,
@@ -295,6 +296,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 emission.observations.append(try
                     SceneResolvedMaterialGraphObservationBuilder.make(
                         value,
+                        runtimeInstanceIdentity: runtimeInstanceIdentity,
                         frameIndex: ledger.frameIndex,
                         transactionID: ledger.identity,
                         executionEpoch: ledger.epoch,

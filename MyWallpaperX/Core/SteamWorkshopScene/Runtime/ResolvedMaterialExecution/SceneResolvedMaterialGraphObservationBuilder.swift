@@ -16,6 +16,7 @@ enum SceneResolvedMaterialGraphObservationBuilder {
 
     static func make(
         _ value: Prepared,
+        runtimeInstanceIdentity: String,
         frameIndex: UInt64,
         transactionID: UInt64,
         executionEpoch: UInt64,
@@ -67,6 +68,7 @@ enum SceneResolvedMaterialGraphObservationBuilder {
         let final = failed ? nil : try finalPublication(value)
 
         return try .init(
+            runtimeInstanceIdentity: runtimeInstanceIdentity,
             identity: .init(
                 layerID: effect.layerID,
                 effectIndex: effect.effectIndex,

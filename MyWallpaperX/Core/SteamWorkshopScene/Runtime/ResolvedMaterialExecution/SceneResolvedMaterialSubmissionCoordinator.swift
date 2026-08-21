@@ -92,6 +92,9 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     let telemetry: SceneGraphExecutionTelemetry
     let logSink: LogSink
     let lock = NSLock()
+    /// Scopes transaction and allocation counters to this coordinator lifetime.
+    /// It is deliberately independent from replaceable physical texture pools.
+    let runtimeInstanceIdentity = UUID().uuidString.lowercased()
 
     var frame: SceneResolvedMaterialFrameSnapshot?
     var frameFailure: SceneResolvedMaterialFailure?

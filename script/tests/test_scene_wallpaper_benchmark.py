@@ -228,6 +228,7 @@ def graph_execution_observation(
     reset: str = "-",
     history_rehydrate_copy_count: int = 0,
     history_content_discarded: bool = False,
+    runtime_instance_identity: str | None = None,
 ) -> str:
     final_output = f"output-{transaction}" if publish else "-"
     final_physical = f"physical-{transaction}" if publish else "-"
@@ -237,9 +238,14 @@ def graph_execution_observation(
         frame if allocation_generation is None else allocation_generation
     )
     mapping_generation = frame if mapping_generation is None else mapping_generation
+    runtime_field = (
+        f"runtime={runtime_instance_identity} "
+        if runtime_instance_identity is not None else ""
+    )
     return (
         "MWX DEBUG SCENE: schema=1 axis=graph-execution "
-        f"frame={frame} layer={layer} trigger={trigger} transaction={transaction} "
+        f"{runtime_field}frame={frame} layer={layer} "
+        f"trigger={trigger} transaction={transaction} "
         f"authoredNodes={authored} materialNodes={material} "
         f"copyNodes={copy} swapNodes={swap} composeNodes={compose} "
         f"rejectedNodes={rejected} "
@@ -3817,6 +3823,91 @@ utility layer 763: skippedHidden kind=composition
                     ],
                     2,
                 )
+
+    def test_graph_lifecycle_is_scoped_to_runtime_instance(self) -> None:
+        observations = []
+        for runtime in ("runtime-a", "runtime-b"):
+            observations.extend([
+                graph_execution_observation(
+                    frame=1,
+                    layer=533,
+                    transaction="r4:1:1:0",
+                    trigger="first-frame+compositor-consume+gpu-completed",
+                    consumed=True,
+                    target_descriptors_sha256="a" * 64,
+                    target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+                    history="seeded",
+                    reset="initial",
+                    runtime_instance_identity=runtime,
+                ),
+                graph_execution_observation(
+                    frame=2,
+                    layer=533,
+                    transaction="r4:1:2:0",
+                    trigger="next-frame+compositor-consume+gpu-completed",
+                    consumed=True,
+                    target_descriptors_sha256="a" * 64,
+                    target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+                    history="reused",
+                    reset="history-copy-on-write",
+                    history_rehydrate_copy_count=2,
+                    runtime_instance_identity=runtime,
+                ),
+            ])
+
+        metrics = benchmark.resolved_material_graph_observation_metrics(
+            "\n".join(observations)
+        )
+
+        self.assertEqual(metrics["validation_failures"], [])
+        self.assertEqual(metrics["runtime_instance_identities"], [
+            "runtime-a", "runtime-b",
+        ])
+        self.assertEqual(metrics["runtime_instance_identity_count"], 2)
+        self.assertEqual(metrics["successful_transaction_count"], 4)
+        self.assertEqual(metrics["history_copy_on_write_count"], 2)
+
+    def test_graph_lifecycle_remains_strict_within_runtime_instance(self) -> None:
+        observations = [
+            graph_execution_observation(
+                frame=1,
+                layer=533,
+                transaction="initial",
+                trigger="first-frame+compositor-consume+gpu-completed",
+                consumed=True,
+                allocation_generation=2,
+                mapping_generation=2,
+                target_descriptors_sha256="a" * 64,
+                target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+                history="seeded",
+                reset="initial",
+                runtime_instance_identity="runtime-a",
+            ),
+            graph_execution_observation(
+                frame=2,
+                layer=533,
+                transaction="regressed",
+                trigger="next-frame+compositor-consume+gpu-completed",
+                consumed=True,
+                allocation_generation=1,
+                mapping_generation=1,
+                target_descriptors_sha256="a" * 64,
+                target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+                history="reused",
+                reset="history-copy-on-write",
+                history_rehydrate_copy_count=2,
+                runtime_instance_identity="runtime-a",
+            ),
+        ]
+
+        metrics = benchmark.resolved_material_graph_observation_metrics(
+            "\n".join(observations)
+        )
+
+        self.assertIn(
+            "resolved material graph allocation identity transition invalid",
+            metrics["validation_failures"],
+        )
 
     def test_resolved_material_graph_lifecycle_rejects_mislabeled_transitions(
         self,

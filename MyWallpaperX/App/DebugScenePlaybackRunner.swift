@@ -62,6 +62,22 @@ enum DebugScenePlaybackRunner {
             terminate(after: 0.1)
             return
         }
+        guard environment[sceneSwitchDelayEnvironmentKey] == nil
+                || requestedSceneSwitchDelay != nil else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=precondition-failed reason=invalid-scene-switch-delay"
+            )
+            terminate(after: 0.1)
+            return
+        }
+        guard requestedExecutorInvalidationDelay == nil
+                || requestedSceneSwitchDelay == nil else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=precondition-failed reason=multiple-runtime-lifecycle-faults"
+            )
+            terminate(after: 0.1)
+            return
+        }
         guard !SceneDependencyCaptureFault.containsRequest(in: environment)
                 || SceneDependencyCaptureFault.requestedOrdinal(
                     in: environment
@@ -127,6 +143,12 @@ enum DebugScenePlaybackRunner {
                     delay
                 )
             }
+            if let delay = requestedSceneSwitchDelay {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=scene-switch state=configured delay=%.3f",
+                    delay
+                )
+            }
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
             publishRequestedMediaThumbnail(rootURL: rootURL)
@@ -182,6 +204,13 @@ enum DebugScenePlaybackRunner {
                 }
                 scheduleResizeSequence(outputDirectory: evidenceDirectory)
                 scheduleExecutorInvalidation(
+                    outputDirectory: evidenceDirectory
+                )
+                scheduleSceneSwitch(
+                    rootURL: rootURL,
+                    propertyOverrides: requestedPropertyOverrides,
+                    userPropertyTextureURLs: userPropertyTextureURLs,
+                    logURL: previewLogURL,
                     outputDirectory: evidenceDirectory
                 )
             }
@@ -332,6 +361,49 @@ enum DebugScenePlaybackRunner {
                 requestSnapshot(
                     reason: "executor-invalidation-after",
                     outputDirectory: outputDirectory
+                )
+            }
+        }
+    }
+
+    private static func scheduleSceneSwitch(
+        rootURL: URL,
+        propertyOverrides: [String: SceneUserPropertyValue],
+        userPropertyTextureURLs: [String: URL],
+        logURL: URL?,
+        outputDirectory: URL
+    ) {
+        guard let delay = requestedSceneSwitchDelay else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            let before = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            do {
+                _ = try SceneDesktopWallpaperHost.shared.launch(
+                    rootURL: rootURL,
+                    propertyOverrides: propertyOverrides,
+                    userPropertyTextureURLs: userPropertyTextureURLs,
+                    logURL: logURL,
+                    recordID: debugRecordID
+                )
+                WallpaperEngine.shared.resumeAllPlayers()
+                let after = SceneDesktopWallpaperHost.shared.debugSnapshot()
+                NSLog(
+                    "MWX DEBUG SCENE: phase=scene-switch state=triggered accepted=true surfacesBefore=%d surfacesAfter=%d",
+                    before.surfaceCount,
+                    after.surfaceCount
+                )
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    requestSnapshot(
+                        reason: "scene-switch-after",
+                        outputDirectory: outputDirectory
+                    )
+                }
+            } catch {
+                let after = SceneDesktopWallpaperHost.shared.debugSnapshot()
+                NSLog(
+                    "MWX DEBUG SCENE: phase=scene-switch state=triggered accepted=false surfacesBefore=%d surfacesAfter=%d error=%@",
+                    before.surfaceCount,
+                    after.surfaceCount,
+                    error.localizedDescription
                 )
             }
         }
@@ -507,6 +579,18 @@ enum DebugScenePlaybackRunner {
         ], let delay = TimeInterval(raw), delay.isFinite,
               delay >= 1,
               delay < requestedDuration - 0.75 else { return nil }
+        return delay
+    }
+
+    private static let sceneSwitchDelayEnvironmentKey =
+        "MWX_SCENE_DEBUG_SCENE_SWITCH_AFTER"
+
+    private static var requestedSceneSwitchDelay: TimeInterval? {
+        guard let raw = ProcessInfo.processInfo.environment[
+            sceneSwitchDelayEnvironmentKey
+        ], let delay = TimeInterval(raw), delay.isFinite,
+              delay >= 1,
+              delay < requestedDuration - 2 else { return nil }
         return delay
     }
 

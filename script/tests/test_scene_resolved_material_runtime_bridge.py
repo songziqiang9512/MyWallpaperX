@@ -2175,6 +2175,7 @@ enum Harness {
             let prepared = makeObservationTransition(device: device)
             let success = try SceneResolvedMaterialGraphObservationBuilder.make(
                 prepared,
+                runtimeInstanceIdentity: "runtime-fixture",
                 frameIndex: 10,
                 transactionID: 12,
                 executionEpoch: 11,
@@ -2211,6 +2212,7 @@ enum Harness {
 
             let failed = try SceneResolvedMaterialGraphObservationBuilder.make(
                 prepared,
+                runtimeInstanceIdentity: "runtime-fixture",
                 frameIndex: 10,
                 transactionID: 13,
                 executionEpoch: 11,
@@ -3974,6 +3976,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         )
         self.assertIn("reason: .executorInvalidation", runner)
         self.assertIn('reason: "executor-invalidation-after"', runner)
+        self.assertIn('"MWX_SCENE_DEBUG_SCENE_SWITCH_AFTER"', runner)
+        self.assertIn("multiple-runtime-lifecycle-faults", runner)
+        self.assertIn("SceneDesktopWallpaperHost.shared.launch(", runner)
+        self.assertIn('phase=scene-switch state=triggered accepted=true', runner)
+        self.assertIn('reason: "scene-switch-after"', runner)
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_current_submission_coordinator_lifecycle_behaviors(self) -> None:

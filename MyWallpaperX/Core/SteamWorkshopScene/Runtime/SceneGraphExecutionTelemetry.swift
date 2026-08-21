@@ -32,12 +32,14 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
     }
 
     private struct SubjectKey: Hashable {
+        let runtimeInstanceIdentity: String
         let effect: SceneGraphExecutionEffectIdentity
         let graphIdentity: String
         let programIdentity: String
         let programSequenceIdentity: String
         let effectGeneration: UInt64
         init(_ observation: SceneGraphExecutionObservation) {
+            runtimeInstanceIdentity = observation.runtimeInstanceIdentity
             effect = observation.identity
             graphIdentity = observation.graphIdentity
             programIdentity = observation.programIdentity
@@ -278,7 +280,7 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
         var fields = observation.logFields
         fields.insert(
             "trigger=\(triggers.map(\.rawValue).joined(separator: "+"))",
-            at: 1
+            at: 2
         )
         logSink(
             "MWX DEBUG SCENE: schema=1 axis=graph-execution "
@@ -291,7 +293,7 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
         reason: String
     ) {
         var fields = observation.logFields
-        fields.insert("diagnostic=\(reason)", at: 1)
+        fields.insert("diagnostic=\(reason)", at: 2)
         logSink(
             "MWX DEBUG SCENE: schema=1 axis=graph-execution "
                 + fields.joined(separator: " ")
@@ -349,6 +351,7 @@ nonisolated extension SceneGraphExecutionLogicalBinding {
 nonisolated extension SceneGraphExecutionObservation {
     var logFields: [String] {
         [
+            "runtime=\(SceneGraphExecutionLogToken.encode(runtimeInstanceIdentity))",
             "frame=\(frameIndex)",
             "layer=\(identity.layerID)",
             "effect=\(identity.effectIndex)",
