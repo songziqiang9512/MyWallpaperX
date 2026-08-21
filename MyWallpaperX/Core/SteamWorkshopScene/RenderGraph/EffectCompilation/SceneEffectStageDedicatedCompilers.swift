@@ -158,11 +158,6 @@ nonisolated extension SceneAuthoredCursorRipplePlanner: SceneEffectStageGraphCan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .cursorRipple }
 }
 
-extension SceneAuthoredWaterRipplePlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneWaterRippleExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterRipple }
-}
-
 extension SceneAuthoredDepthParallaxPlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneDepthParallaxExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .depthParallax }

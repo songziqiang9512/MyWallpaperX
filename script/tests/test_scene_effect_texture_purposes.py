@@ -20,7 +20,6 @@ TEXTURE_CANDIDATE = RESOURCE_ROOT / "SceneTextureCandidate.swift"
 SLOT_BINDING = RESOURCE_ROOT / "SceneTextureSlotBinding.swift"
 WATER_FLOW_LOADER = RESOURCE_ROOT / "SceneWaterFlowEffectTextureLoader.swift"
 STANDARD_BLUR_LOADER = RESOURCE_ROOT / "SceneStandardBlurEffectTextureLoader.swift"
-RIPPLE_LOADER = RESOURCE_ROOT / "SceneWaterRippleEffectTextureLoader.swift"
 DEPTH_PARALLAX_LOADER = (
     RESOURCE_ROOT / "SceneDepthParallaxEffectTextureLoader.swift"
 )
@@ -28,7 +27,6 @@ EFFECT_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects"
 )
 WATER_FLOW_RENDERER = EFFECT_ROOT / "SceneWaterFlowRenderer.swift"
-RIPPLE_RENDERER = EFFECT_ROOT / "SceneWaterRippleRenderer.swift"
 OFFSCREEN_RENDERER = EFFECT_ROOT / "SceneOffscreenEffectRenderer.swift"
 RESOLVED_TEMPLATE_COMPILER = (
     REPOSITORY_ROOT
@@ -52,8 +50,6 @@ EXPECTED_PURPOSES = {
     "standard blur mask": "mask",
     "waterflow flow": "flow",
     "waterflow phase": "phase",
-    "waterripple effect mask": "mask",
-    "waterripple effect normal": "normal",
     "depthparallax depth": "depth",
     "waterwaves mask": "mask",
     "xray blend": "straightAlbedo",
@@ -101,7 +97,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
                 "SceneDepthParallaxEffectTextureLoader.swift": 1,
                 "SceneStandardBlurEffectTextureLoader.swift": 1,
                 "SceneWaterFlowEffectTextureLoader.swift": 2,
-                "SceneWaterRippleEffectTextureLoader.swift": 2,
             },
         )
         helper = TEXTURE_LOADING.read_text(encoding="utf-8")
@@ -150,12 +145,8 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         blur_loader = STANDARD_BLUR_LOADER.read_text(encoding="utf-8")
         offscreen = OFFSCREEN_RENDERER.read_text(encoding="utf-8")
         strict_loaders = {
-            RIPPLE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 2"),
             DEPTH_PARALLAX_LOADER: ("expectedSlotIndex: 1",),
         }
-        strict_renderers = (
-            RIPPLE_RENDERER,
-        )
         resolved_template = RESOLVED_TEMPLATE_COMPILER.read_text(encoding="utf-8")
 
         for field in (
@@ -200,10 +191,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             self.assertIn("SceneTextureSlotBinding(", source)
             for marker in markers:
                 self.assertIn(marker, source)
-        for path in strict_renderers:
-            source = path.read_text(encoding="utf-8")
-            self.assertIn("resolvedArguments(for: plan)", source)
-            self.assertIn(".sampling", source)
         self.assertIn(
             "guard authored.count == 8",
             resolved_template,

@@ -202,22 +202,6 @@ enum SceneAuthoredCursorRipplePlanner {
     }
 }
 
-struct SceneWaterRippleExecutionPlan {}
-
-enum SceneAuthoredWaterRipplePlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWaterRippleExecutionPlan? {
-        graph.effects.first?.definitionPath.lowercased()
-            == "effects/waterripple/effect.json"
-            ? SceneWaterRippleExecutionPlan()
-            : nil
-    }
-}
-
 struct SceneDepthParallaxExecutionPlan {}
 
 enum SceneAuthoredDepthParallaxPlanner {
@@ -476,10 +460,6 @@ extension SceneAuthoredWaterCausticsPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredCursorRipplePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneCursorRippleExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .cursorRipple }
-}
-extension SceneAuthoredWaterRipplePlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWaterRippleExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterRipple }
 }
 extension SceneAuthoredDepthParallaxPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneDepthParallaxExecutionPlan
@@ -1283,7 +1263,6 @@ enum Harness {
             case .waterWaves: backend = "waterWaves"
             case .waterCaustics: backend = "waterCaustics"
             case .cursorRipple: backend = "cursorRipple"
-            case .waterRipple: backend = "waterRipple"
             case .depthParallax: backend = "depthParallax"
             case .xRay: backend = "xRay"
             case .blend: backend = "blend"
@@ -1747,7 +1726,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertIn('"depth-parallax-resource-missing"', topology)
         self.assertNotIn("fisheyeZeroDistortion", leaf_body)
         self.assertNotIn("fisheye-pipeline-missing", topology)
-        for backend_name in (".waterWaves", ".waterCaustics", ".waterRipple", ".pulse"):
+        for backend_name in (".waterWaves", ".waterCaustics", ".pulse"):
             self.assertIn(backend_name, leaf_body)
         self.assertIn("case .proceduralNoise(let plan):", leaf_body)
         for contract in (
@@ -1941,7 +1920,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         for resource in (
             "waterFlowEffects",
             "waterWavesEffects",
-            "waterRippleEffects",
             "blendEffects",
             "xRay",
         ):

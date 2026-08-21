@@ -11,7 +11,6 @@ extension SceneEffectStageExecutionPlan {
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
         case cursorRipple(SceneCursorRippleExecutionPlan)
-        case waterRipple(SceneWaterRippleExecutionPlan)
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
@@ -24,7 +23,7 @@ extension SceneEffectStageExecutionPlan {
             switch self {
             case .colorGrading,
                  .waterFlow,
-                 .waterWaves, .waterCaustics, .waterRipple,
+                 .waterWaves, .waterCaustics,
                  .depthParallax, .xRay, .blend, .transform, .pulse:
                 return true
             case .proceduralNoise(let plan):
@@ -119,11 +118,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var cursorRipple: SceneCursorRippleExecutionPlan? {
         guard case .cursorRipple(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var waterRipple: SceneWaterRippleExecutionPlan? {
-        guard case .waterRipple(let plan) = backend else { return nil }
         return plan
     }
 

@@ -5,6 +5,7 @@ nonisolated enum SceneStockTextureSemanticRegistry {
         for path: SceneVFSAssetPath
     ) -> SceneTextureLoadPurpose? {
         switch path.value {
+        case "effects/waterripplenormal": .normal
         case "effects/waterflowphase": .phase
         case "gradient/gradient_fire": .preservedChannels
         case "gradient/gradient_ferro_fluid": .preservedChannels

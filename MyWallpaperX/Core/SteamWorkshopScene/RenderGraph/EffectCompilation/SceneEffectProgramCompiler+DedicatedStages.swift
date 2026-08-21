@@ -108,11 +108,6 @@ extension SceneEffectProgramCompiler {
                     )
                 }
             }),
-            (.waterRipple, {
-                SceneAuthoredWaterRipplePlanner.compile(input).mapAccepted {
-                    stage(.waterRipple($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.depthParallax, {
                 SceneAuthoredDepthParallaxPlanner.compile(input).mapAccepted {
                     stage(.depthParallax($0), stageGraph: stageGraph, inputRole: inputRole)

@@ -56,12 +56,6 @@ targets: targets,
                 primaryButtonIsDown: primaryButtonIsDown,
                 frameTime: frameTime, commandBuffer: commandBuffer
             )
-        case .waterRipple(let ripple):
-            return renderWaterRipple(
-                ripple, sourceTexture: sourceTexture, masks: masks,
-                targets: targets, pipelines: pipelines,
-                time: time, commandBuffer: commandBuffer
-            )
         case .depthParallax(let depthParallax):
             return renderDepthParallax(
                 depthParallax, sourceTexture: sourceTexture, masks: masks,

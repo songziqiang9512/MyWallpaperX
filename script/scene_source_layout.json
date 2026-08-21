@@ -268,7 +268,7 @@
         "role": "inventory",
         "description": "Ordered dedicated compiler probes are frozen until their product owner is transferred.",
         "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
-        "baseline_occurrences": 16,
+        "baseline_occurrences": 15,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
         ],
@@ -283,7 +283,7 @@
         "pattern": "^    case [A-Za-z][A-Za-z0-9_]*(?:\\s*=|\\s*$)",
         "start_marker": "nonisolated enum SceneEffectStageCompilerBackend",
         "end_marker": "nonisolated struct SceneEffectStageCompilerFailure",
-        "baseline_occurrences": 17,
+        "baseline_occurrences": 16,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
         ],
@@ -298,7 +298,7 @@
         "pattern": "^        case [A-Za-z][A-Za-z0-9_]*\\(",
         "start_marker": "extension SceneEffectStageExecutionPlan {",
         "end_marker": "    var gaussianBlur:",
-        "baseline_occurrences": 17,
+        "baseline_occurrences": 16,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
         ],
@@ -321,7 +321,7 @@
         "role": "inventory",
         "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
-        "baseline_occurrences": 141,
+        "baseline_occurrences": 131,
         "allowed_files": [
           "RenderGraph/SceneAuthoredBlendPlanner.swift",
           "RenderGraph/SceneAuthoredColorGradingPlanner.swift",
@@ -332,7 +332,6 @@
           "RenderGraph/SceneAuthoredShinePlanner.swift",
           "RenderGraph/SceneAuthoredTransformPlanner.swift",
           "RenderGraph/SceneAuthoredWaterFlowPlanner.swift",
-          "RenderGraph/SceneAuthoredWaterRipplePlanner.swift",
           "RenderGraph/SceneAuthoredXRayPlanner.swift",
           "RenderGraph/SceneBlendShaderProfile.swift",
           "RenderGraph/SceneCursorRippleShaderProfile.swift",
@@ -343,7 +342,6 @@
           "RenderGraph/SceneTransformShaderProfile.swift",
           "RenderGraph/SceneWaterCausticsAssetProfile.swift",
           "RenderGraph/SceneWaterFlowShaderProfile.swift",
-          "RenderGraph/SceneWaterRippleShaderProfile.swift",
           "RenderGraph/SceneWaterWavesAssetFamily.swift",
           "RenderGraph/SceneWaterWavesShaderProfile.swift"
         ]

@@ -215,14 +215,6 @@ extension SceneEffectStageRenderer {
             }
             _ = resources
             return nil
-        case .waterRipple(let plan):
-            guard let resources = inputs.masks.waterRippleEffects[
-                plan.effectKey.descriptorID
-            ], resources.resolvedArguments(for: plan) != nil else {
-                return "water-ripple-resource-missing"
-            }
-            return pipelines.waterRipple == nil
-                ? "water-ripple-pipeline-missing" : nil
         case .depthParallax(let plan):
             guard let resources = inputs.masks.depthParallaxEffects[
                 plan.effectKey.descriptorID

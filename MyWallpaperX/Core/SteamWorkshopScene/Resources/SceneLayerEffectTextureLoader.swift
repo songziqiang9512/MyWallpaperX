@@ -12,7 +12,6 @@ enum SceneLayerEffectTextureLoader {
         waterFlowEffectIDs: Set<String> = [],
         waterWavesEffectIDs: Set<String> = [],
         waterCausticsPlans: [SceneWaterCausticsExecutionPlan] = [],
-        waterRippleEffectIDs: Set<String> = [],
         depthParallaxEffectIDs: Set<String> = [],
         cursorRippleEffectIDs: Set<String> = [],
         godraysEffectIDs: Set<String> = [],
@@ -64,13 +63,6 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
-        let waterRipple = SceneWaterRippleEffectTextureLoader.load(
-            for: layer,
-            effectIDs: waterRippleEffectIDs,
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
         let depthParallax = SceneDepthParallaxEffectTextureLoader.load(
             for: layer,
             effectIDs: depthParallaxEffectIDs,
@@ -107,7 +99,6 @@ enum SceneLayerEffectTextureLoader {
             device: device
         )
         return SceneLayerEffectTextures(
-            waterRippleEffects: waterRipple.textures,
             depthParallaxEffects: depthParallax.textures,
             blendEffects: blend.textures,
             standardBlurEffects: standardBlur.textures,
@@ -124,7 +115,7 @@ enum SceneLayerEffectTextureLoader {
                 standardBlur.message,
                 waterFlow.message, waterWaves.message, cursorRipple.message,
                 waterCaustics.message,
-                waterRipple.message, depthParallax.message,
+                depthParallax.message,
                 pulseEffects.message, godraysEffects.message,
                 shineEffects.message,
                 xRay.message,

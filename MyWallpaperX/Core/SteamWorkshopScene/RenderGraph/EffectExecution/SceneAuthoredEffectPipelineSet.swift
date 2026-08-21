@@ -11,7 +11,6 @@ struct SceneAuthoredEffectPipelineSet {
     var waterWaves: SceneWaterWavesPipeline? { repository.waterWaves() }
     var waterCaustics: SceneWaterCausticsPipeline? { repository.waterCaustics() }
     var cursorRipple: SceneCursorRipplePipeline? { repository.cursorRipple() }
-    var waterRipple: SceneWaterRipplePipeline? { repository.waterRipple() }
     var depthParallax: SceneDepthParallaxPipeline? { repository.depthParallax() }
     var xRay: SceneXRayPipeline? { repository.xRay() }
     var blend: SceneBlendPipeline? { repository.blend() }

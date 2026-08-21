@@ -3485,6 +3485,26 @@ private enum Harness {
                     assetReference: true,
                     assetPath: "effects/waterflowphase"
                 ),
+                "registeredStockWaterRippleNormal": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "effects/waterripplenormal"
+                ),
+                "registeredStockWaterRippleNormalConflict": samplerPurposeToken(
+                    #"{"mode":"opacitymask"}"#,
+                    assetReference: true,
+                    assetPath: "effects/waterripplenormal"
+                ),
+                "neighboringWaterRippleNormalUnproven": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "effects/waterripplenormal_extra"
+                ),
+                "customWaterRippleNormalUnproven": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "custom/waterripplenormal"
+                ),
                 "registeredStockShimmerGradient": samplerPurposeToken(
                     nil,
                     assetReference: true,
@@ -3824,6 +3844,10 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "normalAssetCaseInsensitive": "normal",
                 "registeredStockNoise": "noise",
                 "registeredStockWaterFlowPhase": "phase",
+                "registeredStockWaterRippleNormal": "normal",
+                "registeredStockWaterRippleNormalConflict": "unproven",
+                "neighboringWaterRippleNormalUnproven": "unproven",
+                "customWaterRippleNormalUnproven": "unproven",
                 "registeredStockShimmerGradient": "preserved-channels",
                 "registeredStockLightShaftsGradient": "preserved-channels",
                 "registeredStockFireGradient": "preserved-channels",

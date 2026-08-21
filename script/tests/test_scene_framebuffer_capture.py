@@ -60,7 +60,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline+Support.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneWaterRipplePipeline.swift",
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
     SOURCE_ROOT / "Rendering/SceneLayerColorBlendPipeline.swift",
@@ -68,7 +67,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurRuntimePlan.swift",
     SOURCE_ROOT / "Rendering/SceneTextureMappedUVScale.swift",
-    SOURCE_ROOT / "Effects/SceneWaterRippleRuntimePlan.swift",
     SOURCE_ROOT / "Effects/SceneEffectStageRuntimeDisposition.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer+Capture.swift",
@@ -79,7 +77,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+CursorRipple.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterRipple.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Rays.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ColorGrading.swift",
@@ -637,7 +634,6 @@ struct SceneBlendEffectTextures {
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
         case cursorRipple(SceneCursorRippleExecutionPlan)
-        case waterRipple(SceneWaterRippleExecutionPlan)
         case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
@@ -668,7 +664,6 @@ struct SceneBlendEffectTextures {
             case .waterWaves: "water-waves"
             case .waterCaustics: "water-caustics"
             case .cursorRipple: "cursor-ripple"
-            case .waterRipple: "water-ripple"
             case .depthParallax: "depth-parallax"
             case .xRay: "x-ray"
             case .blend: "blend"
@@ -978,34 +973,6 @@ extension SceneEffectStageRenderer {
         pipelines: SceneAuthoredEffectPipelineSet,
         cursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        nil
-    }
-}
-
-struct SceneWaterRippleExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let runtimePlan: SceneWaterRippleNormalPlan
-}
-struct SceneWaterRippleEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let normal: MTLTexture?
-    let maskBinding: SceneTextureSlotBinding?
-
-    func matches(_ plan: SceneWaterRippleExecutionPlan) -> Bool { true }
-    func resolvedArguments(for plan: SceneWaterRippleExecutionPlan) -> Bool? { true }
-}
-
-enum SceneWaterRippleRenderer {
-    static func render(
-        plan: SceneWaterRippleExecutionPlan,
-        sourceTexture: MTLTexture,
-        resources: SceneWaterRippleEffectTextures,
-        target: MTLTexture,
-        time: Float,
-        pipeline: SceneWaterRipplePipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         nil
@@ -2213,13 +2180,7 @@ enum Harness {
             content: .data,
             texture: dependency
         )
-        guard let maskSlot1 = SceneTextureSlotBinding(
-                  slotIndex: 1, candidate: maskCandidate
-              ) else {
-            throw HarnessError.drawRefused
-        }
         func masks(
-            waterRippleEffects: [String: SceneWaterRippleEffectTextures] = [:],
             standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:],
             waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:],
             waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:],
@@ -2230,7 +2191,6 @@ enum Harness {
             xRay: SceneXRayEffectTextures? = nil
         ) -> SceneImageLayerMasks {
             SceneImageLayerMasks(
-                waterRippleEffects: waterRippleEffects,
                 depthParallaxEffects: [:],
                 blendEffects: [:],
                 standardBlurEffects: standardBlurEffects,
@@ -2764,14 +2724,6 @@ enum Harness {
         ]
         let visibleEffectID = visibleUnsupportedEffect.id
         let maskedCases: [(String, SceneImageLayerMasks)] = [
-            ("waterRipple", masks(waterRippleEffects: [
-                visibleEffectID: SceneWaterRippleEffectTextures(
-                    mask: dependency,
-                    maskUVScale: SIMD2(repeating: 1),
-                    normal: nil,
-                    maskBinding: maskSlot1
-                ),
-            ])),
             ("standardBlur", masks(standardBlurEffects: [
                 visibleEffectID: SceneStandardBlurEffectTextures(
                     maskCandidate: maskCandidate,
@@ -4094,7 +4046,6 @@ enum Harness {
         descriptorID: String
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            waterRippleEffects: [:],
             depthParallaxEffects: [:],
             blendEffects: [:],
             standardBlurEffects: [
@@ -5066,7 +5017,6 @@ enum Harness {
         shineEffects: [String: SceneShineEffectTextures] = [:],
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            waterRippleEffects: [:],
             depthParallaxEffects: [:],
             blendEffects: blendEffects,
             standardBlurEffects: [:],
@@ -5590,7 +5540,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "waterWavesMultiplePassesMasked",
                 "waterWavesWrongPassMasked",
                 "waterWavesStaticSourceConsumer",
-                "mask-waterRipple",
                 "mask-standardBlur",
                 "mask-waterWaves",
                 "mask-waterCaustics",

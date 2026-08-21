@@ -6609,7 +6609,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
 
         for backend_name in (
             ".blend", ".waterFlow", ".waterWaves",
-            ".waterCaustics", ".waterRipple",
+            ".waterCaustics",
             ".depthParallax", ".xRay", ".pulse",
         ):
             self.assertIn(backend_name, leaf_body)
