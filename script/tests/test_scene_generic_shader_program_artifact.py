@@ -92,6 +92,10 @@ private struct NormalizedSampleSumOutput: Codable {
     let positiveKind: String?
     let positiveSlot: Int?
     let renamedHelperAccepted: Bool
+    let immutableAliasAccepted: Bool
+    let mutatedAliasRejected: Bool
+    let reusedAliasRejected: Bool
+    let conditionalAliasRejected: Bool
     let nonNormalizedRejected: Bool
     let negativeWeightRejected: Bool
     let zeroWeightRejected: Bool
@@ -635,6 +639,13 @@ private struct GenericShaderArtifactHarness {
             func isPassthrough(_ source: String) -> Bool {
                 transfer(source) == .passthrough(textureSlot: 0)
             }
+            let aliased = authored.replacingOccurrences(
+                of: "    gl_FragColor = sharedKernel(v_TexCoord, vec2(0.01));",
+                with: [
+                    "    vec4 filtered = sharedKernel(v_TexCoord, vec2(0.01));",
+                    "    gl_FragColor = filtered;",
+                ].joined(separator: "\n")
+            )
             let built = SceneGenericShaderArtifactBuilder.build(
                 requestKey: String(repeating: "f", count: 64),
                 backendID: "glslang-spirv-cross-msl-v2",
@@ -664,6 +675,30 @@ private struct GenericShaderArtifactHarness {
                 renamedHelperAccepted: isPassthrough(
                     authored.replacingOccurrences(
                         of: "sharedKernel", with: "unseenFilter"
+                    )
+                ),
+                immutableAliasAccepted: isPassthrough(aliased),
+                mutatedAliasRejected: !isPassthrough(
+                    aliased.replacingOccurrences(
+                        of: "    gl_FragColor = filtered;",
+                        with: "    filtered.a *= 0.5;\n    gl_FragColor = filtered;"
+                    )
+                ),
+                reusedAliasRejected: !isPassthrough(
+                    aliased.replacingOccurrences(
+                        of: "    gl_FragColor = filtered;",
+                        with: "    vec4 copy = filtered;\n    gl_FragColor = filtered;"
+                    )
+                ),
+                conditionalAliasRejected: !isPassthrough(
+                    aliased.replacingOccurrences(
+                        of: "    vec4 filtered = sharedKernel(v_TexCoord, vec2(0.01));",
+                        with: [
+                            "    vec4 filtered;",
+                            "    if (v_TexCoord.x > 0.5) {",
+                            "        filtered = sharedKernel(v_TexCoord, vec2(0.01));",
+                            "    }",
+                        ].joined(separator: "\n")
                     )
                 ),
                 nonNormalizedRejected: !isPassthrough(
@@ -2297,6 +2332,10 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             "positiveKind": "passthrough",
             "positiveSlot": 0,
             "renamedHelperAccepted": True,
+            "immutableAliasAccepted": True,
+            "mutatedAliasRejected": True,
+            "reusedAliasRejected": True,
+            "conditionalAliasRejected": True,
             "nonNormalizedRejected": True,
             "negativeWeightRejected": True,
             "zeroWeightRejected": True,

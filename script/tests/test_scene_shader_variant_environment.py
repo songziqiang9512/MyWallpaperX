@@ -168,6 +168,7 @@ private func makeStage(_ source: String) -> SceneShaderContract.Stage {
 private func variant(
     _ stage: SceneShaderContract.Stage,
     explicit: [String: Int] = [:],
+    inactive: Set<String> = [],
     readiness: [Int: Bool] = [:],
     formats: [Int: SceneShaderTextureFormat] = [:]
 ) -> Result<SceneShaderVariantEnvironment, SceneShaderVariantResolver.Failure> {
@@ -175,6 +176,7 @@ private func variant(
         stage: .fragment,
         stages: [stage],
         explicitCombos: explicit,
+        inactiveComboProviders: inactive,
         textureReadiness: readiness,
         textureFormats: formats
     )
@@ -930,6 +932,26 @@ private func runRequirementProviderFixtures() throws -> [String] {
         samplerMissingFailure.code == .unresolvedRequirement,
         "Missing runtime sampler requirement did not fail closed."
     )
+    let siblingInactiveEnvironment = try resolved(variant(
+        samplerMissingRequirement,
+        inactive: ["MISSING"],
+        readiness: [2: true]
+    ))
+    let siblingInactiveProvider = try resolution(
+        siblingInactiveEnvironment,
+        "MISSING"
+    )
+    let siblingInactiveSampler = try resolution(
+        siblingInactiveEnvironment,
+        "MASK"
+    )
+    try expect(
+        siblingInactiveProvider.binding.definition == .undefined
+            && siblingInactiveProvider.provenance == .authoredEffectInactive
+            && siblingInactiveSampler.binding.definition == .undefined
+            && siblingInactiveSampler.provenance == .requirementInactive,
+        "A sibling-authored inactive combo did not close the sampler gate as undefined."
+    )
 
     let declaredUndefined = makeStage(
         """
@@ -1104,6 +1126,7 @@ private func runRequirementProviderFixtures() throws -> [String] {
         "typed_texture_format", "unknown_texture_format_fail_closed",
         "combined_readiness_format",
         "runtime_requirement_fail_closed",
+        "authored_effect_inactive_requirement",
         "missing_default_fail_closed", "explicit_without_default",
         "explicit_requirement_provider", "conflicting_default_with_explicit",
         "duplicate_missing_default", "readiness_requirement_provider",
@@ -1232,6 +1255,7 @@ class SceneShaderVariantEnvironmentTests(unittest.TestCase):
                 "unknown_texture_format_fail_closed",
                 "combined_readiness_format",
                 "runtime_requirement_fail_closed",
+                "authored_effect_inactive_requirement",
                 "missing_default_fail_closed",
                 "explicit_without_default",
                 "explicit_requirement_provider",

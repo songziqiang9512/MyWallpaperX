@@ -104,7 +104,11 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                     )
                 } else {
                     guard case let .graph(identity) = reference else {
-                        throw failure(.texturePurposeUnproven, slot: slot)
+                        throw failure(
+                            .texturePurposeUnproven,
+                            slot: slot,
+                            details: ["variant-purpose-slot-\(slot)-non-graph"]
+                        )
                     }
                     resolved = try readyGraphResource(
                         input,
@@ -113,7 +117,11 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                     )
                     guard resolved.resource.publication.candidate.content
                             == .scalarRedUnorm else {
-                        throw failure(.texturePurposeUnproven, slot: slot)
+                        throw failure(
+                            .texturePurposeUnproven,
+                            slot: slot,
+                            details: ["variant-purpose-slot-\(slot)-graph-content"]
+                        )
                     }
                 }
                 if samplerReadinessIncludes(
@@ -207,7 +215,11 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                 throw failure(.textureBindingInvalid, slot: binding.slot)
             }
             guard let purpose = selectedPurpose else {
-                throw failure(.texturePurposeUnproven, slot: binding.slot)
+                throw failure(
+                    .texturePurposeUnproven,
+                    slot: binding.slot,
+                    details: ["selected-purpose-slot-\(binding.slot)"]
+                )
             }
             let resolved = try readyResource(
                 input,

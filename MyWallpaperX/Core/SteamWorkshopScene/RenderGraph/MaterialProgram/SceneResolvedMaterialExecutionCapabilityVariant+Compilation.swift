@@ -50,6 +50,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         switch SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: template.shaderContract,
             combos: template.comboValues,
+            inactiveComboProviders: Set(template.inheritedInactiveCombos),
             textureReadiness: readiness,
             textureFormats: variantKey.resolvedTextureFormats
         ) {

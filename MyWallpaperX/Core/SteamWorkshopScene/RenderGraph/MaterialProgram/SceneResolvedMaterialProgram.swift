@@ -207,6 +207,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
     /// Always eight entries; authored holes remain nil.
     let textureSlots: [TextureSlot?]
     let combos: [Combo]
+    let inheritedInactiveCombos: [String]
     let uniformDeclarations: [UniformDeclaration]
     let renderState: SceneMaterialRenderState
     let graphRole: GraphRole
@@ -220,6 +221,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
     static func validated(
         textureSlots: [TextureSlot?],
         combos: [Combo],
+        inheritedInactiveCombos: Set<String> = [],
         uniformDeclarations: [UniformDeclaration],
         renderState: SceneMaterialRenderState,
         graphRole: GraphRole,
@@ -232,6 +234,8 @@ nonisolated struct SceneResolvedMaterialTemplate {
               }),
               Set(combos.map(\.name)).count == combos.count,
               combos.allSatisfy({ !$0.name.isEmpty }),
+              inheritedInactiveCombos.allSatisfy({ !$0.isEmpty }),
+              inheritedInactiveCombos.isDisjoint(with: combos.map(\.name)),
               Set(uniformDeclarations.map(\.name)).count == uniformDeclarations.count,
               uniformDeclarations.allSatisfy({ !$0.name.isEmpty }),
               graphRole.bindings.allSatisfy({ (0 ..< 8).contains($0.slot) }),
@@ -240,6 +244,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         return Self(
             textureSlots: textureSlots,
             combos: combos.sorted { $0.name < $1.name },
+            inheritedInactiveCombos: inheritedInactiveCombos.sorted(),
             uniformDeclarations: uniformDeclarations.sorted { $0.name < $1.name },
             renderState: renderState,
             graphRole: graphRole,
@@ -250,12 +255,14 @@ nonisolated struct SceneResolvedMaterialTemplate {
 
     private init(
         textureSlots: [TextureSlot?], combos: [Combo],
+        inheritedInactiveCombos: [String],
         uniformDeclarations: [UniformDeclaration], renderState: SceneMaterialRenderState,
         graphRole: GraphRole, shaderContract: SceneShaderContract,
         diagnosticProvenance: DiagnosticProvenance
     ) {
         self.textureSlots = textureSlots
         self.combos = combos
+        self.inheritedInactiveCombos = inheritedInactiveCombos
         self.uniformDeclarations = uniformDeclarations
         self.renderState = renderState
         self.graphRole = graphRole

@@ -20,6 +20,7 @@ extension SceneResolvedMaterialShaderSchema {
         switch SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: template.shaderContract,
             combos: template.comboValues,
+            inactiveComboProviders: Set(template.inheritedInactiveCombos),
             textureReadiness: readiness,
             textureFormats: textureFormats
         ) {
@@ -66,6 +67,7 @@ extension SceneResolvedMaterialShaderSchema {
             switch SceneAuthoredShaderPreparation.prepareShaderStages(
                 contract: template.shaderContract,
                 combos: template.comboValues,
+                inactiveComboProviders: Set(template.inheritedInactiveCombos),
                 textureReadiness: readiness,
                 textureFormats: textureFormats
             ) {
@@ -161,8 +163,12 @@ extension SceneResolvedMaterialShaderSchema {
                     case .asset, .userProperty:
                         hasOptionalSource = true
                     case .provider, .graph:
-                        required |= bit
-                        reachesDefault = false
+                        if sampler == nil {
+                            hasOptionalSource = true
+                        } else {
+                            required |= bit
+                            reachesDefault = false
+                        }
                     }
                     if !reachesDefault { break }
                 }

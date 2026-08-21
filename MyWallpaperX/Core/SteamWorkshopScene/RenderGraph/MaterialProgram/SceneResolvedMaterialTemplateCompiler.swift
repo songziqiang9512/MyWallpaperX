@@ -14,6 +14,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
     static func compile(
         material: SceneResolvedMaterialNode, graph: Graph,
         shaderContract: SceneShaderContract,
+        inheritedInactiveCombos: Set<String> = [],
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
     ) -> Result<Template, Failure> {
         do {
@@ -39,6 +40,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                   let template = Template.validated(
                     textureSlots: textures.slots,
                     combos: combos,
+                    inheritedInactiveCombos: inheritedInactiveCombos,
                     uniformDeclarations: uniforms.values,
                     renderState: state,
                     graphRole: role,

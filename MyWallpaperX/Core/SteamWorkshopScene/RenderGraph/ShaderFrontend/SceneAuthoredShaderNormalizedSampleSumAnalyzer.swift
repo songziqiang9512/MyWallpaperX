@@ -49,7 +49,12 @@ nonisolated enum SceneAuthoredShaderNormalizedSampleSumAnalyzer {
                       in: tokens,
                       body: main.bodyRange
                   ),
-              let call = functionCall(expression),
+              let call = outputCall(
+                  expression,
+                  output: output,
+                  tokens: tokens,
+                  main: main
+              ),
               main.bodyRange.filter({ isTextureSample(at: $0, tokens: tokens) }).isEmpty
         else { return nil }
 
@@ -76,6 +81,49 @@ nonisolated enum SceneAuthoredShaderNormalizedSampleSumAnalyzer {
     private struct Sum {
         let slot: Int
         let sampleCount: Int
+    }
+
+    /// Accepts either a direct helper call or one immutable local carrier.
+    /// The carrier proof is intentionally exact: one declaration/initializer
+    /// and one terminal read. Any mutation, additional read, or conditional
+    /// definition leaves the color transfer unresolved.
+    private static func outputCall(
+        _ expression: ArraySlice<Token>,
+        output: Int,
+        tokens: [Token],
+        main: Unit.Function
+    ) -> Call? {
+        if let direct = functionCall(expression) { return direct }
+        guard expression.count == 1,
+              let carrierToken = expression.first,
+              carrierToken.kind == .identifier else { return nil }
+        let carrier = carrierToken.text
+        let definitions = main.bodyRange.filter { index in
+            index > main.bodyRange.lowerBound && index < output
+                && tokens[index].text == carrier
+                && ["vec4", "float4"].contains(tokens[index - 1].text)
+                && index + 1 < tokens.count
+                && tokens[index + 1].text == "="
+        }
+        guard definitions.count == 1,
+              let definition = definitions.first,
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                  definition,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              let initializer = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: definition,
+                      in: tokens,
+                      body: main.bodyRange
+                  ),
+              let call = functionCall(initializer) else { return nil }
+        let uses = main.bodyRange.filter { tokens[$0].text == carrier }
+        guard uses.count == 2,
+              uses.contains(definition),
+              uses.contains(expression.startIndex) else { return nil }
+        return call
     }
 
     private static func functionCall(_ expression: ArraySlice<Token>) -> Call? {

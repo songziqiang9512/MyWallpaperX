@@ -304,12 +304,14 @@ private func compile(
     _ material: SceneResolvedMaterialNode,
     graph value: Graph = graph(),
     contract shaderContract: SceneShaderContract? = nil,
+    inheritedInactiveCombos: Set<String> = [],
     provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
 ) -> Result<Template, SceneResolvedMaterialFailure> {
     SceneResolvedMaterialTemplateCompiler.compile(
         material: material,
         graph: value,
         shaderContract: shaderContract ?? contract(material.shaderPath),
+        inheritedInactiveCombos: inheritedInactiveCombos,
         provenSceneScriptValueTargets: provenSceneScriptValueTargets
     )
 }
@@ -377,6 +379,14 @@ enum Harness {
             provenance: .userTexture
         )])
         let projected = template(compile(material(slots: slots)))
+        let inheritedInactive = template(compile(
+            material(slots: slots),
+            inheritedInactiveCombos: ["ENABLEMASK", "AUXILIARY"]
+        ))
+        let overlappingInactive = template(compile(
+            material(slots: slots),
+            inheritedInactiveCombos: ["A_COMBO"]
+        ))
         var namedSlots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
         namedSlots[1] = .init(index: 1, candidates: [
             .init(
@@ -744,6 +754,9 @@ enum Harness {
                 && chainedTemplate?.graphRole.bindings
                     == [.init(slot: 1, texture: .effectOutput)],
             "combosDeterministic": projected?.combos.map(\.name) == ["A_COMBO", "Z_COMBO"],
+            "inheritedInactiveCombosTyped": inheritedInactive?
+                .inheritedInactiveCombos == ["AUXILIARY", "ENABLEMASK"]
+                && overlappingInactive == nil,
             "annotationDefaultStaysOutOfTemplate": annotationDefaultTemplate?.combos
                 .map(\.name) == ["A_COMBO", "Z_COMBO"],
             "stateParsedOnly": template(compile(material(blending: "additive")))?
@@ -981,6 +994,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "typedGraphRole",
             "priorEffectOutputIsTypedIngress",
             "combosDeterministic",
+            "inheritedInactiveCombosTyped",
             "annotationDefaultStaysOutOfTemplate",
             "stateParsedOnly",
         ])

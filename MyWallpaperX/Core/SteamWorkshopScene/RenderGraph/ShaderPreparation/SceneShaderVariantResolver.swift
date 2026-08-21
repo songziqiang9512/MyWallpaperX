@@ -31,6 +31,7 @@ nonisolated enum SceneShaderVariantResolver {
         stage: SceneShaderContract.StageKind,
         stages: [SceneShaderContract.Stage],
         explicitCombos: [String: Int],
+        inactiveComboProviders: Set<String> = [],
         textureReadiness: [Int: Bool] = [:],
         textureFormats: [Int: SceneShaderTextureFormat] = [:]
     ) -> Result<SceneShaderVariantEnvironment, Failure> {
@@ -38,6 +39,7 @@ nonisolated enum SceneShaderVariantResolver {
             stage: stage,
             schemaSources: stages.map(SceneShaderVariantSchemaSource.init),
             explicitCombos: explicitCombos,
+            inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,
             textureFormats: textureFormats
         )
@@ -47,6 +49,7 @@ nonisolated enum SceneShaderVariantResolver {
         stage: SceneShaderContract.StageKind,
         schemaSources: [SceneShaderVariantSchemaSource],
         explicitCombos: [String: Int],
+        inactiveComboProviders: Set<String> = [],
         textureReadiness: [Int: Bool] = [:],
         textureFormats: [Int: SceneShaderTextureFormat] = [:]
     ) -> Result<SceneShaderVariantEnvironment, Failure> {
@@ -60,6 +63,7 @@ nonisolated enum SceneShaderVariantResolver {
         }
 
         let explicit = explicitCombos.mapValues(Int64.init)
+        let inactiveProviders = inactiveComboProviders.subtracting(explicit.keys)
         if let disabled = schemas.first(where: {
             $0.isDisabledCombo && explicit[$0.combo] != nil
         }) {
@@ -69,17 +73,23 @@ nonisolated enum SceneShaderVariantResolver {
                 message: "Disabled shader combo cannot be overridden by authored material data."
             ))
         }
-        let providerNames = Set(schemas.map(\.combo)).union(explicit.keys)
+        let schemaNames = Set(schemas.map(\.combo))
+        let providerNames = schemaNames
+            .union(explicit.keys)
+            .union(inactiveProviders)
         var baseDefinitions = Dictionary(
-            uniqueKeysWithValues: Set(schemas.map(\.combo)).map {
+            uniqueKeysWithValues: schemaNames.union(inactiveProviders).map {
                 ($0, SceneShaderMacroDefinition.undefined)
             }
         )
         var baseProvenance = Dictionary(
-            uniqueKeysWithValues: Set(schemas.map(\.combo)).map {
+            uniqueKeysWithValues: schemaNames.map {
                 ($0, SceneShaderComboProvenance.annotationUndefined)
             }
         )
+        for name in inactiveProviders where baseProvenance[name] == nil {
+            baseProvenance[name] = .authoredEffectInactive
+        }
         for (name, value) in explicit {
             baseDefinitions[name] = .defined(.integer(value))
             baseProvenance[name] = .explicitResolvedMaterial

@@ -1255,6 +1255,23 @@ private func failureToken(
     }
 }
 
+private func unreachableGraphCandidateToken(_ device: MTLDevice) -> String {
+    let inactive = framebufferTexture()
+    return failureToken(finalize(
+        shader: contract(revision: "unreachable-graph-candidate"),
+        device: device,
+        secondReference: .graph(inactive),
+        additionalEntries: [
+            .graph(inactive): readyStatus(
+                device,
+                identity: .graph(inactive),
+                purpose: .premultipliedColor,
+                content: .color(.resolved(.premultipliedAlpha))
+            ),
+        ]
+    ))
+}
+
 private func samplerPurposeToken(
     _ metadata: String?,
     vertexMetadata: String? = nil,
@@ -3261,6 +3278,7 @@ private enum Harness {
                 device: device,
                 candidateCount: 2
             )),
+            "unreachableGraphCandidate": unreachableGraphCandidateToken(device),
             "providerUnavailableDoesNotUseEarlierCandidate": failureToken(
                 providerUnavailableDoesNotFallback
             ),
@@ -3760,6 +3778,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "customPurposeIgnored": "success",
             "unknownMode": "texture/authoredSamplerSchemaInvalid",
             "multipleCandidates": "success",
+            "unreachableGraphCandidate": "success",
             "providerUnavailableDoesNotUseEarlierCandidate": (
                 "texture/resourceSnapshotUnresolved"
             ),

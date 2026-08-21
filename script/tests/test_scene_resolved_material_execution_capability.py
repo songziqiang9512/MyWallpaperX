@@ -5802,6 +5802,7 @@ nonisolated enum SceneAuthoredMaterialResolver {
 
 nonisolated extension SceneResolvedMaterialNode {
     var shaderPath: String { "fixture/catalog-demand" }
+    var combos: [String: Int] { [:] }
 }
 
 nonisolated enum SceneResolvedMaterialTemplateCompiler {
@@ -5812,9 +5813,11 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         material: SceneResolvedMaterialNode,
         graph: Graph,
         shaderContract: SceneShaderContract,
+        inheritedInactiveCombos: Set<String> = [],
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
     ) -> Result<Template, SceneResolvedMaterialFailure> {
         _ = material
+        _ = inheritedInactiveCombos
         _ = provenSceneScriptValueTargets
         guard let node = graph.nodes.first,
               let effect = graph.effects.first,

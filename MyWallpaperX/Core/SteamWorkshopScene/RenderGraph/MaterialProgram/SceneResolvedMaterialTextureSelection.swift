@@ -31,11 +31,17 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         for slot in input.template.textureSlots.compactMap({ $0 })
         where !restrictToSamplerSlots || samplers[slot.index] != nil {
             let sampler = samplers[slot.index]
+            let reachable = reachableSamplers[slot.index] ?? []
+            // An authored binding that no launch-envelope variant can read is
+            // loss-preserving provenance, not a frame selection candidate.
+            // Current or potentially reachable samplers still participate in
+            // the same readiness, format, purpose and publication hard gates.
+            guard sampler != nil || !reachable.isEmpty else { continue }
             for candidate in slot.candidates.reversed() {
                 let purpose = Resolver.selectionPurpose(
                     candidate.reference,
                     activeSampler: sampler,
-                    reachableSamplers: reachableSamplers[slot.index] ?? [],
+                    reachableSamplers: reachable,
                     channelUse: channelUses[slot.index],
                     input: input
                 )

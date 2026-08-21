@@ -93,6 +93,11 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         var userDemands: Set<SceneUserPropertyTextureIdentity> = []
         var systemDemands: Set<SystemProviderDemand> = []
         var demandIssues: Set<ResourceDemandIssue> = []
+        var resolvedRecords: [Key: (
+            graph: Graph,
+            material: SceneResolvedMaterialNode
+        )] = [:]
+        var authoredEffectComboNames: [Graph.EffectKey: Set<String>] = [:]
         for key in records.keys.sorted(by: Self.less) {
             guard let matches = records[key], matches.count == 1,
                   let record = matches.first else {
@@ -108,7 +113,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 graph: record.graph,
                 descriptor: descriptor
             )
-            guard resolution.issues.isEmpty, let material = resolution.node else {
+            guard let material = resolution.node else {
                 compiled[key] = .failure(Failure(
                     phase: .graph,
                     code: .graphNodeInvalid,
@@ -116,6 +121,22 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 ))
                 continue
             }
+            authoredEffectComboNames[key.effect, default: []]
+                .formUnion(material.combos.keys)
+            guard resolution.issues.isEmpty else {
+                compiled[key] = .failure(Failure(
+                    phase: .graph,
+                    code: .graphNodeInvalid,
+                    details: resolution.issues
+                ))
+                continue
+            }
+            resolvedRecords[key] = (record.graph, material)
+        }
+        for key in records.keys.sorted(by: Self.less) {
+            guard compiled[key] == nil,
+                  let record = resolvedRecords[key] else { continue }
+            let material = record.material
             let contracts = shaderContracts.filter {
                 Self.normalized($0.identity) == Self.normalized(material.shaderPath)
             }
@@ -131,6 +152,9 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 material: material,
                 graph: record.graph,
                 shaderContract: contract,
+                inheritedInactiveCombos:
+                    authoredEffectComboNames[key.effect, default: []]
+                        .subtracting(material.combos.keys),
                 provenSceneScriptValueTargets: provenSceneScriptValueTargets
             ) {
             case let .failure(failure):

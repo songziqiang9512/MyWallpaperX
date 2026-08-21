@@ -31,10 +31,18 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             let scalarOutput = outputStorage == .scalarRedUnorm
             if scalarOutput {
                 guard variant.frontendProgram.fragmentOutputChannelUse == .redDefined else {
-                    return failure(.colorContractUnproven, phase: .color)
+                    return failure(
+                        .colorContractUnproven,
+                        phase: .color,
+                        details: ["scalar-output-channel-unproven"]
+                    )
                 }
             } else if variant.frontendProgram.colorTransfer == .unresolved {
-                return failure(.colorContractUnproven, phase: .color)
+                return failure(
+                    .colorContractUnproven,
+                    phase: .color,
+                    details: ["shader-color-transfer-unresolved"]
+                )
             }
             if !scalarOutput, case let .straightAlphaUNorm(slot) =
                 variant.frontendProgram.colorTransfer {
@@ -43,7 +51,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                       template.graphRole.effectOutput == .effectOutput,
                       template.graphRole.nodeTarget == .effectOutput,
                       (0 ..< 8).contains(slot) else {
-                    return failure(.colorContractUnproven, phase: .color)
+                    return failure(
+                        .colorContractUnproven,
+                        phase: .color,
+                        details: ["straight-alpha-unorm-topology"]
+                    )
                 }
             }
             guard implicitFramebufferIdentity?.kind == .layerSource else {
@@ -60,7 +72,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             case .unknownInternalGraph:
                 if !scalarOutput, case .straightAlphaUNorm =
                     variant.frontendProgram.colorTransfer {
-                    return failure(.colorContractUnproven, phase: .color)
+                    return failure(
+                        .colorContractUnproven,
+                        phase: .color,
+                        details: ["straight-alpha-unorm-internal-graph"]
+                    )
                 }
                 continue
             case .invalid:
@@ -81,7 +97,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                                 $0.slot == slot && $0.texture == .layerSource
                             })
                 }) else {
-                    return failure(.colorContractUnproven, phase: .color)
+                    return failure(
+                        .colorContractUnproven,
+                        phase: .color,
+                        details: ["straight-alpha-unorm-binding"]
+                    )
                 }
             }
             guard profiles.allSatisfy({
@@ -90,7 +110,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     textureFacts: $0
                 ) != nil
             }) else {
-                return failure(.colorContractUnproven, phase: .color)
+                return failure(
+                    .colorContractUnproven,
+                    phase: .color,
+                    details: ["launch-color-projection-unresolved"]
+                )
             }
         }
         return nil
@@ -276,8 +300,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
     private static func failure(
         _ code: Failure.Code,
         phase: Failure.Phase = .texture,
-        slot: Int? = nil
+        slot: Int? = nil,
+        details: [String] = []
     ) -> Failure {
-        .init(phase: phase, code: code, slot: slot)
+        .init(phase: phase, code: code, slot: slot, details: details)
     }
 }

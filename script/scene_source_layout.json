@@ -268,7 +268,7 @@
         "role": "inventory",
         "description": "Ordered dedicated compiler probes are frozen until their product owner is transferred.",
         "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
-        "baseline_occurrences": 18,
+        "baseline_occurrences": 17,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
         ],

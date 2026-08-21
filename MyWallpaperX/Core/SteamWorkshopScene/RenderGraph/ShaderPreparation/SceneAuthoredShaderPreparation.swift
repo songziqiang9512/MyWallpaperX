@@ -38,6 +38,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
     nonisolated static func prepareShaderStages(
         contract: SceneShaderContract,
         combos: [String: Int],
+        inactiveComboProviders: Set<String> = [],
         textureReadiness: [Int: Bool] = [:],
         textureFormats: [Int: SceneShaderTextureFormat] = [:]
     ) -> SceneAuthoredShaderPreparationResult<SceneShaderPreparedProgram> {
@@ -71,6 +72,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             graph: graph,
             initialSources: schemaSources,
             combos: combos,
+            inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,
             textureFormats: textureFormats
         )
@@ -95,6 +97,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 graph: graph,
                 initialSources: probeSeed,
                 combos: combos,
+                inactiveComboProviders: inactiveComboProviders,
                 textureReadiness: textureReadiness,
                 textureFormats: textureFormats
             ), alternate.signature != baseline.signature {
@@ -109,6 +112,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         graph: SceneShaderSourceGraph,
         initialSources: [SceneShaderVariantSchemaSource],
         combos: [String: Int],
+        inactiveComboProviders: Set<String>,
         textureReadiness: [Int: Bool],
         textureFormats: [Int: SceneShaderTextureFormat]
     ) -> SceneAuthoredShaderPreparationResult<StablePreparation> {
@@ -121,6 +125,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 graph: graph,
                 schemaSources: schemaSources,
                 combos: combos,
+                inactiveComboProviders: inactiveComboProviders,
                 textureReadiness: textureReadiness,
                 textureFormats: textureFormats
             )
@@ -156,6 +161,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         graph: SceneShaderSourceGraph,
         schemaSources: [SceneShaderVariantSchemaSource],
         combos: [String: Int],
+        inactiveComboProviders: Set<String>,
         textureReadiness: [Int: Bool],
         textureFormats: [Int: SceneShaderTextureFormat]
     ) -> SceneAuthoredShaderPreparationResult<PreparedPair> {
@@ -165,6 +171,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             graph: graph,
             schemaSources: schemaSources,
             combos: combos,
+            inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,
             textureFormats: textureFormats
         )
@@ -174,6 +181,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             graph: graph,
             schemaSources: schemaSources,
             combos: combos,
+            inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,
             textureFormats: textureFormats
         )
@@ -300,6 +308,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         graph: SceneShaderSourceGraph,
         schemaSources: [SceneShaderVariantSchemaSource],
         combos: [String: Int],
+        inactiveComboProviders: Set<String>,
         textureReadiness: [Int: Bool],
         textureFormats: [Int: SceneShaderTextureFormat]
     ) -> SceneAuthoredShaderPreparationResult<SceneShaderPreparedSource> {
@@ -313,6 +322,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             stage: kind,
             schemaSources: schemaSources,
             explicitCombos: combos,
+            inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,
             textureFormats: textureFormats
         )

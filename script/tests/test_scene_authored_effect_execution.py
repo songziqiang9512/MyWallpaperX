@@ -1998,6 +1998,17 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         for key in rejection_keys:
             self.assertTrue(self.result[key], key)
 
+    def test_precise_blur_dedicated_planner_is_only_a_test_oracle(self) -> None:
+        compiler = PROGRAM_COMPILER_SOURCE.read_text(encoding="utf-8")
+        self.assertNotIn(
+            "SceneEffectStageExecutionPlanner.compile(input)",
+            compiler,
+        )
+        self.assertIn(
+            "Authored two-pass/FBO blur is owned by MaterialProgram",
+            compiler,
+        )
+
     def assert_ordered_stage_fixture(self, fixture_name: str) -> None:
         compiler = PROGRAM_COMPILER_SOURCE.read_text(encoding="utf-8")
         backend = CHAIN_BACKEND_SOURCE.read_text(encoding="utf-8")

@@ -53,10 +53,11 @@ extension SceneEffectProgramCompiler {
             backend: SceneEffectStageCompilerBackend,
             compile: () -> SceneEffectStageBackendCompileResult<SceneEffectStageExecutionPlan>
         )
+        // Precise Gaussian is intentionally absent from the product compiler
+        // chain. Authored two-pass/FBO blur is owned by MaterialProgram and
+        // GraphExecutor; the old planner remains callable only as a bounded
+        // test oracle while its implementation family is retired separately.
         let probes: [Probe] = [
-            (.preciseGaussian, {
-                SceneEffectStageExecutionPlanner.compile(input)
-            }),
             (.standardBlur, {
                 SceneAuthoredStandardBlurPlanner.compile(input)
             }),
