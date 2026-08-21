@@ -431,6 +431,12 @@ enum Harness {
                 && profiles[2] == .directV1
                 && profiles[3] == .directV1
                 && profiles[4] == .reducedV2,
+            "dedicatedFallbackRetainedOnlyForLegacy":
+                !profiles[0]!.retainsDedicatedFallback
+                && profiles[1]!.retainsDedicatedFallback
+                && profiles[2]!.retainsDedicatedFallback
+                && profiles[3]!.retainsDedicatedFallback
+                && profiles[4]!.retainsDedicatedFallback,
             "reversedDirectionOffset": profiles[1]!.directionOffset == Float.pi
                 && profiles[2]!.directionOffset == 0
                 && profiles[4]!.directionOffset == 0
