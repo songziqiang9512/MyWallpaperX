@@ -1760,6 +1760,9 @@ def resolved_material_graph_observation_metrics(
             }
             frame = int(fields["frame"])
             layer_id = int(fields["layer"])
+            effect_index = (
+                int(fields["effect"]) if "effect" in fields else None
+            )
             allocation_generation = int(fields["allocationGeneration"])
             mapping_generation = int(fields["mappingGeneration"])
             publication_generation = int(fields["publicationGeneration"])
@@ -1778,6 +1781,13 @@ def resolved_material_graph_observation_metrics(
         )
         target_descriptors_sha256 = fields["targetDescriptorsSHA256"]
         target_descriptor_counts = unquote(fields["targetDescriptorCounts"])
+        descriptor_id = (
+            unquote(fields["descriptor"])
+            if "descriptor" in fields else None
+        )
+        exact_effect_identity_complete = (
+            (effect_index is None) == (descriptor_id is None)
+        )
         history = fields["history"]
         reset = fields["reset"]
         runtime_instance_identity = fields.get("runtime", "legacy")
@@ -1805,6 +1815,12 @@ def resolved_material_graph_observation_metrics(
                 (
                     layer_id >= 0 and all(value >= 0 for value in counts.values()),
                     "resolved material graph observation node count invalid",
+                ),
+                (
+                    exact_effect_identity_complete
+                    and (effect_index is None or effect_index >= 0)
+                    and (descriptor_id is None or bool(descriptor_id)),
+                    "resolved material graph effect identity invalid",
                 ),
                 (
                     counts["rejected_nodes"] == 0,
@@ -1881,6 +1897,8 @@ def resolved_material_graph_observation_metrics(
             "runtime_instance_identity": runtime_instance_identity,
             "frame": frame,
             "layer_id": layer_id,
+            "effect_index": effect_index,
+            "descriptor_id": descriptor_id,
             "trigger": trigger.split("+"),
             "transaction": fields["transaction"],
             **counts,
@@ -1951,18 +1969,31 @@ def resolved_material_graph_observation_metrics(
     lifecycle_transitions: list[dict[str, Any]] = []
     history_copy_on_write_count = 0
     lifecycle_subjects = sorted({
-        (observation["runtime_instance_identity"], observation["layer_id"])
+        (
+            observation["runtime_instance_identity"],
+            observation["layer_id"],
+            observation["effect_index"],
+            observation["descriptor_id"],
+        )
         for observation in terminal_successes
-    })
-    for runtime_instance_identity, layer_id in lifecycle_subjects:
+    }, key=lambda value: (
+        value[0], value[1],
+        -1 if value[2] is None else value[2],
+        "" if value[3] is None else value[3],
+    ))
+    for (
+        runtime_instance_identity, layer_id, effect_index, descriptor_id
+    ) in lifecycle_subjects:
         previous: dict[str, Any] | None = None
         for observation in sorted(
             (
                 value for value in terminal_successes
                 if value["runtime_instance_identity"] == runtime_instance_identity
                 and value["layer_id"] == layer_id
+                and value["effect_index"] == effect_index
+                and value["descriptor_id"] == descriptor_id
             ),
-            key=lambda value: value["frame"],
+            key=lambda value: (value["frame"], value["transaction"]),
         ):
             reset = observation["reset"]
             signature = (

@@ -229,6 +229,8 @@ def graph_execution_observation(
     history_rehydrate_copy_count: int = 0,
     history_content_discarded: bool = False,
     runtime_instance_identity: str | None = None,
+    effect: int | None = None,
+    descriptor_id: str | None = None,
 ) -> str:
     final_output = f"output-{transaction}" if publish else "-"
     final_physical = f"physical-{transaction}" if publish else "-"
@@ -242,9 +244,14 @@ def graph_execution_observation(
         f"runtime={runtime_instance_identity} "
         if runtime_instance_identity is not None else ""
     )
+    effect_field = f"effect={effect} " if effect is not None else ""
+    descriptor_field = (
+        f"descriptor={descriptor_id} " if descriptor_id is not None else ""
+    )
     return (
         "MWX DEBUG SCENE: schema=1 axis=graph-execution "
         f"{runtime_field}frame={frame} layer={layer} "
+        f"{effect_field}{descriptor_field}"
         f"trigger={trigger} transaction={transaction} "
         f"authoredNodes={authored} materialNodes={material} "
         f"copyNodes={copy} swapNodes={swap} composeNodes={compose} "
@@ -3941,6 +3948,80 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(metrics["runtime_instance_identity_count"], 2)
         self.assertEqual(metrics["successful_transaction_count"], 4)
         self.assertEqual(metrics["history_copy_on_write_count"], 2)
+
+    def test_graph_lifecycle_is_scoped_to_exact_effect_identity(self) -> None:
+        observations = [
+            graph_execution_observation(
+                frame=1,
+                layer=17,
+                effect=0,
+                descriptor_id="17%23effect%230",
+                transaction="r4:1:1:0",
+                trigger="first-frame+gpu-completed",
+                allocation_generation=1,
+                mapping_generation=1,
+                runtime_instance_identity="runtime-a",
+            ),
+            graph_execution_observation(
+                frame=1,
+                layer=17,
+                effect=1,
+                descriptor_id="17%23effect%231",
+                transaction="r4:1:1:1",
+                trigger="first-frame+compositor-consume+gpu-completed",
+                consumed=True,
+                allocation_generation=1,
+                mapping_generation=1,
+                target_descriptors_sha256="a" * 64,
+                target_descriptor_counts="512x288/rgba8888:2",
+                history="seeded",
+                reset="initial",
+                runtime_instance_identity="runtime-a",
+            ),
+            graph_execution_observation(
+                frame=2,
+                layer=17,
+                effect=0,
+                descriptor_id="17%23effect%230",
+                transaction="r4:1:2:0",
+                trigger="next-frame+gpu-completed",
+                allocation_generation=2,
+                mapping_generation=1,
+                reset="initial",
+                runtime_instance_identity="runtime-a",
+            ),
+            graph_execution_observation(
+                frame=2,
+                layer=17,
+                effect=1,
+                descriptor_id="17%23effect%231",
+                transaction="r4:1:2:1",
+                trigger="next-frame+compositor-consume+gpu-completed",
+                consumed=True,
+                allocation_generation=2,
+                mapping_generation=2,
+                target_descriptors_sha256="a" * 64,
+                target_descriptor_counts="512x288/rgba8888:2",
+                history="reused",
+                reset="history-copy-on-write",
+                history_rehydrate_copy_count=1,
+                runtime_instance_identity="runtime-a",
+            ),
+        ]
+
+        metrics = benchmark.resolved_material_graph_observation_metrics(
+            "\n".join(observations)
+        )
+
+        self.assertEqual(metrics["validation_failures"], [])
+        self.assertEqual(metrics["history_copy_on_write_count"], 1)
+        self.assertEqual(
+            {
+                (entry["effect_index"], entry["descriptor_id"])
+                for entry in metrics["terminal_success_observations"]
+            },
+            {(0, "17#effect#0"), (1, "17#effect#1")},
+        )
 
     def test_graph_lifecycle_remains_strict_within_runtime_instance(self) -> None:
         observations = [
