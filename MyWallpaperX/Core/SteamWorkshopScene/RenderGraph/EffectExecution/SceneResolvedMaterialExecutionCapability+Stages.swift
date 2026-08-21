@@ -301,10 +301,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
     /// Preserved-channel targets become product capability only as one complete
     /// producer -> typed publication -> exact-channel consumer atom. An
-    /// authored clear may seed a first read before that target's sole writer;
-    /// the existing graph state then owns the previous-current lifecycle.
-    /// Commands, unique targets and multiple writers remain closed until their
-    /// distinct lifecycle semantics are proven.
+    /// authored clear may seed a first read before that target's sole writer.
+    /// An effect-scoped unique target may instead use the existing persistent
+    /// history seed, but only when the graph actually reads it before its sole
+    /// writer. Graph state remains the only owner of previous-current,
+    /// rehydration, reset and rollback. Commands and multiple writers remain
+    /// closed until their distinct lifecycle semantics are proven.
     private static func preservedChannelGraphIsExecutable(
         _ graph: Graph,
         materials: [MaterialKey: MaterialCapability]
@@ -319,8 +321,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 target,
                 inputWidth: 1,
                 inputHeight: 1
-            ), [.r8, .rg88, .r16f, .rg1616f].contains(descriptor.format),
-              !descriptor.isUnique else { return false }
+            ), [.r8, .rg88, .r16f, .rg1616f].contains(descriptor.format) else {
+                return false
+            }
             let expectedStorage: SceneResolvedMaterialAttachmentKind
             switch descriptor.format {
             case .r8: expectedStorage = .scalarRedUnorm
@@ -343,9 +346,14 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                       nodeIndex: writer.nodeIndex
                   )]?.attachmentStorage == expectedStorage,
                   !readers.isEmpty,
+                  (!descriptor.isUnique || readers.contains {
+                      $0.nodeIndex < writer.nodeIndex
+                  }),
                   readers.allSatisfy({
-                      $0.nodeIndex > writer.nodeIndex
+                      $0.nodeIndex != writer.nodeIndex
+                          && ($0.nodeIndex > writer.nodeIndex
                           || descriptor.initialClear != nil
+                          || descriptor.isUnique)
                   }),
                   graph.nodes.allSatisfy({ node in
                       node.commandSource != target.texture
