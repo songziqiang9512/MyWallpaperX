@@ -52,6 +52,44 @@ final class SceneDependencyFrameRuntime {
         plan.requiredProviderLayerIDs.contains(providerLayerID)
     }
 
+    func requiresGraphOutputCapture(for providerLayerID: Int) -> Bool {
+        plan.requiredGraphOutputProviderLayerIDs.contains(providerLayerID)
+    }
+
+    /// Verifies that every prepared provider output can be copied into its
+    /// independently reserved named target. The reservation must remain a
+    /// distinct texture because graph target allocation is free to reuse a
+    /// provider's final texture for a later transaction in the same frame.
+    func installPreparedGraphOutputs(
+        _ outputsByLayerID: [Int: MTLTexture],
+        frameEpoch: UInt64
+    ) -> Bool {
+        synchronizeReservations(to: frameEpoch)
+        for providerLayerID in plan.requiredGraphOutputProviderLayerIDs.sorted() {
+            guard let output = outputsByLayerID[providerLayerID] else {
+                // A frame-local visual fallback deliberately leaves the
+                // provisional reservation unpublished so dependants take the
+                // existing ordinary provider-miss path.
+                continue
+            }
+            guard let reservation = reservationsByProviderLayerID[providerLayerID],
+                  reservation.frameEpoch == frameEpoch,
+                  reservation.providerLayerID == providerLayerID,
+                  reservation.width == output.width,
+                  reservation.height == output.height,
+                  reservation.texture !== output,
+                  reservation.texture.pixelFormat == output.pixelFormat,
+                  output.textureType == .type2D,
+                  output.sampleCount == 1,
+                  output.mipmapLevelCount == 1,
+                  output.usage.contains(.renderTarget),
+                  output.usage.contains(.shaderRead) else {
+                return false
+            }
+        }
+        return true
+    }
+
     func blocksStaticLayerSourcePassthrough(for layerID: Int) -> Bool {
         plan.blocksStaticLayerSourcePassthrough(for: layerID)
     }
@@ -228,6 +266,9 @@ final class SceneDependencyFrameRuntime {
         mainPass: SceneMainPassEncoder
     ) -> Bool? {
         guard plan.requiredProviderLayerIDs.contains(layer.id) else { return nil }
+        guard !plan.requiredGraphOutputProviderLayerIDs.contains(layer.id) else {
+            return false
+        }
 #if DEBUG
         if debugCaptureFault.shouldDropCapture(
             for: layer.id,
@@ -404,6 +445,72 @@ final class SceneDependencyFrameRuntime {
 #endif
         }
         return encoded
+    }
+
+    /// Publishes an effectful provider's unified graph output into the exact
+    /// named-target reservation. The graph runtime remains the producer and
+    /// this registry remains the sole same-frame provider publication owner.
+    func publishGraphOutputIfRequired(
+        layerID: Int,
+        texture: MTLTexture,
+        textureRegistry: SceneFrameTextureRegistry,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bool? {
+        guard plan.requiredGraphOutputProviderLayerIDs.contains(layerID) else {
+            return nil
+        }
+        let frameEpoch = textureRegistry.frameEpoch
+        synchronizeReservations(to: frameEpoch)
+        guard let reservation = reservationsByProviderLayerID[layerID],
+              reservation.frameEpoch == frameEpoch,
+              reservation.providerLayerID == layerID,
+              reservation.texture !== texture,
+              reservation.width == texture.width,
+              reservation.height == texture.height,
+              reservation.texture.pixelFormat == texture.pixelFormat,
+              texture.textureType == .type2D,
+              texture.sampleCount == 1,
+              texture.mipmapLevelCount == 1,
+              texture.usage.contains(.renderTarget),
+              texture.usage.contains(.shaderRead),
+              let blit = commandBuffer.makeBlitCommandEncoder() else {
+            captureTelemetry.recordFailure(layerID: layerID)
+            return false
+        }
+        blit.label = "Scene named graph publication layer=\(layerID)"
+        blit.copy(
+            from: texture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: .init(x: 0, y: 0, z: 0),
+            sourceSize: .init(
+                width: texture.width,
+                height: texture.height,
+                depth: 1
+            ),
+            to: reservation.texture,
+            destinationSlice: 0,
+            destinationLevel: 0,
+            destinationOrigin: .init(x: 0, y: 0, z: 0)
+        )
+        blit.endEncoding()
+        let identity = SceneFrameTextureIdentity.namedLayerTarget(
+            SceneNamedTextureReference(
+                providerLayerID: layerID,
+                variant: .primary
+            )
+        )
+        textureRegistry.set(.ready(reservation.texture), for: identity)
+        guard textureRegistry.texture(for: identity) === reservation.texture else {
+            captureTelemetry.recordFailure(layerID: layerID)
+            return false
+        }
+        captureTelemetry.record(
+            layerID: layerID,
+            encoded: true,
+            on: commandBuffer
+        )
+        return true
     }
 
     private func makeEffectInput(

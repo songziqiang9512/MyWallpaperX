@@ -33,8 +33,7 @@ nonisolated struct SceneEffectAdmissionCatalog {
         let resolvedKeysByLayerID = Self.validResolvedMaterialKeys(
             descriptor: descriptor,
             authoredPlansByLayerID: grouped,
-            subjects: resolvedMaterialSubjects,
-            visibleLayerIDs: visible
+            subjects: resolvedMaterialSubjects
         )
         let unifiedSubjects = resolvedMaterialSubjects.filter {
             resolvedKeysByLayerID[$0.key.layerID]?.contains($0.key) == true
@@ -42,12 +41,13 @@ nonisolated struct SceneEffectAdmissionCatalog {
         let unifiedSubjectsByLayerID = Dictionary(
             grouping: unifiedSubjects, by: \.key.layerID
         )
+        let executableLayerIDs = visible.union(resolvedKeysByLayerID.keys)
         unifiedExecutionStageKeys = Set(unifiedSubjects.map(\.key))
         stageAdmissions = descriptor.layers.flatMap { layer in
             SceneEffectStageAdmissionBuilder.make(
                 layer: layer,
                 graphCandidates: grouped[layer.id] ?? [],
-                layerIsVisible: visible.contains(layer.id),
+                layerIsExecutable: executableLayerIDs.contains(layer.id),
                 unifiedExecutionSubjects: unifiedSubjectsByLayerID[layer.id] ?? []
             )
         }.sorted {

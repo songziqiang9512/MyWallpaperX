@@ -259,13 +259,43 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         texture: MTLTexture,
         consumed: Bool
     ) -> Bridge.CompositeOutcome {
+        markFinalOutput(
+            ticket,
+            texture: texture,
+            consumed: consumed,
+            compositor: true,
+            reasonPrefix: "final-composite"
+        )
+    }
+
+    func markNamedPublication(
+        _ ticket: Bridge.ExecutionTicket,
+        texture: MTLTexture,
+        published: Bool
+    ) -> Bridge.CompositeOutcome {
+        markFinalOutput(
+            ticket,
+            texture: texture,
+            consumed: published,
+            compositor: false,
+            reasonPrefix: "named-publication"
+        )
+    }
+
+    private func markFinalOutput(
+        _ ticket: Bridge.ExecutionTicket,
+        texture: MTLTexture,
+        consumed: Bool,
+        compositor: Bool,
+        reasonPrefix: String
+    ) -> Bridge.CompositeOutcome {
         var emission = Emission()
         lock.lock()
         guard ticket.epoch == executionEpoch,
               var ledger = activeByID[ticket.identity],
               ledger.epoch == ticket.epoch,
               activeTransactions.contains(ticket.identity) else {
-            let reason = "final-composite-ticket-missing"
+            let reason = "\(reasonPrefix)-ticket-missing"
             if frameIsActive {
                 frameFailures += 1
                 emission = failActiveFrameLocked(reason: reason)
@@ -275,7 +305,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return .failed(reasonCode: reason)
         }
         guard !ledger.ticketConsumed else {
-            let reason = "final-composite-ticket-reused"
+            let reason = "\(reasonPrefix)-ticket-reused"
             frameFailures += 1
             emission = failActiveFrameLocked(reason: reason)
             lock.unlock()
@@ -288,7 +318,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               texture === ledger.prepared.finalTexture,
               ledger.phase == .encoded,
               ledger.candidateTails != nil else {
-            let reason = "final-composite-texture-mismatch"
+            let reason = "\(reasonPrefix)-texture-mismatch"
             frameFailures += 1
             emission = failActiveFrameLocked(reason: reason)
             lock.unlock()
@@ -298,15 +328,16 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         guard consumed, ledger.commandBuffer.status == .notEnqueued else {
             let reason = consumed
                 ? "transaction-armed-after-submit"
-                : "final-composite-failed"
+                : "\(reasonPrefix)-failed"
             frameFailures += 1
             emission = failActiveFrameLocked(reason: reason)
             lock.unlock()
             emit(emission)
             return .failed(reasonCode: reason)
         }
-        ledger.compositorConsumed = true
-        ledger.phase = .composited
+        ledger.outputConsumed = true
+        ledger.compositorConsumed = compositor
+        ledger.phase = .outputConsumed
         activeByID[ticket.identity] = ledger
         scheduledTails = ledger.candidateTails ?? scheduledTails
         lock.unlock()
@@ -349,7 +380,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               observedBuffer.buffer === commandBuffer,
               activeTransactions.allSatisfy({ identity in
             guard let ledger = activeByID[identity] else { return false }
-            return ledger.phase == .composited
+            return ledger.phase == .outputConsumed
                 && ledger.commandBuffer === commandBuffer
         }), tailsAreValid(scheduledTails),
             let observations = successObservationsLocked(

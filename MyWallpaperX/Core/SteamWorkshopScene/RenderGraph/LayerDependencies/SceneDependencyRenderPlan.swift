@@ -46,7 +46,7 @@ nonisolated struct SceneDependencyRenderPlan {
         case unsupportedConsumer
         case unsupportedVariant
         case forwardUtilityProvider
-        case resolvedMaterialRouteDisabled
+        case namedProviderRouteDisabled
     }
 
     nonisolated struct Issue: Hashable {
@@ -61,6 +61,7 @@ nonisolated struct SceneDependencyRenderPlan {
     let requiredEffectConsumerLayerIDs: Set<Int>
     let bindingsByConsumerLayerID: [Int: Binding]
     let requiredProviderLayerIDs: Set<Int>
+    let requiredGraphOutputProviderLayerIDs: Set<Int>
     let staticLayerSourcePassthroughBlockedLayerIDs: Set<Int>
     let cyclicLayerIDs: Set<Int>
     let issues: [Issue]
@@ -94,7 +95,36 @@ nonisolated struct SceneDependencyRenderPlan {
             ) != nil
         })
         var passthroughBlockedLayerIDs: Set<Int> = []
-        for consumerLayerID in visibleLayerIDs {
+        let cyclicLayerIDs = SceneDependencyGraphAnalysis.cyclicLayerIDs(
+            edges: dependencyEdges
+        )
+        let namedProviderRouteDisabled = ProcessInfo.processInfo.environment[
+            "MWX_SCENE_NAMED_PROVIDER_ROUTE"
+        ] == "disable-generic"
+        var issues = SceneDependencyGraphAnalysis.referenceIssues(
+            references: references,
+            layersByID: layersByID
+        )
+        var bindings: [Int: Binding] = [:]
+
+        // A hidden provider with authored effects is itself an executable
+        // dependency consumer. Walk only the provider closure reachable from
+        // visible roots; unrelated hidden effect graphs do not gain a route.
+        var reachableConsumerLayerIDs = visibleLayerIDs
+        var changed = true
+        while changed {
+            changed = false
+            for reference in references
+            where reachableConsumerLayerIDs.contains(reference.consumerLayerID) {
+                guard let provider = layersByID[reference.providerLayerID],
+                      provider.effects.contains(where: { $0.visible != false }),
+                      reachableConsumerLayerIDs.insert(provider.id).inserted else {
+                    continue
+                }
+                changed = true
+            }
+        }
+        for consumerLayerID in reachableConsumerLayerIDs {
             for providerLayerID in dependencyEdges[consumerLayerID] ?? [] {
                 if !xRayExemptConsumerLayerIDs.contains(consumerLayerID) {
                     passthroughBlockedLayerIDs.insert(consumerLayerID)
@@ -104,19 +134,8 @@ nonisolated struct SceneDependencyRenderPlan {
                 }
             }
         }
-        let cyclicLayerIDs = SceneDependencyGraphAnalysis.cyclicLayerIDs(
-            edges: dependencyEdges
-        )
-        let resolvedMaterialRouteDisabled = ProcessInfo.processInfo.environment[
-            "MWX_SCENE_NAMED_PROVIDER_ROUTE"
-        ] == "disable-generic"
-        var issues = SceneDependencyGraphAnalysis.referenceIssues(
-            references: references,
-            layersByID: layersByID
-        )
-        var bindings: [Int: Binding] = [:]
 
-        for layer in descriptor.layers where visibleLayerIDs.contains(layer.id) {
+        for layer in descriptor.layers where reachableConsumerLayerIDs.contains(layer.id) {
             let layerReferences = references.filter { $0.consumerLayerID == layer.id }
             guard !layerReferences.isEmpty else { continue }
             guard let binding = Self.executableBinding(
@@ -126,7 +145,7 @@ nonisolated struct SceneDependencyRenderPlan {
                 order: order,
                 cyclicLayerIDs: cyclicLayerIDs,
                 executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
-                resolvedMaterialRouteDisabled: resolvedMaterialRouteDisabled,
+                namedProviderRouteDisabled: namedProviderRouteDisabled,
                 issues: &issues
             ) else {
                 continue
@@ -141,20 +160,59 @@ nonisolated struct SceneDependencyRenderPlan {
             }
         }
 
+        // An effectful provider may itself depend on one earlier provider, but
+        // that edge must have survived the exact same binding compiler. Remove
+        // any downstream binding whose provider graph is not closed by the
+        // shared dependency plan; never fall back to publishing its base image.
+        var removedBinding = true
+        while removedBinding {
+            removedBinding = false
+            var consumerLayerIDsToRemove: Set<Int> = []
+            for (consumerLayerID, binding) in bindings {
+                if let consumer = layersByID[consumerLayerID],
+                   consumer.effects.contains(where: { $0.visible != false }),
+                   consumer.visible == false,
+                   consumer.dependencyLayerIDs != [binding.providerLayerID] {
+                    consumerLayerIDsToRemove.insert(consumerLayerID)
+                    continue
+                }
+                guard let provider = layersByID[binding.providerLayerID],
+                      provider.effects.contains(where: { $0.visible != false }),
+                      !provider.dependencyLayerIDs.isEmpty else { continue }
+                guard provider.dependencyLayerIDs.count == 1,
+                      let providerBinding = bindings[provider.id],
+                      providerBinding.providerLayerID
+                        == provider.dependencyLayerIDs.first else {
+                    consumerLayerIDsToRemove.insert(consumerLayerID)
+                    issues.append(Issue(
+                        kind: .dependencyMismatch,
+                        layerID: consumerLayerID,
+                        providerLayerID: binding.providerLayerID
+                    ))
+                    continue
+                }
+            }
+            for consumerLayerID in consumerLayerIDsToRemove {
+                bindings.removeValue(forKey: consumerLayerID)
+            }
+            removedBinding = !consumerLayerIDsToRemove.isEmpty
+        }
+
         self.references = references
         self.namedReferenceConsumerLayerIDs = Set(references.compactMap { reference in
-            visibleLayerIDs.contains(reference.consumerLayerID) ? reference.consumerLayerID : nil
+            reachableConsumerLayerIDs.contains(reference.consumerLayerID)
+                ? reference.consumerLayerID : nil
         })
         self.executableUtilityConsumerLayerIDs = executableUtilityConsumerLayerIDs
         self.requiredEffectConsumerLayerIDs = Set(descriptor.layers.compactMap { layer in
             let layerReferences = references.filter { $0.consumerLayerID == layer.id }
-            let routeDisabledResolvedMaterialUtility = resolvedMaterialRouteDisabled
+            let routeDisabledResolvedMaterialUtility = namedProviderRouteDisabled
                 && Self.supportsStructuralUtilityConsumer(layer)
                 && Self.resolvedMaterialReference(
                     in: layer.effects.filter { $0.visible != false },
                     references: layerReferences
                 ) != nil
-            guard visibleLayerIDs.contains(layer.id),
+            guard reachableConsumerLayerIDs.contains(layer.id),
                   Self.supportsEffectConsumer(
                       layer,
                       executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
@@ -170,6 +228,13 @@ nonisolated struct SceneDependencyRenderPlan {
         })
         self.bindingsByConsumerLayerID = bindings
         self.requiredProviderLayerIDs = Set(bindings.values.map(\.providerLayerID))
+        self.requiredGraphOutputProviderLayerIDs = Set(bindings.values.compactMap { binding in
+            guard let provider = layersByID[binding.providerLayerID],
+                  provider.effects.contains(where: { $0.visible != false }) else {
+                return nil
+            }
+            return provider.id
+        })
         self.staticLayerSourcePassthroughBlockedLayerIDs = passthroughBlockedLayerIDs
         self.cyclicLayerIDs = cyclicLayerIDs
         self.issues = Array(Set(issues)).sorted {
@@ -185,7 +250,7 @@ nonisolated struct SceneDependencyRenderPlan {
         order: [Int: Int],
         cyclicLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
-        resolvedMaterialRouteDisabled: Bool,
+        namedProviderRouteDisabled: Bool,
         issues: inout [Issue]
     ) -> Binding? {
         let visibleEffects = layer.effects.filter { $0.visible != false }
@@ -225,7 +290,7 @@ nonisolated struct SceneDependencyRenderPlan {
             layer,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         ) || (
-            resolvedMaterialRouteDisabled
+            namedProviderRouteDisabled
                 && contract.kind == .resolvedMaterial
                 && supportsStructuralUtilityConsumer(layer)
         )
@@ -260,6 +325,9 @@ nonisolated struct SceneDependencyRenderPlan {
             ))
             return nil
         }
+        let providerHasVisibleEffects = provider.effects.contains {
+            $0.visible != false
+        }
         let providerKindIsSupported = switch contract.kind {
         case .resolvedMaterial:
             provider.utilityLayer?.kind == .composition
@@ -273,9 +341,12 @@ nonisolated struct SceneDependencyRenderPlan {
                 && provider.visible == false
         }
         guard providerKindIsSupported,
-              provider.effects.allSatisfy({ $0.visible == false }),
+              (!providerHasVisibleEffects || (
+                  contract.kind == .imageLayerBlend
+                      && provider.visible == false
+              )),
               provider.childLayerIDs.isEmpty,
-              provider.dependencyLayerIDs.isEmpty,
+              (provider.dependencyLayerIDs.isEmpty || providerHasVisibleEffects),
               (order[provider.id] ?? .max) < (order[layer.id] ?? .min) else {
             issues.append(Issue(
                 kind: .forwardUtilityProvider,
@@ -284,9 +355,9 @@ nonisolated struct SceneDependencyRenderPlan {
             ))
             return nil
         }
-        if contract.kind == .resolvedMaterial, resolvedMaterialRouteDisabled {
+        if contract.kind != .proceduralNoiseLayer, namedProviderRouteDisabled {
             issues.append(Issue(
-                kind: .resolvedMaterialRouteDisabled,
+                kind: .namedProviderRouteDisabled,
                 layerID: layer.id,
                 providerLayerID: provider.id
             ))

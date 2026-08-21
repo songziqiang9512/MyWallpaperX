@@ -101,7 +101,14 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
         }
         if case let .provider(provider) = reference {
             switch provider {
-            case .namedLayerTarget, .sceneBackground:
+            case .namedLayerTarget:
+                // A named layer target is always a same-frame compositor
+                // color publication. Author metadata such as `rgbmask`
+                // describes ordinary asset decoding and must not relabel the
+                // provider atom as data after dependency admission proved the
+                // exact named reference.
+                return .premultipliedColor
+            case .sceneBackground:
                 return mode.explicitPurpose ?? .premultipliedColor
             case .system:
                 break

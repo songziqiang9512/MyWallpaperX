@@ -1259,6 +1259,7 @@ private func samplerPurposeToken(
     _ metadata: String?,
     vertexMetadata: String? = nil,
     assetReference: Bool = false,
+    namedTargetReference: Bool = false,
     assetPath: String = "textures/fixture.tex"
 ) -> String {
     let shader = contract(
@@ -1275,9 +1276,17 @@ private func samplerPurposeToken(
     do {
         guard let sampler = try SceneResolvedMaterialShaderSchema
             .activeSamplers(prepared)[0] else { return "missing" }
-        let reference: Template.TextureReference = assetReference
-            ? .asset(SceneVFSAssetPath(assetPath)!)
-            : .graph(graphTexture())
+        let reference: Template.TextureReference
+        if namedTargetReference {
+            reference = .provider(.namedLayerTarget(.init(
+                providerLayerID: 42,
+                variant: .primary
+            )))
+        } else if assetReference {
+            reference = .asset(SceneVFSAssetPath(assetPath)!)
+        } else {
+            reference = .graph(graphTexture())
+        }
         return sampler.purpose(for: reference)?.reportToken ?? "unproven"
     } catch {
         return "schema-invalid"
@@ -3531,6 +3540,10 @@ private enum Harness {
                 "customPurposeIgnored": samplerPurposeToken(#"{"purpose":"mask"}"#),
                 "opacityMask": samplerPurposeToken(#"{"mode":"opacitymask"}"#),
                 "rgbMask": samplerPurposeToken(#"{"mode":"rgbmask"}"#),
+                "rgbMaskNamedTarget": samplerPurposeToken(
+                    #"{"mode":"rgbmask"}"#,
+                    namedTargetReference: true
+                ),
                 "flowMask": samplerPurposeToken(#"{"mode":"flowmask"}"#),
                 "normal": samplerPurposeToken(#"{"mode":"normal"}"#),
                 "depth": samplerPurposeToken(#"{"mode":"depth"}"#),
@@ -3810,6 +3823,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "customPurposeIgnored": "premultiplied-color",
                 "opacityMask": "mask",
                 "rgbMask": "preserved-channels",
+                "rgbMaskNamedTarget": "premultiplied-color",
                 "flowMask": "flow",
                 "normal": "schema-invalid",
                 "depth": "depth",

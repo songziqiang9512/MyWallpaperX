@@ -154,6 +154,21 @@ struct SceneMetalRenderer {
                     resolvedMaterialFrameTargetPlans:
                         resolvedMaterialFrameTargetPlans) }
             }
+            if let providerGraphEncoded = executeDependencyGraphProviderIfRequired(
+                layer: layer,
+                framePlan: resolvedMaterialFrameTargetPlans[layer.id],
+                textureRegistry: textureRegistry,
+                dependencyRuntime: dependencyRuntime,
+                mainPass: mainPass,
+                commandBuffer: commandBuffer,
+                executionTrace: effectExecutionTrace
+            ) {
+                if !providerGraphEncoded {
+                    stopsAfterClaimedFailure = true
+                    break frameLayers
+                }
+                continue
+            }
             if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
                 let providerModel = imageModelMatrix(
                     for: layer, worldFramesByLayerID: frameWorldFrames,
@@ -384,5 +399,109 @@ struct SceneMetalRenderer {
                 duration: ProcessInfo.processInfo.systemUptime - cpuStart
             )
         }
+    }
+
+    /// Executes an effectful hidden dependency provider through the same
+    /// resolved graph runtime as a visible image layer, then publishes that
+    /// intermediate output to the existing named-target registry. It never
+    /// composites the hidden provider directly into the main target.
+    private func executeDependencyGraphProviderIfRequired(
+        layer: SceneRenderDescriptor.Layer,
+        framePlan: SceneResolvedMaterialFrameTargetPlan?,
+        textureRegistry: SceneFrameTextureRegistry,
+        dependencyRuntime: SceneDependencyFrameRuntime,
+        mainPass: SceneMainPassEncoder,
+        commandBuffer: MTLCommandBuffer,
+        executionTrace: SceneEffectExecutionFrameTrace
+    ) -> Bool? {
+        guard dependencyRuntime.requiresGraphOutputCapture(
+            for: layer.id
+        ) else { return nil }
+        guard layer.visible == false else {
+            imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                "effectful-provider-visibility-invalid"
+            )
+            return false
+        }
+        // A visual frame-local fallback intentionally publishes nothing. Any
+        // downstream consumer then takes the ordinary provider-miss path.
+        guard framePlan != nil else { return true }
+
+        let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
+        switch imageCompositor.resolvedMaterialClaim(layerID: layer.id) {
+        case let .claimed(value):
+            claim = value
+        case .localFallback:
+            return true
+        case .unclaimed, .rejected:
+            return false
+        }
+
+        let dependencyEffect: SceneDependencyEffectInput?
+        if dependencyRuntime.requiresEffect(for: layer.id) {
+            switch dependencyRuntime.resolvedMaterialEffectInputResolution(
+                for: layer.id,
+                textureRegistry: textureRegistry
+            ) {
+            case let .ready(input):
+                dependencyEffect = input
+            case let .unavailable(reasonCode):
+                dependencyRuntime.recordBindingFailure(for: layer.id)
+                return imageCompositor
+                    .rejectResolvedMaterialDependencySubgraphLocally(
+                        layerID: layer.id,
+                        reasonCode: reasonCode
+                    )
+            case let .invalid(reasonCode):
+                dependencyRuntime.recordBindingFailure(for: layer.id)
+                imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                    reasonCode
+                )
+                return false
+            }
+        } else {
+            dependencyEffect = nil
+        }
+
+        guard let resolvedMaterialRuntime = imageCompositor.resolvedMaterialRuntime
+        else { return false }
+        let executed = imageCompositor.executeResolvedMaterialClaim(
+            runtime: resolvedMaterialRuntime,
+            claim: claim,
+            framePlan: framePlan,
+            layerID: layer.id,
+            dependencyEffect: dependencyEffect,
+            mainPass: mainPass,
+            executionTrace: executionTrace,
+            executionOrigin: .image
+        )
+        let texture: MTLTexture
+        let ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket
+        switch executed {
+        case let .encoded(value, executionTicket):
+            texture = value
+            ticket = executionTicket
+        case .failed:
+            return false
+        }
+        let published = dependencyRuntime.publishGraphOutputIfRequired(
+            layerID: layer.id,
+            texture: texture,
+            textureRegistry: textureRegistry,
+            commandBuffer: commandBuffer
+        ) == true
+        dependencyRuntime.recordBindingIfRequired(
+            for: layer.id,
+            encoded: ticket.consumesExternalPrimaryDependency,
+            on: commandBuffer
+        )
+        return imageCompositor.consumeResolvedMaterialNamedPublication(
+            ticket,
+            texture: texture,
+            published: published,
+            layerID: layer.id,
+            executionTrace: executionTrace,
+            executionOrigin: .image
+        ) && published
     }
 }

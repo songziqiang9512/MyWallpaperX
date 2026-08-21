@@ -61,7 +61,7 @@ enum SceneEffectStageAdmissionBuilder {
     nonisolated static func make(
         layer: SceneRenderDescriptor.Layer,
         graphCandidates: [Graph],
-        layerIsVisible: Bool,
+        layerIsExecutable: Bool,
         unifiedExecutionSubjects: [SceneEffectExactRuntimeSubject] = []
     ) -> [Admission] {
         layer.effects.enumerated().map { effectIndex, descriptorEffect in
@@ -79,7 +79,7 @@ enum SceneEffectStageAdmissionBuilder {
                     coverage: .inactive
                 )
             }
-            guard layerIsVisible else {
+            guard layerIsExecutable else {
                 return admission(
                     key: key,
                     path: descriptorEffect.file,

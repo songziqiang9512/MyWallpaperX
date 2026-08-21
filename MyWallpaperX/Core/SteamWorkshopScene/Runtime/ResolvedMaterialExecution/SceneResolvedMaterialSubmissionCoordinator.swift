@@ -37,7 +37,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     }
 
     enum LedgerPhase: Int {
-        case prepared, allocationCommitted, encoded, composited, sealed
+        case prepared, allocationCommitted, encoded, outputConsumed, sealed
     }
 
     struct PreparedLedger {
@@ -55,6 +55,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         var phase: LedgerPhase = .prepared
         var claimConsumed = false
         var ticketConsumed = false
+        var outputConsumed = false
         var compositorConsumed = false
         var submissionID: UInt64?
     }
@@ -278,6 +279,47 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             let request = requests[index]
             let claim = request.claim
             let targets = preparedTargets[index]
+            let preparedDependencyEffect: SceneDependencyEffectInput?
+            switch claim.dependencyOwnership {
+            case .none, .graphInternal:
+                preparedDependencyEffect = request.dedicatedInputs.dependencyEffect
+            case let .externalPrimary(binding):
+                let original = request.dedicatedInputs.dependencyEffect
+                let providerCandidates = candidates.filter {
+                    $0.layerID == binding.providerLayerID
+                }
+                guard providerCandidates.count <= 1 else {
+                    let reason = "prepared-provider-output-ambiguous"
+                    emission = framePreparationFailureLocked(
+                        candidates, reason: reason
+                    )
+                    lock.unlock()
+                    emit(emission)
+                    return .rejected(reasonCode: reason)
+                }
+                if let provider = providerCandidates.first {
+                    guard let original,
+                          original.providerLayerID == provider.layerID else {
+                        let reason = "prepared-provider-input-mismatch"
+                        emission = framePreparationFailureLocked(
+                            candidates, reason: reason
+                        )
+                        lock.unlock()
+                        emit(emission)
+                        return .rejected(reasonCode: reason)
+                    }
+                    // The provider's graph target may be reused by a later
+                    // transaction in the same frame. Keep the independently
+                    // reserved named target as the consumer input; the
+                    // renderer copies the provider final into it between the
+                    // ordered transactions.
+                    preparedDependencyEffect = original
+                } else {
+                    preparedDependencyEffect = original
+                }
+            }
+            let dedicatedInputs = request.dedicatedInputs
+                .withDependencyEffect(preparedDependencyEffect)
             let result = executor.prepare(
                 token: claim.token,
                 leases: targets.leases,
@@ -288,7 +330,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 sourceTexture: request.sourceTexture,
                 sourceUniforms: request.sourceUniforms,
                 sourcePipeline: request.sourcePipeline,
-                dedicatedInputs: request.dedicatedInputs,
+                dedicatedInputs: dedicatedInputs,
                 commandBuffer: commandBuffer,
                 previousStates: provisionalTails.mapValues(\.state),
                 previousGraphResources:
@@ -337,7 +379,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 layerID: claim.layerID,
                 capabilityToken: claim.token,
                 prepared: prepared,
-                preparedDependencyEffect: request.dedicatedInputs.dependencyEffect,
+                preparedDependencyEffect: preparedDependencyEffect,
                 commandBuffer: commandBuffer,
                 committedBaseTails: committedTails,
                 blueprint: blueprint,
@@ -400,6 +442,25 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         framePreparationComplete = true
         lock.unlock()
         return .ready
+    }
+
+    func preparedOutputTexturesByLayerID() -> [Int: MTLTexture]? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard frameIsActive, framePreparationComplete,
+              !frameRequiresDrop, frameFailure == nil else { return nil }
+        var result: [Int: MTLTexture] = [:]
+        for identity in activeTransactions {
+            guard let ledger = activeByID[identity],
+                  ledger.phase == .allocationCommitted,
+                  result.updateValue(
+                      ledger.prepared.finalTexture,
+                      forKey: ledger.layerID
+                  ) == nil else {
+                return nil
+            }
+        }
+        return result
     }
 
 }

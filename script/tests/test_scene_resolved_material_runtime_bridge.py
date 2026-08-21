@@ -1007,6 +1007,7 @@ final class SceneResolvedMaterialGraphExecutor {
     static var prepareCallCount = 0
     static var prepareTokens: [Int] = []
     static var preparedByToken: [Int: PreparedGraph] = [:]
+    static var preparedDependencyTextureByToken: [Int: ObjectIdentifier] = [:]
     static var encodeSucceeds = false
     init?(
         device: MTLDevice,
@@ -1038,6 +1039,10 @@ final class SceneResolvedMaterialGraphExecutor {
         _ = effectGeneration; _ = resetGeneration
         Self.prepareCallCount += 1
         Self.prepareTokens.append(token.value)
+        if let texture = dedicatedInputs.dependencyEffect?.texture {
+            Self.preparedDependencyTextureByToken[token.value] =
+                ObjectIdentifier(texture)
+        }
         return Self.preparedByToken[token.value].map(Result.success)
             ?? .failure(.unavailable)
     }
@@ -1424,6 +1429,7 @@ private func makeLedger(
         phase: phase,
         claimConsumed: claimed,
         ticketConsumed: consumed,
+        outputConsumed: consumed,
         compositorConsumed: consumed,
         submissionID: submissionID
     )
@@ -2194,6 +2200,7 @@ enum Harness {
                 mappingGeneration: 9,
                 resetReason: .initial,
                 terminalEffect: effect,
+                terminalCompositorConsumed: true,
                 outcome: .succeeded,
                 gpu: .completed
             )
@@ -2232,6 +2239,7 @@ enum Harness {
                 resetReason: .effectReparse,
                 committedBaseState: makeCommittedObservationBase(),
                 terminalEffect: effect,
+                terminalCompositorConsumed: false,
                 outcome: .failed(reasonCode: "fixture-gpu-failed"),
                 gpu: .failed
             )
@@ -2391,6 +2399,216 @@ enum Harness {
             targets7.commit.releaseAll()
             targets8.commit.releaseAll()
             SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
+        }
+
+        do {
+            SceneResolvedMaterialGraphExecutor.prepareCallCount = 0
+            SceneResolvedMaterialGraphExecutor.prepareTokens = []
+            SceneResolvedMaterialGraphExecutor
+                .preparedDependencyTextureByToken = [:]
+            SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
+            let providerPrepared = makeAtomicPrepared(
+                device: device,
+                layerID: 7,
+                generation: 1
+            )
+            let consumerPrepared = makeAtomicPrepared(
+                device: device,
+                layerID: 8,
+                generation: 2
+            )
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [
+                7: providerPrepared,
+                8: consumerPrepared,
+            ]
+            let binding = externalPrimaryBinding(
+                consumerLayerID: 8,
+                providerLayerID: 7
+            )
+            let provisionalTexture = makeTexture(
+                device,
+                "nested-dependency-provisional"
+            )
+            let provisionalInput = dependencyInput(
+                binding: binding,
+                texture: provisionalTexture,
+                frameEpoch: 13
+            )
+            let coordinator = makeCoordinator(
+                device,
+                layerIDs: [7, 8],
+                dependencyOwnershipByLayerID: [8: .externalPrimary(binding)]
+            )
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 13, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            func preflightClaim(_ layerID: Int) ->
+                SceneResolvedMaterialRuntimeBridge.ClaimedExecution {
+                switch coordinator.preflightClaim(layerID: layerID) {
+                case let .claimed(value): return value
+                case let .rejected(reasonCode): fatalError(reasonCode)
+                case .notMigrated: fatalError("claim unavailable")
+                }
+            }
+            let providerClaim = preflightClaim(7)
+            let consumerClaim = preflightClaim(8)
+            let providerTargets = makeAtomicTargets(
+                layerID: 7,
+                generation: 1
+            )
+            let consumerTargets = makeAtomicTargets(
+                layerID: 8,
+                generation: 2
+            )
+            let pool = SceneOffscreenTexturePool(factory: { plan in
+                plan.graphPlan.key.layerID == 7
+                    ? providerTargets.prepared : consumerTargets.prepared
+            })
+            let preparation = coordinator.prepareFrame(
+                [
+                    .init(
+                        claim: providerClaim,
+                        targetPlan: .init(
+                            token: providerClaim.token,
+                            allocation: .init(
+                                graphPlan: .init(key: .init(layerID: 7))
+                            )
+                        ),
+                        sourceTexture: makeTexture(
+                            device,
+                            "nested-provider-source"
+                        ),
+                        sourceUniforms: .init(),
+                        sourcePipeline: .init(),
+                        dedicatedInputs: .fixture
+                    ),
+                    .init(
+                        claim: consumerClaim,
+                        targetPlan: .init(
+                            token: consumerClaim.token,
+                            allocation: .init(
+                                graphPlan: .init(key: .init(layerID: 8))
+                            )
+                        ),
+                        sourceTexture: makeTexture(
+                            device,
+                            "nested-consumer-source"
+                        ),
+                        sourceUniforms: .init(),
+                        sourcePipeline: .init(),
+                        dedicatedInputs: .fixture
+                            .replacingDependencyEffect(provisionalInput)
+                    ),
+                ],
+                pool: pool,
+                commandBuffer: buffer
+            )
+            let preparedReady: Bool
+            if case .ready = preparation { preparedReady = true }
+            else { preparedReady = false }
+            let outputs = coordinator.preparedOutputTexturesByLayerID()
+            let namedReservationWasRetained =
+                SceneResolvedMaterialGraphExecutor
+                    .preparedDependencyTextureByToken[8]
+                    == ObjectIdentifier(provisionalTexture)
+                && outputs?[7] === providerPrepared.finalTexture
+                && outputs?[8] === consumerPrepared.finalTexture
+
+            let providerPublished: Bool
+            let providerTerminalIsNotCompositor: Bool
+            switch coordinator.claim(layerID: 7) {
+            case let .claimed(claim):
+                switch coordinator.executeClaimed(
+                    claim: claim,
+                    dependencyEffect: nil,
+                    commandBuffer: buffer
+                ) {
+                case let .encoded(texture, ticket):
+                    if case .consumed = coordinator.markNamedPublication(
+                        ticket,
+                        texture: texture,
+                        published: true
+                    ) {
+                        providerPublished = true
+                    } else {
+                        providerPublished = false
+                    }
+                    providerTerminalIsNotCompositor =
+                        coordinator.activeByID[ticket.identity]?.phase
+                            == .outputConsumed
+                        && coordinator.activeByID[ticket.identity]?
+                            .outputConsumed == true
+                        && coordinator.activeByID[ticket.identity]?
+                            .compositorConsumed == false
+                case .failed:
+                    providerPublished = false
+                    providerTerminalIsNotCompositor = false
+                }
+            case .rejected, .notMigrated:
+                providerPublished = false
+                providerTerminalIsNotCompositor = false
+            }
+
+            let consumerComposited: Bool
+            let readyInput = dependencyInput(
+                binding: binding,
+                texture: provisionalTexture,
+                frameEpoch: 13
+            )
+            switch coordinator.claim(layerID: 8) {
+            case let .claimed(claim):
+                switch coordinator.executeClaimed(
+                    claim: claim,
+                    dependencyEffect: readyInput,
+                    commandBuffer: buffer
+                ) {
+                case let .encoded(texture, ticket):
+                    if case .consumed = coordinator.markComposite(
+                        ticket,
+                        texture: texture,
+                        consumed: true
+                    ) {
+                        consumerComposited = true
+                    } else {
+                        consumerComposited = false
+                    }
+                case .failed:
+                    consumerComposited = false
+                }
+            case .rejected, .notMigrated:
+                consumerComposited = false
+            }
+            let sealed = coordinator.sealFrame(on: buffer)
+            buffer.commit()
+            buffer.waitUntilCompleted()
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(buffer),
+                status: buffer.status == .completed && buffer.error == nil
+                    ? .completed : .failed
+            )
+            results[
+                "preparedProviderOutputKeepsNamedReservationWithoutCompositorOwnership"
+            ] = preparedReady
+                && namedReservationWasRetained
+                && providerPublished
+                && providerTerminalIsNotCompositor
+                && consumerComposited
+                && sealed
+                && buffer.status == .completed
+                && buffer.error == nil
+                && coordinator.activeByID.isEmpty
+                && coordinator.pendingSubmissions.isEmpty
+                && pool.batchCommitCount == 1
+                && providerTargets.commit.submissionPin.releaseCount == 1
+                && consumerTargets.commit.submissionPin.releaseCount == 1
+            _ = coordinator.endFrame()
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
+            SceneResolvedMaterialGraphExecutor
+                .preparedDependencyTextureByToken = [:]
+            SceneResolvedMaterialGraphExecutor.encodeSucceeds = false
         }
 
         do {
@@ -2754,7 +2972,7 @@ enum Harness {
             }
             let consumed = consume(7) && consume(8)
             let composited = coordinator.activeByID.values.allSatisfy {
-                $0.phase == .composited && $0.compositorConsumed
+                $0.phase == .outputConsumed && $0.compositorConsumed
             }
             let sealed = coordinator.sealFrame(on: buffer)
             let oneSubmission = coordinator.pendingSubmissions.count == 1
@@ -3115,7 +3333,7 @@ enum Harness {
             let firstWasConsumed: Bool
             if case .consumed = firstOutcome { firstWasConsumed = true }
             else { firstWasConsumed = false }
-            let consumedOnce = coordinator.activeByID[1]?.phase == .composited
+            let consumedOnce = coordinator.activeByID[1]?.phase == .outputConsumed
                 && coordinator.activeByID[1]?.ticketConsumed == true
             let reusedOutcome = coordinator.markComposite(
                 ticket, texture: texture, consumed: true
@@ -3444,7 +3662,7 @@ enum Harness {
                     states: [:], resources: [:], mappingGenerations: [:],
                     resetReasons: [:]
                 ),
-                candidate: [:], phase: .composited, consumed: true
+                candidate: [:], phase: .outputConsumed, consumed: true
             )
             coordinator.activeByID[2] = makeLedger(
                 coordinator: coordinator, identity: 2, commandBuffer: buffer,
@@ -3453,7 +3671,7 @@ enum Harness {
                     states: [:], resources: [:], mappingGenerations: [:],
                     resetReasons: [:]
                 ),
-                candidate: [:], phase: .composited, consumed: true
+                candidate: [:], phase: .outputConsumed, consumed: true
             )
             coordinator.activeTransactions = [1, 2]
             let sealed = coordinator.sealFrame(on: buffer)
@@ -4146,6 +4364,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "secondPreparationFailureRollsBackWholeFrame",
                 "externalDependencyCaptureFailureRejectsOnlyItsSubgraph",
                 "repeatTerminalPublicationRejectsBeforeLedgerAndPreservesPreviousCurrent",
+                "preparedProviderOutputKeepsNamedReservationWithoutCompositorOwnership",
                 "twoCandidatesPublishConsumeAndCommitAtomically",
                 "postClaimFailureDropsWholeFrame",
                 "foreignBufferRejectedBeforePrepare",

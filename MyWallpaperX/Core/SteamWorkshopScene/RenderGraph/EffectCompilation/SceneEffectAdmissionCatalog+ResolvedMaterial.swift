@@ -4,14 +4,12 @@ extension SceneEffectAdmissionCatalog {
     nonisolated static func validResolvedMaterialKeys(
         descriptor: SceneRenderDescriptor,
         authoredPlansByLayerID: [Int: [SceneAuthoredEffectRenderPlan]],
-        subjects: [SceneEffectExactRuntimeSubject],
-        visibleLayerIDs: Set<Int>
+        subjects: [SceneEffectExactRuntimeSubject]
     ) -> [Int: Set<SceneAuthoredEffectRenderPlan.EffectKey>] {
         let grouped = Dictionary(grouping: subjects, by: \.key.layerID)
         var result: [Int: Set<SceneAuthoredEffectRenderPlan.EffectKey>] = [:]
         for (layerID, layerSubjects) in grouped {
-            guard visibleLayerIDs.contains(layerID),
-                  layerSubjects.allSatisfy({
+            guard layerSubjects.allSatisfy({
                       !$0.family.trimmingCharacters(in: .whitespacesAndNewlines)
                         .isEmpty
                   }),

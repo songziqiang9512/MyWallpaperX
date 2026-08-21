@@ -14,6 +14,9 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     let pairPlan: SceneLayerFullFramePairPlan
     let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
     let sourceRoute: SourceRoute
+    let isVisibleExecutionRoot: Bool
+    let isGraphOutputProvider: Bool
+    let requiresGraphOutputProvider: Bool
 }
 
 /// Raw-graph conservation and condition/function admission for one launch.
@@ -75,6 +78,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             executableUtilityConsumerLayerIDs:
                 structuralUtilityDependencyConsumerLayerIDs
         )
+        let graphOutputProviderLayerIDs =
+            dependencyPlan.requiredGraphOutputProviderLayerIDs
         let activeLayerIDs = Set(descriptor.layers.compactMap { layer in
             layer.effects.contains(where: { $0.visible != false }) ? layer.id : nil
         })
@@ -102,6 +107,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             switch executionSourceRoute(
                 layer,
                 visibleLayerIDs: visibleLayerIDs,
+                graphOutputProviderLayerIDs: graphOutputProviderLayerIDs,
                 dependencyOwnership: dependencyOwnership
             ) {
             case let .success(route):
@@ -144,6 +150,16 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     descriptor: descriptor,
                     dependencyOwnership: dependencyOwnership,
                     sourceRoute: sourceRoute,
+                    isVisibleExecutionRoot: visibleLayerIDs.contains(layerID),
+                    isGraphOutputProvider:
+                        graphOutputProviderLayerIDs.contains(layerID),
+                    requiresGraphOutputProvider: {
+                        guard case let .externalPrimary(binding) =
+                                dependencyOwnership else { return false }
+                        return graphOutputProviderLayerIDs.contains(
+                            binding.providerLayerID
+                        )
+                    }(),
                     conditionSchemaEvidence: conditionSchemaEvidence
                 ),
                 dedicatedStagePrograms: dedicatedGroups[layerID] ?? []
@@ -154,9 +170,11 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
     private static func executionSourceRoute(
         _ layer: SceneRenderDescriptor.Layer,
         visibleLayerIDs: Set<Int>,
+        graphOutputProviderLayerIDs: Set<Int>,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership?
     ) -> Result<SceneResolvedMaterialAdmittedLayer.SourceRoute, Failure> {
-        guard visibleLayerIDs.contains(layer.id) else {
+        guard visibleLayerIDs.contains(layer.id)
+                || graphOutputProviderLayerIDs.contains(layer.id) else {
             return .failure(failure("execution-route-layer-hidden"))
         }
         guard let dependencyOwnership else {
@@ -204,6 +222,9 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         descriptor: SceneRenderDescriptor,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
+        isVisibleExecutionRoot: Bool,
+        isGraphOutputProvider: Bool,
+        requiresGraphOutputProvider: Bool,
         conditionSchemaEvidence: [Graph.EffectKey: SceneGraphConditionSchemaEvidence]
     ) -> Result<SceneResolvedMaterialAdmittedLayer, Failure> {
         do {
@@ -261,7 +282,10 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 products: products,
                 pairPlan: pair,
                 dependencyOwnership: dependencyOwnership,
-                sourceRoute: sourceRoute
+                sourceRoute: sourceRoute,
+                isVisibleExecutionRoot: isVisibleExecutionRoot,
+                isGraphOutputProvider: isGraphOutputProvider,
+                requiresGraphOutputProvider: requiresGraphOutputProvider
             ))
         } catch let rejection as Failure {
             return .failure(rejection)

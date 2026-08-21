@@ -377,6 +377,10 @@ extension SceneImageLayerCompositor {
         )
     }
 
+    func preparedResolvedMaterialOutputTexturesByLayerID() -> [Int: MTLTexture]? {
+        resolvedMaterialRuntime?.preparedOutputTexturesByLayerID()
+    }
+
     func rejectResolvedMaterialDependencySubgraphLocally(
         layerID: Int,
         reasonCode: String
@@ -407,8 +411,14 @@ extension SceneImageLayerCompositor {
     func resolvedMaterialClaim(
         for request: SceneImageLayerDrawRequest
     ) -> SceneResolvedMaterialClaimRoute {
+        resolvedMaterialClaim(layerID: request.layer.id)
+    }
+
+    func resolvedMaterialClaim(
+        layerID: Int
+    ) -> SceneResolvedMaterialClaimRoute {
         guard let resolvedMaterialRuntime else { return .unclaimed }
-        switch resolvedMaterialRuntime.claim(layerID: request.layer.id) {
+        switch resolvedMaterialRuntime.claim(layerID: layerID) {
         case .notMigrated:
             return .unclaimed
         case let .rejected(reasonCode):
@@ -459,6 +469,33 @@ extension SceneImageLayerCompositor {
                 layerID: layerID,
                 origin: executionOrigin,
                 operation: "final-composite",
+                outcome: .failed(reasonCode: reasonCode)
+            )
+            return false
+        }
+    }
+
+    func consumeResolvedMaterialNamedPublication(
+        _ ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket,
+        texture: MTLTexture,
+        published: Bool,
+        layerID: Int,
+        executionTrace: SceneEffectExecutionFrameTrace?,
+        executionOrigin: SceneEffectExecutionOrigin
+    ) -> Bool {
+        guard let resolvedMaterialRuntime else { return false }
+        switch resolvedMaterialRuntime.markNamedPublication(
+            ticket,
+            texture: texture,
+            published: published
+        ) {
+        case .consumed:
+            return true
+        case let .failed(reasonCode):
+            executionTrace?.recordRouteOperation(
+                layerID: layerID,
+                origin: executionOrigin,
+                operation: "named-provider-publication",
                 outcome: .failed(reasonCode: reasonCode)
             )
             return false

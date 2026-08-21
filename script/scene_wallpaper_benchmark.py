@@ -1941,8 +1941,7 @@ def resolved_material_graph_observation_metrics(
     next_frame_layer_ids = sorted({
         observation["layer_id"]
         for observation in terminal_successes
-        if observation["compositor_consumed"]
-        and "next-frame" in observation["trigger"]
+        if "next-frame" in observation["trigger"]
     })
     target_descriptor_counts = sorted({
         observation["target_descriptor_counts"]
@@ -2328,6 +2327,23 @@ def resolved_material_graph_execution_metrics(
     ]
     next_frame_layer_ids = graph_observations["next_frame_layer_ids"]
     accepted_layer_set = set(accepted_layer_ids)
+    named_capture = named_target_capture_execution_metrics(log_text)
+    clean_named_capture_layer_ids = set(
+        named_capture["succeeded_layer_ids"]
+    ).difference(named_capture["failed_layer_ids"])
+    named_published_layer_ids = sorted(
+        accepted_layer_set
+        .intersection(clean_named_capture_layer_ids)
+        .difference(compositor_consumed_layer_ids)
+    )
+    output_consumed_layer_set = set(compositor_consumed_layer_ids).union(
+        named_published_layer_ids
+    )
+    named_compositor_overlap_layer_ids = sorted(
+        accepted_layer_set
+        .intersection(clean_named_capture_layer_ids)
+        .intersection(compositor_consumed_layer_ids)
+    )
     if effect_execution is None:
         effect_execution = effect_execution_metrics(log_text, static_disposition)
     exact_backend = resolved_material_graph_exact_backend_metrics(
@@ -2347,7 +2363,9 @@ def resolved_material_graph_execution_metrics(
         accepted_layer_set.difference(observed_layer_ids)
     )
     missing_compositor_consumed_layer_ids = sorted(
-        accepted_layer_set.difference(compositor_consumed_layer_ids)
+        accepted_layer_set
+        .difference(named_published_layer_ids)
+        .difference(compositor_consumed_layer_ids)
     )
     missing_next_frame_layer_ids = sorted(
         accepted_layer_set.difference(next_frame_layer_ids)
@@ -2384,6 +2402,10 @@ def resolved_material_graph_execution_metrics(
     if missing_compositor_consumed_layer_ids:
         capability_failures.append(
             "resolved material graph accepted layer compositor consumption missing"
+        )
+    if named_compositor_overlap_layer_ids:
+        capability_failures.append(
+            "resolved material graph named publication also consumed by compositor"
         )
     if missing_next_frame_layer_ids:
         capability_failures.append(
@@ -2480,7 +2502,7 @@ def resolved_material_graph_execution_metrics(
     succeeded_layer_ids = sorted(
         accepted_layer_set
         .intersection(observed_layer_ids)
-        .intersection(compositor_consumed_layer_ids)
+        .intersection(output_consumed_layer_set)
         .intersection(next_frame_layer_ids)
         .intersection(exact_backend["complete_layer_ids"])
     )
@@ -2600,6 +2622,10 @@ def resolved_material_graph_execution_metrics(
             "accepted_layer_ids": accepted_layer_ids,
             "observed_layer_ids": observed_layer_ids,
             "compositor_consumed_layer_ids": compositor_consumed_layer_ids,
+            "named_published_layer_ids": named_published_layer_ids,
+            "named_compositor_overlap_layer_ids": (
+                named_compositor_overlap_layer_ids
+            ),
             "next_frame_layer_ids": next_frame_layer_ids,
             "missing_layer_ids": missing_layer_ids,
             "missing_gpu_completed_layer_ids": missing_gpu_completed_layer_ids,

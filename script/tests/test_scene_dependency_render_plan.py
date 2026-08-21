@@ -447,6 +447,10 @@ enum Harness {
         ]
         let legacyNoiseBinding = plan.bindingsByConsumerLayerID[31]
         let imageBlend = imageBlendBinding()
+        let nestedImageBlend = nestedImageBlendPlan()
+        let brokenNestedImageBlend = nestedImageBlendPlan(
+            middleDependencyMismatch: true
+        )
         let result: [String: Any] = [
             "parsedVariants": parsed,
             "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
@@ -579,13 +583,35 @@ enum Harness {
             ],
             "imageBlendRejects": [
                 "visibleProvider": imageBlendBinding(providerVisible: true) == nil,
-                "effectfulProvider": imageBlendBinding(providerEffectful: true) == nil,
                 "wrongProviderKind": imageBlendBinding(providerContentKind: "solid") == nil,
                 "secondary": imageBlendBinding(variantSuffix: "b") == nil,
                 "userTextureOverride": imageBlendBinding(userTextureOverride: true) == nil,
                 "extraReference": imageBlendBinding(extraReference: true) == nil,
                 "transformed": imageBlendBinding(extraCombos: ["TRANSFORMUV": 1]) == nil,
                 "partialStrength": imageBlendBinding(multiply: 0.5) == nil,
+            ],
+            "imageBlendEffectfulProvider":
+                imageBlendBinding(providerEffectful: true)?.providerLayerID == 300,
+            "nestedImageBlend": [
+                "bindings": nestedImageBlend.bindingsByConsumerLayerID.keys.sorted(),
+                "providers": nestedImageBlend.requiredProviderLayerIDs.sorted(),
+                "graphProviders": nestedImageBlend
+                    .requiredGraphOutputProviderLayerIDs.sorted(),
+                "effectConsumers": nestedImageBlend
+                    .requiredEffectConsumerLayerIDs.sorted(),
+                "passthroughBlocked": [400, 401, 402].filter {
+                    nestedImageBlend.blocksStaticLayerSourcePassthrough(for: $0)
+                },
+                "issues": nestedImageBlend.issues.map {
+                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+                },
+            ],
+            "brokenNestedImageBlend": [
+                "bindings": brokenNestedImageBlend
+                    .bindingsByConsumerLayerID.keys.sorted(),
+                "providers": brokenNestedImageBlend.requiredProviderLayerIDs.sorted(),
+                "graphProviders": brokenNestedImageBlend
+                    .requiredGraphOutputProviderLayerIDs.sorted(),
             ],
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -1006,6 +1032,70 @@ enum Harness {
             visibleLayerIDs: [consumerID]
         ).bindingsByConsumerLayerID[consumerID]
     }
+
+    static func nestedImageBlendPlan(
+        middleDependencyMismatch: Bool = false
+    ) -> SceneDependencyRenderPlan {
+        func blend(_ id: Int, provider: Int) ->
+            SceneRenderDescriptor.EffectDescriptor {
+            let path = "_rt_imageLayerComposite_\(provider)_a"
+            return .init(
+                id: "blend-\(id)",
+                file: "effects/blend/effect.json",
+                visible: true,
+                passes: [.init(
+                    passIndex: 0,
+                    texturePaths: [path],
+                    textureSlots: [nil, path],
+                    combos: ["BLENDMODE": 0],
+                    constantShaderValues: [
+                        "multiply": .init(components: [1]),
+                        "alpha": .init(components: [1]),
+                    ]
+                )]
+            )
+        }
+        let rootProvider = SceneRenderDescriptor.Layer(
+            id: 400,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: false,
+            effects: [.init(
+                id: "provider-color",
+                file: "effects/tint/effect.json",
+                visible: true,
+                passes: []
+            )]
+        )
+        let middleProvider = SceneRenderDescriptor.Layer(
+            id: 401,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: middleDependencyMismatch ? [499] : [400],
+            childLayerIDs: [],
+            visible: false,
+            effects: [blend(401, provider: 400)]
+        )
+        let consumer = SceneRenderDescriptor.Layer(
+            id: 402,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [401],
+            childLayerIDs: [],
+            visible: true,
+            effects: [blend(402, provider: 401)]
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [rootProvider, middleProvider, consumer],
+            renderOrderLayerIDs: [400, 401, 402]
+        )
+        return SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: [402]
+        )
+    }
 }
 '''
 
@@ -1101,7 +1191,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "resolvedMaterial": False,
                 "requiredEffect": True,
                 "requiredProviders": [],
-                "issues": ["401:resolvedMaterialRouteDisabled:400"],
+                "issues": ["401:namedProviderRouteDisabled:400"],
             },
         )
         self.assertEqual(
@@ -1119,7 +1209,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "binding": False,
                 "requiredEffect": True,
                 "requiredProviders": [],
-                "issues": ["411:resolvedMaterialRouteDisabled:410"],
+                "issues": ["411:namedProviderRouteDisabled:410"],
             },
         )
         self.assertEqual(
@@ -1128,7 +1218,29 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         )
         self.assertEqual(
             self.route_disabled_result["imageBlendBinding"],
-            self.result["imageBlendBinding"],
+            {
+                "consumer": -1,
+                "provider": -1,
+                "effect": "",
+                "pass": -1,
+                "slot": -1,
+                "blend": -1,
+                "imageBlend": False,
+            },
+        )
+        self.assertEqual(
+            self.route_disabled_result["nestedImageBlend"],
+            {
+                "bindings": [],
+                "providers": [],
+                "graphProviders": [],
+                "effectConsumers": [401, 402],
+                "passthroughBlocked": [400, 401, 402],
+                "issues": [
+                    "401:namedProviderRouteDisabled:400",
+                    "402:namedProviderRouteDisabled:401",
+                ],
+            },
         )
 
     def test_shadowed_named_references_do_not_create_execution_dependencies(self) -> None:
@@ -1280,6 +1392,22 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             },
         )
         self.assertTrue(all(self.result["imageBlendRejects"].values()))
+        self.assertTrue(self.result["imageBlendEffectfulProvider"])
+        self.assertEqual(
+            self.result["nestedImageBlend"],
+            {
+                "bindings": [401, 402],
+                "providers": [400, 401],
+                "graphProviders": [400, 401],
+                "effectConsumers": [401, 402],
+                "passthroughBlocked": [400, 401, 402],
+                "issues": [],
+            },
+        )
+        self.assertEqual(
+            self.result["brokenNestedImageBlend"],
+            {"bindings": [], "providers": [], "graphProviders": []},
+        )
 
 if __name__ == "__main__":
     unittest.main()

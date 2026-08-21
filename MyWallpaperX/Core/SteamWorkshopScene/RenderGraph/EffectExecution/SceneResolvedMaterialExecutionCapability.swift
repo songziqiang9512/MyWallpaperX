@@ -112,6 +112,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let sceneBackgroundRequirement: SceneBackgroundRequirement?
+        let isVisibleExecutionRoot: Bool
+        let isGraphOutputProvider: Bool
+        let requiresGraphOutputProvider: Bool
 
         fileprivate let capabilityID = UUID()
 
@@ -130,6 +133,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             dependencyOwnership = admitted.dependencyOwnership
             sourceRoute = admitted.sourceRoute
             self.sceneBackgroundRequirement = sceneBackgroundRequirement
+            isVisibleExecutionRoot = admitted.isVisibleExecutionRoot
+            isGraphOutputProvider = admitted.isGraphOutputProvider
+            requiresGraphOutputProvider = admitted.requiresGraphOutputProvider
         }
 
         func material(for node: Graph.Node) -> MaterialCapability? {
@@ -222,11 +228,78 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 }
             }
         }
+        Self.retainExecutableDependencyClosure(
+            in: &accepted,
+            rejected: &rejected
+        )
         capabilitiesByLayerID = accepted
         productAuthorityRejectionReasonsByLayerID =
             productAuthorityRejectedByLayerID
         rejectedReasons = rejected
         visualFailurePassthroughReasons = passthroughs
+    }
+
+    /// A hidden graph-output provider has product execution authority only
+    /// while it remains reachable from an admitted visible consumer. The
+    /// closure is recomputed after Program/dedicated stage compilation so a
+    /// rejected consumer cannot leave an orphan provider transaction that has
+    /// no named-target reservation and would otherwise drop the whole frame.
+    private static func retainExecutableDependencyClosure(
+        in accepted: inout [Int: LayerCapability],
+        rejected: inout [String: Int]
+    ) {
+        var didChange = true
+        while didChange {
+            didChange = false
+
+            let graphProviderLayerIDs = Set(accepted.compactMap { layerID, capability in
+                capability.isGraphOutputProvider ? layerID : nil
+            })
+            let unavailableConsumers = accepted.compactMap { layerID, capability -> Int? in
+                guard case let .externalPrimary(binding) =
+                        capability.dependencyOwnership,
+                      binding.consumerLayerID == layerID,
+                      capability.requiresGraphOutputProvider else { return nil }
+                return graphProviderLayerIDs.contains(binding.providerLayerID)
+                    ? nil : layerID
+            }
+            if !unavailableConsumers.isEmpty {
+                for layerID in unavailableConsumers {
+                    accepted.removeValue(forKey: layerID)
+                    rejected["dependency-graph-provider-unavailable", default: 0] += 1
+                }
+                didChange = true
+                continue
+            }
+
+            var reachable = Set(accepted.compactMap { layerID, capability in
+                capability.isVisibleExecutionRoot ? layerID : nil
+            })
+            var frontier = Array(reachable)
+            while let layerID = frontier.popLast() {
+                guard let capability = accepted[layerID],
+                      case let .externalPrimary(binding) =
+                        capability.dependencyOwnership,
+                      let provider = accepted[binding.providerLayerID],
+                      provider.isGraphOutputProvider,
+                      reachable.insert(binding.providerLayerID).inserted else {
+                    continue
+                }
+                frontier.append(binding.providerLayerID)
+            }
+            let unreachableProviders = accepted.compactMap {
+                layerID, capability -> Int? in
+                capability.isGraphOutputProvider && !reachable.contains(layerID)
+                    ? layerID : nil
+            }
+            if !unreachableProviders.isEmpty {
+                for layerID in unreachableProviders {
+                    accepted.removeValue(forKey: layerID)
+                    rejected["dependency-graph-provider-unreachable", default: 0] += 1
+                }
+                didChange = true
+            }
+        }
     }
 
     func claim(layerID: Int) -> ClaimedLayer? {

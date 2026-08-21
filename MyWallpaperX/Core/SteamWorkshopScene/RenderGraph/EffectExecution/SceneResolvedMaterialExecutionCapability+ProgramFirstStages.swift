@@ -41,7 +41,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 products: [product],
                 pairPlan: admitted.pairPlan,
                 dependencyOwnership: admitted.dependencyOwnership,
-                sourceRoute: stageSourceRoute
+                sourceRoute: stageSourceRoute,
+                isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
+                isGraphOutputProvider: admitted.isGraphOutputProvider,
+                requiresGraphOutputProvider:
+                    admitted.requiresGraphOutputProvider
             )
             if let program = externallyOwnedImageBlendProgram(
                 for: effect.key,

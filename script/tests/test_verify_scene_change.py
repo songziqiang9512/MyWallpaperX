@@ -328,6 +328,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("layer-dependencies", groups)
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         for module in (
+            "test_scene_dependency_graph_output_runtime",
             "test_scene_dependency_render_plan",
             "test_scene_named_render_target_pool",
             "test_scene_framebuffer_capture",

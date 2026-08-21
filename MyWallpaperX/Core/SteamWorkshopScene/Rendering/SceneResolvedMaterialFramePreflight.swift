@@ -74,7 +74,18 @@ extension SceneMetalRenderer {
                 commandBuffer: commandBuffer
             ) {
             case .ready:
-                break
+                guard let preparedOutputs = imageCompositor
+                        .preparedResolvedMaterialOutputTexturesByLayerID(),
+                      dependencyRuntime.installPreparedGraphOutputs(
+                        preparedOutputs,
+                        frameEpoch: textureRegistry.frameEpoch
+                      ) else {
+                    imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                        "prepared-provider-output-install-rejected"
+                    )
+                    _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
+                    return nil
+                }
             case .rejected:
                 _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
                 return nil

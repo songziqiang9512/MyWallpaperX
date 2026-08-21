@@ -1262,6 +1262,60 @@ enum Harness {
         )
     }
 
+    static func hiddenCapabilityAdmissionEvidence() -> [String: Any] {
+        let fixture = orderedGraph(
+            layerID: 940,
+            stageNames: ["scroll", "transform"]
+        )
+        let hiddenDescriptor = SceneRenderDescriptor(
+            layers: fixture.descriptor.layers.map { layer in
+                .init(
+                    id: layer.id,
+                    parentID: layer.parentID,
+                    visible: false,
+                    contentKind: layer.contentKind,
+                    effects: layer.effects
+                )
+            },
+            materialPasses: fixture.descriptor.materialPasses
+        )
+        let subjects = fixture.graph.effects.map {
+            SceneEffectExactRuntimeSubject(
+                key: $0.key,
+                family: "resolved-material"
+            )
+        }
+        let owned = SceneEffectAdmissionCatalog(
+            descriptor: hiddenDescriptor,
+            authoredPlans: [fixture.graph],
+            resolvedMaterialSubjects: subjects
+        )
+        let unowned = SceneEffectAdmissionCatalog(
+            descriptor: hiddenDescriptor,
+            authoredPlans: [fixture.graph]
+        )
+        let incomplete = SceneEffectAdmissionCatalog(
+            descriptor: hiddenDescriptor,
+            authoredPlans: [fixture.graph],
+            resolvedMaterialSubjects: Array(subjects.prefix(1))
+        )
+        func values(
+            _ catalog: SceneEffectAdmissionCatalog
+        ) -> [[String]] {
+            catalog.stageAdmissions.map {
+                [$0.activity.rawValue, $0.admission.rawValue, $0.coverage.rawValue]
+            }
+        }
+        return [
+            "owned": values(owned),
+            "unowned": values(unowned),
+            "incomplete": values(incomplete),
+            "ownedStageCount": owned.unifiedExecutionStageKeys.count,
+            "unownedStageCount": unowned.unifiedExecutionStageKeys.count,
+            "incompleteStageCount": incomplete.unifiedExecutionStageKeys.count,
+        ]
+    }
+
     static func stageEvidence(
         graph: Graph,
         descriptor: SceneRenderDescriptor
@@ -1640,6 +1694,7 @@ enum Harness {
             ) == nil,
             "precedence": resolverPrecedence(),
             "materialOnly": materialOnlyResolverEvidence(),
+            "hiddenCapabilityAdmission": hiddenCapabilityAdmissionEvidence(),
             "extraEffectRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10, extraEffect: true), descriptor: descriptor) == nil,
             "blockerRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10, blockers: [blocker]), descriptor: descriptor) == nil,
             "uniqueRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10, unique: true), descriptor: descriptor) == nil,
@@ -1888,6 +1943,29 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertEqual(evidence["staticMode"], 7)
         self.assertEqual(evidence["gain"], [0.25, 0.75])
         self.assertTrue(evidence["dynamicPassWithoutIdentityRejected"])
+
+    def test_hidden_effect_stages_are_active_only_for_complete_capability_ownership(
+        self,
+    ) -> None:
+        evidence = self.result["hiddenCapabilityAdmission"]
+        self.assertEqual(
+            evidence["owned"],
+            [
+                ["active", "admitted-generic", "complete"],
+                ["active", "admitted-generic", "complete"],
+            ],
+        )
+        for key in ("unowned", "incomplete"):
+            self.assertEqual(
+                evidence[key],
+                [
+                    ["layer-hidden", "inactive", "inactive"],
+                    ["layer-hidden", "inactive", "inactive"],
+                ],
+            )
+        self.assertEqual(evidence["ownedStageCount"], 2)
+        self.assertEqual(evidence["unownedStageCount"], 0)
+        self.assertEqual(evidence["incompleteStageCount"], 0)
 
     def test_unsupported_graph_shapes_fail_closed(self) -> None:
         for key in (

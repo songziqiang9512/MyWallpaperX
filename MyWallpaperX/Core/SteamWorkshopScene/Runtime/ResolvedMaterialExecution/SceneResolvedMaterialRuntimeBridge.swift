@@ -136,6 +136,29 @@ final class SceneResolvedMaterialRuntimeBridge {
         let time: Float
         let audioSpectrum: SceneAudioSpectrumSnapshot
         let dependencyEffect: SceneDependencyEffectInput?
+
+        func withDependencyEffect(
+            _ dependencyEffect: SceneDependencyEffectInput?
+        ) -> Self {
+            .init(
+                masks: masks,
+                dynamicValues: dynamicValues,
+                pipelines: pipelines,
+                cursorUV: cursorUV,
+                previousCursorUV: previousCursorUV,
+                pointerIsInside: pointerIsInside,
+                previousPointerIsInside: previousPointerIsInside,
+                pointerMovement: pointerMovement,
+                primaryButtonIsDown: primaryButtonIsDown,
+                layerModelMatrix: layerModelMatrix,
+                effectTextureProjectionMatrixInverse:
+                    effectTextureProjectionMatrixInverse,
+                frameTime: frameTime,
+                time: time,
+                audioSpectrum: audioSpectrum,
+                dependencyEffect: dependencyEffect
+            )
+        }
     }
 
     enum FramePreparationResult {
@@ -374,6 +397,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         )
     }
 
+    func preparedOutputTexturesByLayerID() -> [Int: MTLTexture]? {
+        submissions.preparedOutputTexturesByLayerID()
+    }
+
     func rejectPreparedExternalDependencyLocally(
         layerID: Int,
         reasonCode: String
@@ -393,6 +420,18 @@ final class SceneResolvedMaterialRuntimeBridge {
             ticket,
             texture: texture,
             consumed: consumed
+        )
+    }
+
+    func markNamedPublication(
+        _ ticket: ExecutionTicket,
+        texture: MTLTexture,
+        published: Bool
+    ) -> CompositeOutcome {
+        submissions.markNamedPublication(
+            ticket,
+            texture: texture,
+            published: published
         )
     }
 

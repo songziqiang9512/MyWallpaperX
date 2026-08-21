@@ -144,6 +144,7 @@ struct SceneDependencyRenderPlan {
     let references: [Reference]
     let namedReferenceConsumerLayerIDs: Set<Int>
     let bindingsByConsumerLayerID: [Int: Binding]
+    let requiredGraphOutputProviderLayerIDs: Set<Int>
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -168,6 +169,13 @@ struct SceneDependencyRenderPlan {
             }
         }
         bindingsByConsumerLayerID = bindings
+        requiredGraphOutputProviderLayerIDs = Set(bindings.values.compactMap { binding in
+            descriptor.layers.first(where: { $0.id == binding.providerLayerID })
+                .flatMap { provider in
+                    provider.effects.contains(where: { $0.visible != false })
+                        ? provider.id : nil
+                }
+        })
     }
 }
 

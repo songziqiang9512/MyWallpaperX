@@ -197,7 +197,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return ledger.phase == .sealed
                 && ledger.submissionID == submission.identity
                 && ledger.ticketConsumed
-                && ledger.compositorConsumed
+                && ledger.outputConsumed
         }
     }
 
@@ -255,7 +255,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         for identity in ledgerIDs {
             guard let ledger = activeByID[identity],
                   let blueprint = ledger.blueprint,
-                  ledger.phase == .composited else { return nil }
+                  ledger.phase == .outputConsumed else { return nil }
             var observations: [SceneGraphExecutionObservation] = []
             for value in ledger.prepared.stages {
                 guard let mappingGeneration = blueprint
@@ -273,6 +273,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                             terminalEffect: ledger.prepared.stages[
                                 ledger.prepared.stages.count - 1
                             ].effect,
+                            terminalCompositorConsumed:
+                                ledger.compositorConsumed,
                             outcome: .succeeded,
                             gpu: .completed
                         )
@@ -306,6 +308,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                         terminalEffect: ledger.prepared.stages[
                             ledger.prepared.stages.count - 1
                         ].effect,
+                        terminalCompositorConsumed: false,
                         outcome: .failed(reasonCode: reasonCode),
                         gpu: gpu
                     )

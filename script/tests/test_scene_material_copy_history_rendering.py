@@ -133,7 +133,17 @@ SUPPORT = (
         let time: Float = 0
         let layerModelMatrix = matrix_identity_float4x4
         let effectTextureProjectionMatrixInverse = matrix_identity_float4x4
-        let dependencyEffect: SceneDependencyEffectInput? = nil
+        let dependencyEffect: SceneDependencyEffectInput?
+
+        init(dependencyEffect: SceneDependencyEffectInput? = nil) {
+            self.dependencyEffect = dependencyEffect
+        }
+
+        func withDependencyEffect(
+            _ dependencyEffect: SceneDependencyEffectInput?
+        ) -> Self {
+            .init(dependencyEffect: dependencyEffect)
+        }
     }
     struct FramePreparationRequest {
         let claim: ClaimedExecution

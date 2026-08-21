@@ -3,7 +3,7 @@ import Metal
 extension SceneResolvedMaterialSubmissionCoordinator {
     /// Rejects one prepared external-dependency transaction before encoding,
     /// releases only its allocation, and rebases independent successors on the
-    /// last composited tails. Integrity failures still use the frame-failure
+    /// last terminal-output tails. Integrity failures still use the frame-failure
     /// path; this entry point accepts only the typed ordinary capture miss.
     func rejectPreparedExternalDependencyLocally(
         layerID: Int,
@@ -37,7 +37,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               }),
               ledger.commandBuffer.status == .notEnqueued,
               activeTransactions[..<index].allSatisfy({
-                  activeByID[$0]?.phase == .composited
+                  activeByID[$0]?.phase == .outputConsumed
               }) else {
             lock.unlock()
             return false
@@ -116,7 +116,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                   frameEpoch: frame.textureRegistrySnapshot.frameEpoch
               ),
               activeTransactions[..<index].allSatisfy({
-                  activeByID[$0]?.phase == .composited
+                  activeByID[$0]?.phase == .outputConsumed
               }), activeTransactions[activeTransactions.index(after: index)...]
                 .allSatisfy({ activeByID[$0]?.phase == .allocationCommitted })
         else {

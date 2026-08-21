@@ -24,6 +24,7 @@ enum SceneResolvedMaterialGraphObservationBuilder {
         resetReason: SceneGraphExecutionResetReason?,
         committedBaseState: State? = nil,
         terminalEffect: Graph.EffectKey,
+        terminalCompositorConsumed: Bool,
         outcome: SceneGraphExecutionOutcome,
         gpu: SceneGraphExecutionGPUCompletionStatus?
     ) throws -> SceneGraphExecutionObservation {
@@ -98,7 +99,9 @@ enum SceneResolvedMaterialGraphObservationBuilder {
                 : historyState(value),
             resetReason: failed ? nil : resetReason,
             finalOutput: final,
-            compositorConsumed: !failed && value.effect == terminalEffect,
+            compositorConsumed: !failed
+                && terminalCompositorConsumed
+                && value.effect == terminalEffect,
             outcome: outcome,
             gpuCompletionStatus: gpu
         )

@@ -264,6 +264,7 @@ struct SceneDependencyRenderPlan {
     let references: [Reference]
     let namedReferenceConsumerLayerIDs: Set<Int>
     let bindingsByConsumerLayerID: [Int: Binding]
+    let requiredGraphOutputProviderLayerIDs: Set<Int>
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -288,6 +289,13 @@ struct SceneDependencyRenderPlan {
             }
         }
         bindingsByConsumerLayerID = bindings
+        requiredGraphOutputProviderLayerIDs = Set(bindings.values.compactMap { binding in
+            descriptor.layers.first(where: { $0.id == binding.providerLayerID })
+                .flatMap { provider in
+                    provider.effects.contains(where: { $0.visible != false })
+                        ? provider.id : nil
+                }
+        })
     }
 }
 
@@ -1129,6 +1137,7 @@ private func externalProceduralGraph() -> Graph {
 private func externalResolvedMaterialDescriptor(
     utilityConsumer: Bool = false,
     includeOpacity: Bool = false,
+    effectfulHiddenProvider: Bool = false,
     dependencyLayerIDs: [Int] = [providerLayerID],
     authoredDependencies: [Int] = [],
     references: [SceneDependencyRenderPlan.Reference]? = nil,
@@ -1160,9 +1169,16 @@ private func externalResolvedMaterialDescriptor(
         layers: [
             .init(
                 id: providerLayerID,
-                effects: [],
-                contentKind: "composition",
-                utilityLayer: .init(kind: .composition)
+                effects: effectfulHiddenProvider ? [.init(
+                    id: "provider-active",
+                    file: "effects/provider/effect.json",
+                    visible: true,
+                    passes: [.init(passIndex: 0, combos: [:])]
+                )] : [],
+                contentKind: effectfulHiddenProvider ? "image" : "composition",
+                utilityLayer: effectfulHiddenProvider
+                    ? nil : .init(kind: .composition),
+                visible: effectfulHiddenProvider ? false : true
             ),
             .init(
                 id: layerID,
@@ -1804,6 +1820,20 @@ private enum Harness {
         let externalResolvedMaterialCapability = externalResolvedMaterial
             .claim(layerID: layerID)
             .flatMap { externalResolvedMaterial.resolve($0.token) }
+        let hiddenProviderAdmission =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: externalResolvedMaterialDescriptor(
+                    effectfulHiddenProvider: true
+                ),
+                authoredPlans: [resolvedMaterialGraph]
+            ).first { $0.layerID == providerLayerID }
+        let hiddenProviderUsesGraphOutputRoute: Bool
+        switch hiddenProviderAdmission?.result {
+        case let .failure(reason):
+            hiddenProviderUsesGraphOutputRoute = reason.code == "raw-graph-count"
+        case .success, .none:
+            hiddenProviderUsesGraphOutputRoute = false
+        }
         let utilityExternalResolvedMaterial = externalResolvedMaterialCatalog(
             descriptor: externalResolvedMaterialDescriptor(utilityConsumer: true),
             graph: resolvedMaterialGraph
@@ -3284,6 +3314,8 @@ private enum Harness {
                     extraNodeComposeCatalog.claim(layerID: layerID) == nil,
                 "externalResolvedMaterialAccepted":
                     externalResolvedMaterialCapability?.stages.count == 1,
+                "hiddenProviderUsesGraphOutputRoute":
+                    hiddenProviderUsesGraphOutputRoute,
                 "externalResolvedMaterialRejectsSecondary": reportHas(
                     secondaryExternalResolvedMaterial,
                     "execution-route-dependency-owner"
@@ -3648,6 +3680,29 @@ struct SceneResolvedMaterialAdmittedLayer {
     let pairPlan: SceneLayerFullFramePairPlan
     let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
     let sourceRoute: SourceRoute
+    var isVisibleExecutionRoot: Bool = true
+    var isGraphOutputProvider: Bool = false
+    var requiresGraphOutputProvider: Bool = false
+
+    init(
+        layerID: Int,
+        products: [SceneGraphAdmissionProduct],
+        pairPlan: SceneLayerFullFramePairPlan,
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        sourceRoute: SourceRoute,
+        isVisibleExecutionRoot: Bool = true,
+        isGraphOutputProvider: Bool = false,
+        requiresGraphOutputProvider: Bool = false
+    ) {
+        self.layerID = layerID
+        self.products = products
+        self.pairPlan = pairPlan
+        self.dependencyOwnership = dependencyOwnership
+        self.sourceRoute = sourceRoute
+        self.isVisibleExecutionRoot = isVisibleExecutionRoot
+        self.isGraphOutputProvider = isGraphOutputProvider
+        self.requiresGraphOutputProvider = requiresGraphOutputProvider
+    }
 }
 
 enum SceneResolvedMaterialExecutionCapabilityAdmission {
@@ -6896,6 +6951,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "fullFrameComposeStageRejectsMissingCompose": True,
                 "fullFrameComposeStageRejectsExtraNode": True,
                 "externalResolvedMaterialAccepted": True,
+                "hiddenProviderUsesGraphOutputRoute": True,
                 "externalResolvedMaterialRejectsSecondary": True,
                 "externalResolvedMaterialRejectsWrongSlot": True,
                 "externalResolvedMaterialRejectsWrongDependencyID": True,

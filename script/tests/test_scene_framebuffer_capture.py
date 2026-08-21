@@ -446,6 +446,19 @@ final class SceneResolvedMaterialRuntimeBridge {
             ? .consumed : .failed(reasonCode: "fixture-composite-not-consumed")
     }
 
+    func preparedOutputTexturesByLayerID() -> [Int: MTLTexture]? { [:] }
+
+    func markNamedPublication(
+        _ ticket: ExecutionTicket,
+        texture: MTLTexture,
+        published: Bool
+    ) -> CompositeOutcome {
+        _ = ticket
+        _ = texture
+        return published
+            ? .consumed : .failed(reasonCode: "fixture-publication-missing")
+    }
+
     func auditResolvedMaterials(
         graph: SceneAuthoredEffectRenderPlan,
         targets: SceneGraphRenderTargetTable
