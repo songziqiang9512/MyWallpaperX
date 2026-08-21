@@ -526,10 +526,9 @@ inline float4 \(premultiply)(float4 color) {
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
         else { return nil }
 
-        let calls = matches(
-            #"\bg_Texture([0-7])\.sample\(([^;\n]+)\)"#,
-            in: source
-        )
+        guard let calls = compilerTextureSampleCalls(in: source) else {
+            return nil
+        }
         let expectedTotal = colorSampleCallCounts.values.reduce(0, +)
             + dataSampleCallCounts.values.reduce(0, +)
         guard calls.count == expectedTotal else { return nil }
@@ -537,28 +536,26 @@ inline float4 \(premultiply)(float4 color) {
         var observedRGBColorCounts: [Int: Int] = [:]
         var observedDataCounts: [Int: Int] = [:]
         for call in calls {
-            guard let rawSlot = capture(call, 1, in: source),
-                  let slot = Int(rawSlot),
-                  let range = Range(call.range, in: source) else { return nil }
+            guard let range = Range(call.range, in: source) else { return nil }
             let suffix = source[range.upperBound...]
-            if dataSampleCallCounts[slot] != nil {
+            if dataSampleCallCounts[call.slot] != nil {
                 guard suffix.range(
                     of: #"^\.(?:xy|rg)\b"#,
                     options: .regularExpression
                 ) != nil else { return nil }
-                observedDataCounts[slot, default: 0] += 1
-            } else if rgbColorSampleCallCounts[slot] != nil,
+                observedDataCounts[call.slot, default: 0] += 1
+            } else if rgbColorSampleCallCounts[call.slot] != nil,
                       suffix.range(
                           of: #"^\.(?:xyz|rgb)\b"#,
                           options: .regularExpression
                       ) != nil {
-                observedRGBColorCounts[slot, default: 0] += 1
-            } else if fullColorSampleCallCounts[slot] != nil,
+                observedRGBColorCounts[call.slot, default: 0] += 1
+            } else if fullColorSampleCallCounts[call.slot] != nil,
                       suffix.range(
                           of: #"^\s*;"#,
                           options: .regularExpression
                       ) != nil {
-                observedFullColorCounts[slot, default: 0] += 1
+                observedFullColorCounts[call.slot, default: 0] += 1
             } else {
                 return nil
             }
@@ -587,9 +584,7 @@ inline float4 \(premultiply)(float4 color) {
             with: "\(indent)out.mwxFragColor = \(premultiply)(\(carrier));"
         )
         let colorCalls = calls.filter { call in
-            guard let rawSlot = capture(call, 1, in: source),
-                  let slot = Int(rawSlot) else { return false }
-            return colorSampleCallCounts[slot] != nil
+            colorSampleCallCounts[call.slot] != nil
         }
         for call in colorCalls.sorted(by: {
             $0.range.location > $1.range.location
@@ -604,6 +599,45 @@ inline float4 \(premultiply)(float4 color) {
             )
         }
         return insertingBoundaryHelpers(into: transformed)
+    }
+
+    private struct CompilerTextureSampleCall {
+        let range: NSRange
+        let slot: Int
+    }
+
+    private static func compilerTextureSampleCalls(
+        in source: String
+    ) -> [CompilerTextureSampleCall]? {
+        let starts = matches(#"\bg_Texture([0-7])\.sample\("#, in: source)
+        var result: [CompilerTextureSampleCall] = []
+        for start in starts {
+            guard let rawSlot = capture(start, 1, in: source),
+                  let slot = Int(rawSlot),
+                  let startRange = Range(start.range, in: source),
+                  let open = source[..<startRange.upperBound].lastIndex(of: "(")
+            else { return nil }
+            var depth = 0
+            var close: String.Index?
+            var cursor = open
+            while cursor < source.endIndex {
+                let character = source[cursor]
+                if character == "(" { depth += 1 }
+                if character == ")" {
+                    depth -= 1
+                    if depth == 0 {
+                        close = cursor
+                        break
+                    }
+                    if depth < 0 { return nil }
+                }
+                cursor = source.index(after: cursor)
+            }
+            guard let close else { return nil }
+            let range = startRange.lowerBound..<source.index(after: close)
+            result.append(.init(range: NSRange(range, in: source), slot: slot))
+        }
+        return result
     }
 
     private static func insertingBoundaryHelpers(into source: String) -> String? {

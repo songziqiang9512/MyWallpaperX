@@ -347,7 +347,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
             )?
             if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer
-                .analyze(fragmentSource: authoredSource) {
+                .analyzeAny(fragmentSource: authoredSource) {
                 guard fact.sourceSlot == expectedSlot,
                       let lowered = SceneGenericShaderStraightAlphaPreservingLowering
                         .lowerPreservedAlphaRGBFilter(

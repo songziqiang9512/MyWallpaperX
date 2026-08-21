@@ -43,6 +43,20 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer {
         return analyze(fragment)
     }
 
+    static func analyzeAny(fragmentSource source: String) -> Fact? {
+        analyze(fragmentSource: source)
+            ?? SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer.analyze(
+                fragmentSource: source
+            )
+    }
+
+    static func analyzeAny(_ fragment: Unit) -> Fact? {
+        analyze(fragment)
+            ?? SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer.analyze(
+                fragment
+            )
+    }
+
     static func analyze(_ fragment: Unit) -> Fact? {
         guard fragment.stage == .fragment,
               let main = fragment.functions.first(where: { $0.name == "main" })

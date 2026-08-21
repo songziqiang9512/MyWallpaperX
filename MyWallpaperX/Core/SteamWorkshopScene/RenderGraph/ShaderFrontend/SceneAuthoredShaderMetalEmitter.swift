@@ -79,7 +79,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
              let .straightAlphaUNorm(slot), let .independentAlphaSignal(slot):
             if case .straightAlphaPreserving = colorTransfer,
                let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer
-                .analyze(fragment), fact.sourceSlot == slot {
+                .analyzeAny(fragment), fact.sourceSlot == slot {
                 unpremultipliedTextureSlots = Set(fact.colorSampleCallCounts.keys)
             } else {
                 unpremultipliedTextureSlots = [slot]

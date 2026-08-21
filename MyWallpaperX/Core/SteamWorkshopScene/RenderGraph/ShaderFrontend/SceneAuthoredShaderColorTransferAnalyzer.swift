@@ -163,7 +163,7 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlpha(textureSlot: fact.textureSlot)
         }
-        if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyze(
+        if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
             fragment
         ) {
             return .straightAlphaPreserving(textureSlot: fact.sourceSlot)
