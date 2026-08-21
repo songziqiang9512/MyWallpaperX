@@ -69,6 +69,10 @@ METAL_VIEW = SCENE_ROOT / "Rendering/SceneMetalView.swift"
 TEXT_TEXTURE_LOADER = SCENE_ROOT / "Text/SceneTextTextureLoader.swift"
 HOST = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
 DEBUG_RUNNER = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
+DEBUG_SURFACE_STOP_RELAUNCH_RUNNER = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/App/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift"
+)
 HOST_FRAME_DRIVER = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
@@ -3943,6 +3947,10 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         view = METAL_VIEW_FRAME_CONTEXT.read_text(encoding="utf-8")
         host = HOST.read_text(encoding="utf-8")
         runner = DEBUG_RUNNER.read_text(encoding="utf-8")
+        surface_stop_runner = DEBUG_SURFACE_STOP_RELAUNCH_RUNNER.read_text(
+            encoding="utf-8"
+        )
+        lifecycle_runner = runner + surface_stop_runner
         host_driver = HOST_FRAME_DRIVER.read_text(encoding="utf-8")
 
         self.assertIn("submissions.invalidate(reason: reason)", bridge)
@@ -3981,6 +3989,26 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("SceneDesktopWallpaperHost.shared.launch(", runner)
         self.assertIn('phase=scene-switch state=triggered accepted=true', runner)
         self.assertIn('reason: "scene-switch-after"', runner)
+        self.assertIn(
+            '"MWX_SCENE_DEBUG_SURFACE_STOP_RELAUNCH_AFTER"',
+            lifecycle_runner,
+        )
+        self.assertIn(
+            "SceneDesktopWallpaperHost.shared.stop()",
+            surface_stop_runner,
+        )
+        self.assertIn(
+            'phase=surface-stop-relaunch state=stopped',
+            surface_stop_runner,
+        )
+        self.assertIn(
+            'phase=surface-stop-relaunch state=relaunched accepted=true',
+            surface_stop_runner,
+        )
+        self.assertIn(
+            'reason: "surface-stop-relaunch-after"',
+            surface_stop_runner,
+        )
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_current_submission_coordinator_lifecycle_behaviors(self) -> None:

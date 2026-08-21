@@ -54,6 +54,9 @@ enum DebugScenePlaybackRunner {
             return
         }
         let environment = ProcessInfo.processInfo.environment
+        let surfaceStopRelaunchDelay = requestedSurfaceStopRelaunchDelay(
+            duration: requestedDuration
+        )
         guard environment[executorInvalidationDelayEnvironmentKey] == nil
                 || requestedExecutorInvalidationDelay != nil else {
             NSLog(
@@ -70,8 +73,20 @@ enum DebugScenePlaybackRunner {
             terminate(after: 0.1)
             return
         }
+        guard environment[surfaceStopRelaunchDelayEnvironmentKey] == nil
+                || surfaceStopRelaunchDelay != nil else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=precondition-failed reason=invalid-surface-stop-relaunch-delay"
+            )
+            terminate(after: 0.1)
+            return
+        }
         guard requestedExecutorInvalidationDelay == nil
-                || requestedSceneSwitchDelay == nil else {
+                || requestedSceneSwitchDelay == nil,
+              requestedExecutorInvalidationDelay == nil
+                || surfaceStopRelaunchDelay == nil,
+              requestedSceneSwitchDelay == nil
+                || surfaceStopRelaunchDelay == nil else {
             NSLog(
                 "MWX DEBUG SCENE: phase=precondition-failed reason=multiple-runtime-lifecycle-faults"
             )
@@ -149,6 +164,12 @@ enum DebugScenePlaybackRunner {
                     delay
                 )
             }
+            if let delay = surfaceStopRelaunchDelay {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=surface-stop-relaunch state=configured delay=%.3f",
+                    delay
+                )
+            }
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
             publishRequestedMediaThumbnail(rootURL: rootURL)
@@ -207,6 +228,15 @@ enum DebugScenePlaybackRunner {
                     outputDirectory: evidenceDirectory
                 )
                 scheduleSceneSwitch(
+                    rootURL: rootURL,
+                    propertyOverrides: requestedPropertyOverrides,
+                    userPropertyTextureURLs: userPropertyTextureURLs,
+                    logURL: previewLogURL,
+                    outputDirectory: evidenceDirectory
+                )
+                scheduleSurfaceStopRelaunch(
+                    delay: surfaceStopRelaunchDelay,
+                    recordID: debugRecordID,
                     rootURL: rootURL,
                     propertyOverrides: requestedPropertyOverrides,
                     userPropertyTextureURLs: userPropertyTextureURLs,
@@ -466,7 +496,7 @@ enum DebugScenePlaybackRunner {
         }
     }
 
-    private static func requestSnapshot(reason: String, outputDirectory: URL) {
+    static func requestSnapshot(reason: String, outputDirectory: URL) {
         guard let windowNumber = SceneDesktopWallpaperHost.shared
             .debugSnapshot().windowNumbers.first else {
             NSLog(
