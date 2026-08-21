@@ -206,7 +206,7 @@ Generic 2D lit-material lighting 仍为 `L0`；`b856f4ee` 的 bounded standalone
 | effect/material/pass IR | `L2` | 字段可保存并建图 | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
 | strict known graph executors | `L3` | precise/default Blur、stock Local Contrast、exact Workshop Shadow 及全支持 ordered strict chain；首条真实链为 `3724289844:20` 的 `Blur Precise -> Shadow`；[E-EFFECT-BLUR](runtime-evidence-index.md#e-effect-blur)、[E-EFFECT-LOCAL-CONTRAST](runtime-evidence-index.md#e-effect-local-contrast)、[E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | [Effect 执行表](effect-execution-coverage.md) |
 | arbitrary authored shader | `L0` | 自有 Metal 近似不等于作者 shader | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
-| history/copy/swap generic runtime | `L0` | IR 保留不等于跨帧执行 | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
+| history/copy/swap generic runtime | `L3 bounded` | 共享GraphExecutor/GraphTargets已执行一个effect-scoped RGBA/BGRA的2 material + 1 copy persistent history、同effect双copy及两个descriptor-identical copy/swap组合；生命周期还闭合同输入、same-identity/different-authored-state及一次same-identity/different-target-topology正式scene switch、surface stop/relaunch和pause/resume。其他topology/format/provider、seek/device loss/multi-surface与官方parity不外推 | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
 
 通用执行不等于把所有对象塞进一个巨型 renderer。Puppet deformation、2D/3D lighting、model animation/physics、RGB output 和 offline bake 可以拥有各自凝聚的解析、simulation/evaluator 与 geometry 子系统；它们仍必须把结果降低到共享 identity、frame snapshot、resource/provider generation、Program/material、graph/target/publication 和 compositor output。不得因为存在专用子系统就建立按完整对象/样本名称选择视觉答案的第二条产品主链，也不得提前把 2D bounded executor 宣称为高级对象支持。
 
