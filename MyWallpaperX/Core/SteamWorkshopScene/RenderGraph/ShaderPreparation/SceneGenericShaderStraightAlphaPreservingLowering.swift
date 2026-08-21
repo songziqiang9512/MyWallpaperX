@@ -502,6 +502,110 @@ inline float4 \(premultiply)(float4 color) {
         return insertingBoundaryHelpers(into: transformed)
     }
 
+    /// Conserves a source-proven preserved-alpha RGB filter through the fixed
+    /// compiler shape. Every full/RGB color sample crosses into straight color;
+    /// typed `.xy` data samples remain untouched, and the sole terminal carrier
+    /// returns to premultiplied compositor storage.
+    static func lowerPreservedAlphaRGBFilter(
+        _ source: String,
+        fullColorSampleCallCounts: [Int: Int],
+        rgbColorSampleCallCounts: [Int: Int],
+        dataSampleCallCounts: [Int: Int]
+    ) -> String? {
+        let colorSampleCallCounts = fullColorSampleCallCounts.merging(
+            rgbColorSampleCallCounts,
+            uniquingKeysWith: +
+        )
+        guard !colorSampleCallCounts.isEmpty,
+              !dataSampleCallCounts.isEmpty,
+              Set(colorSampleCallCounts.keys).isDisjoint(
+                  with: dataSampleCallCounts.keys
+              ),
+              !containsWord(unpremultiply, in: source),
+              !containsWord(premultiply, in: source),
+              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
+        else { return nil }
+
+        let calls = matches(
+            #"\bg_Texture([0-7])\.sample\(([^;\n]+)\)"#,
+            in: source
+        )
+        let expectedTotal = colorSampleCallCounts.values.reduce(0, +)
+            + dataSampleCallCounts.values.reduce(0, +)
+        guard calls.count == expectedTotal else { return nil }
+        var observedFullColorCounts: [Int: Int] = [:]
+        var observedRGBColorCounts: [Int: Int] = [:]
+        var observedDataCounts: [Int: Int] = [:]
+        for call in calls {
+            guard let rawSlot = capture(call, 1, in: source),
+                  let slot = Int(rawSlot),
+                  let range = Range(call.range, in: source) else { return nil }
+            let suffix = source[range.upperBound...]
+            if dataSampleCallCounts[slot] != nil {
+                guard suffix.range(
+                    of: #"^\.(?:xy|rg)\b"#,
+                    options: .regularExpression
+                ) != nil else { return nil }
+                observedDataCounts[slot, default: 0] += 1
+            } else if rgbColorSampleCallCounts[slot] != nil,
+                      suffix.range(
+                          of: #"^\.(?:xyz|rgb)\b"#,
+                          options: .regularExpression
+                      ) != nil {
+                observedRGBColorCounts[slot, default: 0] += 1
+            } else if fullColorSampleCallCounts[slot] != nil,
+                      suffix.range(
+                          of: #"^\s*;"#,
+                          options: .regularExpression
+                      ) != nil {
+                observedFullColorCounts[slot, default: 0] += 1
+            } else {
+                return nil
+            }
+        }
+        guard observedFullColorCounts == fullColorSampleCallCounts,
+              observedRGBColorCounts == rgbColorSampleCallCounts,
+              observedDataCounts == dataSampleCallCounts else { return nil }
+
+        let outputs = matches(
+            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
+            in: source
+        )
+        guard outputs.count == 1,
+              let output = outputs.first,
+              let outputRange = Range(output.range, in: source),
+              let indent = capture(output, 1, in: source),
+              let carrier = capture(output, 2, in: source),
+              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source).count == 1,
+              calls.allSatisfy({ $0.range.location < output.range.location })
+        else { return nil }
+
+        var transformed = source
+        transformed.replaceSubrange(
+            outputRange,
+            with: "\(indent)out.mwxFragColor = \(premultiply)(\(carrier));"
+        )
+        let colorCalls = calls.filter { call in
+            guard let rawSlot = capture(call, 1, in: source),
+                  let slot = Int(rawSlot) else { return false }
+            return colorSampleCallCounts[slot] != nil
+        }
+        for call in colorCalls.sorted(by: {
+            $0.range.location > $1.range.location
+        }) {
+            guard let text = substring(call.range, in: source),
+                  let range = Range(call.range, in: transformed) else {
+                return nil
+            }
+            transformed.replaceSubrange(
+                range,
+                with: "\(unpremultiply)(\(text))"
+            )
+        }
+        return insertingBoundaryHelpers(into: transformed)
+    }
+
     private static func insertingBoundaryHelpers(into source: String) -> String? {
         let helpers = """
 
@@ -558,5 +662,12 @@ inline float4 \(premultiply)(float4 color) {
               match.range(at: index).location != NSNotFound,
               let range = Range(match.range(at: index), in: source) else { return nil }
         return String(source[range])
+    }
+
+    private static func substring(
+        _ range: NSRange,
+        in source: String
+    ) -> String? {
+        Range(range, in: source).map { String(source[$0]) }
     }
 }

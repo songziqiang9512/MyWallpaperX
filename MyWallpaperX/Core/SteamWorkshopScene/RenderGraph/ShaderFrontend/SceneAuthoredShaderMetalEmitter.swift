@@ -15,7 +15,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let attributeNames: Set<String>
         let texturesByName: [String: SceneAuthoredShaderProgram.TextureBinding]
         let globalReferenceTokens: Set<SceneAuthoredShaderToken>
-        let unpremultipliedTextureSlot: Int?
+        let unpremultipliedTextureSlots: Set<Int>
         let omittedStatementRanges: [Range<Int>]
     }
 
@@ -70,18 +70,24 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             texturesByName: texturesByName,
             globalReferenceTokens:
                 SceneAuthoredShaderGlobalReferenceAnalyzer.referenceTokens(in: vertex),
-            unpremultipliedTextureSlot: nil,
+            unpremultipliedTextureSlots: [],
             omittedStatementRanges: omittedVertexStatementRanges
         )
-        let unpremultipliedTextureSlot: Int?
+        let unpremultipliedTextureSlots: Set<Int>
         switch colorTransfer {
         case let .straightAlphaPreserving(slot), let .straightAlpha(slot),
              let .straightAlphaUNorm(slot), let .independentAlphaSignal(slot):
-            unpremultipliedTextureSlot = slot
+            if case .straightAlphaPreserving = colorTransfer,
+               let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer
+                .analyze(fragment), fact.sourceSlot == slot {
+                unpremultipliedTextureSlots = Set(fact.colorSampleCallCounts.keys)
+            } else {
+                unpremultipliedTextureSlots = [slot]
+            }
         case let .independentAlphaSignalCompositing(_, colorSlot):
-            unpremultipliedTextureSlot = colorSlot
+            unpremultipliedTextureSlots = [colorSlot]
         default:
-            unpremultipliedTextureSlot = nil
+            unpremultipliedTextureSlots = []
         }
         let fragmentContext = Context(
             unit: fragment,
@@ -93,7 +99,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             texturesByName: texturesByName,
             globalReferenceTokens:
                 SceneAuthoredShaderGlobalReferenceAnalyzer.referenceTokens(in: fragment),
-            unpremultipliedTextureSlot: unpremultipliedTextureSlot,
+            unpremultipliedTextureSlots: unpremultipliedTextureSlots,
             omittedStatementRanges: []
         )
         let vertexEmission = emitStage(context: vertexContext, textures: textures)
@@ -405,7 +411,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         } ?? coordinate.source
         let sample = "mwxTexture\(texture.slot).sample(mwxSampler\(texture.slot), "
             + "\(coordinateSource)\(level))"
-        let sampledSource = context.unpremultipliedTextureSlot == texture.slot
+        let sampledSource = context.unpremultipliedTextureSlots.contains(texture.slot)
             ? "mwxUnpremultiply(\(sample))"
             : sample
         let suffix = SceneAuthoredShaderVectorConversion.suffixForTextureSample(

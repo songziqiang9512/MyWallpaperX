@@ -142,7 +142,17 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             guard colorTransfer(color.transfer, isBoundBy: bindings) else {
                 throw Failure.colorTransfer
             }
-            let loopWork = try staticLoopWork(stages.map(\.source))
+            let loopWork: Int
+            switch SceneGenericShaderBoundedLoopWork.evaluate(
+                sources: stages.map(\.source)
+            ) {
+            case let .success(work):
+                loopWork = work
+            case .failure(.unbounded):
+                throw Failure.loopUnbounded
+            case .failure(.budget):
+                throw Failure.loopBudget
+            }
             let outputChannelUse = fragmentOutputChannelUse(
                 fragmentStage.source
             )
@@ -332,10 +342,36 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             guard let lowered else { throw Failure.colorTransfer }
             return (lowered, artifactTransfer(kind: "straight-alpha", slot: expectedSlot))
         case let .straightAlphaPreserving(textureSlot: expectedSlot):
-            guard let preserving = straightAlphaPreserving(
-                source,
-                expectedSlot: expectedSlot
-            ) else {
+            let preserving: (
+                msl: String,
+                transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
+            )?
+            if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer
+                .analyze(fragmentSource: authoredSource) {
+                guard fact.sourceSlot == expectedSlot,
+                      let lowered = SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerPreservedAlphaRGBFilter(
+                            source,
+                            fullColorSampleCallCounts:
+                                fact.fullColorSampleCallCounts,
+                            rgbColorSampleCallCounts:
+                                fact.rgbColorSampleCallCounts,
+                            dataSampleCallCounts: fact.dataSampleCallCounts
+                        ) else { throw Failure.colorTransfer }
+                preserving = (
+                    msl: lowered,
+                    transfer: artifactTransfer(
+                        kind: "straight-alpha-preserving",
+                        slot: expectedSlot
+                    )
+                )
+            } else {
+                preserving = straightAlphaPreserving(
+                    source,
+                    expectedSlot: expectedSlot
+                )
+            }
+            guard let preserving else {
                 throw Failure.colorTransfer
             }
             return preserving
@@ -649,43 +685,6 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         var result = fragment
         result.removeSubrange(range)
         return (vertex, result)
-    }
-
-    private static func staticLoopWork(_ sources: [String]) throws -> Int {
-        let loopPattern = #"\bfor\s*\(\s*int\s+([A-Za-z_]\w*)\s*=\s*0\s*;\s*([A-Za-z_]\w*)\s*<\s*(\d+)\s*;\s*(?:(?:\+\+\s*([A-Za-z_]\w*))|(?:([A-Za-z_]\w*)\s*\+\+))\s*\)"#
-        var total = 0
-        for source in sources {
-            var body = source.replacingOccurrences(
-                of: #"(?s)/\*.*?\*/|//[^\n]*"#,
-                with: " ",
-                options: .regularExpression
-            )
-            let loops = matches(loopPattern, in: body)
-            for match in loops.reversed() {
-                guard let declared = capture(match, 1, in: body),
-                      let compared = capture(match, 2, in: body),
-                      let limitText = capture(match, 3, in: body),
-                      let limit = Int(limitText), (1 ... 64).contains(limit),
-                      [capture(match, 4, in: body), capture(match, 5, in: body)]
-                        .compactMap({ $0 }).contains(declared),
-                      declared == compared,
-                      let range = Range(match.range, in: body) else {
-                    throw Failure.loopUnbounded
-                }
-                total += limit
-                body.removeSubrange(range)
-            }
-            let audioLoops = SceneGenericShaderBoundedLoopWork.consumeAudioLoops(in: &body)
-            if audioLoops.found {
-                guard let work = audioLoops.work else { throw Failure.loopUnbounded }
-                total += work
-            }
-            if regexMatches(#"\b(for|while|do)\b"#, body) {
-                throw Failure.loopUnbounded
-            }
-        }
-        guard total <= 256 else { throw Failure.loopBudget }
-        return total
     }
 
     private static func align(_ value: Int, to alignment: Int) -> Int {

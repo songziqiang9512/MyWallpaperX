@@ -65,11 +65,21 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         }
         do {
             let typedVertexSource = rewriteAssignmentVectorConversions(
-                rewriteBuiltInVectorArguments(vertexSource, stage: .vertex),
+                rewriteBuiltInVectorArguments(
+                    SceneGenericShaderBooleanScalarArithmeticNormalizer.rewrite(
+                        vertexSource
+                    ),
+                    stage: .vertex
+                ),
                 stage: .vertex
             )
             let typedFragmentSource = rewriteAssignmentVectorConversions(
-                rewriteBuiltInVectorArguments(fragmentSource, stage: .fragment),
+                rewriteBuiltInVectorArguments(
+                    SceneGenericShaderBooleanScalarArithmeticNormalizer.rewrite(
+                        fragmentSource
+                    ),
+                    stage: .fragment
+                ),
                 stage: .fragment
             )
             var parsed: [String: ParsedStage] = [
