@@ -90,6 +90,10 @@ PIPELINE_REPOSITORY_SOURCE = (
 )
 COORDINATOR_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/MainWindowCoordinator.swift"
 DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
+DEBUG_SCENE_SWITCH_RUNNER_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/App/DebugScenePlaybackRunner+SceneSwitch.swift"
+)
 DEBUG_PAUSE_RESUME_RUNNER_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/App/DebugScenePlaybackRunner+PauseResume.swift"
@@ -794,6 +798,20 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn('state=resumed accepted=%@', probe)
         self.assertIn('reason: "pause-resume-after"', probe)
         self.assertIn("pauseResumeRequest != nil", runner)
+        self.assertIn("runtimeLifecycleProbeCount <= 1", runner)
+
+    def test_debug_scene_switch_accepts_only_isolated_alternate_root(self) -> None:
+        runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
+        probe = DEBUG_SCENE_SWITCH_RUNNER_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn('"MWX_SCENE_DEBUG_SCENE_SWITCH_ROOT"', probe)
+        self.assertIn("isIsolatedSampleRoot(candidate)", probe)
+        self.assertIn("usesAlternateRoot: rootURL != currentRootURL", probe)
+        self.assertIn("rootURL: request.rootURL", probe)
+        self.assertIn("requestedUserPropertyTextureURLs(", probe)
+        self.assertIn("model.renderDescriptor.layers.map(\\.id)", probe)
+        self.assertIn('mode=%@ root=%@ layerIDs=%@', probe)
+        self.assertIn("sceneSwitchRequest != nil", runner)
         self.assertIn("runtimeLifecycleProbeCount <= 1", runner)
 
     def test_launch_callers_forward_raw_root_and_host_owns_runtime_input(self) -> None:

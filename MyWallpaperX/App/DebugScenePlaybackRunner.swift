@@ -60,6 +60,10 @@ enum DebugScenePlaybackRunner {
         let pauseResumeRequest = requestedPauseResumeRequest(
             duration: requestedDuration
         )
+        let sceneSwitchRequest = requestedSceneSwitchRequest(
+            duration: requestedDuration,
+            currentRootURL: rootURL
+        )
         guard environment[executorInvalidationDelayEnvironmentKey] == nil
                 || requestedExecutorInvalidationDelay != nil else {
             NSLog(
@@ -68,8 +72,8 @@ enum DebugScenePlaybackRunner {
             terminate(after: 0.1)
             return
         }
-        guard environment[sceneSwitchDelayEnvironmentKey] == nil
-                || requestedSceneSwitchDelay != nil else {
+        guard !containsSceneSwitchRequest(in: environment)
+                || sceneSwitchRequest != nil else {
             NSLog(
                 "MWX DEBUG SCENE: phase=precondition-failed reason=invalid-scene-switch-delay"
             )
@@ -94,7 +98,7 @@ enum DebugScenePlaybackRunner {
         }
         let runtimeLifecycleProbeCount = [
             requestedExecutorInvalidationDelay != nil,
-            requestedSceneSwitchDelay != nil,
+            sceneSwitchRequest != nil,
             surfaceStopRelaunchDelay != nil,
             pauseResumeRequest != nil,
         ].filter { $0 }.count
@@ -170,12 +174,7 @@ enum DebugScenePlaybackRunner {
                     delay
                 )
             }
-            if let delay = requestedSceneSwitchDelay {
-                NSLog(
-                    "MWX DEBUG SCENE: phase=scene-switch state=configured delay=%.3f",
-                    delay
-                )
-            }
+            logConfiguredSceneSwitch(sceneSwitchRequest)
             if let delay = surfaceStopRelaunchDelay {
                 NSLog(
                     "MWX DEBUG SCENE: phase=surface-stop-relaunch state=configured delay=%.3f",
@@ -247,9 +246,9 @@ enum DebugScenePlaybackRunner {
                     outputDirectory: evidenceDirectory
                 )
                 scheduleSceneSwitch(
-                    rootURL: rootURL,
+                    request: sceneSwitchRequest,
+                    recordID: debugRecordID,
                     propertyOverrides: requestedPropertyOverrides,
-                    userPropertyTextureURLs: userPropertyTextureURLs,
                     logURL: previewLogURL,
                     outputDirectory: evidenceDirectory
                 )
@@ -414,49 +413,6 @@ enum DebugScenePlaybackRunner {
                 requestSnapshot(
                     reason: "executor-invalidation-after",
                     outputDirectory: outputDirectory
-                )
-            }
-        }
-    }
-
-    private static func scheduleSceneSwitch(
-        rootURL: URL,
-        propertyOverrides: [String: SceneUserPropertyValue],
-        userPropertyTextureURLs: [String: URL],
-        logURL: URL?,
-        outputDirectory: URL
-    ) {
-        guard let delay = requestedSceneSwitchDelay else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            let before = SceneDesktopWallpaperHost.shared.debugSnapshot()
-            do {
-                _ = try SceneDesktopWallpaperHost.shared.launch(
-                    rootURL: rootURL,
-                    propertyOverrides: propertyOverrides,
-                    userPropertyTextureURLs: userPropertyTextureURLs,
-                    logURL: logURL,
-                    recordID: debugRecordID
-                )
-                WallpaperEngine.shared.resumeAllPlayers()
-                let after = SceneDesktopWallpaperHost.shared.debugSnapshot()
-                NSLog(
-                    "MWX DEBUG SCENE: phase=scene-switch state=triggered accepted=true surfacesBefore=%d surfacesAfter=%d",
-                    before.surfaceCount,
-                    after.surfaceCount
-                )
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                    requestSnapshot(
-                        reason: "scene-switch-after",
-                        outputDirectory: outputDirectory
-                    )
-                }
-            } catch {
-                let after = SceneDesktopWallpaperHost.shared.debugSnapshot()
-                NSLog(
-                    "MWX DEBUG SCENE: phase=scene-switch state=triggered accepted=false surfacesBefore=%d surfacesAfter=%d error=%@",
-                    before.surfaceCount,
-                    after.surfaceCount,
-                    error.localizedDescription
                 )
             }
         }
@@ -635,18 +591,6 @@ enum DebugScenePlaybackRunner {
         return delay
     }
 
-    private static let sceneSwitchDelayEnvironmentKey =
-        "MWX_SCENE_DEBUG_SCENE_SWITCH_AFTER"
-
-    private static var requestedSceneSwitchDelay: TimeInterval? {
-        guard let raw = ProcessInfo.processInfo.environment[
-            sceneSwitchDelayEnvironmentKey
-        ], let delay = TimeInterval(raw), delay.isFinite,
-              delay >= 1,
-              delay < requestedDuration - 2 else { return nil }
-        return delay
-    }
-
     private static var requestedAfterSnapshotDelay: TimeInterval {
         guard let raw = argumentValue(after: "--mwx-debug-scene-after-snapshot-delay"),
               let delay = TimeInterval(raw), delay.isFinite else {
@@ -711,7 +655,7 @@ enum DebugScenePlaybackRunner {
         )
     }
 
-    private static func isIsolatedSampleRoot(_ rootURL: URL) -> Bool {
+    static func isIsolatedSampleRoot(_ rootURL: URL) -> Bool {
         let fileManager = FileManager.default
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: rootURL.path, isDirectory: &isDirectory),
@@ -761,7 +705,7 @@ enum DebugScenePlaybackRunner {
         }
     }
 
-    private static func requestedUserPropertyTextureURLs(rootURL: URL) -> [String: URL] {
+    static func requestedUserPropertyTextureURLs(rootURL: URL) -> [String: URL] {
         guard let payload = argumentValue(after: "--mwx-debug-scene-textures-json"),
               let data = payload.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: String] else {

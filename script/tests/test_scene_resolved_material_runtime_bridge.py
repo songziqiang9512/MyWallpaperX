@@ -69,6 +69,10 @@ METAL_VIEW = SCENE_ROOT / "Rendering/SceneMetalView.swift"
 TEXT_TEXTURE_LOADER = SCENE_ROOT / "Text/SceneTextTextureLoader.swift"
 HOST = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
 DEBUG_RUNNER = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
+DEBUG_SCENE_SWITCH_RUNNER = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/App/DebugScenePlaybackRunner+SceneSwitch.swift"
+)
 DEBUG_SURFACE_STOP_RELAUNCH_RUNNER = (
     REPOSITORY_ROOT
     / "MyWallpaperX/App/DebugScenePlaybackRunner+SurfaceStopRelaunch.swift"
@@ -3951,13 +3955,21 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         view = METAL_VIEW_FRAME_CONTEXT.read_text(encoding="utf-8")
         host = HOST.read_text(encoding="utf-8")
         runner = DEBUG_RUNNER.read_text(encoding="utf-8")
+        scene_switch_runner = DEBUG_SCENE_SWITCH_RUNNER.read_text(
+            encoding="utf-8"
+        )
         surface_stop_runner = DEBUG_SURFACE_STOP_RELAUNCH_RUNNER.read_text(
             encoding="utf-8"
         )
         pause_resume_runner = DEBUG_PAUSE_RESUME_RUNNER.read_text(
             encoding="utf-8"
         )
-        lifecycle_runner = runner + surface_stop_runner + pause_resume_runner
+        lifecycle_runner = (
+            runner
+            + scene_switch_runner
+            + surface_stop_runner
+            + pause_resume_runner
+        )
         host_driver = HOST_FRAME_DRIVER.read_text(encoding="utf-8")
 
         self.assertIn("submissions.invalidate(reason: reason)", bridge)
@@ -3991,11 +4003,25 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         )
         self.assertIn("reason: .executorInvalidation", runner)
         self.assertIn('reason: "executor-invalidation-after"', runner)
-        self.assertIn('"MWX_SCENE_DEBUG_SCENE_SWITCH_AFTER"', runner)
+        self.assertIn(
+            '"MWX_SCENE_DEBUG_SCENE_SWITCH_AFTER"', scene_switch_runner
+        )
+        self.assertIn(
+            '"MWX_SCENE_DEBUG_SCENE_SWITCH_ROOT"', scene_switch_runner
+        )
         self.assertIn("multiple-runtime-lifecycle-faults", runner)
-        self.assertIn("SceneDesktopWallpaperHost.shared.launch(", runner)
-        self.assertIn('phase=scene-switch state=triggered accepted=true', runner)
-        self.assertIn('reason: "scene-switch-after"', runner)
+        self.assertIn(
+            "SceneDesktopWallpaperHost.shared.launch(", scene_switch_runner
+        )
+        self.assertIn(
+            "isIsolatedSampleRoot(candidate)", scene_switch_runner
+        )
+        self.assertIn(
+            'phase=scene-switch state=triggered accepted=true',
+            scene_switch_runner,
+        )
+        self.assertIn("model.renderDescriptor.layers.map(\\.id)", scene_switch_runner)
+        self.assertIn('reason: "scene-switch-after"', scene_switch_runner)
         self.assertIn(
             '"MWX_SCENE_DEBUG_SURFACE_STOP_RELAUNCH_AFTER"',
             lifecycle_runner,
