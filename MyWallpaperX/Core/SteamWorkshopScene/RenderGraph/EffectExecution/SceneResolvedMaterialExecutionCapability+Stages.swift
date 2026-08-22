@@ -132,8 +132,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     .LaunchEnvelopeFailure.material(failure)
                 SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
                     .launchEnvelopeFailure(template: template, failure: envelope)
-                return .failure(rejection(
-                    "material-variant-envelope-\(envelope.kind.rawValue)"
+                return .failure(envelopeRejection(
+                    envelope,
+                    node: node,
+                    template: template
                 ))
             }
             if case let .failure(failure) = variants.precompileLaunchEnvelope(
@@ -148,10 +150,17 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                    materialFailure.boundedDetails.contains(
                        "bounded-frontend-owner-revoked"
                    ) {
-                    return .failure(rejection("material-generic-owner-revoked"))
+                    return .failure(envelopeRejection(
+                        failure,
+                        node: node,
+                        template: template,
+                        reasonCode: "material-generic-owner-revoked"
+                    ))
                 }
-                return .failure(rejection(
-                    "material-variant-envelope-\(failure.kind.rawValue)"
+                return .failure(envelopeRejection(
+                    failure,
+                    node: node,
+                    template: template
                 ))
             }
             guard let activeTextureSlots = variants.launchEnvelopeActiveTextureSlots else {
@@ -169,11 +178,21 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             if sourceRoute == .transparentDirectDraw,
                !variants.supportsTransparentDirectDraw {
-                return .failure(rejection("direct-draw-source-dependent"))
+                return .failure(sourceRouteRejection(
+                    "direct-draw-source-dependent",
+                    cause: .directDrawSourceDependent,
+                    node: node,
+                    template: template
+                ))
             }
             if sourceRoute == .capturedMainTargetTexture,
                !variants.supportsCapturedMainTargetTexture {
-                return .failure(rejection("utility-source-program-unsupported"))
+                return .failure(sourceRouteRejection(
+                    "utility-source-program-unsupported",
+                    cause: .capturedMainTargetTextureUnsupported,
+                    node: node,
+                    template: template
+                ))
             }
             if let failure = dynamicUniformExecutionRejection(
                 template,
@@ -209,6 +228,48 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             return .failure(rejection(reasonCode))
         }
         return .success(materials)
+    }
+
+    private static func envelopeRejection(
+        _ failure: SceneResolvedMaterialVariantCache.LaunchEnvelopeFailure,
+        node: Graph.Node,
+        template: Template,
+        reasonCode: String? = nil
+    ) -> Rejection {
+        let code = reasonCode
+            ?? "material-variant-envelope-\(failure.kind.rawValue)"
+        return rejection(
+            code,
+            programFailureAttribution: .init(
+                effect: node.effect,
+                nodeIndex: node.nodeIndex,
+                materialPath: node.materialPath ?? "<missing>",
+                materialPassID: node.materialPassID ?? "<missing>",
+                shaderPath: template.diagnosticProvenance.authoredShaderPath,
+                reasonCode: code,
+                cause: .launchEnvelope(failure)
+            )
+        )
+    }
+
+    private static func sourceRouteRejection(
+        _ code: String,
+        cause: Rejection.ProgramFailureAttribution.SourceRouteFailure,
+        node: Graph.Node,
+        template: Template
+    ) -> Rejection {
+        rejection(
+            code,
+            programFailureAttribution: .init(
+                effect: node.effect,
+                nodeIndex: node.nodeIndex,
+                materialPath: node.materialPath ?? "<missing>",
+                materialPassID: node.materialPassID ?? "<missing>",
+                shaderPath: template.diagnosticProvenance.authoredShaderPath,
+                reasonCode: code,
+                cause: .sourceRoute(cause)
+            )
+        )
     }
 
     private static func graphTextureFormatFacts(

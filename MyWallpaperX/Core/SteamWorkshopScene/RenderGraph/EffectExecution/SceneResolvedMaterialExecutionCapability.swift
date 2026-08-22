@@ -22,7 +22,130 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 
     struct Rejection: Error {
+        struct ProgramFailureAttribution {
+            enum SourceRouteFailure {
+                case directDrawSourceDependent
+                case capturedMainTargetTextureUnsupported
+
+                var code: String {
+                    switch self {
+                    case .directDrawSourceDependent:
+                        "directDrawSourceDependent"
+                    case .capturedMainTargetTextureUnsupported:
+                        "capturedMainTargetTextureUnsupported"
+                    }
+                }
+
+                var details: [String] {
+                    switch self {
+                    case .directDrawSourceDependent:
+                        ["transparent-direct-draw-source-dependent"]
+                    case .capturedMainTargetTextureUnsupported:
+                        ["captured-main-target-program-contract-unproven"]
+                    }
+                }
+            }
+
+            enum Cause {
+                case launchEnvelope(
+                    SceneResolvedMaterialVariantCache.LaunchEnvelopeFailure
+                )
+                case sourceRoute(SourceRouteFailure)
+
+                var producer: String {
+                    switch self {
+                    case .launchEnvelope: "launch-envelope"
+                    case .sourceRoute: "source-route"
+                    }
+                }
+
+                var envelopeKind: String {
+                    switch self {
+                    case let .launchEnvelope(failure): failure.kind.rawValue
+                    case .sourceRoute: "none"
+                    }
+                }
+
+                var phase: String {
+                    switch self {
+                    case let .launchEnvelope(.material(failure)):
+                        failure.phase.rawValue
+                    case .launchEnvelope(.capacity): "none"
+                    case .sourceRoute: "source-route"
+                    }
+                }
+
+                var code: String {
+                    switch self {
+                    case let .launchEnvelope(.material(failure)):
+                        failure.code.rawValue
+                    case .launchEnvelope(.capacity): "none"
+                    case let .sourceRoute(failure): failure.code
+                    }
+                }
+
+                var slot: Int? {
+                    guard case let .launchEnvelope(.material(failure)) = self
+                    else { return nil }
+                    return failure.slot
+                }
+
+                var details: [String] {
+                    switch self {
+                    case let .launchEnvelope(.material(failure)):
+                        failure.boundedDetails
+                    case .launchEnvelope(.capacity): []
+                    case let .sourceRoute(failure): failure.details
+                    }
+                }
+            }
+
+            let effect: Graph.EffectKey
+            let nodeIndex: Int
+            let materialPath: String
+            let materialPassID: String
+            let shaderPath: String
+            let reasonCode: String
+            let cause: Cause
+
+            var reportLine: String {
+                let details = Self.detailsToken(cause.details)
+                return [
+                    "resolved material execution capability program rejection:",
+                    "schema=program-failure-attribution-v1",
+                    "layer=\(effect.layerID)",
+                    "effectOrdinal=\(effect.effectIndex)",
+                    "effectDescriptor=\(Self.token(effect.descriptorID))",
+                    "node=\(nodeIndex)",
+                    "material=\(Self.token(materialPath))",
+                    "materialPass=\(Self.token(materialPassID))",
+                    "shader=\(Self.token(shaderPath))",
+                    "reason=\(reasonCode)",
+                    "producer=\(cause.producer)",
+                    "envelope=\(cause.envelopeKind)",
+                    "phase=\(cause.phase)",
+                    "code=\(cause.code)",
+                    "slot=\(cause.slot.map(String.init) ?? "none")",
+                    "details=\(details)",
+                ].joined(separator: " ")
+            }
+
+            private static func detailsToken(_ details: [String]) -> String {
+                details.isEmpty ? "-" : details.map(token).joined(separator: ",")
+            }
+
+            private static func token(_ value: String) -> String {
+                let allowed = CharacterSet.alphanumerics.union(
+                    CharacterSet(charactersIn: "-._~/")
+                )
+                return value.addingPercentEncoding(
+                    withAllowedCharacters: allowed
+                ) ?? "<invalid>"
+            }
+        }
+
         let code: String
+        let programFailureAttribution: ProgramFailureAttribution?
     }
 
     struct Token: Hashable {
@@ -159,6 +282,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     private let capabilitiesByLayerID: [Int: LayerCapability]
     private let productAuthorityRejectionReasonsByLayerID: [Int: String]
     private let rejectedReasons: [String: Int]
+    private let programFailureAttributions: [
+        Rejection.ProgramFailureAttribution
+    ]
     private let visualFailurePassthroughReasons: [String: Int]
     private let candidateCount: Int
     private let variantLimit: Int
@@ -182,6 +308,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         var accepted: [Int: LayerCapability] = [:]
         var productAuthorityRejectedByLayerID: [Int: String] = [:]
         var rejected: [String: Int] = [:]
+        var programFailures: [Rejection.ProgramFailureAttribution] = []
         var passthroughs: [String: Int] = [:]
         for candidate in admissionCandidates {
             switch candidate.result {
@@ -206,6 +333,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 ) {
                 case let .failure(failure):
                     rejected[failure.code, default: 0] += 1
+                    if let attribution = failure.programFailureAttribution {
+                        programFailures.append(attribution)
+                    }
                     if failure.code == "material-generic-owner-revoked" {
                         productAuthorityRejectedByLayerID[candidate.layerID] = failure.code
                     }
@@ -236,6 +366,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         productAuthorityRejectionReasonsByLayerID =
             productAuthorityRejectedByLayerID
         rejectedReasons = rejected
+        programFailureAttributions = programFailures
         visualFailurePassthroughReasons = passthroughs
     }
 
@@ -459,6 +590,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             "resolved material execution capability rejection: \($0)"
                 + " count=\(rejectedReasons[$0] ?? 0)"
         }
+        result += programFailureAttributions.map(\.reportLine)
         result += visualFailurePassthroughReasons.keys.sorted().map {
             "resolved material execution capability fallback:"
                 + " state=prefer-generic outcome=effect-local-passthrough"
@@ -580,7 +712,13 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         return nil
     }
 
-    static func rejection(_ code: String) -> Rejection {
-        .init(code: code)
+    static func rejection(
+        _ code: String,
+        programFailureAttribution: Rejection.ProgramFailureAttribution? = nil
+    ) -> Rejection {
+        .init(
+            code: code,
+            programFailureAttribution: programFailureAttribution
+        )
     }
 }

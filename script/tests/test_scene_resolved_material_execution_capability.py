@@ -397,6 +397,7 @@ struct SceneResolvedMaterialTemplate {
 
     struct DiagnosticProvenance {
         let nodeIndex: Int
+        let authoredShaderPath = "fixture/stub"
     }
 
     enum KnownProviderRequest {
@@ -503,6 +504,11 @@ enum SceneResolvedMaterialShaderSchema {
 }
 
 struct SceneResolvedMaterialFailure: Error {
+    enum Phase: String { case invariant }
+    enum Code: String { case identityInvariant }
+    let phase: Phase = .invariant
+    let code: Code = .identityInvariant
+    let slot: Int? = nil
     let boundedDetails: [String] = []
 }
 
@@ -3898,11 +3904,16 @@ struct SceneEffectExactRuntimeSubject: Hashable {
 
 struct SceneGraphAdmissionProduct {
     let graph: SceneAuthoredEffectRenderPlan
-    let clearFunctions = SceneGraphClearFunctionRegistry()
+    let clearFunctions: SceneGraphClearFunctionRegistry
+
+    init(graph: SceneAuthoredEffectRenderPlan, functionCount: Int = 0) {
+        self.graph = graph
+        clearFunctions = .init(functions: Array(repeating: 0, count: functionCount))
+    }
 }
 
 struct SceneGraphClearFunctionRegistry {
-    let functions: [Int] = []
+    let functions: [Int]
 }
 
 struct SceneLayerFullFramePairPlan {
@@ -4623,6 +4634,7 @@ private func secondCandidates(
 private func catalog(
     graph: Graph,
     template: Template,
+    functionCount: Int = 0,
     maximumVariants: Int = 16,
     sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture,
     dependencyOwnership: SceneResolvedMaterialDependencyOwnership = .none,
@@ -4632,6 +4644,7 @@ private func catalog(
     catalog(
         graph: graph,
         templates: [graph.nodes[0].nodeIndex: template],
+        functionCount: functionCount,
         maximumVariants: maximumVariants,
         sourceRoute: sourceRoute,
         dependencyOwnership: dependencyOwnership,
@@ -4643,6 +4656,7 @@ private func catalog(
 private func catalog(
     graph: Graph,
     templates: [Int: Template],
+    functionCount: Int = 0,
     maximumVariants: Int = 16,
     sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute = .capturedLayerTexture,
     dependencyOwnership: SceneResolvedMaterialDependencyOwnership = .none,
@@ -4660,7 +4674,7 @@ private func catalog(
     })
     let admitted = SceneResolvedMaterialAdmittedLayer(
         layerID: layerID,
-        products: [.init(graph: graph)],
+        products: [.init(graph: graph, functionCount: functionCount)],
         pairPlan: .init(baseCaptureIdentity: graph.effects[0].input),
         dependencyOwnership: dependencyOwnership,
         sourceRoute: sourceRoute
@@ -4688,6 +4702,10 @@ private func catalog(
 
 private func rejection(_ catalog: Catalog) -> String {
     catalog.reportLines.first(where: { $0.contains("rejection:") }) ?? ""
+}
+
+private func attribution(_ catalog: Catalog) -> String {
+    catalog.reportLines.first(where: { $0.contains("program rejection:") }) ?? ""
 }
 
 private func summary(_ catalog: Catalog) -> String {
@@ -4771,13 +4789,14 @@ private enum EnvelopeHarness {
         let boundGraph = graph(withPrimaryBinding: true)
         let unboundGraph = graph(withPrimaryBinding: false)
 
-        let positive = catalog(
+        let positiveTemplate = materialTemplate(
             graph: boundGraph,
-            template: materialTemplate(
-                graph: boundGraph,
-                shader: contract("positive"),
-                slots: slots(primary: graphCandidate())
-            )
+            shader: contract("positive"),
+            slots: slots(primary: graphCandidate())
+        )
+        let positive = catalog(graph: boundGraph, template: positiveTemplate)
+        let functionPositive = catalog(
+            graph: boundGraph, template: positiveTemplate, functionCount: 1
         )
         let modelViewProjectionOnly = catalog(
             graph: boundGraph,
@@ -4856,13 +4875,18 @@ private enum EnvelopeHarness {
                 combos: [.init(name: "SOURCE_READY", value: 0)]
             )
         )
-        let frontendFailure = catalog(
+        let frontendFailureTemplate = materialTemplate(
             graph: boundGraph,
-            template: materialTemplate(
-                graph: boundGraph,
-                shader: contract("frontend-failure", frontendInvalid: true),
-                slots: slots(primary: graphCandidate())
-            )
+            shader: contract("frontend-failure", frontendInvalid: true),
+            slots: slots(primary: graphCandidate())
+        )
+        let frontendFailure = catalog(
+            graph: boundGraph, template: frontendFailureTemplate
+        )
+        let functionFrontendFailure = catalog(
+            graph: boundGraph,
+            template: frontendFailureTemplate,
+            functionCount: 1
         )
         let samplerSchemaFailure = catalog(
             graph: boundGraph,
@@ -5702,6 +5726,8 @@ private enum EnvelopeHarness {
                     ),
             ],
             "positiveClaim": positive.claim(layerID: layerID) != nil,
+            "functionPositiveClaim":
+                functionPositive.claim(layerID: layerID) != nil,
             "positiveCounters": counters(positive, graph: boundGraph),
             "effectProjectionRequirements": [
                 "resolvedWithoutMatrix":
@@ -5733,6 +5759,8 @@ private enum EnvelopeHarness {
             ],
             "shaderFailure": rejection(shaderFailure),
             "frontendFailure": rejection(frontendFailure),
+            "functionFrontendFailure": rejection(functionFrontendFailure),
+            "functionFrontendAttribution": attribution(functionFrontendFailure),
             "samplerSchemaFailure": rejection(samplerSchemaFailure),
             "samplerBindingProvenance": [
                 "positive": samplerBindingToken(
@@ -5972,6 +6000,7 @@ private enum EnvelopeHarness {
             "capturedMainNoGraphInputFailure": rejection(
                 capturedMainNoGraphInput
             ),
+            "capturedMainNoGraphInputAttribution": attribution(capturedMainNoGraphInput),
             "capturedMainWrongSourceClaim": capturedMainWrongSource.claim(
                 layerID: layerID
             ) != nil,
@@ -6785,42 +6814,13 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             SCENE_ROOT
             / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
         ).read_text(encoding="utf-8")
-        self.assertIn("bounded-frontend-owner-revoked", stages)
         generic_cache = GENERIC_SHADER_CACHE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            ".conditionalStraightUnionSourceSlot(",
-            generic_cache,
-        )
+        for contract in (
+            ".conditionalStraightUnionSourceSlot(", "routeDecision",
+            "recordExecution(",
+        ):
+            self.assertIn(contract, generic_cache)
         self.assertNotIn("WorkshopShadow", generic_cache)
-        self.assertIn("routeDecision", generic_cache)
-        self.assertIn("recordExecution(", generic_cache)
-        self.assertIn('rejection("material-generic-owner-revoked")', stages)
-        self.assertIn(
-            'programFailure.code == "material-generic-owner-revoked"',
-            program_first,
-        )
-        self.assertIn(
-            '"material-generic-owner-revoked",',
-            program_first,
-        )
-        self.assertIn(
-            "visualFailureMayPassthrough(\n"
-            "                           programFailure,",
-            program_first,
-        )
-        owner_revoked_branch = program_first[
-            program_first.index(
-                'if programFailure.code == "material-generic-owner-revoked"'
-            ):
-            program_first.index(
-                "guard product.clearFunctions.functions.isEmpty else",
-                program_first.index(
-                    'if programFailure.code == "material-generic-owner-revoked"'
-                )
-            )
-        ]
-        self.assertIn("product.clearFunctions.functions.isEmpty", owner_revoked_branch)
-        self.assertIn("dependencyOwnership: admitted.dependencyOwnership", owner_revoked_branch)
         passthrough_start = program_first.index(
             "private static func visualFailureMayPassthrough("
         )
@@ -6832,7 +6832,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("case .none, .graphInternal:", passthrough)
         self.assertIn("case .externalPrimary:", passthrough)
         self.assertIn("return false", passthrough)
-        self.assertIn("return .failure(programFailure)", owner_revoked_branch)
         self.assertNotIn(
             "r8TextureSlots: Set(variantKey.resolvedTextureFormats",
             compilation,

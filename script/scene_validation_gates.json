@@ -222,6 +222,7 @@
         "test_scene_preserved_channel_history",
         "test_scene_animated_material_visual_failure",
         "test_scene_resolved_material_execution_capability",
+        "test_scene_resolved_material_program_failure_attribution",
         "test_scene_resolved_material_graph_executor",
         "test_scene_material_texture_transform",
         "test_scene_resolved_material_pass_encoder"

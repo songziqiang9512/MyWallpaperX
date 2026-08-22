@@ -134,7 +134,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     return .failure(programFailure)
                 }
                 guard product.clearFunctions.functions.isEmpty else {
-                    return .failure(rejection("function-invocation-executor-unavailable"))
+                    return .failure(programFailure)
                 }
                 guard let program = programsByKey[effect.key]?.first else {
                     if visualFailureMayPassthrough(
