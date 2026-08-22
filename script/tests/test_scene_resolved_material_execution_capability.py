@@ -616,9 +616,8 @@ final class SceneResolvedMaterialVariantCache {
     var supportsTransparentDirectDraw: Bool { true }
     var launchEnvelopeActiveTextureSlots: Set<Int>? { [0] }
     var hasAudioSpectrumConsumer: Bool { audioSpectrumConsumer }
-    var supportsCapturedMainTargetTexture: Bool {
-        capturedMainTargetTextureSupport
-    }
+    func capturedMainTargetSourceSlot(node: SceneAuthoredEffectRenderPlan.Node, effect: SceneAuthoredEffectRenderPlan.Effect) -> Int? { _ = (node, effect); return capturedMainTargetTextureSupport ? 0 : nil }
+    func supportsCapturedMainTargetInternalProgram(node: SceneAuthoredEffectRenderPlan.Node, effect: SceneAuthoredEffectRenderPlan.Effect) -> Bool { _ = (node, effect); return false }
     var requiresInvertibleEffectTextureProjection: Bool { false }
     func provesRedOnlyConsumer(slot: Int) -> Bool {
         _ = slot
@@ -6029,8 +6028,6 @@ private enum EnvelopeHarness {
                 variantMixedEnvelopePrepared,
             "capturedMainVariantMixedEnvelopeFailure":
                 variantMixedEnvelopeFailure,
-            "capturedMainVariantMixedSupportsCapture":
-                variantMixedCache.supportsCapturedMainTargetTexture,
             "capturedMainVariantMixedCounters": [
                 "cached": variantMixedCache.counters.cachedVariantCount,
                 "prepared": variantMixedCache.counters.shaderPreparationCount,
@@ -7007,7 +7004,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             capability,
         )
         self.assertIn(
-            "variants.supportsCapturedMainTargetTexture",
+            "variants.capturedMainTargetSourceSlot",
             capability,
         )
         self.assertNotIn(
@@ -7780,10 +7777,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertEqual(
             payload["capturedMainVariantMixedEnvelopeFailure"],
             "",
-            payload,
-        )
-        self.assertFalse(
-            payload["capturedMainVariantMixedSupportsCapture"],
             payload,
         )
         self.assertEqual(

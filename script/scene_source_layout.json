@@ -98,6 +98,7 @@
           "SceneResolvedMaterialEffectIngress.swift",
           "SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant.swift",

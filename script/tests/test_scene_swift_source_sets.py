@@ -217,7 +217,12 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(len(uniform), 1)
         self.assertEqual(len(schema), 4)
         self.assertEqual(len(texture_finalization), 7)
-        self.assertEqual(len(variant_preparation), 9)
+        self.assertEqual(len(variant_preparation), 10)
+        self.assertIn(
+            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
+            "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
+            variant_preparation,
+        )
         self.assertEqual(
             frame_finalization,
             (
@@ -228,7 +233,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 28)
+        self.assertEqual(len(frame_finalization), 29)
         self.assertEqual(len(template_compilation), 3)
         self.assertEqual(
             complete,
@@ -237,7 +242,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ),
         )
-        self.assertEqual(len(complete), 31)
+        self.assertEqual(len(complete), 32)
 
         material_program_directory = (
             REPOSITORY_ROOT
