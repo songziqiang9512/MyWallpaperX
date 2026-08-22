@@ -29,9 +29,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
     /// Preserved-channel targets become product capability only as complete
     /// producer -> typed publication -> exact-channel consumer atoms. The
-    /// ordinary atom keeps one writer. The feedback-pair atom additionally
-    /// admits one same-descriptor terminal swap while graph state remains the
-    /// sole owner of history, permutation, rehydration, reset and rollback.
+    /// ordinary atom keeps one writer. Bounded feedback-pair atoms additionally
+    /// admit either an ordered alternating writer chain or one same-descriptor
+    /// terminal swap while graph state remains the sole owner of history,
+    /// permutation, rehydration, reset and rollback.
     static func preservedChannelGraphRejection(
         _ graph: Graph,
         materials: [MaterialKey: MaterialCapability]
@@ -42,14 +43,19 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         guard !targets.isEmpty else { return nil }
 
         let byIdentity = Dictionary(grouping: targets, by: \.identity)
+        for target in targets where byIdentity[target.identity]?.count != 1 {
+            return rejection(
+                for: target,
+                detailCode: "duplicate-target-declaration"
+            )
+        }
+        let orderedFeedbackPairMembers = orderedFeedbackPairMembers(
+            targets: targets,
+            graph: graph,
+            materials: materials
+        )
         var admittedPairMembers = Set<Graph.TextureIdentity>()
         for target in targets {
-            guard byIdentity[target.identity]?.count == 1 else {
-                return rejection(
-                    for: target,
-                    detailCode: "duplicate-target-declaration"
-                )
-            }
             if admittedPairMembers.contains(target.identity) {
                 continue
             }
@@ -58,6 +64,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     || $0.commandTarget == target.identity
             }
             if commands.isEmpty {
+                if orderedFeedbackPairMembers.contains(target.identity) {
+                    continue
+                }
                 if let detailCode = ordinaryTargetRejection(
                     target,
                     graph: graph,
@@ -91,6 +100,141 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             admittedPairMembers.insert(other.identity)
         }
         return nil
+    }
+
+    /// Bounded no-command feedback pair used by iterative authored solvers.
+    /// The two same-descriptor targets have at least two writers each; writer
+    /// targets alternate, the first writer reads the history member and writes
+    /// the scratch member, and the last writer restores the history member.
+    /// Other inputs may inject values into a writer, but every actual pair read
+    /// remains channel-proven and follows either the history seed or an earlier
+    /// same-frame write.
+    private static func orderedFeedbackPairMembers(
+        targets: [PreservedChannelTarget],
+        graph: Graph,
+        materials: [MaterialKey: MaterialCapability]
+    ) -> Set<Graph.TextureIdentity> {
+        var candidates: [Set<Graph.TextureIdentity>] = []
+        for firstIndex in targets.indices {
+            for secondIndex in targets.indices where secondIndex > firstIndex {
+                let first = targets[firstIndex]
+                let second = targets[secondIndex]
+                if orderedFeedbackPairIsExecutable(
+                    first,
+                    second,
+                    graph: graph,
+                    materials: materials
+                ) {
+                    candidates.append([first.identity, second.identity])
+                }
+            }
+        }
+        let counts = candidates.reduce(into: [Graph.TextureIdentity: Int]()) {
+            result, candidate in
+            for identity in candidate {
+                result[identity, default: 0] += 1
+            }
+        }
+        return candidates.reduce(into: Set<Graph.TextureIdentity>()) {
+            result, candidate in
+            guard candidate.allSatisfy({ counts[$0] == 1 }) else { return }
+            result.formUnion(candidate)
+        }
+    }
+
+    private static func orderedFeedbackPairIsExecutable(
+        _ first: PreservedChannelTarget,
+        _ second: PreservedChannelTarget,
+        graph: Graph,
+        materials: [MaterialKey: MaterialCapability]
+    ) -> Bool {
+        let targets = [first, second]
+        let identities = Set(targets.map(\.identity))
+        guard identities.count == 2,
+              first.identity.effect != nil,
+              first.identity.effect == second.identity.effect,
+              targets.allSatisfy({
+                  $0.descriptor.isUnique && $0.descriptor.initialClear != nil
+              }),
+              SceneGraphRenderTargetPlan.authoredTargetDescriptorsAreEquivalent(
+                  targets.map(\.declaration)
+              ),
+              graph.nodes.allSatisfy({
+                  $0.commandSource.map(identities.contains) != true
+                      && $0.commandTarget.map(identities.contains) != true
+              }) else { return false }
+
+        let writers = graph.nodes.filter {
+            $0.kind == .material && $0.target.map(identities.contains) == true
+        }.sorted { $0.nodeIndex < $1.nodeIndex }
+        guard writers.count >= 4,
+              writers.count.isMultiple(of: 2),
+              targets.allSatisfy({ target in
+                  writers.filter({ $0.target == target.identity }).count >= 2
+              }),
+              let firstWriter = writers.first,
+              let scratchIdentity = firstWriter.target,
+              let historyIdentity = firstWriter.bindings.first(where: {
+                  identities.contains($0.texture) && $0.texture != scratchIdentity
+              })?.texture,
+              scratchIdentity != historyIdentity,
+              writers.last?.target == historyIdentity else { return false }
+
+        for (ordinal, writer) in writers.enumerated() {
+            let expectedTarget = ordinal.isMultiple(of: 2)
+                ? scratchIdentity : historyIdentity
+            guard writer.effect == first.identity.effect,
+                  writer.target == expectedTarget,
+                  let target = targets.first(where: {
+                      $0.identity == expectedTarget
+                  }),
+                  writerStores(target, node: writer, materials: materials) else {
+                return false
+            }
+            let opposite = expectedTarget == scratchIdentity
+                ? historyIdentity : scratchIdentity
+            let pairBindings = writer.bindings.filter {
+                identities.contains($0.texture)
+            }
+            guard pairBindings.allSatisfy({ $0.texture == opposite }),
+                  ordinal != 0 || !pairBindings.isEmpty else { return false }
+        }
+
+        for target in targets {
+            let targetWriters = materialWriters(of: target.identity, in: graph)
+            let readers = materialReaders(of: target.identity, in: graph)
+            guard let firstTargetWriter = targetWriters.first,
+                  !readers.isEmpty else { return false }
+            let prewriteReaders = readers.filter {
+                $0.nodeIndex < firstTargetWriter.nodeIndex
+            }
+            if target.identity == historyIdentity {
+                guard prewriteReaders.map(\.nodeIndex) == [firstWriter.nodeIndex]
+                else { return false }
+            } else if !prewriteReaders.isEmpty {
+                return false
+            }
+            for reader in readers {
+                guard reader.effect == first.identity.effect,
+                      !targetWriters.contains(where: {
+                          $0.nodeIndex == reader.nodeIndex
+                      }),
+                      readerUsesExactChannels(
+                          reader,
+                          target: target,
+                          materials: materials
+                      ) else { return false }
+                let hasPriorWrite = targetWriters.contains {
+                    $0.nodeIndex < reader.nodeIndex
+                }
+                guard hasPriorWrite
+                        || target.identity == historyIdentity
+                            && reader.nodeIndex == firstWriter.nodeIndex else {
+                    return false
+                }
+            }
+        }
+        return true
     }
 
     private static func ordinaryTargetRejection(
@@ -242,7 +386,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             guard let slot = binding.slot else { return false }
             switch target.descriptor.format {
             case .r8, .r16f:
-                return material.variants.provesRedOnlyConsumer(slot: slot)
+                return material.variants.provesScalarRedConsumer(slot: slot)
             case .rg88, .rg1616f:
                 return material.variants.provesRedGreenConsumer(slot: slot)
             case .rgbaBackbuffer, .rgba8888:

@@ -323,7 +323,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             let candidate = slot.resource.publication.candidate
             if candidate.content == .scalarRedUnorm
                 || candidate.content == .scalarRedFloat16,
-               frontendBinding.channelUse != .redOnly {
+               ![.redOnly, .wholeVector].contains(frontendBinding.channelUse) {
                 return nil
             }
             if candidate.content == .redGreenUnorm

@@ -2132,33 +2132,45 @@ private enum Harness {
             0, 0, 0, 255,
             255, 255, 255, 255,
         ]
-        let scalarChannelMisuseStatements = [
-            "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);",
-            """
-            float scalar = texSample2D(g_Texture0, v_TexCoord).g;
-            gl_FragColor = vec4(scalar, scalar, scalar, 1.0);
-            """,
-            """
-            vec4 sampleValue = texSample2D(g_Texture0, v_TexCoord);
-            float scalar = sampleValue.r;
-            gl_FragColor = vec4(scalar, scalar, scalar, 1.0);
-            """,
-        ]
-        let scalarChannelMisuseRejectedUpstream =
-            scalarChannelMisuseStatements.enumerated().allSatisfy { index, statement in
-                program(
-                    device: device, marker: 75 + index, outputSlot: 0,
-                    slot0Texture: r8Target, slot0Content: .scalarRedUnorm,
-                    slot0Purpose: .preservedChannels,
-                    fragmentSource: """
-                    varying vec2 v_TexCoord;
-                    uniform sampler2D g_Texture0;
-                    void main() {
-                        \(statement)
-                    }
-                    """
-                ) == nil
+        let scalarDirectWholeConsumerRejectedByColorContract = program(
+            device: device, marker: 75, outputSlot: 0,
+            slot0Texture: r8Target, slot0Content: .scalarRedUnorm,
+            slot0Purpose: .preservedChannels,
+            fragmentSource: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0;
+            void main() {
+                gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
             }
+            """
+        ) == nil
+        let scalarAliasConsumerAcceptedUpstream = program(
+            device: device, marker: 76, outputSlot: 0,
+            slot0Texture: r8Target, slot0Content: .scalarRedUnorm,
+            slot0Purpose: .preservedChannels,
+            fragmentSource: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0;
+            void main() {
+                vec4 sampleValue = texSample2D(g_Texture0, v_TexCoord);
+                float scalar = sampleValue.r;
+                gl_FragColor = vec4(scalar, scalar, scalar, 1.0);
+            }
+            """
+        ) != nil
+        let scalarGreenConsumerRejectedUpstream = program(
+            device: device, marker: 77, outputSlot: 0,
+            slot0Texture: r8Target, slot0Content: .scalarRedUnorm,
+            slot0Purpose: .preservedChannels,
+            fragmentSource: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0;
+            void main() {
+                float scalar = texSample2D(g_Texture0, v_TexCoord).g;
+                gl_FragColor = vec4(scalar, scalar, scalar, 1.0);
+            }
+            """
+        ) == nil
         let r16Target = target(device: device, format: .r16Float)
         let scalarFloatProducer = program(
             device: device, marker: 78, outputSlot: 0,
@@ -2420,8 +2432,12 @@ private enum Harness {
             "scalarRedConsumerGPUCompleted": scalarRoundTrip.completed,
             "scalarRedRoundTripMatches": scalarRoundTrip.pixels
                 == scalarRoundTripExpected,
-            "scalarChannelMisuseRejectedUpstream":
-                scalarChannelMisuseRejectedUpstream,
+            "scalarDirectWholeConsumerRejectedByColorContract":
+                scalarDirectWholeConsumerRejectedByColorContract,
+            "scalarAliasConsumerAcceptedUpstream":
+                scalarAliasConsumerAcceptedUpstream,
+            "scalarGreenConsumerRejectedUpstream":
+                scalarGreenConsumerRejectedUpstream,
             "scalarFloat16CarrierGPUCompleted": scalarFloatCarrier,
             "scalarIntoColorTargetRejected": scalarIntoColorTargetRejected,
             "missingRenderTargetRejected": missingRenderTargetRejected,

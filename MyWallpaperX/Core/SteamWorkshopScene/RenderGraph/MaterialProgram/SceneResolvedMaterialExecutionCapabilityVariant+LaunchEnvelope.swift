@@ -54,10 +54,11 @@ extension SceneResolvedMaterialVariantCache {
     }
 
     /// At least one launch-envelope variant must consume the slot, and every
-    /// consuming variant must observe only the stored red scalar.
-    func provesRedOnlyConsumer(slot: Int) -> Bool {
+    /// consuming variant must either observe the stored red scalar directly or
+    /// consume the complete vector supplied by a typed Metal R texture.
+    func provesScalarRedConsumer(slot: Int) -> Bool {
         guard let uses = compiledChannelUses(for: slot) else { return false }
-        return Self.channelEnvelopeIsRedOnly(uses)
+        return Self.channelEnvelopeIsScalarRedCompatible(uses)
     }
 
     /// At least one launch-envelope variant must consume the slot, and every
@@ -68,8 +69,12 @@ extension SceneResolvedMaterialVariantCache {
         return Self.channelEnvelopeIsRedGreenCompatible(uses)
     }
 
-    static func channelEnvelopeIsRedOnly(_ uses: [ChannelUse]) -> Bool {
-        !uses.isEmpty && uses.allSatisfy { $0 == .redOnly }
+    static func channelEnvelopeIsScalarRedCompatible(
+        _ uses: [ChannelUse]
+    ) -> Bool {
+        !uses.isEmpty && uses.allSatisfy {
+            [.redOnly, .wholeVector].contains($0)
+        }
     }
 
     static func channelEnvelopeIsRedGreenCompatible(_ uses: [ChannelUse]) -> Bool {

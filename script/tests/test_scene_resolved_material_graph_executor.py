@@ -4639,6 +4639,20 @@ private enum Harness {
                     $0.contains("rejection: \(expectedCode) count=1")
                 }
         }
+        func scalarAdmission(
+            _ candidateGraph: Graph,
+            consumers: [Int: String]
+        ) -> Bool {
+            let chain = admittedGraph(candidateGraph)
+            let candidateCapabilities = capabilities(
+                chain,
+                catalog: catalog(
+                    for: candidateGraph,
+                    scalarConsumerNodes: consumers
+                )
+            )
+            return candidateCapabilities.claim(chain) != nil
+        }
         func scalarConsumerGraph() -> Graph {
             graph(
                 targets: [rawTarget(first, format: "r8")],
@@ -6224,11 +6238,11 @@ private enum Harness {
                 scalarGreenGraph,
                 consumers: [1: "green"]
             ),
-            "scalarWholeConsumerRejectedBeforeFrame": scalarRejection(
+            "scalarWholeConsumerAdmittedBeforeFrame": scalarAdmission(
                 scalarWholeGraph,
                 consumers: [1: "whole"]
             ),
-            "scalarAliasConsumerRejectedBeforeFrame": scalarRejection(
+            "scalarAliasConsumerAdmittedBeforeFrame": scalarAdmission(
                 scalarAliasGraph,
                 consumers: [1: "alias"]
             ),

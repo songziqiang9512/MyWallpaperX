@@ -623,7 +623,7 @@ final class SceneResolvedMaterialVariantCache {
     func capturedMainTargetSourceSlot(node: SceneAuthoredEffectRenderPlan.Node, effect: SceneAuthoredEffectRenderPlan.Effect) -> Int? { _ = (node, effect); return capturedMainTargetTextureSupport ? 0 : nil }
     func supportsCapturedMainTargetInternalProgram(node: SceneAuthoredEffectRenderPlan.Node, effect: SceneAuthoredEffectRenderPlan.Effect) -> Bool { _ = (node, effect); return false }
     var requiresInvertibleEffectTextureProjection: Bool { false }
-    func provesRedOnlyConsumer(slot: Int) -> Bool {
+    func provesScalarRedConsumer(slot: Int) -> Bool {
         _ = slot
         return false
     }
@@ -6055,13 +6055,15 @@ private enum EnvelopeHarness {
                 layerID: layerID
             ) != nil,
             "capacityFailure": rejection(capacityFailure),
-            "redOnlyChannelEnvelope": [
+            "scalarRedCompatibleChannelEnvelope": [
                 "allRed": SceneResolvedMaterialVariantCache
-                    .channelEnvelopeIsRedOnly([.redOnly, .redOnly]),
+                    .channelEnvelopeIsScalarRedCompatible([.redOnly, .redOnly]),
+                "wholeVector": SceneResolvedMaterialVariantCache
+                    .channelEnvelopeIsScalarRedCompatible([.wholeVector]),
                 "mixed": SceneResolvedMaterialVariantCache
-                    .channelEnvelopeIsRedOnly([.redOnly, .unproven]),
+                    .channelEnvelopeIsScalarRedCompatible([.redOnly, .unproven]),
                 "empty": SceneResolvedMaterialVariantCache
-                    .channelEnvelopeIsRedOnly([]),
+                    .channelEnvelopeIsScalarRedCompatible([]),
             ],
             "redGreenCompatibleChannelEnvelope": [
                 "mixedSafe": SceneResolvedMaterialVariantCache
@@ -7819,8 +7821,13 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             payload["capacityFailure"],
         )
         self.assertEqual(
-            payload["redOnlyChannelEnvelope"],
-            {"allRed": True, "mixed": False, "empty": False},
+            payload["scalarRedCompatibleChannelEnvelope"],
+            {
+                "allRed": True,
+                "wholeVector": True,
+                "mixed": False,
+                "empty": False,
+            },
             payload,
         )
         self.assertEqual(

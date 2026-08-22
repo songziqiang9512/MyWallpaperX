@@ -24,7 +24,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         switch resource.publication.candidate.content {
         case .scalarRedUnorm, .scalarRedFloat16:
             guard let channelUse,
-                  channelUse == .redOnly,
+                  [.redOnly, .wholeVector].contains(channelUse),
                   activeSampler?.mode == .regular else { return nil }
             return .preservedChannels
         case .redGreenUnorm, .redGreenFloat16:
