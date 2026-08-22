@@ -4,7 +4,8 @@ nonisolated extension SceneAuthoredShaderMetalEmitter {
         functionNames: Set<String>
     ) -> Bool {
         ["texSample2D", "texture2D"].contains(name)
-            || (name == "texSample2DLod" && !functionNames.contains(name))
+            || (["texSample2DLod", "texture2DLod"].contains(name)
+                && !functionNames.contains(name))
     }
 
     static func textureSampleArguments(

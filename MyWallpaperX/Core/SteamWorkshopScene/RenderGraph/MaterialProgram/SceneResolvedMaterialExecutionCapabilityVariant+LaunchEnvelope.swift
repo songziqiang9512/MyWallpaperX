@@ -92,6 +92,7 @@ extension SceneResolvedMaterialVariantCache {
             case uniformSchema = "uniform-schema"
             case texturePurpose = "texture-purpose"
             case textureBinding = "texture-binding"
+            case animatedFrameMetadata = "animated-frame-metadata"
             case colorContract = "color-contract"
             case invariant
         }
@@ -108,6 +109,7 @@ extension SceneResolvedMaterialVariantCache {
                 case .authoredSamplerSchemaInvalid: .samplerSchema
                 case .uniformBindingInvalid: .uniformSchema
                 case .texturePurposeUnproven: .texturePurpose
+                case .animatedFrameMetadataInvalid: .animatedFrameMetadata
                 case .textureBindingInvalid, .textureReferenceInvalid:
                     .textureBinding
                 case .colorContractUnproven: .colorContract

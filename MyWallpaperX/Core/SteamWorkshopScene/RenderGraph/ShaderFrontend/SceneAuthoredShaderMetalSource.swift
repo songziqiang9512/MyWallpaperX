@@ -52,6 +52,16 @@ nonisolated enum SceneAuthoredShaderMetalSource {
             return float3x3(value[0].xyz, value[1].xyz, value[2].xyz);
         }
 
+        float2 mwxTextureCoordinate(
+            float2 coordinate,
+            float4 originAndXAxis,
+            float4 yAxis
+        ) {
+            return originAndXAxis.xy
+                + originAndXAxis.zw * coordinate.x
+                + yAxis.xy * coordinate.y;
+        }
+
         #define mul(x, y) ((y) * (x))
         #define frac fract
         #define CAST2(x) float2(x)

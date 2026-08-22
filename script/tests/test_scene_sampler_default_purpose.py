@@ -294,13 +294,17 @@ private func input(
     )
 }
 
-private func cache(_ template: Template, purpose: SceneTextureLoadPurpose)
+private func cache(
+    _ template: Template,
+    purpose: SceneTextureLoadPurpose,
+    path: SceneVFSAssetPath = overridePath
+)
     -> SceneResolvedMaterialVariantCache? {
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
         template: template, maximumVariantCount: 8
     ), case .success = cache.precompileLaunchEnvelope(
         implicitFramebufferIdentity: nil,
-        assetStates: [.init(path: overridePath, purpose: purpose): .ready(.data)]
+        assetStates: [.init(path: path, purpose: purpose): .ready(.data)]
     ) else { return nil }
     return cache
 }
@@ -418,9 +422,13 @@ private func productChain(
         ),
         descriptor: SceneRenderDescriptor(), device: device
     )
-    guard case let .ready(staticPublication)? = catalog.states[staticIdentity],
-          case .unavailable? = catalog.states[animatedIdentity],
-          case .ready? = catalog.states[defaultIdentity] else {
+    let provider = catalog.makeFrameProvider()
+    let frameStates = provider.states(sceneTime: 0)
+    let laterStates = provider.states(sceneTime: 0.02)
+    guard case let .ready(staticPublication)? = frameStates[staticIdentity],
+          case let .ready(animatedPublication)? = frameStates[animatedIdentity],
+          case let .ready(laterAnimatedPublication)? = laterStates[animatedIdentity],
+          case .ready? = frameStates[defaultIdentity] else {
         return ["catalogStates": false]
     }
     let finalized = cache(staticTemplate, purpose: .preservedChannels).flatMap { cache in
@@ -437,8 +445,32 @@ private func productChain(
             && program.exactIdentity.textureSlots[0]?.reference == .asset(overridePath)
             && program.exactIdentity.textureSlots[0]?.purpose == .preservedChannels
     } else { false }
+    let animatedCache = cache(
+        animatedTemplate,
+        purpose: animatedIdentity.purpose,
+        path: animatedPath
+    )
+    func animatedProgram(
+        _ publication: SceneTextureProviderPublication
+    ) -> (Program?, String) {
+        guard let animatedCache else { return (nil, "cache") }
+        let result = finalize(
+            animatedTemplate,
+            cache: animatedCache,
+            entries: [.asset(animatedIdentity): .ready(.init(
+                publication: publication,
+                resourceGeneration: publication.contentGeneration
+            ))]
+        )
+        guard case let .success(program)? = result else {
+            return (nil, failureToken(result))
+        }
+        return (program, "not-failure")
+    }
+    let (animatedFrame0, animatedFailure) = animatedProgram(animatedPublication)
+    let (animatedLater, _) = animatedProgram(laterAnimatedPublication)
     return [
-        "catalogStates": catalog.states.count == 3,
+        "catalogStates": frameStates.count == 3,
         "staticPublication": staticPublication.isComplete
             && staticPublication.requestIdentity == .asset(staticIdentity)
             && staticPublication.candidate.purpose == .preservedChannels
@@ -448,11 +480,29 @@ private func productChain(
             states: catalog.launchStates
         ) == "selected",
         "staticProgramIdentity": programIdentity,
-        "animatedUnavailable": true,
-        "animatedNoDefaultFallback": launchToken(
+        "animatedPublication": animatedPublication.isComplete
+            && animatedPublication.requestIdentity == .asset(animatedIdentity)
+            && animatedPublication.candidate.purpose == animatedIdentity.purpose,
+        "animatedSelection": launchToken(
             template: animatedTemplate, sampler: animatedSampler,
             states: catalog.launchStates, slot: 3, expectedPath: animatedPath
-        ) == "texture/textureBindingInvalid/3",
+        ) == "selected",
+        "animatedProgramIdentity": animatedFrame0?.textureSlots[3]?
+                .registryIdentity == .asset(animatedIdentity)
+            && animatedFrame0?.exactIdentity.textureSlots[3]?.uvBitPatterns
+                == [
+                    animatedPublication.candidate.uvTransform.origin.x.bitPattern,
+                    animatedPublication.candidate.uvTransform.origin.y.bitPattern,
+                    animatedPublication.candidate.uvTransform.xAxis.x.bitPattern,
+                    animatedPublication.candidate.uvTransform.xAxis.y.bitPattern,
+                    animatedPublication.candidate.uvTransform.yAxis.x.bitPattern,
+                    animatedPublication.candidate.uvTransform.yAxis.y.bitPattern,
+                ]
+            && animatedFrame0?.semanticIdentity
+                == animatedLater?.semanticIdentity
+            && animatedFrame0?.exactIdentity != animatedLater?.exactIdentity
+            && animatedFrame0?.uniformBytes != animatedLater?.uniformBytes,
+        "animatedFailure": animatedFailure,
     ]
 }
 
@@ -726,8 +776,10 @@ class SceneSamplerDefaultPurposeTests(unittest.TestCase):
                 "staticPublication": True,
                 "staticSelection": True,
                 "staticProgramIdentity": True,
-                "animatedUnavailable": True,
-                "animatedNoDefaultFallback": True,
+                "animatedPublication": True,
+                "animatedSelection": True,
+                "animatedProgramIdentity": True,
+                "animatedFailure": "not-failure",
             },
             self.result,
         )

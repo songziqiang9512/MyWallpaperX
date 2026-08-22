@@ -24,7 +24,7 @@ extension SceneGenericShaderArtifactBuilder {
             options: .regularExpression
         )
         return fields.filter { field in
-            if field.authoredName == "mwxRenderSize" { return true }
+            if isSharedInternalUniform(field.authoredName) { return true }
             return executable.range(
                 of: #"\.\s*"#
                     + NSRegularExpression.escapedPattern(for: field.authoredName)
@@ -42,17 +42,19 @@ extension SceneGenericShaderArtifactBuilder {
         vertexNames: [String: String],
         fragmentNames: [String: String]
     ) {
-        let sharedInternal = "mwxRenderSize"
+        let sharedInternals = Set((vertex + fragment).map(\.authoredName).filter {
+            isSharedInternalUniform($0)
+        })
         let duplicateNames = Set(vertex.map(\.authoredName))
             .intersection(fragment.map(\.authoredName))
-            .subtracting([sharedInternal])
+            .subtracting(sharedInternals)
         var fields: [
             SceneGenericShaderProgramArtifact.Program.UniformLayout.Field
         ] = []
         var vertexNames: [String: String] = [:]
         var fragmentNames: [String: String] = [:]
-        var internalField:
-            SceneGenericShaderProgramArtifact.Program.UniformLayout.Field?
+        var internalFields: [String:
+            SceneGenericShaderProgramArtifact.Program.UniformLayout.Field] = [:]
 
         func append(
             _ source: [
@@ -63,18 +65,19 @@ extension SceneGenericShaderArtifactBuilder {
             names: inout [String: String]
         ) throws {
             for field in source {
-                if field.authoredName == sharedInternal {
-                    if let internalField, internalField.type != field.type {
+                if sharedInternals.contains(field.authoredName) {
+                    if let existing = internalFields[field.authoredName],
+                       existing.type != field.type {
                         throw Failure.uniformStageMismatch
                     }
-                    internalField = .init(
-                        name: sharedInternal,
-                        authoredName: sharedInternal,
+                    internalFields[field.authoredName] = .init(
+                        name: field.authoredName,
+                        authoredName: field.authoredName,
                         type: field.type,
                         offset: 0,
                         arrayCount: field.arrayCount
                     )
-                    names[field.authoredName] = sharedInternal
+                    names[field.authoredName] = field.authoredName
                     continue
                 }
                 let name = duplicateNames.contains(field.authoredName)
@@ -103,8 +106,38 @@ extension SceneGenericShaderArtifactBuilder {
             prefix: "mwxF_",
             names: &fragmentNames
         )
-        if let internalField { fields.append(internalField) }
+        fields += internalFields.values.sorted { $0.authoredName < $1.authoredName }
         return (alignedLayout(fields), vertexNames, fragmentNames)
+    }
+
+    nonisolated private static func isSharedInternalUniform(_ name: String) -> Bool {
+        name == "mwxRenderSize"
+            || SceneMaterialTextureTransformABI.component(forFieldName: name) != nil
+    }
+
+    nonisolated static func validTextureTransformLayout(
+        _ layout: ReflectedLayout,
+        activeSlots: Set<Int>
+    ) -> Bool {
+        let fields = layout.fields.compactMap {
+            field -> SceneAuthoredShaderUniformLayout.Field? in
+            guard let type = SceneAuthoredShaderValueType(rawValue: field.type) else {
+                return nil
+            }
+            return .init(
+                name: field.name,
+                authoredName: field.authoredName,
+                stage: field.stage.flatMap(SceneShaderContract.StageKind.init(rawValue:)),
+                type: type,
+                arrayCount: field.arrayCount,
+                offset: field.offset
+            )
+        }
+        return fields.count == layout.fields.count
+            && SceneMaterialTextureTransformABI.validates(
+                layout: .init(fields: fields, byteSize: layout.byteSize),
+                activeSlots: activeSlots
+            )
     }
 
     nonisolated private static func alignedLayout(

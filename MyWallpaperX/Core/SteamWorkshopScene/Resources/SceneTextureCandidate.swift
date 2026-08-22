@@ -195,6 +195,26 @@ nonisolated struct SceneTextureCandidate {
 
     var pixelFormat: MTLPixelFormat { texture.pixelFormat }
 
+    /// MaterialProgram samples only finite, positive, axis-aligned regions of
+    /// the published 2D texture. Identity and padded static mappings use the
+    /// same contract as animated atlas frames.
+    func materialProgramUVTransform() -> SceneTextureUVTransform? {
+        let value = uvTransform
+        let tolerance: Float = 0.000_001
+        guard finite(value.origin), finite(value.xAxis), finite(value.yAxis),
+              abs(value.xAxis.y) <= tolerance,
+              abs(value.yAxis.x) <= tolerance,
+              value.origin.x >= -tolerance,
+              value.origin.y >= -tolerance,
+              value.xAxis.x > 0,
+              value.yAxis.y > 0,
+              value.origin.x + value.xAxis.x <= 1 + tolerance,
+              value.origin.y + value.yAxis.y <= 1 + tolerance else {
+            return nil
+        }
+        return value
+    }
+
     func axisAlignedMappedUVScale(
         expectedPurpose: SceneTextureLoadPurpose
     ) -> SIMD2<Float>? {

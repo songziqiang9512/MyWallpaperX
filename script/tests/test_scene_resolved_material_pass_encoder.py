@@ -22,14 +22,10 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
+    *scene_swift_sources("authored_shader_frontend_core"),
     *scene_swift_sources("shader_variant_environment"),
     SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
-    *scene_swift_sources("authored_shader_frontend_implementation"),
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
@@ -603,6 +599,10 @@ private func uniforms(
             value = explicit
         } else if field.name == "mwxRenderSize" {
             value = bytes(SIMD2<Float>(2, 2))
+        } else if let transform = SceneMaterialTextureTransformABI.component(
+            forFieldName: field.name
+        ) {
+            value = bytes(transform.component.identityValue)
         } else if malformed {
             value = bytes(SIMD2<Float>(0.5, 0.5))
         } else {

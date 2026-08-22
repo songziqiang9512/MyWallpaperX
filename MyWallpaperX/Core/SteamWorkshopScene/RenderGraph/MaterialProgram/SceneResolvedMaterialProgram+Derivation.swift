@@ -37,6 +37,10 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                   input.textureSlots,
                   frontend: frontend
               ),
+              SceneMaterialTextureTransformABI.validates(
+                  layout: frontend.uniformLayout,
+                  activeSlots: Set(textures.activeSlots)
+              ),
               let uniforms = resolveUniforms(
                   input.resolvedUniforms,
                   layout: frontend.uniformLayout,
@@ -307,6 +311,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                       slotIndex: index,
                       candidate: slot.resource.publication.candidate
                   ) != nil,
+                  slot.resource.publication.candidate
+                      .materialProgramUVTransform() != nil,
                   let referenceKind = SceneResolvedMaterialProgramIdentity
                       .textureReferenceKind(slot.reference),
                   let content = SceneResolvedMaterialProgramIdentity.textureContent(

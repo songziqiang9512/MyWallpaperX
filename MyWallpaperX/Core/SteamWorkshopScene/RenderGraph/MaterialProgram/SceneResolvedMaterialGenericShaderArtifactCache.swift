@@ -610,7 +610,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     ) -> String {
         var data = Data()
         for value in [
-            "mwx-generic-shader-request-v4",
+            "mwx-generic-shader-request-v5",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,
@@ -684,7 +684,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         ).first else { return nil }
         let root = caches
             .appendingPathComponent("com.songziqiang.MyWallpaperX", isDirectory: true)
-            .appendingPathComponent("SceneGenericShaderPrograms-v4", isDirectory: true)
+            .appendingPathComponent("SceneGenericShaderPrograms-v5", isDirectory: true)
             .standardizedFileURL
         do {
             try FileManager.default.createDirectory(

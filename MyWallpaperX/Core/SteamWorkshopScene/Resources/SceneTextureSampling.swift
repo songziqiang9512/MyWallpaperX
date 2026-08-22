@@ -59,11 +59,11 @@ nonisolated struct SceneTextureSampling: Equatable, Hashable, Sendable {
     /// Exact authored TEX flags. Direct image uploads have no authored flag word.
     let rawFlags: UInt32?
 
-    /// Program admission is intentionally narrower than the direct-image sampler.
-    /// Only the proven no-interpolation and clamp-UV bits are executable.
+    /// Program admission accepts filter/address plus the known TEX animation
+    /// metadata bit after frame-provider lowering. All other bits fail closed.
     var isResolvedForMaterialProgram: Bool {
         guard let rawFlags else { return true }
-        return rawFlags & ~UInt32(0b11) == 0
+        return rawFlags & ~UInt32(0b111) == 0
     }
 
     /// Preserve the effective-sampler equality used by direct image

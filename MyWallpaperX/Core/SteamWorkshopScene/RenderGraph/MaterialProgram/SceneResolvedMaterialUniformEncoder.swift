@@ -96,6 +96,20 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
                 candidate.mappedSize.width,
                 candidate.mappedSize.height,
             ].map(Double.init), as: type)
+        case let .textureTransform(slot, component):
+            guard type == .float4,
+                  slots.indices.contains(slot),
+                  let candidate = slots[slot]?.resource.publication.candidate,
+                  let transform = candidate.materialProgramUVTransform() else {
+                return nil
+            }
+            let value = switch component {
+            case .originAndXAxis: transform.uniform0
+            case .yAxis: transform.uniform1
+            }
+            return encodeComponents([
+                value.x, value.y, value.z, value.w,
+            ].map(Double.init), as: type)
         case let .audioSpectrumLeft(count):
             return encodeSpectrum(
                 inputs.audioSpectrum,

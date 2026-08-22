@@ -24,22 +24,7 @@ SWIFT_SOURCES = [
     *scene_swift_sources("authored_shader_frontend_core"),
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
-    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerBundle.swift",
-    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
-    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
-    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
-    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",
-    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderCompiler.swift",
+    *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRouteProfile.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
@@ -773,7 +758,7 @@ private struct GenericShaderArtifactHarness {
                 return [
                     "#include <metal_stdlib>",
                     "using namespace metal;",
-                    "struct MWXUniforms {};",
+                    "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };",
                     "fragment void f() {",
                     "    float weight = 0.0;",
                     "    float4 result = float4(0.0);",
@@ -787,8 +772,8 @@ private struct GenericShaderArtifactHarness {
                     "}",
                 ].joined(separator: "\n")
             }
-            let reflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
-            let vertexMSL = "struct MWXUniforms {};"
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxTexture0Transform0","type":"vec4","offset":0},{"name":"mwxTexture0Transform1","type":"vec4","offset":16}]}},"ubos":[{"type":"_1","block_size":32,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };"
             func artifact(authored: String, msl: String) -> SceneGenericShaderProgramArtifact? {
                 let built = SceneGenericShaderArtifactBuilder.build(
                     requestKey: String(repeating: "a", count: 64),
@@ -919,8 +904,8 @@ private struct GenericShaderArtifactHarness {
             return
         }
         if CommandLine.arguments[1] == "--builder-preserved-channel-use" {
-            let reflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
-            let vertexMSL = "struct MWXUniforms {};"
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxTexture0Transform0","type":"vec4","offset":0},{"name":"mwxTexture0Transform1","type":"vec4","offset":16}]}},"ubos":[{"type":"_1","block_size":32,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };"
             let authored = [
                 "uniform sampler2D g_Texture0;",
                 "varying vec2 v_TexCoord;",
@@ -951,7 +936,7 @@ private struct GenericShaderArtifactHarness {
                 return artifact.program.textureBindings.first?.channelUse
             }
             let direct = [
-                "struct MWXUniforms {};",
+                "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };",
                 "fragment void f() {",
                 "    float2 pair = g_Texture0.sample(s, uv).xy;",
                 "    out.mwxFragColor = float4(pair, 0.0, 1.0);",
@@ -972,8 +957,8 @@ private struct GenericShaderArtifactHarness {
             return
         }
         if CommandLine.arguments[1] == "--builder-preserved-rgba-data" {
-            let reflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
-            let vertexMSL = "struct MWXUniforms {};"
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxTexture0Transform0","type":"vec4","offset":0},{"name":"mwxTexture0Transform1","type":"vec4","offset":16}]}},"ubos":[{"type":"_1","block_size":32,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };"
             let wholeOutput = [
                 "uniform sampler2D g_Texture0;",
                 "varying vec2 v_TexCoord;",
@@ -988,7 +973,7 @@ private struct GenericShaderArtifactHarness {
                 with: "    WriteOutput(state);"
             )
             let fragmentMSL = [
-                "struct MWXUniforms {};",
+                "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };",
                 "fragment void f() {",
                 "    float4 state = g_Texture0.sample(s, uv);",
                 "    state.xy += state.zw * 0.25;",
@@ -1032,10 +1017,10 @@ private struct GenericShaderArtifactHarness {
             return
         }
         if CommandLine.arguments[1] == "--builder-normalized-sample-sum" {
-            let reflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
-            let vertexMSL = "struct MWXUniforms {};"
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxTexture0Transform0","type":"vec4","offset":0},{"name":"mwxTexture0Transform1","type":"vec4","offset":16}]}},"ubos":[{"type":"_1","block_size":32,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };"
             let fragmentMSL = [
-                "struct MWXUniforms {};",
+                "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };",
                 "fragment void f() {",
                 "    float4 color = g_Texture0.sample(s, uv - delta) * 0.25",
                 "        + g_Texture0.sample(s, uv) * 0.5",
@@ -1161,10 +1146,10 @@ private struct GenericShaderArtifactHarness {
             return
         }
         if CommandLine.arguments[1] == "--builder-interpolation" {
-            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"rate","type":"float","offset":0},{"name":"mwxRenderSize","type":"vec2","offset":8}]}},"ubos":[{"type":"_1","block_size":16,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
-            let vertexMSL = "struct MWXUniforms { float rate; float2 mwxRenderSize; };"
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"rate","type":"float","offset":0},{"name":"mwxRenderSize","type":"vec2","offset":8},{"name":"mwxTexture0Transform0","type":"vec4","offset":16},{"name":"mwxTexture0Transform1","type":"vec4","offset":32},{"name":"mwxTexture1Transform0","type":"vec4","offset":48},{"name":"mwxTexture1Transform1","type":"vec4","offset":64}]}},"ubos":[{"type":"_1","block_size":80,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float rate; float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture1Transform0; float4 mwxTexture1Transform1; };"
             let fragmentMSL = [
-                "struct MWXUniforms { float rate; float2 mwxRenderSize; };",
+                "struct MWXUniforms { float rate; float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture1Transform0; float4 mwxTexture1Transform1; };",
                 "fragment void f() {",
                 "    float4 current = g_Texture0.sample(sourceSampler, uv);",
                 "    float4 history = g_Texture1.sample(historySampler, uv);",
@@ -1253,13 +1238,13 @@ private struct GenericShaderArtifactHarness {
             return
         }
         if CommandLine.arguments[1] == "--builder-straight-preserving" {
-            let vertexReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0}]}},"ubos":[{"type":"_1","block_size":8,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
-            let fragmentReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"g_AudioSpectrum16Left","type":"float","offset":16,"array":[16]}]}},"ubos":[{"type":"_1","block_size":80,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
-            let vertexMSL = "struct MWXUniforms { float2 mwxRenderSize; };"
+            let vertexReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"mwxTexture0Transform0","type":"vec4","offset":16},{"name":"mwxTexture0Transform1","type":"vec4","offset":32},{"name":"mwxTexture1Transform0","type":"vec4","offset":48},{"name":"mwxTexture1Transform1","type":"vec4","offset":64}]}},"ubos":[{"type":"_1","block_size":80,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
+            let fragmentReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"g_AudioSpectrum16Left","type":"float","offset":16,"array":[16]},{"name":"mwxTexture0Transform0","type":"vec4","offset":80},{"name":"mwxTexture0Transform1","type":"vec4","offset":96},{"name":"mwxTexture1Transform0","type":"vec4","offset":112},{"name":"mwxTexture1Transform1","type":"vec4","offset":128}]}},"ubos":[{"type":"_1","block_size":144,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture1Transform0; float4 mwxTexture1Transform1; };"
             let fragmentMSL = [
                 "#include <metal_stdlib>",
                 "using namespace metal;",
-                "struct MWXUniforms { float2 mwxRenderSize; float g_AudioSpectrum16Left[16]; };",
+                "struct MWXUniforms { float2 mwxRenderSize; float g_AudioSpectrum16Left[16]; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture1Transform0; float4 mwxTexture1Transform1; };",
                 "struct Output { float4 mwxFragColor [[color(0)]]; };",
                 "fragment Output f() {",
                 "    Output out;",
@@ -1286,7 +1271,7 @@ private struct GenericShaderArtifactHarness {
             let composedMSL = [
                 "#include <metal_stdlib>",
                 "using namespace metal;",
-                "struct MWXUniforms { float2 mwxRenderSize; float g_AudioSpectrum16Left[16]; };",
+                "struct MWXUniforms { float2 mwxRenderSize; float g_AudioSpectrum16Left[16]; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture1Transform0; float4 mwxTexture1Transform1; };",
                 "struct Output { float4 mwxFragColor [[color(0)]]; };",
                 "fragment Output f() {",
                 "    Output out;",
@@ -1307,7 +1292,7 @@ private struct GenericShaderArtifactHarness {
             let directMSL = [
                 "#include <metal_stdlib>",
                 "using namespace metal;",
-                "struct MWXUniforms { float2 mwxRenderSize; float g_AudioSpectrum16Left[16]; };",
+                "struct MWXUniforms { float2 mwxRenderSize; float g_AudioSpectrum16Left[16]; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture1Transform0; float4 mwxTexture1Transform1; };",
                 "struct Output { float4 mwxFragColor [[color(0)]]; };",
                 "fragment Output f() {",
                 "    Output out;",
@@ -1334,7 +1319,7 @@ private struct GenericShaderArtifactHarness {
                 "    gl_FragColor = renamedCarrier;",
                 "}",
             ].joined(separator: "\n")
-            let directReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"g_AudioSpectrum16Left","type":"float","offset":16,"array":[16]}]}},"ubos":[{"type":"_1","block_size":80,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let directReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"g_AudioSpectrum16Left","type":"float","offset":16,"array":[16]},{"name":"mwxTexture0Transform0","type":"vec4","offset":80},{"name":"mwxTexture0Transform1","type":"vec4","offset":96}]}},"ubos":[{"type":"_1","block_size":112,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
             let directVertexReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0}]}},"ubos":[{"type":"_1","block_size":8,"set":0,"binding":8}],"textures":[]}"#.utf8)
             func build(
                 _ msl: String,
@@ -1500,12 +1485,12 @@ private struct GenericShaderArtifactHarness {
             return
         }
         if CommandLine.arguments[1] == "--builder-straight-attenuation" {
-            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0}]},"_2":{"members":[]}},"ubos":[{"type":"_1","block_size":8,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
-            let vertexMSL = "struct MWXUniforms { float2 mwxRenderSize; };"
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"mwxTexture0Transform0","type":"vec4","offset":16},{"name":"mwxTexture0Transform1","type":"vec4","offset":32}]},"_2":{"members":[]}},"ubos":[{"type":"_1","block_size":48,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };"
             let fragmentMSL = [
                 "#include <metal_stdlib>",
                 "using namespace metal;",
-                "struct MWXUniforms { float2 mwxRenderSize; };",
+                "struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };",
                 "struct Output { float4 mwxFragColor [[color(0)]]; };",
                 "fragment Output f() {",
                 "    Output out;",
@@ -1599,12 +1584,12 @@ private struct GenericShaderArtifactHarness {
             return
         }
         if CommandLine.arguments[1] == "--builder-straight-output" {
-            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0}]}},"ubos":[{"type":"_1","block_size":8,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
-            let vertexMSL = "struct MWXUniforms { float2 mwxRenderSize; };"
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"mwxTexture0Transform0","type":"vec4","offset":16},{"name":"mwxTexture0Transform1","type":"vec4","offset":32}]}},"ubos":[{"type":"_1","block_size":48,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };"
             let fragmentMSL = [
                 "#include <metal_stdlib>",
                 "using namespace metal;",
-                "struct MWXUniforms { float2 mwxRenderSize; };",
+                "struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };",
                 "struct Output { float4 mwxFragColor [[color(0)]]; };",
                 "fragment Output f() {",
                 "    Output out;",
@@ -1697,12 +1682,12 @@ private struct GenericShaderArtifactHarness {
             return
         }
         if CommandLine.arguments[1] == "--builder-conditional-straight" {
-            let reflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
-            let vertexMSL = "struct MWXUniforms {};"
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxTexture0Transform0","type":"vec4","offset":0},{"name":"mwxTexture0Transform1","type":"vec4","offset":16}]}},"ubos":[{"type":"_1","block_size":32,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };"
             let fragmentMSL = [
                 "#include <metal_stdlib>",
                 "using namespace metal;",
-                "struct MWXUniforms {};",
+                "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };",
                 "struct Output { float4 mwxFragColor [[color(0)]]; };",
                 "fragment Output f() {",
                 "    Output out;",
@@ -2496,13 +2481,19 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         color_transfer: str = "passthrough",
         output_semantics: str = "color",
         output_channel_use: str = "redDefined",
+        auxiliary_channel_use: str | None = None,
     ) -> dict:
-        metal = """
+        slots = [0] if auxiliary_channel_use is None else [0, 1]
+        transforms = " ".join(
+            f"float4 mwxTexture{slot}Transform{component};"
+            for slot in slots for component in range(2)
+        )
+        metal = f"""
 #include <metal_stdlib>
 using namespace metal;
-struct Uniforms { float2 mwxRenderSize; };
-vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u [[buffer(8)]]) { return float4(0.0); }
-fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) { return float4(1.0); }
+struct Uniforms {{ float2 mwxRenderSize; {transforms} }};
+vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u [[buffer(8)]]) {{ return float4(0.0); }}
+fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant Uniforms& u [[buffer(8)]]) {{ return g_Texture0.sample(sampler(), u.mwxTexture0Transform0.xy + u.mwxTexture0Transform0.zw * 0.5 + u.mwxTexture0Transform1.xy * 0.5); }}
 """.strip() + "\n"
         return {
             "schemaVersion": 4,
@@ -2518,16 +2509,20 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 "uniformBufferIndex": 8,
                 "uniformLayout": {
                     "fields": [{
-                        "name": "mwxRenderSize",
-                        "authoredName": "mwxRenderSize",
-                        "type": "float2",
-                        "offset": 0,
-                    }],
-                    "byteSize": 16,
+                        "name": "mwxRenderSize", "authoredName": "mwxRenderSize",
+                        "type": "float2", "offset": 0,
+                    }] + [{
+                        "name": f"mwxTexture{slot}Transform{component}",
+                        "authoredName": f"mwxTexture{slot}Transform{component}",
+                        "type": "float4", "offset": 16 + slot * 32 + component * 16,
+                    } for slot in slots for component in range(2)],
+                    "byteSize": 16 + len(slots) * 32,
                 },
-                "textureBindings": [{
-                    "name": "g_Texture0", "slot": 0, "channelUse": "unproven"
-                }],
+                "textureBindings": [
+                    {"name": f"g_Texture{slot}", "slot": slot, "channelUse": (
+                        "unproven" if slot == 0 else auxiliary_channel_use
+                    )} for slot in slots
+                ],
                 "staticLoopWork": 0,
                 "fragmentOutputChannelUse": output_channel_use,
                 "colorTransfer": (
@@ -2555,10 +2550,12 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
     ) -> dict:
         reflection = {
             "types": {"_1": {"members": [
-                {"name": "mwxRenderSize", "type": "vec2", "offset": 0}
+                {"name": "mwxRenderSize", "type": "vec2", "offset": 0},
+                {"name": "mwxTexture0Transform0", "type": "vec4", "offset": 16},
+                {"name": "mwxTexture0Transform1", "type": "vec4", "offset": 32},
             ]}},
             "ubos": [{
-                "type": "_1", "block_size": 8, "set": 0, "binding": 8
+                "type": "_1", "block_size": 48, "set": 0, "binding": 8
             }],
             "textures": [{"name": "g_Texture0", "binding": 0}],
         }
@@ -2568,18 +2565,19 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
         ]
         vertex_msl = """#include <metal_stdlib>
 using namespace metal;
-struct MWXUniforms { float2 mwxRenderSize; };
+struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };
 vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]]) {
     return float4(0.0);
 }
 """
         fragment_msl = """#include <metal_stdlib>
 using namespace metal;
-struct MWXUniforms { float2 mwxRenderSize; };
+struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };
 struct Output { float4 mwxFragColor [[color(0)]]; };
-fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
+fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant MWXUniforms& uniforms [[buffer(8)]]) {
     Output out;
-    out.mwxFragColor = g_Texture0.sample(sampler(), float2(0.5));
+    float2 uv = uniforms.mwxTexture0Transform0.xy + uniforms.mwxTexture0Transform0.zw * 0.5 + uniforms.mwxTexture0Transform1.xy * 0.5;
+    out.mwxFragColor = g_Texture0.sample(sampler(), uv);
     return out;
 }
 """
@@ -2611,28 +2609,26 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             digest.update(encoded)
         return digest.hexdigest()
 
-    def test_schema_four_request_and_default_cache_namespaces_are_isolated(self):
+    def test_transform_abi_request_and_default_cache_namespaces_are_isolated(self):
         source = CACHE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn('"mwx-generic-shader-request-v4"', source)
-        self.assertIn('"SceneGenericShaderPrograms-v4"', source)
-        self.assertNotIn('"mwx-generic-shader-request-v3"', source)
-        self.assertNotIn('"SceneGenericShaderPrograms-v3"', source)
+        self.assertIn('"mwx-generic-shader-request-v5"', source)
+        self.assertIn('"SceneGenericShaderPrograms-v5"', source)
+        self.assertNotIn('"mwx-generic-shader-request-v4"', source)
+        self.assertNotIn('"SceneGenericShaderPrograms-v4"', source)
 
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
             root = Path(directory)
             observed, _, cache, _ = self.run_harness(root, route="observe-only")
             current_key = self.request_key(
-                "mwx-generic-shader-request-v4", VERTEX, FRAGMENT
+                "mwx-generic-shader-request-v5", VERTEX, FRAGMENT
             )
             legacy_key = self.request_key(
-                "mwx-generic-shader-request-v1", VERTEX, FRAGMENT
+                "mwx-generic-shader-request-v4", VERTEX, FRAGMENT
             )
             self.assertEqual(observed["requestKey"], current_key)
             self.assertNotEqual(current_key, legacy_key)
 
             stale = self.artifact(legacy_key)
-            stale["schemaVersion"] = 1
-            stale["program"].pop("fragmentOutputChannelUse")
             (cache / f"{legacy_key}.json").write_text(
                 json.dumps(stale), encoding="utf-8"
             )
@@ -2985,7 +2981,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
             self.assertEqual(accepted["status"], "accepted")
             self.assertEqual(accepted["backend"], "genericCompilerArtifact")
             self.assertEqual(accepted["uniformBufferIndex"], 8)
-            self.assertEqual(accepted["uniformNames"], ["mwxRenderSize"])
+            self.assertEqual(accepted["uniformNames"], [
+                "mwxRenderSize",
+                "mwxTexture0Transform0",
+                "mwxTexture0Transform1",
+            ])
             self.assertEqual(accepted["textureSlots"], [0])
 
             self.assertEqual(accepted["colorTransfer"], "passthrough")
@@ -3657,11 +3657,10 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                 root, route="observe-only", fragment=INTERPOLATED_FRAGMENT
             )
             artifact = self.artifact(
-                first["requestKey"], color_transfer="interpolated-color"
+                first["requestKey"],
+                color_transfer="interpolated-color",
+                auxiliary_channel_use="unproven",
             )
-            artifact["program"]["textureBindings"].append({
-                "name": "g_Texture1", "slot": 1, "channelUse": "unproven"
-            })
             (cache / f"{first['requestKey']}.json").write_text(
                 json.dumps(artifact), encoding="utf-8"
             )
@@ -4323,14 +4322,10 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]]) {
                     root, route="observe-only", fragment=fragment, **facts
                 )
                 artifact = self.artifact(
-                    observed["requestKey"], color_transfer=transfer
+                    observed["requestKey"],
+                    color_transfer=transfer,
+                    auxiliary_channel_use="redOnly" if needs_aux else None,
                 )
-                if needs_aux:
-                    artifact["program"]["textureBindings"].append({
-                        "name": "g_Texture1",
-                        "slot": 1,
-                        "channelUse": "redOnly",
-                    })
                 artifact_path = cache / f"{observed['requestKey']}.json"
                 artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
 

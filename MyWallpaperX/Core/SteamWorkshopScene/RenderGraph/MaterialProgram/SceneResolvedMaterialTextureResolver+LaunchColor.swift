@@ -237,6 +237,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 ) {
                 case .ready: return .selected(reference)
                 case .absent: break
+                case .effectLocalUnavailable: return .invalid
                 case .pending, .unavailable: return .invalid
                 }
             } catch {

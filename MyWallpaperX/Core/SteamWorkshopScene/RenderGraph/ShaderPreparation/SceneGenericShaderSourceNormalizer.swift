@@ -156,7 +156,10 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 .isSubset(of: stageVaryings["vertex", default: []]) else {
                 throw Failure.stageLinkMismatch
             }
-            guard uniforms["mwxRenderSize"] == nil else { throw Failure.reservedUniform }
+            guard uniforms["mwxRenderSize"] == nil,
+                  uniforms.keys.allSatisfy({
+                      SceneMaterialTextureTransformABI.component(forFieldName: $0) == nil
+                  }) else { throw Failure.reservedUniform }
 
             guard var vertex = parsed["vertex"], var fragment = parsed["fragment"] else {
                 throw Failure.stageLinkMismatch
@@ -182,7 +185,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 fragment.body,
                 shapes: varyings.merging(uniforms) { current, _ in current }
             )
-            fragment.body = rewriteScalarTextureAssignments(fragment.body)
+            fragment.body = SceneGenericShaderTextureSamplingNormalizer
+                .rewrite(fragment.body)
             fragment.body = rewriteScalarVectorAssignments(
                 fragment.body,
                 shapes: varyings.merging(uniforms) { current, _ in current }
@@ -221,11 +225,18 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             let activeUniforms = uniforms.keys.filter { name in
                 [vertex.body, fragment.body].contains { containsWord(name, in: $0) }
             }.sorted()
+            let activeSamplerSlots = samplers.compactMap { name, slot in
+                [vertex.body, fragment.body].contains { containsWord(name, in: $0) }
+                    ? slot : nil
+            }.sorted()
             let uniformLines = activeUniforms.map { name in
                 let shape = uniforms[name]!
                 let suffix = shape.count.map { "[\($0)]" } ?? ""
                 return "    \(shape.type) \(name)\(suffix);"
             } + ["    vec2 mwxRenderSize;"]
+                + SceneGenericShaderTextureSamplingNormalizer.uniformLines(
+                    activeSlots: activeSamplerSlots
+                )
             let varyingOrder = varyings.keys.sorted()
             var nextLocation = 0
             var locations: [String: Int] = [:]
@@ -254,7 +265,6 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 return ([
                     "#version 450",
                     "#define mul(x, y) ((y) * (x))",
-                    "#define texSample2D texture",
                     "#define CAST2(x) vec2(x)",
                     "#define CAST3(x) vec3(x)",
                     "#define CAST4(x) vec4(x)",
@@ -262,7 +272,11 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     "#define saturate(x) clamp((x), 0.0, 1.0)",
                     "#define atan2 atan",
                     "layout(std140, set = 0, binding = 8) uniform MWXUniforms {",
-                ] + uniformLines + ["};"] + samplerLines + interface + [value.body])
+                ] + uniformLines + ["};"]
+                    + SceneGenericShaderTextureSamplingNormalizer.supportLines(
+                        activeSlots: activeSamplerSlots
+                    )
+                    + samplerLines + interface + [value.body])
                     .joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
             }
             let activeAudioSpectrumArrays = Set(activeUniforms.filter { name in
@@ -361,17 +375,6 @@ void main() {
     vec2 mwxPosition = vec2(a_TexCoord.x, 1.0 - a_TexCoord.y);
     vec3 a_Position = vec3(\(positionExpression), 0.0);
 """
-        )
-    }
-
-    private static func rewriteScalarTextureAssignments(_ source: String) -> String {
-        let regex = try! NSRegularExpression(pattern:
-            #"(\bfloat\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(texSample2D\([^;]+\))(\s*;)"#
-        )
-        return regex.stringByReplacingMatches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source),
-            withTemplate: "$1$2.r$3"
         )
     }
 

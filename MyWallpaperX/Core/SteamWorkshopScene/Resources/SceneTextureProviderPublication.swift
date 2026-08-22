@@ -97,11 +97,16 @@ nonisolated enum SceneTextureProviderState {
 /// Value-only launch view of an immutable asset provider state. Capability
 /// admission needs absence and failure provenance as well as ready content so
 /// it can apply the same candidate precedence as frame selection.
+nonisolated enum SceneAssetTextureEffectLocalUnavailable: Hashable {
+    case animatedFrameMetadataInvalid
+}
+
 nonisolated enum SceneAssetTextureLaunchState: Hashable {
     case ready(SceneTextureContent)
     case absent
     case pending
     case unavailable
+    case effectLocalUnavailable(SceneAssetTextureEffectLocalUnavailable)
 }
 
 nonisolated struct SceneFrameTextureResource {

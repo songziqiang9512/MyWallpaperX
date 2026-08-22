@@ -50,6 +50,7 @@
       "includes": [],
       "sources": [
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderTextureTransformABI.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderLexer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderBoundedLoopAdmission.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderRuntimeLoopAdmission.swift",
@@ -169,6 +170,7 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",

@@ -146,6 +146,7 @@
           "SceneAuthoredShaderLexer.swift",
           "SceneAuthoredShaderMetal*.swift",
           "SceneAuthoredShaderSyntax.swift",
+          "SceneAuthoredShaderTextureTransformABI.swift",
           "SceneAuthoredShaderVaryingArrayEmitter.swift",
           "SceneAuthoredShaderWholeVectorAffineParser.swift"
         ],

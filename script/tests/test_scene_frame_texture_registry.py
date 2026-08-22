@@ -917,7 +917,7 @@ enum Harness {
             && SceneTextureSampling(texFlags: 2).isResolvedForMaterialProgram
             && SceneTextureSampling(texFlags: 3).isResolvedForMaterialProgram
             && SceneTextureSampling(texFlags: 2) == .linearClamp
-            && !SceneTextureSampling(texFlags: 4).isResolvedForMaterialProgram
+            && SceneTextureSampling(texFlags: 4).isResolvedForMaterialProgram
             && !SceneTextureSampling(texFlags: 8).isResolvedForMaterialProgram
             && !SceneTextureSampling(texFlags: 16).isResolvedForMaterialProgram
             && SceneTextureSampling(texFlags: 8).rawFlags == 8

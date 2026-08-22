@@ -158,6 +158,12 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 reflections: [vertexReflection, fragmentReflection],
                 metalSource: metalSource
             )
+            guard validTextureTransformLayout(
+                uniformLayout,
+                activeSlots: Set(bindings.map(\.slot))
+            ) else {
+                throw Failure.uniformStageMismatch
+            }
             guard colorTransfer(color.transfer, isBoundBy: bindings) else {
                 throw Failure.colorTransfer
             }

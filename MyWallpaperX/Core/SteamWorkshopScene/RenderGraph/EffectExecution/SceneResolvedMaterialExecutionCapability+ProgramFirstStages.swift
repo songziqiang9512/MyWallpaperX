@@ -319,6 +319,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             "material-variant-envelope-color-contract",
             "material-variant-envelope-sampler-schema",
             "material-variant-envelope-uniform-schema",
+            "material-variant-envelope-animated-frame-metadata",
             "material-dynamic-uniform-contributor-policy",
             "material-dynamic-uniform-contributor-producer-unavailable",
             "material-dynamic-uniform-script-attachment-unproven",

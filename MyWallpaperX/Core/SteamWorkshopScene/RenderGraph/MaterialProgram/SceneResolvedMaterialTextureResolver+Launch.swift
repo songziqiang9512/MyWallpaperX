@@ -101,6 +101,13 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                         ) {
                         case .ready: required |= bit
                         case .absent: break
+                        case .effectLocalUnavailable(
+                            .animatedFrameMetadataInvalid
+                        ):
+                            throw launchFailure(
+                                .animatedFrameMetadataInvalid,
+                                slot: index
+                            )
                         case .pending, .unavailable:
                             throw launchFailure(.textureBindingInvalid, slot: index)
                         }

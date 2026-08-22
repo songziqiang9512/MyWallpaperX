@@ -50,6 +50,7 @@ SPV_UNSAFE_ARRAY = re.compile(
     r"template<typename T, size_t Num>\s+struct spvUnsafeArray\s*\{.*?\n\};",
     re.DOTALL,
 )
+TEXTURE_TRANSFORM_FIELD = re.compile(r"mwxTexture(?P<slot>[0-7])Transform(?P<part>[01])")
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -75,7 +76,7 @@ def request_cache_key(request: dict[str, Any]) -> str:
         raise ArtifactFailure("output-semantics")
     digest = hashlib.sha256()
     for value in (
-        "mwx-generic-shader-request-v4",
+        "mwx-generic-shader-request-v5",
         str(request.get("sourceDialect", "glsl-450")),
         output_semantics,
         sources["vertex"],
@@ -176,32 +177,68 @@ def _stage_local_uniform_layout(
     vertex_fields: list[dict[str, Any]],
     fragment_fields: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], int, dict[str, str], dict[str, str]]:
-    shared_internal = "mwxRenderSize"
+    def is_shared_internal(name: str) -> bool:
+        return name == "mwxRenderSize" or TEXTURE_TRANSFORM_FIELD.fullmatch(name) is not None
+
     vertex_names = {field["authoredName"] for field in vertex_fields}
     fragment_names = {field["authoredName"] for field in fragment_fields}
-    duplicated = (vertex_names & fragment_names) - {shared_internal}
+    duplicated = {
+        name for name in vertex_names & fragment_names
+        if not is_shared_internal(name)
+    }
     combined: list[dict[str, Any]] = []
     mappings: dict[str, dict[str, str]] = {"vertex": {}, "fragment": {}}
-    internal: dict[str, Any] | None = None
+    shared: dict[str, dict[str, Any]] = {}
     for stage, fields, prefix in (
         ("vertex", vertex_fields, "mwxV_"),
         ("fragment", fragment_fields, "mwxF_"),
     ):
         for field in fields:
             authored = field["authoredName"]
-            if authored == shared_internal:
-                if internal is not None and internal["type"] != field["type"]:
+            if is_shared_internal(authored):
+                previous = shared.get(authored)
+                shape = (field["type"], field.get("arrayCount"))
+                if previous is not None and shape != (
+                    previous["type"], previous.get("arrayCount")
+                ):
                     raise ArtifactFailure("uniform-stage-mismatch")
-                internal = {**field, "name": shared_internal}
-                mappings[stage][authored] = shared_internal
+                shared[authored] = {**field, "name": authored}
+                mappings[stage][authored] = authored
                 continue
             name = prefix + authored if authored in duplicated else authored
             combined.append({**field, "name": name, "stage": stage})
             mappings[stage][authored] = name
-    if internal is not None:
-        combined.append(internal)
+    combined.extend(shared[name] for name in sorted(shared))
     fields, byte_size = _aligned_uniform_layout(combined)
     return fields, byte_size, mappings["vertex"], mappings["fragment"]
+
+
+def _validate_texture_transform_layout(
+    fields: list[dict[str, Any]],
+    texture_bindings: list[dict[str, Any]],
+) -> None:
+    expected = {
+        (binding["slot"], part)
+        for binding in texture_bindings
+        for part in (0, 1)
+    }
+    observed: set[tuple[int, int]] = set()
+    for field in fields:
+        match = TEXTURE_TRANSFORM_FIELD.fullmatch(field["authoredName"])
+        if match is None:
+            continue
+        key = (int(match.group("slot")), int(match.group("part")))
+        if (
+            key in observed
+            or field["name"] != field["authoredName"]
+            or field["type"] != "float4"
+            or "arrayCount" in field
+            or "stage" in field
+        ):
+            raise ArtifactFailure("texture-transform-layout")
+        observed.add(key)
+    if observed != expected:
+        raise ArtifactFailure("texture-transform-layout")
 
 
 def _normalize_uniform_struct(
@@ -542,6 +579,8 @@ def build_program_artifact(
     metal_source = vertex_msl.rstrip() + "\n\n" + fragment_msl.lstrip()
     if len(metal_source.encode("utf-8")) > maximum_artifact_bytes:
         raise ArtifactFailure("metal-size")
+    texture_bindings = _texture_bindings(compiled_stages, metal_source)
+    _validate_texture_transform_layout(uniform_layout[0], texture_bindings)
     return {
         "schemaVersion": 4,
         "kind": "scene-generic-shader-program-artifact",
@@ -557,7 +596,7 @@ def build_program_artifact(
             "uniformLayout": {
                 "fields": uniform_layout[0], "byteSize": uniform_layout[1]
             },
-            "textureBindings": _texture_bindings(compiled_stages, metal_source),
+            "textureBindings": texture_bindings,
             "staticLoopWork": static_loop_work,
             "fragmentOutputChannelUse": "unproven",
             "colorTransfer": color_transfer,

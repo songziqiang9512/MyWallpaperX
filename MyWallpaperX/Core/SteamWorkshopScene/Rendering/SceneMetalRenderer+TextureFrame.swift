@@ -14,7 +14,9 @@ extension SceneMetalRenderer {
             frameIndex: frameContext.frameIndex,
             layerSources: imageTextures.textures,
             explicitLayerSources: imageTextures.explicitLayerSources,
-            assetStates: imageCompositor.resolvedMaterialAssetStates,
+            assetStates: imageCompositor.resolvedMaterialAssetStates(
+                sceneTime: frameContext.sceneTime
+            ),
             userPropertyTextures: userPropertyTextures,
             userPropertyStates: userPropertyStates,
             systemTextures: mediaThumbnail.systemTextures,

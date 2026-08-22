@@ -309,7 +309,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         self.compositeFailureReason = compositeFailureReason
     }
 
-    var assetStates: [SceneAssetTextureIdentity: SceneTextureProviderState] { [:] }
+    func resolvedAssetStates(sceneTime: TimeInterval) -> [SceneAssetTextureIdentity: SceneTextureProviderState] { [:] }
     var shouldDeferFrame: Bool { false }
 
     func systemProviderBlocks(

@@ -168,7 +168,7 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     private let catalog: SceneResolvedMaterialRuntimeCatalog
     private let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
-    private let assets: SceneMaterialAssetTextureCatalog
+    private let assetProvider: SceneMaterialAssetTextureCatalog.FrameProvider
     private let submissions: SceneResolvedMaterialSubmissionCoordinator
     private let executionEvidenceLock = NSLock()
     private var executionEvidenceByKey: [Graph.EffectKey: String] = [:]
@@ -188,7 +188,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     ) {
         self.catalog = catalog
         self.capabilities = capabilities
-        self.assets = assets
+        assetProvider = assets.makeFrameProvider()
         submissions = .init(
             device: device,
             capabilities: capabilities,
@@ -196,8 +196,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         )
     }
 
-    var assetStates: [SceneAssetTextureIdentity: SceneTextureProviderState] {
-        assets.states
+    func resolvedAssetStates(
+        sceneTime: TimeInterval
+    ) -> [SceneAssetTextureIdentity: SceneTextureProviderState] {
+        assetProvider.states(sceneTime: sceneTime)
     }
 
     var userPropertyDemands: Set<SceneUserPropertyTextureIdentity> {

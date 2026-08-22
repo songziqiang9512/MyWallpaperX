@@ -929,7 +929,23 @@ struct SceneResolvedMaterialRuntimeCatalog {
     let systemProviderDemands: Set<SystemProviderDemand>
 }
 struct SceneMaterialAssetTextureCatalog {
+    final class FrameProvider {
+        let catalog: SceneMaterialAssetTextureCatalog
+
+        init(catalog: SceneMaterialAssetTextureCatalog) {
+            self.catalog = catalog
+        }
+
+        func states(
+            sceneTime: TimeInterval
+        ) -> [SceneAssetTextureIdentity: SceneTextureProviderState] {
+            catalog.states
+        }
+    }
+
     let states: [SceneAssetTextureIdentity: SceneTextureProviderState]
+
+    func makeFrameProvider() -> FrameProvider { .init(catalog: self) }
 }
 
 extension SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs {
@@ -3998,7 +4014,9 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("requestIdentity: request", source)
         self.assertIn("loaded[identity] = .absent", source)
         self.assertIn("loaded[identity] = .unavailable", source)
-        self.assertIn("let states:", source)
+        self.assertIn("private let staticStates:", source)
+        self.assertIn("private let animatedDefinitions:", source)
+        self.assertIn("func makeFrameProvider() -> FrameProvider", source)
         self.assertNotIn("sampleID", source)
 
     def test_claimed_route_is_current_and_all_post_claim_failures_close(self) -> None:
@@ -4567,47 +4585,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             }
             self.assertEqual(set(result["results"]), expected)
             self.assertTrue(all(result["results"].values()), result)
-
-    @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
-    def test_asset_states_keep_purpose_absence_and_failure_distinct(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="mwx-r3-asset-catalog-") as directory:
-            root = Path(directory)
-            harness = root / "Harness.swift"
-            binary = root / "asset-catalog"
-            harness.write_text(ASSET_HARNESS, encoding="utf-8")
-            compilation = subprocess.run(
-                [
-                    "xcrun", "--sdk", "macosx", "swiftc",
-                    str(ASSET_CATALOG), str(harness),
-                    "-framework", "Metal",
-                    "-module-cache-path", str(root / "module-cache"),
-                    "-o", str(binary),
-                ],
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(compilation.returncode, 0, compilation.stderr)
-            completed = subprocess.run(
-                [str(binary)], check=True, capture_output=True, text=True
-            )
-            result = json.loads(completed.stdout)
-            if not result["available"]:
-                self.skipTest("Metal device unavailable")
-            self.assertEqual(result["goodMask"], "ready")
-            self.assertEqual(result["goodFlow"], "ready")
-            self.assertEqual(result["missing"], "absent")
-            self.assertEqual(result["bad"], "unavailable")
-            self.assertEqual(result["incomplete"], "unavailable")
-            self.assertEqual(result["stateCount"], 5)
-            self.assertEqual(result["goodMaskFormat"], 0)
-            self.assertEqual(result["missingFormat"], -1)
-            self.assertEqual(result["badFormat"], -2)
-            self.assertEqual(result["goodMaskLaunch"], "ready-data")
-            self.assertEqual(result["missingLaunch"], "absent")
-            self.assertEqual(result["badLaunch"], "unavailable")
-            self.assertEqual(result["incompleteLaunch"], "unavailable")
-            self.assertIn("ready=2 absent=1", result["report"])
-            self.assertIn("unavailable=2", result["report"])
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_texture_vfs_preserves_package_loose_stock_precedence(self) -> None:

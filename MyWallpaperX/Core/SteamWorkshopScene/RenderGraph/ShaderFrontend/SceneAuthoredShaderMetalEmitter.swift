@@ -372,7 +372,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
               ),
               let arguments = textureSampleArguments(
                   tokens: tokens, opening: start + 1, closing: close),
-              arguments.count == (tokens[start].text == "texSample2DLod" ? 3 : 2),
+              arguments.count == (["texSample2DLod", "texture2DLod"]
+                  .contains(tokens[start].text) ? 3 : 2),
               arguments[0].count == 1,
               let texture = context.texturesByName[tokens[arguments[0].lowerBound].text]
         else {
@@ -409,8 +410,18 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let coordinateSource = coordinateSuffix.map {
             "(\(coordinate.source)).\($0)"
         } ?? coordinate.source
+        let transform0 = SceneMaterialTextureTransformABI.fieldName(
+            slot: texture.slot,
+            component: .originAndXAxis
+        )
+        let transform1 = SceneMaterialTextureTransformABI.fieldName(
+            slot: texture.slot,
+            component: .yAxis
+        )
+        let transformedCoordinate = "mwxTextureCoordinate(\(coordinateSource), "
+            + "mwxUniforms.\(transform0), mwxUniforms.\(transform1))"
         let sample = "mwxTexture\(texture.slot).sample(mwxSampler\(texture.slot), "
-            + "\(coordinateSource)\(level))"
+            + "\(transformedCoordinate)\(level))"
         let sampledSource = context.unpremultipliedTextureSlots.contains(texture.slot)
             ? "mwxUnpremultiply(\(sample))"
             : sample

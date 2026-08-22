@@ -9,6 +9,22 @@ enum SceneTextureCandidateLoadOutcome {
     case failed(SceneTextureLoadOutcome)
 }
 
+struct SceneAnimatedTextureCandidate {
+    let candidate: SceneTextureCandidate
+    let frames: [SceneTexContainer.SpriteFrame]
+}
+
+enum SceneAnimatedTextureCandidateLoadOutcome {
+    case loaded(SceneAnimatedTextureCandidate)
+    case failed(SceneTextureLoadOutcome)
+}
+
+enum SceneAnimatedMaterialAtlasAdmission {
+    case valid
+    case invalidFrameMetadata
+    case unsupportedStructure
+}
+
 extension SceneTextureLoader {
     func loadCandidate(
         from url: URL,
@@ -47,6 +63,66 @@ extension SceneTextureLoader {
               container?.spriteFrames.isEmpty ?? true else {
             return .failed(.decodeFailed(
                 "typed slot candidate requires one non-sprite image"
+            ))
+        }
+        return makeCandidate(
+            texture: texture,
+            container: container,
+            source: source,
+            url: url,
+            purpose: purpose
+        )
+    }
+
+    /// Catalog-only admission for one parsed single-image atlas. This keeps
+    /// ordinary candidate loading static while sharing its exact file/device
+    /// cache and typed candidate construction.
+    func loadAnimatedMaterialCandidate(
+        from url: URL,
+        purpose: SceneTextureLoadPurpose,
+        device: MTLDevice
+    ) -> SceneAnimatedTextureCandidateLoadOutcome {
+        guard url.pathExtension.lowercased() == "tex",
+              let source = sourceKey(for: url),
+              let container = texContainer(from: url, source: source),
+              materialAtlasAdmission(container) == .valid else {
+            return .failed(.decodeFailed(
+                "animated material candidate requires one finite axis-aligned atlas"
+            ))
+        }
+        let outcome = load(
+            from: url,
+            source: source,
+            purpose: purpose,
+            device: device
+        )
+        guard case let .loaded(texture) = outcome else {
+            return .failed(outcome)
+        }
+        guard case let .loaded(candidate) = makeCandidate(
+            texture: texture,
+            container: container,
+            source: source,
+            url: url,
+            purpose: purpose
+        ) else {
+            return .failed(.decodeFailed(
+                "animated material candidate has inconsistent texture geometry"
+            ))
+        }
+        return .loaded(.init(candidate: candidate, frames: container.spriteFrames))
+    }
+
+    private func makeCandidate(
+        texture: MTLTexture,
+        container: SceneTexContainer?,
+        source: SourceKey,
+        url: URL,
+        purpose: SceneTextureLoadPurpose
+    ) -> SceneTextureCandidateLoadOutcome {
+        guard texture.textureType == .type2D else {
+            return .failed(.decodeFailed(
+                "typed slot candidate requires a 2D texture"
             ))
         }
         let physicalSize: CGSize
@@ -127,6 +203,47 @@ extension SceneTextureLoader {
                 SceneShaderTextureFormat(rawValue: $0.format)
             }
         ))
+    }
+
+    func materialAtlasAdmission(
+        _ container: SceneTexContainer
+    ) -> SceneAnimatedMaterialAtlasAdmission {
+        let tolerance: Float = 0.000_001
+        guard container.imageCount == 1,
+              container.isAnimated,
+              !container.isVolume,
+              !container.spriteFrames.isEmpty,
+              container.textureWidth > 0,
+              container.textureHeight > 0,
+              container.imageWidth > 0,
+              container.imageHeight > 0 else {
+            return .unsupportedStructure
+        }
+        var duration: Float = 0
+        for frame in container.spriteFrames {
+            guard frame.imageIndex == 0,
+                  frame.duration.isFinite,
+                  frame.duration >= 0,
+                  frame.origin.x.isFinite,
+                  frame.origin.y.isFinite,
+                  frame.xAxis.x.isFinite,
+                  frame.xAxis.y.isFinite,
+                  frame.yAxis.x.isFinite,
+                  frame.yAxis.y.isFinite,
+                  abs(frame.xAxis.y) <= tolerance,
+                  abs(frame.yAxis.x) <= tolerance,
+                  frame.origin.x >= -tolerance,
+                  frame.origin.y >= -tolerance,
+                  frame.xAxis.x > 0,
+                  frame.yAxis.y > 0,
+                  frame.origin.x + frame.xAxis.x <= 1 + tolerance,
+                  frame.origin.y + frame.yAxis.y <= 1 + tolerance else {
+                return .invalidFrameMetadata
+            }
+            duration += frame.duration > 0 ? frame.duration : 1.0 / 60.0
+            guard duration.isFinite else { return .invalidFrameMetadata }
+        }
+        return duration > 0 ? .valid : .invalidFrameMetadata
     }
 
     private func candidateSourcePhysicalSize(

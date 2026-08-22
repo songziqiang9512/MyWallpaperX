@@ -38,6 +38,7 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         case renderStateInvalid
         case resourceSnapshotUnresolved
         case textureBindingInvalid
+        case animatedFrameMetadataInvalid
         case texturePurposeUnproven
         case textureMetadataIncomplete
         case shaderPreparationFailed
@@ -301,6 +302,10 @@ nonisolated struct SceneResolvedMaterialProgram {
         case parallaxPosition, screen
         case texelSize(scaleBitPattern: UInt64)
         case textureResolution(slot: Int)
+        case textureTransform(
+            slot: Int,
+            component: SceneMaterialTextureTransformABI.Component
+        )
         case audioSpectrumLeft(count: Int)
         case audioSpectrumRight(count: Int)
     }

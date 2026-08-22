@@ -156,7 +156,11 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         }
         guard bindings.count == raw.textureBindings.count,
               bindings.map(\.slot) == bindings.map(\.slot).sorted(),
-              Set(bindings.map(\.slot)).count == bindings.count else { return nil }
+              Set(bindings.map(\.slot)).count == bindings.count,
+              SceneMaterialTextureTransformABI.validates(
+                  layout: layout,
+                  activeSlots: Set(bindings.map(\.slot))
+              ) else { return nil }
         let colorTransfer: SceneShaderColorTransfer
         switch (raw.colorTransfer.kind, raw.colorTransfer.slot, raw.colorTransfer.slots) {
         case let ("passthrough", slot?, nil):

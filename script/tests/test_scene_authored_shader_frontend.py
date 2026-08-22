@@ -21,6 +21,15 @@ from scene_swift_source_sets import scene_swift_sources
 
 SWIFT_SOURCES = list(scene_swift_sources("authored_shader_frontend_core"))
 
+
+def transformed_sample(slot: int, coordinate: str, level: str | None = None) -> str:
+    prefix = (
+        f"mwxTexture{slot}.sample(mwxSampler{slot},mwxTextureCoordinate("
+        f"{coordinate},mwxUniforms.mwxTexture{slot}Transform0,"
+        f"mwxUniforms.mwxTexture{slot}Transform1)"
+    )
+    return prefix + (f",level({level}))" if level is not None else ")")
+
 HARNESS = r"""
 import Foundation
 import Metal
@@ -267,15 +276,12 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertEqual(output["textureSlots"], [0, 1])
         self.assertIn("g_LOD", output["uniformNames"])
-        self.assertIn(
-            "mwxTexture1.sample(mwxSampler1,mwxInput.v_Coordinates.xy,"
-            "level(mwxUniforms.g_LOD))",
-            compact_source,
-        )
-        self.assertIn(
-            "mwxTexture1.sample(mwxSampler1,mwxInput.v_Coordinates.zw,level(0.0))",
-            compact_source,
-        )
+        self.assertIn(transformed_sample(
+            1, "mwxInput.v_Coordinates.xy", "mwxUniforms.g_LOD"
+        ), compact_source)
+        self.assertIn(transformed_sample(
+            1, "mwxInput.v_Coordinates.zw", "0.0"
+        ), compact_source)
         self.assertNotIn("texSample2DLod", output["metalSource"])
         self.assertIsNone(output.get("metalError"))
 
@@ -303,11 +309,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertEqual(output["textureSlots"], [0])
         self.assertIn("g_LOD", output["uniformNames"])
-        self.assertIn(
-            "mwxTexture0.sample(mwxSampler0,mwxAttributes.a_TexCoord,"
-            "level(mwxUniforms.g_LOD))",
-            compact_source,
-        )
+        self.assertIn(transformed_sample(0, "mwxAttributes.a_TexCoord", "mwxUniforms.g_LOD"), compact_source)
         self.assertNotIn("texSample2DLod", output["metalSource"])
         self.assertIsNone(output.get("metalError"))
 
@@ -327,8 +329,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
                 compact_source = output["metalSource"].replace(" ", "")
                 self.assertEqual(output["diagnosticCodes"], [])
                 self.assertIn(
-                    "mwxTexture0.sample(mwxSampler0,mwxInput.v_TexCoord)",
-                    compact_source,
+                    transformed_sample(0, "mwxInput.v_TexCoord"), compact_source
                 )
                 self.assertNotIn("level(", compact_source)
                 self.assertIsNone(output.get("metalError"))
@@ -347,8 +348,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         compact_source = output["metalSource"].replace(" ", "")
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertIn(
-            "mwxTexture0.sample(mwxSampler0,(mwxInput.v_Coordinates).xy)",
-            compact_source,
+            transformed_sample(0, "(mwxInput.v_Coordinates).xy"), compact_source
         )
         self.assertIsNone(output.get("metalError"))
 

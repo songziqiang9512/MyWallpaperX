@@ -22,14 +22,10 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
+    *scene_swift_sources("authored_shader_frontend_core"),
     *scene_swift_sources("shader_variant_environment"),
     SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
-    *scene_swift_sources("authored_shader_frontend_implementation"),
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
@@ -349,8 +345,7 @@ private func resolvedUniforms(
         Template.DynamicUniformSource,
         SceneDynamicSource,
         [Template.DynamicUniformScriptAttachment]
-    )? = nil,
-    outputStorage: Program.OutputStorage = .color
+    )? = nil
 ) -> [Program.ResolvedUniform] {
     let frontend = SceneAuthoredShaderFrontend.compile(
         vertexSource: prepared.vertex.source,
@@ -387,14 +382,21 @@ private func resolvedUniforms(
                 source: .staticValue,
                 encodedValue: data(SIMD3<Float>(1, 0, 0.5))
             )
-        case "mwxRenderSize":
-            return .init(
-                field: field,
-                source: .host(.renderSize),
-                encodedValue: data(SIMD2<Float>(1920, 1080))
-            )
         default:
-            fatalError("unexpected field \(field.name)")
+            guard let host = SceneResolvedMaterialHostUniformSchema.resolve(
+                field,
+                activeTextureSlots: Set(frontend.textureBindings.map(\.slot))
+            ) else { fatalError("unexpected field \(field.name)") }
+            let value: Data
+            switch host {
+            case .renderSize:
+                value = data(SIMD2<Float>(1920, 1080))
+            case let .textureTransform(_, component):
+                value = data(component.identityValue)
+            default:
+                fatalError("unexpected host field \(field.name)")
+            }
+            return .init(field: field, source: .host(host), encodedValue: value)
         }
     }
 }
@@ -953,7 +955,6 @@ private enum Harness {
                 textureSlots: slots(firstSlot, secondPremultipliedSlot)
             ) == nil
 
-        let padding = Array(baseline.uniformBytes[4 ..< 8])
         let results: [String: Bool] = [
             "metalAvailable": true,
             "scalarOutputContractHasDistinctIdentity":
@@ -961,8 +962,7 @@ private enum Harness {
                 && scalarBaseline.semanticIdentity.outputContract == .scalarRedUnorm
                 && scalarBaseline.outputContract == .scalarRedUnorm,
             "baselineAssembled": baseline.textureSlots.count == 8,
-            "uniformPaddingZeroed": baseline.uniformBytes.count == 16
-                && padding.allSatisfy { $0 == 0 },
+            "uniformLayoutIncludesTransformABI": baseline.uniformBytes.count == 48,
             "rawStateSynonymSemantic": baseline.semanticIdentity
                 == synonymState.semanticIdentity,
             "rawStateExcludedFromExact": baseline.exactIdentity

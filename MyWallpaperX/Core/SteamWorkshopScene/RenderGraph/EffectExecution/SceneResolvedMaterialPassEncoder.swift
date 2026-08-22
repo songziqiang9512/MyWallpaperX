@@ -268,6 +268,10 @@ final class SceneResolvedMaterialPassEncoder {
               layout.byteSize <= 4_096,
               layout.byteSize.isMultiple(of: 16),
               program.exactIdentity.uniformBytes == program.uniformBytes,
+              SceneMaterialTextureTransformABI.validates(
+                  layout: layout,
+                  activeSlots: Set(program.frontendProgram.textureBindings.map(\.slot))
+              ),
               program.resolvedUniforms.count == layout.fields.count,
               Set(layout.fields.map(\.name)).count == layout.fields.count,
             program.semanticIdentity.shader.uniformFields == layout.fields.map({

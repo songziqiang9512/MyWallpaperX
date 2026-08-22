@@ -38,6 +38,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 ) {
                 case .ready: return .selected(candidate.reference)
                 case .absent: continue
+                case .effectLocalUnavailable(.animatedFrameMetadataInvalid):
+                    throw launchSelectionFailure(
+                        .animatedFrameMetadataInvalid,
+                        slot: slot
+                    )
                 case .pending, .unavailable:
                     throw launchSelectionFailure(.textureBindingInvalid, slot: slot)
                 }
