@@ -263,6 +263,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         consumers = [
             "script/scene_shader_preparation_census.py",
             "script/tests/test_scene_authored_shader_frontend.py",
+            "script/tests/test_scene_fragment_output_initialization.py",
             "script/tests/test_scene_graph_texture_publication.py",
             "script/tests/test_scene_resolved_material_pass_encoder.py",
             "script/tests/test_scene_resolved_material_program_derivation.py",

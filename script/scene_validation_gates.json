@@ -300,8 +300,10 @@
       ],
       "modules": [
         "test_scene_authored_shader_frontend",
+        "test_scene_fragment_output_initialization",
         "test_scene_generic_shader_texture_transform_compiler",
         "test_scene_material_texture_transform",
+        "test_scene_preserved_output_initialization_capability",
         "test_scene_swift_source_sets"
       ]
     },
