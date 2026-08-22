@@ -519,7 +519,11 @@ extension SceneResolvedMaterialGraphExecutor {
         case .rg88: return .redGreenUnorm
         case .r16f: return .scalarRedFloat16
         case .rg1616f: return .redGreenFloat16
-        case .rgbaBackbuffer: return .color(.resolved(representation))
+        case .rgbaBackbuffer:
+            return .color(.resolved(
+                capability.graphFramebufferColorRepresentations[identity]
+                    ?? representation
+            ))
         case .rgba8888:
             let isPreservedData = graph.nodes.contains { node in
                 node.target == identity
@@ -527,7 +531,11 @@ extension SceneResolvedMaterialGraphExecutor {
                         == .preservedRGBAUnorm
             }
             return isPreservedData
-                ? .data : .color(.resolved(representation))
+                ? .data
+                : .color(.resolved(
+                    capability.graphFramebufferColorRepresentations[identity]
+                        ?? representation
+                ))
         }
     }
 

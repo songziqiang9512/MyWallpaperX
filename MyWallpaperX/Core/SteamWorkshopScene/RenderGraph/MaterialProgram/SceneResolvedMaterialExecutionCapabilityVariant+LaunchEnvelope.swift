@@ -69,6 +69,57 @@ extension SceneResolvedMaterialVariantCache {
         return Self.channelEnvelopeIsRedGreenCompatible(uses)
     }
 
+    /// Every precompiled launch variant must preserve one exact independent
+    /// RGBA signal slot. A single matching variant cannot type a feedback
+    /// target whose other launch variants observe a different color contract.
+    func provesIndependentAlphaSignalPreserving(slot: Int) -> Bool {
+        launchEnvelopeProvesColorTransfer(
+            .independentAlphaSignalPreserving(textureSlot: slot),
+            requiredSlots: [slot]
+        )
+    }
+
+    /// Every precompiled launch variant must consume the same independent
+    /// signal and compositable color slots. The graph classifier separately
+    /// binds those slots to exact authored identities.
+    func provesIndependentAlphaSignalCompositing(
+        signalSlot: Int,
+        colorSlot: Int
+    ) -> Bool {
+        guard signalSlot != colorSlot else { return false }
+        return launchEnvelopeProvesColorTransfer(
+            .independentAlphaSignalCompositing(
+                signalSlot: signalSlot,
+                colorSlot: colorSlot
+            ),
+            requiredSlots: [signalSlot, colorSlot]
+        )
+    }
+
+    private func launchEnvelopeProvesColorTransfer(
+        _ transfer: SceneShaderColorTransfer,
+        requiredSlots: Set<Int>
+    ) -> Bool {
+        guard requiredSlots.allSatisfy({ (0 ..< 8).contains($0) }) else {
+            return false
+        }
+        let snapshot = launchEnvelopeCapabilitySnapshot()
+        guard snapshot.allEntriesReady, !snapshot.variants.isEmpty else {
+            return false
+        }
+        return snapshot.variants.allSatisfy { variant in
+            let bindings = variant.frontendProgram.textureBindings
+            let activeSlots = Set(bindings.map(\.slot))
+            return variant.frontendProgram.colorTransfer == transfer
+                && activeSlots.count == bindings.count
+                && requiredSlots.isSubset(of: activeSlots)
+                && requiredSlots.allSatisfy { slot in
+                    bindings.filter { $0.slot == slot }.count == 1
+                        && variant.activeSamplers[slot] != nil
+                }
+        }
+    }
+
     static func channelEnvelopeIsScalarRedCompatible(
         _ uses: [ChannelUse]
     ) -> Bool {

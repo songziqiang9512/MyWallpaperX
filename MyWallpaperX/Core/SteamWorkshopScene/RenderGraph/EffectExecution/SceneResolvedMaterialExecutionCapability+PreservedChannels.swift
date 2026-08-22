@@ -102,6 +102,178 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return nil
     }
 
+    /// Finds disjoint RGBA feedback pairs whose transparent seed, update,
+    /// terminal composition and swap all agree on one independent-signal
+    /// content type. Names and effect paths never participate in the proof.
+    static func independentAlphaSignalTargetRepresentations(
+        _ graph: Graph,
+        materials: [MaterialKey: MaterialCapability]
+    ) -> [Graph.TextureIdentity: SceneShaderColorRepresentation] {
+        guard graph.blockers.isEmpty, graph.effects.count == 1,
+              let effect = graph.effects.first else { return [:] }
+        let declarations = graph.renderTargets.compactMap { declaration -> (
+            declaration: Graph.RenderTarget,
+            descriptor: SceneGraphRenderTargetPlan.TargetDescriptor
+        )? in
+            guard declaration.conditions == nil,
+                  let descriptor = SceneGraphRenderTargetPlan.targetDescriptor(
+                      declaration,
+                      inputWidth: 1,
+                      inputHeight: 1
+                  ), [.rgbaBackbuffer, .rgba8888].contains(descriptor.format),
+                  descriptor.isUnique,
+                  descriptor.initialClear == .init(
+                      red: 0, green: 0, blue: 0, alpha: 0
+                  ) else { return nil }
+            return (declaration, descriptor)
+        }
+        let byIdentity = Dictionary(grouping: declarations) {
+            $0.declaration.texture
+        }
+        var candidates: [Set<Graph.TextureIdentity>] = []
+        for swap in graph.nodes where swap.kind == .swap {
+            guard let firstIdentity = swap.commandSource,
+                  let secondIdentity = swap.commandTarget,
+                  firstIdentity != secondIdentity,
+                  let first = byIdentity[firstIdentity]?.only,
+                  let second = byIdentity[secondIdentity]?.only,
+                  independentAlphaSignalFeedbackPairIsExecutable(
+                      first,
+                      second,
+                      swap: swap,
+                      effect: effect,
+                      graph: graph,
+                      materials: materials
+                  ) else { continue }
+            candidates.append([firstIdentity, secondIdentity])
+        }
+        let membershipCounts = candidates.reduce(
+            into: [Graph.TextureIdentity: Int]()) { result, candidate in
+                for identity in candidate {
+                    result[identity, default: 0] += 1
+                }
+            }
+        return candidates.reduce(
+            into: [Graph.TextureIdentity: SceneShaderColorRepresentation]()
+        ) { result, candidate in
+            guard candidate.allSatisfy({ membershipCounts[$0] == 1 }) else {
+                return
+            }
+            for identity in candidate {
+                result[identity] = .independentAlphaSignal
+            }
+        }
+    }
+
+    private static func independentAlphaSignalFeedbackPairIsExecutable(
+        _ first: (
+            declaration: Graph.RenderTarget,
+            descriptor: SceneGraphRenderTargetPlan.TargetDescriptor
+        ),
+        _ second: (
+            declaration: Graph.RenderTarget,
+            descriptor: SceneGraphRenderTargetPlan.TargetDescriptor
+        ),
+        swap: Graph.Node,
+        effect: Graph.Effect,
+        graph: Graph,
+        materials: [MaterialKey: MaterialCapability]
+    ) -> Bool {
+        let identities: Set<Graph.TextureIdentity> = [
+            first.declaration.texture, second.declaration.texture,
+        ]
+        guard identities.count == 2,
+              identities.allSatisfy({ identity in
+                  identity.kind == .framebuffer
+                      && identity.layerID == effect.key.layerID
+                      && identity.effect == effect.key
+              }),
+              SceneGraphRenderTargetPlan.authoredTargetDescriptorsAreEquivalent([
+                  first.declaration, second.declaration,
+              ]),
+              graph.nodes.filter({ node in
+                  node.commandSource.map(identities.contains) == true
+                      || node.commandTarget.map(identities.contains) == true
+              }).map(\.nodeIndex) == [swap.nodeIndex],
+              swap.effect == effect.key,
+              swap.conditions == nil,
+              swap.commandSource.map(identities.contains) == true,
+              swap.commandTarget.map(identities.contains) == true else {
+            return false
+        }
+
+        let writers = graph.nodes.filter {
+            $0.kind == .material && $0.target.map(identities.contains) == true
+        }
+        guard let update = writers.only,
+              let scratch = update.target,
+              let history = identities.first(where: { $0 != scratch }),
+              update.effect == effect.key,
+              update.conditions == nil,
+              update.nodeIndex < swap.nodeIndex,
+              update.compose == nil || update.compose == .bool(false),
+              let updateBinding = update.bindings.filter({
+                  $0.texture == history
+              }).only,
+              let signalSlot = updateBinding.slot,
+              update.bindings.filter({ identities.contains($0.texture) }).count == 1,
+              update.bindings.allSatisfy({ $0.conditions == nil }),
+              let updateMaterial = materials[.init(
+                  effect: update.effect,
+                  nodeIndex: update.nodeIndex
+              )],
+              updateMaterial.attachmentStorage == .color,
+              updateMaterial.variants.provesIndependentAlphaSignalPreserving(
+                  slot: signalSlot
+              ) else { return false }
+
+        let readers = graph.nodes.filter { node in
+            node.kind == .material
+                && node.bindings.contains { identities.contains($0.texture) }
+        }
+        guard readers.count == 2,
+              readers.contains(where: { $0.nodeIndex == update.nodeIndex }),
+              let consumer = readers.first(where: {
+                  $0.nodeIndex != update.nodeIndex
+              }),
+              consumer.effect == effect.key,
+              consumer.target == effect.output,
+              consumer.conditions == nil,
+              consumer.nodeIndex > update.nodeIndex,
+              consumer.nodeIndex < swap.nodeIndex,
+              consumer.compose == nil || consumer.compose == .bool(false),
+              consumer.bindings.allSatisfy({ $0.conditions == nil }),
+              consumer.bindings.filter({ identities.contains($0.texture) })
+                  .map(\.texture) == [scratch],
+              let scratchBinding = consumer.bindings.filter({
+                  $0.texture == scratch
+              }).only,
+              let colorBinding = consumer.bindings.filter({
+                  $0.texture == effect.input
+              }).only,
+              let scratchSlot = scratchBinding.slot,
+              let colorSlot = colorBinding.slot,
+              let consumerMaterial = materials[.init(
+                  effect: consumer.effect,
+                  nodeIndex: consumer.nodeIndex
+              )],
+              consumerMaterial.attachmentStorage == .color,
+              consumerMaterial.variants.provesIndependentAlphaSignalCompositing(
+                  signalSlot: scratchSlot,
+                  colorSlot: colorSlot
+              ) else { return false }
+
+        return graph.nodes.allSatisfy { node in
+            guard node.nodeIndex > swap.nodeIndex else { return true }
+            return node.target.map(identities.contains) != true
+                && !node.bindings.contains(where: {
+                    identities.contains($0.texture)
+                })
+                && node.commandSource.map(identities.contains) != true
+                && node.commandTarget.map(identities.contains) != true
+        }
+    }
+
     /// Bounded no-command feedback pair used by iterative authored solvers.
     /// The two same-descriptor targets have at least two writers each; writer
     /// targets alternate, the first writer reads the history member and writes

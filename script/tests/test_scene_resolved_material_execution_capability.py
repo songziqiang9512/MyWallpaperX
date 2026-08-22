@@ -136,7 +136,6 @@ SUPPORT = r'''
 import Foundation
 
 enum SceneShaderTextureFormat { case r8, rg88, r16f, rg1616f }
-
 struct SceneAssetTextureIdentity: Hashable {}
 enum SceneTextureContent: Hashable {}
 enum SceneAssetTextureLaunchState: Hashable {
@@ -7082,6 +7081,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                     "swiftc",
                     "-parse-as-library",
                     str(support),
+                    str(Path(__file__).with_name("fixtures") / "SceneSignalCapabilitySupport.swift"),
                     *(str(path) for path in SWIFT_SOURCES),
                     str(harness),
                     "-module-cache-path",

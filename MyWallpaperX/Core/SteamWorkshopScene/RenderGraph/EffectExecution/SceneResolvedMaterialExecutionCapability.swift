@@ -235,6 +235,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let sceneBackgroundRequirement: SceneBackgroundRequirement?
+        let graphFramebufferColorRepresentations: [
+            Graph.TextureIdentity: SceneShaderColorRepresentation
+        ]
         let isVisibleExecutionRoot: Bool
         let isGraphOutputProvider: Bool
         let requiresGraphOutputProvider: Bool
@@ -256,6 +259,30 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             dependencyOwnership = admitted.dependencyOwnership
             sourceRoute = admitted.sourceRoute
             self.sceneBackgroundRequirement = sceneBackgroundRequirement
+            var graphColorRepresentations: [
+                Graph.TextureIdentity: SceneShaderColorRepresentation
+            ] = [:]
+            var hasIdentityConflict = false
+            for stage in stages {
+                guard case let .resolved(product, materials) = stage else {
+                    continue
+                }
+                for (identity, representation) in
+                    SceneResolvedMaterialExecutionCapabilityCatalog
+                        .independentAlphaSignalTargetRepresentations(
+                            product.graph,
+                            materials: materials
+                        ) {
+                    if graphColorRepresentations.updateValue(
+                        representation,
+                        forKey: identity
+                    ) != nil {
+                        hasIdentityConflict = true
+                    }
+                }
+            }
+            graphFramebufferColorRepresentations = hasIdentityConflict
+                ? [:] : graphColorRepresentations
             isVisibleExecutionRoot = admitted.isVisibleExecutionRoot
             isGraphOutputProvider = admitted.isGraphOutputProvider
             requiresGraphOutputProvider = admitted.requiresGraphOutputProvider
