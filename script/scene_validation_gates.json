@@ -248,6 +248,7 @@
         "test_scene_effect_texture_purposes",
         "test_scene_animated_material_visual_failure",
         "test_scene_generic_shader_program_artifact",
+        "test_scene_independent_signal_carrier",
         "test_scene_generic_shader_texture_transform_compiler",
         "test_scene_graph_texture_publication",
         "test_scene_material_program_census",
@@ -281,6 +282,7 @@
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/**"],
       "modules": [
         "test_scene_graph_condition_schema_evidence",
+        "test_scene_independent_signal_carrier",
         "test_scene_graph_texture_publication",
         "test_scene_resolved_material_program_derivation",
         "test_scene_resolved_material_program_finalizer",
@@ -301,6 +303,7 @@
       "modules": [
         "test_scene_authored_shader_frontend",
         "test_scene_fragment_output_initialization",
+        "test_scene_independent_signal_carrier",
         "test_scene_generic_shader_texture_transform_compiler",
         "test_scene_material_texture_transform",
         "test_scene_preserved_output_initialization_capability",
@@ -425,6 +428,7 @@
       ],
       "modules": [
         "test_scene_generic_shader_compiler_process",
+        "test_scene_independent_signal_compiler_artifact",
         "test_scene_shader_compiler_harness",
         "test_scene_shader_compiler_product_manifest"
       ]

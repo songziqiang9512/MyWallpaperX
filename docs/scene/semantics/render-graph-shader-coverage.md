@@ -329,6 +329,12 @@
 12. **旧owner零门（稳定不变量）**：whole-chain/standalone/frame-batch与重复target/resource路径不得回引；其R/B迁移过程只从[历史索引](../../history/README.md)追溯，不参与能力优先级。
 13. **扩面原则**：Motion Blur、Refraction、Fluid等只作为普通pass/FBO/history/resource fixture；修通用primitive后观察同类authored unit收益，不按效果显示名新增strict stage。
 
+### V1 independent RGBA signal carrier 现役更正
+
+本段取代本页前文所有把真实 Fluid node 15 写成 `shader-color-transfer-unresolved` 的现役断点口径。共享 ShaderFrontend/ShaderPreparation 现可从 identity-independent source 证明 exact-slot independent RGBA carrier，经 exact request/cache/artifact 协议进入 MaterialProgram；输入必须已有 `.independentAlphaSignal` publication，输出保持同类型，不做 straight/premultiply lowering。source helper closure 与 compiler-output MSL 均要求 exact carrier/output-use 闭包；source sample 到首次 output 之间由顺序 symbol state证明 exact uniform/varying、proven local、pure scalar grammar和 non-carrier projected-data sample，任何 shadow、whole/member/index/compound、inc/dec、未知/inout call、carrier member write/escape及 reachable recursion/cycle失败关闭。actual MSL从 normalized `MWXFragmentUniforms` exact buffer-8 entry parameter重做相同证明；direct output carrier允许 exact value或 `thread const float4&`，SPIRV-Cross staging local只允许从已经初始化的 exact color-0 output单跳进入唯一 leaf `thread const float4&` helper consumer，副作用、alias、额外 whole/color sample、未满足 projected-data contract 的 sample、额外 output/read/assignment、nested helper、multi-hop、value/non-const-ref/pointer ABI、direct/transitive cast/address escape、authored builtin shadow、constant init和protocol drift失败关闭。最终 checkpoint 为 **53 modules / 149.9 s / ALL OK**，Developer ID Debug BUILD SUCCEEDED且 `closure complete: yes`；没有新增 renderer、registry、graph、target 或 compositor owner，也没有 route 变化。
+
+fresh `3749463715:560#effect#617` targeted probe 仍为 **0/1 NON-PASS** timeout、Fluid CPU/Program/GPU 0；旧 node 15 color rejection 消失，现役首断点前移为同一 node/material/shader 的 `utility-source-program-unsupported / source-route / capturedMainTargetTextureUnsupported / captured-main-target-program-contract-unproven`，outer 仍 `r5-no-runtime-owner`。这只证明 source/artifact/Program executable correctness 与 exact runtime attribution，不证明 node 15 execution、Fluid 可见或 V1 完成；下一 atom 必须先闭合共享 captured-main/target source-route，再按真实断点验证 independent seed 与 multiwriter/swap/consumer lifecycle。详见 [E-V1-INDEPENDENT-SIGNAL-CARRIER](runtime-evidence-index.md#e-v1-independent-signal-carrier)。
+
 ## 7. 当前证据与更新规则
 
 当前 App、样本、报告、matrix 和签名身份只见[运行证据索引](runtime-evidence-index.md)。本表只维护能力合同与缺口，不复制某个旧提交的测试总数、报告路径或“下一批”。

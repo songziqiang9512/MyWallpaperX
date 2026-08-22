@@ -17,6 +17,11 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
         if let slot = producer(outputUses, fragment: fragment, main: main) {
             return .independentAlphaSignal(textureSlot: slot)
         }
+        if let slot = SceneAuthoredShaderIndependentSignalCarrierAnalyzer.analyze(
+            fragment
+        ) {
+            return .independentAlphaSignalPreserving(textureSlot: slot)
+        }
         if let slot = preserving(outputUses, fragment: fragment, main: main) {
             return .independentAlphaSignalPreserving(textureSlot: slot)
         }

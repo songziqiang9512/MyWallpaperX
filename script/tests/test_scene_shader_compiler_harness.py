@@ -254,7 +254,7 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             artifact = json.loads(artifact_output.read_text(encoding="utf-8"))
             request = json.loads(FIXTURE.read_text(encoding="utf-8"))
-            self.assertEqual(artifact["schemaVersion"], 4)
+            self.assertEqual(artifact["schemaVersion"], 5)
             self.assertEqual(artifact["outputSemantics"], "color")
             self.assertEqual(artifact["kind"], "scene-generic-shader-program-artifact")
             self.assertEqual(artifact["requestKey"], request_cache_key(request))
@@ -298,7 +298,7 @@ fragment void f() {
             "for (int i = 0; i < 4; ++i) { value += i; }"
         )
         artifact = build_program_artifact(**arguments)
-        self.assertEqual(artifact["schemaVersion"], 4)
+        self.assertEqual(artifact["schemaVersion"], 5)
         self.assertEqual(artifact["outputSemantics"], "color")
         self.assertEqual(artifact["program"]["staticLoopWork"], 4)
         self.assertEqual(artifact["program"]["colorTransfer"], {"kind": "opaque"})

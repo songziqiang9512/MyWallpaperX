@@ -1967,6 +1967,28 @@ void main() {
 }
 """
 
+INDEPENDENT_SIGNAL_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform vec2 m_Position;
+uniform float m_Size;
+varying vec2 v_TexCoord;
+vec4 injectSignal(vec4 current, float amount) {
+    return min(current + vec4(amount), vec4(1.0));
+}
+vec4 shapeSignal(vec4 current, vec2 position, float size) {
+    float amount = smoothstep(size, 0.0, length(position - v_TexCoord));
+    return injectSignal(current, amount);
+}
+void main() {
+    vec2 drift = texSample2D(g_Texture0, v_TexCoord).xy;
+    vec4 signal = texSample2D(g_Texture1, v_TexCoord);
+    signal *= step(0.0, drift.x);
+    gl_FragColor = signal / (1.0 + length(drift));
+    gl_FragColor = shapeSignal(gl_FragColor, m_Position, m_Size);
+}
+"""
+
 GENERIC_ONLY_FRAGMENT = """
 uniform sampler2D g_Texture0;
 varying vec2 v_TexCoord;
@@ -2496,7 +2518,7 @@ vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u
 fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant Uniforms& u [[buffer(8)]]) {{ return g_Texture0.sample(sampler(), u.mwxTexture0Transform0.xy + u.mwxTexture0Transform0.zw * 0.5 + u.mwxTexture0Transform1.xy * 0.5); }}
 """.strip() + "\n"
         return {
-            "schemaVersion": 4,
+            "schemaVersion": 5,
             "kind": "scene-generic-shader-program-artifact",
             "backendID": "glslang-spirv-cross-msl-v2",
             "requestKey": key,
@@ -2594,14 +2616,24 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         )
 
     @staticmethod
-    def request_key(seed: str, vertex_source: str, fragment_source: str) -> str:
+    def request_key(
+        seed: str,
+        vertex_source: str,
+        fragment_source: str,
+        expected_color_transfer: tuple[str, int] | None = None,
+    ) -> str:
         digest = hashlib.sha256()
+        expected_key = (
+            f"{expected_color_transfer[0]}:{expected_color_transfer[1]}"
+            if expected_color_transfer is not None else "-"
+        )
         for value in (
             seed,
             "wallpaper-engine-glsl-like-v0",
             "color",
             vertex_source,
             fragment_source,
+            expected_key,
             "{}",
         ):
             encoded = value.encode("utf-8")
@@ -2611,19 +2643,19 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
 
     def test_transform_abi_request_and_default_cache_namespaces_are_isolated(self):
         source = CACHE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn('"mwx-generic-shader-request-v5"', source)
-        self.assertIn('"SceneGenericShaderPrograms-v5"', source)
-        self.assertNotIn('"mwx-generic-shader-request-v4"', source)
-        self.assertNotIn('"SceneGenericShaderPrograms-v4"', source)
+        self.assertIn('"mwx-generic-shader-request-v6"', source)
+        self.assertIn('"SceneGenericShaderPrograms-v6"', source)
+        self.assertNotIn('"mwx-generic-shader-request-v5"', source)
+        self.assertNotIn('"SceneGenericShaderPrograms-v5"', source)
 
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
             root = Path(directory)
             observed, _, cache, _ = self.run_harness(root, route="observe-only")
             current_key = self.request_key(
-                "mwx-generic-shader-request-v5", VERTEX, FRAGMENT
+                "mwx-generic-shader-request-v6", VERTEX, FRAGMENT
             )
             legacy_key = self.request_key(
-                "mwx-generic-shader-request-v4", VERTEX, FRAGMENT
+                "mwx-generic-shader-request-v5", VERTEX, FRAGMENT
             )
             self.assertEqual(observed["requestKey"], current_key)
             self.assertNotEqual(current_key, legacy_key)
@@ -2641,6 +2673,35 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 "compiler-configuration-licensebundleunavailable",
             )
             self.assertNotIn("artifact-invalid-json", log)
+
+    def test_independent_signal_request_carries_exact_source_proven_contract(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-independent-request-") as directory:
+            root = Path(directory)
+            observed, requests, _, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=INDEPENDENT_SIGNAL_FRAGMENT,
+            )
+            request_path = requests / f"{observed['requestKey']}.json"
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            expected = ("independent-alpha-signal-preserving", 1)
+            self.assertEqual(request["schemaVersion"], 3)
+            self.assertEqual(request["expectedColorTransfer"], {
+                "kind": expected[0], "slot": expected[1],
+            })
+            keyed = self.request_key(
+                "mwx-generic-shader-request-v6",
+                textwrap.dedent(VERTEX),
+                textwrap.dedent(INDEPENDENT_SIGNAL_FRAGMENT),
+                expected,
+            )
+            unresolved = self.request_key(
+                "mwx-generic-shader-request-v6",
+                textwrap.dedent(VERTEX),
+                textwrap.dedent(INDEPENDENT_SIGNAL_FRAGMENT),
+            )
+            self.assertEqual(observed["requestKey"], keyed)
+            self.assertNotEqual(keyed, unresolved)
 
     def test_swift_normalizer_prunes_only_dead_fragment_varying_mismatch(self):
         completed = subprocess.run(
@@ -3063,7 +3124,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             request = json.loads(
                 (requests / f"{data['requestKey']}.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(request["schemaVersion"], 2)
+            self.assertEqual(request["schemaVersion"], 3)
             self.assertEqual(request["outputSemantics"], "preserved-rgba-unorm")
 
             artifact = self.artifact(

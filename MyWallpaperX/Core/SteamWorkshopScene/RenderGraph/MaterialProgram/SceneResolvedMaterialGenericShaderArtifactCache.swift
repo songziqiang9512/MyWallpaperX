@@ -31,10 +31,16 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             let source: String
         }
 
-        let schemaVersion = 2
+        struct ExpectedColorTransfer: Encodable {
+            let kind: String
+            let slot: Int
+        }
+
+        let schemaVersion = 3
         let requestID: String
         let sourceDialect = "wallpaper-engine-glsl-like-v0"
         let outputSemantics: SceneGenericShaderOutputSemantics
+        let expectedColorTransfer: ExpectedColorTransfer?
         let defines: [String: Int] = [:]
         let stages: [Stage]
     }
@@ -209,13 +215,14 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         hasOnlyGraphInputSampler: Bool = false,
         outputSemantics: SceneGenericShaderOutputSemantics = .color
     ) -> Resolution {
+        let colorTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(
+            fragmentSource: fragmentSource
+        )
         let key = requestKey(
             vertexSource: vertexSource,
             fragmentSource: fragmentSource,
-            outputSemantics: outputSemantics
-        )
-        let colorTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(
-            fragmentSource: fragmentSource
+            outputSemantics: outputSemantics,
+            colorTransfer: colorTransfer
         )
         let conditionalStraightUnionSourceSlot =
             SceneAuthoredShaderColorTransferAnalyzer
@@ -331,7 +338,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             key: key,
             vertexSource: vertexSource,
             fragmentSource: fragmentSource,
-            outputSemantics: outputSemantics
+            outputSemantics: outputSemantics,
+            colorTransfer: colorTransfer
         )
         guard routeState == .preferGeneric || routeState == .genericOnly else {
             return .unavailable(
@@ -606,15 +614,17 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     private static func requestKey(
         vertexSource: String,
         fragmentSource: String,
-        outputSemantics: SceneGenericShaderOutputSemantics
+        outputSemantics: SceneGenericShaderOutputSemantics,
+        colorTransfer: SceneShaderColorTransfer
     ) -> String {
         var data = Data()
         for value in [
-            "mwx-generic-shader-request-v5",
+            "mwx-generic-shader-request-v6",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,
             fragmentSource,
+            expectedColorTransferKey(colorTransfer),
             "{}",
         ] {
             let encoded = Data(value.utf8)
@@ -629,7 +639,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         key: String,
         vertexSource: String,
         fragmentSource: String,
-        outputSemantics: SceneGenericShaderOutputSemantics
+        outputSemantics: SceneGenericShaderOutputSemantics,
+        colorTransfer: SceneShaderColorTransfer
     ) {
         let environment = ProcessInfo.processInfo.environment
         guard let rawRoot = environment[requestEnvironment],
@@ -637,6 +648,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         let request = Request(
             requestID: key,
             outputSemantics: outputSemantics,
+            expectedColorTransfer: expectedColorTransfer(colorTransfer),
             stages: [
                 .init(stage: "vertex", entryPoint: "main", source: vertexSource),
                 .init(stage: "fragment", entryPoint: "main", source: fragmentSource),
@@ -658,6 +670,24 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         } catch {
             NSLog("MWX generic shader request export failed request=%@", key)
         }
+    }
+
+    private static func expectedColorTransfer(
+        _ transfer: SceneShaderColorTransfer
+    ) -> Request.ExpectedColorTransfer? {
+        guard case let .independentAlphaSignalPreserving(slot) = transfer,
+              (0 ..< 8).contains(slot) else { return nil }
+        return .init(
+            kind: "independent-alpha-signal-preserving",
+            slot: slot
+        )
+    }
+
+    private static func expectedColorTransferKey(
+        _ transfer: SceneShaderColorTransfer
+    ) -> String {
+        guard let expected = expectedColorTransfer(transfer) else { return "-" }
+        return "\(expected.kind):\(expected.slot)"
     }
 
     private static func validatedDirectory(_ rawPath: String) -> URL? {
@@ -684,7 +714,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         ).first else { return nil }
         let root = caches
             .appendingPathComponent("com.songziqiang.MyWallpaperX", isDirectory: true)
-            .appendingPathComponent("SceneGenericShaderPrograms-v5", isDirectory: true)
+            .appendingPathComponent("SceneGenericShaderPrograms-v6", isDirectory: true)
             .standardizedFileURL
         do {
             try FileManager.default.createDirectory(

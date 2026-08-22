@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "requestID": "project-wallpaper-engine-one-pass-v1",
   "sourceDialect": "wallpaper-engine-glsl-like-v0",
   "outputSemantics": "color",

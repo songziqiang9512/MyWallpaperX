@@ -85,6 +85,9 @@ private struct Output: Codable {
     let helperHiddenSampleRejected: Bool
     let helperOutParameterRejected: Bool
     let helperGlobalWriteRejected: Bool
+    let helperHiddenRecursionRejected: Bool
+    let helperMutualRecursionRejected: Bool
+    let helperDAGRejoinAccepted: Bool
     let helperAtomicRejected: Bool
     let helperUnconditionalReplacementRejected: Bool
     let helperUnprovenResourceCallRejected: Bool
@@ -147,8 +150,8 @@ private struct PreservedAlphaRGBFilterHarness {
             "    return out;",
             "}",
         ].joined(separator: "\n")
-        let reflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1},{"name":"g_Texture2","binding":2}]}"#.utf8)
-        let helperReflection = Data(#"{"types":{"_1":{"members":[]}},"ubos":[{"type":"_1","block_size":0,"set":0,"binding":8}],"textures":[{"name":"g_Texture3","binding":3},{"name":"g_Texture5","binding":5}]}"#.utf8)
+        let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"mwxTexture0Transform0","type":"vec4","offset":16},{"name":"mwxTexture0Transform1","type":"vec4","offset":32},{"name":"mwxTexture1Transform0","type":"vec4","offset":48},{"name":"mwxTexture1Transform1","type":"vec4","offset":64},{"name":"mwxTexture2Transform0","type":"vec4","offset":80},{"name":"mwxTexture2Transform1","type":"vec4","offset":96}]}},"ubos":[{"type":"_1","block_size":112,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1},{"name":"g_Texture2","binding":2}]}"#.utf8)
+        let helperReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"mwxTexture3Transform0","type":"vec4","offset":16},{"name":"mwxTexture3Transform1","type":"vec4","offset":32},{"name":"mwxTexture5Transform0","type":"vec4","offset":48},{"name":"mwxTexture5Transform1","type":"vec4","offset":64}]}},"ubos":[{"type":"_1","block_size":80,"set":0,"binding":8}],"textures":[{"name":"g_Texture3","binding":3},{"name":"g_Texture5","binding":5}]}"#.utf8)
 
         let helperAuthored = [
             "uniform sampler2D g_Texture3;",
@@ -520,6 +523,24 @@ private struct PreservedAlphaRGBFilterHarness {
                         with: "    leakedColor = color;\n    return color / float(kernelSampleCount);"
                     )
             ),
+            helperHiddenRecursionRejected: !helperSourceAccepted(
+                helperAuthored.replacingOccurrences(
+                    of: "vec3 toneCurve(vec3 value) { return value / (1.0 + value); }",
+                    with: "vec3 toneCurve(vec3 value) { if (value.x < 0.0) { value += toneCurve(value); } return value / (1.0 + value); }"
+                )
+            ),
+            helperMutualRecursionRejected: !helperSourceAccepted(
+                helperAuthored.replacingOccurrences(
+                    of: "vec3 toneCurve(vec3 value) { return value / (1.0 + value); }",
+                    with: "vec3 cycleA(vec3 value); vec3 cycleB(vec3 value) { return cycleA(value); } vec3 cycleA(vec3 value) { return cycleB(value); } vec3 toneCurve(vec3 value) { return cycleA(value); }"
+                )
+            ),
+            helperDAGRejoinAccepted: helperSourceAccepted(
+                helperAuthored.replacingOccurrences(
+                    of: "vec3 toneCurve(vec3 value) { return value / (1.0 + value); }",
+                    with: "vec3 sharedLeaf(vec3 value) { return value / (1.0 + value); } vec3 leftBranch(vec3 value) { return sharedLeaf(value); } vec3 rightBranch(vec3 value) { return sharedLeaf(value); } vec3 toneCurve(vec3 value) { return leftBranch(value) + rightBranch(value); }"
+                )
+            ),
             helperAtomicRejected: !helperSourceAccepted(
                 helperAuthored.replacingOccurrences(
                     of: "    return color / float(kernelSampleCount);",
@@ -650,6 +671,9 @@ class ScenePreservedAlphaRGBFilterTests(unittest.TestCase):
             "helperHiddenSampleRejected": True,
             "helperOutParameterRejected": True,
             "helperGlobalWriteRejected": True,
+            "helperHiddenRecursionRejected": True,
+            "helperMutualRecursionRejected": True,
+            "helperDAGRejoinAccepted": True,
             "helperAtomicRejected": True,
             "helperUnconditionalReplacementRejected": True,
             "helperUnprovenResourceCallRejected": True,

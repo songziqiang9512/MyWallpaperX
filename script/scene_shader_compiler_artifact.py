@@ -8,6 +8,14 @@ import json
 import re
 from typing import Any
 
+from scene_shader_compiler_msl_function_contract import (
+    call_arguments as _call_arguments,
+    function_body as _function_body,
+    safe_carrier_parameter as _safe_carrier_parameter,
+    safe_initial_carrier_flow as _safe_initial_carrier_flow,
+    sample_end as _sample_end,
+)
+
 
 class ArtifactFailure(RuntimeError):
     pass
@@ -57,7 +65,25 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def expected_independent_color_transfer(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict) or set(value) != {"kind", "slot"}:
+        raise ArtifactFailure("expected-color-transfer")
+    kind, slot = value.get("kind"), value.get("slot")
+    if (
+        kind != "independent-alpha-signal-preserving"
+        or isinstance(slot, bool)
+        or not isinstance(slot, int)
+        or not 0 <= slot < 8
+    ):
+        raise ArtifactFailure("expected-color-transfer")
+    return {"kind": kind, "slot": slot}
+
+
 def request_cache_key(request: dict[str, Any]) -> str:
+    if request.get("schemaVersion") != 3:
+        raise ArtifactFailure("request-schema")
     raw_stages = request.get("stages")
     if not isinstance(raw_stages, list):
         raise ArtifactFailure("request-stages")
@@ -74,13 +100,20 @@ def request_cache_key(request: dict[str, Any]) -> str:
     output_semantics = request.get("outputSemantics")
     if output_semantics != "color":
         raise ArtifactFailure("output-semantics")
+    expected = expected_independent_color_transfer(
+        request.get("expectedColorTransfer")
+    )
+    expected_key = (
+        f"{expected['kind']}:{expected['slot']}" if expected is not None else "-"
+    )
     digest = hashlib.sha256()
     for value in (
-        "mwx-generic-shader-request-v5",
+        "mwx-generic-shader-request-v6",
         str(request.get("sourceDialect", "glsl-450")),
         output_semantics,
         sources["vertex"],
         sources["fragment"],
+        expected_key,
         json.dumps(request.get("defines", {}), sort_keys=True, separators=(",", ":")),
     ):
         encoded = value.encode("utf-8")
@@ -263,19 +296,6 @@ def _normalize_uniform_struct(
                 rf"\.{re.escape(authored)}\b", f".{field_name}", result
             )
     return result
-
-
-def _sample_end(source: str, start: int) -> int | None:
-    depth = 0
-    for index in range(start, len(source)):
-        character = source[index]
-        if character == "(":
-            depth += 1
-        elif character == ")":
-            depth -= 1
-            if depth == 0:
-                return index + 1
-    return None
 
 
 def _channel_use(source: str, name: str) -> str:
@@ -490,6 +510,148 @@ def _without_comments(source: str) -> str:
     return re.sub(r"//[^\n]*", " ", source)
 
 
+def _independent_signal_color_transfer(
+    fragment_msl: str,
+    expected: dict[str, Any],
+    texture_bindings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    source = _without_comments(fragment_msl)
+    # This substring is only a conservative conflict check, not the proof.
+    if "premultiply" in source.lower():
+        raise ArtifactFailure("independent-color-boundary")
+    slot = expected["slot"]
+    if not any(
+        binding.get("name") == f"g_Texture{slot}"
+        and binding.get("slot") == slot
+        for binding in texture_bindings
+    ):
+        raise ArtifactFailure("independent-color-binding")
+
+    samples: list[tuple[int, int, str | None]] = []
+    for match in re.finditer(r"\bg_Texture(?P<slot>[0-7])\s*\.\s*sample\s*\(", source):
+        opening = source.find("(", match.start())
+        end = _sample_end(source, opening)
+        if end is None:
+            raise ArtifactFailure("independent-color-sample")
+        projection_match = re.match(r"\s*\.\s*(?P<value>[A-Za-z_]\w*)", source[end:])
+        projection = projection_match.group("value") if projection_match else None
+        samples.append((match.start(), int(match.group("slot")), projection))
+    whole = [sample for sample in samples if sample[2] is None]
+    if len(whole) != 1 or whole[0][1] != slot:
+        raise ArtifactFailure("independent-color-sample")
+    if len([sample for sample in samples if sample[1] == slot]) != 1:
+        raise ArtifactFailure("independent-color-sample")
+    if any(
+        sample[2] not in ("x", "xy")
+        for sample in samples if sample != whole[0]
+    ):
+        raise ArtifactFailure("independent-color-sample")
+
+    body = _function_body(source, "mwxGenericFragment")
+    if body is None:
+        raise ArtifactFailure("independent-output-carrier")
+    entry_returns = re.findall(
+        r"\bfragment\s+(?P<type>[A-Za-z_]\w*)\s+mwxGenericFragment\s*\(",
+        source,
+    )
+    output_structs = re.findall(
+        rf"\bstruct\s+{re.escape(entry_returns[0])}\s*\{{(?P<body>.*?)\}}\s*;",
+        source,
+        re.DOTALL,
+    ) if len(entry_returns) == 1 else []
+    if len(output_structs) != 1 or len(re.findall(
+        r"\bfloat4\s+mwxFragColor\s*\[\[\s*color\(0\)\s*\]\]\s*;",
+        output_structs[0],
+    )) != 1:
+        raise ArtifactFailure("independent-output-carrier")
+    if len(re.findall(r"\breturn\b", body)) != 1 or re.search(
+        r"\breturn\s+out\s*;", body
+    ) is None:
+        raise ArtifactFailure("independent-output-return")
+    write_pattern = re.compile(
+        r"\bout\.(?P<field>[A-Za-z_]\w*)"
+        r"(?P<component>\s*\.\s*[xyzwrgba]{1,4})?\s*"
+        r"(?P<operator>\+=|-=|\*=|/=|=(?!=))"
+    )
+    writes = list(write_pattern.finditer(body))
+    if not 2 <= len(writes) <= 9:
+        raise ArtifactFailure("independent-output-carrier")
+    out_declarations = list(re.finditer(
+        rf"\b{re.escape(entry_returns[0])}\s+out(?:\s*=\s*\{{\s*\}})?\s*;",
+        body,
+    ))
+    if len(out_declarations) != 1 or out_declarations[0].start() >= writes[0].start():
+        raise ArtifactFailure("independent-output-carrier")
+    if len(list(write_pattern.finditer(source))) != len(writes):
+        raise ArtifactFailure("independent-output-drift")
+    if any(
+        write.group("field") != "mwxFragColor"
+        or write.group("component") is not None
+        or write.group("operator") != "="
+        for write in writes
+    ):
+        raise ArtifactFailure("independent-output-drift")
+
+    assignments: list[str] = []
+    assignment_ends: list[int] = []
+    for write in writes:
+        semicolon = body.find(";", write.end())
+        if semicolon < 0:
+            raise ArtifactFailure("independent-output-carrier")
+        assignments.append(body[write.end():semicolon].strip())
+        assignment_ends.append(semicolon + 1)
+    whole_declarations = list(re.finditer(
+        rf"\bfloat4\s+(?P<name>[A-Za-z_]\w*)\s*=\s*"
+        rf"g_Texture{slot}\s*\.\s*sample\s*\([^;]+\)\s*;",
+        body,
+    ))
+    if len(whole_declarations) != 1 or (
+        whole_declarations[0].start() >= writes[0].start()
+    ):
+        raise ArtifactFailure("independent-output-carrier")
+    carrier = whole_declarations[0].group("name")
+    initial = assignments[0]
+    if not _safe_initial_carrier_flow(
+        source, body[:writes[0].start()], carrier, initial
+    ):
+        raise ArtifactFailure("independent-output-carrier")
+    for update_index, expression in enumerate(assignments[1:], start=1):
+        arguments = _call_arguments(expression)
+        callee = re.match(r"(?P<name>[A-Za-z_]\w*)\s*\(", expression)
+        if arguments is None or callee is None:
+            raise ArtifactFailure("independent-output-carrier")
+        direct = [
+            index for index, argument in enumerate(arguments)
+            if argument == "out.mwxFragColor"
+        ]
+        staged: list[tuple[int, str]] = []
+        for index, argument in enumerate(arguments):
+            if re.fullmatch(r"[A-Za-z_]\w*", argument) is None:
+                continue
+            declarations = list(re.finditer(
+                rf"\bfloat4\s+{re.escape(argument)}\s*=\s*"
+                r"out\.mwxFragColor\s*;", body
+            ))
+            if len(declarations) == 1 and (
+                assignment_ends[update_index - 1] <= declarations[0].start()
+                < writes[update_index].start()
+            ) and len(re.findall(rf"\b{re.escape(argument)}\b", body)) == 2:
+                staged.append((index, argument))
+        if len(direct) + len(staged) != 1:
+            raise ArtifactFailure("independent-output-carrier")
+        carrier_index = direct[0] if direct else staged[0][0]
+        if not _safe_carrier_parameter(
+            source, callee.group("name"), arguments, carrier_index,
+            require_const_reference=bool(staged),
+        ):
+            raise ArtifactFailure("independent-output-helper")
+    if len(re.findall(r"\bout\.mwxFragColor\b", body)) != 2 * len(writes) - 1:
+        raise ArtifactFailure("independent-output-drift")
+    if len(re.findall(r"\bout\b", body)) != 2 * len(writes) + 1:
+        raise ArtifactFailure("independent-output-drift")
+    return {"kind": expected["kind"], "slot": slot}
+
+
 def _static_loop_work(stage_sources: dict[str, str]) -> int:
     total = 0
     loop = re.compile(
@@ -535,11 +697,13 @@ def build_program_artifact(
     msl_sources: dict[str, str],
     maximum_artifact_bytes: int,
     output_semantics: str = "color",
+    expected_color_transfer: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if output_semantics != "color":
         raise ArtifactFailure("output-semantics")
     if set(stage_sources) != {"vertex", "fragment"} or set(msl_sources) != set(stage_sources):
         raise ArtifactFailure("stage-pair")
+    expected = expected_independent_color_transfer(expected_color_transfer)
     static_loop_work = _static_loop_work(stage_sources)
     stages = {stage.get("stage"): stage for stage in compiled_stages}
     if set(stages) != {"vertex", "fragment"}:
@@ -550,8 +714,10 @@ def build_program_artifact(
         _active_uniform_fields(vertex_layout[0], msl_sources["vertex"]),
         _active_uniform_fields(fragment_layout[0], msl_sources["fragment"]),
     )
-    fragment_color_preparation = _premultiplied_alpha_attenuation(
-        msl_sources["fragment"]
+    fragment_color_preparation = (
+        None if expected is not None else _premultiplied_alpha_attenuation(
+            msl_sources["fragment"]
+        )
     )
     prepared_fragment_msl = (
         fragment_color_preparation[0]
@@ -561,7 +727,10 @@ def build_program_artifact(
     color_transfer = (
         fragment_color_preparation[1]
         if fragment_color_preparation is not None
-        else _passthrough_color_transfer(msl_sources["fragment"])
+        else (
+            None if expected is not None
+            else _passthrough_color_transfer(msl_sources["fragment"])
+        )
     )
     vertex_msl = _normalize_uniform_struct(
         msl_sources["vertex"], uniform_layout[0], uniform_layout[2]
@@ -581,8 +750,14 @@ def build_program_artifact(
         raise ArtifactFailure("metal-size")
     texture_bindings = _texture_bindings(compiled_stages, metal_source)
     _validate_texture_transform_layout(uniform_layout[0], texture_bindings)
+    if expected is not None:
+        color_transfer = _independent_signal_color_transfer(
+            fragment_msl, expected, texture_bindings
+        )
+    if color_transfer is None:
+        raise ArtifactFailure("color-transfer")
     return {
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "kind": "scene-generic-shader-program-artifact",
         "backendID": backend_id,
         "requestKey": request_key,

@@ -924,6 +924,16 @@ private enum Harness {
             device: device,
             content: .color(.resolved(.independentAlphaSignal))
         )
+        let preservingSignalProjection = SceneResolvedMaterialProgramDerivation
+            .resolveColor(
+                transfer: .independentAlphaSignalPreserving(textureSlot: 0),
+                textureSlots: slots(signalSlot)
+            )
+        let preservingPremultipliedRejected = SceneResolvedMaterialProgramDerivation
+            .resolveColor(
+                transfer: .independentAlphaSignalPreserving(textureSlot: 0),
+                textureSlots: slots(firstSlot)
+            ) == nil
         let compositingProjection = SceneResolvedMaterialProgramDerivation.resolveColor(
             transfer: .independentAlphaSignalCompositing(
                 signalSlot: 0,
@@ -1058,6 +1068,13 @@ private enum Harness {
             "independentSignalCompositeAccepted":
                 compositingProjection?.framebufferInput == .premultipliedAlpha
                 && compositingProjection?.fragmentOutput == .premultipliedAlpha,
+            "independentSignalPreservingAccepted":
+                preservingSignalProjection?.framebufferInput
+                    == .independentAlphaSignal
+                && preservingSignalProjection?.fragmentOutput
+                    == .independentAlphaSignal,
+            "independentSignalPreservingPremultipliedRejected":
+                preservingPremultipliedRejected,
             "interpolatedSameRepresentationAccepted":
                 interpolatedProjection?.framebufferInput == .premultipliedAlpha
                 && interpolatedProjection?.fragmentOutput == .premultipliedAlpha,

@@ -30,6 +30,7 @@ from typing import Any
 from scene_shader_compiler_artifact import (
     ArtifactFailure,
     build_program_artifact,
+    expected_independent_color_transfer,
     request_cache_key,
 )
 from scene_shader_compiler_cli import parse_args
@@ -146,13 +147,17 @@ def parse_limits(manifest: dict[str, Any]) -> Limits:
 
 
 def validate_request(payload: dict[str, Any], limits: Limits) -> list[dict[str, str]]:
-    if payload.get("schemaVersion") != 2:
+    if payload.get("schemaVersion") != 3:
         raise HarnessFailure("request", "schema-version")
     if payload.get("outputSemantics") != "color":
         raise HarnessFailure("request", "output-semantics")
     request_id = payload.get("requestID")
     if not isinstance(request_id, str) or not request_id or len(request_id) > 128:
         raise HarnessFailure("request", "request-id")
+    try:
+        expected_independent_color_transfer(payload.get("expectedColorTransfer"))
+    except ArtifactFailure as error:
+        raise HarnessFailure("request", str(error)) from error
     raw_stages = payload.get("stages")
     if not isinstance(raw_stages, list) or len(raw_stages) != 2:
         raise HarnessFailure("request", "stage-count")
@@ -901,6 +906,7 @@ def compile_request(
                     },
                     maximum_artifact_bytes=limits.maximum_artifact_bytes,
                     output_semantics=request["outputSemantics"],
+                    expected_color_transfer=request.get("expectedColorTransfer"),
                 )
             except ArtifactFailure as error:
                 raise HarnessFailure("artifact", str(error)) from error

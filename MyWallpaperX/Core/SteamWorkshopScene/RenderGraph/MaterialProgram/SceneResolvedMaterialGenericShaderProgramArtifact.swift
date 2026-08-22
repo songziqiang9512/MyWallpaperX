@@ -90,7 +90,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
         program: Program
     ) {
-        schemaVersion = 4
+        schemaVersion = 5
         kind = "scene-generic-shader-program-artifact"
         self.backendID = backendID
         self.requestKey = requestKey
@@ -105,7 +105,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         expectedFragmentOutputChannelUse:
             SceneAuthoredShaderProgram.FragmentOutputChannelUse
     ) -> SceneAuthoredShaderProgram? {
-        guard schemaVersion == 4,
+        guard schemaVersion == 5,
               kind == "scene-generic-shader-program-artifact",
               backendID == "glslang-spirv-cross-msl-v2",
               requestKey == expectedKey,
@@ -185,16 +185,23 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         case let ("straight-alpha-preserving", slot?, nil):
             guard bindings.contains(where: { $0.slot == slot }) else { return nil }
             colorTransfer = .straightAlphaPreserving(textureSlot: slot)
+        case let ("independent-alpha-signal-preserving", slot?, nil):
+            guard bindings.contains(where: { $0.slot == slot }) else { return nil }
+            colorTransfer = .independentAlphaSignalPreserving(textureSlot: slot)
         case ("preserved-rgba-data", nil, nil):
             guard outputSemantics == .preservedRGBAUnorm else { return nil }
             colorTransfer = .unresolved
         default:
             return nil
         }
+        let requiresExactExpectedTransfer = if case
+            .independentAlphaSignalPreserving = colorTransfer { true } else { false }
         guard outputSemantics == .preservedRGBAUnorm
                 ? colorTransfer == .unresolved
-                : expectedColorTransfer == .unresolved
-                    || colorTransfer == expectedColorTransfer else {
+                : requiresExactExpectedTransfer
+                    ? colorTransfer == expectedColorTransfer
+                    : expectedColorTransfer == .unresolved
+                        || colorTransfer == expectedColorTransfer else {
             return nil
         }
         guard let fragmentOutputChannelUse =

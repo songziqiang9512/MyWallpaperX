@@ -128,11 +128,10 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
                   main: main,
                   tokens: tokens
               ),
-              let closure = reachableFunctions(
-                  from: filter,
+              let closure = safeHelperClosure(
+                  rootName: filter.name,
                   fragment: fragment
-              ),
-              helperClosureIsPure(closure, fragment: fragment)
+              )
         else { return nil }
 
         let helperRanges = closure.map(\.bodyRange)
@@ -163,16 +162,32 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
         )
     }
 
+    /// Reuses this analyzer's existing helper call-graph and side-effect proof
+    /// without exposing its preserved-alpha RGB value grammar.
+    static func safeHelperClosure(
+        rootName: String,
+        fragment: Unit
+    ) -> [Unit.Function]? {
+        guard let root = uniqueFunction(named: rootName, fragment: fragment),
+              root.name != "main",
+              let closure = reachableFunctions(from: root, fragment: fragment),
+              helperClosureIsPure(closure, fragment: fragment) else {
+            return nil
+        }
+        return closure
+    }
+
     private static func reachableFunctions(
         from root: Unit.Function,
         fragment: Unit
     ) -> [Unit.Function]? {
         var result: [Unit.Function] = []
-        var pending = [root]
         var visited: Set<String> = []
+        var active: Set<String> = []
         let names = Set(fragment.functions.map(\.name)).subtracting(["main"])
-        while let function = pending.popLast() {
-            guard visited.insert(function.name).inserted else { continue }
+        func visit(_ function: Unit.Function) -> Bool {
+            if visited.contains(function.name) { return true }
+            guard active.insert(function.name).inserted else { return false }
             result.append(function)
             let called = function.bodyRange.compactMap { index -> String? in
                 guard index + 1 < fragment.tokens.count,
@@ -187,11 +202,13 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
                 guard let callee = uniqueFunction(
                     named: name,
                     fragment: fragment
-                ) else { return nil }
-                pending.append(callee)
+                ), visit(callee) else { return false }
             }
+            active.remove(function.name)
+            visited.insert(function.name)
+            return true
         }
-        return result
+        return visit(root) ? result : nil
     }
 
     private static func helperClosureIsPure(
@@ -269,28 +286,40 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
         body: Range<Int>,
         tokens: [Token]
     ) -> Bool {
-        let writes: Set<String> = ["=", "+=", "-=", "*=", "/="]
+        let writes: Set<String> = [
+            "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=",
+            "<<=", ">>=",
+        ]
+        // A member token is not itself a storage root. The preceding local or
+        // global identifier owns the component write and is checked below.
+        if index > body.lowerBound, tokens[index - 1].text == "." {
+            return false
+        }
         if index > body.lowerBound,
            ["++", "--"].contains(tokens[index - 1].text) {
             return true
         }
-        guard index + 1 < body.upperBound else { return false }
-        if writes.contains(tokens[index + 1].text)
-            || ["++", "--"].contains(tokens[index + 1].text) {
-            return true
+        var cursor = index + 1
+        chain: while cursor < body.upperBound {
+            switch tokens[cursor].text {
+            case ".":
+                guard cursor + 1 < body.upperBound,
+                      tokens[cursor + 1].kind == .identifier else {
+                    return false
+                }
+                cursor += 2
+            case "[":
+                guard let close = matchingDelimiter(
+                    at: cursor, tokens: tokens[...]
+                ), close < body.upperBound else { return false }
+                cursor = close + 1
+            default:
+                break chain
+            }
         }
-        if tokens[index + 1].text == ".",
-           index + 3 < body.upperBound,
-           writes.contains(tokens[index + 3].text) {
-            return true
-        }
-        if tokens[index + 1].text == "[",
-           let close = matchingDelimiter(at: index + 1, tokens: tokens[...]),
-           close + 1 < body.upperBound,
-           writes.contains(tokens[close + 1].text) {
-            return true
-        }
-        return false
+        guard cursor < body.upperBound else { return false }
+        return writes.contains(tokens[cursor].text)
+            || ["++", "--"].contains(tokens[cursor].text)
     }
 
     private static func carrierUsesPreserveAlpha(

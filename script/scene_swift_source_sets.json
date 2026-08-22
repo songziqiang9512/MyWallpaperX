@@ -96,6 +96,8 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalScalarContract.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalCarrierAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderFrontend.swift"
       ]
@@ -173,6 +175,7 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransfer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
