@@ -86,16 +86,6 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
     nonisolated func purpose(
         for reference: SceneResolvedMaterialTemplate.TextureReference
     ) -> SceneTextureLoadPurpose? {
-        let declaredPurpose: SceneTextureLoadPurpose? = if let purpose = mode.explicitPurpose {
-            purpose
-        } else {
-            switch materialKey?.lowercased() {
-            case "albedo": .straightAlbedo
-            case "noise": .noise
-            case "normal": .normal
-            default: nil
-            }
-        }
         if case .graph = reference {
             return mode.explicitPurpose ?? .premultipliedColor
         }
@@ -114,16 +104,42 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
                 break
             }
         }
-        guard case let .asset(path) = reference,
-              let registeredPurpose = SceneStockTextureSemanticRegistry.purpose(
-                  for: path
-              ) else {
+        guard case let .asset(path) = reference else {
             return declaredPurpose
         }
-        guard declaredPurpose == nil || declaredPurpose == registeredPurpose else {
+        let registeredPurpose = SceneStockTextureSemanticRegistry.purpose(for: path)
+        guard declaredPurpose == nil || registeredPurpose == nil
+                || declaredPurpose == registeredPurpose else {
             return nil
         }
-        return registeredPurpose
+        let candidatePurpose = registeredPurpose ?? declaredPurpose
+
+        // A regular sampler's typed asset default is a slot-level author
+        // contract. An authored asset override may inherit only that proven
+        // role; a candidate with its own conflicting registry role is rejected.
+        // The default remains source metadata, never a runtime texture fallback.
+        guard mode == .regular,
+              declaredPurpose == nil,
+              case let .asset(defaultPath)? = defaultTexture,
+              let defaultPurpose = SceneStockTextureSemanticRegistry.purpose(
+                  for: defaultPath
+              ) else {
+            return candidatePurpose
+        }
+        guard candidatePurpose == nil || candidatePurpose == defaultPurpose else {
+            return nil
+        }
+        return candidatePurpose ?? defaultPurpose
+    }
+
+    private nonisolated var declaredPurpose: SceneTextureLoadPurpose? {
+        if let purpose = mode.explicitPurpose { return purpose }
+        return switch materialKey?.lowercased() {
+        case "albedo": .straightAlbedo
+        case "noise": .noise
+        case "normal": .normal
+        default: nil
+        }
     }
 
     nonisolated var hasTypedAuxiliaryDefault: Bool {

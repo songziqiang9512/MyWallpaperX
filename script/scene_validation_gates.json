@@ -244,6 +244,7 @@
         "test_scene_resolved_material_pass_encoder",
         "test_scene_resolved_material_program_derivation",
         "test_scene_resolved_material_program_finalizer",
+        "test_scene_sampler_default_purpose",
         "test_scene_resolved_material_template"
       ]
     },
