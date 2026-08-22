@@ -581,6 +581,7 @@ private func claimedExecution(
     return .init(
         layerID: layerID,
         dependencyOwnership: capability.dependencyOwnership,
+        sourceRoute: capability.sourceRoute,
         token: claim.token
     )
 }

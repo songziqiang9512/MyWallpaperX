@@ -120,6 +120,7 @@ SUPPORT = (
     struct ClaimedExecution {
         let layerID: Int
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+        let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
         let sceneBackgroundRequirement:
             SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement? = nil

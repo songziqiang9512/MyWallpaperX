@@ -220,6 +220,8 @@
         "test_scene_graph_resource_pass_encoder",
         "test_scene_graph_texture_publication",
         "test_scene_preserved_channel_history",
+        "test_scene_preserved_channel_frame_local_unique",
+        "test_scene_captured_main_preflight_fallback",
         "test_scene_preserved_channel_feedback_pair",
         "test_scene_preserved_channel_ordered_feedback",
         "test_scene_animated_material_visual_failure",

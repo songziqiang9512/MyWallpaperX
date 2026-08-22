@@ -6226,7 +6226,7 @@ private enum Harness {
                 redGreenClearSeededFirstFrame,
             "redGreenClearSeedPersistsIntoNextFrame":
                 redGreenClearSeededNextFrame,
-            "redGreenUniqueRejectedBeforeFrame": redGreenRejection(
+            "redGreenFrameLocalUniqueAdmittedBeforeFrame": redGreenAdmission(
                 redGreenUniqueGraph,
                 consumers: [1: "rg"]
             ),
@@ -6275,7 +6275,7 @@ private enum Harness {
                 )
                 return values.claim(chain) != nil
             }(),
-            "scalarUniqueHistoryRejectedBeforeFrame": scalarRejection(
+            "scalarFrameLocalUniqueAdmittedBeforeFrame": scalarAdmission(
                 scalarUniqueGraph,
                 consumers: [1: "red"]
             ),

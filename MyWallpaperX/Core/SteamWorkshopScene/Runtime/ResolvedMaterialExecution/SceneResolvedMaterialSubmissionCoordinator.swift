@@ -275,6 +275,12 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
 
         var candidates: [PreparedFrameCandidate] = []
         var provisionalTails = scheduledTails
+        let externallyConsumedProviderLayerIDs = Set(requests.compactMap {
+            request -> Int? in
+            guard case let .externalPrimary(binding) =
+                request.claim.dependencyOwnership else { return nil }
+            return binding.providerLayerID
+        })
         for index in requests.indices {
             let request = requests[index]
             let claim = request.claim
@@ -345,6 +351,36 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 switch result {
                 case let .failure(failure):
                     reason = "graph-preflight-\(failure.rawValue)"
+                    let hasCapturedMainSource: Bool
+                    if case .capturedMainTargetTexture = claim.sourceRoute {
+                        hasCapturedMainSource = true
+                    } else {
+                        hasCapturedMainSource = false
+                    }
+                    if failure.isColorContractVisualRejection,
+                       hasCapturedMainSource,
+                       claim.dependencyOwnership == .none,
+                       !externallyConsumedProviderLayerIDs.contains(claim.layerID) {
+                        let fallbackReason =
+                            "captured-main-color-contract-unproven"
+                        frameLocalFallbacks[claim.layerID] = fallbackReason
+                        let entries = frameLocalFallbacks.keys.sorted()
+                            .compactMap { layerID in
+                                frameLocalFallbacks[layerID].map {
+                                    "\(layerID):\($0)"
+                                }
+                            }.joined(separator: ",")
+                        let signature = "count=\(frameLocalFallbacks.count)"
+                            + " entries=\(entries)"
+                        if signature != lastLocalFallbackSignature {
+                            lastLocalFallbackSignature = signature
+                            emission.diagnostics.append(
+                                "layer-local-fallback \(signature)"
+                                    + " preflight=\(failure.rawValue)"
+                            )
+                        }
+                        continue
+                    }
                 case .success:
                     reason = "graph-preflight-result-invariant"
                 }
@@ -395,18 +431,26 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             emit(emission)
             return .rejected(reasonCode: reason)
         }
-        guard let commits = pool.commitAndPinPersistentGraphTargets(
-            candidates.map(\.targets),
-            historyTokensByTarget: candidates.map {
-                $0.prepared.historyTokensByEffect
-            },
-            commandBuffer: commandBuffer
-        ) else {
-            let reason = "persistent-allocation-commit-rejected"
-            emission = framePreparationFailureLocked(candidates, reason: reason)
-            lock.unlock()
-            emit(emission)
-            return .rejected(reasonCode: reason)
+        let commits: [Commit]
+        if candidates.isEmpty {
+            commits = []
+        } else {
+            guard let committed = pool.commitAndPinPersistentGraphTargets(
+                candidates.map(\.targets),
+                historyTokensByTarget: candidates.map {
+                    $0.prepared.historyTokensByEffect
+                },
+                commandBuffer: commandBuffer
+            ) else {
+                let reason = "persistent-allocation-commit-rejected"
+                emission = framePreparationFailureLocked(
+                    candidates, reason: reason
+                )
+                lock.unlock()
+                emit(emission)
+                return .rejected(reasonCode: reason)
+            }
+            commits = committed
         }
 
         let firstIdentity = nextTransactionID + 1
@@ -441,6 +485,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         }
         framePreparationComplete = true
         lock.unlock()
+        emit(emission)
         return .ready
     }
 

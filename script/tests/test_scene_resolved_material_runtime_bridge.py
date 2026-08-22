@@ -998,6 +998,7 @@ final class SceneResolvedMaterialGraphExecutor {
     typealias State = SceneGraphExecutionState
     enum Failure: String, Error {
         case unavailable = "fixture-preflight-unavailable"
+        var isColorContractVisualRejection: Bool { false }
     }
     struct PreparedStage {
         let effect: Graph.EffectKey
@@ -4101,7 +4102,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         )
         self.assertIn("case .notMigrated:\n            return .unclaimed", composition)
         self.assertIn("case rejected(reasonCode: String)", composition)
-        self.assertIn("case let .rejected(reasonCode):", composition)
         self.assertIn("switch route {", frame_preflight)
         self.assertIn(
             "case let .rejected(reasonCode):\n"

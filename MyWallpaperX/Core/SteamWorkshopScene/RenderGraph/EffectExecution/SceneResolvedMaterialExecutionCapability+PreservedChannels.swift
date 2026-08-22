@@ -249,9 +249,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             return "writer-storage"
         }
         guard !readers.isEmpty else { return "reader-count" }
-        guard !target.descriptor.isUnique || readers.contains(where: {
-            $0.nodeIndex < writer.nodeIndex
-        }) else { return "unique-read-before-write" }
         for reader in readers {
             guard reader.nodeIndex != writer.nodeIndex else {
                 return "same-node-read-write"

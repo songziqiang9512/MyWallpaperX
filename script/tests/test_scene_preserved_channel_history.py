@@ -129,16 +129,6 @@ private enum Harness {
                     && matches(pixel.pixel, expected),
                 "\(format) GPU"
             )
-            let ordinaryUnique = graph(
-                format: format,
-                readsBeforeWrite: false
-            )
-            expect(
-                capabilities(ordinaryUnique, pair: pair).claim(
-                    admitted(ordinaryUnique)
-                ) == nil,
-                "\(format) write-before-read unique"
-            )
             for boundary in RejectedHistoryBoundary.allCases {
                 let rejected = rejectedHistoryGraph(
                     format: format,

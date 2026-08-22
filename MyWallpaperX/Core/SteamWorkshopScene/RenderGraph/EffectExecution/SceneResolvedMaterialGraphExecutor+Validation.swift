@@ -408,6 +408,18 @@ extension SceneResolvedMaterialGraphExecutor {
 }
 
 extension SceneResolvedMaterialGraphExecutor.Failure {
+    /// A color proof miss is an ordinary pre-encode visual failure. It may be
+    /// localized by a caller that can independently prove a safe
+    /// previous-current output; all identity, state, resource, and invariant
+    /// finalizer failures remain hard rejections.
+    var isColorContractVisualRejection: Bool {
+        guard case let .materialFinalizerRejected(
+            _, _, _, _, failure
+        ) = self else { return false }
+        return failure.phase == .color
+            && failure.code == .colorContractUnproven
+    }
+
     var rawValue: String {
         switch self {
         case .invalidClaim: "invalid-claim"

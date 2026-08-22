@@ -445,6 +445,7 @@ extension SceneImageLayerCompositor {
         case let .rejected(reasonCode):
             if reasonCode == "function-invocation-unknown-effect"
                 || reasonCode == "function-invocation-unknown-function"
+                || reasonCode == "captured-main-color-contract-unproven"
                 || ScenePersistentGraphTargetPlanningFailure
                     .isLocalFallbackReasonCode(reasonCode) {
                 return .localFallback(reasonCode: reasonCode)
