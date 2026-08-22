@@ -112,6 +112,14 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
         fragment: Unit,
         main: Unit.Function
     ) -> SceneShaderColorTransfer? {
+        if let transfer = SceneAuthoredShaderIndependentSignalCompositingAnalyzer
+            .analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return transfer
+        }
         let tokens = fragment.tokens
         guard outputUses.count == 1,
               let output = outputUses.first,

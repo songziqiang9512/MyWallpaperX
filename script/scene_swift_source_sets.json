@@ -96,6 +96,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalCompositingAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalScalarContract.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalCarrierAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",

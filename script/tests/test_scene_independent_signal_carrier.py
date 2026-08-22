@@ -68,6 +68,9 @@ private struct Output: Codable {
     let preparedSourceHasHelperChain: Bool
     let boundedMetalCompiled: Bool
     let boundedMetalHasColorBoundary: Bool
+    let preparedCompositeTransfer: String
+    let preparedCompositeHasExactTail: Bool
+    let preparedCompositeMetalCompiled: Bool
     let positive: [String: String]
     let negative: [String: String]
     let artifact: [String: Bool]
@@ -86,6 +89,8 @@ void main() {
 private func transfer(_ source: String) -> String {
     switch SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentSource: source) {
     case let .independentAlphaSignalPreserving(slot): return "signal-preserving:\(slot)"
+    case let .independentAlphaSignalCompositing(signal, color):
+        return "signal-composite:\(signal):\(color)"
     case let .straightAlphaPreserving(slot): return "straight-preserving:\(slot)"
     case .unresolved: return "unresolved"
     default: return "other"
@@ -172,6 +177,45 @@ private func preparedSource(stockRoot: URL, looseRoot: URL) throws -> String {
     case let .failure(failure):
         throw NSError(
             domain: "prepared-source", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "\(failure.diagnostics)"]
+        )
+    }
+}
+
+private func preparedCompositeSource(stockRoot: URL) throws -> String {
+    let path = "shaders/effects/fluidsimulation_combine.frag"
+    let globalStockRoot = stockRoot
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let view = SceneResourceView(
+        projectRootURL: stockRoot,
+        packageRootURL: nil,
+        stockAssetsRootURL: globalStockRoot
+    )
+    let graph = SceneShaderSourceGraphBuilder().build(
+        roots: [.init(label: "fragment", virtualPath: path)],
+        resourceView: view
+    )
+    let values: [String: Int64] = [
+        "BLENDMODE": 31, "RENDERING": 0, "OPAQUE": 0,
+        "WRITEALPHA": 1, "PERSPECTIVE": 0, "LIGHTING": 0,
+        "LIGHTS_SHADOW_MAPPING": 0, "LIGHTS_COOKIE": 0,
+    ]
+    let environment = try SceneShaderVariantEnvironment(
+        stage: .fragment,
+        combos: values.map {
+            .init(name: $0.key, definition: .defined(.integer($0.value)))
+        }
+    )
+    switch SceneShaderPreprocessor().preprocess(
+        rootRelativePath: path,
+        graph: graph,
+        environment: environment
+    ) {
+    case let .success(prepared): return prepared.source
+    case let .failure(failure):
+        throw NSError(
+            domain: "prepared-composite-source", code: 1,
             userInfo: [NSLocalizedDescriptionKey: "\(failure.diagnostics)"]
         )
     }
@@ -309,6 +353,19 @@ private enum Harness {
         if let device = MTLCreateSystemDefaultDevice(), !metal.isEmpty {
             metalCompiled = (try? device.makeLibrary(source: metal, options: nil)) != nil
         } else { metalCompiled = false }
+        let preparedComposite = try preparedCompositeSource(
+            stockRoot: URL(fileURLWithPath: CommandLine.arguments[1])
+        )
+        let boundedComposite = SceneAuthoredShaderFrontend.compile(
+            vertexSource: vertex,
+            fragmentSource: preparedComposite
+        ).program
+        let compositeMetal = boundedComposite?.metalSource ?? ""
+        let compositeMetalCompiled: Bool
+        if let device = MTLCreateSystemDefaultDevice(), !compositeMetal.isEmpty {
+            compositeMetalCompiled =
+                (try? device.makeLibrary(source: compositeMetal, options: nil)) != nil
+        } else { compositeMetalCompiled = false }
 
         let positive = [
             "renamed": transfer(fixture(
@@ -547,6 +604,15 @@ private enum Harness {
             boundedMetalCompiled: metalCompiled,
             boundedMetalHasColorBoundary:
                 metal.contains("mwxUnpremultiply") || metal.contains("mwxPremultiply"),
+            preparedCompositeTransfer: transfer(preparedComposite),
+            preparedCompositeHasExactTail:
+                preparedComposite.contains(
+                    "albedo.rgb = ApplyBlending(31, prev.rgb, albedo.rgb, albedo.a * u_Alpha);"
+                )
+                && preparedComposite.contains(
+                    "albedo.a = saturate(prev.a + albedo.a);"
+                ),
+            preparedCompositeMetalCompiled: compositeMetalCompiled,
             positive: positive,
             negative: negative,
             artifact: artifactChecks(authored: fixture())
@@ -609,6 +675,14 @@ class SceneIndependentSignalCarrierTests(unittest.TestCase):
         self.assertTrue(self.output["preparedSourceHasHelperChain"])
         self.assertTrue(self.output["boundedMetalCompiled"])
         self.assertFalse(self.output["boundedMetalHasColorBoundary"])
+
+    def test_bundled_combine_source_uses_signal_over_color_contract(self) -> None:
+        self.assertEqual(
+            self.output["preparedCompositeTransfer"],
+            "signal-composite:0:1",
+        )
+        self.assertTrue(self.output["preparedCompositeHasExactTail"])
+        self.assertTrue(self.output["preparedCompositeMetalCompiled"])
 
     def test_identity_independent_positive_and_unseen_combinations(self) -> None:
         self.assertEqual(self.output["positive"], {

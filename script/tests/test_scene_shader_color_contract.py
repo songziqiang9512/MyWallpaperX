@@ -1045,6 +1045,69 @@ enum Harness {
                 "color.rgb = ApplyBlending(9, color.rgb, rays.rgb, rays.a); " +
                 "color.a += rays.a; gl_FragColor = color;"
             ),
+            "signalCarrierComposite": transfer(
+                "vec4 signal = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 gradient = texSample2D(g_Texture3, " +
+                "vec2(signal.r, 0.5)); " +
+                "signal.rgb = gradient.rgb * g_Tint; " +
+                "signal.a *= gradient.a; " +
+                "vec4 previous = texSample2D(g_Texture1, v_TexCoord); " +
+                "signal.rgb = ApplyBlending(31, previous.rgb, signal.rgb, " +
+                "signal.a * g_ScalarWeight); " +
+                "signal.a = saturate(previous.a + signal.a); " +
+                "gl_FragColor = signal;"
+            ),
+            "signalCarrierCompositeRenamed": transfer(
+                "vec4 payload = texSample2D(g_Texture3, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture0, v_TexCoord).r; " +
+                "payload.rgb *= g_Tint; payload.a *= mask; " +
+                "vec4 base = texSample2D(g_Texture1, v_TexCoord); " +
+                "payload.rgb = ApplyBlending(9, base.rgb, payload.rgb, " +
+                "payload.a); " +
+                "payload.a = saturate(base.a + payload.a); " +
+                "gl_FragColor = payload;"
+            ),
+            "signalCarrierCompositeWrongBase": transfer(
+                "vec4 signal = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 previous = texSample2D(g_Texture1, v_TexCoord); " +
+                "signal.rgb = ApplyBlending(31, signal.rgb, previous.rgb, " +
+                "signal.a); " +
+                "signal.a = saturate(previous.a + signal.a); " +
+                "gl_FragColor = signal;"
+            ),
+            "signalCarrierCompositeWrongAlpha": transfer(
+                "vec4 signal = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 previous = texSample2D(g_Texture1, v_TexCoord); " +
+                "signal.rgb = ApplyBlending(31, previous.rgb, signal.rgb, " +
+                "signal.a); signal.a = saturate(signal.a); " +
+                "gl_FragColor = signal;"
+            ),
+            "signalCarrierCompositeWholeEscape": transfer(
+                "vec4 signal = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 alias = signal; " +
+                "vec4 previous = texSample2D(g_Texture1, v_TexCoord); " +
+                "signal.rgb = ApplyBlending(31, previous.rgb, signal.rgb, " +
+                "signal.a); " +
+                "signal.a = saturate(previous.a + signal.a); " +
+                "gl_FragColor = signal;"
+            ),
+            "signalCarrierCompositePostMutation": transfer(
+                "vec4 signal = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 previous = texSample2D(g_Texture1, v_TexCoord); " +
+                "signal.rgb = ApplyBlending(31, previous.rgb, signal.rgb, " +
+                "signal.a); " +
+                "signal.a = saturate(previous.a + signal.a); " +
+                "signal.rgb *= g_Tint; gl_FragColor = signal;"
+            ),
+            "signalCarrierCompositeShadowedSaturate": transfer(
+                "vec4 signal = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 previous = texSample2D(g_Texture1, v_TexCoord); " +
+                "signal.rgb = ApplyBlending(31, previous.rgb, signal.rgb, " +
+                "signal.a); " +
+                "signal.a = saturate(previous.a + signal.a); " +
+                "gl_FragColor = signal;",
+                helpers: "float saturate(float value) { return 0.0; }"
+            ),
             "premultipliedAdditive": transfer(
                 "float weight = 0.5; vec3 tint = vec3(0.8); " +
                 "vec4 color = CAST4(0.0); " +
@@ -1585,6 +1648,13 @@ class SceneShaderColorContractTests(unittest.TestCase):
             self.result["independentSignalComposite"], "signal-composite:0:1"
         )
         self.assertEqual(
+            self.result["signalCarrierComposite"], "signal-composite:0:1"
+        )
+        self.assertEqual(
+            self.result["signalCarrierCompositeRenamed"],
+            "signal-composite:3:1",
+        )
+        self.assertEqual(
             self.result["invalidIndependentSignal"],
             "signal-preserving-slot:0",
         )
@@ -1595,6 +1665,16 @@ class SceneShaderColorContractTests(unittest.TestCase):
         composite = self.result["independentCompositeMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture1.sample", composite)
         self.assertIn("return mwxPremultiply(mwxFragColor);", composite)
+
+    def test_signal_carrier_composite_rejects_unsafe_tail_shapes(self) -> None:
+        for key in (
+            "signalCarrierCompositeWrongBase",
+            "signalCarrierCompositeWrongAlpha",
+            "signalCarrierCompositeWholeEscape",
+            "signalCarrierCompositePostMutation",
+            "signalCarrierCompositeShadowedSaturate",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
 
     def test_zero_base_additive_output_proves_only_exact_premultiplied_flow(self) -> None:
         self.assertEqual(

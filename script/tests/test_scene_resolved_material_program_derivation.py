@@ -945,6 +945,47 @@ private enum Harness {
                 marker: 2
             ))
         )
+        let compositingDataAuxiliaryProjection = SceneResolvedMaterialProgramDerivation
+            .resolveColor(
+                transfer: .independentAlphaSignalCompositing(
+                    signalSlot: 0,
+                    colorSlot: 1
+                ),
+                textureSlots: slots(
+                    signalSlot,
+                    textureSlot(device: device, slot: 1, marker: 2),
+                    textureSlot(
+                        device: device,
+                        slot: 3,
+                        marker: 4,
+                        expectedPurpose: .preservedChannels,
+                        publishedPurpose: .preservedChannels,
+                        content: .data,
+                        reference: .asset(
+                            SceneVFSAssetPath("gradient/gradient_fire")!
+                        )
+                    )
+                )
+            )
+        let compositingColorAuxiliaryRejected = SceneResolvedMaterialProgramDerivation
+            .resolveColor(
+                transfer: .independentAlphaSignalCompositing(
+                    signalSlot: 0,
+                    colorSlot: 1
+                ),
+                textureSlots: slots(
+                    signalSlot,
+                    textureSlot(device: device, slot: 1, marker: 2),
+                    textureSlot(
+                        device: device,
+                        slot: 3,
+                        marker: 4,
+                        reference: .asset(
+                            SceneVFSAssetPath("assets/extra-color.tex")!
+                        )
+                    )
+                )
+            ) == nil
         let secondPremultipliedSlot = textureSlot(
             device: device,
             slot: 1,
@@ -1068,6 +1109,13 @@ private enum Harness {
             "independentSignalCompositeAccepted":
                 compositingProjection?.framebufferInput == .premultipliedAlpha
                 && compositingProjection?.fragmentOutput == .premultipliedAlpha,
+            "independentSignalCompositeDataAuxiliaryAccepted":
+                compositingDataAuxiliaryProjection?.framebufferInput
+                    == .premultipliedAlpha
+                && compositingDataAuxiliaryProjection?.fragmentOutput
+                    == .premultipliedAlpha,
+            "independentSignalCompositeColorAuxiliaryRejected":
+                compositingColorAuxiliaryRejected,
             "independentSignalPreservingAccepted":
                 preservingSignalProjection?.framebufferInput
                     == .independentAlphaSignal

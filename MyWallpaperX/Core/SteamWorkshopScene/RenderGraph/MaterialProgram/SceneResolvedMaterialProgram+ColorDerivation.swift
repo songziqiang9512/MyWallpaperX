@@ -78,7 +78,11 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             guard representation(slot: signalSlot, textureFacts: textureFacts)
                     == .independentAlphaSignal,
                   let color = representation(slot: colorSlot, textureFacts: textureFacts),
-                  color == .opaque || color == .premultipliedAlpha else {
+                  color == .opaque || color == .premultipliedAlpha,
+                  auxiliarySlotsAreData(
+                    textureFacts,
+                    excluding: [signalSlot, colorSlot]
+                  ) else {
                 return nil
             }
             framebufferInput = color
@@ -143,7 +147,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   case let .color(.resolved(representation)) =
                     fact.content,
                   representation == .opaque || representation == .premultipliedAlpha,
-                  auxiliarySlotsAreData(textureFacts, excluding: slot) else {
+                  auxiliarySlotsAreData(textureFacts, excluding: [slot]) else {
                 return nil
             }
             fragmentOutput = .premultipliedAlpha
@@ -152,7 +156,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   let fact = textureFacts[slot],
                   case let .color(.resolved(representation)) = fact.content,
                   representation == .opaque || representation == .premultipliedAlpha,
-                  auxiliarySlotsAreData(textureFacts, excluding: slot) else {
+                  auxiliarySlotsAreData(textureFacts, excluding: [slot]) else {
                 return nil
             }
             fragmentOutput = .premultipliedAlpha
@@ -189,10 +193,10 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
 
     private static func auxiliarySlotsAreData(
         _ textureFacts: [ColorTextureFact?],
-        excluding colorSlot: Int
+        excluding colorSlots: Set<Int>
     ) -> Bool {
         textureFacts.enumerated().allSatisfy { index, fact in
-            guard index != colorSlot, let fact else { return true }
+            guard !colorSlots.contains(index), let fact else { return true }
             switch fact.content {
             case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
                  .redGreenFloat16, .data:
