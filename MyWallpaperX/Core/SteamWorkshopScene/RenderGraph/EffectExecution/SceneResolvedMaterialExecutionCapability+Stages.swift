@@ -238,20 +238,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 template: first.template
             ))
         }
-        guard preservedChannelGraphIsExecutable(
+        if let failure = preservedChannelGraphRejection(
             product.graph,
             materials: materials
-        ) else {
-            let reasonCode = product.graph.renderTargets.compactMap { target in
-                switch target.format?.lowercased() {
-                case "r8": "r8-scalar-graph-unproven"
-                case "rg88": "rg88-red-green-graph-unproven"
-                case "r16f": "r16f-scalar-graph-unproven"
-                case "rg1616f": "rg1616f-red-green-graph-unproven"
-                default: nil
-                }
-            }.first ?? "preserved-channel-graph-unproven"
-            return .failure(rejection(reasonCode))
+        ) {
+            return .failure(rejection(failure.reasonCode))
         }
         return .success(materials)
     }
@@ -386,84 +377,4 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             .boundedFeedbackHistoryProfile(in: graph)?.stateTargets ?? []
     }
 
-    /// Preserved-channel targets become product capability only as one complete
-    /// producer -> typed publication -> exact-channel consumer atom. An
-    /// authored clear may seed a first read before that target's sole writer.
-    /// An effect-scoped unique target may instead use the existing persistent
-    /// history seed, but only when the graph actually reads it before its sole
-    /// writer. Graph state remains the only owner of previous-current,
-    /// rehydration, reset and rollback. Commands and multiple writers remain
-    /// closed until their distinct lifecycle semantics are proven.
-    private static func preservedChannelGraphIsExecutable(
-        _ graph: Graph,
-        materials: [MaterialKey: MaterialCapability]
-    ) -> Bool {
-        let targets = graph.renderTargets.filter {
-            ["r8", "rg88", "r16f", "rg1616f"]
-                .contains($0.format?.lowercased() ?? "")
-        }
-        guard !targets.isEmpty else { return true }
-        for target in targets {
-            guard let descriptor = SceneGraphRenderTargetPlan.targetDescriptor(
-                target,
-                inputWidth: 1,
-                inputHeight: 1
-            ), [.r8, .rg88, .r16f, .rg1616f].contains(descriptor.format) else {
-                return false
-            }
-            let expectedStorage: SceneResolvedMaterialAttachmentKind
-            switch descriptor.format {
-            case .r8: expectedStorage = .scalarRedUnorm
-            case .rg88: expectedStorage = .redGreenUnorm
-            case .r16f: expectedStorage = .scalarRedFloat16
-            case .rg1616f: expectedStorage = .redGreenFloat16
-            case .rgbaBackbuffer, .rgba8888: return false
-            }
-            let writers = graph.nodes.filter {
-                $0.kind == .material && $0.target == target.texture
-            }
-            let readers = graph.nodes.filter { node in
-                node.kind == .material
-                    && node.bindings.contains { $0.texture == target.texture }
-            }
-            guard writers.count == 1,
-                  let writer = writers.first,
-                  materials[.init(
-                      effect: writer.effect,
-                      nodeIndex: writer.nodeIndex
-                  )]?.attachmentStorage == expectedStorage,
-                  !readers.isEmpty,
-                  (!descriptor.isUnique || readers.contains {
-                      $0.nodeIndex < writer.nodeIndex
-                  }),
-                  readers.allSatisfy({
-                      $0.nodeIndex != writer.nodeIndex
-                          && ($0.nodeIndex > writer.nodeIndex
-                          || descriptor.initialClear != nil
-                          || descriptor.isUnique)
-                  }),
-                  graph.nodes.allSatisfy({ node in
-                      node.commandSource != target.texture
-                          && node.commandTarget != target.texture
-                  }) else { return false }
-            for reader in readers {
-                let bindings = reader.bindings.filter {
-                    $0.texture == target.texture
-                }
-                guard !bindings.isEmpty,
-                      bindings.allSatisfy({ binding in
-                          guard let slot = binding.slot,
-                                let material = materials[.init(
-                                    effect: reader.effect,
-                                    nodeIndex: reader.nodeIndex
-                                )] else { return false }
-                          return descriptor.format == .r8
-                              || descriptor.format == .r16f
-                              ? material.variants.provesRedOnlyConsumer(slot: slot)
-                              : material.variants.provesRedGreenOnlyConsumer(slot: slot)
-                      }) else { return false }
-            }
-        }
-        return true
-    }
 }

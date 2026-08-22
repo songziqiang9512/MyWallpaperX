@@ -84,6 +84,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Material.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+PreservedChannels.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
     CAPABILITY_PROGRAM_FIRST_SOURCE,
     VISUAL_FAILURE_TOPOLOGY_SOURCE,
@@ -112,6 +114,8 @@ ENVELOPE_SWIFT_SOURCES = [
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Material.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+PreservedChannels.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
     CAPABILITY_PROGRAM_FIRST_SOURCE,

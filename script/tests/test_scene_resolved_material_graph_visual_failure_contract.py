@@ -64,6 +64,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+PipelineWarmup.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+PreservedChannels.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
     PROGRAM_FIRST_STAGES_SOURCE,
     VISUAL_FAILURE_TOPOLOGY_SOURCE,
