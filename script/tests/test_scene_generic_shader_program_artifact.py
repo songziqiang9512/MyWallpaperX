@@ -74,7 +74,10 @@ private struct BuilderOutput: Codable {
 
 private struct PreservedChannelUseOutput: Codable {
     let directRedGreen: String?
-    let mixedProjection: String?
+    let mixedSubset: String?
+    let greenOnly: String?
+    let wholeVector: String?
+    let unsafeBlue: String?
 }
 
 private struct PreservedRGBADataBuilderOutput: Codable {
@@ -949,9 +952,36 @@ private struct GenericShaderArtifactHarness {
                     "    out.mwxFragColor = float4(pair.x + red, pair.y, 0.0, 1.0);",
                 ].joined(separator: "\n")
             )
+            let green = direct.replacingOccurrences(
+                of: "float2 pair = g_Texture0.sample(s, uv).xy;",
+                with: "float pair = g_Texture0.sample(s, uv).y;"
+            ).replacingOccurrences(
+                of: "float4(pair, 0.0, 1.0)",
+                with: "float4(pair, 0.0, 0.0, 1.0)"
+            )
+            let whole = direct.replacingOccurrences(
+                of: "float2 pair = g_Texture0.sample(s, uv).xy;",
+                with: "float4 pair = g_Texture0.sample(s, uv);"
+            ).replacingOccurrences(
+                of: "float4(pair, 0.0, 1.0)",
+                with: "pair"
+            )
+            let unsafeBlue = direct.replacingOccurrences(
+                of: ".xy;",
+                with: ".xyz;"
+            ).replacingOccurrences(
+                of: "float2 pair",
+                with: "float3 pair"
+            ).replacingOccurrences(
+                of: "float4(pair, 0.0, 1.0)",
+                with: "float4(pair, 1.0)"
+            )
             let output = PreservedChannelUseOutput(
                 directRedGreen: channelUse(direct),
-                mixedProjection: channelUse(mixed)
+                mixedSubset: channelUse(mixed),
+                greenOnly: channelUse(green),
+                wholeVector: channelUse(whole),
+                unsafeBlue: channelUse(unsafeBlue)
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -2518,7 +2548,7 @@ vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u
 fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant Uniforms& u [[buffer(8)]]) {{ return g_Texture0.sample(sampler(), u.mwxTexture0Transform0.xy + u.mwxTexture0Transform0.zw * 0.5 + u.mwxTexture0Transform1.xy * 0.5); }}
 """.strip() + "\n"
         return {
-            "schemaVersion": 5,
+            "schemaVersion": 6,
             "kind": "scene-generic-shader-program-artifact",
             "backendID": "glslang-spirv-cross-msl-v2",
             "requestKey": key,
@@ -2643,7 +2673,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
 
     def test_transform_abi_request_and_default_cache_namespaces_are_isolated(self):
         source = CACHE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn('"mwx-generic-shader-request-v6"', source)
+        self.assertIn('"mwx-generic-shader-request-v7"', source)
         self.assertIn('"SceneGenericShaderPrograms-v6"', source)
         self.assertNotIn('"mwx-generic-shader-request-v5"', source)
         self.assertNotIn('"SceneGenericShaderPrograms-v5"', source)
@@ -2652,7 +2682,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             root = Path(directory)
             observed, _, cache, _ = self.run_harness(root, route="observe-only")
             current_key = self.request_key(
-                "mwx-generic-shader-request-v6", VERTEX, FRAGMENT
+                "mwx-generic-shader-request-v7", VERTEX, FRAGMENT
             )
             legacy_key = self.request_key(
                 "mwx-generic-shader-request-v5", VERTEX, FRAGMENT
@@ -2685,18 +2715,18 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             request_path = requests / f"{observed['requestKey']}.json"
             request = json.loads(request_path.read_text(encoding="utf-8"))
             expected = ("independent-alpha-signal-preserving", 1)
-            self.assertEqual(request["schemaVersion"], 3)
+            self.assertEqual(request["schemaVersion"], 4)
             self.assertEqual(request["expectedColorTransfer"], {
                 "kind": expected[0], "slot": expected[1],
             })
             keyed = self.request_key(
-                "mwx-generic-shader-request-v6",
+                "mwx-generic-shader-request-v7",
                 textwrap.dedent(VERTEX),
                 textwrap.dedent(INDEPENDENT_SIGNAL_FRAGMENT),
                 expected,
             )
             unresolved = self.request_key(
-                "mwx-generic-shader-request-v6",
+                "mwx-generic-shader-request-v7",
                 textwrap.dedent(VERTEX),
                 textwrap.dedent(INDEPENDENT_SIGNAL_FRAGMENT),
             )
@@ -2842,7 +2872,10 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         )
         self.assertEqual(json.loads(completed.stdout), {
             "directRedGreen": "redGreenOnly",
-            "mixedProjection": "unproven",
+            "mixedSubset": "redGreenOnly",
+            "greenOnly": "greenOnly",
+            "wholeVector": "wholeVector",
+            "unsafeBlue": "unproven",
         })
 
     def test_product_builder_proves_normalized_same_slot_sample_sum(self):
@@ -3124,7 +3157,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             request = json.loads(
                 (requests / f"{data['requestKey']}.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(request["schemaVersion"], 3)
+            self.assertEqual(request["schemaVersion"], 4)
             self.assertEqual(request["outputSemantics"], "preserved-rgba-unorm")
 
             artifact = self.artifact(

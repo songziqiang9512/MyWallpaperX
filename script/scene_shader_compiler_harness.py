@@ -147,7 +147,7 @@ def parse_limits(manifest: dict[str, Any]) -> Limits:
 
 
 def validate_request(payload: dict[str, Any], limits: Limits) -> list[dict[str, str]]:
-    if payload.get("schemaVersion") != 3:
+    if payload.get("schemaVersion") != 4:
         raise HarnessFailure("request", "schema-version")
     if payload.get("outputSemantics") != "color":
         raise HarnessFailure("request", "output-semantics")

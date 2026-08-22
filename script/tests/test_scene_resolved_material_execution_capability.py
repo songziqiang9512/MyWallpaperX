@@ -627,7 +627,7 @@ final class SceneResolvedMaterialVariantCache {
         _ = slot
         return false
     }
-    func provesRedGreenOnlyConsumer(slot: Int) -> Bool {
+    func provesRedGreenConsumer(slot: Int) -> Bool {
         _ = slot
         return false
     }
@@ -6063,6 +6063,18 @@ private enum EnvelopeHarness {
                 "empty": SceneResolvedMaterialVariantCache
                     .channelEnvelopeIsRedOnly([]),
             ],
+            "redGreenCompatibleChannelEnvelope": [
+                "mixedSafe": SceneResolvedMaterialVariantCache
+                    .channelEnvelopeIsRedGreenCompatible([
+                        .redOnly, .greenOnly, .redGreenOnly, .wholeVector,
+                    ]),
+                "unproven": SceneResolvedMaterialVariantCache
+                    .channelEnvelopeIsRedGreenCompatible([
+                        .redGreenOnly, .unproven,
+                    ]),
+                "empty": SceneResolvedMaterialVariantCache
+                    .channelEnvelopeIsRedGreenCompatible([]),
+            ],
             "partialClaim": partialFailure.claim(layerID: layerID) != nil,
             "partialFailure": rejection(partialFailure),
             "partialSummary": summary(partialFailure),
@@ -7809,6 +7821,11 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertEqual(
             payload["redOnlyChannelEnvelope"],
             {"allRed": True, "mixed": False, "empty": False},
+            payload,
+        )
+        self.assertEqual(
+            payload["redGreenCompatibleChannelEnvelope"],
+            {"mixedSafe": True, "unproven": False, "empty": False},
             payload,
         )
         self.assertFalse(payload["partialClaim"])

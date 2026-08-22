@@ -79,7 +79,12 @@ private func pairCatalog(
         uniqueKeysWithValues: graph.nodes.compactMap { node in
             node.kind == .material && node.bindings.contains(where: {
                 $0.texture == first || $0.texture == second
-            }) ? (node.nodeIndex, "rg") : nil
+            }) ? (
+                node.nodeIndex,
+                node.nodeIndex == 0 ? "green"
+                    : node.nodeIndex == 1 || node.nodeIndex == 3
+                        ? "whole" : "rg"
+            ) : nil
         }
     )
     if let consumerOverride {
@@ -275,23 +280,40 @@ private enum Harness {
             code: "rg88-red-green-graph-unproven"
         )
         let whole = feedbackPairGraph(format: "rg88")
-        results["wholeChannelConsumerRejected"] = rejected(
-            whole,
+        let wholeChain = admittedGraph(whole)
+        let wholeValues = capabilities(
+            wholeChain,
             catalog: pairCatalog(
                 whole,
                 consumerOverride: (node: 0, channel: "whole")
-            ),
-            code: "rg88-red-green-graph-unproven"
+            )
         )
-        let component = feedbackPairGraph(format: "rg88")
-        results["singleComponentConsumerRemainsClosed"] = rejected(
-            component,
+        results["wholeChannelConsumerAdmitted"] =
+            wholeValues.claim(wholeChain) != nil
+        let redComponent = feedbackPairGraph(format: "rg88")
+        let redComponentChain = admittedGraph(redComponent)
+        let redComponentValues = capabilities(
+            redComponentChain,
             catalog: pairCatalog(
-                component,
-                consumerOverride: (node: 0, channel: "green")
-            ),
-            code: "rg88-red-green-graph-unproven"
+                redComponent,
+                consumerOverride: (node: 0, channel: "red")
+            )
         )
+        results["singleRedConsumerAdmitted"] =
+            redComponentValues.claim(redComponentChain) != nil
+        results["singleGreenConsumerAdmitted"] = claim != nil
+
+        let alias = feedbackPairGraph(format: "rg88")
+        let aliasChain = admittedGraph(alias)
+        let aliasValues = capabilities(
+            aliasChain,
+            catalog: pairCatalog(
+                alias,
+                consumerOverride: (node: 0, channel: "alias")
+            )
+        )
+        results["wholeSampleAliasAdmitted"] =
+            aliasValues.claim(aliasChain) != nil
 
         let scalarBoundary = laterScalarBoundaryGraph()
         let scalarBoundaryCatalog = catalog(

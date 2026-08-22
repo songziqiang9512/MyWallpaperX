@@ -242,6 +242,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             product.graph,
             materials: materials
         ) {
+#if DEBUG
+            print(failure.reportLine)
+#endif
             return .failure(rejection(failure.reasonCode))
         }
         return .success(materials)

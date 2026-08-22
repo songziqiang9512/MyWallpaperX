@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "requestID": "project-ordinary-one-pass-v1",
   "outputSemantics": "color",
   "stages": [

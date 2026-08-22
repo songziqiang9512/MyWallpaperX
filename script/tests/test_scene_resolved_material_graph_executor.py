@@ -4579,6 +4579,20 @@ private enum Harness {
                     )
                 }
         }
+        func redGreenAdmission(
+            _ candidateGraph: Graph,
+            consumers: [Int: String]
+        ) -> Bool {
+            let chain = admittedGraph(candidateGraph)
+            let candidateCapabilities = capabilities(
+                chain,
+                catalog: catalog(
+                    for: candidateGraph,
+                    scalarConsumerNodes: consumers
+                )
+            )
+            return candidateCapabilities.claim(chain) != nil
+        }
         let redGreenRedConsumerGraph = redGreenConsumerGraph()
         let redGreenWholeConsumerGraph = redGreenConsumerGraph()
         let redGreenClearGraph = graph(
@@ -6186,11 +6200,11 @@ private enum Harness {
             "redGreenProducerStoresExactPair": redGreenPairStored,
             "redGreenDirectPairConsumerReachesColorTerminal":
                 redGreenTerminalMatches,
-            "redGreenRedOnlyConsumerRejectedBeforeFrame": redGreenRejection(
+            "redGreenRedOnlyConsumerAdmittedBeforeFrame": redGreenAdmission(
                 redGreenRedConsumerGraph,
                 consumers: [1: "red"]
             ),
-            "redGreenWholeConsumerRejectedBeforeFrame": redGreenRejection(
+            "redGreenWholeConsumerAdmittedBeforeFrame": redGreenAdmission(
                 redGreenWholeConsumerGraph,
                 consumers: [1: "whole"]
             ),

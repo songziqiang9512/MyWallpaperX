@@ -82,7 +82,7 @@ def expected_independent_color_transfer(value: Any) -> dict[str, Any] | None:
 
 
 def request_cache_key(request: dict[str, Any]) -> str:
-    if request.get("schemaVersion") != 3:
+    if request.get("schemaVersion") != 4:
         raise ArtifactFailure("request-schema")
     raw_stages = request.get("stages")
     if not isinstance(raw_stages, list):
@@ -108,7 +108,7 @@ def request_cache_key(request: dict[str, Any]) -> str:
     )
     digest = hashlib.sha256()
     for value in (
-        "mwx-generic-shader-request-v6",
+        "mwx-generic-shader-request-v7",
         str(request.get("sourceDialect", "glsl-450")),
         output_semantics,
         sources["vertex"],
@@ -302,12 +302,31 @@ def _channel_use(source: str, name: str) -> str:
     starts = [match.start() for match in re.finditer(rf"\b{re.escape(name)}\.sample\s*\(", source)]
     if not starts:
         raise ArtifactFailure("texture-unused")
+    component_mask = 0
+    observes_whole_vector = False
     for start in starts:
         opening = source.find("(", start)
         end = _sample_end(source, opening)
-        if end is None or re.match(r"\s*\.x\b", source[end:]) is None:
+        if end is None:
             return "unproven"
-    return "redOnly"
+        suffix = source[end:]
+        if re.match(r"\s*\.x\b", suffix) is not None:
+            component_mask |= 1
+        elif re.match(r"\s*\.y\b", suffix) is not None:
+            component_mask |= 2
+        elif re.match(r"\s*\.xy\b", suffix) is not None:
+            component_mask |= 3
+        elif re.match(r"\s*\.", suffix) is not None:
+            return "unproven"
+        else:
+            observes_whole_vector = True
+    if observes_whole_vector:
+        return "wholeVector"
+    return {
+        1: "redOnly",
+        2: "greenOnly",
+        3: "redGreenOnly",
+    }.get(component_mask, "unproven")
 
 
 def _texture_bindings(compiled_stages: list[dict[str, Any]], msl: str) -> list[dict[str, Any]]:
@@ -757,7 +776,7 @@ def build_program_artifact(
     if color_transfer is None:
         raise ArtifactFailure("color-transfer")
     return {
-        "schemaVersion": 5,
+        "schemaVersion": 6,
         "kind": "scene-generic-shader-program-artifact",
         "backendID": backend_id,
         "requestKey": request_key,

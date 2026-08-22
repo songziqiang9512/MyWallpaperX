@@ -17,10 +17,17 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
             return .unproven
         }
         let uses = fragmentUses.compactMap { directSampleUse($0, in: fragment) }
-        guard uses.count == fragmentUses.count,
-              let first = uses.first,
-              uses.allSatisfy({ $0 == first }) else { return .unproven }
-        return first
+        guard uses.count == fragmentUses.count else { return .unproven }
+        if uses.contains(.wholeVector) { return .wholeVector }
+        let mask = uses.reduce(0) { partial, use in
+            partial | use.componentMask
+        }
+        switch mask {
+        case 1: return .redOnly
+        case 2: return .greenOnly
+        case 3: return .redGreenOnly
+        default: return .unproven
+        }
     }
 
     private static func referenceIndices(
@@ -34,9 +41,11 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
         }
     }
 
-    /// Accepts only an immediate `.r` or `.rg` projection of `texSample2D` and
-    /// `texture2D`. Aliasing the vec4 result, mixing projections, or observing
-    /// another swizzle remains deliberately unproven.
+    /// Accepts a direct complete-vector sample or an immediate `.r/.x`,
+    /// `.g/.y`, or `.rg/.xy` projection of `texSample2D` and `texture2D`.
+    /// The caller unions projected uses and preserves complete-vector use as a
+    /// separate fact; target-format admission owns any unstored-component
+    /// semantics. Permutations and other explicit swizzles remain unproven.
     private static func directSampleUse(
         _ samplerIndex: Int,
         in unit: SceneAuthoredShaderSyntaxUnit
@@ -50,14 +59,18 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
               let close = matchingClose(
                   opening: samplerIndex - 1,
                   tokens: tokens
-              ),
-              close + 2 < tokens.count,
-              tokens[close + 1].text == "." else {
+              ) else {
             return nil
         }
+        guard close + 1 < tokens.count,
+              tokens[close + 1].text == "." else {
+            return .wholeVector
+        }
+        guard close + 2 < tokens.count else { return nil }
         switch tokens[close + 2].text {
-        case "r": return .redOnly
-        case "rg": return .redGreenOnly
+        case "r", "x": return .redOnly
+        case "g", "y": return .greenOnly
+        case "rg", "xy": return .redGreenOnly
         default: return nil
         }
     }
@@ -83,5 +96,16 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
             }
         }
         return nil
+    }
+}
+
+private extension SceneAuthoredShaderProgram.TextureBinding.ChannelUse {
+    var componentMask: Int {
+        switch self {
+        case .redOnly: 1
+        case .greenOnly: 2
+        case .redGreenOnly: 3
+        case .wholeVector, .unproven: 0
+        }
     }
 }

@@ -411,7 +411,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertNotIn("((mwxInput.v_Coordinates).xy).xy", compact_explicit)
         self.assertIsNone(explicit.get("metalError"))
 
-    def test_texture_channel_use_proves_only_direct_red_samples(self):
+    def test_texture_channel_use_proves_direct_red_green_component_subsets(self):
         red_only = self.compile(
             VERTEX_SOURCE,
             """
@@ -419,7 +419,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             varying vec2 v_TexCoord;
             void main() {
                 float first = texSample2D(g_Texture1, v_TexCoord).r;
-                float second = texture2D(g_Texture1, v_TexCoord * 0.5).r;
+                float second = texture2D(g_Texture1, v_TexCoord * 0.5).x;
                 gl_FragColor = vec4(first + second, 0.0, 0.0, 1.0);
             }
             """,
@@ -427,15 +427,31 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(red_only["textureSlots"], [1])
         self.assertEqual(red_only["textureChannelUses"], ["redOnly"])
 
+        green_only = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture1;
+            varying vec2 v_TexCoord;
+            void main() {
+                float first = texSample2D(g_Texture1, v_TexCoord).g;
+                float second = texture2D(g_Texture1, v_TexCoord * 0.5).y;
+                gl_FragColor = vec4(first + second, 0.0, 0.0, 1.0);
+            }
+            """,
+        )
+        self.assertEqual(green_only["textureSlots"], [1])
+        self.assertEqual(green_only["textureChannelUses"], ["greenOnly"])
+
         red_green_only = self.compile(
             VERTEX_SOURCE,
             """
             uniform sampler2D g_Texture1;
             varying vec2 v_TexCoord;
             void main() {
-                vec2 first = texSample2D(g_Texture1, v_TexCoord).rg;
-                vec2 second = texture2D(g_Texture1, v_TexCoord * 0.5).rg;
-                gl_FragColor = vec4(first + second, 0.0, 1.0);
+                float left = texSample2D(g_Texture1, v_TexCoord).x;
+                float top = texture2D(g_Texture1, v_TexCoord * 0.5).y;
+                vec2 center = texSample2D(g_Texture1, v_TexCoord).xy;
+                gl_FragColor = vec4(center + vec2(left, top), 0.0, 1.0);
             }
             """,
         )
@@ -444,17 +460,37 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             red_green_only["textureChannelUses"], ["redGreenOnly"]
         )
 
-        unproven_fragments = {
-            "green": "float value = texSample2D(g_Texture1, v_TexCoord).g;",
-            "rgb": "vec3 value = texSample2D(g_Texture1, v_TexCoord).rgb;",
+        for name, statement in {
             "whole": "vec4 value = texSample2D(g_Texture1, v_TexCoord);",
             "alias": (
                 "vec4 sampled = texSample2D(g_Texture1, v_TexCoord); "
                 "float value = sampled.r;"
             ),
-            "mixed-red-rg": (
-                "float red = texSample2D(g_Texture1, v_TexCoord).r; "
-                "vec2 pair = texSample2D(g_Texture1, v_TexCoord).rg;"
+        }.items():
+            with self.subTest(name=name):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    f"""
+                    uniform sampler2D g_Texture1;
+                    varying vec2 v_TexCoord;
+                    void main() {{
+                        {statement}
+                        gl_FragColor = vec4(1.0);
+                    }}
+                    """,
+                )
+                self.assertEqual(output["textureSlots"], [1])
+                self.assertEqual(
+                    output["textureChannelUses"], ["wholeVector"]
+                )
+
+        unproven_fragments = {
+            "blue": "float value = texSample2D(g_Texture1, v_TexCoord).b;",
+            "rgb": "vec3 value = texSample2D(g_Texture1, v_TexCoord).rgb;",
+            "permuted": "vec2 value = texSample2D(g_Texture1, v_TexCoord).yx;",
+            "mixed-safe-unsafe": (
+                "float red = texSample2D(g_Texture1, v_TexCoord).x; "
+                "float blue = texSample2D(g_Texture1, v_TexCoord).z;"
             ),
         }
         for name, statement in unproven_fragments.items():
@@ -2391,7 +2427,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         source = output["metalSource"]
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertEqual(output["textureSlots"], [0])
-        self.assertEqual(output["textureChannelUses"], ["unproven"])
+        self.assertEqual(output["textureChannelUses"], ["wholeVector"])
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertIn("return mwxPremultiply(mwxFragColor);", source)
         self.assertIsNone(output.get("metalError"))

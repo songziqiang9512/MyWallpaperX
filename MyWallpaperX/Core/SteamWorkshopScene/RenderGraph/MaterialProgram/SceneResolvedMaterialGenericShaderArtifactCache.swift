@@ -36,7 +36,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             let slot: Int
         }
 
-        let schemaVersion = 3
+        let schemaVersion = 4
         let requestID: String
         let sourceDialect = "wallpaper-engine-glsl-like-v0"
         let outputSemantics: SceneGenericShaderOutputSemantics
@@ -619,7 +619,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     ) -> String {
         var data = Data()
         for value in [
-            "mwx-generic-shader-request-v6",
+            "mwx-generic-shader-request-v7",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

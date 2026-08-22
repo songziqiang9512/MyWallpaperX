@@ -328,7 +328,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             }
             if candidate.content == .redGreenUnorm
                 || candidate.content == .redGreenFloat16,
-               frontendBinding.channelUse != .redGreenOnly {
+               ![.redOnly, .greenOnly, .redGreenOnly, .wholeVector]
+                .contains(frontendBinding.channelUse) {
                 return nil
             }
             let exactIdentity = SceneResolvedMaterialProgramIdentity.exactTexture(slot)

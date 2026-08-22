@@ -294,7 +294,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         let marker = regex(#"\b"# + escaped(name) + #"\.sample\s*\("#)
         let matches = marker.matches(in: source, range: fullRange(source))
         guard !matches.isEmpty else { throw Failure.textureUnused }
-        var channelUse: String?
+        var componentMask = 0
+        var observesWholeVector = false
         for match in matches {
             guard let range = Range(match.range, in: source),
                   let opening = source[range].lastIndex(of: "("),
@@ -302,16 +303,28 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 return "unproven"
             }
             let suffix = source[end...]
-            let current: String
+            let currentMask: Int
             if suffix.range(of: #"^\s*\.x\b"#, options: .regularExpression) != nil {
-                current = "redOnly"
+                currentMask = 1
+            } else if suffix.range(of: #"^\s*\.y\b"#, options: .regularExpression) != nil {
+                currentMask = 2
             } else if suffix.range(of: #"^\s*\.xy\b"#, options: .regularExpression) != nil {
-                current = "redGreenOnly"
-            } else { return "unproven" }
-            guard channelUse == nil || channelUse == current else { return "unproven" }
-            channelUse = current
+                currentMask = 3
+            } else if suffix.range(of: #"^\s*\."#, options: .regularExpression) != nil {
+                return "unproven"
+            } else {
+                observesWholeVector = true
+                currentMask = 0
+            }
+            componentMask |= currentMask
         }
-        return channelUse ?? "unproven"
+        if observesWholeVector { return "wholeVector" }
+        switch componentMask {
+        case 1: return "redOnly"
+        case 2: return "greenOnly"
+        case 3: return "redGreenOnly"
+        default: return "unproven"
+        }
     }
 
     private static func normalizeUniformStruct(

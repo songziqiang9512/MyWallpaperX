@@ -208,11 +208,18 @@ nonisolated struct SceneAuthoredShaderProgram {
 
     struct TextureBinding: Equatable, Hashable, Sendable {
         enum ChannelUse: String, Equatable, Hashable, Sendable {
-            /// Every active sample result is immediately projected to `.r`.
+            /// Every active sample result observes only red (`.r` / `.x`).
             case redOnly
-            /// Every active sample result is immediately projected to `.rg`.
+            /// Every active sample result observes only green (`.g` / `.y`).
+            case greenOnly
+            /// Active sample results observe a nonempty subset of red/green,
+            /// with the aggregate use requiring both stored components.
             case redGreenOnly
-            /// The bounded frontend cannot prove a single stored component.
+            /// At least one active sample observes the complete sampled vector.
+            /// Typed R/RG graph resources may separately prove the format's
+            /// deterministic Metal expansion for unstored components.
+            case wholeVector
+            /// The bounded frontend cannot prove a direct sampled-vector use.
             case unproven
         }
 
