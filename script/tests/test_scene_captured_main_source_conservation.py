@@ -27,6 +27,9 @@ if anchor != HARNESS_ANCHOR:
 HARNESS = HARNESS_PREFIX + r'''
 private enum ConservationShape: Equatable {
     case positive
+    case dormantSource
+    case activeNonColorSource
+    case dormantWrongSource
     case noSource
     case additionalSource
     case wrongSource
@@ -101,10 +104,25 @@ private func conservationGraph(_ shape: ConservationShape) -> Graph {
     )
     let previous = previousOutput()
     let firstTarget = shape == .internalTargetMismatch ? output() : second
+    let firstBindings: [Graph.Binding]
+    switch shape {
+    case .dormantSource, .activeNonColorSource:
+        firstBindings = [
+            graphBinding(0, "first", first),
+            graphBinding(1, "previous", source()),
+        ]
+    case .dormantWrongSource:
+        firstBindings = [
+            graphBinding(0, "first", first),
+            graphBinding(1, "previous", wrongSource),
+        ]
+    default:
+        firstBindings = [graphBinding(0, "first", first)]
+    }
     let firstNode = conservationNode(
         index: 0,
         target: firstTarget,
-        bindings: [graphBinding(0, "first", first)]
+        bindings: firstBindings
     )
     let middleBindings: [Graph.Binding]
     switch shape {
@@ -194,6 +212,7 @@ private func graphRole(
 private func conservationTemplate(
     graph: Graph,
     nodeIndex: Int,
+    shape: ConservationShape,
     externalCandidate: Template.TextureCandidate? = nil,
     userCandidate: Template.TextureCandidate? = nil,
     variantDivergence: Bool = false
@@ -231,7 +250,22 @@ private func conservationTemplate(
             variantMixedSource: true
         )
     } else if nodeIndex == 0 {
-        shader = contract("conservation-\(nodeIndex)")
+        switch shape {
+        case .dormantSource, .dormantWrongSource:
+            shader = contract(
+                "conservation-\(nodeIndex)-dormant-source",
+                secondMetadata: "{}",
+                samplesSecond: false
+            )
+        case .activeNonColorSource:
+            shader = contract(
+                "conservation-\(nodeIndex)-active-noncolor-source",
+                secondMetadata: "{}",
+                observesSecond: true
+            )
+        default:
+            shader = contract("conservation-\(nodeIndex)")
+        }
     } else if hasSecondGraphBinding {
         shader = contract(
             "conservation-\(nodeIndex)",
@@ -285,6 +319,7 @@ private func conservationCatalog(
             conservationTemplate(
                 graph: graph,
                 nodeIndex: node.nodeIndex,
+                shape: shape,
                 externalCandidate: externalProvider && node.nodeIndex == 0
                     ? namedTargetCandidate(providerLayerID: layerID - 1) : nil,
                 userCandidate: userPropertyAuxiliary && node.nodeIndex == 0
@@ -315,12 +350,15 @@ private enum CapturedMainSourceConservationHarness {
     static func main() throws {
         setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
         let positive = conservationCatalog(.positive)
+        let dormantSource = conservationCatalog(.dormantSource)
         let userPropertyAuxiliary = conservationCatalog(
             .positive,
             userPropertyAuxiliary: true
         )
         let negatives: [(String, Catalog)] = [
             ("noSource", conservationCatalog(.noSource)),
+            ("activeNonColorSource", conservationCatalog(.activeNonColorSource)),
+            ("dormantWrongSource", conservationCatalog(.dormantWrongSource)),
             ("additionalSource", conservationCatalog(.additionalSource)),
             ("wrongSource", conservationCatalog(.wrongSource)),
             ("wrongEffectIdentity", conservationCatalog(.wrongEffectIdentity)),
@@ -334,6 +372,10 @@ private enum CapturedMainSourceConservationHarness {
             "positiveFailure": rejection(positive),
             "positiveMaterialCount": positive.claim(layerID: layerID)
                 .flatMap { positive.resolve($0.token) }?.materials.count ?? -1,
+            "dormantSourceClaim": claim(dormantSource),
+            "dormantSourceFailure": rejection(dormantSource),
+            "dormantSourceMaterialCount": dormantSource.claim(layerID: layerID)
+                .flatMap { dormantSource.resolve($0.token) }?.materials.count ?? -1,
             "userPropertyAuxiliaryClaim": claim(userPropertyAuxiliary),
             "userPropertyAuxiliaryFailure": rejection(userPropertyAuxiliary),
         ]
@@ -394,10 +436,15 @@ class SceneCapturedMainSourceConservationTests(unittest.TestCase):
         self.assertTrue(payload["positiveClaim"], payload)
         self.assertEqual(payload["positiveFailure"], "", payload)
         self.assertEqual(payload["positiveMaterialCount"], 3, payload)
+        self.assertTrue(payload["dormantSourceClaim"], payload)
+        self.assertEqual(payload["dormantSourceFailure"], "", payload)
+        self.assertEqual(payload["dormantSourceMaterialCount"], 3, payload)
         self.assertTrue(payload["userPropertyAuxiliaryClaim"], payload)
         self.assertEqual(payload["userPropertyAuxiliaryFailure"], "", payload)
         for name in (
             "noSource",
+            "activeNonColorSource",
+            "dormantWrongSource",
             "additionalSource",
             "wrongSource",
             "wrongEffectIdentity",
@@ -416,6 +463,8 @@ class SceneCapturedMainSourceConservationTests(unittest.TestCase):
             self.assertIn("layer=981", payload[f"{name}Attribution"])
 
         self.assertIn("node=2", payload["noSourceAttribution"], payload)
+        self.assertIn("node=0", payload["activeNonColorSourceAttribution"], payload)
+        self.assertIn("node=0", payload["dormantWrongSourceAttribution"], payload)
         self.assertIn("node=2", payload["additionalSourceAttribution"], payload)
         self.assertIn("node=2", payload["wrongSourceAttribution"], payload)
         self.assertIn("node=2", payload["wrongEffectIdentityAttribution"], payload)

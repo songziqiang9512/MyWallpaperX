@@ -83,7 +83,14 @@ extension SceneResolvedMaterialVariantCache {
                     || exactEffectFramebuffer(target, effect: effect.key)
             else { return nil }
         case .internalFramebufferOnly:
-            guard sourceBindings.isEmpty,
+            guard sourceBindings.allSatisfy({ binding in
+                      guard let slot = binding.slot else { return false }
+                      return snapshot.variants.allSatisfy { variant in
+                          !variant.frontendProgram.textureBindings.contains {
+                              $0.slot == slot
+                          }
+                      }
+                  }),
                   exactEffectFramebuffer(target, effect: effect.key)
             else { return nil }
         }
@@ -116,10 +123,20 @@ extension SceneResolvedMaterialVariantCache {
             template: template,
             samplers: variant.activeSamplers
         )
-        let boundSlots = Set(node.bindings.compactMap(\.slot))
+        let activeBindings = node.bindings.filter { binding in
+            guard let slot = binding.slot else { return false }
+            return activeSlots.contains(slot)
+        }
+        let boundSlots = Set(activeBindings.compactMap(\.slot))
+        let activeSourceBinding: Graph.Binding? = sourceBinding.flatMap { binding in
+            guard let slot = binding.slot, activeSlots.contains(slot) else {
+                return nil
+            }
+            return binding
+        }
         let unboundSourceSlots = aliases.union(implicit).subtracting(boundSlots)
         let sourceSlots: Set<Int>
-        if let sourceBinding, let slot = sourceBinding.slot {
+        if let activeSourceBinding, let slot = activeSourceBinding.slot {
             sourceSlots = unboundSourceSlots.union([slot])
         } else {
             sourceSlots = unboundSourceSlots
@@ -142,14 +159,14 @@ extension SceneResolvedMaterialVariantCache {
         }
 
         guard let sourceSlot = sourceSlots.first else {
-            return sourceBinding == nil ? .internalFramebufferOnly : nil
+            return activeSourceBinding == nil ? .internalFramebufferOnly : nil
         }
         guard let sourceSampler = variant.activeSamplers[sourceSlot],
               sourceSampler.mode == .regular,
               sourceSampler.defaultTexture == nil else { return nil }
-        if let sourceBinding {
-            guard sourceBinding.slot == sourceSlot,
-                  sourceBinding.texture == effect.input,
+        if let activeSourceBinding {
+            guard activeSourceBinding.slot == sourceSlot,
+                  activeSourceBinding.texture == effect.input,
                   template.textureSlots.indices.contains(sourceSlot),
                   let declaration = template.textureSlots[sourceSlot],
                   declaration.candidates.count == 1,
