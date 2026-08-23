@@ -56,7 +56,23 @@ extension SceneGenericShaderArtifactBuilder {
                 msl: String,
                 transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
             )?
-            if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer
+            if let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer
+                .analyze(fragmentSource: authoredSource) {
+                guard fact.blurredSlot == expectedSlot,
+                      let lowered =
+                        SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                            source,
+                            expectedBlurredSlot: expectedSlot,
+                            expectedPreviousSlot: fact.previousSlot
+                        ) else { throw Failure.colorTransfer }
+                preserving = (
+                    msl: lowered,
+                    transfer: artifactTransfer(
+                        kind: "straight-alpha-preserving",
+                        slot: expectedSlot
+                    )
+                )
+            } else if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer
                 .analyzeAny(fragmentSource: authoredSource) {
                 guard fact.sourceSlot == expectedSlot,
                       let lowered = SceneGenericShaderStraightAlphaPreservingLowering

@@ -6307,14 +6307,17 @@ private enum EnvelopeHarness {
 
 
 CATALOG_DEMAND_SUPPORT = PROGRAM_FINALIZER_FIXTURE["SUPPORT"] + r'''
-
 nonisolated struct SceneRenderDescriptor {}
-
+nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission {
+    static func accepts(
+        key: SceneResolvedMaterialRuntimeCatalog.Key, graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor
+    ) -> Bool { false }
+}
 nonisolated struct SceneAuthoredMaterialResolution {
     let node: SceneResolvedMaterialNode?
     let issues: [String]
 }
-
 nonisolated enum SceneAuthoredMaterialResolver {
     static func resolve(
         node: SceneAuthoredEffectRenderPlan.Node,
@@ -6327,26 +6330,24 @@ nonisolated enum SceneAuthoredMaterialResolver {
         return .init(node: .init(), issues: [])
     }
 }
-
 nonisolated extension SceneResolvedMaterialNode {
     var shaderPath: String { "fixture/catalog-demand" }
     var combos: [String: Int] { [:] }
 }
-
 nonisolated enum SceneResolvedMaterialTemplateCompiler {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
-
     static func compile(
         material: SceneResolvedMaterialNode,
         graph: Graph,
         shaderContract: SceneShaderContract,
         inheritedInactiveCombos: Set<String> = [],
+        unitPreviousBlurredCompositeGenericOwnerEligible: Bool = false,
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
     ) -> Result<Template, SceneResolvedMaterialFailure> {
-        _ = material
-        _ = inheritedInactiveCombos
-        _ = provenSceneScriptValueTargets
+        _ = (material, inheritedInactiveCombos,
+             unitPreviousBlurredCompositeGenericOwnerEligible,
+             provenSceneScriptValueTargets)
         guard let node = graph.nodes.first,
               let effect = graph.effects.first,
               let state = SceneMaterialRenderState.compile(
@@ -6397,7 +6398,6 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         return .success(template)
     }
 }
-
 nonisolated struct SceneResolvedMaterialAdmissionProduct {
     let graph: SceneAuthoredEffectRenderPlan
 }

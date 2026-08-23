@@ -401,7 +401,7 @@ inline float4 \(premultiply)(float4 color) {
         let outputRange: Range<String.Index>
         let indent: String
         let accumulator: String
-        let memberWeight: String?
+        let memberNormalization: (weight: String, epsilon: String)?
         if wholeOutputs.count == 1,
            memberRGBOutputs.isEmpty,
            memberAlphaOutputs.isEmpty,
@@ -413,7 +413,7 @@ inline float4 \(premultiply)(float4 color) {
             outputRange = range
             indent = capturedIndent
             accumulator = capturedAccumulator
-            memberWeight = nil
+            memberNormalization = nil
         } else if memberwiseOutput,
                   let rgb = memberRGBOutputs.first,
                   let alpha = memberAlphaOutputs.first,
@@ -425,14 +425,15 @@ inline float4 \(premultiply)(float4 color) {
                   let capturedAccumulator = capture(rgb, 2, in: source),
                   capture(alpha, 2, in: source) == capturedAccumulator,
                   let capturedWeight = capture(rgb, 4, in: source),
-                  Double(capture(rgb, 3, in: source) ?? "").map({
+                  let capturedEpsilon = capture(rgb, 3, in: source),
+                  Double(capturedEpsilon).map({
                       $0.isFinite && $0 > 0
                   }) == true {
             output = rgb
             outputRange = rangeStart..<rangeEnd
             indent = capturedIndent
             accumulator = capturedAccumulator
-            memberWeight = capturedWeight
+            memberNormalization = (capturedWeight, capturedEpsilon)
         } else {
             return nil
         }
@@ -490,7 +491,7 @@ inline float4 \(premultiply)(float4 color) {
         }
         guard weightDeclarations.count == 1,
               let weight = capture(weightDeclarations[0], 1, in: source),
-              memberWeight.map({ $0 == weight }) ?? true else {
+              memberNormalization.map({ $0.weight == weight }) ?? true else {
             return nil
         }
         let weightPattern = escaped(weight)
@@ -504,7 +505,7 @@ inline float4 \(premultiply)(float4 color) {
             var transformed = source
             transformed.replaceSubrange(
                 outputRange,
-                with: "\(indent)out.mwxFragColor = \(premultiply)(float4(\(accumulator).xyz, \(accumulator).w / \(sampleCount).0));"
+                with: "\(indent)out.mwxFragColor = \(premultiply)(float4(\(accumulator).xyz / float3(fast::max(\(memberNormalization!.epsilon), \(weight))), \(accumulator).w / \(sampleCount).0));"
             )
             for statement in sampleStatements.sorted(by: {
                 $0.range.location > $1.range.location

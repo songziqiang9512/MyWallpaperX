@@ -261,6 +261,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
                 fragmentSource: fragmentSource
             )?.textureSlot
+        let unitCompositeSourceFact =
+            SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                fragmentSource: fragmentSource
+            )
         let normalizedRouteFacts: SceneGenericShaderSourceNormalizer.Pair?
         switch SceneGenericShaderSourceNormalizer.normalize(
             vertexSource: vertexSource,
@@ -288,6 +292,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 alphaWeightedSampleAverageSourceSlot,
             unitCompositeBlurredSlot: unitCompositeBlurredSlot,
             unitCompositePreviousSlot: unitCompositePreviousSlot,
+            unitCompositeSourceBlurredSlot:
+                unitCompositeSourceFact?.blurredSlot,
+            unitCompositeSourcePreviousSlot:
+                unitCompositeSourceFact?.previousSlot,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
             isSourceIndependentPremultipliedOutput:
@@ -297,7 +305,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             r8TextureSlots: r8TextureSlots,
             hasDefaultedOpacityMaskSampler: hasDefaultedOpacityMaskSampler,
             hasOnlyGraphInputSampler: hasOnlyGraphInputSampler,
-            hasStageScopedUniformBindings: hasStageScopedUniformBindings(
+            hasStageScopedUniformBindings: SceneGenericShaderStageUniformAnalyzer.hasScopedBindings(
                 vertexSource: vertexSource,
                 fragmentSource: fragmentSource
             ),
@@ -604,41 +612,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         )
     }
 
-    private static func hasStageScopedUniformBindings(
-        vertexSource: String,
-        fragmentSource: String
-    ) -> Bool {
-        func activeUniforms(
-            _ source: String,
-            stage: SceneShaderContract.StageKind
-        ) -> Set<String>? {
-            let output = SceneAuthoredShaderSyntaxAnalyzer.analyze(
-                lexerOutput: SceneAuthoredShaderLexer.lex(
-                    source: source,
-                    stage: stage
-                ),
-                stage: stage
-            )
-            guard output.diagnostics.isEmpty, let unit = output.unit else {
-                return nil
-            }
-            return Set(unit.declarations.compactMap { declaration in
-                guard declaration.storage == .uniform,
-                      declaration.typeName != "sampler2D",
-                      SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced(
-                          declaration.name,
-                          in: unit
-                      ) else { return nil }
-                return declaration.name
-            })
-        }
-        guard let vertex = activeUniforms(vertexSource, stage: .vertex),
-              let fragment = activeUniforms(fragmentSource, stage: .fragment) else {
-            return false
-        }
-        return !vertex.isEmpty && !fragment.isEmpty
-    }
-
     private static func requestKey(
         vertexSource: String,
         fragmentSource: String,
@@ -647,7 +620,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     ) -> String {
         var data = Data()
         for value in [
-            "mwx-generic-shader-request-v7",
+            "mwx-generic-shader-request-v9",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,
@@ -742,7 +715,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         ).first else { return nil }
         let root = caches
             .appendingPathComponent("com.songziqiang.MyWallpaperX", isDirectory: true)
-            .appendingPathComponent("SceneGenericShaderPrograms-v6", isDirectory: true)
+            .appendingPathComponent("SceneGenericShaderPrograms-v8", isDirectory: true)
             .standardizedFileURL
         do {
             try FileManager.default.createDirectory(

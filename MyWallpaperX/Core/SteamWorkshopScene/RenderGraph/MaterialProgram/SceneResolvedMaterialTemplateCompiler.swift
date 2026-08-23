@@ -15,6 +15,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         material: SceneResolvedMaterialNode, graph: Graph,
         shaderContract: SceneShaderContract,
         inheritedInactiveCombos: Set<String> = [],
+        unitPreviousBlurredCompositeGenericOwnerEligible: Bool = false,
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
     ) -> Result<Template, Failure> {
         do {
@@ -44,6 +45,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                     uniformDeclarations: uniforms.values,
                     renderState: state,
                     graphRole: role,
+                    unitPreviousBlurredCompositeGenericOwnerEligible:
+                        unitPreviousBlurredCompositeGenericOwnerEligible,
                     effectContext: .init(
                         key: context.effect.key,
                         input: context.effect.input

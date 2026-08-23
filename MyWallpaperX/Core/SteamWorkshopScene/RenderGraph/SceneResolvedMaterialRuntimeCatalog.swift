@@ -155,6 +155,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 inheritedInactiveCombos:
                     authoredEffectComboNames[key.effect, default: []]
                         .subtracting(material.combos.keys),
+                unitPreviousBlurredCompositeGenericOwnerEligible:
+                    SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.accepts(
+                        key: key,
+                        graph: record.graph,
+                        descriptor: descriptor
+                    ),
                 provenSceneScriptValueTargets: provenSceneScriptValueTargets
             ) {
             case let .failure(failure):

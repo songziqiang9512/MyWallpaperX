@@ -948,6 +948,8 @@ private struct GenericShaderArtifactHarness {
                     ).count - 1,
                 genericOutputPremultiplied:
                     genericMetal.contains(
+                        "float3 _95 = _92.xyz / float3(fast::max(0.001, weight));"
+                    ) && genericMetal.contains(
                         "out.mwxFragColor = mwxGenericPremultiply(float4(result.xyz, result.w / 4.0));"
                     ),
                 denominatorMismatchRejected:
@@ -2770,8 +2772,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
 
     def test_transform_abi_request_and_default_cache_namespaces_are_isolated(self):
         source = CACHE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn('"mwx-generic-shader-request-v7"', source)
-        self.assertIn('"SceneGenericShaderPrograms-v6"', source)
+        self.assertIn('"mwx-generic-shader-request-v9"', source)
+        self.assertIn('"SceneGenericShaderPrograms-v8"', source)
         self.assertNotIn('"mwx-generic-shader-request-v5"', source)
         self.assertNotIn('"SceneGenericShaderPrograms-v5"', source)
 
@@ -2779,7 +2781,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             root = Path(directory)
             observed, _, cache, _ = self.run_harness(root, route="observe-only")
             current_key = self.request_key(
-                "mwx-generic-shader-request-v7", VERTEX, FRAGMENT
+                "mwx-generic-shader-request-v9", VERTEX, FRAGMENT
             )
             legacy_key = self.request_key(
                 "mwx-generic-shader-request-v5", VERTEX, FRAGMENT
@@ -2817,13 +2819,13 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 "kind": expected[0], "slot": expected[1],
             })
             keyed = self.request_key(
-                "mwx-generic-shader-request-v7",
+                "mwx-generic-shader-request-v9",
                 textwrap.dedent(VERTEX),
                 textwrap.dedent(INDEPENDENT_SIGNAL_FRAGMENT),
                 expected,
             )
             unresolved = self.request_key(
-                "mwx-generic-shader-request-v7",
+                "mwx-generic-shader-request-v9",
                 textwrap.dedent(VERTEX),
                 textwrap.dedent(INDEPENDENT_SIGNAL_FRAGMENT),
             )

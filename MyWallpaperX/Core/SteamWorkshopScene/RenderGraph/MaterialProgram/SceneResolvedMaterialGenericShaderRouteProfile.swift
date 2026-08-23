@@ -54,6 +54,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-alpha-weighted-sample-average"
     case sourceProvenUnitPreviousBlurredComposite =
         "source-proven-unit-previous-blurred-composite"
+    case sourceProvenUnitPreviousBlurredCompositeUnowned =
+        "source-proven-unit-previous-blurred-composite-unowned"
     case sourceProvenGraphInputAlphaAttenuation =
         "source-proven-graph-input-alpha-attenuation"
     case sourceProvenGraphInputColorBlend =
@@ -91,6 +93,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         alphaWeightedSampleAverageSourceSlot: Int?,
         unitCompositeBlurredSlot: Int?,
         unitCompositePreviousSlot: Int?,
+        unitCompositeSourceBlurredSlot: Int? = nil,
+        unitCompositeSourcePreviousSlot: Int? = nil,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
         isSourceIndependentPremultipliedOutput: Bool,
@@ -140,15 +144,22 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([sourceSlot]),
                   hasOnlyGraphInputSampler {
             self = .sourceProvenGraphInputAlphaWeightedSampleAverage
-        } else if colorTransfer == .premultipliedAlpha,
-                  let blurred = unitCompositeBlurredSlot,
-                  let previous = unitCompositePreviousSlot,
-                  blurred != previous,
-                  !hasExternalProviderTexture,
-                  !producesScalarRedOutput,
-                  graphTextureSlots == Set([blurred]),
-                  graphInputTextureSlots == Set([blurred, previous]) {
-            self = .sourceProvenUnitPreviousBlurredComposite
+        } else if case let .straightAlphaPreserving(transferBlurred) = colorTransfer,
+                  let sourceBlurred = unitCompositeSourceBlurredSlot
+                    ?? unitCompositeBlurredSlot,
+                  let sourcePrevious = unitCompositeSourcePreviousSlot
+                    ?? unitCompositePreviousSlot,
+                  transferBlurred == sourceBlurred,
+                  sourceBlurred != sourcePrevious {
+            let ownerEligible = unitCompositeBlurredSlot == sourceBlurred
+                && unitCompositePreviousSlot == sourcePrevious
+                && !hasExternalProviderTexture
+                && !producesScalarRedOutput
+                && graphTextureSlots == Set([sourceBlurred])
+                && graphInputTextureSlots == Set([sourceBlurred, sourcePrevious])
+            self = ownerEligible
+                ? .sourceProvenUnitPreviousBlurredComposite
+                : .sourceProvenUnitPreviousBlurredCompositeUnowned
         } else if case let .passthrough(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
@@ -240,11 +251,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         case .ordinaryShader,
              .providerBackedScalarColorInterpolation,
              .sourceProvenGraphInputAlphaWeightedSampleAverage,
+             .sourceProvenUnitPreviousBlurredComposite,
              .sourceProvenGraphInputStraightAlpha,
              .sourceProvenGraphInputStraightAlphaPreserving:
             .preferGeneric
-        case .sourceProvenUnitPreviousBlurredComposite:
-            .observeOnly
         case .sourceProvenScalarColorInterpolation,
              .sourceProvenOpaqueScalarOutput,
              .sourceProvenStraightAlphaR8Signal,
@@ -262,6 +272,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary,
              .sourceProvenGraphInputStageUniformPassthrough:
             .genericOnly
+        case .sourceProvenUnitPreviousBlurredCompositeUnowned:
+            .observeOnly
         }
     }
 
@@ -269,7 +281,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
     /// compound-finalizer fact explicitly requires the verified incumbent.
     var validatedRollbackOwner: SceneGenericShaderFallbackOwner {
         switch self {
-        case .sourceProvenUnitPreviousBlurredComposite:
+        case .sourceProvenUnitPreviousBlurredComposite,
+             .sourceProvenUnitPreviousBlurredCompositeUnowned:
             .programFirstIncumbent
         default:
             .boundedFrontend

@@ -33,7 +33,15 @@ SWIFT_SOURCES = list(dict.fromkeys([
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema.swift",
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.swift",
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
+    *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
 ]))
+
+GLSLANG = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneShaderCompilerTools/glslang"
+SPIRV_CROSS = (
+    REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneShaderCompilerTools/spirv-cross"
+)
 
 
 SUPPORT = r'''
@@ -117,6 +125,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
     }
     let textureSlots: [TextureSlot?]
     let uniformDeclarations: [UniformDeclaration]
+    let unitPreviousBlurredCompositeGenericOwnerEligible: Bool
     let effectContext: EffectContext?
     let shaderContract: SceneShaderContract
 }
@@ -136,6 +145,7 @@ private struct Output: Codable {
     let explicitUnitEligible: Bool
     let explicitNonunitRejected: Bool
     let explicitDynamicRejected: Bool
+    let ownerCohortRejected: Bool
     let duplicateAliasesRejected: Bool
     let wrongSlotRejected: Bool
     let maskInputRejected: Bool
@@ -143,6 +153,26 @@ private struct Output: Codable {
     let nonunitDefaultRejected: Bool
     let malformedDefaultRejected: Bool
     let duplicateDeclarationRejected: Bool
+}
+
+private struct CompilerOutput: Codable {
+    let transferKind: String?
+    let transferSlot: Int?
+    let bindingSlots: [Int]
+    let terminalPremultiplyCount: Int
+    let helperCount: Int
+    let wrongSlotRejected: Bool
+    let extraSampleRejected: Bool
+    let spacedExtraSampleRejected: Bool
+    let discardRejected: Bool
+    let extraCarrierUseRejected: Bool
+    let doubleBoundaryRejected: Bool
+    let renamedSlotsAccepted: Bool
+    let ordinaryInterpolationUnchanged: Bool
+}
+
+private func write(_ value: String, to url: URL) throws {
+    try Data(value.utf8).write(to: url, options: .atomic)
 }
 
 private func prepare(_ root: URL, maskReady: Bool = false)
@@ -201,7 +231,8 @@ private let dynamicDeclaration = Template.UniformDeclaration(
 
 private func template(
     contract: SceneShaderContract,
-    declarations: [Template.UniformDeclaration] = []
+    declarations: [Template.UniformDeclaration] = [],
+    ownerEligible: Bool = true
 ) -> Template {
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     slots[0] = .init(index: 0, candidates: [
@@ -213,6 +244,7 @@ private func template(
     return .init(
         textureSlots: slots,
         uniformDeclarations: declarations,
+        unitPreviousBlurredCompositeGenericOwnerEligible: ownerEligible,
         effectContext: .init(key: effectKey, input: previous),
         shaderContract: contract
     )
@@ -221,7 +253,8 @@ private func template(
 private func eligible(
     _ value: (SceneShaderContract, SceneShaderPreparedProgram)?,
     declarations: [Template.UniformDeclaration] = [],
-    identities: [Int: Graph.TextureIdentity] = [0: blurred, 2: previous]
+    identities: [Int: Graph.TextureIdentity] = [0: blurred, 2: previous],
+    ownerEligible: Bool = true
 ) -> Bool {
     guard let (contract, prepared) = value,
           let samplers = try? SceneResolvedMaterialShaderSchema.activeSamplers(prepared)
@@ -230,7 +263,10 @@ private func eligible(
         fragmentSource: prepared.fragment.source,
         prepared: prepared,
         samplers: samplers,
-        template: template(contract: contract, declarations: declarations),
+        template: template(
+            contract: contract, declarations: declarations,
+            ownerEligible: ownerEligible
+        ),
         implicitFramebufferIdentity: previous,
         activeGraphTextureIdentities: identities
     ) == .init(blurred: 0, previous: 2)
@@ -239,7 +275,157 @@ private func eligible(
 @main
 private struct Harness {
     static func main() throws {
-        let roots = CommandLine.arguments.dropFirst().map {
+        let arguments = Array(CommandLine.arguments.dropFirst())
+        if arguments.first == "export-compiler-input" {
+            let stockRoot = URL(fileURLWithPath: arguments[1], isDirectory: true)
+            let outputRoot = URL(fileURLWithPath: arguments[2], isDirectory: true)
+            guard let prepared = prepare(stockRoot)?.1,
+                  case let .success(normalized) =
+                    SceneGenericShaderSourceNormalizer.normalize(
+                        vertexSource: prepared.vertex.source,
+                        fragmentSource: prepared.fragment.source,
+                        maximumStageSourceBytes: 1_000_000
+                    ) else { throw NSError(domain: "normalize", code: 1) }
+            try write(prepared.vertex.source, to: outputRoot.appendingPathComponent(
+                "authored.vert"
+            ))
+            try write(prepared.fragment.source, to: outputRoot.appendingPathComponent(
+                "authored.frag"
+            ))
+            try write(normalized.vertex, to: outputRoot.appendingPathComponent("stage.vert"))
+            try write(normalized.fragment, to: outputRoot.appendingPathComponent("stage.frag"))
+            return
+        }
+        if arguments.first == "build-compiler-artifact" {
+            let root = URL(fileURLWithPath: arguments[1], isDirectory: true)
+            let stages = try [("vertex", "vert"), ("fragment", "frag")].map {
+                name, suffix in
+                SceneGenericShaderArtifactBuilder.Stage(
+                    name: name,
+                    source: try String(contentsOf: root.appendingPathComponent(
+                        "stage.\(suffix)"
+                    ), encoding: .utf8),
+                    authoredSource: try String(contentsOf: root.appendingPathComponent(
+                        "authored.\(suffix)"
+                    ), encoding: .utf8),
+                    msl: try String(contentsOf: root.appendingPathComponent(
+                        "\(name).metal"
+                    ), encoding: .utf8),
+                    reflection: try Data(contentsOf: root.appendingPathComponent(
+                        "\(name).reflection.json"
+                    ))
+                )
+            }
+            let result = SceneGenericShaderArtifactBuilder.build(
+                requestKey: String(repeating: "u", count: 64),
+                backendID: "glslang-spirv-cross-msl-v2",
+                stages: stages,
+                maximumArtifactBytes: 1_000_000
+            )
+            let raw = stages.first(where: { $0.name == "fragment" })!.msl
+            guard case let .success(artifact) = result else {
+                if case let .failure(failure) = result {
+                    FileHandle.standardError.write(
+                        Data("artifact failure: \(failure)\n\(raw)".utf8)
+                    )
+                }
+                throw NSError(domain: "artifact", code: 2)
+            }
+            guard let lowered =
+                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                        raw, expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                    ) else {
+                FileHandle.standardError.write(Data(raw.utf8))
+                throw NSError(domain: "lowering", code: 3)
+            }
+            let extraSample = raw.replacingOccurrences(
+                of: "    out.mwxFragColor = blurred;",
+                with: "    float4 hidden = g_Texture0.sample(g_Texture0Smplr, in.v_TexCoord);\n"
+                    + "    out.mwxFragColor = blurred;"
+            )
+            let extraUse = raw.replacingOccurrences(
+                of: "    out.mwxFragColor = blurred;",
+                with: "    float4 hidden = blurred;\n    out.mwxFragColor = blurred;"
+            )
+            let spacedExtraSample = raw.replacingOccurrences(
+                of: "    out.mwxFragColor = blurred;",
+                with: "    float4 hidden = g_Texture0 . sample (g_Texture0Smplr, in.v_TexCoord);\n"
+                    + "    out.mwxFragColor = blurred;"
+            )
+            let discard = raw.replacingOccurrences(
+                of: "    out.mwxFragColor = blurred;",
+                with: "    discard_fragment();\n    out.mwxFragColor = blurred;"
+            )
+            let renamed = raw
+                .replacingOccurrences(of: "g_Texture0", with: "g_Texture3")
+                .replacingOccurrences(of: "g_Texture2", with: "g_Texture5")
+            let ordinaryAuthored = """
+            uniform sampler2D g_Texture1;
+            uniform sampler2D g_Texture4;
+            void main() {
+                vec4 a = texSample2D(g_Texture1, vec2(0));
+                vec4 b = texSample2D(g_Texture4, vec2(0));
+                gl_FragColor = mix(a, b, 0.5);
+            }
+            """
+            let ordinaryMSL = """
+            out.mwxFragColor = mix(first, second, 0.5);
+            """
+            let ordinary = try SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                msl: ordinaryMSL, authoredSource: ordinaryAuthored
+            )
+            let output = CompilerOutput(
+                transferKind: artifact.program.colorTransfer.kind,
+                transferSlot: artifact.program.colorTransfer.slot,
+                bindingSlots: artifact.program.textureBindings.map(\.slot),
+                terminalPremultiplyCount: lowered.components(
+                    separatedBy: "out.mwxFragColor = mwxGenericPremultiply("
+                ).count - 1,
+                helperCount: lowered.components(
+                    separatedBy: "static inline float4 mwxGenericPremultiply("
+                ).count - 1,
+                wrongSlotRejected:
+                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                        raw, expectedBlurredSlot: 1, expectedPreviousSlot: 2
+                    ) == nil,
+                extraSampleRejected:
+                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                        extraSample, expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                    ) == nil,
+                spacedExtraSampleRejected:
+                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                        spacedExtraSample,
+                        expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                    ) == nil,
+                discardRejected:
+                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                        discard, expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                    ) == nil,
+                extraCarrierUseRejected:
+                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                        extraUse, expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                    ) == nil,
+                doubleBoundaryRejected:
+                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                        lowered, expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                    ) == nil,
+                renamedSlotsAccepted:
+                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                        renamed, expectedBlurredSlot: 3, expectedPreviousSlot: 5
+                    ) != nil,
+                ordinaryInterpolationUnchanged:
+                    ordinary.msl == ordinaryMSL
+                        && ordinary.transfer.kind == "interpolated-color"
+                        && ordinary.transfer.slots == [1, 4]
+            )
+            try write(
+                artifact.program.metalSource,
+                to: root.appendingPathComponent("final.metal")
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        let roots = arguments.map {
             URL(fileURLWithPath: $0, isDirectory: true)
         }
         let stock = prepare(roots[0])
@@ -274,6 +460,7 @@ private struct Harness {
             explicitDynamicRejected: !eligible(
                 stock, declarations: [dynamicDeclaration]
             ),
+            ownerCohortRejected: !eligible(stock, ownerEligible: false),
             duplicateAliasesRejected: !eligible(
                 stock, declarations: [
                     declaration("g_CompositeColor", [1, 1, 1]),
@@ -309,7 +496,7 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = cls.root / "standard-blur-unit-default"
         subprocess.run([
-            "xcrun", "swiftc", "-O", "-o", str(cls.binary),
+            "xcrun", "swiftc", "-o", str(cls.binary),
             *[str(path) for path in SWIFT_SOURCES],
             str(support), str(harness), "-framework", "Security",
             "-framework", "Metal",
@@ -374,6 +561,58 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
         )
         output = json.loads(completed.stdout)
         self.assertTrue(all(output.values()), output)
+
+    def test_stock_prepared_source_real_compiler_lowering_and_metal(self) -> None:
+        stock = self.stock_root("compiler-stock")
+        root = self.root / "actual-compiler"
+        root.mkdir()
+        subprocess.run(
+            [str(self.binary), "export-compiler-input", str(stock), str(root)],
+            check=True, cwd=REPOSITORY_ROOT, capture_output=True, text=True,
+        )
+        subprocess.run([
+            str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+            "-l", str(root / "stage.vert"), str(root / "stage.frag"),
+        ], check=True, cwd=root, capture_output=True, text=True)
+        for name, suffix in (("vertex", "vert"), ("fragment", "frag")):
+            spirv = root / f"{name}.spv"
+            subprocess.run([
+                str(GLSLANG), "-V", "--auto-map-bindings",
+                "--auto-map-locations", "-S", suffix, "-e", "main",
+                "-o", str(spirv), str(root / f"stage.{suffix}"),
+            ], check=True, cwd=root, capture_output=True, text=True)
+            subprocess.run([
+                str(SPIRV_CROSS), str(spirv), "--msl", "--msl-version", "20000",
+                "--msl-decoration-binding", "--rename-entry-point", "main",
+                "mwxGenericVertex" if name == "vertex" else "mwxGenericFragment",
+                suffix, "--output", str(root / f"{name}.metal"),
+            ], check=True, cwd=root, capture_output=True, text=True)
+            subprocess.run([
+                str(SPIRV_CROSS), str(spirv), "--reflect", "--output",
+                str(root / f"{name}.reflection.json"),
+            ], check=True, cwd=root, capture_output=True, text=True)
+        built = subprocess.run(
+            [str(self.binary), "build-compiler-artifact", str(root)],
+            cwd=REPOSITORY_ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(built.returncode, 0, built.stderr)
+        output = json.loads(built.stdout)
+        self.assertEqual(output["transferKind"], "straight-alpha-preserving")
+        self.assertEqual(output["transferSlot"], 0)
+        self.assertEqual(output["bindingSlots"], [0, 2])
+        self.assertEqual(output["terminalPremultiplyCount"], 1)
+        self.assertEqual(output["helperCount"], 1)
+        self.assertTrue(all(output[key] for key in (
+            "wrongSlotRejected", "extraSampleRejected",
+            "spacedExtraSampleRejected", "discardRejected",
+            "extraCarrierUseRejected", "doubleBoundaryRejected",
+            "renamedSlotsAccepted", "ordinaryInterpolationUnchanged",
+        )), output)
+        metal = subprocess.run([
+            "xcrun", "metal", "-x", "metal", "-std=macos-metal2.4", "-c",
+            str(root / "final.metal"), "-o", str(root / "final.air"),
+        ], cwd=root, capture_output=True, text=True)
+        self.assertEqual(metal.returncode, 0, metal.stderr)
 
 
 if __name__ == "__main__":

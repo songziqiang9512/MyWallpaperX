@@ -108,7 +108,7 @@ def request_cache_key(request: dict[str, Any]) -> str:
     )
     digest = hashlib.sha256()
     for value in (
-        "mwx-generic-shader-request-v7",
+        "mwx-generic-shader-request-v9",
         str(request.get("sourceDialect", "glsl-450")),
         output_semantics,
         sources["vertex"],

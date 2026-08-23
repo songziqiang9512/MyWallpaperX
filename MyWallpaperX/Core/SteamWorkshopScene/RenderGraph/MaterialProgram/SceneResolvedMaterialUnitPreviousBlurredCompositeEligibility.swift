@@ -19,7 +19,8 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         activeGraphTextureIdentities: [Int: Graph.TextureIdentity]
     ) -> Slots? {
-        guard let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer
+        guard template.unitPreviousBlurredCompositeGenericOwnerEligible,
+              let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer
             .analyze(fragmentSource: fragmentSource),
               let previousIdentity = implicitFramebufferIdentity,
               previousIdentity.name == nil,

@@ -58,7 +58,7 @@ extension SceneEffectStageExecutionPlan {
         return plan
     }
 
-    var standardBlur: SceneStandardBlurPlan? {
+    nonisolated var standardBlur: SceneStandardBlurPlan? {
         guard case .standardBlur(let plan) = backend else { return nil }
         return plan
     }

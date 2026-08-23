@@ -82,9 +82,9 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
         else { return nil }
 
         let outputRange = NSRange(
-            location: normalizedDeclaration.range.location,
+            location: componentWrites[0].range.location,
             length: NSMaxRange(alphaWrite.range)
-                - normalizedDeclaration.range.location
+                - componentWrites[0].range.location
         )
         let samplePattern = #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
             + String(expectedSlot) + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#
@@ -116,7 +116,7 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
         var replacements: [Replacement] = [
             .init(
                 range: outputRange,
-                value: "\(indent)out.mwxFragColor = \(premultiply)(float4(\(accumulator).xyz, \(accumulator).w / \(sampleCount).0));"
+                value: "\(indent)out.mwxFragColor = \(premultiply)(float4(\(normalized), \(accumulator).w / \(sampleCount).0));"
             ),
         ]
         for sampleMatch in samples {
@@ -195,5 +195,5 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
 }
 
 private extension Array {
-    var only: Element? { count == 1 ? first : nil }
+    nonisolated var only: Element? { count == 1 ? first : nil }
 }

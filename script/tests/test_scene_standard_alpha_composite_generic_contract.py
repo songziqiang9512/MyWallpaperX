@@ -98,6 +98,7 @@ private struct CompositeOutput: Codable {
 private func transferName(_ transfer: SceneShaderColorTransfer) -> String {
     switch transfer {
     case .straightAlpha: return "straightAlpha"
+    case .straightAlphaPreserving: return "straightAlphaPreserving"
     case .premultipliedAlpha: return "premultipliedAlpha"
     default: return "other"
     }
@@ -402,7 +403,9 @@ private struct Harness {
                     separatedBy: "mwxGenericUnpremultiply(g_Texture0.sample("
                 ).count - 1,
                 outputBoundaryPresent: lowered.contains(
-                    "out.mwxFragColor = mwxGenericPremultiply(float4(result.xyz, result.w / 4.0));"
+                    "out.mwxFragColor = mwxGenericPremultiply(float4(normalized, result.w / 4.0));"
+                ) && lowered.contains(
+                    "float3 normalized = result.xyz / float3(fast::max("
                 ),
                 missingComponentRejected:
                     SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.analyze(
@@ -510,14 +513,30 @@ private struct Harness {
         let msl = [
             "#include <metal_stdlib>", "using namespace metal;",
             "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture2Transform0; float4 mwxTexture2Transform1; float3 g_CompositeColor; };",
-            "fragment void f() {",
+            "static inline",
+            "float4 renamedComposite(thread const float4& original, thread float4& effect, constant MWXUniforms& uniforms) {",
+            "    float4 renamedColor = effect;",
+            "    float3 renamedRGB = renamedColor.xyz * uniforms.g_CompositeColor;",
+            "    effect.x = renamedRGB.x;",
+            "    effect.y = renamedRGB.y;",
+            "    effect.z = renamedRGB.z;",
+            "    return effect;", "}",
+            "fragment mwxGenericFragment_out mwxGenericFragment() {",
+            "    mwxGenericFragment_out out = {};",
             "    float4 blurred = g_Texture0.sample(s, uv);",
             "    float4 previous = g_Texture2.sample(s, uv);",
-            "    blurred.xyz *= g_CompositeColor;",
-            "    out.mwxFragColor = blurred;", "}",
+            "    float mask = 1.0;",
+            "    float divisor = mix(blurred.w, 1.0, step(blurred.w, 0.0));",
+            "    float4 oldParameter = previous;",
+            "    float4 effectParameter = float4(blurred.xyz / float3(divisor), blurred.w);",
+            "    float4 compositeResult = renamedComposite(oldParameter, effectParameter, uniforms);",
+            "    blurred = compositeResult;",
+            "    blurred = mix(previous, blurred, float4(mask));",
+            "    out.mwxFragColor = blurred;", "    return out;", "}",
         ].joined(separator: "\n")
         let capability = profile(
-            transfer: .premultipliedAlpha, compositeSlots: (0, 2)
+            transfer: .straightAlphaPreserving(textureSlot: 0),
+            compositeSlots: (0, 2)
         )
         let coordinateAliasSource = compositeSource(coordinateAlias: true)
         let coordinatePreviousReuse = coordinateAliasSource.replacingOccurrences(
@@ -742,11 +761,11 @@ class StandardAlphaCompositeGenericContractTests(unittest.TestCase):
 
     def test_unit_composite_source_artifact_and_route_contract(self) -> None:
         output = self.run_harness("composite")
-        self.assertEqual(output["transfer"], "premultipliedAlpha")
+        self.assertEqual(output["transfer"], "straightAlphaPreserving")
         self.assertEqual(output["blurredSlot"], 0)
         self.assertEqual(output["previousSlot"], 2)
         self.assertEqual(output["unitColorUniform"], "g_CompositeColor")
-        self.assertEqual(output["artifactKind"], "premultiplied")
+        self.assertEqual(output["artifactKind"], "straight-alpha-preserving")
         self.assertTrue(all(output[key] for key in (
             "boundedFrontendAccepted", "coordinateAliasAccepted",
             "coordinateIdentityHelperAccepted", "renamedSlotHelperAccepted",
@@ -766,7 +785,7 @@ class StandardAlphaCompositeGenericContractTests(unittest.TestCase):
             output["routeProfile"],
             "source-proven-unit-previous-blurred-composite",
         )
-        self.assertEqual(output["routeState"], "observe-only")
+        self.assertEqual(output["routeState"], "prefer-generic")
         self.assertEqual(output["disableState"], "disable-generic")
         self.assertEqual(output["rollbackOwner"], "program-first-incumbent")
 
