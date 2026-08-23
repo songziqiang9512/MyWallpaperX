@@ -196,6 +196,11 @@ private struct VaryingLinkOutput: Codable {
     let deadFragmentInterfaceRemoved: Bool
     let liveMismatchRejected: Bool
     let strictPrefixAccepted: Bool
+    let textureCoordinateBoundedAccepted: Bool
+    let textureCoordinateBoundedSlot3: Bool
+    let textureCoordinateGenericAccepted: Bool
+    let textureCoordinateGenericSlot3: Bool
+    let unknownCallRejectedByBoth: Bool
     let suffixReadRejected: Bool
 }
 
@@ -569,6 +574,49 @@ private struct GenericShaderArtifactHarness {
                 ),
                 maximumStageSourceBytes: 64 * 1_024
             )
+            let textureVertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec4 renamedCarrier;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    renamedCarrier.xy = a_TexCoord;",
+                "}",
+            ].joined(separator: "\n")
+            let textureFragment = [
+                "uniform sampler2D g_Texture3;",
+                "varying vec2 renamedCarrier;",
+                "void main() {",
+                "    vec4 sampled = texSample2D(g_Texture3, renamedCarrier.xy);",
+                "    vec2 localCopy = renamedCarrier;",
+                "    gl_FragColor = sampled + vec4(localCopy, 0.0, 0.0);",
+                "}",
+            ].joined(separator: "\n")
+            let textureBounded = SceneAuthoredShaderFrontend.compile(
+                vertexSource: textureVertex,
+                fragmentSource: textureFragment
+            )
+            let textureGeneric = SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: textureVertex,
+                fragmentSource: textureFragment,
+                maximumStageSourceBytes: 64 * 1_024
+            )
+            let unknownFragment = [
+                "varying vec2 renamedCarrier;",
+                "vec2 unknownHelper(vec2 value) { return value; }",
+                "void main() {",
+                "    gl_FragColor = vec4(unknownHelper(renamedCarrier.xy), 0.0, 1.0);",
+                "}",
+            ].joined(separator: "\n")
+            let unknownBounded = SceneAuthoredShaderFrontend.compile(
+                vertexSource: textureVertex,
+                fragmentSource: unknownFragment
+            )
+            let unknownGeneric = SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: textureVertex,
+                fragmentSource: unknownFragment,
+                maximumStageSourceBytes: 64 * 1_024
+            )
             let output = VaryingLinkOutput(
                 deadMismatchAccepted: dead != nil,
                 deadFragmentInterfaceRemoved:
@@ -578,6 +626,31 @@ private struct GenericShaderArtifactHarness {
                     guard case let .success(pair) = prefix else { return false }
                     return pair.fragment.contains("in vec4 v_Live;")
                         && pair.fragment.contains("v_Live.xy")
+                }(),
+                textureCoordinateBoundedAccepted:
+                    textureBounded.diagnostics.isEmpty
+                    && textureBounded.program != nil,
+                textureCoordinateBoundedSlot3:
+                    textureBounded.program?.textureBindings.map(\.slot) == [3]
+                    && textureBounded.program?.metalSource.contains(
+                        "mwxInput.renamedCarrier.xy"
+                    ) == true,
+                textureCoordinateGenericAccepted: {
+                    guard case let .success(pair) = textureGeneric else { return false }
+                    return pair.fragment.contains("in vec4 renamedCarrier;")
+                        && pair.fragment.contains("renamedCarrier.xy")
+                }(),
+                textureCoordinateGenericSlot3: {
+                    guard case let .success(pair) = textureGeneric else { return false }
+                    return pair.fragment.contains("g_Texture3")
+                }(),
+                unknownCallRejectedByBoth: {
+                    guard unknownBounded.diagnostics.map({ $0.code })
+                              .contains(.stageLinkMismatch),
+                          case .failure(.varyingUnsupported) = unknownGeneric else {
+                        return false
+                    }
+                    return true
                 }(),
                 suffixReadRejected: {
                     if case .failure(.varyingUnsupported) = suffix { return true }
@@ -2776,6 +2849,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "deadFragmentInterfaceRemoved": True,
             "liveMismatchRejected": True,
             "strictPrefixAccepted": True,
+            "textureCoordinateBoundedAccepted": True,
+            "textureCoordinateBoundedSlot3": True,
+            "textureCoordinateGenericAccepted": True,
+            "textureCoordinateGenericSlot3": True,
+            "unknownCallRejectedByBoth": True,
             "suffixReadRejected": True,
         })
 

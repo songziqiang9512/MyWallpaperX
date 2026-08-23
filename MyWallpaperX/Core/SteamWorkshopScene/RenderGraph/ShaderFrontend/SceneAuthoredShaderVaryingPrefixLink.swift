@@ -28,7 +28,8 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             vertexMain: vertex.functions.first { $0.name == "main" }?.bodyRange,
             vertexFunctionBodies: vertex.functions.map(\.bodyRange),
             fragmentTokens: fragment.tokens,
-            fragmentFunctionBodies: fragment.functions.map(\.bodyRange)
+            fragmentFunctionBodies: fragment.functions.map(\.bodyRange),
+            fragmentFunctionNames: Set(fragment.functions.map(\.name))
         )
     }
 
@@ -41,6 +42,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
     ) -> Fact? {
         let vertex = SceneAuthoredShaderLexer.lex(source: vertexSource, stage: .vertex)
         let fragment = SceneAuthoredShaderLexer.lex(source: fragmentSource, stage: .fragment)
+        let fragmentFunctions = functionDefinitions(in: fragment.tokens)
         guard vertex.diagnostics.isEmpty, fragment.diagnostics.isEmpty,
               let vertexMain = mainBody(in: vertex.tokens),
               mainBody(in: fragment.tokens) != nil else { return nil }
@@ -52,7 +54,8 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             vertexMain: vertexMain,
             vertexFunctionBodies: functionBodies(in: vertex.tokens),
             fragmentTokens: fragment.tokens,
-            fragmentFunctionBodies: functionBodies(in: fragment.tokens)
+            fragmentFunctionBodies: fragmentFunctions.map(\.body),
+            fragmentFunctionNames: Set(fragmentFunctions.map(\.name))
         )
     }
 
@@ -83,7 +86,8 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
         vertexMain: Range<Int>?,
         vertexFunctionBodies: [Range<Int>],
         fragmentTokens: [SceneAuthoredShaderToken],
-        fragmentFunctionBodies: [Range<Int>]
+        fragmentFunctionBodies: [Range<Int>],
+        fragmentFunctionNames: Set<String>
     ) -> Fact? {
         guard let vertexMain, (2 ... 4).contains(fragmentWidth),
               fragmentWidth < vertexWidth, vertexWidth <= 4 else { return nil }
@@ -132,11 +136,15 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                 if next == "." {
                     guard index + 2 < body.upperBound,
                           fragmentTokens[index + 2].text == required,
+                          previous != "return",
                           index + 3 >= body.upperBound || ![
-                              "=", "+=", "-=", "*=", "/=", "++", "--",
+                              "=", "+=", "-=", "*=", "/=", "++", "--", "[",
                           ].contains(fragmentTokens[index + 3].text),
                           safeCallContext(
-                              index, tokens: fragmentTokens, body: body
+                              index,
+                              tokens: fragmentTokens,
+                              body: body,
+                              functionNames: fragmentFunctionNames
                           ) else { return nil }
                 } else {
                     // GLSL vector initialization is a value copy, not an alias.
@@ -154,7 +162,10 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                         return nil
                     }
                     guard safeCallContext(
-                        index, tokens: fragmentTokens, body: body
+                        index,
+                        tokens: fragmentTokens,
+                        body: body,
+                        functionNames: fragmentFunctionNames
                     ) else { return nil }
                     whole.insert(fragmentTokens[index])
                 }
@@ -203,12 +214,14 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
     }
 
     /// Passing the stage input to an unknown call could bind it to `out` or
-    /// `inout`. Constructors create a value, so they are the only admitted
-    /// enclosing calls for this first bounded profile.
+    /// `inout`. Constructors create a value. The shared frontend's exact
+    /// texture-sampling built-ins also consume their coordinate argument as a
+    /// value; no other argument or call context is admitted here.
     private static func safeCallContext(
         _ index: Int,
         tokens: [SceneAuthoredShaderToken],
-        body: Range<Int>
+        body: Range<Int>,
+        functionNames: Set<String>
     ) -> Bool {
         let constructors: Set<String> = [
             "float", "vec2", "vec3", "vec4",
@@ -232,7 +245,25 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                 }
                 guard cursor > body.lowerBound,
                       tokens[cursor - 1].kind == .identifier else { continue }
-                return constructors.contains(tokens[cursor - 1].text)
+                let function = tokens[cursor - 1].text
+                if constructors.contains(function) { return true }
+                guard let expectedArgumentCount = SceneAuthoredShaderMetalEmitter
+                          .textureSampleArgumentCount(
+                              function,
+                              functionNames: functionNames
+                          ),
+                      let closing = SceneAuthoredShaderVectorConversion
+                          .matchingParenthesis(tokens: tokens, opening: cursor),
+                      closing < body.upperBound,
+                      let arguments = SceneAuthoredShaderMetalEmitter
+                          .textureSampleArguments(
+                              tokens: tokens,
+                              opening: cursor,
+                              closing: closing
+                          ),
+                      arguments.count == expectedArgumentCount,
+                      arguments[1].contains(index) else { return false }
+                return true
             }
             if closedParentheses == 0, [";", "{", "}"].contains(text) {
                 return true
@@ -267,7 +298,13 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
     private static func functionBodies(
         in tokens: [SceneAuthoredShaderToken]
     ) -> [Range<Int>] {
-        var result: [Range<Int>] = []
+        functionDefinitions(in: tokens).map(\.body)
+    }
+
+    private static func functionDefinitions(
+        in tokens: [SceneAuthoredShaderToken]
+    ) -> [(name: String, body: Range<Int>)] {
+        var result: [(name: String, body: Range<Int>)] = []
         var index = 0
         while index + 4 < tokens.count {
             guard tokens[index].kind == .identifier,
@@ -300,7 +337,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                 }
             }
             guard let end else { return [] }
-            result.append((close + 1)..<(end + 1))
+            result.append((tokens[index + 1].text, (close + 1)..<(end + 1)))
             index = end + 1
         }
         return result

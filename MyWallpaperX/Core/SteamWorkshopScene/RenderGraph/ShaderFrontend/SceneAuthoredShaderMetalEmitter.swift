@@ -370,14 +370,17 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         context: Context,
         textures: [SceneAuthoredShaderProgram.TextureBinding]
     ) -> SampleEmission {
-        guard let close = SceneAuthoredShaderVectorConversion.matchingParenthesis(
+        guard let expectedArgumentCount = textureSampleArgumentCount(
+                  tokens[start].text,
+                  functionNames: context.functionNames
+              ),
+              let close = SceneAuthoredShaderVectorConversion.matchingParenthesis(
                   tokens: tokens,
                   opening: start + 1
               ),
               let arguments = textureSampleArguments(
                   tokens: tokens, opening: start + 1, closing: close),
-              arguments.count == (["texSample2DLod", "texture2DLod"]
-                  .contains(tokens[start].text) ? 3 : 2),
+              arguments.count == expectedArgumentCount,
               arguments[0].count == 1,
               let texture = context.texturesByName[tokens[arguments[0].lowerBound].text]
         else {

@@ -2240,6 +2240,94 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             self.assertIn(f"mwxInput.unseenLink.{components}", output["metalSource"])
             self.assertIsNone(output.get("metalError"))
 
+    def test_float_varying_prefix_accepts_texture_coordinate_and_whole_copy(self):
+        output = self.compile(
+            """
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec4 renamedCarrier;
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                renamedCarrier.xy = a_TexCoord;
+            }
+            """,
+            """
+            uniform sampler2D g_Texture3;
+            varying vec2 renamedCarrier;
+            void main() {
+                vec4 sampled = texSample2D(g_Texture3, renamedCarrier.xy);
+                vec2 localCopy = renamedCarrier;
+                gl_FragColor = sampled + vec4(localCopy, 0.0, 0.0);
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["textureSlots"], [3])
+        self.assertIn("mwxInput.renamedCarrier.xy", output["metalSource"])
+        self.assertIsNone(output.get("metalError"))
+
+    def test_float_varying_prefix_rejects_call_and_escape_contexts(self):
+        vertex = """
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec4 linkedValue;
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                linkedValue.xy = a_TexCoord;
+            }
+        """
+        fragments = [
+            """
+            varying vec2 linkedValue;
+            vec2 unknownHelper(vec2 value) { return value; }
+            void main() { gl_FragColor = vec4(unknownHelper(linkedValue.xy), 0.0, 1.0); }
+            """,
+            """
+            varying vec2 linkedValue;
+            vec2 escapingHelper() { return linkedValue.xy; }
+            void main() { gl_FragColor = vec4(escapingHelper(), 0.0, 1.0); }
+            """,
+            """
+            varying vec2 linkedValue;
+            void mutate(inout vec2 value) { value = vec2(0.0); }
+            void main() { mutate(linkedValue.xy); gl_FragColor = vec4(1.0); }
+            """,
+            """
+            varying vec2 linkedValue;
+            void capture(out vec2 value) { value = vec2(0.0); }
+            void main() { capture(linkedValue.xy); gl_FragColor = vec4(1.0); }
+            """,
+            """
+            uniform int g_Index;
+            varying vec2 linkedValue;
+            void main() { gl_FragColor = vec4(linkedValue.xy[g_Index]); }
+            """,
+            """
+            varying vec2 linkedValue;
+            void main() { linkedValue.xy = vec2(0.0); gl_FragColor = vec4(1.0); }
+            """,
+        ]
+        for fragment in fragments:
+            with self.subTest(fragment=fragment):
+                output = self.compile(vertex, fragment, metal=False)
+                self.assertIn("stageLinkMismatch", output["diagnosticCodes"])
+
+        valid_fragment = """
+            varying vec2 linkedValue;
+            void main() { gl_FragColor = vec4(linkedValue.xy, 0.0, 1.0); }
+        """
+        invalid_vertices = [
+            vertex.replace("linkedValue.xy = a_TexCoord;", ""),
+            vertex.replace(
+                "linkedValue.xy = a_TexCoord;",
+                "linkedValue.xy = a_TexCoord; linkedValue.xy = vec2(0.0);",
+            ),
+        ]
+        for invalid_vertex in invalid_vertices:
+            with self.subTest(vertex=invalid_vertex):
+                output = self.compile(invalid_vertex, valid_fragment, metal=False)
+                self.assertIn("stageLinkMismatch", output["diagnosticCodes"])
+
     def test_float_varying_prefix_rejects_suffix_and_conditional_write(self):
         vertex = """
             attribute vec3 a_Position;

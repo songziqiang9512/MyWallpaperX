@@ -8,6 +8,17 @@ nonisolated extension SceneAuthoredShaderMetalEmitter {
                 && !functionNames.contains(name))
     }
 
+    static func textureSampleArgumentCount(
+        _ name: String,
+        functionNames: Set<String>
+    ) -> Int? {
+        guard isTextureSampleBuiltIn(
+            name,
+            functionNames: functionNames
+        ) else { return nil }
+        return ["texSample2DLod", "texture2DLod"].contains(name) ? 3 : 2
+    }
+
     static func textureSampleArguments(
         tokens: [SceneAuthoredShaderToken],
         opening: Int,
