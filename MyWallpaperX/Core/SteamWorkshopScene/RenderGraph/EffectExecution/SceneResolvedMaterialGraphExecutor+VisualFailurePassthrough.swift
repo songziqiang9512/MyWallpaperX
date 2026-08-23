@@ -10,8 +10,8 @@ extension SceneResolvedMaterialGraphExecutor {
 
     /// Preserves the previous current for one launch-time visual contract or
     /// pre-encode frame preparation failure. This is an exact pair-member copy,
-    /// not a fabricated shader result. Resource, target, dependency and runtime
-    /// encode failures never reach this path.
+    /// not a fabricated shader result. Live resource availability, target,
+    /// dependency and runtime encode failures never reach this path.
     func prepareVisualFailurePassthrough(
         reasonCode: String,
         transition: State.Transition,
@@ -35,6 +35,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-variant-envelope-sampler-schema",
             "material-variant-envelope-uniform-schema",
             "material-variant-envelope-animated-frame-metadata",
+            "material-variant-envelope-texture-purpose",
             "material-dynamic-uniform-contributor-policy",
             "material-dynamic-uniform-contributor-producer-unavailable",
             "material-dynamic-uniform-script-attachment-unproven",

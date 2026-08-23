@@ -1395,6 +1395,29 @@ private func implicitFramebufferCandidateProjectionToken(
     }
 }
 
+private func implicitFramebufferGraphCandidateProjectionToken() -> String {
+    let shader = contract(revision: "implicit-graph-candidate")
+    guard case let .accepted(prepared) =
+            SceneAuthoredShaderPreparation.prepareShaderStages(
+                contract: shader,
+                combos: [:],
+                textureReadiness: [0: true, 1: true]
+            ) else { return "preparation-failed" }
+    do {
+        let samplers = try SceneResolvedMaterialShaderSchema.activeSamplers(prepared)
+        return SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
+            template: template(
+                shader,
+                includePrimaryCandidate: false,
+                secondReference: .graph(graphTexture())
+            ),
+            samplers: samplers
+        ).sorted().map(String.init).joined(separator: ",")
+    } catch {
+        return "schema-invalid"
+    }
+}
+
 private func reachableConditionalPurposeToken() -> String {
     let shader = contract(
         revision: "conditional-sampler-schema",
@@ -3680,6 +3703,12 @@ private enum Harness {
                     implicitFramebufferCandidateProjectionToken(
                         assetPath: "effects/waterflowphase"
                     ),
+                "unprovenAuthoredCandidate":
+                    implicitFramebufferCandidateProjectionToken(
+                        assetPath: "custom/unproven-auxiliary"
+                    ),
+                "graphAuthoredCandidate":
+                    implicitFramebufferGraphCandidateProjectionToken(),
                 "unknownDefault": implicitFramebufferProjectionToken(
                     defaultAssetPath: "textures/unknown-default.tex"
                 ),
@@ -3883,7 +3912,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             ),
             "providerAbsentUsesShaderDefault": "success",
             "slotSchemaMismatch": "texture/textureBindingInvalid",
-            "optionalUntypedMask": "texture/textureBindingInvalid",
+            "optionalUntypedMask": "texture/texturePurposeUnproven",
             "authoredOverridesShaderDefault": "success",
             "authoredFailureDoesNotUseShaderDefault": (
                 "texture/resourceSnapshotUnresolved"
@@ -3972,6 +4001,8 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             {
                 "registeredStockDefault": "0",
                 "registeredAuthoredCandidate": "0",
+                "unprovenAuthoredCandidate": "0",
+                "graphAuthoredCandidate": "",
                 "unknownDefault": "",
             },
         )

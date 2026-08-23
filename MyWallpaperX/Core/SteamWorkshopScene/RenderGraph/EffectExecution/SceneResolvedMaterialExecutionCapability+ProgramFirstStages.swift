@@ -292,11 +292,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         ))
     }
 
-    /// Only a launch-time visual contract or ambiguous dynamic value-owner
-    /// failure may become a visual no-op. Dynamic producer availability,
-    /// resource, target, dependency, state and lifecycle failures remain hard
-    /// rejections. Multi-node stages are admitted only as one atomic effect; a
-    /// failed intermediate Program never publishes a partial authored result.
+    /// Only a launch-time visual contract, unproven texture purpose, or
+    /// ambiguous dynamic value-owner failure may become a visual no-op. Live
+    /// resource availability, target, dependency, state and lifecycle failures
+    /// remain hard rejections. Multi-node stages are admitted only as one atomic
+    /// effect; a failed intermediate Program never publishes a partial authored
+    /// result.
     /// Besides the pair-only compose shape, this admits an ordinary
     /// non-persistent framebuffer command graph. Every framebuffer read must
     /// follow a same-effect write, so no history can be hidden in this gate.
@@ -320,6 +321,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             "material-variant-envelope-sampler-schema",
             "material-variant-envelope-uniform-schema",
             "material-variant-envelope-animated-frame-metadata",
+            "material-variant-envelope-texture-purpose",
             "material-dynamic-uniform-contributor-policy",
             "material-dynamic-uniform-contributor-producer-unavailable",
             "material-dynamic-uniform-script-attachment-unproven",

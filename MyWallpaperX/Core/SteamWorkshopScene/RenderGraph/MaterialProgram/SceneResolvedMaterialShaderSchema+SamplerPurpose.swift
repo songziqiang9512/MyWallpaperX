@@ -41,7 +41,7 @@ extension SceneResolvedMaterialShaderSchema {
               sampler.materialKey == nil,
               sampler.defaultTexture == nil,
               samplers.allSatisfy({ slot, auxiliary in
-                  slot == 0 || hasTypedAuxiliarySource(
+                  slot == 0 || hasAuthoredAuxiliarySource(
                       sampler: auxiliary,
                       slot: template.textureSlots[slot]
                   )
@@ -56,7 +56,11 @@ extension SceneResolvedMaterialShaderSchema {
         return [0]
     }
 
-    private nonisolated static func hasTypedAuxiliarySource(
+    /// An explicit non-graph authored candidate proves only that this sampler
+    /// is an auxiliary rather than a competing implicit graph input. Its load
+    /// purpose remains a separate Program admission contract and may still
+    /// fail closed without erasing the valid slot-zero previous/current role.
+    private nonisolated static func hasAuthoredAuxiliarySource(
         sampler: Sampler,
         slot: Template.TextureSlot?
     ) -> Bool {
@@ -65,10 +69,8 @@ extension SceneResolvedMaterialShaderSchema {
         }
         guard let slot, !slot.candidates.isEmpty else { return false }
         return slot.candidates.allSatisfy { candidate in
-            guard case .graph = candidate.reference else {
-                return sampler.purpose(for: candidate.reference) != nil
-            }
-            return false
+            if case .graph = candidate.reference { return false }
+            return true
         }
     }
 }

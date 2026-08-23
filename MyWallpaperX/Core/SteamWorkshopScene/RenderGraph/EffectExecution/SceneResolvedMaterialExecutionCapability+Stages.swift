@@ -174,12 +174,15 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             let activeDemandIssues = demandIssues.filter {
                 $0.key == key && activeTextureSlots.contains($0.slot)
             }
-            guard activeDemandIssues.isEmpty else {
+            if !activeDemandIssues.isEmpty {
                 SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
                     .materialTemplateFailure(node: node, reason: "active-resource-demand")
-                return .failure(rejection(
-                    "material-variant-envelope-texture-purpose"
-                ))
+                guard let reasonCode = activeDemandIssueReasonCode(
+                    activeDemandIssues
+                ) else {
+                    return .failure(rejection("material-variant-envelope-invariant"))
+                }
+                return .failure(rejection(reasonCode))
             }
             if sourceRoute == .transparentDirectDraw,
                !variants.supportsTransparentDirectDraw {
@@ -248,6 +251,17 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             return .failure(rejection(failure.reasonCode))
         }
         return .success(materials)
+    }
+
+    private static func activeDemandIssueReasonCode(
+        _ issues: Set<SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue>
+    ) -> String? {
+        guard !issues.isEmpty else { return nil }
+        if issues.contains(where: { $0.code == .samplerSchemaUnavailable }) {
+            return "material-variant-envelope-sampler-schema"
+        }
+        guard issues.allSatisfy({ $0.code == .purposeUnproven }) else { return nil }
+        return "material-variant-envelope-texture-purpose"
     }
 
     private static func envelopeRejection(

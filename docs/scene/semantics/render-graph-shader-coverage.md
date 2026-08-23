@@ -347,6 +347,12 @@ authored graph仍完整保留layer-source binding，但captured-main Program角�
 
 项目三Program/两FBO正门与逐字节恢复均为targeted **1/1 PASS**、47/47/47 GraphExecutor claim/encode/GPU，frame0/next-frame均3 material/0 rejected、GPU/publication/terminal compositor闭合。只让dormant slot变成active non-color source的反门按预登记为 **1/1 negative-contract PASS**，实际为`not-admitted / r5-no-runtime-owner`与0 claim/encode/GPU，previous-current保留完整红蓝control。fresh真实`3749463715`为targeted **0/1 NON-PASS**、exit0、timed_out=false；旧node15 source-route拒绝消失，该批冻结时首断点前移到node17 `fluidsimulation_combine.json#0`的`color/colorContractUnproven / shader-color-transfer-unresolved`，Fluid CPU/Program/GPU仍0。该atom已由后继shared compositing合同闭合；非Fluid可见/执行、owner migration、V1完成或official parity。冻结证据见[E-V1-DORMANT-CAPTURED-MAIN-BINDING](runtime-evidence-index.md#e-v1-dormant-captured-main-binding)，现役后继见[E-V1-INDEPENDENT-SIGNAL-COMPOSITING](runtime-evidence-index.md#e-v1-independent-signal-compositing)。
 
+### V1 effect-local texture-purpose 失败隔离
+
+`implicitFramebufferSlots` 现在把 graph-input identity 与 auxiliary purpose 分开：slot 0 为 active regular sampler、无 material key/default/candidate，其余 active slot 均有显式非 graph authored candidate 时，可把 slot 0 识别为 previous/current；这些 candidate 只证明 auxiliary role，purpose 仍必须通过独立 Program demand。任一 auxiliary graph candidate、duplicate/conflict、inactive sampler 或 slot identity 漂移都不能命中，launch/frame 继续共用同一 selection owner，authored candidate precedence 不变。
+
+只有无 history/dependency/compose/unsafe target 的已证 effect topology，`purposeUnproven` 才以 typed previous-current passthrough 收窄失败半径；resource/reference/identity/ABI/generation/target/hazard/lifecycle/budget/encode 仍硬拒绝。真实 `3749463715:533` 以 effect 0 passthrough + effects 1...4 Program 在 frame 0 与 next-frame 闭合 GPU/publication/terminal compositor，但不证明 Water Flow 视觉执行、整样本 PASS 或 parity；已存手部 alpha/mask 与剑光 fidelity 债务未修复。见 [E-V1-EFFECT-LOCAL-TEXTURE-PURPOSE-FALLBACK](runtime-evidence-index.md#e-v1-effect-local-texture-purpose-fallback)。
+
 ## 7. 当前证据与更新规则
 
 当前 App、样本、报告、matrix 和签名身份只见[运行证据索引](runtime-evidence-index.md)。本表只维护能力合同与缺口，不复制某个旧提交的测试总数、报告路径或“下一批”。

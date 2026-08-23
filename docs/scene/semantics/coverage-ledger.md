@@ -543,6 +543,12 @@ fresh真实`3749463715`为targeted **0/1 NON-PASS**、exit0、timed_out=false、
 
 fresh真实`3749463715`仍是targeted **0/1 NON-PASS**、exit0、timed_out=false、startup 27.485 s；capability为16 candidates / 12 accepted / 4 rejected。Fluid `560#effect#617`现为`resolved-material-graph / program / encoded-output`，完整执行19 authored nodes（17 material / 2 swap / 0 rejected），frame 0及frame 138均有GPU completed、exact final publication和terminal compositor，layer560进入next-frame集合。全局193个graph observation中187个terminal success、0 failed outcome、0 GPU failed；Fluid有139个terminal success observation及62个lifecycle transition。accepted graph layers的exact-backend缺口为layer464/1106 Gradient Opacity static-uniform binding和layer536 test_shader frontend；整样本另有layer533 `unclaimed-effect-product-authority / unclaimed-visible-effects` route-operation failure，因此不能报告sample PASS，也不能把这些失败归给Fluid。ready/after非黑与motion `mean_delta=0.0303451 / changed_ratio=0.620751`只证明同次完整构图继续运行，不是Fluid隔离ROI或视觉parity。route保持`prefer-generic`，owner债务未减少；V1-A/V1仍未完成，也未进入V2。精确证据见[E-V1-INDEPENDENT-SIGNAL-FEEDBACK](runtime-evidence-index.md#e-v1-independent-signal-feedback)。本批没有阻塞性官方行为歧义，因此未使用Ghidra。
 
+### 2026-08-23 V1 effect-local texture-purpose fallback 与 implicit current 选择
+
+目标合同要求 graph-input identity、auxiliary texture purpose 与 live resource availability 分层证明。现役共享 sampler projection 只把显式非 graph authored candidate 当作“该 slot 是 auxiliary”的证据，因此不会再抹掉合法的 slot-0 previous/current；它不为 auxiliary 发布 purpose，purpose 仍由 Program demand 独立审核。graph candidate、duplicate/conflict、inactive sampler、reference/identity、ABI、target/hazard、generation/epoch、lifecycle、OOM/budget 与 runtime encode 错误继续失败关闭。只有已经通过无 history/dependency/compose/unsafe-target 拓扑门的 effect，launch-time `purposeUnproven` 才能以 typed `material-variant-envelope-texture-purpose` 保留 previous-current 并继续 suffix effect。
+
+真实只读 `3749463715:533` 的五 effect 链中，Water Flow effect 0 现在走 typed previous-current owner，effects 1...4 继续走 Program；frame 0 和后续 122 帧的五段均 GPU completed，effect 4 每帧都是 terminal compositor consumer。整份 benchmark 仍因预期的一个 passthrough/rejected node 为 targeted **0/1 NON-PASS**，不是 sample PASS 或视觉 parity。人工对比只确认没有新增黑屏、整层或整帧丢失；手部/服饰 alpha-mask 缺块与剑光表现是批前已存在且本批未修复的 V1 fidelity 债务。详见 [E-V1-EFFECT-LOCAL-TEXTURE-PURPOSE-FALLBACK](runtime-evidence-index.md#e-v1-effect-local-texture-purpose-fallback)；V1 仍未完成，也未进入 V2。
+
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。

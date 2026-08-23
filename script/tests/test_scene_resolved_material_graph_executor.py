@@ -322,8 +322,15 @@ struct SceneResolvedMaterialRuntimeCatalog {
     }
 
     struct ResourceDemandIssue: Hashable {
+        enum Code: Hashable { case samplerSchemaUnavailable, purposeUnproven }
         let key: Key
         let slot: Int
+        let code: Code
+        init(key: Key, slot: Int, code: Code = .purposeUnproven) {
+            self.key = key
+            self.slot = slot
+            self.code = code
+        }
     }
 
     let entries: [Key: Entry]
@@ -1397,12 +1404,10 @@ private func catalog(
     }
     let issues: Set<SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue> =
         Set(demandIssueNodes.map { nodeIndex in
-            let slot = graph.nodes.first(where: {
-                $0.nodeIndex == nodeIndex
-            })?.bindings.first?.slot ?? 0
+            let node = graph.nodes.first { $0.nodeIndex == nodeIndex }!
             return SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue(
-                key: .init(effect: effect, nodeIndex: nodeIndex),
-                slot: slot
+                key: .init(effect: node.effect, nodeIndex: nodeIndex),
+                slot: node.bindings.first?.slot ?? 0
             )
         })
     return .init(entries: entries, resourceDemandIssues: issues)
@@ -3750,7 +3755,7 @@ private enum Harness {
             pixelChain,
             catalog: catalog(
                 for: pixelGraph,
-                uniformSchemaInvalidNodes: [1]
+                demandIssueNodes: [1]
             )
         )
         var visualFailureCanClaimEffectLocalPassthrough = false
@@ -3767,12 +3772,12 @@ private enum Harness {
         visualFailureCanClaimEffectLocalPassthrough = passthroughClaim != nil
             && passthroughCapability?.stages.count == 3
             && passthroughCapability?.stages[1].visualFailureReasonCode
-                == "material-variant-envelope-uniform-schema"
+                == "material-variant-envelope-texture-purpose"
         visualFailurePassthroughIsTypedAndCounted =
             passthroughCapabilities.reportLines.contains {
                 $0 == "resolved material execution capability fallback:"
                     + " state=prefer-generic outcome=effect-local-passthrough"
-                    + " reason=material-variant-envelope-uniform-schema count=1"
+                    + " reason=material-variant-envelope-texture-purpose count=1"
             }
         let passthroughLeases = passthroughCapability.flatMap {
             makeChainedLeases($0, device: device, generation: 18)
@@ -3803,7 +3808,7 @@ private enum Harness {
                prepared.stages.count == 3,
                prepared.stages[1].programCacheKeys == [
                    "visual-failure-passthrough:"
-                       + "material-variant-envelope-uniform-schema"
+                       + "material-variant-envelope-texture-purpose"
                ] {
                 visualFailurePassthroughPrepared = true
                 var observedStageIndices: [Int] = []
@@ -5232,10 +5237,6 @@ private enum Harness {
             ordinaryChain,
             catalog: catalog(for: ordinaryGraph, nonOverwriteNodes: [1])
         )
-        let demandIssueCapabilities = capabilities(
-            ordinaryChain,
-            catalog: catalog(for: ordinaryGraph, demandIssueNodes: [1])
-        )
         let internalDefaultCapabilities = capabilities(
             ordinaryChain,
             catalog: catalog(for: ordinaryGraph, internalDefaultNodes: [1])
@@ -6109,8 +6110,6 @@ private enum Harness {
             "nonOverwriteRejectedBeforeFrame": nonOverwriteCapabilities.claim(
                 ordinaryChain
             ) == nil,
-            "resourceDemandIssueRejectedBeforeFrame":
-                demandIssueCapabilities.claim(ordinaryChain) == nil,
             "internalDefaultRejectedBeforeFrame":
                 internalDefaultCapabilities.claim(ordinaryChain) == nil,
             "rgbaClampProbeExecutes": rgbaClampProbe.executed,
@@ -6436,17 +6435,17 @@ private enum Harness {
                 commandVisualFailureDiscardedPreparedPrefix,
             "commandVisualFailureRecoversOnNextFrame":
                 commandVisualFailureRecoveredNextFrame,
-            "visualUniformSchemaFailureCanClaimEffectLocalPassthrough":
+            "texturePurposeFailureCanClaimEffectLocalPassthrough":
                 visualFailureCanClaimEffectLocalPassthrough,
-            "visualUniformSchemaFailurePassthroughPrepared":
+            "texturePurposeFailurePassthroughPrepared":
                 visualFailurePassthroughPrepared,
-            "visualUniformSchemaFailurePassthroughEncoded":
+            "texturePurposeFailurePassthroughEncoded":
                 visualFailurePassthroughEncoded,
-            "visualUniformSchemaFailurePassthroughGPUCompleted":
+            "texturePurposeFailurePassthroughGPUCompleted":
                 visualFailurePassthroughGPUCompleted,
-            "visualUniformSchemaFailurePreservesPreviousAndContinuesSuffix":
+            "texturePurposeFailurePreservesPreviousAndContinuesSuffix":
                 visualFailurePreservesPreviousAndContinuesSuffix,
-            "visualUniformSchemaFailurePassthroughIsTypedAndCounted":
+            "texturePurposeFailurePassthroughIsTypedAndCounted":
                 visualFailurePassthroughIsTypedAndCounted,
             "forwardUnavailableDependencyPreservesPreviousAndContinuesSuffix":
                 forwardUnavailableFailure.prepared

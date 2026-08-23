@@ -529,8 +529,15 @@ struct SceneResolvedMaterialRuntimeCatalog {
     }
 
     struct ResourceDemandIssue: Hashable {
+        enum Code: Hashable { case samplerSchemaUnavailable, purposeUnproven }
         let key: Key
         let slot: Int
+        let code: Code
+        init(key: Key, slot: Int, code: Code = .purposeUnproven) {
+            self.key = key
+            self.slot = slot
+            self.code = code
+        }
     }
 
     let entries: [Key: Entry]
@@ -4023,8 +4030,15 @@ struct SceneResolvedMaterialRuntimeCatalog {
     }
 
     struct ResourceDemandIssue: Hashable {
+        enum Code: Hashable { case samplerSchemaUnavailable, purposeUnproven }
         let key: Key
         let slot: Int
+        let code: Code
+        init(key: Key, slot: Int, code: Code = .purposeUnproven) {
+            self.key = key
+            self.slot = slot
+            self.code = code
+        }
     }
 
     let entries: [Key: Entry]
@@ -4898,6 +4912,17 @@ private enum EnvelopeHarness {
                 slots: slots(primary: graphCandidate())
             )
         )
+        let unprovenAuxiliaryTemplate = materialTemplate(
+            graph: unboundGraph,
+            shader: contract(
+                "implicit-input-unproven-auxiliary",
+                secondMetadata: "{}",
+                observesSecond: true
+            ),
+            slots: slots(
+                second: assetCandidate("custom/unproven-auxiliary.tex")
+            )
+        )
         let internalSamplerTemplate = materialTemplate(
             graph: boundGraph,
             shader: contract(
@@ -5027,35 +5052,6 @@ private enum EnvelopeHarness {
                     provenance: .explicitBinding
                 ))
             )
-        )
-        let purposeFailure = catalog(
-            graph: boundGraph,
-            template: materialTemplate(
-                graph: boundGraph,
-                shader: contract(
-                    "purpose-failure",
-                    secondMetadata: "{}",
-                    observesSecond: true
-                ),
-                slots: slots(
-                    primary: graphCandidate(),
-                    second: assetCandidate("textures/unproven.tex")
-                )
-            ),
-            demandIssueSlots: [1]
-        )
-        let defaultPurposeFailure = catalog(
-            graph: boundGraph,
-            template: materialTemplate(
-                graph: boundGraph,
-                shader: contract(
-                    "default-purpose-failure",
-                    secondMetadata: #"{"default":"textures/default.tex"}"#,
-                    observesSecond: true
-                ),
-                slots: slots(primary: graphCandidate())
-            ),
-            demandIssueSlots: [1]
         )
         let staticAssetDefaultPositive = catalog(
             graph: boundGraph,
@@ -5764,6 +5760,10 @@ private enum EnvelopeHarness {
             "functionFrontendFailure": rejection(functionFrontendFailure),
             "functionFrontendAttribution": attribution(functionFrontendFailure),
             "samplerSchemaFailure": rejection(samplerSchemaFailure),
+            "implicitInputWithUnprovenAuxiliaryToken": launchEnvelopeToken(
+                template: unprovenAuxiliaryTemplate,
+                implicitFramebufferIdentity: source()
+            ),
             "samplerBindingProvenance": [
                 "positive": samplerBindingToken(
                     samplers: [0: fixtureSampler(slot: 0)],
@@ -5846,8 +5846,6 @@ private enum EnvelopeHarness {
             "effectOutputTypedColorDeferredFailure": rejection(
                 effectOutputTypedColorDeferred
             ),
-            "purposeFailure": rejection(purposeFailure),
-            "defaultPurposeFailure": rejection(defaultPurposeFailure),
             "staticAssetDefaultClaim": staticAssetDefaultPositive.claim(
                 layerID: layerID
             ) != nil,
@@ -7613,13 +7611,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         )
         self.assertTrue(payload["effectOutputTypedColorDeferredClaim"], payload)
         self.assertEqual(payload["effectOutputTypedColorDeferredFailure"], "", payload)
-        self.assertIn(
-            "material-variant-envelope-texture-purpose",
-            payload["purposeFailure"],
-        )
-        self.assertIn(
-            "material-variant-envelope-texture-purpose",
-            payload["defaultPurposeFailure"],
+        self.assertEqual(
+            payload["implicitInputWithUnprovenAuxiliaryToken"],
+            "success",
+            payload,
         )
         self.assertTrue(payload["staticAssetDefaultClaim"], payload)
         self.assertEqual(payload["staticAssetDefaultFailure"], "")
