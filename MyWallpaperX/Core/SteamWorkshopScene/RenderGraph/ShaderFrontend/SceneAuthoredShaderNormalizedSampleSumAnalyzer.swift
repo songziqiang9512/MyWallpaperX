@@ -49,29 +49,39 @@ nonisolated enum SceneAuthoredShaderNormalizedSampleSumAnalyzer {
                       in: tokens,
                       body: main.bodyRange
                   ),
-              let call = outputCall(
+              helperDoesNotBranch(main, tokens: tokens),
+              let source = outputSource(
                   expression,
                   output: output,
                   tokens: tokens,
                   main: main
-              ),
-              main.bodyRange.filter({ isTextureSample(at: $0, tokens: tokens) }).isEmpty
+              )
         else { return nil }
 
-        let matches = fragment.functions.filter { $0.name == call.name }
-        guard matches.count == 1,
-              let helper = matches.first,
-              ["vec4", "float4"].contains(helper.returnType),
-              !helper.parameterRange.contains(where: {
-                  $0 < tokens.count && tokens[$0].text.contains("sampler")
-              }),
-              helperDoesNotBranch(helper, tokens: tokens),
-              let returned = singleReturnExpression(helper, tokens: tokens),
-              let sum = normalizedSampleSum(returned),
-              helper.bodyRange.filter({ isTextureSample(at: $0, tokens: tokens) })
-                .count == sum.sampleCount
-        else { return nil }
-        return sum.slot
+        let mainSampleCount = main.bodyRange.filter {
+            isTextureSample(at: $0, tokens: tokens)
+        }.count
+        switch source {
+        case let .inline(sum):
+            return mainSampleCount == sum.sampleCount ? sum.slot : nil
+        case let .helper(call):
+            let matches = fragment.functions.filter { $0.name == call.name }
+            guard mainSampleCount == 0,
+                  matches.count == 1,
+                  let helper = matches.first,
+                  ["vec4", "float4"].contains(helper.returnType),
+                  !helper.parameterRange.contains(where: {
+                      $0 < tokens.count && tokens[$0].text.contains("sampler")
+                  }),
+                  helperDoesNotBranch(helper, tokens: tokens),
+                  let returned = singleReturnExpression(helper, tokens: tokens),
+                  let sum = normalizedSampleSum(returned),
+                  helper.bodyRange.filter({
+                      isTextureSample(at: $0, tokens: tokens)
+                  }).count == sum.sampleCount
+            else { return nil }
+            return sum.slot
+        }
     }
 
     private struct Call {
@@ -83,17 +93,22 @@ nonisolated enum SceneAuthoredShaderNormalizedSampleSumAnalyzer {
         let sampleCount: Int
     }
 
+    private enum OutputSource {
+        case helper(Call)
+        case inline(Sum)
+    }
+
     /// Accepts either a direct helper call or one immutable local carrier.
     /// The carrier proof is intentionally exact: one declaration/initializer
     /// and one terminal read. Any mutation, additional read, or conditional
     /// definition leaves the color transfer unresolved.
-    private static func outputCall(
+    private static func outputSource(
         _ expression: ArraySlice<Token>,
         output: Int,
         tokens: [Token],
         main: Unit.Function
-    ) -> Call? {
-        if let direct = functionCall(expression) { return direct }
+    ) -> OutputSource? {
+        if let direct = functionCall(expression) { return .helper(direct) }
         guard expression.count == 1,
               let carrierToken = expression.first,
               carrierToken.kind == .identifier else { return nil }
@@ -117,13 +132,13 @@ nonisolated enum SceneAuthoredShaderNormalizedSampleSumAnalyzer {
                       after: definition,
                       in: tokens,
                       body: main.bodyRange
-                  ),
-              let call = functionCall(initializer) else { return nil }
+                  ) else { return nil }
         let uses = main.bodyRange.filter { tokens[$0].text == carrier }
         guard uses.count == 2,
               uses.contains(definition),
               uses.contains(expression.startIndex) else { return nil }
-        return call
+        if let call = functionCall(initializer) { return .helper(call) }
+        return normalizedSampleSum(initializer).map(OutputSource.inline)
     }
 
     private static func functionCall(_ expression: ArraySlice<Token>) -> Call? {
@@ -195,19 +210,24 @@ nonisolated enum SceneAuthoredShaderNormalizedSampleSumAnalyzer {
 
         var slot: Int?
         var total = 0.0
+        var authoredRoundingBound = 0.0
         for range in ranges {
             guard let term = sampleTerm(Array(values[range])) else { return nil }
             if let slot, slot != term.slot { return nil }
             slot = term.slot
             total += term.weight
+            authoredRoundingBound += term.roundingBound
         }
         guard let slot, total.isFinite,
               abs(total - 1) <= max(1e-9, Double(ranges.count) * 1e-12)
+                + authoredRoundingBound
         else { return nil }
         return .init(slot: slot, sampleCount: ranges.count)
     }
 
-    private static func sampleTerm(_ raw: [Token]) -> (slot: Int, weight: Double)? {
+    private static func sampleTerm(
+        _ raw: [Token]
+    ) -> (slot: Int, weight: Double, roundingBound: Double)? {
         let values = stripOuterParentheses(raw)
         var depth = 0
         var multiplications: [Int] = []
@@ -221,11 +241,11 @@ nonisolated enum SceneAuthoredShaderNormalizedSampleSumAnalyzer {
               let split = multiplications.first else { return nil }
         let left = Array(values[..<split])
         let right = Array(values[(split + 1)...])
-        if let slot = sampleSlot(left), let weight = positiveLiteral(right) {
-            return (slot, weight)
+        if let slot = sampleSlot(left), let literal = positiveLiteral(right) {
+            return (slot, literal.value, literal.roundingBound)
         }
-        if let weight = positiveLiteral(left), let slot = sampleSlot(right) {
-            return (slot, weight)
+        if let literal = positiveLiteral(left), let slot = sampleSlot(right) {
+            return (slot, literal.value, literal.roundingBound)
         }
         return nil
     }
@@ -246,13 +266,19 @@ nonisolated enum SceneAuthoredShaderNormalizedSampleSumAnalyzer {
         return slot
     }
 
-    private static func positiveLiteral(_ raw: [Token]) -> Double? {
+    private static func positiveLiteral(
+        _ raw: [Token]
+    ) -> (value: Double, roundingBound: Double)? {
         let values = stripOuterParentheses(raw)
         guard values.count == 1,
               values[0].kind == .number,
+              !values[0].text.lowercased().contains("e"),
               let value = Double(values[0].text),
               value.isFinite, value > 0 else { return nil }
-        return value
+        let parts = values[0].text.split(separator: ".", omittingEmptySubsequences: false)
+        let digits = parts.count == 2 ? parts[1].count : 0
+        let bound = digits >= 5 ? 0.5 * pow(10, -Double(digits)) : 0
+        return (value, bound)
     }
 
     private static func stripOuterParentheses(_ raw: [Token]) -> [Token] {

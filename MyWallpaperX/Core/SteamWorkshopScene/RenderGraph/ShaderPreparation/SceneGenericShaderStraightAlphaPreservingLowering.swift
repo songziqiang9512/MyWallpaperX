@@ -367,6 +367,11 @@ inline float4 \(premultiply)(float4 color) {
         expectedSlot: Int,
         sampleCount: Int
     ) -> String? {
+        if let immutable = SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape
+            .analyze(source, expectedSlot: expectedSlot, sampleCount: sampleCount),
+           let transformed = immutable.applying(to: source) {
+            return insertingBoundaryHelpers(into: transformed)
+        }
         guard (1 ... 16).contains(sampleCount),
               !containsWord(unpremultiply, in: source),
               !containsWord(premultiply, in: source),
@@ -375,19 +380,64 @@ inline float4 \(premultiply)(float4 color) {
         else { return nil }
 
         let denominator = String(sampleCount) + #"(?:\.0+)?"#
-        let outputs = matches(
+        let wholeOutputs = matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*float4\(\s*([A-Za-z_]\w*)\.xyz\s*,\s*\2\.w\s*/\s*"#
                 + denominator + #"\s*\);[ \t]*$"#,
             in: source
         )
-        guard outputs.count == 1,
-              let output = outputs.first,
-              let outputRange = Range(output.range, in: source),
-              let indent = capture(output, 1, in: source),
-              let accumulator = capture(output, 2, in: source),
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1 else {
+        let memberRGBOutputs = matches(
+            #"(?m)^([ \t]*)out\.mwxFragColor\.(?:xyz|rgb)\s*=\s*([A-Za-z_]\w*)\.(?:xyz|rgb)\s*/\s*float3\(\s*fast::max\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([A-Za-z_]\w*)\s*\)\s*\)\s*;[ \t]*$"#,
+            in: source
+        )
+        let memberAlphaOutputs = matches(
+            #"(?m)^([ \t]*)out\.mwxFragColor\.(?:w|a)\s*=\s*([A-Za-z_]\w*)\.(?:w|a)\s*/\s*"#
+                + denominator + #"\s*;[ \t]*$"#,
+            in: source
+        )
+        let memberwiseOutput = wholeOutputs.isEmpty
+            && memberRGBOutputs.count == 1
+            && memberAlphaOutputs.count == 1
+        let output: NSTextCheckingResult
+        let outputRange: Range<String.Index>
+        let indent: String
+        let accumulator: String
+        let memberWeight: String?
+        if wholeOutputs.count == 1,
+           memberRGBOutputs.isEmpty,
+           memberAlphaOutputs.isEmpty,
+           let whole = wholeOutputs.first,
+           let range = Range(whole.range, in: source),
+           let capturedIndent = capture(whole, 1, in: source),
+           let capturedAccumulator = capture(whole, 2, in: source) {
+            output = whole
+            outputRange = range
+            indent = capturedIndent
+            accumulator = capturedAccumulator
+            memberWeight = nil
+        } else if memberwiseOutput,
+                  let rgb = memberRGBOutputs.first,
+                  let alpha = memberAlphaOutputs.first,
+                  rgb.range.location < alpha.range.location,
+                  NSMaxRange(rgb.range) <= alpha.range.location,
+                  let rangeStart = Range(rgb.range, in: source)?.lowerBound,
+                  let rangeEnd = Range(alpha.range, in: source)?.upperBound,
+                  let capturedIndent = capture(rgb, 1, in: source),
+                  let capturedAccumulator = capture(rgb, 2, in: source),
+                  capture(alpha, 2, in: source) == capturedAccumulator,
+                  let capturedWeight = capture(rgb, 4, in: source),
+                  Double(capture(rgb, 3, in: source) ?? "").map({
+                      $0.isFinite && $0 > 0
+                  }) == true {
+            output = rgb
+            outputRange = rangeStart..<rangeEnd
+            indent = capturedIndent
+            accumulator = capturedAccumulator
+            memberWeight = capturedWeight
+        } else {
             return nil
         }
+        guard matches(#"\bout\.mwxFragColor\b"#, in: source).count
+                == (memberwiseOutput ? 2 : 1) else { return nil }
 
         let firstSamples = matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
@@ -439,10 +489,43 @@ inline float4 \(premultiply)(float4 color) {
             ).count == sampleCount
         }
         guard weightDeclarations.count == 1,
-              let weight = capture(weightDeclarations[0], 1, in: source) else {
+              let weight = capture(weightDeclarations[0], 1, in: source),
+              memberWeight.map({ $0 == weight }) ?? true else {
             return nil
         }
         let weightPattern = escaped(weight)
+
+        if memberwiseOutput {
+            guard countWord(accumulator, in: source) == sampleCount + 3,
+                  countWord(sample, in: source) == sampleCount * 4,
+                  countWord(weight, in: source) == sampleCount + 2 else {
+                return nil
+            }
+            var transformed = source
+            transformed.replaceSubrange(
+                outputRange,
+                with: "\(indent)out.mwxFragColor = \(premultiply)(float4(\(accumulator).xyz, \(accumulator).w / \(sampleCount).0));"
+            )
+            for statement in sampleStatements.sorted(by: {
+                $0.range.location > $1.range.location
+            }) {
+                let isDeclaration = statement.numberOfRanges == 5
+                let argumentsIndex = isDeclaration ? 3 : 2
+                let suffixIndex = isDeclaration ? 4 : 3
+                guard let prefix = capture(statement, 1, in: source),
+                      let arguments = capture(
+                          statement, argumentsIndex, in: source
+                      ), let suffix = capture(statement, suffixIndex, in: source),
+                      let range = Range(statement.range, in: transformed) else {
+                    return nil
+                }
+                transformed.replaceSubrange(
+                    range,
+                    with: "\(prefix)\(unpremultiply)(g_Texture\(expectedSlot).sample(\(arguments)))\(suffix)"
+                )
+            }
+            return insertingBoundaryHelpers(into: transformed)
+        }
 
         let accumulatorCopies = matches(
             #"(?m)^[ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*"#

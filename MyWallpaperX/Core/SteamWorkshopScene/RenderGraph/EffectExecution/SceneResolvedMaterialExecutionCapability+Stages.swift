@@ -149,6 +149,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
                     .launchEnvelopeFailure(template: template, failure: failure)
                 if case let .material(materialFailure) = failure,
+                   materialFailure.code == .genericProductOwnerDeferred {
+                    return .failure(envelopeRejection(
+                        failure,
+                        node: node,
+                        template: template,
+                        reasonCode:
+                            "material-generic-incumbent-owner-deferred"
+                    ))
+                }
+                if case let .material(materialFailure) = failure,
                    materialFailure.boundedDetails.contains(
                        "bounded-frontend-owner-revoked"
                    ) {

@@ -95,6 +95,7 @@
         "file_globs": [
           "SceneResolvedMaterialAlphaAttenuationEligibility.swift",
           "SceneResolvedMaterialColorBlendEligibility.swift",
+          "SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.swift",
           "SceneResolvedMaterialGenericShaderProgramArtifact.swift",
           "SceneResolvedMaterialEffectIngress.swift",
           "SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
@@ -104,6 +105,7 @@
           "SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache.swift",
+          "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
           "SceneResolvedMaterialGenericShaderRouteProfile.swift",
           "SceneResolvedMaterialHostUniformSchema.swift",
           "SceneResolvedMaterialProgram+ColorDerivation.swift",

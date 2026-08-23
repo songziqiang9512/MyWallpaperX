@@ -26,6 +26,8 @@ SWIFT_SOURCES = [
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRouteProfile.swift",
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
 ]
 
 
@@ -280,6 +282,9 @@ private struct PreservedAlphaRGBFilterHarness {
             sameSlotChannelReconstructionSourceSlot: nil,
             auxiliaryRGBMixSourceSlot: nil,
             normalizedSampleSumSourceSlot: nil,
+            alphaWeightedSampleAverageSourceSlot: nil,
+            unitCompositeBlurredSlot: nil,
+            unitCompositePreviousSlot: nil,
             hasExternalProviderTexture: false,
             producesScalarRedOutput: false,
             isSourceIndependentPremultipliedOutput: false,

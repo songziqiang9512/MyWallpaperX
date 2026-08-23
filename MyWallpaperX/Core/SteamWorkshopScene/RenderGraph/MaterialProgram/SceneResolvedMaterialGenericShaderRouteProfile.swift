@@ -30,6 +30,7 @@ nonisolated enum SceneGenericShaderRouteState: String {
 
 nonisolated enum SceneGenericShaderFallbackOwner: String {
     case boundedFrontend = "bounded-frontend"
+    case programFirstIncumbent = "program-first-incumbent"
     case none
 }
 
@@ -49,6 +50,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-target-passthrough"
     case sourceProvenNormalizedSampleSum =
         "source-proven-normalized-sample-sum"
+    case sourceProvenGraphInputAlphaWeightedSampleAverage =
+        "source-proven-graph-input-alpha-weighted-sample-average"
+    case sourceProvenUnitPreviousBlurredComposite =
+        "source-proven-unit-previous-blurred-composite"
     case sourceProvenGraphInputAlphaAttenuation =
         "source-proven-graph-input-alpha-attenuation"
     case sourceProvenGraphInputColorBlend =
@@ -83,6 +88,9 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         sameSlotChannelReconstructionSourceSlot: Int?,
         auxiliaryRGBMixSourceSlot: Int?,
         normalizedSampleSumSourceSlot: Int?,
+        alphaWeightedSampleAverageSourceSlot: Int?,
+        unitCompositeBlurredSlot: Int?,
+        unitCompositePreviousSlot: Int?,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
         isSourceIndependentPremultipliedOutput: Bool,
@@ -125,6 +133,22 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput {
             self = .sourceProvenNormalizedSampleSum
+        } else if case let .straightAlpha(sourceSlot) = colorTransfer,
+                  alphaWeightedSampleAverageSourceSlot == sourceSlot,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphInputTextureSlots == Set([sourceSlot]),
+                  hasOnlyGraphInputSampler {
+            self = .sourceProvenGraphInputAlphaWeightedSampleAverage
+        } else if colorTransfer == .premultipliedAlpha,
+                  let blurred = unitCompositeBlurredSlot,
+                  let previous = unitCompositePreviousSlot,
+                  blurred != previous,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots == Set([blurred]),
+                  graphInputTextureSlots == Set([blurred, previous]) {
+            self = .sourceProvenUnitPreviousBlurredComposite
         } else if case let .passthrough(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
@@ -218,6 +242,9 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputStraightAlpha,
              .sourceProvenGraphInputStraightAlphaPreserving:
             .preferGeneric
+        case .sourceProvenGraphInputAlphaWeightedSampleAverage,
+             .sourceProvenUnitPreviousBlurredComposite:
+            .observeOnly
         case .sourceProvenScalarColorInterpolation,
              .sourceProvenOpaqueScalarOutput,
              .sourceProvenStraightAlphaR8Signal,
@@ -241,6 +268,12 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
     /// Every migrated profile keeps only the shared bounded frontend as its
     /// explicit rollback path; no retired dedicated renderer can re-enter.
     var validatedRollbackOwner: SceneGenericShaderFallbackOwner {
-        .boundedFrontend
+        switch self {
+        case .sourceProvenGraphInputAlphaWeightedSampleAverage,
+             .sourceProvenUnitPreviousBlurredComposite:
+            .programFirstIncumbent
+        default:
+            .boundedFrontend
+        }
     }
 }

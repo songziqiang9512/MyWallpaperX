@@ -16,6 +16,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             requestKey: String,
             routeDecision: RouteDecision
         )
+        case ownerDeferred(
+            code: String, requestKey: String,
+            routeDecision: RouteDecision
+        )
         case unavailable(
             code: String,
             requestKey: String,
@@ -208,6 +212,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         fragmentSource: String,
         alphaAttenuationSourceSlot: Int? = nil,
         colorBlendSourceSlot: Int? = nil,
+        unitCompositeBlurredSlot: Int? = nil,
+        unitCompositePreviousSlot: Int? = nil,
         hasExternalProviderTexture: Bool = false,
         producesScalarRedOutput: Bool = false,
         isSourceIndependentPremultipliedOutput: Bool = false,
@@ -251,6 +257,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             SceneAuthoredShaderNormalizedSampleSumAnalyzer.sourceSlot(
                 fragmentSource: fragmentSource
             )
+        let alphaWeightedSampleAverageSourceSlot =
+            SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
+                fragmentSource: fragmentSource
+            )?.textureSlot
         let normalizedRouteFacts: SceneGenericShaderSourceNormalizer.Pair?
         switch SceneGenericShaderSourceNormalizer.normalize(
             vertexSource: vertexSource,
@@ -274,6 +284,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 sameSlotChannelReconstructionSourceSlot,
             auxiliaryRGBMixSourceSlot: auxiliaryRGBMixSourceSlot,
             normalizedSampleSumSourceSlot: normalizedSampleSumSourceSlot,
+            alphaWeightedSampleAverageSourceSlot:
+                alphaWeightedSampleAverageSourceSlot,
+            unitCompositeBlurredSlot: unitCompositeBlurredSlot,
+            unitCompositePreviousSlot: unitCompositePreviousSlot,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
             isSourceIndependentPremultipliedOutput:
@@ -307,7 +321,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 requestKey: key,
                 reason: "route-configuration-invalid"
             )
-            return .unavailable(
+            return .unavailableOrDeferred(
                 code: "route-invalid",
                 requestKey: key,
                 permitsBoundedFrontend:
@@ -331,7 +345,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 reason: "route-disabled",
                 requestKey: key
             )
-            return .unavailable(
+            return .unavailableOrDeferred(
                 code: "route-disabled",
                 requestKey: key,
                 permitsBoundedFrontend:
@@ -347,7 +361,14 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             colorTransfer: colorTransfer
         )
         guard routeState == .preferGeneric || routeState == .genericOnly else {
-            return .unavailable(
+            routeTelemetry.record(
+                state: routeState,
+                profile: profile,
+                outcome: "observed",
+                reason: "route-observe-only",
+                requestKey: key
+            )
+            return .unavailableOrDeferred(
                 code: "route-observe-only",
                 requestKey: key,
                 permitsBoundedFrontend:
@@ -483,7 +504,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             reason: code,
             requestKey: requestKey
         )
-        return .unavailable(
+        return .unavailableOrDeferred(
             code: code,
             requestKey: requestKey,
             permitsBoundedFrontend:

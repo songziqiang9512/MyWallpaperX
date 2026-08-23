@@ -50,6 +50,7 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         case samplerVariantSchemaDivergence
         case authoredSamplerSchemaInvalid
         case shaderFrontendFailed
+        case genericProductOwnerDeferred
         case uniformBindingInvalid
         case activeUniformSchemaMissing
         case uniformDeclarationConflict

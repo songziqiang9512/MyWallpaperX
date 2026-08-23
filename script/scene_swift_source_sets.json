@@ -89,6 +89,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderColorMixGraphAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderNormalizedSampleSumAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderWholeVectorAffineParser.swift",
@@ -182,6 +183,7 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransfer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompiler.swift"
       ]
@@ -238,7 +240,9 @@
         "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRouteProfile.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialAlphaAttenuationEligibility.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialColorBlendEligibility.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",

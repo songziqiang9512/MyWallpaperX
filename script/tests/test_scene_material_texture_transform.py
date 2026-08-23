@@ -57,6 +57,8 @@ EXTRA_SOURCES = [
     / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",
 ]
 SWIFT_SOURCES = list(dict.fromkeys([*PASS_ENCODER_SOURCES, *EXTRA_SOURCES]))

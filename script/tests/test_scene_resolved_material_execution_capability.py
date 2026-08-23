@@ -508,7 +508,7 @@ enum SceneResolvedMaterialShaderSchema {
 
 struct SceneResolvedMaterialFailure: Error {
     enum Phase: String { case invariant }
-    enum Code: String { case identityInvariant }
+    enum Code: String { case identityInvariant, genericProductOwnerDeferred }
     let phase: Phase = .invariant
     let code: Code = .identityInvariant
     let slot: Int? = nil

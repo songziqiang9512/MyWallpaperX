@@ -28,6 +28,9 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRouteProfile.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
+    Path(__file__).with_name("fixtures")
+    / "SceneGenericShaderRouteResolutionSupport.swift",
 ]
 CACHE_SOURCE = (
     SCENE_ROOT
@@ -37,21 +40,7 @@ CACHE_SOURCE = (
 HARNESS = r"""
 import Foundation
 
-private struct Output: Codable {
-    let status: String
-    let code: String?
-    let requestKey: String
-    let permitsBoundedFrontend: Bool?
-    let backend: String?
-    let uniformBufferIndex: Int?
-    let uniformNames: [String]?
-    let textureSlots: [Int]?
-    let colorTransfer: String?
-    let fragmentOutputChannelUse: String?
-    let routeProfile: String?
-    let routeState: String?
-    let fallbackOwner: String?
-}
+private typealias Output = SceneGenericShaderRouteFixtureOutput
 
 private struct CoordinatorOutput: Codable {
     let operationCount: Int
@@ -2013,15 +2002,20 @@ private struct GenericShaderArtifactHarness {
                 fallbackOwner: decision.fallbackOwner
             )
         case let .unavailable(code, requestKey, permitsBoundedFrontend, decision):
-            result = .init(
-                status: "unavailable", code: code, requestKey: requestKey,
+            result = .unavailable(
+                status: "unavailable",
+                code: code,
+                requestKey: requestKey,
                 permitsBoundedFrontend: permitsBoundedFrontend,
-                backend: nil, uniformBufferIndex: nil,
-                uniformNames: nil, textureSlots: nil, colorTransfer: nil,
-                fragmentOutputChannelUse: nil,
-                routeProfile: decision.profile,
-                routeState: decision.state,
-                fallbackOwner: decision.fallbackOwner
+                decision: decision
+            )
+        case let .ownerDeferred(code, requestKey, decision):
+            result = .unavailable(
+                status: "owner-deferred",
+                code: code,
+                requestKey: requestKey,
+                permitsBoundedFrontend: nil,
+                decision: decision
             )
         }
         let data = try JSONEncoder().encode(result)

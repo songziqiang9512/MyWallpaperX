@@ -167,11 +167,21 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 graphInputSourceSlotFacts: sourceGraphInputFacts
             )
+        let unitCompositeSlots =
+            SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.slots(
+                fragmentSource: compilerSources.fragment,
+                samplers: sourceActiveSamplers,
+                template: template,
+                implicitFramebufferIdentity: implicitFramebufferIdentity,
+                activeGraphTextureIdentities: activeGraphTextureIdentities
+            )
         let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: compilerSources.vertex,
             fragmentSource: compilerSources.fragment,
             alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
             colorBlendSourceSlot: colorBlendSourceSlot,
+            unitCompositeBlurredSlot: unitCompositeSlots?.blurred,
+            unitCompositePreviousSlot: unitCompositeSlots?.previous,
             hasExternalProviderTexture:
                 SceneResolvedMaterialVariantCache.hasExternalProviderTexture(
                     in: template,
@@ -210,6 +220,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             routeDecision = decision
             boundedOutput = nil
             artifactFailure = ["generic-artifact-accepted", requestKey]
+        case let .ownerDeferred(code, requestKey, decision):
+            throw failure(
+                .genericProductOwnerDeferred,
+                phase: .frontend,
+                details: ["generic-artifact", code, requestKey, decision.profile]
+            )
         case let .unavailable(
             code,
             requestKey,

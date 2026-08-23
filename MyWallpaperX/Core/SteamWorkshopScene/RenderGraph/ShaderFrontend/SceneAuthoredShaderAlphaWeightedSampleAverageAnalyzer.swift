@@ -43,26 +43,28 @@ nonisolated enum SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer {
         else { return nil }
 
         let outputUses = body.filter { tokens[$0].text == "gl_FragColor" }
-        guard outputUses.count == 1,
-              let output = outputUses.first,
-              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
-                  output,
-                  tokens: tokens,
-                  body: body
-              ),
-              let outputExpression = SceneAuthoredShaderColorTransferAnalyzer
-                  .assignmentExpression(after: output, in: tokens, body: body),
-              let outputFact = outputFact(Array(outputExpression)) else {
+        guard let outputFact = outputFact(
+            outputUses: outputUses,
+            tokens: tokens,
+            body: body
+        ) else {
             return nil
         }
+        let output = outputFact.firstOutput
 
         let accumulator = outputFact.accumulator
-        guard let normalization = normalizationFact(
-            accumulator: accumulator,
-            tokens: tokens,
-            body: body,
-            before: output
-        ) else { return nil }
+        let normalization: NormalizationFact
+        if let outputNormalization = outputFact.outputNormalization {
+            normalization = outputNormalization
+        } else {
+            guard let prior = normalizationFact(
+                accumulator: accumulator,
+                tokens: tokens,
+                body: body,
+                before: output
+            ) else { return nil }
+            normalization = prior
+        }
         let weight = normalization.weight
 
         let accumulatorWrites = body.filter {
@@ -98,6 +100,11 @@ nonisolated enum SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer {
                 && tokens[$0 + 1].text == "+="
         }
         guard sampleAssignments.count == outputFact.sampleCount,
+              sampleAssignments.allSatisfy({
+                  isSampleAssignment(
+                      at: $0, sample: sample, tokens: tokens, body: body
+                  )
+              }),
               weightWrites.count == outputFact.sampleCount,
               weightWrites.last.map({ $0 < normalization.statementIndex }) == true
         else { return nil }
@@ -122,16 +129,22 @@ nonisolated enum SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer {
                   ) else { return nil }
             slot = currentSlot
         }
-        guard let slot else { return nil }
+        guard let slot,
+              sampleStorageIsLexicallyBound(
+                  sample,
+                  assignments: sampleAssignments,
+                  accumulatorWrites: accumulatorWrites,
+                  weightWrites: weightWrites,
+                  tokens: tokens,
+                  body: body
+              ) else { return nil }
 
         let sampleCalls = fragment.tokens.indices.filter {
             ["texSample2D", "texture2D"].contains(tokens[$0].text)
         }
         guard sampleCalls.count == outputFact.sampleCount,
               wordCount(accumulator, tokens: tokens, in: body)
-                == outputFact.sampleCount + 4,
-              wordCount(sample, tokens: tokens, in: body)
-                == 1 + outputFact.sampleCount * 4,
+                == outputFact.sampleCount + outputFact.accumulatorUseOverhead,
               wordCount(weight, tokens: tokens, in: body)
                 == outputFact.sampleCount + 2 else { return nil }
         return .init(textureSlot: slot, sampleCount: outputFact.sampleCount)
@@ -140,9 +153,139 @@ nonisolated enum SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer {
     private struct OutputFact {
         let accumulator: String
         let sampleCount: Int
+        let firstOutput: Int
+        let accumulatorUseOverhead: Int
+        let outputNormalization: NormalizationFact?
     }
 
-    private static func outputFact(_ values: [Token]) -> OutputFact? {
+    private static func outputFact(
+        outputUses: [Int],
+        tokens: [Token],
+        body: Range<Int>
+    ) -> OutputFact? {
+        if outputUses.count == 1,
+           let output = outputUses.first,
+           SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+               output,
+               tokens: tokens,
+               body: body
+           ), let expression = SceneAuthoredShaderColorTransferAnalyzer
+                .assignmentExpression(after: output, in: tokens, body: body),
+           let whole = wholeOutputFact(Array(expression)) {
+            return .init(
+                accumulator: whole.accumulator,
+                sampleCount: whole.sampleCount,
+                firstOutput: output,
+                accumulatorUseOverhead: 4,
+                outputNormalization: nil
+            )
+        }
+        guard outputUses.count == 2,
+              let rgb = memberOutput(
+                  outputUses[0],
+                  expectedMembers: ["rgb", "xyz"],
+                  tokens: tokens,
+                  body: body
+              ),
+              let alpha = memberOutput(
+                  outputUses[1],
+                  expectedMembers: ["a", "w"],
+                  tokens: tokens,
+                  body: body
+              ),
+              let rgbFact = rgbNormalizationFact(rgb.expression),
+              let alphaFact = alphaOutputFact(alpha.expression),
+              rgbFact.accumulator == alphaFact.accumulator,
+              rgb.statementEnd == outputUses[1],
+              alpha.statementEnd == body.upperBound - 1,
+              (1 ... 16).contains(alphaFact.sampleCount) else {
+            return nil
+        }
+        return .init(
+            accumulator: alphaFact.accumulator,
+            sampleCount: alphaFact.sampleCount,
+            firstOutput: outputUses[0],
+            accumulatorUseOverhead: 3,
+            outputNormalization: .init(
+                weight: rgbFact.weight,
+                statementIndex: outputUses[0]
+            )
+        )
+    }
+
+    private struct MemberOutput {
+        let expression: [Token]
+        let statementEnd: Int
+    }
+
+    private static func memberOutput(
+        _ output: Int,
+        expectedMembers: Set<String>,
+        tokens: [Token],
+        body: Range<Int>
+    ) -> MemberOutput? {
+        guard output + 3 < body.upperBound,
+              tokens[output + 1].text == ".",
+              expectedMembers.contains(tokens[output + 2].text),
+              tokens[output + 3].text == "=",
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                  output,
+                  tokens: tokens,
+                  body: body
+              ), let expression = SceneAuthoredShaderColorTransferAnalyzer
+                .assignmentExpression(after: output + 2, in: tokens, body: body)
+        else { return nil }
+        return .init(
+            expression: Array(expression),
+            statementEnd: expression.endIndex + 1
+        )
+    }
+
+    private struct RGBNormalizationFact {
+        let accumulator: String
+        let weight: String
+    }
+
+    private static func rgbNormalizationFact(
+        _ values: [Token]
+    ) -> RGBNormalizationFact? {
+        guard values.count == 10,
+              values[0].kind == .identifier,
+              values[1].text == ".",
+              ["rgb", "xyz"].contains(values[2].text),
+              values[3].text == "/",
+              values[4].text == "max",
+              values[5].text == "(",
+              values[6].kind == .number,
+              (Double(values[6].text).map { $0.isFinite && $0 > 0 } ?? false),
+              values[7].text == ",",
+              values[8].kind == .identifier,
+              values[9].text == ")" else { return nil }
+        return .init(accumulator: values[0].text, weight: values[8].text)
+    }
+
+    private struct AlphaOutputFact {
+        let accumulator: String
+        let sampleCount: Int
+    }
+
+    private static func alphaOutputFact(_ values: [Token]) -> AlphaOutputFact? {
+        guard values.count == 5,
+              values[0].kind == .identifier,
+              values[1].text == ".",
+              ["a", "w"].contains(values[2].text),
+              values[3].text == "/",
+              values[4].kind == .number,
+              let count = exactInteger(values[4].text) else { return nil }
+        return .init(accumulator: values[0].text, sampleCount: count)
+    }
+
+    private struct WholeOutputFact {
+        let accumulator: String
+        let sampleCount: Int
+    }
+
+    private static func wholeOutputFact(_ values: [Token]) -> WholeOutputFact? {
         guard values.count == 12,
               ["vec4", "float4"].contains(values[0].text),
               values[1].text == "(", values[3].text == ".",
@@ -248,9 +391,7 @@ nonisolated enum SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer {
                   Double(tokens[index + 4].text) == 0,
                   tokens[index + 5].text == ")" else { return false }
             if tokens[index + 6].text == ";" {
-                return hasStandaloneVectorDeclaration(
-                    sample, tokens: tokens, body: body
-                )
+                return true
             }
             return index + 8 < body.upperBound
                 && tokens[index + 6].text == ","
@@ -260,16 +401,109 @@ nonisolated enum SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer {
         return matches.count == 1
     }
 
+    private static func isSampleAssignment(
+        at index: Int, sample: String, tokens: [Token], body: Range<Int>
+    ) -> Bool {
+        guard tokens[index].text == sample, tokens[index + 1].text == "=" else {
+            return false
+        }
+        if index > body.lowerBound,
+           ["vec4", "float4"].contains(tokens[index - 1].text) {
+            return true
+        }
+        return hasStandaloneVectorDeclaration(sample, tokens: tokens, body: body)
+    }
+
+    private static func sampleStorageIsLexicallyBound(
+        _ sample: String,
+        assignments: [Int],
+        accumulatorWrites: [Int],
+        weightWrites: [Int],
+        tokens: [Token],
+        body: Range<Int>
+    ) -> Bool {
+        let localDeclarations = assignments.filter {
+            $0 > body.lowerBound
+                && ["vec4", "float4"].contains(tokens[$0 - 1].text)
+        }
+        if localDeclarations.isEmpty {
+            return hasStandaloneVectorDeclaration(
+                sample, tokens: tokens, body: body
+            ) && wordCount(sample, tokens: tokens, in: body)
+                == 1 + assignments.count * 4
+        }
+        guard localDeclarations == assignments,
+              !hasStandaloneVectorDeclaration(sample, tokens: tokens, body: body)
+        else { return false }
+
+        var priorBlocks: [Range<Int>] = []
+        for ordinal in assignments.indices {
+            guard let block = innermostLexicalBlock(
+                containing: assignments[ordinal], tokens: tokens, body: body
+            ), block != body,
+               block.contains(accumulatorWrites[ordinal]),
+               block.contains(weightWrites[ordinal]),
+               wordCount(sample, tokens: tokens, in: block) == 4,
+               !priorBlocks.contains(block) else { return false }
+            priorBlocks.append(block)
+        }
+        let boundUses = priorBlocks.reduce(0) {
+            $0 + wordCount(sample, tokens: tokens, in: $1)
+        }
+        return boundUses == wordCount(sample, tokens: tokens, in: body)
+    }
+
+    private static func innermostLexicalBlock(
+        containing index: Int,
+        tokens: [Token],
+        body: Range<Int>
+    ) -> Range<Int>? {
+        var openings: [Int] = []
+        for cursor in body.lowerBound...index {
+            if tokens[cursor].text == "{" {
+                openings.append(cursor)
+            } else if tokens[cursor].text == "}", !openings.isEmpty {
+                openings.removeLast()
+            }
+        }
+        guard let opening = openings.last else { return body }
+        var depth = 1
+        var cursor = opening + 1
+        while cursor < body.upperBound {
+            if tokens[cursor].text == "{" {
+                depth += 1
+            } else if tokens[cursor].text == "}" {
+                depth -= 1
+                if depth == 0 {
+                    return (opening + 1)..<cursor
+                }
+            }
+            cursor += 1
+        }
+        return nil
+    }
+
     private static func hasStandaloneVectorDeclaration(
         _ name: String,
         tokens: [Token],
         body: Range<Int>
     ) -> Bool {
         body.contains { index in
-            index > body.lowerBound && index + 1 < body.upperBound
-                && tokens[index].text == name
-                && ["vec4", "float4"].contains(tokens[index - 1].text)
-                && tokens[index + 1].text == ";"
+            guard index > body.lowerBound, index + 1 < body.upperBound,
+                  tokens[index].text == name,
+                  tokens[index + 1].text == ";" else { return false }
+            if ["vec4", "float4"].contains(tokens[index - 1].text) {
+                return true
+            }
+            guard tokens[index - 1].text == "," else { return false }
+            var cursor = index - 2
+            while cursor >= body.lowerBound, tokens[cursor].text != ";" {
+                if ["vec4", "float4"].contains(tokens[cursor].text) {
+                    return true
+                }
+                cursor -= 1
+            }
+            return false
         }
     }
 
