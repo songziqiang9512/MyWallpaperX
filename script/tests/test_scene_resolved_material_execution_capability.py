@@ -3425,16 +3425,16 @@ private enum Harness {
                 "validSceneScript": validSceneScriptCatalog.claim(layerID: layerID) != nil
                     && validSceneScriptCatalog.sceneScriptConsumerTargets
                         == Set([dynamicTarget()]),
-                "unknownScript": reportHas(
-                    unknownScriptCatalog,
-                    "material-dynamic-uniform-script-attachment-unproven"
-                ) && unknownScriptCatalog.claim(layerID: layerID) == nil,
-                "multipleProducer": reportHas(
-                    multipleProducerCatalog,
-                    "material-dynamic-uniform-contributor-policy"
-                ),
-                "multipleProducerNonLeafRemainsRejected":
-                    multipleProducerCatalog.claim(layerID: layerID) == nil,
+                "unknownScriptGraphIsEffectLocal": unknownScriptCatalog
+                    .claim(layerID: layerID).flatMap { unknownScriptCatalog.resolve($0.token) }?
+                    .stages.contains { $0.visualFailureReasonCode
+                        == "material-dynamic-uniform-script-attachment-unproven" } == true,
+                "multipleProducerGraphIsEffectLocal": multipleProducerCatalog
+                    .claim(layerID: layerID).flatMap { multipleProducerCatalog.resolve($0.token) }?
+                    .stages.contains { $0.visualFailureReasonCode
+                        == "material-dynamic-uniform-contributor-policy" } == true,
+                "multipleProducerNonLeafCanClaim":
+                    multipleProducerCatalog.claim(layerID: layerID) != nil,
                 "multipleProducerPairLeafPassthrough":
                     pairMultipleProducerCapability?.stages.first?
                         .visualFailureReasonCode
@@ -3487,10 +3487,10 @@ private enum Harness {
                 ) && historyComposeFailureCatalog.claim(layerID: layerID) == nil,
                 "multipleProducerMalformedComposeRemainsHard":
                     malformedComposeFailureCatalog.claim(layerID: layerID) == nil,
-                "multipleProducerMissingNonLeafRemainsRejected": reportHas(
-                    multipleProducerMissingCatalog,
-                    "material-dynamic-uniform-contributor-producer-unavailable"
-                ) && multipleProducerMissingCatalog.claim(layerID: layerID) == nil,
+                "multipleProducerMissingGraphIsEffectLocal":
+                    multipleProducerMissingCatalog.claim(layerID: layerID).flatMap {
+                        multipleProducerMissingCatalog.resolve($0.token) }?.stages.contains {
+                            $0.visualFailureReasonCode == "material-dynamic-uniform-contributor-producer-unavailable" } == true,
                 "multipleProducerMissingPairLeafPassthrough":
                     pairMultipleProducerMissingCapability?.stages.first?
                         .visualFailureReasonCode
@@ -3579,14 +3579,14 @@ private enum Harness {
                     pairKnownControlWrongContributorCatalog,
                     "dynamic-uniform-unavailable"
                 ) && pairKnownControlWrongContributorCatalog.claim(layerID: layerID) == nil,
-                "missingProducer": reportHas(
-                    missingProducerCatalog,
-                    "material-dynamic-uniform-producer-unavailable"
-                ) && missingProducerCatalog.claim(layerID: layerID) == nil,
-                "unverifiedSceneScript": reportHas(
-                    unverifiedSceneScriptCatalog,
-                    "material-dynamic-uniform-script-attachment-unproven"
-                ) && unverifiedSceneScriptCatalog.claim(layerID: layerID) == nil,
+                "missingProducerGraphIsEffectLocal": missingProducerCatalog
+                    .claim(layerID: layerID).flatMap { missingProducerCatalog.resolve($0.token) }?
+                    .stages.contains { $0.visualFailureReasonCode
+                        == "material-dynamic-uniform-producer-unavailable" } == true,
+                "unverifiedSceneScriptGraphIsEffectLocal": unverifiedSceneScriptCatalog
+                    .claim(layerID: layerID).flatMap { unverifiedSceneScriptCatalog.resolve($0.token) }?
+                    .stages.contains { $0.visualFailureReasonCode
+                        == "material-dynamic-uniform-script-attachment-unproven" } == true,
                 "dedicatedBeforeResolvedAccepted":
                     dedicatedBeforeResolvedCatalog.claim(layerID: layerID) != nil,
                 "alternatingMixedOrderAccepted": alternatingCapability != nil,
@@ -7423,9 +7423,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "dynamicVisibility": True,
                 "validTimeline": True,
                 "validSceneScript": True,
-                "unknownScript": True,
-                "multipleProducer": True,
-                "multipleProducerNonLeafRemainsRejected": True,
+                "unknownScriptGraphIsEffectLocal": True,
+                "multipleProducerGraphIsEffectLocal": True,
+                "multipleProducerNonLeafCanClaim": True,
                 "multipleProducerPairLeafPassthrough": True,
                 "multipleProducerPairLeafCounted": True,
                 "graphInternalVisualFailureIsEffectLocal": True,
@@ -7435,7 +7435,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "validThreeNodeComposePassthrough": True,
                 "multipleProducerHistoryComposeRemainsHard": True,
                 "multipleProducerMalformedComposeRemainsHard": True,
-                "multipleProducerMissingNonLeafRemainsRejected": True,
+                "multipleProducerMissingGraphIsEffectLocal": True,
                 "multipleProducerMissingPairLeafPassthrough": True,
                 "multipleProducerMissingPairLeafCounted": True,
                 "multipleProducerAllMissingPairLeafPassthrough": True,
@@ -7454,8 +7454,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "mismatchedProducerRemainsHard": True,
                 "duplicateAttachmentRemainsHard": True,
                 "knownControlWrongContributorRemainsHard": True,
-                "missingProducer": True,
-                "unverifiedSceneScript": True,
+                "missingProducerGraphIsEffectLocal": True,
+                "unverifiedSceneScriptGraphIsEffectLocal": True,
                 "dedicatedBeforeResolvedAccepted": True,
                 "alternatingMixedOrderAccepted": True,
                 "alternatingMixedOrderContract": True,

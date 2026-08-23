@@ -30,6 +30,7 @@ extension SceneResolvedMaterialGraphExecutor {
         if case let .visualFailurePassthrough(_, reasonCode) = stageCapability {
             return prepareVisualFailurePassthrough(
                 reasonCode: reasonCode,
+                dependencyOwnership: capability.dependencyOwnership,
                 transition: transition,
                 graph: graph,
                 pairStep: pairStep,
@@ -203,6 +204,7 @@ extension SceneResolvedMaterialGraphExecutor {
                     }
                     return prepareVisualFailurePassthrough(
                         reasonCode: reasonCode,
+                        dependencyOwnership: capability.dependencyOwnership,
                         transition: transition,
                         graph: graph,
                         pairStep: pairStep,
@@ -240,6 +242,7 @@ extension SceneResolvedMaterialGraphExecutor {
                     }
                     return prepareVisualFailurePassthrough(
                         reasonCode: reasonCode,
+                        dependencyOwnership: capability.dependencyOwnership,
                         transition: transition,
                         graph: graph,
                         pairStep: pairStep,

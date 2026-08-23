@@ -6437,22 +6437,22 @@ private enum Harness {
             "nonzeroClearAdmittedBeforeFrame": nonzeroClearCapabilities.claim(
                 admittedGraph(nonzeroClearGraph)
             ) != nil,
-            "authoredClearVisualFailureRemainsHardRejected":
+            "authoredClearVisualFailureCanClaimWholeEffectPassthrough":
                 clearVisualFailureCapabilities.claim(
                     admittedGraph(nonzeroClearGraph)
-                ) == nil,
-            "uniqueTargetVisualFailureRemainsHardRejected":
+                ) != nil,
+            "uniqueTargetVisualFailureCanClaimWholeEffectPassthrough":
                 uniqueVisualFailureCapabilities.claim(
                     admittedGraph(uniqueVisualFailureGraph)
-                ) == nil,
+                ) != nil,
             "readBeforeWriteHistoryVisualFailureRemainsHardRejected":
                 readBeforeWriteVisualFailureCapabilities.claim(
                     admittedGraph(readBeforeWriteVisualFailureGraph)
                 ) == nil,
-            "unusedTargetVisualFailureRemainsHardRejected":
+            "writeOnlyTargetVisualFailureCanClaimWholeEffectPassthrough":
                 unusedTargetVisualFailureCapabilities.claim(
                     admittedGraph(unusedTargetVisualFailureGraph)
-                ) == nil,
+                ) != nil,
             "commandGraphLaunchVisualFailureCanClaimWholeEffectPassthrough":
                 commandVisualFailureCapabilities.claim(
                     admittedGraph(commandVisualFailureGraph)

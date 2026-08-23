@@ -280,9 +280,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     /// remain hard rejections. Multi-node stages are admitted only as one atomic
     /// effect; a failed intermediate Program never publishes a partial authored
     /// result.
-    /// Besides the pair-only compose shape, this admits an ordinary
-    /// non-persistent framebuffer command graph. Every framebuffer read must
-    /// follow a same-effect write, so no history can be hidden in this gate.
+    /// Besides the pair-only compose shape, this admits any framebuffer graph
+    /// already accepted by the shared target planner. Because failure happens
+    /// before authored commands encode, the executor can discard the complete
+    /// candidate and retain only the effect-entry current and committed history.
     private static func visualFailureMayPassthrough(
         _ failure: Rejection,
         product: SceneGraphAdmissionProduct,
@@ -319,7 +320,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               pairStep.nodes.count == product.graph.nodes.count else { return false }
 
         if !product.graph.renderTargets.isEmpty {
-            return visualFailureFramebufferTopologyMayPassthrough(
+            return preEncodeVisualFailureGraphMayPassthrough(
                 product.graph,
                 effect: effect,
                 pairStep: pairStep

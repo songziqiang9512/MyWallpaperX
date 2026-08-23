@@ -40,6 +40,36 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return true
     }
 
+    /// A Program/finalizer/pipeline failure happens before any authored graph
+    /// command is encoded. At that boundary every graph already accepted by
+    /// the shared target planner can be skipped atomically: the executor keeps
+    /// the effect-entry current, preserves only committed history, and drops
+    /// the candidate node/command prefix. This predicate deliberately does not
+    /// admit unavailable dependencies; those retain the narrower no-history
+    /// contract above because their producer lifecycle is a separate owner.
+    static func preEncodeVisualFailureGraphMayPassthrough(
+        _ graph: Graph,
+        effect: Graph.Effect,
+        pairStep: SceneLayerFullFramePairPlan.EffectStep
+    ) -> Bool {
+        guard graph.effects.count == 1,
+              graph.effects[0].key == effect.key,
+              graph.blockers.isEmpty,
+              !graph.nodes.isEmpty,
+              graph.nodes.count == pairStep.nodes.count,
+              pairStep.effect == effect.key,
+              let inputRole = SceneAuthoredEffectInputValidator.role(
+                  for: effect.input,
+                  layerID: graph.layerID
+              ), case .success = SceneGraphRenderTargetPlan.make(
+                  graph: graph,
+                  inputRole: inputRole,
+                  inputWidth: 1,
+                  inputHeight: 1
+              ) else { return false }
+        return true
+    }
+
     /// Admits only a same-effect, non-persistent FBO graph whose reads are
     /// dominated by authored writes. The graph may interleave ordinary
     /// material, copy and swap nodes, but it must have one terminal full-frame

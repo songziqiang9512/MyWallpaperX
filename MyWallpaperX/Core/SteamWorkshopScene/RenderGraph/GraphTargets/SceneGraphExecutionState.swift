@@ -156,17 +156,94 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         topologySignature: nil, planSignature: nil
     )
 
-    /// Invalidates an uncommitted, non-persistent framebuffer candidate after
-    /// a whole-effect visual fallback. The allocation generation remains in
-    /// the transaction for lifecycle accounting, while target mappings and
-    /// signatures are deliberately discarded so the next frame reparses the
-    /// authored graph instead of treating skipped writes as committed state.
+    /// Invalidates an uncommitted framebuffer candidate after a whole-effect
+    /// visual fallback. Non-persistent graphs discard their target state so
+    /// the next frame reparses normally. Persistent graphs keep only the
+    /// already committed/rehydrated mapping that existed before this frame's
+    /// authored intents; skipped initialization, writes, copies and swaps are
+    /// never promoted to history.
     static func discardingUncommittedVisualFailure(
-        _ candidate: Transition
+        _ candidate: Transition,
+        previous: Self
     ) -> Transition? {
-        guard candidate.nextState.historyClosureIdentities.isEmpty,
-              candidate.nextState.historyLogicalIdentities.isEmpty,
-              candidate.transaction.allocationGeneration > 0 else { return nil }
+        guard candidate.transaction.allocationGeneration > 0 else { return nil }
+        if !candidate.nextState.historyClosureIdentities.isEmpty {
+            let mapping = candidate.transaction.mappingBefore
+            guard !candidate.nextState.historyLogicalIdentities.isEmpty,
+                  candidate.nextState.historyLogicalIdentities.isSubset(
+                      of: candidate.nextState.historyClosureIdentities
+                  ), mappingIsPermutation(
+                      mapping,
+                      of: candidate.nextState.authoredResources
+                  ) else { return nil }
+            let committedTokens = Set(mapping.values.compactMap {
+                $0.contentGeneration > 0 ? $0.token : nil
+            })
+            let projection = persistentProjection(
+                mapping: mapping,
+                initialized: committedTokens,
+                historyClosure: candidate.nextState.historyClosureIdentities
+            )
+            let readableHistory = Set(projection.mapping.compactMap {
+                identity, resource in
+                candidate.nextState.historyClosureIdentities.contains(identity)
+                    && resource.contentGeneration > 0 ? identity : nil
+            })
+            guard readableHistory
+                    == candidate.nextState.historyClosureIdentities else {
+                return discardingAllTargetState(candidate)
+            }
+            let preservesPriorGeneration = previous.allocationGeneration != nil
+                && previous.effectGeneration
+                    == candidate.transaction.effectGeneration
+                && previous.resetGeneration
+                    == candidate.transaction.resetGeneration
+            let lastGeneration: UInt64
+            if preservesPriorGeneration {
+                guard previous.lastContentGeneration
+                        >= (mapping.values.map(\.contentGeneration).max() ?? 0)
+                else { return nil }
+                lastGeneration = previous.lastContentGeneration
+            } else {
+                guard mapping.values.allSatisfy({
+                    $0.contentGeneration == 0
+                }) else { return nil }
+                lastGeneration = 0
+            }
+            let transaction = Transaction(
+                intents: [],
+                mappingBefore: projection.mapping,
+                mappingAfter: projection.mapping,
+                allocationGeneration: candidate.transaction.allocationGeneration,
+                effectGeneration: candidate.transaction.effectGeneration,
+                resetGeneration: candidate.transaction.resetGeneration
+            )
+            let next = Self(
+                effectGeneration: candidate.transaction.effectGeneration,
+                resetGeneration: candidate.transaction.resetGeneration,
+                allocationGeneration: candidate.transaction.allocationGeneration,
+                authoredResources: candidate.nextState.authoredResources,
+                logicalMapping: projection.mapping,
+                initializedPhysicalTokens: projection.initialized,
+                historyLogicalIdentities:
+                    candidate.nextState.historyLogicalIdentities,
+                historyClosureIdentities:
+                    candidate.nextState.historyClosureIdentities,
+                lastContentGeneration: lastGeneration,
+                topologySignature: candidate.nextState.topologySignature,
+                planSignature: candidate.nextState.planSignature
+            )
+            return .init(nextState: next, transaction: transaction)
+        }
+        guard candidate.nextState.historyLogicalIdentities.isEmpty else {
+            return nil
+        }
+        return discardingAllTargetState(candidate)
+    }
+
+    private static func discardingAllTargetState(
+        _ candidate: Transition
+    ) -> Transition {
         let transaction = Transaction(
             intents: [],
             mappingBefore: [:],

@@ -231,20 +231,34 @@ void main() {
 }
 """
 
-private func fragmentSource(pair: Bool) -> String {
+private func fragmentSource(
+    pair: Bool,
+    invalidUniform: Bool = false
+) -> String {
     let expression = pair
         ? "vec2 value = texSample2D(g_Texture0, v_TexCoord).rg; "
             + "gl_FragColor = vec4(value, 0.0, 1.0);"
         : "float value = texSample2D(g_Texture0, v_TexCoord).r; "
             + "gl_FragColor = vec4(value, 0.0, 0.0, 1.0);"
+    let uniform = invalidUniform
+        ? "uniform float g_Invalid; // {\"material\":3}\n" : ""
+    let applied = invalidUniform
+        ? expression.replacingOccurrences(
+            of: "gl_FragColor = ",
+            with: "gl_FragColor = g_Invalid * "
+        ) : expression
     return """
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0;
-    void main() { \(expression) }
+    \(uniform)void main() { \(applied) }
     """
 }
 
-private func shaderContract(index: Int, pair: Bool) -> SceneShaderContract {
+private func shaderContract(
+    index: Int,
+    pair: Bool,
+    invalidUniform: Bool = false
+) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
         path: String,
@@ -270,7 +284,10 @@ private func shaderContract(index: Int, pair: Bool) -> SceneShaderContract {
         stage(
             .fragment,
             path: "\(prefix).frag",
-            source: fragmentSource(pair: pair)
+            source: fragmentSource(
+                pair: pair,
+                invalidUniform: invalidUniform
+            )
         ),
     ]
     let sourceGraph = SceneShaderSourceGraph(
@@ -312,9 +329,17 @@ private func role(
     }
 }
 
-private func template(for node: Graph.Node, pair: Bool) -> Template {
+private func template(
+    for node: Graph.Node,
+    pair: Bool,
+    invalidUniform: Bool = false
+) -> Template {
     let read = node.bindings[0]
-    let contract = shaderContract(index: node.nodeIndex, pair: pair)
+    let contract = shaderContract(
+        index: node.nodeIndex,
+        pair: pair,
+        invalidUniform: invalidUniform
+    )
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     slots[0] = .init(index: 0, candidates: [
         .init(reference: .graph(read.texture), provenance: .explicitBinding),
@@ -348,7 +373,11 @@ private func template(for node: Graph.Node, pair: Bool) -> Template {
     )!
 }
 
-private func capabilities(_ graph: Graph, pair: Bool) -> Capabilities {
+private func capabilities(
+    _ graph: Graph,
+    pair: Bool,
+    invalidUniformNode: Int? = nil
+) -> Capabilities {
     let materialNodes = graph.nodes.filter { $0.kind == .material }
     let entries = Dictionary(uniqueKeysWithValues: materialNodes.map { node in
         (
@@ -357,7 +386,11 @@ private func capabilities(_ graph: Graph, pair: Bool) -> Capabilities {
                 nodeIndex: node.nodeIndex
             ),
             SceneResolvedMaterialRuntimeCatalog.Entry.template(
-                template(for: node, pair: pair)
+                template(
+                    for: node,
+                    pair: pair,
+                    invalidUniform: node.nodeIndex == invalidUniformNode
+                )
             )
         )
     })

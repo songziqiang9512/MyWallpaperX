@@ -331,7 +331,8 @@ final class SceneResolvedMaterialGraphExecutor {
             if effectLocalFailureReasonCode != nil,
                !graph.renderTargets.isEmpty {
                 guard let discarded = State.discardingUncommittedVisualFailure(
-                    transition
+                    transition,
+                    previous: previous
                 ) else { return .failure(.stateRejected) }
                 committedTransition = discarded
             } else {

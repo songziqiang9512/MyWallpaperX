@@ -14,6 +14,7 @@ extension SceneResolvedMaterialGraphExecutor {
     /// dependency and runtime encode failures never reach this path.
     func prepareVisualFailurePassthrough(
         reasonCode: String,
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
         transition: State.Transition,
         graph: Graph,
         pairStep: Pair.EffectStep,
@@ -27,7 +28,8 @@ extension SceneResolvedMaterialGraphExecutor {
         boundedDetail: String? = nil,
         rejection: Failure = .graphStructureRejected
     ) -> Failure? {
-        guard [
+        guard dependencyOwnership.isPreEncodeVisualFailurePassthroughEligible,
+              [
             "material-generic-owner-revoked",
             "material-variant-envelope-frontend",
             "material-variant-envelope-shader-preparation",
@@ -128,12 +130,14 @@ extension SceneResolvedMaterialGraphExecutor {
               let effect = graph.effects.first,
               effect.key == pairStep.effect,
               pairStep.inputMember == snapshot.pair.member,
-              pairStep.nodes.count == graph.nodes.count,
-              transition.nextState.historyClosureIdentities.isEmpty else {
+              pairStep.nodes.count == graph.nodes.count else {
             return false
         }
         if reasonCode == "dependency-stage-reference-unavailable"
             || reasonCode == "dependency-stage-secondary-reference-unavailable" {
+            guard transition.nextState.historyClosureIdentities.isEmpty else {
+                return false
+            }
             return dependencyStageFailureTopologyIsSupported(
                 transition: transition,
                 graph: graph,
@@ -142,7 +146,7 @@ extension SceneResolvedMaterialGraphExecutor {
             )
         }
         if !graph.renderTargets.isEmpty {
-            return visualFailureFramebufferTopologyIsSupported(
+            return preEncodeVisualFailureGraphTopologyIsSupported(
                 transition: transition,
                 graph: graph,
                 effect: effect,
@@ -245,22 +249,60 @@ extension SceneResolvedMaterialGraphExecutor {
         effect: Graph.Effect,
         pairStep: Pair.EffectStep
     ) -> Bool {
-        let targets = Set(graph.renderTargets.map(\.texture))
         guard SceneResolvedMaterialExecutionCapabilityCatalog
                 .visualFailureFramebufferTopologyMayPassthrough(
                     graph,
                     effect: effect,
                     pairStep: pairStep
                 ),
+              transition.nextState.historyClosureIdentities.isEmpty,
               transition.transaction.intents.count == graph.nodes.count,
-              Set(transition.transaction.mappingBefore.keys) == targets,
-              Set(transition.transaction.mappingAfter.keys) == targets else {
+              visualFailureGraphTransitionMatches(
+                  transition: transition,
+                  graph: graph
+              ) else {
             return false
         }
-        for (node, intent) in zip(
-            graph.nodes,
-            transition.transaction.intents
-        ) {
+        return true
+    }
+
+    private func preEncodeVisualFailureGraphTopologyIsSupported(
+        transition: State.Transition,
+        graph: Graph,
+        effect: Graph.Effect,
+        pairStep: Pair.EffectStep
+    ) -> Bool {
+        SceneResolvedMaterialExecutionCapabilityCatalog
+            .preEncodeVisualFailureGraphMayPassthrough(
+                graph,
+                effect: effect,
+                pairStep: pairStep
+            ) && visualFailureGraphTransitionMatches(
+                transition: transition,
+                graph: graph
+            )
+    }
+
+    private func visualFailureGraphTransitionMatches(
+        transition: State.Transition,
+        graph: Graph
+    ) -> Bool {
+        let targets = Set(graph.renderTargets.map(\.texture))
+        guard Set(transition.transaction.mappingBefore.keys) == targets,
+              Set(transition.transaction.mappingAfter.keys) == targets,
+              transition.transaction.allocationGeneration > 0 else {
+            return false
+        }
+        let nodeIntents = transition.transaction.intents.compactMap { intent -> State.Intent? in
+            if case let .initialize(identity, _, reason) = intent {
+                guard targets.contains(identity) else { return intent }
+                if case .materialFunctionClear = reason { return intent }
+                return nil
+            }
+            return intent
+        }
+        guard nodeIntents.count == graph.nodes.count else { return false }
+        for (node, intent) in zip(graph.nodes, nodeIntents) {
             switch (node.kind, intent) {
             case let (.material, .material(
                 nodeIndex, materialOrdinal, bindings, target
@@ -316,5 +358,16 @@ extension SceneResolvedMaterialGraphExecutor {
             boundedDetail ?? "-",
             count
         )
+    }
+}
+
+private extension SceneResolvedMaterialDependencyOwnership {
+    var isPreEncodeVisualFailurePassthroughEligible: Bool {
+        switch self {
+        case .none, .graphInternal:
+            true
+        case .externalPrimary:
+            false
+        }
     }
 }
