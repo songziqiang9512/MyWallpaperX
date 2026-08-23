@@ -28,7 +28,7 @@ extension SceneResolvedMaterialGraphExecutor {
         boundedDetail: String? = nil,
         rejection: Failure = .graphStructureRejected
     ) -> Failure? {
-        guard dependencyOwnership.isPreEncodeVisualFailurePassthroughEligible,
+        guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil,
               [
             "material-generic-owner-revoked",
             "material-variant-envelope-frontend",
@@ -358,16 +358,5 @@ extension SceneResolvedMaterialGraphExecutor {
             boundedDetail ?? "-",
             count
         )
-    }
-}
-
-private extension SceneResolvedMaterialDependencyOwnership {
-    var isPreEncodeVisualFailurePassthroughEligible: Bool {
-        switch self {
-        case .none, .graphInternal:
-            true
-        case .externalPrimary:
-            false
-        }
     }
 }

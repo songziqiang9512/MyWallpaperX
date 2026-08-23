@@ -116,6 +116,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     effect.key,
                     ownership: admitted.dependencyOwnership
                 ) {
+                    if visualFailureMayPassthrough(
+                        programFailure,
+                        product: product,
+                        pairPlan: admitted.pairPlan,
+                        dependencyOwnership: admitted.dependencyOwnership
+                    ) {
+                        stages.append(.visualFailurePassthrough(
+                            product: product,
+                            reasonCode: programFailure.code
+                        ))
+                        continue
+                    }
                     return .failure(programFailure)
                 }
                 guard let program = programsByKey[effect.key]?.first else {
@@ -294,7 +306,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         case .none, .graphInternal:
             break
         case .externalPrimary:
-            return false
+            guard product.graph.renderTargets.isEmpty,
+                  dependencyOwnership.preEncodeVisualFailureSlots(
+                in: product.graph
+            ) != nil else { return false }
         }
         guard [
             "material-generic-owner-revoked",
@@ -425,7 +440,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
         case let .externalPrimary(binding):
             guard binding.consumerLayerID == layerID else { return false }
-            if !resolvedDependencyStages.isEmpty,
+            let passthroughDependencyStages = stages.flatMap {
+                visualFailureExternalDependencies(in: $0, binding: binding)
+            }
+            let ordinaryDependencyStages = resolvedDependencyStages
+                + passthroughDependencyStages
+            if !ordinaryDependencyStages.isEmpty,
                proceduralDependencyStages.isEmpty,
                !hasDedicatedImageBlendDependencyStage {
                 let expected = Set(binding.referenceSlots.map { slot in
@@ -436,7 +456,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     )
                 })
                 guard expected.count == binding.referenceSlots.count,
-                      Set(resolvedDependencyStages) == expected else { return false }
+                      ordinaryDependencyStages.count == expected.count,
+                      Set(ordinaryDependencyStages) == expected else { return false }
                 return true
             }
             guard resolvedDependencyStages.isEmpty else { return false }
@@ -485,6 +506,25 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let key: MaterialKey
         let slot: Int
         let reference: SceneNamedTextureReference
+    }
+
+    private static func visualFailureExternalDependencies(
+        in stage: StageCapability,
+        binding: SceneDependencyRenderPlan.Binding
+    ) -> [ResolvedExternalDependency] {
+        guard case let .visualFailurePassthrough(product, _) = stage,
+              let slots = SceneResolvedMaterialDependencyOwnership
+                .externalPrimary(binding)
+                .preEncodeVisualFailureSlots(in: product.graph) else {
+            return []
+        }
+        return slots.map {
+            ResolvedExternalDependency(
+                consumerLayerID: binding.consumerLayerID,
+                providerLayerID: binding.providerLayerID,
+                slot: $0
+            )
+        }
     }
 
     private static func resolvedExternalDependencies(
@@ -536,5 +576,42 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         }
         guard Set(result).count == result.count else { return [] }
         return result
+    }
+}
+
+nonisolated extension SceneResolvedMaterialDependencyOwnership {
+    /// Returns the external provider slots owned by this exact single-effect
+    /// stage. `nil` means the dependency owner cannot authorize a visual
+    /// fallback for the stage. Empty slots are valid only for dependency-free
+    /// and already graph-internal execution.
+    func preEncodeVisualFailureSlots(
+        in graph: SceneAuthoredEffectRenderPlan
+    ) -> [SceneEffectPassSlot]? {
+        switch self {
+        case .none, .graphInternal:
+            return []
+        case let .externalPrimary(binding):
+            guard graph.renderTargets.isEmpty,
+                  graph.effects.count == 1,
+                  let effect = graph.effects.first,
+                  graph.layerID == binding.consumerLayerID,
+                  effect.key.layerID == binding.consumerLayerID else {
+                return nil
+            }
+            let slots = binding.referenceSlots.filter {
+                $0.effectID == effect.key.descriptorID
+            }
+            guard !slots.isEmpty,
+                  Set(slots).count == slots.count,
+                  slots.allSatisfy({ slot in
+                      graph.nodes.filter({ node in
+                          node.effect == effect.key
+                              && node.kind == .material
+                              && node.instancePassIndex == slot.passIndex
+                              && node.materialOrdinal != nil
+                      }).count == 1
+                  }) else { return nil }
+            return slots
+        }
     }
 }

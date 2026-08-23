@@ -248,7 +248,7 @@
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_program_failure_attribution",
         "test_scene_resolved_material_graph_executor",
-        "test_scene_external_primary_visual_failure_hard_boundary",
+        "test_scene_external_primary_visual_failure_passthrough",
         "test_scene_persistent_history_visual_failure_rollback",
         "test_scene_persistent_history_visual_failure_gpu",
         "test_scene_material_texture_transform",
