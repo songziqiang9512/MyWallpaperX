@@ -180,6 +180,7 @@
       "modules": [
         "test_scene_effect_render_graph",
         "test_scene_graph_admission_compiler",
+        "test_scene_graph_conditional_fbo_command_contract",
         "test_scene_graph_condition_schema_evidence",
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_graph_executor"
@@ -192,7 +193,10 @@
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift"
       ],
-      "modules": ["test_scene_graph_target_address_mode"]
+      "modules": [
+        "test_scene_graph_conditional_fbo_command_contract",
+        "test_scene_graph_target_address_mode"
+      ]
     },
     {
       "id": "effect-compilation",
