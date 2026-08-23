@@ -323,12 +323,18 @@ nonisolated struct SceneResolvedMaterialProgram {
         case host(HostUniform)
         case staticValue
         case dynamic(DynamicSourceKind)
+        case neutralMissingTextureResolution(
+            SceneAuthoredShaderNeutralTextureResolutionFact
+        )
     }
 
     struct ResolvedUniform {
         enum Source {
             case host(HostUniform)
             case staticValue
+            case neutralMissingTextureResolution(
+                SceneAuthoredShaderNeutralTextureResolutionFact
+            )
             case dynamic(
                 declared: SceneResolvedMaterialTemplate.DynamicUniformSource,
                 target: SceneDynamicTarget,

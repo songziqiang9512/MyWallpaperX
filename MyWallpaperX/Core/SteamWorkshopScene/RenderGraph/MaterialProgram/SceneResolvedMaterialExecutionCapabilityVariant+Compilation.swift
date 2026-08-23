@@ -13,6 +13,8 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     let routeDecision: SceneGenericShaderRouteDecision
     let activeSamplers: [Int: Sampler]
     let activeUniforms: [String: Uniform]
+    let neutralTextureResolution:
+        SceneAuthoredShaderNeutralTextureResolutionFact?
 
     fileprivate init(
         readinessMask: UInt8,
@@ -21,7 +23,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         frontendProgram: SceneAuthoredShaderProgram,
         routeDecision: SceneGenericShaderRouteDecision,
         activeSamplers: [Int: Sampler],
-        activeUniforms: [String: Uniform]
+        activeUniforms: [String: Uniform],
+        neutralTextureResolution:
+            SceneAuthoredShaderNeutralTextureResolutionFact?
     ) {
         self.readinessMask = readinessMask
         self.textureFormats = textureFormats
@@ -30,6 +34,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.routeDecision = routeDecision
         self.activeSamplers = activeSamplers
         self.activeUniforms = activeUniforms
+        self.neutralTextureResolution = neutralTextureResolution
     }
 }
 
@@ -128,6 +133,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             }
             return slot
         })
+        let neutralTextureResolution =
+            SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
+                vertexSource: compilerSources.vertex,
+                fragmentSource: compilerSources.fragment,
+                activeSamplerSlots: activeTextureSlots
+            )
         let alphaAttenuationSourceSlot =
             SceneResolvedMaterialAlphaAttenuationEligibility.sourceSlot(
                     fragmentSource: prepared.fragment.source,
@@ -283,7 +294,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             frontendProgram: frontend,
             routeDecision: routeDecision,
             activeSamplers: samplers,
-            activeUniforms: uniforms
+            activeUniforms: uniforms,
+            neutralTextureResolution: neutralTextureResolution
         )
     }
 

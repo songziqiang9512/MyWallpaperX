@@ -406,7 +406,9 @@ private func contract(
     semanticProbes: Bool = true,
     colorBlend: Bool = false,
     legacyMaskOverride: Bool = false,
-    includeSourceGraph: Bool = true
+    includeSourceGraph: Bool = true,
+    vertexSourceOverride: String? = nil,
+    fragmentSourceOverride: String? = nil
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -431,7 +433,7 @@ private func contract(
         stage(
             .vertex,
             path: "\(revision)/root.vert",
-            source: vertexSource(
+            source: vertexSourceOverride ?? vertexSource(
                 samplerMetadata: vertexSamplerMetadata,
                 deadMaskCoordinates: deadMaskCoordinates || colorBlend,
                 stageLocalUniforms: stageLocalUniforms
@@ -440,7 +442,7 @@ private func contract(
         stage(
             .fragment,
             path: "\(revision)/root.frag",
-            source: fragmentSource(
+            source: fragmentSourceOverride ?? fragmentSource(
                 samplerMetadata: samplerMetadata,
                 uniformMetadata: uniformMetadata,
                 secondSamplerMetadata: secondSamplerMetadata,
@@ -643,7 +645,8 @@ private func template(
     secondCandidates: [Template.TextureCandidate]? = nil,
     comboValues: [String: Int] = [:],
     uniformDeclarations: [Template.UniformDeclaration] = [],
-    renderState: SceneMaterialRenderState = state()
+    renderState: SceneMaterialRenderState = state(),
+    textureSlotsOverride: [Template.TextureSlot?]? = nil
 ) -> Template {
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     if includePrimaryCandidate {
@@ -661,6 +664,9 @@ private func template(
         slots[1] = .init(index: 1, candidates: [
             .init(reference: secondReference, provenance: .instance),
         ])
+    }
+    if let textureSlotsOverride {
+        slots = textureSlotsOverride
     }
     return Template.validated(
         textureSlots: slots,
@@ -688,12 +694,13 @@ private func template(
 
 private func texture(
     _ device: MTLDevice,
-    pixelFormat: MTLPixelFormat = .rgba8Unorm
+    pixelFormat: MTLPixelFormat = .rgba8Unorm,
+    size: CGSize = CGSize(width: 2, height: 2)
 ) -> MTLTexture {
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(
         pixelFormat: pixelFormat,
-        width: 2,
-        height: 2,
+        width: Int(size.width),
+        height: Int(size.height),
         mipmapped: false
     )
     descriptor.storageMode = .shared
@@ -711,6 +718,9 @@ private func publication(
     sampling: SceneTextureSampling = .directImageFallback,
     pixelFormat: MTLPixelFormat = .rgba8Unorm,
     authoredFormat: SceneShaderTextureFormat? = nil,
+    physicalSize: CGSize = CGSize(width: 2, height: 2),
+    mappedSize: CGSize = CGSize(width: 2, height: 2),
+    uvTransform: SceneTextureUVTransform = .identity,
     candidateIdentity: SceneTextureResourceIdentity = .provider(.video(
         layerID: fixtureLayerID,
         lifecycleEpoch: 1
@@ -719,14 +729,18 @@ private func publication(
     .init(
         requestIdentity: requestIdentity,
         candidate: .init(
-            texture: texture(device, pixelFormat: pixelFormat),
+            texture: texture(
+                device,
+                pixelFormat: pixelFormat,
+                size: physicalSize
+            ),
             identity: candidateIdentity,
             generation: .provider(contentGeneration: candidateGeneration),
             purpose: purpose,
             content: content,
-            physicalSize: CGSize(width: 2, height: 2),
-            mappedSize: CGSize(width: 2, height: 2),
-            uvTransform: .identity,
+            physicalSize: physicalSize,
+            mappedSize: mappedSize,
+            uvTransform: uvTransform,
             sampling: sampling,
             authoredFormat: authoredFormat
         ),
@@ -833,7 +847,10 @@ private func readyStatus(
     _ device: MTLDevice,
     identity: SceneFrameTextureIdentity,
     purpose: SceneTextureLoadPurpose,
-    content: SceneTextureContent
+    content: SceneTextureContent,
+    physicalSize: CGSize = CGSize(width: 2, height: 2),
+    mappedSize: CGSize = CGSize(width: 2, height: 2),
+    uvTransform: SceneTextureUVTransform = .identity
 ) -> SceneFrameTextureLookupStatus {
     .ready(.init(
         publication: publication(
@@ -842,7 +859,10 @@ private func readyStatus(
             purpose: purpose,
             content: content,
             candidateGeneration: 7,
-            contentGeneration: 7
+            contentGeneration: 7,
+            physicalSize: physicalSize,
+            mappedSize: mappedSize,
+            uvTransform: uvTransform
         ),
         resourceGeneration: 7
     ))
@@ -972,7 +992,8 @@ private func finalize(
     outputStorage: Program.OutputStorage = .color,
     graphTextureFormatFacts: [
         Graph.TextureIdentity: SceneShaderTextureFormat
-    ] = [:]
+    ] = [:],
+    textureSlotsOverride: [Template.TextureSlot?]? = nil
 ) -> Result<Program, SceneResolvedMaterialFailure> {
     let frame = SceneResolvedMaterialFrameSnapshot.validated(
         textureSnapshot: snapshot(
@@ -1009,7 +1030,8 @@ private func finalize(
                 secondReference: secondReference,
                 secondCandidates: secondCandidates,
                 uniformDeclarations: uniformDeclarations,
-                renderState: renderState
+                renderState: renderState,
+                textureSlotsOverride: textureSlotsOverride
             ),
             renderSize: CGSize(width: 640, height: 360),
             modelViewProjection: matrix_identity_float4x4,
@@ -1971,6 +1993,467 @@ private func missingSourceGraphDiagnostic() -> String {
     case .notApplicable:
         return "not-applicable"
     }
+}
+
+private func neutralTextureResolutionSources(
+    resolutionSlot: Int,
+    coordinateSlot: Int,
+    varying: String
+) -> (vertex: String, fragment: String) {
+    (
+        """
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        varying vec4 \(varying);
+        uniform vec4 g_Texture\(resolutionSlot)Resolution;
+        void main() {
+            \(varying).xy = a_TexCoord;
+            \(varying).zw = vec2(
+                ((\(varying).x * g_Texture\(resolutionSlot)Resolution.z)
+                    / (g_Texture\(resolutionSlot)Resolution.x)),
+                ((\(varying).y * g_Texture\(resolutionSlot)Resolution.w)
+                    / (g_Texture\(resolutionSlot)Resolution.y))
+            );
+            gl_Position = vec4(a_Position, 1.0);
+        }
+        """,
+        """
+        varying vec4 \(varying);
+        uniform sampler2D g_Texture0; // {"material":"framebuffer"}
+        uniform sampler2D g_Texture\(coordinateSlot); // {"mode":"opacitymask"}
+        void main() {
+            vec4 current = texSample2D(g_Texture0, \(varying).xy);
+            float mask = texSample2D(
+                g_Texture\(coordinateSlot),
+                (\(varying).zw)
+            ).r;
+            gl_FragColor = vec4(current.rgb, current.a * mask);
+        }
+        """
+    )
+}
+
+private func neutralTextureResolutionResult(
+    _ device: MTLDevice,
+    resolutionSlot: Int = 1,
+    coordinateSlot: Int = 2,
+    varying: String = "coordinateCarrier",
+    physicalSize: CGSize = CGSize(width: 2, height: 2),
+    mappedSize: CGSize = CGSize(width: 2, height: 2),
+    uvTransform: SceneTextureUVTransform = .identity,
+    includeResolutionCandidate: Bool = false,
+    vertexSourceOverride: String? = nil,
+    fragmentSourceOverride: String? = nil,
+    coordinateStatusOverride: SceneFrameTextureLookupStatus? = nil
+) -> Result<Program, SceneResolvedMaterialFailure> {
+    let maskPath = SceneVFSAssetPath(
+        "textures/neutral-resolution-mask-\(coordinateSlot).tex"
+    )!
+    let maskIdentity = SceneFrameTextureIdentity.asset(.init(
+        path: maskPath,
+        purpose: .mask
+    ))
+    let sources = neutralTextureResolutionSources(
+        resolutionSlot: resolutionSlot,
+        coordinateSlot: coordinateSlot,
+        varying: varying
+    )
+    let shader = contract(
+        revision: "neutral-texture-resolution-\(resolutionSlot)-\(coordinateSlot)",
+        uniformMetadata: nil,
+        semanticProbes: false,
+        vertexSourceOverride: vertexSourceOverride ?? sources.vertex,
+        fragmentSourceOverride: fragmentSourceOverride ?? sources.fragment
+    )
+    var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+    slots[coordinateSlot] = .init(index: coordinateSlot, candidates: [
+        .init(reference: .asset(maskPath), provenance: .material),
+    ])
+    let coordinateStatus = coordinateStatusOverride ?? readyStatus(
+            device,
+            identity: maskIdentity,
+            purpose: .mask,
+            content: .data,
+            physicalSize: physicalSize,
+            mappedSize: mappedSize,
+            uvTransform: uvTransform
+        )
+    var entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus] = [
+        maskIdentity: coordinateStatus,
+    ]
+    if includeResolutionCandidate {
+        let path = SceneVFSAssetPath(
+            "textures/unexpected-resolution-slot-\(resolutionSlot).tex"
+        )!
+        let identity = SceneFrameTextureIdentity.asset(.init(
+            path: path,
+            purpose: .mask
+        ))
+        slots[resolutionSlot] = .init(index: resolutionSlot, candidates: [
+            .init(reference: .asset(path), provenance: .material),
+        ])
+        entries[identity] = readyStatus(
+            device,
+            identity: identity,
+            purpose: .mask,
+            content: .data
+        )
+    }
+    return finalize(
+        shader: shader,
+        device: device,
+        includePrimaryCandidate: false,
+        additionalEntries: entries,
+        implicitFramebufferIdentity: graphTexture(),
+        outputStorage: .preservedRGBAUnorm,
+        textureSlotsOverride: slots
+    )
+}
+
+private func neutralTextureResolutionToken(_ device: MTLDevice) -> String {
+    let result = neutralTextureResolutionResult(device)
+    guard case let .success(program) = result else {
+        if case let .failure(failure) = result {
+            return failureToken(result) + "/" + failure.boundedDetails.joined(separator: ",")
+        }
+        return failureToken(result)
+    }
+    guard program.textureSlots[1] == nil else { return "slot1-bound" }
+    guard let maskSlot = program.textureSlots[2] else { return "slot2-missing" }
+    guard
+          maskSlot.resource.publication.candidate.axisAlignedMappedUVScale(
+              expectedPurpose: .mask
+          ) == SIMD2<Float>(1, 1)
+    else { return "slot2-mapping" }
+    guard let uniform = program.resolvedUniforms.first(where: {
+              $0.field.name == "g_Texture1Resolution"
+          }) else { return "uniform-missing" }
+    guard case let .neutralMissingTextureResolution(fact) = uniform.source
+    else { return "uniform-source" }
+    guard
+          fact.resolutionSlot == 1,
+          fact.coordinateTextureSlot == 2,
+          fact.varyingName == "coordinateCarrier",
+          fact.sourceComponents == "xy",
+          fact.targetComponents == "zw",
+          uniform.encodedValue.count == 16,
+          (0 ..< 4).allSatisfy({
+              Harness.float(uniform.encodedValue, at: $0 * 4) == 1
+          }),
+          program.semanticIdentity.activeUniforms.contains(where: {
+              guard $0.fieldName == "g_Texture1Resolution",
+                    case .neutralMissingTextureResolution(fact) = $0.source
+              else { return false }
+              return fact.resolutionSlot == 1 && fact.coordinateTextureSlot == 2
+          })
+    else { return "uniform-fact-or-bytes" }
+    return program.exactIdentity.textureSlots[2]?.physicalExtent == [2, 2]
+        && program.exactIdentity.textureSlots[2]?.mappedExtent == [2, 2]
+        && program.exactIdentity.uniformBytes == program.uniformBytes
+        ? "success" : "exact-identity"
+}
+
+private func neutralTextureResolutionUnseenToken(_ device: MTLDevice) -> String {
+    let result = neutralTextureResolutionResult(
+        device,
+        resolutionSlot: 3,
+        coordinateSlot: 5,
+        varying: "unseenCoordinates",
+        physicalSize: CGSize(width: 64, height: 32),
+        mappedSize: CGSize(width: 64, height: 32)
+    )
+    guard case let .success(program) = result,
+          program.textureSlots[3] == nil,
+          let slot = program.textureSlots[5],
+          slot.resource.publication.candidate.axisAlignedMappedUVScale(
+              expectedPurpose: .mask
+          ) == SIMD2<Float>(1, 1),
+          program.exactIdentity.textureSlots[5]?.physicalExtent == [64, 32],
+          program.exactIdentity.textureSlots[5]?.mappedExtent == [64, 32],
+          let uniform = program.resolvedUniforms.first(where: {
+              $0.field.name == "g_Texture3Resolution"
+          }),
+          case let .neutralMissingTextureResolution(fact) = uniform.source,
+          fact.resolutionSlot == 3,
+          fact.coordinateTextureSlot == 5,
+          fact.varyingName == "unseenCoordinates"
+    else { return failureToken(result) }
+    return "success"
+}
+
+private func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
+    let sources = neutralTextureResolutionSources(
+        resolutionSlot: 1,
+        coordinateSlot: 2,
+        varying: "coordinateCarrier"
+    )
+    func fact(_ vertex: String, _ fragment: String = "")
+        -> SceneAuthoredShaderNeutralTextureResolutionFact? {
+        SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
+            vertexSource: vertex,
+            fragmentSource: fragment.isEmpty ? sources.fragment : fragment,
+            activeSamplerSlots: [0, 2]
+        )
+    }
+    let resolution = "g_Texture1Resolution"
+    let varying = "coordinateCarrier"
+    let realVertex = """
+    uniform mat4 g_ModelViewProjectionMatrix;
+    uniform vec4 g_Texture1Resolution;
+    attribute vec3 a_Position;
+    attribute vec2 a_TexCoord;
+    varying vec4 v_TexCoord;
+    void main() {
+        gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);
+        v_TexCoord.xy = a_TexCoord;
+        v_TexCoord.zw = vec2(
+            v_TexCoord.x * g_Texture1Resolution.z / g_Texture1Resolution.x,
+            v_TexCoord.y * g_Texture1Resolution.w / g_Texture1Resolution.y
+        );
+    }
+    """
+    let realFragment = """
+    varying vec4 v_TexCoord;
+    uniform sampler2D g_Texture0; // {"hidden":true}
+    uniform sampler2D g_Texture2; // {"combo":"OPACITYMASK","mode":"opacitymask"}
+    void main() {
+        vec4 albedo = texSample2D(g_Texture0, v_TexCoord.xy);
+        float opactiyMask = 1.0 - texSample2D(g_Texture2, v_TexCoord.zw).r;
+        gl_FragColor = albedo * opactiyMask;
+    }
+    """
+    let realConditionalFragment = """
+    varying vec4 v_TexCoord;
+    uniform sampler2D g_Texture0; // {"hidden":true}
+    uniform sampler2D g_Texture1; // {"mode":"opacitymask","combo":"MASK"}
+    uniform sampler2D g_Texture2; // {"mode":"opacitymask","combo":"OPACITYMASK","default":"util/white"}
+    void main() {
+        vec4 albedo = texSample2D(g_Texture0, v_TexCoord.xy);
+        #if MASK
+        float mask = texSample2D(g_Texture1, v_TexCoord.zw).r;
+        #else
+        float mask = 0.5;
+        #endif
+        #if OPACITYMASK
+        float opactiyMask = 1.0 - texSample2D(g_Texture2, v_TexCoord.zw).r;
+        #else
+        float opactiyMask = 1.0;
+        #endif
+        gl_FragColor = albedo * mask * opactiyMask;
+    }
+    """
+    let realPrepared: (
+        current: Bool, missing: Bool, coordinate: Bool, count: Bool, analyzed: Bool
+    ) = {
+        let shader = contract(
+            revision: "neutral-texture-resolution-real-prepared",
+            uniformMetadata: nil,
+            semanticProbes: false,
+            vertexSourceOverride: realVertex,
+            fragmentSourceOverride: realConditionalFragment
+        )
+        guard case let .accepted(prepared) =
+            SceneAuthoredShaderPreparation.prepareShaderStages(
+                contract: shader,
+                combos: [:],
+                inactiveComboProviders: ["MASK"],
+                textureReadiness: [0: true, 1: false, 2: true]
+            ) else { return (false, false, false, false, false) }
+        let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+            vertex: prepared.vertex.source,
+            fragment: prepared.fragment.source
+        )
+        guard let activeNames = SceneAuthoredShaderDeadBindingAnalyzer
+            .activeSamplerNames(
+                vertexSource: sources.vertex,
+                fragmentSource: sources.fragment
+            ) else { return (false, false, false, false, false) }
+        let activeSlots = Set(activeNames.compactMap { name -> Int? in
+            guard name.hasPrefix("g_Texture") else { return nil }
+            return Int(name.dropFirst("g_Texture".count))
+        })
+        let analyzed = SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
+            vertexSource: sources.vertex,
+            fragmentSource: sources.fragment,
+            activeSamplerSlots: activeSlots
+        ) != nil
+        return (
+            activeSlots.contains(0),
+            !activeSlots.contains(1),
+            activeSlots.contains(2),
+            activeSlots.count == 2,
+            analyzed
+        )
+    }()
+    return [
+        "exact": fact(sources.vertex) != nil,
+        "realActiveCurrentAndMask": SceneAuthoredShaderNeutralTextureResolutionAnalyzer
+            .analyze(
+                vertexSource: realVertex,
+                fragmentSource: realFragment,
+                activeSamplerSlots: [0, 2]
+            ) != nil,
+        "realPreparedCurrentActive": realPrepared.current,
+        "realPreparedResolutionInactive": realPrepared.missing,
+        "realPreparedCoordinateActive": realPrepared.coordinate,
+        "realPreparedActiveSamplerCount": realPrepared.count,
+        "realPreparedCombo": realPrepared.analyzed,
+        "activeResolutionSlot": SceneAuthoredShaderNeutralTextureResolutionAnalyzer
+            .analyze(
+                vertexSource: sources.vertex,
+                fragmentSource: sources.fragment,
+                activeSamplerSlots: [0, 1, 2]
+            ) == nil,
+        "glPosition": fact(sources.vertex.replacingOccurrences(
+            of: "\(varying).zw = vec2",
+            with: "gl_Position.zw = vec2"
+        )) == nil,
+        "wrongComponent": fact(sources.vertex.replacingOccurrences(
+            of: "\(resolution).z",
+            with: "\(resolution).y"
+        )) == nil,
+        "functionUse": fact(sources.vertex.replacingOccurrences(
+            of: "\(varying).x * \(resolution).z",
+            with: "abs(\(varying).x) * \(resolution).z"
+        )) == nil,
+        "array": fact(sources.vertex.replacingOccurrences(
+            of: "uniform vec4 \(resolution);",
+            with: "uniform vec4 \(resolution)[1];"
+        )) == nil,
+        "transform": fact(sources.vertex.replacingOccurrences(
+            of: "/ (\(resolution).x))",
+            with: "/ (\(resolution).x) + 0.25)"
+        )) == nil,
+        "singleSided": fact(sources.vertex.replacingOccurrences(
+            of: "\(varying).y * \(resolution).w",
+            with: "\(varying).y"
+        )) == nil,
+        "crossComponent": fact(sources.vertex.replacingOccurrences(
+            of: "\(resolution).w",
+            with: "\(resolution).z"
+        )) == nil,
+        "swappedSource": fact(sources.vertex.replacingOccurrences(
+            of: "\(varying).x * \(resolution).z",
+            with: "\(varying).y * \(resolution).z"
+        )) == nil,
+        "extraResolutionUse": fact(sources.vertex.replacingOccurrences(
+            of: "gl_Position =",
+            with: "float texelOrMip = \(resolution).x; gl_Position ="
+        )) == nil,
+        "multipleSource": fact(sources.vertex.replacingOccurrences(
+            of: "\(varying).xy = a_TexCoord;",
+            with: "\(varying).xy = a_TexCoord; \(varying).xy = a_TexCoord;"
+        )) == nil,
+        "multipleConsumer": fact(
+            sources.vertex,
+            sources.fragment.replacingOccurrences(
+                of: "gl_FragColor =",
+                with: "float duplicate = texSample2D(g_Texture2, \(varying).zw).r; gl_FragColor ="
+            )
+        ) == nil,
+        "targetLiveUse": fact(
+            sources.vertex,
+            sources.fragment.replacingOccurrences(
+                of: "gl_FragColor =",
+                with: "float live = \(varying).z; gl_FragColor ="
+            )
+        ) == nil,
+        "wrongUniformType": fact(sources.vertex.replacingOccurrences(
+            of: "uniform vec4 \(resolution);",
+            with: "uniform vec3 \(resolution);"
+        )) == nil,
+        "wrongUniformName": fact(sources.vertex.replacingOccurrences(
+            of: resolution,
+            with: "u_MissingResolution"
+        )) == nil,
+        "missingAssignment": fact(sources.vertex.replacingOccurrences(
+            of: "\(varying).zw = vec2",
+            with: "vec2 discarded = vec2"
+        )) == nil,
+    ]
+}
+
+private func neutralTextureResolutionFinalizerFailures(
+    _ device: MTLDevice
+) -> [String: String] {
+    let sources = neutralTextureResolutionSources(
+        resolutionSlot: 1,
+        coordinateSlot: 2,
+        varying: "coordinateCarrier"
+    )
+    let nonIdentityMapped = SceneTextureUVTransform(
+        origin: .zero,
+        xAxis: SIMD2(0.5, 0),
+        yAxis: SIMD2(0, 1)
+    )
+    let nonIdentityUV = SceneTextureUVTransform(
+        origin: SIMD2(0.1, 0),
+        xAxis: SIMD2(0.8, 0),
+        yAxis: SIMD2(0, 1)
+    )
+    let maskPath = SceneVFSAssetPath("textures/neutral-resolution-mask-2.tex")!
+    let maskIdentity = SceneFrameTextureIdentity.asset(.init(
+        path: maskPath,
+        purpose: .mask
+    ))
+    let wrongPurpose = SceneFrameTextureLookupStatus.ready(.init(
+        publication: publication(
+            device,
+            requestIdentity: maskIdentity,
+            purpose: .straightAlbedo,
+            content: .color(.resolved(.straightAlpha)),
+            candidateGeneration: 7,
+            contentGeneration: 7
+        ),
+        resourceGeneration: 7
+    ))
+    return [
+        "resolutionCandidate": failureToken(neutralTextureResolutionResult(
+            device,
+            includeResolutionCandidate: true
+        )),
+        "mappedNotIdentity": failureToken(neutralTextureResolutionResult(
+            device,
+            physicalSize: CGSize(width: 64, height: 32),
+            mappedSize: CGSize(width: 32, height: 32),
+            uvTransform: nonIdentityMapped
+        )),
+        "uvNotIdentity": failureToken(neutralTextureResolutionResult(
+            device,
+            physicalSize: CGSize(width: 64, height: 32),
+            mappedSize: CGSize(width: 64, height: 32),
+            uvTransform: nonIdentityUV
+        )),
+        "coordinatePending": failureToken(neutralTextureResolutionResult(
+            device,
+            coordinateStatusOverride: .pending
+        )),
+        "coordinateWrongPurpose": failureToken(neutralTextureResolutionResult(
+            device,
+            coordinateStatusOverride: wrongPurpose
+        )),
+        "wrongComponent": failureToken(neutralTextureResolutionResult(
+            device,
+            vertexSourceOverride: sources.vertex.replacingOccurrences(
+                of: "g_Texture1Resolution.z",
+                with: "g_Texture1Resolution.y"
+            )
+        )),
+        "targetLiveUse": failureToken(neutralTextureResolutionResult(
+            device,
+            fragmentSourceOverride: sources.fragment.replacingOccurrences(
+                of: "gl_FragColor =",
+                with: "float live = coordinateCarrier.z; gl_FragColor ="
+            )
+        )),
+        "resolutionSamplerActive": failureToken(neutralTextureResolutionResult(
+            device,
+            fragmentSourceOverride: sources.fragment.replacingOccurrences(
+                of: "void main() {",
+                with: "uniform sampler2D g_Texture1; // {\"mode\":\"opacitymask\",\"default\":\"textures/default.tex\"}\nvoid main() {"
+            )
+        )),
+    ]
 }
 
 @main
@@ -3479,6 +3962,13 @@ private enum Harness {
 
         let attenuationEligibility = attenuationEligibilityTokens()
         let colorBlendEligibility = colorBlendEligibilityTokens()
+        let neutralTextureResolution = neutralTextureResolutionToken(device)
+        let neutralTextureResolutionUnseen =
+            neutralTextureResolutionUnseenToken(device)
+        let neutralTextureResolutionAnalyzer =
+            neutralTextureResolutionAnalyzerCases()
+        let neutralTextureResolutionFailures =
+            neutralTextureResolutionFinalizerFailures(device)
         let result: [String: Any] = [
             "metalAvailable": true,
             "attenuationEligibilityCases": attenuationEligibility,
@@ -3492,6 +3982,11 @@ private enum Harness {
                 "capacity": activeDefaultMaskCache.counters.capacityRejectionCount,
             ],
             "positive": [
+                "neutralTextureResolution": neutralTextureResolution == "success",
+                "neutralTextureResolutionUnseen":
+                    neutralTextureResolutionUnseen == "success",
+                "neutralTextureResolutionAnalyzer":
+                    neutralTextureResolutionAnalyzer.values.allSatisfy { $0 },
                 "attenuationEligibility": attenuationEligibility.values.allSatisfy { $0 },
                 "colorBlendEligibility": colorBlendEligibility.values.allSatisfy { $0 },
                 "fixedEightSlots": programA.textureSlots.count == 8
@@ -3716,6 +4211,10 @@ private enum Harness {
             "shaderPreparationBoundary": [
                 "missingSourceGraph": missingSourceGraphDiagnostic(),
             ],
+            "neutralTextureResolution": neutralTextureResolution,
+            "neutralTextureResolutionUnseen": neutralTextureResolutionUnseen,
+            "neutralTextureResolutionAnalyzer": neutralTextureResolutionAnalyzer,
+            "neutralTextureResolutionFailures": neutralTextureResolutionFailures,
             "failures": failures,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -3807,6 +4306,34 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "capacity": 0,
             },
             self.result,
+        )
+
+    def test_neutral_missing_texture_resolution_is_structural_and_fail_closed(
+        self,
+    ) -> None:
+        self.assertEqual(
+            [
+                name
+                for name, passed in self.result[
+                    "neutralTextureResolutionAnalyzer"
+                ].items()
+                if not passed
+            ],
+            [],
+            self.result["neutralTextureResolutionAnalyzer"],
+        )
+        self.assertEqual(
+            self.result["neutralTextureResolutionFailures"],
+            {
+                "resolutionCandidate": "uniform/staticUniformBindingInvalid",
+                "mappedNotIdentity": "uniform/staticUniformBindingInvalid",
+                "uvNotIdentity": "uniform/staticUniformBindingInvalid",
+                "coordinatePending": "texture/resourceSnapshotUnresolved",
+                "coordinateWrongPurpose": "texture/textureMetadataIncomplete",
+                "wrongComponent": "uniform/staticUniformBindingInvalid",
+                "targetLiveUse": "uniform/staticUniformBindingInvalid",
+                "resolutionSamplerActive": "texture/textureBindingInvalid",
+            },
         )
 
     def test_alpha_attenuation_eligibility_cross_checks_schema_and_graph_identity(

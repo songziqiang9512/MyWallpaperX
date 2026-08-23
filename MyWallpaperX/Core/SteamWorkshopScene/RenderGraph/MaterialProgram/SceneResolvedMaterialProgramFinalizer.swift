@@ -306,6 +306,15 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 )
             }
             if declarations.isEmpty {
+                if let neutral = neutralTextureResolutionUniform(
+                    field: field,
+                    schema: schema,
+                    input: input,
+                    variant: variant,
+                    slots: slots
+                ) {
+                    return neutral
+                }
                 guard let fallback = schema.defaultValue,
                       let encoded = SceneResolvedMaterialUniformEncoder.encode(
                           fallback,
@@ -388,6 +397,58 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 )
             }
         }
+    }
+
+    private static func neutralTextureResolutionUniform(
+        field: SceneAuthoredShaderUniformLayout.Field,
+        schema: SceneResolvedMaterialShaderSchema.Uniform,
+        input: SceneResolvedMaterialFinalizationInput,
+        variant: SceneResolvedMaterialCompiledVariant,
+        slots: [Program.TextureSlot?]
+    ) -> Program.ResolvedUniform? {
+        guard let fact = variant.neutralTextureResolution,
+              field.name == fact.resolutionUniformName,
+              field.authoredName == fact.resolutionUniformName,
+              field.type == .float4,
+              field.arrayCount == nil,
+              schema.defaultValue == nil,
+              schema.materialKeys == [fact.resolutionUniformName],
+              input.template.textureSlots.indices.contains(fact.resolutionSlot),
+              input.template.textureSlots[fact.resolutionSlot] == nil,
+              slots.indices.contains(fact.resolutionSlot),
+              slots[fact.resolutionSlot] == nil,
+              variant.activeSamplers[fact.resolutionSlot] == nil,
+              !variant.frontendProgram.textureBindings.contains(where: {
+                  $0.slot == fact.resolutionSlot
+              }),
+              input.template.textureSlots.indices.contains(
+                  fact.coordinateTextureSlot
+              ),
+              input.template.textureSlots[fact.coordinateTextureSlot] != nil,
+              slots.indices.contains(fact.coordinateTextureSlot),
+              let source = slots[fact.coordinateTextureSlot],
+              source.index == fact.coordinateTextureSlot,
+              variant.activeSamplers[fact.coordinateTextureSlot] != nil,
+              variant.frontendProgram.textureBindings.filter({
+                  $0.slot == fact.coordinateTextureSlot
+              }).count == 1,
+              source.resource.publication.requestIdentity == source.registryIdentity,
+              source.expectedPurpose
+                  == source.resource.publication.candidate.purpose,
+              source.resource.publication.isComplete,
+              source.resource.publication.candidate.axisAlignedMappedUVScale(
+                  expectedPurpose: source.expectedPurpose
+              ) == SIMD2<Float>(1, 1),
+              let encoded = SceneResolvedMaterialUniformEncoder.encodeComponents(
+                  [1, 1, 1, 1],
+                  as: field.type
+              )
+        else { return nil }
+        return .init(
+            field: field,
+            source: .neutralMissingTextureResolution(fact),
+            encodedValue: encoded
+        )
     }
 
     private static func soleValueContributor(

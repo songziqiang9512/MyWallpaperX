@@ -1,5 +1,19 @@
 import Foundation
 
+/// A source-pair proof that an inactive texture-resolution uniform only
+/// normalizes coordinates consumed by one different, active texture slot.
+nonisolated struct SceneAuthoredShaderNeutralTextureResolutionFact: Hashable {
+    let resolutionSlot: Int
+    let coordinateTextureSlot: Int
+    let varyingName: String
+    let sourceComponents: String
+    let targetComponents: String
+
+    var resolutionUniformName: String {
+        "g_Texture\(resolutionSlot)Resolution"
+    }
+}
+
 nonisolated struct SceneAuthoredShaderFrontendDiagnostic: Equatable {
     enum Code: String {
         case invalidEncoding

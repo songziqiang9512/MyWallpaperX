@@ -359,6 +359,12 @@ Program texture purpose 不再只看 selected override 的单一 asset。共享 
 
 真实 `3749463715:533` 的 Water Flow effect 0 已由 passthrough 晋升为 ordinary `resolved-material / program / encoded-output`，与 effects 1...4 在 frame 0...116 各完成 117 次 GPU；每帧 0 rejected，effect 4 terminal compositor consumed，layer533 在 next-frame 集合，GraphExecutor 无 local fallback。整样本仍因 layer464/1106 static-uniform binding 与 layer536 既有 passthrough 为 targeted **0/1 NON-PASS**；当前截图只支持无新增黑屏/整层/整帧丢失，不是 Water Flow ROI、视觉 parity 或 owner migration。见 [E-V1-SLOT-CHAIN-TEXTURE-PURPOSE](runtime-evidence-index.md#e-v1-slot-chain-texture-purpose)。
 
+### V1 inactive resolution hole 的 typed neutral ABI
+
+prepared source structural fact只接受missing/inactive `g_TextureNResolution`精确供给一个varying component pair，且该pair只被active slot M作为sample coordinate消费；其他sampler仅可使用disjoint varying component。dead-binding因此可以在不删除resolution uniform/coordinate statement的前提下让未被fragment引用的sampler N保持inactive。fact进入compiled variant及Program identity；Finalizer仍要求N没有任何binding/default/candidate/active sampler，M的exact resolved candidate具备正确purpose/publication/generation且mapped UV scale精确为`(1,1)`，才编码typed neutral float4 ones。physical/mapped、UV、purpose、pending、source component/use或ABI任一不精确都继续失败关闭，不会生成placeholder、alias或host resolution来源。
+
+fresh真实`3749463715`的`1106#effect#367`与`464#effect#519`已由static-uniform passthrough进入同一ordinary `genericCompilerArtifact → MaterialProgram → GraphExecutor`链，frame0/next-frame均1 authored / 1 material / 0 rejected并完成GPU/publication，后续suffix继续到terminal compositor。整样本仍因layer536 test_shader frontend为targeted **0/1 NON-PASS**；route保持`prefer-generic`，不表示Gradient family、owner migration、视觉parity或V1完成。见[E-V1-NEUTRAL-MISSING-TEXTURE-RESOLUTION](runtime-evidence-index.md#e-v1-neutral-missing-texture-resolution)。
+
 ## 7. 当前证据与更新规则
 
 当前 App、样本、报告、matrix 和签名身份只见[运行证据索引](runtime-evidence-index.md)。本表只维护能力合同与缺口，不复制某个旧提交的测试总数、报告路径或“下一批”。

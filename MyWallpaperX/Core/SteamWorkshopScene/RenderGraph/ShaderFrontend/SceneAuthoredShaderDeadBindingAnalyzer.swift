@@ -25,6 +25,13 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
             units.contains { referenced(name, in: $0) }
         })
         let inactiveSamplerNames = samplerNames.subtracting(activeSamplerNames)
+        let directlyActiveSlots = Set(activeSamplerNames.compactMap(textureSlot))
+        let neutralTextureResolution =
+            SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
+                vertex: vertex,
+                fragment: fragment,
+                activeSamplerSlots: directlyActiveSlots
+            )
         let fragmentReads = varyingComponentReads(in: fragment)
         let vertexVaryings = Dictionary(uniqueKeysWithValues: vertex.declarations.compactMap {
             declaration -> (String, Int)? in
@@ -48,6 +55,9 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
                 continue
             }
             guard !vertexReferences.isEmpty else {
+                continue
+            }
+            if neutralTextureResolution?.resolutionSlot == textureSlot(samplerName) {
                 continue
             }
             let ranges = Set(vertexReferences.compactMap {
@@ -277,5 +287,10 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
         than expected: String
     ) -> Bool {
         name != expected && name.hasPrefix("g_Texture") && name.hasSuffix("Resolution")
+    }
+
+    private static func textureSlot(_ name: String) -> Int? {
+        guard name.hasPrefix("g_Texture") else { return nil }
+        return Int(name.dropFirst("g_Texture".count))
     }
 }

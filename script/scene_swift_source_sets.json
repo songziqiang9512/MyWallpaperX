@@ -59,6 +59,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderGlobalReferenceAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderDeadBindingAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderNeutralTextureResolutionAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderTextureChannelAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderAlphaAttenuationAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderGraphInputColorBlendAnalyzer.swift",

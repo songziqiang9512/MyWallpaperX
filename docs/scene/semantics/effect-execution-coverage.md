@@ -145,6 +145,8 @@ layer 533 的旧 `unclaimed-visible-effects` 断点现已缩小为精确 effect-
 
 该 layer533 冻结断点现由 shared slot-chain typed purpose 闭合：Water Flow effect 0 与 effects 1...4 均为 `admitted-generic / resolved-material / program / encoded-output`。fresh 运行 frame 0...116 中每个 effect 各有 117 次 terminal success / GPU completed / 0 rejected，effect 4 每帧 compositor consumed，layer533 进入 next-frame；GraphExecutor 全局 13 claim / 13 encode / 13 GPU / 0 failure / 0 local fallback。整样本 targeted **0/1 NON-PASS** 现只来自其他 accepted layer 的既有 exact-backend 缺口：464/1106 Gradient Opacity static-uniform binding 与 536 test_shader passthrough。截图仅证明未新增黑屏、整层或整帧丢失；手部/服饰缺块与剑光异常仍未修复，不宣称 Water Flow ROI、视觉 parity、owner migration 或 sample PASS。见 [E-V1-SLOT-CHAIN-TEXTURE-PURPOSE](runtime-evidence-index.md#e-v1-slot-chain-texture-purpose)。
 
+上述Gradient Opacity static-uniform断点现由shared neutral missing texture-resolution合同闭合：prepared source先证明inactive resolution slot N的exact paired scale只服务active coordinate slot M，variant保持N inactive/M active；Finalizer只在N是真实hole且M为purpose/publication/generation完整、axis-aligned mapped UV scale精确`(1,1)`的resolved candidate时编码typed neutral float4 ones。真实`3749463715`的layer1106 effect0与layer464 effect1均成为`resolved-material-graph / program / encoded-output`，frame0/next-frame分别1 material / 0 rejected并完成GPU/publication，后续effect suffix继续由terminal compositor消费。整样本仍因layer536 `test_shader` frontend为targeted **0/1 NON-PASS**；手部/服饰缺块与剑光错误仍在，不宣称Gradient独立ROI、family支持、visual parity、owner migration或sample PASS。见[E-V1-NEUTRAL-MISSING-TEXTURE-RESOLUTION](runtime-evidence-index.md#e-v1-neutral-missing-texture-resolution)。
+
 ## 9. 现役路线与升级规则
 
 Effect 的唯一执行顺序由[Scene 兼容执行路线](../scene-compatibility-roadmap.md)决定，本表不再按 strict profile 排下一项：

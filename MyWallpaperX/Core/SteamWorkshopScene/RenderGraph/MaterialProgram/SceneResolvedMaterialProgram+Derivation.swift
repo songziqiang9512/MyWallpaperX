@@ -420,6 +420,16 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         case .staticValue:
             guard expectedHost == nil else { return nil }
             return .staticValue
+        case let .neutralMissingTextureResolution(fact):
+            guard expectedHost == nil,
+                  field.name == fact.resolutionUniformName,
+                  field.authoredName == fact.resolutionUniformName,
+                  field.type == .float4,
+                  field.arrayCount == nil,
+                  !activeTextureSlots.contains(fact.resolutionSlot),
+                  activeTextureSlots.contains(fact.coordinateTextureSlot)
+            else { return nil }
+            return .neutralMissingTextureResolution(fact)
         case let .dynamic(declared, _, resolved, _):
             guard expectedHost == nil,
                   let kind = dynamicKind(declared, resolved: resolved) else {
