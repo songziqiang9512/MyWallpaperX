@@ -390,8 +390,8 @@ fragment float4 mwxGenericFragment(
             self.assertTrue(missing["boundedFrontendAccepted"])
             self.assertEqual(missing["alphaOwner"], "bounded-frontend")
             self.assertEqual(missing["alphaState"], "prefer-generic")
-            self.assertEqual(missing["compositeOwner"], "program-first-incumbent")
-            self.assertEqual(missing["compositeState"], "prefer-generic")
+            self.assertEqual(missing["compositeOwner"], "none")
+            self.assertEqual(missing["compositeState"], "generic-only")
             self.assertIn(
                 f"state=prefer-generic profile={profile} outcome=fallback",
                 missing_log,
@@ -427,18 +427,19 @@ fragment float4 mwxGenericFragment(
             self.assertTrue(disabled["boundedFrontendAccepted"])
             self.assertIn("outcome=fallback reason=route-disabled", disabled_log)
 
-    def test_unit_composite_prefers_generic_and_defers_failures_to_incumbent(
+    def test_unit_composite_generic_only_rejects_to_previous_current_without_secondary_owner(
         self,
     ) -> None:
         profile = "source-proven-unit-previous-blurred-composite"
         with tempfile.TemporaryDirectory(prefix="mwx-unit-composite-owner-") as directory:
             root = Path(directory)
             missing, missing_log, requests, cache = self.run_route(root, "composite")
-            self.assertEqual(missing["status"], "owner-deferred")
+            self.assertEqual(missing["status"], "unavailable")
             self.assertTrue(missing["code"].startswith("compiler-configuration-"))
             self.assertEqual(missing["profile"], profile)
-            self.assertEqual(missing["state"], "prefer-generic")
-            self.assertEqual(missing["fallbackOwner"], "program-first-incumbent")
+            self.assertEqual(missing["state"], "generic-only")
+            self.assertEqual(missing["fallbackOwner"], "none")
+            self.assertFalse(missing["permitsBoundedFrontend"])
             self.assertEqual(list(cache.iterdir()), [])
             self.assertEqual(len(list(requests.glob("*.json"))), 1)
             self.assertIn("compiler lifecycle", missing_log)
@@ -451,24 +452,28 @@ fragment float4 mwxGenericFragment(
             artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
             accepted, accepted_log, _, _ = self.run_route(root, "composite")
             self.assertEqual(accepted["status"], "accepted")
-            self.assertEqual(accepted["state"], "prefer-generic")
+            self.assertEqual(accepted["state"], "generic-only")
             self.assertIn("outcome=accepted reason=-", accepted_log)
 
             artifact["program"]["metalSourceSHA256"] = "0" * 64
             artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
             rejected, rejected_log, _, _ = self.run_route(root, "composite")
-            self.assertEqual(rejected["status"], "owner-deferred")
+            self.assertEqual(rejected["status"], "unavailable")
             self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
             self.assertIn(
-                "outcome=fallback reason=artifact-contract-rejected",
+                "outcome=rejected reason=artifact-contract-rejected",
                 rejected_log,
             )
 
             disabled, disabled_log, _, _ = self.run_route(
                 root, "composite", f"{profile}=disable-generic"
             )
-            self.assertEqual(disabled["status"], "owner-deferred")
+            self.assertEqual(disabled["status"], "unavailable")
             self.assertEqual(disabled["code"], "route-disabled")
+            self.assertEqual(disabled["fallbackOwner"], "none")
+            self.assertFalse(disabled["permitsBoundedFrontend"])
+            self.assertFalse(disabled["boundedFrontendAccepted"])
             self.assertIn("outcome=fallback reason=route-disabled", disabled_log)
 
     def test_source_proven_composite_without_whole_stage_owner_is_quarantined(
@@ -560,15 +565,31 @@ fragment float4 mwxGenericFragment(
         ])
         self.assertIn("case programFirstIncumbent", route)
         default_routes = route[route.index("var defaultRouteState"):]
+        prefer_generic_cases, generic_only_tail = default_routes.split(
+            ".preferGeneric", 1
+        )
+        generic_only_cases = generic_only_tail.split(".genericOnly", 1)[0]
         self.assertIn(
             ".sourceProvenGraphInputAlphaWeightedSampleAverage,",
-            default_routes.split(".preferGeneric", 1)[0],
+            prefer_generic_cases,
+        )
+        self.assertNotIn(
+            ".sourceProvenUnitPreviousBlurredComposite,",
+            prefer_generic_cases,
+        )
+        self.assertIn(
+            ".sourceProvenUnitPreviousBlurredComposite,",
+            generic_only_cases,
         )
         rollback = route[route.index("var validatedRollbackOwner"):]
         incumbent_cases = rollback.split(".programFirstIncumbent", 1)[0]
-        self.assertIn(".sourceProvenUnitPreviousBlurredComposite", incumbent_cases)
-        self.assertNotIn(
-            ".sourceProvenGraphInputAlphaWeightedSampleAverage", incumbent_cases
+        self.assertIn(
+            ".sourceProvenUnitPreviousBlurredComposite:", rollback
+        )
+        self.assertIn(".none", rollback)
+        self.assertIn(
+            ".sourceProvenUnitPreviousBlurredCompositeUnowned",
+            incumbent_cases,
         )
         owner_gate = owner_admission[owner_admission.index("static func accepts("):]
         self.assertIn("SceneAuthoredStandardBlurPlanner.plan(", owner_gate)

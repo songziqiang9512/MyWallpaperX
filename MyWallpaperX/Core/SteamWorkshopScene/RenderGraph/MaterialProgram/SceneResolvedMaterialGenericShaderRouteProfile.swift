@@ -251,7 +251,6 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         case .ordinaryShader,
              .providerBackedScalarColorInterpolation,
              .sourceProvenGraphInputAlphaWeightedSampleAverage,
-             .sourceProvenUnitPreviousBlurredComposite,
              .sourceProvenGraphInputStraightAlpha,
              .sourceProvenGraphInputStraightAlphaPreserving:
             .preferGeneric
@@ -261,6 +260,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenIndependentPremultipliedOutput,
              .sourceProvenGraphTargetPassthrough,
              .sourceProvenNormalizedSampleSum,
+             .sourceProvenUnitPreviousBlurredComposite,
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
              .sourceProvenGraphInputConditionalStraightUnion,
@@ -277,12 +277,17 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         }
     }
 
-    /// Shared profiles roll back through the bounded frontend unless a narrow
-    /// compound-finalizer fact explicitly requires the verified incumbent.
+    /// Shared profiles normally roll back through the bounded frontend. The
+    /// unit previous/blurred composite has no visually safe secondary owner:
+    /// disabling its generic owner must reject that effect back to the safe
+    /// previous-current boundary. A source-proven composite that lacks the
+    /// surrounding graph owner token remains quarantined behind the verified
+    /// incumbent.
     var validatedRollbackOwner: SceneGenericShaderFallbackOwner {
         switch self {
-        case .sourceProvenUnitPreviousBlurredComposite,
-             .sourceProvenUnitPreviousBlurredCompositeUnowned:
+        case .sourceProvenUnitPreviousBlurredComposite:
+            .none
+        case .sourceProvenUnitPreviousBlurredCompositeUnowned:
             .programFirstIncumbent
         default:
             .boundedFrontend

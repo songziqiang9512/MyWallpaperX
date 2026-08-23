@@ -785,9 +785,9 @@ class StandardAlphaCompositeGenericContractTests(unittest.TestCase):
             output["routeProfile"],
             "source-proven-unit-previous-blurred-composite",
         )
-        self.assertEqual(output["routeState"], "prefer-generic")
+        self.assertEqual(output["routeState"], "generic-only")
         self.assertEqual(output["disableState"], "disable-generic")
-        self.assertEqual(output["rollbackOwner"], "program-first-incumbent")
+        self.assertEqual(output["rollbackOwner"], "none")
 
         finalizer = FINALIZER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("details: colorContractFailureDetails(", finalizer)
