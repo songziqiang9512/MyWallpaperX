@@ -33,7 +33,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             input,
             samplers: variant.activeSamplers,
             reachableSamplers: reachableSamplers,
-            channelUses: channelUses
+            channelUses: channelUses,
+            graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts
         )
                 == variant.readinessMask else {
             throw failure(.textureReadinessIdentityInvariant, phase: .invariant)
@@ -52,7 +53,10 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         _ input: SceneResolvedMaterialFinalizationInput,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
-        channelUses: [Int: ChannelUse]
+        channelUses: [Int: ChannelUse],
+        graphInputSourceSlotFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ] = [:]
     ) throws -> UInt8 {
         try variantKey(
             input,
@@ -61,7 +65,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             formatSlots: [],
             channelUses: channelUses,
             allowPresenceIndependentDefaults: true,
-            restrictToSamplerSlots: true
+            restrictToSamplerSlots: true,
+            graphInputSourceSlotFacts: graphInputSourceSlotFacts
         ).readinessMask
     }
 
@@ -72,7 +77,10 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         formatSlots: Set<Int>,
         channelUses: [Int: ChannelUse] = [:],
         allowPresenceIndependentDefaults: Bool,
-        restrictToSamplerSlots: Bool = false
+        restrictToSamplerSlots: Bool = false,
+        graphInputSourceSlotFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ] = [:]
     ) throws -> SceneResolvedMaterialVariantKey {
         guard formatSlots.allSatisfy((0 ..< 8).contains),
               channelUses.keys.allSatisfy((0 ..< 8).contains) else {
@@ -84,7 +92,8 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             reachableSamplers: reachableSamplers,
             channelUses: channelUses,
             allowPresenceIndependentDefaults: allowPresenceIndependentDefaults,
-            restrictToSamplerSlots: restrictToSamplerSlots
+            restrictToSamplerSlots: restrictToSamplerSlots,
+            graphInputSourceSlotFacts: graphInputSourceSlotFacts
         )
         var mask: UInt8 = 0
         var formats = Array<SceneShaderTextureFormat?>(repeating: nil, count: 8)
@@ -93,7 +102,12 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             case .absent: break
             case .internalDefault:
                 throw failure(.textureBindingInvalid, slot: slot)
-            case let .reference(reference, purpose, provenance):
+            case let .reference(
+                reference,
+                purpose,
+                provenance,
+                _
+            ):
                 let resolved: ResolvedResource
                 if let purpose {
                     resolved = try readyResource(
@@ -210,14 +224,16 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             reachableSamplers: reachableSamplers,
             channelUses: channelUses,
             allowPresenceIndependentDefaults: true,
-            restrictToSamplerSlots: true
+            restrictToSamplerSlots: true,
+            graphInputSourceSlotFacts: variant.graphInputSourceSlotFacts
         )
         var result = Array<Program.TextureSlot?>(repeating: nil, count: 8)
         for binding in variant.frontendProgram.textureBindings {
             guard case let .reference(
                 reference,
                 selectedPurpose,
-                provenance
+                provenance,
+                graphInputSourceFact
             ) =
                     selections[binding.slot] else {
                 throw failure(.textureBindingInvalid, slot: binding.slot)
@@ -240,6 +256,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                 reference: reference,
                 registryIdentity: resolved.identity,
                 diagnosticSelectionProvenance: provenance,
+                graphInputSourceFact: graphInputSourceFact,
                 expectedPurpose: purpose,
                 resource: resolved.resource
             )

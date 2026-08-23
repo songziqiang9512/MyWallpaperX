@@ -7,13 +7,19 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
     /// Derives the shared material color contract directly from one prepared
     /// authored fragment source. Compiler backends may translate more syntax,
     /// but they may not contradict a fact proven here.
-    static func analyze(fragmentSource source: String) -> SceneShaderColorTransfer {
+    static func analyze(
+        fragmentSource source: String,
+        provenRuntimeLoopBounds: [
+            String: SceneAuthoredShaderExactScalarFact
+        ] = [:]
+    ) -> SceneShaderColorTransfer {
         let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
             lexerOutput: SceneAuthoredShaderLexer.lex(
                 source: source,
                 stage: .fragment
             ),
-            stage: .fragment
+            stage: .fragment,
+            provenRuntimeLoopBounds: provenRuntimeLoopBounds
         )
         guard syntax.diagnostics.isEmpty, let fragment = syntax.unit else {
             return .unresolved
@@ -244,6 +250,14 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         if let slot = directTextureSampleSlot(expression) {
             return .passthrough(textureSlot: slot)
         }
+        if let slot = preservedAlphaRGBMutationSlot(
+            expression,
+            outputAssignment: assignment,
+            tokens: tokens,
+            body: main.bodyRange
+        ) {
+            return .straightAlphaPreserving(textureSlot: slot)
+        }
         if let slot = straightAlphaSlot(
             expression,
             outputAssignment: assignment,
@@ -281,6 +295,81 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             return transfer
         }
         return isOpaqueVectorConstruction(expression) ? .opaque : .unresolved
+    }
+
+    /// Proves one sampled carrier whose RGB is transformed in place while its
+    /// alpha is copied unchanged to the sole output. Every replacement RGB
+    /// assignment must still read the carrier RGB, and no other texture sample
+    /// may participate, so arbitrary uniform/helper math cannot invent a
+    /// second color source.
+    private static func preservedAlphaRGBMutationSlot(
+        _ expression: ArraySlice<SceneAuthoredShaderToken>,
+        outputAssignment: Int,
+        tokens: [SceneAuthoredShaderToken],
+        body: Range<Int>
+    ) -> Int? {
+        let output = Array(expression)
+        guard output.count >= 9,
+              ["vec4", "float4"].contains(output[0].text),
+              output[1].text == "(",
+              output.last?.text == ")",
+              outerCallClosesAtEnd(output),
+              topLevelCommas(output).count == 1,
+              let comma = topLevelCommas(output).first else { return nil }
+        let rgb = Array(output[2..<comma])
+        let alpha = Array(output[(comma + 1)..<(output.count - 1)])
+        guard alpha.count == 3,
+              alpha[0].kind == .identifier,
+              alpha[1].text == ".",
+              alpha[2].text == "a" else { return nil }
+        let carrier = alpha[0].text
+        let rgbUses = rgb.indices.filter { rgb[$0].text == carrier }
+        guard !rgbUses.isEmpty,
+              rgbUses.allSatisfy({ index in
+                  index + 2 < rgb.count
+                      && rgb[index + 1].text == "."
+                      && rgb[index + 2].text == "rgb"
+              }) else { return nil }
+
+        let definitions = body.filter { index in
+            index > body.lowerBound
+                && index + 1 < outputAssignment
+                && tokens[index].text == carrier
+                && ["vec4", "float4"].contains(tokens[index - 1].text)
+                && tokens[index + 1].text == "="
+        }
+        guard definitions.count == 1,
+              let definition = definitions.first,
+              isUnconditionalWrite(definition, tokens: tokens, body: body),
+              let initializer = assignmentExpression(
+                  after: definition,
+                  in: tokens,
+                  body: body
+              ), let slot = directTextureSampleSlot(initializer),
+              textureSampleSlots(in: body, tokens: tokens) == [slot] else {
+            return nil
+        }
+
+        let operators: Set<String> = ["=", "+=", "-=", "*=", "/="]
+        for use in tokens.indices where use > definition && use < outputAssignment
+            && tokens[use].text == carrier {
+            guard use + 2 < outputAssignment,
+                  tokens[use + 1].text == ".",
+                  tokens[use + 2].text == "rgb" else { return nil }
+            guard use + 3 < outputAssignment,
+                  operators.contains(tokens[use + 3].text) else { continue }
+            if tokens[use + 3].text == "=" {
+                guard let semicolon = (use + 4..<outputAssignment).first(
+                    where: { tokens[$0].text == ";" }
+                ), (use + 4..<semicolon).contains(where: { index in
+                    index + 2 < semicolon
+                        && tokens[index].text == carrier
+                        && tokens[index + 1].text == "."
+                        && tokens[index + 2].text == "rgb"
+                }) else { return nil }
+            }
+        }
+        return slot
     }
 
     /// Proves a sampled local with no RGB writes and one root alpha write.

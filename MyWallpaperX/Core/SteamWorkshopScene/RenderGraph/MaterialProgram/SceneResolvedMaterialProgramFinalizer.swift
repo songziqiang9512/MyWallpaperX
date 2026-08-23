@@ -235,11 +235,14 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             ) == nil else { return nil }
         }
         for slot in slots.compactMap({ $0 }) {
-            guard slot.diagnosticSelectionProvenance == .implicitFramebuffer
-                    || slot.diagnosticSelectionProvenance == .materialGraphInputAlias else {
+            guard let fact = slot.graphInputSourceFact else {
                 continue
             }
             guard case let .graph(identity) = slot.reference,
+                  identity == fact.inputIdentity,
+                  slot.index == fact.slot,
+                  slot.diagnosticSelectionProvenance
+                    == fact.selectionProvenance,
                   let texture = Template.GraphTextureRole(
                       rawValue: identity.kind.rawValue
                   ) else { return nil }

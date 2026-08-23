@@ -12,6 +12,7 @@ nonisolated extension SceneResolvedMaterialProgramIdentity {
         return .init(
             reference: slot.reference,
             registryIdentity: slot.registryIdentity,
+            graphInputSource: slot.graphInputSourceFact,
             resourceIdentity: candidate.identity,
             resourceGeneration: candidate.generation,
             contentGeneration: publication.contentGeneration,

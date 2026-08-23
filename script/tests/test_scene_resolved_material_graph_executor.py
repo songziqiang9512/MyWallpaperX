@@ -783,6 +783,29 @@ private func implicitFramebufferMaterial(
     )
 }
 
+private func dormantGraphInputMaterial(
+    _ nodeIndex: Int,
+    owner: Graph.EffectKey,
+    target: Graph.TextureIdentity
+) -> Graph.Node {
+    .init(
+        nodeIndex: nodeIndex,
+        effect: owner,
+        definitionPassIndex: 0,
+        materialOrdinal: 0,
+        instancePassIndex: 0,
+        kind: .material,
+        materialPath: "materials/dormant-graph-input-\(nodeIndex).json",
+        materialPassID: "dormant-graph-input-\(nodeIndex)#0",
+        target: target,
+        bindings: [],
+        commandSource: nil,
+        commandTarget: nil,
+        compose: nil,
+        conditions: nil
+    )
+}
+
 private func fullFrameComposeMaterial(
     _ nodeIndex: Int,
     ordinal: Int,
@@ -926,6 +949,44 @@ private func chainedGraph() -> Graph {
     )
 }
 
+private func dormantGraphInputChainGraph() -> Graph {
+    let nodes = [
+        dormantGraphInputMaterial(
+            0,
+            owner: chainedFirstEffect,
+            target: chainedFirstOutput
+        ),
+        dormantGraphInputMaterial(
+            1,
+            owner: chainedSecondEffect,
+            target: chainedSecondOutput
+        ),
+    ]
+    return .init(
+        layerID: layerID,
+        effects: [
+            .init(
+                key: chainedFirstEffect,
+                definitionPath: "effects/dormant-first/effect.json",
+                input: input,
+                output: chainedFirstOutput,
+                nodeIndices: [0]
+            ),
+            .init(
+                key: chainedSecondEffect,
+                definitionPath: "effects/dormant-second/effect.json",
+                input: chainedFirstOutput,
+                output: chainedSecondOutput,
+                nodeIndices: [1]
+            ),
+        ],
+        renderTargets: [],
+        nodes: nodes,
+        finalOutput: chainedSecondOutput,
+        blockers: []
+    )
+}
+
 private func executionPlan(
     for graph: Graph,
     inputRole: SceneAuthoredEffectInputRole = .layerSource
@@ -953,7 +1014,7 @@ private func admittedGraph(_ graph: Graph) -> AdmittedLayerGraph {
 }
 
 private func orderedLayerGraph(_ graph: Graph) -> AdmittedLayerGraph {
-    precondition(graph.renderTargets.isEmpty && graph.effects.count == 3)
+    precondition(graph.renderTargets.isEmpty && graph.effects.count >= 2)
     let stages = graph.effects.enumerated().map { index, effect in
         let stageGraph = Graph(
             layerID: graph.layerID,
@@ -1005,6 +1066,7 @@ private func shaderContract(
     implicitFramebuffer: Bool = false,
     implicitFramebufferAnnotation: Bool = true,
     historicalFramebufferAlias: Bool = false,
+    dormantUnresolvedMaterialKey: String? = nil,
     scalarProducer: Bool = false,
     scalarProducerUnproven: Bool = false,
     scalarConsumer: String? = nil,
@@ -1047,7 +1109,18 @@ private func shaderContract(
         gl_FragColor = vec4(g_Texture0Resolution.xy * 0.0, 0.0, 1.0);
     }
     """
-    let fragment = implicitFramebuffer ? (implicitFramebufferAnnotation
+    let dormantFragment = dormantUnresolvedMaterialKey.map { materialKey in
+        """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0; // {"material":"\(materialKey)","label":"Random fixture label","hidden":true}
+        void main() {
+            \(pixelTransform == nil
+                ? "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
+                : "vec4 color = texSample2D(g_Texture0, v_TexCoord); color.rgb = color.rgb.gbr; gl_FragColor = color;")
+        }
+        """
+    }
+    let fragment = dormantFragment ?? (implicitFramebuffer ? (implicitFramebufferAnnotation
         ? explicitFramebufferFragment : """
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0;
@@ -1071,7 +1144,7 @@ private func shaderContract(
         repeatProbe: repeatProbe,
         crossLayerMix: crossLayerMix,
         colorBlend: colorBlend
-    )
+    ))
     let stages = [
         stage(
             .vertex,
@@ -1143,6 +1216,53 @@ private func implicitFramebufferTemplate(
             nodeTarget: role(target),
             bindings: []
         ),
+        shaderContract: contract,
+        diagnosticProvenance: .init(
+            nodeIndex: node.nodeIndex,
+            authoredShaderPath: contract.identity,
+            contractIdentity: contract.identity,
+            contractCanonicalSHA256: contract.canonicalSHA256,
+            textureSources: [],
+            uniformSources: []
+        )
+    )!
+}
+
+private func dormantGraphInputTemplate(
+    for node: Graph.Node,
+    effect: Graph.Effect,
+    materialKey: String,
+    pixelTransform: Int
+) -> Template {
+    guard node.effect == effect.key,
+          node.bindings.isEmpty,
+          let target = node.target else {
+        fatalError("dormant graph-input fixture is incomplete")
+    }
+    let contract = shaderContract(
+        nodeIndex: node.nodeIndex,
+        pass: true,
+        pixelTransform: pixelTransform,
+        dormantUnresolvedMaterialKey: materialKey
+    )
+    return Template.validated(
+        textureSlots: Array(repeating: nil, count: 8),
+        combos: [],
+        uniformDeclarations: [],
+        renderState: SceneMaterialRenderState.compile(
+            blending: "normal",
+            depthTest: "disabled",
+            depthWrite: "disabled",
+            cullMode: "nocull",
+            alphaWriting: nil
+        )!,
+        graphRole: .init(
+            effectInput: role(effect.input),
+            effectOutput: role(effect.output),
+            nodeTarget: role(target),
+            bindings: []
+        ),
+        effectContext: .init(key: effect.key, input: effect.input),
         shaderContract: contract,
         diagnosticProvenance: .init(
             nodeIndex: node.nodeIndex,
@@ -1354,6 +1474,7 @@ private func catalog(
     demandIssueNodes: Set<Int> = [],
     implicitFramebufferNodes: Set<Int> = [],
     historicalFramebufferNodes: Set<Int> = [],
+    dormantGraphInputNodes: Set<Int> = [],
     scalarProducerNodes: Set<Int> = [],
     scalarProducerUnprovenNodes: Set<Int> = [],
     scalarConsumerNodes: [Int: String] = [:],
@@ -1368,7 +1489,16 @@ private func catalog(
     ] = [:]
     for node in graph.nodes where node.kind == .material {
         guard !omittedNodes.contains(node.nodeIndex) else { continue }
-        let value = implicitFramebufferNodes.contains(node.nodeIndex)
+        let value = dormantGraphInputNodes.contains(node.nodeIndex)
+            ? dormantGraphInputTemplate(
+                for: node,
+                effect: graph.effects.first(where: {
+                    $0.key == node.effect
+                })!,
+                materialKey: "Arbitrary source \(node.nodeIndex)",
+                pixelTransform: pixelTransformsByNode[node.nodeIndex] ?? 1
+            )
+            : implicitFramebufferNodes.contains(node.nodeIndex)
             ? implicitFramebufferTemplate(
                 for: node,
                 historicalAlias: historicalFramebufferNodes.contains(node.nodeIndex)
@@ -3149,6 +3279,186 @@ private enum Harness {
             }
         } else if pixelCapability != nil && pixelLeases == nil {
             pixelChainFailure = "leases"
+        }
+
+        let dormantGraph = dormantGraphInputChainGraph()
+        let dormantChain = orderedLayerGraph(dormantGraph)
+        let dormantCapabilities = capabilities(
+            dormantChain,
+            catalog: catalog(
+                for: dormantGraph,
+                dormantGraphInputNodes: [0, 1],
+                pixelTransformsByNode: [0: 1, 1: 2]
+            )
+        )
+        let dormantClaim = dormantCapabilities.claim(dormantChain)
+        let dormantCapability = dormantClaim.flatMap {
+            dormantCapabilities.resolve($0.token, for: dormantChain)
+        }
+        var dormantGraphInputChainPrepared = false
+        var dormantGraphInputProgramsPrepared = false
+        var dormantGraphInputExactSourcesPublished = false
+        var dormantGraphInputEncoded = false
+        var dormantGraphInputGPUCompleted = false
+        var dormantGraphInputPixelsPreserved = false
+        var dormantGraphInputNextFrameClosed = false
+        var dormantGraphInputFailure = "setup"
+        if let claim = dormantClaim,
+           let capability = dormantCapability,
+           let leases = makeChainedLeases(
+               capability,
+               device: device,
+               generation: 31
+           ), let executor = Executor(
+               device: device,
+               capabilities: dormantCapabilities
+           ), let command = queue.makeCommandBuffer() {
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(1),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 31,
+                resetGeneration: 31
+            )
+            dormantGraphInputFailure = failureCode(preparation)
+            if case let .success(prepared) = preparation,
+               prepared.stages.count == 2 {
+                let first = prepared.stages[0]
+                let second = prepared.stages[1]
+                dormantGraphInputChainPrepared =
+                    prepared.stages.map(\.effect) == [
+                        chainedFirstEffect,
+                        chainedSecondEffect,
+                    ]
+                    && first.pairStep.inputIdentity == input
+                    && first.pairStep.outputIdentity == chainedFirstOutput
+                    && second.pairStep.inputIdentity == chainedFirstOutput
+                    && second.pairStep.outputIdentity == chainedSecondOutput
+                    && first.pairStep.inputMember != first.pairStep.outputMember
+                    && second.pairStep.inputMember != second.pairStep.outputMember
+                dormantGraphInputProgramsPrepared = prepared.stages.allSatisfy {
+                    $0.programCacheKeys.count == 1
+                        && $0.programCacheKeys.allSatisfy {
+                            !$0.hasPrefix("dedicated:")
+                                && !$0.hasPrefix("visual-failure-passthrough:")
+                        }
+                }
+                dormantGraphInputExactSourcesPublished =
+                    first.effectOutputResource.publication.requestIdentity
+                        == .graph(chainedFirstOutput)
+                    && second.effectOutputResource.publication.requestIdentity
+                        == .graph(chainedSecondOutput)
+                    && first.effectOutputResource.publication.texture
+                        === executor.pairTexture(
+                            lease: leases[1],
+                            member: second.pairStep.inputMember
+                        )
+                    && prepared.finalResource.publication.isSameAtom(
+                        as: second.effectOutputResource.publication
+                    )
+                var observedStageIndices: [Int] = []
+                var stageReadbacks: [Readback] = []
+                dormantGraphInputEncoded = executor.encode(
+                    prepared,
+                    commandBuffer: command,
+                    stageBoundaryObserver: { stageIndex, transition, buffer in
+                        guard let readback = appendReadback(
+                            transition.effectOutputResource.publication.texture,
+                            commandBuffer: buffer
+                        ) else { return false }
+                        observedStageIndices.append(stageIndex)
+                        stageReadbacks.append(readback)
+                        return true
+                    }
+                )
+                if dormantGraphInputEncoded,
+                   let finalReadback = appendReadback(
+                       prepared.finalTexture,
+                       commandBuffer: command
+                   ) {
+                    command.commit()
+                    command.waitUntilCompleted()
+                    dormantGraphInputGPUCompleted =
+                        command.status == .completed && command.error == nil
+                    let expectedPixels: [[UInt8]] = [
+                        [255, 0, 0, 255],
+                        [0, 255, 0, 255],
+                    ]
+                    dormantGraphInputPixelsPreserved =
+                        observedStageIndices == [0, 1]
+                        && stageReadbacks.count == 2
+                        && zip(stageReadbacks, expectedPixels).allSatisfy {
+                            matches($0.firstPixel, $1)
+                                && matches($0.lastPixel, $1)
+                        }
+                        && matches(finalReadback.firstPixel, expectedPixels[1])
+                        && matches(finalReadback.lastPixel, expectedPixels[1])
+                    if let nextCommand = queue.makeCommandBuffer() {
+                        let previousStates = Dictionary(
+                            uniqueKeysWithValues: prepared.stages.map {
+                                ($0.effect, $0.transition.nextState)
+                            }
+                        )
+                        let previousResources = Dictionary(
+                            uniqueKeysWithValues: prepared.stages.map {
+                                ($0.effect, $0.persistentResources)
+                            }
+                        )
+                        let nextPreparation = executor.prepare(
+                            token: claim.token,
+                            leases: leases,
+                            historyRehydrateCopiesByEffect: [:],
+                            frame: frame(2),
+                            sourceTexture: source,
+                            sourceUniforms: .neutral(),
+                            sourcePipeline: sourcePipeline,
+                            dedicatedInputs: .init(),
+                            commandBuffer: nextCommand,
+                            previousStates: previousStates,
+                            previousGraphResources: previousResources,
+                            effectGeneration: 31,
+                            resetGeneration: 31
+                        )
+                        if case let .success(nextPrepared) = nextPreparation,
+                           nextPrepared.stages.count == 2,
+                           nextPrepared.stages[0].pairStep.inputIdentity == input,
+                           nextPrepared.stages[1].pairStep.inputIdentity
+                                == chainedFirstOutput,
+                           nextPrepared.finalResource.publication.isSameAtom(
+                               as: nextPrepared.stages[1]
+                                   .effectOutputResource.publication
+                           ), executor.encode(
+                               nextPrepared,
+                               commandBuffer: nextCommand
+                           ), let nextReadback = appendReadback(
+                               nextPrepared.finalTexture,
+                               commandBuffer: nextCommand
+                           ) {
+                            nextCommand.commit()
+                            nextCommand.waitUntilCompleted()
+                            dormantGraphInputNextFrameClosed =
+                                nextCommand.status == .completed
+                                && nextCommand.error == nil
+                                && matches(
+                                    nextReadback.firstPixel,
+                                    expectedPixels[1]
+                                )
+                                && matches(
+                                    nextReadback.lastPixel,
+                                    expectedPixels[1]
+                                )
+                        }
+                    }
+                }
+            }
         }
 
         let dynamicNode = pixelGraph.nodes[1]
@@ -6506,6 +6816,20 @@ private enum Harness {
                     && genericComposeSecondFailure.encoded
                     && genericComposeSecondFailure.gpu
                     && genericComposeSecondFailure.restored,
+            "dormantGraphInputTwoEffectChainPrepared":
+                dormantGraphInputChainPrepared,
+            "dormantGraphInputProgramsPrepared":
+                dormantGraphInputProgramsPrepared,
+            "dormantGraphInputExactSourcesAndTerminalPublished":
+                dormantGraphInputExactSourcesPublished,
+            "dormantGraphInputTwoEffectChainEncoded":
+                dormantGraphInputEncoded,
+            "dormantGraphInputTwoEffectChainGPUCompleted":
+                dormantGraphInputGPUCompleted,
+            "dormantGraphInputTwoEffectPixelsPreserved":
+                dormantGraphInputPixelsPreserved,
+            "dormantGraphInputNextFrameClosed":
+                dormantGraphInputNextFrameClosed,
             "secondFramePreviousStateAndResourcesPrepared": failureCode(secondFrame)
                 == "success",
             "secondFrameReusesShaderAndFrontendVariant":
@@ -6658,6 +6982,7 @@ private enum Harness {
             "colorBlendWrongPurposePreparation":
                 colorBlendWrongPurposeFailure.failureCode,
             "pixelChainFailure": pixelChainFailure,
+            "dormantGraphInputFailure": dormantGraphInputFailure,
             "visualFailureObservedPixels": visualFailureObservedPixels,
             "dynamicUniformMultiNodeFailure": dynamicUniformMultiNodeFailure,
             "dynamicUniformMultiNodeReport": dynamicMultiCapabilities.reportLines,

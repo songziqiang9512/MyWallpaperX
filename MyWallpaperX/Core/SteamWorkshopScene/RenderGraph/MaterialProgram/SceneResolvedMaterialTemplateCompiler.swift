@@ -44,6 +44,10 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                     uniformDeclarations: uniforms.values,
                     renderState: state,
                     graphRole: role,
+                    effectContext: .init(
+                        key: context.effect.key,
+                        input: context.effect.input
+                    ),
                     shaderContract: shaderContract,
                     diagnosticProvenance: .init(
                         nodeIndex: material.nodeIndex,

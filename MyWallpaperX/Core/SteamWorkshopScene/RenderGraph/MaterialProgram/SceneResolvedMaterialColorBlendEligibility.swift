@@ -9,15 +9,27 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
         colorTransfer: SceneShaderColorTransfer,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         template: Template,
-        implicitFramebufferIdentity: Graph.TextureIdentity?
+        implicitFramebufferIdentity: Graph.TextureIdentity?,
+        graphInputSourceSlotFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ] = [:]
     ) -> Int? {
         guard let fact = SceneAuthoredShaderGraphInputColorBlendAnalyzer.analyze(
             fragmentSource: fragmentSource
-        ), transfer(colorTransfer, matches: fact), validated(
+        ), transfer(colorTransfer, matches: fact) else { return nil }
+        let graphFacts = graphInputSourceSlotFacts.isEmpty
+            ? SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(
+                template: template,
+                samplers: samplers,
+                inputIdentity: implicitFramebufferIdentity,
+                sourceColorTransfer: colorTransfer
+            ) : graphInputSourceSlotFacts
+        guard validated(
             fact: fact,
             samplers: samplers,
             template: template,
-            implicitFramebufferIdentity: implicitFramebufferIdentity
+            implicitFramebufferIdentity: implicitFramebufferIdentity,
+            graphInputSourceSlotFacts: graphFacts
         ) else { return nil }
         return fact.sourceSlot
     }
@@ -26,8 +38,17 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
         fact: SceneAuthoredShaderGraphInputColorBlendFact,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         template: Template,
-        implicitFramebufferIdentity: Graph.TextureIdentity?
+        implicitFramebufferIdentity: Graph.TextureIdentity?,
+        graphInputSourceSlotFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ] = [:]
     ) -> Bool {
+        let graphFacts = graphInputSourceSlotFacts.isEmpty
+            ? SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(
+                template: template,
+                samplers: samplers,
+                inputIdentity: implicitFramebufferIdentity
+            ) : graphInputSourceSlotFacts
         guard let inputIdentity = implicitFramebufferIdentity,
               inputIdentity.name == nil,
               inputIdentity.kind == .layerSource
@@ -50,10 +71,16 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
                 inputIdentity: inputIdentity,
                 inputRole: inputRole,
                 samplers: samplers,
-                template: template
+                template: template,
+                graphInputSourceSlotFacts: graphFacts
               ) else { return false }
         return fact.auxiliaryRedSlots.allSatisfy {
-            !slotMaySelectGraphTexture($0, samplers: samplers, template: template)
+            !slotMaySelectGraphTexture(
+                $0,
+                samplers: samplers,
+                template: template,
+                graphInputSourceSlotFacts: graphFacts
+            )
         }
     }
 
@@ -76,7 +103,10 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
         inputIdentity: Graph.TextureIdentity,
         inputRole: Template.GraphTextureRole,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        template: Template
+        template: Template,
+        graphInputSourceSlotFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ]
     ) -> Bool {
         if template.textureSlots.indices.contains(slot),
            let declaration = template.textureSlots[slot] {
@@ -93,16 +123,16 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
         }) {
             return true
         }
-        return SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
-            template: template,
-            samplers: samplers
-        ).contains(slot) || samplers[slot]?.usesGraphInputMaterialAlias == true
+        return graphInputSourceSlotFacts[slot]?.inputIdentity == inputIdentity
     }
 
     private static func slotMaySelectGraphTexture(
         _ slot: Int,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        template: Template
+        template: Template,
+        graphInputSourceSlotFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ]
     ) -> Bool {
         if template.graphRole.bindings.contains(where: { $0.slot == slot }) {
             return true
@@ -114,10 +144,7 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
            }) == true {
             return true
         }
-        return SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
-            template: template,
-            samplers: samplers
-        ).contains(slot) || samplers[slot]?.usesGraphInputMaterialAlias == true
+        return graphInputSourceSlotFacts[slot] != nil
     }
 }
 

@@ -41,12 +41,34 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         template: Template,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         implicitFramebufferIdentity: Graph.TextureIdentity?,
-        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        graphInputSourceSlotFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ] = [:]
     ) -> Result<LaunchReadinessProjection, Failure> {
         do {
             guard template.textureSlots.count == 8,
                   samplers.keys.allSatisfy((0 ..< 8).contains) else {
                 throw launchFailure(.identityInvariant, phase: .invariant)
+            }
+            let structuralFacts = SceneResolvedMaterialShaderSchema
+                .graphInputSourceSlotFacts(
+                    template: template,
+                    samplers: samplers,
+                    inputIdentity: implicitFramebufferIdentity
+                )
+            var graphFacts = structuralFacts
+            for (slot, fact) in graphInputSourceSlotFacts
+            where fact.provenance == .dormantUnresolvedMaterialAlias {
+                guard samplers[slot] != nil,
+                      fact.slot == slot,
+                      fact.inputIdentity == implicitFramebufferIdentity else {
+                    throw launchFailure(
+                        .textureReferenceInvalid,
+                        slot: slot
+                    )
+                }
+                graphFacts[slot] = fact
             }
             var required: UInt8 = 0
             var optional: UInt8 = 0
@@ -116,15 +138,27 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     case .asset, .internalTarget, nil:
                         break
                     }
-                    if sampler.usesGraphInputMaterialAlias,
-                       let identity = implicitFramebufferIdentity {
-                        guard identity.kind == .layerSource
-                                || identity.kind == .effectOutput,
-                              identity.name == nil,
-                              sampler.purpose(for: .graph(identity)) != nil else {
-                            throw launchFailure(.textureReferenceInvalid, slot: index)
+                    if let fact = graphFacts[index] {
+                        let reference = Template.TextureReference.graph(
+                            fact.inputIdentity
+                        )
+                        guard sampler.purpose(for: reference) != nil else {
+                            throw launchFailure(
+                                .textureReferenceInvalid,
+                                slot: index
+                            )
                         }
                         required |= bit
+                    } else if sampler.usesGraphInputMaterialAlias
+                        || SceneResolvedMaterialShaderSchema
+                            .implicitFramebufferSlots(
+                                template: template,
+                                samplers: samplers
+                            ).contains(index) {
+                        throw launchFailure(
+                            .textureReferenceInvalid,
+                            slot: index
+                        )
                     }
                 }
                 if required & bit == 0, hasOptionalSource {
@@ -134,18 +168,6 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                         required |= bit
                     }
                 }
-            }
-            for slot in SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
-                template: template,
-                samplers: samplers
-            ) {
-                guard let identity = implicitFramebufferIdentity,
-                      (identity.kind == .layerSource
-                          || identity.kind == .effectOutput),
-                      identity.name == nil else {
-                    throw launchFailure(.textureReferenceInvalid, slot: slot)
-                }
-                required |= UInt8(1) << UInt8(slot)
             }
             return .success(.init(
                 requiredMask: required,

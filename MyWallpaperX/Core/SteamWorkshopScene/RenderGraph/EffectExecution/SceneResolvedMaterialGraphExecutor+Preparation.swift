@@ -259,6 +259,9 @@ extension SceneResolvedMaterialGraphExecutor {
                 SceneResolvedMaterialGenericShaderArtifactCache.recordExecution(
                     routeDecision: program.routeDecision,
                     backend: program.frontendProgram.backend,
+                    graphInputDiagnostics: program.textureSlots.compactMap {
+                        $0?.graphInputSourceFact?.diagnosticIdentity
+                    },
                     layerID: node.effect.layerID,
                     effectIndex: node.effect.effectIndex,
                     descriptorID: node.effect.descriptorID,

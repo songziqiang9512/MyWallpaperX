@@ -314,6 +314,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                   ) != nil,
                   slot.resource.publication.candidate
                       .materialProgramUVTransform() != nil,
+                  graphInputSourceFactMatches(slot),
                   let referenceKind = SceneResolvedMaterialProgramIdentity
                       .textureReferenceKind(slot.reference),
                   let content = SceneResolvedMaterialProgramIdentity.textureContent(
@@ -341,6 +342,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             semantic[index] = .init(
                 slot: index,
                 referenceKind: referenceKind,
+                graphInputSource: slot.graphInputSourceFact,
                 purpose: slot.expectedPurpose,
                 content: content,
                 sampling: candidate.sampling
@@ -352,6 +354,22 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             semantic: semantic,
             exact: exact
         )
+    }
+
+    private static func graphInputSourceFactMatches(
+        _ slot: Program.TextureSlot
+    ) -> Bool {
+        guard let fact = slot.graphInputSourceFact else {
+            if case .dormantUnresolvedMaterialGraphInput =
+                slot.diagnosticSelectionProvenance {
+                return false
+            }
+            return true
+        }
+        guard slot.index == fact.slot,
+              slot.diagnosticSelectionProvenance == fact.selectionProvenance,
+              case let .graph(identity) = slot.reference else { return false }
+        return identity == fact.inputIdentity
     }
 
     private static func resolveUniforms(

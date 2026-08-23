@@ -40,7 +40,7 @@ extension SceneResolvedMaterialVariantCache {
               snapshot.inputIdentity == effect.input,
               snapshot.allEntriesReady,
               !snapshot.variants.isEmpty,
-              let reachable = snapshot.reachableSamplers,
+              snapshot.reachableSamplers != nil,
               exactGraphReferences(
                   snapshot.template,
                   node: node,
@@ -58,10 +58,6 @@ extension SceneResolvedMaterialVariantCache {
                           binding.texture,
                           effect: effect.key
                       )
-              }), reachable.allSatisfy({ _, samplers in
-                  samplers.filter(\.usesGraphInputMaterialAlias).allSatisfy {
-                      $0.mode == .regular && $0.defaultTexture == nil
-                  }
               }) else { return nil }
 
         let roles = snapshot.variants.compactMap { variant in
@@ -110,19 +106,15 @@ extension SceneResolvedMaterialVariantCache {
         guard activeSlots.count
                 == variant.frontendProgram.textureBindings.count,
               activeSlots == Set(variant.activeSamplers.keys),
-              variant.activeSamplers.values
-                .filter(\.usesGraphInputMaterialAlias)
-                .allSatisfy({
-                    $0.mode == .regular && $0.defaultTexture == nil
-                }) else { return nil }
-
-        let aliases = Set(variant.activeSamplers.compactMap { slot, sampler in
-            sampler.usesGraphInputMaterialAlias ? slot : nil
-        })
-        let implicit = SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
-            template: template,
-            samplers: variant.activeSamplers
-        )
+              variant.graphInputSourceSlotFacts.allSatisfy({ slot, fact in
+                  guard fact.slot == slot,
+                        fact.inputIdentity == effect.input,
+                        let sampler = variant.activeSamplers[slot] else {
+                      return false
+                  }
+                  return sampler.mode == .regular
+                      && sampler.defaultTexture == nil
+              }) else { return nil }
         let activeBindings = node.bindings.filter { binding in
             guard let slot = binding.slot else { return false }
             return activeSlots.contains(slot)
@@ -134,7 +126,9 @@ extension SceneResolvedMaterialVariantCache {
             }
             return binding
         }
-        let unboundSourceSlots = aliases.union(implicit).subtracting(boundSlots)
+        let unboundSourceSlots = Set(
+            variant.graphInputSourceSlotFacts.keys
+        ).subtracting(boundSlots)
         let sourceSlots: Set<Int>
         if let activeSourceBinding, let slot = activeSourceBinding.slot {
             sourceSlots = unboundSourceSlots.union([slot])

@@ -13,6 +13,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     let routeDecision: SceneGenericShaderRouteDecision
     let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
     let activeSamplers: [Int: Sampler]
+    let graphInputSourceSlotFacts: [
+        Int: SceneResolvedMaterialGraphInputSourceSlotFact
+    ]
     let activeUniforms: [String: Uniform]
     let neutralTextureResolution:
         SceneAuthoredShaderNeutralTextureResolutionFact?
@@ -25,6 +28,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         routeDecision: SceneGenericShaderRouteDecision,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
         activeSamplers: [Int: Sampler],
+        graphInputSourceSlotFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ],
         activeUniforms: [String: Uniform],
         neutralTextureResolution:
             SceneAuthoredShaderNeutralTextureResolutionFact?
@@ -36,6 +42,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.routeDecision = routeDecision
         self.runtimeLoopBounds = runtimeLoopBounds
         self.activeSamplers = activeSamplers
+        self.graphInputSourceSlotFacts = graphInputSourceSlotFacts
         self.activeUniforms = activeUniforms
         self.neutralTextureResolution = neutralTextureResolution
     }
@@ -111,21 +118,22 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let graphTextureSlots = Set(activeGraphTextureIdentities.compactMap {
             $0.value.kind == .framebuffer ? $0.key : nil
         })
+        let sourceColorTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(
+            fragmentSource: compilerSources.fragment,
+            provenRuntimeLoopBounds: runtimeLoopBounds.fragment
+        )
+        let sourceGraphInputFacts = SceneResolvedMaterialShaderSchema
+            .graphInputSourceSlotFacts(
+                template: template,
+                samplers: sourceActiveSamplers,
+                inputIdentity: implicitFramebufferIdentity,
+                sourceColorTransfer: sourceColorTransfer
+            )
         var graphInputTextureSlots = Set(activeGraphTextureIdentities.keys)
         graphInputTextureSlots.formUnion(template.graphRole.bindings.compactMap {
             sourceActiveSamplers[$0.slot] == nil ? nil : $0.slot
         })
-        if implicitFramebufferIdentity != nil {
-            graphInputTextureSlots.formUnion(
-                SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
-                    template: template,
-                    samplers: sourceActiveSamplers
-                )
-            )
-            graphInputTextureSlots.formUnion(sourceActiveSamplers.compactMap {
-                $0.value.usesGraphInputMaterialAlias ? $0.key : nil
-            })
-        }
+        graphInputTextureSlots.formUnion(sourceGraphInputFacts.keys)
         let graphR8TextureSlots = Set(activeGraphTextureIdentities.compactMap {
             graphTextureFormatFacts[$0.value] == .r8 ? $0.key : nil
         })
@@ -147,17 +155,17 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     fragmentSource: prepared.fragment.source,
                     samplers: sourceActiveSamplers,
                     template: template,
-                    implicitFramebufferIdentity: implicitFramebufferIdentity
+                    implicitFramebufferIdentity: implicitFramebufferIdentity,
+                    graphInputSourceSlotFacts: sourceGraphInputFacts
                 )
         let colorBlendSourceSlot =
             SceneResolvedMaterialColorBlendEligibility.sourceSlot(
                 fragmentSource: prepared.fragment.source,
-                colorTransfer: SceneAuthoredShaderColorTransferAnalyzer.analyze(
-                    fragmentSource: prepared.fragment.source
-                ),
+                colorTransfer: sourceColorTransfer,
                 samplers: sourceActiveSamplers,
                 template: template,
-                implicitFramebufferIdentity: implicitFramebufferIdentity
+                implicitFramebufferIdentity: implicitFramebufferIdentity,
+                graphInputSourceSlotFacts: sourceGraphInputFacts
             )
         let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: compilerSources.vertex,
@@ -187,6 +195,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             hasOnlyGraphInputSampler:
                 sourceActiveSamplers.count == 1
                     && Set(sourceActiveSamplers.keys) == graphInputTextureSlots,
+            sourceColorTransfer: sourceColorTransfer,
             outputSemantics: outputStorage == .preservedRGBAUnorm
                 ? .preservedRGBAUnorm : .color
         )
@@ -263,6 +272,31 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             )
         }
         try validateSamplerBindings(samplers, bindings: bindings)
+        let graphInputFacts = SceneResolvedMaterialShaderSchema
+            .graphInputSourceSlotFacts(
+                template: template,
+                samplers: samplers,
+                inputIdentity: implicitFramebufferIdentity,
+                sourceColorTransfer: frontend.colorTransfer,
+                frontendBindings: bindings
+            )
+        let bindingFactTokens = bindings.map {
+            "\($0.slot):\($0.name):\($0.channelUse.rawValue)"
+        }.sorted()
+        guard graphInputFacts == sourceGraphInputFacts else {
+            throw failure(
+                .samplerBindingIdentityMismatch,
+                phase: .invariant,
+                details: [
+                    "graph-input-source-fact-divergence",
+                    "source-transfer-\(sourceColorTransfer)",
+                    "frontend-transfer-\(frontend.colorTransfer)",
+                    "source-slots-\(sourceGraphInputFacts.keys.sorted())",
+                    "frontend-slots-\(graphInputFacts.keys.sorted())",
+                    "bindings-\(bindingFactTokens)",
+                ]
+            )
+        }
         if declaresActivePass(prepared) {
             throw failure(
                 .activePassUnsupported,
@@ -298,6 +332,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             routeDecision: routeDecision,
             runtimeLoopBounds: runtimeLoopBounds,
             activeSamplers: samplers,
+            graphInputSourceSlotFacts: graphInputFacts,
             activeUniforms: uniforms,
             neutralTextureResolution: neutralTextureResolution
         )

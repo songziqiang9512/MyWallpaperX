@@ -112,21 +112,23 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         func recordExecution(
             routeDecision: RouteDecision,
             backend: SceneAuthoredShaderProgram.Backend,
+            graphInputDiagnostics: [String],
             layerID: Int,
             effectIndex: Int,
             descriptorID: String,
             nodeIndex: Int,
             preparedKey: String
         ) {
+            let graphInputs = graphInputDiagnostics.joined(separator: ",")
             let identity = [
                 String(layerID), String(effectIndex), descriptorID,
-                String(nodeIndex), backend.rawValue, preparedKey,
+                String(nodeIndex), backend.rawValue, preparedKey, graphInputs,
             ].joined(separator: "|")
             guard lock.withLock({ executedIdentities.insert(identity).inserted }) else {
                 return
             }
             NSLog(
-                "MWX generic shader execution state=%@ profile=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@",
+                "MWX generic shader execution state=%@ profile=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@ graphInputs=%@",
                 routeDecision.state,
                 routeDecision.profile,
                 layerID,
@@ -134,7 +136,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 descriptorID,
                 nodeIndex,
                 backend.rawValue,
-                preparedKey
+                preparedKey,
+                graphInputs.isEmpty ? "-" : graphInputs
             )
         }
 
@@ -213,11 +216,13 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         r8TextureSlots: Set<Int> = [],
         hasDefaultedOpacityMaskSampler: Bool = false,
         hasOnlyGraphInputSampler: Bool = false,
+        sourceColorTransfer: SceneShaderColorTransfer? = nil,
         outputSemantics: SceneGenericShaderOutputSemantics = .color
     ) -> Resolution {
-        let colorTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(
-            fragmentSource: fragmentSource
-        )
+        let colorTransfer = sourceColorTransfer
+            ?? SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                fragmentSource: fragmentSource
+            )
         let key = requestKey(
             vertexSource: vertexSource,
             fragmentSource: fragmentSource,
@@ -494,6 +499,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     static func recordExecution(
         routeDecision: RouteDecision?,
         backend: SceneAuthoredShaderProgram.Backend,
+        graphInputDiagnostics: [String],
         layerID: Int,
         effectIndex: Int,
         descriptorID: String,
@@ -504,6 +510,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         routeTelemetry.recordExecution(
             routeDecision: routeDecision,
             backend: backend,
+            graphInputDiagnostics: graphInputDiagnostics,
             layerID: layerID,
             effectIndex: effectIndex,
             descriptorID: descriptorID,

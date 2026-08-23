@@ -68,6 +68,8 @@ extension SceneResolvedMaterialProgram {
     struct TextureSemanticIdentity: Hashable {
         let slot: Int
         let referenceKind: TextureReferenceKind
+        let graphInputSource:
+            SceneResolvedMaterialGraphInputSourceSlotFact?
         let purpose: SceneTextureLoadPurpose
         let content: TextureContentIdentity
         let sampling: SceneTextureSampling
@@ -127,6 +129,8 @@ extension SceneResolvedMaterialProgram {
     struct ExactTextureIdentity: Hashable {
         let reference: SceneResolvedMaterialTemplate.TextureReference
         let registryIdentity: SceneFrameTextureIdentity
+        let graphInputSource:
+            SceneResolvedMaterialGraphInputSourceSlotFact?
         let resourceIdentity: SceneTextureResourceIdentity
         let resourceGeneration: SceneTextureResourceGeneration
         let contentGeneration: UInt64

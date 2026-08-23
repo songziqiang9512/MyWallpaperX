@@ -646,7 +646,8 @@ private func template(
     comboValues: [String: Int] = [:],
     uniformDeclarations: [Template.UniformDeclaration] = [],
     renderState: SceneMaterialRenderState = state(),
-    textureSlotsOverride: [Template.TextureSlot?]? = nil
+    textureSlotsOverride: [Template.TextureSlot?]? = nil,
+    effectContext: Template.EffectContext? = nil
 ) -> Template {
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     if includePrimaryCandidate {
@@ -680,6 +681,7 @@ private func template(
             bindings: graphBindingsOverride ?? (includePrimaryCandidate
                 ? [.init(slot: slot, texture: primaryGraphTextureRole)] : [])
         ),
+        effectContext: effectContext,
         shaderContract: shader,
         diagnosticProvenance: .init(
             nodeIndex: 0,
@@ -993,7 +995,8 @@ private func finalize(
     graphTextureFormatFacts: [
         Graph.TextureIdentity: SceneShaderTextureFormat
     ] = [:],
-    textureSlotsOverride: [Template.TextureSlot?]? = nil
+    textureSlotsOverride: [Template.TextureSlot?]? = nil,
+    effectContext: Template.EffectContext? = nil
 ) -> Result<Program, SceneResolvedMaterialFailure> {
     let frame = SceneResolvedMaterialFrameSnapshot.validated(
         textureSnapshot: snapshot(
@@ -1031,7 +1034,8 @@ private func finalize(
                 secondCandidates: secondCandidates,
                 uniformDeclarations: uniformDeclarations,
                 renderState: renderState,
-                textureSlotsOverride: textureSlotsOverride
+                textureSlotsOverride: textureSlotsOverride,
+                effectContext: effectContext
             ),
             renderSize: CGSize(width: 640, height: 360),
             modelViewProjection: matrix_identity_float4x4,
@@ -2456,6 +2460,73 @@ private func neutralTextureResolutionFinalizerFailures(
     ]
 }
 
+private func dormantGraphInputFactTokens(
+    _ device: MTLDevice
+) -> [String: String] {
+    func shader(_ slot: Int, revision: String) -> SceneShaderContract {
+        contract(
+            revision: revision,
+            uniformMetadata: nil,
+            semanticProbes: false,
+            fragmentSourceOverride: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture\(slot); // {"material":"Arbitrary \(revision)","label":"Random label \(slot)","hidden":true}
+            void main() {
+                gl_FragColor = texSample2D(
+                    g_Texture\(slot),
+                    v_TexCoord.xy
+                );
+            }
+            """
+        )
+    }
+    let effect = Graph.EffectKey(
+        layerID: fixtureLayerID,
+        effectIndex: 0,
+        descriptorID: "fixture-dormant-arbitrary"
+    )
+    let context = Template.EffectContext(key: effect, input: graphTexture())
+    func result(_ slot: Int) -> Result<Program, SceneResolvedMaterialFailure> {
+        finalize(
+            shader: shader(slot, revision: "dormant-slot-\(slot)"),
+            device: device,
+            slot: slot,
+            includePrimaryCandidate: false,
+            implicitFramebufferIdentity: graphTexture(),
+            effectContext: context
+        )
+    }
+    func token(
+        _ result: Result<Program, SceneResolvedMaterialFailure>,
+        slot expectedSlot: Int
+    ) -> String {
+        guard case let .success(program) = result else {
+            return failureToken(result)
+        }
+        guard
+              let slot = program.textureSlots[expectedSlot],
+              case let .graph(reference) = slot.reference,
+              let fact = slot.graphInputSourceFact,
+              fact.slot == expectedSlot,
+              fact.inputIdentity == graphTexture(),
+              fact.provenance == .dormantUnresolvedMaterialAlias,
+              slot.diagnosticSelectionProvenance
+                == .dormantUnresolvedMaterialGraphInput,
+              program.semanticIdentity.textureSlots[expectedSlot]?
+                .graphInputSource == fact,
+              program.exactIdentity.textureSlots[expectedSlot]?
+                .graphInputSource == fact else { return "fact-missing" }
+        return reference == graphTexture()
+            && program.frontendProgram.textureBindings.map(\.slot)
+                == [expectedSlot]
+            ? "proven" : "identity-mismatch"
+    }
+    return [
+        "arbitraryHiddenKeySlot0": token(result(0), slot: 0),
+        "unseenArbitraryHiddenKeySlot3": token(result(3), slot: 3),
+    ]
+}
+
 @main
 private enum Harness {
     static func float(_ data: Data, at offset: Int) -> Float {
@@ -2792,7 +2863,10 @@ private enum Harness {
                   let slot = program.textureSlots[0],
                   case let .graph(identity) = slot.reference else { return false }
             return identity == graphTexture()
-                && slot.diagnosticSelectionProvenance == .implicitFramebuffer
+                && slot.diagnosticSelectionProvenance
+                    == .implicitFramebuffer
+                && slot.graphInputSourceFact?.provenance
+                    == .explicitMaterialAlias
         }()
         let previousAliasTyped: Bool = {
             guard case let .success(program) = previousAliasProgram,
@@ -2806,7 +2880,10 @@ private enum Harness {
                   let slot = program.textureSlots[0],
                   case let .graph(identity) = slot.reference else { return false }
             return identity == graphTexture()
-                && slot.diagnosticSelectionProvenance == .implicitFramebuffer
+                && slot.diagnosticSelectionProvenance
+                    == .implicitFramebuffer
+                && slot.graphInputSourceFact?.provenance
+                    == .explicitMaterialAlias
                 && slot.expectedPurpose == .premultipliedColor
         }()
         let stockNoisePath = SceneVFSAssetPath("util/noise")!
@@ -2853,7 +2930,8 @@ private enum Harness {
                 && noiseReference == stockNoisePath
                 && source.registryIdentity == .graph(graphTexture())
                 && noise.registryIdentity == .asset(stockNoiseIdentity)
-                && source.diagnosticSelectionProvenance == .implicitFramebuffer
+                && source.diagnosticSelectionProvenance
+                    == .implicitFramebuffer
                 && noise.diagnosticSelectionProvenance == .shaderDefault
                 && source.expectedPurpose == .premultipliedColor
                 && noise.expectedPurpose == .noise
@@ -3992,6 +4070,7 @@ private enum Harness {
             neutralTextureResolutionAnalyzerCases()
         let neutralTextureResolutionFailures =
             neutralTextureResolutionFinalizerFailures(device)
+        let dormantGraphInputFacts = dormantGraphInputFactTokens(device)
         let result: [String: Any] = [
             "metalAvailable": true,
             "attenuationEligibilityCases": attenuationEligibility,
@@ -4238,6 +4317,7 @@ private enum Harness {
             "neutralTextureResolutionUnseen": neutralTextureResolutionUnseen,
             "neutralTextureResolutionAnalyzer": neutralTextureResolutionAnalyzer,
             "neutralTextureResolutionFailures": neutralTextureResolutionFailures,
+            "dormantGraphInputFacts": dormantGraphInputFacts,
             "failures": failures,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -4433,11 +4513,23 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             self.result,
         )
 
+    def test_dormant_unresolved_material_alias_is_a_typed_graph_input_fact(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["dormantGraphInputFacts"],
+            {
+                "arbitraryHiddenKeySlot0": "proven",
+                "unseenArbitraryHiddenKeySlot3": "proven",
+            },
+            self.result,
+        )
+
     def test_purpose_selection_and_binding_fail_closed(self) -> None:
         expected = {
             "nonFramebufferDoesNotInject": "texture/textureBindingInvalid",
-            "framebufferWithoutIdentity": "texture/textureBindingInvalid",
-            "previousWithoutIdentity": "texture/textureBindingInvalid",
+            "framebufferWithoutIdentity": "texture/textureReferenceInvalid",
+            "previousWithoutIdentity": "texture/textureReferenceInvalid",
             "historicalFramebufferWithoutHidden":
                 "texture/textureBindingInvalid",
             "historicalFramebufferLabelOnly": "texture/textureBindingInvalid",

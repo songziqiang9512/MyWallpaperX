@@ -134,11 +134,6 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> LaunchColorProfiles {
         var profiles = [Array<LaunchColorFact?>(repeating: nil, count: 8)]
-        let implicitSlots = SceneResolvedMaterialShaderSchema
-            .implicitFramebufferSlots(
-                template: template,
-                samplers: variant.activeSamplers
-            )
         for binding in variant.frontendProgram.textureBindings {
             guard profiles.indices.contains(0), (0 ..< 8).contains(binding.slot),
                   let sampler = variant.activeSamplers[binding.slot] else {
@@ -152,7 +147,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 slot: binding.slot,
                 readinessMask: readinessMask,
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
-                implicitSlots: implicitSlots,
+                graphInputSourceSlotFacts:
+                    variant.graphInputSourceSlotFacts,
                 assetStates: assetStates
             ) {
             case let .selected(value, purpose):
@@ -207,7 +203,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         slot: Int,
         readinessMask: UInt8,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
-        implicitSlots: Set<Int>,
+        graphInputSourceSlotFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> LaunchReference {
         let ready = readinessMask & (UInt8(1) << UInt8(slot)) != 0
@@ -256,9 +254,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 return .invalid
             }
         }
-        if (sampler.usesGraphInputMaterialAlias || implicitSlots.contains(slot)),
-           let identity = implicitFramebufferIdentity {
-            let reference = Template.TextureReference.graph(identity)
+        if let fact = graphInputSourceSlotFacts[slot],
+           fact.inputIdentity == implicitFramebufferIdentity {
+            let reference = Template.TextureReference.graph(
+                fact.inputIdentity
+            )
             return .selected(
                 reference,
                 purpose: sampler.purpose(for: reference)

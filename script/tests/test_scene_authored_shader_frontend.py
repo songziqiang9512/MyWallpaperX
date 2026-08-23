@@ -2430,6 +2430,24 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertIsNone(output.get("metalError"))
 
+    def test_metal_stage_keyword_function_parameter_is_lowered(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec2 v_TexCoord;
+            float ring(vec2 fragment, float radius) {
+                return abs(length(fragment) - radius);
+            }
+            void main() {
+                gl_FragColor = vec4(ring(v_TexCoord, 0.25));
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIsNone(output.get("metalError"))
+        self.assertIn("float2 mwxI_fragment", output["metalSource"])
+        self.assertNotIn("float2 fragment", output["metalSource"])
+
     def test_matching_varying_name_can_be_shadowed_by_local_value(self):
         output = self.compile(
             VERTEX_SOURCE,

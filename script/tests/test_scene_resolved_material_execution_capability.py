@@ -4072,19 +4072,31 @@ private let previousEffectKey = Graph.EffectKey(
 
 private func vertexSource(
     matrixUniform: String? = nil,
-    usesMatrixUniform: Bool = true
+    usesMatrixUniform: Bool = true,
+    varyingArrayCarrier: Bool = false
 ) -> String {
     let declaration = matrixUniform.map { "uniform mat4 \($0);" } ?? ""
     let position = (usesMatrixUniform ? matrixUniform : nil).map {
         "mul(vec4(a_Position, 1.0), \($0))"
     } ?? "vec4(a_Position, 1.0)"
+    let varyingArray = varyingArrayCarrier ? """
+    varying vec2 v_CarrierCoordinates[4];
+    """ : ""
+    let varyingWrites = varyingArrayCarrier ? """
+        v_CarrierCoordinates[0] = a_TexCoord;
+        v_CarrierCoordinates[1] = a_TexCoord;
+        v_CarrierCoordinates[2] = a_TexCoord;
+        v_CarrierCoordinates[3] = a_TexCoord;
+    """ : ""
     return """
     attribute vec3 a_Position;
     attribute vec2 a_TexCoord;
     varying vec2 v_TexCoord;
+    \(varyingArray)
     \(declaration)
     void main() {
         v_TexCoord = a_TexCoord;
+        \(varyingWrites)
         gl_Position = \(position);
     }
     """
@@ -4111,6 +4123,8 @@ private func fragmentSource(
     opaqueSecondGraph: Bool = false,
     independentAlphaSignal: Bool = false,
     variantMixedSource: Bool = false,
+    preservedRGBMutation: Bool = false,
+    varyingArrayCarrier: Bool = false,
     activePass: Bool = false
 ) -> String {
     let comboAnnotation = comboMetadata.map { "// \($0)" } ?? ""
@@ -4145,7 +4159,28 @@ private func fragmentSource(
     } else {
         helper = ""
     }
-    if variantMixedSource {
+    let carrierVarying = varyingArrayCarrier
+        ? "varying vec2 v_CarrierCoordinates[4];" : ""
+    if preservedRGBMutation {
+        let coordinate = varyingArrayCarrier ? """
+        vec2 carrierCoordinate = vec2(0.0);
+        float carrierSampleCount = 4.0;
+        for (
+            int index = 0;
+            index < int(carrierSampleCount);
+            ++index
+        ) {
+            carrierCoordinate += v_CarrierCoordinates[index] * 0.25;
+        }
+        """ : "vec2 carrierCoordinate = v_TexCoord;"
+        output = """
+        \(coordinate)
+        vec4 carrier = texSample2D(\(firstName), carrierCoordinate);
+        vec3 generated = vec3(0.25);
+        carrier.rgb = mix(carrier.rgb, generated, 1.0);
+        gl_FragColor = vec4(max(0, carrier.rgb), carrier.a);
+        """
+    } else if variantMixedSource {
         output = """
         #if EXTRA
         vec4 source = texSample2D(\(firstName), v_TexCoord);
@@ -4249,6 +4284,7 @@ private func fragmentSource(
     \(passAnnotation)
     \(comboAnnotation)
     varying \(varyingType) v_TexCoord;
+    \(carrierVarying)
     uniform sampler2D \(firstName);\(firstAnnotation)
     \(audioDirectDraw ? "uniform float g_AudioSpectrum16Left[16];" : "")
     \(secondDeclaration)
@@ -4282,6 +4318,8 @@ private func contract(
     opaqueSecondGraph: Bool = false,
     independentAlphaSignal: Bool = false,
     variantMixedSource: Bool = false,
+    preservedRGBMutation: Bool = false,
+    varyingArrayCarrier: Bool = false,
     activePass: Bool = false,
     vertexMatrixUniform: String? = nil,
     usesVertexMatrixUniform: Bool = true
@@ -4326,6 +4364,8 @@ private func contract(
         opaqueSecondGraph: opaqueSecondGraph,
         independentAlphaSignal: independentAlphaSignal,
         variantMixedSource: variantMixedSource,
+        preservedRGBMutation: preservedRGBMutation,
+        varyingArrayCarrier: varyingArrayCarrier,
         activePass: activePass
     )
     let stages = [
@@ -4334,7 +4374,8 @@ private func contract(
             path: "\(revision)/root.vert",
             source: vertexSource(
                 matrixUniform: vertexMatrixUniform,
-                usesMatrixUniform: usesVertexMatrixUniform
+                usesMatrixUniform: usesVertexMatrixUniform,
+                varyingArrayCarrier: varyingArrayCarrier
             )
         ),
         stage(.fragment, path: "\(revision)/root.frag", source: fragment),
@@ -4608,6 +4649,10 @@ private func materialTemplate(
             bindings: node.bindings.map {
                 .init(slot: $0.slot!, texture: inputRole)
             }
+        ),
+        effectContext: .init(
+            key: graph.effects[0].key,
+            input: graph.effects[0].input
         ),
         shaderContract: shader,
         diagnosticProvenance: .init(
@@ -5245,6 +5290,45 @@ private enum EnvelopeHarness {
                     "historical-implicit-without-hidden",
                     firstMetadata:
                         #"{"material":"ui_editor_properties_framebuffer"}"#
+                ),
+                slots: slots()
+            )
+        )
+        let dormantMetadata =
+            #"{"material":"Renamed arbitrary source","label":"Random display label","hidden":true}"#
+        let dormantVertexSource = vertexSource(varyingArrayCarrier: true)
+        let dormantFragmentSource = fragmentSource(
+            firstMetadata: dormantMetadata,
+            preservedRGBMutation: true,
+            varyingArrayCarrier: true
+        )
+        let dormantCanonicalSources = SceneAuthoredShaderBackendCanonicalizer
+            .canonicalize(
+                vertex: dormantVertexSource,
+                fragment: dormantFragmentSource
+            )
+        let dormantUnresolvedAliasPositive = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "dormant-unresolved-alias-positive",
+                    firstMetadata: dormantMetadata,
+                    preservedRGBMutation: true,
+                    varyingArrayCarrier: true
+                ),
+                slots: slots()
+            )
+        )
+        let dormantUnresolvedAliasAmbiguous = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "dormant-unresolved-alias-ambiguous",
+                    firstMetadata:
+                        #"{"material":"Another arbitrary source","label":"Unrelated label","hidden":true}"#,
+                    secondMetadata: "{}"
                 ),
                 slots: slots()
             )
@@ -5921,6 +6005,28 @@ private enum EnvelopeHarness {
             ),
             "historicalImplicitWithoutHidden": rejection(
                 historicalImplicitWithoutHidden
+            ),
+            "dormantUnresolvedAliasPositiveClaim":
+                dormantUnresolvedAliasPositive.claim(layerID: layerID) != nil,
+            "dormantUnresolvedAliasPositiveCounters": counters(
+                dormantUnresolvedAliasPositive,
+                graph: unboundGraph
+            ),
+            "dormantUnresolvedAliasPositiveFailure": rejection(
+                dormantUnresolvedAliasPositive
+            ),
+            "dormantRawTransferUnresolved":
+                SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                    fragmentSource: dormantFragmentSource
+                ) == .unresolved,
+            "dormantCanonicalTransferProven":
+                SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                    fragmentSource: dormantCanonicalSources.fragment
+                ) == .straightAlphaPreserving(textureSlot: 0),
+            "dormantUnresolvedAliasAmbiguousClaim":
+                dormantUnresolvedAliasAmbiguous.claim(layerID: layerID) != nil,
+            "dormantUnresolvedAliasAmbiguousFailure": rejection(
+                dormantUnresolvedAliasAmbiguous
             ),
             "implicitNegative": rejection(implicitNegative),
             "providerPositiveClaim": providerPositive.claim(layerID: layerID) != nil,
@@ -6809,9 +6915,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("$0.value.kind == .framebuffer", compilation)
         self.assertIn("graphTextureSlots: graphTextureSlots", compilation)
         self.assertIn("template.graphRole.bindings", compilation)
-        self.assertIn("implicitFramebufferIdentity != nil", compilation)
-        self.assertIn("implicitFramebufferSlots", compilation)
-        self.assertIn("usesGraphInputMaterialAlias", compilation)
+        self.assertIn("sourceGraphInputFacts", compilation)
+        self.assertIn("graphInputSourceSlotFacts", compilation)
+        self.assertIn("sourceColorTransfer", compilation)
         self.assertIn(
             "graphInputTextureSlots: graphInputTextureSlots",
             compilation,
@@ -7690,6 +7796,23 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn(
             "material-variant-envelope-texture-binding",
             payload["historicalImplicitWithoutHidden"],
+        )
+        self.assertTrue(payload["dormantUnresolvedAliasPositiveClaim"], payload)
+        self.assertEqual(
+            payload["dormantUnresolvedAliasPositiveFailure"], "", payload
+        )
+        self.assertEqual(
+            payload["dormantUnresolvedAliasPositiveCounters"],
+            {"cached": 2, "prepared": 2, "frontend": 2, "capacity": 0},
+            payload,
+        )
+        self.assertTrue(payload["dormantRawTransferUnresolved"], payload)
+        self.assertTrue(payload["dormantCanonicalTransferProven"], payload)
+        self.assertFalse(payload["dormantUnresolvedAliasAmbiguousClaim"], payload)
+        self.assertIn(
+            "material-variant-envelope-texture-binding",
+            payload["dormantUnresolvedAliasAmbiguousFailure"],
+            payload,
         )
         self.assertIn(
             "material-variant-envelope-texture-binding",

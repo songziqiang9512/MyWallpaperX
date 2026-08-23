@@ -101,6 +101,13 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
 /// Static authored facts. Runtime texture metadata, readiness, purpose and
 /// concrete dynamic values enter only while finalizing one immutable Program.
 nonisolated struct SceneResolvedMaterialTemplate {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+
+    struct EffectContext: Hashable {
+        let key: Graph.EffectKey
+        let input: Graph.TextureIdentity
+    }
+
     struct UserPropertyRequest: Hashable { let key: String }
 
     enum KnownProviderRequest: Hashable {
@@ -212,6 +219,10 @@ nonisolated struct SceneResolvedMaterialTemplate {
     let uniformDeclarations: [UniformDeclaration]
     let renderState: SceneMaterialRenderState
     let graphRole: GraphRole
+    /// Exact authored effect ingress retained for source-derived graph-input
+    /// facts. GraphTextureRole alone deliberately cannot distinguish another
+    /// layer, a named target, or a non-contiguous effect output.
+    let effectContext: EffectContext?
     let shaderContract: SceneShaderContract
     let diagnosticProvenance: DiagnosticProvenance
 
@@ -226,6 +237,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         uniformDeclarations: [UniformDeclaration],
         renderState: SceneMaterialRenderState,
         graphRole: GraphRole,
+        effectContext: EffectContext? = nil,
         shaderContract: SceneShaderContract,
         diagnosticProvenance: DiagnosticProvenance
     ) -> Self? {
@@ -249,6 +261,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
             uniformDeclarations: uniformDeclarations.sorted { $0.name < $1.name },
             renderState: renderState,
             graphRole: graphRole,
+            effectContext: effectContext,
             shaderContract: shaderContract,
             diagnosticProvenance: diagnosticProvenance
         )
@@ -258,7 +271,8 @@ nonisolated struct SceneResolvedMaterialTemplate {
         textureSlots: [TextureSlot?], combos: [Combo],
         inheritedInactiveCombos: [String],
         uniformDeclarations: [UniformDeclaration], renderState: SceneMaterialRenderState,
-        graphRole: GraphRole, shaderContract: SceneShaderContract,
+        graphRole: GraphRole, effectContext: EffectContext?,
+        shaderContract: SceneShaderContract,
         diagnosticProvenance: DiagnosticProvenance
     ) {
         self.textureSlots = textureSlots
@@ -267,6 +281,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         self.uniformDeclarations = uniformDeclarations
         self.renderState = renderState
         self.graphRole = graphRole
+        self.effectContext = effectContext
         self.shaderContract = shaderContract
         self.diagnosticProvenance = diagnosticProvenance
     }
@@ -317,6 +332,7 @@ nonisolated struct SceneResolvedMaterialProgram {
         case shaderDefault
         case implicitFramebuffer
         case materialGraphInputAlias
+        case dormantUnresolvedMaterialGraphInput
     }
 
     enum UniformSourceSchema: Hashable {
@@ -356,8 +372,29 @@ nonisolated struct SceneResolvedMaterialProgram {
         /// Audit-only origin. Cache identities intentionally describe the
         /// selected executable atom rather than how that atom was selected.
         let diagnosticSelectionProvenance: TextureSelectionProvenance
+        let graphInputSourceFact:
+            SceneResolvedMaterialGraphInputSourceSlotFact?
         let expectedPurpose: SceneTextureLoadPurpose
         let resource: SceneFrameTextureResource
+
+        init(
+            index: Int,
+            reference: SceneResolvedMaterialTemplate.TextureReference,
+            registryIdentity: SceneFrameTextureIdentity,
+            diagnosticSelectionProvenance: TextureSelectionProvenance,
+            graphInputSourceFact:
+                SceneResolvedMaterialGraphInputSourceSlotFact? = nil,
+            expectedPurpose: SceneTextureLoadPurpose,
+            resource: SceneFrameTextureResource
+        ) {
+            self.index = index
+            self.reference = reference
+            self.registryIdentity = registryIdentity
+            self.diagnosticSelectionProvenance = diagnosticSelectionProvenance
+            self.graphInputSourceFact = graphInputSourceFact
+            self.expectedPurpose = expectedPurpose
+            self.resource = resource
+        }
     }
 
     struct AssemblyInput {
@@ -461,5 +498,35 @@ nonisolated struct SceneResolvedMaterialProgram {
         semanticIdentity = derived.semanticIdentity
         exactIdentity = derived.exactIdentity
         runtimeLoopBounds = input.runtimeLoopBounds
+    }
+}
+
+/// One typed source fact for an active sampler that consumes the exact
+/// renderer-owned ingress of its authored effect. This is classification only:
+/// frame publication, purpose, generation, sampling and target safety remain
+/// owned by the normal texture resolver and GraphExecutor gates.
+nonisolated struct SceneResolvedMaterialGraphInputSourceSlotFact: Hashable {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+
+    enum Provenance: String, Hashable {
+        case explicitMaterialAlias
+        case implicitMissingAlias
+        case dormantUnresolvedMaterialAlias
+    }
+
+    let slot: Int
+    let inputIdentity: Graph.TextureIdentity
+    let provenance: Provenance
+    let selectionProvenance:
+        SceneResolvedMaterialProgram.TextureSelectionProvenance
+
+    var diagnosticIdentity: String {
+        let effect = inputIdentity.effect.map {
+            "\($0.layerID):\($0.effectIndex):\($0.descriptorID)"
+        } ?? "-"
+        return [
+            "slot\(slot)", provenance.rawValue, inputIdentity.kind.rawValue,
+            String(inputIdentity.layerID), effect, inputIdentity.name ?? "-",
+        ].joined(separator: ":")
     }
 }

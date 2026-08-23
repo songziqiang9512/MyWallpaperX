@@ -14,7 +14,9 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         case reference(
             Template.TextureReference,
             purpose: SceneTextureLoadPurpose?,
-            provenance: Program.TextureSelectionProvenance
+            provenance: Program.TextureSelectionProvenance,
+            graphInputSourceFact:
+                SceneResolvedMaterialGraphInputSourceSlotFact?
         )
         case internalDefault(String)
     }
@@ -25,7 +27,10 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>],
         channelUses: [Int: ChannelUse],
         allowPresenceIndependentDefaults: Bool,
-        restrictToSamplerSlots: Bool = false
+        restrictToSamplerSlots: Bool = false,
+        graphInputSourceSlotFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ] = [:]
     ) throws -> [Entry] {
         var result = Array(repeating: Entry.absent, count: 8)
         for slot in input.template.textureSlots.compactMap({ $0 })
@@ -65,7 +70,12 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
             samplers: samplers,
             allowPresenceIndependentDefaults: allowPresenceIndependentDefaults
         )
-        try selectGraphInputs(into: &result, input: input, samplers: samplers)
+        try selectGraphInputs(
+            into: &result,
+            input: input,
+            samplers: samplers,
+            graphInputSourceSlotFacts: graphInputSourceSlotFacts
+        )
         return result
     }
 
@@ -106,47 +116,32 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
     private static func selectGraphInputs(
         into result: inout [Entry],
         input: SceneResolvedMaterialFinalizationInput,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        graphInputSourceSlotFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ]
     ) throws {
-        for (slot, sampler) in samplers {
-            guard case .absent = result[slot],
-                  sampler.usesGraphInputMaterialAlias,
-                  let identity = input.implicitFramebufferIdentity else {
-                continue
-            }
-            guard identity.kind == .layerSource
-                    || identity.kind == .effectOutput,
-                  identity.name == nil else {
+        let facts = graphInputSourceSlotFacts.isEmpty
+            ? SceneResolvedMaterialShaderSchema.graphInputSourceSlotFacts(
+                template: input.template,
+                samplers: samplers,
+                inputIdentity: input.implicitFramebufferIdentity
+            ) : graphInputSourceSlotFacts
+        for (slot, fact) in facts {
+            guard result.indices.contains(slot),
+                  let sampler = samplers[slot],
+                  fact.slot == slot,
+                  fact.inputIdentity == input.implicitFramebufferIdentity else {
                 throw failure(.textureReferenceInvalid, slot: slot)
             }
-            let reference = Template.TextureReference.graph(identity)
+            guard case .absent = result[slot] else { continue }
+            let reference = Template.TextureReference.graph(fact.inputIdentity)
             if let selection = try referenceSelection(
                 reference,
                 purpose: sampler.purpose(for: reference),
-                provenance: sampler.materialKey?.caseInsensitiveCompare(
-                    "previous"
-                ) == .orderedSame ? .materialGraphInputAlias : .implicitFramebuffer,
-                input: input
-            ) {
-                result[slot] = selection
-            }
-        }
-        for slot in SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
-            template: input.template,
-            samplers: samplers
-        ) {
-            guard case .absent = result[slot],
-                  let identity = input.implicitFramebufferIdentity,
-                  identity.kind == .layerSource || identity.kind == .effectOutput,
-                  identity.name == nil else {
-                throw failure(.textureReferenceInvalid, slot: slot)
-            }
-            let reference = Template.TextureReference.graph(identity)
-            if let selection = try referenceSelection(
-                reference,
-                purpose: samplers[slot]?.purpose(for: reference),
-                provenance: .implicitFramebuffer,
-                input: input
+                provenance: fact.selectionProvenance,
+                input: input,
+                graphInputSourceFact: fact
             ) {
                 result[slot] = selection
             }
@@ -160,7 +155,9 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         _ reference: Template.TextureReference,
         purpose: SceneTextureLoadPurpose?,
         provenance: Program.TextureSelectionProvenance,
-        input: SceneResolvedMaterialFinalizationInput
+        input: SceneResolvedMaterialFinalizationInput,
+        graphInputSourceFact:
+            SceneResolvedMaterialGraphInputSourceSlotFact? = nil
     ) throws -> Entry? {
         guard let purpose else {
             if case let .graph(identity) = reference {
@@ -169,19 +166,26 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                     return .reference(
                         reference,
                         purpose: nil,
-                        provenance: provenance
+                        provenance: provenance,
+                        graphInputSourceFact: graphInputSourceFact
                     )
                 }
                 return nil
             }
-            return .reference(reference, purpose: nil, provenance: provenance)
+            return .reference(
+                reference,
+                purpose: nil,
+                provenance: provenance,
+                graphInputSourceFact: graphInputSourceFact
+            )
         }
         let identity = try Resolver.runtimeIdentity(reference, purpose: purpose)
         guard case .absent? = input.textureSnapshot.lookup(identity) else {
             return .reference(
                 reference,
                 purpose: purpose,
-                provenance: provenance
+                provenance: provenance,
+                graphInputSourceFact: graphInputSourceFact
             )
         }
         return nil

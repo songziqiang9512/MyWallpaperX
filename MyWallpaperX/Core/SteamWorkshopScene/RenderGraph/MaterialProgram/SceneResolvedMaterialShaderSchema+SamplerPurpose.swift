@@ -149,4 +149,140 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
         let reference = SceneResolvedMaterialTemplate.TextureReference.asset(path)
         return purpose(for: reference) != nil
     }
+
+    nonisolated var hasExplicitNonColorPurpose: Bool {
+        if mode.explicitPurpose != nil { return true }
+        return switch materialKey?.lowercased() {
+        case "noise", "normal": true
+        default: false
+        }
+    }
+}
+
+extension SceneResolvedMaterialShaderSchema {
+    typealias GraphInputFact = SceneResolvedMaterialGraphInputSourceSlotFact
+
+    /// Canonical classification for explicit aliases, the historical missing
+    /// alias, and a strictly bounded dormant authored alias. The dormant case
+    /// is source-led: arbitrary editor key/label text never grants execution.
+    nonisolated static func graphInputSourceSlotFacts(
+        template: Template,
+        samplers: [Int: Sampler],
+        inputIdentity: Graph.TextureIdentity?,
+        sourceColorTransfer: SceneShaderColorTransfer? = nil,
+        frontendBindings: [SceneAuthoredShaderProgram.TextureBinding]? = nil
+    ) -> [Int: GraphInputFact] {
+        guard let inputIdentity,
+              exactEffectInput(inputIdentity, template: template) else {
+            return [:]
+        }
+        var facts: [Int: GraphInputFact] = [:]
+        let implicit = implicitFramebufferSlots(
+            template: template,
+            samplers: samplers
+        )
+        for (slot, sampler) in samplers {
+            let provenance: GraphInputFact.Provenance?
+            if sampler.usesGraphInputMaterialAlias {
+                provenance = .explicitMaterialAlias
+            } else if implicit.contains(slot) {
+                provenance = .implicitMissingAlias
+            } else {
+                provenance = nil
+            }
+            if let provenance {
+                let selectionProvenance:
+                    SceneResolvedMaterialProgram.TextureSelectionProvenance
+                switch provenance {
+                case .explicitMaterialAlias:
+                    selectionProvenance = sampler.materialKey?.lowercased()
+                        == "previous"
+                        ? .materialGraphInputAlias : .implicitFramebuffer
+                case .implicitMissingAlias:
+                    selectionProvenance = .implicitFramebuffer
+                case .dormantUnresolvedMaterialAlias:
+                    selectionProvenance =
+                        .dormantUnresolvedMaterialGraphInput
+                }
+                facts[slot] = .init(
+                    slot: slot,
+                    inputIdentity: inputIdentity,
+                    provenance: provenance,
+                    selectionProvenance: selectionProvenance
+                )
+            }
+        }
+        guard facts.isEmpty,
+              template.effectContext != nil,
+              let transferSlot = graphInputColorCarrierSlot(sourceColorTransfer),
+              samplers.count == 1,
+              let sampler = samplers[transferSlot],
+              sampler.slot == transferSlot,
+              sampler.mode == .regular,
+              sampler.isHidden,
+              sampler.materialKey?.contains(where: { !$0.isWhitespace }) == true,
+              !sampler.usesGraphInputMaterialAlias,
+              !sampler.hasExplicitNonColorPurpose,
+              sampler.defaultTexture == nil,
+              sampler.readinessCombo == nil,
+              template.graphRole.bindings.isEmpty,
+              template.textureSlots.allSatisfy({ $0 == nil }) else {
+            return facts
+        }
+        if let frontendBindings {
+            guard frontendBindings.count == 1,
+                  let binding = frontendBindings.first,
+                  binding.slot == transferSlot,
+                  binding.name == sampler.name else {
+                return [:]
+            }
+        }
+        facts[transferSlot] = GraphInputFact(
+            slot: transferSlot,
+            inputIdentity: inputIdentity,
+            provenance: GraphInputFact.Provenance
+                .dormantUnresolvedMaterialAlias,
+            selectionProvenance:
+                SceneResolvedMaterialProgram.TextureSelectionProvenance
+                    .dormantUnresolvedMaterialGraphInput
+        )
+        return facts
+    }
+
+    private nonisolated static func graphInputColorCarrierSlot(
+        _ transfer: SceneShaderColorTransfer?
+    ) -> Int? {
+        switch transfer {
+        case let .passthrough(slot),
+             let .straightAlphaPreserving(slot):
+            slot
+        case .interpolatedColor, .straightAlpha, .straightAlphaUNorm,
+             .independentAlphaSignal, .independentAlphaSignalPreserving,
+             .independentAlphaSignalCompositing, .premultipliedAlpha,
+             .opaque, .unresolved, nil:
+            nil
+        }
+    }
+
+    private nonisolated static func exactEffectInput(
+        _ input: Graph.TextureIdentity,
+        template: Template
+    ) -> Bool {
+        guard input.name == nil,
+              input.kind == .layerSource || input.kind == .effectOutput else {
+            return false
+        }
+        guard let context = template.effectContext else {
+            return true
+        }
+        guard input == context.input,
+              input.layerID == context.key.layerID else { return false }
+        if context.key.effectIndex == 0 {
+            return input.kind == .layerSource && input.effect == nil
+        }
+        guard input.kind == .effectOutput,
+              let producer = input.effect else { return false }
+        return producer.layerID == context.key.layerID
+            && producer.effectIndex == context.key.effectIndex - 1
+    }
 }

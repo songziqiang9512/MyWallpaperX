@@ -129,6 +129,25 @@ private func transfer(
     }
 }
 
+private func runtimeBoundedTransfer(
+    _ body: String,
+    helpers: String,
+    bounds: [String: Int]
+) -> String {
+    let runtimeBounds = SceneAuthoredShaderRuntimeLoopBounds(
+        vertex: [:],
+        fragment: bounds
+    )
+    let result = SceneAuthoredShaderColorTransferAnalyzer.analyze(
+        fragmentSource: fragment(body, helpers: helpers),
+        provenRuntimeLoopBounds: runtimeBounds.fragment
+    )
+    guard case let .straightAlphaPreserving(slot) = result else {
+        return "unresolved"
+    }
+    return "straight-preserving-slot:\(slot)"
+}
+
 private func fragmentOutputUse(_ body: String) -> String {
     program(body)?.fragmentOutputChannelUse.rawValue ?? "unproven"
 }
@@ -893,6 +912,42 @@ enum Harness {
                 "color.rgb * g_Tint, weight); " +
                 "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
             ),
+            "alphaPreservingRGBScalarClamp": transfer(
+                "vec4 carrier = texSample2D(g_Texture3, v_TexCoord); " +
+                "vec3 generated = vec3(g_ScalarWeight); " +
+                "carrier.rgb = ApplyBlending(9, carrier.rgb, " +
+                "generated, 1.0); " +
+                "gl_FragColor = vec4(max(0, carrier.rgb), carrier.a);"
+            ),
+            "alphaPreservingRGBScalarClampReplacement": transfer(
+                "vec4 carrier = texSample2D(g_Texture3, v_TexCoord); " +
+                "vec3 generated = vec3(g_ScalarWeight); " +
+                "carrier.rgb = generated; " +
+                "gl_FragColor = vec4(max(0, carrier.rgb), carrier.a);"
+            ),
+            "alphaPreservingRGBRuntimeLoopUnproven": transfer(
+                "float generated = RuntimeSignal(); " +
+                "vec4 carrier = texSample2D(g_Texture3, v_TexCoord); " +
+                "carrier.rgb = mix(carrier.rgb, vec3(generated), 1.0); " +
+                "gl_FragColor = vec4(max(0, carrier.rgb), carrier.a);",
+                helpers: "uniform float u_Min; uniform float u_Max; " +
+                    "uniform float u_Signal[64]; " +
+                    "float RuntimeSignal() { float result = 0.0; " +
+                    "for (int i = u_Min; i < u_Max; ++i) { " +
+                    "result += u_Signal[i]; } return result; }"
+            ),
+            "alphaPreservingRGBRuntimeLoopProven": runtimeBoundedTransfer(
+                "float generated = RuntimeSignal(); " +
+                "vec4 carrier = texSample2D(g_Texture3, v_TexCoord); " +
+                "carrier.rgb = mix(carrier.rgb, vec3(generated), 1.0); " +
+                "gl_FragColor = vec4(max(0, carrier.rgb), carrier.a);",
+                helpers: "uniform float u_Min; uniform float u_Max; " +
+                    "uniform float u_Signal[64]; " +
+                    "float RuntimeSignal() { float result = 0.0; " +
+                    "for (int i = u_Min; i < u_Max; ++i) { " +
+                    "result += u_Signal[i]; } return result; }",
+                bounds: ["u_Min": 0, "u_Max": 16]
+            ),
             "alphaPreservingRGBReconstructionMetal": metal(
                 "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
                 "vec4 color = sampled; float weight = g_ScalarWeight; " +
@@ -1579,12 +1634,25 @@ class SceneShaderColorContractTests(unittest.TestCase):
             self.result["alphaPreservingRGBReconstruction"],
             "straight-preserving-slot:0",
         )
+        self.assertEqual(
+            self.result["alphaPreservingRGBScalarClamp"],
+            "straight-preserving-slot:3",
+        )
+        self.assertEqual(
+            self.result["alphaPreservingRGBRuntimeLoopUnproven"],
+            "unresolved",
+        )
+        self.assertEqual(
+            self.result["alphaPreservingRGBRuntimeLoopProven"],
+            "straight-preserving-slot:3",
+        )
         source = self.result["alphaPreservingRGBReconstructionMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertIn("return mwxPremultiply(mwxFragColor);", source)
         for key in (
             "alphaPreservingRGBReconstructionDifferentAlpha",
             "alphaPreservingRGBReconstructionOtherColor",
+            "alphaPreservingRGBScalarClampReplacement",
         ):
             self.assertNotEqual(
                 self.result[key], "straight-preserving-slot:0", key

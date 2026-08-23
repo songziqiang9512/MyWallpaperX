@@ -153,7 +153,13 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
               template.graphRole.bindings.isEmpty,
               hasCachedReachability,
               let reachable = cachedReachableSamplers,
-              reachable[0] == nil else {
+              reachable[0] == nil,
+              cachedLaunchEnvelopeKeys.allSatisfy({ key in
+                  guard case let .ready(variant)? = entries[key] else {
+                      return false
+                  }
+                  return variant.graphInputSourceSlotFacts.isEmpty
+              }) else {
             return false
         }
         for (slot, samplers) in reachable {
@@ -203,9 +209,15 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         var reachableSamplers: [
             Int: Set<SceneResolvedMaterialShaderSchema.Sampler>
         ] = [:]
+        var dormantLaunchFacts: [
+            Int: SceneResolvedMaterialGraphInputSourceSlotFact
+        ]?
         for rawAvailability in UInt16(0) ... UInt16(UInt8.max) {
             let availability = UInt8(rawAvailability)
             var samplers = seedSamplers
+            var graphInputFacts: [
+                Int: SceneResolvedMaterialGraphInputSourceSlotFact
+            ] = [:]
             var seen = Set<UInt8>()
             var stable = false
             for _ in 0 ..< Self.maximumReadinessPasses {
@@ -213,7 +225,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 switch SceneResolvedMaterialTextureResolver.launchReadinessProjection(
                     template: template, samplers: samplers,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
-                    assetStates: assetStates
+                    assetStates: assetStates,
+                    graphInputSourceSlotFacts: graphInputFacts
                 ) {
                 case let .success(value): projection = value
                 case let .failure(failure):
@@ -281,11 +294,23 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     return .failure(.material(failure))
                 }
                 let variant = variants[0]
+                guard variants.dropFirst().allSatisfy({
+                    $0.graphInputSourceSlotFacts
+                        == variant.graphInputSourceSlotFacts
+                }) else {
+                    return .failure(.material(Self.failure(
+                        .samplerVariantSchemaDivergence,
+                        phase: .preparation,
+                        details: ["graph-input-source-fact-divergence"]
+                    )))
+                }
                 let nextProjection: SceneResolvedMaterialTextureResolver.LaunchReadinessProjection
                 switch SceneResolvedMaterialTextureResolver.launchReadinessProjection(
                     template: template, samplers: variant.activeSamplers,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
-                    assetStates: assetStates
+                    assetStates: assetStates,
+                    graphInputSourceSlotFacts:
+                        variant.graphInputSourceSlotFacts
                 ) {
                 case let .success(value): nextProjection = value
                 case let .failure(failure):
@@ -307,6 +332,28 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     }
                     reached.insert(mask)
                     for compiled in variants {
+                        if compiled.graphInputSourceSlotFacts.values.contains(
+                            where: {
+                                $0.provenance
+                                    == .dormantUnresolvedMaterialAlias
+                            }
+                        ) {
+                            if let dormantLaunchFacts {
+                                guard dormantLaunchFacts
+                                        == compiled.graphInputSourceSlotFacts else {
+                                    return .failure(.material(Self.failure(
+                                        .samplerVariantSchemaDivergence,
+                                        phase: .preparation,
+                                        details: [
+                                            "dormant-graph-input-variant-divergence",
+                                        ]
+                                    )))
+                                }
+                            } else {
+                                dormantLaunchFacts =
+                                    compiled.graphInputSourceSlotFacts
+                            }
+                        }
                         for (slot, sampler) in compiled.activeSamplers {
                             reachableSamplers[slot, default: []].insert(sampler)
                         }
@@ -316,6 +363,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     break
                 }
                 samplers = variant.activeSamplers
+                graphInputFacts = variant.graphInputSourceSlotFacts
             }
             guard stable else {
                 return .failure(.material(Self.failure(
@@ -341,7 +389,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             guard input.template.diagnosticProvenance.contractCanonicalSHA256
                     == template.diagnosticProvenance.contractCanonicalSHA256,
                   input.template.diagnosticProvenance.nodeIndex == template.diagnosticProvenance.nodeIndex,
-                  input.template.uniformDeclarations == template.uniformDeclarations else {
+                  input.template.uniformDeclarations == template.uniformDeclarations,
+                  input.template.effectContext == template.effectContext else {
                 throw Self.failure(
                     .variantSelectionTemplateIdentityInvariant,
                     phase: .invariant
@@ -374,7 +423,9 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                             formatSlots: textureFormatSlots,
                             channelUses: channelUses,
                             allowPresenceIndependentDefaults: true,
-                            restrictToSamplerSlots: false
+                            restrictToSamplerSlots: false,
+                            graphInputSourceSlotFacts:
+                                variant.graphInputSourceSlotFacts
                         )
                     resolvedCandidateCount += 1
                     if resolvedKey == key {

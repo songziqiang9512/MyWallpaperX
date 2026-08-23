@@ -109,6 +109,18 @@ nonisolated extension SceneAuthoredShaderMetalEmitter {
         if let type = SceneAuthoredShaderValueType(authoredName: value) { return type.metalName }
         if value == "mod" { return "fmod" }
         if value == "inverse" { return "mwxInverseFloat3x3" }
+        if metalReservedIdentifiers.contains(value) { return "mwxI_\(value)" }
         return value
     }
+
+    /// Authored GLSL value identifiers can legally overlap Metal-only stage,
+    /// address-space, and resource keywords. Keep the authored symbol identity
+    /// while making those identifiers ordinary Metal names at the emitter
+    /// boundary. Function and runtime declaration names are translated before
+    /// this fallback, so their existing ABI names remain unchanged.
+    private static let metalReservedIdentifiers: Set<String> = [
+        "constant", "device", "fragment", "kernel", "object_data",
+        "ray_data", "sampler", "thread", "threadgroup",
+        "threadgroup_imageblock", "vertex",
+    ]
 }
