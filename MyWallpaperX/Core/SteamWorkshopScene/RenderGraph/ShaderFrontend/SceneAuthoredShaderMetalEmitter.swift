@@ -12,6 +12,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let uniformNames: [String: String]
         let varyingNames: Set<String>
         let varyingArrayCounts: [String: Int]
+        let varyingPrefixFacts: [String: SceneAuthoredShaderVaryingPrefixLink.Fact]
         let attributeNames: Set<String>
         let texturesByName: [String: SceneAuthoredShaderProgram.TextureBinding]
         let globalReferenceTokens: Set<SceneAuthoredShaderToken>
@@ -26,6 +27,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         uniformLayout: SceneAuthoredShaderUniformLayout,
         textures: [SceneAuthoredShaderProgram.TextureBinding],
         varyings: [(String, SceneAuthoredShaderValueType, Int?)],
+        varyingPrefixFacts: [String: SceneAuthoredShaderVaryingPrefixLink.Fact],
         omittedVertexStatementRanges: [Range<Int>],
         colorTransfer: SceneShaderColorTransfer
     ) -> Output {
@@ -64,6 +66,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             uniformNames: vertexUniformNames,
             varyingNames: varyingNames,
             varyingArrayCounts: varyingArrayCounts,
+            varyingPrefixFacts: [:],
             attributeNames: Set(vertex.declarations.filter {
                 $0.storage == .attribute
             }.map(\.name)),
@@ -95,6 +98,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             uniformNames: fragmentUniformNames,
             varyingNames: varyingNames,
             varyingArrayCounts: varyingArrayCounts,
+            varyingPrefixFacts: varyingPrefixFacts,
             attributeNames: [],
             texturesByName: texturesByName,
             globalReferenceTokens:

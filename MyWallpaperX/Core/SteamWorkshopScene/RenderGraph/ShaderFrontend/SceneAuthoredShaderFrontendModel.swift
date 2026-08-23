@@ -47,20 +47,94 @@ nonisolated struct SceneAuthoredShaderFrontendDiagnostic: Equatable {
     let column: Int?
 }
 
-/// Upper bounds proven from the resolved runtime producer domain. These facts
-/// admit bounded control flow only; the Metal emitter never rewrites or clamps
-/// the authored uniform from this projection.
-nonisolated struct SceneAuthoredShaderRuntimeLoopBounds: Sendable {
-    let vertex: [String: Int]
-    let fragment: [String: Int]
+/// One stage-qualified immutable scalar producer. The executable integer and
+/// Float32 bits are both retained: admission consumes the integer while cache
+/// and diagnostic owners can distinguish values whose authored encodings differ.
+nonisolated struct SceneAuthoredShaderExactScalarFact: Hashable, Sendable {
+    let stage: SceneShaderContract.StageKind
+    let uniformName: String
+    let producerName: String
+    let value: Int
+    let float32BitPattern: UInt32
+    let producerValueKind: String
+    let producerBindingKeys: [String]
+    let shaderBindingKeys: [String]
+    let sourcePath: String
+    let declarationLine: Int
+}
+
+/// Exact scalar facts proven from the resolved runtime producer domain. These
+/// facts admit bounded control flow only; the Metal emitter never rewrites or
+/// clamps the authored uniform from this projection.
+nonisolated struct SceneAuthoredShaderRuntimeLoopBounds: Hashable, Sendable {
+    let vertex: [String: SceneAuthoredShaderExactScalarFact]
+    let fragment: [String: SceneAuthoredShaderExactScalarFact]
 
     static let none = Self(vertex: [:], fragment: [:])
 
-    func values(for stage: SceneShaderContract.StageKind) -> [String: Int] {
+    func values(
+        for stage: SceneShaderContract.StageKind
+    ) -> [String: SceneAuthoredShaderExactScalarFact] {
         switch stage {
         case .vertex: vertex
         case .fragment: fragment
         }
+    }
+
+    /// Test-only/source-frontend convenience. Production material compilation
+    /// publishes fully sourced facts through the resolved material resolver.
+    init(vertex: [String: Int], fragment: [String: Int]) {
+        func facts(
+            _ values: [String: Int],
+            stage: SceneShaderContract.StageKind
+        ) -> [String: SceneAuthoredShaderExactScalarFact] {
+            values.mapValues { value in
+                .init(
+                    stage: stage,
+                    uniformName: "test",
+                    producerName: "test",
+                    value: value,
+                    float32BitPattern: Float(value).bitPattern,
+                    producerValueKind: "test",
+                    producerBindingKeys: [],
+                    shaderBindingKeys: [],
+                    sourcePath: "test",
+                    declarationLine: 0
+                )
+            }
+        }
+        self.vertex = Dictionary(uniqueKeysWithValues: facts(vertex, stage: .vertex).map {
+            ($0.key, .init(
+                stage: $0.value.stage,
+                uniformName: $0.key,
+                producerName: $0.key,
+                value: $0.value.value,
+                float32BitPattern: $0.value.float32BitPattern,
+                producerValueKind: $0.value.producerValueKind,
+                producerBindingKeys: [], shaderBindingKeys: [],
+                sourcePath: "test", declarationLine: 0
+            ))
+        })
+        self.fragment = Dictionary(uniqueKeysWithValues: facts(fragment, stage: .fragment).map {
+            ($0.key, .init(
+                stage: $0.value.stage,
+                uniformName: $0.key,
+                producerName: $0.key,
+                value: $0.value.value,
+                float32BitPattern: $0.value.float32BitPattern,
+                producerValueKind: $0.value.producerValueKind,
+                producerBindingKeys: [], shaderBindingKeys: [],
+                sourcePath: "test", declarationLine: 0
+            ))
+        })
+    }
+
+    init(
+        vertexFacts: [String: SceneAuthoredShaderExactScalarFact],
+        fragmentFacts: [String: SceneAuthoredShaderExactScalarFact]
+    ) {
+        vertex = vertexFacts
+        fragment = fragmentFacts
     }
 }
 

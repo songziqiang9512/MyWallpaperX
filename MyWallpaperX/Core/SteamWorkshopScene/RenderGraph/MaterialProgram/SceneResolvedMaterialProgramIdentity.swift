@@ -109,6 +109,7 @@ extension SceneResolvedMaterialProgram {
         let renderState: RenderStateIdentity
         let outputContract: OutputContractIdentity
         let graphRole: SceneResolvedMaterialTemplate.GraphRole
+        let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
     }
 
     struct ExactPreparedIdentity: Hashable {

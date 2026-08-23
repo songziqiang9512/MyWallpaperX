@@ -365,6 +365,14 @@ prepared source structural fact只接受missing/inactive `g_TextureNResolution`�
 
 fresh真实`3749463715`的`1106#effect#367`与`464#effect#519`已由static-uniform passthrough进入同一ordinary `genericCompilerArtifact → MaterialProgram → GraphExecutor`链，frame0/next-frame均1 authored / 1 material / 0 rejected并完成GPU/publication，后续suffix继续到terminal compositor。整样本仍因layer536 test_shader frontend为targeted **0/1 NON-PASS**；route保持`prefer-generic`，不表示Gradient family、owner migration、视觉parity或V1完成。见[E-V1-NEUTRAL-MISSING-TEXTURE-RESOLUTION](runtime-evidence-index.md#e-v1-neutral-missing-texture-resolution)。
 
+### V1 exact scalar runtime-loop 与 shared varying-prefix frontend
+
+MaterialProgram现从resolved template发布`SceneAuthoredShaderExactScalarFact`：fact必须stage-qualified、唯一immutable `.staticExact`、单分量、alias无冲突，并保留uniform/producer/binding/provenance/source line、Int32 value与Float32 bits。只有finite、非负、Int32可表示且Float32 exact integral的值获准；annotation range/int/default、dynamic/live/script/property contributor、冲突或multiple producer均不形成证明。fact进入compiled variant、reachability/dead-binding、Program schema以及semantic/exact identity，不能跨不同bits、source binding或producer provenance误复用；source operator、cast form与array extent仍由compiled artifact/source identity区分。
+
+runtime-loop admission只接受canonical `int i = lower|int(lower); i <|<= upper|int(upper); i++|++i`，并要求loop body及静态可达helper中每个直接`array[i]`都是fixed one-dimensional float array。`<`要求`0 <= lower <= upper <= minExtent`；`<=`要求`0 <= lower <= upper < minExtent`。每loop work上限256、调用展开总量4096；index/bound mutation或shadow、递归/歧义、`i+1`、array/index parameter逃逸、二维/动态index、unsupported array和overflow/预算失败均拒绝。准入不clamp、不unroll、不改作者source或控制流。
+
+bounded frontend和generic normalizer现在共用`SceneAuthoredShaderVaryingPrefixLink`。只有同名float vector严格前缀、vertex无条件初始化fragment需要的连续前缀且fragment不读suffix时才可link；emitter/normalizer只对该typed proof显式化`.xy`或`.xyz`。重命名`vec4.xy → vec2`、未见`vec4.xyz → vec3`和fragment局部值拷贝正门通过；suffix、missing/conditional write、non-prefix、integer/array/type/shape冲突、alias/dynamic index或mutation escape失败关闭。真实`3749463715`已越过原`dynamicLoop`与varying/compiler-normalization首断点，但`536#effect#553`在Program/GPU之前被`textureBindingInvalid slot=0`拒绝；所以这里只登记shared frontend/compiler/preflight能力，不登记可执行或可见等级。见[E-V1-EXACT-RUNTIME-LOOP-VARYING-PREFIX-FRONTEND](runtime-evidence-index.md#e-v1-exact-runtime-loop-varying-prefix-frontend)。
+
 ## 7. 当前证据与更新规则
 
 当前 App、样本、报告、matrix 和签名身份只见[运行证据索引](runtime-evidence-index.md)。本表只维护能力合同与缺口，不复制某个旧提交的测试总数、报告路径或“下一批”。

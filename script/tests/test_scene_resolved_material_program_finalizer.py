@@ -3833,6 +3833,29 @@ private enum Harness {
                     staticDeclaration("Fractals", components: [257]),
                 ]
             )),
+            "runtimeLoopNegativeExact": failureToken(finalize(
+                shader: contract(revision: "runtime-loop-negative", runtimeLoop: true),
+                device: device,
+                uniformDeclarations: [staticDeclaration("Fractals", components: [-1])]
+            )),
+            "runtimeLoopNonIntegralExact": failureToken(finalize(
+                shader: contract(revision: "runtime-loop-non-integral", runtimeLoop: true),
+                device: device,
+                uniformDeclarations: [staticDeclaration("Fractals", components: [5.5])]
+            )),
+            "runtimeLoopNonFiniteExact": failureToken(finalize(
+                shader: contract(revision: "runtime-loop-non-finite", runtimeLoop: true),
+                device: device,
+                uniformDeclarations: [staticDeclaration("Fractals", components: [.nan])]
+            )),
+            "runtimeLoopMultipleProducer": failureToken(finalize(
+                shader: contract(revision: "runtime-loop-multiple", runtimeLoop: true),
+                device: device,
+                uniformDeclarations: [
+                    staticDeclaration("Fractals", components: [5]),
+                    staticDeclaration("u_fractals", components: [5]),
+                ]
+            )),
             "runtimeLoopCrossTemplateCache":
                 crossTemplateRuntimeLoopCacheToken(device),
             "variantSelectionReachabilityIdentity":
@@ -4582,6 +4605,10 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "runtimeLoopMetadataOnly": "frontend/shaderFrontendFailed",
             "runtimeLoopDynamicProducer": "frontend/shaderFrontendFailed",
             "runtimeLoopOverBudget": "frontend/shaderFrontendFailed",
+            "runtimeLoopNegativeExact": "frontend/shaderFrontendFailed",
+            "runtimeLoopNonIntegralExact": "frontend/shaderFrontendFailed",
+            "runtimeLoopNonFiniteExact": "frontend/shaderFrontendFailed",
+            "runtimeLoopMultipleProducer": "frontend/shaderFrontendFailed",
             "runtimeLoopCrossTemplateCache": (
                 "invariant/variantSelectionTemplateIdentityInvariant"
             ),

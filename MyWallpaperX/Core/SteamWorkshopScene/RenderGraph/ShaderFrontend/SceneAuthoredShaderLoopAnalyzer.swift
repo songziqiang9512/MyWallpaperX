@@ -5,6 +5,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         let work: Int
         let boundedUniformReferences: [SceneAuthoredShaderToken: Int]
         let constantParameterArraysByFunctionIndex: [Int: Set<String>]
+        let exactRuntimeLoopUniformArrays: Set<String>
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
     }
 
@@ -13,6 +14,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         var calls: [Int: Int] = [:]
         var boundedUniformReferences: [SceneAuthoredShaderToken: Int] = [:]
         var constantParameterArrays: Set<String> = []
+        var exactRuntimeLoopUniformArrays: Set<String> = []
     }
 
     private static let maximumLoopIterations = 256
@@ -23,7 +25,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         tokens: [SceneAuthoredShaderToken],
         defines: [String: String],
         declarations: [SceneAuthoredShaderSyntaxUnit.Declaration],
-        provenRuntimeLoopBounds: [String: Int],
+        provenRuntimeLoopBounds: [String: SceneAuthoredShaderExactScalarFact],
         stage: SceneShaderContract.StageKind
     ) -> Output {
         let indicesByName = Dictionary(grouping: functions.indices) {
@@ -52,6 +54,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                     work: 0,
                     boundedUniformReferences: [:],
                     constantParameterArraysByFunctionIndex: [:],
+                    exactRuntimeLoopUniformArrays: [],
                     diagnostics: result.diagnostics
                 )
             }
@@ -64,6 +67,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                 work: 0,
                 boundedUniformReferences: [:],
                 constantParameterArraysByFunctionIndex: [:],
+                exactRuntimeLoopUniformArrays: [],
                 diagnostics: []
             )
         }
@@ -77,6 +81,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                 work: total,
                 boundedUniformReferences: [:],
                 constantParameterArraysByFunctionIndex: [:],
+                exactRuntimeLoopUniformArrays: [],
                 diagnostics: [.init(
                 code: .loopBudgetExceeded,
                 message: "Shader expanded static work \(total) exceeds \(maximumStaticLoopWork).",
@@ -95,6 +100,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                     work: total,
                     boundedUniformReferences: [:],
                     constantParameterArraysByFunctionIndex: [:],
+                    exactRuntimeLoopUniformArrays: [],
                     diagnostics: [.init(
                     code: .dynamicLoop,
                     message: "One loop-bound uniform has conflicting array extents.",
@@ -111,6 +117,9 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
             work: total,
             boundedUniformReferences: bounds,
             constantParameterArraysByFunctionIndex: constantArrays,
+            exactRuntimeLoopUniformArrays: Set(directWork.values.flatMap {
+                $0.exactRuntimeLoopUniformArrays
+            }),
             diagnostics: []
         )
     }
@@ -128,7 +137,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         declarations: [SceneAuthoredShaderSyntaxUnit.Declaration],
         parameterArrays: [String: Int],
         parameterRange: Range<Int>,
-        provenRuntimeLoopBounds: [String: Int],
+        provenRuntimeLoopBounds: [String: SceneAuthoredShaderExactScalarFact],
         functionIndicesByName: [String: [Int]],
         multiplier: Int,
         stage: SceneShaderContract.StageKind
@@ -177,6 +186,9 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                 )])
             }
             result.constantParameterArrays.formUnion(loop.constantParameterArrays)
+            result.exactRuntimeLoopUniformArrays.formUnion(
+                loop.exactRuntimeLoopUniformArrays
+            )
             let iterations = loop.iterations
             let (weightedIterations, overflow) = multiplier.multipliedReportingOverflow(
                 by: iterations
@@ -247,6 +259,9 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                   into: &target.boundedUniformReferences
               ) else { return false }
         target.constantParameterArrays.formUnion(source.constantParameterArrays)
+        target.exactRuntimeLoopUniformArrays.formUnion(
+            source.exactRuntimeLoopUniformArrays
+        )
         for (index, count) in source.calls {
             guard add(count, to: &target.calls[index, default: 0]) else { return false }
         }
@@ -276,7 +291,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         declarations: [SceneAuthoredShaderSyntaxUnit.Declaration],
         parameterArrays: [String: Int],
         parameterRange: Range<Int>,
-        provenRuntimeLoopBounds: [String: Int]
+        provenRuntimeLoopBounds: [String: SceneAuthoredShaderExactScalarFact]
     ) -> SceneAuthoredShaderBoundedLoopAdmission.Result? {
         if let iterations = SceneAuthoredShaderStaticLoopAdmission.iterations(
             header: header,
@@ -311,7 +326,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
             declarations: declarations,
             parameterArrays: parameterArrays
         ) { return bounded }
-        guard let iterations = SceneAuthoredShaderRuntimeLoopAdmission.iterations(
+        guard let runtime = SceneAuthoredShaderRuntimeLoopAdmission.compile(
             header: header,
             body: body,
             functionBody: functionBody,
@@ -321,9 +336,10 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
             provenBounds: provenRuntimeLoopBounds
         ) else { return nil }
         return .init(
-            iterations: iterations,
+            iterations: runtime.iterations,
             boundedUniformReferences: [:],
-            constantParameterArrays: []
+            constantParameterArrays: [],
+            exactRuntimeLoopUniformArrays: runtime.uniformArrays
         )
     }
 

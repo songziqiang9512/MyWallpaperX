@@ -4,52 +4,160 @@ import Foundation
 /// proven by the resolved producer domain. The authored control flow and bound
 /// expression remain unchanged in emitted Metal.
 nonisolated enum SceneAuthoredShaderRuntimeLoopAdmission {
-    static func iterations(
+    struct Result {
+        let iterations: Int
+        let uniformArrays: Set<String>
+    }
+
+    static func compile(
         header: Range<Int>,
         body: Range<Int>,
         functionBody: Range<Int>,
         parameterRange: Range<Int>,
         tokens: [SceneAuthoredShaderToken],
         declarations: [SceneAuthoredShaderSyntaxUnit.Declaration],
-        provenBounds: [String: Int]
-    ) -> Int? {
+        provenBounds: [String: SceneAuthoredShaderExactScalarFact]
+    ) -> Result? {
         let parts = split(range: header, separator: ";", tokens: tokens)
         guard parts.count == 3 else { return nil }
         let initialization = Array(parts[0])
-        guard initialization.count == 4,
+        guard initialization.count >= 4,
               tokens[initialization[0]].text == "int",
               tokens[initialization[1]].kind == .identifier,
-              tokens[initialization[2]].text == "=",
-              let start = SceneAuthoredShaderLoopIntegerLiteral.value(
-                  [tokens[initialization[3]].text],
-                  defines: [:]
-              ) else { return nil }
+              tokens[initialization[2]].text == "=" else { return nil }
+        let lowerExpression = Array(initialization.dropFirst(3))
+        let lowerName = exactScalarName(lowerExpression, tokens: tokens)
+        let exactLower = lowerName.flatMap { provenBounds[$0]?.value }
+        let literalLower = SceneAuthoredShaderLoopIntegerLiteral.value(
+            lowerExpression.map { tokens[$0].text }, defines: [:]
+        )
+        guard let lower = exactLower ?? literalLower else { return nil }
         let variable = tokens[initialization[1]].text
 
         let condition = Array(parts[1])
-        guard condition.count == 6,
+        guard condition.count >= 3,
               tokens[condition[0]].text == variable,
               ["<", "<="].contains(tokens[condition[1]].text),
-              tokens[condition[2]].text == "int",
-              tokens[condition[3]].text == "(",
-              tokens[condition[4]].kind == .identifier,
-              tokens[condition[5]].text == ")",
+              let upperName = exactScalarName(
+                  Array(condition.dropFirst(2)), tokens: tokens
+              ), let upper = provenBounds[upperName]?.value,
               validIncrement(parts[2], variable: variable, tokens: tokens) else {
             return nil
         }
-        let boundName = tokens[condition[4]].text
-        guard let maximum = provenBounds[boundName],
-              isScalarFloatUniform(boundName, declarations: declarations),
-              !parameterRange.contains(where: { tokens[$0].text == boundName }),
-              !hasLocalDeclaration(boundName, in: functionBody, tokens: tokens),
+        let lowerIsNotShadowed = lowerName.map {
+            !hasLocalDeclaration($0, in: functionBody, tokens: tokens)
+        } ?? true
+        let lowerIsImmutable = lowerName.map {
+            !isMutated($0, in: functionBody, tokens: tokens)
+        } ?? true
+        guard (lowerName == nil || isScalarFloatUniform(
+                  lowerName!, declarations: declarations
+              )), isScalarFloatUniform(upperName, declarations: declarations),
+              !parameterRange.contains(where: {
+                  [lowerName, upperName].compactMap { $0 }.contains(tokens[$0].text)
+              }),
+              lowerIsNotShadowed,
+              !hasLocalDeclaration(upperName, in: functionBody, tokens: tokens),
               !isMutated(variable, in: body, tokens: tokens),
-              !isMutated(boundName, in: functionBody, tokens: tokens),
-              !isArrayIndex(variable, in: body, tokens: tokens) else { return nil }
+              lowerIsImmutable,
+              !isMutated(upperName, in: functionBody, tokens: tokens) else { return nil }
+        let hasArrayIndex = containsArrayIndex(variable, in: body, tokens: tokens)
+        let arrays: [(name: String, extent: Int)]
+        if hasArrayIndex {
+            guard let proven = exactUniformArrayIndices(
+                variable: variable,
+                body: body,
+                tokens: tokens,
+                declarations: declarations
+            ) else { return nil }
+            arrays = proven
+        } else {
+            arrays = []
+        }
 
         let inclusive = tokens[condition[1]].text == "<="
-        return SceneAuthoredShaderLoopIterationCount.value(
-            start: start, end: maximum, inclusive: inclusive, step: 1
-        )
+        guard lower >= 0 else { return nil }
+        if !arrays.isEmpty {
+            guard lowerName != nil, let minimumExtent = arrays.map(\.extent).min(),
+                  lower >= 0, lower <= upper,
+                  (inclusive ? upper < minimumExtent : upper <= minimumExtent) else {
+                return nil
+            }
+        } else {
+            // Preserve the earlier immutable upper-bound cohort, which does not
+            // index an authored array and therefore needs no extent conjunction.
+            guard lowerName == nil else { return nil }
+        }
+        guard let iterations = SceneAuthoredShaderLoopIterationCount.value(
+            start: lower, end: upper, inclusive: inclusive, step: 1
+        ) else { return nil }
+        return .init(iterations: iterations, uniformArrays: Set(arrays.map(\.name)))
+    }
+
+    private static func exactScalarName(
+        _ indices: [Int],
+        tokens: [SceneAuthoredShaderToken]
+    ) -> String? {
+        if indices.count == 1, tokens[indices[0]].kind == .identifier {
+            return tokens[indices[0]].text
+        }
+        guard indices.count == 4,
+              tokens[indices[0]].text == "int",
+              tokens[indices[1]].text == "(",
+              tokens[indices[2]].kind == .identifier,
+              tokens[indices[3]].text == ")" else { return nil }
+        return tokens[indices[2]].text
+    }
+
+    private static func exactUniformArrayIndices(
+        variable: String,
+        body: Range<Int>,
+        tokens: [SceneAuthoredShaderToken],
+        declarations: [SceneAuthoredShaderSyntaxUnit.Declaration]
+    ) -> [(name: String, extent: Int)]? {
+        let variableUses = body.filter { tokens[$0].text == variable }
+        guard !variableUses.isEmpty else { return [] }
+        var arrays: [(String, Int)] = []
+        for index in variableUses {
+            guard index >= body.lowerBound + 2,
+                  index + 1 < body.upperBound,
+                  tokens[index - 2].kind == .identifier,
+                  tokens[index - 1].text == "[",
+                  tokens[index + 1].text == "]",
+                  index + 2 >= body.upperBound || tokens[index + 2].text != "[" else {
+                return nil
+            }
+            let name = tokens[index - 2].text
+            let matches = declarations.filter { $0.name == name }
+            guard matches.count == 1, let declaration = matches.first,
+                  declaration.storage == .uniform,
+                  declaration.typeName == "float",
+                  let extent = declaration.arraySize,
+                  (1 ... 256).contains(extent) else { return nil }
+            arrays.append((name, extent))
+        }
+        let names = Set(arrays.map(\.0))
+        for index in body where names.contains(tokens[index].text) {
+            guard index + 3 < body.upperBound,
+                  tokens[index + 1].text == "[",
+                  tokens[index + 2].text == variable,
+                  tokens[index + 3].text == "]" else { return nil }
+        }
+        return arrays
+    }
+
+    private static func containsArrayIndex(
+        _ name: String,
+        in range: Range<Int>,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> Bool {
+        var depth = 0
+        for index in range {
+            if tokens[index].text == "[" { depth += 1 }
+            if tokens[index].text == name, depth > 0 { return true }
+            if tokens[index].text == "]" { depth -= 1 }
+        }
+        return false
     }
 
     private static func isScalarFloatUniform(
@@ -80,29 +188,15 @@ nonisolated enum SceneAuthoredShaderRuntimeLoopAdmission {
         in range: Range<Int>,
         tokens: [SceneAuthoredShaderToken]
     ) -> Bool {
-        let operators: Set<String> = [
-            "=", "+=", "-=", "*=", "/=", "%=", "++", "--",
-        ]
+        let assignments: Set<String> = ["=", "+=", "-=", "*=", "/=", "%="]
+        let increments: Set<String> = ["++", "--"]
         return range.contains { index in
             guard tokens[index].text == name else { return false }
             let previous = index > range.lowerBound ? tokens[index - 1].text : ""
             let next = index + 1 < range.upperBound ? tokens[index + 1].text : ""
-            return operators.contains(previous) || operators.contains(next)
+            return assignments.contains(next)
+                || increments.contains(previous) || increments.contains(next)
         }
-    }
-
-    private static func isArrayIndex(
-        _ name: String,
-        in range: Range<Int>,
-        tokens: [SceneAuthoredShaderToken]
-    ) -> Bool {
-        var depth = 0
-        for index in range {
-            if tokens[index].text == "[" { depth += 1 }
-            if tokens[index].text == name, depth > 0 { return true }
-            if tokens[index].text == "]" { depth -= 1 }
-        }
-        return false
     }
 
     private static func validIncrement(

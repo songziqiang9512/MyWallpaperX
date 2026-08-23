@@ -33,6 +33,7 @@ nonisolated struct SceneAuthoredShaderSyntaxUnit {
     let staticLoopWork: Int
     let boundedLoopUniformReferences: [SceneAuthoredShaderToken: Int]
     let constantParameterArraysByFunctionIndex: [Int: Set<String>]
+    let exactRuntimeLoopUniformArrays: Set<String>
 }
 
 nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
@@ -48,7 +49,7 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
     static func analyze(
         lexerOutput: SceneAuthoredShaderLexer.Output,
         stage: SceneShaderContract.StageKind,
-        provenRuntimeLoopBounds: [String: Int] = [:]
+        provenRuntimeLoopBounds: [String: SceneAuthoredShaderExactScalarFact] = [:]
     ) -> Output {
         guard lexerOutput.diagnostics.isEmpty else {
             return Output(unit: nil, diagnostics: lexerOutput.diagnostics)
@@ -161,7 +162,9 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
                 staticLoopWork: max(1, loopResult.work),
                 boundedLoopUniformReferences: loopResult.boundedUniformReferences,
                 constantParameterArraysByFunctionIndex:
-                    loopResult.constantParameterArraysByFunctionIndex
+                    loopResult.constantParameterArraysByFunctionIndex,
+                exactRuntimeLoopUniformArrays:
+                    loopResult.exactRuntimeLoopUniformArrays
             ),
             diagnostics: []
         )

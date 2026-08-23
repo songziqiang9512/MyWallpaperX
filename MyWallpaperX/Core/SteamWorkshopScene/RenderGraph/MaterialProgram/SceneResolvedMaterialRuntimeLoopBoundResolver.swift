@@ -10,45 +10,49 @@ nonisolated enum SceneResolvedMaterialRuntimeLoopBoundResolver {
         prepared: SceneShaderPreparedProgram
     ) -> SceneAuthoredShaderRuntimeLoopBounds {
         .init(
-            vertex: bounds(template: template, source: prepared.vertex),
-            fragment: bounds(template: template, source: prepared.fragment)
+            vertexFacts: facts(template: template, source: prepared.vertex),
+            fragmentFacts: facts(template: template, source: prepared.fragment)
         )
     }
 
-    private static func bounds(
+    private static func facts(
         template: Template,
         source: SceneShaderPreparedSource
-    ) -> [String: Int] {
-        var result: [String: Int] = [:]
-        var conflicts: Set<String> = []
-        for active in source.activeDeclarations {
+    ) -> [String: SceneAuthoredShaderExactScalarFact] {
+        let candidates = source.activeDeclarations.filter {
+            let declaration = $0.declaration
+            return declaration.kind == .uniform
+                && declaration.arraySize == nil
+                && declaration.type.split(whereSeparator: \.isWhitespace).last?
+                    .caseInsensitiveCompare("float") == .orderedSame
+        }
+        var result: [String: SceneAuthoredShaderExactScalarFact] = [:]
+        for declarations in Dictionary(grouping: candidates, by: {
+            $0.declaration.name
+        }).values {
+            // Repeated active declarations are not a unique producer claim,
+            // even when their current scalar bits happen to agree.
+            guard declarations.count == 1, let active = declarations.first else {
+                continue
+            }
             let declaration = active.declaration
-            guard declaration.kind == .uniform,
-                  declaration.arraySize == nil,
-                  declaration.type.split(whereSeparator: \.isWhitespace).last?
-                    .caseInsensitiveCompare("float") == .orderedSame,
-                  let maximum = maximum(
+            guard let fact = fact(
                       template: template,
                       source: source,
                       sourcePath: active.sourcePath,
                       declaration: declaration
-                  ), !conflicts.contains(declaration.name) else { continue }
-            if let existing = result[declaration.name], existing != maximum {
-                result.removeValue(forKey: declaration.name)
-                conflicts.insert(declaration.name)
-            } else {
-                result[declaration.name] = maximum
-            }
+                  ) else { continue }
+            result[declaration.name] = fact
         }
         return result
     }
 
-    private static func maximum(
+    private static func fact(
         template: Template,
         source: SceneShaderPreparedSource,
         sourcePath: String,
         declaration: SceneShaderContract.Declaration
-    ) -> Int? {
+    ) -> SceneAuthoredShaderExactScalarFact? {
         let annotations = source.activeAnnotations.filter {
             $0.sourcePath == sourcePath && $0.annotation.line == declaration.line
                 && !isCompileTime($0.annotation)
@@ -66,11 +70,25 @@ nonisolated enum SceneResolvedMaterialRuntimeLoopBoundResolver {
         if let alias = aliases.first { keys.insert(alias) }
         let producers = template.uniformDeclarations.filter { keys.contains($0.name) }
         guard producers.count == 1,
-              case let .staticExact(value) = producers[0].value,
+              let producer = producers.first,
+              case let .staticExact(value) = producer.value,
               value.componentBitPatterns.count == 1 else { return nil }
         let encoded = Float(Double(bitPattern: value.componentBitPatterns[0]))
-        guard encoded.isFinite else { return nil }
-        return Int32(exactly: Double(encoded).rounded(.towardZero)).map(Int.init)
+        let integral = encoded.rounded(.towardZero)
+        guard encoded.isFinite, encoded >= 0, encoded == integral,
+              let exact = Int32(exactly: Double(encoded)) else { return nil }
+        return .init(
+            stage: source.stage,
+            uniformName: declaration.name,
+            producerName: producer.name,
+            value: Int(exact),
+            float32BitPattern: encoded.bitPattern,
+            producerValueKind: value.valueKind,
+            producerBindingKeys: value.authoredBindingKeys,
+            shaderBindingKeys: keys.sorted(),
+            sourcePath: sourcePath,
+            declarationLine: declaration.line
+        )
     }
 
     private static func normalized(_ value: String?) -> String? {

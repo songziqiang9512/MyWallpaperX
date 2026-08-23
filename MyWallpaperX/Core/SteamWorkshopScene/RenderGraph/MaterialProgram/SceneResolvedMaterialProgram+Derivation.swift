@@ -73,7 +73,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             activeUniforms: uniforms.semantic,
             renderState: renderState,
             outputContract: outputIdentity,
-            graphRole: graphRole
+            graphRole: graphRole,
+            runtimeLoopBounds: input.runtimeLoopBounds
         )
         let exact = Program.ExactIdentity(
             semanticIdentity: semantic,

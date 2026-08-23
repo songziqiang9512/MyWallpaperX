@@ -8,6 +8,19 @@ nonisolated enum SceneAuthoredShaderBoundedLoopAdmission {
         let iterations: Int
         let boundedUniformReferences: [SceneAuthoredShaderToken: Int]
         let constantParameterArrays: Set<String>
+        let exactRuntimeLoopUniformArrays: Set<String>
+
+        init(
+            iterations: Int,
+            boundedUniformReferences: [SceneAuthoredShaderToken: Int],
+            constantParameterArrays: Set<String>,
+            exactRuntimeLoopUniformArrays: Set<String> = []
+        ) {
+            self.iterations = iterations
+            self.boundedUniformReferences = boundedUniformReferences
+            self.constantParameterArrays = constantParameterArrays
+            self.exactRuntimeLoopUniformArrays = exactRuntimeLoopUniformArrays
+        }
     }
 
     static func compile(

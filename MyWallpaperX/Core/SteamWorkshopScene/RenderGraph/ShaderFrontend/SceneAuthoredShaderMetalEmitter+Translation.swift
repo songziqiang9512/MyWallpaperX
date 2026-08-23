@@ -70,9 +70,14 @@ nonisolated extension SceneAuthoredShaderMetalEmitter {
         }
         if context.globalReferenceTokens.contains(token),
            context.varyingNames.contains(token.text) {
-            return context.unit.stage == .vertex
-                ? "mwxOutput.\(token.text)"
-                : "mwxInput.\(token.text)"
+            if context.unit.stage == .vertex {
+                return "mwxOutput.\(token.text)"
+            }
+            let suffix = context.varyingPrefixFacts[token.text].flatMap {
+                $0.wholeFragmentReferences.contains(token)
+                    ? ".\($0.requiredComponents)" : nil
+            } ?? ""
+            return "mwxInput.\(token.text)\(suffix)"
         }
         if context.globalReferenceTokens.contains(token),
            context.attributeNames.contains(token.text) {

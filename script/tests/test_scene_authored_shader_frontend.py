@@ -1558,6 +1558,95 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertNotIn("clamp(mwxUniforms.u_fractals", compact_source)
         self.assertIsNone(output.get("metalError"))
 
+    def test_exact_uniform_array_loop_in_renamed_two_level_helper_compiles(self):
+        for lower, upper in [("rangeStart", "int(rangeEnd)"),
+                             ("int(rangeStart)", "rangeEnd")]:
+            with self.subTest(lower=lower, upper=upper):
+                output = self.compile(
+                    """
+                    attribute vec3 a_Position;
+                    attribute vec2 a_TexCoord;
+                    varying vec4 renamedCoordinates;
+                    void main() {
+                        gl_Position = vec4(a_Position, 1.0);
+                        renamedCoordinates = vec4(a_TexCoord, 0.0, 1.0);
+                    }
+                    """,
+                    f"""
+                    uniform float rangeStart;
+                    uniform float rangeEnd;
+                    uniform float signalA[64];
+                    uniform float signalB[64];
+                    varying vec2 renamedCoordinates;
+                    float accumulate() {{
+                        float value = 0.0;
+                        for (int sampleIndex = {lower}; sampleIndex < {upper}; sampleIndex++) {{
+                            value += signalA[sampleIndex] + signalB[sampleIndex];
+                        }}
+                        return value;
+                    }}
+                    float bridge() {{ return accumulate(); }}
+                    void main() {{
+                        gl_FragColor = vec4(renamedCoordinates, bridge(), 1.0);
+                    }}
+                    """,
+                    loop_bounds={"fragment": {"rangeStart": 0, "rangeEnd": 64}},
+                )
+                self.assertEqual(output["diagnosticCodes"], [])
+                self.assertEqual(output["staticLoopWork"], 66)
+                self.assertIn("mwxInput.renamedCoordinates.xy", output["metalSource"])
+                self.assertNotIn("clamp(mwxUniforms.range", output["metalSource"])
+                self.assertIsNone(output.get("metalError"))
+
+        mixed_extent = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform float lower;
+            uniform float upper;
+            uniform float shortSignal[32];
+            uniform float longSignal[64];
+            void main() {
+                float value = 0.0;
+                for (int i = lower; i < upper; ++i) {
+                    value += shortSignal[i] + longSignal[i];
+                }
+                gl_FragColor = vec4(value);
+            }
+            """,
+            loop_bounds={"fragment": {"lower": 0, "upper": 32}},
+        )
+        self.assertEqual(mixed_extent["diagnosticCodes"], [])
+        self.assertIsNone(mixed_extent.get("metalError"))
+
+    def test_exact_uniform_array_loop_range_and_shape_fail_closed(self):
+        source = """
+            uniform float lower;
+            uniform float upper;
+            uniform float values[32];
+            void main() {
+                float value = 0.0;
+                for (int i = lower; i < upper; i++) { value += values[i]; }
+                gl_FragColor = vec4(value);
+            }
+        """
+        fixtures = [
+            ({"lower": 0, "upper": 33}, source),
+            ({"lower": 0, "upper": 32}, source.replace("i < upper", "i <= upper")),
+            ({"lower": -1, "upper": 32}, source),
+            ({"lower": 0, "upper": 32}, source.replace("values[i]", "values[i + 1]")),
+            ({"lower": 0, "upper": 32}, source.replace("value += values[i];", "i = 0; value += values[i];")),
+            ({"lower": 0, "upper": 32}, source.replace("values[i]", "values[0]")),
+        ]
+        for bounds, fragment in fixtures:
+            with self.subTest(bounds=bounds, fragment=fragment):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    fragment,
+                    metal=False,
+                    loop_bounds={"fragment": bounds},
+                )
+                self.assertEqual(output["diagnosticCodes"], ["dynamicLoop"])
+
     def test_signed_static_loop_literals_compile_with_bounded_runtime_loop(self):
         output = self.compile(
             VERTEX_SOURCE,
@@ -2123,6 +2212,59 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             metal=False,
         )
         self.assertEqual(output["diagnosticCodes"], ["stageLinkMismatch"])
+
+    def test_float_varying_strict_prefix_links_vec4_to_vec2_and_vec3(self):
+        for fragment_type, components in [("vec2", "xy"), ("vec3", "xyz")]:
+            fragment_main = (
+                "vec2 prefixCopy = unseenLink; "
+                "gl_FragColor = vec4(prefixCopy, 0.0, 1.0);"
+                if fragment_type == "vec2"
+                else "gl_FragColor = vec4(unseenLink, 1.0);"
+            )
+            output = self.compile(
+                """
+                attribute vec3 a_Position;
+                attribute vec2 a_TexCoord;
+                varying vec4 unseenLink;
+                void main() {
+                    gl_Position = vec4(a_Position, 1.0);
+                    unseenLink = vec4(a_TexCoord, 0.25, 1.0);
+                }
+                """,
+                f"""
+                varying {fragment_type} unseenLink;
+                void main() {{ {fragment_main} }}
+                """,
+            )
+            self.assertEqual(output["diagnosticCodes"], [])
+            self.assertIn(f"mwxInput.unseenLink.{components}", output["metalSource"])
+            self.assertIsNone(output.get("metalError"))
+
+    def test_float_varying_prefix_rejects_suffix_and_conditional_write(self):
+        vertex = """
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec4 linkedValue;
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                linkedValue = vec4(a_TexCoord, 0.0, 1.0);
+            }
+        """
+        fragments = [
+            "varying vec2 linkedValue; void main() { gl_FragColor = vec4(linkedValue.z); }",
+            "varying vec2 linkedValue; void main() { gl_FragColor = vec4(linkedValue.yx, 0.0, 1.0); }",
+            "varying ivec2 linkedValue; void main() { gl_FragColor = vec4(linkedValue, 0.0, 1.0); }",
+        ]
+        conditional_vertex = vertex.replace(
+            "linkedValue = vec4(a_TexCoord, 0.0, 1.0);",
+            "if (a_TexCoord.x > 0.0) { linkedValue = vec4(a_TexCoord, 0.0, 1.0); }",
+        )
+        for candidate_vertex, fragment in [
+            *[(vertex, fragment) for fragment in fragments],
+            (conditional_vertex, "varying vec2 linkedValue; void main() { gl_FragColor = vec4(linkedValue, 0.0, 1.0); }"),
+        ]:
+            output = self.compile(candidate_vertex, fragment, metal=False)
+            self.assertEqual(output["diagnosticCodes"], ["stageLinkMismatch"])
 
     def test_unused_fragment_varying_does_not_require_a_vertex_output(self):
         output = self.compile(

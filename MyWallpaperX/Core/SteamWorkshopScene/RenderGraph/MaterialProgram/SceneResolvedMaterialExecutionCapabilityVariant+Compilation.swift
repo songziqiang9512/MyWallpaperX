@@ -11,6 +11,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     let preparedShader: SceneShaderPreparedProgram
     let frontendProgram: SceneAuthoredShaderProgram
     let routeDecision: SceneGenericShaderRouteDecision
+    let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
     let activeSamplers: [Int: Sampler]
     let activeUniforms: [String: Uniform]
     let neutralTextureResolution:
@@ -22,6 +23,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         preparedShader: SceneShaderPreparedProgram,
         frontendProgram: SceneAuthoredShaderProgram,
         routeDecision: SceneGenericShaderRouteDecision,
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
         activeSamplers: [Int: Sampler],
         activeUniforms: [String: Uniform],
         neutralTextureResolution:
@@ -32,6 +34,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.preparedShader = preparedShader
         self.frontendProgram = frontendProgram
         self.routeDecision = routeDecision
+        self.runtimeLoopBounds = runtimeLoopBounds
         self.activeSamplers = activeSamplers
         self.activeUniforms = activeUniforms
         self.neutralTextureResolution = neutralTextureResolution
@@ -293,6 +296,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             preparedShader: prepared,
             frontendProgram: frontend,
             routeDecision: routeDecision,
+            runtimeLoopBounds: runtimeLoopBounds,
             activeSamplers: samplers,
             activeUniforms: uniforms,
             neutralTextureResolution: neutralTextureResolution

@@ -5,6 +5,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
         let uniforms: [SceneAuthoredShaderUniformDeclaration]
         let textures: [SceneAuthoredShaderProgram.TextureBinding]
         let varyings: [(String, SceneAuthoredShaderValueType, Int?)]
+        let varyingPrefixFacts: [String: SceneAuthoredShaderVaryingPrefixLink.Fact]
         let omittedVertexStatementRanges: [Range<Int>]
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
     }
@@ -57,6 +58,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             uniformLayout: uniformLayout,
             textures: validation.textures,
             varyings: validation.varyings,
+            varyingPrefixFacts: validation.varyingPrefixFacts,
             omittedVertexStatementRanges: validation.omittedVertexStatementRanges,
             colorTransfer: colorTransfer
         )
@@ -81,7 +83,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
     private static func analyze(
         source: String,
         stage: SceneShaderContract.StageKind,
-        provenRuntimeLoopBounds: [String: Int]
+        provenRuntimeLoopBounds: [String: SceneAuthoredShaderExactScalarFact]
     ) -> SceneAuthoredShaderSyntaxAnalyzer.Output {
         SceneAuthoredShaderSyntaxAnalyzer.analyze(
             lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage),
@@ -150,10 +152,25 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 in: fragment
             )
         }
-        if activeFragmentVaryings.contains(where: {
-            guard let vertex = vertexByName[$0.0] else { return true }
-            return vertex.0 != $0.1 || vertex.1 != $0.2
-        }) {
+        var varyingPrefixFacts: [String: SceneAuthoredShaderVaryingPrefixLink.Fact] = [:]
+        let hasLinkMismatch = activeFragmentVaryings.contains { fragmentVarying in
+            guard let vertexVarying = vertexByName[fragmentVarying.0] else { return true }
+            if vertexVarying.0 == fragmentVarying.1,
+               vertexVarying.1 == fragmentVarying.2 { return false }
+            guard vertexVarying.1 == nil, fragmentVarying.2 == nil,
+                  let vertexWidth = floatVectorWidth(vertexVarying.0),
+                  let fragmentWidth = floatVectorWidth(fragmentVarying.1),
+                  let fact = SceneAuthoredShaderVaryingPrefixLink.prove(
+                      name: fragmentVarying.0,
+                      vertexWidth: vertexWidth,
+                      fragmentWidth: fragmentWidth,
+                      vertex: vertex,
+                      fragment: fragment
+                  ) else { return true }
+            varyingPrefixFacts[fragmentVarying.0] = fact
+            return false
+        }
+        if hasLinkMismatch {
             diagnostics.append(.init(
                 code: .stageLinkMismatch,
                 message: "Every consumed fragment varying requires a matching vertex output.",
@@ -231,7 +248,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
                     name: declaration.name,
                     type: type,
                     count: arrayCount
-                ) else {
+                ) || (type == .float
+                    && unit.exactRuntimeLoopUniformArrays.contains(declaration.name)) else {
                     diagnostics.append(.init(
                         code: .unsupportedType,
                         message: "Uniform '\(declaration.name)' has an unsupported array shape.",
@@ -266,6 +284,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             uniforms: uniforms,
             textures: textures,
             varyings: vertexVaryings,
+            varyingPrefixFacts: varyingPrefixFacts,
             omittedVertexStatementRanges: deadBindings.omittedVertexStatementRanges,
             diagnostics: diagnostics
         )
@@ -300,6 +319,17 @@ nonisolated enum SceneAuthoredShaderFrontend {
         guard let count else { return true }
         return (1 ... 16).contains(count)
             && [.float, .float2, .float3, .float4].contains(type)
+    }
+
+    private static func floatVectorWidth(
+        _ type: SceneAuthoredShaderValueType
+    ) -> Int? {
+        switch type {
+        case .float2: 2
+        case .float3: 3
+        case .float4: 4
+        default: nil
+        }
     }
 
     private static func textureSlot(_ name: String) -> Int? {

@@ -367,6 +367,7 @@ nonisolated struct SceneResolvedMaterialProgram {
         let renderState: SceneMaterialRenderState
         let graphRole: SceneResolvedMaterialTemplate.GraphRole
         let outputStorage: OutputStorage
+        let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
 
         init(
             preparedShader: SceneShaderPreparedProgram,
@@ -374,7 +375,8 @@ nonisolated struct SceneResolvedMaterialProgram {
             resolvedUniforms: [ResolvedUniform],
             renderState: SceneMaterialRenderState,
             graphRole: SceneResolvedMaterialTemplate.GraphRole,
-            outputStorage: OutputStorage = .color
+            outputStorage: OutputStorage = .color,
+            runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
         ) {
             self.preparedShader = preparedShader
             self.textureSlots = textureSlots
@@ -382,6 +384,7 @@ nonisolated struct SceneResolvedMaterialProgram {
             self.renderState = renderState
             self.graphRole = graphRole
             self.outputStorage = outputStorage
+            self.runtimeLoopBounds = runtimeLoopBounds
         }
     }
 
@@ -403,6 +406,7 @@ nonisolated struct SceneResolvedMaterialProgram {
     let outputContract: OutputContract
     let semanticIdentity: SemanticIdentity
     let exactIdentity: ExactIdentity
+    let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
 
     static func assemble(_ input: AssemblyInput) -> Self? {
         guard let derived = SceneResolvedMaterialProgramDerivation.derive(input) else {
@@ -438,6 +442,7 @@ nonisolated struct SceneResolvedMaterialProgram {
         outputContract = derived.outputContract
         semanticIdentity = derived.semanticIdentity
         exactIdentity = derived.exactIdentity
+        runtimeLoopBounds = input.runtimeLoopBounds
     }
 
     private init(
@@ -455,5 +460,6 @@ nonisolated struct SceneResolvedMaterialProgram {
         outputContract = derived.outputContract
         semanticIdentity = derived.semanticIdentity
         exactIdentity = derived.exactIdentity
+        runtimeLoopBounds = input.runtimeLoopBounds
     }
 }

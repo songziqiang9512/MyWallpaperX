@@ -148,6 +148,7 @@
           "SceneAuthoredShaderFunctionSemantics.swift",
           "SceneAuthoredShaderIndependentSignalScalarContract.swift",
           "SceneAuthoredShaderLexer.swift",
+          "SceneAuthoredShader*Link*.swift",
           "SceneAuthoredShaderMetal*.swift",
           "SceneAuthoredShaderSyntax.swift",
           "SceneAuthoredShaderTextureTransformABI.swift",

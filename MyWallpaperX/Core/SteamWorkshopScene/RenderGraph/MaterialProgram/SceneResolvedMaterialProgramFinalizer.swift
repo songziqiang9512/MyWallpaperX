@@ -208,7 +208,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 resolvedUniforms: uniforms,
                 renderState: input.template.renderState,
                 graphRole: graphRole,
-                outputStorage: outputStorage
+                outputStorage: outputStorage,
+                runtimeLoopBounds: selection.variant.runtimeLoopBounds
             ), frontend: selection.variant.frontendProgram,
                 routeDecision: selection.variant.routeDecision) else {
                 throw failure(.invariant, .programAssemblyIdentityInvariant)

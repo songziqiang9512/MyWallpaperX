@@ -195,6 +195,8 @@ private struct VaryingLinkOutput: Codable {
     let deadMismatchAccepted: Bool
     let deadFragmentInterfaceRemoved: Bool
     let liveMismatchRejected: Bool
+    let strictPrefixAccepted: Bool
+    let suffixReadRejected: Bool
 }
 
 private struct MutableFragmentVaryingOutput: Codable {
@@ -548,11 +550,39 @@ private struct GenericShaderArtifactHarness {
             case .failure(.varyingUnsupported): liveMismatchRejected = true
             case .failure: liveMismatchRejected = false
             }
+            let prefixVertex = vertex
+                .replacingOccurrences(of: "varying vec2 v_Live;", with: "varying vec4 v_Live;")
+                .replacingOccurrences(of: "v_Live = a_TexCoord;", with: "v_Live = vec4(a_TexCoord, 0.0, 1.0);")
+            let prefixFragment = [
+                "varying vec2 v_Live;",
+                "void main() { vec2 prefixCopy = v_Live; gl_FragColor = vec4(prefixCopy, 0.0, 1.0); }",
+            ].joined(separator: "\n")
+            let prefix = SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: prefixVertex,
+                fragmentSource: prefixFragment,
+                maximumStageSourceBytes: 64 * 1_024
+            )
+            let suffix = SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: prefixVertex,
+                fragmentSource: prefixFragment.replacingOccurrences(
+                    of: "vec2 prefixCopy = v_Live", with: "vec2 prefixCopy = v_Live.z"
+                ),
+                maximumStageSourceBytes: 64 * 1_024
+            )
             let output = VaryingLinkOutput(
                 deadMismatchAccepted: dead != nil,
                 deadFragmentInterfaceRemoved:
                     dead?.fragment.contains("in vec4 v_Optional") == false,
-                liveMismatchRejected: liveMismatchRejected
+                liveMismatchRejected: liveMismatchRejected,
+                strictPrefixAccepted: {
+                    guard case let .success(pair) = prefix else { return false }
+                    return pair.fragment.contains("in vec4 v_Live;")
+                        && pair.fragment.contains("v_Live.xy")
+                }(),
+                suffixReadRejected: {
+                    if case .failure(.varyingUnsupported) = suffix { return true }
+                    return false
+                }()
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -2745,6 +2775,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "deadMismatchAccepted": True,
             "deadFragmentInterfaceRemoved": True,
             "liveMismatchRejected": True,
+            "strictPrefixAccepted": True,
+            "suffixReadRejected": True,
         })
 
     def test_swift_normalizer_localizes_only_main_scoped_mutable_varying(self):
