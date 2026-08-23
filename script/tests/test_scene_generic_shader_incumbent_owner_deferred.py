@@ -375,7 +375,7 @@ fragment float4 mwxGenericFragment(
             },
         }
 
-    def test_shared_alpha_prefers_generic_and_bad_artifact_uses_bounded_frontend(
+    def test_shared_alpha_is_generic_only_with_explicit_bounded_rollback(
         self,
     ) -> None:
         profile = "source-proven-graph-input-alpha-weighted-sample-average"
@@ -384,16 +384,16 @@ fragment float4 mwxGenericFragment(
             missing, missing_log, requests, cache = self.run_route(root, "alpha")
             self.assertEqual(missing["status"], "unavailable")
             self.assertEqual(missing["profile"], profile)
-            self.assertEqual(missing["state"], "prefer-generic")
+            self.assertEqual(missing["state"], "generic-only")
             self.assertEqual(missing["fallbackOwner"], "bounded-frontend")
-            self.assertTrue(missing["permitsBoundedFrontend"])
-            self.assertTrue(missing["boundedFrontendAccepted"])
+            self.assertFalse(missing["permitsBoundedFrontend"])
+            self.assertFalse(missing["boundedFrontendAccepted"])
             self.assertEqual(missing["alphaOwner"], "bounded-frontend")
-            self.assertEqual(missing["alphaState"], "prefer-generic")
+            self.assertEqual(missing["alphaState"], "generic-only")
             self.assertEqual(missing["compositeOwner"], "none")
             self.assertEqual(missing["compositeState"], "generic-only")
             self.assertIn(
-                f"state=prefer-generic profile={profile} outcome=fallback",
+                f"state=generic-only profile={profile} outcome=rejected",
                 missing_log,
             )
             self.assertEqual(len(list(requests.glob("*.json"))), 1)
@@ -403,7 +403,7 @@ fragment float4 mwxGenericFragment(
 
             accepted, accepted_log, _, _ = self.run_route(root, "alpha")
             self.assertEqual(accepted["status"], "accepted")
-            self.assertEqual(accepted["state"], "prefer-generic")
+            self.assertEqual(accepted["state"], "generic-only")
             self.assertEqual(accepted["fallbackOwner"], "bounded-frontend")
             self.assertIn("outcome=accepted reason=-", accepted_log)
 
@@ -412,10 +412,10 @@ fragment float4 mwxGenericFragment(
             bad, bad_log, _, _ = self.run_route(root, "alpha")
             self.assertEqual(bad["status"], "unavailable")
             self.assertEqual(bad["code"], "artifact-contract-rejected")
-            self.assertTrue(bad["permitsBoundedFrontend"])
-            self.assertTrue(bad["boundedFrontendAccepted"])
+            self.assertFalse(bad["permitsBoundedFrontend"])
+            self.assertFalse(bad["boundedFrontendAccepted"])
             self.assertIn(
-                "outcome=fallback reason=artifact-contract-rejected", bad_log
+                "outcome=rejected reason=artifact-contract-rejected", bad_log
             )
 
             disabled, disabled_log, _, _ = self.run_route(
@@ -569,13 +569,17 @@ fragment float4 mwxGenericFragment(
             ".preferGeneric", 1
         )
         generic_only_cases = generic_only_tail.split(".genericOnly", 1)[0]
-        self.assertIn(
-            ".sourceProvenGraphInputAlphaWeightedSampleAverage,",
-            prefer_generic_cases,
-        )
         self.assertNotIn(
             ".sourceProvenUnitPreviousBlurredComposite,",
             prefer_generic_cases,
+        )
+        self.assertNotIn(
+            ".sourceProvenGraphInputAlphaWeightedSampleAverage,",
+            prefer_generic_cases,
+        )
+        self.assertIn(
+            ".sourceProvenGraphInputAlphaWeightedSampleAverage,",
+            generic_only_cases,
         )
         self.assertIn(
             ".sourceProvenUnitPreviousBlurredComposite,",

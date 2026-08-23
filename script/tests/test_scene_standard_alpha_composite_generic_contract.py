@@ -755,7 +755,7 @@ class StandardAlphaCompositeGenericContractTests(unittest.TestCase):
             output["routeProfile"],
             "source-proven-graph-input-alpha-weighted-sample-average",
         )
-        self.assertEqual(output["routeState"], "prefer-generic")
+        self.assertEqual(output["routeState"], "generic-only")
         self.assertEqual(output["disableState"], "disable-generic")
         self.assertEqual(output["rollbackOwner"], "bounded-frontend")
 

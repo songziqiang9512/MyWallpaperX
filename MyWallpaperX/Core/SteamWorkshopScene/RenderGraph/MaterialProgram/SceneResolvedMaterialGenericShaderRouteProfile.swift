@@ -250,7 +250,6 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         switch self {
         case .ordinaryShader,
              .providerBackedScalarColorInterpolation,
-             .sourceProvenGraphInputAlphaWeightedSampleAverage,
              .sourceProvenGraphInputStraightAlpha,
              .sourceProvenGraphInputStraightAlphaPreserving:
             .preferGeneric
@@ -260,6 +259,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenIndependentPremultipliedOutput,
              .sourceProvenGraphTargetPassthrough,
              .sourceProvenNormalizedSampleSum,
+             .sourceProvenGraphInputAlphaWeightedSampleAverage,
              .sourceProvenUnitPreviousBlurredComposite,
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
