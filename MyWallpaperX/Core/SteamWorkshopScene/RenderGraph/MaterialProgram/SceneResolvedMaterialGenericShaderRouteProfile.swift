@@ -239,11 +239,11 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         switch self {
         case .ordinaryShader,
              .providerBackedScalarColorInterpolation,
+             .sourceProvenGraphInputAlphaWeightedSampleAverage,
              .sourceProvenGraphInputStraightAlpha,
              .sourceProvenGraphInputStraightAlphaPreserving:
             .preferGeneric
-        case .sourceProvenGraphInputAlphaWeightedSampleAverage,
-             .sourceProvenUnitPreviousBlurredComposite:
+        case .sourceProvenUnitPreviousBlurredComposite:
             .observeOnly
         case .sourceProvenScalarColorInterpolation,
              .sourceProvenOpaqueScalarOutput,
@@ -265,12 +265,11 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         }
     }
 
-    /// Every migrated profile keeps only the shared bounded frontend as its
-    /// explicit rollback path; no retired dedicated renderer can re-enter.
+    /// Shared profiles roll back through the bounded frontend unless a narrow
+    /// compound-finalizer fact explicitly requires the verified incumbent.
     var validatedRollbackOwner: SceneGenericShaderFallbackOwner {
         switch self {
-        case .sourceProvenGraphInputAlphaWeightedSampleAverage,
-             .sourceProvenUnitPreviousBlurredComposite:
+        case .sourceProvenUnitPreviousBlurredComposite:
             .programFirstIncumbent
         default:
             .boundedFrontend

@@ -736,9 +736,9 @@ class StandardAlphaCompositeGenericContractTests(unittest.TestCase):
             output["routeProfile"],
             "source-proven-graph-input-alpha-weighted-sample-average",
         )
-        self.assertEqual(output["routeState"], "observe-only")
+        self.assertEqual(output["routeState"], "prefer-generic")
         self.assertEqual(output["disableState"], "disable-generic")
-        self.assertEqual(output["rollbackOwner"], "program-first-incumbent")
+        self.assertEqual(output["rollbackOwner"], "bounded-frontend")
 
     def test_unit_composite_source_artifact_and_route_contract(self) -> None:
         output = self.run_harness("composite")
