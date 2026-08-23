@@ -70,34 +70,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 ))
                 continue
             }
-            if let program = externallyOwnedImageBlendProgram(
-                for: effect.key,
-                ownership: admitted.dependencyOwnership,
-                programsByKey: programsByKey
-            ) {
-                guard product.clearFunctions.functions.isEmpty else {
-                    return .failure(rejection("function-invocation-executor-unavailable"))
-                }
-                let pairLeaf = dedicatedLeafKeys.contains(effect.key)
-                    && program.executionPlan.logicalRenderTargetCount == 0
-                    && product.graph.nodes.count == 1
-                    && product.graph.renderTargets.isEmpty
-                guard pairLeaf,
-                      program.effectKey == effect.key,
-                      program.stageGraph.effects.first?.key == effect.key,
-                      dedicatedDynamicTargetsAreExecutable(
-                          program,
-                          producers: dynamicProducers
-                      ) else {
-                    return .failure(rejection("dedicated-leaf-unsupported"))
-                }
-                stages.append(.dedicated(
-                    product: product,
-                    program: program,
-                    family: dedicatedStageFamilies[effect.key] ?? "dedicated-leaf"
-                ))
-                continue
-            }
             let programResult = compileStages(
                 singleStage,
                 materialCatalog: materialCatalog,
@@ -134,6 +106,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     return .failure(programFailure)
                 }
                 guard product.clearFunctions.functions.isEmpty else {
+                    return .failure(programFailure)
+                }
+                // The bounded external-primary Image Blend profile is owned by
+                // the ordinary MaterialProgram route. A failed Program must not
+                // revive the retained standalone Blend renderer as a second
+                // product owner.
+                if isExternallyOwnedImageBlend(
+                    effect.key,
+                    ownership: admitted.dependencyOwnership
+                ) {
                     return .failure(programFailure)
                 }
                 guard let program = programsByKey[effect.key]?.first else {
@@ -394,28 +376,21 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return program.executionPlan.liveConsumerTargets.isSubset(of: available)
     }
 
-    private static func externallyOwnedImageBlendProgram(
-        for effectKey: Graph.EffectKey,
-        ownership: SceneResolvedMaterialDependencyOwnership,
-        programsByKey: [Graph.EffectKey: [SceneEffectStageProgram]]
-    ) -> SceneEffectStageProgram? {
+    private static func isExternallyOwnedImageBlend(
+        _ effectKey: Graph.EffectKey,
+        ownership: SceneResolvedMaterialDependencyOwnership
+    ) -> Bool {
         guard case let .externalPrimary(binding) = ownership,
               binding.kind == .imageLayerBlend,
               binding.consumerLayerID == effectKey.layerID,
               binding.slot.effectID == effectKey.descriptorID,
               binding.slot.passIndex == 0,
               binding.slot.slotIndex == 1,
-              binding.blendMode == 0,
-              let programs = programsByKey[effectKey],
-              programs.count == 1,
-              let program = programs.first,
-              let blend = program.executionPlan.blend,
-              blend.layerID == binding.consumerLayerID,
-              blend.effectKey == effectKey,
-              blend.dependencyProviderLayerID == binding.providerLayerID else {
-            return nil
+              binding.referenceSlots == [binding.slot],
+              binding.blendMode == 0 else {
+            return false
         }
-        return program
+        return true
     }
 
     private static func dependencyOwnershipMatches(
@@ -436,26 +411,22 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     || plan.dependencySlotIndex != nil else { return nil }
             return (program, plan)
         }
-        let imageBlendDependencyStages = stages.compactMap { stage -> (
-            program: SceneEffectStageProgram,
-            plan: SceneBlendExecutionPlan
-        )? in
+        let hasDedicatedImageBlendDependencyStage = stages.contains { stage in
             guard case let .dedicated(_, program, _) = stage,
-                  let plan = program.executionPlan.blend,
-                  plan.dependencyProviderLayerID != nil else { return nil }
-            return (program, plan)
+                  let plan = program.executionPlan.blend else { return false }
+            return plan.dependencyProviderLayerID != nil
         }
         switch ownership {
         case .none, .graphInternal:
             return resolvedDependencyStages.isEmpty
                 && proceduralDependencyStages.isEmpty
-                && imageBlendDependencyStages.isEmpty
+                && !hasDedicatedImageBlendDependencyStage
 
         case let .externalPrimary(binding):
             guard binding.consumerLayerID == layerID else { return false }
             if !resolvedDependencyStages.isEmpty,
                proceduralDependencyStages.isEmpty,
-               imageBlendDependencyStages.isEmpty {
+               !hasDedicatedImageBlendDependencyStage {
                 let expected = Set(binding.referenceSlots.map { slot in
                     ResolvedExternalDependency(
                         consumerLayerID: binding.consumerLayerID,
@@ -476,7 +447,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 guard binding.slot.passIndex == 0,
                       binding.slot.slotIndex == 3,
                       binding.blendMode == 0,
-                      imageBlendDependencyStages.isEmpty,
+                      !hasDedicatedImageBlendDependencyStage,
                       proceduralDependencyStages.count == 1,
                       let procedural = proceduralDependencyStages.first else {
                     return false
@@ -498,27 +469,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     && plan.renderGraph.nodes.first?.instancePassIndex
                         == binding.slot.passIndex
             case .imageLayerBlend:
-                guard binding.slot.passIndex == 0,
-                      binding.slot.slotIndex == 1,
-                      binding.blendMode == 0,
-                      proceduralDependencyStages.isEmpty,
-                      imageBlendDependencyStages.count == 1,
-                      let blend = imageBlendDependencyStages.first else {
-                    return false
-                }
-                let program = blend.program
-                let plan = blend.plan
-                return program.effectKey == plan.effectKey
-                    && program.stageGraph.effects.first?.key == plan.effectKey
-                    && plan.layerID == layerID
-                    && plan.effectKey.layerID == layerID
-                    && plan.effectKey.descriptorID == binding.slot.effectID
-                    && plan.dependencyProviderLayerID == binding.providerLayerID
-                    && plan.renderGraph.effects.count == 1
-                    && plan.renderGraph.nodes.count == 1
-                    && plan.renderGraph.renderTargets.isEmpty
-                    && plan.renderGraph.nodes.first?.instancePassIndex
-                        == binding.slot.passIndex
+                return false
             }
         }
     }

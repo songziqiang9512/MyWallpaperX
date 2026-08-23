@@ -1545,6 +1545,72 @@ private func externalProceduralCatalog(
     )
 }
 
+private func imageBlendProgram(
+    graph: Graph,
+    providerLayerID: Int?
+) -> SceneEffectStageProgram {
+    let effect = graph.effects[0]
+    let stageGraph = Graph(
+        layerID: layerID,
+        effects: [effect],
+        renderTargets: [],
+        nodes: graph.nodes.filter { $0.effect == effect.key },
+        finalOutput: effect.output,
+        blockers: []
+    )
+    return dedicatedProgram(
+        graph: graph,
+        effectIndex: 0,
+        inputRole: .layerSource,
+        blend: .init(
+            layerID: layerID,
+            effectKey: effect.key,
+            renderGraph: stageGraph,
+            dependencyProviderLayerID: providerLayerID
+        )
+    )
+}
+
+private func imageBlendCatalog(
+    ownershipProviderLayerID: Int?,
+    dedicatedProviderLayerID: Int?,
+    programAvailable: Bool
+) -> Catalog {
+    let graph = externalResolvedMaterialGraph()
+    let hasExternalOwnership = ownershipProviderLayerID != nil
+    let reference = namedReference(
+        effectID: firstKey.descriptorID,
+        providerLayerID: providerLayerID,
+        slotIndex: 1
+    )
+    let descriptor = externalResolvedMaterialDescriptor(
+        dependencyLayerIDs: hasExternalOwnership ? [providerLayerID] : [],
+        references: hasExternalOwnership ? [reference] : [],
+        bindings: hasExternalOwnership ? [dependencyBinding(
+            providerLayerID: providerLayerID,
+            kind: .imageLayerBlend
+        )] : []
+    )
+    let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+        descriptor: descriptor,
+        authoredPlans: [graph],
+        dedicatedStagePrograms: [imageBlendProgram(
+            graph: graph,
+            providerLayerID: dedicatedProviderLayerID
+        )]
+    )
+    return Catalog(
+        admissionCandidates: candidates,
+        materialCatalog: materialCatalog(
+            graph: graph,
+            omitNode: programAvailable ? nil : 0,
+            namedProviderByNode: hasExternalOwnership ? [0: providerLayerID] : [:]
+        ),
+        dedicatedStageFamilies: [firstKey: "blend"],
+        dedicatedLeafKeys: [firstKey]
+    )
+}
+
 private func alternatingPairGraph() -> Graph {
     let keys = [firstKey, secondKey, thirdKey, fourthKey]
     var current = source()
@@ -1621,6 +1687,7 @@ private func dedicatedProgram(
     effectIndex: Int,
     inputRole: SceneAuthoredEffectInputRole,
     proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil,
+    blend: SceneBlendExecutionPlan? = nil,
     logicalTargetStage: Bool = false,
     fullFrameComposeStage: Bool = false,
     supportsUtilityCapture: Bool = false
@@ -1645,6 +1712,7 @@ private func dedicatedProgram(
                 ? stageGraph.renderTargets.count : 0,
             inputRole: inputRole,
             proceduralNoise: proceduralNoise,
+            blend: blend,
             supportsUnifiedLogicalTargetStage: logicalTargetStage,
             supportsUnifiedFullFrameComposeStage: fullFrameComposeStage,
             supportsUtilityCapture: supportsUtilityCapture
@@ -2111,6 +2179,29 @@ private enum Harness {
         let resolvedMaterialWithoutProgram = externalResolvedMaterialCatalog(
             descriptor: externalResolvedMaterialDescriptor(),
             graph: resolvedMaterialGraph,
+            programAvailable: false
+        )
+        let externalImageBlend = imageBlendCatalog(
+            ownershipProviderLayerID: providerLayerID,
+            dedicatedProviderLayerID: providerLayerID,
+            programAvailable: true
+        )
+        let externalImageBlendCapability = externalImageBlend
+            .claim(layerID: layerID)
+            .flatMap { externalImageBlend.resolve($0.token) }
+        let externalImageBlendWithoutProgram = imageBlendCatalog(
+            ownershipProviderLayerID: providerLayerID,
+            dedicatedProviderLayerID: providerLayerID,
+            programAvailable: false
+        )
+        let standaloneImageBlend = imageBlendCatalog(
+            ownershipProviderLayerID: nil,
+            dedicatedProviderLayerID: nil,
+            programAvailable: false
+        )
+        let unownedExternalImageBlend = imageBlendCatalog(
+            ownershipProviderLayerID: nil,
+            dedicatedProviderLayerID: providerLayerID,
             programAvailable: false
         )
         let proceduralGraph = externalProceduralGraph()
@@ -3632,6 +3723,26 @@ private enum Harness {
                     resolvedMaterialWithoutProgram,
                     "material-template-unsupported"
                 ),
+                "externalImageBlendUsesResolvedProgram":
+                    externalImageBlendCapability?.stages.compactMap(\.subject)
+                        .map(\.family) == ["resolved-material"]
+                    && externalImageBlendCapability?.materials.count == 1,
+                "externalImageBlendDoesNotReviveDedicatedFallback":
+                    externalImageBlendWithoutProgram.claim(layerID: layerID) == nil
+                    && reportHas(
+                        externalImageBlendWithoutProgram,
+                        "material-template-unsupported"
+                    ),
+                "standaloneImageBlendKeepsDedicatedOwner":
+                    standaloneImageBlend.claim(layerID: layerID).flatMap {
+                        standaloneImageBlend.resolve($0.token)
+                    }?.stages.compactMap(\.subject).map(\.family) == ["blend"],
+                "unownedExternalImageBlendRemainsRejected":
+                    unownedExternalImageBlend.claim(layerID: layerID) == nil
+                    && reportHas(
+                        unownedExternalImageBlend,
+                        "execution-stage-conservation"
+                    ),
                 "externalProceduralAccepted":
                     externalProceduralCapability?.stages.count == 1,
                 "externalProceduralRejectsModern": reportHas(
@@ -6801,6 +6912,17 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             program_first.index("let programResult = compileStages("),
             program_first.index("case let .failure(programFailure):"),
         )
+        self.assertNotIn("externallyOwnedImageBlendProgram", program_first)
+        self.assertIn("isExternallyOwnedImageBlend(", program_first)
+        self.assertIn(
+            "let hasDedicatedImageBlendDependencyStage = stages.contains",
+            program_first,
+        )
+        image_blend_case = program_first.index("case .imageLayerBlend:")
+        self.assertIn(
+            "return false",
+            program_first[image_blend_case:image_blend_case + 100],
+        )
         self.assertIn("dedicatedLeafKeys.contains(effect.key)", program_first)
         self.assertIn("dedicatedGraphStageKeys.contains(effect.key)", program_first)
         self.assertIn("supportsUnifiedLogicalTargetStage", program_first)
@@ -7368,6 +7490,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "externalResolvedMaterialRejectsProceduralBinding": True,
                 "resolvedMaterialRejectsMissingExternalOwnership": True,
                 "externalResolvedMaterialDoesNotFallback": True,
+                "externalImageBlendUsesResolvedProgram": True,
+                "externalImageBlendDoesNotReviveDedicatedFallback": True,
+                "standaloneImageBlendKeepsDedicatedOwner": True,
+                "unownedExternalImageBlendRemainsRejected": True,
                 "externalProceduralAccepted": True,
                 "externalProceduralRejectsModern": True,
                 "externalProceduralRejectsWrongProvider": True,
