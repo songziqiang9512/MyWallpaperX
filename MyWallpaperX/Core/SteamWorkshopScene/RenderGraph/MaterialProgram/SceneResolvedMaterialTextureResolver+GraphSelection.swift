@@ -2,17 +2,29 @@ import Foundation
 
 nonisolated extension SceneResolvedMaterialTextureResolver {
     static func selectionPurpose(
-        _ reference: Template.TextureReference,
+        in slot: Template.TextureSlot,
+        candidateOrdinal: Int,
         activeSampler: SceneResolvedMaterialShaderSchema.Sampler?,
         reachableSamplers: Set<SceneResolvedMaterialShaderSchema.Sampler>,
         channelUse: ChannelUse?,
         input: SceneResolvedMaterialFinalizationInput
     ) -> SceneTextureLoadPurpose? {
+        let reference = slot.candidates[candidateOrdinal].reference
         let declared: SceneTextureLoadPurpose?
         if let activeSampler {
-            declared = activeSampler.purpose(for: reference)
+            declared = SceneResolvedMaterialTextureSlotPurpose.fact(
+                in: slot,
+                candidateOrdinal: candidateOrdinal,
+                sampler: activeSampler
+            )?.purpose
         } else {
-            let purposes = reachableSamplers.compactMap { $0.purpose(for: reference) }
+            let purposes = reachableSamplers.compactMap {
+                SceneResolvedMaterialTextureSlotPurpose.fact(
+                    in: slot,
+                    candidateOrdinal: candidateOrdinal,
+                    sampler: $0
+                )?.purpose
+            }
             guard purposes.count == reachableSamplers.count,
                   Set(purposes).count == 1 else { return nil }
             declared = purposes.first

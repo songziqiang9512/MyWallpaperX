@@ -220,9 +220,9 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             )
 #endif
             for slot in template.textureSlots.compactMap({ $0 }) {
-                for candidate in demandProjection(for: slot).candidates {
+                for projected in demandProjection(for: slot).candidates {
                     recordUnproven(
-                        candidate.reference,
+                        projected.candidate.reference,
                         key: key,
                         slot: slot.index,
                         code: .samplerSchemaUnavailable,
@@ -237,8 +237,9 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             let projection = demandProjection(
                 for: template.textureSlots[slotIndex]
             )
-            for candidate in projection.candidates {
-                let reference = candidate.reference
+            for projected in projection.candidates {
+                guard let textureSlot = projection.slot else { continue }
+                let reference = projected.candidate.reference
                 guard let slotSamplers = samplers[slotIndex], !slotSamplers.isEmpty else {
                     recordUnproven(
                         reference,
@@ -251,7 +252,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     continue
                 }
                 for sampler in slotSamplers {
-                    guard let purpose = sampler.purpose(for: reference) else {
+                    guard let purpose = SceneResolvedMaterialTextureSlotPurpose
+                        .fact(
+                            in: textureSlot,
+                            candidateOrdinal: projected.ordinal,
+                            sampler: sampler
+                        )?.purpose else {
                         recordUnproven(
                             reference,
                             key: key,
@@ -314,24 +320,32 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
 
     private static func demandProjection(
         for slot: Template.TextureSlot?
-    ) -> (candidates: [Template.TextureCandidate], reachesDefault: Bool) {
-        guard let slot else { return ([], true) }
-        var candidates: [Template.TextureCandidate] = []
-        for candidate in slot.candidates.reversed() {
-            candidates.append(candidate)
+    ) -> (
+        slot: Template.TextureSlot?,
+        candidates: [(ordinal: Int, candidate: Template.TextureCandidate)],
+        reachesDefault: Bool
+    ) {
+        guard let slot else { return (nil, [], true) }
+        var candidates: [(
+            ordinal: Int,
+            candidate: Template.TextureCandidate
+        )] = []
+        for ordinal in slot.candidates.indices.reversed() {
+            let candidate = slot.candidates[ordinal]
+            candidates.append((ordinal, candidate))
             if case .graph = candidate.reference {
-                return (candidates, false)
+                return (slot, candidates, false)
             }
             if case let .provider(provider) = candidate.reference {
                 switch provider {
                 case .namedLayerTarget, .sceneBackground:
-                    return (candidates, false)
+                    return (slot, candidates, false)
                 case .system:
                     break
                 }
             }
         }
-        return (candidates, true)
+        return (slot, candidates, true)
     }
 
     private static func recordUnproven(

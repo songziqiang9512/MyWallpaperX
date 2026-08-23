@@ -37,9 +37,11 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
             // Current or potentially reachable samplers still participate in
             // the same readiness, format, purpose and publication hard gates.
             guard sampler != nil || !reachable.isEmpty else { continue }
-            for candidate in slot.candidates.reversed() {
+            for ordinal in slot.candidates.indices.reversed() {
+                let candidate = slot.candidates[ordinal]
                 let purpose = Resolver.selectionPurpose(
-                    candidate.reference,
+                    in: slot,
+                    candidateOrdinal: ordinal,
                     activeSampler: sampler,
                     reachableSamplers: reachable,
                     channelUse: channelUses[slot.index],

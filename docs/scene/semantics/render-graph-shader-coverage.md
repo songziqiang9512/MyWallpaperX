@@ -353,6 +353,12 @@ authored graph仍完整保留layer-source binding，但captured-main Program角�
 
 只有无 history/dependency/compose/unsafe target 的已证 effect topology，`purposeUnproven` 才以 typed previous-current passthrough 收窄失败半径；resource/reference/identity/ABI/generation/target/hazard/lifecycle/budget/encode 仍硬拒绝。真实 `3749463715:533` 以 effect 0 passthrough + effects 1...4 Program 在 frame 0 与 next-frame 闭合 GPU/publication/terminal compositor，但不证明 Water Flow 视觉执行、整样本 PASS 或 parity；已存手部 alpha/mask 与剑光 fidelity 债务未修复。见 [E-V1-EFFECT-LOCAL-TEXTURE-PURPOSE-FALLBACK](runtime-evidence-index.md#e-v1-effect-local-texture-purpose-fallback)。
 
+### V1 authored slot-chain typed purpose 现役更正
+
+Program texture purpose 不再只看 selected override 的单一 asset。共享 ordinal-aware fact 只允许未登记的高优先级 instance asset 从同槽、严格更低 ordinal、无 intervening ambiguity 的 authored material asset chain 继承唯一一致的 exact registry purpose；untyped/conflicting lower、registered high conflict、graph/provider/user/intervening、wrong provenance/order 全部拒绝，且没有为 `particle/normal_pinch_rotate` 增加 registry entry。Catalog、launch 与 frame/Program selection 共用该事实；只有 explicit `.absent` 回退，其他 publication/generation/identity/purpose 错误仍硬拒绝。
+
+真实 `3749463715:533` 的 Water Flow effect 0 已由 passthrough 晋升为 ordinary `resolved-material / program / encoded-output`，与 effects 1...4 在 frame 0...116 各完成 117 次 GPU；每帧 0 rejected，effect 4 terminal compositor consumed，layer533 在 next-frame 集合，GraphExecutor 无 local fallback。整样本仍因 layer464/1106 static-uniform binding 与 layer536 既有 passthrough 为 targeted **0/1 NON-PASS**；当前截图只支持无新增黑屏/整层/整帧丢失，不是 Water Flow ROI、视觉 parity 或 owner migration。见 [E-V1-SLOT-CHAIN-TEXTURE-PURPOSE](runtime-evidence-index.md#e-v1-slot-chain-texture-purpose)。
+
 ## 7. 当前证据与更新规则
 
 当前 App、样本、报告、matrix 和签名身份只见[运行证据索引](runtime-evidence-index.md)。本表只维护能力合同与缺口，不复制某个旧提交的测试总数、报告路径或“下一批”。

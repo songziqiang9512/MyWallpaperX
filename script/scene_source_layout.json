@@ -117,6 +117,7 @@
           "SceneResolvedMaterialShaderSchema+Reachability.swift",
           "SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
           "SceneResolvedMaterialShaderSchema.swift",
+          "SceneResolvedMaterialTextureSlotPurpose.swift",
           "SceneResolvedMaterialTemplateCompiler.swift",
           "SceneResolvedMaterialTextureResolver+GraphSelection.swift",
           "SceneResolvedMaterialTextureResolver+Launch.swift",

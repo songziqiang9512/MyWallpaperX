@@ -376,7 +376,7 @@ private func launchToken(
         switch try SceneResolvedMaterialTextureResolver.launchAuthoredReference(
             template: template, sampler: sampler, slot: slot, assetStates: states
         ) {
-        case let .selected(reference):
+        case let .selected(reference, _):
             return reference == .asset(expectedPath) ? "selected" : "selected-other"
         case .none: return "none"
         case .deferred: return "deferred"

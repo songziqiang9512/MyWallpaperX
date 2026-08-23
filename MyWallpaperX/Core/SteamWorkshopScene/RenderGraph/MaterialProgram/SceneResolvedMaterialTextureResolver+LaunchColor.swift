@@ -145,6 +145,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 return .invalid
             }
             let reference: Template.TextureReference
+            let resolvedPurpose: SceneTextureLoadPurpose?
             switch launchReference(
                 template: template,
                 sampler: sampler,
@@ -154,7 +155,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 implicitSlots: implicitSlots,
                 assetStates: assetStates
             ) {
-            case let .selected(value): reference = value
+            case let .selected(value, purpose):
+                reference = value
+                resolvedPurpose = purpose
             case .deferred: return .unknownInternalGraph
             case .invalid, .none: return .invalid
             }
@@ -175,6 +178,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             }
             guard let fact = launchFact(
                 for: reference,
+                resolvedPurpose: resolvedPurpose,
                 sampler: sampler,
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 assetStates: assetStates
@@ -188,7 +192,10 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
     }
 
     private enum LaunchReference {
-        case selected(Template.TextureReference)
+        case selected(
+            Template.TextureReference,
+            purpose: SceneTextureLoadPurpose?
+        )
         case deferred
         case invalid
         case none
@@ -212,7 +219,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     slot: slot,
                     assetStates: assetStates
                 ) {
-                case let .selected(reference): return .selected(reference)
+                case let .selected(reference, purpose):
+                    return .selected(reference, purpose: purpose)
                 case .deferred: return .deferred
                 case .none: break
                 }
@@ -235,7 +243,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     assetStates: assetStates,
                     slot: slot
                 ) {
-                case .ready: return .selected(reference)
+                case .ready:
+                    return .selected(
+                        reference,
+                        purpose: sampler.purpose(for: reference)
+                    )
                 case .absent: break
                 case .effectLocalUnavailable: return .invalid
                 case .pending, .unavailable: return .invalid
@@ -246,13 +258,18 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         }
         if (sampler.usesGraphInputMaterialAlias || implicitSlots.contains(slot)),
            let identity = implicitFramebufferIdentity {
-            return .selected(.graph(identity))
+            let reference = Template.TextureReference.graph(identity)
+            return .selected(
+                reference,
+                purpose: sampler.purpose(for: reference)
+            )
         }
         return .none
     }
 
     private static func launchFact(
         for reference: Template.TextureReference,
+        resolvedPurpose: SceneTextureLoadPurpose?,
         sampler: SceneResolvedMaterialShaderSchema.Sampler,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
@@ -283,7 +300,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 return nil
             }
         }
-        guard let purpose = sampler.purpose(for: reference) else { return nil }
+        guard let purpose = resolvedPurpose
+                ?? sampler.purpose(for: reference) else { return nil }
         if case let .asset(path) = reference {
             let identity = SceneAssetTextureIdentity(path: path, purpose: purpose)
             guard case let .ready(content)? = assetStates[identity] else {

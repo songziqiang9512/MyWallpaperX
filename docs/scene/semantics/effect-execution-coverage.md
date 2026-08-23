@@ -143,6 +143,8 @@ fresh真实`3749463715`仍为targeted **0/1 NON-PASS**、exit0、timed_out=false
 
 layer 533 的旧 `unclaimed-visible-effects` 断点现已缩小为精确 effect-local owner：Water Flow effect 0 因 launch-time `purposeUnproven` 走 typed previous-current passthrough，后续 Tint / Water Ripple / Motion Blur / Bokeh effects 1...4 继续走 Program/GraphExecutor。fresh 运行中 frame 0...122 的五段均 GPU completed，effect 4 每帧为 terminal compositor consumer。该证据只闭合 owner/route 与 suffix 输出；Water Flow 本身未执行，benchmark 因一个预期 passthrough/rejected node 仍为 targeted **0/1 NON-PASS**。手部/服饰 alpha-mask 缺块与剑光异常是批前已存在、本批未修复的 fidelity 债务；不宣称 sample PASS、效果可见兼容或官方 parity。见 [E-V1-EFFECT-LOCAL-TEXTURE-PURPOSE-FALLBACK](runtime-evidence-index.md#e-v1-effect-local-texture-purpose-fallback)。
 
+该 layer533 冻结断点现由 shared slot-chain typed purpose 闭合：Water Flow effect 0 与 effects 1...4 均为 `admitted-generic / resolved-material / program / encoded-output`。fresh 运行 frame 0...116 中每个 effect 各有 117 次 terminal success / GPU completed / 0 rejected，effect 4 每帧 compositor consumed，layer533 进入 next-frame；GraphExecutor 全局 13 claim / 13 encode / 13 GPU / 0 failure / 0 local fallback。整样本 targeted **0/1 NON-PASS** 现只来自其他 accepted layer 的既有 exact-backend 缺口：464/1106 Gradient Opacity static-uniform binding 与 536 test_shader passthrough。截图仅证明未新增黑屏、整层或整帧丢失；手部/服饰缺块与剑光异常仍未修复，不宣称 Water Flow ROI、视觉 parity、owner migration 或 sample PASS。见 [E-V1-SLOT-CHAIN-TEXTURE-PURPOSE](runtime-evidence-index.md#e-v1-slot-chain-texture-purpose)。
+
 ## 9. 现役路线与升级规则
 
 Effect 的唯一执行顺序由[Scene 兼容执行路线](../scene-compatibility-roadmap.md)决定，本表不再按 strict profile 排下一项：

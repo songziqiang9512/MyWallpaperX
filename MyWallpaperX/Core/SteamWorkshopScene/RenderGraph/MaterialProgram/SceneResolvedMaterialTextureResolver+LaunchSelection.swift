@@ -3,7 +3,10 @@ import Foundation
 nonisolated extension SceneResolvedMaterialTextureResolver {
     enum LaunchAuthoredReference {
         case none
-        case selected(Template.TextureReference)
+        case selected(
+            Template.TextureReference,
+            purpose: SceneTextureLoadPurpose?
+        )
         case deferred
     }
 
@@ -18,7 +21,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
     ) throws -> LaunchAuthoredReference {
         guard template.textureSlots.indices.contains(slot),
               let textureSlot = template.textureSlots[slot] else { return .none }
-        for candidate in textureSlot.candidates.reversed() {
+        for ordinal in textureSlot.candidates.indices.reversed() {
+            let candidate = textureSlot.candidates[ordinal]
             switch candidate.reference {
             case .asset:
                 guard let sampler else { return .deferred }
@@ -27,16 +31,21 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 // also cannot revoke a material before the compiler determines
                 // whether this sampler is active. Active uses still fail closed
                 // in launchProgramFailure and capability demand admission.
-                guard sampler.purpose(for: candidate.reference) != nil else {
+                guard let purpose = SceneResolvedMaterialTextureSlotPurpose.fact(
+                    in: textureSlot,
+                    candidateOrdinal: ordinal,
+                    sampler: sampler
+                )?.purpose else {
                     return .deferred
                 }
                 switch try launchAssetState(
                     candidate.reference,
-                    sampler: sampler,
+                    purpose: purpose,
                     assetStates: assetStates,
                     slot: slot
                 ) {
-                case .ready: return .selected(candidate.reference)
+                case .ready:
+                    return .selected(candidate.reference, purpose: purpose)
                 case .absent: continue
                 case .effectLocalUnavailable(.animatedFrameMetadataInvalid):
                     throw launchSelectionFailure(
@@ -49,7 +58,10 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             case .userProperty:
                 return .deferred
             case .provider, .graph:
-                return .selected(candidate.reference)
+                return .selected(
+                    candidate.reference,
+                    purpose: sampler?.purpose(for: candidate.reference)
+                )
             }
         }
         return .none
@@ -61,8 +73,24 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         slot: Int
     ) throws -> SceneAssetTextureLaunchState {
-        guard case let .asset(path) = reference,
-              let purpose = sampler.purpose(for: reference) else {
+        guard let purpose = sampler.purpose(for: reference) else {
+            throw launchSelectionFailure(.texturePurposeUnproven, slot: slot)
+        }
+        return try launchAssetState(
+            reference,
+            purpose: purpose,
+            assetStates: assetStates,
+            slot: slot
+        )
+    }
+
+    static func launchAssetState(
+        _ reference: Template.TextureReference,
+        purpose: SceneTextureLoadPurpose,
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        slot: Int
+    ) throws -> SceneAssetTextureLaunchState {
+        guard case let .asset(path) = reference else {
             throw launchSelectionFailure(.texturePurposeUnproven, slot: slot)
         }
         let identity = SceneAssetTextureIdentity(path: path, purpose: purpose)

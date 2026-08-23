@@ -549,6 +549,12 @@ fresh真实`3749463715`仍是targeted **0/1 NON-PASS**、exit0、timed_out=false
 
 真实只读 `3749463715:533` 的五 effect 链中，Water Flow effect 0 现在走 typed previous-current owner，effects 1...4 继续走 Program；frame 0 和后续 122 帧的五段均 GPU completed，effect 4 每帧都是 terminal compositor consumer。整份 benchmark 仍因预期的一个 passthrough/rejected node 为 targeted **0/1 NON-PASS**，不是 sample PASS 或视觉 parity。人工对比只确认没有新增黑屏、整层或整帧丢失；手部/服饰 alpha-mask 缺块与剑光表现是批前已存在且本批未修复的 V1 fidelity 债务。详见 [E-V1-EFFECT-LOCAL-TEXTURE-PURPOSE-FALLBACK](runtime-evidence-index.md#e-v1-effect-local-texture-purpose-fallback)；V1 仍未完成，也未进入 V2。
 
+### 2026-08-23 V1 authored slot-chain typed purpose 后继
+
+同槽 authored asset precedence 现由一个 ordinal-aware typed fact 统一服务 Catalog demand、launch envelope/launch authored reference 与 frame/Program selection。只有更高优先级 `.instance` asset 前面的全部 authored candidate 都是同槽、低 ordinal 的 `.material` asset，且各自 exact stock registry purpose 唯一一致时，未登记的 instance asset 才继承该 purpose；high exact registry 冲突、untyped/conflicting lower、graph/provider/user/intervening candidate、错 provenance/order/ordinal 都不获准。`particle/normal_pinch_rotate` 没有新增 registry entry，产品也不从 channel/file/path/effect/sample 推断 purpose。只有 selected candidate 的 explicit `.absent` 可回退；pending/missing/unavailable、错 purpose/publication/generation 仍硬拒绝，Program 的 selected reference、exact/semantic identity、purpose 与 publication/generation 保持同一原子事实。
+
+未见 identity harness 证明 material `.phase` + unknown instance 选择 instance/`.phase`，instance explicit absent 选择 material/`.phase`，Catalog 同时 demand 两个 exact identity 且无 issue；unknown single asset 与全部冻结反门失败关闭。统一 inner 为 **50 modules / 174.4 s / ALL OK**，checkpoint 为 **50 modules / 163.8 s / ALL OK**，code health **867 Swift / 11 locked legacy / 97 warnings / PASS**，Developer ID Debug build 成功。fresh 真实 `3749463715:533` 仍为整样本 targeted **0/1 NON-PASS**，但 Water Flow effect 0 已变为 `admitted-generic / resolved-material / program / encoded-output`；effects 0...4 在 frame 0...116 各 117 次 GPU completed、0 rejected，effect 4 每帧 terminal compositor consumed，layer533 进入 next-frame，GraphExecutor 全局为 13 claim / 13 encode / 13 GPU / 0 failure / 0 local fallback。NON-PASS 首断点已移到其他层：464/1106 Gradient Opacity static-uniform binding 与 536 test_shader 既有 passthrough；不回写为 layer533 失败。人工对比未见新增黑屏、整层或整帧丢失；手部/服饰缺块与剑光错误仍是批前 fidelity 债务。精确证据见 [E-V1-SLOT-CHAIN-TEXTURE-PURPOSE](runtime-evidence-index.md#e-v1-slot-chain-texture-purpose)；最高只为 bounded executable shared result，不是 sample PASS、视觉 parity、owner migration、V1 完成或 V2 切换。
+
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。

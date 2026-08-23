@@ -210,6 +210,7 @@
         "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureSlotPurpose.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+Reachability.swift"
       ]
     },

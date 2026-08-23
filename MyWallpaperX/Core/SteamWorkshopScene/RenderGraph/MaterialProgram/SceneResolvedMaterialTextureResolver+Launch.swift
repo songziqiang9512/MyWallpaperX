@@ -247,9 +247,10 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     ))
                 }
                 switch authored {
-                case let .selected(reference):
+                case let .selected(reference, purpose):
                     possible.formUnion(formats(
                         for: reference,
+                        resolvedPurpose: purpose,
                         sampler: sampler,
                         graphTextureFormatFacts: graphTextureFormatFacts,
                         assetFormatFacts: assetFormatFacts
@@ -262,6 +263,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                         case let .asset(path) where sampler.readinessCombo == nil:
                             possible.formUnion(formats(
                                 for: .asset(path),
+                                resolvedPurpose: nil,
                                 sampler: sampler,
                                 graphTextureFormatFacts: graphTextureFormatFacts,
                                 assetFormatFacts: assetFormatFacts
@@ -326,6 +328,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
 
     private static func formats(
         for reference: Template.TextureReference,
+        resolvedPurpose: SceneTextureLoadPurpose?,
         sampler: SceneResolvedMaterialShaderSchema.Sampler?,
         graphTextureFormatFacts: [
             Graph.TextureIdentity: SceneShaderTextureFormat
@@ -337,7 +340,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             return [graphTextureFormatFacts[identity]]
         case let .asset(path):
             guard let sampler,
-                  let purpose = sampler.purpose(for: reference) else { return [nil] }
+                  let purpose = resolvedPurpose
+                    ?? sampler.purpose(for: reference) else { return [nil] }
             let identity = SceneAssetTextureIdentity(path: path, purpose: purpose)
             guard let value = assetFormatFacts[identity.reportToken] else {
                 return [nil]
