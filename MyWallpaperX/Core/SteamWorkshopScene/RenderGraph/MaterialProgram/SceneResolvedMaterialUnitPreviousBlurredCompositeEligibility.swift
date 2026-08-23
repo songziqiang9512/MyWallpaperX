@@ -13,6 +13,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
 
     static func slots(
         fragmentSource: String,
+        prepared: SceneShaderPreparedProgram,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         template: Template,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
@@ -45,7 +46,8 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
                   template: template
               ), exactUnitColor(
                   named: fact.unitColorUniform,
-                  template: template
+                  template: template,
+                  prepared: prepared
               ) else { return nil }
         return .init(blurred: fact.blurredSlot, previous: fact.previousSlot)
     }
@@ -63,12 +65,32 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
     }
 
     private static func exactUnitColor(
-        named name: String, template: Template
+        named name: String,
+        template: Template,
+        prepared: SceneShaderPreparedProgram
     ) -> Bool {
-        let matches = template.uniformDeclarations.filter { $0.name == name }
-        guard matches.count == 1, let declaration = matches.first,
-              case let .staticExact(value) = declaration.value,
-              value.componentBitPatterns.count == 3 else { return false }
+        guard let schema = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+            named: name,
+            type: .float3,
+            stage: .fragment,
+            prepared: prepared
+        ) else { return false }
+        let keys = Set(schema.materialKeys)
+        let declarations = template.uniformDeclarations.filter {
+            keys.contains($0.name)
+        }
+        let value: Template.StaticUniformValue
+        if declarations.isEmpty {
+            guard let fallback = schema.defaultValue else { return false }
+            value = fallback
+        } else {
+            guard declarations.count == 1,
+                  case let .staticExact(authored) = declarations[0].value else {
+                return false
+            }
+            value = authored
+        }
+        guard value.componentBitPatterns.count == 3 else { return false }
         return value.componentBitPatterns.allSatisfy {
             Double(bitPattern: $0) == 1
         }

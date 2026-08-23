@@ -108,6 +108,35 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         return result
     }
 
+    /// Resolves one exact active authored uniform before backend reflection is
+    /// available. The expected type is part of the proof; callers may not use
+    /// annotation defaults from a duplicate or differently typed declaration.
+    static func uniqueActiveUniform(
+        named name: String,
+        type: SceneAuthoredShaderValueType,
+        stage: SceneShaderContract.StageKind,
+        prepared: SceneShaderPreparedProgram
+    ) -> Uniform? {
+        let allRecords = records(prepared)
+        let matches = allRecords.filter {
+            $0.stage == stage
+                && $0.declaration.kind == .uniform
+                && !isSampler2D($0.declaration.type)
+                && $0.declaration.name == name
+        }
+        guard matches.count == 1,
+              SceneAuthoredShaderValueType(
+                  authoredName: matches[0].declaration.type
+              ) == type else { return nil }
+        let field = SceneAuthoredShaderUniformLayout.Field(
+            name: name,
+            stage: stage,
+            type: type,
+            offset: 0
+        )
+        return try? uniformSchema(field, records: allRecords)
+    }
+
     private struct Record {
         let stage: SceneShaderContract.StageKind?
         let sourcePath: String

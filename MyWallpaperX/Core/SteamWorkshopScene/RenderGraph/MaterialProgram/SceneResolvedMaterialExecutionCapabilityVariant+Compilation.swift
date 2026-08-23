@@ -170,6 +170,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let unitCompositeSlots =
             SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.slots(
                 fragmentSource: compilerSources.fragment,
+                prepared: prepared,
                 samplers: sourceActiveSamplers,
                 template: template,
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
