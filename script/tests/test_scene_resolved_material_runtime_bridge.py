@@ -349,6 +349,19 @@ struct SceneAuthoredEffectRenderPlan {
     let layerID: Int
     let effects: [Effect]
     let nodes: [Node]
+    let renderTargets: [TextureIdentity]
+
+    init(
+        layerID: Int,
+        effects: [Effect],
+        nodes: [Node],
+        renderTargets: [TextureIdentity] = []
+    ) {
+        self.layerID = layerID
+        self.effects = effects
+        self.nodes = nodes
+        self.renderTargets = renderTargets
+    }
 }
 
 struct SceneLayerFullFramePairPlan {
@@ -633,11 +646,19 @@ final class ScenePreparedPersistentGraphTargets {
     }
     let leases: [SceneGraphRenderTargetLease]
     let historyRehydrateCopiesByEffect: [EffectKey: [HistoryRehydrateCopy]]
-    private var action: (([EffectKey: Set<Token>], MTLCommandBuffer?) -> Commit?)?
+    private var action: ((
+        [EffectKey: Set<Token>],
+        Set<EffectKey>,
+        MTLCommandBuffer?
+    ) -> Commit?)?
     init(
         leases: [SceneGraphRenderTargetLease] = [],
         historyRehydrateCopiesByEffect: [EffectKey: [HistoryRehydrateCopy]] = [:],
-        action: (([EffectKey: Set<Token>], MTLCommandBuffer?) -> Commit?)? = nil
+        action: ((
+            [EffectKey: Set<Token>],
+            Set<EffectKey>,
+            MTLCommandBuffer?
+        ) -> Commit?)? = nil
     ) {
         self.leases = leases
         self.historyRehydrateCopiesByEffect = historyRehydrateCopiesByEffect
@@ -645,11 +666,16 @@ final class ScenePreparedPersistentGraphTargets {
     }
     func commitAndPin(
         historyTokensByEffect: [EffectKey: Set<Token>],
+        discardedHistoryEffects: Set<EffectKey> = [],
         commandBuffer: MTLCommandBuffer? = nil
     ) -> Commit? {
         let current = action
         action = nil
-        return current?(historyTokensByEffect, commandBuffer)
+        return current?(
+            historyTokensByEffect,
+            discardedHistoryEffects,
+            commandBuffer
+        )
     }
 }
 
@@ -827,6 +853,9 @@ final class SceneOffscreenTexturePool {
     ) -> ScenePreparedPersistentGraphTargets?
     let factory: Factory
     private(set) var batchCommitCount = 0
+    private(set) var discardedHistoryEffectsByCommit: [[
+        Set<ScenePreparedPersistentGraphTargets.EffectKey>
+    ]] = []
     init(
         prepared: ScenePreparedPersistentGraphTargets? = .init(),
         factory: Factory? = nil
@@ -848,12 +877,25 @@ final class SceneOffscreenTexturePool {
         _ targets: [ScenePreparedPersistentGraphTargets],
         historyTokensByTarget: [[ScenePreparedPersistentGraphTargets.EffectKey:
             Set<ScenePreparedPersistentGraphTargets.Token>]],
+        discardedHistoryEffectsByTarget: [
+            Set<ScenePreparedPersistentGraphTargets.EffectKey>
+        ]? = nil,
         commandBuffer: MTLCommandBuffer
     ) -> [ScenePreparedPersistentGraphTargets.Commit]? {
-        guard targets.count == historyTokensByTarget.count else { return nil }
-        let commits = zip(targets, historyTokensByTarget).compactMap {
-            $0.0.commitAndPin(
-                historyTokensByEffect: $0.1,
+        let discarded = discardedHistoryEffectsByTarget ?? Array(
+            repeating: [],
+            count: targets.count
+        )
+        guard targets.count == historyTokensByTarget.count,
+              targets.count == discarded.count else { return nil }
+        discardedHistoryEffectsByCommit.append(discarded)
+        let commits = zip(
+            zip(targets, historyTokensByTarget),
+            discarded
+        ).compactMap {
+            $0.0.0.commitAndPin(
+                historyTokensByEffect: $0.0.1,
+                discardedHistoryEffects: $0.1,
                 commandBuffer: commandBuffer
             )
         }
@@ -1013,6 +1055,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let effectOutputResource: SceneFrameTextureResource
         let programCacheKeys: [String]
         let effectLocalFailureReasonCode: String?
+        let discardedPersistentTargetState: Bool
     }
     struct PreparedGraph {
         let stages: [PreparedStage]
@@ -1263,7 +1306,8 @@ private func makeObservationTransition(
         persistentResources: [:],
         effectOutputResource: resource,
         programCacheKeys: ["fixture-program"],
-        effectLocalFailureReasonCode: nil
+        effectLocalFailureReasonCode: nil,
+        discardedPersistentTargetState: false
     )
 }
 
@@ -1283,7 +1327,9 @@ private func makeAtomicPrepared(
     device: MTLDevice,
     layerID: Int,
     generation: UInt64,
-    terminalSampling: SceneTextureSampling = .linearClamp
+    terminalSampling: SceneTextureSampling = .linearClamp,
+    discardedPersistentTargetState: Bool = false,
+    forgedDiscardTransaction: Bool = false
 ) -> SceneResolvedMaterialGraphExecutor.PreparedGraph {
     let key = effect(for: layerID)
     let output = outputIdentity(for: layerID)
@@ -1307,7 +1353,8 @@ private func makeAtomicPrepared(
     let graph = Graph(
         layerID: layerID,
         effects: [.init(key: key)],
-        nodes: [.init(nodeIndex: 0, kind: .material, materialOrdinal: 0)]
+        nodes: [.init(nodeIndex: 0, kind: .material, materialOrdinal: 0)],
+        renderTargets: discardedPersistentTargetState ? [output] : []
     )
     let state = State(
         effectGeneration: 1,
@@ -1318,12 +1365,14 @@ private func makeAtomicPrepared(
         historyClosureIdentities: []
     )
     let transaction = State.Transaction(
-        intents: [.material(
-            nodeIndex: 0,
-            materialOrdinal: 0,
-            bindings: [],
-            target: nil
-        )],
+        intents: discardedPersistentTargetState && !forgedDiscardTransaction
+            ? []
+            : [.material(
+                nodeIndex: 0,
+                materialOrdinal: 0,
+                bindings: [],
+                target: nil
+            )],
         mappingBefore: [:],
         mappingAfter: [:],
         allocationGeneration: generation,
@@ -1354,7 +1403,10 @@ private func makeAtomicPrepared(
         persistentResources: [:],
         effectOutputResource: resource,
         programCacheKeys: ["atomic-program-\(layerID)"],
-        effectLocalFailureReasonCode: nil
+        effectLocalFailureReasonCode: discardedPersistentTargetState
+            ? "fixture-effect-local-visual-failure"
+            : nil,
+        discardedPersistentTargetState: discardedPersistentTargetState
     )
     return .init(
         stages: [transition],
@@ -1386,7 +1438,7 @@ private func makeAtomicTargets(
         historyPinsByEffect: [:]
     )
     return (
-        .init(leases: [lease], action: { _, _ in commit }),
+        .init(leases: [lease], action: { _, _, _ in commit }),
         commit
     )
 }
@@ -2325,6 +2377,105 @@ enum Harness {
                 && coordinator.activeByID.isEmpty
                 && coordinator.sealFrame(on: buffer)
             _ = coordinator.endFrame()
+        }
+
+        do {
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [
+                7: makeAtomicPrepared(
+                    device: device,
+                    layerID: 7,
+                    generation: 1,
+                    discardedPersistentTargetState: true
+                ),
+            ]
+            let coordinator = makeCoordinator(device)
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 3, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            guard case let .claimed(claim) = coordinator.preflightClaim(
+                layerID: 7
+            ) else { fatalError("discard fixture claim unavailable") }
+            let targets = makeAtomicTargets(layerID: 7, generation: 1)
+            let pool = SceneOffscreenTexturePool(prepared: targets.prepared)
+            let outcome = coordinator.prepareFrame(
+                [.init(
+                    claim: claim,
+                    targetPlan: .init(
+                        token: claim.token,
+                        allocation: .init(graphPlan: .init(key: .init(layerID: 7)))
+                    ),
+                    sourceTexture: makeTexture(device, "discard-source"),
+                    sourceUniforms: .init(),
+                    sourcePipeline: .init(),
+                    dedicatedInputs: .fixture
+                )],
+                pool: pool,
+                commandBuffer: buffer
+            )
+            let ready: Bool
+            if case .ready = outcome { ready = true }
+            else { ready = false }
+            results["typedHistoryDiscardReachesPoolExactly"] =
+                ready
+                && pool.batchCommitCount == 1
+                && pool.discardedHistoryEffectsByCommit == [
+                    [Set([effect(for: 7)])],
+                ]
+                && targets.commit.historyPinsByEffect.isEmpty
+            _ = coordinator.endFrame()
+            targets.commit.releaseAll()
+        }
+
+        do {
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [
+                7: makeAtomicPrepared(
+                    device: device,
+                    layerID: 7,
+                    generation: 1,
+                    discardedPersistentTargetState: true,
+                    forgedDiscardTransaction: true
+                ),
+            ]
+            let coordinator = makeCoordinator(device)
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 4, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            guard case let .claimed(claim) = coordinator.preflightClaim(
+                layerID: 7
+            ) else { fatalError("forged discard fixture claim unavailable") }
+            let targets = makeAtomicTargets(layerID: 7, generation: 1)
+            let pool = SceneOffscreenTexturePool(prepared: targets.prepared)
+            let outcome = coordinator.prepareFrame(
+                [.init(
+                    claim: claim,
+                    targetPlan: .init(
+                        token: claim.token,
+                        allocation: .init(graphPlan: .init(key: .init(layerID: 7)))
+                    ),
+                    sourceTexture: makeTexture(device, "forged-discard-source"),
+                    sourceUniforms: .init(),
+                    sourcePipeline: .init(),
+                    dedicatedInputs: .fixture
+                )],
+                pool: pool,
+                commandBuffer: buffer
+            )
+            let reason: String
+            if case let .rejected(value) = outcome { reason = value }
+            else { reason = "ready" }
+            results["forgedHistoryDiscardRejectedBeforePoolCommit"] =
+                reason == "persistent-allocation-commit-rejected"
+                && pool.batchCommitCount == 0
+                && pool.discardedHistoryEffectsByCommit.isEmpty
+            _ = coordinator.endFrame()
+            targets.commit.releaseAll()
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
         }
 
         do {
@@ -4563,6 +4714,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "typedTargetDescriptorFallbackRemainsLayerLocal",
                 "preflightFailureReasonReachesCoordinatorEvidence",
                 "claimWaitsForAtomicFramePreparation",
+                "typedHistoryDiscardReachesPoolExactly",
+                "forgedHistoryDiscardRejectedBeforePoolCommit",
                 "secondPreparationFailureRollsBackWholeFrame",
                 "externalDependencyCaptureFailureRejectsOnlyItsSubgraph",
                 "cascadingDependencyCaptureFailureRejectsTransitiveSubgraph",

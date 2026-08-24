@@ -28,6 +28,9 @@ final class ScenePreparedPersistentGraphTargets {
         let candidate: SceneOffscreenTextureAllocationCache.Candidate
         let reservation: SceneOffscreenTextureAllocationCache.GraphReservation
         let historyTokensByEffect: [EffectKey: Set<Token>]
+        /// Effects whose launch-time visual fallback discarded every planned
+        /// history target before encode. They retain no history pin.
+        let discardedHistoryEffects: Set<EffectKey>
         let commandBuffer: MTLCommandBuffer?
     }
 
@@ -55,6 +58,7 @@ final class ScenePreparedPersistentGraphTargets {
 
     func takeCommitRequest(
         historyTokensByEffect: [EffectKey: Set<Token>],
+        discardedHistoryEffects: Set<EffectKey> = [],
         commandBuffer: MTLCommandBuffer?
     ) -> CommitRequest? {
         lock.lock()
@@ -64,16 +68,19 @@ final class ScenePreparedPersistentGraphTargets {
         return .init(
             cache: cache, candidate: candidate, reservation: reservation,
             historyTokensByEffect: historyTokensByEffect,
+            discardedHistoryEffects: discardedHistoryEffects,
             commandBuffer: commandBuffer
         )
     }
 
     func commitAndPin(
         historyTokensByEffect: [EffectKey: Set<Token>],
+        discardedHistoryEffects: Set<EffectKey> = [],
         commandBuffer: MTLCommandBuffer? = nil
     ) -> Commit? {
         guard let request = takeCommitRequest(
             historyTokensByEffect: historyTokensByEffect,
+            discardedHistoryEffects: discardedHistoryEffects,
             commandBuffer: commandBuffer
         ) else { return nil }
         return cache.commitAndPin([request])?.first
@@ -343,12 +350,16 @@ struct SceneLayerGraphTargetAllocation {
     }
 
     func validatedHistoryTokens(
-        _ requested: [EffectKey: Set<Token>]
+        _ requested: [EffectKey: Set<Token>],
+        discarding discardedEffects: Set<EffectKey> = []
     ) -> Set<Token>? {
-        guard Set(requested.keys) == Set(requiredHistoryTokenCountByEffect.keys)
+        let requiredEffects = Set(requiredHistoryTokenCountByEffect.keys)
+        guard discardedEffects.isSubset(of: requiredEffects),
+              Set(requested.keys) == requiredEffects.subtracting(discardedEffects)
         else { return nil }
         var union = Set<Token>()
         for (effect, count) in requiredHistoryTokenCountByEffect {
+            if discardedEffects.contains(effect) { continue }
             guard let tokens = requested[effect], tokens.count == count,
                   tokens.isSubset(of: historyEligibleTokensByEffect[effect, default: []]),
                   union.isDisjoint(with: tokens) else { return nil }

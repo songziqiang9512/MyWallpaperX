@@ -46,6 +46,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-straight-alpha-r8-signal"
     case sourceProvenRedGreenUnormScalarSplat =
         "source-proven-red-green-unorm-scalar-splat"
+    case sourceProvenPreservedRGBAStateTransform =
+        "source-proven-preserved-rgba-state-transform"
     case sourceProvenIndependentPremultipliedOutput =
         "source-proven-independent-premultiplied-output"
     case sourceProvenGraphTargetPassthrough =
@@ -104,6 +106,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
         producesRedGreenUnormOutput: Bool = false,
+        producesPreservedRGBAOutput: Bool = false,
+        hasDefiniteWholeOutput: Bool = false,
         isScalarSplatOutput: Bool = false,
         hasOnlyScalarDataInputs: Bool = false,
         isSourceIndependentPremultipliedOutput: Bool,
@@ -111,12 +115,20 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         graphInputTextureSlots: Set<Int>,
         r8TextureSlots: Set<Int>,
         hasDefaultedOpacityMaskSampler: Bool,
+        hasOnlyTypedOpacityMaskAuxiliary: Bool = false,
         hasOnlyGraphInputSampler: Bool = false,
         hasStageScopedUniformBindings: Bool,
         hasStereoAudioSpectrumArrays: Bool,
         hasLocalizedMutableFragmentVarying: Bool
     ) {
-        if producesRedGreenUnormOutput,
+        if producesPreservedRGBAOutput,
+           hasDefiniteWholeOutput,
+           !hasExternalProviderTexture,
+           graphTextureSlots.count == 1,
+           graphInputTextureSlots == graphTextureSlots,
+           hasOnlyGraphInputSampler || hasOnlyTypedOpacityMaskAuxiliary {
+            self = .sourceProvenPreservedRGBAStateTransform
+        } else if producesRedGreenUnormOutput,
            isScalarSplatOutput,
            hasOnlyScalarDataInputs,
            !hasExternalProviderTexture,
@@ -280,6 +292,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenOpaqueScalarOutput,
              .sourceProvenStraightAlphaR8Signal,
              .sourceProvenRedGreenUnormScalarSplat,
+             .sourceProvenPreservedRGBAStateTransform,
              .sourceProvenIndependentPremultipliedOutput,
              .sourceProvenGraphTargetPassthrough,
              .sourceProvenNormalizedSampleSum,

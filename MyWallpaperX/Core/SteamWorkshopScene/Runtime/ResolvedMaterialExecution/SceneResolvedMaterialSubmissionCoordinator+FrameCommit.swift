@@ -65,6 +65,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         let generations = Set(prepared.stages.map {
             $0.transition.transaction.allocationGeneration
         })
+        let discardedHistoryEffects = Set(prepared.stages.compactMap { stage in
+            stage.discardedPersistentTargetState ? stage.effect : nil
+        })
         guard !effects.isEmpty,
               effects.count == prepared.stages.count,
               generations.count == 1,
@@ -75,6 +78,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               Set(blueprint.resources.keys) == effects,
               Set(blueprint.mappingGenerations.keys) == effects,
               Set(prepared.historyTokensByEffect.keys).isSubset(of: effects),
+              discardedHistoryEffects.isDisjoint(
+                  with: prepared.historyTokensByEffect.keys
+              ),
               prepared.historyTokensByEffect.values.allSatisfy({ !$0.isEmpty })
         else { return false }
         return prepared.stages.allSatisfy { value in
@@ -85,8 +91,21 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             let tokens = Set(state.logicalMapping.compactMap { identity, version in
                 identities.contains(identity) ? version.token : nil
             })
-            return Set(resources.keys) == identities
-                && tokens == prepared.historyTokensByEffect[value.effect, default: []]
+            guard Set(resources.keys) == identities,
+                  tokens == (prepared.historyTokensByEffect[
+                      value.effect,
+                      default: []
+                  ])
+            else { return false }
+            guard value.discardedPersistentTargetState else { return true }
+            return value.effectLocalFailureReasonCode != nil
+                && !value.graph.renderTargets.isEmpty
+                && value.transition.transaction.intents.isEmpty
+                && value.transition.transaction.mappingBefore.isEmpty
+                && value.transition.transaction.mappingAfter.isEmpty
+                && value.transition.nextState.historyClosureIdentities.isEmpty
+                && value.frameResources.isEmpty
+                && value.persistentResources.isEmpty
         }
     }
 

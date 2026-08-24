@@ -215,6 +215,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     sourceActiveSamplers,
                     graphInputSlots: graphInputTextureSlots
                 ),
+            hasOnlyTypedOpacityMaskAuxiliary:
+                SceneResolvedMaterialShaderSchema.hasOnlyTypedOpacityMaskAuxiliary(
+                    sourceActiveSamplers,
+                    graphInputSlots: graphInputTextureSlots
+                ),
             hasOnlyGraphInputSampler:
                 sourceActiveSamplers.count == 1
                     && Set(sourceActiveSamplers.keys) == graphInputTextureSlots,

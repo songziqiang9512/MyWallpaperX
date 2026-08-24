@@ -4414,6 +4414,7 @@ private enum Harness {
                     && stage.transition.nextState.historyClosureIdentities.isEmpty
                     && stage.frameResources.isEmpty
                     && stage.persistentResources.isEmpty
+                    && !stage.discardedPersistentTargetState
                 fboVisualFailureEncoded = executor.encode(
                     prepared,
                     commandBuffer: firstCommand
@@ -4473,6 +4474,108 @@ private enum Harness {
                             && recoveryCommand.status == .completed
                             && recoveryCommand.error == nil
                     }
+                }
+            }
+        }
+
+        let feedbackVisualFailureGraph = historyGraph(fixedSize: false)
+        let feedbackVisualFailureChain = admittedGraph(feedbackVisualFailureGraph)
+        let feedbackVisualFailureTarget = dynamicUniformTarget(
+            feedbackVisualFailureGraph.nodes[2]
+        )
+        let feedbackVisualFailureCapabilities = capabilities(
+            feedbackVisualFailureChain,
+            catalog: catalog(
+                for: feedbackVisualFailureGraph,
+                dynamicUniformNodes: [2]
+            ),
+            dynamicProducers: .init(
+                userProperties: [],
+                timelineTargets: [feedbackVisualFailureTarget],
+                sceneScriptTargets: []
+            )
+        )
+        var feedbackVisualFailureDiscardsOnlyUnpublishedHistory = false
+        var feedbackVisualFailureRecoversFreshHistory = false
+        if let claim = feedbackVisualFailureCapabilities.claim(
+                feedbackVisualFailureChain
+           ), let executor = Executor(
+               device: device,
+               capabilities: feedbackVisualFailureCapabilities
+           ), let failureCommand = queue.makeCommandBuffer() {
+            let failure = executor.prepare(
+                token: claim.token,
+                leases: [makeLease(
+                    requirePlan(feedbackVisualFailureGraph),
+                    device: device,
+                    generation: 35
+                )],
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(35),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(),
+                commandBuffer: failureCommand,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: 35,
+                resetGeneration: 35
+            )
+            if case let .success(prepared) = failure,
+               let stage = prepared.stages.first {
+                feedbackVisualFailureDiscardsOnlyUnpublishedHistory =
+                    stage.effectLocalFailureReasonCode
+                        == "material-finalizer-dynamic-uniform-binding"
+                    && stage.discardedPersistentTargetState
+                    && stage.transition.transaction.intents.isEmpty
+                    && stage.transition.transaction.mappingBefore.isEmpty
+                    && stage.transition.transaction.mappingAfter.isEmpty
+                    && stage.transition.nextState.logicalMapping.isEmpty
+                    && stage.transition.nextState.historyClosureIdentities.isEmpty
+                    && stage.frameResources.isEmpty
+                    && stage.persistentResources.isEmpty
+                    && prepared.historyTokensByEffect[effect] == nil
+            }
+
+            if let recoveryCommand = queue.makeCommandBuffer() {
+                let recovery = executor.prepare(
+                    token: claim.token,
+                    leases: [makeLease(
+                        requirePlan(feedbackVisualFailureGraph),
+                        device: device,
+                        generation: 36
+                    )],
+                    historyRehydrateCopiesByEffect: [:],
+                    frame: frame(
+                        36,
+                        dynamicDefinitions: [.init(
+                            target: feedbackVisualFailureTarget,
+                            valueType: .scalar,
+                            authoredValue: .scalar(1)
+                        )],
+                        timelineValues: [
+                            feedbackVisualFailureTarget: .scalar(1),
+                        ]
+                    ),
+                    sourceTexture: source,
+                    sourceUniforms: .neutral(),
+                    sourcePipeline: sourcePipeline,
+                    dedicatedInputs: .init(),
+                    commandBuffer: recoveryCommand,
+                    previousStates: [:],
+                    previousGraphResources: [:],
+                    effectGeneration: 35,
+                    resetGeneration: 35
+                )
+                if case let .success(recovered) = recovery,
+                   let stage = recovered.stages.first {
+                    feedbackVisualFailureRecoversFreshHistory =
+                        !stage.discardedPersistentTargetState
+                        && stage.effectLocalFailureReasonCode == nil
+                        && !stage.transition.nextState
+                            .historyClosureIdentities.isEmpty
+                        && !(recovered.historyTokensByEffect[effect] ?? []).isEmpty
                 }
             }
         }
@@ -6733,6 +6836,10 @@ private enum Harness {
                 fboVisualFailureDiscardedUncommittedTargetState,
             "fboVisualFailureRecoversOnNextFrame":
                 fboVisualFailureRecoveredNextFrame,
+            "feedbackVisualFailureDiscardsOnlyUnpublishedHistory":
+                feedbackVisualFailureDiscardsOnlyUnpublishedHistory,
+            "feedbackVisualFailureRecoversFreshHistory":
+                feedbackVisualFailureRecoversFreshHistory,
             "commandVisualFailurePassthroughPrepared":
                 commandVisualFailurePrepared,
             "commandVisualFailurePassthroughEncoded":

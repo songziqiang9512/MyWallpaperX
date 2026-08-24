@@ -53,6 +53,9 @@ final class SceneResolvedMaterialGraphExecutor {
         let transition: State.Transition
         let programCacheKeys: [String]
         let effectLocalFailureReasonCode: String?
+        /// The effect-local fallback discarded a planned persistent target
+        /// candidate instead of publishing it as readable history.
+        let discardedPersistentTargetState: Bool
         let inputWidth, inputHeight: Int
         let historyRehydrateCopyCount: Int
         let historyContentDiscarded: Bool
@@ -328,12 +331,16 @@ final class SceneResolvedMaterialGraphExecutor {
                 return .failure(failure)
             }
             let committedTransition: State.Transition
+            var discardedPersistentTargetState = false
             if effectLocalFailureReasonCode != nil,
                !graph.renderTargets.isEmpty {
                 guard let discarded = State.discardingUncommittedVisualFailure(
                     transition,
                     previous: previous
                 ) else { return .failure(.stateRejected) }
+                discardedPersistentTargetState =
+                    !transition.nextState.historyClosureIdentities.isEmpty
+                        && discarded.nextState.historyClosureIdentities.isEmpty
                 committedTransition = discarded
             } else {
                 committedTransition = transition
@@ -358,6 +365,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 transition: committedTransition,
                 programCacheKeys: programKeys,
                 effectLocalFailureReasonCode: effectLocalFailureReasonCode,
+                discardedPersistentTargetState: discardedPersistentTargetState,
                 inputWidth: lease.table.plan.inputExtent.width,
                 inputHeight: lease.table.plan.inputExtent.height,
                 historyRehydrateCopyCount: history.commands.count,

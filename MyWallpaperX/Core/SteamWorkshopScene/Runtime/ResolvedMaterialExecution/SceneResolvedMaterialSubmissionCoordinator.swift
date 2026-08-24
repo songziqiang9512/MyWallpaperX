@@ -440,6 +440,11 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 historyTokensByTarget: candidates.map {
                     $0.prepared.historyTokensByEffect
                 },
+                discardedHistoryEffectsByTarget: candidates.map { candidate in
+                    Set(candidate.prepared.stages.compactMap { stage in
+                        stage.discardedPersistentTargetState ? stage.effect : nil
+                    })
+                },
                 commandBuffer: commandBuffer
             ) else {
                 let reason = "persistent-allocation-commit-rejected"

@@ -5890,6 +5890,11 @@ private enum EnvelopeHarness {
             defaultTexture: .asset(SceneVFSAssetPath("util/white")!),
             readinessCombo: nil
         )
+        let paintedOpacityMaskSampler = SceneResolvedMaterialShaderSchema.Sampler(
+            name: "g_Texture1", slot: 1, mode: .opacityMask,
+            materialKey: "mask", isHidden: false, defaultTexture: nil,
+            readinessCombo: "MASK"
+        )
         let extraSampler = SceneResolvedMaterialShaderSchema.Sampler(
             name: "g_Texture2", slot: 2, mode: .regular,
             materialKey: nil, isHidden: false,
@@ -5938,6 +5943,31 @@ private enum EnvelopeHarness {
                     .hasOnlyDefaultedOpacityMaskAuxiliary(
                         [0: sourceSampler, 1: opacityMaskSampler],
                         graphInputSlots: [2]
+                    ),
+            ],
+            "exclusiveTypedOpacityMask": [
+                "defaulted": SceneResolvedMaterialShaderSchema
+                    .hasOnlyTypedOpacityMaskAuxiliary(
+                        [0: sourceSampler, 1: opacityMaskSampler],
+                        graphInputSlots: [0]
+                    ),
+                "painted": SceneResolvedMaterialShaderSchema
+                    .hasOnlyTypedOpacityMaskAuxiliary(
+                        [0: sourceSampler, 1: paintedOpacityMaskSampler],
+                        graphInputSlots: [0]
+                    ),
+                "extraSampler": SceneResolvedMaterialShaderSchema
+                    .hasOnlyTypedOpacityMaskAuxiliary(
+                        [
+                            0: sourceSampler,
+                            1: paintedOpacityMaskSampler,
+                            2: extraSampler,
+                        ],
+                        graphInputSlots: [0]
+                    ),
+                "missingMask": SceneResolvedMaterialShaderSchema
+                    .hasOnlyTypedOpacityMaskAuxiliary(
+                        [0: sourceSampler], graphInputSlots: [0]
                     ),
             ],
             "positiveClaim": positive.claim(layerID: layerID) != nil,
@@ -7771,6 +7801,16 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "extraSampler": False,
                 "missingMask": False,
                 "missingGraphInput": False,
+            },
+            payload,
+        )
+        self.assertEqual(
+            payload["exclusiveTypedOpacityMask"],
+            {
+                "defaulted": True,
+                "painted": True,
+                "extraSampler": False,
+                "missingMask": False,
             },
             payload,
         )

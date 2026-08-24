@@ -349,13 +349,20 @@ extension SceneOffscreenTexturePool {
         _ targets: [ScenePreparedPersistentGraphTargets],
         historyTokensByTarget: [[ScenePreparedPersistentGraphTargets.EffectKey:
             Set<ScenePreparedPersistentGraphTargets.Token>]],
+        discardedHistoryEffectsByTarget: [
+            Set<ScenePreparedPersistentGraphTargets.EffectKey>
+        ]? = nil,
         commandBuffer: MTLCommandBuffer
     ) -> [ScenePreparedPersistentGraphTargets.Commit]? {
+        let discarded = discardedHistoryEffectsByTarget
+            ?? Array(repeating: [], count: targets.count)
         guard !targets.isEmpty,
-              targets.count == historyTokensByTarget.count else { return nil }
-        let requests = zip(targets, historyTokensByTarget).compactMap {
-            $0.0.takeCommitRequest(
-                historyTokensByEffect: $0.1,
+              targets.count == historyTokensByTarget.count,
+              targets.count == discarded.count else { return nil }
+        let requests = targets.indices.compactMap { index in
+            targets[index].takeCommitRequest(
+                historyTokensByEffect: historyTokensByTarget[index],
+                discardedHistoryEffects: discarded[index],
                 commandBuffer: commandBuffer
             )
         }

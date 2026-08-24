@@ -74,6 +74,7 @@ private struct PreservedRGBADataBuilderOutput: Codable {
     let colorTransfer: String?
     let wholeOutputAccepted: Bool
     let helperOutputRejected: Bool
+    let rawMetalPreserved: Bool
 }
 
 private struct RedGreenDataBuilderOutput: Codable {
@@ -1128,7 +1129,10 @@ private struct GenericShaderArtifactHarness {
                             msl: vertexMSL, reflection: reflection
                         ),
                         .init(
-                            name: "fragment", source: source,
+                            name: "fragment",
+                            source: source.replacingOccurrences(
+                                of: "gl_FragColor", with: "mwxFragColor"
+                            ),
                             authoredSource: source,
                             msl: fragmentMSL, reflection: reflection
                         ),
@@ -1144,7 +1148,12 @@ private struct GenericShaderArtifactHarness {
                 outputSemantics: artifact?.outputSemantics.rawValue,
                 colorTransfer: artifact?.program.colorTransfer.kind,
                 wholeOutputAccepted: artifact != nil,
-                helperOutputRejected: failedColorTransfer(build(helperOutput))
+                helperOutputRejected: failedColorTransfer(build(helperOutput)),
+                rawMetalPreserved:
+                    artifact?.program.metalSource.contains(
+                        "state.xy += state.zw * 0.25;"
+                    ) == true
+                    && artifact?.program.metalSource.contains("premultiply") == false
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -2070,6 +2079,10 @@ private struct GenericShaderArtifactHarness {
                 ProcessInfo.processInfo.environment[
                     "MWX_TEST_DEFAULTED_OPACITY_MASK"
                 ] == "1",
+            hasOnlyTypedOpacityMaskAuxiliary:
+                ProcessInfo.processInfo.environment[
+                    "MWX_TEST_TYPED_OPACITY_MASK"
+                ] == "1",
             hasOnlyGraphInputSampler:
                 ProcessInfo.processInfo.environment[
                     "MWX_TEST_ONLY_GRAPH_INPUT_SAMPLER"
@@ -2187,6 +2200,44 @@ void main() {
     vec4 state = texSample2D(g_Texture0, v_TexCoord);
     state.rg += state.ba * 0.25;
     gl_FragColor = state;
+}
+"""
+
+PRESERVED_RGBA_MULTI_SAMPLE_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+vec4 sampleField(vec2 uv, vec2 delta) {
+    vec4 center = texSample2D(g_Texture0, uv);
+    vec4 east = texSample2D(g_Texture0, uv + delta);
+    vec4 west = texSample2D(g_Texture0, uv - delta);
+    return max(center, max(east, west));
+}
+void main() {
+    vec4 field = sampleField(v_TexCoord, vec2(0.01, 0.0));
+    field *= 0.97;
+    gl_FragColor = field;
+}
+"""
+
+PRESERVED_RGBA_MASKED_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 channels = texSample2D(g_Texture0, v_TexCoord);
+    float mask = texSample2D(g_Texture1, v_TexCoord).r;
+    channels *= mask;
+    gl_FragColor = channels;
+}
+"""
+
+PRESERVED_RGBA_CONDITIONAL_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    if (v_TexCoord.x > 0.5) {
+        gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+    }
 }
 """
 
@@ -2656,6 +2707,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         graph_input_slots: tuple[int, ...] = (),
         r8_slots: tuple[int, ...] = (),
         has_defaulted_opacity_mask: bool = False,
+        has_typed_opacity_mask: bool = False,
         has_only_graph_input_sampler: bool = False,
         alpha_attenuation_source_slot: int | None = None,
         color_blend_source_slot: int | None = None,
@@ -2724,6 +2776,10 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             environment["MWX_TEST_DEFAULTED_OPACITY_MASK"] = "1"
         else:
             environment.pop("MWX_TEST_DEFAULTED_OPACITY_MASK", None)
+        if has_typed_opacity_mask:
+            environment["MWX_TEST_TYPED_OPACITY_MASK"] = "1"
+        else:
+            environment.pop("MWX_TEST_TYPED_OPACITY_MASK", None)
         if has_only_graph_input_sampler:
             environment["MWX_TEST_ONLY_GRAPH_INPUT_SAMPLER"] = "1"
         else:
@@ -3386,14 +3442,35 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 root,
                 route="observe-only",
                 fragment=PRESERVED_RGBA_FRAGMENT,
+                graph_slots=(0,),
+                graph_input_slots=(0,),
+                has_only_graph_input_sampler=True,
                 preserved_rgba_output=True,
             )
             self.assertNotEqual(color["requestKey"], data["requestKey"])
+            self.assertEqual(
+                data["routeProfile"],
+                "source-proven-preserved-rgba-state-transform",
+            )
+            self.assertEqual(data["routeState"], "observe-only")
+            self.assertEqual(data["fallbackOwner"], "bounded-frontend")
             request = json.loads(
                 (requests / f"{data['requestKey']}.json").read_text(encoding="utf-8")
             )
             self.assertEqual(request["schemaVersion"], 4)
             self.assertEqual(request["outputSemantics"], "preserved-rgba-unorm")
+
+            missing, _, _, _ = self.run_harness(
+                root,
+                route=None,
+                fragment=PRESERVED_RGBA_FRAGMENT,
+                graph_slots=(0,),
+                graph_input_slots=(0,),
+                has_only_graph_input_sampler=True,
+                preserved_rgba_output=True,
+            )
+            self.assertEqual(missing["routeState"], "generic-only")
+            self.assertFalse(missing["permitsBoundedFrontend"])
 
             artifact = self.artifact(
                 data["requestKey"],
@@ -3405,11 +3482,15 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             )
             accepted, _, _, _ = self.run_harness(
                 root,
-                route="prefer-generic",
+                route=None,
                 fragment=PRESERVED_RGBA_FRAGMENT,
+                graph_slots=(0,),
+                graph_input_slots=(0,),
+                has_only_graph_input_sampler=True,
                 preserved_rgba_output=True,
             )
             self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeState"], "generic-only")
             self.assertEqual(accepted["colorTransfer"], "unresolved")
             self.assertEqual(accepted["fragmentOutputChannelUse"], "redDefined")
 
@@ -3419,11 +3500,91 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             )
             rejected, _, _, _ = self.run_harness(
                 root,
-                route="prefer-generic",
+                route=None,
                 fragment=PRESERVED_RGBA_FRAGMENT,
+                graph_slots=(0,),
+                graph_input_slots=(0,),
+                has_only_graph_input_sampler=True,
                 preserved_rgba_output=True,
             )
             self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+
+            disabled, _, _, _ = self.run_harness(
+                root,
+                route="disable-generic",
+                fragment=PRESERVED_RGBA_FRAGMENT,
+                graph_slots=(0,),
+                graph_input_slots=(0,),
+                has_only_graph_input_sampler=True,
+                preserved_rgba_output=True,
+            )
+            self.assertEqual(disabled["code"], "route-disabled")
+            self.assertTrue(disabled["permitsBoundedFrontend"])
+
+            still_generic, _, _, _ = self.run_harness(
+                root,
+                route="prefer-generic",
+                fragment=PRESERVED_RGBA_FRAGMENT,
+                graph_slots=(0,),
+                graph_input_slots=(0,),
+                has_only_graph_input_sampler=True,
+                preserved_rgba_output=True,
+            )
+            self.assertEqual(still_generic["routeState"], "generic-only")
+
+    def test_preserved_rgba_state_profile_is_structural_and_fail_closed(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-rgba-route-") as directory:
+            root = Path(directory)
+            for fragment, typed_mask, only_graph_sampler in (
+                (PRESERVED_RGBA_MULTI_SAMPLE_FRAGMENT, False, True),
+                (PRESERVED_RGBA_MASKED_FRAGMENT, True, False),
+            ):
+                observed, _, _, _ = self.run_harness(
+                    root,
+                    route="observe-only",
+                    fragment=fragment,
+                    graph_slots=(0,),
+                    graph_input_slots=(0,),
+                    has_typed_opacity_mask=typed_mask,
+                    has_only_graph_input_sampler=only_graph_sampler,
+                    preserved_rgba_output=True,
+                )
+                self.assertEqual(
+                    observed["routeProfile"],
+                    "source-proven-preserved-rgba-state-transform",
+                )
+
+            controls = (
+                {},
+                {"graph_slots": (0, 1), "graph_input_slots": (0, 1)},
+                {"has_external_provider": True},
+                {"fragment": PRESERVED_RGBA_CONDITIONAL_FRAGMENT},
+            )
+            for overrides in controls:
+                arguments = {
+                    "route": "observe-only",
+                    "fragment": PRESERVED_RGBA_FRAGMENT,
+                    "graph_slots": (0,),
+                    "graph_input_slots": (0,),
+                    "has_only_graph_input_sampler": True,
+                    "preserved_rgba_output": True,
+                }
+                arguments.update(overrides)
+                if not overrides:
+                    arguments["has_only_graph_input_sampler"] = False
+                observed, _, _, _ = self.run_harness(root, **arguments)
+                self.assertEqual(observed["routeProfile"], "ordinary-shader")
+
+            color, _, _, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=PRESERVED_RGBA_FRAGMENT,
+                graph_slots=(0,),
+                graph_input_slots=(0,),
+                has_only_graph_input_sampler=True,
+            )
+            self.assertEqual(color["routeProfile"], "ordinary-shader")
 
     def test_red_green_scalar_splat_has_typed_raw_output_owner(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-rg-splat-") as directory:
@@ -3535,6 +3696,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "colorTransfer": "preserved-rgba-data",
             "wholeOutputAccepted": True,
             "helperOutputRejected": True,
+            "rawMetalPreserved": True,
         })
 
     def test_red_green_builder_preserves_raw_whole_output(self):

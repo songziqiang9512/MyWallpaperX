@@ -223,6 +223,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         graphInputTextureSlots: Set<Int> = [],
         r8TextureSlots: Set<Int> = [],
         hasDefaultedOpacityMaskSampler: Bool = false,
+        hasOnlyTypedOpacityMaskAuxiliary: Bool = false,
         hasOnlyGraphInputSampler: Bool = false,
         sourceColorTransfer: SceneShaderColorTransfer? = nil,
         outputSemantics: SceneGenericShaderOutputSemantics = .color
@@ -317,6 +318,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
             producesRedGreenUnormOutput: producesRedGreenUnormOutput,
+            producesPreservedRGBAOutput: outputSemantics == .preservedRGBAUnorm,
+            hasDefiniteWholeOutput:
+                SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
+                    source: fragmentSource
+                ) == .redDefined,
             isScalarSplatOutput:
                 SceneAuthoredShaderColorTransferAnalyzer.isScalarSplatOutput(
                     fragmentSource: fragmentSource
@@ -328,6 +334,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             graphInputTextureSlots: graphInputTextureSlots,
             r8TextureSlots: r8TextureSlots,
             hasDefaultedOpacityMaskSampler: hasDefaultedOpacityMaskSampler,
+            hasOnlyTypedOpacityMaskAuxiliary: hasOnlyTypedOpacityMaskAuxiliary,
             hasOnlyGraphInputSampler: hasOnlyGraphInputSampler,
             hasStageScopedUniformBindings: SceneGenericShaderStageUniformAnalyzer.hasScopedBindings(
                 vertexSource: vertexSource,
@@ -479,7 +486,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 requestKey: key
             )
         }
-        let fragmentOutputChannelUse = fragmentOutputChannelUse(fragmentSource)
+        let fragmentOutputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
+            source: fragmentSource
+        )
         guard let program = artifact.makeProgram(
                   expectedKey: key,
                   expectedOutputSemantics: outputSemantics,
@@ -505,22 +514,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             requestKey: key,
             routeDecision: routeDecision
         )
-    }
-
-    private static func fragmentOutputChannelUse(
-        _ source: String
-    ) -> SceneAuthoredShaderProgram.FragmentOutputChannelUse {
-        let lexerOutput = SceneAuthoredShaderLexer.lex(
-            source: source,
-            stage: .fragment
-        )
-        let syntaxOutput = SceneAuthoredShaderSyntaxAnalyzer.analyze(
-            lexerOutput: lexerOutput,
-            stage: .fragment
-        )
-        guard syntaxOutput.diagnostics.isEmpty,
-              let fragment = syntaxOutput.unit else { return .unproven }
-        return SceneAuthoredShaderFragmentOutputAnalyzer.analyze(fragment)
     }
 
     private static func fallback(

@@ -7,6 +7,22 @@ import Foundation
 /// meaning; it never grants a color contract.
 nonisolated enum SceneAuthoredShaderFragmentOutputAnalyzer {
     static func analyze(
+        source: String
+    ) -> SceneAuthoredShaderProgram.FragmentOutputChannelUse {
+        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: source,
+                stage: .fragment
+            ),
+            stage: .fragment
+        )
+        guard let unit = syntax.unit, syntax.diagnostics.isEmpty else {
+            return .unproven
+        }
+        return analyze(unit)
+    }
+
+    static func analyze(
         _ fragment: SceneAuthoredShaderSyntaxUnit
     ) -> SceneAuthoredShaderProgram.FragmentOutputChannelUse {
         guard fragment.stage == .fragment,

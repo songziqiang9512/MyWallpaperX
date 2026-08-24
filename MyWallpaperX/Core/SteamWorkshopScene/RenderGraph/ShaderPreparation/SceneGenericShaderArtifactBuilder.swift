@@ -106,8 +106,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 )
             )
             let uniformLayout = stagedUniforms.layout
-            var outputChannelUse = fragmentOutputChannelUse(
-                fragmentStage.source
+            var outputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
+                source: fragmentStage.source
             )
             let color: (
                 msl: String,
@@ -131,6 +131,9 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                     .init(kind: "red-green-unorm-data", slot: nil, slots: nil)
                 )
             case .preservedRGBAUnorm:
+                outputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
+                    source: fragmentStage.authoredSource
+                )
                 guard outputChannelUse == .redDefined else {
                     throw Failure.colorTransfer
                 }
@@ -217,22 +220,6 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         } catch {
             return .failure(.reflection)
         }
-    }
-
-    private static func fragmentOutputChannelUse(
-        _ source: String
-    ) -> SceneAuthoredShaderProgram.FragmentOutputChannelUse {
-        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
-            lexerOutput: SceneAuthoredShaderLexer.lex(
-                source: source,
-                stage: .fragment
-            ),
-            stage: .fragment
-        )
-        guard let unit = syntax.unit, syntax.diagnostics.isEmpty else {
-            return .unproven
-        }
-        return SceneAuthoredShaderFragmentOutputAnalyzer.analyze(unit)
     }
 
     private static func reflectedLayout(_ reflection: Reflection) throws -> ReflectedLayout {

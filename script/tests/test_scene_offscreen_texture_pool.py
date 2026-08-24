@@ -2499,6 +2499,86 @@ enum Harness {
         let historyClosureContractAligned = historyClosure1.count == 2
             && historyPhysicalPlan.historyEffects == Set([historyEffect])
         historyCommit1.submissionPin.release()
+
+        // A launch-time visual fallback may discard this frame's entire
+        // uncommitted history candidate. The disposition is explicit so a
+        // missing token cannot silently turn into the same operation.
+        let discardHistoryPool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 100_000
+        )
+        guard let discardMissingMarker = discardHistoryPool
+            .preparePersistentGraphTargets(
+                admittedGraphs: historyGraphs,
+                pairPlan: historyPairPlan,
+                requestedWidth: 64,
+                requestedHeight: 64
+            ) else { fatalError("discard missing-marker fixture failed") }
+        let discardHistoryRequiresTypedDisposition = discardMissingMarker
+            .commitAndPin(historyTokensByEffect: [:]) == nil
+                && discardHistoryPool.residentAllocationCount == 0
+
+        guard let discardWithTokens = discardHistoryPool
+            .preparePersistentGraphTargets(
+                admittedGraphs: historyGraphs,
+                pairPlan: historyPairPlan,
+                requestedWidth: 64,
+                requestedHeight: 64
+            ), let discardWithTokensLease = discardWithTokens.leases.first else {
+            fatalError("discard token conflict fixture failed")
+        }
+        let discardTokens = Set(
+            discardWithTokensLease.framebufferAllocation.resources.values.map(\.token)
+        )
+        let discardHistoryRejectsSimultaneousPublication = discardWithTokens
+            .commitAndPin(
+                historyTokensByEffect: [historyEffect: discardTokens],
+                discardedHistoryEffects: [historyEffect]
+            ) == nil && discardHistoryPool.residentAllocationCount == 0
+
+        guard let discardUnexpected = discardHistoryPool
+            .preparePersistentGraphTargets(
+                admittedGraphs: historyGraphs,
+                pairPlan: historyPairPlan,
+                requestedWidth: 64,
+                requestedHeight: 64
+            ) else { fatalError("discard unexpected-effect fixture failed") }
+        let unexpectedDiscardEffect = Graph.EffectKey(
+            layerID: historyEffect.layerID,
+            effectIndex: historyEffect.effectIndex + 1,
+            descriptorID: "unexpected-discard"
+        )
+        let discardHistoryRejectsUnexpectedEffect = discardUnexpected.commitAndPin(
+            historyTokensByEffect: [:],
+            discardedHistoryEffects: [unexpectedDiscardEffect]
+        ) == nil && discardHistoryPool.residentAllocationCount == 0
+
+        guard let discardedPrepared = discardHistoryPool
+            .preparePersistentGraphTargets(
+                admittedGraphs: historyGraphs,
+                pairPlan: historyPairPlan,
+                requestedWidth: 64,
+                requestedHeight: 64
+            ), let discardedCommit = discardedPrepared.commitAndPin(
+                historyTokensByEffect: [:],
+                discardedHistoryEffects: [historyEffect]
+            ) else { fatalError("typed history discard commit failed") }
+        let typedHistoryDiscardKeepsSubmissionWithoutHistoryPin =
+            discardedCommit.historyPinsByEffect.isEmpty
+                && discardedCommit.submissionPin.purpose == .submission
+                && discardHistoryPool.residentAllocationCount == 1
+        discardedCommit.releaseAll()
+        guard let discardedRecovery = discardHistoryPool
+            .preparePersistentGraphTargets(
+                admittedGraphs: historyGraphs,
+                pairPlan: historyPairPlan,
+                requestedWidth: 64,
+                requestedHeight: 64
+            ) else { fatalError("typed history discard recovery failed") }
+        let typedHistoryDiscardDoesNotPublishHistorySeed =
+            discardedRecovery.historyRehydrateCopiesByEffect.isEmpty
+        discardHistoryPool.reset()
         guard let historyMissingPrepared = historyPool.preparePersistentGraphTargets(
             admittedGraphs: historyGraphs,
             pairPlan: historyPairPlan,
@@ -3330,6 +3410,16 @@ enum Harness {
             "historyClosureContractAligned": historyClosureContractAligned,
             "historyMissingTokenRejected": historyMissingTokenRejected,
             "historyExtraTokenRejected": historyExtraTokenRejected,
+            "discardHistoryRequiresTypedDisposition":
+                discardHistoryRequiresTypedDisposition,
+            "discardHistoryRejectsSimultaneousPublication":
+                discardHistoryRejectsSimultaneousPublication,
+            "discardHistoryRejectsUnexpectedEffect":
+                discardHistoryRejectsUnexpectedEffect,
+            "typedHistoryDiscardKeepsSubmissionWithoutHistoryPin":
+                typedHistoryDiscardKeepsSubmissionWithoutHistoryPin,
+            "typedHistoryDiscardDoesNotPublishHistorySeed":
+                typedHistoryDiscardDoesNotPublishHistorySeed,
             "historyCopyOnWriteIsolated": historyCopyOnWriteIsolated,
             "partialGPUWritePreservedCommittedPixels":
                 partialGPUWritePreservedCommittedPixels,
@@ -3608,6 +3698,17 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["historyClosureContractAligned"])
         self.assertTrue(self.result["historyMissingTokenRejected"])
         self.assertTrue(self.result["historyExtraTokenRejected"])
+        self.assertTrue(self.result["discardHistoryRequiresTypedDisposition"])
+        self.assertTrue(
+            self.result["discardHistoryRejectsSimultaneousPublication"]
+        )
+        self.assertTrue(self.result["discardHistoryRejectsUnexpectedEffect"])
+        self.assertTrue(
+            self.result["typedHistoryDiscardKeepsSubmissionWithoutHistoryPin"]
+        )
+        self.assertTrue(
+            self.result["typedHistoryDiscardDoesNotPublishHistorySeed"]
+        )
         self.assertTrue(self.result["historyCopyOnWriteIsolated"])
         self.assertTrue(self.result["partialGPUWritePreservedCommittedPixels"])
         self.assertTrue(self.result["gpuFailurePreservedCommittedHistory"])

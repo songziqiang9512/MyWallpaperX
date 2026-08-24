@@ -212,7 +212,8 @@ extension SceneOffscreenTextureAllocationCache {
                           allocation: graph
                       ),
                       let requestedHistory = graph.validatedHistoryTokens(
-                          request.historyTokensByEffect
+                          request.historyTokensByEffect,
+                          discarding: request.discardedHistoryEffects
                       ) else { return nil }
                 let reservation: GraphReservation
                 if original.revision == revision {
