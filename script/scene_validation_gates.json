@@ -325,6 +325,7 @@
         "test_scene_shader_preprocessor",
         "test_scene_shader_variant_environment",
         "test_scene_standard_alpha_composite_generic_contract",
+        "test_scene_generic_shader_matrix_cast",
         "test_scene_generic_shader_texture_transform_compiler",
         "test_scene_material_texture_transform",
         "test_scene_swift_source_sets"
@@ -465,6 +466,7 @@
       "modules": [
         "test_scene_generic_shader_compiler_process",
         "test_scene_independent_signal_compiler_artifact",
+        "test_scene_shader_compiler_artifact_foundation",
         "test_scene_shader_compiler_harness",
         "test_scene_shader_compiler_product_manifest"
       ]

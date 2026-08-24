@@ -73,7 +73,6 @@ nonisolated struct SceneEffectStageProgram {
              (.proceduralNoise, .proceduralNoise),
              (.waterWaves, .waterWaves),
              (.waterCaustics, .waterCaustics),
-             (.depthParallax, .depthParallax),
              (.xRay, .xRay),
              (.blend, .blend),
              (.transform, .transform),

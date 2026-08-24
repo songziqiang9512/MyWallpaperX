@@ -33,6 +33,7 @@ from scene_shader_compiler_artifact import (
     expected_color_transfer_for_output,
     request_cache_key,
 )
+from scene_shader_compiler_texture_sampling import active_sampler_slots, shader_compatibility_lines, texture_sampling_support_lines, texture_transform_uniform_lines
 from scene_shader_compiler_cli import parse_args
 
 
@@ -542,15 +543,13 @@ def normalize_wallpaper_engine_pair(
         if name in active_uniform_names
     ]
     uniform_lines.append("    vec2 mwxRenderSize;")
+    active_slots = active_sampler_slots(
+        sampler_slots, [parsed[stage]["body"] for stage in ALLOWED_STAGES]
+    )
+    uniform_lines += texture_transform_uniform_lines(active_slots)
     define_lines = [f"#define {name} {value}" for name, value in sorted(defines.items())]
-    compatibility_lines = [
-        "#define mul(x, y) ((y) * (x))",
-        "#define texSample2D texture",
-        *[f"#define CAST{count}(x) vec{count}(x)" for count in range(2, 5)],
-        "#define frac fract",
-        "#define saturate(x) clamp((x), 0.0, 1.0)",
-        "#define atan2 atan",
-    ]
+    compatibility_lines = shader_compatibility_lines()
+    texture_support_lines = texture_sampling_support_lines(active_slots)
 
     normalized: list[dict[str, str]] = []
     for stage in stages:
@@ -583,6 +582,7 @@ def normalize_wallpaper_engine_pair(
             *define_lines,
             *compatibility_lines,
             uniform_block.rstrip(),
+            *texture_support_lines,
             *active_sampler_lines,
             *interface,
             parsed[stage_name]["body"],

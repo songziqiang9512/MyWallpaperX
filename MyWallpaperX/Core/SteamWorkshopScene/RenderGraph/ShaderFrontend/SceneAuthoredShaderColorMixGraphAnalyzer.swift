@@ -144,7 +144,7 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
                   named: name,
                   after: assignment,
                   before: boundary,
-                  tokens: tokens
+                  state: state
               ) else {
             return nil
         }
@@ -155,10 +155,11 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
         named name: String,
         after assignment: Int,
         before boundary: Int,
-        tokens: [SceneAuthoredShaderToken]
+        state: State
     ) -> Bool {
+        let tokens = state.fragment.tokens
         let operators: Set<String> = ["=", "+=", "-=", "*=", "/="]
-        return tokens.indices.contains { index in
+        if tokens.indices.contains(where: { index in
             guard index > assignment, index < boundary,
                   tokens[index].text == name else { return false }
             if index + 1 < boundary, operators.contains(tokens[index + 1].text) {
@@ -167,6 +168,22 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
             return index + 3 < boundary
                 && tokens[index + 1].text == "."
                 && operators.contains(tokens[index + 3].text)
+        }) { return true }
+
+        // A user function may mutate an lvalue through an `inout` parameter.
+        // The color graph intentionally does not infer interprocedural alias
+        // effects, so any authored helper call that receives this local makes
+        // the reaching value unprovable rather than silently passthrough.
+        let authoredFunctions = Set(state.fragment.functions.map(\.name))
+        return (assignment + 1 ..< boundary).contains { index in
+            guard authoredFunctions.contains(tokens[index].text),
+                  index + 1 < boundary, tokens[index + 1].text == "(",
+                  let closing = SceneAuthoredShaderVectorConversion
+                    .matchingParenthesis(tokens: tokens, opening: index + 1),
+                  closing < boundary else { return false }
+            return ((index + 2) ..< closing).contains {
+                tokens[$0].text == name
+            }
         }
     }
 

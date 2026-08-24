@@ -19,9 +19,6 @@ BLEND_LOADER = RESOURCE_ROOT / "SceneBlendEffectTextureLoader.swift"
 TEXTURE_CANDIDATE = RESOURCE_ROOT / "SceneTextureCandidate.swift"
 SLOT_BINDING = RESOURCE_ROOT / "SceneTextureSlotBinding.swift"
 STANDARD_BLUR_LOADER = RESOURCE_ROOT / "SceneStandardBlurEffectTextureLoader.swift"
-DEPTH_PARALLAX_LOADER = (
-    RESOURCE_ROOT / "SceneDepthParallaxEffectTextureLoader.swift"
-)
 EFFECT_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects"
 )
@@ -45,7 +42,6 @@ EXPECTED_PURPOSES = {
     "shine noise": "noise",
     "shine effect mask": "mask",
     "standard blur mask": "mask",
-    "depthparallax depth": "depth",
     "waterwaves mask": "mask",
     "xray blend": "straightAlbedo",
     "xray halo": "preservedChannels",
@@ -89,7 +85,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             candidate_callers,
             {
                 "SceneBlendEffectTextureLoader.swift": 1,
-                "SceneDepthParallaxEffectTextureLoader.swift": 1,
                 "SceneStandardBlurEffectTextureLoader.swift": 1,
             },
         )
@@ -136,9 +131,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         helper = TEXTURE_LOADING.read_text(encoding="utf-8")
         blur_loader = STANDARD_BLUR_LOADER.read_text(encoding="utf-8")
         offscreen = OFFSCREEN_RENDERER.read_text(encoding="utf-8")
-        strict_loaders = {
-            DEPTH_PARALLAX_LOADER: ("expectedSlotIndex: 1",),
-        }
         resolved_template = RESOLVED_TEMPLATE_COMPILER.read_text(encoding="utf-8")
 
         for field in (
@@ -174,11 +166,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             self.assertIn(field, effect_binding)
         self.assertIn("let maskCandidate: SceneTextureCandidate?", blur_loader)
         self.assertIn("expectedPurpose: .mask", offscreen)
-        for path, markers in strict_loaders.items():
-            source = path.read_text(encoding="utf-8")
-            self.assertIn("SceneTextureSlotBinding(", source)
-            for marker in markers:
-                self.assertIn(marker, source)
         self.assertIn(
             "guard authored.count == 8",
             resolved_template,

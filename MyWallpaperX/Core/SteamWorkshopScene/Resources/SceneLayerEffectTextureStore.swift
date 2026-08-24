@@ -2,7 +2,6 @@ import Metal
 import simd
 
 struct SceneLayerEffectTextures {
-    let depthParallaxEffects: [String: SceneDepthParallaxEffectTextures]
     let blendEffects: [String: SceneBlendEffectTextures]
     let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
@@ -15,7 +14,6 @@ struct SceneLayerEffectTextures {
 }
 
 struct SceneLayerEffectTextureStore {
-    var depthParallaxEffects: [String: SceneDepthParallaxEffectTextures] = [:]
     var blendEffects: [String: SceneBlendEffectTextures] = [:]
     var standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:]
     var waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:]
@@ -26,9 +24,6 @@ struct SceneLayerEffectTextureStore {
     var xRayEffects: [Int: SceneXRayEffectTextures] = [:]
 
     mutating func merge(layerID: Int, textures: SceneLayerEffectTextures) {
-        depthParallaxEffects.merge(textures.depthParallaxEffects) { _, incoming in
-            incoming
-        }
         blendEffects.merge(textures.blendEffects) { _, incoming in incoming }
         standardBlurEffects.merge(textures.standardBlurEffects) { _, incoming in incoming }
         waterWavesEffects.merge(textures.waterWavesEffects) { _, incoming in incoming }

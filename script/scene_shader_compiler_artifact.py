@@ -15,6 +15,8 @@ from scene_shader_compiler_msl_function_contract import (
     safe_initial_carrier_flow as _safe_initial_carrier_flow,
     sample_end as _sample_end,
 )
+from scene_shader_compiler_loop_budget import static_loop_work as _static_loop_work
+from scene_shader_compiler_passthrough_contract import aliased_texture_passthrough
 
 
 class ArtifactFailure(RuntimeError):
@@ -472,6 +474,9 @@ def _passthrough_color_transfer(fragment_msl: str) -> dict[str, Any]:
         assignments[0],
     )
     if match is None:
+        aliased = aliased_texture_passthrough(fragment_msl, assignments[0])
+        if aliased is not None:
+            return aliased
         interpolated = _interpolated_color_transfer(fragment_msl, assignments[0])
         if interpolated is not None:
             return interpolated
@@ -677,28 +682,6 @@ def _independent_signal_color_transfer(
     return {"kind": expected["kind"], "slot": slot}
 
 
-def _static_loop_work(stage_sources: dict[str, str]) -> int:
-    total = 0
-    loop = re.compile(
-        r"\bfor\s*\(\s*int\s+(?P<name>[A-Za-z_]\w*)\s*=\s*0\s*;\s*"
-        r"(?P=name)\s*<\s*(?P<limit>\d+)\s*;\s*"
-        r"(?:(?:\+\+\s*(?P=name))|(?:(?P=name)\s*\+\+))\s*\)"
-    )
-    for source in stage_sources.values():
-        body = _without_comments(source)
-        for match in loop.finditer(body):
-            limit = int(match.group("limit"))
-            if not 1 <= limit <= 64:
-                raise ArtifactFailure("loop-bound")
-            total += limit
-        remainder = loop.sub("", body)
-        if re.search(r"\b(for|while|do)\b", remainder):
-            raise ArtifactFailure("loop-unbounded")
-    if total > 256:
-        raise ArtifactFailure("loop-budget")
-    return total
-
-
 def _deduplicate_stage_helpers(vertex_msl: str, fragment_msl: str) -> tuple[str, str]:
     vertex_helper = SPV_UNSAFE_ARRAY.search(vertex_msl)
     fragment_helper = SPV_UNSAFE_ARRAY.search(fragment_msl)
@@ -729,7 +712,7 @@ def build_program_artifact(
     expected = expected_color_transfer_for_output(
         output_semantics, expected_color_transfer
     )
-    static_loop_work = _static_loop_work(stage_sources)
+    static_loop_work = _static_loop_work(stage_sources, ArtifactFailure)
     stages = {stage.get("stage"): stage for stage in compiled_stages}
     if set(stages) != {"vertex", "fragment"}:
         raise ArtifactFailure("compiled-pair")

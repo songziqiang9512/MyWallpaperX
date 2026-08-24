@@ -9,8 +9,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability {
             }
         case .dedicated(_, let program, _):
             let plan = program.executionPlan
-            return plan.depthParallax != nil
-                || plan.xRay != nil
+            return plan.xRay != nil
         case .visualFailurePassthrough:
             return false
         }

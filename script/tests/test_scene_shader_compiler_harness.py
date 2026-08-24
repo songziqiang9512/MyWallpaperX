@@ -329,7 +329,7 @@ fragment void f() {
 """
         arguments = artifact_arguments(reflection, vertex_msl, fragment_msl)
         arguments["stage_sources"]["fragment"] = (
-            "for (int i = 0; i < 4; ++i) { value += i; }"
+            "void main() { for (int i = 0; i < 4; ++i) { value += i; } }"
         )
         artifact = build_program_artifact(**arguments)
         self.assertEqual(artifact["schemaVersion"], 6)
@@ -342,7 +342,7 @@ fragment void f() {
         self.assertEqual(artifact["program"]["metalSource"].count("struct spvUnsafeArray"), 1)
         with self.assertRaisesRegex(ArtifactFailure, "loop-unbounded"):
             arguments["stage_sources"]["fragment"] = (
-                "for (int i = 0; i < limit; ++i) { value += i; }"
+                "void main() { for (int i = 0; i < limit; ++i) { value += i; } }"
             )
             build_program_artifact(**arguments)
 

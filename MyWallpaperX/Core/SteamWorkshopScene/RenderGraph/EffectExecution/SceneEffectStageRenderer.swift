@@ -76,7 +76,6 @@ targets: targets,
                 commandBuffer: commandBuffer
             )
         case .waterWaves, .waterCaustics,
-             .depthParallax,
              .xRay, .blend, .transform,
              .godrays, .shine, .pulse:
             return renderSpecializedStage(

@@ -26,9 +26,6 @@ extension SceneLayerEffectTextureLoader {
             }),
             waterWavesEffectIDs: Set(stages.compactMap { $0.waterWaves?.effectKey.descriptorID }),
             waterCausticsPlans: stages.compactMap(\.waterCaustics),
-            depthParallaxEffectIDs: Set(
-                stages.compactMap { $0.depthParallax?.effectKey.descriptorID }
-            ),
             godraysEffectIDs: Set(stages.compactMap { $0.godrays?.effectKey.descriptorID }),
             shineEffectIDs: Set(stages.compactMap { $0.shine?.effectKey.descriptorID }),
             userPropertyTextures: userPropertyTextures,

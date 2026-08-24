@@ -621,7 +621,6 @@ struct SceneBlendEffectTextures {
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
-        case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
         case transform(SceneTransformExecutionPlan)
@@ -648,7 +647,6 @@ struct SceneBlendEffectTextures {
             case .proceduralNoise: "procedural-noise"
             case .waterWaves: "water-waves"
             case .waterCaustics: "water-caustics"
-            case .depthParallax: "depth-parallax"
             case .xRay: "x-ray"
             case .blend: "blend"
             case .transform: "transform"
@@ -704,11 +702,6 @@ struct SceneBlendEffectTextures {
 
     var shine: SceneShineExecutionPlan? {
         guard case .shine(let plan) = backend else { return nil }
-        return plan
-    }
-
-    var depthParallax: SceneDepthParallaxExecutionPlan? {
-        guard case .depthParallax(let plan) = backend else { return nil }
         return plan
     }
 
@@ -832,23 +825,6 @@ enum SceneWaterWavesRenderer {
     }
 }
 
-
-struct SceneDepthParallaxExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-struct SceneDepthParallaxEffectTextures {
-    struct ResolvedArguments {}
-
-    func resolvedArguments(
-        for plan: SceneDepthParallaxExecutionPlan
-    ) -> ResolvedArguments? {
-        nil
-    }
-}
-struct SceneDepthParallaxPipeline {
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
 extension SceneEffectStageRenderer {
     static func renderWaterCaustics(
         _ plan: SceneWaterCausticsExecutionPlan,
@@ -862,20 +838,6 @@ extension SceneEffectStageRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? { nil }
 
-    static func renderDepthParallax(
-        _ depthParallax: SceneDepthParallaxExecutionPlan,
-        sourceTexture: MTLTexture,
-        masks: SceneImageLayerMasks,
-        targets: SceneGraphRenderTargetTable,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        pipeline: SceneImageLayerPipeline,
-        pipelines: SceneAuthoredEffectPipelineSet,
-        cursorUV: SIMD2<Float>,
-        pointerIsInside: Bool,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        nil
-    }
 }
 
 struct SceneGodraysPlan {
@@ -2089,7 +2051,6 @@ enum Harness {
             xRay: SceneXRayEffectTextures? = nil
         ) -> SceneImageLayerMasks {
             SceneImageLayerMasks(
-                depthParallaxEffects: [:],
                 blendEffects: [:],
                 standardBlurEffects: standardBlurEffects,
                 waterWavesEffects: waterWavesEffects,
@@ -3937,7 +3898,6 @@ enum Harness {
         descriptorID: String
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            depthParallaxEffects: [:],
             blendEffects: [:],
             standardBlurEffects: [
                 descriptorID: SceneStandardBlurEffectTextures(
@@ -4906,7 +4866,6 @@ enum Harness {
         shineEffects: [String: SceneShineEffectTextures] = [:],
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            depthParallaxEffects: [:],
             blendEffects: blendEffects,
             standardBlurEffects: [:],
             waterWavesEffects: [:],

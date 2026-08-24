@@ -2,7 +2,6 @@ import Metal
 import simd
 
 struct SceneImageLayerMasks {
-    let depthParallaxEffects: [String: SceneDepthParallaxEffectTextures]
     let blendEffects: [String: SceneBlendEffectTextures]
     let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
@@ -13,7 +12,6 @@ struct SceneImageLayerMasks {
     let xRay: SceneXRayEffectTextures?
 
     static let empty = SceneImageLayerMasks(
-        depthParallaxEffects: [:],
         blendEffects: [:],
         standardBlurEffects: [:],
         waterWavesEffects: [:],
@@ -26,7 +24,6 @@ struct SceneImageLayerMasks {
 
     static func xRayOnly(_ xRay: SceneXRayEffectTextures?) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            depthParallaxEffects: [:],
             blendEffects: [:],
             standardBlurEffects: [:],
             waterWavesEffects: [:],

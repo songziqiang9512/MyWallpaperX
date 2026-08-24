@@ -87,11 +87,6 @@ extension SceneEffectProgramCompiler {
                     stage(.waterCaustics($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.depthParallax, {
-                SceneAuthoredDepthParallaxPlanner.compile(input).mapAccepted {
-                    stage(.depthParallax($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.xRay, {
                 SceneAuthoredXRayPlanner.compile(input).mapAccepted {
                     stage(.xRay($0), stageGraph: stageGraph, inputRole: inputRole)

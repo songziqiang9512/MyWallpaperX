@@ -54,10 +54,6 @@ CHAIN_TOPOLOGY_SOURCE = (
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift"
 )
-CHAIN_DEPTH_PARALLAX_SOURCE = (
-    SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+DepthParallax.swift"
-)
 COMPOSITOR_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
 DRAW_REQUEST_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift"
 EFFECT_TEXTURE_LOADER_SOURCE = (
@@ -152,22 +148,6 @@ enum SceneAuthoredWaterCausticsPlanner {
         inputRole: SceneAuthoredEffectInputRole
     ) -> SceneWaterCausticsExecutionPlan? {
         nil
-    }
-}
-
-struct SceneDepthParallaxExecutionPlan {}
-
-enum SceneAuthoredDepthParallaxPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneDepthParallaxExecutionPlan? {
-        graph.effects.first?.definitionPath.lowercased()
-            == "effects/depthparallax/effect.json"
-            ? SceneDepthParallaxExecutionPlan()
-            : nil
     }
 }
 
@@ -401,10 +381,6 @@ extension SceneAuthoredWaterWavesPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredWaterCausticsPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWaterCausticsExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterCaustics }
-}
-extension SceneAuthoredDepthParallaxPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneDepthParallaxExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .depthParallax }
 }
 extension SceneAuthoredXRayPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneXRayExecutionPlan
@@ -1201,7 +1177,6 @@ enum Harness {
             case .proceduralNoise: backend = "proceduralNoise"
             case .waterWaves: backend = "waterWaves"
             case .waterCaustics: backend = "waterCaustics"
-            case .depthParallax: backend = "depthParallax"
             case .xRay: backend = "xRay"
             case .blend: backend = "blend"
             case .transform: backend = "transform"
@@ -1650,7 +1625,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         leaf_body = backend[leaf_start:logical_start]
         topology = CHAIN_TOPOLOGY_SOURCE.read_text(encoding="utf-8")
 
-        self.assertIn(".depthParallax", leaf_body)
         self.assertNotIn(".waterFlow", backend)
         self.assertNotIn("yieldsToResolvedMaterialProgram", backend)
         self.assertNotIn(".spin", backend)
@@ -1658,9 +1632,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertNotIn(".workshopAudioBars", leaf_body)
         self.assertNotIn("case .waterFlow", topology)
         self.assertNotIn("waterFlowEffects", topology)
-        self.assertIn("case .depthParallax(let plan):", topology)
-        self.assertIn("inputs.masks.depthParallaxEffects[", topology)
-        self.assertIn('"depth-parallax-resource-missing"', topology)
         self.assertNotIn("fisheyeZeroDistortion", leaf_body)
         self.assertNotIn("fisheye-pipeline-missing", topology)
         for backend_name in (".waterWaves", ".waterCaustics", ".pulse"):
@@ -1677,13 +1648,10 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertIn("SceneXRayRuntimePlanner.resolve(", topology)
         self.assertIn('return "x-ray-runtime-unsupported"', topology)
 
-        depth = CHAIN_DEPTH_PARALLAX_SOURCE.read_text(encoding="utf-8")
         x_ray = (SOURCE_ROOT / (
             "RenderGraph/EffectExecution/"
             "SceneEffectStageRenderer+XRay.swift"
         )).read_text(encoding="utf-8")
-        self.assertIn("targets.inputTexture === sourceTexture", depth)
-        self.assertIn("SceneDepthParallaxRenderer.render(", depth)
         self.assertIn("sourceTexture !== targets.inputTexture", x_ray)
         self.assertIn("copyIdentityOutput(", x_ray)
         self.assertIn('encoder.label = "Scene X-Ray identity output"', x_ray)

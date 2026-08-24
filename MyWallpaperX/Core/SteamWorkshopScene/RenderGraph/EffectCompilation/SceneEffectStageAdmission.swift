@@ -180,7 +180,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         case .proceduralNoise: "procedural-noise"
         case .waterWaves: "water-waves"
         case .waterCaustics: "water-caustics"
-        case .depthParallax: "depth-parallax"
         case .xRay: "x-ray"
         case .blend: "blend"
         case .transform: "transform"

@@ -8,7 +8,6 @@ struct SceneAuthoredEffectPipelineSet {
     var proceduralNoise: SceneProceduralNoisePipeline? { repository.proceduralNoise() }
     var waterWaves: SceneWaterWavesPipeline? { repository.waterWaves() }
     var waterCaustics: SceneWaterCausticsPipeline? { repository.waterCaustics() }
-    var depthParallax: SceneDepthParallaxPipeline? { repository.depthParallax() }
     var xRay: SceneXRayPipeline? { repository.xRay() }
     var blend: SceneBlendPipeline? { repository.blend() }
     var pulse: ScenePulsePipeline? { repository.pulse() }

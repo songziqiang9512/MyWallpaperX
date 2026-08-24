@@ -104,7 +104,6 @@ nonisolated struct SceneResolvedMaterialNode {
     }
 }
 
-struct SceneDepthParallaxExecutionPlan {}
 struct SceneXRayExecutionPlan {}
 
 struct SceneEffectStageExecutionPlan {
@@ -112,7 +111,6 @@ struct SceneEffectStageExecutionPlan {
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
-    var depthParallax: SceneDepthParallaxExecutionPlan? { nil }
     var xRay: SceneXRayExecutionPlan? { nil }
 
     var supportsUnifiedLogicalTargetStage: Bool { false }

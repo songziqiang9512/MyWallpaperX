@@ -309,7 +309,6 @@ struct SceneEffectPassSlot: Hashable {
     let slotIndex: Int
 }
 
-struct SceneDepthParallaxExecutionPlan {}
 struct SceneXRayExecutionPlan {}
 
 struct SceneProceduralNoiseExecutionPlan {
@@ -335,7 +334,6 @@ struct SceneEffectStageExecutionPlan {
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
-    var depthParallax: SceneDepthParallaxExecutionPlan? = nil
     var xRay: SceneXRayExecutionPlan? = nil
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? = nil
     var blend: SceneBlendExecutionPlan? = nil
@@ -3971,7 +3969,6 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
     }
 }
 
-struct SceneDepthParallaxExecutionPlan {}
 struct SceneXRayExecutionPlan {}
 struct SceneProceduralNoiseExecutionPlan {
     enum Variant { case colorPerlinRGB, worleyColorV1 }
@@ -3994,7 +3991,6 @@ struct SceneEffectStageExecutionPlan {
     let logicalRenderTargetCount: Int
     var layerID: Int { 0 }
     var materialNodeCount: Int { 0 }
-    var depthParallax: SceneDepthParallaxExecutionPlan? = nil
     var xRay: SceneXRayExecutionPlan? = nil
     var inputRole: SceneAuthoredEffectInputRole { .layerSource }
     var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
@@ -4912,7 +4908,7 @@ private func dedicatedCatalog(
         stageGraph: graph,
         executionPlan: .init(
             logicalRenderTargetCount: 0,
-            depthParallax: projectionSensitive ? .init() : nil
+            xRay: projectionSensitive ? .init() : nil
         )
     )
     return .init(
@@ -6914,7 +6910,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         for backend_name in (
             ".blend", ".waterWaves",
             ".waterCaustics",
-            ".depthParallax", ".xRay", ".pulse",
+            ".xRay", ".pulse",
         ):
             self.assertIn(backend_name, leaf_body)
         self.assertNotIn(".waterFlow", source)

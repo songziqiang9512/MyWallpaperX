@@ -4,7 +4,6 @@ extension SceneMetalRenderer {
         in store: SceneLayerEffectTextureStore
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            depthParallaxEffects: store.depthParallaxEffects,
             blendEffects: store.blendEffects,
             standardBlurEffects: store.standardBlurEffects,
             waterWavesEffects: store.waterWavesEffects,

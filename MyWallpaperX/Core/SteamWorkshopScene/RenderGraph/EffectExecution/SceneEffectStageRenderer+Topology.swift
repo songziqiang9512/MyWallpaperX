@@ -189,14 +189,6 @@ extension SceneEffectStageRenderer {
             }
             return pipelines.waterCaustics == nil
                 ? "water-caustics-pipeline-missing" : nil
-        case .depthParallax(let plan):
-            guard let resources = inputs.masks.depthParallaxEffects[
-                plan.effectKey.descriptorID
-            ], resources.resolvedArguments(for: plan) != nil else {
-                return "depth-parallax-resource-missing"
-            }
-            return pipelines.depthParallax == nil
-                ? "depth-parallax-pipeline-missing" : nil
         case .xRay(let plan):
             switch SceneXRayRuntimePlanner.resolve(
                 declaration: plan.declaration,

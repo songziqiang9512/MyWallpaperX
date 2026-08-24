@@ -139,11 +139,6 @@ nonisolated extension SceneAuthoredWaterCausticsPlanner: SceneEffectStageGraphCa
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterCaustics }
 }
 
-extension SceneAuthoredDepthParallaxPlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneDepthParallaxExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .depthParallax }
-}
-
 extension SceneAuthoredXRayPlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneXRayExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .xRay }

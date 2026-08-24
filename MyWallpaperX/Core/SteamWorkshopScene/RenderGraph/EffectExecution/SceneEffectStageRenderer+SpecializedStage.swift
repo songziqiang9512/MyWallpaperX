@@ -37,14 +37,6 @@ targets: targets,
                 sourceUniforms: sourceUniforms, sourcePipeline: pipeline,
                 pipelines: pipelines, time: time, commandBuffer: commandBuffer
             )
-        case .depthParallax(let depthParallax):
-            return renderDepthParallax(
-                depthParallax, sourceTexture: sourceTexture, masks: masks,
-targets: targets,
-                sourceUniforms: sourceUniforms, pipeline: pipeline,
-                pipelines: pipelines, cursorUV: cursorUV,
-                pointerIsInside: pointerIsInside, commandBuffer: commandBuffer
-            )
         case .xRay(let xRay):
             return renderXRay(
                 xRay, sourceTexture: sourceTexture, masks: masks,

@@ -301,6 +301,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     "#define CAST2(x) vec2(x)",
                     "#define CAST3(x) vec3(x)",
                     "#define CAST4(x) vec4(x)",
+                    "#define CAST3X3(x) mat3(x)",
                     "#define frac fract",
                     "#define saturate(x) clamp((x), 0.0, 1.0)",
                     "#define atan2 atan",
