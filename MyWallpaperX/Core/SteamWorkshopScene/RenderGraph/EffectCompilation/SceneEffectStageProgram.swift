@@ -70,7 +70,6 @@ nonisolated struct SceneEffectStageProgram {
         case (.preciseGaussian, .preciseGaussian),
              (.standardBlur, .standardBlur),
              (.localContrast, .localContrast),
-             (.colorGrading, .colorGrading),
              (.proceduralNoise, .proceduralNoise),
              (.waterWaves, .waterWaves),
              (.waterCaustics, .waterCaustics),

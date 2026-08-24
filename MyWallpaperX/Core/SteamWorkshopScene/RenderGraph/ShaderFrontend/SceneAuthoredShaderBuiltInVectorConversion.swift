@@ -1,3 +1,5 @@
+import Foundation
+
 nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
     private struct Conversion: Hashable {
         let range: Range<Int>
@@ -41,6 +43,111 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
               ) else { return nil }
         let sourceWidth = argumentIndex == 0 ? firstWidth : secondWidth
         return narrowingSuffix(from: sourceWidth, to: min(firstWidth, secondWidth))
+    }
+
+    /// Wallpaper Engine's authored shader surface permits a scalar color
+    /// endpoint to be broadcast across the other floating-point vector
+    /// endpoint of `mix`/`lerp`. Vulkan GLSL requires both endpoints to have
+    /// the same shape. Canonicalize only simple, statically typed endpoints;
+    /// compound expressions and user-defined overloads remain untouched and
+    /// therefore retain the normal compiler rejection boundary.
+    static func rewriteScalarMixBroadcasts(
+        _ source: String,
+        stage: SceneShaderContract.StageKind
+    ) -> String {
+        let normalized = source
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let analysisSource = normalized.components(separatedBy: "\n").map { line in
+            line.trimmingCharacters(in: .whitespaces).hasPrefix("#version")
+                ? "" : line
+        }.joined(separator: "\n")
+        let lexer = SceneAuthoredShaderLexer.lex(source: analysisSource, stage: stage)
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: lexer,
+            stage: stage
+        )
+        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else {
+            return normalized
+        }
+
+        var lineStarts = [0]
+        var scalarOffset = 0
+        for scalar in normalized.unicodeScalars {
+            scalarOffset += 1
+            if scalar == "\n" { lineStarts.append(scalarOffset) }
+        }
+        func tokenOffset(_ index: Int, afterToken: Bool) -> Int? {
+            guard unit.tokens.indices.contains(index) else { return nil }
+            let token = unit.tokens[index]
+            guard token.line > 0, token.line <= lineStarts.count else { return nil }
+            return lineStarts[token.line - 1] + token.column - 1
+                + (afterToken ? token.text.unicodeScalars.count : 0)
+        }
+
+        var insertions: [(offset: Int, text: String)] = []
+        for index in unit.tokens.indices {
+            guard ["mix", "lerp"].contains(unit.tokens[index].text),
+                  !unit.functions.contains(where: {
+                      $0.name == unit.tokens[index].text
+                  }), index + 1 < unit.tokens.count,
+                  unit.tokens[index + 1].text == "(",
+                  let closing = matchingParenthesis(
+                      tokens: unit.tokens,
+                      opening: index + 1
+                  ),
+                  let arguments = argumentRanges(
+                      opening: index + 1,
+                      closing: closing,
+                      tokens: unit.tokens
+                  ), arguments.count == 3,
+                  let first = standaloneType(
+                      arguments[0], before: index,
+                      tokens: unit.tokens, unit: unit
+                  ),
+                  let second = standaloneType(
+                      arguments[1], before: index,
+                      tokens: unit.tokens, unit: unit
+                  ) else { continue }
+            let scalarRange: Range<Int>
+            let vectorWidth: Int
+            if first == .float, let width = floatVectorWidth(second) {
+                scalarRange = arguments[0]
+                vectorWidth = width
+            } else if second == .float, let width = floatVectorWidth(first) {
+                scalarRange = arguments[1]
+                vectorWidth = width
+            } else {
+                continue
+            }
+            guard (2 ... 4).contains(vectorWidth),
+                  let start = tokenOffset(scalarRange.lowerBound, afterToken: false),
+                  let end = tokenOffset(scalarRange.upperBound - 1, afterToken: true)
+            else { continue }
+            insertions.append((start, "vec\(vectorWidth)("))
+            insertions.append((end, ")"))
+        }
+        guard !insertions.isEmpty else { return normalized }
+
+        var result = normalized
+        for insertion in insertions.sorted(by: { lhs, rhs in
+            if lhs.offset != rhs.offset { return lhs.offset > rhs.offset }
+            if lhs.text != rhs.text { return lhs.text == ")" }
+            return false
+        }) {
+            guard insertion.offset <= result.unicodeScalars.count else {
+                return normalized
+            }
+            let scalarIndex = result.unicodeScalars.index(
+                result.unicodeScalars.startIndex,
+                offsetBy: insertion.offset
+            )
+            guard let stringIndex = String.Index(scalarIndex, within: result) else {
+                return normalized
+            }
+            result.insert(contentsOf: insertion.text, at: stringIndex)
+        }
+        return result
     }
 
     static func addCompoundMixBoundaries(
@@ -173,7 +280,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         if range.count == 1, tokens[range.lowerBound].kind == .number {
             return .init(
                 range: sourceRange,
-                type: .float,
+                type: numericLiteralType(tokens[range.lowerBound].text),
                 conversions: [],
                 compound: false,
                 directlyNarrowable: false
@@ -197,7 +304,10 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
         guard range.count == 3, tokens[range.lowerBound + 1].text == ".",
               tokens[range.lowerBound + 2].kind == .identifier,
-              let type = swizzleType(tokens[range.lowerBound + 2].text) else { return nil }
+              let type = swizzleType(
+                  tokens[range.lowerBound + 2].text,
+                  base: declared
+              ) else { return nil }
         return .init(
             range: sourceRange,
             type: type,
@@ -252,7 +362,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         unit: SceneAuthoredShaderSyntaxUnit
     ) -> SceneAuthoredShaderValueType? {
         if range.count == 1, tokens[range.lowerBound].kind == .number {
-            return .float
+            return numericLiteralType(tokens[range.lowerBound].text)
         }
         guard tokens[range.lowerBound].kind == .identifier,
               let declared = declaredType(
@@ -265,7 +375,10 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         guard range.count == 3,
               tokens[range.lowerBound + 1].text == ".",
               tokens[range.lowerBound + 2].kind == .identifier else { return nil }
-        return swizzleType(tokens[range.lowerBound + 2].text)
+        return swizzleType(
+            tokens[range.lowerBound + 2].text,
+            base: declared
+        )
     }
 
     private static func declaredType(
@@ -339,10 +452,35 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         return nil
     }
 
-    private static func swizzleType(_ value: String) -> SceneAuthoredShaderValueType? {
+    private static func numericLiteralType(
+        _ value: String
+    ) -> SceneAuthoredShaderValueType {
+        if value.last.map({ $0 == "u" || $0 == "U" }) == true {
+            return .uint
+        }
+        if value.contains(".") || value.contains("e") || value.contains("E")
+            || value.last.map({ $0 == "f" || $0 == "F" }) == true {
+            return .float
+        }
+        return .int
+    }
+
+    private static func swizzleType(
+        _ value: String,
+        base: SceneAuthoredShaderValueType
+    ) -> SceneAuthoredShaderValueType? {
         guard (1...4).contains(value.count),
               value.allSatisfy({ "xyzwrgba".contains($0) }) else { return nil }
-        return [.float, .float2, .float3, .float4][value.count - 1]
+        switch base {
+        case .float2, .float3, .float4:
+            return [.float, .float2, .float3, .float4][value.count - 1]
+        case .int2, .int3, .int4:
+            return [.int, .int2, .int3, .int4][value.count - 1]
+        case .uint2, .uint3, .uint4:
+            return [.uint, .uint2, .uint3, .uint4][value.count - 1]
+        default:
+            return nil
+        }
     }
 
     private static func floatVectorWidth(_ type: SceneAuthoredShaderValueType) -> Int? {

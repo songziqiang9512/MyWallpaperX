@@ -97,15 +97,6 @@ extension SceneAuthoredLocalContrastPlanner: SceneEffectStageGraphCandidatePlann
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .localContrast }
 }
 
-extension SceneAuthoredColorGradingPlanner: SceneEffectStageDedicatedPlanner {
-    typealias DedicatedPlan = SceneColorGradingExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorGrading }
-
-    nonisolated static func isCandidate(_ input: SceneEffectStageCompileInput) -> Bool {
-        containsCandidate(graph: input.stageGraph, descriptor: input.descriptor)
-    }
-}
-
 extension SceneAuthoredProceduralNoisePlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }

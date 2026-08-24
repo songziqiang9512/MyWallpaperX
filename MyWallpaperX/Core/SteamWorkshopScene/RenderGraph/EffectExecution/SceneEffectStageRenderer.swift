@@ -61,13 +61,6 @@ enum SceneEffectStageRenderer {
                 localContrastPipeline: localContrastPipeline,
                 commandBuffer: commandBuffer
             )
-        case .colorGrading:
-            return renderColorStage(
-                stage, sourceTexture: sourceTexture, masks: masks,
-                targets: targets, sourceUniforms: sourceUniforms,
-                sourcePipeline: pipeline, pipelines: pipelines,
-                commandBuffer: commandBuffer
-            )
         case .proceduralNoise(let noise):
             guard let noisePipeline = pipelines.proceduralNoise else { return nil }
             return renderProceduralNoise(

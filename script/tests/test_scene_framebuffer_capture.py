@@ -56,7 +56,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
     SOURCE_ROOT / "Effects/SceneLocalContrastPipeline.swift",
     SOURCE_ROOT / "Effects/SceneLocalContrastRenderer.swift",
-    SOURCE_ROOT / "Effects/SceneColorGradingPipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline+Support.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
@@ -79,7 +78,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterWaves.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Rays.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ColorGrading.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ProceduralNoise.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
@@ -558,14 +556,6 @@ struct SceneTexContainerReader {
     }
 }
 
-struct SceneColorGradingExecutionPlan: Sendable {
-    let luminance: Float
-    let saturation: Float
-    let vibrance: Float
-    let opacity: Float
-    let channelInfluence: SIMD3<Float>
-}
-
 struct SceneAuthoredShaderFrameInputs: Sendable {}
 
 enum SceneBlendShaderProfile {
@@ -628,7 +618,6 @@ struct SceneBlendEffectTextures {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
-        case colorGrading(SceneColorGradingExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
@@ -656,7 +645,6 @@ struct SceneBlendEffectTextures {
             case .preciseGaussian: "precise-gaussian"
             case .standardBlur: "standard-blur"
             case .localContrast: "local-contrast"
-            case .colorGrading: "color-grading"
             case .proceduralNoise: "procedural-noise"
             case .waterWaves: "water-waves"
             case .waterCaustics: "water-caustics"

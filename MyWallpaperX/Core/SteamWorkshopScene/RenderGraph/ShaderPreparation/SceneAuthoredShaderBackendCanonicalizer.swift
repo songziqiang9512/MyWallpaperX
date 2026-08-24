@@ -25,17 +25,34 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
 
     static func canonicalize(vertex: String, fragment: String) -> Pair {
         let original = Pair(vertex: vertex, fragment: fragment)
-        let arrays = linkedVaryingArrays(vertex: vertex, fragment: fragment)
-        guard !arrays.isEmpty else { return original }
-
         var result = Pair(
-            vertex: unrollStaticVaryingLoops(in: vertex, arrays: arrays),
-            fragment: unrollStaticVaryingLoops(in: fragment, arrays: arrays)
+            vertex: SceneAuthoredShaderBuiltInVectorConversion
+                .rewriteScalarMixBroadcasts(vertex, stage: .vertex),
+            fragment: SceneAuthoredShaderBuiltInVectorConversion
+                .rewriteScalarMixBroadcasts(fragment, stage: .fragment)
         )
-        result = compactVaryingArrays(
-            result,
-            arrays: arrays.filter { $0.value.count > maximumUnrolledIterations }
+        let arrays = linkedVaryingArrays(
+            vertex: result.vertex,
+            fragment: result.fragment
         )
+        if !arrays.isEmpty {
+            result = Pair(
+                vertex: unrollStaticVaryingLoops(
+                    in: result.vertex,
+                    arrays: arrays
+                ),
+                fragment: unrollStaticVaryingLoops(
+                    in: result.fragment,
+                    arrays: arrays
+                )
+            )
+            result = compactVaryingArrays(
+                result,
+                arrays: arrays.filter {
+                    $0.value.count > maximumUnrolledIterations
+                }
+            )
+        }
         guard result.vertex.utf8.count <= maximumSourceBytes,
               result.fragment.utf8.count <= maximumSourceBytes else {
             return original

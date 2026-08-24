@@ -107,7 +107,6 @@ struct SceneGaussianBlurPlan {
     let kernel: SceneGaussianBlurKernel
 }
 
-struct SceneColorGradingExecutionPlan: Sendable {}
 struct SceneProceduralNoiseExecutionPlan: Sendable {
     enum Variant: Sendable {
         case colorPerlinRGB
@@ -117,17 +116,6 @@ struct SceneProceduralNoiseExecutionPlan: Sendable {
     let variant: Variant
     let dependencyProviderLayerID: Int?
     let dependencySlotIndex: Int?
-}
-
-enum SceneAuthoredColorGradingPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneColorGradingExecutionPlan? {
-        nil
-    }
 }
 
 enum SceneAuthoredProceduralNoisePlanner {
@@ -401,10 +389,6 @@ extension SceneAuthoredStandardBlurPlanner {
 extension SceneAuthoredLocalContrastPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneLocalContrastPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .localContrast }
-}
-extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneColorGradingExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorGrading }
 }
 extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
@@ -1214,7 +1198,6 @@ enum Harness {
             case .preciseGaussian: backend = "preciseGaussian"
             case .standardBlur: backend = "standardBlur"
             case .localContrast: backend = "localContrast"
-            case .colorGrading: backend = "colorGrading"
             case .proceduralNoise: backend = "proceduralNoise"
             case .waterWaves: backend = "waterWaves"
             case .waterCaustics: backend = "waterCaustics"

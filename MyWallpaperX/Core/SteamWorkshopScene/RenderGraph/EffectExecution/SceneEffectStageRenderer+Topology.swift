@@ -167,9 +167,6 @@ extension SceneEffectStageRenderer {
                 return "shine-resource-missing"
             }
             return nil
-        case .colorGrading:
-            return pipelines.colorGrading == nil
-                ? "color-grading-pipeline-missing" : nil
         case .proceduralNoise(let plan):
             guard proceduralNoiseDependencyMatches(
                 inputs.dependencyEffect,

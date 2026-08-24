@@ -5,7 +5,6 @@ extension SceneEffectStageExecutionPlan {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
-        case colorGrading(SceneColorGradingExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
@@ -19,8 +18,7 @@ extension SceneEffectStageExecutionPlan {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .colorGrading,
-                 .waterWaves, .waterCaustics,
+            case .waterWaves, .waterCaustics,
                  .depthParallax, .xRay, .blend, .transform, .pulse:
                 return true
             case .proceduralNoise(let plan):
@@ -63,11 +61,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var localContrast: SceneLocalContrastPlan? {
         guard case .localContrast(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var colorGrading: SceneColorGradingExecutionPlan? {
-        guard case .colorGrading(let plan) = backend else { return nil }
         return plan
     }
 
@@ -136,8 +129,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var supportsUtilityCapture: Bool {
         switch backend {
-        case .colorGrading:
-            return true
         case .standardBlur:
             return true
         case .proceduralNoise(let plan):

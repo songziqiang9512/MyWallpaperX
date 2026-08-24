@@ -60,22 +60,3 @@ extension SceneAuthoredXRayPlanner {
         )
     }
 }
-
-extension SceneAuthoredColorGradingPlanner {
-    nonisolated static func containsCandidate(
-        graph: Graph,
-        descriptor: SceneRenderDescriptor
-    ) -> Bool {
-        SceneEffectStageDedicatedCandidateMatcher.matchesDefinition(
-            graph: graph,
-            descriptor: descriptor
-        ) { definition in
-            definition.replacementKey?.lowercased() == "color_grading"
-                || (
-                    definition.name == "Color Grading"
-                        && definition.description == nil
-                        && definition.group?.lowercased() == "localeffects"
-                )
-        }
-    }
-}

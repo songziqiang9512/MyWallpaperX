@@ -72,11 +72,6 @@ extension SceneEffectProgramCompiler {
                     )
                 }
             }),
-            (.colorGrading, {
-                SceneAuthoredColorGradingPlanner.compile(input).mapAccepted {
-                    stage(.colorGrading($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.proceduralNoise, {
                 SceneAuthoredProceduralNoisePlanner.compile(input).mapAccepted {
                     stage(.proceduralNoise($0), stageGraph: stageGraph, inputRole: inputRole)

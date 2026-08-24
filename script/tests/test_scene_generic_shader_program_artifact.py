@@ -218,6 +218,15 @@ private struct TypedMixNormalizationOutput: Codable {
     let explicitSwizzlePreserved: Bool
     let userDefinedMixPreserved: Bool
     let invalidWeightPreserved: Bool
+    let scalarFirstBroadcasted: Bool
+    let scalarSecondBroadcasted: Bool
+    let scalarLiteralBroadcasted: Bool
+    let compoundScalarPreserved: Bool
+    let userDefinedScalarMixPreserved: Bool
+    let integerLiteralPreserved: Bool
+    let unsignedLiteralPreserved: Bool
+    let signedIntegerSwizzlePreserved: Bool
+    let unsignedIntegerSwizzlePreserved: Bool
 }
 
 private struct CanonicalizerOutput: Codable {
@@ -483,6 +492,67 @@ private struct GenericShaderArtifactHarness {
             let invalidWeight = normalized(
                 "source.rgb = mix(source, replacement, invalidWeight);"
             )
+            func canonicalized(_ expression: String, prelude: [String] = []) -> String {
+                let fragment = ([
+                    "varying vec2 v_TexCoord;",
+                    "uniform sampler2D g_Texture0;",
+                ] + prelude + [
+                    "void main() {",
+                    "    vec4 source = texSample2D(g_Texture0, v_TexCoord);",
+                    "    vec3 replacement = vec3(0.25);",
+                    "    float scalar = 0.5;",
+                    "    float weight = 0.5;",
+                    "    \(expression)",
+                    "    gl_FragColor = source;",
+                    "}",
+                ]).joined(separator: "\n")
+                let canonical = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                    vertex: vertex,
+                    fragment: fragment
+                )
+                switch SceneGenericShaderSourceNormalizer.normalize(
+                    vertexSource: canonical.vertex,
+                    fragmentSource: canonical.fragment,
+                    maximumStageSourceBytes: 64 * 1_024
+                ) {
+                case let .success(pair): return pair.fragment
+                case .failure: return ""
+                }
+            }
+            let scalarFirst = canonicalized(
+                "source.rgb = mix(scalar, replacement, 1.0 + weight);"
+            )
+            let scalarSecond = canonicalized(
+                "source.rgb = mix(replacement, scalar, 1.0 + weight);"
+            )
+            let scalarLiteral = canonicalized(
+                "source.rgb = mix(0.25, replacement, weight);"
+            )
+            let compoundScalar = canonicalized(
+                "source.rgb = mix(scalar + weight, replacement, weight);"
+            )
+            let userDefinedScalar = canonicalized(
+                "source.rgb = mix(scalar, replacement, weight);",
+                prelude: [
+                    "vec3 mix(float base, vec3 replacement, float weight) {",
+                    "    return replacement;",
+                    "}",
+                ]
+            )
+            let integerLiteral = canonicalized(
+                "source.rgb = mix(1, replacement, weight);"
+            )
+            let unsignedLiteral = canonicalized(
+                "source.rgb = mix(1u, replacement, weight);"
+            )
+            let signedIntegerSwizzle = canonicalized(
+                "source.rgb = mix(signedFlags.x, replacement, weight);",
+                prelude: ["uniform ivec3 signedFlags;"]
+            )
+            let unsignedIntegerSwizzle = canonicalized(
+                "source.rgb = mix(unsignedFlags.x, replacement, weight);",
+                prelude: ["uniform uvec3 unsignedFlags;"]
+            )
             let output = TypedMixNormalizationOutput(
                 firstWideArgumentNarrowed: first.contains(
                     "source . rgb = mix ( source . xyz , replacement , weight )"
@@ -509,7 +579,37 @@ private struct GenericShaderArtifactHarness {
                     && !userDefined.contains("mix(source.xyz, replacement, weight)"),
                 invalidWeightPreserved:
                     invalidWeight.contains("mix(source, replacement, invalidWeight)")
-                    && !invalidWeight.contains("mix(source.xyz, replacement, invalidWeight)")
+                    && !invalidWeight.contains("mix(source.xyz, replacement, invalidWeight)"),
+                scalarFirstBroadcasted:
+                    scalarFirst.contains("mix(vec3(scalar), replacement"),
+                scalarSecondBroadcasted:
+                    scalarSecond.contains("mix(replacement, vec3(scalar)"),
+                scalarLiteralBroadcasted:
+                    scalarLiteral.contains("mix(vec3(0.25), replacement"),
+                compoundScalarPreserved:
+                    compoundScalar.contains("mix(scalar + weight, replacement")
+                    && !compoundScalar.contains("vec3(scalar + weight)"),
+                userDefinedScalarMixPreserved:
+                    userDefinedScalar.contains("mix(scalar, replacement, weight)")
+                    && !userDefinedScalar.contains("mix(vec3(scalar), replacement"),
+                integerLiteralPreserved:
+                    integerLiteral.contains("mix(1, replacement, weight)")
+                    && !integerLiteral.contains("mix(vec3(1), replacement"),
+                unsignedLiteralPreserved:
+                    unsignedLiteral.contains("mix(1u, replacement, weight)")
+                    && !unsignedLiteral.contains("mix(vec3(1u), replacement"),
+                signedIntegerSwizzlePreserved:
+                    signedIntegerSwizzle.contains(
+                        "mix(signedFlags.x, replacement, weight)"
+                    ) && !signedIntegerSwizzle.contains(
+                        "mix(vec3(signedFlags.x), replacement"
+                    ),
+                unsignedIntegerSwizzlePreserved:
+                    unsignedIntegerSwizzle.contains(
+                        "mix(unsignedFlags.x, replacement, weight)"
+                    ) && !unsignedIntegerSwizzle.contains(
+                        "mix(vec3(unsignedFlags.x), replacement"
+                    )
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -3320,6 +3420,15 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "explicitSwizzlePreserved": True,
             "userDefinedMixPreserved": True,
             "invalidWeightPreserved": True,
+            "scalarFirstBroadcasted": True,
+            "scalarSecondBroadcasted": True,
+            "scalarLiteralBroadcasted": True,
+            "compoundScalarPreserved": True,
+            "userDefinedScalarMixPreserved": True,
+            "integerLiteralPreserved": True,
+            "unsignedLiteralPreserved": True,
+            "signedIntegerSwizzlePreserved": True,
+            "unsignedIntegerSwizzlePreserved": True,
         })
 
     def test_product_normalizer_preserves_vertex_position_contract(self):

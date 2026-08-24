@@ -325,10 +325,6 @@ AUTHORED_EFFECT_GRAPH_TINT_COUNT_RE = re.compile(
     r"^authoredEffectGraphTintCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_GRAPH_COLOR_GRADING_COUNT_RE = re.compile(
-    r"^authoredEffectGraphColorGradingCount: (?P<count>\d+)$",
-    re.MULTILINE,
-)
 AUTHORED_EFFECT_GRAPH_PULSE_COUNT_RE = re.compile(
     r"^authoredEffectGraphPulseCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -3151,11 +3147,6 @@ def authored_effect_graph_tint_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
-def authored_effect_graph_color_grading_count(preview_text: str) -> int | None:
-    match = AUTHORED_EFFECT_GRAPH_COLOR_GRADING_COUNT_RE.search(preview_text)
-    return int(match.group("count")) if match is not None else None
-
-
 def authored_effect_graph_pulse_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_PULSE_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -4651,7 +4642,6 @@ def authored_effect_graph_failures(
     clipping_mask_count: int | None = None,
     blend_count: int | None = None,
     tint_count: int | None = None,
-    color_grading_count: int | None = None,
     pulse_count: int | None = None,
     godrays_count: int | None = None,
     transform_count: int | None = None,
@@ -4694,7 +4684,6 @@ def authored_effect_graph_failures(
         "clipping_mask_count": clipping_mask_count,
         "blend_count": blend_count,
         "tint_count": tint_count,
-        "color_grading_count": color_grading_count,
         "pulse_count": pulse_count,
         "godrays_count": godrays_count,
         "transform_count": transform_count,
@@ -5548,9 +5537,6 @@ def run_sample(
     )
     authored_effect_graph_blend = authored_effect_graph_blend_count(preview_text)
     authored_effect_graph_tint = authored_effect_graph_tint_count(preview_text)
-    authored_effect_graph_color_grading = authored_effect_graph_color_grading_count(
-        preview_text
-    )
     authored_effect_graph_pulse = authored_effect_graph_pulse_count(preview_text)
     authored_effect_graph_godrays = authored_effect_graph_godrays_count(preview_text)
     authored_effect_graph_transform = authored_effect_graph_transform_count(preview_text)
@@ -5770,7 +5756,6 @@ def run_sample(
         clipping_mask_count=authored_effect_graph_clipping_mask,
         blend_count=authored_effect_graph_blend,
         tint_count=authored_effect_graph_tint,
-        color_grading_count=authored_effect_graph_color_grading,
         pulse_count=authored_effect_graph_pulse,
         godrays_count=authored_effect_graph_godrays,
         transform_count=authored_effect_graph_transform,
@@ -6203,7 +6188,6 @@ def run_sample(
             "authored_effect_graph_clipping_mask_count": authored_effect_graph_clipping_mask,
             "authored_effect_graph_blend_count": authored_effect_graph_blend,
             "authored_effect_graph_tint_count": authored_effect_graph_tint,
-            "authored_effect_graph_color_grading_count": authored_effect_graph_color_grading,
             "authored_effect_graph_pulse_count": authored_effect_graph_pulse,
             "authored_effect_graph_godrays_count": authored_effect_graph_godrays,
             "authored_effect_graph_transform_count": authored_effect_graph_transform,
