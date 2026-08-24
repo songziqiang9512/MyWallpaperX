@@ -77,8 +77,7 @@ nonisolated struct SceneEffectStageProgram {
              (.blend, .blend),
              (.transform, .transform),
              (.pulse, .pulse),
-             (.godrays, .godrays),
-             (.shine, .shine):
+             (.godrays, .godrays):
             return true
         default:
             return false

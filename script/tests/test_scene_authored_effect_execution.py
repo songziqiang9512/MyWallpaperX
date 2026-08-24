@@ -235,25 +235,6 @@ enum SceneAuthoredGodraysPlanner {
     }
 }
 
-struct SceneShineExecutionPlan {
-    let layerID: Int
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let firstHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
-    let secondHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
-}
-
-enum SceneAuthoredShinePlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneShineExecutionPlan? {
-        nil
-    }
-}
-
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
         struct PassDescriptor {
@@ -402,11 +383,6 @@ extension SceneAuthoredGodraysPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneGodraysPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .godrays }
 }
-extension SceneAuthoredShinePlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneShineExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .shine }
-}
-
 enum SceneLayerVisibility {
     static func visibleLayerIDs(in descriptor: SceneRenderDescriptor) -> Set<Int> {
         let byID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
@@ -1182,7 +1158,6 @@ enum Harness {
             case .transform: backend = "transform"
             case .pulse: backend = "pulse"
             case .godrays: backend = "godrays"
-            case .shine: backend = "shine"
             }
             return [effectIndex, backend]
         }

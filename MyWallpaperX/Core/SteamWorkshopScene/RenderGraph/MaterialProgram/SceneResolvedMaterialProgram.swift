@@ -1,6 +1,16 @@
 import Foundation
 
 nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
+    enum GenericOwnerFailure: String, Equatable {
+        /// The generic route owns product output and exposes no shared
+        /// rollback for this failure.
+        case productOwnerRevoked = "generic-product-owner-revoked"
+        /// A migrated profile selected its explicit shared rollback, but that
+        /// rollback could not compile. No retained dedicated product owner may
+        /// be revived after this point.
+        case sharedRollbackExhausted = "generic-shared-rollback-exhausted"
+    }
+
     enum EffectLocalVisualFallback: String, Equatable {
         case optionalTextureUnavailable =
             "material-finalizer-optional-texture-unavailable"
@@ -80,6 +90,10 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
     /// GraphExecutor must still prove the exact shared capability profile,
     /// optional sampler role, pair topology and previous-current rollback.
     let effectLocalVisualFallback: EffectLocalVisualFallback?
+    /// Typed product-owner authority propagated from generic artifact routing.
+    /// This is separate from bounded diagnostic strings so owner revocation
+    /// cannot be inferred from compiler prose.
+    let genericOwnerFailure: GenericOwnerFailure?
     let boundedDetails: [String]
 
     init(
@@ -88,6 +102,7 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         slot: Int? = nil,
         provenance: SceneResolvedMaterialNode.TextureProvenance? = nil,
         effectLocalVisualFallback: EffectLocalVisualFallback? = nil,
+        genericOwnerFailure: GenericOwnerFailure? = nil,
         details: [String] = []
     ) {
         self.phase = phase
@@ -95,7 +110,34 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
         self.slot = slot
         self.provenance = provenance
         self.effectLocalVisualFallback = effectLocalVisualFallback
+        self.genericOwnerFailure = genericOwnerFailure
         boundedDetails = details.prefix(8).map { String($0.prefix(160)) }
+    }
+
+    func withGenericOwnerFailure(
+        _ failure: GenericOwnerFailure?
+    ) -> Self {
+        guard let failure, genericOwnerFailure == nil else { return self }
+        return .init(
+            phase: phase,
+            code: code,
+            slot: slot,
+            provenance: provenance,
+            effectLocalVisualFallback: effectLocalVisualFallback,
+            genericOwnerFailure: failure,
+            details: boundedDetails
+        )
+    }
+
+    var mapsToGenericOwnerRevokedVisualFailure: Bool {
+        switch genericOwnerFailure {
+        case .productOwnerRevoked?:
+            true
+        case .sharedRollbackExhausted?:
+            code == .shaderFrontendFailed
+        case nil:
+            false
+        }
     }
 }
 

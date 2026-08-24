@@ -57,7 +57,6 @@ final class SceneBlendPipeline {
     }
 }
 final class ScenePulsePipeline { init?(device: MTLDevice) {} }
-final class SceneShinePipeline { init?(device: MTLDevice) {} }
 
 final class SceneGodraysPipeline {
     static let attempts = Counter()

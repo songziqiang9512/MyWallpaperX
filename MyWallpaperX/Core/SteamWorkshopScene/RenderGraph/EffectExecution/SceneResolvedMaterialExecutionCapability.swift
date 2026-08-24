@@ -146,6 +146,13 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
         let code: String
         let programFailureAttribution: ProgramFailureAttribution?
+
+        var revokesDedicatedProductOwner: Bool {
+            guard let attribution = programFailureAttribution,
+                  case let .launchEnvelope(.material(failure)) =
+                    attribution.cause else { return false }
+            return failure.genericOwnerFailure != nil
+        }
     }
 
     struct Token: Hashable {

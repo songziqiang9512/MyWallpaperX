@@ -67,12 +67,6 @@ targets: targets,
                 uniforms: sourceUniforms, sourcePipeline: pipeline,
                 pipelines: pipelines, time: time, commandBuffer: commandBuffer
             )
-        case .shine(let shine):
-            return renderShine(
-                shine, source: sourceTexture, masks: masks, targets: targets,
-                uniforms: sourceUniforms, sourcePipeline: pipeline,
-                pipelines: pipelines, time: time, commandBuffer: commandBuffer
-            )
         case .pulse(let pulse):
             guard let pulsePipeline = pipelines.pulse else { return nil }
             return renderPulse(

@@ -8,7 +8,6 @@ struct SceneImageLayerMasks {
     let waterCausticsEffects: [String: SceneWaterCausticsEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
     let godraysEffects: [String: SceneGodraysEffectTextures]
-    let shineEffects: [String: SceneShineEffectTextures]
     let xRay: SceneXRayEffectTextures?
 
     static let empty = SceneImageLayerMasks(
@@ -18,7 +17,6 @@ struct SceneImageLayerMasks {
         waterCausticsEffects: [:],
         pulseEffects: [:],
         godraysEffects: [:],
-        shineEffects: [:],
         xRay: nil
     )
 
@@ -30,7 +28,6 @@ struct SceneImageLayerMasks {
             waterCausticsEffects: [:],
             pulseEffects: [:],
             godraysEffects: [:],
-            shineEffects: [:],
             xRay: xRay
         )
     }
@@ -76,7 +73,6 @@ struct SceneImageLayerMasks {
             || hasValue(standardBlurEffects) { $0.maskCandidate != nil }
             || hasValue(waterCausticsEffects) { $0.mask != nil }
             || hasValue(godraysEffects) { $0.mask != nil }
-            || hasValue(shineEffects) { $0.mask != nil }
             || (xRay.map {
                 effectIDs.contains($0.effectID) && $0.opacityMask != nil
             } ?? false)

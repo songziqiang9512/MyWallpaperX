@@ -505,12 +505,24 @@ enum SceneResolvedMaterialShaderSchema {
 }
 
 struct SceneResolvedMaterialFailure: Error {
+    enum GenericOwnerFailure { case productOwnerRevoked, sharedRollbackExhausted }
     enum Phase: String { case invariant }
-    enum Code: String { case identityInvariant, genericProductOwnerDeferred }
+    enum Code: String {
+        case identityInvariant, genericProductOwnerDeferred, shaderFrontendFailed
+    }
     let phase: Phase = .invariant
     let code: Code = .identityInvariant
     let slot: Int? = nil
+    let genericOwnerFailure: GenericOwnerFailure? = nil
     let boundedDetails: [String] = []
+
+    var mapsToGenericOwnerRevokedVisualFailure: Bool {
+        switch genericOwnerFailure {
+        case .productOwnerRevoked?: true
+        case .sharedRollbackExhausted?: code == .shaderFrontendFailed
+        case nil: false
+        }
+    }
 }
 
 struct SceneResolvedMaterialRuntimeCatalog {
@@ -6936,7 +6948,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "||(plan.direction?.isFinite==true&&plan.usesDirectionalGaussianKernel)",
             logical_compact,
         )
-        self.assertIn("case .shine:", logical_body)
+        self.assertNotIn(".shine", source)
         self.assertNotIn("case .cursorRipple:", logical_body)
 
         capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")

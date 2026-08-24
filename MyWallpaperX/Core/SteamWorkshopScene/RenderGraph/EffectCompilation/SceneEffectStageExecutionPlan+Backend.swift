@@ -13,7 +13,6 @@ extension SceneEffectStageExecutionPlan {
         case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
-        case shine(SceneShineExecutionPlan)
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
@@ -41,8 +40,6 @@ extension SceneEffectStageExecutionPlan {
         case .godrays(let plan):
             return (plan.direction == nil && !plan.usesDirectionalGaussianKernel)
                 || (plan.direction?.isFinite == true && plan.usesDirectionalGaussianKernel)
-        case .shine:
-            return true
         default:
             return false
         }
@@ -100,11 +97,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var godrays: SceneGodraysPlan? {
         guard case .godrays(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var shine: SceneShineExecutionPlan? {
-        guard case .shine(let plan) = backend else { return nil }
         return plan
     }
 

@@ -135,7 +135,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 default: return .notApplicable
                 }
             }
-            let activeSources = activeSchemaSources(pair)
+            let activeSources = activeSchemaSources(pair, graph: graph)
             let signature = SceneShaderStableDigest.hash(PreparationIterationIdentity(
                 vertexPreparedSHA256: pair.vertex.preparedSHA256,
                 fragmentPreparedSHA256: pair.fragment.preparedSHA256,
@@ -196,7 +196,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
     }
 
     private nonisolated static func activeSchemaSources(
-        _ pair: PreparedPair
+        _ pair: PreparedPair,
+        graph: SceneShaderSourceGraph
     ) -> [SceneShaderVariantSchemaSource] {
         var annotations: [String: [SceneShaderContract.Annotation]] = [:]
         var declarations: [String: [SceneShaderContract.Declaration]] = [:]
@@ -214,11 +215,12 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 declarations[active.sourcePath, default: []].append(active.declaration)
             }
         }
-        return Set(annotations.keys).union(declarations.keys).sorted().map { path in
+        return graph.nodes.sorted { $0.virtualPath < $1.virtualPath }.map { node in
             .init(
-                relativePath: path,
-                annotations: annotations[path] ?? [],
-                declarations: declarations[path] ?? []
+                relativePath: node.virtualPath,
+                source: node.source,
+                annotations: annotations[node.virtualPath] ?? [],
+                declarations: declarations[node.virtualPath] ?? []
             )
         }
     }

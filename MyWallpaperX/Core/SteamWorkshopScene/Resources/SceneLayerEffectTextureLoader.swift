@@ -12,7 +12,6 @@ enum SceneLayerEffectTextureLoader {
         waterWavesEffectIDs: Set<String> = [],
         waterCausticsPlans: [SceneWaterCausticsExecutionPlan] = [],
         godraysEffectIDs: Set<String> = [],
-        shineEffectIDs: Set<String> = [],
         userPropertyTextures: [String: MTLTexture] = [:],
         userPropertyTextureStates: [
             SceneUserPropertyTextureIdentity: SceneTextureProviderState
@@ -67,13 +66,6 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
-        let shineEffects = SceneShineEffectTextureLoader.load(
-            for: layer,
-            effectIDs: shineEffectIDs,
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
         return SceneLayerEffectTextures(
             blendEffects: blend.textures,
             standardBlurEffects: standardBlur.textures,
@@ -81,7 +73,6 @@ enum SceneLayerEffectTextureLoader {
             waterCausticsEffects: waterCaustics.textures,
             pulseEffects: pulseEffects.textures,
             godraysEffects: godraysEffects.textures,
-            shineEffects: shineEffects.textures,
             xRay: xRay.textures,
             message: [
                 blend.message,
@@ -89,7 +80,6 @@ enum SceneLayerEffectTextureLoader {
                 waterWaves.message,
                 waterCaustics.message,
                 pulseEffects.message, godraysEffects.message,
-                shineEffects.message,
                 xRay.message,
             ].joined()
         )

@@ -39,8 +39,6 @@ EXPECTED_PURPOSES = {
     "godrays effect mask": "mask",
     "pulse noise": "noise",
     "pulse effect mask": "mask",
-    "shine noise": "noise",
-    "shine effect mask": "mask",
     "standard blur mask": "mask",
     "waterwaves mask": "mask",
     "xray blend": "straightAlbedo",

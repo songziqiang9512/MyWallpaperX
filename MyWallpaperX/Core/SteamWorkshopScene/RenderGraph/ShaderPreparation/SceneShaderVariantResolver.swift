@@ -63,6 +63,8 @@ nonisolated enum SceneShaderVariantResolver {
         }
 
         let explicit = explicitCombos.mapValues(Int64.init)
+        let implicitDisabledOptions = SceneShaderImplicitDisabledOptionAdmission
+            .admittedCombos(in: schemaSources)
         let inactiveProviders = inactiveComboProviders.subtracting(explicit.keys)
         if let disabled = schemas.first(where: {
             $0.isDisabledCombo && explicit[$0.combo] != nil
@@ -107,6 +109,7 @@ nonisolated enum SceneShaderVariantResolver {
             try resolveAuthoredCombos(
                 schemas.filter(\.isAuthoredComboMarker),
                 explicit: explicit,
+                implicitDisabledOptions: implicitDisabledOptions,
                 definitions: &baseDefinitions,
                 provenance: &baseProvenance
             )
@@ -213,6 +216,7 @@ nonisolated enum SceneShaderVariantResolver {
     private static func resolveAuthoredCombos(
         _ schemas: [Schema],
         explicit: [String: Int64],
+        implicitDisabledOptions: Set<String>,
         definitions: inout [String: SceneShaderMacroDefinition],
         provenance: inout [String: SceneShaderComboProvenance]
     ) throws {
@@ -229,6 +233,12 @@ nonisolated enum SceneShaderVariantResolver {
                 )
             }
             if explicit[combo] != nil { continue }
+            if defaults.isEmpty,
+               implicitDisabledOptions.contains(combo) {
+                definitions[combo] = .undefined
+                provenance[combo] = .annotationImplicitDisabledOption
+                continue
+            }
             guard defaults.count == comboSchemas.count,
                   let value = uniqueDefaults.first else {
                 throw Failure(

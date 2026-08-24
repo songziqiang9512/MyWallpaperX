@@ -297,18 +297,6 @@ AUTHORED_EFFECT_GRAPH_CURSOR_RIPPLE_OMITTED_EFFECTS_RE = re.compile(
     r"^authoredEffectGraphCursorRippleOmittedEffects: ?(?P<effects>.*)$",
     re.MULTILINE,
 )
-AUTHORED_EFFECT_GRAPH_SHINE_COUNT_RE = re.compile(
-    r"^authoredEffectGraphShineCount: (?P<count>\d+)$",
-    re.MULTILINE,
-)
-AUTHORED_EFFECT_GRAPH_SHINE_ISOLATED_COUNT_RE = re.compile(
-    r"^authoredEffectGraphShineIsolatedCount: (?P<count>\d+)$",
-    re.MULTILINE,
-)
-AUTHORED_EFFECT_GRAPH_SHINE_OMITTED_EFFECTS_RE = re.compile(
-    r"^authoredEffectGraphShineOmittedEffects: ?(?P<effects>.*)$",
-    re.MULTILINE,
-)
 AUTHORED_EFFECT_GRAPH_CLIPPING_MASK_COUNT_RE = re.compile(
     r"^authoredEffectGraphClippingMaskCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -3099,28 +3087,6 @@ def authored_effect_graph_cursor_ripple_omitted_effects(
     return effects.split(";") if effects else []
 
 
-def authored_effect_graph_shine_count(preview_text: str) -> int | None:
-    match = AUTHORED_EFFECT_GRAPH_SHINE_COUNT_RE.search(preview_text)
-    return int(match.group("count")) if match is not None else None
-
-
-def authored_effect_graph_shine_isolated_count(
-    preview_text: str,
-) -> int | None:
-    match = AUTHORED_EFFECT_GRAPH_SHINE_ISOLATED_COUNT_RE.search(preview_text)
-    return int(match.group("count")) if match is not None else None
-
-
-def authored_effect_graph_shine_omitted_effects(
-    preview_text: str,
-) -> list[str] | None:
-    match = AUTHORED_EFFECT_GRAPH_SHINE_OMITTED_EFFECTS_RE.search(preview_text)
-    if match is None:
-        return None
-    effects = match.group("effects").strip()
-    return effects.split(";") if effects else []
-
-
 def authored_effect_graph_clipping_mask_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_CLIPPING_MASK_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -4624,9 +4590,6 @@ def authored_effect_graph_failures(
     cursor_ripple_count: int | None = None,
     cursor_ripple_isolated_count: int | None = None,
     cursor_ripple_omitted_effects: list[str] | None = None,
-    shine_count: int | None = None,
-    shine_isolated_count: int | None = None,
-    shine_omitted_effects: list[str] | None = None,
     clipping_mask_count: int | None = None,
     blend_count: int | None = None,
     tint_count: int | None = None,
@@ -4665,9 +4628,6 @@ def authored_effect_graph_failures(
         "cursor_ripple_count": cursor_ripple_count,
         "cursor_ripple_isolated_count": cursor_ripple_isolated_count,
         "cursor_ripple_omitted_effects": cursor_ripple_omitted_effects,
-        "shine_count": shine_count,
-        "shine_isolated_count": shine_isolated_count,
-        "shine_omitted_effects": shine_omitted_effects,
         "clipping_mask_count": clipping_mask_count,
         "blend_count": blend_count,
         "tint_count": tint_count,
@@ -5509,13 +5469,6 @@ def run_sample(
     authored_effect_graph_cursor_ripple_omitted = (
         authored_effect_graph_cursor_ripple_omitted_effects(preview_text)
     )
-    authored_effect_graph_shine = authored_effect_graph_shine_count(preview_text)
-    authored_effect_graph_shine_isolated = (
-        authored_effect_graph_shine_isolated_count(preview_text)
-    )
-    authored_effect_graph_shine_omitted = authored_effect_graph_shine_omitted_effects(
-        preview_text
-    )
     authored_effect_graph_clipping_mask = authored_effect_graph_clipping_mask_count(
         preview_text
     )
@@ -5733,9 +5686,6 @@ def run_sample(
         cursor_ripple_count=authored_effect_graph_cursor_ripple,
         cursor_ripple_isolated_count=authored_effect_graph_cursor_ripple_isolated,
         cursor_ripple_omitted_effects=authored_effect_graph_cursor_ripple_omitted,
-        shine_count=authored_effect_graph_shine,
-        shine_isolated_count=authored_effect_graph_shine_isolated,
-        shine_omitted_effects=authored_effect_graph_shine_omitted,
         clipping_mask_count=authored_effect_graph_clipping_mask,
         blend_count=authored_effect_graph_blend,
         tint_count=authored_effect_graph_tint,
@@ -6164,9 +6114,6 @@ def run_sample(
             "authored_effect_graph_cursor_ripple_count": authored_effect_graph_cursor_ripple,
             "authored_effect_graph_cursor_ripple_isolated_count": authored_effect_graph_cursor_ripple_isolated,
             "authored_effect_graph_cursor_ripple_omitted_effects": authored_effect_graph_cursor_ripple_omitted,
-            "authored_effect_graph_shine_count": authored_effect_graph_shine,
-            "authored_effect_graph_shine_isolated_count": authored_effect_graph_shine_isolated,
-            "authored_effect_graph_shine_omitted_effects": authored_effect_graph_shine_omitted,
             "authored_effect_graph_clipping_mask_count": authored_effect_graph_clipping_mask,
             "authored_effect_graph_blend_count": authored_effect_graph_blend,
             "authored_effect_graph_tint_count": authored_effect_graph_tint,

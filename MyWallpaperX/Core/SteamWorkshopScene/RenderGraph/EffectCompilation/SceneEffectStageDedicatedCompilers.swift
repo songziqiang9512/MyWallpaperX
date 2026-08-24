@@ -163,8 +163,3 @@ extension SceneAuthoredGodraysPlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneGodraysPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .godrays }
 }
-
-extension SceneAuthoredShinePlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneShineExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .shine }
-}

@@ -157,16 +157,6 @@ extension SceneEffectStageRenderer {
                 return "godrays-resource-missing"
             }
             return nil
-        case .shine(let plan):
-            guard pipelines.shine != nil else {
-                return "shine-pipeline-missing"
-            }
-            guard let resources = inputs.masks.shineEffects[
-                plan.effectKey.descriptorID
-            ], resources.matches(plan) else {
-                return "shine-resource-missing"
-            }
-            return nil
         case .proceduralNoise(let plan):
             guard proceduralNoiseDependencyMatches(
                 inputs.dependencyEffect,

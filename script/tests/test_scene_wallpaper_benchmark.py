@@ -2299,65 +2299,6 @@ utility layer 763: skippedHidden kind=composition
             benchmark.authored_effect_graph_cursor_ripple_omitted_effects("")
         )
 
-    def test_authored_shine_count_is_an_exact_gate(self) -> None:
-        preview = (
-            "authoredEffectGraphShineCount: 4\n"
-            "authoredEffectGraphShineIsolatedCount: 0\n"
-            "authoredEffectGraphShineOmittedEffects: \n"
-        )
-        self.assertEqual(benchmark.authored_effect_graph_shine_count(preview), 4)
-        self.assertEqual(
-            benchmark.authored_effect_graph_shine_isolated_count(preview), 0
-        )
-        self.assertEqual(
-            benchmark.authored_effect_graph_shine_omitted_effects(preview), [],
-        )
-        self.assertEqual(
-            benchmark.authored_effect_graph_failures(
-                {
-                    "expected_authored_effect_graph_shine_count": 4,
-                    "expected_authored_effect_graph_shine_isolated_count": 0,
-                    "expected_authored_effect_graph_shine_omitted_effects": [],
-                },
-                None,
-                shine_count=4,
-                shine_isolated_count=0,
-                shine_omitted_effects=[],
-            ),
-            [],
-        )
-        self.assertIn(
-            "Shine count mismatch",
-            benchmark.authored_effect_graph_failures(
-                {"expected_authored_effect_graph_shine_count": 0},
-                None,
-                shine_count=4,
-            )[0],
-        )
-        self.assertIn(
-            "isolated Shine count mismatch",
-            benchmark.authored_effect_graph_failures(
-                {"expected_authored_effect_graph_shine_isolated_count": 1},
-                None,
-                shine_isolated_count=0,
-            )[0],
-        )
-        self.assertIn(
-            "Shine omissions mismatch",
-            benchmark.authored_effect_graph_failures(
-                {
-                    "expected_authored_effect_graph_shine_omitted_effects": [
-                        "layer=59,omitted=effects/shake/effect.json"
-                    ]
-                },
-                None,
-                shine_omitted_effects=[],
-            )[0],
-        )
-        self.assertIsNone(benchmark.authored_effect_graph_shine_count(""))
-        self.assertIsNone(benchmark.authored_effect_graph_shine_isolated_count(""))
-        self.assertIsNone(benchmark.authored_effect_graph_shine_omitted_effects(""))
-
     def test_interactive_effect_counts_are_exact_gates(self) -> None:
         preview = (
             "authoredEffectGraphFoliageSwayCount: 3\n"

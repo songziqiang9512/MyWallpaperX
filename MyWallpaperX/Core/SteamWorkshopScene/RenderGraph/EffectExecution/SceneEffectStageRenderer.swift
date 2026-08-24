@@ -77,7 +77,7 @@ targets: targets,
             )
         case .waterWaves, .waterCaustics,
              .xRay, .blend, .transform,
-             .godrays, .shine, .pulse:
+             .godrays, .pulse:
             return renderSpecializedStage(
                 stage, sourceTexture: sourceTexture, masks: masks,
 targets: targets, dynamicValues: dynamicValues,

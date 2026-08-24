@@ -158,9 +158,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     ))
                 }
                 if case let .material(materialFailure) = failure,
-                   materialFailure.boundedDetails.contains(
-                       "bounded-frontend-owner-revoked"
-                   ) {
+                   materialFailure.mapsToGenericOwnerRevokedVisualFailure {
                     return .failure(envelopeRejection(
                         failure,
                         node: node,

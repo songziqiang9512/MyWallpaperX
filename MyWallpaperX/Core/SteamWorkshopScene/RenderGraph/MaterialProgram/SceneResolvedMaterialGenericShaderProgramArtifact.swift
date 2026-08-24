@@ -186,9 +186,22 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         case let ("straight-alpha-preserving", slot?, nil):
             guard bindings.contains(where: { $0.slot == slot }) else { return nil }
             colorTransfer = .straightAlphaPreserving(textureSlot: slot)
+        case let ("independent-alpha-signal", slot?, nil):
+            guard bindings.contains(where: { $0.slot == slot }) else { return nil }
+            colorTransfer = .independentAlphaSignal(textureSlot: slot)
         case let ("independent-alpha-signal-preserving", slot?, nil):
             guard bindings.contains(where: { $0.slot == slot }) else { return nil }
             colorTransfer = .independentAlphaSignalPreserving(textureSlot: slot)
+        case let ("independent-alpha-signal-compositing", nil, slots?):
+            guard slots.count == 2,
+                  slots[0] != slots[1],
+                  slots.allSatisfy({ slot in
+                      bindings.contains(where: { $0.slot == slot })
+                  }) else { return nil }
+            colorTransfer = .independentAlphaSignalCompositing(
+                signalSlot: slots[0],
+                colorSlot: slots[1]
+            )
         case ("red-green-unorm-data", nil, nil):
             guard outputSemantics == .redGreenUnorm else { return nil }
             colorTransfer = .unresolved
@@ -198,8 +211,13 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         default:
             return nil
         }
-        let requiresExactExpectedTransfer = if case
-            .independentAlphaSignalPreserving = colorTransfer { true } else { false }
+        let requiresExactExpectedTransfer: Bool = switch colorTransfer {
+        case .independentAlphaSignal,
+             .independentAlphaSignalPreserving,
+             .independentAlphaSignalCompositing:
+            true
+        default: false
+        }
         guard outputSemantics != .color
                 ? colorTransfer == .unresolved
                 : requiresExactExpectedTransfer

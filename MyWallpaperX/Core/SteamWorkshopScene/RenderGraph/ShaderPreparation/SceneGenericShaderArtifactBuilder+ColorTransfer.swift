@@ -109,14 +109,37 @@ extension SceneGenericShaderArtifactBuilder {
                     slot: slot
                 )
             )
+        case let .independentAlphaSignal(textureSlot: slot):
+            guard let lowered =
+                    SceneGenericShaderIndependentSignalLowering.lowerProducer(
+                        source,
+                        expectedSlot: slot
+                    ) else { throw Failure.colorTransfer }
+            return (
+                lowered,
+                artifactTransfer(kind: "independent-alpha-signal", slot: slot)
+            )
+        case let .independentAlphaSignalCompositing(signalSlot, colorSlot):
+            guard let lowered =
+                    SceneGenericShaderIndependentSignalCompositingLowering.lower(
+                        source,
+                        expectedSignalSlot: signalSlot,
+                        expectedColorSlot: colorSlot
+                    ) else { throw Failure.colorTransfer }
+            return (
+                lowered,
+                .init(
+                    kind: "independent-alpha-signal-compositing",
+                    slot: nil,
+                    slots: [signalSlot, colorSlot]
+                )
+            )
         case .unresolved:
             // A compiler artifact may prove a form outside the bounded source
             // analyzer. The cache consumer still rejects any artifact that
             // contradicts a source fact that the shared analyzer did prove.
             return try prepareCompilerProvenColorTransfer(source)
-        case .straightAlphaUNorm,
-             .independentAlphaSignal,
-             .independentAlphaSignalCompositing:
+        case .straightAlphaUNorm:
             throw Failure.colorTransfer
         }
     }
@@ -194,6 +217,7 @@ extension SceneGenericShaderArtifactBuilder {
         case let ("passthrough", slot?, nil),
              let ("straight-alpha", slot?, nil),
              let ("straight-alpha-preserving", slot?, nil),
+             let ("independent-alpha-signal", slot?, nil),
              let ("independent-alpha-signal-preserving", slot?, nil):
             return boundSlots.contains(slot)
         case let ("interpolated-color", nil, slots?):
@@ -202,6 +226,10 @@ extension SceneGenericShaderArtifactBuilder {
                 && slots == slots.sorted()
                 && Set(slots).count == slots.count
                 && Set(slots).isSubset(of: boundSlots)
+        case let ("independent-alpha-signal-compositing", nil, slots?):
+            return slots.count == 2
+                && slots[0] != slots[1]
+                && slots.allSatisfy(boundSlots.contains)
         case ("opaque", nil, nil), ("premultiplied", nil, nil),
              ("red-green-unorm-data", nil, nil),
              ("preserved-rgba-data", nil, nil):

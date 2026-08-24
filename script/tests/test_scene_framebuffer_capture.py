@@ -626,7 +626,6 @@ struct SceneBlendEffectTextures {
         case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
-        case shine(SceneShineExecutionPlan)
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
@@ -652,7 +651,6 @@ struct SceneBlendEffectTextures {
             case .transform: "transform"
             case .pulse: "pulse"
             case .godrays: "godrays"
-            case .shine: "shine"
             }
         }
     }
@@ -700,11 +698,6 @@ struct SceneBlendEffectTextures {
         return plan
     }
 
-    var shine: SceneShineExecutionPlan? {
-        guard case .shine(let plan) = backend else { return nil }
-        return plan
-    }
-
     var executionFamilyStableName: String {
         backend.stableName
     }
@@ -743,8 +736,6 @@ struct SceneBlendEffectTextures {
         case .godrays(let plan):
             return (plan.direction == nil && !plan.usesDirectionalGaussianKernel)
                 || (plan.direction?.isFinite == true && plan.usesDirectionalGaussianKernel)
-        case .shine:
-            return true
         default:
             return false
         }
@@ -877,52 +868,6 @@ enum SceneGodraysRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard let resources = masks.godraysEffects[plan.effectKey.descriptorID],
-              resources.matches(plan),
-              targets.texture(for: plan.firstHalfTarget) != nil,
-              targets.texture(for: plan.secondHalfTarget) != nil else {
-            return nil
-        }
-        return targets.outputTexture
-    }
-}
-
-struct SceneShineExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let firstHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
-    let secondHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
-    let maskTexturePath: String?
-    let noiseTexturePath: String
-}
-
-struct SceneShineEffectTextures {
-    let mask: MTLTexture?
-    let maskPath: String?
-    let noise: MTLTexture?
-    let noisePath: String
-
-    func matches(_ plan: SceneShineExecutionPlan) -> Bool {
-        guard noise != nil, noisePath == plan.noiseTexturePath else { return false }
-        return plan.maskTexturePath == nil ? maskPath == nil : mask != nil
-    }
-}
-
-struct SceneShinePipeline {
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-enum SceneShineRenderer {
-    static func renderCaptured(
-        plan: SceneShineExecutionPlan,
-        sourceTexture: MTLTexture,
-        masks: SceneImageLayerMasks,
-        targets: SceneGraphRenderTargetTable,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        sourcePipeline: SceneImageLayerPipeline,
-        shinePipeline: SceneShinePipeline,
-        time: Float,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        guard let resources = masks.shineEffects[plan.effectKey.descriptorID],
               resources.matches(plan),
               targets.texture(for: plan.firstHalfTarget) != nil,
               targets.texture(for: plan.secondHalfTarget) != nil else {
@@ -1585,11 +1530,6 @@ enum Harness {
             queue: queue,
             pipeline: pipeline
         )
-        let authoredShinePrepared = try authoredShinePreparedEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline
-        )
         let standardBlurAlphaAwareDownsample = try alphaAwareDownsamplePixel(
             device: device,
             queue: queue
@@ -1658,7 +1598,6 @@ enum Harness {
             "authoredStandardCandidate": authoredStandardCandidate,
             "authoredLocalContrastPrepared": authoredLocalContrastPrepared,
             "authoredGodraysPrepared": authoredGodraysPrepared,
-            "authoredShinePrepared": authoredShinePrepared,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
             "standardBlurMaskPixels": standardBlurMaskPixels,
             "mappedMaskScale": [mappedMaskScale.x, mappedMaskScale.y],
@@ -2047,7 +1986,6 @@ enum Harness {
             waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:],
             pulseEffects: [String: ScenePulseEffectTextures] = [:],
             godraysEffects: [String: SceneGodraysEffectTextures] = [:],
-            shineEffects: [String: SceneShineEffectTextures] = [:],
             xRay: SceneXRayEffectTextures? = nil
         ) -> SceneImageLayerMasks {
             SceneImageLayerMasks(
@@ -2057,7 +1995,6 @@ enum Harness {
                 waterCausticsEffects: waterCausticsEffects,
                 pulseEffects: pulseEffects,
                 godraysEffects: godraysEffects,
-                shineEffects: shineEffects,
                 xRay: xRay
             )
         }
@@ -2603,14 +2540,6 @@ enum Harness {
                     maskUVScale: SIMD2(repeating: 1),
                     maskPath: "fixture/mask",
                     noise: nil
-                ),
-            ])),
-            ("shine", masks(shineEffects: [
-                visibleEffectID: SceneShineEffectTextures(
-                    mask: dependency,
-                    maskPath: "fixture/mask",
-                    noise: nil,
-                    noisePath: "fixture/noise"
                 ),
             ])),
             ("xray", masks(xRay: SceneXRayEffectTextures(
@@ -3772,87 +3701,6 @@ enum Harness {
         ]
     }
 
-    static func authoredShinePreparedEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline
-    ) throws -> [String: Any] {
-        let size = 16
-        guard let noise = makeTexture(device: device, size: size, usage: .shaderRead),
-              let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(noise, bgra: [127, 127, 127, 255])
-        let plan = authoredShinePlan()
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let frameTables = try prepareStageTargets(
-            plan: plan,
-            pool: pool,
-            width: size,
-            height: size,
-            commandBuffer: commandBuffer
-        )
-        defer { frameTables.commit.releaseAll() }
-        guard let table = frameTables.tables.first,
-              let shine = plan.shine else {
-            throw HarnessError.drawRefused
-        }
-        let resources = SceneShineEffectTextures(
-            mask: nil,
-            maskPath: nil,
-            noise: noise,
-            noisePath: shine.noiseTexturePath
-        )
-        func preparation(
-            resources: [String: SceneShineEffectTextures]
-        ) -> SceneEffectStageRenderer.StagePreparation {
-            SceneEffectStageRenderer.prepareStage(
-                plan,
-                sourceTexture: table.inputTexture,
-                targets: table,
-                inputs: .init(
-                    masks: authoredEffectMasks(shineEffects: resources),
-                    dynamicValues: .empty(frameIndex: 1),
-                    pipelines: .init(
-                        repository: SceneImageEffectPipelineRepository(device: device)
-                    ),
-                    cursorUV: .zero,
-                    previousCursorUV: .zero,
-                    pointerIsInside: false,
-                    previousPointerIsInside: false,
-                    pointerMovement: 0,
-                    primaryButtonIsDown: false,
-                    frameTime: 1 / 60,
-                    time: 0,
-                    audioSpectrum: .silent,
-                    dependencyEffect: nil
-                ),
-                sourcePipeline: pipeline,
-                time: 0
-            )
-        }
-        let accepted = preparation(
-            resources: [shine.effectKey.descriptorID: resources]
-        )
-        guard case let .ready(prepared) = accepted,
-              SceneEffectStageRenderer.encodePreparedStage(
-                  prepared,
-                  commandBuffer: commandBuffer
-              ) else { throw HarnessError.drawRefused }
-        let missing = preparation(resources: [:])
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed,
-              commandBuffer.error == nil else { throw HarnessError.commandFailed }
-        let missingReason: String?
-        if case let .rejected(reason) = missing { missingReason = reason }
-        else { missingReason = nil }
-        return [
-            "preparedStageEncoded": true,
-            "missingResourceReason": missingReason as Any,
-        ]
-    }
-
     static func textureCandidate(
         texture: MTLTexture,
         purpose: SceneTextureLoadPurpose,
@@ -3909,7 +3757,6 @@ enum Harness {
             waterCausticsEffects: [:],
             pulseEffects: [:],
             godraysEffects: [:],
-            shineEffects: [:],
             xRay: nil
         )
     }
@@ -4697,86 +4544,6 @@ enum Harness {
         )
     }
 
-    static func authoredShinePlan() -> SceneEffectStageExecutionPlan {
-        let layerID = 833
-        let effectKey = Graph.EffectKey(
-            layerID: layerID,
-            effectIndex: 0,
-            descriptorID: "\(layerID)#effect#0"
-        )
-        let input = graphTexture(.layerSource, layerID: layerID)
-        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
-        let firstHalf = graphTexture(
-            .framebuffer,
-            layerID: layerID,
-            effect: effectKey,
-            name: "_rt_HalfCompoBuffer1"
-        )
-        let secondHalf = graphTexture(
-            .framebuffer,
-            layerID: layerID,
-            effect: effectKey,
-            name: "_rt_HalfCompoBuffer2"
-        )
-        let targets = [firstHalf, secondHalf, firstHalf, secondHalf, output]
-        let nodes = targets.indices.map { index in
-            Graph.Node(
-                nodeIndex: index,
-                effect: effectKey,
-                definitionPassIndex: index,
-                materialOrdinal: index,
-                instancePassIndex: index,
-                kind: .material,
-                materialPath: "materials/effects/shine_\(index).json",
-                materialPassID: "materials/effects/shine_\(index).json#0",
-                target: targets[index],
-                bindings: [],
-                commandSource: nil,
-                commandTarget: nil,
-                compose: nil,
-                conditions: nil
-            )
-        }
-        let effect = Graph.Effect(
-            key: effectKey,
-            definitionPath: "effects/shine/effect.json",
-            input: input,
-            output: output,
-            nodeIndices: nodes.map(\.nodeIndex)
-        )
-        let graph = Graph(
-            layerID: layerID,
-            effects: [effect],
-            renderTargets: [firstHalf, secondHalf].map {
-                .init(
-                    texture: $0,
-                    extent: .init(kind: .scale, first: 2, second: nil),
-                    format: "rgba_backbuffer",
-                    declaredUnique: false,
-                    clear: nil,
-                    uvs: nil,
-                    conditions: nil
-                )
-            },
-            nodes: nodes,
-            finalOutput: output,
-            blockers: []
-        )
-        return SceneEffectStageExecutionPlan(
-            layerID: layerID,
-            renderGraph: graph,
-            backend: .shine(SceneShineExecutionPlan(
-                effectKey: effectKey,
-                firstHalfTarget: firstHalf,
-                secondHalfTarget: secondHalf,
-                maskTexturePath: nil,
-                noiseTexturePath: "util/clouds_256"
-            )),
-            materialNodeCount: 5,
-            logicalRenderTargetCount: 2
-        )
-    }
-
     static func externalProceduralNoiseStage()
         -> SceneEffectStageExecutionPlan {
         let layerID = 847
@@ -4863,7 +4630,6 @@ enum Harness {
     static func authoredEffectMasks(
         blendEffects: [String: SceneBlendEffectTextures] = [:],
         godraysEffects: [String: SceneGodraysEffectTextures] = [:],
-        shineEffects: [String: SceneShineEffectTextures] = [:],
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
             blendEffects: blendEffects,
@@ -4872,7 +4638,6 @@ enum Harness {
             waterCausticsEffects: [:],
             pulseEffects: [:],
             godraysEffects: godraysEffects,
-            shineEffects: shineEffects,
             xRay: nil
         )
     }
@@ -5390,7 +5155,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "mask-waterWaves",
                 "mask-waterCaustics",
                 "mask-godrays",
-                "mask-shine",
                 "mask-xray",
             },
         )
@@ -5631,15 +5395,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertEqual(
             evidence["legacyMissingResourceReason"],
             "godrays-resource-missing",
-            evidence,
-        )
-
-    def test_stock_shine_prepared_stage_requires_resources(self) -> None:
-        evidence = self.result["authoredShinePrepared"]
-        self.assertTrue(evidence["preparedStageEncoded"], evidence)
-        self.assertEqual(
-            evidence["missingResourceReason"],
-            "shine-resource-missing",
             evidence,
         )
 

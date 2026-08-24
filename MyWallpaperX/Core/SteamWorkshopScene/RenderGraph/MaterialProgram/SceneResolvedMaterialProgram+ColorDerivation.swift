@@ -163,7 +163,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         case let .independentAlphaSignal(slot):
             guard let representation = representation(
                 slot: slot, textureFacts: textureFacts
-            ), representation == .opaque || representation == .premultipliedAlpha else {
+            ), representation == .opaque || representation == .premultipliedAlpha,
+               auxiliarySlotsAreData(textureFacts, excluding: [slot]) else {
                 return nil
             }
             fragmentOutput = .independentAlphaSignal

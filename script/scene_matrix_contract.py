@@ -216,25 +216,6 @@ AUTHORED_EFFECT_RUNTIME_EXPECTATIONS = (
         optional_group="cursor_ripple",
     ),
     RuntimeExpectation(
-        "expected_authored_effect_graph_shine_count",
-        "shine_count",
-        "authored effect graph Shine count mismatch",
-        optional_group="shine",
-    ),
-    RuntimeExpectation(
-        "expected_authored_effect_graph_shine_isolated_count",
-        "shine_isolated_count",
-        "authored effect graph isolated Shine count mismatch",
-        optional_group="shine",
-    ),
-    RuntimeExpectation(
-        "expected_authored_effect_graph_shine_omitted_effects",
-        "shine_omitted_effects",
-        "authored effect graph Shine omissions mismatch",
-        comparison="exact",
-        optional_group="shine",
-    ),
-    RuntimeExpectation(
         "expected_authored_effect_graph_clipping_mask_count",
         "clipping_mask_count",
         "authored effect graph Clipping Mask count mismatch",

@@ -22,6 +22,11 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
         ) {
             return .independentAlphaSignalPreserving(textureSlot: slot)
         }
+        if let slot = SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer.analyze(
+            fragment
+        ) {
+            return .independentAlphaSignalPreserving(textureSlot: slot)
+        }
         if let slot = preserving(outputUses, fragment: fragment, main: main) {
             return .independentAlphaSignalPreserving(textureSlot: slot)
         }
@@ -112,6 +117,15 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
         fragment: Unit,
         main: Unit.Function
     ) -> SceneShaderColorTransfer? {
+        if let transfer =
+            SceneAuthoredShaderIndependentSignalColorCarrierCompositingAnalyzer
+                .analyze(
+                    outputUses: outputUses,
+                    fragment: fragment,
+                    main: main
+                ) {
+            return transfer
+        }
         if let transfer = SceneAuthoredShaderIndependentSignalCompositingAnalyzer
             .analyze(
             outputUses: outputUses,

@@ -35,16 +35,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             let source: String
         }
 
-        struct ExpectedColorTransfer: Encodable {
-            let kind: String
-            let slot: Int
-        }
-
         let schemaVersion = 4
         let requestID: String
         let sourceDialect = "wallpaper-engine-glsl-like-v0"
         let outputSemantics: SceneGenericShaderOutputSemantics
-        let expectedColorTransfer: ExpectedColorTransfer?
+        let expectedColorTransfer: SceneGenericShaderExpectedColorTransfer?
         let defines: [String: Int] = [:]
         let stages: [Stage]
     }
@@ -303,6 +298,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 sameSlotChannelReconstructionSourceSlot,
             auxiliaryRGBMixSourceSlot: auxiliaryRGBMixSourceSlot,
             normalizedSampleSumSourceSlot: normalizedSampleSumSourceSlot,
+            independentSignalAccumulatorSourceSlot:
+                SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer.sourceSlot(
+                    fragmentSource: fragmentSource
+                ),
             alphaWeightedSampleAverageSourceSlot:
                 alphaWeightedSampleAverageSourceSlot,
             preservedAlphaRGBFilterSourceSlot:
@@ -692,20 +691,15 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
 
     private static func expectedColorTransfer(
         _ transfer: SceneShaderColorTransfer
-    ) -> Request.ExpectedColorTransfer? {
-        guard case let .independentAlphaSignalPreserving(slot) = transfer,
-              (0 ..< 8).contains(slot) else { return nil }
-        return .init(
-            kind: "independent-alpha-signal-preserving",
-            slot: slot
-        )
+    ) -> SceneGenericShaderExpectedColorTransfer? {
+        .init(transfer)
     }
 
     private static func expectedColorTransferKey(
         _ transfer: SceneShaderColorTransfer
     ) -> String {
         guard let expected = expectedColorTransfer(transfer) else { return "-" }
-        return "\(expected.kind):\(expected.slot)"
+        return expected.cacheKey
     }
 
     private static func validatedDirectory(_ rawPath: String) -> URL? {

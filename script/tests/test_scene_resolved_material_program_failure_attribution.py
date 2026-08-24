@@ -51,7 +51,10 @@ class SceneResolvedMaterialProgramFailureAttributionTests(unittest.TestCase):
         )
         generic_cache = GENERIC_SHADER_CACHE_SOURCE.read_text(encoding="utf-8")
 
-        self.assertIn("bounded-frontend-owner-revoked", stages)
+        self.assertIn(
+            "materialFailure.mapsToGenericOwnerRevokedVisualFailure", stages
+        )
+        self.assertNotIn("boundedDetails.contains", stages)
         self.assertIn(
             'reasonCode: "material-generic-owner-revoked"',
             stages,
@@ -65,7 +68,7 @@ class SceneResolvedMaterialProgramFailureAttributionTests(unittest.TestCase):
         self.assertNotIn("WorkshopShadow", generic_cache)
 
         owner_start = program_first.index(
-            'if programFailure.code == "material-generic-owner-revoked"'
+            "if programFailure.revokesDedicatedProductOwner"
         )
         owner_end = program_first.index(
             "guard product.clearFunctions.functions.isEmpty else",
@@ -79,6 +82,7 @@ class SceneResolvedMaterialProgramFailureAttributionTests(unittest.TestCase):
         )
         hard_rejection = "return .failure(programFailure)"
         for contract in (
+            'programFailure.code == "material-generic-owner-revoked"',
             clear_guard,
             passthrough_call,
             "dependencyOwnership: admitted.dependencyOwnership",

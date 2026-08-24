@@ -73,6 +73,38 @@ private func fragment(alphaTail: String) -> String {
     """
 }
 
+private func colorCarrierFragment(
+    alphaTail: String,
+    extraColorRead: Bool = false
+) -> String {
+    let extra = extraColorRead
+        ? "canvas.rgb += texSample2D(g_Texture1, v_TexCoord).rgb * 0.0;"
+        : ""
+    return """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    uniform sampler2D g_Texture1;
+    vec3 ApplyBlending(
+        const int mode,
+        in vec3 base,
+        in vec3 blend,
+        in float opacity
+    ) {
+        return mix(base, blend, opacity);
+    }
+    void main() {
+        vec4 impulse = texSample2D(g_Texture0, v_TexCoord);
+        vec4 canvas = texSample2D(g_Texture1, v_TexCoord);
+        canvas.rgb = ApplyBlending(
+            31, canvas.rgb, impulse.rgb, impulse.a
+        );
+        canvas.a = \(alphaTail);
+        \(extra)
+        gl_FragColor = canvas;
+    }
+    """
+}
+
 private func prepared(fragmentSource: String) -> SceneShaderPreparedProgram {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -271,6 +303,39 @@ private func close(
     }
 }
 
+private struct ExecutionResult {
+    let encoded: Bool
+    let completed: Bool
+    let pixels: [UInt8]
+}
+
+private func execute(
+    _ program: Program?,
+    device: MTLDevice,
+    queue: MTLCommandQueue,
+    encoder: SceneResolvedMaterialPassEncoder
+) -> ExecutionResult {
+    let target = texture(
+        device: device,
+        usage: [.renderTarget, .shaderRead]
+    )
+    var encoded = false
+    var completed = false
+    if let program,
+       let prepared = encoder.prepare(program: program, target: target),
+       let command = queue.makeCommandBuffer() {
+        encoded = encoder.encode(prepared, commandBuffer: command)
+        command.commit()
+        command.waitUntilCompleted()
+        completed = command.status == .completed && command.error == nil
+    }
+    return .init(
+        encoded: encoded,
+        completed: completed,
+        pixels: pixels(target)
+    )
+}
+
 @main
 private enum Harness {
     static func main() throws {
@@ -282,8 +347,10 @@ private enum Harness {
         }
         let signalPixel: [UInt8] = [204, 51, 26, 128]
         let previousPixel: [UInt8] = [26, 51, 76, 255]
+        let canvasPixel: [UInt8] = [26, 51, 76, 128]
         let signalBytes = Array(repeating: signalPixel, count: 4).flatMap { $0 }
         let previousBytes = Array(repeating: previousPixel, count: 4).flatMap { $0 }
+        let canvasBytes = Array(repeating: canvasPixel, count: 4).flatMap { $0 }
         let signal = slot(
             index: 0,
             texture: texture(device: device, usage: .shaderRead, fill: signalBytes),
@@ -296,51 +363,117 @@ private enum Harness {
             content: .color(.resolved(.opaque)),
             marker: 2
         )
-        let positiveSource = fragment(
+        let canvas = slot(
+            index: 1,
+            texture: texture(device: device, usage: .shaderRead, fill: canvasBytes),
+            content: .color(.resolved(.premultipliedAlpha)),
+            marker: 3
+        )
+
+        let signalCarrierSource = fragment(
             alphaTail: "saturate(previous.a + signal.a)"
         )
-        let positiveFrontend = SceneAuthoredShaderFrontend.compile(
+        let signalCarrierFrontend = SceneAuthoredShaderFrontend.compile(
             vertexSource: vertexSource,
-            fragmentSource: positiveSource
+            fragmentSource: signalCarrierSource
         )
-        let positive = program(
-            fragmentSource: positiveSource,
+        let signalCarrier = program(
+            fragmentSource: signalCarrierSource,
             signal: signal,
             previous: previous
         )
-        let negative = program(
+        let signalCarrierBadAlpha = program(
             fragmentSource: fragment(alphaTail: "saturate(signal.a)"),
             signal: signal,
             previous: previous
         )
-        let target = texture(
-            device: device,
-            usage: [.renderTarget, .shaderRead]
+
+        let colorCarrierSource = colorCarrierFragment(
+            alphaTail: "saturate(canvas.a + impulse.a)"
         )
-        var encoded = false
-        var completed = false
-        if let positive,
-           let prepared = encoder.prepare(program: positive, target: target),
-           let command = queue.makeCommandBuffer() {
-            encoded = encoder.encode(prepared, commandBuffer: command)
-            command.commit()
-            command.waitUntilCompleted()
-            completed = command.status == .completed && command.error == nil
-        }
+        let colorCarrierFrontend = SceneAuthoredShaderFrontend.compile(
+            vertexSource: vertexSource,
+            fragmentSource: colorCarrierSource
+        )
+        let colorCarrier = program(
+            fragmentSource: colorCarrierSource,
+            signal: signal,
+            previous: canvas
+        )
+        let colorCarrierBadAlpha = program(
+            fragmentSource: colorCarrierFragment(
+                alphaTail: "saturate(canvas.a)"
+            ),
+            signal: signal,
+            previous: canvas
+        )
+        let colorCarrierExtraRead = program(
+            fragmentSource: colorCarrierFragment(
+                alphaTail: "saturate(canvas.a + impulse.a)",
+                extraColorRead: true
+            ),
+            signal: signal,
+            previous: canvas
+        )
+
+        let signalCarrierExecution = execute(
+            signalCarrier,
+            device: device,
+            queue: queue,
+            encoder: encoder
+        )
+        let colorCarrierExecution = execute(
+            colorCarrier,
+            device: device,
+            queue: queue,
+            encoder: encoder
+        )
         let expectedPixel: [UInt8] = [115, 51, 51, 255]
         let expected = Array(repeating: expectedPixel, count: 4).flatMap { $0 }
+        let colorCarrierExpectedPixel: [UInt8] = [128, 76, 88, 255]
+        let colorCarrierExpected = Array(
+            repeating: colorCarrierExpectedPixel,
+            count: 4
+        ).flatMap { $0 }
         let result: [String: Any] = [
             "metalAvailable": true,
-            "positiveAssembled": positive != nil,
-            "negativeRejected": negative == nil,
-            "encoded": encoded,
-            "completed": completed,
-            "pixelsMatch": close(pixels(target), expected),
-            "pixels": pixels(target),
-            "frontendDiagnostics": positiveFrontend.diagnostics.map(\.code.rawValue),
-            "frontendTransfer": positiveFrontend.program.map {
+            "positiveAssembled": signalCarrier != nil,
+            "negativeRejected": signalCarrierBadAlpha == nil,
+            "encoded": signalCarrierExecution.encoded,
+            "completed": signalCarrierExecution.completed,
+            "pixelsMatch": close(signalCarrierExecution.pixels, expected),
+            "pixels": signalCarrierExecution.pixels,
+            "frontendDiagnostics":
+                signalCarrierFrontend.diagnostics.map(\.code.rawValue),
+            "frontendTransfer": signalCarrierFrontend.program.map {
                 String(describing: $0.colorTransfer)
             } ?? "missing",
+            "signalCarrierFrontendAccepted":
+                signalCarrierFrontend.diagnostics.isEmpty
+                    && signalCarrierFrontend.program?.backend == .boundedSwift
+                    && signalCarrierFrontend.program?.colorTransfer
+                        == .independentAlphaSignalCompositing(
+                            signalSlot: 0,
+                            colorSlot: 1
+                        ),
+            "colorCarrierFrontendAccepted":
+                colorCarrierFrontend.diagnostics.isEmpty
+                    && colorCarrierFrontend.program?.backend == .boundedSwift
+                    && colorCarrierFrontend.program?.colorTransfer
+                        == .independentAlphaSignalCompositing(
+                            signalSlot: 0,
+                            colorSlot: 1
+                        ),
+            "colorCarrierAssembled": colorCarrier != nil,
+            "colorCarrierBadAlphaRejected": colorCarrierBadAlpha == nil,
+            "colorCarrierExtraReadRejected": colorCarrierExtraRead == nil,
+            "colorCarrierEncoded": colorCarrierExecution.encoded,
+            "colorCarrierCompleted": colorCarrierExecution.completed,
+            "colorCarrierPixelsMatch": close(
+                colorCarrierExecution.pixels,
+                colorCarrierExpected
+            ),
+            "colorCarrierPixels": colorCarrierExecution.pixels,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: result,

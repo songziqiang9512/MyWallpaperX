@@ -254,6 +254,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 throw failure(
                     .shaderFrontendFailed,
                     phase: .frontend,
+                    genericOwnerFailure: .productOwnerRevoked,
                     details: [
                         "generic-artifact", code, requestKey,
                         "bounded-frontend-owner-revoked",
@@ -271,6 +272,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 throw failure(
                     .shaderFrontendFailed,
                     phase: .frontend,
+                    genericOwnerFailure:
+                        sharedRollbackOwnerFailure(routeDecision),
                     details: SceneResolvedMaterialExecutionCapabilityDiagnostics
                         .frontendFailure(template: template, output: output)
                         + ["generic-artifact", code, requestKey]
@@ -280,6 +283,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             boundedOutput = output
             artifactFailure = ["generic-artifact", code, requestKey]
         }
+        let genericOwnerFailure = sharedRollbackOwnerFailure(routeDecision)
         guard
               SceneResolvedMaterialProgramDerivation.validPreparedStages(prepared),
               SceneResolvedMaterialProgramDerivation.uniqueAndValid(
@@ -288,6 +292,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             throw failure(
                 .shaderFrontendFailed,
                 phase: .frontend,
+                genericOwnerFailure: genericOwnerFailure,
                 details: (boundedOutput.map {
                     SceneResolvedMaterialExecutionCapabilityDiagnostics
                         .frontendFailure(template: template, output: $0)
@@ -301,10 +306,15 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 .samplerInternalTargetUnsupported,
                 phase: .preparation,
                 slot: internalTarget.slot,
+                genericOwnerFailure: genericOwnerFailure,
                 details: [internalTarget.name]
             )
         }
-        try validateSamplerBindings(samplers, bindings: bindings)
+        do {
+            try validateSamplerBindings(samplers, bindings: bindings)
+        } catch let failure as Failure {
+            throw failure.withGenericOwnerFailure(genericOwnerFailure)
+        }
         let graphInputFacts = SceneResolvedMaterialShaderSchema
             .graphInputSourceSlotFacts(
                 template: template,
@@ -320,6 +330,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             throw failure(
                 .samplerBindingIdentityMismatch,
                 phase: .invariant,
+                genericOwnerFailure: genericOwnerFailure,
                 details: [
                     "graph-input-source-fact-divergence",
                     "source-transfer-\(sourceColorTransfer)",
@@ -334,6 +345,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             throw failure(
                 .activePassUnsupported,
                 phase: .preparation,
+                genericOwnerFailure: genericOwnerFailure,
                 details: ["active-pass"]
             )
         }
@@ -354,6 +366,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             throw failure(
                 .uniformBindingInvalid,
                 phase: .uniform,
+                genericOwnerFailure: genericOwnerFailure,
                 details: [String(describing: error)]
             )
         }
@@ -492,8 +505,37 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         _ code: Failure.Code,
         phase: Failure.Phase = .texture,
         slot: Int? = nil,
+        genericOwnerFailure: Failure.GenericOwnerFailure? = nil,
         details: [String] = []
     ) -> Failure {
-        .init(phase: phase, code: code, slot: slot, details: details)
+        .init(
+            phase: phase,
+            code: code,
+            slot: slot,
+            genericOwnerFailure: genericOwnerFailure,
+            details: details
+        )
+    }
+
+    /// Only a migrated generic-only profile may select the bounded frontend as
+    /// its explicit disable-generic rollback. If that shared rollback fails,
+    /// the generic product owner is exhausted and the Program-first chain must
+    /// not fall through to a retained dedicated implementation.
+    private static func sharedRollbackOwnerFailure(
+        _ decision: SceneGenericShaderRouteDecision
+    ) -> Failure.GenericOwnerFailure? {
+        guard let profile = SceneGenericShaderCapabilityProfile(
+                  rawValue: decision.profile
+              ),
+              let state = SceneGenericShaderRouteState(
+                  rawValue: decision.state
+              ),
+              let fallbackOwner = SceneGenericShaderFallbackOwner(
+                  rawValue: decision.fallbackOwner
+              ),
+              profile.defaultRouteState == .genericOnly,
+              state == .disableGeneric,
+              fallbackOwner == .boundedFrontend else { return nil }
+        return .sharedRollbackExhausted
     }
 }

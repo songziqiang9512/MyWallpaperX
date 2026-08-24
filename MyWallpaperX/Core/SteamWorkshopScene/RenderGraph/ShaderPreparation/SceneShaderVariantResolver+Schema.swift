@@ -2,21 +2,25 @@ import Foundation
 
 nonisolated struct SceneShaderVariantSchemaSource: Codable, Equatable, Sendable {
     let relativePath: String
+    let source: String?
     let annotations: [SceneShaderContract.Annotation]
     let declarations: [SceneShaderContract.Declaration]
 
     init(stage: SceneShaderContract.Stage) {
         relativePath = stage.relativePath
+        source = stage.source
         annotations = stage.annotations
         declarations = stage.declarations
     }
 
     init(
         relativePath: String,
+        source: String? = nil,
         annotations: [SceneShaderContract.Annotation],
         declarations: [SceneShaderContract.Declaration]
     ) {
         self.relativePath = relativePath
+        self.source = source
         self.annotations = annotations
         self.declarations = declarations
     }

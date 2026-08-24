@@ -171,6 +171,7 @@ nonisolated enum SceneShaderComboProvenance: String, Codable, Equatable, Sendabl
     /// its absence from the current pass is therefore a proven undefined/zero
     /// branch rather than an unknown runtime requirement.
     case authoredEffectInactive = "authored-effect-inactive"
+    case annotationImplicitDisabledOption = "annotation-implicit-disabled-option"
     case annotationDefault = "annotation-default"
     case textureReadiness = "texture-readiness"
     case textureFormat = "texture-format"
@@ -208,7 +209,7 @@ nonisolated struct SceneShaderVariantFailure: Error, Codable, Equatable, Sendabl
 }
 
 nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
-    static let frontendSchemaVersion = 27
+    static let frontendSchemaVersion = 28
 
     let sourceDialect: SceneShaderSourceDialect
     let backend: SceneShaderBackendIdentity

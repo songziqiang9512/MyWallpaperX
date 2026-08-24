@@ -63,6 +63,7 @@ nonisolated enum SceneShaderVariantSchemaSeed {
                 guard !baseIdentities.contains(identity) else { continue }
                 let source = SceneShaderVariantSchemaSource(
                     relativePath: node.virtualPath,
+                    source: node.source,
                     annotations: [annotation],
                     declarations: declarationsByLine[annotation.line] ?? []
                 )
@@ -86,6 +87,7 @@ nonisolated enum SceneShaderVariantSchemaSeed {
             let existing = result[index]
             result[index] = .init(
                 relativePath: existing.relativePath,
+                source: existing.source,
                 annotations: existing.annotations + candidate.annotations.filter {
                     !existing.annotations.contains($0)
                 },
@@ -106,11 +108,12 @@ nonisolated enum SceneShaderVariantSchemaSeed {
         var declarations: [String: [SceneShaderContract.Declaration]] = [:]
 
         var sources: [SceneShaderVariantSchemaSource] {
-            Set(annotations.keys).union(declarations.keys).sorted().map { path in
+            graph.nodes.sorted { $0.virtualPath < $1.virtualPath }.map { node in
                 .init(
-                    relativePath: path,
-                    annotations: annotations[path] ?? [],
-                    declarations: declarations[path] ?? []
+                    relativePath: node.virtualPath,
+                    source: node.source,
+                    annotations: annotations[node.virtualPath] ?? [],
+                    declarations: declarations[node.virtualPath] ?? []
                 )
             }
         }

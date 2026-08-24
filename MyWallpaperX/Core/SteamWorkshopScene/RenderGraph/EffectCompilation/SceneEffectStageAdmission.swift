@@ -185,7 +185,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         case .transform: "transform"
         case .pulse: "pulse"
         case .godrays: "godrays"
-        case .shine: "shine"
         }
     }
 }

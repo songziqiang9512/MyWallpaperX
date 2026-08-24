@@ -30,7 +30,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         core = scene_swift_source_relpaths("authored_shader_frontend_core")
 
         self.assertEqual(len(support), 4)
-        self.assertEqual(len(implementation), 55)
+        self.assertEqual(len(implementation), 57)
         self.assertEqual(core, (*support, *implementation))
         syntax = next(
             index for index, path in enumerate(implementation)
@@ -122,7 +122,6 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "script/tests/test_scene_blend_planner.py",
             "script/tests/test_scene_godrays_planner.py",
             "script/tests/test_scene_pulse_planner.py",
-            "script/tests/test_scene_shine_planner.py",
             "script/tests/test_scene_transform_planner.py",
             "script/tests/test_scene_waterwaves_profile.py",
         ]
@@ -171,11 +170,11 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
 
         self.assertEqual(len(environment), 3)
-        self.assertEqual(len(preprocessing), 13)
+        self.assertEqual(len(preprocessing), 14)
         self.assertEqual(preprocessing[:3], environment)
-        self.assertEqual(len(preparation), 15)
-        self.assertEqual(preparation[:13], preprocessing)
-        self.assertEqual(len(generic_compiler), 17)
+        self.assertEqual(len(preparation), 16)
+        self.assertEqual(preparation[:14], preprocessing)
+        self.assertEqual(len(generic_compiler), 20)
         preparation_directory = (
             REPOSITORY_ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation"

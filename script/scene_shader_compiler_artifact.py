@@ -17,6 +17,13 @@ from scene_shader_compiler_msl_function_contract import (
 )
 from scene_shader_compiler_loop_budget import static_loop_work as _static_loop_work
 from scene_shader_compiler_passthrough_contract import aliased_texture_passthrough
+from scene_shader_compiler_color_transfer_contract import (
+    IndependentSignalContractFailure,
+    expected_color_transfer_key,
+    independent_signal_static_loop_work,
+    parse_expected_transfer,
+    prepare_independent_signal_contract,
+)
 
 
 class ArtifactFailure(RuntimeError):
@@ -64,19 +71,10 @@ TEXTURE_TRANSFORM_FIELD = re.compile(r"mwxTexture(?P<slot>[0-7])Transform(?P<par
 
 
 def expected_independent_color_transfer(value: Any) -> dict[str, Any] | None:
-    if value is None:
-        return None
-    if not isinstance(value, dict) or set(value) != {"kind", "slot"}:
-        raise ArtifactFailure("expected-color-transfer")
-    kind, slot = value.get("kind"), value.get("slot")
-    if (
-        kind != "independent-alpha-signal-preserving"
-        or isinstance(slot, bool)
-        or not isinstance(slot, int)
-        or not 0 <= slot < 8
-    ):
-        raise ArtifactFailure("expected-color-transfer")
-    return {"kind": kind, "slot": slot}
+    try:
+        return parse_expected_transfer(value)
+    except IndependentSignalContractFailure as error:
+        raise ArtifactFailure(error.code) from error
 
 
 def expected_color_transfer_for_output(
@@ -111,9 +109,7 @@ def request_cache_key(request: dict[str, Any]) -> str:
     expected = expected_color_transfer_for_output(
         output_semantics, request.get("expectedColorTransfer")
     )
-    expected_key = (
-        f"{expected['kind']}:{expected['slot']}" if expected is not None else "-"
-    )
+    expected_key = expected_color_transfer_key(expected)
     digest = hashlib.sha256()
     for value in (
         "mwx-generic-shader-request-v9",
@@ -712,7 +708,6 @@ def build_program_artifact(
     expected = expected_color_transfer_for_output(
         output_semantics, expected_color_transfer
     )
-    static_loop_work = _static_loop_work(stage_sources, ArtifactFailure)
     stages = {stage.get("stage"): stage for stage in compiled_stages}
     if set(stages) != {"vertex", "fragment"}:
         raise ArtifactFailure("compiled-pair")
@@ -749,16 +744,33 @@ def build_program_artifact(
         raise ArtifactFailure("uniform-struct-name")
     vertex_msl, fragment_msl = _deduplicate_stage_helpers(vertex_msl, fragment_msl)
     metal_source = vertex_msl.rstrip() + "\n\n" + fragment_msl.lstrip()
-    if len(metal_source.encode("utf-8")) > maximum_artifact_bytes:
-        raise ArtifactFailure("metal-size")
     texture_bindings = _texture_bindings(compiled_stages, metal_source)
     _validate_texture_transform_layout(uniform_layout[0], texture_bindings)
+    accumulator_work = None
     if expected is not None:
-        color_transfer = _independent_signal_color_transfer(
-            fragment_msl, expected, texture_bindings
-        )
+        try:
+            fragment_msl, color_transfer = prepare_independent_signal_contract(
+                fragment_msl, expected, texture_bindings,
+                preserving_fallback=_independent_signal_color_transfer,
+            )
+            accumulator_work = independent_signal_static_loop_work(
+                fragment_msl, expected, maximum_loop_work=256,
+            )
+        except IndependentSignalContractFailure as error:
+            raise ArtifactFailure(error.code) from error
     if color_transfer is None:
         raise ArtifactFailure("color-transfer")
+    metal_source = vertex_msl.rstrip() + "\n\n" + fragment_msl.lstrip()
+    if len(metal_source.encode("utf-8")) > maximum_artifact_bytes:
+        raise ArtifactFailure("metal-size")
+    if accumulator_work is None:
+        static_loop_work = _static_loop_work(stage_sources, ArtifactFailure)
+    else:
+        static_loop_work = accumulator_work + _static_loop_work(
+            {"vertex": stage_sources["vertex"]}, ArtifactFailure
+        )
+        if static_loop_work > 256:
+            raise ArtifactFailure("loop-budget")
     return {
         "schemaVersion": 6,
         "kind": "scene-generic-shader-program-artifact",

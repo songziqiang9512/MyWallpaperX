@@ -181,12 +181,21 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             guard colorTransfer(color.transfer, isBoundBy: bindings) else {
                 throw Failure.colorTransfer
             }
+            let accumulatorLoopWork = color.transfer.kind
+                    == "independent-alpha-signal-preserving"
+                ? SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
+                    .staticLoopWork(fragmentSource: fragmentStage.authoredSource)
+                : nil
+            let genericLoopSources = accumulatorLoopWork == nil
+                ? stages.map(\.source)
+                : [vertexStage.source]
             let loopWork: Int
             switch SceneGenericShaderBoundedLoopWork.evaluate(
-                sources: stages.map(\.source)
+                sources: genericLoopSources
             ) {
             case let .success(work):
-                loopWork = work
+                loopWork = work + (accumulatorLoopWork ?? 0)
+                guard loopWork <= 256 else { throw Failure.loopBudget }
             case .failure(.unbounded):
                 throw Failure.loopUnbounded
             case .failure(.budget):

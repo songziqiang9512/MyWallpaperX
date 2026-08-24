@@ -89,7 +89,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 allMaterials.merge(compiled.materials) { current, _ in current }
 
             case let .failure(programFailure):
-                if programFailure.code == "material-generic-owner-revoked" {
+                if programFailure.revokesDedicatedProductOwner
+                    || programFailure.code == "material-generic-owner-revoked" {
                     if product.clearFunctions.functions.isEmpty,
                        visualFailureMayPassthrough(
                            programFailure,

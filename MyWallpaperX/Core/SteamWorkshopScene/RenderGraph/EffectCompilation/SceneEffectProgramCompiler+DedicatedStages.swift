@@ -118,17 +118,6 @@ extension SceneEffectProgramCompiler {
                     )
                 }
             }),
-            (.shine, {
-                SceneAuthoredShinePlanner.compile(input).mapAccepted {
-                    stage(
-                        .shine($0),
-                        stageGraph: stageGraph,
-                        inputRole: inputRole,
-                        materialNodeCount: 5,
-                        logicalRenderTargetCount: 2
-                    )
-                }
-            }),
         ]
 
         var precedingProbes: [SceneEffectStageCompilerProbe] = []

@@ -21,8 +21,20 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
+AUTHORED_SHADER_FRONTEND_SOURCES = scene_swift_sources(
+    "authored_shader_frontend_core"
+)
+COLOR_CARRIER_ANALYZER_SOURCE = SCENE_ROOT / (
+    "RenderGraph/ShaderFrontend/"
+    "SceneAuthoredShaderIndependentSignalColorCarrierCompositingAnalyzer.swift"
+)
 SWIFT_SOURCES = [
-    *scene_swift_sources("authored_shader_frontend_core"),
+    *AUTHORED_SHADER_FRONTEND_SOURCES,
+    *(
+        []
+        if COLOR_CARRIER_ANALYZER_SOURCE in AUTHORED_SHADER_FRONTEND_SOURCES
+        else [COLOR_CARRIER_ANALYZER_SOURCE]
+    ),
     *scene_swift_sources("shader_variant_environment"),
     SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
@@ -52,7 +64,7 @@ HARNESS = (
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneIndependentSignalCompositingGPUTests(unittest.TestCase):
-    def test_typed_signal_composition_executes_and_malformed_tail_rejects(
+    def test_signal_and_renamed_color_carriers_execute_with_local_rejections(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory(
@@ -102,11 +114,19 @@ class SceneIndependentSignalCompositingGPUTests(unittest.TestCase):
             [
                 key
                 for key in (
+                    "signalCarrierFrontendAccepted",
                     "positiveAssembled",
                     "negativeRejected",
                     "encoded",
                     "completed",
                     "pixelsMatch",
+                    "colorCarrierFrontendAccepted",
+                    "colorCarrierAssembled",
+                    "colorCarrierBadAlphaRejected",
+                    "colorCarrierExtraReadRejected",
+                    "colorCarrierEncoded",
+                    "colorCarrierCompleted",
+                    "colorCarrierPixelsMatch",
                 )
                 if not payload[key]
             ],
