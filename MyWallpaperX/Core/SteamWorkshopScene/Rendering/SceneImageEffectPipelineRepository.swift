@@ -43,7 +43,6 @@ final class SceneImageEffectPipelineRepository {
     private let xRaySlot: ScenePipelineSlot<SceneXRayPipeline>
     private let blendSlot: ScenePipelineSlot<SceneBlendPipeline>
     private let pulseSlot: ScenePipelineSlot<ScenePulsePipeline>
-    private let godraysSlot: ScenePipelineSlot<SceneGodraysPipeline>
 
     init(device: MTLDevice) {
         self.device = device
@@ -56,7 +55,6 @@ final class SceneImageEffectPipelineRepository {
         xRaySlot = .init { SceneXRayPipeline(device: device) }
         blendSlot = .init { SceneBlendPipeline(device: device) }
         pulseSlot = .init { ScenePulsePipeline(device: device) }
-        godraysSlot = .init { SceneGodraysPipeline(device: device) }
     }
 
     func gaussianBlur() -> SceneGaussianBlurPipeline? { gaussianBlurSlot.resolve() }
@@ -70,5 +68,4 @@ final class SceneImageEffectPipelineRepository {
     func xRay() -> SceneXRayPipeline? { xRaySlot.resolve() }
     func blend() -> SceneBlendPipeline? { blendSlot.resolve() }
     func pulse() -> ScenePulsePipeline? { pulseSlot.resolve() }
-    func godrays() -> SceneGodraysPipeline? { godraysSlot.resolve() }
 }

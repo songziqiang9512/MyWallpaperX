@@ -45,7 +45,6 @@ nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable
     case blend
     case transform
     case pulse
-    case godrays
 }
 
 /// Stable failure emitted by one migrated backend compiler. `details` carries

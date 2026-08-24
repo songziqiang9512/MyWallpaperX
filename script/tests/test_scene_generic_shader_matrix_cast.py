@@ -70,6 +70,26 @@ private struct MatrixCastHarness {
             }
             void main() { bounded(1.0); }
             """])
+            let constantIntegerBound = SceneGenericShaderBoundedLoopWork.evaluate(
+                sources: ["""
+                void main() {
+                    const int sampleCount = 30;
+                    for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
+                        consume(sampleIndex);
+                    }
+                }
+                """]
+            )
+            let immutableIntegerBound = SceneGenericShaderBoundedLoopWork.evaluate(
+                sources: ["""
+                void main() {
+                    int unseenCount = 12;
+                    for (int probe = 0; probe < unseenCount; probe++) {
+                        consume(probe);
+                    }
+                }
+                """]
+            )
             let rejected = [
                 "uniform float count; void main() { float remaining = 1.0;\n"
                     + "for (float i = 0.0; remaining > 0.0 && i < count; i++) { remaining -= 0.1; }}",
@@ -100,6 +120,31 @@ private struct MatrixCastHarness {
                 "float bounded(float remaining) { float count = 24.0;\n"
                     + "for (float i = 0.0; remaining > 0.0 && i < count; i++) { remaining -= 0.1; } return remaining; }\n"
                     + "void main() { bounded(1.0); bounded(0.5); }",
+                "void main() { int count = 30; count = 31;\n"
+                    + "for (int i = 0; i < count; ++i) { consume(i); } }",
+                "void widen(inout int value) { value = 64; }\n"
+                    + "void main() { const int count = 30; widen(count);\n"
+                    + "for (int i = 0; i < count; ++i) { consume(i); } }",
+                "void main() { if (enabled) { const int count = 30; }\n"
+                    + "for (int i = 0; i < count; ++i) { consume(i); } }",
+                "void main() { const int count = 30;\n"
+                    + "for (int i = 0; i < count; ++i) { i = 0; } }",
+                "void mutate(inout int value) { value = 0; }\n"
+                    + "void main() { const int count = 30;\n"
+                    + "for (int i = 0; i < count; ++i) { mutate(i); } }",
+                "void main() { for (int i = -1; i <= 1; ++i) { i += 1; } }",
+                "uniform int g_Runtime; void main() { int count = 30;\n"
+                    + "{ int count = g_Runtime; consume(count); }\n"
+                    + "for (int i = 0; i < count; ++i) { consume(i); } }",
+                "void main() { const int base = 30; const int count = base;\n"
+                    + "for (int i = 0; i < count; ++i) { consume(i); } }",
+                "void main() { for (int i = 0; i < count; ++i) { consume(i); }\n"
+                    + "const int count = 30; }",
+                "void main() { int count = 30; { int count = 12; }\n"
+                    + "for (int i = 0; i < count; ++i) { consume(i); } }",
+                "uniform float g_Runtime; void main() { float count = 24.0;\n"
+                    + "{ float count = g_Runtime; consume(count); } float remaining = 1.0;\n"
+                    + "for (float i = 0.0; remaining > 0.0 && i < count; i++) { remaining -= 0.1; } }",
             ].allSatisfy { source in
                 if case .failure(.unbounded) =
                     SceneGenericShaderBoundedLoopWork.evaluate(sources: [source]) {
@@ -109,6 +154,12 @@ private struct MatrixCastHarness {
             }
             let positivePassed = if case .success(24) = positive { true } else { false }
             let unseenPassed = if case .success(12) = unseen { true } else { false }
+            let constantIntegerPassed = if case .success(30) = constantIntegerBound {
+                true
+            } else { false }
+            let immutableIntegerPassed = if case .success(12) = immutableIntegerBound {
+                true
+            } else { false }
             let helperMutationRejected = SceneAuthoredShaderColorTransferAnalyzer
                 .analyze(fragmentSource: """
                 uniform sampler2D g_Texture0;
@@ -122,6 +173,7 @@ private struct MatrixCastHarness {
                 """) != .passthrough(textureSlot: 0)
             print(
                 passed && positivePassed && unseenPassed && rejected
+                    && constantIntegerPassed && immutableIntegerPassed
                     && helperMutationRejected
                     ? "PASS" : "FAIL"
             )

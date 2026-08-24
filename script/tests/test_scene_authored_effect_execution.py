@@ -217,23 +217,6 @@ enum SceneAuthoredPulsePlanner {
     }
 }
 
-struct SceneGodraysPlan {
-    var direction: Float? { nil }
-    var usesDirectionalGaussianKernel: Bool { false }
-    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
-}
-
-enum SceneAuthoredGodraysPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneGodraysPlan? {
-        nil
-    }
-}
-
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
         struct PassDescriptor {
@@ -373,10 +356,6 @@ extension SceneAuthoredTransformPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredPulsePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = ScenePulseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .pulse }
-}
-extension SceneAuthoredGodraysPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneGodraysPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .godrays }
 }
 enum SceneLayerVisibility {
     static func visibleLayerIDs(in descriptor: SceneRenderDescriptor) -> Set<Int> {
@@ -1151,7 +1130,6 @@ enum Harness {
             case .blend: backend = "blend"
             case .transform: backend = "transform"
             case .pulse: backend = "pulse"
-            case .godrays: backend = "godrays"
             }
             return [effectIndex, backend]
         }

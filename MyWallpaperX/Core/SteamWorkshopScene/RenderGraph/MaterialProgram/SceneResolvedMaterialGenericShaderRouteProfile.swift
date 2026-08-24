@@ -54,6 +54,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-independent-signal-producer"
     case sourceProvenGraphTargetIndependentSignalAccumulator =
         "source-proven-graph-target-independent-signal-accumulator"
+    case sourceProvenGraphTargetIndependentSignalUNormAccumulator =
+        "source-proven-graph-target-independent-signal-unorm-accumulator"
     case sourceProvenGraphInputIndependentSignalCompositing =
         "source-proven-graph-input-independent-signal-compositing"
     case sourceProvenGraphTargetPassthrough =
@@ -103,6 +105,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         auxiliaryRGBMixSourceSlot: Int?,
         normalizedSampleSumSourceSlot: Int?,
         independentSignalAccumulatorSourceSlot: Int? = nil,
+        independentSignalUNormAccumulatorSourceSlot: Int? = nil,
         alphaWeightedSampleAverageSourceSlot: Int?,
         preservedAlphaRGBFilterSourceSlot: Int?,
         preservedAlphaRGBFilterTextureSlots: Set<Int>,
@@ -124,6 +127,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         hasDefaultedOpacityMaskSampler: Bool,
         hasOnlyTypedOpacityMaskAuxiliary: Bool = false,
         hasOnlyGraphInputSampler: Bool = false,
+        outputIsRGBA8Unorm: Bool = false,
         hasStageScopedUniformBindings: Bool,
         hasStereoAudioSpectrumArrays: Bool,
         hasLocalizedMutableFragmentVarying: Bool
@@ -164,14 +168,27 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([sourceSlot]),
                   hasOnlyGraphInputSampler {
             self = .sourceProvenGraphTargetIndependentSignalAccumulator
+        } else if case let .independentAlphaSignalPreserving(sourceSlot) =
+                    colorTransfer,
+                  independentSignalUNormAccumulatorSourceSlot == sourceSlot,
+                  outputIsRGBA8Unorm,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  !producesPreservedRGBAOutput,
+                  graphTextureSlots == Set([sourceSlot]),
+                  graphInputTextureSlots == Set([sourceSlot]),
+                  hasOnlyGraphInputSampler {
+            self = .sourceProvenGraphTargetIndependentSignalUNormAccumulator
         } else if case let .independentAlphaSignalCompositing(
                     signalSlot, colorSlot
                   ) = colorTransfer,
                   signalSlot != colorSlot,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
-                  graphTextureSlots == Set([signalSlot]),
-                  graphInputTextureSlots == Set([signalSlot, colorSlot]) {
+                  graphTextureSlots.contains(signalSlot),
+                  graphTextureSlots.isSubset(of: Set([signalSlot, colorSlot])),
+                  graphInputTextureSlots == Set([signalSlot, colorSlot]),
+                  hasOnlyGraphInputSampler {
             self = .sourceProvenGraphInputIndependentSignalCompositing
         } else if let colorBlendSourceSlot,
            !hasExternalProviderTexture,
@@ -327,6 +344,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenIndependentPremultipliedOutput,
              .sourceProvenGraphInputIndependentSignalProducer,
              .sourceProvenGraphTargetIndependentSignalAccumulator,
+             .sourceProvenGraphTargetIndependentSignalUNormAccumulator,
              .sourceProvenGraphInputIndependentSignalCompositing,
              .sourceProvenGraphTargetPassthrough,
              .sourceProvenNormalizedSampleSum,

@@ -137,16 +137,6 @@ extension SceneEffectStageRenderer {
                 return "standard-blur-resource-missing"
             }
             return nil
-        case .godrays(let plan):
-            guard pipelines.godrays != nil else {
-                return "godrays-pipeline-missing"
-            }
-            guard let resources = inputs.masks.godraysEffects[
-                plan.effectKey.descriptorID
-            ], resources.matches(plan) else {
-                return "godrays-resource-missing"
-            }
-            return nil
         case .proceduralNoise(let plan):
             guard proceduralNoiseDependencyMatches(
                 inputs.dependencyEffect,

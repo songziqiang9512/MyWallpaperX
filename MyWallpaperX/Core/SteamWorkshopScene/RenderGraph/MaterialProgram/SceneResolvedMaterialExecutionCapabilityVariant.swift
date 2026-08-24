@@ -37,6 +37,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     private var cachedReachabilityIdentity: Graph.TextureIdentity?
     private var hasCachedReachability = false
     private var cachedOutputStorage: SceneResolvedMaterialProgram.OutputStorage?
+    private var cachedOutputIsRGBA8Unorm: Bool?
     private var cachedGraphTextureFormatFacts: [
         Graph.TextureIdentity: SceneShaderTextureFormat
     ]?
@@ -182,6 +183,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     func precompileLaunchEnvelope(
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         outputStorage: SceneResolvedMaterialProgram.OutputStorage = .color,
+        outputIsRGBA8Unorm: Bool = false,
         graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat] = [:],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
     ) -> Result<[UInt8], LaunchEnvelopeFailure> {
@@ -202,7 +204,16 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 details: ["launch-graph-texture-formats-changed"]
             )))
         }
+        if let cachedOutputIsRGBA8Unorm,
+           cachedOutputIsRGBA8Unorm != outputIsRGBA8Unorm {
+            return .failure(.material(Self.failure(
+                .identityInvariant,
+                phase: .invariant,
+                details: ["launch-output-rgba8-unorm-changed"]
+            )))
+        }
         cachedOutputStorage = outputStorage
+        cachedOutputIsRGBA8Unorm = outputIsRGBA8Unorm
         cachedGraphTextureFormatFacts = graphTextureFormatFacts
         var reached = Set<UInt8>()
         var admittedKeys = Set<SceneResolvedMaterialVariantKey>()
@@ -277,6 +288,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         variants.append(try entry(
                             for: key,
                             outputStorage: outputStorage,
+                            outputIsRGBA8Unorm: outputIsRGBA8Unorm,
                             implicitFramebufferIdentity: implicitFramebufferIdentity,
                             graphTextureFormatFacts: graphTextureFormatFacts
                         ))
@@ -499,6 +511,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     private func entry(
         for key: SceneResolvedMaterialVariantKey,
         outputStorage: SceneResolvedMaterialProgram.OutputStorage,
+        outputIsRGBA8Unorm: Bool,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat]
     ) throws -> Variant {
@@ -522,6 +535,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 template: template,
                 variantKey: key,
                 outputStorage: outputStorage,
+                outputIsRGBA8Unorm: outputIsRGBA8Unorm,
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 graphTextureFormatFacts: graphTextureFormatFacts,
                 onBoundedFrontendCompilation: { frontendCompilations += 1 }

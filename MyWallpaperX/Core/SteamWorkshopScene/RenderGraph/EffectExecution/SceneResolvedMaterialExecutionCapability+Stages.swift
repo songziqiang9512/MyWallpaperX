@@ -142,6 +142,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             if case let .failure(failure) = variants.precompileLaunchEnvelope(
                 implicitFramebufferIdentity: effect.input,
                 outputStorage: outputStorage(for: attachment.storage),
+                outputIsRGBA8Unorm:
+                    attachment.storage == .color
+                        && attachment.format == .rgba8888,
                 graphTextureFormatFacts: graphTextureFormatFacts,
                 assetStates: assetStates
             ) {

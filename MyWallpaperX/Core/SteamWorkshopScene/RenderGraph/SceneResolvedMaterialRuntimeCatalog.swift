@@ -214,7 +214,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             // variant actually retains that sampler.
             for (slot, sampler) in try SceneResolvedMaterialShaderSchema
                 .unconditionalSamplers(template)
-                where sampler.readinessCombo == nil {
+                where sampler.readinessCombo == nil && samplers[slot] == nil {
                 samplers[slot, default: []].insert(sampler)
             }
         } catch {

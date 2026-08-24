@@ -7,7 +7,6 @@ struct SceneLayerEffectTextures {
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let waterCausticsEffects: [String: SceneWaterCausticsEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
-    let godraysEffects: [String: SceneGodraysEffectTextures]
     let xRay: SceneXRayEffectTextures?
     let message: String
 }
@@ -18,7 +17,6 @@ struct SceneLayerEffectTextureStore {
     var waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:]
     var waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:]
     var pulseEffects: [String: ScenePulseEffectTextures] = [:]
-    var godraysEffects: [String: SceneGodraysEffectTextures] = [:]
     var xRayEffects: [Int: SceneXRayEffectTextures] = [:]
 
     mutating func merge(layerID: Int, textures: SceneLayerEffectTextures) {
@@ -27,7 +25,6 @@ struct SceneLayerEffectTextureStore {
         waterWavesEffects.merge(textures.waterWavesEffects) { _, incoming in incoming }
         waterCausticsEffects.merge(textures.waterCausticsEffects) { _, incoming in incoming }
         pulseEffects.merge(textures.pulseEffects) { _, incoming in incoming }
-        godraysEffects.merge(textures.godraysEffects) { _, incoming in incoming }
         xRayEffects[layerID] = textures.xRay
     }
 }

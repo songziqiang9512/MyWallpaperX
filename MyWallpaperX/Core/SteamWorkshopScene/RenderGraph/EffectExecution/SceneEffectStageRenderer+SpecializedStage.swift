@@ -61,12 +61,6 @@ targets: targets,
                 sourceUniforms: sourceUniforms, pipeline: pipeline,
                 commandBuffer: commandBuffer
             )
-        case .godrays(let godrays):
-            return renderGodrays(
-                godrays, source: sourceTexture, masks: masks, targets: targets,
-                uniforms: sourceUniforms, sourcePipeline: pipeline,
-                pipelines: pipelines, time: time, commandBuffer: commandBuffer
-            )
         case .pulse(let pulse):
             guard let pulsePipeline = pipelines.pulse else { return nil }
             return renderPulse(

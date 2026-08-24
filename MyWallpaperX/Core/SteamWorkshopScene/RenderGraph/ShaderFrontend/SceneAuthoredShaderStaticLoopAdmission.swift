@@ -3,10 +3,12 @@ import Foundation
 nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
     static func iterations(
         header: Range<Int>,
+        body: Range<Int>,
         functionBody: Range<Int>,
         loopIndex: Int,
         tokens: [SceneAuthoredShaderToken],
-        defines: [String: String]
+        defines: [String: String],
+        mutableArgumentNames: Set<String>
     ) -> Int? {
         let parts = split(range: header, separator: ";", tokens: tokens)
         guard parts.count == 3 else { return nil }
@@ -21,6 +23,10 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
             return nil
         }
         let variable = initialization[0]
+        guard !isWritten(variable, in: body, tokens: tokens),
+              !mutableArgumentNames.contains(variable) else {
+            return nil
+        }
         let condition = Array(tokens[parts[1]].map(\.text))
         guard condition.count == 3,
               condition[0] == variable,
@@ -30,7 +36,8 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
                   functionBody: functionBody,
                   before: loopIndex,
                   tokens: tokens,
-                  defines: defines
+                  defines: defines,
+                  mutableArgumentNames: mutableArgumentNames
               ) else {
             return nil
         }
@@ -48,7 +55,8 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
         functionBody: Range<Int>,
         loopIndex: Int,
         tokens: [SceneAuthoredShaderToken],
-        defines: [String: String]
+        defines: [String: String],
+        mutableArgumentNames: Set<String>
     ) -> Int? {
         let parts = split(range: header, separator: ";", tokens: tokens)
         guard parts.count == 3 else { return nil }
@@ -67,8 +75,9 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
             functionBody: functionBody,
             before: loopIndex,
             tokens: tokens,
-            defines: defines
-        ), !isWritten(
+            defines: defines,
+            mutableArgumentNames: mutableArgumentNames
+        ), !mutableArgumentNames.contains(variable), !isWritten(
             variable,
             in: functionBody,
             excluding: [parts[0], parts[2]],
@@ -97,7 +106,8 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
         functionBody: Range<Int>,
         before loopIndex: Int,
         tokens: [SceneAuthoredShaderToken],
-        defines: [String: String]
+        defines: [String: String],
+        mutableArgumentNames: Set<String>
     ) -> BoundedCondition? {
         let conjuncts = split(range: range, separator: "&&", tokens: tokens)
         guard conjuncts.count >= 2 else { return nil }
@@ -112,7 +122,8 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
                    functionBody: functionBody,
                    before: loopIndex,
                    tokens: tokens,
-                   defines: defines
+                   defines: defines,
+                   mutableArgumentNames: mutableArgumentNames
                ) {
                 guard result == nil else { return nil }
                 result = .init(end: end, inclusive: condition[1] == "<=")
@@ -128,7 +139,8 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
         functionBody: Range<Int>,
         before loopIndex: Int,
         tokens: [SceneAuthoredShaderToken],
-        defines: [String: String]
+        defines: [String: String],
+        mutableArgumentNames: Set<String>
     ) -> Int? {
         if let value = integerValue(token, defines: defines) { return value }
         return rootInvariantFloat(
@@ -136,7 +148,8 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
             functionBody: functionBody,
             before: loopIndex,
             tokens: tokens,
-            defines: defines
+            defines: defines,
+            mutableArgumentNames: mutableArgumentNames
         )
     }
 
@@ -145,7 +158,8 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
         functionBody: Range<Int>,
         before loopIndex: Int,
         tokens: [SceneAuthoredShaderToken],
-        defines: [String: String]
+        defines: [String: String],
+        mutableArgumentNames: Set<String>
     ) -> Int? {
         if let value = SceneAuthoredShaderLoopIntegerLiteral.value(
             expression, defines: defines
@@ -156,7 +170,8 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
             functionBody: functionBody,
             before: loopIndex,
             tokens: tokens,
-            defines: defines
+            defines: defines,
+            mutableArgumentNames: mutableArgumentNames
         )
     }
 
@@ -165,7 +180,8 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
         functionBody: Range<Int>,
         before loopIndex: Int,
         tokens: [SceneAuthoredShaderToken],
-        defines: [String: String]
+        defines: [String: String],
+        mutableArgumentNames: Set<String>
     ) -> Int? {
         var braceDepth = 0
         var declarations: [(start: Int, end: Int, value: Int)] = []
@@ -208,6 +224,7 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
         guard declarations.count == 1,
               let declaration = declarations.first,
               declaration.start < loopIndex,
+              !mutableArgumentNames.contains(name),
               !isWritten(
                   name,
                   in: declaration.end..<functionBody.upperBound,
@@ -223,7 +240,8 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
         functionBody: Range<Int>,
         before loopIndex: Int,
         tokens: [SceneAuthoredShaderToken],
-        defines: [String: String]
+        defines: [String: String],
+        mutableArgumentNames: Set<String>
     ) -> Int? {
         var braceDepth = 0
         var declarations: [(start: Int, end: Int, value: Int)] = []
@@ -281,6 +299,7 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
         guard declarations.count == 1,
               let declaration = declarations.first,
               declaration.start < loopIndex,
+              !mutableArgumentNames.contains(name),
               !isWritten(
                   name,
                   in: declaration.end..<functionBody.upperBound,

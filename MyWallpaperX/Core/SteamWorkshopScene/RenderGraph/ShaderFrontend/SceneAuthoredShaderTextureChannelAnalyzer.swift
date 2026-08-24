@@ -6,6 +6,40 @@ import Foundation
 nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
     typealias ChannelUse = SceneAuthoredShaderProgram.TextureBinding.ChannelUse
 
+    /// Projects one active prepared variant without requiring the complete
+    /// bounded frontend to emit Metal. Purpose admission may use this fact
+    /// before a concrete texture is loaded, but an incomplete syntax parse
+    /// remains unproven.
+    static func analyze(
+        samplerName: String,
+        vertexSource: String,
+        fragmentSource: String
+    ) -> ChannelUse {
+        let vertex = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: vertexSource,
+                stage: .vertex
+            ),
+            stage: .vertex
+        )
+        let fragment = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: fragmentSource,
+                stage: .fragment
+            ),
+            stage: .fragment
+        )
+        guard vertex.diagnostics.isEmpty,
+              fragment.diagnostics.isEmpty,
+              let vertexUnit = vertex.unit,
+              let fragmentUnit = fragment.unit else { return .unproven }
+        return analyze(
+            samplerName: samplerName,
+            vertex: vertexUnit,
+            fragment: fragmentUnit
+        )
+    }
+
     static func analyze(
         samplerName: String,
         vertex: SceneAuthoredShaderSyntaxUnit,

@@ -279,6 +279,8 @@
         "test_scene_animated_material_visual_failure",
         "test_scene_generic_shader_program_artifact",
         "test_scene_generic_shader_incumbent_owner_deferred",
+        "test_scene_independent_signal_color_carrier_compositing",
+        "test_scene_independent_signal_unorm_accumulator",
         "test_scene_standard_alpha_composite_generic_contract",
         "test_scene_independent_signal_carrier",
         "test_scene_independent_signal_feedback",
@@ -295,6 +297,7 @@
         "test_scene_resolved_material_program_derivation",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_sampler_default_purpose",
+        "test_scene_source_proven_noise_purpose",
         "test_scene_slot_chain_texture_purpose",
         "test_scene_resolved_material_template"
       ]
@@ -342,10 +345,12 @@
         "test_scene_authored_shader_frontend",
         "test_scene_fragment_output_initialization",
         "test_scene_independent_signal_carrier",
+        "test_scene_independent_signal_unorm_accumulator",
         "test_scene_generic_shader_texture_transform_compiler",
         "test_scene_material_texture_transform",
         "test_scene_preserved_output_initialization_capability",
         "test_scene_rgb_difference_enhancement",
+        "test_scene_source_proven_noise_purpose",
         "test_scene_standard_alpha_composite_generic_contract",
         "test_scene_swift_source_sets"
       ]

@@ -56,6 +56,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         template: Template,
         variantKey: SceneResolvedMaterialVariantKey,
         outputStorage: SceneResolvedMaterialProgram.OutputStorage,
+        outputIsRGBA8Unorm: Bool,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat],
         onBoundedFrontendCompilation: () -> Void
@@ -228,8 +229,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     graphInputSlots: graphInputTextureSlots
                 ),
             hasOnlyGraphInputSampler:
-                sourceActiveSamplers.count == 1
+                !sourceActiveSamplers.isEmpty
                     && Set(sourceActiveSamplers.keys) == graphInputTextureSlots,
+            outputIsRGBA8Unorm: outputIsRGBA8Unorm,
             sourceColorTransfer: sourceColorTransfer,
             outputSemantics: outputSemantics
         )
@@ -410,6 +412,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         template.textureSlots.enumerated().contains { index, slot in
             guard activeTextureSlots?.contains(index) != false,
                   let slot else { return false }
+            // Candidate order is low to high precedence. A terminal graph
+            // reference is the immutable selected override; earlier provider
+            // entries are provenance and cannot become runtime fallbacks.
+            if case .graph? = slot.candidates.last?.reference {
+                return false
+            }
             return slot.candidates.contains { candidate in
                 if case .provider = candidate.reference { return true }
                 return false

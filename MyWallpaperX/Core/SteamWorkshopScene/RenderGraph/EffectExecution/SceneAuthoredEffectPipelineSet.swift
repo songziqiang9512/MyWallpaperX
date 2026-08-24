@@ -10,5 +10,4 @@ struct SceneAuthoredEffectPipelineSet {
     var xRay: SceneXRayPipeline? { repository.xRay() }
     var blend: SceneBlendPipeline? { repository.blend() }
     var pulse: ScenePulsePipeline? { repository.pulse() }
-    var godrays: SceneGodraysPipeline? { repository.godrays() }
 }

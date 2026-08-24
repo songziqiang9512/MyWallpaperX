@@ -423,6 +423,21 @@ enum Harness {
             of: "const float sharedScale = 0.1;",
             with: "const float sharedScale = -0.1;"
         )
+        let inlineIndexWrite = inline.replacingOccurrences(
+            of: "vec4 tap = texSample2D(g_Texture0, coordinate);",
+            with: "ordinal = 0;\n"
+                + "vec4 tap = texSample2D(g_Texture0, coordinate);"
+        )
+        let inlineIndexEscape = inline
+            .replacingOccurrences(
+                of: "void main() {",
+                with: "void observe(int value) {}\nvoid main() {"
+            )
+            .replacingOccurrences(
+                of: "vec4 tap = texSample2D(g_Texture0, coordinate);",
+                with: "observe(ordinal);\n"
+                    + "vec4 tap = texSample2D(g_Texture0, coordinate);"
+            )
 
         let output = Output(
             actualWasPreprocessed: !actual.contains("#if")
@@ -476,6 +491,8 @@ enum Harness {
                 "branch": transfer(inlineBranch),
                 "dynamicHelperLoop": transfer(inlineDynamicHelperLoop),
                 "negativeScale": transfer(inlineNegativeScale),
+                "indexWrite": transfer(inlineIndexWrite),
+                "indexEscape": transfer(inlineIndexEscape),
             ]
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))

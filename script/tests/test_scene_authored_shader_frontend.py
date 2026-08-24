@@ -1763,6 +1763,24 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(output["staticLoopWork"], 30)
         self.assertIsNone(output.get("metalError"))
 
+    def test_static_loop_allows_read_only_helper_argument(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            void observe(int value) {}
+            void main() {
+                const int sampleCount = 30;
+                for (int index = 0; index < sampleCount; ++index) {
+                    observe(index);
+                }
+                gl_FragColor = vec4(1.0);
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["staticLoopWork"], 60)
+        self.assertIsNone(output.get("metalError"))
+
     def test_static_float_loop_bound_with_dynamic_early_exit_compiles_to_metal(self):
         output = self.compile(
             VERTEX_SOURCE,
@@ -1846,6 +1864,18 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
                 gl_FragColor = vec4(remaining);
             }
             """,
+            """
+            void mutate(inout float value) { value = 32.0; }
+            void main() {
+                float count = 24.0;
+                float remaining = 1.0;
+                mutate(count);
+                for (float index = 0.0; remaining > 0.0 && index < count; index++) {
+                    remaining -= 0.1;
+                }
+                gl_FragColor = vec4(remaining);
+            }
+            """,
         ]
         for fragment_source in fixtures:
             with self.subTest(fragment_source=fragment_source):
@@ -1906,6 +1936,25 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             void main() {
                 const int sampleCount = 300;
                 for (int index = 0; index < sampleCount; ++index) {}
+                gl_FragColor = vec4(1.0);
+            }
+            """,
+            """
+            void main() {
+                const int sampleCount = 30;
+                for (int index = 0; index < sampleCount; ++index) {
+                    index = 0;
+                }
+                gl_FragColor = vec4(1.0);
+            }
+            """,
+            """
+            void mutate(inout int value) { value = 0; }
+            void main() {
+                const int sampleCount = 30;
+                for (int index = 0; index < sampleCount; ++index) {
+                    mutate(index);
+                }
                 gl_FragColor = vec4(1.0);
             }
             """,

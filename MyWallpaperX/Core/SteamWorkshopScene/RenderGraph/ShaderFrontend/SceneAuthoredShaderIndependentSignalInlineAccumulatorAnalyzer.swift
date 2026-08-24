@@ -21,6 +21,11 @@ nonisolated enum SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer {
         let work: Int
     }
 
+    private enum OutputConstraint {
+        case explicitAlphaClamp
+        case rgba8UnormAttachment
+    }
+
     static func analyze(fragmentSource source: String) -> SceneShaderColorTransfer? {
         sourceSlot(fragmentSource: source).map {
             .independentAlphaSignalPreserving(textureSlot: $0)
@@ -35,11 +40,26 @@ nonisolated enum SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer {
         parsed(source)?.work
     }
 
+    static func rgba8UnormAttachmentSourceSlot(
+        fragmentSource source: String
+    ) -> Int? {
+        parsed(source, outputConstraint: .rgba8UnormAttachment)?.slot
+    }
+
+    static func rgba8UnormAttachmentLoopWork(
+        fragmentSource source: String
+    ) -> Int? {
+        parsed(source, outputConstraint: .rgba8UnormAttachment)?.work
+    }
+
     static func analyze(_ fragment: Unit) -> Int? {
         analysis(fragment)?.slot
     }
 
-    private static func parsed(_ source: String) -> Fact? {
+    private static func parsed(
+        _ source: String,
+        outputConstraint: OutputConstraint = .explicitAlphaClamp
+    ) -> Fact? {
         let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
             lexerOutput: SceneAuthoredShaderLexer.lex(
                 source: source,
@@ -50,10 +70,13 @@ nonisolated enum SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer {
         guard syntax.diagnostics.isEmpty, let fragment = syntax.unit else {
             return nil
         }
-        return analysis(fragment)
+        return analysis(fragment, outputConstraint: outputConstraint)
     }
 
-    private static func analysis(_ fragment: Unit) -> Fact? {
+    private static func analysis(
+        _ fragment: Unit,
+        outputConstraint: OutputConstraint = .explicitAlphaClamp
+    ) -> Fact? {
         let tokens = fragment.tokens
         let mains = fragment.functions.filter { $0.name == "main" }
         guard fragment.stage == .fragment,
@@ -186,23 +209,39 @@ nonisolated enum SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer {
                       in: tokens,
                       body: main.bodyRange
                   ),
-              outputFact(
-                  Array(outputExpression),
-                  accumulator: tokens[accumulator].text,
-                  before: output,
-                  fragment: fragment,
-                  main: main
-              ),
               writeSignatures(
                   named: tokens[accumulator].text,
                   in: main.bodyRange,
                   tokens: tokens
-              ) == ["root:=", "root:+=", "rgb:*="],
+              ) == ["root:=", "root:+=", "rgb:*="] else { return nil }
+        let outputIsProven: Bool = switch outputConstraint {
+        case .explicitAlphaClamp:
+            outputFact(
+                Array(outputExpression),
+                accumulator: tokens[accumulator].text,
+                before: output,
+                fragment: fragment,
+                main: main
+            )
+        case .rgba8UnormAttachment:
+            rgba8UnormOutputFact(
+                Array(outputExpression),
+                accumulator: tokens[accumulator].text,
+                before: output,
+                fragment: fragment,
+                main: main
+            )
+        }
+        let expectedAccumulatorUses = switch outputConstraint {
+        case .explicitAlphaClamp: 5
+        case .rgba8UnormAttachment: 4
+        }
+        guard outputIsProven,
               wordCount(
                   tokens[accumulator].text,
                   in: main.bodyRange,
                   tokens: tokens
-              ) == 5 else { return nil }
+              ) == expectedAccumulatorUses else { return nil }
         return .init(slot: slot, work: loop.iterations)
     }
 
@@ -236,12 +275,28 @@ nonisolated enum SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer {
               tokens[close + 1].text == "{",
               let bodyClose = matchingDelimiter(at: close + 1, tokens: tokens),
               bodyClose < function.bodyRange.upperBound,
+              !isWritten(
+                  index,
+                  in: (close + 2)..<bodyClose,
+                  tokens: tokens
+              ),
               let iterations = constantInt(
                   condition[2],
                   before: marker,
                   function: function,
                   tokens: tokens
               ), (2 ... 64).contains(iterations),
+              wordCount(
+                  index,
+                  in: function.bodyRange,
+                  tokens: tokens
+              ) == 4,
+              tokens[parts[1].lowerBound + 2].kind != .identifier
+                || wordCount(
+                    condition[2],
+                    in: function.bodyRange,
+                    tokens: tokens
+                ) == 3,
               let denominator = denominator(
                   for: condition[2],
                   before: marker,
@@ -255,6 +310,27 @@ nonisolated enum SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer {
             marker: marker,
             body: (close + 2)..<bodyClose
         )
+    }
+
+    private static func isWritten(
+        _ name: String,
+        in range: Range<Int>,
+        tokens: [Token]
+    ) -> Bool {
+        let assignments: Set<String> = [
+            "=", "+=", "-=", "*=", "/=", "%=", "++", "--",
+        ]
+        for index in range where tokens[index].text == name {
+            if index + 1 < range.upperBound,
+               assignments.contains(tokens[index + 1].text) {
+                return true
+            }
+            if index > range.lowerBound,
+               ["++", "--"].contains(tokens[index - 1].text) {
+                return true
+            }
+        }
+        return false
     }
 
     private static func constantInt(
@@ -324,6 +400,30 @@ nonisolated enum SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer {
                 main: main
             )
         }
+    }
+
+    /// The authored RGBA8 target supplies the terminal [0, 1] clamp. Before
+    /// that typed storage boundary, every output channel must still be the
+    /// same accumulated signal multiplied only by bounded scalar facts.
+    private static func rgba8UnormOutputFact(
+        _ expression: [Token],
+        accumulator: String,
+        before boundary: Int,
+        fragment: Unit,
+        main: Unit.Function
+    ) -> Bool {
+        let factors = productFactors(unwrapped(expression))
+        let carrier = factors.filter { texts(unwrapped($0)) == [accumulator] }
+        guard carrier.count == 1 else { return false }
+        return factors.filter { texts(unwrapped($0)) != [accumulator] }
+            .allSatisfy {
+                safeScalarFactor(
+                    unwrapped($0),
+                    before: boundary,
+                    fragment: fragment,
+                    main: main
+                )
+            }
     }
 
     private static func safeScalarFactor(

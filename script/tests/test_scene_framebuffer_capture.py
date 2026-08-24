@@ -74,7 +74,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterWaves.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Rays.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ProceduralNoise.swift",
@@ -622,7 +621,6 @@ struct SceneBlendEffectTextures {
         case blend(SceneBlendExecutionPlan)
         case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
-        case godrays(SceneGodraysPlan)
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
@@ -646,7 +644,6 @@ struct SceneBlendEffectTextures {
             case .blend: "blend"
             case .transform: "transform"
             case .pulse: "pulse"
-            case .godrays: "godrays"
             }
         }
     }
@@ -684,11 +681,6 @@ struct SceneBlendEffectTextures {
         return plan
     }
 
-    var godrays: SceneGodraysPlan? {
-        guard case .godrays(let plan) = backend else { return nil }
-        return plan
-    }
-
     var executionFamilyStableName: String {
         backend.stableName
     }
@@ -722,9 +714,6 @@ struct SceneBlendEffectTextures {
                 && !supportsUnifiedFullFrameComposeStage
         case .standardBlur:
             return true
-        case .godrays(let plan):
-            return (plan.direction == nil && !plan.usesDirectionalGaussianKernel)
-                || (plan.direction?.isFinite == true && plan.usesDirectionalGaussianKernel)
         default:
             return false
         }
@@ -811,52 +800,6 @@ extension SceneEffectStageRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? { nil }
 
-}
-
-struct SceneGodraysPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let firstHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
-    let secondHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
-    let direction: Float?
-    let usesDirectionalGaussianKernel: Bool
-    let maskTexturePath: String?
-}
-
-struct SceneGodraysEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let maskPath: String?
-    let noise: MTLTexture?
-
-    func matches(_ plan: SceneGodraysPlan) -> Bool {
-        noise != nil && (plan.maskTexturePath == nil ? maskPath == nil : mask != nil)
-    }
-}
-
-struct SceneGodraysPipeline {
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-enum SceneGodraysRenderer {
-    static func renderCaptured(
-        plan: SceneGodraysPlan,
-        sourceTexture: MTLTexture,
-        masks: SceneImageLayerMasks,
-        targets: SceneGraphRenderTargetTable,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        sourcePipeline: SceneImageLayerPipeline,
-        godraysPipeline: SceneGodraysPipeline,
-        time: Float,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        guard let resources = masks.godraysEffects[plan.effectKey.descriptorID],
-              resources.matches(plan),
-              targets.texture(for: plan.firstHalfTarget) != nil,
-              targets.texture(for: plan.secondHalfTarget) != nil else {
-            return nil
-        }
-        return targets.outputTexture
-    }
 }
 
 struct ScenePulseShaderProfile {
@@ -1494,11 +1437,6 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
-        let authoredGodraysPrepared = try authoredGodraysPreparedEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline
-        )
         let standardBlurAlphaAwareDownsample = try alphaAwareDownsamplePixel(
             device: device,
             queue: queue
@@ -1565,7 +1503,6 @@ enum Harness {
             "gaussianKernelPixels": gaussianKernelPixels,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredStandardCandidate": authoredStandardCandidate,
-            "authoredGodraysPrepared": authoredGodraysPrepared,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
             "standardBlurMaskPixels": standardBlurMaskPixels,
             "mappedMaskScale": [mappedMaskScale.x, mappedMaskScale.y],
@@ -1953,7 +1890,6 @@ enum Harness {
             waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:],
             waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:],
             pulseEffects: [String: ScenePulseEffectTextures] = [:],
-            godraysEffects: [String: SceneGodraysEffectTextures] = [:],
             xRay: SceneXRayEffectTextures? = nil
         ) -> SceneImageLayerMasks {
             SceneImageLayerMasks(
@@ -1962,7 +1898,6 @@ enum Harness {
                 waterWavesEffects: waterWavesEffects,
                 waterCausticsEffects: waterCausticsEffects,
                 pulseEffects: pulseEffects,
-                godraysEffects: godraysEffects,
                 xRay: xRay
             )
         }
@@ -2500,14 +2435,6 @@ enum Harness {
             ("waterCaustics", masks(waterCausticsEffects: [
                 visibleEffectID: SceneWaterCausticsEffectTextures(
                     mask: dependency
-                ),
-            ])),
-            ("godrays", masks(godraysEffects: [
-                visibleEffectID: SceneGodraysEffectTextures(
-                    mask: dependency,
-                    maskUVScale: SIMD2(repeating: 1),
-                    maskPath: "fixture/mask",
-                    noise: nil
                 ),
             ])),
             ("xray", masks(xRay: SceneXRayEffectTextures(
@@ -3422,169 +3349,6 @@ enum Harness {
         ]
     }
 
-    static func authoredGodraysPreparedEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline
-    ) throws -> [String: Any] {
-        let size = 16
-        guard let noise = makeTexture(device: device, size: size, usage: .shaderRead),
-              let stockCommandBuffer = queue.makeCommandBuffer(),
-              let legacyCommandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(noise, bgra: [127, 127, 127, 255])
-        let plan = authoredGodraysPlan()
-        let legacyPlan = authoredGodraysPlan(directionalV1: true)
-        let stockPool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let legacyPool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let stockFrameTables = try prepareStageTargets(
-            plan: plan,
-            pool: stockPool,
-            width: size,
-            height: size,
-            commandBuffer: stockCommandBuffer
-        )
-        let legacyFrameTables = try prepareStageTargets(
-            plan: legacyPlan,
-            pool: legacyPool,
-            width: size,
-            height: size,
-            commandBuffer: legacyCommandBuffer
-        )
-        defer {
-            stockFrameTables.commit.releaseAll()
-            legacyFrameTables.commit.releaseAll()
-        }
-        guard let stockTable = stockFrameTables.tables.first,
-              let legacyTable = legacyFrameTables.tables.first,
-              let godrays = plan.godrays,
-              let legacyGodrays = legacyPlan.godrays,
-              let legacyFirst = legacyTable.texture(
-                  for: legacyGodrays.firstHalfTarget
-              ),
-              let legacySecond = legacyTable.texture(
-                  for: legacyGodrays.secondHalfTarget
-              ) else {
-            throw HarnessError.drawRefused
-        }
-        let resources = SceneGodraysEffectTextures(
-            mask: nil,
-            maskUVScale: SIMD2(repeating: 1),
-            maskPath: nil,
-            noise: noise
-        )
-        func preparation(
-            _ stage: SceneEffectStageExecutionPlan,
-            table: SceneGraphRenderTargetTable,
-            resources: [String: SceneGodraysEffectTextures]
-        ) -> SceneEffectStageRenderer.StagePreparation {
-            SceneEffectStageRenderer.prepareStage(
-                stage,
-                sourceTexture: table.inputTexture,
-                targets: table,
-                inputs: .init(
-                    masks: authoredEffectMasks(godraysEffects: resources),
-                    dynamicValues: .empty(frameIndex: 1),
-                    pipelines: .init(
-                        repository: SceneImageEffectPipelineRepository(device: device)
-                    ),
-                    cursorUV: .zero,
-                    previousCursorUV: .zero,
-                    pointerIsInside: false,
-                    previousPointerIsInside: false,
-                    pointerMovement: 0,
-                    primaryButtonIsDown: false,
-                    frameTime: 1 / 60,
-                    time: 0,
-                    audioSpectrum: .silent,
-                    dependencyEffect: nil
-                ),
-                sourcePipeline: pipeline,
-                time: 0
-            )
-        }
-        let stockAccepted = preparation(
-            plan,
-            table: stockTable,
-            resources: [godrays.effectKey.descriptorID: resources]
-        )
-        let stockPreparedStageEncoded: Bool
-        let stockPreparationReason: String?
-        switch stockAccepted {
-        case .ready(let stockPrepared):
-            stockPreparedStageEncoded = SceneEffectStageRenderer
-                .encodePreparedStage(
-                    stockPrepared,
-                    commandBuffer: stockCommandBuffer
-                )
-            stockPreparationReason = stockPreparedStageEncoded ? nil : "encode-refused"
-        case .rejected(let reason):
-            stockPreparedStageEncoded = false
-            stockPreparationReason = reason
-        }
-
-        let legacyAccepted = preparation(
-            legacyPlan,
-            table: legacyTable,
-            resources: [legacyGodrays.effectKey.descriptorID: resources]
-        )
-        let legacyPreparedStageEncoded: Bool
-        let legacyPreparationReason: String?
-        switch legacyAccepted {
-        case .ready(let legacyPrepared):
-            legacyPreparedStageEncoded = SceneEffectStageRenderer
-                .encodePreparedStage(
-                    legacyPrepared,
-                    commandBuffer: legacyCommandBuffer
-                )
-            legacyPreparationReason = legacyPreparedStageEncoded ? nil : "encode-refused"
-        case .rejected(let reason):
-            legacyPreparedStageEncoded = false
-            legacyPreparationReason = reason
-        }
-
-        let stockMissing = preparation(plan, table: stockTable, resources: [:])
-        let legacyMissing = preparation(
-            legacyPlan,
-            table: legacyTable,
-            resources: [:]
-        )
-        stockCommandBuffer.commit()
-        legacyCommandBuffer.commit()
-        stockCommandBuffer.waitUntilCompleted()
-        legacyCommandBuffer.waitUntilCompleted()
-        guard stockCommandBuffer.status == .completed,
-              stockCommandBuffer.error == nil,
-              legacyCommandBuffer.status == .completed,
-              legacyCommandBuffer.error == nil else {
-            throw HarnessError.commandFailed
-        }
-        let stockMissingReason: String?
-        if case let .rejected(reason) = stockMissing { stockMissingReason = reason }
-        else { stockMissingReason = nil }
-        let legacyMissingReason: String?
-        if case let .rejected(reason) = legacyMissing { legacyMissingReason = reason }
-        else { legacyMissingReason = nil }
-        let legacyRGBAContract = legacyTable.plan.logicalTargets.count == 2
-            && legacyTable.plan.logicalTargets.allSatisfy { $0.format == .rgba8888 }
-            && legacyFirst.pixelFormat == .rgba8Unorm
-            && legacySecond.pixelFormat == .rgba8Unorm
-            && legacyFirst !== legacySecond
-            && legacyTable.inputTexture.pixelFormat == .bgra8Unorm
-            && legacyTable.outputTexture.pixelFormat == .bgra8Unorm
-            && legacyTable.inputTexture !== legacyTable.outputTexture
-        return [
-            "stockPreparedStageEncoded": stockPreparedStageEncoded,
-            "stockPreparationReason": stockPreparationReason as Any,
-            "legacyPreparedStageEncoded": legacyPreparedStageEncoded,
-            "legacyPreparationReason": legacyPreparationReason as Any,
-            "legacyRGBAContract": legacyRGBAContract,
-            "stockMissingResourceReason": stockMissingReason as Any,
-            "legacyMissingResourceReason": legacyMissingReason as Any,
-        ]
-    }
-
     static func textureCandidate(
         texture: MTLTexture,
         purpose: SceneTextureLoadPurpose,
@@ -3640,7 +3404,6 @@ enum Harness {
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
             pulseEffects: [:],
-            godraysEffects: [:],
             xRay: nil
         )
     }
@@ -4304,89 +4067,6 @@ enum Harness {
         )
     }
 
-    static func authoredGodraysPlan(
-        directionalV1: Bool = false
-    ) -> SceneEffectStageExecutionPlan {
-        let layerID = 832
-        let effectKey = Graph.EffectKey(
-            layerID: layerID,
-            effectIndex: 0,
-            descriptorID: "\(layerID)#effect#0"
-        )
-        let input = graphTexture(.layerSource, layerID: layerID)
-        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
-        let firstHalf = graphTexture(
-            .framebuffer,
-            layerID: layerID,
-            effect: effectKey,
-            name: "_rt_HalfCompoBuffer1"
-        )
-        let secondHalf = graphTexture(
-            .framebuffer,
-            layerID: layerID,
-            effect: effectKey,
-            name: "_rt_HalfCompoBuffer2"
-        )
-        let targets = [firstHalf, secondHalf, firstHalf, secondHalf, output]
-        let nodes = targets.indices.map { index in
-            Graph.Node(
-                nodeIndex: index,
-                effect: effectKey,
-                definitionPassIndex: index,
-                materialOrdinal: index,
-                instancePassIndex: index,
-                kind: .material,
-                materialPath: "materials/effects/godrays_\(index).json",
-                materialPassID: "materials/effects/godrays_\(index).json#0",
-                target: targets[index],
-                bindings: [],
-                commandSource: nil,
-                commandTarget: nil,
-                compose: nil,
-                conditions: nil
-            )
-        }
-        let effect = Graph.Effect(
-            key: effectKey,
-            definitionPath: "effects/godrays/effect.json",
-            input: input,
-            output: output,
-            nodeIndices: nodes.map(\.nodeIndex)
-        )
-        let graph = Graph(
-            layerID: layerID,
-            effects: [effect],
-            renderTargets: [firstHalf, secondHalf].map {
-                .init(
-                    texture: $0,
-                    extent: .init(kind: .scale, first: 2, second: nil),
-                    format: directionalV1 ? "rgba8888" : "rgba_backbuffer",
-                    declaredUnique: false,
-                    clear: nil,
-                    uvs: nil,
-                    conditions: nil
-                )
-            },
-            nodes: nodes,
-            finalOutput: output,
-            blockers: []
-        )
-        return SceneEffectStageExecutionPlan(
-            layerID: layerID,
-            renderGraph: graph,
-            backend: .godrays(SceneGodraysPlan(
-                effectKey: effectKey,
-                firstHalfTarget: firstHalf,
-                secondHalfTarget: secondHalf,
-                direction: directionalV1 ? 0 : nil,
-                usesDirectionalGaussianKernel: directionalV1,
-                maskTexturePath: nil
-            )),
-            materialNodeCount: 5,
-            logicalRenderTargetCount: 2
-        )
-    }
-
     static func externalProceduralNoiseStage()
         -> SceneEffectStageExecutionPlan {
         let layerID = 847
@@ -4470,17 +4150,13 @@ enum Harness {
 
 
 
-    static func authoredEffectMasks(
-        blendEffects: [String: SceneBlendEffectTextures] = [:],
-        godraysEffects: [String: SceneGodraysEffectTextures] = [:],
-    ) -> SceneImageLayerMasks {
+    static func authoredEffectMasks() -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            blendEffects: blendEffects,
+            blendEffects: [:],
             standardBlurEffects: [:],
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
             pulseEffects: [:],
-            godraysEffects: godraysEffects,
             xRay: nil
         )
     }
@@ -4997,7 +4673,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "mask-standardBlur",
                 "mask-waterWaves",
                 "mask-waterCaustics",
-                "mask-godrays",
                 "mask-xray",
             },
         )
@@ -5210,24 +4885,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         )
         self.assertTrue(evidence["paddedZeroMaskPreservedSource"], evidence)
         self.assertTrue(evidence["wrongPurposeRejected"], evidence)
-
-    def test_stock_and_legacy_godrays_prepare_encode_and_require_resources(
-        self,
-    ) -> None:
-        evidence = self.result["authoredGodraysPrepared"]
-        self.assertTrue(evidence["stockPreparedStageEncoded"], evidence)
-        self.assertTrue(evidence["legacyPreparedStageEncoded"], evidence)
-        self.assertTrue(evidence["legacyRGBAContract"], evidence)
-        self.assertEqual(
-            evidence["stockMissingResourceReason"],
-            "godrays-resource-missing",
-            evidence,
-        )
-        self.assertEqual(
-            evidence["legacyMissingResourceReason"],
-            "godrays-resource-missing",
-            evidence,
-        )
 
     def test_standard_blur_combine_uses_red_mask_in_premultiplied_space(self) -> None:
         mask_zero, mask_half, mask_one = self.result["standardBlurMaskPixels"]

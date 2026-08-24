@@ -9,7 +9,6 @@ extension SceneMetalRenderer {
             waterWavesEffects: store.waterWavesEffects,
             waterCausticsEffects: store.waterCausticsEffects,
             pulseEffects: store.pulseEffects,
-            godraysEffects: store.godraysEffects,
             xRay: store.xRayEffects[layerID]
         )
     }

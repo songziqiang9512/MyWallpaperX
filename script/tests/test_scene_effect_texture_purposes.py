@@ -35,8 +35,6 @@ METAL_VIEW = (
 LOADER_SOURCES = sorted(RESOURCE_ROOT.glob("*EffectTextureLoader*.swift"))
 EXPECTED_PURPOSES = {
     "blend effect texture": "premultipliedColor",
-    "godrays noise": "noise",
-    "godrays effect mask": "mask",
     "pulse noise": "noise",
     "pulse effect mask": "mask",
     "standard blur mask": "mask",

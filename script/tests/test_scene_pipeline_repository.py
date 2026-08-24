@@ -55,9 +55,7 @@ final class SceneBlendPipeline {
         deviceRegistryID = device.registryID
     }
 }
-final class ScenePulsePipeline { init?(device: MTLDevice) {} }
-
-final class SceneGodraysPipeline {
+final class ScenePulsePipeline {
     static let attempts = Counter()
 
     init?(device: MTLDevice) {
@@ -107,7 +105,7 @@ enum Harness {
         for _ in 0..<count {
             group.enter()
             queue.async {
-                if repository.godrays() != nil {
+                if repository.pulse() != nil {
                     successes.increment()
                 }
                 group.leave()
@@ -124,7 +122,7 @@ enum Harness {
         let first = SceneImageEffectPipelineRepository(device: device)
         let second = SceneImageEffectPipelineRepository(device: device)
         let attemptsAfterConstruction = SceneBlendPipeline.attempts.read()
-            + SceneGodraysPipeline.attempts.read()
+            + ScenePulsePipeline.attempts.read()
 
         let firstValues = concurrentBlend(first, count: 128)
         let firstIDs = Set(firstValues.map(ObjectIdentifier.init))
@@ -137,7 +135,7 @@ enum Harness {
             "firstBlendIdentityCount": firstIDs.count,
             "blendAttemptsAcrossTwoRepositories": SceneBlendPipeline.attempts.read(),
             "failedSuccesses": failedSuccesses,
-            "failedAttempts": SceneGodraysPipeline.attempts.read(),
+            "failedAttempts": ScenePulsePipeline.attempts.read(),
             "deviceMatches": firstValues.allSatisfy {
                 $0.deviceRegistryID == device.registryID
             },

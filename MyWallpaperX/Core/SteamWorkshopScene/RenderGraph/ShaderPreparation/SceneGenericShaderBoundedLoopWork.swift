@@ -18,7 +18,7 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
 
     static func evaluate(sources: [String]) -> Result<Int, Failure> {
         let floatLiteral = #"(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?[fF]?"#
-        let zeroBasedPattern = #"\bfor\s*\(\s*int\s+([A-Za-z_]\w*)\s*=\s*0\s*;\s*([A-Za-z_]\w*)\s*<\s*(\d+)\s*;\s*(?:(?:\+\+\s*([A-Za-z_]\w*))|(?:([A-Za-z_]\w*)\s*\+\+))\s*\)"#
+        let zeroBasedPattern = #"\bfor\s*\(\s*int\s+([A-Za-z_]\w*)\s*=\s*0\s*;\s*([A-Za-z_]\w*)\s*<\s*(\d+|[A-Za-z_]\w*)\s*;\s*(?:(?:\+\+\s*([A-Za-z_]\w*))|(?:([A-Za-z_]\w*)\s*\+\+))\s*\)"#
         let signedInclusivePattern = #"\bfor\s*\(\s*int\s+([A-Za-z_]\w*)\s*=\s*(-?(?:\d+|[A-Za-z_]\w*))\s*;\s*([A-Za-z_]\w*)\s*<=\s*(-?(?:\d+|[A-Za-z_]\w*))\s*;\s*(?:(?:\+\+\s*([A-Za-z_]\w*))|(?:([A-Za-z_]\w*)\s*\+\+))\s*\)"#
         var total = 0
         for source in sources {
@@ -50,10 +50,24 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
                 guard let declared = capture(match, 1, in: body),
                       let compared = capture(match, 2, in: body),
                       let limitText = capture(match, 3, in: body),
-                      let limit = Int(limitText), (1 ... 64).contains(limit),
+                      let limit = Int(limitText) ?? rootInvariantInteger(
+                          named: limitText,
+                          source: body,
+                          before: match.range.location
+                      ), (1 ... 64).contains(limit),
                       [capture(match, 4, in: body), capture(match, 5, in: body)]
                         .compactMap({ $0 }).contains(declared),
                       declared == compared,
+                      let loopBody = loopBodyRange(
+                          in: body,
+                          after: NSMaxRange(match.range)
+                      ),
+                      !isWritten(declared, in: loopBody, source: body),
+                      !isPassedToAuthoredFunction(
+                          declared,
+                          in: loopBody,
+                          source: body
+                      ),
                       let range = Range(match.range, in: body) else {
                     return .failure(.unbounded)
                 }
@@ -73,6 +87,16 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
                       (-64 ... 64).contains(start),
                       (-64 ... 64).contains(end),
                       (1 ... 64).contains(end - start + 1),
+                      let loopBody = loopBodyRange(
+                          in: body,
+                          after: NSMaxRange(match.range)
+                      ),
+                      !isWritten(declared, in: loopBody, source: body),
+                      !isPassedToAuthoredFunction(
+                          declared,
+                          in: loopBody,
+                          source: body
+                      ),
                       let range = Range(match.range, in: body) else {
                     return .failure(.unbounded)
                 }
@@ -185,12 +209,17 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
         let functionSource = (source as NSString).substring(with: functionRange)
         let localLoopLocation = loopLocation - functionRange.location
         let escaped = NSRegularExpression.escapedPattern(for: name)
+        let allDeclarations = matches(
+            #"\b(?:const\s+)?float\s+"# + escaped + #"\b"#,
+            in: functionSource
+        )
         let declarations = matches(
             #"\b(?:const\s+)?float\s+"# + escaped
                 + #"\s*=\s*("# + floatLiteral + #")\s*;"#,
             in: functionSource
         )
-        guard declarations.count == 1,
+        guard allDeclarations.count == 1,
+              declarations.count == 1,
               let declaration = declarations.first,
               declaration.range.location < localLoopLocation,
               braceDepth(
@@ -199,6 +228,48 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
               ) == 0,
               let raw = capture(declaration, 1, in: functionSource),
               let value = finiteIntegral(raw) else { return nil }
+        let suffix = NSRange(
+            location: functionRange.location + NSMaxRange(declaration.range),
+            length: (functionSource as NSString).length - NSMaxRange(declaration.range)
+        )
+        return isWritten(name, in: suffix, source: source)
+            || isPassedToAuthoredFunction(name, in: suffix, source: source)
+            ? nil : value
+    }
+
+    /// The product artifact budget accepts one root integer declaration before
+    /// the loop whose value cannot be reassigned or passed to authored code.
+    private static func rootInvariantInteger(
+        named name: String,
+        source: String,
+        before loopLocation: Int
+    ) -> Int? {
+        guard let functionRange = enclosingFunctionBodyRange(
+            in: source,
+            containing: loopLocation
+        ) else { return nil }
+        let functionSource = (source as NSString).substring(with: functionRange)
+        let localLoopLocation = loopLocation - functionRange.location
+        let escaped = NSRegularExpression.escapedPattern(for: name)
+        let allDeclarations = matches(
+            #"\b(?:const\s+)?int\s+"# + escaped + #"\b"#,
+            in: functionSource
+        )
+        let declarations = matches(
+            #"\b(?:const\s+)?int\s+"# + escaped
+                + #"\s*=\s*(\d+)\s*;"#,
+            in: functionSource
+        )
+        guard allDeclarations.count == 1,
+              declarations.count == 1,
+              let declaration = declarations.first,
+              declaration.range.location < localLoopLocation,
+              braceDepth(
+                  in: functionSource,
+                  before: declaration.range.location
+              ) == 0,
+              let raw = capture(declaration, 1, in: functionSource),
+              let value = Int(raw) else { return nil }
         let suffix = NSRange(
             location: functionRange.location + NSMaxRange(declaration.range),
             length: (functionSource as NSString).length - NSMaxRange(declaration.range)

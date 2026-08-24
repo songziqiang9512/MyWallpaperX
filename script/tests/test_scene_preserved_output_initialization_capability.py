@@ -128,11 +128,43 @@ private func preservedOutputEnvelopeToken(
     }
 }
 
+private func outputRGBA8IdentityDriftToken() -> String {
+    let fixtureGraph = graph(withPrimaryBinding: true)
+    let template = materialTemplate(
+        graph: fixtureGraph,
+        shader: outputInitializationContract(
+            "rgba8-output-identity",
+            body: "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
+        ),
+        slots: slots(primary: graphCandidate())
+    )
+    guard case let .success(cache) =
+            SceneResolvedMaterialVariantCache.launchValidated(
+        template: template,
+        maximumVariantCount: 16
+    ), case .success = cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: source(),
+        outputStorage: .color,
+        outputIsRGBA8Unorm: false
+    ) else { return "setup-failed" }
+    switch cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: source(),
+        outputStorage: .color,
+        outputIsRGBA8Unorm: true
+    ) {
+    case .success: return "unexpected-success"
+    case .failure(.capacity): return "capacity"
+    case let .failure(.material(failure)):
+        return materialFailureToken(failure)
+    }
+}
+
 @main
 private enum PreservedOutputInitializationHarness {
     static func main() throws {
         setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
         let result = [
+            "rgba8OutputIdentityDrift": outputRGBA8IdentityDriftToken(),
             "wholeThenXYCompound": preservedOutputEnvelopeToken("""
                 vec4 initialized = texSample2D(g_Texture0, v_TexCoord);
                 gl_FragColor = initialized;
@@ -228,6 +260,10 @@ class ScenePreservedOutputInitializationCapabilityTests(unittest.TestCase):
 
         self.assertEqual(result["wholeThenXYCompound"], "success")
         self.assertEqual(result["unseenWholeThenConditionalRG"], "success")
+        self.assertEqual(
+            result["rgba8OutputIdentityDrift"],
+            "invariant:identityInvariant:none:launch-output-rgba8-unorm-changed",
+        )
         for key in (
             "componentBeforeWhole",
             "componentOnly",

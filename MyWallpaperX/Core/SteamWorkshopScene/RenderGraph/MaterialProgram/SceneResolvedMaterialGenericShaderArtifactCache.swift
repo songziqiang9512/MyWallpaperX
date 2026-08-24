@@ -220,6 +220,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         hasDefaultedOpacityMaskSampler: Bool = false,
         hasOnlyTypedOpacityMaskAuxiliary: Bool = false,
         hasOnlyGraphInputSampler: Bool = false,
+        outputIsRGBA8Unorm: Bool = false,
         sourceColorTransfer: SceneShaderColorTransfer? = nil,
         outputSemantics: SceneGenericShaderOutputSemantics = .color
     ) -> Resolution {
@@ -302,6 +303,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer.sourceSlot(
                     fragmentSource: fragmentSource
                 ),
+            independentSignalUNormAccumulatorSourceSlot:
+                SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer
+                    .rgba8UnormAttachmentSourceSlot(
+                        fragmentSource: fragmentSource
+                    ),
             alphaWeightedSampleAverageSourceSlot:
                 alphaWeightedSampleAverageSourceSlot,
             preservedAlphaRGBFilterSourceSlot:
@@ -335,6 +341,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             hasDefaultedOpacityMaskSampler: hasDefaultedOpacityMaskSampler,
             hasOnlyTypedOpacityMaskAuxiliary: hasOnlyTypedOpacityMaskAuxiliary,
             hasOnlyGraphInputSampler: hasOnlyGraphInputSampler,
+            outputIsRGBA8Unorm: outputIsRGBA8Unorm,
             hasStageScopedUniformBindings: SceneGenericShaderStageUniformAnalyzer.hasScopedBindings(
                 vertexSource: vertexSource,
                 fragmentSource: fragmentSource

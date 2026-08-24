@@ -6941,28 +6941,16 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("case .preciseGaussian:", logical_body)
         self.assertIn("case .standardBlur:", logical_body)
         self.assertNotIn("case .localContrast:", logical_body)
-        self.assertIn("case .godrays(let plan):", logical_body)
-        logical_compact = "".join(logical_body.split())
-        self.assertIn(
-            "returnplan.direction?.isFinite==true"
-            "&&plan.usesDirectionalGaussianKernel",
-            logical_compact,
-        )
+        self.assertNotIn("case .godrays", logical_body)
         dedicated_compilers = (
             SCENE_ROOT
             / "RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift"
         ).read_text(encoding="utf-8")
-        godrays_owner = dedicated_compilers[
-            dedicated_compilers.index(
-                "extension SceneAuthoredGodraysPlanner:"
-            ):
-        ]
-        self.assertIn(
+        self.assertNotIn("SceneAuthoredGodraysPlanner", dedicated_compilers)
+        self.assertNotIn(
             "stock-radial-owner-revoked-to-material-program",
-            godrays_owner,
+            dedicated_compilers,
         )
-        self.assertIn("plan.direction == nil", godrays_owner)
-        self.assertIn("!plan.usesDirectionalGaussianKernel", godrays_owner)
         self.assertNotIn(".shine", source)
         self.assertNotIn("case .cursorRipple:", logical_body)
 

@@ -69,6 +69,8 @@ private struct Output: Codable {
     let externalProviderRejected: Bool
     let scalarOutputRejected: Bool
     let wrongGraphRoleRejected: Bool
+    let twoGraphTargetsAccepted: Bool
+    let extraSamplerRejected: Bool
 }
 
 private func source(
@@ -196,7 +198,8 @@ private func profile(
     ),
     external: Bool = false,
     scalarOutput: Bool = false,
-    graphTextureSlots: Set<Int> = [6]
+    graphTextureSlots: Set<Int> = [6],
+    hasOnlyGraphInputSampler: Bool = true
 ) -> SceneGenericShaderCapabilityProfile {
     SceneGenericShaderCapabilityProfile(
         colorTransfer: transfer,
@@ -219,6 +222,7 @@ private func profile(
         graphInputTextureSlots: [6, 2],
         r8TextureSlots: [],
         hasDefaultedOpacityMaskSampler: false,
+        hasOnlyGraphInputSampler: hasOnlyGraphInputSampler,
         hasStageScopedUniformBindings: false,
         hasStereoAudioSpectrumArrays: false,
         hasLocalizedMutableFragmentVarying: false
@@ -328,7 +332,11 @@ private enum Harness {
             rollback: selected.validatedRollbackOwner.rawValue,
             externalProviderRejected: profile(external: true) != selected,
             scalarOutputRejected: profile(scalarOutput: true) != selected,
-            wrongGraphRoleRejected: profile(graphTextureSlots: [2]) != selected
+            wrongGraphRoleRejected: profile(graphTextureSlots: [2]) != selected,
+            twoGraphTargetsAccepted:
+                profile(graphTextureSlots: [6, 2]) == selected,
+            extraSamplerRejected:
+                profile(hasOnlyGraphInputSampler: false) != selected
         )
         print(String(data: try JSONEncoder().encode(output), encoding: .utf8)!)
     }

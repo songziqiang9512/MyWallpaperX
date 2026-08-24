@@ -5,6 +5,7 @@ import Foundation
 /// become execution policy here.
 nonisolated enum SceneResolvedMaterialShaderSchema {
     typealias Template = SceneResolvedMaterialTemplate
+    typealias ChannelUse = SceneAuthoredShaderProgram.TextureBinding.ChannelUse
 
     enum TextureMode: Hashable {
         case regular
@@ -31,6 +32,42 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         /// presence fact, although an active combo-off sampler may consume the
         /// typed default as a separate resource fallback.
         let readinessCombo: String?
+        /// Source-derived use for one prepared variant. Bootstrap schemas have
+        /// no active syntax proof and therefore retain the conservative default.
+        let channelUse: ChannelUse
+
+        init(
+            name: String,
+            slot: Int,
+            mode: TextureMode,
+            materialKey: String?,
+            isHidden: Bool,
+            defaultTexture: DefaultTexture?,
+            readinessCombo: String?,
+            channelUse: ChannelUse = .unproven
+        ) {
+            self.name = name
+            self.slot = slot
+            self.mode = mode
+            self.materialKey = materialKey
+            self.isHidden = isHidden
+            self.defaultTexture = defaultTexture
+            self.readinessCombo = readinessCombo
+            self.channelUse = channelUse
+        }
+
+        func withChannelUse(_ value: ChannelUse) -> Self {
+            .init(
+                name: name,
+                slot: slot,
+                mode: mode,
+                materialKey: materialKey,
+                isHidden: isHidden,
+                defaultTexture: defaultTexture,
+                readinessCombo: readinessCombo,
+                channelUse: value
+            )
+        }
     }
 
     struct Uniform: Hashable {
@@ -79,11 +116,20 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         guard activeNames.allSatisfy({ name in
             name.hasPrefix("g_Texture") && Int(name.dropFirst(9)) != nil
         }) else { throw Issue.sampler("active-reflection") }
-        return try samplerSchemas(records(prepared).filter {
+        let schemas = try samplerSchemas(records(prepared).filter {
             $0.declaration.kind != .uniform
                 || !isSampler2D($0.declaration.type)
                 || activeNames.contains($0.declaration.name)
         })
+        return schemas.mapValues { sampler in
+            sampler.withChannelUse(
+                SceneAuthoredShaderTextureChannelAnalyzer.analyze(
+                    samplerName: sampler.name,
+                    vertexSource: prepared.vertex.source,
+                    fragmentSource: prepared.fragment.source
+                )
+            )
+        }
     }
 
     static func activeUniforms(
