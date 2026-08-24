@@ -5,7 +5,6 @@ struct SceneLayerEffectTextures {
     let depthParallaxEffects: [String: SceneDepthParallaxEffectTextures]
     let blendEffects: [String: SceneBlendEffectTextures]
     let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
-    let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let waterCausticsEffects: [String: SceneWaterCausticsEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
@@ -19,7 +18,6 @@ struct SceneLayerEffectTextureStore {
     var depthParallaxEffects: [String: SceneDepthParallaxEffectTextures] = [:]
     var blendEffects: [String: SceneBlendEffectTextures] = [:]
     var standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:]
-    var waterFlowEffects: [String: SceneWaterFlowEffectTextures] = [:]
     var waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:]
     var waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:]
     var pulseEffects: [String: ScenePulseEffectTextures] = [:]
@@ -33,7 +31,6 @@ struct SceneLayerEffectTextureStore {
         }
         blendEffects.merge(textures.blendEffects) { _, incoming in incoming }
         standardBlurEffects.merge(textures.standardBlurEffects) { _, incoming in incoming }
-        waterFlowEffects.merge(textures.waterFlowEffects) { _, incoming in incoming }
         waterWavesEffects.merge(textures.waterWavesEffects) { _, incoming in incoming }
         waterCausticsEffects.merge(textures.waterCausticsEffects) { _, incoming in incoming }
         pulseEffects.merge(textures.pulseEffects) { _, incoming in incoming }

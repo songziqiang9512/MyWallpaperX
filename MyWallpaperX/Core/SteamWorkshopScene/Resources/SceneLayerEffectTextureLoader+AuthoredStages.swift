@@ -24,7 +24,6 @@ extension SceneLayerEffectTextureLoader {
             standardBlurEffectIDs: Set(stages.compactMap {
                 $0.standardBlur?.effectDescriptorID
             }),
-            waterFlowEffectIDs: Set(stages.compactMap { $0.waterFlow?.effectKey.descriptorID }),
             waterWavesEffectIDs: Set(stages.compactMap { $0.waterWaves?.effectKey.descriptorID }),
             waterCausticsPlans: stages.compactMap(\.waterCaustics),
             depthParallaxEffectIDs: Set(

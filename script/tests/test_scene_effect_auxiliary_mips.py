@@ -15,7 +15,6 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
-    SOURCE_ROOT / "Effects/SceneWaterFlowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneGodraysPipeline.swift",
     SOURCE_ROOT / "Effects/SceneGodraysPipeline+Encoding.swift",
 ]
@@ -24,13 +23,6 @@ HARNESS = r'''
 import Foundation
 import Metal
 import simd
-
-struct SceneWaterFlowExecutionPlan {
-    let speed: Float
-    let strength: Float
-    let phaseScale: Float
-    let phaseFeather: Float?
-}
 
 struct SceneGodraysPlan {
     let threshold: Float
@@ -68,77 +60,6 @@ enum Harness {
         descriptor.storageMode = .shared
         descriptor.usage = usage
         return device.makeTexture(descriptor: descriptor)!
-    }
-
-    static func waterFlowAcceptsAuxiliaryMips(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneWaterFlowPipeline
-    ) -> Bool {
-        let source = texture(
-            device: device, format: .bgra8Unorm,
-            mipmapped: false, usage: .shaderRead
-        )
-        let target = texture(
-            device: device, format: .bgra8Unorm,
-            mipmapped: false, usage: .renderTarget
-        )
-        let flow = texture(
-            device: device, format: .rg8Unorm,
-            mipmapped: true, usage: .shaderRead
-        )
-        let phase = texture(
-            device: device, format: .r8Unorm,
-            mipmapped: true, usage: .shaderRead
-        )
-        let command = queue.makeCommandBuffer()!
-        let accepted = pipeline.encode(
-            source: source,
-            flowTexture: flow,
-            phaseTexture: phase,
-            target: target,
-            plan: .init(speed: 0.2, strength: 1, phaseScale: 2, phaseFeather: nil),
-            time: 1,
-            maskUVScale: SIMD2(repeating: 1),
-            commandBuffer: command
-        )
-        command.commit()
-        command.waitUntilCompleted()
-        return accepted && command.status == .completed
-    }
-
-    static func waterFlowRejectsMipmappedTarget(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneWaterFlowPipeline
-    ) -> Bool {
-        let source = texture(
-            device: device, format: .bgra8Unorm,
-            mipmapped: false, usage: .shaderRead
-        )
-        let target = texture(
-            device: device, format: .bgra8Unorm,
-            mipmapped: true, usage: .renderTarget
-        )
-        let flow = texture(
-            device: device, format: .rg8Unorm,
-            mipmapped: false, usage: .shaderRead
-        )
-        let phase = texture(
-            device: device, format: .r8Unorm,
-            mipmapped: false, usage: .shaderRead
-        )
-        let command = queue.makeCommandBuffer()!
-        return !pipeline.encode(
-            source: source,
-            flowTexture: flow,
-            phaseTexture: phase,
-            target: target,
-            plan: .init(speed: 0.2, strength: 1, phaseScale: 2, phaseFeather: nil),
-            time: 1,
-            maskUVScale: SIMD2(repeating: 1),
-            commandBuffer: command
-        )
     }
 
     static func godraysAcceptsAuxiliaryMips(
@@ -228,18 +149,11 @@ enum Harness {
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
-              let waterFlow = SceneWaterFlowPipeline(device: device),
               let godrays = SceneGodraysPipeline(device: device) else {
             print("SKIP")
             return
         }
         let result = [
-            "waterFlowAuxiliaryMips": waterFlowAcceptsAuxiliaryMips(
-                device: device, queue: queue, pipeline: waterFlow
-            ),
-            "waterFlowMipmappedTargetRejected": waterFlowRejectsMipmappedTarget(
-                device: device, queue: queue, pipeline: waterFlow
-            ),
             "godraysAuxiliaryMips": godraysAcceptsAuxiliaryMips(
                 device: device, queue: queue, pipeline: godrays
             ),
@@ -291,8 +205,6 @@ class SceneEffectAuxiliaryMipTests(unittest.TestCase):
                 {
                     "godraysAuxiliaryMips": True,
                     "godraysMipmappedTargetRejected": True,
-                    "waterFlowAuxiliaryMips": True,
-                    "waterFlowMipmappedTargetRejected": True,
                 },
             )
 

@@ -23,13 +23,6 @@ extension SceneEffectStageRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         switch stage.backend {
-        case .waterFlow(let waterFlow):
-            return renderWaterFlow(
-                waterFlow, sourceTexture: sourceTexture, masks: masks,
-                targets: targets, sourceUniforms: sourceUniforms,
-                pipeline: pipeline, pipelines: pipelines,
-                time: time, commandBuffer: commandBuffer
-            )
         case .waterWaves(let waterWaves):
             return renderWaterWaves(
                 waterWaves, sourceTexture: sourceTexture, masks: masks,

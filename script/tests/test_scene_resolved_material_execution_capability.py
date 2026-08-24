@@ -6912,11 +6912,12 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         logical_body = source[logical_start:logical_end]
 
         for backend_name in (
-            ".blend", ".waterFlow", ".waterWaves",
+            ".blend", ".waterWaves",
             ".waterCaustics",
             ".depthParallax", ".xRay", ".pulse",
         ):
             self.assertIn(backend_name, leaf_body)
+        self.assertNotIn(".waterFlow", source)
         self.assertNotIn("yieldsToResolvedMaterialProgram", source)
         self.assertNotIn(".lightShafts", leaf_body)
         self.assertIn("case .proceduralNoise(let plan):", leaf_body)

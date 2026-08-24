@@ -179,7 +179,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         case .localContrast: "local-contrast"
         case .colorGrading: "color-grading"
         case .proceduralNoise: "procedural-noise"
-        case .waterFlow: "water-flow"
         case .waterWaves: "water-waves"
         case .waterCaustics: "water-caustics"
         case .depthParallax: "depth-parallax"

@@ -127,14 +127,18 @@
     },
     {
       "id": "resources",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Resources/**"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/**",
+        "MyWallpaperX/Resources/SceneStockAssets.bundle/**"
+      ],
       "keywords": ["resource", "texture", "video"],
       "modules": [
         "test_scene_animated_material_asset",
         "test_scene_animated_material_visual_failure",
         "test_scene_frame_texture_registry",
         "test_scene_material_texture_transform",
-        "test_scene_sampler_default_purpose"
+        "test_scene_sampler_default_purpose",
+        "test_scene_stock_material_asset_publication"
       ]
     },
     {

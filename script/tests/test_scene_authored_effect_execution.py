@@ -54,10 +54,6 @@ CHAIN_TOPOLOGY_SOURCE = (
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift"
 )
-CHAIN_WATER_FLOW_SOURCE = (
-    SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterFlow.swift"
-)
 CHAIN_DEPTH_PARALLAX_SOURCE = (
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+DepthParallax.swift"
@@ -142,20 +138,6 @@ enum SceneAuthoredProceduralNoisePlanner {
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneProceduralNoiseExecutionPlan? {
         nil
-    }
-}
-
-struct SceneWaterFlowExecutionPlan {}
-
-enum SceneAuthoredWaterFlowPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWaterFlowExecutionPlan? {
-        graph.effects.first?.definitionPath.lowercased()
-            == "effects/waterflow/effect.json" ? SceneWaterFlowExecutionPlan() : nil
     }
 }
 
@@ -427,10 +409,6 @@ extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }
-}
-extension SceneAuthoredWaterFlowPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWaterFlowExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterFlow }
 }
 extension SceneAuthoredWaterWavesPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWaterWavesExecutionPlan
@@ -1238,7 +1216,6 @@ enum Harness {
             case .localContrast: backend = "localContrast"
             case .colorGrading: backend = "colorGrading"
             case .proceduralNoise: backend = "proceduralNoise"
-            case .waterFlow: backend = "waterFlow"
             case .waterWaves: backend = "waterWaves"
             case .waterCaustics: backend = "waterCaustics"
             case .depthParallax: backend = "depthParallax"
@@ -1690,15 +1667,14 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         leaf_body = backend[leaf_start:logical_start]
         topology = CHAIN_TOPOLOGY_SOURCE.read_text(encoding="utf-8")
 
-        for backend_name in (".waterFlow", ".depthParallax"):
-            self.assertIn(backend_name, leaf_body)
+        self.assertIn(".depthParallax", leaf_body)
+        self.assertNotIn(".waterFlow", backend)
         self.assertNotIn("yieldsToResolvedMaterialProgram", backend)
         self.assertNotIn(".spin", backend)
 
         self.assertNotIn(".workshopAudioBars", leaf_body)
-        self.assertIn("case .waterFlow(let plan):", topology)
-        self.assertIn("inputs.masks.waterFlowEffects[", topology)
-        self.assertIn("resources.matches(plan)", topology)
+        self.assertNotIn("case .waterFlow", topology)
+        self.assertNotIn("waterFlowEffects", topology)
         self.assertIn("case .depthParallax(let plan):", topology)
         self.assertIn("inputs.masks.depthParallaxEffects[", topology)
         self.assertIn('"depth-parallax-resource-missing"', topology)
@@ -1718,14 +1694,11 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertIn("SceneXRayRuntimePlanner.resolve(", topology)
         self.assertIn('return "x-ray-runtime-unsupported"', topology)
 
-        water_flow = CHAIN_WATER_FLOW_SOURCE.read_text(encoding="utf-8")
         depth = CHAIN_DEPTH_PARALLAX_SOURCE.read_text(encoding="utf-8")
         x_ray = (SOURCE_ROOT / (
             "RenderGraph/EffectExecution/"
             "SceneEffectStageRenderer+XRay.swift"
         )).read_text(encoding="utf-8")
-        self.assertIn("targets.inputTexture === sourceTexture", water_flow)
-        self.assertIn("SceneWaterFlowRenderer.render(", water_flow)
         self.assertIn("targets.inputTexture === sourceTexture", depth)
         self.assertIn("SceneDepthParallaxRenderer.render(", depth)
         self.assertIn("sourceTexture !== targets.inputTexture", x_ray)
@@ -1896,7 +1869,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         source = DRAW_REQUEST_SOURCE.read_text(encoding="utf-8")
         self.assertNotIn("authoredEffectResourcesOnly", source)
         for resource in (
-            "waterFlowEffects",
             "waterWavesEffects",
             "blendEffects",
             "xRay",

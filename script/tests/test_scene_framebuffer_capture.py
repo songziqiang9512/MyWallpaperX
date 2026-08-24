@@ -76,7 +76,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift",
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterFlow.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterWaves.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Rays.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ColorGrading.swift",
@@ -630,7 +630,6 @@ struct SceneBlendEffectTextures {
         case localContrast(SceneLocalContrastPlan)
         case colorGrading(SceneColorGradingExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
-        case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
         case depthParallax(SceneDepthParallaxExecutionPlan)
@@ -659,7 +658,6 @@ struct SceneBlendEffectTextures {
             case .localContrast: "local-contrast"
             case .colorGrading: "color-grading"
             case .proceduralNoise: "procedural-noise"
-            case .waterFlow: "water-flow"
             case .waterWaves: "water-waves"
             case .waterCaustics: "water-caustics"
             case .depthParallax: "depth-parallax"
@@ -800,46 +798,6 @@ struct SceneBlendEffectTextures {
 
 struct SceneSpotLightPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-struct SceneWaterFlowExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-
-struct SceneWaterFlowEffectTextures {
-    func matches(_ plan: SceneWaterFlowExecutionPlan) -> Bool { false }
-}
-
-struct SceneWaterFlowPipeline {
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-enum SceneWaterFlowRenderer {
-    static func render(
-        plan: SceneWaterFlowExecutionPlan,
-        resources: SceneWaterFlowEffectTextures,
-        time: Float,
-        inputTexture: MTLTexture,
-        outputTexture: MTLTexture,
-        pipeline: SceneWaterFlowPipeline,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        nil
-    }
-
-    static func renderCaptured(
-        plan: SceneWaterFlowExecutionPlan,
-        sourceTexture: MTLTexture,
-        masks: SceneImageLayerMasks,
-        targets: SceneGraphRenderTargetTable,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        sourcePipeline: SceneImageLayerPipeline,
-        waterFlowPipeline: SceneWaterFlowPipeline,
-        time: Float,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        nil
-    }
 }
 
 struct SceneWaterWavesExecutionPlan {
@@ -2146,7 +2104,6 @@ enum Harness {
                 depthParallaxEffects: [:],
                 blendEffects: [:],
                 standardBlurEffects: standardBlurEffects,
-                waterFlowEffects: [:],
                 waterWavesEffects: waterWavesEffects,
                 waterCausticsEffects: waterCausticsEffects,
                 pulseEffects: pulseEffects,
@@ -4000,7 +3957,6 @@ enum Harness {
                     maskPath: path
                 ),
             ],
-            waterFlowEffects: [:],
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
             pulseEffects: [:],
@@ -4965,7 +4921,6 @@ enum Harness {
             depthParallaxEffects: [:],
             blendEffects: blendEffects,
             standardBlurEffects: [:],
-            waterFlowEffects: [:],
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
             pulseEffects: [:],

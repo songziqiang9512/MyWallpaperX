@@ -5,7 +5,6 @@ struct SceneImageLayerMasks {
     let depthParallaxEffects: [String: SceneDepthParallaxEffectTextures]
     let blendEffects: [String: SceneBlendEffectTextures]
     let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
-    let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let waterCausticsEffects: [String: SceneWaterCausticsEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
@@ -17,7 +16,6 @@ struct SceneImageLayerMasks {
         depthParallaxEffects: [:],
         blendEffects: [:],
         standardBlurEffects: [:],
-        waterFlowEffects: [:],
         waterWavesEffects: [:],
         waterCausticsEffects: [:],
         pulseEffects: [:],
@@ -31,7 +29,6 @@ struct SceneImageLayerMasks {
             depthParallaxEffects: [:],
             blendEffects: [:],
             standardBlurEffects: [:],
-            waterFlowEffects: [:],
             waterWavesEffects: [:],
             waterCausticsEffects: [:],
             pulseEffects: [:],

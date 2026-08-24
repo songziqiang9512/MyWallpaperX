@@ -7,7 +7,6 @@ extension SceneMetalRenderer {
             depthParallaxEffects: store.depthParallaxEffects,
             blendEffects: store.blendEffects,
             standardBlurEffects: store.standardBlurEffects,
-            waterFlowEffects: store.waterFlowEffects,
             waterWavesEffects: store.waterWavesEffects,
             waterCausticsEffects: store.waterCausticsEffects,
             pulseEffects: store.pulseEffects,

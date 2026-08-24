@@ -18,7 +18,6 @@ XRAY_LOADER = RESOURCE_ROOT / "SceneXRayEffectTextureLoader.swift"
 BLEND_LOADER = RESOURCE_ROOT / "SceneBlendEffectTextureLoader.swift"
 TEXTURE_CANDIDATE = RESOURCE_ROOT / "SceneTextureCandidate.swift"
 SLOT_BINDING = RESOURCE_ROOT / "SceneTextureSlotBinding.swift"
-WATER_FLOW_LOADER = RESOURCE_ROOT / "SceneWaterFlowEffectTextureLoader.swift"
 STANDARD_BLUR_LOADER = RESOURCE_ROOT / "SceneStandardBlurEffectTextureLoader.swift"
 DEPTH_PARALLAX_LOADER = (
     RESOURCE_ROOT / "SceneDepthParallaxEffectTextureLoader.swift"
@@ -26,7 +25,6 @@ DEPTH_PARALLAX_LOADER = (
 EFFECT_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects"
 )
-WATER_FLOW_RENDERER = EFFECT_ROOT / "SceneWaterFlowRenderer.swift"
 OFFSCREEN_RENDERER = EFFECT_ROOT / "SceneOffscreenEffectRenderer.swift"
 RESOLVED_TEMPLATE_COMPILER = (
     REPOSITORY_ROOT
@@ -47,8 +45,6 @@ EXPECTED_PURPOSES = {
     "shine noise": "noise",
     "shine effect mask": "mask",
     "standard blur mask": "mask",
-    "waterflow flow": "flow",
-    "waterflow phase": "phase",
     "depthparallax depth": "depth",
     "waterwaves mask": "mask",
     "xray blend": "straightAlbedo",
@@ -95,7 +91,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
                 "SceneBlendEffectTextureLoader.swift": 1,
                 "SceneDepthParallaxEffectTextureLoader.swift": 1,
                 "SceneStandardBlurEffectTextureLoader.swift": 1,
-                "SceneWaterFlowEffectTextureLoader.swift": 2,
             },
         )
         helper = TEXTURE_LOADING.read_text(encoding="utf-8")
@@ -139,8 +134,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         effect_binding = EFFECT_TEXTURE_LOAD_RESULT.read_text(encoding="utf-8")
         slot_binding = SLOT_BINDING.read_text(encoding="utf-8")
         helper = TEXTURE_LOADING.read_text(encoding="utf-8")
-        water_loader = WATER_FLOW_LOADER.read_text(encoding="utf-8")
-        water_renderer = WATER_FLOW_RENDERER.read_text(encoding="utf-8")
         blur_loader = STANDARD_BLUR_LOADER.read_text(encoding="utf-8")
         offscreen = OFFSCREEN_RENDERER.read_text(encoding="utf-8")
         strict_loaders = {
@@ -179,10 +172,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             "var mappedSize: CGSize? { candidate?.mappedSize }",
         ):
             self.assertIn(field, effect_binding)
-        self.assertIn("let flowCandidate: SceneTextureCandidate?", water_loader)
-        self.assertIn("let phaseCandidate: SceneTextureCandidate?", water_loader)
-        self.assertIn("expectedPurpose: .flow", water_renderer)
-        self.assertIn("expectedPurpose: .phase", water_renderer)
         self.assertIn("let maskCandidate: SceneTextureCandidate?", blur_loader)
         self.assertIn("expectedPurpose: .mask", offscreen)
         for path, markers in strict_loaders.items():
