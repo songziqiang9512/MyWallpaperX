@@ -11,6 +11,20 @@ extension SceneResolvedMaterialShaderSchema.TextureMode {
 }
 
 extension SceneResolvedMaterialShaderSchema {
+    nonisolated static func hasOnlyScalarDataInputs(
+        _ samplers: [Int: Sampler],
+        activeSlots: Set<Int>,
+        resolvedFormats: [Int: SceneShaderTextureFormat]
+    ) -> Bool {
+        activeSlots.allSatisfy { slot in
+            if let format = resolvedFormats[slot] {
+                return format == .r8 || format == .r16f
+            }
+            guard let sampler = samplers[slot] else { return false }
+            return sampler.mode == .opacityMask || sampler.mode == .depth
+        }
+    }
+
     nonisolated static func hasOnlyDefaultedOpacityMaskAuxiliary(
         _ samplers: [Int: Sampler],
         graphInputSlots: Set<Int>

@@ -106,7 +106,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 )
             )
             let uniformLayout = stagedUniforms.layout
-            let outputChannelUse = fragmentOutputChannelUse(
+            var outputChannelUse = fragmentOutputChannelUse(
                 fragmentStage.source
             )
             let color: (
@@ -118,6 +118,17 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 color = try prepareColorTransfer(
                     msl: fragmentStage.msl,
                     authoredSource: fragmentStage.authoredSource
+                )
+            case .redGreenUnorm:
+                guard SceneAuthoredShaderColorTransferAnalyzer.isScalarSplatOutput(
+                    fragmentSource: fragmentStage.authoredSource
+                ) else {
+                    throw Failure.colorTransfer
+                }
+                outputChannelUse = .redDefined
+                color = (
+                    fragmentStage.msl,
+                    .init(kind: "red-green-unorm-data", slot: nil, slots: nil)
                 )
             case .preservedRGBAUnorm:
                 guard outputChannelUse == .redDefined else {

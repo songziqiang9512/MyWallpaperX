@@ -44,6 +44,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-opaque-scalar-output"
     case sourceProvenStraightAlphaR8Signal =
         "source-proven-straight-alpha-r8-signal"
+    case sourceProvenRedGreenUnormScalarSplat =
+        "source-proven-red-green-unorm-scalar-splat"
     case sourceProvenIndependentPremultipliedOutput =
         "source-proven-independent-premultiplied-output"
     case sourceProvenGraphTargetPassthrough =
@@ -101,6 +103,9 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         unitCompositeSourcePreviousSlot: Int? = nil,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
+        producesRedGreenUnormOutput: Bool = false,
+        isScalarSplatOutput: Bool = false,
+        hasOnlyScalarDataInputs: Bool = false,
         isSourceIndependentPremultipliedOutput: Bool,
         graphTextureSlots: Set<Int>,
         graphInputTextureSlots: Set<Int>,
@@ -111,7 +116,14 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         hasStereoAudioSpectrumArrays: Bool,
         hasLocalizedMutableFragmentVarying: Bool
     ) {
-        if colorTransfer == .premultipliedAlpha,
+        if producesRedGreenUnormOutput,
+           isScalarSplatOutput,
+           hasOnlyScalarDataInputs,
+           !hasExternalProviderTexture,
+           graphTextureSlots.isEmpty,
+           graphInputTextureSlots.isEmpty {
+            self = .sourceProvenRedGreenUnormScalarSplat
+        } else if colorTransfer == .premultipliedAlpha,
            isSourceIndependentPremultipliedOutput,
            !hasExternalProviderTexture,
            !producesScalarRedOutput,
@@ -267,6 +279,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         case .sourceProvenScalarColorInterpolation,
              .sourceProvenOpaqueScalarOutput,
              .sourceProvenStraightAlphaR8Signal,
+             .sourceProvenRedGreenUnormScalarSplat,
              .sourceProvenIndependentPremultipliedOutput,
              .sourceProvenGraphTargetPassthrough,
              .sourceProvenNormalizedSampleSum,

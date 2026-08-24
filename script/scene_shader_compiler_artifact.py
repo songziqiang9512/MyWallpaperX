@@ -61,10 +61,6 @@ SPV_UNSAFE_ARRAY = re.compile(
 TEXTURE_TRANSFORM_FIELD = re.compile(r"mwxTexture(?P<slot>[0-7])Transform(?P<part>[01])")
 
 
-def sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
 def expected_independent_color_transfer(value: Any) -> dict[str, Any] | None:
     if value is None:
         return None
@@ -79,6 +75,18 @@ def expected_independent_color_transfer(value: Any) -> dict[str, Any] | None:
     ):
         raise ArtifactFailure("expected-color-transfer")
     return {"kind": kind, "slot": slot}
+
+
+def expected_color_transfer_for_output(
+    output_semantics: Any, value: Any
+) -> dict[str, Any] | None:
+    if output_semantics not in ("color", "red-green-unorm"):
+        raise ArtifactFailure("output-semantics")
+    if output_semantics == "red-green-unorm" and value is not None:
+        raise ArtifactFailure("expected-color-transfer")
+    return None if output_semantics != "color" else (
+        expected_independent_color_transfer(value)
+    )
 
 
 def request_cache_key(request: dict[str, Any]) -> str:
@@ -98,10 +106,8 @@ def request_cache_key(request: dict[str, Any]) -> str:
     if set(sources) != {"vertex", "fragment"}:
         raise ArtifactFailure("request-pair")
     output_semantics = request.get("outputSemantics")
-    if output_semantics != "color":
-        raise ArtifactFailure("output-semantics")
-    expected = expected_independent_color_transfer(
-        request.get("expectedColorTransfer")
+    expected = expected_color_transfer_for_output(
+        output_semantics, request.get("expectedColorTransfer")
     )
     expected_key = (
         f"{expected['kind']}:{expected['slot']}" if expected is not None else "-"
@@ -718,11 +724,11 @@ def build_program_artifact(
     output_semantics: str = "color",
     expected_color_transfer: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    if output_semantics != "color":
-        raise ArtifactFailure("output-semantics")
     if set(stage_sources) != {"vertex", "fragment"} or set(msl_sources) != set(stage_sources):
         raise ArtifactFailure("stage-pair")
-    expected = expected_independent_color_transfer(expected_color_transfer)
+    expected = expected_color_transfer_for_output(
+        output_semantics, expected_color_transfer
+    )
     static_loop_work = _static_loop_work(stage_sources)
     stages = {stage.get("stage"): stage for stage in compiled_stages}
     if set(stages) != {"vertex", "fragment"}:
@@ -733,24 +739,19 @@ def build_program_artifact(
         _active_uniform_fields(vertex_layout[0], msl_sources["vertex"]),
         _active_uniform_fields(fragment_layout[0], msl_sources["fragment"]),
     )
-    fragment_color_preparation = (
-        None if expected is not None else _premultiplied_alpha_attenuation(
+    prepared_fragment_msl = msl_sources["fragment"]
+    if output_semantics == "red-green-unorm":
+        color_transfer = {"kind": "red-green-unorm-data"}
+    elif expected is not None:
+        color_transfer = None
+    else:
+        fragment_color_preparation = _premultiplied_alpha_attenuation(
             msl_sources["fragment"]
         )
-    )
-    prepared_fragment_msl = (
-        fragment_color_preparation[0]
-        if fragment_color_preparation is not None
-        else msl_sources["fragment"]
-    )
-    color_transfer = (
-        fragment_color_preparation[1]
-        if fragment_color_preparation is not None
-        else (
-            None if expected is not None
-            else _passthrough_color_transfer(msl_sources["fragment"])
-        )
-    )
+        if fragment_color_preparation is not None:
+            prepared_fragment_msl, color_transfer = fragment_color_preparation
+        else:
+            color_transfer = _passthrough_color_transfer(msl_sources["fragment"])
     vertex_msl = _normalize_uniform_struct(
         msl_sources["vertex"], uniform_layout[0], uniform_layout[2]
     ).replace(
@@ -783,7 +784,7 @@ def build_program_artifact(
         "outputSemantics": output_semantics,
         "program": {
             "metalSource": metal_source,
-            "metalSourceSHA256": sha256_bytes(metal_source.encode("utf-8")),
+            "metalSourceSHA256": hashlib.sha256(metal_source.encode("utf-8")).hexdigest(),
             "vertexFunctionName": "mwxGenericVertex",
             "fragmentFunctionName": "mwxGenericFragment",
             "uniformBufferIndex": 8,

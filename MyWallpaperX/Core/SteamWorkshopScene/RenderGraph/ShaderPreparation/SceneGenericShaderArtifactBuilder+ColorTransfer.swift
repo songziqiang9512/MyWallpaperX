@@ -203,6 +203,7 @@ extension SceneGenericShaderArtifactBuilder {
                 && Set(slots).count == slots.count
                 && Set(slots).isSubset(of: boundSlots)
         case ("opaque", nil, nil), ("premultiplied", nil, nil),
+             ("red-green-unorm-data", nil, nil),
              ("preserved-rgba-data", nil, nil):
             return true
         default:

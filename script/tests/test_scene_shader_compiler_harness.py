@@ -23,6 +23,12 @@ from scene_shader_compiler_artifact import (
     build_program_artifact as build_product_artifact,
     request_cache_key,
 )
+from scene_shader_compiler_harness import (
+    HarnessFailure,
+    normalize_wallpaper_engine_pair,
+    parse_limits,
+    validate_request,
+)
 
 
 SCRIPT = REPOSITORY_ROOT / "script/scene_shader_compiler_harness.py"
@@ -222,12 +228,28 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
             command += ["--artifact-output", str(artifact_output)]
         return subprocess.run(command, text=True, capture_output=True, check=False)
 
+    def harness_setup(
+        self, root: Path, *, slow: bool = False, timeout_ms: int = 2000
+    ) -> tuple[tuple[Path, Path, Path], Path, Path]:
+        tools = self.tools(root, slow=slow)
+        manifest = self.manifest(root, tools[0], tools[1], timeout_ms=timeout_ms)
+        return tools, manifest, root / "report.json"
+
+    def assert_harness_failure(
+        self, completed: subprocess.CompletedProcess[str], output: Path,
+        phase: str, code: str, details: list[str] | None = None,
+    ) -> None:
+        self.assertEqual(completed.returncode, 2)
+        self.assertFalse(output.exists())
+        failure = json.loads(completed.stderr)["failure"]
+        self.assertEqual((failure["phase"], failure["code"]), (phase, code))
+        if details is not None:
+            self.assertEqual(failure["details"], details)
+
     def test_project_fixture_compiles_without_product_authority(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
             root = Path(directory)
-            tools = self.tools(root)
-            manifest = self.manifest(root, tools[0], tools[1])
-            output = root / "report.json"
+            tools, manifest, output = self.harness_setup(root)
             completed = self.run_harness(FIXTURE, output, manifest, tools)
             self.assertEqual(completed.returncode, 0, completed.stderr)
             report = json.loads(output.read_text(encoding="utf-8"))
@@ -244,9 +266,7 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
     def test_direct_sample_artifact_is_source_keyed_and_preflighted(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
             root = Path(directory)
-            tools = self.tools(root)
-            manifest = self.manifest(root, tools[0], tools[1])
-            output = root / "report.json"
+            tools, manifest, output = self.harness_setup(root)
             artifact_output = root / "artifact.json"
             completed = self.run_harness(
                 FIXTURE, output, manifest, tools, artifact_output=artifact_output
@@ -269,6 +289,20 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
             )
             self.assertIn("MWXVertexUniforms", artifact["program"]["metalSource"])
             self.assertIn("MWXFragmentUniforms", artifact["program"]["metalSource"])
+
+            raw_request = {**request, "outputSemantics": "red-green-unorm"}
+            self.assertNotEqual(request_cache_key(request), request_cache_key(raw_request))
+            limits = parse_limits(json.loads(manifest.read_text(encoding="utf-8")))
+            self.assertEqual(len(validate_request(raw_request, limits)), 2)
+            for semantic, expected, code in (
+                ("red-green-unorm", {"kind": "bad"}, "expected-color-transfer"),
+                ("unknown", None, "output-semantics"),
+            ):
+                invalid = {**raw_request, "outputSemantics": semantic}
+                if expected is not None:
+                    invalid["expectedColorTransfer"] = expected
+                with self.assertRaisesRegex(HarnessFailure, f"request:{code}"):
+                    validate_request(invalid, limits)
 
     def test_fixed_loop_and_opaque_output_form_bounded_artifact(self) -> None:
         reflection = {
@@ -413,6 +447,13 @@ fragment void f() {
         self.assertIn("albedo *= (mask * uniforms.alpha);", source)
         self.assertNotIn("albedo.w *=", source)
 
+        raw_kwargs = {**kwargs, "output_semantics": "red-green-unorm"}
+        raw = build_program_artifact(**raw_kwargs)
+        self.assertEqual(raw["outputSemantics"], "red-green-unorm")
+        self.assertEqual(raw["program"]["colorTransfer"], {"kind": "red-green-unorm-data"})
+        self.assertIn("albedo.w *=", raw["program"]["metalSource"])
+        self.assertNotIn("albedo *=", raw["program"]["metalSource"])
+
         kwargs["msl_sources"] = {
             "vertex": vertex_msl,
             "fragment": fragment_msl.replace(
@@ -534,8 +575,6 @@ fragment void f() {
             build_program_artifact(**kwargs)
 
     def test_varying_array_reserves_each_interface_location(self) -> None:
-        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
-
         normalized, _ = normalize_wallpaper_engine_pair([
             {
                 "stage": "vertex", "entryPoint": "main",
@@ -570,8 +609,6 @@ void main() {
         self.assertNotIn("uniform sampler2D g_Texture1", normalized[1]["source"])
 
     def test_vertex_position_input_matches_authored_position_contract(self) -> None:
-        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
-
         fragment = {
             "stage": "fragment", "entryPoint": "main",
             "source": """varying vec2 v_TexCoord;
@@ -623,8 +660,6 @@ void main() {
         )
 
     def test_inactive_optional_varying_components_prune_dead_resolution(self) -> None:
-        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
-
         normalized, summary = normalize_wallpaper_engine_pair([
             {
                 "stage": "vertex", "entryPoint": "main",
@@ -658,8 +693,6 @@ void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord.xy); }
         self.assertEqual(summary["unusedVaryingComponentAssignmentsPruned"], 1)
 
     def test_shared_vector_narrowing_rules_cover_sampler_coordinates_scalars_and_constructors(self) -> None:
-        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
-
         normalized, _ = normalize_wallpaper_engine_pair([
             {
                 "stage": "vertex", "entryPoint": "main",
@@ -693,8 +726,6 @@ void main() {
         self.assertIn("vec3 finalColor = vec4(scene.r, scene.g, scene.b, 1.0).xyz;", fragment)
 
     def test_inactive_varying_call_is_not_pruned_without_purity_proof(self) -> None:
-        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
-
         normalized, summary = normalize_wallpaper_engine_pair([
             {
                 "stage": "vertex", "entryPoint": "main",
@@ -722,8 +753,6 @@ void main() { gl_FragColor = vec4(v_TexCoord.xy, 0.0, 1.0); }
         self.assertEqual(summary["unusedVaryingComponentAssignmentsPruned"], 0)
 
     def test_inactive_varying_increment_is_not_pruned_as_pure_arithmetic(self) -> None:
-        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
-
         normalized, summary = normalize_wallpaper_engine_pair([
             {
                 "stage": "vertex", "entryPoint": "main",
@@ -750,26 +779,18 @@ void main() { gl_FragColor = vec4(v_TexCoord.xy, 0.0, 1.0); }
     def test_compiler_rejection_does_not_publish_report(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
             root = Path(directory)
-            tools = self.tools(root)
-            manifest = self.manifest(root, tools[0], tools[1])
+            tools, manifest, output = self.harness_setup(root)
             request = json.loads(FIXTURE.read_text(encoding="utf-8"))
             request["stages"][1]["source"] += "\nBROKEN\n"
             request_path = root / "request.json"
             request_path.write_text(json.dumps(request), encoding="utf-8")
-            output = root / "report.json"
             completed = self.run_harness(request_path, output, manifest, tools)
-            self.assertEqual(completed.returncode, 2)
-            self.assertFalse(output.exists())
-            failure = json.loads(completed.stderr)
-            self.assertEqual(failure["failure"]["phase"], "stage-link")
-            self.assertEqual(failure["failure"]["code"], "tool-rejected")
+            self.assert_harness_failure(completed, output, "stage-link", "tool-rejected")
 
     def test_wallpaper_engine_dialect_is_normalized_by_public_shape(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
             root = Path(directory)
-            tools = self.tools(root)
-            manifest = self.manifest(root, tools[0], tools[1])
-            output = root / "report.json"
+            tools, manifest, output = self.harness_setup(root)
             completed = self.run_harness(WE_FIXTURE, output, manifest, tools)
             self.assertEqual(completed.returncode, 0, completed.stderr)
             report = json.loads(output.read_text(encoding="utf-8"))
@@ -786,8 +807,7 @@ void main() { gl_FragColor = vec4(v_TexCoord.xy, 0.0, 1.0); }
     def test_wallpaper_engine_dialect_does_not_synthesize_missing_varying(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
             root = Path(directory)
-            tools = self.tools(root)
-            manifest = self.manifest(root, tools[0], tools[1])
+            tools, manifest, output = self.harness_setup(root)
             request = json.loads(WE_FIXTURE.read_text(encoding="utf-8"))
             request["stages"][1]["source"] = request["stages"][1]["source"].replace(
                 "varying vec2 v_TexCoord;",
@@ -798,18 +818,12 @@ void main() { gl_FragColor = vec4(v_TexCoord.xy, 0.0, 1.0); }
             )
             request_path = root / "request.json"
             request_path.write_text(json.dumps(request), encoding="utf-8")
-            output = root / "report.json"
             completed = self.run_harness(request_path, output, manifest, tools)
-            self.assertEqual(completed.returncode, 2)
-            self.assertFalse(output.exists())
-            failure = json.loads(completed.stderr)
-            self.assertEqual(failure["failure"]["phase"], "normalization")
-            self.assertEqual(failure["failure"]["code"], "varying-link")
-            self.assertEqual(failure["failure"]["details"], ["v_FragmentOnly"])
+            self.assert_harness_failure(
+                completed, output, "normalization", "varying-link", ["v_FragmentOnly"]
+            )
 
     def test_unused_fragment_varying_is_not_part_of_linked_interface(self) -> None:
-        from scene_shader_compiler_harness import normalize_wallpaper_engine_pair
-
         normalized, summary = normalize_wallpaper_engine_pair([
             {
                 "stage": "vertex", "entryPoint": "main",
@@ -838,11 +852,6 @@ void main() { gl_FragColor = vec4(v_Live, 0.0, 1.0); }
         self.assertIn("out vec2 v_Optional", normalized[0]["source"])
 
     def test_live_fragment_varying_shape_mismatch_remains_rejected(self) -> None:
-        from scene_shader_compiler_harness import (
-            HarnessFailure,
-            normalize_wallpaper_engine_pair,
-        )
-
         stages = [
             {
                 "stage": "vertex", "entryPoint": "main",
@@ -868,31 +877,21 @@ void main() { gl_FragColor = v_Live; }
     def test_hash_mismatch_fails_before_compilation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
             root = Path(directory)
-            tools = self.tools(root)
-            manifest = self.manifest(root, tools[0], tools[1])
+            tools, manifest, output = self.harness_setup(root)
             payload = json.loads(manifest.read_text(encoding="utf-8"))
             payload["verifiedDevelopmentArtifacts"][0]["glslangSHA256"] = "0" * 64
             manifest.write_text(json.dumps(payload), encoding="utf-8")
-            output = root / "report.json"
             completed = self.run_harness(FIXTURE, output, manifest, tools)
-            self.assertEqual(completed.returncode, 2)
-            self.assertFalse(output.exists())
-            failure = json.loads(completed.stderr)
-            self.assertEqual(failure["failure"]["phase"], "tool")
-            self.assertEqual(failure["failure"]["code"], "hash-mismatch")
+            self.assert_harness_failure(completed, output, "tool", "hash-mismatch")
 
     def test_timeout_kills_the_compiler_process_group(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-compiler-test-") as directory:
             root = Path(directory)
-            tools = self.tools(root, slow=True)
-            manifest = self.manifest(root, tools[0], tools[1], timeout_ms=2500)
-            output = root / "report.json"
+            tools, manifest, output = self.harness_setup(
+                root, slow=True, timeout_ms=2500
+            )
             completed = self.run_harness(FIXTURE, output, manifest, tools)
-            self.assertEqual(completed.returncode, 2)
-            self.assertFalse(output.exists())
-            failure = json.loads(completed.stderr)
-            self.assertEqual(failure["failure"]["phase"], "stage-link")
-            self.assertEqual(failure["failure"]["code"], "timeout")
+            self.assert_harness_failure(completed, output, "stage-link", "timeout")
 
 
 if __name__ == "__main__":

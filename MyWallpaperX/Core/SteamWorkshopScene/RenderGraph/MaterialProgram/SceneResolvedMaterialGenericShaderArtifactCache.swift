@@ -216,6 +216,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         unitCompositePreviousSlot: Int? = nil,
         hasExternalProviderTexture: Bool = false,
         producesScalarRedOutput: Bool = false,
+        producesRedGreenUnormOutput: Bool = false,
+        hasOnlyScalarDataInputs: Bool = false,
         isSourceIndependentPremultipliedOutput: Bool = false,
         graphTextureSlots: Set<Int> = [],
         graphInputTextureSlots: Set<Int> = [],
@@ -314,6 +316,12 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 unitCompositeSourceFact?.previousSlot,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
+            producesRedGreenUnormOutput: producesRedGreenUnormOutput,
+            isScalarSplatOutput:
+                SceneAuthoredShaderColorTransferAnalyzer.isScalarSplatOutput(
+                    fragmentSource: fragmentSource
+                ),
+            hasOnlyScalarDataInputs: hasOnlyScalarDataInputs,
             isSourceIndependentPremultipliedOutput:
                 isSourceIndependentPremultipliedOutput,
             graphTextureSlots: graphTextureSlots,

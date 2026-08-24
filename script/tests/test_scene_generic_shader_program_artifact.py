@@ -76,6 +76,15 @@ private struct PreservedRGBADataBuilderOutput: Codable {
     let helperOutputRejected: Bool
 }
 
+private struct RedGreenDataBuilderOutput: Codable {
+    let outputSemantics: String?
+    let colorTransfer: String?
+    let scalarOutputAccepted: Bool
+    let constantOutputAccepted: Bool
+    let helperOutputRejected: Bool
+    let rawMetalPreserved: Bool
+}
+
 private struct NormalizedSampleSumOutput: Codable {
     let analyzedTransfer: String
     let positiveKind: String?
@@ -1140,6 +1149,79 @@ private struct GenericShaderArtifactHarness {
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
         }
+        if CommandLine.arguments[1] == "--builder-red-green-data" {
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxTexture0Transform0","type":"vec4","offset":0},{"name":"mwxTexture0Transform1","type":"vec4","offset":16}]}},"ubos":[{"type":"_1","block_size":32,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };"
+            let scalarOutput = [
+                "uniform sampler2D g_Texture0;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    float signal = texSample2D(g_Texture0, v_TexCoord).r;",
+                "    gl_FragColor = CAST4(signal);",
+                "}",
+            ].joined(separator: "\n")
+            let helperOutput = scalarOutput.replacingOccurrences(
+                of: "    gl_FragColor = CAST4(signal);",
+                with: "    WriteOutput(CAST4(signal));"
+            )
+            let constantOutput = scalarOutput.replacingOccurrences(
+                of: "    float signal = texSample2D(g_Texture0, v_TexCoord).r;\n    gl_FragColor = CAST4(signal);",
+                with: "    gl_FragColor = CAST4(1.0);"
+            )
+            let fragmentMSL = [
+                "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };",
+                "fragment void f() {",
+                "    float signal = g_Texture0.sample(s, uv).x;",
+                "    out.mwxFragColor = float4(signal);",
+                "}",
+            ].joined(separator: "\n")
+            func build(_ source: String) -> Result<
+                SceneGenericShaderProgramArtifact,
+                SceneGenericShaderArtifactBuilder.Failure
+            > {
+                SceneGenericShaderArtifactBuilder.build(
+                    requestKey: String(repeating: "8", count: 64),
+                    backendID: "glslang-spirv-cross-msl-v2",
+                    outputSemantics: .redGreenUnorm,
+                    stages: [
+                        .init(
+                            name: "vertex", source: "void main() {}",
+                            authoredSource: "void main() {}",
+                            msl: vertexMSL, reflection: reflection
+                        ),
+                        .init(
+                            name: "fragment", source: source,
+                            authoredSource: source,
+                            msl: fragmentMSL, reflection: reflection
+                        ),
+                    ],
+                    maximumArtifactBytes: 1_024_000
+                )
+            }
+            let accepted = build(scalarOutput)
+            let artifact: SceneGenericShaderProgramArtifact?
+            if case let .success(value) = accepted { artifact = value }
+            else { artifact = nil }
+            let output = RedGreenDataBuilderOutput(
+                outputSemantics: artifact?.outputSemantics.rawValue,
+                colorTransfer: artifact?.program.colorTransfer.kind,
+                scalarOutputAccepted: artifact != nil,
+                constantOutputAccepted: {
+                    if case .success = build(constantOutput) { return true }
+                    return false
+                }(),
+                helperOutputRejected: failedColorTransfer(build(helperOutput)),
+                rawMetalPreserved:
+                    artifact?.program.metalSource.contains(
+                        "out.mwxFragColor = float4(signal);"
+                    ) == true
+                    && artifact?.program.metalSource.contains(
+                        "mwxGenericPremultiply"
+                    ) == false
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
         if CommandLine.arguments[1] == "--builder-normalized-sample-sum" {
             let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxTexture0Transform0","type":"vec4","offset":0},{"name":"mwxTexture0Transform1","type":"vec4","offset":16}]}},"ubos":[{"type":"_1","block_size":32,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
             let vertexMSL = "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };"
@@ -1960,6 +2042,14 @@ private struct GenericShaderArtifactHarness {
                 ProcessInfo.processInfo.environment["MWX_TEST_EXTERNAL_PROVIDER"] == "1",
             producesScalarRedOutput:
                 ProcessInfo.processInfo.environment["MWX_TEST_SCALAR_OUTPUT"] == "1",
+            producesRedGreenUnormOutput:
+                ProcessInfo.processInfo.environment[
+                    "MWX_TEST_RED_GREEN_UNORM_OUTPUT"
+                ] == "1",
+            hasOnlyScalarDataInputs:
+                ProcessInfo.processInfo.environment[
+                    "MWX_TEST_ONLY_SCALAR_DATA_INPUTS"
+                ] == "1",
             isSourceIndependentPremultipliedOutput:
                 ProcessInfo.processInfo.environment[
                     "MWX_TEST_SOURCE_INDEPENDENT_PREMULTIPLIED_OUTPUT"
@@ -1986,8 +2076,12 @@ private struct GenericShaderArtifactHarness {
                 ] == "1",
             outputSemantics:
                 ProcessInfo.processInfo.environment[
-                    "MWX_TEST_PRESERVED_RGBA_OUTPUT"
-                ] == "1" ? .preservedRGBAUnorm : .color
+                    "MWX_TEST_RED_GREEN_UNORM_OUTPUT"
+                ] == "1" ? .redGreenUnorm : (
+                    ProcessInfo.processInfo.environment[
+                        "MWX_TEST_PRESERVED_RGBA_OUTPUT"
+                    ] == "1" ? .preservedRGBAUnorm : .color
+                )
         ) {
         case let .accepted(program, requestKey, decision):
             result = .init(
@@ -2093,6 +2187,31 @@ void main() {
     vec4 state = texSample2D(g_Texture0, v_TexCoord);
     state.rg += state.ba * 0.25;
     gl_FragColor = state;
+}
+"""
+
+RED_GREEN_SCALAR_SPLAT_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    float signal = texSample2D(g_Texture0, v_TexCoord).r;
+    gl_FragColor = CAST4(signal);
+}
+"""
+
+RED_GREEN_VECTOR_OUTPUT_FRAGMENT = """
+uniform sampler2D g_Texture0;
+varying vec2 v_TexCoord;
+void main() {
+    float signal = texSample2D(g_Texture0, v_TexCoord).r;
+    gl_FragColor = vec4(-signal, signal, 0.0, 0.0);
+}
+"""
+
+RED_GREEN_CONSTANT_SPLAT_FRAGMENT = """
+varying vec2 v_TexCoord;
+void main() {
+    gl_FragColor = CAST4(0.375);
 }
 """
 
@@ -2530,6 +2649,8 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         fragment: str = FRAGMENT,
         has_external_provider: bool = False,
         produces_scalar_output: bool = False,
+        produces_red_green_unorm_output: bool = False,
+        has_only_scalar_data_inputs: bool = False,
         source_independent_premultiplied_output: bool = False,
         graph_slots: tuple[int, ...] = (),
         graph_input_slots: tuple[int, ...] = (),
@@ -2569,6 +2690,14 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             environment["MWX_TEST_SCALAR_OUTPUT"] = "1"
         else:
             environment.pop("MWX_TEST_SCALAR_OUTPUT", None)
+        if produces_red_green_unorm_output:
+            environment["MWX_TEST_RED_GREEN_UNORM_OUTPUT"] = "1"
+        else:
+            environment.pop("MWX_TEST_RED_GREEN_UNORM_OUTPUT", None)
+        if has_only_scalar_data_inputs:
+            environment["MWX_TEST_ONLY_SCALAR_DATA_INPUTS"] = "1"
+        else:
+            environment.pop("MWX_TEST_ONLY_SCALAR_DATA_INPUTS", None)
         if source_independent_premultiplied_output:
             environment[
                 "MWX_TEST_SOURCE_INDEPENDENT_PREMULTIPLIED_OUTPUT"
@@ -3296,6 +3425,102 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             )
             self.assertEqual(rejected["code"], "artifact-contract-rejected")
 
+    def test_red_green_scalar_splat_has_typed_raw_output_owner(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-generic-rg-splat-") as directory:
+            root = Path(directory)
+            color, _, _, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=RED_GREEN_SCALAR_SPLAT_FRAGMENT,
+                has_only_scalar_data_inputs=True,
+            )
+            first, requests, cache, _ = self.run_harness(
+                root,
+                route=None,
+                fragment=RED_GREEN_SCALAR_SPLAT_FRAGMENT,
+                produces_red_green_unorm_output=True,
+                has_only_scalar_data_inputs=True,
+            )
+            self.assertNotEqual(color["requestKey"], first["requestKey"])
+            self.assertEqual(
+                first["routeProfile"],
+                "source-proven-red-green-unorm-scalar-splat",
+            )
+            self.assertEqual(first["routeState"], "generic-only")
+            self.assertEqual(first["fallbackOwner"], "bounded-frontend")
+            self.assertFalse(first["permitsBoundedFrontend"])
+            request = json.loads(
+                (requests / f"{first['requestKey']}.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(request["outputSemantics"], "red-green-unorm")
+
+            artifact = self.artifact(
+                first["requestKey"],
+                color_transfer="red-green-unorm-data",
+                output_semantics="red-green-unorm",
+            )
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, _ = self.run_harness(
+                root,
+                route=None,
+                fragment=RED_GREEN_SCALAR_SPLAT_FRAGMENT,
+                produces_red_green_unorm_output=True,
+                has_only_scalar_data_inputs=True,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["colorTransfer"], "unresolved")
+            self.assertEqual(accepted["fragmentOutputChannelUse"], "redDefined")
+
+            artifact["outputSemantics"] = "color"
+            (cache / f"{first['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            rejected, _, _, _ = self.run_harness(
+                root,
+                route=None,
+                fragment=RED_GREEN_SCALAR_SPLAT_FRAGMENT,
+                produces_red_green_unorm_output=True,
+                has_only_scalar_data_inputs=True,
+            )
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+
+            disabled, _, _, _ = self.run_harness(
+                root,
+                route="disable-generic",
+                fragment=RED_GREEN_SCALAR_SPLAT_FRAGMENT,
+                produces_red_green_unorm_output=True,
+                has_only_scalar_data_inputs=True,
+            )
+            self.assertEqual(disabled["code"], "route-disabled")
+            self.assertTrue(disabled["permitsBoundedFrontend"])
+
+            vector, _, _, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=RED_GREEN_VECTOR_OUTPUT_FRAGMENT,
+                produces_red_green_unorm_output=True,
+                has_only_scalar_data_inputs=True,
+            )
+            self.assertEqual(vector["routeProfile"], "ordinary-shader")
+
+            unseen, _, _, _ = self.run_harness(
+                root,
+                route=None,
+                fragment=RED_GREEN_CONSTANT_SPLAT_FRAGMENT,
+                produces_red_green_unorm_output=True,
+                has_only_scalar_data_inputs=True,
+            )
+            self.assertEqual(
+                unseen["routeProfile"],
+                "source-proven-red-green-unorm-scalar-splat",
+            )
+            self.assertEqual(unseen["routeState"], "generic-only")
+
     def test_preserved_rgba_builder_requires_definite_whole_output(self):
         completed = subprocess.run(
             [str(self.binary), "--builder-preserved-rgba-data"],
@@ -3310,6 +3535,24 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "colorTransfer": "preserved-rgba-data",
             "wholeOutputAccepted": True,
             "helperOutputRejected": True,
+        })
+
+    def test_red_green_builder_preserves_raw_whole_output(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-red-green-data"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        observed = json.loads(completed.stdout)
+        self.assertEqual(observed, {
+            "outputSemantics": "red-green-unorm",
+            "colorTransfer": "red-green-unorm-data",
+            "scalarOutputAccepted": True,
+            "constantOutputAccepted": True,
+            "helperOutputRejected": True,
+            "rawMetalPreserved": True,
         })
 
     def test_normalized_sample_sum_profile_is_generic_only_and_reversible(self):

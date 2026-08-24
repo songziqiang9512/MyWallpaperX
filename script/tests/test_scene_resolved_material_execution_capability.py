@@ -5897,6 +5897,28 @@ private enum EnvelopeHarness {
             readinessCombo: nil
         )
         let result: [String: Any] = [
+            "typedScalarDataInputs": [
+                "opacityMaskUnknownFormat": SceneResolvedMaterialShaderSchema
+                    .hasOnlyScalarDataInputs(
+                        [1: opacityMaskSampler], activeSlots: [1],
+                        resolvedFormats: [:]
+                    ),
+                "regularR8": SceneResolvedMaterialShaderSchema
+                    .hasOnlyScalarDataInputs(
+                        [2: extraSampler], activeSlots: [2],
+                        resolvedFormats: [2: .r8]
+                    ),
+                "regularUnknownFormat": SceneResolvedMaterialShaderSchema
+                    .hasOnlyScalarDataInputs(
+                        [2: extraSampler], activeSlots: [2],
+                        resolvedFormats: [:]
+                    ),
+                "regularRG88": SceneResolvedMaterialShaderSchema
+                    .hasOnlyScalarDataInputs(
+                        [2: extraSampler], activeSlots: [2],
+                        resolvedFormats: [2: .rg88]
+                    ),
+            ],
             "exclusiveDefaultedOpacityMask": [
                 "positive": SceneResolvedMaterialShaderSchema
                     .hasOnlyDefaultedOpacityMaskAuxiliary(
@@ -7733,6 +7755,15 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
 
         payload = json.loads(completed.stdout)
+        self.assertEqual(
+            payload["typedScalarDataInputs"],
+            {
+                "opacityMaskUnknownFormat": True,
+                "regularR8": True,
+                "regularUnknownFormat": False,
+                "regularRG88": False,
+            },
+        )
         self.assertEqual(
             payload["exclusiveDefaultedOpacityMask"],
             {

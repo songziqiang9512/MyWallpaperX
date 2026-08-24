@@ -6,6 +6,7 @@ import Foundation
 /// never share an artifact.
 nonisolated enum SceneGenericShaderOutputSemantics: String, Codable, Sendable {
     case color
+    case redGreenUnorm = "red-green-unorm"
     case preservedRGBAUnorm = "preserved-rgba-unorm"
 }
 
@@ -188,6 +189,9 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         case let ("independent-alpha-signal-preserving", slot?, nil):
             guard bindings.contains(where: { $0.slot == slot }) else { return nil }
             colorTransfer = .independentAlphaSignalPreserving(textureSlot: slot)
+        case ("red-green-unorm-data", nil, nil):
+            guard outputSemantics == .redGreenUnorm else { return nil }
+            colorTransfer = .unresolved
         case ("preserved-rgba-data", nil, nil):
             guard outputSemantics == .preservedRGBAUnorm else { return nil }
             colorTransfer = .unresolved
@@ -196,7 +200,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         }
         let requiresExactExpectedTransfer = if case
             .independentAlphaSignalPreserving = colorTransfer { true } else { false }
-        guard outputSemantics == .preservedRGBAUnorm
+        guard outputSemantics != .color
                 ? colorTransfer == .unresolved
                 : requiresExactExpectedTransfer
                     ? colorTransfer == expectedColorTransfer
@@ -210,13 +214,19 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
                 ) else {
             return nil
         }
-        // The producer may conservatively decline to prove this fact. The
-        // current Swift source analyzer owns any promotion used by Program.
-        guard expectedOutputSemantics == .preservedRGBAUnorm
-                ? fragmentOutputChannelUse == .redDefined
-                    && expectedFragmentOutputChannelUse == .redDefined
-                : fragmentOutputChannelUse == .unproven
-                    || expectedFragmentOutputChannelUse == .redDefined else {
+        // Color artifacts may decline this fact and let the Swift analyzer
+        // promote it. Typed data artifacts must publish the fact themselves.
+        let outputChannelContractSatisfied: Bool = switch expectedOutputSemantics {
+        case .color:
+            fragmentOutputChannelUse == .unproven
+                || expectedFragmentOutputChannelUse == .redDefined
+        case .redGreenUnorm:
+            fragmentOutputChannelUse == .redDefined
+        case .preservedRGBAUnorm:
+            fragmentOutputChannelUse == .redDefined
+                && expectedFragmentOutputChannelUse == .redDefined
+        }
+        guard outputChannelContractSatisfied else {
             return nil
         }
         return .init(

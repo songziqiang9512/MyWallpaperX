@@ -150,6 +150,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 fragmentSource: compilerSources.fragment,
                 activeSamplerSlots: activeTextureSlots
             )
+        let outputSemantics: SceneGenericShaderOutputSemantics = switch outputStorage {
+        case .redGreenUnorm: .redGreenUnorm
+        case .preservedRGBAUnorm: .preservedRGBAUnorm
+        default: .color
+        }
         let alphaAttenuationSourceSlot =
             SceneResolvedMaterialAlphaAttenuationEligibility.sourceSlot(
                     fragmentSource: prepared.fragment.source,
@@ -190,6 +195,13 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 ),
             producesScalarRedOutput: outputStorage == .scalarRedUnorm
                 || outputStorage == .scalarRedFloat16,
+            producesRedGreenUnormOutput: outputStorage == .redGreenUnorm,
+            hasOnlyScalarDataInputs:
+                SceneResolvedMaterialShaderSchema.hasOnlyScalarDataInputs(
+                    sourceActiveSamplers,
+                    activeSlots: activeTextureSlots,
+                    resolvedFormats: variantKey.resolvedTextureFormats
+                ),
             isSourceIndependentPremultipliedOutput:
                 outputStorage == .color
                     && sourceActiveSamplers[0] == nil
@@ -207,8 +219,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 sourceActiveSamplers.count == 1
                     && Set(sourceActiveSamplers.keys) == graphInputTextureSlots,
             sourceColorTransfer: sourceColorTransfer,
-            outputSemantics: outputStorage == .preservedRGBAUnorm
-                ? .preservedRGBAUnorm : .color
+            outputSemantics: outputSemantics
         )
         let frontend: SceneAuthoredShaderProgram
         let routeDecision:

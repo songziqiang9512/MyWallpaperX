@@ -1,6 +1,57 @@
 import Foundation
 
 nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
+    /// Proves one unconditional whole-output scalar splat. The scalar may be a
+    /// literal or a local `float`; attachment/output ABI separately decides
+    /// whether this is color or preserved-channel data. This fact contains no
+    /// effect, material, path, or source identity.
+    static func isScalarSplatOutput(fragmentSource source: String) -> Bool {
+        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: source,
+                stage: .fragment
+            ),
+            stage: .fragment
+        )
+        guard syntax.diagnostics.isEmpty,
+              let fragment = syntax.unit,
+              let main = fragment.functions.first(where: { $0.name == "main" }) else {
+            return false
+        }
+        let tokens = fragment.tokens
+        let outputUses = tokens.indices.filter {
+            tokens[$0].text == "gl_FragColor"
+        }
+        guard outputUses.count == 1,
+              let output = outputUses.first,
+              output + 1 < tokens.count,
+              tokens[output + 1].text == "=",
+              main.bodyRange.contains(output),
+              isUnconditionalWrite(output, tokens: tokens, body: main.bodyRange),
+              let expression = assignmentExpression(
+                  after: output,
+                  in: tokens,
+                  body: main.bodyRange
+              ) else { return false }
+        let value = Array(expression)
+        guard value.count == 4,
+              ["CAST4", "vec4", "float4"].contains(value[0].text),
+              value[1].text == "(", value[3].text == ")" else {
+            return false
+        }
+        if value[2].kind == .number { return true }
+        guard value[2].kind == .identifier else { return false }
+        let scalar = value[2].text
+        let declarations = main.bodyRange.filter { index in
+            index > main.bodyRange.lowerBound
+                && index + 1 < output
+                && tokens[index].text == scalar
+                && tokens[index - 1].text == "float"
+                && tokens[index + 1].text == "="
+        }
+        return declarations.count == 1
+    }
+
     /// Proves an opaque local carrier whose alpha starts at one and whose only
     /// intermediate accesses are RGB-member reads or writes. The RGB math may
     /// be arbitrarily authored; no operation can observe or mutate alpha, so
