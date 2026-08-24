@@ -631,8 +631,25 @@ class SceneFrameContextTests(unittest.TestCase):
             "scriptSourceEvidence: model.sceneDocument.scriptSourceEvidence",
             launch,
         )
+        bounded_ownership = launch[
+            launch.index("let boundedProducerTargets:"):
+            launch.index("nextSceneScriptGeneration &+= 1")
+        ]
         self.assertIn(
-            "launchOriginTransitionTargets.isDisjoint", launch
+            '("launch-origin", launchOriginTransitionTargets,',
+            bounded_ownership,
+        )
+        self.assertIn(
+            "targets.isDisjoint(with: propertyBindingTargets)",
+            bounded_ownership,
+        )
+        self.assertIn(
+            "targets.isDisjoint(with: timelineTargets)",
+            bounded_ownership,
+        )
+        self.assertIn(
+            "targets.isDisjoint(with: boundedSceneScriptTargets)",
+            bounded_ownership,
         )
         self.assertIn(
             "var launchOriginTransitionRuntime: SceneLaunchOriginTransitionRuntime",

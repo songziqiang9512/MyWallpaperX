@@ -339,6 +339,42 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("excludedTargets: boundedSceneScriptTargets", launch)
         self.assertIn("fallback=bounded-swift-prefer-generic", launch)
+        bounded_ownership = launch[
+            launch.index("let boundedProducerTargets:"):
+            launch.index("nextSceneScriptGeneration &+= 1")
+        ]
+        for producer in (
+            "launch-origin",
+            "hover-origin",
+            "audio-scaled",
+            "property-vector",
+            "time-of-day",
+            "media-placeholder",
+            "media-color",
+        ):
+            self.assertIn(f'("{producer}"', bounded_ownership)
+        self.assertIn(
+            "targets.isDisjoint(with: propertyBindingTargets)",
+            bounded_ownership,
+        )
+        self.assertIn(
+            "targets.isDisjoint(with: timelineTargets)",
+            bounded_ownership,
+        )
+        self.assertIn(
+            "targets.isDisjoint(with: boundedSceneScriptTargets)",
+            bounded_ownership,
+        )
+        scalar_ownership = launch[
+            launch.index("let sceneScriptScalarTargets ="):
+            launch.index("let provenSceneScriptValueTargets =")
+        ]
+        self.assertIn(
+            "sceneScriptScalarTargets.isDisjoint(with: boundedSceneScriptTargets)",
+            scalar_ownership,
+        )
+        self.assertNotIn("propertyBindingProgram", scalar_ownership)
+        self.assertNotIn("timelineProgram", scalar_ownership)
         timeline = frame.index("let timelineValues = SceneTimelineRuntime.values")
         preliminary = frame.index("let preliminaryForSceneScript =")
         evaluate = frame.index("let sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate")

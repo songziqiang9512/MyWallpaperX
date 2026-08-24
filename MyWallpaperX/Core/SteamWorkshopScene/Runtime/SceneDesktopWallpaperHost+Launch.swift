@@ -102,15 +102,18 @@ struct SceneDesktopWallpaperLaunchContext {
 
 enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
     case missingPackageCache
-    case invalidBoundedSceneScriptProgram
+    case conflictingBoundedSceneScriptTargets(String)
+    case invalidBoundedSceneScriptProgramAt(String)
     case noSurface
 
     var errorDescription: String? {
         switch self {
         case .missingPackageCache:
             "Scene 资源缓存不可用。"
-        case .invalidBoundedSceneScriptProgram:
-            "Scene 有界脚本目标存在冲突，已停止启动。"
+        case .conflictingBoundedSceneScriptTargets(let details):
+            "Scene 有界脚本目标存在冲突，已停止启动。\(details)"
+        case .invalidBoundedSceneScriptProgramAt(let phase):
+            "Scene 有界脚本目标在 \(phase) 无法形成，已停止启动。"
         case .noSurface:
             "Scene 宿主未能创建可播放表面。"
         }
@@ -161,46 +164,10 @@ extension SceneDesktopWallpaperHost {
         let propertyVectorScriptTargets = Set(
             model.propertyVectorScriptProgram.definitions.map(\.target)
         )
-        guard launchOriginTransitionTargets.count
-                == launchOriginTransitionProgram.definitions.count,
-              hoverOriginTransitionTargets.count
-                == hoverOriginTransitionProgram.definitions.count,
-              audioScaledValueTargets.count
-                == model.audioScaledValueProgram.definitions.count,
-              propertyVectorScriptTargets.count
-                == model.propertyVectorScriptProgram.definitions.count,
-              hoverOriginTransitionTargets.isDisjoint(
-                with: launchOriginTransitionTargets
-              ),
-              launchOriginTransitionTargets.isDisjoint(with: Set(
+        let propertyBindingTargets = Set(
             runtimeInput.propertyBindingProgram.definitions.map(\.target)
-        )), launchOriginTransitionTargets.isDisjoint(with: Set(
-            timelineProgram.bindings.map(\.target)
-        )), hoverOriginTransitionTargets.isDisjoint(with: Set(
-            runtimeInput.propertyBindingProgram.definitions.map(\.target)
-        )), hoverOriginTransitionTargets.isDisjoint(with: Set(
-            timelineProgram.bindings.map(\.target)
-        )), audioScaledValueTargets.isDisjoint(with: Set(
-            runtimeInput.propertyBindingProgram.definitions.map(\.target)
-        )), audioScaledValueTargets.isDisjoint(with: Set(
-            timelineProgram.bindings.map(\.target)
-        )), audioScaledValueTargets.isDisjoint(
-            with: launchOriginTransitionTargets
-        ), audioScaledValueTargets.isDisjoint(
-            with: hoverOriginTransitionTargets
-        ), propertyVectorScriptTargets.isDisjoint(with: Set(
-            runtimeInput.propertyBindingProgram.definitions.map(\.target)
-        )), propertyVectorScriptTargets.isDisjoint(with: Set(
-            timelineProgram.bindings.map(\.target)
-        )), propertyVectorScriptTargets.isDisjoint(
-            with: launchOriginTransitionTargets
-        ), propertyVectorScriptTargets.isDisjoint(
-            with: hoverOriginTransitionTargets
-        ), propertyVectorScriptTargets.isDisjoint(
-            with: audioScaledValueTargets
-        ) else {
-            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
-        }
+        )
+        let timelineTargets = Set(timelineProgram.bindings.map(\.target))
         typealias VisibilityOwner =
             SceneResolvedMaterialExecutionCapabilityAdmission
                 .DynamicEffectVisibilityOwner
@@ -265,7 +232,8 @@ extension SceneDesktopWallpaperHost {
                     descriptor: runtimeInput.renderDescriptor,
                     scriptBindings: model.sceneDocument.scriptBindings
                 ) else {
-            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt("media-placeholder-candidates")
         }
         let mediaPlaybackPlaceholderFadeCandidateTargets = Set(
             mediaPlaybackPlaceholderFadeCandidates.bindings.map(\.definition.target)
@@ -275,39 +243,51 @@ extension SceneDesktopWallpaperHost {
                     descriptor: runtimeInput.renderDescriptor,
                     scriptBindings: model.sceneDocument.scriptBindings
                 ) else {
-            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt("media-color-candidates")
         }
         let mediaColorTransitionCandidateTargets = Set(
             mediaColorTransitionCandidates.bindings.map(\.definition.target)
         )
-        guard timeOfDayEffectScriptCandidateTargets.isDisjoint(
-            with: mediaPlaybackPlaceholderFadeCandidateTargets
-        ), timeOfDayEffectScriptCandidateTargets.isDisjoint(
-            with: mediaColorTransitionCandidateTargets
-        ), mediaPlaybackPlaceholderFadeCandidateTargets.isDisjoint(
-            with: mediaColorTransitionCandidateTargets
-        ), launchOriginTransitionTargets.isDisjoint(
-            with: timeOfDayEffectScriptCandidateTargets
-        ), launchOriginTransitionTargets.isDisjoint(
-            with: mediaPlaybackPlaceholderFadeCandidateTargets
-        ), launchOriginTransitionTargets.isDisjoint(
-            with: mediaColorTransitionCandidateTargets
-        ), audioScaledValueTargets.isDisjoint(
-            with: timeOfDayEffectScriptCandidateTargets
-        ), audioScaledValueTargets.isDisjoint(
-            with: mediaPlaybackPlaceholderFadeCandidateTargets
-        ), audioScaledValueTargets.isDisjoint(
-            with: mediaColorTransitionCandidateTargets
-        ) else {
-            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+        let boundedProducerTargets: [(String, Set<SceneDynamicTarget>, Int)] = [
+            ("launch-origin", launchOriginTransitionTargets,
+             launchOriginTransitionProgram.definitions.count),
+            ("hover-origin", hoverOriginTransitionTargets,
+             hoverOriginTransitionProgram.definitions.count),
+            ("audio-scaled", audioScaledValueTargets,
+             model.audioScaledValueProgram.definitions.count),
+            ("property-vector", propertyVectorScriptTargets,
+             model.propertyVectorScriptProgram.definitions.count),
+            ("time-of-day", timeOfDayEffectScriptCandidateTargets,
+             timeOfDayEffectScriptCandidates.count),
+            ("media-placeholder", mediaPlaybackPlaceholderFadeCandidateTargets,
+             mediaPlaybackPlaceholderFadeCandidates.bindings.count),
+            ("media-color", mediaColorTransitionCandidateTargets,
+             mediaColorTransitionCandidates.bindings.count),
+        ]
+        var boundedSceneScriptTargets: Set<SceneDynamicTarget> = []
+        var boundedProducerConflicts: [String] = []
+        for (name, targets, definitionCount) in boundedProducerTargets {
+            if targets.count != definitionCount {
+                boundedProducerConflicts.append("\(name)/duplicate")
+            }
+            if !targets.isDisjoint(with: propertyBindingTargets) {
+                boundedProducerConflicts.append("\(name)/property")
+            }
+            if !targets.isDisjoint(with: timelineTargets) {
+                boundedProducerConflicts.append("\(name)/timeline")
+            }
+            if !targets.isDisjoint(with: boundedSceneScriptTargets) {
+                boundedProducerConflicts.append("\(name)/bounded-peer")
+            }
+            boundedSceneScriptTargets.formUnion(targets)
         }
-        let boundedSceneScriptTargets = timeOfDayEffectScriptCandidateTargets
-            .union(mediaPlaybackPlaceholderFadeCandidateTargets)
-            .union(mediaColorTransitionCandidateTargets)
-            .union(launchOriginTransitionTargets)
-            .union(hoverOriginTransitionTargets)
-            .union(audioScaledValueTargets)
-            .union(propertyVectorScriptTargets)
+        guard boundedProducerConflicts.isEmpty else {
+            throw SceneDesktopWallpaperHostLaunchError
+                .conflictingBoundedSceneScriptTargets(
+                    " phases=\(boundedProducerConflicts.joined(separator: ","))"
+                )
+        }
         nextSceneScriptGeneration &+= 1
         let sceneScriptScalarProgram = SceneScriptScalarProgram.compile(
             descriptor: runtimeInput.renderDescriptor,
@@ -320,14 +300,9 @@ extension SceneDesktopWallpaperHost {
         )
         guard sceneScriptScalarTargets.count
                 == sceneScriptScalarProgram.definitions.count,
-              sceneScriptScalarTargets.isDisjoint(with: boundedSceneScriptTargets),
-              sceneScriptScalarTargets.isDisjoint(with: Set(
-                  runtimeInput.propertyBindingProgram.definitions.map(\.target)
-              )),
-              sceneScriptScalarTargets.isDisjoint(with: Set(
-                  timelineProgram.bindings.map(\.target)
-              )) else {
-            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+              sceneScriptScalarTargets.isDisjoint(with: boundedSceneScriptTargets) else {
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt("scalar-target-ownership")
         }
         let provenSceneScriptValueTargets = timeOfDayEffectScriptCandidateTargets
             .union(mediaPlaybackPlaceholderFadeCandidateTargets)
@@ -426,7 +401,8 @@ extension SceneDesktopWallpaperHost {
                         )
                     }
                 ) else {
-            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt("media-placeholder-consumers")
         }
         guard let mediaColorTransitionProgram =
                 SceneMediaColorTransitionProgram.validated(
@@ -436,7 +412,8 @@ extension SceneDesktopWallpaperHost {
                         )
                     }
                 ) else {
-            throw SceneDesktopWallpaperHostLaunchError.invalidBoundedSceneScriptProgram
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt("media-color-consumers")
         }
         let mediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,

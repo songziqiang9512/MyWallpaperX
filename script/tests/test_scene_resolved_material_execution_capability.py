@@ -7267,9 +7267,25 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets",
             launch,
         )
+        bounded_ownership = launch[
+            launch.index("let boundedProducerTargets:"):
+            launch.index("nextSceneScriptGeneration &+= 1")
+        ]
         self.assertIn(
-            "timeOfDayEffectScriptCandidateTargets.isDisjoint(",
-            launch,
+            '("time-of-day", timeOfDayEffectScriptCandidateTargets,',
+            bounded_ownership,
+        )
+        self.assertIn(
+            "targets.isDisjoint(with: propertyBindingTargets)",
+            bounded_ownership,
+        )
+        self.assertIn(
+            "targets.isDisjoint(with: timelineTargets)",
+            bounded_ownership,
+        )
+        self.assertIn(
+            "targets.isDisjoint(with: boundedSceneScriptTargets)",
+            bounded_ownership,
         )
         self.assertIn(
             "mediaPlaybackPlaceholderFadeCandidates.bindings.filter",
