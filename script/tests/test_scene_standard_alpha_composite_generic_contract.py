@@ -589,6 +589,7 @@ private struct Harness {
                 ) == .init(
                     blurredSlot: 3,
                     previousSlot: 5,
+                    maskSlot: nil,
                     unitColorUniform: "g_CompositeColor"
                 ),
             coordinateHelperMutationRejected:

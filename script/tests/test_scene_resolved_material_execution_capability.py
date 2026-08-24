@@ -621,6 +621,7 @@ final class SceneResolvedMaterialVariantCache {
     func precompileLaunchEnvelope(
         implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?,
         outputStorage: OutputStorage = .color,
+        outputIsRGBA8Unorm: Bool = false,
         graphTextureFormatFacts: [
             SceneAuthoredEffectRenderPlan.TextureIdentity: SceneShaderTextureFormat
         ] = [:],
@@ -628,6 +629,7 @@ final class SceneResolvedMaterialVariantCache {
     ) -> Result<[UInt8], LaunchEnvelopeFailure> {
         _ = implicitFramebufferIdentity
         _ = outputStorage
+        _ = outputIsRGBA8Unorm
         _ = graphTextureFormatFacts
         _ = assetStates
         return .success([1])

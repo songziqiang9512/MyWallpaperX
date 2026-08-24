@@ -1,10 +1,10 @@
 import Foundation
 
 /// Proves a bounded two-input composite that keeps both graph colors in the
-/// compositor's premultiplied representation. Identity and product effect
-/// names are intentionally absent; host material facts separately prove that
-/// the tint is unit-valued and both sampler slots select the required graph
-/// inputs.
+/// compositor's premultiplied representation. An optional third sampler may
+/// contribute only a direct red-channel mix mask. Identity and product effect
+/// names are intentionally absent; host material facts separately prove the
+/// tint, graph inputs, and typed mask candidate.
 nonisolated enum SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
@@ -12,6 +12,7 @@ nonisolated enum SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer {
     struct Fact: Equatable {
         let blurredSlot: Int
         let previousSlot: Int
+        let maskSlot: Int?
         let unitColorUniform: String
     }
 
@@ -53,16 +54,18 @@ nonisolated enum SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer {
                   fragment: fragment
               ),
               blurred.slot != previous.slot,
-              let mask = scalarLiteralDeclaration(
-                  statements[offset + 2], value: 1, tokens: tokens
-              ), let divisor = divisorDeclaration(
+              let mask = maskDeclaration(
+                  statements[offset + 2], fragment: fragment
+              ), mask.slot.map({ $0 != blurred.slot && $0 != previous.slot })
+                    ?? true,
+              let divisor = divisorDeclaration(
                   statements[offset + 3], blurred: blurred.name, tokens: tokens
               ), let composite = compositeAssignment(
                   statements[offset + 4], blurred: blurred.name,
                   previous: previous.name, divisor: divisor, tokens: tokens
               ), mixAssignment(
                   statements[offset + 5], blurred: blurred.name,
-                  previous: previous.name, mask: mask, tokens: tokens
+                  previous: previous.name, mask: mask.name, tokens: tokens
               ), texts(statements[offset + 6], tokens: tokens) == [
                   "gl_FragColor", "=", blurred.name,
               ], let colorUniform = validateCompositeHelper(
@@ -70,10 +73,14 @@ nonisolated enum SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer {
                   fragment: fragment
               ), coordinate.map({ wordCount($0.name, fragment: fragment) == 2 })
                     ?? true,
-              textureSampleCount(fragment) == 2 else { return nil }
+              wordCount(mask.name, fragment: fragment) == 2,
+              textureSampleCount(fragment) == (mask.slot == nil ? 2 : 3) else {
+            return nil
+        }
         return .init(
             blurredSlot: blurred.slot,
             previousSlot: previous.slot,
+            maskSlot: mask.slot,
             unitColorUniform: colorUniform
         )
     }
@@ -81,6 +88,8 @@ nonisolated enum SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer {
     private struct SampledDeclaration { let name: String; let slot: Int }
 
     private struct CoordinateAlias { let name: String }
+
+    private struct MaskDeclaration { let name: String; let slot: Int? }
 
     private static func coordinateDeclaration(
         _ statement: Range<Int>, fragment: Unit
@@ -177,6 +186,31 @@ nonisolated enum SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer {
             return nil
         }
         return tokens[statement.lowerBound + 1].text
+    }
+
+    private static func maskDeclaration(
+        _ statement: Range<Int>, fragment: Unit
+    ) -> MaskDeclaration? {
+        let tokens = fragment.tokens
+        if let name = scalarLiteralDeclaration(
+            statement, value: 1, tokens: tokens
+        ) {
+            return .init(name: name, slot: nil)
+        }
+        let values = texts(statement, tokens: tokens)
+        guard values.count == 13,
+              values[0] == "float", values[1].isEmpty == false,
+              values[2] == "=",
+              ["texSample2D", "texture2D"].contains(values[3]),
+              values[4] == "(", values[5].hasPrefix("g_Texture"),
+              let slot = Int(values[5].dropFirst("g_Texture".count)),
+              (0 ..< 8).contains(slot), values[6] == ",",
+              values[7].isEmpty == false, values[8] == ".",
+              ["xy", "zw", "rg", "ba"].contains(values[9]),
+              values[10] == ")", values[11] == ".", values[12] == "r",
+              hasCoordinateVarying(values[7], fragment: fragment),
+              hasSamplerUniform(slot, fragment: fragment) else { return nil }
+        return .init(name: values[1], slot: slot)
     }
 
     private static func divisorDeclaration(
@@ -337,6 +371,18 @@ nonisolated enum SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer {
             index >= 2 && tokens[index].text == name
                 && tokens[index - 2].text == "uniform"
                 && ["vec4", "float4"].contains(tokens[index - 1].text)
+        }.count == 1
+    }
+
+    private static func hasSamplerUniform(
+        _ slot: Int, fragment: Unit
+    ) -> Bool {
+        let name = "g_Texture\(slot)"
+        let tokens = fragment.tokens
+        return tokens.indices.filter { index in
+            index >= 2 && tokens[index].text == name
+                && tokens[index - 2].text == "uniform"
+                && tokens[index - 1].text == "sampler2D"
         }.count == 1
     }
 

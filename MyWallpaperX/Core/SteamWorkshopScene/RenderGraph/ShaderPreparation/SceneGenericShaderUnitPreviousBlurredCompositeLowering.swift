@@ -14,11 +14,16 @@ nonisolated enum SceneGenericShaderUnitPreviousBlurredCompositeLowering {
     static func lower(
         _ source: String,
         expectedBlurredSlot: Int,
-        expectedPreviousSlot: Int
+        expectedPreviousSlot: Int,
+        expectedMaskSlot: Int? = nil
     ) -> String? {
         guard (0 ..< 8).contains(expectedBlurredSlot),
               (0 ..< 8).contains(expectedPreviousSlot),
+              (expectedMaskSlot.map((0 ..< 8).contains) ?? true),
               expectedBlurredSlot != expectedPreviousSlot,
+              (expectedMaskSlot.map {
+                  $0 != expectedBlurredSlot && $0 != expectedPreviousSlot
+              } ?? true),
               !source.contains("mwxGenericPremultiply"),
               !source.contains("mwxGenericUnpremultiply") else { return nil }
 
@@ -32,16 +37,30 @@ nonisolated enum SceneGenericShaderUnitPreviousBlurredCompositeLowering {
               let previousSample = unique(previousPattern, in: source),
               let blurred = blurredSample.captures.first,
               let previous = previousSample.captures.first,
-              blurred != previous,
-              sampleCalls(in: source) == [
-                  expectedBlurredSlot: 1, expectedPreviousSlot: 1,
-              ], safeFragmentBody(in: source) else { return nil }
+              blurred != previous else { return nil }
+        var expectedSampleCalls = [
+            expectedBlurredSlot: 1, expectedPreviousSlot: 1,
+        ]
+        if let expectedMaskSlot { expectedSampleCalls[expectedMaskSlot] = 1 }
+        guard sampleCalls(in: source) == expectedSampleCalls,
+              safeFragmentBody(in: source) else { return nil }
 
         let b = escaped(blurred), p = escaped(previous)
-        guard let mask = unique(
-            #"(?m)^[ \t]*float\s+([A-Za-z_]\w*)\s*=\s*1(?:\.0+)?\s*;\s*$"#,
-            in: source
-        ), let maskName = mask.captures.first,
+        let mask: Match?
+        if let expectedMaskSlot {
+            mask = unique(
+                #"(?m)^[ \t]*float\s+([A-Za-z_]\w*)\s*=\s*g_Texture"#
+                    + String(expectedMaskSlot)
+                    + #"\s*\.\s*sample\([^;]+\)\s*\.\s*x\s*;\s*$"#,
+                in: source
+            )
+        } else {
+            mask = unique(
+                #"(?m)^[ \t]*float\s+([A-Za-z_]\w*)\s*=\s*1(?:\.0+)?\s*;\s*$"#,
+                in: source
+            )
+        }
+        guard let mask, let maskName = mask.captures.first,
               let divisor = unique(
                 #"(?m)^[ \t]*float\s+([A-Za-z_]\w*)\s*=\s*mix\(\s*"# + b
                     + #"\.w\s*,\s*1(?:\.0+)?\s*,\s*step\(\s*"# + b

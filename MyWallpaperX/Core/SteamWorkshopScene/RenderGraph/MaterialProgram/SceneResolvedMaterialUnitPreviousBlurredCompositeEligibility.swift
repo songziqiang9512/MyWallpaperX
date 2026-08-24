@@ -9,6 +9,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
     struct Slots: Equatable {
         let blurred: Int
         let previous: Int
+        let mask: Int?
     }
 
     static func slots(
@@ -31,7 +32,10 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
               blurredIdentity.name != nil,
               blurredIdentity.layerID == previousIdentity.layerID,
               blurredIdentity.effect == template.effectContext?.key,
-              Set(samplers.keys) == Set([fact.blurredSlot, fact.previousSlot]),
+              Set(samplers.keys) == Set(
+                  [fact.blurredSlot, fact.previousSlot]
+                    + (fact.maskSlot.map { [$0] } ?? [])
+              ),
               samplers[fact.blurredSlot]?.mode == .regular,
               samplers[fact.previousSlot]?.mode == .regular,
               activeGraphTextureIdentities == [
@@ -45,12 +49,36 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
                   slot: fact.previousSlot,
                   identity: previousIdentity,
                   template: template
+              ), exactMaskCandidate(
+                  slot: fact.maskSlot,
+                  samplers: samplers,
+                  template: template
               ), exactUnitColor(
                   named: fact.unitColorUniform,
                   template: template,
                   prepared: prepared
               ) else { return nil }
-        return .init(blurred: fact.blurredSlot, previous: fact.previousSlot)
+        return .init(
+            blurred: fact.blurredSlot,
+            previous: fact.previousSlot,
+            mask: fact.maskSlot
+        )
+    }
+
+    private static func exactMaskCandidate(
+        slot: Int?,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        template: Template
+    ) -> Bool {
+        guard let slot else { return true }
+        guard template.textureSlots.indices.contains(slot),
+              let declaration = template.textureSlots[slot],
+              !declaration.candidates.isEmpty,
+              samplers[slot]?.mode == .opacityMask else { return false }
+        return declaration.candidates.allSatisfy {
+            if case .asset = $0.reference { return true }
+            return false
+        }
     }
 
     private static func exactGraphCandidate(

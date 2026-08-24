@@ -63,7 +63,8 @@ extension SceneGenericShaderArtifactBuilder {
                         SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
                             source,
                             expectedBlurredSlot: expectedSlot,
-                            expectedPreviousSlot: fact.previousSlot
+                            expectedPreviousSlot: fact.previousSlot,
+                            expectedMaskSlot: fact.maskSlot
                         ) else { throw Failure.colorTransfer }
                 preserving = (
                     msl: lowered,

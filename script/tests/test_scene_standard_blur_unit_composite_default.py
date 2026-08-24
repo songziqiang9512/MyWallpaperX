@@ -92,7 +92,10 @@ nonisolated struct SceneResolvedMaterialTemplate {
         let key: Graph.EffectKey
         let input: Graph.TextureIdentity
     }
-    enum TextureReference: Hashable { case graph(Graph.TextureIdentity) }
+    enum TextureReference: Hashable {
+        case asset(SceneVFSAssetPath)
+        case graph(Graph.TextureIdentity)
+    }
     struct TextureCandidate: Hashable {
         let reference: TextureReference
         let provenance: SceneResolvedMaterialNode.TextureProvenance
@@ -148,7 +151,11 @@ private struct Output: Codable {
     let ownerCohortRejected: Bool
     let duplicateAliasesRejected: Bool
     let wrongSlotRejected: Bool
-    let maskInputRejected: Bool
+    let maskCandidateAccepted: Bool
+    let missingMaskCandidateRejected: Bool
+    let wrongMaskPurposeRejected: Bool
+    let nonAssetMaskCandidateRejected: Bool
+    let maskSourceMismatchRejected: Bool
     let missingDefaultRejected: Bool
     let nonunitDefaultRejected: Bool
     let malformedDefaultRejected: Bool
@@ -201,6 +208,7 @@ private let blurred = Graph.TextureIdentity(
     kind: .framebuffer, layerID: 721, effect: effectKey,
     name: "unseen-quarter-target"
 )
+private let maskPath = SceneVFSAssetPath("unseen/masks/soft-edge.tex")!
 
 private func staticValue(_ values: [Double]) -> Template.StaticUniformValue {
     .init(
@@ -232,7 +240,9 @@ private let dynamicDeclaration = Template.UniformDeclaration(
 private func template(
     contract: SceneShaderContract,
     declarations: [Template.UniformDeclaration] = [],
-    ownerEligible: Bool = true
+    ownerEligible: Bool = true,
+    includeMask: Bool = false,
+    maskReference: Template.TextureReference? = nil
 ) -> Template {
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     slots[0] = .init(index: 0, candidates: [
@@ -241,6 +251,14 @@ private func template(
     slots[2] = .init(index: 2, candidates: [
         .init(reference: .graph(previous), provenance: .explicitBinding),
     ])
+    if includeMask {
+        slots[1] = .init(index: 1, candidates: [
+            .init(
+                reference: maskReference ?? .asset(maskPath),
+                provenance: .explicitBinding
+            ),
+        ])
+    }
     return .init(
         textureSlots: slots,
         uniformDeclarations: declarations,
@@ -254,7 +272,9 @@ private func eligible(
     _ value: (SceneShaderContract, SceneShaderPreparedProgram)?,
     declarations: [Template.UniformDeclaration] = [],
     identities: [Int: Graph.TextureIdentity] = [0: blurred, 2: previous],
-    ownerEligible: Bool = true
+    ownerEligible: Bool = true,
+    includeMask: Bool = false,
+    maskReference: Template.TextureReference? = nil
 ) -> Bool {
     guard let (contract, prepared) = value,
           let samplers = try? SceneResolvedMaterialShaderSchema.activeSamplers(prepared)
@@ -265,11 +285,16 @@ private func eligible(
         samplers: samplers,
         template: template(
             contract: contract, declarations: declarations,
-            ownerEligible: ownerEligible
+            ownerEligible: ownerEligible, includeMask: includeMask,
+            maskReference: maskReference
         ),
         implicitFramebufferIdentity: previous,
         activeGraphTextureIdentities: identities
-    ) == .init(blurred: 0, previous: 2)
+    ) == .init(
+        blurred: 0,
+        previous: 2,
+        mask: includeMask ? 1 : nil
+    )
 }
 
 @main
@@ -279,7 +304,8 @@ private struct Harness {
         if arguments.first == "export-compiler-input" {
             let stockRoot = URL(fileURLWithPath: arguments[1], isDirectory: true)
             let outputRoot = URL(fileURLWithPath: arguments[2], isDirectory: true)
-            guard let prepared = prepare(stockRoot)?.1,
+            let maskReady = arguments.count > 3 && arguments[3] == "mask"
+            guard let prepared = prepare(stockRoot, maskReady: maskReady)?.1,
                   case let .success(normalized) =
                     SceneGenericShaderSourceNormalizer.normalize(
                         vertexSource: prepared.vertex.source,
@@ -298,6 +324,8 @@ private struct Harness {
         }
         if arguments.first == "build-compiler-artifact" {
             let root = URL(fileURLWithPath: arguments[1], isDirectory: true)
+            let maskSlot = arguments.count > 2 && arguments[2] == "mask"
+                ? 1 : nil
             let stages = try [("vertex", "vert"), ("fragment", "frag")].map {
                 name, suffix in
                 SceneGenericShaderArtifactBuilder.Stage(
@@ -333,7 +361,10 @@ private struct Harness {
             }
             guard let lowered =
                     SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
-                        raw, expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                        raw,
+                        expectedBlurredSlot: 0,
+                        expectedPreviousSlot: 2,
+                        expectedMaskSlot: maskSlot
                     ) else {
                 FileHandle.standardError.write(Data(raw.utf8))
                 throw NSError(domain: "lowering", code: 3)
@@ -386,32 +417,39 @@ private struct Harness {
                 ).count - 1,
                 wrongSlotRejected:
                     SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
-                        raw, expectedBlurredSlot: 1, expectedPreviousSlot: 2
+                        raw, expectedBlurredSlot: 1, expectedPreviousSlot: 2,
+                        expectedMaskSlot: maskSlot
                     ) == nil,
                 extraSampleRejected:
                     SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
-                        extraSample, expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                        extraSample, expectedBlurredSlot: 0,
+                        expectedPreviousSlot: 2, expectedMaskSlot: maskSlot
                     ) == nil,
                 spacedExtraSampleRejected:
                     SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
                         spacedExtraSample,
-                        expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                        expectedBlurredSlot: 0, expectedPreviousSlot: 2,
+                        expectedMaskSlot: maskSlot
                     ) == nil,
                 discardRejected:
                     SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
-                        discard, expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                        discard, expectedBlurredSlot: 0,
+                        expectedPreviousSlot: 2, expectedMaskSlot: maskSlot
                     ) == nil,
                 extraCarrierUseRejected:
                     SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
-                        extraUse, expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                        extraUse, expectedBlurredSlot: 0,
+                        expectedPreviousSlot: 2, expectedMaskSlot: maskSlot
                     ) == nil,
                 doubleBoundaryRejected:
                     SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
-                        lowered, expectedBlurredSlot: 0, expectedPreviousSlot: 2
+                        lowered, expectedBlurredSlot: 0,
+                        expectedPreviousSlot: 2, expectedMaskSlot: maskSlot
                     ) == nil,
                 renamedSlotsAccepted:
                     SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
-                        renamed, expectedBlurredSlot: 3, expectedPreviousSlot: 5
+                        renamed, expectedBlurredSlot: 3, expectedPreviousSlot: 5,
+                        expectedMaskSlot: maskSlot
                     ) != nil,
                 ordinaryInterpolationUnchanged:
                     ordinary.msl == ordinaryMSL
@@ -430,6 +468,8 @@ private struct Harness {
         }
         let stock = prepare(roots[0])
         let mask = prepare(roots[0], maskReady: true)
+        let wrongPurposeMask = prepare(roots[5], maskReady: true)
+        let wrongSourceMask = prepare(roots[6], maskReady: true)
         let fact = stock.flatMap {
             SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
                 fragmentSource: $0.1.fragment.source
@@ -445,6 +485,7 @@ private struct Harness {
         let output = Output(
             stockFact: fact == .init(
                 blurredSlot: 0, previousSlot: 2,
+                maskSlot: nil,
                 unitColorUniform: "g_CompositeColor"
             ),
             stockTypedDefault: schema?.materialKeys == [
@@ -470,7 +511,19 @@ private struct Harness {
             wrongSlotRejected: !eligible(
                 stock, identities: [1: blurred, 2: previous]
             ),
-            maskInputRejected: !eligible(mask),
+            maskCandidateAccepted: eligible(mask, includeMask: true),
+            missingMaskCandidateRejected: !eligible(mask),
+            wrongMaskPurposeRejected: !eligible(
+                wrongPurposeMask, includeMask: true
+            ),
+            nonAssetMaskCandidateRejected: !eligible(
+                mask,
+                includeMask: true,
+                maskReference: .graph(previous)
+            ),
+            maskSourceMismatchRejected: !eligible(
+                wrongSourceMask, includeMask: true
+            ),
             missingDefaultRejected: !eligible(prepare(roots[1])),
             nonunitDefaultRejected: !eligible(prepare(roots[2])),
             malformedDefaultRejected: !eligible(prepare(roots[3])),
@@ -523,6 +576,22 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
         if mutation is not None:
+            fragment = root / "shaders/effects/blur_combine.frag"
+            if mutation == "wrong-mask-purpose":
+                source = fragment.read_text(encoding="utf-8")
+                marker = ',"mode":"opacitymask"'
+                self.assertIn(marker, source)
+                fragment.write_text(source.replace(marker, "", 1), encoding="utf-8")
+                return root
+            if mutation == "mask-green-channel":
+                source = fragment.read_text(encoding="utf-8")
+                marker = "texSample2D(g_Texture1, v_TexCoord.zw).r"
+                self.assertIn(marker, source)
+                fragment.write_text(
+                    source.replace(marker, marker[:-1] + "g", 1),
+                    encoding="utf-8",
+                )
+                return root
             header = root / "shaders/common_composite.h"
             source = header.read_text(encoding="utf-8")
             marker = '"default":"1 1 1"'
@@ -554,6 +623,8 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
             self.stock_root("nonunit", "nonunit"),
             self.stock_root("malformed", "malformed"),
             self.stock_root("duplicate", "duplicate"),
+            self.stock_root("wrong-mask-purpose", "wrong-mask-purpose"),
+            self.stock_root("mask-green-channel", "mask-green-channel"),
         ]
         completed = subprocess.run(
             [str(self.binary), *map(str, roots)], check=True,
@@ -562,14 +633,18 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
         output = json.loads(completed.stdout)
         self.assertTrue(all(output.values()), output)
 
-    def test_stock_prepared_source_real_compiler_lowering_and_metal(self) -> None:
-        stock = self.stock_root("compiler-stock")
-        root = self.root / "actual-compiler"
+    def compiler_output(
+        self, stock: Path, label: str, *, masked: bool
+    ) -> dict[str, object]:
+        root = self.root / label
         root.mkdir()
-        subprocess.run(
-            [str(self.binary), "export-compiler-input", str(stock), str(root)],
-            check=True, cwd=REPOSITORY_ROOT, capture_output=True, text=True,
-        )
+        export = [
+            str(self.binary), "export-compiler-input", str(stock), str(root),
+        ]
+        if masked:
+            export.append("mask")
+        subprocess.run(export, check=True, cwd=REPOSITORY_ROOT,
+                       capture_output=True, text=True)
         subprocess.run([
             str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
             "-l", str(root / "stage.vert"), str(root / "stage.frag"),
@@ -591,15 +666,16 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
                 str(SPIRV_CROSS), str(spirv), "--reflect", "--output",
                 str(root / f"{name}.reflection.json"),
             ], check=True, cwd=root, capture_output=True, text=True)
-        built = subprocess.run(
-            [str(self.binary), "build-compiler-artifact", str(root)],
-            cwd=REPOSITORY_ROOT, capture_output=True, text=True,
-        )
+        build = [str(self.binary), "build-compiler-artifact", str(root)]
+        if masked:
+            build.append("mask")
+        built = subprocess.run(build, cwd=REPOSITORY_ROOT,
+                               capture_output=True, text=True)
         self.assertEqual(built.returncode, 0, built.stderr)
         output = json.loads(built.stdout)
         self.assertEqual(output["transferKind"], "straight-alpha-preserving")
         self.assertEqual(output["transferSlot"], 0)
-        self.assertEqual(output["bindingSlots"], [0, 2])
+        self.assertEqual(output["bindingSlots"], [0, 1, 2] if masked else [0, 2])
         self.assertEqual(output["terminalPremultiplyCount"], 1)
         self.assertEqual(output["helperCount"], 1)
         self.assertTrue(all(output[key] for key in (
@@ -613,6 +689,12 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
             str(root / "final.metal"), "-o", str(root / "final.air"),
         ], cwd=root, capture_output=True, text=True)
         self.assertEqual(metal.returncode, 0, metal.stderr)
+        return output
+
+    def test_stock_prepared_source_real_compiler_lowering_and_metal(self) -> None:
+        stock = self.stock_root("compiler-stock")
+        self.compiler_output(stock, "actual-compiler", masked=False)
+        self.compiler_output(stock, "actual-masked-compiler", masked=True)
 
 
 if __name__ == "__main__":

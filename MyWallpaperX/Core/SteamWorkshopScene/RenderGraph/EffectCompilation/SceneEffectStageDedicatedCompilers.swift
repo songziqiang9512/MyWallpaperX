@@ -78,7 +78,7 @@ extension SceneAuthoredStandardBlurPlanner {
     nonisolated static func compile(
         _ input: SceneEffectStageCompileInput
     ) -> SceneEffectStageBackendCompileResult<SceneEffectStageExecutionPlan> {
-        SceneEffectStageDedicatedCompilerAdapter.compile(
+        let result = SceneEffectStageDedicatedCompilerAdapter.compile(
             backend: .standardBlur,
             candidate: { containsCandidate(graph: input.stageGraph) },
             plan: {
@@ -89,6 +89,26 @@ extension SceneAuthoredStandardBlurPlanner {
                 )
             }
         )
+        guard case .accepted = result,
+              let effect = input.stageGraph.effects.first,
+              let terminalNodeIndex = effect.nodeIndices.last,
+              SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
+                .acceptsDedicatedRevocation(
+                    key: .init(
+                        effect: effect.key,
+                        nodeIndex: terminalNodeIndex
+                    ),
+                    graph: input.stageGraph,
+                    descriptor: input.descriptor,
+                    inputRole: input.inputRole,
+                    shaderContracts: input.shaderContracts
+                ) else { return result }
+        return .rejected(.init(
+            backend: .standardBlur,
+            phase: .compatibility,
+            code: .dedicatedProfileRejected,
+            details: ["static-owner-revoked-to-material-program"]
+        ))
     }
 }
 

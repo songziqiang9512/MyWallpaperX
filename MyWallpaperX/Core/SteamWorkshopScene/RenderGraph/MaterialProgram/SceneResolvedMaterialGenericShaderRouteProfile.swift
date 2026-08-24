@@ -111,8 +111,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         preservedAlphaRGBFilterTextureSlots: Set<Int>,
         unitCompositeBlurredSlot: Int?,
         unitCompositePreviousSlot: Int?,
+        unitCompositeMaskSlot: Int? = nil,
         unitCompositeSourceBlurredSlot: Int? = nil,
         unitCompositeSourcePreviousSlot: Int? = nil,
+        unitCompositeSourceMaskSlot: Int? = nil,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
         producesRedGreenUnormOutput: Bool = false,
@@ -236,6 +238,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   sourceBlurred != sourcePrevious {
             let ownerEligible = unitCompositeBlurredSlot == sourceBlurred
                 && unitCompositePreviousSlot == sourcePrevious
+                && unitCompositeMaskSlot == unitCompositeSourceMaskSlot
                 && !hasExternalProviderTexture
                 && !producesScalarRedOutput
                 && graphTextureSlots == Set([sourceBlurred])

@@ -48,6 +48,9 @@ OWNER_ADMISSION_SOURCE = SCENE_ROOT / "RenderGraph" / (
     "SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.swift"
 )
 STANDARD_BLUR_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift"
+DEDICATED_COMPILERS_SOURCE = SCENE_ROOT / (
+    "RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift"
+)
 
 
 HARNESS = r'''
@@ -589,6 +592,7 @@ fragment float4 mwxGenericFragment(
         route = ROUTE_SOURCE.read_text(encoding="utf-8")
         owner_admission = OWNER_ADMISSION_SOURCE.read_text(encoding="utf-8")
         standard_blur = STANDARD_BLUR_SOURCE.read_text(encoding="utf-8")
+        dedicated_compilers = DEDICATED_COMPILERS_SOURCE.read_text(encoding="utf-8")
 
         self.assertIn("case ownerDeferred(", cache)
         self.assertIn("case genericProductOwnerDeferred", failure)
@@ -671,10 +675,38 @@ fragment float4 mwxGenericFragment(
         )
         owner_gate = owner_admission[owner_admission.index("static func accepts("):]
         self.assertIn("SceneAuthoredStandardBlurPlanner.plan(", owner_gate)
-        self.assertIn("blur.maskTexturePath == nil", owner_gate)
+        self.assertNotIn("blur.maskTexturePath == nil", owner_gate)
+        self.assertIn("SceneAuthoredEffectInputValidator.role(", owner_gate)
         self.assertIn('scale.valueKind.localizedLowercase != "binding"', owner_gate)
         self.assertIn("scale.userBinding == nil", owner_gate)
+        revocation_gate = owner_admission[
+            owner_admission.index("static func acceptsDedicatedRevocation("):
+        ]
+        self.assertIn("shaderContracts: [SceneShaderContract]", revocation_gate)
+        self.assertIn("SceneResolvedMaterialTemplateCompiler.compile(", revocation_gate)
+        self.assertIn("SceneAuthoredShaderPreparation.prepareShaderStages(", revocation_gate)
+        self.assertIn(
+            "SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.slots(",
+            revocation_gate,
+        )
+        self.assertIn(
+            "SceneAuthoredShaderColorTransferAnalyzer.analyze(", revocation_gate
+        )
         self.assertIn('combos["KERNEL", default: 0] == 0', standard_blur)
+        standard_compiler = dedicated_compilers[
+            dedicated_compilers.index("extension SceneAuthoredStandardBlurPlanner"):
+            dedicated_compilers.index(
+                "extension SceneAuthoredProceduralNoisePlanner"
+            )
+        ]
+        self.assertIn(
+            "acceptsDedicatedRevocation(",
+            standard_compiler,
+        )
+        self.assertNotIn(".accepts(\n", standard_compiler)
+        self.assertIn(
+            '"static-owner-revoked-to-material-program"', standard_compiler
+        )
 
 
 if __name__ == "__main__":

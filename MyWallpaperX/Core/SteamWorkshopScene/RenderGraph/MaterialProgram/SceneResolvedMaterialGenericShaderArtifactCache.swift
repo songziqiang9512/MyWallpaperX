@@ -209,6 +209,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         colorBlendSourceSlot: Int? = nil,
         unitCompositeBlurredSlot: Int? = nil,
         unitCompositePreviousSlot: Int? = nil,
+        unitCompositeMaskSlot: Int? = nil,
         hasExternalProviderTexture: Bool = false,
         producesScalarRedOutput: Bool = false,
         producesRedGreenUnormOutput: Bool = false,
@@ -316,10 +317,12 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 preservedAlphaRGBFilterTextureSlots,
             unitCompositeBlurredSlot: unitCompositeBlurredSlot,
             unitCompositePreviousSlot: unitCompositePreviousSlot,
+            unitCompositeMaskSlot: unitCompositeMaskSlot,
             unitCompositeSourceBlurredSlot:
                 unitCompositeSourceFact?.blurredSlot,
             unitCompositeSourcePreviousSlot:
                 unitCompositeSourceFact?.previousSlot,
+            unitCompositeSourceMaskSlot: unitCompositeSourceFact?.maskSlot,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
             producesRedGreenUnormOutput: producesRedGreenUnormOutput,

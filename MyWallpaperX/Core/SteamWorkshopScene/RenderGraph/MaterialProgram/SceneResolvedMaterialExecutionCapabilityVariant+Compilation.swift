@@ -196,6 +196,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             colorBlendSourceSlot: colorBlendSourceSlot,
             unitCompositeBlurredSlot: unitCompositeSlots?.blurred,
             unitCompositePreviousSlot: unitCompositeSlots?.previous,
+            unitCompositeMaskSlot: unitCompositeSlots?.mask,
             hasExternalProviderTexture:
                 SceneResolvedMaterialVariantCache.hasExternalProviderTexture(
                     in: template,
