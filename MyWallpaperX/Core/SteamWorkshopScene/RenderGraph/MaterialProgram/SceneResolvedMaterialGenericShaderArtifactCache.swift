@@ -641,7 +641,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             outputSemantics.rawValue,
             vertexSource,
             fragmentSource,
-            expectedColorTransferKey(colorTransfer),
+            SceneGenericShaderExpectedColorTransfer(
+                colorTransfer,
+                fragmentSource: fragmentSource
+            )?.cacheKey ?? "-",
             "{}",
         ] {
             let encoded = Data(value.utf8)
@@ -665,7 +668,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         let request = Request(
             requestID: key,
             outputSemantics: outputSemantics,
-            expectedColorTransfer: expectedColorTransfer(colorTransfer),
+            expectedColorTransfer: .init(
+                colorTransfer,
+                fragmentSource: fragmentSource
+            ),
             stages: [
                 .init(stage: "vertex", entryPoint: "main", source: vertexSource),
                 .init(stage: "fragment", entryPoint: "main", source: fragmentSource),
@@ -687,19 +693,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         } catch {
             NSLog("MWX generic shader request export failed request=%@", key)
         }
-    }
-
-    private static func expectedColorTransfer(
-        _ transfer: SceneShaderColorTransfer
-    ) -> SceneGenericShaderExpectedColorTransfer? {
-        .init(transfer)
-    }
-
-    private static func expectedColorTransferKey(
-        _ transfer: SceneShaderColorTransfer
-    ) -> String {
-        guard let expected = expectedColorTransfer(transfer) else { return "-" }
-        return expected.cacheKey
     }
 
     private static func validatedDirectory(_ rawPath: String) -> URL? {

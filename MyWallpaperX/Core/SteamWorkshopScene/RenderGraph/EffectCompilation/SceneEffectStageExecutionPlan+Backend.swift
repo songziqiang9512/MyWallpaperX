@@ -38,8 +38,8 @@ extension SceneEffectStageExecutionPlan {
         case .localContrast:
             return true
         case .godrays(let plan):
-            return (plan.direction == nil && !plan.usesDirectionalGaussianKernel)
-                || (plan.direction?.isFinite == true && plan.usesDirectionalGaussianKernel)
+            return plan.direction?.isFinite == true
+                && plan.usesDirectionalGaussianKernel
         default:
             return false
         }

@@ -174,6 +174,71 @@ fragment FragmentOut mwxGenericFragment(
 """
 
 
+def inline_accumulator_msl(
+    *,
+    slot: int = 0,
+    carrier: str = "raySignal",
+    sample: str = "sourceTap",
+    loop_index: str = "tapIndex",
+    bound: str = "tapCount",
+    denominator: str = "tapDrop",
+    tint_copy: str = "signalCopy",
+    tinted_rgb: str = "tintedSignal",
+    sample_count: int = 30,
+) -> str:
+    """SPIRV-Cross-like direct-entry loop with lowered RGB-only tint."""
+    return f"""#include <metal_stdlib>
+using namespace metal;
+
+struct MWXFragmentUniforms {{
+    float3 g_ColorRays;
+    float g_Intensity;
+    float g_Length;
+}};
+struct FragmentIn {{ float2 v_TexCoord [[user(locn0)]]; }};
+struct FragmentOut {{ float4 mwxFragColor [[color(0)]]; }};
+
+static inline __attribute__((always_inline))
+float2 sourceCoordinate(
+    thread const float2& value,
+    constant MWXFragmentUniforms& uniforms) {{
+    return value + float2(uniforms.g_Length * 0.0);
+}}
+
+fragment FragmentOut mwxGenericFragment(
+    FragmentIn in [[stage_in]],
+    constant MWXFragmentUniforms& uniforms [[buffer(8)]],
+    texture2d<float> g_Texture{slot} [[texture({slot})]],
+    sampler g_Texture{slot}Smplr [[sampler({slot})]]) {{
+    FragmentOut out = {{}};
+    float2 coordinate = in.v_TexCoord;
+    float2 direction = float2(0.25, 0.5);
+    float4 {carrier} = float4(0.0);
+    const int {bound} = {sample_count};
+    const float {denominator} = {bound} - 1;
+    direction /= {denominator};
+    for (int {loop_index} = 0; {loop_index} < {bound}; ++{loop_index}) {{
+        float4 {sample} = g_Texture{slot}.sample(
+            g_Texture{slot}Smplr, sourceCoordinate(coordinate, uniforms));
+        coordinate -= direction;
+        {carrier} += {sample} * (float({loop_index}) / {denominator});
+    }}
+    const float sampleIntensity = 0.1;
+    float4 {tint_copy} = {carrier};
+    float3 {tinted_rgb} = {tint_copy}.xyz * float3(uniforms.g_ColorRays);
+    {carrier}.x = {tinted_rgb}.x;
+    {carrier}.y = {tinted_rgb}.y;
+    {carrier}.z = {tinted_rgb}.z;
+    out.mwxFragColor = float4(
+        uniforms.g_Intensity * sampleIntensity * {carrier}.xyz,
+        fast::clamp(
+            uniforms.g_Intensity * sampleIntensity * {carrier}.w,
+            0.0, 1.0));
+    return out;
+}}
+"""
+
+
 class IndependentSignalProducerAccumulatorArtifactTests(unittest.TestCase):
     def assert_rejected(
         self,
@@ -201,11 +266,32 @@ class IndependentSignalProducerAccumulatorArtifactTests(unittest.TestCase):
                 {"kind": kind, "slot": 3},
             )
         self.assertIsNone(parse_expected_transfer(None))
+        accumulator = {
+            "kind": PRESERVING_KIND,
+            "slot": 3,
+            "accumulatorLoopWork": 30,
+        }
+        self.assertEqual(parse_expected_transfer(accumulator), accumulator)
         malformed = [
             {"kind": PRODUCER_KIND, "slot": True},
             {"kind": PRODUCER_KIND, "slot": 8},
             {"kind": "unresolved", "slot": 0},
             {"kind": PRODUCER_KIND, "slot": 0, "identity": "hidden"},
+            {
+                "kind": PRODUCER_KIND,
+                "slot": 0,
+                "accumulatorLoopWork": 30,
+            },
+            {
+                "kind": PRESERVING_KIND,
+                "slot": 0,
+                "accumulatorLoopWork": True,
+            },
+            {
+                "kind": PRESERVING_KIND,
+                "slot": 0,
+                "accumulatorLoopWork": 257,
+            },
         ]
         for value in malformed:
             with self.subTest(value=value):
@@ -306,7 +392,11 @@ class IndependentSignalProducerAccumulatorArtifactTests(unittest.TestCase):
         source = accumulator_msl()
         prepared, transfer = prepare_independent_signal_contract(
             source,
-            {"kind": PRESERVING_KIND, "slot": 0},
+            {
+                "kind": PRESERVING_KIND,
+                "slot": 0,
+                "accumulatorLoopWork": 32,
+            },
             bindings(0),
         )
         self.assertEqual(prepared, source)
@@ -334,14 +424,22 @@ class IndependentSignalProducerAccumulatorArtifactTests(unittest.TestCase):
         )
         prepared, _ = prepare_independent_signal_contract(
             source,
-            {"kind": PRESERVING_KIND, "slot": 4},
+            {
+                "kind": PRESERVING_KIND,
+                "slot": 4,
+                "accumulatorLoopWork": 32,
+            },
             bindings(4),
         )
         self.assertEqual(prepared, source)
 
     def test_accumulator_safety_drift_fails_closed(self) -> None:
         source = accumulator_msl()
-        expected = {"kind": PRESERVING_KIND, "slot": 0}
+        expected = {
+            "kind": PRESERVING_KIND,
+            "slot": 0,
+            "accumulatorLoopWork": 32,
+        }
         drifts = {
             "wrong-slot": source.replace("g_Texture0.sample(", "g_Texture1.sample("),
             "second-source": source.replace(
@@ -411,6 +509,189 @@ class IndependentSignalProducerAccumulatorArtifactTests(unittest.TestCase):
             code="independent-loop-budget",
         )
 
+    def test_direct_entry_accumulator_preserves_one_bounded_raw_rgba_loop(self) -> None:
+        source = inline_accumulator_msl()
+        prepared, transfer = prepare_independent_signal_contract(
+            source,
+            {
+                "kind": PRESERVING_KIND,
+                "slot": 0,
+                "accumulatorLoopWork": 30,
+            },
+            bindings(0),
+        )
+        self.assertEqual(prepared, source)
+        self.assertEqual(transfer, {"kind": PRESERVING_KIND, "slot": 0})
+        self.assertEqual(
+            independent_signal_accumulator_static_loop_work(
+                source,
+                expected_slot=0,
+                maximum_loop_work=256,
+            ),
+            30,
+        )
+
+    def test_direct_entry_accumulator_is_identifier_and_slot_independent(self) -> None:
+        source = inline_accumulator_msl(
+            slot=4,
+            carrier="unseenIntegral",
+            sample="unseenTap",
+            loop_index="ordinal",
+            bound="sampleLimit",
+            denominator="positiveDivisor",
+            tint_copy="compilerSnapshot",
+            tinted_rgb="coloredIntegral",
+        )
+        prepared, _ = prepare_independent_signal_contract(
+            source,
+            {
+                "kind": PRESERVING_KIND,
+                "slot": 4,
+                "accumulatorLoopWork": 30,
+            },
+            bindings(4),
+        )
+        self.assertEqual(prepared, source)
+
+    def test_direct_entry_accumulator_accepts_packed_rgb_tint(self) -> None:
+        source = inline_accumulator_msl().replace(
+            "    float4 signalCopy = raySignal;\n"
+            "    float3 tintedSignal = signalCopy.xyz * "
+            "float3(uniforms.g_ColorRays);\n"
+            "    raySignal.x = tintedSignal.x;\n"
+            "    raySignal.y = tintedSignal.y;\n"
+            "    raySignal.z = tintedSignal.z;",
+            "    raySignal.xyz *= uniforms.g_ColorRays;",
+        )
+        self.assertEqual(
+            independent_signal_accumulator_static_loop_work(
+                source,
+                expected_slot=0,
+                maximum_loop_work=256,
+            ),
+            30,
+        )
+
+    def test_direct_entry_accumulator_accepts_saturate_alpha(self) -> None:
+        source = inline_accumulator_msl().replace(
+            "fast::clamp(\n"
+            "            uniforms.g_Intensity * sampleIntensity * raySignal.w,\n"
+            "            0.0, 1.0)",
+            "saturate(uniforms.g_Intensity * sampleIntensity * raySignal.w)",
+        )
+        self.assertEqual(
+            independent_signal_accumulator_static_loop_work(
+                source,
+                expected_slot=0,
+                maximum_loop_work=256,
+            ),
+            30,
+        )
+
+    def test_direct_entry_accumulator_safety_drift_fails_closed(self) -> None:
+        source = inline_accumulator_msl()
+        expected = {
+            "kind": PRESERVING_KIND,
+            "slot": 0,
+            "accumulatorLoopWork": 30,
+        }
+        drifts = {
+            "wrong-slot": source.replace("g_Texture0.sample(", "g_Texture1.sample("),
+            "second-source": source.replace(
+                "        coordinate -= direction;",
+                "        float4 hiddenTap = g_Texture1.sample(\n"
+                "            g_Texture1Smplr, coordinate);\n"
+                "        coordinate -= direction;",
+            ),
+            "projected-source": source.replace(
+                "            g_Texture0Smplr, sourceCoordinate(coordinate, uniforms));",
+                "            g_Texture0Smplr, sourceCoordinate(coordinate, uniforms)).xyz;",
+            ),
+            "negative-weight": source.replace(
+                "float(tapIndex) / tapDrop",
+                "-float(tapIndex) / tapDrop",
+            ),
+            "overweight": source.replace(
+                "const float tapDrop = tapCount - 1;",
+                "const float tapDrop = tapCount - 2;",
+            ),
+            "dynamic-loop": source.replace(
+                "tapIndex < tapCount",
+                "tapIndex < int(uniforms.g_Intensity)",
+            ),
+            "branch": source.replace(
+                "        raySignal += sourceTap *",
+                "        if (tapIndex > 0) { raySignal += sourceTap *",
+            ).replace(
+                "(float(tapIndex) / tapDrop);",
+                "(float(tapIndex) / tapDrop); }",
+            ),
+            "mismatched-alpha": source.replace(
+                "uniforms.g_Intensity * sampleIntensity * raySignal.w",
+                "uniforms.g_Intensity * raySignal.w",
+            ),
+            "unclamped-alpha": source.replace(
+                "fast::clamp(\n"
+                "            uniforms.g_Intensity * sampleIntensity * raySignal.w,\n"
+                "            0.0, 1.0)",
+                "uniforms.g_Intensity * sampleIntensity * raySignal.w",
+            ),
+            "extra-carrier-write": source.replace(
+                "    float4 signalCopy = raySignal;",
+                "    raySignal.w = 0.0;\n    float4 signalCopy = raySignal;",
+            ),
+            "carrier-escape": source.replace(
+                "fragment FragmentOut mwxGenericFragment(",
+                "static inline void mutate(thread float4& value) {\n"
+                "    value = float4(0.0);\n}\n\n"
+                "fragment FragmentOut mwxGenericFragment(",
+            ).replace(
+                "    const float sampleIntensity = 0.1;",
+                "    mutate(raySignal);\n"
+                "    const float sampleIntensity = 0.1;",
+            ),
+            "second-output": source.replace(
+                "    return out;",
+                "    out.mwxFragColor = float4(0.0);\n    return out;",
+            ),
+        }
+        for name, drift in drifts.items():
+            with self.subTest(name=name):
+                self.assert_rejected(drift, expected, bindings(0, 1))
+
+        fallback_calls: list[str] = []
+
+        def fallback(
+            fragment: str,
+            transfer: dict[str, object],
+            reflected: list[dict[str, object]],
+        ) -> dict[str, object]:
+            fallback_calls.append(fragment)
+            return transfer
+
+        with self.assertRaises(IndependentSignalContractFailure):
+            prepare_independent_signal_contract(
+                drifts["second-output"],
+                expected,
+                bindings(0),
+                preserving_fallback=fallback,
+            )
+        self.assertEqual(fallback_calls, [])
+
+        self.assert_rejected(
+            inline_accumulator_msl(sample_count=65),
+            expected,
+            bindings(0),
+            code="independent-accumulator-loop",
+        )
+        self.assert_rejected(
+            source,
+            expected,
+            bindings(0),
+            code="independent-loop-budget",
+            maximum_loop_work=29,
+        )
+
     def test_non_accumulator_preserving_shape_uses_existing_carrier(self) -> None:
         legacy = """struct Output { float4 mwxFragColor [[color(0)]]; };
 fragment Output mwxGenericFragment() {
@@ -439,6 +720,56 @@ fragment Output mwxGenericFragment() {
         self.assertEqual(prepared, legacy)
         self.assertEqual(transfer, {"kind": PRESERVING_KIND, "slot": 1})
         self.assertEqual(len(calls), 1)
+
+    def test_source_accumulator_work_cannot_fall_back_to_one_sample(self) -> None:
+        lowered_without_loop = """struct Output { float4 mwxFragColor [[color(0)]]; };
+fragment Output mwxGenericFragment() {
+    Output out = {};
+    float4 signal = g_Texture1.sample(g_Texture1Smplr, uv);
+    out.mwxFragColor = signal;
+    return out;
+}
+"""
+        calls: list[str] = []
+
+        def fallback(
+            source: str,
+            expected: dict[str, object],
+            reflected: list[dict[str, object]],
+        ) -> dict[str, object]:
+            calls.append(source)
+            return expected
+
+        expected = {
+            "kind": PRESERVING_KIND,
+            "slot": 1,
+            "accumulatorLoopWork": 30,
+        }
+        with self.assertRaises(IndependentSignalContractFailure) as context:
+            prepare_independent_signal_contract(
+                lowered_without_loop,
+                expected,
+                bindings(1),
+                preserving_fallback=fallback,
+            )
+        self.assertEqual(
+            context.exception.code,
+            "independent-accumulator-work-mismatch",
+        )
+        self.assertEqual(calls, [])
+
+        with self.assertRaises(IndependentSignalContractFailure) as mismatch:
+            prepare_independent_signal_contract(
+                inline_accumulator_msl(),
+                {**expected, "slot": 0, "accumulatorLoopWork": 31},
+                bindings(0),
+                preserving_fallback=fallback,
+            )
+        self.assertEqual(
+            mismatch.exception.code,
+            "independent-accumulator-work-mismatch",
+        )
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

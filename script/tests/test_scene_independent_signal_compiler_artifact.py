@@ -200,6 +200,19 @@ fragment Output mwxGenericFragment(
             "premultiply", artifact["program"]["metalSource"].lower()
         )
 
+        dropped_accumulator = copy.deepcopy(arguments)
+        dropped_accumulator["expected_color_transfer"] = {
+            "kind": "independent-alpha-signal-preserving",
+            "slot": 1,
+            "accumulatorLoopWork": 30,
+        }
+        with self.assertRaises(ArtifactFailure) as dropped:
+            harness_support.build_program_artifact(**dropped_accumulator)
+        self.assertEqual(
+            str(dropped.exception),
+            "independent-accumulator-work-mismatch",
+        )
+
         const_reference = copy.deepcopy(arguments)
         const_reference["msl_sources"]["fragment"] = fragment_msl.replace(
             "boundedInjection(float4 current",

@@ -64,10 +64,14 @@ import Foundation
 private struct Output: Codable {
     let actualWasPreprocessed: Bool
     let actualLoopWork: Int?
+    let inlineWasPreprocessed: Bool
+    let inlineLoopWork: Int?
     let structuralLoopWork: Int?
     let oversizedLoopWork: Int?
     let positive: [String: String]
     let negative: [String: String]
+    let inlinePositive: [String: String]
+    let inlineNegative: [String: String]
 }
 
 private func transfer(_ source: String) -> String {
@@ -172,6 +176,80 @@ private func preparedCast(stockRoot: URL) throws -> String {
     }
 }
 
+private func preparedInlineCast(stockRoot: URL) throws -> String {
+    let path = "shaders/effects/godrays_cast.frag"
+    let globalStockRoot = stockRoot
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let view = SceneResourceView(
+        projectRootURL: stockRoot,
+        packageRootURL: nil,
+        stockAssetsRootURL: globalStockRoot
+    )
+    let graph = SceneShaderSourceGraphBuilder().build(
+        roots: [.init(label: "fragment", virtualPath: path)],
+        resourceView: view
+    )
+    let environment = try SceneShaderVariantEnvironment(
+        stage: .fragment,
+        combos: [
+            .init(name: "CASTER", definition: .defined(.integer(0))),
+            .init(name: "SAMPLES", definition: .defined(.integer(0))),
+        ]
+    )
+    switch SceneShaderPreprocessor().preprocess(
+        rootRelativePath: path,
+        graph: graph,
+        environment: environment
+    ) {
+    case let .success(prepared):
+        return prepared.source
+    case let .failure(failure):
+        throw NSError(
+            domain: "prepared-godrays-cast",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "\(failure.diagnostics)"]
+        )
+    }
+}
+
+private func inlineFixture(
+    accumulator: String = "signal",
+    sample: String = "tap",
+    loopIndex: String = "ordinal",
+    bound: String = "tapCount",
+    denominator: String = "tapDrop",
+    gain: String = "g_Gain",
+    tint: String = "g_Tint"
+) -> String {
+    """
+    uniform sampler2D g_Texture0;
+    uniform float \(gain);
+    uniform vec3 \(tint);
+    varying vec2 v_TexCoord;
+
+    void main() {
+        vec2 coordinate = v_TexCoord;
+        vec2 direction = vec2(0.25, 0.5);
+        vec4 \(accumulator) = CAST4(0.0);
+        const int \(bound) = 8;
+        const float \(denominator) = \(bound) - 1;
+        direction /= \(denominator);
+        for (int \(loopIndex) = 0; \(loopIndex) < \(bound); ++\(loopIndex)) {
+            vec4 \(sample) = texSample2D(g_Texture0, coordinate);
+            coordinate -= direction;
+            \(accumulator) += \(sample) * (\(loopIndex) / \(denominator));
+        }
+        const float sharedScale = 0.1;
+        \(accumulator).rgb *= \(tint);
+        gl_FragColor = vec4(
+            \(gain) * sharedScale * \(accumulator).rgb,
+            saturate(\(gain) * sharedScale * \(accumulator).a)
+        );
+    }
+    """
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -180,6 +258,9 @@ enum Harness {
             isDirectory: true
         )
         let actual = try preparedCast(stockRoot: stockRoot)
+        let godraysRoot = stockRoot.deletingLastPathComponent()
+            .appendingPathComponent("godrays", isDirectory: true)
+        let actualInline = try preparedInlineCast(stockRoot: godraysRoot)
         let structural = fixture()
         let renamed = fixture(
             helper: "collectDirection",
@@ -271,6 +352,77 @@ enum Harness {
             of: "saturate(g_Gain * normalization * result.a)",
             with: "g_Gain * normalization * result.a"
         )
+        let inline = inlineFixture()
+        let renamedInline = inlineFixture(
+            accumulator: "weightedRGBA",
+            sample: "sourceValue",
+            loopIndex: "index",
+            bound: "sampleCount",
+            denominator: "sampleDrop",
+            gain: "g_Intensity",
+            tint: "g_ColorRays"
+        )
+        let inlineSecondSampler = inline
+            .replacingOccurrences(
+                of: "uniform sampler2D g_Texture0;",
+                with: "uniform sampler2D g_Texture0;\nuniform sampler2D g_Texture1;"
+            )
+            .replacingOccurrences(
+                of: "coordinate -= direction;",
+                with: "vec4 hidden = texSample2D(g_Texture1, coordinate);\n"
+                    + "coordinate -= direction;"
+            )
+        let inlineNegativeWeight = inline.replacingOccurrences(
+            of: "tap * (ordinal / tapDrop)",
+            with: "tap * (-ordinal / tapDrop)"
+        )
+        let inlineDynamicLoop = inline
+            .replacingOccurrences(
+                of: "uniform float g_Gain;",
+                with: "uniform float g_Gain;\nuniform int g_RuntimeCount;"
+            )
+            .replacingOccurrences(of: "const int tapCount = 8;", with: "")
+            .replacingOccurrences(of: "tapCount", with: "g_RuntimeCount")
+        let inlineDifferentAlpha = inline
+            .replacingOccurrences(
+                of: "uniform float g_Gain;",
+                with: "uniform float g_Gain;\nuniform float g_AlphaGain;"
+            )
+            .replacingOccurrences(
+                of: "saturate(g_Gain * sharedScale * signal.a)",
+                with: "saturate(g_AlphaGain * sharedScale * signal.a)"
+            )
+        let inlineUnclampedAlpha = inline.replacingOccurrences(
+            of: "saturate(g_Gain * sharedScale * signal.a)",
+            with: "g_Gain * sharedScale * signal.a"
+        )
+        let inlineBranch = inline.replacingOccurrences(
+            of: "signal.rgb *= g_Tint;",
+            with: "if (g_Gain > 0.0) { signal.rgb *= g_Tint; }"
+        )
+        let inlineDynamicHelperLoop = inline
+            .replacingOccurrences(
+                of: "void main() {",
+                with: """
+                vec2 resolveCoordinate(vec2 value, int limit) {
+                    int index = 0;
+                    while (index < limit) {
+                        value.x += 0.0;
+                        ++index;
+                    }
+                    return value;
+                }
+                void main() {
+                """
+            )
+            .replacingOccurrences(
+                of: "texSample2D(g_Texture0, coordinate)",
+                with: "texSample2D(g_Texture0, resolveCoordinate(coordinate, int(g_Gain)))"
+            )
+        let inlineNegativeScale = inline.replacingOccurrences(
+            of: "const float sharedScale = 0.1;",
+            with: "const float sharedScale = -0.1;"
+        )
 
         let output = Output(
             actualWasPreprocessed: !actual.contains("#if")
@@ -279,6 +431,12 @@ enum Harness {
             actualLoopWork:
                 SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
                     .staticLoopWork(fragmentSource: actual),
+            inlineWasPreprocessed: !actualInline.contains("#if")
+                && !actualInline.contains("#endif")
+                && actualInline.contains("sampleCount"),
+            inlineLoopWork:
+                SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
+                    .staticLoopWork(fragmentSource: actualInline),
             structuralLoopWork:
                 SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
                     .staticLoopWork(fragmentSource: structural),
@@ -303,6 +461,21 @@ enum Harness {
                 "differentAlphaSource": transfer(differentAlphaSource),
                 "inconsistentScale": transfer(inconsistentScale),
                 "unclampedAlpha": transfer(unclampedAlpha),
+            ],
+            inlinePositive: [
+                "actual": transfer(actualInline),
+                "structural": transfer(inline),
+                "renamed": transfer(renamedInline),
+            ],
+            inlineNegative: [
+                "secondSampler": transfer(inlineSecondSampler),
+                "negativeWeight": transfer(inlineNegativeWeight),
+                "dynamicLoop": transfer(inlineDynamicLoop),
+                "differentAlpha": transfer(inlineDifferentAlpha),
+                "unclampedAlpha": transfer(inlineUnclampedAlpha),
+                "branch": transfer(inlineBranch),
+                "dynamicHelperLoop": transfer(inlineDynamicHelperLoop),
+                "negativeScale": transfer(inlineNegativeScale),
             ]
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
@@ -380,6 +553,24 @@ class SceneIndependentSignalAccumulatorTests(unittest.TestCase):
         self.assertEqual(
             self.output["negative"],
             {key: "nil" for key in self.output["negative"]},
+        )
+
+    def test_actual_and_renamed_inline_accumulators_are_signal_preserving(self) -> None:
+        self.assertTrue(self.output["inlineWasPreprocessed"])
+        self.assertEqual(self.output["inlineLoopWork"], 30)
+        self.assertEqual(
+            self.output["inlinePositive"],
+            {
+                "actual": "signal-preserving:0",
+                "structural": "signal-preserving:0",
+                "renamed": "signal-preserving:0",
+            },
+        )
+
+    def test_unsafe_or_ambiguous_inline_accumulators_fail_closed(self) -> None:
+        self.assertEqual(
+            self.output["inlineNegative"],
+            {key: "nil" for key in self.output["inlineNegative"]},
         )
 
 

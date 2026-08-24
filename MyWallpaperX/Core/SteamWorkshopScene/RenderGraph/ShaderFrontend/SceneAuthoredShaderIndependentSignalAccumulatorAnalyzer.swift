@@ -41,10 +41,14 @@ nonisolated enum SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer {
 
     static func sourceSlot(fragmentSource source: String) -> Int? {
         analysis(fragmentSource: source)?.slot
+            ?? SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer
+                .sourceSlot(fragmentSource: source)
     }
 
     static func staticLoopWork(fragmentSource source: String) -> Int? {
         analysis(fragmentSource: source)?.work
+            ?? SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer
+                .staticLoopWork(fragmentSource: source)
     }
 
     private static func analysis(

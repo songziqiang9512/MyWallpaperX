@@ -104,6 +104,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalScalarContract.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalCarrierAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderFrontend.swift"
       ]

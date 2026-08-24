@@ -42,7 +42,10 @@ def expected_color_transfer_key(expected: dict[str, Any] | None) -> str:
     if expected is None:
         return "-"
     if "slot" in expected:
-        return f"{expected['kind']}:{expected['slot']}"
+        key = f"{expected['kind']}:{expected['slot']}"
+        if "accumulatorLoopWork" in expected:
+            key += f":accumulator:{expected['accumulatorLoopWork']}"
+        return key
     return ":".join([expected["kind"], *(str(slot) for slot in expected["slots"])])
 
 
@@ -75,11 +78,19 @@ def independent_signal_static_loop_work(
 ) -> int | None:
     if expected_transfer["kind"] == COMPOSITING_KIND:
         return None
-    return _accumulator_loop_work(
+    expected_work = expected_transfer.get("accumulatorLoopWork")
+    if expected_work is None:
+        return None
+    actual_work = _accumulator_loop_work(
         fragment_msl,
         expected_slot=expected_transfer["slot"],
         maximum_loop_work=maximum_loop_work,
     )
+    if actual_work != expected_work:
+        raise IndependentSignalContractFailure(
+            "independent-accumulator-work-mismatch"
+        )
+    return actual_work
 
 
 def _prepare_compositing(

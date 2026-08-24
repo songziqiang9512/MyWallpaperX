@@ -3,13 +3,17 @@
 
 from __future__ import annotations
 
-import ast
-import math
 import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
 from scene_shader_compiler_msl_function_contract import sample_end
+from scene_shader_compiler_independent_signal_inline_contract import (
+    InlineAccumulatorContractFailure,
+    InlineAccumulatorNotApplicable,
+    inline_accumulator_static_loop_work,
+    numeric_interval,
+)
 
 
 PRODUCER_KIND = "independent-alpha-signal"
@@ -47,17 +51,33 @@ def parse_expected_transfer(value: Any) -> dict[str, Any] | None:
     """Validate the request's independent-signal transfer without broadening it."""
     if value is None:
         return None
-    if not isinstance(value, dict) or set(value) != {"kind", "slot"}:
+    if not isinstance(value, dict) or set(value) not in (
+        {"kind", "slot"},
+        {"kind", "slot", "accumulatorLoopWork"},
+    ):
         raise IndependentSignalContractFailure("expected-color-transfer")
     kind, slot = value.get("kind"), value.get("slot")
+    accumulator_loop_work = value.get("accumulatorLoopWork")
     if (
         kind not in _TRANSFER_KINDS
         or isinstance(slot, bool)
         or not isinstance(slot, int)
         or not 0 <= slot < 8
+        or (
+            "accumulatorLoopWork" in value
+            and (
+                kind != PRESERVING_KIND
+                or isinstance(accumulator_loop_work, bool)
+                or not isinstance(accumulator_loop_work, int)
+                or not 1 <= accumulator_loop_work <= 256
+            )
+        )
     ):
         raise IndependentSignalContractFailure("expected-color-transfer")
-    return {"kind": kind, "slot": slot}
+    result = {"kind": kind, "slot": slot}
+    if "accumulatorLoopWork" in value:
+        result["accumulatorLoopWork"] = accumulator_loop_work
+    return result
 
 
 def prepare_independent_signal_contract(
@@ -85,13 +105,21 @@ def prepare_independent_signal_contract(
     if expected["kind"] == PRODUCER_KIND:
         return _prepare_producer(fragment_msl, expected), expected
 
-    if _looks_like_accumulator(fragment_msl):
-        independent_signal_accumulator_static_loop_work(
+    expected_loop_work = expected.get("accumulatorLoopWork")
+    if expected_loop_work is not None:
+        loop_work = independent_signal_accumulator_static_loop_work(
             fragment_msl,
             expected_slot=expected["slot"],
             maximum_loop_work=maximum_loop_work,
         )
-        return fragment_msl, expected
+        if loop_work is None or loop_work != expected_loop_work:
+            raise IndependentSignalContractFailure(
+                "independent-accumulator-work-mismatch"
+            )
+        return fragment_msl, {
+            "kind": expected["kind"],
+            "slot": expected["slot"],
+        }
     if preserving_fallback is None:
         raise IndependentSignalContractFailure("independent-preserving-not-applicable")
     fallback = preserving_fallback(fragment_msl, expected, texture_bindings)
@@ -464,53 +492,6 @@ def _strip_parentheses(value: str) -> str:
     return result
 
 
-def _interval(expression: str, symbols: dict[str, tuple[float, float]]) -> tuple[float, float] | None:
-    normalized = re.sub(r"\b(?:float|int)\s*\(", "(", expression)
-    normalized = re.sub(
-        r"(?<=\d)[fF]\b|(?<=\.)[fF]\b", "", normalized
-    )
-    try:
-        tree = ast.parse(normalized, mode="eval")
-    except SyntaxError:
-        return None
-
-    def visit(node: ast.AST) -> tuple[float, float] | None:
-        if isinstance(node, ast.Expression):
-            return visit(node.body)
-        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
-            value = float(node.value)
-            return (value, value) if math.isfinite(value) else None
-        if isinstance(node, ast.Name):
-            return symbols.get(node.id)
-        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
-            value = visit(node.operand)
-            if value is None:
-                return None
-            return value if isinstance(node.op, ast.UAdd) else (-value[1], -value[0])
-        if isinstance(node, ast.BinOp):
-            left, right = visit(node.left), visit(node.right)
-            if left is None or right is None:
-                return None
-            if isinstance(node.op, ast.Add):
-                return left[0] + right[0], left[1] + right[1]
-            if isinstance(node.op, ast.Sub):
-                return left[0] - right[1], left[1] - right[0]
-            if isinstance(node.op, ast.Mult):
-                products = [a * b for a in left for b in right]
-                return min(products), max(products)
-            if isinstance(node.op, ast.Div):
-                if right[0] <= 0 <= right[1]:
-                    return None
-                quotients = [a / b for a in left for b in right]
-                return min(quotients), max(quotients)
-        return None
-
-    result = visit(tree)
-    if result is None or not all(math.isfinite(value) for value in result):
-        return None
-    return result
-
-
 def _validate_accumulator_helper_calls(functions: list[_Function], helper: _Function, source: str) -> None:
     by_name = {value.name: value for value in functions}
     helper_body = source[helper.body_start:helper.body_end]
@@ -625,6 +606,16 @@ def _accumulator_rgb_write_count(entry_body: str, carrier: str) -> int:
 def independent_signal_accumulator_static_loop_work(
     source: str, *, expected_slot: int, maximum_loop_work: int
 ) -> int | None:
+    try:
+        return inline_accumulator_static_loop_work(
+            source,
+            expected_slot=expected_slot,
+            maximum_loop_work=maximum_loop_work,
+        )
+    except InlineAccumulatorNotApplicable:
+        pass
+    except InlineAccumulatorContractFailure as failure:
+        raise IndependentSignalContractFailure(failure.code) from failure
     if not _looks_like_accumulator(source):
         return None
     masked = _mask_comments(source)
@@ -677,7 +668,7 @@ def independent_signal_accumulator_static_loop_work(
         r"(?P<name>[A-Za-z_]\w*)\s*=\s*(?P<value>[^;]+)\s*;",
         prefix,
     ):
-        value = _interval(declaration.group("value"), symbols)
+        value = numeric_interval(declaration.group("value"), symbols)
         if value is not None:
             symbols[declaration.group("name")] = value
     bound_text = loop.group("bound")
@@ -737,7 +728,7 @@ def independent_signal_accumulator_static_loop_work(
         raise IndependentSignalContractFailure("independent-accumulator-update")
     weight_symbols = dict(symbols)
     weight_symbols[index_name] = (0.0, float(bound - 1))
-    weight = _interval(
+    weight = numeric_interval(
         _strip_parentheses(weighted_sample.group("weight")), weight_symbols
     )
     if weight is None or weight[0] < 0:
