@@ -276,8 +276,11 @@ class SceneGovernanceContractTests(unittest.TestCase):
                 for pattern in forbidden_product_directives:
                     self.assertNotRegex(text, pattern)
 
-    def test_static_research_requires_a_fresh_implementation_context(self) -> None:
+    def test_static_research_isolation_tracks_raw_detail_and_responsibility_overlap(
+        self,
+    ) -> None:
         workflow = RESEARCH_WORKFLOW.read_text(encoding="utf-8")
+        agent_rules = AGENT_RULES.read_text(encoding="utf-8")
         for phrase in (
             "静态研究任务不得修改产品代码",
             "fresh_implementation_task_or_context_id",
@@ -285,10 +288,23 @@ class SceneGovernanceContractTests(unittest.TestCase):
             "新任务或新上下文",
             "完整继承研究对话",
             "不得宽泛检索或预读标为 `research-context-only`",
-            "当前上下文必须停止产品写入",
+            "历史摘要、旧计划",
+            "立即停止该职责的产品写入",
+            "能够明确证明与当前纵向切片无关时",
+            "一次偶遇不把整个任务",
         ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, workflow)
+
+        for phrase in (
+            "历史摘要、旧计划",
+            "本身不构成上下文污染",
+            "立即停止该职责的产品写入",
+            "若能够明确证明与当前切片无关",
+            "无法判断是否重叠时按重叠处理",
+        ):
+            with self.subTest(agent_rule_phrase=phrase):
+                self.assertIn(phrase, agent_rules)
 
 
 if __name__ == "__main__":
