@@ -52,6 +52,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-normalized-sample-sum"
     case sourceProvenGraphInputAlphaWeightedSampleAverage =
         "source-proven-graph-input-alpha-weighted-sample-average"
+    case sourceProvenGraphInputPreservedAlphaRGBFilter =
+        "source-proven-graph-input-preserved-alpha-rgb-filter"
     case sourceProvenUnitPreviousBlurredComposite =
         "source-proven-unit-previous-blurred-composite"
     case sourceProvenUnitPreviousBlurredCompositeUnowned =
@@ -91,6 +93,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         auxiliaryRGBMixSourceSlot: Int?,
         normalizedSampleSumSourceSlot: Int?,
         alphaWeightedSampleAverageSourceSlot: Int?,
+        preservedAlphaRGBFilterSourceSlot: Int?,
+        preservedAlphaRGBFilterTextureSlots: Set<Int>,
         unitCompositeBlurredSlot: Int?,
         unitCompositePreviousSlot: Int?,
         unitCompositeSourceBlurredSlot: Int? = nil,
@@ -144,6 +148,13 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([sourceSlot]),
                   hasOnlyGraphInputSampler {
             self = .sourceProvenGraphInputAlphaWeightedSampleAverage
+        } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
+                  preservedAlphaRGBFilterSourceSlot == sourceSlot,
+                  !preservedAlphaRGBFilterTextureSlots.isEmpty,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphInputTextureSlots == preservedAlphaRGBFilterTextureSlots {
+            self = .sourceProvenGraphInputPreservedAlphaRGBFilter
         } else if case let .straightAlphaPreserving(transferBlurred) = colorTransfer,
                   let sourceBlurred = unitCompositeSourceBlurredSlot
                     ?? unitCompositeBlurredSlot,
@@ -260,6 +271,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphTargetPassthrough,
              .sourceProvenNormalizedSampleSum,
              .sourceProvenGraphInputAlphaWeightedSampleAverage,
+             .sourceProvenGraphInputPreservedAlphaRGBFilter,
              .sourceProvenUnitPreviousBlurredComposite,
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
@@ -278,14 +290,15 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
     }
 
     /// Shared profiles normally roll back through the bounded frontend. The
-    /// unit previous/blurred composite has no visually safe secondary owner:
-    /// disabling its generic owner must reject that effect back to the safe
-    /// previous-current boundary. A source-proven composite that lacks the
-    /// surrounding graph owner token remains quarantined behind the verified
-    /// incumbent.
+    /// preserved-alpha RGB filters and the unit previous/blurred composite
+    /// have no complete, visually safe secondary owner: disabling their
+    /// generic owner must reject that effect back to the safe previous-current
+    /// boundary. A source-proven composite that lacks the surrounding graph
+    /// owner token remains quarantined behind the verified incumbent.
     var validatedRollbackOwner: SceneGenericShaderFallbackOwner {
         switch self {
-        case .sourceProvenUnitPreviousBlurredComposite:
+        case .sourceProvenGraphInputPreservedAlphaRGBFilter,
+             .sourceProvenUnitPreviousBlurredComposite:
             .none
         case .sourceProvenUnitPreviousBlurredCompositeUnowned:
             .programFirstIncumbent

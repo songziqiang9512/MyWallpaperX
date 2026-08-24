@@ -119,6 +119,8 @@ private func profile(
         auxiliaryRGBMixSourceSlot: nil,
         normalizedSampleSumSourceSlot: nil,
         alphaWeightedSampleAverageSourceSlot: alphaSlot,
+        preservedAlphaRGBFilterSourceSlot: nil,
+        preservedAlphaRGBFilterTextureSlots: [],
         unitCompositeBlurredSlot: compositeSlots?.0,
         unitCompositePreviousSlot: compositeSlots?.1,
         hasExternalProviderTexture: false,

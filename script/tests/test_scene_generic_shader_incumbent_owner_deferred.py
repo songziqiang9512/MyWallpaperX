@@ -102,6 +102,22 @@ void main() {
 }
 """
 
+private let preserved = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture2;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 filtered = texSample2D(g_Texture0, v_TexCoord);
+    vec2 control = texSample2D(g_Texture2, v_TexCoord).rg;
+    if (control.x > 0.01) {
+        filtered.rgb += texSample2D(
+            g_Texture0, v_TexCoord + vec2(control.y)
+        ).rgb;
+    }
+    gl_FragColor = filtered;
+}
+"""
+
 private let composite = """
 uniform sampler2D g_Texture3;
 uniform sampler2D g_Texture5;
@@ -142,6 +158,8 @@ private func profile(
         auxiliaryRGBMixSourceSlot: nil,
         normalizedSampleSumSourceSlot: nil,
         alphaWeightedSampleAverageSourceSlot: alphaSlot,
+        preservedAlphaRGBFilterSourceSlot: nil,
+        preservedAlphaRGBFilterTextureSlots: [],
         unitCompositeBlurredSlot: composite?.0,
         unitCompositePreviousSlot: composite?.1,
         hasExternalProviderTexture: false,
@@ -164,16 +182,20 @@ private struct Harness {
     static func main() throws {
         let mode = CommandLine.arguments[1]
         let isAlpha = mode == "alpha"
+        let isPreserved = mode == "preserved"
         let isComposite = mode.hasPrefix("composite")
         let isCompositeOwned = mode == "composite"
+        let fragment = isAlpha
+            ? alpha : isPreserved ? preserved : isComposite ? composite : interpolated
         let resolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: vertex,
-            fragmentSource: isAlpha ? alpha : isComposite ? composite : interpolated,
+            fragmentSource: fragment,
             unitCompositeBlurredSlot: isCompositeOwned ? 3 : nil,
             unitCompositePreviousSlot: isCompositeOwned ? 5 : nil,
-            graphTextureSlots: isComposite ? [3] : [],
+            graphTextureSlots: isComposite ? [3] : isPreserved ? [2] : [],
             graphInputTextureSlots:
-                isAlpha ? [0] : isComposite ? [3, 5] : [0, 1],
+                isAlpha ? [0] : isPreserved ? [0, 2]
+                    : isComposite ? [3, 5] : [0, 1],
             hasOnlyGraphInputSampler: isAlpha
         )
         let alphaProfile = profile(
@@ -207,7 +229,7 @@ private struct Harness {
             let boundedAccepted = permits
                 ? SceneAuthoredShaderFrontend.compile(
                     vertexSource: vertex,
-                    fragmentSource: isAlpha ? alpha : isComposite ? composite : interpolated
+                    fragmentSource: fragment
                 ).program != nil
                 : false
             output = .init(
@@ -427,6 +449,46 @@ fragment float4 mwxGenericFragment(
             self.assertTrue(disabled["boundedFrontendAccepted"])
             self.assertIn("outcome=fallback reason=route-disabled", disabled_log)
 
+    def test_preserved_alpha_rgb_filter_is_generic_only_without_secondary_owner(
+        self,
+    ) -> None:
+        profile = "source-proven-graph-input-preserved-alpha-rgb-filter"
+        with tempfile.TemporaryDirectory(prefix="mwx-preserved-rgb-owner-") as directory:
+            root = Path(directory)
+            missing, missing_log, requests, cache = self.run_route(root, "preserved")
+            self.assertEqual(missing["status"], "unavailable")
+            self.assertEqual(missing["profile"], profile)
+            self.assertEqual(missing["state"], "generic-only")
+            self.assertEqual(missing["fallbackOwner"], "none")
+            self.assertFalse(missing["permitsBoundedFrontend"])
+            self.assertFalse(missing["boundedFrontendAccepted"])
+            self.assertEqual(len(list(requests.glob("*.json"))), 1)
+            self.assertEqual(list(cache.iterdir()), [])
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=rejected",
+                missing_log,
+            )
+
+            (cache / f"{missing['requestKey']}.json").write_text(
+                "{invalid-json", encoding="utf-8"
+            )
+            rejected, rejected_log, _, _ = self.run_route(root, "preserved")
+            self.assertEqual(rejected["code"], "artifact-invalid-json")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+            self.assertFalse(rejected["boundedFrontendAccepted"])
+            self.assertIn(
+                "outcome=rejected reason=artifact-invalid-json", rejected_log
+            )
+
+            disabled, disabled_log, _, _ = self.run_route(
+                root, "preserved", f"{profile}=disable-generic"
+            )
+            self.assertEqual(disabled["code"], "route-disabled")
+            self.assertEqual(disabled["fallbackOwner"], "none")
+            self.assertFalse(disabled["permitsBoundedFrontend"])
+            self.assertFalse(disabled["boundedFrontendAccepted"])
+            self.assertIn("outcome=fallback reason=route-disabled", disabled_log)
+
     def test_unit_composite_generic_only_rejects_to_previous_current_without_secondary_owner(
         self,
     ) -> None:
@@ -577,8 +639,16 @@ fragment float4 mwxGenericFragment(
             ".sourceProvenGraphInputAlphaWeightedSampleAverage,",
             prefer_generic_cases,
         )
+        self.assertNotIn(
+            ".sourceProvenGraphInputPreservedAlphaRGBFilter,",
+            prefer_generic_cases,
+        )
         self.assertIn(
             ".sourceProvenGraphInputAlphaWeightedSampleAverage,",
+            generic_only_cases,
+        )
+        self.assertIn(
+            ".sourceProvenGraphInputPreservedAlphaRGBFilter,",
             generic_only_cases,
         )
         self.assertIn(
@@ -587,6 +657,10 @@ fragment float4 mwxGenericFragment(
         )
         rollback = route[route.index("var validatedRollbackOwner"):]
         incumbent_cases = rollback.split(".programFirstIncumbent", 1)[0]
+        self.assertIn(
+            ".sourceProvenGraphInputPreservedAlphaRGBFilter,",
+            rollback,
+        )
         self.assertIn(
             ".sourceProvenUnitPreviousBlurredComposite:", rollback
         )

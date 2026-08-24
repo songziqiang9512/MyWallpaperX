@@ -261,6 +261,18 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
                 fragmentSource: fragmentSource
             )?.textureSlot
+        let preservedAlphaRGBFilterFact =
+            SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
+                fragmentSource: fragmentSource
+            )
+        let preservedAlphaRGBFilterTextureSlots: Set<Int>
+        if let preservedAlphaRGBFilterFact {
+            preservedAlphaRGBFilterTextureSlots = Set(
+                preservedAlphaRGBFilterFact.colorSampleCallCounts.keys
+            ).union(preservedAlphaRGBFilterFact.dataSampleCallCounts.keys)
+        } else {
+            preservedAlphaRGBFilterTextureSlots = []
+        }
         let unitCompositeSourceFact =
             SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
                 fragmentSource: fragmentSource
@@ -290,6 +302,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             normalizedSampleSumSourceSlot: normalizedSampleSumSourceSlot,
             alphaWeightedSampleAverageSourceSlot:
                 alphaWeightedSampleAverageSourceSlot,
+            preservedAlphaRGBFilterSourceSlot:
+                preservedAlphaRGBFilterFact?.sourceSlot,
+            preservedAlphaRGBFilterTextureSlots:
+                preservedAlphaRGBFilterTextureSlots,
             unitCompositeBlurredSlot: unitCompositeBlurredSlot,
             unitCompositePreviousSlot: unitCompositePreviousSlot,
             unitCompositeSourceBlurredSlot:

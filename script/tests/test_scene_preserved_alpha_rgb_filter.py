@@ -55,6 +55,8 @@ private struct Output: Codable {
     let routeProfile: String
     let routeState: String
     let fallbackOwner: String
+    let helperRouteProfile: String
+    let helperRouteState: String
     let booleanArithmeticCasted: Bool
     let booleanConditionPreserved: Bool
     let compoundBooleanArithmeticPreserved: Bool
@@ -273,30 +275,39 @@ private struct PreservedAlphaRGBFilterHarness {
         let helperBoundedMetal = helperBounded?.metalSource ?? ""
         let helperGenericMetal = helperArtifact?.program.metalSource ?? ""
 
-        let profile = SceneGenericShaderCapabilityProfile(
-            colorTransfer: .straightAlphaPreserving(textureSlot: 0),
-            alphaAttenuationSourceSlot: nil,
-            colorBlendSourceSlot: nil,
-            conditionalStraightUnionSourceSlot: nil,
-            singleSamplerAlphaMutationSourceSlot: nil,
-            sameSlotChannelReconstructionSourceSlot: nil,
-            auxiliaryRGBMixSourceSlot: nil,
-            normalizedSampleSumSourceSlot: nil,
-            alphaWeightedSampleAverageSourceSlot: nil,
-            unitCompositeBlurredSlot: nil,
-            unitCompositePreviousSlot: nil,
-            hasExternalProviderTexture: false,
-            producesScalarRedOutput: false,
-            isSourceIndependentPremultipliedOutput: false,
-            graphTextureSlots: [],
-            graphInputTextureSlots: [0],
-            r8TextureSlots: [],
-            hasDefaultedOpacityMaskSampler: false,
-            hasOnlyGraphInputSampler: false,
-            hasStageScopedUniformBindings: false,
-            hasStereoAudioSpectrumArrays: false,
-            hasLocalizedMutableFragmentVarying: false
-        )
+        func routeProfile(
+            sourceSlot: Int,
+            textureSlots: Set<Int>
+        ) -> SceneGenericShaderCapabilityProfile {
+            SceneGenericShaderCapabilityProfile(
+                colorTransfer: .straightAlphaPreserving(textureSlot: sourceSlot),
+                alphaAttenuationSourceSlot: nil,
+                colorBlendSourceSlot: nil,
+                conditionalStraightUnionSourceSlot: nil,
+                singleSamplerAlphaMutationSourceSlot: nil,
+                sameSlotChannelReconstructionSourceSlot: nil,
+                auxiliaryRGBMixSourceSlot: nil,
+                normalizedSampleSumSourceSlot: nil,
+                alphaWeightedSampleAverageSourceSlot: nil,
+                preservedAlphaRGBFilterSourceSlot: sourceSlot,
+                preservedAlphaRGBFilterTextureSlots: textureSlots,
+                unitCompositeBlurredSlot: nil,
+                unitCompositePreviousSlot: nil,
+                hasExternalProviderTexture: false,
+                producesScalarRedOutput: false,
+                isSourceIndependentPremultipliedOutput: false,
+                graphTextureSlots: [],
+                graphInputTextureSlots: textureSlots,
+                r8TextureSlots: [],
+                hasDefaultedOpacityMaskSampler: false,
+                hasOnlyGraphInputSampler: false,
+                hasStageScopedUniformBindings: false,
+                hasStereoAudioSpectrumArrays: false,
+                hasLocalizedMutableFragmentVarying: false
+            )
+        }
+        let profile = routeProfile(sourceSlot: 0, textureSlots: [0, 1, 2])
+        let helperProfile = routeProfile(sourceSlot: 3, textureSlots: [3, 5])
 
         let booleanFragment = [
             "uniform float weight;",
@@ -384,6 +395,8 @@ private struct PreservedAlphaRGBFilterHarness {
             routeProfile: profile.rawValue,
             routeState: profile.defaultRouteState.rawValue,
             fallbackOwner: profile.validatedRollbackOwner.rawValue,
+            helperRouteProfile: helperProfile.rawValue,
+            helperRouteState: helperProfile.defaultRouteState.rawValue,
             booleanArithmeticCasted: normalizedBoolean.contains(
                 "value *= float(weight < 0.6) * 6.0"
             ),
@@ -641,9 +654,12 @@ class ScenePreservedAlphaRGBFilterTests(unittest.TestCase):
             "genericDataSamplesUnpremultiplied": 0,
             "genericOutputPremultiplied": True,
             "routeProfile":
-                "source-proven-graph-input-straight-alpha-preserving",
-            "routeState": "prefer-generic",
-            "fallbackOwner": "bounded-frontend",
+                "source-proven-graph-input-preserved-alpha-rgb-filter",
+            "routeState": "generic-only",
+            "fallbackOwner": "none",
+            "helperRouteProfile":
+                "source-proven-graph-input-preserved-alpha-rgb-filter",
+            "helperRouteState": "generic-only",
             "booleanArithmeticCasted": True,
             "booleanConditionPreserved": True,
             "compoundBooleanArithmeticPreserved": True,
