@@ -616,7 +616,6 @@ struct SceneBlendEffectTextures {
         case standardBlur(SceneStandardBlurPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
-        case waterCaustics(SceneWaterCausticsExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
         case transform(SceneTransformExecutionPlan)
@@ -639,7 +638,6 @@ struct SceneBlendEffectTextures {
             case .standardBlur: "standard-blur"
             case .proceduralNoise: "procedural-noise"
             case .waterWaves: "water-waves"
-            case .waterCaustics: "water-caustics"
             case .xRay: "x-ray"
             case .blend: "blend"
             case .transform: "transform"
@@ -692,11 +690,6 @@ struct SceneBlendEffectTextures {
 
     var waterWaves: SceneWaterWavesExecutionPlan? {
         guard case .waterWaves(let plan) = backend else { return nil }
-        return plan
-    }
-
-    var waterCaustics: SceneWaterCausticsExecutionPlan? {
-        guard case .waterCaustics(let plan) = backend else { return nil }
         return plan
     }
 
@@ -753,20 +746,6 @@ struct SceneWaterWavesEffectTextures {
     func matches(_ plan: SceneWaterWavesExecutionPlan) -> Bool { true }
 }
 
-struct SceneWaterCausticsExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-
-struct SceneWaterCausticsEffectTextures {
-    let mask: MTLTexture?
-
-    func matches(_ plan: SceneWaterCausticsExecutionPlan) -> Bool { true }
-}
-
-struct SceneWaterCausticsPipeline {
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
 struct SceneWaterWavesPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
 }
@@ -785,21 +764,6 @@ enum SceneWaterWavesRenderer {
     ) -> MTLTexture? {
         nil
     }
-}
-
-extension SceneEffectStageRenderer {
-    static func renderWaterCaustics(
-        _ plan: SceneWaterCausticsExecutionPlan,
-        sourceTexture: MTLTexture,
-        masks: SceneImageLayerMasks,
-        targets: SceneGraphRenderTargetTable,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        sourcePipeline: SceneImageLayerPipeline,
-        pipelines: SceneAuthoredEffectPipelineSet,
-        time: Float,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? { nil }
-
 }
 
 struct ScenePulseShaderProfile {
@@ -1888,7 +1852,6 @@ enum Harness {
         func masks(
             standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:],
             waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:],
-            waterCausticsEffects: [String: SceneWaterCausticsEffectTextures] = [:],
             pulseEffects: [String: ScenePulseEffectTextures] = [:],
             xRay: SceneXRayEffectTextures? = nil
         ) -> SceneImageLayerMasks {
@@ -1896,7 +1859,6 @@ enum Harness {
                 blendEffects: [:],
                 standardBlurEffects: standardBlurEffects,
                 waterWavesEffects: waterWavesEffects,
-                waterCausticsEffects: waterCausticsEffects,
                 pulseEffects: pulseEffects,
                 xRay: xRay
             )
@@ -2429,11 +2391,6 @@ enum Harness {
             ])),
             ("waterWaves", masks(waterWavesEffects: [
                 visibleEffectID: SceneWaterWavesEffectTextures(
-                    mask: dependency
-                ),
-            ])),
-            ("waterCaustics", masks(waterCausticsEffects: [
-                visibleEffectID: SceneWaterCausticsEffectTextures(
                     mask: dependency
                 ),
             ])),
@@ -3402,7 +3359,6 @@ enum Harness {
                 ),
             ],
             waterWavesEffects: [:],
-            waterCausticsEffects: [:],
             pulseEffects: [:],
             xRay: nil
         )
@@ -4155,7 +4111,6 @@ enum Harness {
             blendEffects: [:],
             standardBlurEffects: [:],
             waterWavesEffects: [:],
-            waterCausticsEffects: [:],
             pulseEffects: [:],
             xRay: nil
         )
@@ -4672,7 +4627,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "waterWavesStaticSourceConsumer",
                 "mask-standardBlur",
                 "mask-waterWaves",
-                "mask-waterCaustics",
                 "mask-xray",
             },
         )

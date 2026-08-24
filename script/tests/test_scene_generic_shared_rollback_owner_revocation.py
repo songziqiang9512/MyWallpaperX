@@ -197,6 +197,94 @@ private enum SharedRollbackOwnerHarness {
         guard let mode = CommandLine.arguments.dropFirst().first else {
             fatalError("mode required")
         }
+        if mode == "authority-facts" {
+            func ownerFailure(
+                profile: String,
+                state: String,
+                fallback: String
+            ) -> String {
+                SceneResolvedMaterialVariantCache.genericOwnerFailure(.init(
+                    profile: profile,
+                    state: state,
+                    fallbackOwner: fallback
+                ))?.rawValue ?? "none"
+            }
+            let candidateGraph = graph(withPrimaryBinding: true)
+            func typedStaticSlots(
+                _ candidates: [Template.TextureCandidate],
+                defaultTexture: SceneResolvedMaterialShaderSchema.DefaultTexture?
+            ) -> [Int] {
+                var textureSlots = Array<Template.TextureSlot?>(
+                    repeating: nil,
+                    count: 8
+                )
+                if !candidates.isEmpty {
+                    textureSlots[2] = .init(index: 2, candidates: candidates)
+                }
+                let template = materialTemplate(
+                    graph: candidateGraph,
+                    shader: contract("typed-static-authority"),
+                    slots: textureSlots
+                )
+                let sampler = SceneResolvedMaterialShaderSchema.Sampler(
+                    name: "g_Texture2",
+                    slot: 2,
+                    mode: .regular,
+                    materialKey: nil,
+                    isHidden: false,
+                    defaultTexture: defaultTexture,
+                    readinessCombo: nil
+                )
+                return SceneResolvedMaterialVariantCache
+                    .typedStaticDataAuxiliarySlots(
+                        template: template,
+                        samplers: [2: sampler],
+                        graphInputSlots: [0]
+                    )
+                    .sorted()
+            }
+            let noise = SceneVFSAssetPath("util/noise")!
+            let result: [String: Any] = [
+                "acceptedGenericOnly": ownerFailure(
+                    profile: "source-proven-graph-input-typed-data-rgb-filter",
+                    state: "generic-only",
+                    fallback: "none"
+                ),
+                "disabledSharedRollback": ownerFailure(
+                    profile: "source-proven-graph-input-alpha-weighted-sample-average",
+                    state: "disable-generic",
+                    fallback: "bounded-frontend"
+                ),
+                "ordinaryPreferGeneric": ownerFailure(
+                    profile: "ordinary-shader",
+                    state: "prefer-generic",
+                    fallback: "bounded-frontend"
+                ),
+                "typedDefaultOnly": typedStaticSlots(
+                    [], defaultTexture: .asset(noise)
+                ),
+                "typedAssetOnly": typedStaticSlots(
+                    [assetCandidate("util/noise")], defaultTexture: nil
+                ),
+                "typedAssetWithLowerUserProperty": typedStaticSlots(
+                    [
+                        userPropertyCandidate("dynamic"),
+                        assetCandidate("util/noise"),
+                    ],
+                    defaultTexture: nil
+                ),
+                "typedAssetWithInternalDefault": typedStaticSlots(
+                    [assetCandidate("util/noise")],
+                    defaultTexture: .internalTarget("_rt_unsafe")
+                ),
+            ]
+            let data = try JSONSerialization.data(
+                withJSONObject: result,
+                options: [.sortedKeys]
+            )
+            print(String(decoding: data, as: UTF8.self))
+            return
+        }
         let migratedProfile = mode != "ordinary-unclaimed"
         let candidateGraph = graph(withPrimaryBinding: true)
         let template = materialTemplate(
@@ -343,6 +431,21 @@ class SceneGenericSharedRollbackOwnerRevocationTests(unittest.TestCase):
             ["material-generic-owner-revoked"],
         )
         self.assertNotIn("fixture-dedicated", result["families"])
+
+    def test_post_artifact_owner_and_static_auxiliary_authority(self) -> None:
+        result = self.run_case("authority-facts", None)
+        self.assertEqual(
+            result,
+            {
+                "acceptedGenericOnly": "generic-product-owner-revoked",
+                "disabledSharedRollback": "generic-shared-rollback-exhausted",
+                "ordinaryPreferGeneric": "none",
+                "typedDefaultOnly": [2],
+                "typedAssetOnly": [2],
+                "typedAssetWithLowerUserProperty": [],
+                "typedAssetWithInternalDefault": [],
+            },
+        )
 
 
 if __name__ == "__main__":

@@ -40,7 +40,6 @@ nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable
     case standardBlur = "standard-blur"
     case proceduralNoise = "procedural-noise"
     case waterWaves = "water-waves"
-    case waterCaustics = "water-caustics"
     case xRay = "x-ray"
     case blend
     case transform

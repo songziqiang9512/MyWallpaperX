@@ -60,7 +60,7 @@ targets: targets,
                 time: time,
                 commandBuffer: commandBuffer
             )
-        case .waterWaves, .waterCaustics,
+        case .waterWaves,
              .xRay, .blend, .transform,
              .pulse:
             return renderSpecializedStage(

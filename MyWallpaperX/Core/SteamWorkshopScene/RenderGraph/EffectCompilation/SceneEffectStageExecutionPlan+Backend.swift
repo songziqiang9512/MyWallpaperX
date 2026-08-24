@@ -6,7 +6,6 @@ extension SceneEffectStageExecutionPlan {
         case standardBlur(SceneStandardBlurPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
-        case waterCaustics(SceneWaterCausticsExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
         case transform(SceneTransformExecutionPlan)
@@ -14,7 +13,7 @@ extension SceneEffectStageExecutionPlan {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .waterWaves, .waterCaustics,
+            case .waterWaves,
                  .xRay, .blend, .transform, .pulse:
                 return true
             case .proceduralNoise(let plan):
@@ -55,11 +54,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var waterWaves: SceneWaterWavesExecutionPlan? {
         guard case .waterWaves(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var waterCaustics: SceneWaterCausticsExecutionPlan? {
-        guard case .waterCaustics(let plan) = backend else { return nil }
         return plan
     }
 

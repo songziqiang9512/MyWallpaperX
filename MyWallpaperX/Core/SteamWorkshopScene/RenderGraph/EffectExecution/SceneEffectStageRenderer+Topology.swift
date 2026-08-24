@@ -151,14 +151,6 @@ extension SceneEffectStageRenderer {
                 return "water-waves-resource-missing"
             }
             return pipelines.waterWaves == nil ? "water-waves-pipeline-missing" : nil
-        case .waterCaustics(let plan):
-            guard let resources = inputs.masks.waterCausticsEffects[
-                plan.effectKey.descriptorID
-            ], resources.matches(plan) else {
-                return "water-caustics-resource-missing"
-            }
-            return pipelines.waterCaustics == nil
-                ? "water-caustics-pipeline-missing" : nil
         case .xRay(let plan):
             switch SceneXRayRuntimePlanner.resolve(
                 declaration: plan.declaration,

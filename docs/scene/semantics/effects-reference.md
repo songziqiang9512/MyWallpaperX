@@ -85,7 +85,7 @@ Depth Parallax          -> depth map 驱动的 UV/POM 重采样
 | [Reflection](https://docs.wallpaperengine.io/en/scene/effects/effect/reflection.html) / `reflection` | 动态 reflection UV、mask、方向/速度/比例；可选 Perspective | 1P | 计算局部/透视坐标，不复制整层做倒影 | A+C |
 | [Tint](https://docs.wallpaperengine.io/en/scene/effects/effect/tint.html) / `tint` | 按指定 blend mode 着色，可选 mask | 1P | 不用简单 RGB multiply 代替全部模式；保留 source alpha | A+C |
 | [VHS](https://docs.wallpaperengine.io/en/scene/effects/effect/vhs.html) / `vhs` | time/noise 驱动扫描、artifact、通道错位和旧磁带着色；可选 mask | 1P | 依赖 texel size 和 variant；不能输出静态噪声贴图 | A+C |
-| [Water Caustics](https://docs.wallpaperengine.io/en/scene/effects/effect/watercaustics.html) / `watercaustics` | mask、Voronoi、uniform/noise、offset noise、glow 共五类额外输入 | 1P | 五槽分别解析；当前只执行 content-verified stock v2 realistic、无 Perspective、静态参数 profile，并用项目自有 Metal 近似保留 blend、时间变化、source alpha 与 ordered-chain 顺序；illustrative、Perspective、动态值和其他内容 revision 继续失败关闭 | A+C |
+| [Water Caustics](https://docs.wallpaperengine.io/en/scene/effects/effect/watercaustics.html) / `watercaustics` | mask、Voronoi、uniform/noise、offset noise、glow 共五类额外输入 | 1P | 五槽继续按作者material/schema分别解析；当前exact realistic/no-Perspective静态source只有在公共analyzer证明唯一graph source、唯一RGB写回、terminal whole output及所有辅助sampler的typed data projection/sample count后，才由`source-proven-graph-input-typed-data-rgb-filter`、普通MaterialProgram与GraphExecutor执行。stock pattern/uniform只按registry发布typed noise asset，旧项目固定MSL近似已撤权删除；illustrative、Perspective、动态值/provider、其他source/resource shape与官方像素语义继续失败关闭 | A+C |
 
 ## 6. 畸变类
 

@@ -126,10 +126,18 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             fragmentSource: compilerSources.fragment,
             provenRuntimeLoopBounds: runtimeLoopBounds.fragment
         )
-        let preservedAlphaRGBColorSlots =
-            SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
-                fragmentSource: compilerSources.fragment
-            ).map { Set($0.colorSampleCallCounts.keys) } ?? []
+        let preservedAlphaRGBColorSlots: Set<Int>
+        if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
+            fragmentSource: compilerSources.fragment
+        ) {
+            preservedAlphaRGBColorSlots = Set(fact.colorSampleCallCounts.keys)
+        } else if let fact = SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(
+            fragmentSource: compilerSources.fragment
+        ) {
+            preservedAlphaRGBColorSlots = [fact.sourceSlot]
+        } else {
+            preservedAlphaRGBColorSlots = []
+        }
         let sourceGraphInputFacts = SceneResolvedMaterialShaderSchema
             .graphInputSourceSlotFacts(
                 template: template,
@@ -142,6 +150,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sourceActiveSamplers[$0.slot] == nil ? nil : $0.slot
         })
         graphInputTextureSlots.formUnion(sourceGraphInputFacts.keys)
+        let typedStaticDataAuxiliarySlots = typedStaticDataAuxiliarySlots(
+            template: template,
+            samplers: sourceActiveSamplers,
+            graphInputSlots: graphInputTextureSlots
+        )
         let graphR8TextureSlots = Set(activeGraphTextureIdentities.compactMap {
             graphTextureFormatFacts[$0.value] == .r8 ? $0.key : nil
         })
@@ -218,6 +231,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     && graphInputTextureSlots.isEmpty,
             graphTextureSlots: graphTextureSlots,
             graphInputTextureSlots: graphInputTextureSlots,
+            typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
             r8TextureSlots: graphR8TextureSlots,
             hasDefaultedOpacityMaskSampler:
                 SceneResolvedMaterialShaderSchema.hasOnlyDefaultedOpacityMaskAuxiliary(
@@ -283,7 +297,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     .shaderFrontendFailed,
                     phase: .frontend,
                     genericOwnerFailure:
-                        sharedRollbackOwnerFailure(routeDecision),
+                        genericOwnerFailure(routeDecision),
                     details: SceneResolvedMaterialExecutionCapabilityDiagnostics
                         .frontendFailure(template: template, output: output)
                         + ["generic-artifact", code, requestKey]
@@ -293,7 +307,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             boundedOutput = output
             artifactFailure = ["generic-artifact", code, requestKey]
         }
-        let genericOwnerFailure = sharedRollbackOwnerFailure(routeDecision)
+        let genericOwnerFailure = genericOwnerFailure(routeDecision)
         guard
               SceneResolvedMaterialProgramDerivation.validPreparedStages(prepared),
               SceneResolvedMaterialProgramDerivation.uniqueAndValid(
@@ -404,6 +418,56 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             }
         }
         return nil
+    }
+
+    static func typedStaticDataAuxiliarySlots(
+        template: Template,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        graphInputSlots: Set<Int>
+    ) -> Set<Int> {
+        var result = Set<Int>()
+        for (slot, sampler) in samplers where !graphInputSlots.contains(slot) {
+            guard template.textureSlots.indices.contains(slot) else { continue }
+            let candidates = template.textureSlots[slot]?.candidates ?? []
+            guard candidates.allSatisfy({
+                isTypedStaticDataReference($0.reference, sampler: sampler)
+            }) else { continue }
+            var hasTypedStaticSource = !candidates.isEmpty
+            switch sampler.defaultTexture {
+            case let .asset(path):
+                guard isTypedStaticDataReference(
+                    .asset(path), sampler: sampler
+                ) else { continue }
+                hasTypedStaticSource = true
+            case .internalTarget:
+                continue
+            case nil:
+                break
+            }
+            if hasTypedStaticSource { result.insert(slot) }
+        }
+        return result
+    }
+
+    private static func isTypedStaticDataReference(
+        _ reference: Template.TextureReference,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler
+    ) -> Bool {
+        guard case .asset = reference,
+              let purpose = sampler.purpose(for: reference) else { return false }
+        return isDataPurpose(purpose)
+    }
+
+    private static func isDataPurpose(
+        _ purpose: SceneTextureLoadPurpose
+    ) -> Bool {
+        switch purpose {
+        case .preservedChannels, .mask, .noise, .flow, .phase, .normal,
+             .depth, .lookupTable:
+            true
+        case .premultipliedColor, .straightAlbedo:
+            false
+        }
     }
 
     static func hasExternalProviderTexture(
@@ -538,7 +602,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     /// its explicit disable-generic rollback. If that shared rollback fails,
     /// the generic product owner is exhausted and the Program-first chain must
     /// not fall through to a retained dedicated implementation.
-    private static func sharedRollbackOwnerFailure(
+    static func genericOwnerFailure(
         _ decision: SceneGenericShaderRouteDecision
     ) -> Failure.GenericOwnerFailure? {
         guard let profile = SceneGenericShaderCapabilityProfile(
@@ -550,9 +614,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
               let fallbackOwner = SceneGenericShaderFallbackOwner(
                   rawValue: decision.fallbackOwner
               ),
-              profile.defaultRouteState == .genericOnly,
-              state == .disableGeneric,
-              fallbackOwner == .boundedFrontend else { return nil }
-        return .sharedRollbackExhausted
+              profile.defaultRouteState == .genericOnly else { return nil }
+        if state == .disableGeneric, fallbackOwner == .boundedFrontend {
+            return .sharedRollbackExhausted
+        }
+        return .productOwnerRevoked
     }
 }

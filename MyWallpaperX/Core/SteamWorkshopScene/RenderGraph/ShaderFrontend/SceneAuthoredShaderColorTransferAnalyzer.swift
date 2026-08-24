@@ -179,6 +179,9 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlphaPreserving(textureSlot: fact.sourceSlot)
         }
+        if let fact = SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(fragment) {
+            return .straightAlphaPreserving(textureSlot: fact.sourceSlot)
+        }
         if let fact = SceneAuthoredShaderGraphInputColorBlendAnalyzer.analyze(
             fragment
         ) {

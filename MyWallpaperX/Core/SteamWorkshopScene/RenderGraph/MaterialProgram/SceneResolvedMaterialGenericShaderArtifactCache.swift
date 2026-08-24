@@ -217,6 +217,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         isSourceIndependentPremultipliedOutput: Bool = false,
         graphTextureSlots: Set<Int> = [],
         graphInputTextureSlots: Set<Int> = [],
+        typedStaticDataAuxiliarySlots: Set<Int> = [],
         r8TextureSlots: Set<Int> = [],
         hasDefaultedOpacityMaskSampler: Bool = false,
         hasOnlyTypedOpacityMaskAuxiliary: Bool = false,
@@ -263,6 +264,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             )?.textureSlot
         let preservedAlphaRGBFilterFact =
             SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
+                fragmentSource: fragmentSource
+            )
+        let typedDataRGBFilterFact =
+            SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(
                 fragmentSource: fragmentSource
             )
         let preservedAlphaRGBFilterTextureSlots: Set<Int>
@@ -315,6 +320,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 preservedAlphaRGBFilterFact?.sourceSlot,
             preservedAlphaRGBFilterTextureSlots:
                 preservedAlphaRGBFilterTextureSlots,
+            typedDataRGBFilterSourceSlot:
+                typedDataRGBFilterFact?.sourceSlot,
+            typedDataRGBFilterAuxiliarySlots:
+                typedDataRGBFilterFact?.auxiliarySlots ?? [],
+            typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
             unitCompositeBlurredSlot: unitCompositeBlurredSlot,
             unitCompositePreviousSlot: unitCompositePreviousSlot,
             unitCompositeMaskSlot: unitCompositeMaskSlot,

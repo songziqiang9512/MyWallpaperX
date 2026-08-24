@@ -25,7 +25,6 @@ extension SceneLayerEffectTextureLoader {
                 $0.standardBlur?.effectDescriptorID
             }),
             waterWavesEffectIDs: Set(stages.compactMap { $0.waterWaves?.effectKey.descriptorID }),
-            waterCausticsPlans: stages.compactMap(\.waterCaustics),
             userPropertyTextures: userPropertyTextures,
             userPropertyTextureStates: userPropertyTextureStates,
             straightAlbedoUserPropertyTextures: straightAlbedoUserPropertyTextures,

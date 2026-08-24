@@ -30,13 +30,6 @@ extension SceneEffectStageRenderer {
                 pipeline: pipeline, pipelines: pipelines,
                 time: time, commandBuffer: commandBuffer
             )
-        case .waterCaustics(let caustics):
-            return renderWaterCaustics(
-                caustics, sourceTexture: sourceTexture, masks: masks,
-targets: targets,
-                sourceUniforms: sourceUniforms, sourcePipeline: pipeline,
-                pipelines: pipelines, time: time, commandBuffer: commandBuffer
-            )
         case .xRay(let xRay):
             return renderXRay(
                 xRay, sourceTexture: sourceTexture, masks: masks,

@@ -10,7 +10,6 @@ enum SceneLayerEffectTextureLoader {
         blendEffectIDs: Set<String> = [],
         standardBlurEffectIDs: Set<String> = [],
         waterWavesEffectIDs: Set<String> = [],
-        waterCausticsPlans: [SceneWaterCausticsExecutionPlan] = [],
         userPropertyTextures: [String: MTLTexture] = [:],
         userPropertyTextureStates: [
             SceneUserPropertyTextureIdentity: SceneTextureProviderState
@@ -37,13 +36,6 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
-        let waterCaustics = SceneWaterCausticsEffectTextureLoader.load(
-            for: layer,
-            plans: waterCausticsPlans,
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
         let xRay = SceneXRayEffectTextureLoader.load(
             for: layer,
             resolver: resolver,
@@ -62,14 +54,12 @@ enum SceneLayerEffectTextureLoader {
             blendEffects: blend.textures,
             standardBlurEffects: standardBlur.textures,
             waterWavesEffects: waterWaves.textures,
-            waterCausticsEffects: waterCaustics.textures,
             pulseEffects: pulseEffects.textures,
             xRay: xRay.textures,
             message: [
                 blend.message,
                 standardBlur.message,
                 waterWaves.message,
-                waterCaustics.message,
                 pulseEffects.message,
                 xRay.message,
             ].joined()

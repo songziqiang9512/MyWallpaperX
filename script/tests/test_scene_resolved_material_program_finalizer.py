@@ -4229,10 +4229,30 @@ private enum Harness {
                     assetReference: true,
                     assetPath: "util/perlin_256"
                 ),
+                "registeredStockVoronoiNoise": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "pattern/voronoi"
+                ),
+                "registeredStockLocalVoronoiNoise": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "pattern/voronoi_local"
+                ),
+                "registeredStockUniformNoise": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "util/uniform_256"
+                ),
                 "registeredStockPerlinPurposeConflict": samplerPurposeToken(
                     #"{"mode":"opacitymask"}"#,
                     assetReference: true,
                     assetPath: "util/perlin_256"
+                ),
+                "registeredStockVoronoiPurposeConflict": samplerPurposeToken(
+                    #"{"mode":"opacitymask"}"#,
+                    assetReference: true,
+                    assetPath: "pattern/voronoi"
                 ),
                 "neighboringCustomPerlinUnproven": samplerPurposeToken(
                     nil,
@@ -4248,6 +4268,21 @@ private enum Harness {
                     nil,
                     assetReference: true,
                     assetPath: "util/perlin_256_extra"
+                ),
+                "neighboringVoronoiSuffixUnproven": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "pattern/voronoi_extra"
+                ),
+                "neighboringLocalVoronoiSuffixUnproven": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "pattern/voronoi_local_extra"
+                ),
+                "neighboringUniformSuffixUnproven": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "util/uniform_256_extra"
                 ),
                 "registeredStockPurposeConflict": samplerPurposeToken(
                     #"{"mode":"opacitymask"}"#,
@@ -4595,10 +4630,17 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "unregisteredGradient": "unproven",
                 "registeredStockCloudNoise": "noise",
                 "registeredStockPerlinNoise": "noise",
+                "registeredStockVoronoiNoise": "noise",
+                "registeredStockLocalVoronoiNoise": "noise",
+                "registeredStockUniformNoise": "noise",
                 "registeredStockPerlinPurposeConflict": "unproven",
+                "registeredStockVoronoiPurposeConflict": "unproven",
                 "neighboringCustomPerlinUnproven": "unproven",
                 "neighboringPerlin512Unproven": "unproven",
                 "neighboringPerlinSuffixUnproven": "unproven",
+                "neighboringVoronoiSuffixUnproven": "unproven",
+                "neighboringLocalVoronoiSuffixUnproven": "unproven",
+                "neighboringUniformSuffixUnproven": "unproven",
                 "registeredStockPurposeConflict": "unproven",
                 "unknownMaterialAsset": "unproven",
                 "conflictingMaterial": "schema-invalid",
@@ -4626,6 +4668,37 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "3a9e76025b07080babb4097c08a01ff9fcbae56ad4c122f6b070aaaae94bdd11"
             ),
             "util/perlin_256.tex-json": (
+                "2f9cfef09edf3ecff1b6a6d9773cf55a1b12c2fa194a525bbe2c58cf1d70c315"
+            ),
+        }
+        actual = {
+            relative: hashlib.sha256(
+                (STOCK_MATERIAL_ROOT / relative).read_bytes()
+            ).hexdigest()
+            for relative in expected
+        }
+        self.assertEqual(actual, expected)
+
+    def test_stock_caustics_data_semantics_are_bound_to_fixed_resource_hashes(
+        self,
+    ) -> None:
+        expected = {
+            "pattern/voronoi.tex": (
+                "0c05190a0c05250fb90414cbcc63cceb87e07e7eb6e2eebd368fa93867327885"
+            ),
+            "pattern/voronoi.tex-json": (
+                "2f9cfef09edf3ecff1b6a6d9773cf55a1b12c2fa194a525bbe2c58cf1d70c315"
+            ),
+            "pattern/voronoi_local.tex": (
+                "67a99eda6e1200b89450b4324111efa8969e745490c887a80d9fd29054d2e1e7"
+            ),
+            "pattern/voronoi_local.tex-json": (
+                "2f9cfef09edf3ecff1b6a6d9773cf55a1b12c2fa194a525bbe2c58cf1d70c315"
+            ),
+            "util/uniform_256.tex": (
+                "0717c990a2b2c8e333df2650237825a1b61dc6f6f3a981c67250d1fbed7b333e"
+            ),
+            "util/uniform_256.tex-json": (
                 "2f9cfef09edf3ecff1b6a6d9773cf55a1b12c2fa194a525bbe2c58cf1d70c315"
             ),
         }

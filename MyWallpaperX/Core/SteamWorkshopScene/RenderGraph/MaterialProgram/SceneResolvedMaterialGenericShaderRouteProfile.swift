@@ -66,6 +66,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-alpha-weighted-sample-average"
     case sourceProvenGraphInputPreservedAlphaRGBFilter =
         "source-proven-graph-input-preserved-alpha-rgb-filter"
+    case sourceProvenGraphInputTypedDataRGBFilter =
+        "source-proven-graph-input-typed-data-rgb-filter"
     case sourceProvenUnitPreviousBlurredComposite =
         "source-proven-unit-previous-blurred-composite"
     case sourceProvenUnitPreviousBlurredCompositeUnowned =
@@ -109,6 +111,9 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         alphaWeightedSampleAverageSourceSlot: Int?,
         preservedAlphaRGBFilterSourceSlot: Int?,
         preservedAlphaRGBFilterTextureSlots: Set<Int>,
+        typedDataRGBFilterSourceSlot: Int? = nil,
+        typedDataRGBFilterAuxiliarySlots: Set<Int> = [],
+        typedStaticDataAuxiliarySlots: Set<Int> = [],
         unitCompositeBlurredSlot: Int?,
         unitCompositePreviousSlot: Int?,
         unitCompositeMaskSlot: Int? = nil,
@@ -229,6 +234,16 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   !producesScalarRedOutput,
                   graphInputTextureSlots == preservedAlphaRGBFilterTextureSlots {
             self = .sourceProvenGraphInputPreservedAlphaRGBFilter
+        } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
+                  typedDataRGBFilterSourceSlot == sourceSlot,
+                  !typedDataRGBFilterAuxiliarySlots.isEmpty,
+                  typedDataRGBFilterAuxiliarySlots
+                    == typedStaticDataAuxiliarySlots,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isSubset(of: Set([sourceSlot])),
+                  graphInputTextureSlots == Set([sourceSlot]) {
+            self = .sourceProvenGraphInputTypedDataRGBFilter
         } else if case let .straightAlphaPreserving(transferBlurred) = colorTransfer,
                   let sourceBlurred = unitCompositeSourceBlurredSlot
                     ?? unitCompositeBlurredSlot,
@@ -353,6 +368,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenNormalizedSampleSum,
              .sourceProvenGraphInputAlphaWeightedSampleAverage,
              .sourceProvenGraphInputPreservedAlphaRGBFilter,
+             .sourceProvenGraphInputTypedDataRGBFilter,
              .sourceProvenUnitPreviousBlurredComposite,
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
@@ -379,6 +395,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
     var validatedRollbackOwner: SceneGenericShaderFallbackOwner {
         switch self {
         case .sourceProvenGraphInputPreservedAlphaRGBFilter,
+             .sourceProvenGraphInputTypedDataRGBFilter,
              .sourceProvenUnitPreviousBlurredComposite:
             .none
         case .sourceProvenUnitPreviousBlurredCompositeUnowned:

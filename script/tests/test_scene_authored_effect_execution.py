@@ -126,8 +126,6 @@ enum SceneAuthoredProceduralNoisePlanner {
 
 struct SceneWaterWavesExecutionPlan {}
 
-struct SceneWaterCausticsExecutionPlan {}
-
 enum SceneAuthoredWaterWavesPlanner {
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
@@ -135,17 +133,6 @@ enum SceneAuthoredWaterWavesPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWaterWavesExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredWaterCausticsPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole
-    ) -> SceneWaterCausticsExecutionPlan? {
         nil
     }
 }
@@ -336,10 +323,6 @@ extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredWaterWavesPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWaterWavesExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterWaves }
-}
-extension SceneAuthoredWaterCausticsPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWaterCausticsExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterCaustics }
 }
 extension SceneAuthoredXRayPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneXRayExecutionPlan
@@ -1125,7 +1108,6 @@ enum Harness {
             case .standardBlur: backend = "standardBlur"
             case .proceduralNoise: backend = "proceduralNoise"
             case .waterWaves: backend = "waterWaves"
-            case .waterCaustics: backend = "waterCaustics"
             case .xRay: backend = "xRay"
             case .blend: backend = "blend"
             case .transform: backend = "transform"
@@ -1581,7 +1563,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertNotIn("waterFlowEffects", topology)
         self.assertNotIn("fisheyeZeroDistortion", leaf_body)
         self.assertNotIn("fisheye-pipeline-missing", topology)
-        for backend_name in (".waterWaves", ".waterCaustics", ".pulse"):
+        for backend_name in (".waterWaves", ".pulse"):
             self.assertIn(backend_name, leaf_body)
         self.assertIn("case .proceduralNoise(let plan):", leaf_body)
         for contract in (

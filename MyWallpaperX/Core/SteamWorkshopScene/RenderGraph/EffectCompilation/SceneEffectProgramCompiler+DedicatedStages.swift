@@ -71,11 +71,6 @@ extension SceneEffectProgramCompiler {
                     stage(.waterWaves($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.waterCaustics, {
-                SceneAuthoredWaterCausticsPlanner.compile(input).mapAccepted {
-                    stage(.waterCaustics($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.xRay, {
                 SceneAuthoredXRayPlanner.compile(input).mapAccepted {
                     stage(.xRay($0), stageGraph: stageGraph, inputRole: inputRole)
