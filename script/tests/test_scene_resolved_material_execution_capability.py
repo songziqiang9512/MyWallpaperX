@@ -6940,7 +6940,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertNotIn("fisheyeZeroDistortion", leaf_body)
         self.assertIn("case .preciseGaussian:", logical_body)
         self.assertIn("case .standardBlur:", logical_body)
-        self.assertIn("case .localContrast:", logical_body)
+        self.assertNotIn("case .localContrast:", logical_body)
         self.assertIn("case .godrays(let plan):", logical_body)
         logical_compact = "".join(logical_body.split())
         self.assertIn(

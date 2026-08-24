@@ -46,21 +46,6 @@ enum SceneEffectStageRenderer {
                 standardBlurPipeline: standardBlurPipeline,
                 commandBuffer: commandBuffer
             )
-        case .localContrast(let contrast):
-            guard let strength = stage.localContrastStrength(in: dynamicValues),
-                  let localContrastPipeline = pipelines.localContrast else {
-                return nil
-            }
-            return SceneOffscreenEffectRenderer.renderLocalContrast(
-                sourceTexture: sourceTexture,
-                targets: targets,
-                plan: contrast,
-                strength: strength,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                localContrastPipeline: localContrastPipeline,
-                commandBuffer: commandBuffer
-            )
         case .proceduralNoise(let noise):
             guard let noisePipeline = pipelines.proceduralNoise else { return nil }
             return renderProceduralNoise(

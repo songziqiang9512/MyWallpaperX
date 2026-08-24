@@ -258,7 +258,6 @@ struct SceneImageLayerDrawRequest {
     var blocksStaticLayerSourcePassthrough: Bool = false
     var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
-    var localContrastStrength: Float? = nil
     var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
 
     func resolvedBaseTextureFrame() -> SceneTextureUVTransform? {

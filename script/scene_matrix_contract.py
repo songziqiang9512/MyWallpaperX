@@ -109,11 +109,6 @@ RESOLVED_MATERIAL_GRAPH_EXPECTATIONS = (
 
 AUTHORED_EFFECT_RUNTIME_EXPECTATIONS = (
     RuntimeExpectation(
-        "expected_authored_effect_graph_local_contrast_count",
-        "local_contrast_count",
-        "authored effect graph Local Contrast count mismatch",
-    ),
-    RuntimeExpectation(
         "expected_authored_effect_graph_opacity_count",
         "opacity_count",
         "authored effect graph Opacity count mismatch",

@@ -250,6 +250,7 @@ private struct PreservedAlphaRGBFilterHarness {
             SceneGenericShaderStraightAlphaPreservingLowering
                 .lowerPreservedAlphaRGBFilter(
                     fragmentMSL,
+                    sourceSlot: $0.sourceSlot,
                     fullColorSampleCallCounts: $0.fullColorSampleCallCounts,
                     rgbColorSampleCallCounts: $0.rgbColorSampleCallCounts,
                     dataSampleCallCounts: $0.dataSampleCallCounts

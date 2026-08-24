@@ -176,7 +176,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         switch self {
         case .preciseGaussian: "precise-gaussian"
         case .standardBlur: "standard-blur"
-        case .localContrast: "local-contrast"
         case .proceduralNoise: "procedural-noise"
         case .waterWaves: "water-waves"
         case .waterCaustics: "water-caustics"

@@ -4,7 +4,6 @@ struct SceneAuthoredEffectPipelineSet {
 
     var gaussianBlur: SceneGaussianBlurPipeline? { repository.gaussianBlur() }
     var standardBlur: SceneStandardBlurPipeline? { repository.standardBlur() }
-    var localContrast: SceneLocalContrastPipeline? { repository.localContrast() }
     var proceduralNoise: SceneProceduralNoisePipeline? { repository.proceduralNoise() }
     var waterWaves: SceneWaterWavesPipeline? { repository.waterWaves() }
     var waterCaustics: SceneWaterCausticsPipeline? { repository.waterCaustics() }

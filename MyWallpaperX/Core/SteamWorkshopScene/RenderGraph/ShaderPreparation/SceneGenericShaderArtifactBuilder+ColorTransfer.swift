@@ -78,6 +78,7 @@ extension SceneGenericShaderArtifactBuilder {
                       let lowered = SceneGenericShaderStraightAlphaPreservingLowering
                         .lowerPreservedAlphaRGBFilter(
                             source,
+                            sourceSlot: fact.sourceSlot,
                             fullColorSampleCallCounts:
                                 fact.fullColorSampleCallCounts,
                             rgbColorSampleCallCounts:

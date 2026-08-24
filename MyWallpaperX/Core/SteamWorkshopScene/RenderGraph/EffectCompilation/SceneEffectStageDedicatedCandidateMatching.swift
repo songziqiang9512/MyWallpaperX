@@ -34,15 +34,6 @@ private nonisolated enum SceneEffectStageDedicatedCandidateMatcher {
     }
 }
 
-extension SceneAuthoredLocalContrastPlanner {
-    nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        SceneEffectStageDedicatedCandidateMatcher.matches(
-            graph: graph,
-            definitionPath: "effects/localcontrast/effect.json"
-        )
-    }
-}
-
 extension SceneAuthoredXRayPlanner {
     nonisolated static func containsCandidate(graph: Graph) -> Bool {
         SceneEffectStageDedicatedCandidateMatcher.matches(

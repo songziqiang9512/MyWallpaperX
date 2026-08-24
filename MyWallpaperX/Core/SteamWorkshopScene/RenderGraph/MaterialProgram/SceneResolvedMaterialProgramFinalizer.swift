@@ -170,6 +170,23 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             )
             switch outputStorage {
             case .color:
+                guard SceneResolvedMaterialProgramDerivation
+                    .hasResolvedColorSampleContract(
+                        colorSlots:
+                            selection.variant.preservedAlphaRGBColorSlots,
+                        textureSlots: texture.slots
+                    ) else {
+                    throw failure(
+                        .color,
+                        .colorContractUnproven,
+                        details: [
+                            "preserved-alpha-rgb-color-slots",
+                            selection.variant.preservedAlphaRGBColorSlots
+                                .sorted().map(String.init)
+                                .joined(separator: ","),
+                        ]
+                    )
+                }
                 guard SceneResolvedMaterialProgramDerivation.hasResolvedColorContract(
                     transfer: texture.frontend.colorTransfer,
                     textureSlots: texture.slots

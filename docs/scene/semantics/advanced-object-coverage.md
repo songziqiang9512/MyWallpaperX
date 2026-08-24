@@ -2,7 +2,7 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-08-15
+> 最近核对：2026-08-25
 >
 > 实现基线见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 >
@@ -204,7 +204,7 @@ Generic 2D lit-material lighting 仍为 `L0`；`b856f4ee` 的 bounded standalone
 | 能力 | 等级 | 当前边界 | 权威细表 |
 |---|---|---|---|
 | effect/material/pass IR | `L2` | 字段可保存并建图 | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
-| strict known graph executors | `L3` | precise/default Blur、stock Local Contrast、exact Workshop Shadow 及全支持 ordered strict chain；首条真实链为 `3724289844:20` 的 `Blur Precise -> Shadow`；[E-EFFECT-BLUR](runtime-evidence-index.md#e-effect-blur)、[E-EFFECT-LOCAL-CONTRAST](runtime-evidence-index.md#e-effect-local-contrast)、[E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | [Effect 执行表](effect-execution-coverage.md) |
+| bounded graph executors | `L3` | precise/default Blur与exact Workshop Shadow保留各自现役边界；stock Local Contrast的strict owner已撤销，exact四节点图现由普通MaterialProgram/GraphTargets/GraphExecutor以generic-only执行。首条历史strict链为`3724289844:20`的`Blur Precise -> Shadow`；当前Local Contrast见[E-V1-LOCAL-CONTRAST-SHARED-OWNER](runtime-evidence-index.md#e-v1-local-contrast-shared-owner)，旧[E-EFFECT-LOCAL-CONTRAST](runtime-evidence-index.md#e-effect-local-contrast)只作provenance | [Effect 执行表](effect-execution-coverage.md) |
 | arbitrary authored shader | `L0` | 自有 Metal 近似不等于作者 shader | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
 | history/copy/swap generic runtime | `L3 bounded` | 共享GraphExecutor/GraphTargets已执行一个effect-scoped RGBA/BGRA的2 material + 1 copy persistent history、同effect双copy及两个descriptor-identical copy/swap组合；生命周期还闭合同输入、same-identity/different-authored-state及一次same-identity/different-target-topology正式scene switch、surface stop/relaunch和pause/resume。其他topology/format/provider、seek/device loss/multi-surface与官方parity不外推 | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
 

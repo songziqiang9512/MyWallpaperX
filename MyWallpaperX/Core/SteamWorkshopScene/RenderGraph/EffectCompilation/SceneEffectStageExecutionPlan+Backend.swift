@@ -4,7 +4,6 @@ extension SceneEffectStageExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
-        case localContrast(SceneLocalContrastPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
@@ -35,8 +34,6 @@ extension SceneEffectStageExecutionPlan {
             return logicalRenderTargetCount > 0
         case .standardBlur:
             return true
-        case .localContrast:
-            return true
         case .godrays(let plan):
             return plan.direction?.isFinite == true
                 && plan.usesDirectionalGaussianKernel
@@ -52,11 +49,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var standardBlur: SceneStandardBlurPlan? {
         guard case .standardBlur(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var localContrast: SceneLocalContrastPlan? {
-        guard case .localContrast(let plan) = backend else { return nil }
         return plan
     }
 
@@ -106,7 +98,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {
         var targets = Set<SceneDynamicTarget>()
-        if let target = localContrast?.liveStrengthTarget { targets.insert(target) }
         if let target = blend?.liveMultiplyTarget { targets.insert(target) }
         if let xRay { targets.formUnion(xRay.liveConsumerTargets) }
         if let pulse { targets.formUnion(pulse.liveConsumerTargets) }
@@ -124,10 +115,6 @@ extension SceneEffectStageExecutionPlan {
         default:
             return false
         }
-    }
-
-    func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {
-        localContrast?.resolvedStrength(in: snapshot)
     }
 
     var requiresExactInputExtent: Bool {

@@ -48,11 +48,17 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer {
             ?? SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer.analyze(
                 fragmentSource: source
             )
+            ?? SceneAuthoredShaderRGBDifferenceEnhancementAnalyzer.analyze(
+                fragmentSource: source
+            )
     }
 
     static func analyzeAny(_ fragment: Unit) -> Fact? {
         analyze(fragment)
             ?? SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer.analyze(
+                fragment
+            )
+            ?? SceneAuthoredShaderRGBDifferenceEnhancementAnalyzer.analyze(
                 fragment
             )
     }

@@ -128,34 +128,4 @@ enum SceneOffscreenEffectRenderer {
         )
     }
 
-    static func renderLocalContrast(
-        sourceTexture: MTLTexture,
-        targets: SceneGraphRenderTargetTable,
-        plan: SceneLocalContrastPlan,
-        strength: Float,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        pipeline: SceneImageLayerPipeline,
-        localContrastPipeline: SceneLocalContrastPipeline,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        guard captureSource(
-            sourceTexture: sourceTexture,
-            target: targets.inputTexture,
-            sourceUniforms: sourceUniforms,
-            pipeline: pipeline,
-            commandBuffer: commandBuffer
-        ) else {
-            return nil
-        }
-        return SceneLocalContrastRenderer.render(
-            targets: targets,
-            quarterAIdentity: plan.firstQuarterTarget,
-            quarterBIdentity: plan.secondQuarterTarget,
-            nodeIndices: plan.renderGraph.nodes.map(\.nodeIndex),
-            strength: strength,
-            pipeline: localContrastPipeline,
-            commandBuffer: commandBuffer
-        )
-    }
-
 }

@@ -586,12 +586,12 @@ inline float4 \(premultiply)(float4 color) {
         return insertingBoundaryHelpers(into: transformed)
     }
 
-    /// Conserves a source-proven preserved-alpha RGB filter through the fixed
-    /// compiler shape. Every full/RGB color sample crosses into straight color;
-    /// typed `.xy` data samples remain untouched, and the sole terminal carrier
-    /// returns to premultiplied compositor storage.
+    /// Conserves a source-proven preserved-alpha RGB filter through compiler output.
+    /// Color samples cross into straight color, typed data stays untouched, and
+    /// the sole terminal carrier returns to premultiplied compositor storage.
     static func lowerPreservedAlphaRGBFilter(
         _ source: String,
+        sourceSlot: Int,
         fullColorSampleCallCounts: [Int: Int],
         rgbColorSampleCallCounts: [Int: Int],
         dataSampleCallCounts: [Int: Int]
@@ -600,8 +600,13 @@ inline float4 \(premultiply)(float4 color) {
             rgbColorSampleCallCounts,
             uniquingKeysWith: +
         )
+        let sampleCounts = Array(colorSampleCallCounts.values) + Array(dataSampleCallCounts.values)
         guard !colorSampleCallCounts.isEmpty,
-              !dataSampleCallCounts.isEmpty,
+              fullColorSampleCallCounts[sourceSlot] != nil,
+              sampleCounts.allSatisfy({ (1 ... 16).contains($0) }),
+              sampleCounts.reduce(0, +) <= 32,
+              !dataSampleCallCounts.isEmpty
+                || colorSampleCallCounts.keys.count >= 2,
               Set(colorSampleCallCounts.keys).isDisjoint(
                   with: dataSampleCallCounts.keys
               ),
@@ -661,6 +666,10 @@ inline float4 \(premultiply)(float4 color) {
               matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source).count == 1,
               calls.allSatisfy({ $0.range.location < output.range.location })
         else { return nil }
+        guard matches(
+            #"(?m)^[ \t]*float4\s+\#(escaped(carrier))\s*=\s*g_Texture\#(sourceSlot)\.sample\([^;]+\)\s*;[ \t]*$"#,
+            in: source
+        ).count == 1 else { return nil }
 
         var transformed = source
         transformed.replaceSubrange(

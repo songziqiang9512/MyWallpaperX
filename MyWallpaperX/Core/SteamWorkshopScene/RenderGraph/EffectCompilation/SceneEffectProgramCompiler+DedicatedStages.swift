@@ -61,17 +61,6 @@ extension SceneEffectProgramCompiler {
             (.standardBlur, {
                 SceneAuthoredStandardBlurPlanner.compile(input)
             }),
-            (.localContrast, {
-                SceneAuthoredLocalContrastPlanner.compile(input).mapAccepted {
-                    stage(
-                        .localContrast($0),
-                        stageGraph: stageGraph,
-                        inputRole: inputRole,
-                        materialNodeCount: 4,
-                        logicalRenderTargetCount: 2
-                    )
-                }
-            }),
             (.proceduralNoise, {
                 SceneAuthoredProceduralNoisePlanner.compile(input).mapAccepted {
                     stage(.proceduralNoise($0), stageGraph: stageGraph, inputRole: inputRole)

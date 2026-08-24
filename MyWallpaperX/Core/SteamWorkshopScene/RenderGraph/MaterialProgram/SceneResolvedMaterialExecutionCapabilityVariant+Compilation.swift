@@ -16,6 +16,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     let graphInputSourceSlotFacts: [
         Int: SceneResolvedMaterialGraphInputSourceSlotFact
     ]
+    let preservedAlphaRGBColorSlots: Set<Int>
     let activeUniforms: [String: Uniform]
     let neutralTextureResolution:
         SceneAuthoredShaderNeutralTextureResolutionFact?
@@ -31,6 +32,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ],
+        preservedAlphaRGBColorSlots: Set<Int>,
         activeUniforms: [String: Uniform],
         neutralTextureResolution:
             SceneAuthoredShaderNeutralTextureResolutionFact?
@@ -43,6 +45,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.runtimeLoopBounds = runtimeLoopBounds
         self.activeSamplers = activeSamplers
         self.graphInputSourceSlotFacts = graphInputSourceSlotFacts
+        self.preservedAlphaRGBColorSlots = preservedAlphaRGBColorSlots
         self.activeUniforms = activeUniforms
         self.neutralTextureResolution = neutralTextureResolution
     }
@@ -122,6 +125,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             fragmentSource: compilerSources.fragment,
             provenRuntimeLoopBounds: runtimeLoopBounds.fragment
         )
+        let preservedAlphaRGBColorSlots =
+            SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
+                fragmentSource: compilerSources.fragment
+            ).map { Set($0.colorSampleCallCounts.keys) } ?? []
         let sourceGraphInputFacts = SceneResolvedMaterialShaderSchema
             .graphInputSourceSlotFacts(
                 template: template,
@@ -379,6 +386,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             runtimeLoopBounds: runtimeLoopBounds,
             activeSamplers: samplers,
             graphInputSourceSlotFacts: graphInputFacts,
+            preservedAlphaRGBColorSlots: preservedAlphaRGBColorSlots,
             activeUniforms: uniforms,
             neutralTextureResolution: neutralTextureResolution
         )

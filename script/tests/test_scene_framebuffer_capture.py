@@ -54,8 +54,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneGaussianBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
-    SOURCE_ROOT / "Effects/SceneLocalContrastPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneLocalContrastRenderer.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline+Support.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
@@ -617,7 +615,6 @@ struct SceneBlendEffectTextures {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
-        case localContrast(SceneLocalContrastPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
         case waterCaustics(SceneWaterCausticsExecutionPlan)
@@ -642,7 +639,6 @@ struct SceneBlendEffectTextures {
             switch self {
             case .preciseGaussian: "precise-gaussian"
             case .standardBlur: "standard-blur"
-            case .localContrast: "local-contrast"
             case .proceduralNoise: "procedural-noise"
             case .waterWaves: "water-waves"
             case .waterCaustics: "water-caustics"
@@ -688,11 +684,6 @@ struct SceneBlendEffectTextures {
         return plan
     }
 
-    var localContrast: SceneLocalContrastPlan? {
-        guard case .localContrast(let plan) = backend else { return nil }
-        return plan
-    }
-
     var godrays: SceneGodraysPlan? {
         guard case .godrays(let plan) = backend else { return nil }
         return plan
@@ -731,8 +722,6 @@ struct SceneBlendEffectTextures {
                 && !supportsUnifiedFullFrameComposeStage
         case .standardBlur:
             return true
-        case .localContrast:
-            return true
         case .godrays(let plan):
             return (plan.direction == nil && !plan.usesDirectionalGaussianKernel)
                 || (plan.direction?.isFinite == true && plan.usesDirectionalGaussianKernel)
@@ -757,13 +746,6 @@ struct SceneBlendEffectTextures {
             && nodes[1].target == effect.output
             && nodes[1].bindings.isEmpty
             && nodes[1].compose == nil
-    }
-
-    func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {
-        guard let localContrast else { return nil }
-        let effectIndex = renderGraph.effects.first?.key.effectIndex ?? -1
-        return snapshot.strengthsByEffectIndex[effectIndex]
-            ?? localContrast.staticOrFallbackStrength
     }
 
 }
@@ -1048,13 +1030,6 @@ struct SceneStandardBlurEffectTextures {
     private func normalized(_ path: String) -> String {
         path.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
-}
-
-struct SceneLocalContrastPlan {
-    let firstQuarterTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
-    let secondQuarterTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let staticOrFallbackStrength: Float
 }
 
 struct PreparedStageTargets {
@@ -1519,12 +1494,6 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
-        let authoredLocalContrastPrepared = try authoredLocalContrastPreparedEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
         let authoredGodraysPrepared = try authoredGodraysPreparedEvidence(
             device: device,
             queue: queue,
@@ -1596,7 +1565,6 @@ enum Harness {
             "gaussianKernelPixels": gaussianKernelPixels,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredStandardCandidate": authoredStandardCandidate,
-            "authoredLocalContrastPrepared": authoredLocalContrastPrepared,
             "authoredGodraysPrepared": authoredGodraysPrepared,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
             "standardBlurMaskPixels": standardBlurMaskPixels,
@@ -3454,90 +3422,6 @@ enum Harness {
         ]
     }
 
-    static func authoredLocalContrastPreparedEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [String: Any] {
-        let size = 16
-        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ) else { throw HarnessError.metalUnavailable }
-        fillPremultipliedCheckerboard(source)
-        let plan = authoredLocalContrastPlan()
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let frameTables = try drawAuthoredBlur(
-            source: source,
-            target: target,
-            layer: standardBlurLayer(),
-            plan: plan,
-            pool: pool,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
-        guard let table = frameTables.tables.first else {
-            throw HarnessError.drawRefused
-        }
-        func preparation(
-            snapshot: SceneDynamicSnapshot
-        ) -> SceneEffectStageRenderer.StagePreparation {
-            SceneEffectStageRenderer.prepareStage(
-                plan,
-                sourceTexture: table.inputTexture,
-                targets: table,
-                inputs: .init(
-                    masks: authoredEffectMasks(),
-                    dynamicValues: snapshot,
-                    pipelines: .init(
-                        repository: SceneImageEffectPipelineRepository(device: device)
-                    ),
-                    cursorUV: .zero,
-                    previousCursorUV: .zero,
-                    pointerIsInside: false,
-                    previousPointerIsInside: false,
-                    pointerMovement: 0,
-                    primaryButtonIsDown: false,
-                    frameTime: 1 / 60,
-                    time: 0,
-                    audioSpectrum: .silent,
-                    dependencyEffect: nil
-                ),
-                sourcePipeline: pipeline,
-                time: 0
-            )
-        }
-        guard let commandBuffer = queue.makeCommandBuffer(),
-              case let .ready(prepared) = preparation(
-                  snapshot: .empty(frameIndex: 1)
-              ),
-              SceneEffectStageRenderer.encodePreparedStage(
-                  prepared,
-                  commandBuffer: commandBuffer
-              ) else { throw HarnessError.drawRefused }
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed,
-              commandBuffer.error == nil else { throw HarnessError.commandFailed }
-
-        let invalid = preparation(snapshot: SceneDynamicSnapshot(
-            strengthsByEffectIndex: [0: 6],
-            opacitiesByEffectIndex: [:]
-        ))
-        let invalidReason: String?
-        if case let .rejected(reason) = invalid { invalidReason = reason }
-        else { invalidReason = nil }
-        let inputBytes = try textureBytes(table.inputTexture, queue: queue)
-        let outputBytes = try textureBytes(table.outputTexture, queue: queue)
-        return [
-            "preparedStageEncoded": true,
-            "invalidStrengthReason": invalidReason as Any,
-            "inputToOutputDelta": maxDifference(inputBytes, outputBytes),
-        ]
-    }
-
     static func authoredGodraysPreparedEvidence(
         device: MTLDevice,
         queue: MTLCommandQueue,
@@ -4417,47 +4301,6 @@ enum Harness {
             materialNodeCount: 4,
             logicalRenderTargetCount: 2,
             inputRole: input == nil ? .layerSource : .priorEffectOutput
-        )
-    }
-
-    static func authoredLocalContrastPlan() -> SceneEffectStageExecutionPlan {
-        let blurGraph = standardBlurGraph(layerID: 831)
-        let graph = Graph(
-            layerID: blurGraph.layerID,
-            effects: blurGraph.effects,
-            renderTargets: blurGraph.renderTargets.map {
-                .init(
-                    texture: $0.texture,
-                    extent: $0.extent,
-                    format: "rgba8888",
-                    declaredUnique: $0.declaredUnique,
-                    clear: $0.clear,
-                    uvs: $0.uvs,
-                    conditions: $0.conditions
-                )
-            },
-            nodes: blurGraph.nodes,
-            finalOutput: blurGraph.finalOutput,
-            blockers: blurGraph.blockers
-        )
-        let first = graph.renderTargets.first {
-            $0.texture.name?.lowercased() == "_rt_quartercompobuffer1"
-        }?.texture
-        let second = graph.renderTargets.first {
-            $0.texture.name?.lowercased() == "_rt_quartercompobuffer2"
-        }?.texture
-        precondition(first != nil && second != nil)
-        return SceneEffectStageExecutionPlan(
-            layerID: graph.layerID,
-            renderGraph: graph,
-            backend: .localContrast(SceneLocalContrastPlan(
-                firstQuarterTarget: first!,
-                secondQuarterTarget: second!,
-                renderGraph: graph,
-                staticOrFallbackStrength: 0.32
-            )),
-            materialNodeCount: 4,
-            logicalRenderTargetCount: 2
         )
     }
 
@@ -5367,18 +5210,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         )
         self.assertTrue(evidence["paddedZeroMaskPreservedSource"], evidence)
         self.assertTrue(evidence["wrongPurposeRejected"], evidence)
-
-    def test_local_contrast_prepared_stage_encodes_and_rejects_invalid_strength(
-        self,
-    ) -> None:
-        evidence = self.result["authoredLocalContrastPrepared"]
-        self.assertTrue(evidence["preparedStageEncoded"], evidence)
-        self.assertGreater(evidence["inputToOutputDelta"], 0, evidence)
-        self.assertEqual(
-            evidence["invalidStrengthReason"],
-            "local-contrast-strength-invalid",
-            evidence,
-        )
 
     def test_stock_and_legacy_godrays_prepare_encode_and_require_resources(
         self,

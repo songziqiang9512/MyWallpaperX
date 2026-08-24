@@ -92,11 +92,6 @@ extension SceneAuthoredStandardBlurPlanner {
     }
 }
 
-extension SceneAuthoredLocalContrastPlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneLocalContrastPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .localContrast }
-}
-
 extension SceneAuthoredProceduralNoisePlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }

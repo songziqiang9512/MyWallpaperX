@@ -286,6 +286,7 @@
         "test_scene_graph_texture_publication",
         "test_scene_material_program_census",
         "test_scene_material_texture_transform",
+        "test_scene_preserved_alpha_rgb_color_inputs",
         "test_scene_background_material_provider",
         "test_scene_captured_main_source_conservation",
         "test_scene_resolved_material_execution_capability",
@@ -324,6 +325,7 @@
         "test_scene_shader_preparation_census",
         "test_scene_shader_preprocessor",
         "test_scene_shader_variant_environment",
+        "test_scene_rgb_difference_enhancement",
         "test_scene_standard_alpha_composite_generic_contract",
         "test_scene_generic_shader_matrix_cast",
         "test_scene_generic_shader_texture_transform_compiler",
@@ -343,6 +345,7 @@
         "test_scene_generic_shader_texture_transform_compiler",
         "test_scene_material_texture_transform",
         "test_scene_preserved_output_initialization_capability",
+        "test_scene_rgb_difference_enhancement",
         "test_scene_standard_alpha_composite_generic_contract",
         "test_scene_swift_source_sets"
       ]

@@ -2,7 +2,7 @@
 
 > 状态：现役依赖参考
 >
-> 最近核对：2026-08-23
+> 最近核对：2026-08-25
 >
 > 本页只维护依赖边与完成门，不拥有 current capability 状态；系统级 current 摘要只见 [总覆盖台账](coverage-ledger.md)，精确 App、报告和测试身份只见 [运行证据索引](runtime-evidence-index.md)。表内等级只是所链接专题的局部摘录，不可横向比较或反向覆盖总台账。
 >
@@ -75,7 +75,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
 | host/frame/scene/wall time | `L3` 子集；共享 clock 发布 raw、最大 0.25 秒的 simulation、dropped delta/discontinuity；particle/parallax 消费 simulation，shader/video/Timeline 保持 raw/absolute time；pause 冻结 scene time/frame index，resume 首帧丢弃 host gap；有界persistent-history运行门证明正式pause排空已提交工作后无新transaction并沿同runtime/pool恢复COW | 真实系统 pause/sleep、seek/其他history topology、其他 simulation consumer、目标/不同 FPS、离线与 Windows timing 门 |
-| host-shared vs surface-local scope | property 输入 host-shared；每个 surface 独立 transaction/snapshot/generation，B0 live alpha/solid color/strict Local Contrast strength 与 root particle direct User Property 已有运行门 | pointer/matrix/provider/script 接入时继续证明 local state 不串屏 |
+| host-shared vs surface-local scope | property输入host-shared；每个surface独立transaction/snapshot/generation，B0 live alpha/solid color、exact Local Contrast typed strength与root particle direct User Property已有运行门；Local Contrast现由共享Program消费该snapshot | pointer/matrix/provider/script接入时继续证明local state不串屏 |
 | fixed simulation step and seed policy | particle fixed step 已消费共享 simulation delta，并保留自身 deterministic seed | effect/script/offline 共用 discontinuity、fixed-clock 和 seed 合同 |
 | resize/switch/stop teardown | surface子集`L3`；embedded video registry为launch-scoped，按layer/source/device跨surface rebuild复用并在stop释放。普通persistent graph已证明同输入及same-identity/different-authored-state scene switch各自创建独立runtime/pool、surface stop清空到0再重建；input extent A→B→A另有allocation/history门 | VM、system/media provider、其他RT topology与GPU资源精确计数；真实hot-plug、device loss、multi-surface与反复切换soak |
 
@@ -84,7 +84,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| value types and target definitions | 六类 value 与主要 target 由 v22 持久化；direct text、strict Local Contrast/Opacity 与 bounded Blend multiply 已注册 typed target。`311115e3` 又为 shared layer alpha、audio-scaled particle rate/layer scale、property slider→Vec3 origin/scale 与 identity display 建立 bounded typed definition/projection，当前最高 `S2 wired / visible unknown` | 新类型继续执行 type/finite/default validation；这些 native projection 不冒充 ECMAScript、mutable shared 或 generic binding |
+| value types and target definitions | 六类value与主要target由v22持久化；direct text、exact Local Contrast/Opacity与bounded Blend multiply已注册typed target。Local Contrast target现由共享MaterialProgram消费，不属于已删除strict renderer；`311115e3`又为shared layer alpha、audio-scaled particle rate/layer scale、property slider→Vec3 origin/scale与identity display建立bounded typed definition/projection，当前最高`S2 wired / visible unknown` | 新类型继续执行type/finite/default validation；这些native projection不冒充ECMAScript、mutable shared或generic binding |
 | source priority | `authored -> property -> Timeline -> SceneScript` 已定义；property、受限Timeline与bounded text/time-of-day/fade producer已复用同一resolver | generic SceneScript/event mutation接入时不得在renderer内重复求值 |
 | binding program | layer alpha/solid color、direct text、Local Contrast/Opacity 与 bounded Blend multiply 编译、验证和持久化已完成；`311115e3` 的 shared/audio/property/identity bounded program 已接入 definition/snapshot consumer；mixed/invalid/未知 SceneScript key 标记 rebuild | 下一 target 必须同批增加 compiler mapping、稳定 identity、snapshot consumer 和 fallback；新增接线补 fresh runtime/ROI 前保持 `S2` |
 | target scope and invalidation domain | direct text 使用 per-layer generation；alpha/color/effect scalar 为 value-only；mixed/hidden/no-consumer 统一 rebuild | topology/provider/simulation target 逐类登记失效域 |

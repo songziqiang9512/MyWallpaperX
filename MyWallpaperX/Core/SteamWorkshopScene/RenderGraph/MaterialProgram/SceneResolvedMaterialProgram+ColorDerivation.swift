@@ -21,6 +21,47 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         resolveColor(transfer: transfer, textureSlots: textureSlots) != nil
     }
 
+    static func hasResolvedColorSampleContract(
+        colorSlots: Set<Int>,
+        textureSlots: [Program.TextureSlot?]
+    ) -> Bool {
+        hasResolvedColorSampleContract(
+            colorSlots: colorSlots,
+            textureFacts: textureSlots.map { slot -> ColorTextureFact? in
+                guard let slot else { return nil }
+                let isGraphReference = if case .graph = slot.reference {
+                    true
+                } else {
+                    false
+                }
+                let isFramebufferInput = switch slot.reference {
+                case .graph, .provider(.sceneBackground): true
+                default: false
+                }
+                return .init(
+                    isGraphReference: isGraphReference,
+                    isFramebufferInput: isFramebufferInput,
+                    content: slot.resource.publication.candidate.content
+                )
+            }
+        )
+    }
+
+    static func hasResolvedColorSampleContract(
+        colorSlots: Set<Int>,
+        textureFacts: [ColorTextureFact?]
+    ) -> Bool {
+        guard textureFacts.count == 8 else { return false }
+        return colorSlots.allSatisfy { slot in
+            guard let representation = representation(
+                slot: slot,
+                textureFacts: textureFacts
+            ) else { return false }
+            return representation == .opaque
+                || representation == .premultipliedAlpha
+        }
+    }
+
     static func resolveColor(
         transfer: SceneShaderColorTransfer,
         textureSlots: [Program.TextureSlot?]

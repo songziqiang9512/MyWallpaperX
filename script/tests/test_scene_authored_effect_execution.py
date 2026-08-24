@@ -21,7 +21,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
     SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageGraph.swift",
     SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift",
     SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageCompiler.swift",
@@ -347,10 +346,6 @@ extension SceneAuthoredStandardBlurPlanner {
     }
 }
 
-extension SceneAuthoredLocalContrastPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneLocalContrastPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .localContrast }
-}
 extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }
@@ -1149,7 +1144,6 @@ enum Harness {
             switch stage.backend {
             case .preciseGaussian: backend = "preciseGaussian"
             case .standardBlur: backend = "standardBlur"
-            case .localContrast: backend = "localContrast"
             case .proceduralNoise: backend = "proceduralNoise"
             case .waterWaves: backend = "waterWaves"
             case .waterCaustics: backend = "waterCaustics"

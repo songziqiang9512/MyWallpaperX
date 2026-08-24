@@ -137,16 +137,6 @@ extension SceneEffectStageRenderer {
                 return "standard-blur-resource-missing"
             }
             return nil
-        case .localContrast:
-            guard pipelines.localContrast != nil else {
-                return "local-contrast-pipeline-missing"
-            }
-            guard let strength = stage.localContrastStrength(
-                in: inputs.dynamicValues
-            ), strength.isFinite, (0...5).contains(strength) else {
-                return "local-contrast-strength-invalid"
-            }
-            return nil
         case .godrays(let plan):
             guard pipelines.godrays != nil else {
                 return "godrays-pipeline-missing"

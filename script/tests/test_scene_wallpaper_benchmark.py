@@ -2039,27 +2039,6 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertEqual(metrics["succeeded_layer_ids"], [530])
         self.assertEqual(metrics["failed_layer_ids"], [410, 530])
-
-
-    def test_authored_local_contrast_count_is_an_exact_gate(self) -> None:
-        preview = "authoredEffectGraphLocalContrastCount: 2\n"
-        count = benchmark.authored_effect_graph_local_contrast_count(preview)
-        self.assertEqual(count, 2)
-        self.assertEqual(
-            benchmark.authored_effect_graph_failures(
-                {"expected_authored_effect_graph_local_contrast_count": 2},
-                count,
-            ),
-            [],
-        )
-        self.assertIn(
-            "authored effect graph Local Contrast count mismatch",
-            benchmark.authored_effect_graph_failures(
-                {"expected_authored_effect_graph_local_contrast_count": 0},
-                count,
-            ),
-        )
-
     def test_authored_workshop_shadow_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphWorkshopShadowCount: 1\n"
         count = benchmark.authored_effect_graph_workshop_shadow_count(preview)
@@ -2067,7 +2046,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_workshop_shadow_count": 1},
-                None,
                 workshop_shadow_count=count,
             ),
             [],
@@ -2076,7 +2054,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Workshop Shadow count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_workshop_shadow_count": 0},
-                None,
                 workshop_shadow_count=count,
             ),
         )
@@ -2088,7 +2065,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_procedural_noise_count": 3},
-                None,
                 procedural_noise_count=count,
             ),
             [],
@@ -2097,7 +2073,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Procedural Noise count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_procedural_noise_count": 0},
-                None,
                 procedural_noise_count=count,
             ),
         )
@@ -2109,7 +2084,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_film_grain_count": 1},
-                None,
                 film_grain_count=count,
             ),
             [],
@@ -2118,7 +2092,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Film Grain count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_film_grain_count": 0},
-                None,
                 film_grain_count=count,
             ),
         )
@@ -2130,7 +2103,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_light_shafts_count": 2},
-                None,
                 light_shafts_count=count,
             ),
             [],
@@ -2139,7 +2111,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Light Shafts count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_light_shafts_count": 0},
-                None,
                 light_shafts_count=count,
             ),
         )
@@ -2152,7 +2123,6 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_shake_count": 3},
-                None,
                 shake_count=count,
             ),
             [],
@@ -2161,7 +2131,6 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Shake count mismatch",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_shake_count": 0},
-                None,
                 shake_count=count,
             ),
         )
@@ -2522,7 +2491,6 @@ utility layer 763: skippedHidden kind=composition
         samples = matrix["samples"]
         self.assertEqual(len(samples), 45)
         owner_transfer_keys = {
-            "expected_authored_effect_graph_local_contrast_count",
             "expected_authored_effect_graph_opacity_count",
             "expected_authored_effect_graph_opacity_layer_ids",
             "expected_authored_effect_graph_color_key_count",
