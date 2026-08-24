@@ -15,6 +15,13 @@ CONTRACT_GATE = Path(__file__).with_name(
     "test_scene_resolved_material_graph_visual_failure_contract.py"
 )
 CONTRACT_FIXTURE = runpy.run_path(str(CONTRACT_GATE))
+EFFECT_INGRESS_SOURCE = (
+    Path(__file__).resolve().parents[2]
+    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram"
+    / "SceneResolvedMaterialEffectIngress.swift"
+)
+if EFFECT_INGRESS_SOURCE not in CONTRACT_FIXTURE["SWIFT_SOURCES"]:
+    CONTRACT_FIXTURE["SWIFT_SOURCES"].append(EFFECT_INGRESS_SOURCE)
 PUBLICATION_FIXTURE = CONTRACT_FIXTURE["PUBLICATION_FIXTURE"]
 compile_harness = CONTRACT_FIXTURE["compile_harness"]
 
@@ -24,16 +31,6 @@ SUPPORT = PUBLICATION_FIXTURE["SUPPORT"] + r'''
 import simd
 
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
-struct SceneProceduralNoiseExecutionPlan {
-    enum Variant { case worleyColorV1 }
-
-    let layerID: Int
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let variant: Variant
-    let dependencyProviderLayerID: Int?
-    let dependencySlotIndex: Int?
-}
 struct SceneBlendExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
@@ -42,7 +39,6 @@ struct SceneBlendExecutionPlan {
 }
 
 extension SceneEffectStageExecutionPlan {
-    var proceduralNoise: SceneProceduralNoiseExecutionPlan? { nil }
     var blend: SceneBlendExecutionPlan? { nil }
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
     var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
@@ -119,7 +115,7 @@ struct SceneDependencyRenderPlan {
 
     struct Binding: Hashable {
         enum Kind: Hashable {
-            case resolvedMaterial, proceduralNoiseLayer, imageLayerBlend
+            case resolvedMaterial, solidLayer, imageLayerBlend
         }
         let consumerLayerID: Int
         let providerLayerID: Int

@@ -46,20 +46,6 @@ enum SceneEffectStageRenderer {
                 standardBlurPipeline: standardBlurPipeline,
                 commandBuffer: commandBuffer
             )
-        case .proceduralNoise(let noise):
-            guard let noisePipeline = pipelines.proceduralNoise else { return nil }
-            return renderProceduralNoise(
-                noise,
-                sourceTexture: sourceTexture,
-                masks: masks,
-targets: targets,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                noisePipeline: noisePipeline,
-                dependencyEffect: dependencyEffect,
-                time: time,
-                commandBuffer: commandBuffer
-            )
         case .waterWaves,
              .xRay, .blend, .transform,
              .pulse:

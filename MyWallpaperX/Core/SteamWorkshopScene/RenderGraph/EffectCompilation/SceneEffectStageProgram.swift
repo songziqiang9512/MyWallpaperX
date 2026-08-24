@@ -69,7 +69,6 @@ nonisolated struct SceneEffectStageProgram {
         switch (compilerBackend, runtimeBackend) {
         case (.preciseGaussian, .preciseGaussian),
              (.standardBlur, .standardBlur),
-             (.proceduralNoise, .proceduralNoise),
              (.waterWaves, .waterWaves),
              (.xRay, .xRay),
              (.blend, .blend),

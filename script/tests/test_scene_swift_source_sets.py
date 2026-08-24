@@ -30,7 +30,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         core = scene_swift_source_relpaths("authored_shader_frontend_core")
 
         self.assertEqual(len(support), 4)
-        self.assertEqual(len(implementation), 59)
+        self.assertEqual(len(implementation), 60)
         self.assertEqual(core, (*support, *implementation))
         syntax = next(
             index for index, path in enumerate(implementation)
@@ -114,7 +114,6 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         resolution_consumers = [
             "script/tests/test_scene_asset_catalog_resource_view.py",
             "script/tests/test_scene_material_render_state.py",
-            "script/tests/test_scene_procedural_noise_profile.py",
             "script/tests/test_scene_runtime_input.py",
             "script/tests/test_scene_shader_contract.py",
         ]
@@ -173,7 +172,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(preprocessing[:3], environment)
         self.assertEqual(len(preparation), 16)
         self.assertEqual(preparation[:14], preprocessing)
-        self.assertEqual(len(generic_compiler), 20)
+        self.assertEqual(len(generic_compiler), 22)
         preparation_directory = (
             REPOSITORY_ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation"
@@ -212,7 +211,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
 
         self.assertEqual(len(model), 7)
         self.assertEqual(len(uniform), 1)
-        self.assertEqual(len(schema), 5)
+        self.assertEqual(len(schema), 6)
         self.assertEqual(len(texture_finalization), 7)
         self.assertEqual(len(variant_preparation), 12)
         self.assertIn(
@@ -230,8 +229,8 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 32)
-        self.assertEqual(len(template_compilation), 3)
+        self.assertEqual(len(frame_finalization), 33)
+        self.assertEqual(len(template_compilation), 2)
         self.assertEqual(
             complete,
             (

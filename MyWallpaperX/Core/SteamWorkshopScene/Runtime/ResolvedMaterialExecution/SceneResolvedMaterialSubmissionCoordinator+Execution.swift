@@ -190,7 +190,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             case .resolvedMaterial:
                 guard binding.slot.slotIndex == 1,
                       binding.blendMode == 0 else { return false }
-            case .proceduralNoiseLayer:
+            case .solidLayer:
                 guard binding.slot.passIndex == 0,
                       binding.slot.slotIndex == 3,
                       binding.blendMode == 0 else { return false }

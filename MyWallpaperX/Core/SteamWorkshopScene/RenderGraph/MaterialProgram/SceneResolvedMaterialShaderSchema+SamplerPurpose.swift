@@ -312,13 +312,11 @@ extension SceneResolvedMaterialShaderSchema {
             return true
         }
         guard input == context.input,
-              input.layerID == context.key.layerID else { return false }
-        if context.key.effectIndex == 0 {
-            return input.kind == .layerSource && input.effect == nil
-        }
-        guard input.kind == .effectOutput,
-              let producer = input.effect else { return false }
-        return producer.layerID == context.key.layerID
-            && producer.effectIndex == context.key.effectIndex - 1
+              SceneResolvedMaterialEffectIngress.accepts(
+                  input,
+                  layerID: context.key.layerID,
+                  owner: context.key
+              ) else { return false }
+        return true
     }
 }

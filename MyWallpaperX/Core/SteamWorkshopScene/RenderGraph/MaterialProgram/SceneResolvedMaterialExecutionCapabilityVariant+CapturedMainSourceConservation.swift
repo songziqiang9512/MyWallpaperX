@@ -208,7 +208,11 @@ extension SceneResolvedMaterialVariantCache {
                 case .userProperty:
                     break
                 case .provider:
-                    return false
+                    // Provider candidates are auxiliary resource provenance,
+                    // not another graph ingress. Their reservation,
+                    // publication, epoch and active-sampler readiness remain
+                    // owned by dependency admission and texture finalization.
+                    break
                 }
             }
             let expected = expectedBySlot[slot].map { [$0] } ?? []

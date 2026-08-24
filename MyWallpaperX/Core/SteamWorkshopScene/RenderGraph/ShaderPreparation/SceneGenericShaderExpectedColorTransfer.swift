@@ -11,7 +11,8 @@ nonisolated struct SceneGenericShaderExpectedColorTransfer: Encodable {
 
     init?(
         _ transfer: SceneShaderColorTransfer,
-        fragmentSource: String
+        fragmentSource: String,
+        permitsStraightAlphaPreserving: Bool = false
     ) {
         let accumulatorLoopWork: Int?
         if case .independentAlphaSignalPreserving = transfer {
@@ -21,12 +22,17 @@ nonisolated struct SceneGenericShaderExpectedColorTransfer: Encodable {
         } else {
             accumulatorLoopWork = nil
         }
-        self.init(transfer, accumulatorLoopWork: accumulatorLoopWork)
+        self.init(
+            transfer,
+            accumulatorLoopWork: accumulatorLoopWork,
+            permitsStraightAlphaPreserving: permitsStraightAlphaPreserving
+        )
     }
 
     init?(
         _ transfer: SceneShaderColorTransfer,
-        accumulatorLoopWork: Int? = nil
+        accumulatorLoopWork: Int? = nil,
+        permitsStraightAlphaPreserving: Bool = false
     ) {
         if let accumulatorLoopWork,
            !(1 ... 256).contains(accumulatorLoopWork)
@@ -34,6 +40,14 @@ nonisolated struct SceneGenericShaderExpectedColorTransfer: Encodable {
             return nil
         }
         switch transfer {
+        case let .straightAlphaPreserving(textureSlot):
+            guard permitsStraightAlphaPreserving,
+                  Self.valid(textureSlot), accumulatorLoopWork == nil else {
+                return nil
+            }
+            kind = "straight-alpha-preserving"
+            slot = textureSlot
+            slots = nil
         case let .independentAlphaSignal(textureSlot):
             guard Self.valid(textureSlot), accumulatorLoopWork == nil else {
                 return nil

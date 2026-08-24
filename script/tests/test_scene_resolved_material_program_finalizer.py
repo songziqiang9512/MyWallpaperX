@@ -2527,6 +2527,89 @@ private func dormantGraphInputFactTokens(
     ]
 }
 
+private func admittedEffectIngressTokens(
+    _ device: MTLDevice
+) -> [String: String] {
+    func identity(
+        kind: Graph.TextureKind,
+        layerID: Int = fixtureLayerID,
+        effect: Graph.EffectKey? = nil,
+        name: String? = nil
+    ) -> Graph.TextureIdentity {
+        .init(kind: kind, layerID: layerID, effect: effect, name: name)
+    }
+    let owner = Graph.EffectKey(
+        layerID: fixtureLayerID,
+        effectIndex: 7,
+        descriptorID: "fixture-active-after-disabled"
+    )
+    func token(
+        _ input: Graph.TextureIdentity,
+        contextInput: Graph.TextureIdentity? = nil,
+        revision: String
+    ) -> String {
+        let resolvedContextInput = contextInput ?? input
+        let snapshotIdentity = SceneFrameTextureIdentity.graph(input)
+        return failureToken(finalize(
+            shader: contract(
+                revision: revision,
+                samplerMetadata: #"{"material":"framebuffer","hidden":true}"#,
+                uniformMetadata: nil,
+                semanticProbes: false
+            ),
+            device: device,
+            includePrimaryCandidate: false,
+            additionalEntries: [
+                snapshotIdentity: .ready(.init(
+                    publication: publication(
+                        device,
+                        requestIdentity: snapshotIdentity,
+                        candidateIdentity: .provider(.graph(
+                            allocationGeneration: 9,
+                            physicalToken: "fixture-admitted-ingress"
+                        ))
+                    ),
+                    resourceGeneration: 9
+                )),
+            ],
+            implicitFramebufferIdentity: input,
+            effectContext: .init(key: owner, input: resolvedContextInput)
+        ))
+    }
+    let prior = Graph.EffectKey(
+        layerID: fixtureLayerID,
+        effectIndex: 2,
+        descriptorID: "fixture-prior-active"
+    )
+    return [
+        "layerSourceAfterDisabledRawEffects": token(
+            identity(kind: .layerSource),
+            revision: "active-ingress-layer-source-gap"
+        ),
+        "priorActiveOutputWithRawOrdinalGap": token(
+            identity(kind: .effectOutput, effect: prior),
+            revision: "active-ingress-effect-output-gap"
+        ),
+        "contextIdentityMismatch": token(
+            identity(kind: .effectOutput, effect: prior),
+            contextInput: identity(kind: .layerSource),
+            revision: "active-ingress-context-mismatch"
+        ),
+        "wrongLayer": token(
+            identity(kind: .layerSource, layerID: fixtureLayerID + 1),
+            revision: "active-ingress-wrong-layer"
+        ),
+        "namedLayerSource": token(
+            identity(kind: .layerSource, name: "forged"),
+            revision: "active-ingress-named-layer-source"
+        ),
+        "selfOutput": token(
+            identity(kind: .effectOutput, effect: owner),
+            revision: "active-ingress-self-output"
+        ),
+    ]
+}
+
 @main
 private enum Harness {
     static func float(_ data: Data, at offset: Int) -> Float {
@@ -2662,6 +2745,7 @@ private enum Harness {
                 && float(program.uniformBytes, at: field.offset + 8) == 1
                 && float(program.uniformBytes, at: field.offset + 12) == 0
         }()
+        let admittedEffectIngress = admittedEffectIngressTokens(device)
 
         let implicitFramebufferProgram = finalize(
             shader: contract(
@@ -4353,6 +4437,7 @@ private enum Harness {
             "neutralTextureResolutionAnalyzer": neutralTextureResolutionAnalyzer,
             "neutralTextureResolutionFailures": neutralTextureResolutionFailures,
             "dormantGraphInputFacts": dormantGraphInputFacts,
+            "admittedEffectIngress": admittedEffectIngress,
             "failures": failures,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -4556,6 +4641,20 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             {
                 "arbitraryHiddenKeySlot0": "proven",
                 "unseenArbitraryHiddenKeySlot3": "proven",
+            },
+            self.result,
+        )
+
+    def test_graph_input_alias_uses_the_validated_active_effect_ingress(self) -> None:
+        self.assertEqual(
+            self.result["admittedEffectIngress"],
+            {
+                "layerSourceAfterDisabledRawEffects": "success",
+                "priorActiveOutputWithRawOrdinalGap": "success",
+                "contextIdentityMismatch": "texture/textureReferenceInvalid",
+                "wrongLayer": "texture/textureReferenceInvalid",
+                "namedLayerSource": "texture/textureReferenceInvalid",
+                "selfOutput": "texture/textureReferenceInvalid",
             },
             self.result,
         )

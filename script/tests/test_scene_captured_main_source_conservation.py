@@ -355,6 +355,10 @@ private enum CapturedMainSourceConservationHarness {
             .positive,
             userPropertyAuxiliary: true
         )
+        let externalProviderAuxiliary = conservationCatalog(
+            .positive,
+            externalProvider: true
+        )
         let negatives: [(String, Catalog)] = [
             ("noSource", conservationCatalog(.noSource)),
             ("activeNonColorSource", conservationCatalog(.activeNonColorSource)),
@@ -364,7 +368,6 @@ private enum CapturedMainSourceConservationHarness {
             ("wrongEffectIdentity", conservationCatalog(.wrongEffectIdentity)),
             ("internalTargetMismatch", conservationCatalog(.internalTargetMismatch)),
             ("effectOutputInput", conservationCatalog(.effectOutputInput)),
-            ("externalProvider", conservationCatalog(.positive, externalProvider: true)),
             ("variantDivergence", conservationCatalog(.positive, variantDivergence: true)),
         ]
         var result: [String: Any] = [
@@ -378,6 +381,8 @@ private enum CapturedMainSourceConservationHarness {
                 .flatMap { dormantSource.resolve($0.token) }?.materials.count ?? -1,
             "userPropertyAuxiliaryClaim": claim(userPropertyAuxiliary),
             "userPropertyAuxiliaryFailure": rejection(userPropertyAuxiliary),
+            "externalProviderAuxiliaryClaim": claim(externalProviderAuxiliary),
+            "externalProviderAuxiliaryFailure": rejection(externalProviderAuxiliary),
         ]
         for (name, catalog) in negatives {
             result["\(name)Claim"] = claim(catalog)
@@ -441,6 +446,17 @@ class SceneCapturedMainSourceConservationTests(unittest.TestCase):
         self.assertEqual(payload["dormantSourceMaterialCount"], 3, payload)
         self.assertTrue(payload["userPropertyAuxiliaryClaim"], payload)
         self.assertEqual(payload["userPropertyAuxiliaryFailure"], "", payload)
+        self.assertFalse(payload["externalProviderAuxiliaryClaim"], payload)
+        self.assertIn(
+            "execution-stage-conservation",
+            payload["externalProviderAuxiliaryFailure"],
+            payload,
+        )
+        self.assertNotIn(
+            "utility-source-program-unsupported",
+            payload["externalProviderAuxiliaryFailure"],
+            payload,
+        )
         for name in (
             "noSource",
             "activeNonColorSource",
@@ -450,7 +466,6 @@ class SceneCapturedMainSourceConservationTests(unittest.TestCase):
             "wrongEffectIdentity",
             "internalTargetMismatch",
             "effectOutputInput",
-            "externalProvider",
             "variantDivergence",
         ):
             self.assertFalse(payload[f"{name}Claim"], payload)
@@ -470,7 +485,6 @@ class SceneCapturedMainSourceConservationTests(unittest.TestCase):
         self.assertIn("node=2", payload["wrongEffectIdentityAttribution"], payload)
         self.assertIn("node=0", payload["internalTargetMismatchAttribution"], payload)
         self.assertIn("node=2", payload["effectOutputInputAttribution"], payload)
-        self.assertIn("node=0", payload["externalProviderAttribution"], payload)
         self.assertIn("node=2", payload["variantDivergenceAttribution"], payload)
 
     def test_active_variant_and_exact_identity_contract_is_present(self) -> None:
@@ -483,7 +497,7 @@ class SceneCapturedMainSourceConservationTests(unittest.TestCase):
             "Set(roles).count == 1",
             "snapshot.inputIdentity == effect.input",
             "identity.effect == effect",
-            "case .provider:",
+            "Provider candidates are auxiliary resource provenance",
             "sourceBindings.count <= 1",
         ):
             self.assertIn(contract, source)

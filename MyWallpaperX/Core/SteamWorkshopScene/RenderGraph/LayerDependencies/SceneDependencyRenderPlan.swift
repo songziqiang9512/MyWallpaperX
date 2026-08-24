@@ -11,7 +11,7 @@ nonisolated struct SceneDependencyRenderPlan {
     nonisolated struct Binding: Hashable {
         enum Kind: Hashable {
             case resolvedMaterial
-            case proceduralNoiseLayer
+            case solidLayer
             case imageLayerBlend
         }
 
@@ -206,22 +206,26 @@ nonisolated struct SceneDependencyRenderPlan {
         self.executableUtilityConsumerLayerIDs = executableUtilityConsumerLayerIDs
         self.requiredEffectConsumerLayerIDs = Set(descriptor.layers.compactMap { layer in
             let layerReferences = references.filter { $0.consumerLayerID == layer.id }
-            let routeDisabledResolvedMaterialUtility = namedProviderRouteDisabled
+            let routeDisabledStructuralUtility = namedProviderRouteDisabled
                 && Self.supportsStructuralUtilityConsumer(layer)
-                && Self.resolvedMaterialReference(
-                    in: layer.effects.filter { $0.visible != false },
-                    references: layerReferences
-                ) != nil
+                && (
+                    Self.resolvedMaterialReference(
+                        in: layer.effects.filter { $0.visible != false },
+                        references: layerReferences
+                    ) != nil
+                    || Self.singleSlot3SolidLayerReference(
+                        layer: layer,
+                        visibleEffects: layer.effects.filter { $0.visible != false },
+                        references: layerReferences
+                    ) != nil
+                )
             guard reachableConsumerLayerIDs.contains(layer.id),
                   Self.supportsEffectConsumer(
                       layer,
                       executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
-                  ) || routeDisabledResolvedMaterialUtility,
+                  ) || routeDisabledStructuralUtility,
                   !layerReferences.isEmpty,
-                  Self.requiresNamedEffect(
-                      layer,
-                      executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
-                  ) else {
+                  Self.requiresNamedEffect(layer) else {
                 return nil
             }
             return layer.id
@@ -259,13 +263,12 @@ nonisolated struct SceneDependencyRenderPlan {
             blendMode: Int,
             kind: Binding.Kind
         )?
-        if let reference = supportedProceduralNoiseReference(
+        if let reference = singleSlot3SolidLayerReference(
             layer: layer,
             visibleEffects: visibleEffects,
-            references: references,
-            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+            references: references
         ) {
-            contract = (reference, 0, .proceduralNoiseLayer)
+            contract = (reference, 0, .solidLayer)
         } else if let declaration = supportedImageLayerBlendDeclaration(
             in: visibleEffects
         ), references.count == 1, let reference = references.first,
@@ -291,7 +294,7 @@ nonisolated struct SceneDependencyRenderPlan {
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         ) || (
             namedProviderRouteDisabled
-                && contract.kind == .resolvedMaterial
+                && (contract.kind == .resolvedMaterial || contract.kind == .solidLayer)
                 && supportsStructuralUtilityConsumer(layer)
         )
         guard supportsConsumer else {
@@ -331,7 +334,7 @@ nonisolated struct SceneDependencyRenderPlan {
         let providerKindIsSupported = switch contract.kind {
         case .resolvedMaterial:
             provider.utilityLayer?.kind == .composition
-        case .proceduralNoiseLayer:
+        case .solidLayer:
             provider.contentKind == "solid"
                 && hasNoUtilityLayer(provider)
                 && provider.visible == false
@@ -355,7 +358,7 @@ nonisolated struct SceneDependencyRenderPlan {
             ))
             return nil
         }
-        if contract.kind != .proceduralNoiseLayer, namedProviderRouteDisabled {
+        if namedProviderRouteDisabled {
             issues.append(Issue(
                 kind: .namedProviderRouteDisabled,
                 layerID: layer.id,
@@ -396,8 +399,7 @@ nonisolated struct SceneDependencyRenderPlan {
     }
 
     private nonisolated static func requiresNamedEffect(
-        _ layer: SceneRenderDescriptor.Layer,
-        executableUtilityConsumerLayerIDs: Set<Int>
+        _ layer: SceneRenderDescriptor.Layer
     ) -> Bool {
         let visibleEffects = layer.effects.filter { $0.visible != false }
         let references = SceneDependencyGraphAnalysis.references(in: [layer])
@@ -410,11 +412,10 @@ nonisolated struct SceneDependencyRenderPlan {
         if supportedImageLayerBlendDeclaration(in: visibleEffects) != nil {
             return true
         }
-        return supportedProceduralNoiseReference(
+        return singleSlot3SolidLayerReference(
             layer: layer,
             visibleEffects: visibleEffects,
-            references: references,
-            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+            references: references
         ) != nil
     }
 
@@ -461,28 +462,26 @@ nonisolated struct SceneDependencyRenderPlan {
         return reference
     }
 
-    private nonisolated static func supportedProceduralNoiseReference(
+    /// Bounded structural carrier for one hidden static solid publication.
+    /// Effect path, combo values and authored constants belong to shader and
+    /// MaterialProgram admission; they never select this dependency owner.
+    private nonisolated static func singleSlot3SolidLayerReference(
         layer: SceneRenderDescriptor.Layer,
         visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
-        references: [Reference],
-        executableUtilityConsumerLayerIDs: Set<Int>
+        references: [Reference]
     ) -> Reference? {
-        guard executableUtilityConsumerLayerIDs.contains(layer.id),
+        guard supportsStructuralUtilityConsumer(layer),
               visibleEffects.count == 1,
               let effect = visibleEffects.first,
-              normalized(effect.file) == proceduralNoiseV1Path,
               effect.passes.count == 1,
               let pass = effect.passes.first,
               pass.passIndex == 0,
-              pass.combos == [
-                  "AB_TYPECOLOR": 3,
-                  "PERSPSWITCH": 1,
-                  "WRITEALPHA": 1,
-              ],
               pass.textureSlots.count == 4,
               pass.textureSlots[0...2].allSatisfy({ $0 == nil }),
               let path = pass.textureSlots[3],
               pass.texturePaths == [path],
+              (!pass.userTextureInputs.indices.contains(3)
+                  || pass.userTextureInputs[3] == nil),
               references.count == 1,
               let reference = references.first,
               reference.slot.effectID == effect.id,
@@ -503,17 +502,10 @@ nonisolated struct SceneDependencyRenderPlan {
         return declarations.count == 1 ? declarations[0] : nil
     }
 
-    private nonisolated static func normalized(_ value: String) -> String {
-        value.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
-
     private nonisolated static func hasNoUtilityLayer(
         _ layer: SceneRenderDescriptor.Layer
     ) -> Bool {
         if case nil = layer.utilityLayer { return true }
         return false
     }
-
-    private nonisolated static let proceduralNoiseV1Path =
-        "effects/workshop/2924967132/procedural_noise/effect.json"
 }

@@ -13,16 +13,30 @@ from scene_shader_compiler_independent_signal_contract import (
     prepare_independent_signal_contract as _prepare_single_slot_transfer,
 )
 from scene_shader_compiler_msl_function_contract import function_body
+from scene_shader_compiler_msl_function_contract import sample_end
 
 
 COMPOSITING_KIND = "independent-alpha-signal-compositing"
+STRAIGHT_ALPHA_PRESERVING_KIND = "straight-alpha-preserving"
 _UNPREMULTIPLY = "mwxSignalCompositeUnpremultiply"
 _PREMULTIPLY = "mwxSignalCompositePremultiply"
+_STRAIGHT_UNPREMULTIPLY = "mwxGenericUnpremultiply"
+_STRAIGHT_PREMULTIPLY = "mwxGenericPremultiply"
 
 
 def parse_expected_transfer(value: Any) -> dict[str, Any] | None:
     if value is None:
         return None
+    if isinstance(value, dict) and value.get("kind") == STRAIGHT_ALPHA_PRESERVING_KIND:
+        slot = value.get("slot")
+        if (
+            set(value) != {"kind", "slot"}
+            or isinstance(slot, bool)
+            or not isinstance(slot, int)
+            or not 0 <= slot < 8
+        ):
+            raise IndependentSignalContractFailure("expected-color-transfer")
+        return {"kind": STRAIGHT_ALPHA_PRESERVING_KIND, "slot": slot}
     if isinstance(value, dict) and set(value) == {"kind", "slots"}:
         kind, slots = value.get("kind"), value.get("slots")
         if (
@@ -60,6 +74,10 @@ def prepare_independent_signal_contract(
     expected = parse_expected_transfer(expected_transfer)
     if expected is None:
         raise IndependentSignalContractFailure("expected-color-transfer")
+    if expected["kind"] == STRAIGHT_ALPHA_PRESERVING_KIND:
+        return _prepare_straight_alpha_preserving(
+            fragment_msl, expected, texture_bindings
+        ), expected
     if expected["kind"] != COMPOSITING_KIND:
         return _prepare_single_slot_transfer(
             fragment_msl,
@@ -76,7 +94,10 @@ def independent_signal_static_loop_work(
     expected_transfer: dict[str, Any],
     maximum_loop_work: int,
 ) -> int | None:
-    if expected_transfer["kind"] == COMPOSITING_KIND:
+    if expected_transfer["kind"] in (
+        COMPOSITING_KIND,
+        STRAIGHT_ALPHA_PRESERVING_KIND,
+    ):
         return None
     expected_work = expected_transfer.get("accumulatorLoopWork")
     if expected_work is None:
@@ -91,6 +112,214 @@ def independent_signal_static_loop_work(
             "independent-accumulator-work-mismatch"
         )
     return actual_work
+
+
+def _prepare_straight_alpha_preserving(
+    source: str,
+    expected: dict[str, Any],
+    texture_bindings: list[dict[str, Any]],
+) -> str:
+    if not isinstance(source, str) or not source.strip():
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-source"
+        )
+    slot = expected["slot"]
+    _validate_exclusive_binding(slot, texture_bindings)
+
+    masked = _mask_comments(source)
+    if any(
+        re.search(rf"\b{re.escape(helper)}\b", masked)
+        for helper in (_STRAIGHT_UNPREMULTIPLY, _STRAIGHT_PREMULTIPLY)
+    ):
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-helper"
+        )
+    if len(re.findall(r"\busing\s+namespace\s+metal\s*;", masked)) != 1:
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-namespace"
+        )
+
+    texture_slots = [
+        int(match.group(1))
+        for match in re.finditer(r"\bg_Texture([0-7])\b", masked)
+    ]
+    if not texture_slots or set(texture_slots) != {slot}:
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-slot"
+        )
+
+    samples: list[tuple[int, int]] = []
+    for match in re.finditer(
+        r"\bg_Texture(?P<slot>[0-7])\s*\.\s*sample\s*\(", masked
+    ):
+        if int(match.group("slot")) != slot:
+            raise IndependentSignalContractFailure(
+                "straight-alpha-preserving-sample"
+            )
+        opening = masked.find("(", match.start(), match.end())
+        end = sample_end(masked, opening)
+        if end is None:
+            raise IndependentSignalContractFailure(
+                "straight-alpha-preserving-sample"
+            )
+        samples.append((match.start(), end))
+    if not samples or len(samples) != len(re.findall(r"\.\s*sample\s*\(", masked)):
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-sample"
+        )
+
+    return_type, body_start, body_end = _fragment_body_bounds(masked)
+    body = masked[body_start:body_end]
+    terminal_returns = list(re.finditer(
+        r"(?m)^(?P<indent>[ \t]*)return\s+out\s*;[ \t]*$", body
+    ))
+    if (
+        len(re.findall(r"\breturn\b", body)) != 1
+        or len(terminal_returns) != 1
+        or body[terminal_returns[0].end():].strip()
+    ):
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-return"
+        )
+
+    output_reference = re.compile(r"\bout\s*\.\s*mwxFragColor\b")
+    assignments = list(re.finditer(
+        r"(?m)^[ \t]*out\s*\.\s*mwxFragColor\s*=(?!=)"
+        r"(?P<value>[^;\n]+);[ \t]*$",
+        body,
+    ))
+    references = list(output_reference.finditer(body))
+    if (
+        not assignments
+        or len(references) != len(assignments)
+        or any(assignment.start() >= terminal_returns[0].start() for assignment in assignments)
+        or output_reference.search(masked[:body_start] + masked[body_end:]) is not None
+    ):
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-output"
+        )
+    declarations = re.findall(
+        rf"\b{re.escape(return_type)}\s+out(?:\s*=\s*\{{\s*\}})?\s*;",
+        body,
+    )
+    if (
+        len(declarations) != 1
+        or len(re.findall(r"\bout\b", body)) != len(assignments) + 2
+    ):
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-output"
+        )
+
+    transformed = source
+    for start, end in reversed(samples):
+        transformed = (
+            transformed[:start]
+            + f"{_STRAIGHT_UNPREMULTIPLY}("
+            + transformed[start:end]
+            + ")"
+            + transformed[end:]
+        )
+
+    transformed_masked = _mask_comments(transformed)
+    _, transformed_body_start, transformed_body_end = _fragment_body_bounds(
+        transformed_masked
+    )
+    transformed_body = transformed_masked[
+        transformed_body_start:transformed_body_end
+    ]
+    transformed_return = re.search(
+        r"(?m)^(?P<indent>[ \t]*)return\s+out\s*;[ \t]*$",
+        transformed_body,
+    )
+    if transformed_return is None:
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-return"
+        )
+    return_start = transformed_body_start + transformed_return.start()
+    return_end = transformed_body_start + transformed_return.end()
+    indent = transformed_return.group("indent")
+    transformed = (
+        transformed[:return_start]
+        + f"{indent}out.mwxFragColor = "
+        + f"{_STRAIGHT_PREMULTIPLY}(out.mwxFragColor);\n"
+        + f"{indent}return out;"
+        + transformed[return_end:]
+    )
+
+    helpers = f"""
+
+inline float4 {_STRAIGHT_UNPREMULTIPLY}(float4 color) {{
+    const float alpha = clamp(color.w, 0.0, 1.0);
+    const float3 rgb = alpha > 0.0
+        ? clamp(color.xyz / alpha, float3(0.0), float3(1.0))
+        : float3(0.0);
+    return float4(rgb, alpha);
+}}
+
+inline float4 {_STRAIGHT_PREMULTIPLY}(float4 color) {{
+    const float alpha = clamp(color.w, 0.0, 1.0);
+    return float4(color.xyz * alpha, alpha);
+}}
+"""
+    return re.sub(
+        r"(\busing\s+namespace\s+metal\s*;)",
+        lambda match: match.group(1) + helpers,
+        transformed,
+        count=1,
+    )
+
+
+def _fragment_body_bounds(source: str) -> tuple[str, int, int]:
+    headers = list(re.finditer(
+        r"\bfragment\s+(?P<return>[A-Za-z_]\w*)\s+"
+        r"mwxGenericFragment\s*\(",
+        source,
+    ))
+    if len(headers) != 1:
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-function"
+        )
+    header = headers[0]
+    opening = source.find("(", header.start(), header.end())
+    parameters_end = sample_end(source, opening)
+    if parameters_end is None:
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-function"
+        )
+    body_start = source.find("{", parameters_end)
+    prototype_end = source.find(";", parameters_end)
+    if body_start < 0 or (prototype_end >= 0 and prototype_end < body_start):
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-function"
+        )
+    depth = 0
+    for index in range(body_start, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return header.group("return"), body_start + 1, index
+            if depth < 0:
+                break
+    raise IndependentSignalContractFailure(
+        "straight-alpha-preserving-function"
+    )
+
+
+def _validate_exclusive_binding(
+    slot: int, texture_bindings: list[dict[str, Any]]
+) -> None:
+    if (
+        not isinstance(texture_bindings, list)
+        or len(texture_bindings) != 1
+        or not isinstance(texture_bindings[0], dict)
+        or texture_bindings[0].get("slot") != slot
+        or texture_bindings[0].get("name") != f"g_Texture{slot}"
+    ):
+        raise IndependentSignalContractFailure(
+            "straight-alpha-preserving-binding"
+        )
 
 
 def _prepare_compositing(

@@ -34,11 +34,12 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
             in: source
         )
         guard outputs.count == 1,
+              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               declarations[0].range.location < outputs[0].range.location,
               let outputRange = Range(outputs[0].range, in: source),
               let indent = capture(outputs[0], 1, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
-        else { return nil }
+        else { return lowerWholeOutputUnion(source, expectedSlot: expectedSlot) }
 
         var transformed = source
         transformed.replaceSubrange(
@@ -682,7 +683,7 @@ inline float4 \(premultiply)(float4 color) {
         for call in colorCalls.sorted(by: {
             $0.range.location > $1.range.location
         }) {
-            guard let text = substring(call.range, in: source),
+            guard let text = unionSubstring(call.range, in: source),
                   let range = Range(call.range, in: transformed) else {
                 return nil
             }
@@ -791,10 +792,4 @@ inline float4 \(premultiply)(float4 color) {
         return String(source[range])
     }
 
-    private static func substring(
-        _ range: NSRange,
-        in source: String
-    ) -> String? {
-        Range(range, in: source).map { String(source[$0]) }
-    }
 }

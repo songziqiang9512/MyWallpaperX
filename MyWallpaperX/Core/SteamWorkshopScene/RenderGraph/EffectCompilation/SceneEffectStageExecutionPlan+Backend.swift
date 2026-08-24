@@ -4,7 +4,6 @@ extension SceneEffectStageExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
-        case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
@@ -16,10 +15,6 @@ extension SceneEffectStageExecutionPlan {
             case .waterWaves,
                  .xRay, .blend, .transform, .pulse:
                 return true
-            case .proceduralNoise(let plan):
-                return plan.variant == .worleyColorV1
-                    && plan.dependencyProviderLayerID != nil
-                    && plan.dependencySlotIndex == 3
             default:
                 return false
             }
@@ -44,11 +39,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var standardBlur: SceneStandardBlurPlan? {
         guard case .standardBlur(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var proceduralNoise: SceneProceduralNoiseExecutionPlan? {
-        guard case .proceduralNoise(let plan) = backend else { return nil }
         return plan
     }
 
@@ -93,10 +83,6 @@ extension SceneEffectStageExecutionPlan {
         switch backend {
         case .standardBlur:
             return true
-        case .proceduralNoise(let plan):
-            return plan.variant == .worleyColorV1
-                && plan.dependencyProviderLayerID != nil
-                && plan.dependencySlotIndex == 3
         default:
             return false
         }

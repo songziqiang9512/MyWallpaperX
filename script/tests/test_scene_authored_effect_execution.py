@@ -102,28 +102,6 @@ struct SceneGaussianBlurPlan {
     let kernel: SceneGaussianBlurKernel
 }
 
-struct SceneProceduralNoiseExecutionPlan: Sendable {
-    enum Variant: Sendable {
-        case colorPerlinRGB
-        case worleyColorV1
-    }
-
-    let variant: Variant
-    let dependencyProviderLayerID: Int?
-    let dependencySlotIndex: Int?
-}
-
-enum SceneAuthoredProceduralNoisePlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneProceduralNoiseExecutionPlan? {
-        nil
-    }
-}
-
 struct SceneWaterWavesExecutionPlan {}
 
 enum SceneAuthoredWaterWavesPlanner {
@@ -316,10 +294,6 @@ extension SceneAuthoredStandardBlurPlanner {
     }
 }
 
-extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }
-}
 extension SceneAuthoredWaterWavesPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneWaterWavesExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterWaves }
@@ -1106,7 +1080,6 @@ enum Harness {
             switch stage.backend {
             case .preciseGaussian: backend = "preciseGaussian"
             case .standardBlur: backend = "standardBlur"
-            case .proceduralNoise: backend = "proceduralNoise"
             case .waterWaves: backend = "waterWaves"
             case .xRay: backend = "xRay"
             case .blend: backend = "blend"
@@ -1174,43 +1147,6 @@ enum Harness {
             graph: standardGraph, descriptor: standardDescriptor
         )!
         let standardBlur = standardPlan.standardBlur!
-        func proceduralExecution(
-            variant: SceneProceduralNoiseExecutionPlan.Variant,
-            providerLayerID: Int?,
-            slotIndex: Int?
-        ) -> SceneEffectStageExecutionPlan {
-            SceneEffectStageExecutionPlan(
-                layerID: standardGraph.layerID,
-                renderGraph: standardGraph,
-                backend: .proceduralNoise(.init(
-                    variant: variant,
-                    dependencyProviderLayerID: providerLayerID,
-                    dependencySlotIndex: slotIndex
-                )),
-                materialNodeCount: 1,
-                logicalRenderTargetCount: 0
-            )
-        }
-        let exactLegacyProcedural = proceduralExecution(
-            variant: .worleyColorV1,
-            providerLayerID: 42,
-            slotIndex: 3
-        )
-        let modernProcedural = proceduralExecution(
-            variant: .colorPerlinRGB,
-            providerLayerID: nil,
-            slotIndex: nil
-        )
-        let providerlessLegacyProcedural = proceduralExecution(
-            variant: .worleyColorV1,
-            providerLayerID: nil,
-            slotIndex: 3
-        )
-        let wrongSlotLegacyProcedural = proceduralExecution(
-            variant: .worleyColorV1,
-            providerLayerID: 42,
-            slotIndex: 2
-        )
         let standardMaskedDescriptor = standardBlurDescriptor(
             effect: standardBlurInstanceEffect(maskPath: "masks/blur-mask")
         )
@@ -1483,16 +1419,6 @@ enum Harness {
                 && standardPlan.gaussianBlur == nil
                 && !standardPlan.requiresExactInputExtent,
             "standardSupportsUtilityCapture": standardPlan.supportsUtilityCapture,
-            "proceduralExternalEligibility": [
-                exactLegacyProcedural.backend.supportsUnifiedPairLeaf
-                    && exactLegacyProcedural.supportsUtilityCapture,
-                modernProcedural.backend.supportsUnifiedPairLeaf
-                    || modernProcedural.supportsUtilityCapture,
-                providerlessLegacyProcedural.backend.supportsUnifiedPairLeaf
-                    || providerlessLegacyProcedural.supportsUtilityCapture,
-                wrongSlotLegacyProcedural.backend.supportsUnifiedPairLeaf
-                    || wrongSlotLegacyProcedural.supportsUtilityCapture,
-            ],
             "standardWrongExtentRejected": standardRejected(graph: standardBlurGraph(wrongExtent: true)),
             "standardWrongBindingRejected": standardRejected(graph: standardBlurGraph(wrongBinding: true)),
             "standardBadShaderRejected": standardRejected(descriptor: standardBadShaderDescriptor),
@@ -1565,13 +1491,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertNotIn("fisheye-pipeline-missing", topology)
         for backend_name in (".waterWaves", ".pulse"):
             self.assertIn(backend_name, leaf_body)
-        self.assertIn("case .proceduralNoise(let plan):", leaf_body)
-        for contract in (
-            "plan.variant == .worleyColorV1",
-            "plan.dependencyProviderLayerID != nil",
-            "plan.dependencySlotIndex == 3",
-        ):
-            self.assertIn(contract, leaf_body)
+        self.assertNotIn("proceduralNoise", leaf_body)
         self.assertIn(".xRay", leaf_body)
         self.assertIn("case .xRay(let plan):", topology)
         self.assertIn("SceneXRayRuntimePlanner.resolve(", topology)
@@ -1584,12 +1504,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertIn("sourceTexture !== targets.inputTexture", x_ray)
         self.assertIn("copyIdentityOutput(", x_ray)
         self.assertIn('encoder.label = "Scene X-Ray identity output"', x_ray)
-
-    def test_only_exact_legacy_external_procedural_noise_is_pair_eligible(self) -> None:
-        self.assertEqual(
-            self.result["proceduralExternalEligibility"],
-            [True, False, False, False],
-        )
 
     def test_only_effectively_visible_complete_graph_is_planned(self) -> None:
         self.assertEqual(self.result["nodes"], 2)

@@ -166,7 +166,7 @@ enum Harness {
             visible: true,
             effects: [effect(id: 19, provider: 1)]
         )
-        let legacyNoiseProvider = SceneRenderDescriptor.Layer(
+        let solidCarrierProvider = SceneRenderDescriptor.Layer(
             id: 30,
             contentKind: "solid",
             utilityLayer: nil,
@@ -175,14 +175,14 @@ enum Harness {
             visible: false,
             effects: []
         )
-        let legacyNoiseConsumer = SceneRenderDescriptor.Layer(
+        let solidCarrierConsumer = SceneRenderDescriptor.Layer(
             id: 31,
             contentKind: "composition",
             utilityLayer: .init(kind: .composition),
             dependencyLayerIDs: [30],
             childLayerIDs: [],
             visible: true,
-            effects: [proceduralNoiseEffect(id: 31, provider: 30)]
+            effects: [slot3SolidCarrierEffect(id: 31, provider: 30)]
         )
         let missingProviderConsumer = consumer(32, provider: 999)
         let secondaryConsumer = consumer(33, provider: 1, variantSuffix: "b")
@@ -272,7 +272,7 @@ enum Harness {
                 supportedGradientConsumer, reversedGradientConsumer, invalidGradientConsumer,
                 utilityConsumer, alternatePathConsumer, projectUtilityConsumer,
                 childUtilityConsumer, extraDependencyUtilityConsumer,
-                legacyNoiseProvider, legacyNoiseConsumer, missingProviderConsumer,
+                solidCarrierProvider, solidCarrierConsumer, missingProviderConsumer,
             ],
             renderOrderLayerIDs: [
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
@@ -445,7 +445,7 @@ enum Harness {
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42_a")?.variant.rawValue ?? "nil",
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42_b")?.variant.rawValue ?? "nil",
         ]
-        let legacyNoiseBinding = plan.bindingsByConsumerLayerID[31]
+        let solidCarrier = plan.bindingsByConsumerLayerID[31]
         let imageBlend = imageBlendBinding()
         let nestedImageBlend = nestedImageBlendPlan()
         let brokenNestedImageBlend = nestedImageBlendPlan(
@@ -552,25 +552,53 @@ enum Harness {
                 "multiEffectConsumer": multiEffectXRayPlan
                     .blocksStaticLayerSourcePassthrough(for: 251),
             ],
-            "legacyNoiseBinding": [
-                "consumer": legacyNoiseBinding?.consumerLayerID ?? -1,
-                "provider": legacyNoiseBinding?.providerLayerID ?? -1,
-                "effect": legacyNoiseBinding?.slot.effectID ?? "",
-                "pass": legacyNoiseBinding?.slot.passIndex ?? -1,
-                "slot": legacyNoiseBinding?.slot.slotIndex ?? -1,
-                "blend": legacyNoiseBinding?.blendMode ?? -1,
-                "procedural": legacyNoiseBinding?.kind == .proceduralNoiseLayer,
+            "solidCarrierBinding": [
+                "consumer": solidCarrier?.consumerLayerID ?? -1,
+                "provider": solidCarrier?.providerLayerID ?? -1,
+                "effect": solidCarrier?.slot.effectID ?? "",
+                "pass": solidCarrier?.slot.passIndex ?? -1,
+                "slot": solidCarrier?.slot.slotIndex ?? -1,
+                "blend": solidCarrier?.blendMode ?? -1,
+                "solid": solidCarrier?.kind == .solidLayer,
             ],
-            "legacyNoiseRejects": [
-                "modern": proceduralBinding(effectPath: "effects/procedural_noise/effect.json") == nil,
-                "visibleProvider": proceduralBinding(providerVisible: true) == nil,
-                "wrongProviderKind": proceduralBinding(providerContentKind: "image") == nil,
-                "secondary": proceduralBinding(variantSuffix: "b") == nil,
-                "wrongEffect": proceduralBinding(effectPath: "effects/workshop/other/procedural_noise/effect.json") == nil,
-                "wrongPass": proceduralBinding(passIndex: 1) == nil,
-                "wrongSlot": proceduralBinding(slotIndex: 2) == nil,
-                "wrongCombos": proceduralBinding(extraCombos: ["BLENDMODE": 5]) == nil,
-                "extraReference": proceduralBinding(extraReference: true) == nil,
+            "solidCarrierRoute": [
+                "binding": solidCarrier != nil,
+                "solid": solidCarrier?.kind == .solidLayer,
+                "requiredEffect": plan.requiredEffectConsumerLayerIDs.contains(31),
+                "requiredProvider": plan.requiredProviderLayerIDs.contains(30),
+                "issues": plan.issues.filter { $0.layerID == 31 }.map {
+                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+                },
+            ],
+            "solidCarrierWithoutExecutableID": [
+                "binding": defaultPlan.bindingsByConsumerLayerID[31] != nil,
+                "requiredEffect": defaultPlan.requiredEffectConsumerLayerIDs.contains(31),
+                "requiredProvider": defaultPlan.requiredProviderLayerIDs.contains(30),
+                "issues": defaultPlan.issues.filter { $0.layerID == 31 }.map {
+                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+                },
+            ],
+            "solidCarrierGeneralizesAuthoredShaderShape":
+                solidCarrierBinding(
+                    effectPath: "effects/workshop/unseen/volumetric_cloud/effect.json",
+                    extraCombos: ["AB_TYPECOLOR": 27, "UNSEEN_COMBO": 9],
+                    constantShaderValues: [
+                        "Unseen Constant": .init(components: [0.125, 4]),
+                    ]
+                )?.kind == .solidLayer,
+            "solidCarrierRejects": [
+                "visibleProvider": solidCarrierBinding(providerVisible: true) == nil,
+                "wrongProviderKind": solidCarrierBinding(providerContentKind: "image") == nil,
+                "providerUtility": solidCarrierBinding(providerUtility: true) == nil,
+                "effectfulProvider": solidCarrierBinding(providerEffectful: true) == nil,
+                "secondary": solidCarrierBinding(variantSuffix: "b") == nil,
+                "wrongPass": solidCarrierBinding(passIndex: 1) == nil,
+                "wrongSlot": solidCarrierBinding(slotIndex: 2) == nil,
+                "userTextureOverride": solidCarrierBinding(userTextureOverride: true) == nil,
+                "extraPass": solidCarrierBinding(extraPass: true) == nil,
+                "extraReference": solidCarrierBinding(extraReference: true) == nil,
+                "forwardProvider": solidCarrierBinding(providerFirst: false) == nil,
+                "cycle": solidCarrierBinding(providerDependencies: [91]) == nil,
             ],
             "imageBlendBinding": [
                 "consumer": imageBlend?.consumerLayerID ?? -1,
@@ -876,7 +904,7 @@ enum Harness {
         )
     }
 
-    static func proceduralNoiseEffect(
+    static func slot3SolidCarrierEffect(
         id: Int,
         provider: Int,
         effectPath: String = "effects/workshop/2924967132/procedural_noise/effect.json",
@@ -884,6 +912,9 @@ enum Harness {
         slotIndex: Int = 3,
         variantSuffix: String = "a",
         extraCombos: [String: Int] = [:],
+        constantShaderValues: [String: SceneDocument.ShaderValue] = [:],
+        userTextureOverride: Bool = false,
+        extraPass: Bool = false,
         extraReference: Bool = false
     ) -> SceneRenderDescriptor.EffectDescriptor {
         let path = "_rt_imageLayerComposite_\(provider)_\(variantSuffix)"
@@ -898,41 +929,71 @@ enum Harness {
             "WRITEALPHA": 1,
         ]
         combos.merge(extraCombos) { _, new in new }
+        let mainPass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            passIndex: passIndex,
+            texturePaths: extraReference
+                ? [path, "_rt_imageLayerComposite_\(provider)_a"] : [path],
+            textureSlots: slots,
+            userTextureInputs: userTextureOverride ? [nil, nil, nil, 7] : [],
+            combos: combos,
+            constantShaderValues: constantShaderValues
+        )
+        let passes: [SceneRenderDescriptor.EffectDescriptor.PassDescriptor]
+        if extraPass {
+            passes = [
+                mainPass,
+                .init(
+                    passIndex: 1,
+                    textureSlots: [],
+                    combos: [:],
+                    constantShaderValues: [:]
+                ),
+            ]
+        } else {
+            passes = [mainPass]
+        }
         return .init(
-            id: "\(id)#effect#noise",
+            id: "\(id)#effect#slot3-solid",
             file: effectPath,
             visible: true,
-            passes: [.init(
-                passIndex: passIndex,
-                texturePaths: extraReference
-                    ? [path, "_rt_imageLayerComposite_\(provider)_a"] : [path],
-                textureSlots: slots,
-                combos: combos,
-                constantShaderValues: [:]
-            )]
+            passes: passes
         )
     }
 
-    static func proceduralBinding(
+    static func solidCarrierBinding(
         providerVisible: Bool? = false,
         providerContentKind: String = "solid",
+        providerUtility: Bool = false,
+        providerEffectful: Bool = false,
+        providerDependencies: [Int] = [],
+        providerFirst: Bool = true,
         effectPath: String = "effects/workshop/2924967132/procedural_noise/effect.json",
         passIndex: Int = 0,
         slotIndex: Int = 3,
         variantSuffix: String = "a",
         extraCombos: [String: Int] = [:],
+        constantShaderValues: [String: SceneDocument.ShaderValue] = [:],
+        userTextureOverride: Bool = false,
+        extraPass: Bool = false,
         extraReference: Bool = false
     ) -> SceneDependencyRenderPlan.Binding? {
         let providerID = 90
         let consumerID = 91
+        let providerEffects: [SceneRenderDescriptor.EffectDescriptor] =
+            providerEffectful ? [.init(
+                id: "provider-effect",
+                file: "effects/unseen/provider/effect.json",
+                visible: true,
+                passes: []
+            )] : []
         let provider = SceneRenderDescriptor.Layer(
             id: providerID,
             contentKind: providerContentKind,
-            utilityLayer: nil,
-            dependencyLayerIDs: [],
+            utilityLayer: providerUtility ? .init(kind: .composition) : nil,
+            dependencyLayerIDs: providerDependencies,
             childLayerIDs: [],
             visible: providerVisible,
-            effects: []
+            effects: providerEffects
         )
         let consumer = SceneRenderDescriptor.Layer(
             id: consumerID,
@@ -941,7 +1002,7 @@ enum Harness {
             dependencyLayerIDs: [providerID],
             childLayerIDs: [],
             visible: true,
-            effects: [proceduralNoiseEffect(
+            effects: [slot3SolidCarrierEffect(
                 id: consumerID,
                 provider: providerID,
                 effectPath: effectPath,
@@ -949,12 +1010,16 @@ enum Harness {
                 slotIndex: slotIndex,
                 variantSuffix: variantSuffix,
                 extraCombos: extraCombos,
+                constantShaderValues: constantShaderValues,
+                userTextureOverride: userTextureOverride,
+                extraPass: extraPass,
                 extraReference: extraReference
             )]
         )
         let descriptor = SceneRenderDescriptor(
             layers: [provider, consumer],
-            renderOrderLayerIDs: [providerID, consumerID]
+            renderOrderLayerIDs: providerFirst
+                ? [providerID, consumerID] : [consumerID, providerID]
         )
         return SceneDependencyRenderPlan(
             descriptor: descriptor,
@@ -1213,8 +1278,42 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            self.route_disabled_result["legacyNoiseBinding"],
-            self.result["legacyNoiseBinding"],
+            self.result["solidCarrierRoute"],
+            {
+                "binding": True,
+                "solid": True,
+                "requiredEffect": True,
+                "requiredProvider": True,
+                "issues": [],
+            },
+        )
+        self.assertEqual(
+            self.route_disabled_result["solidCarrierRoute"],
+            {
+                "binding": False,
+                "solid": False,
+                "requiredEffect": True,
+                "requiredProvider": False,
+                "issues": ["31:namedProviderRouteDisabled:30"],
+            },
+        )
+        self.assertEqual(
+            self.result["solidCarrierWithoutExecutableID"],
+            {
+                "binding": False,
+                "requiredEffect": False,
+                "requiredProvider": False,
+                "issues": ["31:unsupportedConsumer:-1"],
+            },
+        )
+        self.assertEqual(
+            self.route_disabled_result["solidCarrierWithoutExecutableID"],
+            {
+                "binding": False,
+                "requiredEffect": True,
+                "requiredProvider": False,
+                "issues": ["31:namedProviderRouteDisabled:30"],
+            },
         )
         self.assertEqual(
             self.route_disabled_result["imageBlendBinding"],
@@ -1363,20 +1462,23 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             dependency_runtime,
         )
 
-    def test_exact_legacy_procedural_dependency_is_typed_and_fail_closed(self) -> None:
+    def test_structural_slot3_hidden_solid_dependency_is_generic_and_fail_closed(
+        self,
+    ) -> None:
         self.assertEqual(
-            self.result["legacyNoiseBinding"],
+            self.result["solidCarrierBinding"],
             {
                 "consumer": 31,
                 "provider": 30,
-                "effect": "31#effect#noise",
+                "effect": "31#effect#slot3-solid",
                 "pass": 0,
                 "slot": 3,
                 "blend": 0,
-                "procedural": True,
+                "solid": True,
             },
         )
-        self.assertTrue(all(self.result["legacyNoiseRejects"].values()))
+        self.assertTrue(self.result["solidCarrierGeneralizesAuthoredShaderShape"])
+        self.assertTrue(all(self.result["solidCarrierRejects"].values()))
 
     def test_exact_plain_image_blend_dependency_is_typed_and_fail_closed(self) -> None:
         self.assertEqual(

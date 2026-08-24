@@ -696,7 +696,7 @@ fragment float4 mwxGenericFragment(
         standard_compiler = dedicated_compilers[
             dedicated_compilers.index("extension SceneAuthoredStandardBlurPlanner"):
             dedicated_compilers.index(
-                "extension SceneAuthoredProceduralNoisePlanner"
+                "extension SceneAuthoredWaterWavesPlanner"
             )
         ]
         self.assertIn(

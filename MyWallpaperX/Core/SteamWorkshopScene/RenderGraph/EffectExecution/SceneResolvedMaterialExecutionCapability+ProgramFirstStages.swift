@@ -418,16 +418,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let resolvedDependencyStages = stages.flatMap {
             resolvedExternalDependencies(in: $0)
         }
-        let proceduralDependencyStages = stages.compactMap { stage -> (
-            program: SceneEffectStageProgram,
-            plan: SceneProceduralNoiseExecutionPlan
-        )? in
-            guard case let .dedicated(_, program, _) = stage,
-                  let plan = program.executionPlan.proceduralNoise,
-                  plan.dependencyProviderLayerID != nil
-                    || plan.dependencySlotIndex != nil else { return nil }
-            return (program, plan)
-        }
         let hasDedicatedImageBlendDependencyStage = stages.contains { stage in
             guard case let .dedicated(_, program, _) = stage,
                   let plan = program.executionPlan.blend else { return false }
@@ -436,7 +426,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         switch ownership {
         case .none, .graphInternal:
             return resolvedDependencyStages.isEmpty
-                && proceduralDependencyStages.isEmpty
                 && !hasDedicatedImageBlendDependencyStage
 
         case let .externalPrimary(binding):
@@ -447,7 +436,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             let ordinaryDependencyStages = resolvedDependencyStages
                 + passthroughDependencyStages
             if !ordinaryDependencyStages.isEmpty,
-               proceduralDependencyStages.isEmpty,
                !hasDedicatedImageBlendDependencyStage {
                 let expected = Set(binding.referenceSlots.map { slot in
                     ResolvedExternalDependency(
@@ -466,31 +454,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             case .resolvedMaterial:
                 return false
 
-            case .proceduralNoiseLayer:
-                guard binding.slot.passIndex == 0,
-                      binding.slot.slotIndex == 3,
-                      binding.blendMode == 0,
-                      !hasDedicatedImageBlendDependencyStage,
-                      proceduralDependencyStages.count == 1,
-                      let procedural = proceduralDependencyStages.first else {
-                    return false
-                }
-                let program = procedural.program
-                let plan = procedural.plan
-                return program.effectKey == plan.effectKey
-                    && program.inputRole == .layerSource
-                    && program.stageGraph.effects.first?.key == plan.effectKey
-                    && plan.layerID == layerID
-                    && plan.effectKey.layerID == layerID
-                    && plan.effectKey.descriptorID == binding.slot.effectID
-                    && plan.variant == .worleyColorV1
-                    && plan.dependencyProviderLayerID == binding.providerLayerID
-                    && plan.dependencySlotIndex == binding.slot.slotIndex
-                    && plan.renderGraph.effects.count == 1
-                    && plan.renderGraph.nodes.count == 1
-                    && plan.renderGraph.renderTargets.isEmpty
-                    && plan.renderGraph.nodes.first?.instancePassIndex
-                        == binding.slot.passIndex
+            case .solidLayer:
+                return false
             case .imageLayerBlend:
                 return false
             }

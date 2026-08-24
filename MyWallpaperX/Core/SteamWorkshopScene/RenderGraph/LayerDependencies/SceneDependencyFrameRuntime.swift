@@ -405,7 +405,7 @@ final class SceneDependencyFrameRuntime {
             if !didObserveCommandBuffer {
                 captureTelemetry.recordFailure(layerID: layer.id)
             }
-        case .proceduralNoiseLayer:
+        case .solidLayer:
             guard let sourceTexture else {
                 captureTelemetry.recordFailure(layerID: layer.id)
                 return false
@@ -591,13 +591,13 @@ final class SceneDependencyFrameRuntime {
                 width: Int(geometry.pixelSize.width.rounded(.up)),
                 height: Int(geometry.pixelSize.height.rounded(.up))
             )
-        case .proceduralNoiseLayer:
+        case .solidLayer:
             guard binding.providerLayerID == providerLayer.id else {
                 failureReason = "provider-layer-mismatch"
                 return nil
             }
             guard let providerTexture else {
-                failureReason = "procedural-provider-texture-missing"
+                failureReason = "solid-provider-texture-missing"
                 return nil
             }
             return normalizedExtent(

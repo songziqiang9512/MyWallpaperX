@@ -748,10 +748,15 @@ def build_program_artifact(
     _validate_texture_transform_layout(uniform_layout[0], texture_bindings)
     accumulator_work = None
     if expected is not None:
+        preserving_fallback = (
+            _independent_signal_color_transfer
+            if expected["kind"] == "independent-alpha-signal-preserving"
+            else None
+        )
         try:
             fragment_msl, color_transfer = prepare_independent_signal_contract(
                 fragment_msl, expected, texture_bindings,
-                preserving_fallback=_independent_signal_color_transfer,
+                preserving_fallback=preserving_fallback,
             )
             accumulator_work = independent_signal_static_loop_work(
                 fragment_msl, expected, maximum_loop_work=256,

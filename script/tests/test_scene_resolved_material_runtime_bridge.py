@@ -705,7 +705,7 @@ struct SceneDependencyRenderPlan {
     struct Binding: Hashable {
         enum Kind: Hashable {
             case resolvedMaterial
-            case proceduralNoiseLayer
+            case solidLayer
             case imageLayerBlend
         }
 
@@ -1933,11 +1933,11 @@ enum Harness {
             let binding = externalPrimaryBinding(
                 slotIndex: 3,
                 blendMode: 0,
-                kind: .proceduralNoiseLayer
+                kind: .solidLayer
             )
             let reservedTexture = makeTexture(
                 device,
-                "procedural-dependency-reservation"
+                "solid-dependency-reservation"
             )
             let reserved = dependencyInput(
                 binding: binding,
@@ -1953,7 +1953,7 @@ enum Harness {
                     texture: reservedTexture
                 )
             )
-            results["proceduralDependencyExactReadyMatchIssuesTicket"] =
+            results["solidDependencyExactReadyMatchIssuesTicket"] =
                 exact.reasonCode == "encoded"
                 && exact.consumesExternalPrimaryDependency == true
 
@@ -1964,7 +1964,7 @@ enum Harness {
                 preparedDependencyEffect: reserved,
                 readyDependencyEffect: nil
             )
-            results["proceduralDependencyMissingReadyRejected"] =
+            results["solidDependencyMissingReadyRejected"] =
                 missing.reasonCode == "prepared-frame-consumption-rejected"
 
             let secondary = executeExternalDependency(
@@ -1978,7 +1978,7 @@ enum Harness {
                     variant: .secondary
                 )
             )
-            results["proceduralDependencySecondaryRejected"] =
+            results["solidDependencySecondaryRejected"] =
                 secondary.reasonCode == "prepared-frame-consumption-rejected"
 
             let wrongEffect = executeExternalDependency(
@@ -1996,7 +1996,7 @@ enum Harness {
                     )
                 )
             )
-            results["proceduralDependencyWrongEffectRejected"] =
+            results["solidDependencyWrongEffectRejected"] =
                 wrongEffect.reasonCode == "prepared-frame-consumption-rejected"
 
             let wrongPass = executeExternalDependency(
@@ -2014,7 +2014,7 @@ enum Harness {
                     )
                 )
             )
-            results["proceduralDependencyWrongPassRejected"] =
+            results["solidDependencyWrongPassRejected"] =
                 wrongPass.reasonCode == "prepared-frame-consumption-rejected"
         }
 
@@ -4330,7 +4330,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "prepared.texture===ready.texture",
         ):
             self.assertIn(contract, compact_execution)
-        self.assertIn("case.proceduralNoiseLayer:", compact_execution)
+        self.assertIn("case.solidLayer:", compact_execution)
         self.assertIn("binding.slot.passIndex==0", compact_execution)
         self.assertIn("binding.slot.slotIndex==3", compact_execution)
         self.assertIn("binding.blendMode==0", compact_execution)
@@ -4678,11 +4678,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "externalDependencyWrongBlendRejected",
                 "externalDependencyWrongEpochRejected",
                 "externalDependencyWrongObjectRejected",
-                "proceduralDependencyExactReadyMatchIssuesTicket",
-                "proceduralDependencyMissingReadyRejected",
-                "proceduralDependencySecondaryRejected",
-                "proceduralDependencyWrongEffectRejected",
-                "proceduralDependencyWrongPassRejected",
+                "solidDependencyExactReadyMatchIssuesTicket",
+                "solidDependencyMissingReadyRejected",
+                "solidDependencySecondaryRejected",
+                "solidDependencyWrongEffectRejected",
+                "solidDependencyWrongPassRejected",
                 "normalInvalidateHasNoGraphDiagnostic",
                 "stableHistoryAllocationClassifiesCopyOnWrite",
                 "descriptorChangeClassifiesAllocationReprepare",

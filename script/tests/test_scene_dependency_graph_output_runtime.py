@@ -67,7 +67,7 @@ struct SceneDependencyRenderPlan {
     struct Binding: Hashable {
         enum Kind: Hashable {
             case resolvedMaterial
-            case proceduralNoiseLayer
+            case solidLayer
             case imageLayerBlend
         }
 

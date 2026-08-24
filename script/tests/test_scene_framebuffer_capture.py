@@ -54,8 +54,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneGaussianBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
-    SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
-    SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline+Support.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
@@ -69,14 +67,12 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer+Capture.swift",
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
-    SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift",
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterWaves.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+ProceduralNoise.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+XRay.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift",
@@ -614,7 +610,6 @@ struct SceneBlendEffectTextures {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
-        case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
@@ -623,10 +618,8 @@ struct SceneBlendEffectTextures {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .proceduralNoise(let plan):
-                return plan.variant == .worleyColorV1
-                    && plan.dependencyProviderLayerID != nil
-                    && plan.dependencySlotIndex == 3
+            case .waterWaves, .xRay, .blend, .transform, .pulse:
+                return true
             default:
                 return false
             }
@@ -636,7 +629,6 @@ struct SceneBlendEffectTextures {
             switch self {
             case .preciseGaussian: "precise-gaussian"
             case .standardBlur: "standard-blur"
-            case .proceduralNoise: "procedural-noise"
             case .waterWaves: "water-waves"
             case .xRay: "x-ray"
             case .blend: "blend"
@@ -1337,12 +1329,6 @@ enum Harness {
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             blendMode: 5, alpha: 0.5
         )
-        let resolvedLegacyProceduralPrepared =
-            try resolvedLegacyProceduralPreparedEvidence(
-                device: device,
-                queue: queue,
-                pipeline: pipeline
-            )
         let solidTint = try layerTintPixel(
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             contentKind: "solid"
@@ -1450,7 +1436,6 @@ enum Harness {
             "normalDependencyBGRA": normalDependency,
             "darkenDependencyBGRA": darkenDependency,
             "darkenHalfAlphaBGRA": darkenHalfAlpha,
-            "resolvedLegacyProceduralPrepared": resolvedLegacyProceduralPrepared,
             "solidTintBGRA": solidTint,
             "imageTintBGRA": imageTint,
             "imageBrightnessBGRA": imageBrightness,
@@ -2493,146 +2478,6 @@ enum Harness {
             frameEpoch: frameEpoch,
             texture: texture
         )
-    }
-
-    static func resolvedLegacyProceduralPreparedEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline
-    ) throws -> [String: Any] {
-        let size = 8
-        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
-              let dependency = makeTexture(
-                  device: device, size: size, usage: .shaderRead
-              ),
-              let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
-        }
-        fill(source, bgra: [32, 64, 128, 128])
-        fill(dependency, bgra: [192, 32, 64, 255])
-
-        let stage = externalProceduralNoiseStage()
-        guard case let .proceduralNoise(noise) = stage.backend,
-              let providerLayerID = noise.dependencyProviderLayerID else {
-            throw HarnessError.drawRefused
-        }
-        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        let frameTables = try prepareStageTargets(
-            plan: stage,
-            pool: pool,
-            width: size,
-            height: size,
-            commandBuffer: commandBuffer
-        )
-        defer { frameTables.commit.releaseAll() }
-        guard let table = frameTables.tables.first else {
-            throw HarnessError.drawRefused
-        }
-        let pipelines = SceneAuthoredEffectPipelineSet(
-            repository: SceneImageEffectPipelineRepository(device: device)
-        )
-        func input(
-            provider: Int? = nil,
-            variant: SceneNamedTextureReference.Variant = .primary,
-            effectID: String? = nil,
-            passIndex: Int = 0,
-            slotIndex: Int = 3,
-            blendMode: Int = 0,
-            frameEpoch: UInt64 = 1
-        ) -> SceneDependencyEffectInput {
-            dependencyInput(
-                consumerLayerID: noise.layerID,
-                providerLayerID: provider ?? providerLayerID,
-                variant: variant,
-                effectID: effectID ?? noise.effectKey.descriptorID,
-                passIndex: passIndex,
-                slotIndex: slotIndex,
-                blendMode: blendMode,
-                frameEpoch: frameEpoch,
-                texture: dependency
-            )
-        }
-        func preparation(
-            dependencyEffect: SceneDependencyEffectInput?
-        ) -> SceneEffectStageRenderer.StagePreparation {
-            SceneEffectStageRenderer.prepareStage(
-                stage,
-                sourceTexture: table.inputTexture,
-                targets: table,
-                inputs: .init(
-                    masks: authoredEffectMasks(),
-                    dynamicValues: .empty(frameIndex: 1),
-                    pipelines: pipelines,
-                    cursorUV: .zero,
-                    previousCursorUV: .zero,
-                    pointerIsInside: false,
-                    previousPointerIsInside: false,
-                    pointerMovement: 0,
-                    primaryButtonIsDown: false,
-                    frameTime: 1 / 60,
-                    time: 0,
-                    audioSpectrum: .silent,
-                    dependencyEffect: dependencyEffect
-                ),
-                sourcePipeline: pipeline,
-                time: 0
-            )
-        }
-        func rejectionReason(
-            _ result: SceneEffectStageRenderer.StagePreparation
-        ) -> String? {
-            guard case let .rejected(reason) = result else { return nil }
-            return reason
-        }
-
-        let rejections = [
-            "missing": rejectionReason(preparation(dependencyEffect: nil)) ?? "accepted",
-            "provider": rejectionReason(preparation(
-                dependencyEffect: input(provider: providerLayerID + 1)
-            )) ?? "accepted",
-            "variant": rejectionReason(preparation(
-                dependencyEffect: input(variant: .secondary)
-            )) ?? "accepted",
-            "effect": rejectionReason(preparation(
-                dependencyEffect: input(effectID: "wrong-effect")
-            )) ?? "accepted",
-            "pass": rejectionReason(preparation(
-                dependencyEffect: input(passIndex: 1)
-            )) ?? "accepted",
-            "slot": rejectionReason(preparation(
-                dependencyEffect: input(slotIndex: 2)
-            )) ?? "accepted",
-            "blend": rejectionReason(preparation(
-                dependencyEffect: input(blendMode: 5)
-            )) ?? "accepted",
-            "epoch": rejectionReason(preparation(
-                dependencyEffect: input(frameEpoch: 0)
-            )) ?? "accepted",
-        ]
-        guard case let .ready(preparedStage) = preparation(
-            dependencyEffect: input()
-        ), SceneOffscreenEffectRenderer.captureSource(
-            sourceTexture: source,
-            target: table.inputTexture,
-            sourceUniforms: .neutral(),
-            pipeline: pipeline,
-            commandBuffer: commandBuffer
-        ), SceneEffectStageRenderer.encodePreparedStage(
-            preparedStage,
-            commandBuffer: commandBuffer
-        ) else {
-            throw HarnessError.drawRefused
-        }
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed,
-              commandBuffer.error == nil else { throw HarnessError.commandFailed }
-        let output = try textureBytes(table.outputTexture, queue: queue)
-        return [
-            "preparedStageEncoded": true,
-            "outputHasPixels": output.contains(where: { $0 != 0 }),
-            "rejections": rejections,
-        ]
     }
 
     static func layerTintPixel(
@@ -4023,89 +3868,6 @@ enum Harness {
         )
     }
 
-    static func externalProceduralNoiseStage()
-        -> SceneEffectStageExecutionPlan {
-        let layerID = 847
-        let effectKey = Graph.EffectKey(
-            layerID: layerID,
-            effectIndex: 0,
-            descriptorID: "\(layerID)#effect#0"
-        )
-        let input = graphTexture(.layerSource, layerID: layerID)
-        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
-        let node = Graph.Node(
-            nodeIndex: 0,
-            effect: effectKey,
-            definitionPassIndex: 0,
-            materialOrdinal: 0,
-            instancePassIndex: 0,
-            kind: .material,
-            materialPath: "materials/workshop/procedural_noise.json",
-            materialPassID: "materials/workshop/procedural_noise.json#0",
-            target: output,
-            bindings: [],
-            commandSource: nil,
-            commandTarget: nil,
-            compose: nil,
-            conditions: nil
-        )
-        let effect = Graph.Effect(
-            key: effectKey,
-            definitionPath:
-                "effects/workshop/2924967132/procedural_noise/effect.json",
-            input: input,
-            output: output,
-            nodeIndices: [0]
-        )
-        let graph = Graph(
-            layerID: layerID,
-            effects: [effect],
-            renderTargets: [],
-            nodes: [node],
-            finalOutput: output,
-            blockers: []
-        )
-        let noise = SceneProceduralNoiseExecutionPlan(
-            layerID: layerID,
-            effectKey: effectKey,
-            renderGraph: graph,
-            variant: .worleyColorV1,
-            scale: SIMD2(repeating: 1),
-            offset: .zero,
-            magnitude: SIMD2(repeating: 1),
-            thresholds: SIMD2(0, 1),
-            colorsMin: .zero,
-            colorsMax: SIMD3(repeating: 1),
-            opacity: 1,
-            exponent: 1,
-            fractals: 1,
-            fractalScale: 2,
-            fractalInfluence: 0.5,
-            gradient: 0,
-            seed: 0,
-            animationSpeed: 0,
-            scrollDirection: 0,
-            scrollSpeed: 0,
-            thresholdOffset: 0,
-            shiftAmount: 1,
-            depthFade: 1,
-            perspective01: SIMD4(0, 0, 1, 0),
-            perspective23: SIMD4(1, 1, 0, 1),
-            dependencyProviderLayerID: 1,
-            dependencySlotIndex: 3
-        )
-        let stage = SceneEffectStageExecutionPlan(
-            layerID: layerID,
-            renderGraph: graph,
-            backend: .proceduralNoise(noise),
-            materialNodeCount: 1,
-            logicalRenderTargetCount: 0
-        )
-        return stage
-    }
-
-
-
     static func authoredEffectMasks() -> SceneImageLayerMasks {
         SceneImageLayerMasks(
             blendEffects: [:],
@@ -4734,24 +4496,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assert_pixel_close(self.result["normalDependencyBGRA"], [112, 48, 96, 128])
         self.assert_pixel_close(self.result["darkenDependencyBGRA"], [32, 32, 64, 128])
         self.assert_pixel_close(self.result["darkenHalfAlphaBGRA"], [16, 16, 32, 64])
-
-    def test_legacy_procedural_stage_prepares_and_executes_with_exact_dependency(
-        self,
-    ) -> None:
-        prepared = self.result["resolvedLegacyProceduralPrepared"]
-        self.assertTrue(prepared["preparedStageEncoded"], prepared)
-        self.assertTrue(prepared["outputHasPixels"], prepared)
-        self.assertEqual(
-            set(prepared["rejections"]),
-            {"missing", "provider", "variant", "effect", "pass", "slot", "blend", "epoch"},
-        )
-        self.assertTrue(
-            all(
-                reason == "procedural-noise-dependency-missing"
-                for reason in prepared["rejections"].values()
-            ),
-            prepared,
-        )
 
     def test_layer_tint_is_applied_to_image_and_solid_content_on_gpu(self) -> None:
         self.assert_pixel_close(self.result["solidTintBGRA"], [191, 128, 64, 255])

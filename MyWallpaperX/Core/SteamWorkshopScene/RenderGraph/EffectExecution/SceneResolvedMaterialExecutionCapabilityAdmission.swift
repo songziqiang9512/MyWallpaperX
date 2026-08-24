@@ -263,7 +263,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             case let .externalPrimary(binding):
                 guard binding.consumerLayerID == layer.id,
                       binding.kind == .resolvedMaterial
-                        || binding.kind == .proceduralNoiseLayer else {
+                        || binding.kind == .solidLayer else {
                     return .failure(failure("execution-route-utility-shape"))
                 }
             case .graphInternal:

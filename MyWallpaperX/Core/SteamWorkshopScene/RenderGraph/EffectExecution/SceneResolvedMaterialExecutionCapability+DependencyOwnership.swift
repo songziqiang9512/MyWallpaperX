@@ -67,7 +67,7 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
             let supportedBinding = switch binding.kind {
             case .resolvedMaterial:
                 binding.slot.slotIndex == 1 && binding.blendMode == 0
-            case .proceduralNoiseLayer:
+            case .solidLayer:
                 binding.slot.passIndex == 0
                     && binding.slot.slotIndex == 3
                     && binding.blendMode == 0

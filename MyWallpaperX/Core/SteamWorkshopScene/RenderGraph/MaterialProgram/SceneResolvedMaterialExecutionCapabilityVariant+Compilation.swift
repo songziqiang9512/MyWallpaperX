@@ -248,7 +248,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     && Set(sourceActiveSamplers.keys) == graphInputTextureSlots,
             outputIsRGBA8Unorm: outputIsRGBA8Unorm,
             sourceColorTransfer: sourceColorTransfer,
-            outputSemantics: outputSemantics
+            outputSemantics: outputSemantics,
+            runtimeLoopBounds: runtimeLoopBounds
         )
         let frontend: SceneAuthoredShaderProgram
         let routeDecision:
@@ -598,10 +599,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         )
     }
 
-    /// Only a migrated generic-only profile may select the bounded frontend as
-    /// its explicit disable-generic rollback. If that shared rollback fails,
-    /// the generic product owner is exhausted and the Program-first chain must
-    /// not fall through to a retained dedicated implementation.
+    /// A migrated generic-only profile may select the bounded frontend as its
+    /// source-proven runtime-loop primary or explicit disable-generic rollback.
+    /// If that shared compiler fails, the generic product owner is exhausted
+    /// and Program-first must not revive a retained dedicated implementation.
     static func genericOwnerFailure(
         _ decision: SceneGenericShaderRouteDecision
     ) -> Failure.GenericOwnerFailure? {

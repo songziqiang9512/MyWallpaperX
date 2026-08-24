@@ -38,7 +38,10 @@ FRAME_PREFLIGHT_SOURCE = (
 EFFECT_EXECUTION_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
 )
-BACKEND_SOURCE = SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
+BACKEND_SOURCE = (
+    SOURCE_ROOT
+    / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
+)
 CAPABILITY_PROGRAM_FIRST_SOURCE = (
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
@@ -137,13 +140,6 @@ class SceneUtilityLayerTests(unittest.TestCase):
             backend,
             "retired Opacity owner must not remain a utility-capture backend",
         )
-        self.assertIn("case .proceduralNoise(let plan):", backend)
-        for contract in (
-            "plan.variant == .worleyColorV1",
-            "plan.dependencyProviderLayerID != nil",
-            "plan.dependencySlotIndex == 3",
-        ):
-            self.assertIn(contract, backend)
         self.assertNotIn(
             "case .simple = plan.profile",
             backend,
@@ -303,24 +299,24 @@ class SceneUtilityLayerTests(unittest.TestCase):
             metal_renderer,
         )
 
-    def test_procedural_noise_hidden_solid_provider_uses_source_texture_capture(self) -> None:
+    def test_hidden_solid_provider_uses_source_texture_capture(self) -> None:
         dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
         self.assertNotIn(
-            "case .resolvedMaterial, .proceduralNoiseLayer:",
+            "case .resolvedMaterial, .solidLayer:",
             dependency_runtime,
         )
         self.assertGreaterEqual(
-            dependency_runtime.count("case .proceduralNoiseLayer:"),
+            dependency_runtime.count("case .solidLayer:"),
             2,
         )
-        procedural_branch = dependency_runtime[
-            dependency_runtime.index("case .proceduralNoiseLayer:"):]
-        self.assertIn("guard let sourceTexture else", procedural_branch)
-        self.assertIn("uniforms.tint = SIMD4", procedural_branch)
-        self.assertIn("providerTexture.width", procedural_branch)
+        solid_branch = dependency_runtime[
+            dependency_runtime.index("case .solidLayer:"):]
+        self.assertIn("guard let sourceTexture else", solid_branch)
+        self.assertIn("uniforms.tint = SIMD4", solid_branch)
+        self.assertIn("providerTexture.width", solid_branch)
         self.assertIn(
-            'failureReason = "procedural-provider-texture-missing"',
-            procedural_branch,
+            'failureReason = "solid-provider-texture-missing"',
+            solid_branch,
         )
         self.assertIn('failureReason = "reservation-mismatch"', dependency_runtime)
         self.assertIn('failureReason = "frame-epoch-invalid"', dependency_runtime)

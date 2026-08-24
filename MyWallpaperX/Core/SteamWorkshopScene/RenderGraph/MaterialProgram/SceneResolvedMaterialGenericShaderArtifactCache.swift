@@ -224,18 +224,13 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         hasOnlyGraphInputSampler: Bool = false,
         outputIsRGBA8Unorm: Bool = false,
         sourceColorTransfer: SceneShaderColorTransfer? = nil,
-        outputSemantics: SceneGenericShaderOutputSemantics = .color
+        outputSemantics: SceneGenericShaderOutputSemantics = .color,
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
     ) -> Resolution {
         let colorTransfer = sourceColorTransfer
             ?? SceneAuthoredShaderColorTransferAnalyzer.analyze(
                 fragmentSource: fragmentSource
             )
-        let key = requestKey(
-            vertexSource: vertexSource,
-            fragmentSource: fragmentSource,
-            outputSemantics: outputSemantics,
-            colorTransfer: colorTransfer
-        )
         let conditionalStraightUnionSourceSlot =
             SceneAuthoredShaderColorTransferAnalyzer
                 .conditionalStraightUnionSourceSlot(
@@ -357,7 +352,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             outputIsRGBA8Unorm: outputIsRGBA8Unorm,
             hasStageScopedUniformBindings: SceneGenericShaderStageUniformAnalyzer.hasScopedBindings(
                 vertexSource: vertexSource,
-                fragmentSource: fragmentSource
+                fragmentSource: fragmentSource,
+                runtimeLoopBounds: runtimeLoopBounds
             ),
             hasStereoAudioSpectrumArrays: [16, 32, 64].contains { count in
                 activeAudioSpectrumArrays.isSuperset(of: [
@@ -368,6 +364,19 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             hasLocalizedMutableFragmentVarying:
                 normalizedRouteFacts?.localizedMutableFragmentVaryings.isEmpty
                     == false
+        )
+        let expectedColorTransfer = SceneGenericShaderExpectedColorTransfer(
+            colorTransfer,
+            fragmentSource: fragmentSource,
+            permitsStraightAlphaPreserving:
+                profile
+                    == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
+        )
+        let key = requestKey(
+            vertexSource: vertexSource,
+            fragmentSource: fragmentSource,
+            outputSemantics: outputSemantics,
+            expectedColorTransfer: expectedColorTransfer
         )
         let environment = ProcessInfo.processInfo.environment
         guard let routeState = routeState(
@@ -416,7 +425,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             vertexSource: vertexSource,
             fragmentSource: fragmentSource,
             outputSemantics: outputSemantics,
-            colorTransfer: colorTransfer
+            expectedColorTransfer: expectedColorTransfer
         )
         guard routeState == .preferGeneric || routeState == .genericOnly else {
             routeTelemetry.record(
@@ -544,16 +553,16 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         routeTelemetry.record(
             state: state,
             profile: profile,
-            outcome: state == .genericOnly ? "rejected" : "fallback",
+            outcome: profile.artifactFallbackOutcome(routeState: state),
             reason: code,
             requestKey: requestKey
         )
         return .unavailableOrDeferred(
             code: code,
             requestKey: requestKey,
-            permitsBoundedFrontend:
-                state != .genericOnly
-                    && profile.validatedRollbackOwner == .boundedFrontend,
+            permitsBoundedFrontend: profile.permitsBoundedFrontendAfterArtifactFailure(
+                routeState: state
+            ),
             routeDecision: makeRouteDecision(
                 profile: profile,
                 state: state.rawValue
@@ -652,7 +661,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         vertexSource: String,
         fragmentSource: String,
         outputSemantics: SceneGenericShaderOutputSemantics,
-        colorTransfer: SceneShaderColorTransfer
+        expectedColorTransfer: SceneGenericShaderExpectedColorTransfer?
     ) -> String {
         var data = Data()
         for value in [
@@ -661,10 +670,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             outputSemantics.rawValue,
             vertexSource,
             fragmentSource,
-            SceneGenericShaderExpectedColorTransfer(
-                colorTransfer,
-                fragmentSource: fragmentSource
-            )?.cacheKey ?? "-",
+            expectedColorTransfer?.cacheKey ?? "-",
             "{}",
         ] {
             let encoded = Data(value.utf8)
@@ -680,7 +686,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         vertexSource: String,
         fragmentSource: String,
         outputSemantics: SceneGenericShaderOutputSemantics,
-        colorTransfer: SceneShaderColorTransfer
+        expectedColorTransfer: SceneGenericShaderExpectedColorTransfer?
     ) {
         let environment = ProcessInfo.processInfo.environment
         guard let rawRoot = environment[requestEnvironment],
@@ -688,10 +694,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         let request = Request(
             requestID: key,
             outputSemantics: outputSemantics,
-            expectedColorTransfer: .init(
-                colorTransfer,
-                fragmentSource: fragmentSource
-            ),
+            expectedColorTransfer: expectedColorTransfer,
             stages: [
                 .init(stage: "vertex", entryPoint: "main", source: vertexSource),
                 .init(stage: "fragment", entryPoint: "main", source: fragmentSource),

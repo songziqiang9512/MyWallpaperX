@@ -404,4 +404,24 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             .boundedFrontend
         }
     }
+
+    /// This exact source-derived profile has a complete shared Swift frontend
+    /// owner. Falling back between shared compiler backends never revives a
+    /// retained dedicated product renderer.
+    func permitsBoundedFrontendAfterArtifactFailure(
+        routeState: SceneGenericShaderRouteState
+    ) -> Bool {
+        guard validatedRollbackOwner == .boundedFrontend else { return false }
+        return routeState != .genericOnly
+            || self
+                == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
+    }
+
+    func artifactFallbackOutcome(
+        routeState: SceneGenericShaderRouteState
+    ) -> String {
+        guard routeState == .genericOnly else { return "fallback" }
+        return permitsBoundedFrontendAfterArtifactFailure(routeState: routeState)
+            ? "shared-backend-fallback" : "rejected"
+    }
 }

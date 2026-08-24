@@ -4678,17 +4678,17 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             ),
         ]
         for fragment, facts, profile in cases:
-            with self.subTest(profile=profile), tempfile.TemporaryDirectory(
-                prefix="mwx-generic-artifact-test-"
-            ) as directory:
+            shared_backend = profile.endswith("-no-auxiliary")
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
                 root = Path(directory)
                 rejected, _, _, rejected_log = self.run_harness(
                     root, route="prefer-generic", fragment=fragment, **facts
                 )
                 self.assertEqual(rejected["status"], "unavailable")
-                self.assertFalse(rejected["permitsBoundedFrontend"])
+                self.assertEqual(rejected["permitsBoundedFrontend"], shared_backend)
                 self.assertIn(f"state=generic-only profile={profile}", rejected_log)
-                self.assertIn("outcome=rejected", rejected_log)
+                self.assertIn("outcome=shared-backend-fallback" if shared_backend else "outcome=rejected",
+                              rejected_log)
 
                 observed, _, _, _ = self.run_harness(
                     root, route="observe-only", fragment=fragment, **facts
@@ -5028,9 +5028,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             ),
         ]
         for fragment, facts, transfer, profile, needs_aux in cases:
-            with self.subTest(profile=profile), tempfile.TemporaryDirectory(
-                prefix="mwx-generic-artifact-test-"
-            ) as directory:
+            shared_backend = profile.endswith("-no-auxiliary")
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
                 root = Path(directory)
                 observed, _, cache, _ = self.run_harness(
                     root, route="observe-only", fragment=fragment, **facts
@@ -5059,9 +5058,10 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     root, route="prefer-generic", fragment=fragment, **facts
                 )
                 self.assertEqual(rejected["code"], "artifact-contract-rejected")
-                self.assertFalse(rejected["permitsBoundedFrontend"])
+                self.assertEqual(rejected["permitsBoundedFrontend"], shared_backend)
                 self.assertIn(
-                    f"profile={profile} outcome=rejected "
+                    f"profile={profile} outcome="
+                    f"{'shared-backend-fallback' if shared_backend else 'rejected'} "
                     "reason=artifact-contract-rejected",
                     rejected_log,
                 )

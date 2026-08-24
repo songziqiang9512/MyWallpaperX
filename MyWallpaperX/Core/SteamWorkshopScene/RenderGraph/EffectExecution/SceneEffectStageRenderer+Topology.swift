@@ -137,13 +137,6 @@ extension SceneEffectStageRenderer {
                 return "standard-blur-resource-missing"
             }
             return nil
-        case .proceduralNoise(let plan):
-            guard proceduralNoiseDependencyMatches(
-                inputs.dependencyEffect,
-                plan: plan
-            ) else { return "procedural-noise-dependency-missing" }
-            return pipelines.proceduralNoise == nil
-                ? "procedural-noise-pipeline-missing" : nil
         case .waterWaves(let plan):
             guard let resources = inputs.masks.waterWavesEffects[
                 plan.effectKey.descriptorID

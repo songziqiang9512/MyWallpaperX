@@ -61,11 +61,6 @@ extension SceneEffectProgramCompiler {
             (.standardBlur, {
                 SceneAuthoredStandardBlurPlanner.compile(input)
             }),
-            (.proceduralNoise, {
-                SceneAuthoredProceduralNoisePlanner.compile(input).mapAccepted {
-                    stage(.proceduralNoise($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.waterWaves, {
                 SceneAuthoredWaterWavesPlanner.compile(input).mapAccepted {
                     stage(.waterWaves($0), stageGraph: stageGraph, inputRole: inputRole)

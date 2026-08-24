@@ -192,6 +192,7 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderIndependentSignalLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderIndependentSignalCompositingLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderTypedDataRGBFilterLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderUnitPreviousBlurredCompositeLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderStageUniformAnalyzer.swift",
@@ -224,6 +225,7 @@
       "description": "Active shader schema, loop-bound resolution, sampler purpose, and reachability.",
       "includes": [],
       "sources": [
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialEffectIngress.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
@@ -277,7 +279,6 @@
       "description": "Authored material ingress, script binding classification, and immutable Template compilation.",
       "includes": [],
       "sources": [
-        "RenderGraph/MaterialProgram/SceneResolvedMaterialEffectIngress.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialScriptBindingClassifier.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift"
       ]
