@@ -174,7 +174,6 @@ enum SceneEffectStageAdmissionBuilder {
 extension SceneEffectStageExecutionPlan.Backend {
     nonisolated var stableName: String {
         switch self {
-        case .preciseGaussian: "precise-gaussian"
         case .standardBlur: "standard-blur"
         case .xRay: "x-ray"
         case .blend: "blend"

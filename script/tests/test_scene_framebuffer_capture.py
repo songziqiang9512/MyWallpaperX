@@ -51,7 +51,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureSlotBinding.swift",
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SOURCE_ROOT / "Rendering/SceneBaseImageTextureCandidateSupport.swift",
-    SOURCE_ROOT / "Effects/SceneGaussianBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
@@ -60,7 +59,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneLayerColorBlendPipeline.swift",
     SOURCE_ROOT / "Effects/ScenePulsePipeline.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
-    SOURCE_ROOT / "Effects/SceneGaussianBlurRuntimePlan.swift",
     SOURCE_ROOT / "Rendering/SceneTextureMappedUVScale.swift",
     SOURCE_ROOT / "Effects/SceneEffectStageRuntimeDisposition.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer.swift",
@@ -607,7 +605,6 @@ struct SceneBlendEffectTextures {
 
     struct SceneEffectStageExecutionPlan {
     enum Backend {
-        case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
@@ -625,7 +622,6 @@ struct SceneBlendEffectTextures {
 
         var stableName: String {
             switch self {
-            case .preciseGaussian: "precise-gaussian"
             case .standardBlur: "standard-blur"
             case .xRay: "x-ray"
             case .blend: "blend"
@@ -658,11 +654,6 @@ struct SceneBlendEffectTextures {
         self.inputRole = inputRole
     }
 
-    var gaussianBlur: SceneGaussianBlurPlan? {
-        guard case .preciseGaussian(let plan) = backend else { return nil }
-        return plan
-    }
-
     var standardBlur: SceneStandardBlurPlan? {
         guard case .standardBlur(let plan) = backend else { return nil }
         return plan
@@ -677,41 +668,15 @@ struct SceneBlendEffectTextures {
         return plan
     }
 
-    var requiresExactInputExtent: Bool {
-        if case .preciseGaussian = backend {
-            return !supportsUnifiedFullFrameComposeStage
-        }
-        return false
-    }
+    var requiresExactInputExtent: Bool { false }
 
     var supportsUnifiedLogicalTargetStage: Bool {
         switch backend {
-        case .preciseGaussian:
-            return logicalRenderTargetCount > 0
-                && !supportsUnifiedFullFrameComposeStage
         case .standardBlur:
             return true
         default:
             return false
         }
-    }
-
-    var supportsUnifiedFullFrameComposeStage: Bool {
-        guard case .preciseGaussian = backend,
-              logicalRenderTargetCount == 0,
-              renderGraph.renderTargets.isEmpty,
-              renderGraph.effects.count == 1,
-              let effect = renderGraph.effects.first,
-              renderGraph.nodes.count == 2 else { return false }
-        let nodes = renderGraph.nodes
-        return nodes[0].kind == .material
-            && nodes[0].target == effect.output
-            && nodes[0].bindings.isEmpty
-            && nodes[0].compose == .bool(true)
-            && nodes[1].kind == .material
-            && nodes[1].target == effect.output
-            && nodes[1].bindings.isEmpty
-            && nodes[1].compose == nil
     }
 
 }
@@ -925,132 +890,6 @@ enum Harness {
         commandBuffer.waitUntilCompleted()
     }
 
-    static func preciseBlurGraph(
-        layerID: Int = 10,
-        commandKind: Graph.NodeKind? = nil,
-        fullFrameCompose: Bool = false
-    ) -> Graph {
-        precondition(!fullFrameCompose || commandKind == nil)
-        let effectKey = Graph.EffectKey(
-            layerID: layerID,
-            effectIndex: 0,
-            descriptorID: "\(layerID)#effect#0"
-        )
-        let input = graphTexture(.layerSource, layerID: layerID)
-        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
-        let first = graphTexture(
-            .framebuffer,
-            layerID: layerID,
-            effect: effectKey,
-            name: "first"
-        )
-        let second = graphTexture(
-            .framebuffer,
-            layerID: layerID,
-            effect: effectKey,
-            name: "second"
-        )
-        let verticalInput = commandKind == nil ? first : second
-        let horizontal = Graph.Node(
-            nodeIndex: 0,
-            effect: effectKey,
-            definitionPassIndex: 0,
-            materialOrdinal: 0,
-            instancePassIndex: 0,
-            kind: .material,
-            materialPath: "materials/blur_precise_x.json",
-            materialPassID: "materials/blur_precise_x.json#0",
-            target: fullFrameCompose ? output : first,
-            bindings: [],
-            commandSource: nil,
-            commandTarget: nil,
-            compose: fullFrameCompose ? .bool(true) : nil,
-            conditions: nil
-        )
-        let vertical = Graph.Node(
-            nodeIndex: commandKind == nil ? 1 : 2,
-            effect: effectKey,
-            definitionPassIndex: commandKind == nil ? 1 : 2,
-            materialOrdinal: 1,
-            instancePassIndex: 1,
-            kind: .material,
-            materialPath: "materials/blur_precise_y.json",
-            materialPassID: "materials/blur_precise_y.json#0",
-            target: output,
-            bindings: fullFrameCompose ? [] : [
-                .init(
-                    slot: 0,
-                    authoredName: verticalInput.name,
-                    texture: verticalInput,
-                    conditions: nil
-                ),
-            ] + [
-                .init(slot: 1, authoredName: "previous", texture: input, conditions: nil),
-            ],
-            commandSource: nil,
-            commandTarget: nil,
-            compose: nil,
-            conditions: nil
-        )
-        var nodes = [horizontal]
-        if let commandKind {
-            nodes.append(Graph.Node(
-                nodeIndex: 1,
-                effect: effectKey,
-                definitionPassIndex: 1,
-                materialOrdinal: nil,
-                instancePassIndex: nil,
-                kind: commandKind,
-                materialPath: nil,
-                materialPassID: nil,
-                target: nil,
-                bindings: [],
-                commandSource: first,
-                commandTarget: second,
-                compose: nil,
-                conditions: nil
-            ))
-        }
-        nodes.append(vertical)
-        let effect = Graph.Effect(
-            key: effectKey,
-            definitionPath: "effects/blurprecise/effect.json",
-            input: input,
-            output: output,
-            nodeIndices: nodes.map(\.nodeIndex)
-        )
-        var renderTargets = fullFrameCompose ? [] : [
-            Graph.RenderTarget(
-                texture: first,
-                extent: .init(kind: .input, first: nil, second: nil),
-                format: "rgba_backbuffer",
-                declaredUnique: commandKind == .swap,
-                clear: nil,
-                uvs: nil,
-                conditions: nil
-            ),
-        ]
-        if let commandKind {
-            renderTargets.append(.init(
-                texture: second,
-                extent: .init(kind: .input, first: nil, second: nil),
-                format: "rgba_backbuffer",
-                declaredUnique: commandKind == .swap,
-                clear: nil,
-                uvs: nil,
-                conditions: nil
-            ))
-        }
-        return Graph(
-            layerID: layerID,
-            effects: [effect],
-            renderTargets: renderTargets,
-            nodes: nodes,
-            finalOutput: output,
-            blockers: []
-        )
-    }
-
     static func standardBlurGraph(
         layerID: Int = 530,
         effectIndex: Int = 0,
@@ -1134,30 +973,6 @@ enum Harness {
             nodes: nodes,
             finalOutput: output,
             blockers: []
-        )
-    }
-
-    static func authoredPreciseBlurPlan(
-        layerID: Int = 10,
-        commandKind: Graph.NodeKind? = nil,
-        fullFrameCompose: Bool = false
-    ) -> SceneEffectStageExecutionPlan {
-        let graph = preciseBlurGraph(
-            layerID: layerID,
-            commandKind: commandKind,
-            fullFrameCompose: fullFrameCompose
-        )
-        return SceneEffectStageExecutionPlan(
-            layerID: graph.layerID,
-            renderGraph: graph,
-            backend: .preciseGaussian(SceneGaussianBlurPlan(
-                horizontalStep: 1,
-                verticalStep: 1,
-                sampleResolutionScale: 1,
-                isPrecise: true
-            )),
-            materialNodeCount: 2,
-            logicalRenderTargetCount: graph.renderTargets.count
         )
     }
 
@@ -1327,16 +1142,6 @@ enum Harness {
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             blendMode: 14
         )
-        let authoredPreciseImpulse = try authoredPreciseBlurImpulseEvidence(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor
-        )
-        let gaussianKernelPixels = try gaussianKernelEvidence(
-            device: device,
-            queue: queue
-        )
         let authoredStandardCheckerboard = try authoredStandardBlurCheckerboardEvidence(
             device: device,
             queue: queue,
@@ -1410,8 +1215,6 @@ enum Harness {
             "dependencyBlendModeOffset": MemoryLayout<SceneLayerFragmentUniforms>.offset(
                 of: \SceneLayerFragmentUniforms.dependencyBlendMode
             ) ?? -1,
-            "authoredPreciseImpulse": authoredPreciseImpulse,
-            "gaussianKernelPixels": gaussianKernelPixels,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredStandardCandidate": authoredStandardCandidate,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
@@ -2534,269 +2337,6 @@ enum Harness {
 
 
 
-    static func authoredPreciseBlurImpulseEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor,
-        fullFrameCompose: Bool = false,
-        sourceSize: Int = 8,
-        maxDimension: Int = 8
-    ) throws -> [String: Any] {
-        let size = sourceSize
-        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
-              let target = makeTexture(
-                  device: device, size: size, usage: [.renderTarget, .shaderRead]
-              ),
-              let blurPipeline = SceneGaussianBlurPipeline(device: device) else {
-            throw HarnessError.metalUnavailable
-        }
-        fillPremultipliedImpulse(source)
-        let plan = authoredPreciseBlurPlan(fullFrameCompose: fullFrameCompose)
-        let table: SceneGraphRenderTargetTable
-        let intermediate: MTLTexture
-        var pairComposeTransitionCount = 0
-        var intermediateUsesOtherPairMember = false
-        if fullFrameCompose {
-            let targetSize = max(1, min(size, maxDimension))
-            guard let pairZero = makeTexture(
-                      device: device,
-                      size: targetSize,
-                      usage: [.renderTarget, .shaderRead],
-                      storageMode: .private
-                  ), let pairOne = makeTexture(
-                      device: device,
-                      size: targetSize,
-                      usage: [.renderTarget, .shaderRead],
-                      storageMode: .private
-                  ), case let .success(targetPlan) = SceneGraphRenderTargetPlan.make(
-                      graph: plan.renderGraph,
-                      inputRole: plan.inputRole,
-                      inputWidth: targetSize,
-                      inputHeight: targetSize
-                  ), case let .success(pairPlan) = SceneLayerFullFramePairPlan.make(
-                      conditionPrunedGraphs: [plan.renderGraph]
-                  ), let pairStep = pairPlan.effects.first,
-                  pairPlan.effects.count == 1,
-                  pairStep.inputMember == pairStep.outputMember,
-                  pairStep.composeTransitionCount == 1,
-                  pairStep.fullFrameOutputWriteCount == 2,
-                  pairStep.nodes.count == 2,
-                  pairStep.nodes[0].fullFrameWriteMember
-                    == pairStep.inputMember.opposite,
-                  pairStep.nodes[1].fullFrameWriteMember == pairStep.inputMember else {
-                throw HarnessError.drawRefused
-            }
-            let endpoint = pairStep.inputMember == .zero ? pairZero : pairOne
-            let other = pairStep.inputMember == .zero ? pairOne : pairZero
-            guard case let .success(mappedTable) = SceneGraphRenderTargetTable.makeMapped(
-                plan: targetPlan,
-                device: device,
-                texturesByIdentity: [
-                    targetPlan.input: endpoint,
-                    targetPlan.output: endpoint,
-                ],
-                fullFramePair: .init(first: pairZero, second: pairOne),
-                expectsInputOutputAlias: true
-            ), mappedTable.inputTexture === endpoint,
-               mappedTable.outputTexture === endpoint,
-               let captureBuffer = queue.makeCommandBuffer(),
-               SceneOffscreenEffectRenderer.captureSource(
-                   sourceTexture: source,
-                   target: endpoint,
-                   sourceUniforms: .neutral(),
-                   pipeline: pipeline,
-                   commandBuffer: captureBuffer
-               ) else {
-                throw HarnessError.drawRefused
-            }
-            captureBuffer.commit()
-            captureBuffer.waitUntilCompleted()
-            guard captureBuffer.status == .completed,
-                  captureBuffer.error == nil else { throw HarnessError.commandFailed }
-            table = mappedTable
-            intermediate = other
-            pairComposeTransitionCount = pairStep.composeTransitionCount
-            intermediateUsesOtherPairMember = other !== endpoint
-        } else {
-            let pool = SceneOffscreenTexturePool(
-                device: device,
-                maxDimension: maxDimension
-            )
-            let layer = SceneRenderDescriptor.Layer(
-                contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
-            )
-            let frameTables = try drawAuthoredBlur(
-                source: source,
-                target: target,
-                layer: layer,
-                plan: plan,
-                pool: pool,
-                queue: queue,
-                pipeline: pipeline,
-                compositor: compositor
-            )
-            guard frameTables.tables.count == 1,
-                  let explicitTable = frameTables.tables.first,
-                  let intermediateIdentity = explicitTable.plan.logicalTargets.first?.identity,
-                  let explicitIntermediate = explicitTable.texture(
-                      for: intermediateIdentity
-                  ) else {
-                throw HarnessError.drawRefused
-            }
-            table = explicitTable
-            intermediate = explicitIntermediate
-        }
-        let sourceBytes = try textureBytes(source, queue: queue)
-        let inputBytes = try textureBytes(table.inputTexture, queue: queue)
-        guard let blur = plan.gaussianBlur,
-        let referenceHorizontal = makeTexture(
-            device: device,
-            size: table.inputTexture.width,
-            usage: [.renderTarget, .shaderRead]
-        ),
-        let referenceOutput = makeTexture(
-            device: device,
-            size: table.inputTexture.width,
-            usage: [.renderTarget, .shaderRead]
-        ),
-        let targetNormalizedHorizontal = makeTexture(
-            device: device,
-            size: table.inputTexture.width,
-            usage: [.renderTarget, .shaderRead]
-        ),
-        let targetNormalizedOutput = makeTexture(
-            device: device,
-            size: table.inputTexture.width,
-            usage: [.renderTarget, .shaderRead]
-        ),
-        let commandBuffer = queue.makeCommandBuffer(), blurPipeline.encode(
-            source: table.inputTexture,
-            target: referenceHorizontal,
-            step: SIMD2(
-                blur.horizontalStep * blur.sampleResolutionScale / Float(size), 0
-            ),
-            commandBuffer: commandBuffer
-        ), blurPipeline.encode(
-            source: referenceHorizontal,
-            target: referenceOutput,
-            step: SIMD2(
-                0, blur.verticalStep * blur.sampleResolutionScale / Float(size)
-            ),
-            commandBuffer: commandBuffer
-        ), blurPipeline.encode(
-            source: table.inputTexture,
-            target: targetNormalizedHorizontal,
-            step: SIMD2(
-                blur.horizontalStep * blur.sampleResolutionScale
-                    / Float(table.inputTexture.width),
-                0
-            ),
-            commandBuffer: commandBuffer
-        ), blurPipeline.encode(
-            source: targetNormalizedHorizontal,
-            target: targetNormalizedOutput,
-            step: SIMD2(
-                0,
-                blur.verticalStep * blur.sampleResolutionScale
-                    / Float(table.inputTexture.height)
-            ),
-            commandBuffer: commandBuffer
-        ) else {
-            throw HarnessError.drawRefused
-        }
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
-
-        let preparedInputs = SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs(
-            masks: authoredEffectMasks(),
-            dynamicValues: .empty(frameIndex: 1),
-            pipelines: .init(
-                repository: SceneImageEffectPipelineRepository(device: device)
-            ),
-            cursorUV: .zero,
-            previousCursorUV: .zero,
-            pointerIsInside: false,
-            previousPointerIsInside: false,
-            pointerMovement: 0,
-            primaryButtonIsDown: false,
-            frameTime: 1 / 60,
-            time: 0,
-            audioSpectrum: .silent,
-            dependencyEffect: nil
-        )
-        guard let preparedBuffer = queue.makeCommandBuffer(),
-              case let .ready(preparedStage) =
-                SceneEffectStageRenderer.prepareStage(
-                    plan,
-                    sourceTexture: table.inputTexture,
-                    targets: table,
-                    inputs: preparedInputs,
-                    sourcePipeline: pipeline,
-                    time: 0
-                ),
-              SceneEffectStageRenderer.encodePreparedStage(
-                  preparedStage,
-                  commandBuffer: preparedBuffer
-              ) else {
-            throw HarnessError.drawRefused
-        }
-        preparedBuffer.commit()
-        preparedBuffer.waitUntilCompleted()
-        guard preparedBuffer.status == .completed,
-              preparedBuffer.error == nil else { throw HarnessError.commandFailed }
-
-        if fullFrameCompose {
-            guard let compositeBuffer = queue.makeCommandBuffer(),
-                  SceneOffscreenEffectRenderer.captureSource(
-                      sourceTexture: table.outputTexture,
-                      target: target,
-                      sourceUniforms: .neutral(),
-                      pipeline: pipeline,
-                      commandBuffer: compositeBuffer
-                  ) else { throw HarnessError.drawRefused }
-            compositeBuffer.commit()
-            compositeBuffer.waitUntilCompleted()
-            guard compositeBuffer.status == .completed,
-                  compositeBuffer.error == nil else { throw HarnessError.commandFailed }
-        }
-
-        let horizontalBytes = try textureBytes(intermediate, queue: queue)
-        let expectedHorizontalBytes = try textureBytes(referenceHorizontal, queue: queue)
-        let outputBytes = try textureBytes(table.outputTexture, queue: queue)
-        let expectedOutputBytes = try textureBytes(referenceOutput, queue: queue)
-        let targetNormalizedOutputBytes = try textureBytes(
-            targetNormalizedOutput,
-            queue: queue
-        )
-        let mainBytes = try textureBytes(target, queue: queue)
-        return [
-            "encoded": true,
-            "preparedStageEncoded": true,
-            "sourceWidth": source.width,
-            "inputWidth": table.inputTexture.width,
-            "logicalTargetCount": table.plan.logicalTargets.count,
-            "inputOutputAliased": table.inputOutputAliased,
-            "intermediateUsesOtherPairMember": intermediateUsesOtherPairMember,
-            "pairComposeTransitionCount": pairComposeTransitionCount,
-            "inputMaxDelta": maxDifference(inputBytes, sourceBytes),
-            "horizontalMaxDelta": maxDifference(
-                horizontalBytes, expectedHorizontalBytes
-            ),
-            "outputMaxDelta": maxDifference(outputBytes, expectedOutputBytes),
-            "targetNormalizedOutputDelta": maxDifference(
-                outputBytes, targetNormalizedOutputBytes
-            ),
-            "mainMaxDelta": maxDifference(mainBytes, expectedOutputBytes),
-            "horizontalToOutputDelta": maxDifference(horizontalBytes, outputBytes),
-            "sourceToOutputDelta": maxDifference(sourceBytes, outputBytes),
-            "sourceHasMixedAlpha": hasMixedAlpha(sourceBytes),
-            "outputHasPixels": outputBytes.contains(where: { $0 != 0 }),
-            "outputIsPremultiplied": isPremultiplied(outputBytes),
-        ]
-    }
-
     static func authoredStandardBlurCheckerboardEvidence(
         device: MTLDevice,
         queue: MTLCommandQueue,
@@ -3832,75 +3372,6 @@ enum Harness {
         return device.makeTexture(descriptor: descriptor)
     }
 
-    static func gaussianKernelEvidence(
-        device: MTLDevice,
-        queue: MTLCommandQueue
-    ) throws -> [String: Any] {
-        let size = 9
-        guard let pipeline = SceneGaussianBlurPipeline(device: device),
-              let source = makeTexture(
-                  device: device,
-                  size: size,
-                  usage: [.shaderRead, .renderTarget]
-              ) else {
-            throw HarnessError.drawRefused
-        }
-        fillPixels(source) { x, y in
-            x == size / 2 && y == size / 2
-                ? [255, 255, 255, 255]
-                : [0, 0, 0, 0]
-        }
-        func render(_ kernel: SceneGaussianBlurKernel) throws -> [UInt8] {
-            guard let target = makeTexture(
-                      device: device,
-                      size: size,
-                      usage: [.shaderRead, .renderTarget]
-                  ),
-                  let commandBuffer = queue.makeCommandBuffer(),
-                  pipeline.encode(
-                      source: source,
-                      target: target,
-                      step: SIMD2(1 / Float(size), 0),
-                      kernel: kernel,
-                      commandBuffer: commandBuffer
-                  ) else {
-                throw HarnessError.drawRefused
-            }
-            commandBuffer.commit()
-            commandBuffer.waitUntilCompleted()
-            guard commandBuffer.status == .completed else {
-                throw HarnessError.commandFailed
-            }
-            return try textureBytes(target, queue: queue)
-        }
-        let large = try render(.large)
-        let medium = try render(.medium)
-        let small = try render(.small)
-        func alphaRow(_ bytes: [UInt8]) -> [UInt8] {
-            (0..<size).map { x in
-                bytes[(((size / 2) * size + x) * 4) + 3]
-            }
-        }
-        return [
-            "largeAlpha": alphaRow(large),
-            "mediumAlpha": alphaRow(medium),
-            "smallAlpha": alphaRow(small),
-            "allPremultiplied": [large, medium, small].allSatisfy(isPremultiplied),
-        ]
-    }
-
-    static func fillPremultipliedImpulse(_ texture: MTLTexture) {
-        fillPixels(texture) { x, y in
-            switch (x, y) {
-            case (1, 1): return [0, 0, 224, 255]
-            case (5, 2): return [96, 0, 0, 128]
-            case (2, 6): return [0, 48, 0, 64]
-            case (6, 5): return [0, 180, 180, 255]
-            default: return [0, 0, 0, 0]
-            }
-        }
-    }
-
     static func fillPremultipliedCheckerboard(_ texture: MTLTexture) {
         let colors: [[UInt8]] = [
             [0, 0, 96, 255],
@@ -4455,29 +3926,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             2,
         )
 
-
-    def test_precise_graph_blur_runs_horizontal_then_vertical_on_mixed_alpha(self) -> None:
-        evidence = self.result["authoredPreciseImpulse"]
-        self.assertTrue(evidence["encoded"])
-        self.assertTrue(evidence["preparedStageEncoded"])
-        self.assertEqual(evidence["logicalTargetCount"], 1)
-        self.assertFalse(evidence["inputOutputAliased"])
-        self.assertTrue(evidence["sourceHasMixedAlpha"])
-        self.assertTrue(evidence["outputHasPixels"])
-        self.assertTrue(evidence["outputIsPremultiplied"])
-        for key in ("inputMaxDelta", "horizontalMaxDelta", "outputMaxDelta"):
-            self.assertLessEqual(evidence[key], 1, (key, evidence))
-        self.assertLessEqual(evidence["mainMaxDelta"], 2, evidence)
-        self.assertGreater(evidence["horizontalToOutputDelta"], 2, evidence)
-        self.assertGreater(evidence["sourceToOutputDelta"], 20, evidence)
-
-    def test_gaussian_kernel_variants_use_distinct_bounded_support(self) -> None:
-        evidence = self.result["gaussianKernelPixels"]
-        self.assertTrue(evidence["allPremultiplied"], evidence)
-        self.assertEqual(evidence["mediumAlpha"], [0, 4, 24, 60, 80, 60, 24, 4, 0])
-        self.assertEqual(evidence["smallAlpha"], [0, 0, 0, 64, 128, 64, 0, 0, 0])
-        self.assertNotEqual(evidence["largeAlpha"], evidence["mediumAlpha"])
-        self.assertNotEqual(evidence["largeAlpha"], evidence["smallAlpha"])
 
     def test_standard_graph_blur_runs_full_ping_pong_chain_on_mixed_alpha(self) -> None:
         evidence = self.result["authoredStandardCheckerboard"]

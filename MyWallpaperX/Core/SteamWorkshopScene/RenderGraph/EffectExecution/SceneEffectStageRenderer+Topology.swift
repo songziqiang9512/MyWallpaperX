@@ -123,9 +123,6 @@ extension SceneEffectStageRenderer {
     ) -> String? {
         let pipelines = inputs.pipelines
         switch stage.backend {
-        case .preciseGaussian:
-            return pipelines.gaussianBlur == nil
-                ? "precise-gaussian-pipeline-missing" : nil
         case .standardBlur(let plan):
             guard pipelines.standardBlur != nil else {
                 return "standard-blur-pipeline-missing"

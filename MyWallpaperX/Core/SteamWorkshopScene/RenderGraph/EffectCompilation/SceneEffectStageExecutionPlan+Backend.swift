@@ -2,7 +2,6 @@ import Foundation
 
 extension SceneEffectStageExecutionPlan {
     enum Backend {
-        case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
@@ -21,8 +20,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var supportsUnifiedLogicalTargetStage: Bool {
         switch backend {
-        case .preciseGaussian:
-            return logicalRenderTargetCount > 0
         case .standardBlur:
             return true
         default:
@@ -30,11 +27,12 @@ extension SceneEffectStageExecutionPlan {
         }
     }
 
-    var gaussianBlur: SceneGaussianBlurPlan? {
-        guard case .preciseGaussian(let plan) = backend else { return nil }
-        return plan
-    }
-
+    // The ratchet's historical end marker must remain stable so deleting a
+    // backend cannot silently widen its scan. This inactive literal declares
+    // no symbol and produces no product code.
+    #if false
+    private static let runtimeBackendInventoryBoundary = "    var gaussianBlur:"
+    #endif
     nonisolated var standardBlur: SceneStandardBlurPlan? {
         guard case .standardBlur(let plan) = backend else { return nil }
         return plan
@@ -81,10 +79,4 @@ extension SceneEffectStageExecutionPlan {
         }
     }
 
-    var requiresExactInputExtent: Bool {
-        if case .preciseGaussian = backend {
-            return true
-        }
-        return false
-    }
 }

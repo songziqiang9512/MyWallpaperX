@@ -1905,7 +1905,7 @@ private func fullFrameComposeCatalog(
             graph: graph,
             demandIssueNodes: Set(graph.nodes.map(\.nodeIndex))
         ),
-        dedicatedStageFamilies: [firstKey: "precise-gaussian"]
+        dedicatedStageFamilies: [firstKey: "fixture-logical-target"]
     )
 }
 
@@ -3087,7 +3087,7 @@ private enum Harness {
                 graph: logicalGraph,
                 demandIssueNodes: [0, 1]
             ),
-            dedicatedStageFamilies: [firstKey: "precise-gaussian"],
+            dedicatedStageFamilies: [firstKey: "fixture-logical-target"],
             dedicatedGraphStageKeys: [firstKey]
         )
         let logicalWithoutAllowlist = Catalog(
@@ -3096,7 +3096,7 @@ private enum Harness {
                 graph: logicalGraph,
                 demandIssueNodes: [0, 1]
             ),
-            dedicatedStageFamilies: [firstKey: "precise-gaussian"]
+            dedicatedStageFamilies: [firstKey: "fixture-logical-target"]
         )
         let capturedMainLogicalDescriptor = logicalTargetDescriptor(
             capturedMain: true
@@ -3119,7 +3119,7 @@ private enum Harness {
                 graph: logicalGraph,
                 demandIssueNodes: [0, 1]
             ),
-            dedicatedStageFamilies: [firstKey: "precise-gaussian"],
+            dedicatedStageFamilies: [firstKey: "fixture-logical-target"],
             dedicatedGraphStageKeys: [firstKey]
         )
         let capturedMainLogicalWithoutSupportCandidates =
@@ -3134,7 +3134,7 @@ private enum Harness {
                 graph: logicalGraph,
                 demandIssueNodes: [0, 1]
             ),
-            dedicatedStageFamilies: [firstKey: "precise-gaussian"],
+            dedicatedStageFamilies: [firstKey: "fixture-logical-target"],
             dedicatedGraphStageKeys: [firstKey]
         )
         let capturedMainLogicalCapability = capturedMainLogicalCatalog
@@ -3158,7 +3158,7 @@ private enum Harness {
                 graph: uniqueLogicalGraph,
                 demandIssueNodes: [0, 1]
             ),
-            dedicatedStageFamilies: [firstKey: "precise-gaussian"],
+            dedicatedStageFamilies: [firstKey: "fixture-logical-target"],
             dedicatedGraphStageKeys: [firstKey]
         )
         let composeGraph = fullFrameComposeGraph()
@@ -6815,7 +6815,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "    nonisolated var supportsUnifiedLogicalTargetStage: Bool"
         )
         leaf_body = source[leaf_start:logical_start]
-        logical_end = source.index("\n    var gaussianBlur:", logical_start)
+        logical_end = source.index("\n    nonisolated var standardBlur:", logical_start)
         logical_body = source[logical_start:logical_end]
 
         for backend_name in (".blend", ".xRay", ".pulse"):
@@ -6828,8 +6828,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertNotIn(".spin", source)
         self.assertNotIn(".workshopAudioBars", leaf_body)
         self.assertNotIn("fisheyeZeroDistortion", leaf_body)
-        self.assertIn("case .preciseGaussian:", logical_body)
         self.assertIn("case .standardBlur:", logical_body)
+        self.assertNotIn("preciseGaussian", source)
         self.assertNotIn("case .localContrast:", logical_body)
         self.assertNotIn("case .godrays", logical_body)
         dedicated_compilers = (

@@ -30,7 +30,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageProgram.swift",
     SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageAdmission.swift",
     SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift",
-    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneAuthoredPreciseBlurPlanner+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
     SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
@@ -86,20 +85,6 @@ struct SceneDocument {
 
 struct SceneEffectTextureInput {
     let name: String
-}
-
-enum SceneGaussianBlurKernel: Int {
-    case large = 0
-    case medium = 1
-    case small = 2
-}
-
-struct SceneGaussianBlurPlan {
-    let horizontalStep: Float
-    let verticalStep: Float
-    let sampleResolutionScale: Float
-    let isPrecise: Bool
-    let kernel: SceneGaussianBlurKernel
 }
 
 struct SceneXRayExecutionPlan {
@@ -238,24 +223,6 @@ extension HarnessDedicatedPlanner {
                     graph: input.stageGraph,
                     descriptor: input.descriptor,
                     shaderContracts: input.shaderContracts,
-                    inputRole: input.inputRole
-                )
-            }
-        )
-    }
-}
-
-extension SceneEffectStageExecutionPlanner {
-    nonisolated static func compile(
-        _ input: SceneEffectStageCompileInput
-    ) -> SceneEffectStageBackendCompileResult<SceneEffectStageExecutionPlan> {
-        SceneEffectStageDedicatedCompilerAdapter.compile(
-            backend: .preciseGaussian,
-            candidate: { false },
-            plan: {
-                plan(
-                    graph: input.stageGraph,
-                    descriptor: input.descriptor,
                     inputRole: input.inputRole
                 )
             }
@@ -1061,7 +1028,6 @@ enum Harness {
             let effectIndex = stage.renderGraph.effects[0].key.effectIndex
             let backend: String
             switch stage.backend {
-            case .preciseGaussian: backend = "preciseGaussian"
             case .standardBlur: backend = "standardBlur"
             case .xRay: backend = "xRay"
             case .blend: backend = "blend"
@@ -1073,56 +1039,6 @@ enum Harness {
     }
 
     static func main() throws {
-        let layers: [SceneRenderDescriptor.Layer] = [
-            .init(id: 10, parentID: nil, visible: true, contentKind: "text", effects: [instanceEffect(layerID: 10, scale: 1.28)]),
-            .init(id: 20, parentID: nil, visible: false, contentKind: "text", effects: [instanceEffect(layerID: 20, scale: 0.43)]),
-            .init(id: 21, parentID: 20, visible: true, contentKind: "text", effects: [instanceEffect(layerID: 21, scale: 1.33)]),
-            .init(id: 30, parentID: nil, visible: true, contentKind: "text", effects: [instanceEffect(layerID: 30, scale: 0.43)]),
-        ]
-        let descriptor = SceneRenderDescriptor(layers: layers, materialPasses: materials())
-        let visiblePlan = SceneEffectStageExecutionPlanner.plan(
-            graph: graph(layerID: 10), descriptor: descriptor
-        )!
-        let preciseBlur = visiblePlan.gaussianBlur!
-        let preciseRenderTargetPlan: SceneGraphRenderTargetPlan = {
-            switch SceneGraphRenderTargetPlan.make(
-                executionPlan: visiblePlan,
-                graph: visiblePlan.renderGraph,
-                inputWidth: 1279,
-                inputHeight: 719
-            ) {
-            case .success(let plan): return plan
-            case .failure(let failure):
-                fatalError("precise render target plan failed: \(failure.rawValue)")
-            }
-        }()
-        let preciseBackendMatched: Bool = {
-            if case .preciseGaussian = visiblePlan.backend { return true }
-            return false
-        }()
-        let badStateDescriptor = SceneRenderDescriptor(layers: layers, materialPasses: materials(blending: "additive"))
-        let badShaderDescriptor = SceneRenderDescriptor(layers: layers, materialPasses: materials(shader: "effects/unknown"))
-        let duplicateComboDescriptor = SceneRenderDescriptor(
-            layers: layers,
-            materialPasses: materials(verticalCombos: ["VERTICAL": 1, "vertical": 1, "ENABLEMASK": 1])
-        )
-        let dynamicScaleDescriptor = descriptorForLayer10(
-            effect: instanceEffect(layerID: 10, scale: 1.28, userBinding: "user.scale")
-        )
-        let outOfRangeScaleDescriptor = descriptorForLayer10(
-            effect: instanceEffect(layerID: 10, scale: -1)
-        )
-        let duplicateScaleDescriptor = descriptorForLayer10(
-            effect: instanceEffect(layerID: 10, scale: 1.28, duplicateScaleKey: true)
-        )
-        let threeComponentScaleDescriptor = descriptorForLayer10(
-            effect: instanceEffect(layerID: 10, scaleComponents: [1.28, 1.28, 1.28])
-        )
-        let missingMaterialDescriptor = SceneRenderDescriptor(layers: layers, materialPasses: [])
-        let blocker = Graph.Blocker(
-            effect: Graph.EffectKey(layerID: 10, effectIndex: 0, descriptorID: "10#effect#1"),
-            definitionPassIndex: nil, reason: .unsupportedCondition, detail: "fixture"
-        )
         let standardDescriptor = standardBlurDescriptor()
         let standardGraph = standardBlurGraph()
         let standardPlan = SceneAuthoredStandardBlurPlanner.plan(
@@ -1152,92 +1068,6 @@ enum Harness {
             if case .standardBlur = standardPlan.backend { return true }
             return false
         }()
-        let copyGraph = interleavedGraph(commandKind: .copy)
-        let swapGraph = interleavedGraph(commandKind: .swap)
-        let copyPlan = SceneEffectStageExecutionPlanner.plan(
-            graph: copyGraph, descriptor: descriptor
-        )
-        let swapPlan = SceneEffectStageExecutionPlanner.plan(
-            graph: swapGraph, descriptor: descriptor
-        )
-        let copyTargetPlan = copyPlan.flatMap { executionPlan -> SceneGraphRenderTargetPlan? in
-            guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
-                executionPlan: executionPlan,
-                graph: copyGraph,
-                inputWidth: 1920,
-                inputHeight: 1080
-            ) else { return nil }
-            return plan
-        }
-        let swapTargetPlan = swapPlan.flatMap { executionPlan -> SceneGraphRenderTargetPlan? in
-            guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
-                executionPlan: executionPlan,
-                graph: swapGraph,
-                inputWidth: 1920,
-                inputHeight: 1080
-            ) else { return nil }
-            return plan
-        }
-        let fullFrameComposeDescriptor = SceneRenderDescriptor(
-            layers: [
-                .init(
-                    id: 10, parentID: nil, visible: true, contentKind: "text",
-                    effects: [
-                        instanceEffect(
-                            layerID: 10, scale: 1.28, fullFrameCompose: true
-                        ),
-                    ]
-                ),
-            ],
-            materialPasses: materials(verticalCombos: ["VERTICAL": 1])
-        )
-        let fullFrameComposeGraph = graph(layerID: 10, fullFrameCompose: true)
-        let fullFrameComposePlan = SceneEffectStageExecutionPlanner.plan(
-            graph: fullFrameComposeGraph,
-            descriptor: fullFrameComposeDescriptor
-        )
-        let mediumPlan = SceneEffectStageExecutionPlanner.plan(
-            graph: graph(layerID: 10),
-            descriptor: descriptorForLayer10(
-                effect: instanceEffect(layerID: 10, kernel: 1)
-            )
-        )
-        let smallPlan = SceneEffectStageExecutionPlanner.plan(
-            graph: graph(layerID: 10),
-            descriptor: descriptorForLayer10(
-                effect: instanceEffect(layerID: 10, kernel: 2)
-            )
-        )
-        let mismatchedKernelRejected = SceneEffectStageExecutionPlanner.plan(
-            graph: graph(layerID: 10),
-            descriptor: descriptorForLayer10(
-                effect: instanceEffect(layerID: 10, kernel: 1, verticalKernel: 2)
-            )
-        ) == nil
-        let invalidKernelRejected = SceneEffectStageExecutionPlanner.plan(
-            graph: graph(layerID: 10),
-            descriptor: descriptorForLayer10(
-                effect: instanceEffect(layerID: 10, kernel: 3)
-            )
-        ) == nil
-        let actualMaskRejected = SceneEffectStageExecutionPlanner.plan(
-            graph: graph(layerID: 10),
-            descriptor: descriptorForLayer10(
-                effect: instanceEffect(
-                    layerID: 10,
-                    verticalExtraCombos: ["MASK": 1]
-                )
-            )
-        ) == nil
-        let blurAlphaRejected = SceneEffectStageExecutionPlanner.plan(
-            graph: graph(layerID: 10),
-            descriptor: descriptorForLayer10(
-                effect: instanceEffect(
-                    layerID: 10,
-                    horizontalExtraCombos: ["BLURALPHA": 1]
-                )
-            )
-        ) == nil
         let standardBadStateDescriptor = standardBlurDescriptor(
             materials: standardBlurMaterials(blending: "additive")
         )
@@ -1266,119 +1096,9 @@ enum Harness {
             SceneAuthoredStandardBlurPlanner.plan(graph: graph, descriptor: descriptor) == nil
         }
         let result: [String: Any] = [
-            "scale": [preciseBlur.horizontalStep, preciseBlur.verticalStep],
-            "nodes": visiblePlan.materialNodeCount,
-            "targets": visiblePlan.logicalRenderTargetCount,
-            "preciseGraphTargetCount": preciseRenderTargetPlan.logicalTargets.count,
-            "preciseGraphTargetExtents": preciseRenderTargetPlan.logicalTargets.map {
-                [$0.extent.width, $0.extent.height]
-            },
-            "preciseGraphIdentityMatched":
-                preciseRenderTargetPlan.layerID == visiblePlan.renderGraph.layerID
-                && preciseRenderTargetPlan.input == visiblePlan.renderGraph.effects[0].input
-                && preciseRenderTargetPlan.output == visiblePlan.renderGraph.finalOutput
-                && preciseRenderTargetPlan.logicalTargets.map(\.identity)
-                    == visiblePlan.renderGraph.renderTargets.map(\.texture),
-            "preciseBackendMatched": preciseBackendMatched
-                && visiblePlan.standardBlur == nil
-                && visiblePlan.requiresExactInputExtent,
-            "copyInterleavedPlanned": copyPlan?.logicalRenderTargetCount == 2
-                && copyTargetPlan?.commands.map(\.nodeIndex) == [1],
-            "swapInterleavedPlanned": swapPlan?.logicalRenderTargetCount == 2
-                && swapTargetPlan?.commands.map(\.nodeIndex) == [1]
-                && swapTargetPlan?.logicalTargets.filter(\.lifetime.requiresHistorySeed).count == 1,
-            "fullFrameComposeDedicatedRejected": fullFrameComposePlan == nil,
-            "fullFrameComposeRawGraph":
-                fullFrameComposeGraph.renderTargets.isEmpty
-                && fullFrameComposeGraph.nodes.count == 2
-                && fullFrameComposeGraph.nodes.allSatisfy {
-                    $0.target == fullFrameComposeGraph.finalOutput
-                        && $0.bindings.isEmpty
-                }
-                && fullFrameComposeGraph.nodes[0].compose == .bool(true)
-                && fullFrameComposeGraph.nodes[1].compose == nil,
-            "fullFrameComposeFalseRejected": SceneEffectStageExecutionPlanner.plan(
-                graph: graph(
-                    layerID: 10,
-                    fullFrameCompose: true,
-                    firstCompose: .bool(false)
-                ),
-                descriptor: fullFrameComposeDescriptor
-            ) == nil,
-            "fullFrameComposeStringRejected": SceneEffectStageExecutionPlanner.plan(
-                graph: graph(
-                    layerID: 10,
-                    fullFrameCompose: true,
-                    firstCompose: .string("true")
-                ),
-                descriptor: fullFrameComposeDescriptor
-            ) == nil,
-            "fullFrameComposeTerminalRejected": SceneEffectStageExecutionPlanner.plan(
-                graph: graph(
-                    layerID: 10,
-                    fullFrameCompose: true,
-                    firstCompose: nil,
-                    terminalCompose: .bool(true)
-                ),
-                descriptor: fullFrameComposeDescriptor
-            ) == nil,
-            "fullFrameComposeFramebufferRejected": SceneEffectStageExecutionPlanner.plan(
-                graph: graph(
-                    layerID: 10,
-                    fullFrameCompose: true,
-                    composeTargetsFramebuffer: true
-                ),
-                descriptor: fullFrameComposeDescriptor
-            ) == nil,
-            "fullFrameComposeBindingRejected": SceneEffectStageExecutionPlanner.plan(
-                graph: graph(
-                    layerID: 10,
-                    fullFrameCompose: true,
-                    fullFrameBinding: true
-                ),
-                descriptor: fullFrameComposeDescriptor
-            ) == nil,
-            "preciseKernels": [
-                preciseBlur.kernel.rawValue,
-                mediumPlan?.gaussianBlur?.kernel.rawValue ?? -1,
-                smallPlan?.gaussianBlur?.kernel.rawValue ?? -1,
-            ],
-            "mismatchedKernelRejected": mismatchedKernelRejected,
-            "invalidKernelRejected": invalidKernelRejected,
-            "maskAndBlurAlphaRejected": actualMaskRejected && blurAlphaRejected,
-            "lateCommandRejected": SceneEffectStageExecutionPlanner.plan(
-                graph: interleavedGraph(commandKind: .copy, commandAfterVertical: true),
-                descriptor: descriptor
-            ) == nil,
-            "composedCommandRejected": SceneEffectStageExecutionPlanner.plan(
-                graph: interleavedGraph(
-                    commandKind: .copy,
-                    commandCompose: .bool(true)
-                ),
-                descriptor: descriptor
-            ) == nil,
-            "swapSourceOnlyUniqueRejected": SceneEffectStageExecutionPlanner.plan(
-                graph: interleavedGraph(commandKind: .swap, targetUnique: false),
-                descriptor: descriptor
-            ) == nil,
-            "swapTargetOnlyUniqueRejected": SceneEffectStageExecutionPlanner.plan(
-                graph: interleavedGraph(commandKind: .swap, sourceUnique: false),
-                descriptor: descriptor
-            ) == nil,
             "precedence": resolverPrecedence(),
             "materialOnly": materialOnlyResolverEvidence(),
             "hiddenCapabilityAdmission": hiddenCapabilityAdmissionEvidence(),
-            "extraEffectRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10, extraEffect: true), descriptor: descriptor) == nil,
-            "blockerRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10, blockers: [blocker]), descriptor: descriptor) == nil,
-            "uniqueRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10, unique: true), descriptor: descriptor) == nil,
-            "bindingRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10, maskCombo: true), descriptor: descriptor) == nil,
-            "stateRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: badStateDescriptor) == nil,
-            "shaderRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: badShaderDescriptor) == nil,
-            "duplicateComboRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: duplicateComboDescriptor) == nil,
-            "dynamicScaleRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: dynamicScaleDescriptor) == nil,
-            "outOfRangeScaleRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: outOfRangeScaleDescriptor) == nil,
-            "duplicateScaleRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: duplicateScaleDescriptor) == nil,
-            "threeComponentScaleRejected": SceneEffectStageExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: threeComponentScaleDescriptor) == nil,
             "standardScale": [standardBlur.horizontalStep, standardBlur.verticalStep],
             "standardRTScale": standardBlur.renderTargetScale,
             "standardEffectDescriptorID": standardBlur.effectDescriptorID,
@@ -1397,9 +1117,7 @@ enum Harness {
                 && standardRenderTargetPlan.output == standardPlan.renderGraph.finalOutput
                 && standardRenderTargetPlan.logicalTargets.map(\.identity)
                     == standardPlan.renderGraph.renderTargets.map(\.texture),
-            "standardBackendMatched": standardBackendMatched
-                && standardPlan.gaussianBlur == nil
-                && !standardPlan.requiresExactInputExtent,
+            "standardBackendMatched": standardBackendMatched,
             "standardSupportsUtilityCapture": standardPlan.supportsUtilityCapture,
             "standardWrongExtentRejected": standardRejected(graph: standardBlurGraph(wrongExtent: true)),
             "standardWrongBindingRejected": standardRejected(graph: standardBlurGraph(wrongBinding: true)),
@@ -1487,43 +1205,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertIn("copyIdentityOutput(", x_ray)
         self.assertIn('encoder.label = "Scene X-Ray identity output"', x_ray)
 
-    def test_only_effectively_visible_complete_graph_is_planned(self) -> None:
-        self.assertEqual(self.result["nodes"], 2)
-        self.assertEqual(self.result["targets"], 1)
-        self.assertAlmostEqual(self.result["scale"][0], 1.28, places=5)
-        self.assertAlmostEqual(self.result["scale"][1], 1.28, places=5)
-        self.assertEqual(self.result["preciseGraphTargetCount"], 1)
-        self.assertEqual(self.result["preciseGraphTargetExtents"], [[1279, 719]])
-        self.assertTrue(self.result["preciseGraphIdentityMatched"])
-        self.assertTrue(self.result["preciseBackendMatched"])
-
-    def test_precise_blur_accepts_only_ordered_copy_swap_interleave(self) -> None:
-        self.assertTrue(self.result["copyInterleavedPlanned"])
-        self.assertTrue(self.result["swapInterleavedPlanned"])
-        self.assertTrue(self.result["lateCommandRejected"])
-        self.assertTrue(self.result["composedCommandRejected"])
-        self.assertTrue(self.result["swapSourceOnlyUniqueRejected"])
-        self.assertTrue(self.result["swapTargetOnlyUniqueRejected"])
-
-    def test_precise_blur_accepts_all_bounded_kernel_sizes(self) -> None:
-        self.assertEqual(self.result["preciseKernels"], [0, 1, 2])
-        self.assertTrue(self.result["mismatchedKernelRejected"])
-        self.assertTrue(self.result["invalidKernelRejected"])
-        self.assertTrue(self.result["maskAndBlurAlphaRejected"])
-
-    def test_precise_full_frame_compose_profile_fails_closed(self) -> None:
-        self.assertTrue(self.result["fullFrameComposeDedicatedRejected"])
-        self.assertTrue(self.result["fullFrameComposeRawGraph"])
-        for key in (
-            "fullFrameComposeFalseRejected",
-            "fullFrameComposeStringRejected",
-            "fullFrameComposeTerminalRejected",
-            "fullFrameComposeFramebufferRejected",
-            "fullFrameComposeBindingRejected",
-            "composedCommandRejected",
-        ):
-            self.assertTrue(self.result[key], key)
-
     def test_default_standard_blur_graph_is_planned(self) -> None:
         self.assertEqual(self.result["standardNodes"], 4)
         self.assertEqual(self.result["standardTargets"], 2)
@@ -1599,22 +1280,6 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertEqual(evidence["unownedStageCount"], 0)
         self.assertEqual(evidence["incompleteStageCount"], 0)
 
-    def test_unsupported_graph_shapes_fail_closed(self) -> None:
-        for key in (
-            "extraEffectRejected",
-            "blockerRejected",
-            "uniqueRejected",
-            "bindingRejected",
-            "stateRejected",
-            "shaderRejected",
-            "duplicateComboRejected",
-            "dynamicScaleRejected",
-            "outOfRangeScaleRejected",
-            "duplicateScaleRejected",
-            "threeComponentScaleRejected",
-        ):
-            self.assertTrue(self.result[key], key)
-
     def test_unsupported_standard_blur_shapes_fail_closed(self) -> None:
         rejection_keys = (
             "standardWrongExtentRejected",
@@ -1630,16 +1295,18 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         for key in rejection_keys:
             self.assertTrue(self.result[key], key)
 
-    def test_precise_blur_dedicated_planner_is_only_a_test_oracle(self) -> None:
-        compiler = PROGRAM_COMPILER_SOURCE.read_text(encoding="utf-8")
-        self.assertNotIn(
-            "SceneEffectStageExecutionPlanner.compile(input)",
-            compiler,
+    def test_precise_blur_dedicated_owner_family_is_absent(self) -> None:
+        product_sources = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in SOURCE_ROOT.rglob("*.swift")
         )
-        self.assertIn(
-            "Authored two-pass/FBO blur is owned by MaterialProgram",
-            compiler,
-        )
+        for marker in (
+            "SceneEffectStageExecutionPlanner",
+            "preciseGaussian",
+            "SceneGaussianBlurPipeline",
+            "SceneGaussianBlurPlan",
+        ):
+            self.assertNotIn(marker, product_sources)
 
     def test_later_authored_stages_retain_required_resources(self) -> None:
         source = DRAW_REQUEST_SOURCE.read_text(encoding="utf-8")

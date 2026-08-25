@@ -36,7 +36,6 @@ nonisolated struct SceneEffectStageCompileInput {
 /// Compiler identity is separate from the runtime backend because two ordered
 /// compiler probes may intentionally produce the same execution backend.
 nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable {
-    case preciseGaussian = "precise-gaussian"
     case standardBlur = "standard-blur"
     case xRay = "x-ray"
     case blend

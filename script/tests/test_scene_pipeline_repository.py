@@ -38,7 +38,6 @@ final class Counter {
     }
 }
 
-final class SceneGaussianBlurPipeline { init?(device: MTLDevice) {} }
 final class SceneStandardBlurPipeline { init?(device: MTLDevice) {} }
 final class SceneColorKeyPipeline { init?(device: MTLDevice) {} }
 final class SceneSpotLightPipeline { init?(device: MTLDevice) {} }

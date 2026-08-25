@@ -67,8 +67,7 @@ nonisolated struct SceneEffectStageProgram {
         runtimeBackend: SceneEffectStageExecutionPlan.Backend
     ) -> Bool {
         switch (compilerBackend, runtimeBackend) {
-        case (.preciseGaussian, .preciseGaussian),
-             (.standardBlur, .standardBlur),
+        case (.standardBlur, .standardBlur),
              (.xRay, .xRay),
              (.blend, .blend),
              (.transform, .transform),

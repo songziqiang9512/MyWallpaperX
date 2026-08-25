@@ -51,29 +51,6 @@ extension SceneEffectStageGraphCandidatePlanner {
     }
 }
 
-extension SceneEffectStageExecutionPlanner {
-    nonisolated static func compile(
-        _ input: SceneEffectStageCompileInput
-    ) -> SceneEffectStageBackendCompileResult<SceneEffectStageExecutionPlan> {
-        SceneEffectStageDedicatedCompilerAdapter.compile(
-            backend: .preciseGaussian,
-            candidate: {
-                containsAuthoredPreciseBlurCandidate(
-                    graph: input.stageGraph,
-                    descriptor: input.descriptor
-                )
-            },
-            plan: {
-                plan(
-                    graph: input.stageGraph,
-                    descriptor: input.descriptor,
-                    inputRole: input.inputRole
-                )
-            }
-        )
-    }
-}
-
 extension SceneAuthoredStandardBlurPlanner {
     nonisolated static func compile(
         _ input: SceneEffectStageCompileInput

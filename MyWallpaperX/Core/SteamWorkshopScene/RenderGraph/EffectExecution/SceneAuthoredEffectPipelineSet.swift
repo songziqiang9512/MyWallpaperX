@@ -2,7 +2,6 @@
 struct SceneAuthoredEffectPipelineSet {
     let repository: SceneImageEffectPipelineRepository
 
-    var gaussianBlur: SceneGaussianBlurPipeline? { repository.gaussianBlur() }
     var standardBlur: SceneStandardBlurPipeline? { repository.standardBlur() }
     var xRay: SceneXRayPipeline? { repository.xRay() }
     var blend: SceneBlendPipeline? { repository.blend() }

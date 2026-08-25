@@ -23,17 +23,6 @@ enum SceneEffectStageRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         switch stage.backend {
-        case .preciseGaussian:
-            guard let gaussianBlurPipeline = pipelines.gaussianBlur else { return nil }
-            return SceneOffscreenEffectRenderer.renderPreciseBlur(
-                executionPlan: stage,
-                sourceTexture: sourceTexture,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                gaussianBlurPipeline: gaussianBlurPipeline,
-                commandBuffer: commandBuffer
-            )
         case .standardBlur(let blur):
             guard let standardBlurPipeline = pipelines.standardBlur else { return nil }
             return SceneOffscreenEffectRenderer.renderStandardBlur(

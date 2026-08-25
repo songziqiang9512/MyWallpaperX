@@ -34,7 +34,6 @@ final class ScenePipelineSlot<Value>: @unchecked Sendable {
 final class SceneImageEffectPipelineRepository {
     let device: MTLDevice
 
-    private let gaussianBlurSlot: ScenePipelineSlot<SceneGaussianBlurPipeline>
     private let standardBlurSlot: ScenePipelineSlot<SceneStandardBlurPipeline>
     private let spotLightSlot: ScenePipelineSlot<SceneSpotLightPipeline>
     private let xRaySlot: ScenePipelineSlot<SceneXRayPipeline>
@@ -43,7 +42,6 @@ final class SceneImageEffectPipelineRepository {
 
     init(device: MTLDevice) {
         self.device = device
-        gaussianBlurSlot = .init { SceneGaussianBlurPipeline(device: device) }
         standardBlurSlot = .init { SceneStandardBlurPipeline(device: device) }
         spotLightSlot = .init { SceneSpotLightPipeline(device: device) }
         xRaySlot = .init { SceneXRayPipeline(device: device) }
@@ -51,7 +49,6 @@ final class SceneImageEffectPipelineRepository {
         pulseSlot = .init { ScenePulsePipeline(device: device) }
     }
 
-    func gaussianBlur() -> SceneGaussianBlurPipeline? { gaussianBlurSlot.resolve() }
     func standardBlur() -> SceneStandardBlurPipeline? { standardBlurSlot.resolve() }
     func spotLight() -> SceneSpotLightPipeline? { spotLightSlot.resolve() }
     func xRay() -> SceneXRayPipeline? { xRaySlot.resolve() }
