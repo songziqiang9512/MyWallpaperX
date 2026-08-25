@@ -53,7 +53,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneBaseImageTextureCandidateSupport.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
-    SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
     SOURCE_ROOT / "Rendering/SceneLayerColorBlendPipeline.swift",
@@ -68,7 +67,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift",
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+XRay.swift",
@@ -548,72 +546,20 @@ struct SceneTexContainerReader {
 
 struct SceneAuthoredShaderFrameInputs: Sendable {}
 
-enum SceneBlendShaderProfile {
-    case singleTextureV1
-}
-
-struct SceneBlendExecutionPlan {
-    let layerID: Int
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let shaderProfile: SceneBlendShaderProfile
-    let blendMode: Int
-    let multiply: Float
-    let alphaMultiply: Float
-    let writesAlpha: Bool
-    let assetTexturePath: String
-    let userPropertyKey: String?
-    let dependencyProviderLayerID: Int?
-
-    func resolvedMultiply(in snapshot: SceneDynamicSnapshot) -> Float {
-        multiply
-    }
-}
-
 struct SceneTransformExecutionPlan {
     let renderGraph: SceneAuthoredEffectRenderPlan
-}
-
-struct SceneBlendEffectTextures {
-    struct ResolvedArguments {
-        let blend: SceneTextureSlotBinding
-        let uvScale: SIMD2<Float>
-    }
-
-    let blendBinding: SceneTextureSlotBinding?
-    let assetPath: String
-    let propertyKey: String?
-
-    func resolvedArguments(for plan: SceneBlendExecutionPlan) -> ResolvedArguments? {
-        guard normalized(assetPath) == normalized(plan.assetTexturePath),
-              propertyKey == plan.userPropertyKey,
-              let blendBinding,
-              let uvScale = blendBinding.axisAlignedUVScale(
-                  expectedSlotIndex: 1,
-                  expectedPurpose: .premultipliedColor,
-                  allowedPixelFormats: [.rgba8Unorm, .bgra8Unorm]
-              ) else {
-            return nil
-        }
-        return ResolvedArguments(blend: blendBinding, uvScale: uvScale)
-    }
-
-    private func normalized(_ path: String) -> String {
-        path.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
 }
 
     struct SceneEffectStageExecutionPlan {
     enum Backend {
         case standardBlur(SceneStandardBlurPlan)
         case xRay(SceneXRayExecutionPlan)
-        case blend(SceneBlendExecutionPlan)
         case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .xRay, .blend, .transform, .pulse:
+            case .xRay, .transform, .pulse:
                 return true
             default:
                 return false
@@ -624,7 +570,6 @@ struct SceneBlendEffectTextures {
             switch self {
             case .standardBlur: "standard-blur"
             case .xRay: "x-ray"
-            case .blend: "blend"
             case .transform: "transform"
             case .pulse: "pulse"
             }
@@ -661,11 +606,6 @@ struct SceneBlendEffectTextures {
 
     var executionFamilyStableName: String {
         backend.stableName
-    }
-
-    var blend: SceneBlendExecutionPlan? {
-        guard case .blend(let plan) = backend else { return nil }
-        return plan
     }
 
     var requiresExactInputExtent: Bool { false }
@@ -866,10 +806,6 @@ struct PreparedStageTargets {
 @main
 enum Harness {
     typealias Graph = SceneAuthoredEffectRenderPlan
-
-    static let authoredBlendLayerID = 852
-    static let authoredBlendEffectID = "852#effect#0"
-    static let authoredBlendAssetPath = "materials/authored_blend_test.tex"
 
     static func graphTexture(
         _ kind: Graph.TextureKind,
@@ -1605,7 +1541,6 @@ enum Harness {
             xRay: SceneXRayEffectTextures? = nil
         ) -> SceneImageLayerMasks {
             SceneImageLayerMasks(
-                blendEffects: [:],
                 standardBlurEffects: standardBlurEffects,
                 pulseEffects: pulseEffects,
                 xRay: xRay
@@ -2672,7 +2607,6 @@ enum Harness {
         descriptorID: String
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            blendEffects: [:],
             standardBlurEffects: [
                 descriptorID: SceneStandardBlurEffectTextures(
                     maskCandidate: candidate,
@@ -3345,7 +3279,6 @@ enum Harness {
 
     static func authoredEffectMasks() -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            blendEffects: [:],
             standardBlurEffects: [:],
             pulseEffects: [:],
             xRay: nil
@@ -3533,7 +3466,6 @@ enum Harness {
         case queueUnavailable
         case imagePipelineUnavailable
         case compositorUnavailable
-        case authoredBlendUnavailable
         case encoderUnavailable
         case commandFailed
         case telemetryCompletionTimedOut

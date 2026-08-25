@@ -31,15 +31,8 @@ SUPPORT = PUBLICATION_FIXTURE["SUPPORT"] + r'''
 import simd
 
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
-struct SceneBlendExecutionPlan {
-    let layerID: Int
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let dependencyProviderLayerID: Int?
-}
 
 extension SceneEffectStageExecutionPlan {
-    var blend: SceneBlendExecutionPlan? { nil }
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
     var pulse: HarnessDedicatedAudioExecutionPlan? { nil }
 }

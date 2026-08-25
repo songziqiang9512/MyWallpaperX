@@ -4,6 +4,5 @@ struct SceneAuthoredEffectPipelineSet {
 
     var standardBlur: SceneStandardBlurPipeline? { repository.standardBlur() }
     var xRay: SceneXRayPipeline? { repository.xRay() }
-    var blend: SceneBlendPipeline? { repository.blend() }
     var pulse: ScenePulsePipeline? { repository.pulse() }
 }

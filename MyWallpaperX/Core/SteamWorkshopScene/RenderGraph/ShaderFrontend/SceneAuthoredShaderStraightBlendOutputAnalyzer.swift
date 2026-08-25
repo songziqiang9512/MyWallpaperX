@@ -18,10 +18,10 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
         fragment: Unit,
         main: Unit.Function
     ) -> Int? {
-        if let slot = SceneAuthoredShaderOverlayAlphaBlendAnalyzer.analyze(
+        if let slots = SceneAuthoredShaderOverlayAlphaBlendAnalyzer.analyze(
             outputUses: outputUses, fragment: fragment, main: main
         ) {
-            return slot
+            return slots.source
         }
         let tokens = fragment.tokens
         guard outputUses.count == 1,

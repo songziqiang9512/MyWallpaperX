@@ -37,7 +37,6 @@ final class SceneImageEffectPipelineRepository {
     private let standardBlurSlot: ScenePipelineSlot<SceneStandardBlurPipeline>
     private let spotLightSlot: ScenePipelineSlot<SceneSpotLightPipeline>
     private let xRaySlot: ScenePipelineSlot<SceneXRayPipeline>
-    private let blendSlot: ScenePipelineSlot<SceneBlendPipeline>
     private let pulseSlot: ScenePipelineSlot<ScenePulsePipeline>
 
     init(device: MTLDevice) {
@@ -45,13 +44,11 @@ final class SceneImageEffectPipelineRepository {
         standardBlurSlot = .init { SceneStandardBlurPipeline(device: device) }
         spotLightSlot = .init { SceneSpotLightPipeline(device: device) }
         xRaySlot = .init { SceneXRayPipeline(device: device) }
-        blendSlot = .init { SceneBlendPipeline(device: device) }
         pulseSlot = .init { ScenePulsePipeline(device: device) }
     }
 
     func standardBlur() -> SceneStandardBlurPipeline? { standardBlurSlot.resolve() }
     func spotLight() -> SceneSpotLightPipeline? { spotLightSlot.resolve() }
     func xRay() -> SceneXRayPipeline? { xRaySlot.resolve() }
-    func blend() -> SceneBlendPipeline? { blendSlot.resolve() }
     func pulse() -> ScenePulsePipeline? { pulseSlot.resolve() }
 }

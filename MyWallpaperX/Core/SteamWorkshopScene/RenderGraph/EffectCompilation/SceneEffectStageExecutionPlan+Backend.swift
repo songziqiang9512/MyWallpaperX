@@ -4,13 +4,12 @@ extension SceneEffectStageExecutionPlan {
     enum Backend {
         case standardBlur(SceneStandardBlurPlan)
         case xRay(SceneXRayExecutionPlan)
-        case blend(SceneBlendExecutionPlan)
         case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .xRay, .blend, .transform, .pulse:
+            case .xRay, .transform, .pulse:
                 return true
             default:
                 return false
@@ -43,11 +42,6 @@ extension SceneEffectStageExecutionPlan {
         return plan
     }
 
-    nonisolated var blend: SceneBlendExecutionPlan? {
-        guard case .blend(let plan) = backend else { return nil }
-        return plan
-    }
-
     nonisolated var transform: SceneTransformExecutionPlan? {
         guard case .transform(let plan) = backend else { return nil }
         return plan
@@ -64,7 +58,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {
         var targets = Set<SceneDynamicTarget>()
-        if let target = blend?.liveMultiplyTarget { targets.insert(target) }
         if let xRay { targets.formUnion(xRay.liveConsumerTargets) }
         if let pulse { targets.formUnion(pulse.liveConsumerTargets) }
         return targets

@@ -310,13 +310,6 @@ struct SceneEffectPassSlot: Hashable {
 }
 
 struct SceneXRayExecutionPlan {}
-
-struct SceneBlendExecutionPlan {
-    let layerID: Int
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let dependencyProviderLayerID: Int?
-}
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 
 struct SceneEffectStageExecutionPlan {
@@ -325,7 +318,6 @@ struct SceneEffectStageExecutionPlan {
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
     var xRay: SceneXRayExecutionPlan? = nil
-    var blend: SceneBlendExecutionPlan? = nil
     var supportsUnifiedLogicalTargetStage = false
     var supportsUnifiedHistoryTargetStage = false
     var supportsUnifiedFullFrameComposeStage = false
@@ -1499,35 +1491,8 @@ private func externalSolidCatalog(
     )
 }
 
-private func imageBlendProgram(
-    graph: Graph,
-    providerLayerID: Int?
-) -> SceneEffectStageProgram {
-    let effect = graph.effects[0]
-    let stageGraph = Graph(
-        layerID: layerID,
-        effects: [effect],
-        renderTargets: [],
-        nodes: graph.nodes.filter { $0.effect == effect.key },
-        finalOutput: effect.output,
-        blockers: []
-    )
-    return dedicatedProgram(
-        graph: graph,
-        effectIndex: 0,
-        inputRole: .layerSource,
-        blend: .init(
-            layerID: layerID,
-            effectKey: effect.key,
-            renderGraph: stageGraph,
-            dependencyProviderLayerID: providerLayerID
-        )
-    )
-}
-
 private func imageBlendCatalog(
     ownershipProviderLayerID: Int?,
-    dedicatedProviderLayerID: Int?,
     programAvailable: Bool
 ) -> Catalog {
     let graph = externalResolvedMaterialGraph()
@@ -1548,10 +1513,7 @@ private func imageBlendCatalog(
     let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
         descriptor: descriptor,
         authoredPlans: [graph],
-        dedicatedStagePrograms: [imageBlendProgram(
-            graph: graph,
-            providerLayerID: dedicatedProviderLayerID
-        )]
+        dedicatedStagePrograms: []
     )
     return Catalog(
         admissionCandidates: candidates,
@@ -1560,8 +1522,8 @@ private func imageBlendCatalog(
             omitNode: programAvailable ? nil : 0,
             namedProviderByNode: hasExternalOwnership ? [0: providerLayerID] : [:]
         ),
-        dedicatedStageFamilies: [firstKey: "blend"],
-        dedicatedLeafKeys: [firstKey]
+        dedicatedStageFamilies: [:],
+        dedicatedLeafKeys: []
     )
 }
 
@@ -1640,7 +1602,6 @@ private func dedicatedProgram(
     graph: Graph,
     effectIndex: Int,
     inputRole: SceneAuthoredEffectInputRole,
-    blend: SceneBlendExecutionPlan? = nil,
     logicalTargetStage: Bool = false,
     fullFrameComposeStage: Bool = false,
     supportsUtilityCapture: Bool = false
@@ -1664,7 +1625,6 @@ private func dedicatedProgram(
             logicalRenderTargetCount: logicalTargetStage
                 ? stageGraph.renderTargets.count : 0,
             inputRole: inputRole,
-            blend: blend,
             supportsUnifiedLogicalTargetStage: logicalTargetStage,
             supportsUnifiedFullFrameComposeStage: fullFrameComposeStage,
             supportsUtilityCapture: supportsUtilityCapture
@@ -2138,7 +2098,6 @@ private enum Harness {
         )
         let externalImageBlend = imageBlendCatalog(
             ownershipProviderLayerID: providerLayerID,
-            dedicatedProviderLayerID: providerLayerID,
             programAvailable: true
         )
         let externalImageBlendCapability = externalImageBlend
@@ -2146,17 +2105,10 @@ private enum Harness {
             .flatMap { externalImageBlend.resolve($0.token) }
         let externalImageBlendWithoutProgram = imageBlendCatalog(
             ownershipProviderLayerID: providerLayerID,
-            dedicatedProviderLayerID: providerLayerID,
             programAvailable: false
         )
         let standaloneImageBlend = imageBlendCatalog(
             ownershipProviderLayerID: nil,
-            dedicatedProviderLayerID: nil,
-            programAvailable: false
-        )
-        let unownedExternalImageBlend = imageBlendCatalog(
-            ownershipProviderLayerID: nil,
-            dedicatedProviderLayerID: providerLayerID,
             programAvailable: false
         )
         let solidGraph = externalResolvedMaterialGraph()
@@ -3664,15 +3616,11 @@ private enum Harness {
                         externalImageBlendWithoutProgram,
                         "material-template-unsupported"
                     ),
-                "standaloneImageBlendKeepsDedicatedOwner":
-                    standaloneImageBlend.claim(layerID: layerID).flatMap {
-                        standaloneImageBlend.resolve($0.token)
-                    }?.stages.compactMap(\.subject).map(\.family) == ["blend"],
-                "unownedExternalImageBlendRemainsRejected":
-                    unownedExternalImageBlend.claim(layerID: layerID) == nil
+                "standaloneImageBlendDoesNotReviveDedicatedOwner":
+                    standaloneImageBlend.claim(layerID: layerID) == nil
                     && reportHas(
-                        unownedExternalImageBlend,
-                        "execution-stage-conservation"
+                        standaloneImageBlend,
+                        "material-template-unsupported"
                     ),
                 "externalSolidAccepted":
                     externalSolidCapability?.stages.count == 1,
@@ -3891,12 +3839,6 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
 }
 
 struct SceneXRayExecutionPlan {}
-struct SceneBlendExecutionPlan {
-    let layerID: Int
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let renderGraph: SceneAuthoredEffectRenderPlan
-    let dependencyProviderLayerID: Int?
-}
 struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 
 struct SceneEffectStageExecutionPlan {
@@ -3905,7 +3847,6 @@ struct SceneEffectStageExecutionPlan {
     var materialNodeCount: Int { 0 }
     var xRay: SceneXRayExecutionPlan? = nil
     var inputRole: SceneAuthoredEffectInputRole { .layerSource }
-    var blend: SceneBlendExecutionPlan? { nil }
     var supportsUnifiedLogicalTargetStage = false
     var supportsUnifiedHistoryTargetStage = false
     var supportsUnifiedFullFrameComposeStage = false
@@ -6818,8 +6759,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         logical_end = source.index("\n    nonisolated var standardBlur:", logical_start)
         logical_body = source[logical_start:logical_end]
 
-        for backend_name in (".blend", ".xRay", ".pulse"):
+        for backend_name in (".xRay", ".pulse"):
             self.assertIn(backend_name, leaf_body)
+        self.assertNotIn(".blend", leaf_body)
         self.assertNotIn(".waterWaves", leaf_body)
         self.assertNotIn(".waterFlow", source)
         self.assertNotIn("yieldsToResolvedMaterialProgram", source)
@@ -6868,8 +6810,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             program_first.index("case let .failure(programFailure):"),
         )
         self.assertNotIn("externallyOwnedImageBlendProgram", program_first)
-        self.assertIn("isExternallyOwnedImageBlend(", program_first)
-        self.assertIn(
+        self.assertNotIn("isExternallyOwnedImageBlend(", program_first)
+        self.assertNotIn(
             "let hasDedicatedImageBlendDependencyStage = stages.contains",
             program_first,
         )
@@ -7493,8 +7435,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "externalResolvedMaterialDoesNotFallback": True,
                 "externalImageBlendUsesResolvedProgram": True,
                 "externalImageBlendDoesNotReviveDedicatedFallback": True,
-                "standaloneImageBlendKeepsDedicatedOwner": True,
-                "unownedExternalImageBlendRemainsRejected": True,
+                "standaloneImageBlendDoesNotReviveDedicatedOwner": True,
                 "externalSolidAccepted": True,
                 "externalSolidDoesNotFallback": True,
                 "externalSolidRejectsWrongProvider": True,

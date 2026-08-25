@@ -2,13 +2,11 @@ import Metal
 import simd
 
 struct SceneImageLayerMasks {
-    let blendEffects: [String: SceneBlendEffectTextures]
     let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
     let xRay: SceneXRayEffectTextures?
 
     static let empty = SceneImageLayerMasks(
-        blendEffects: [:],
         standardBlurEffects: [:],
         pulseEffects: [:],
         xRay: nil
@@ -16,7 +14,6 @@ struct SceneImageLayerMasks {
 
     static func xRayOnly(_ xRay: SceneXRayEffectTextures?) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            blendEffects: [:],
             standardBlurEffects: [:],
             pulseEffects: [:],
             xRay: xRay

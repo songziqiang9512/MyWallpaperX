@@ -41,8 +41,7 @@ final class Counter {
 final class SceneStandardBlurPipeline { init?(device: MTLDevice) {} }
 final class SceneColorKeyPipeline { init?(device: MTLDevice) {} }
 final class SceneSpotLightPipeline { init?(device: MTLDevice) {} }
-final class SceneXRayPipeline { init?(device: MTLDevice) {} }
-final class SceneBlendPipeline {
+final class SceneXRayPipeline {
     static let attempts = Counter()
     let deviceRegistryID: UInt64
 
@@ -62,21 +61,21 @@ final class ScenePulsePipeline {
 
 @main
 enum Harness {
-    static func concurrentBlend(
+    static func concurrentXRay(
         _ repository: SceneImageEffectPipelineRepository,
         count: Int
-    ) -> [SceneBlendPipeline] {
+    ) -> [SceneXRayPipeline] {
         let queue = DispatchQueue(
-            label: "scene.pipeline.repository.blend",
+            label: "scene.pipeline.repository.xray",
             attributes: .concurrent
         )
         let group = DispatchGroup()
         let lock = NSLock()
-        var values: [SceneBlendPipeline] = []
+        var values: [SceneXRayPipeline] = []
         for _ in 0..<count {
             group.enter()
             queue.async {
-                if let value = repository.blend() {
+                if let value = repository.xRay() {
                     lock.lock()
                     values.append(value)
                     lock.unlock()
@@ -117,19 +116,19 @@ enum Harness {
         }
         let first = SceneImageEffectPipelineRepository(device: device)
         let second = SceneImageEffectPipelineRepository(device: device)
-        let attemptsAfterConstruction = SceneBlendPipeline.attempts.read()
+        let attemptsAfterConstruction = SceneXRayPipeline.attempts.read()
             + ScenePulsePipeline.attempts.read()
 
-        let firstValues = concurrentBlend(first, count: 128)
+        let firstValues = concurrentXRay(first, count: 128)
         let firstIDs = Set(firstValues.map(ObjectIdentifier.init))
         let failedSuccesses = concurrentFailure(first, count: 128)
-        _ = second.blend()
+        _ = second.xRay()
 
         let result: [String: Any] = [
             "attemptsAfterConstruction": attemptsAfterConstruction,
-            "firstBlendValueCount": firstValues.count,
-            "firstBlendIdentityCount": firstIDs.count,
-            "blendAttemptsAcrossTwoRepositories": SceneBlendPipeline.attempts.read(),
+            "firstXRayValueCount": firstValues.count,
+            "firstXRayIdentityCount": firstIDs.count,
+            "xRayAttemptsAcrossTwoRepositories": SceneXRayPipeline.attempts.read(),
             "failedSuccesses": failedSuccesses,
             "failedAttempts": ScenePulsePipeline.attempts.read(),
             "deviceMatches": firstValues.allSatisfy {
@@ -177,9 +176,9 @@ class ScenePipelineRepositoryTests(unittest.TestCase):
             result = json.loads(completed.stdout)
 
         self.assertEqual(result["attemptsAfterConstruction"], 0)
-        self.assertEqual(result["firstBlendValueCount"], 128)
-        self.assertEqual(result["firstBlendIdentityCount"], 1)
-        self.assertEqual(result["blendAttemptsAcrossTwoRepositories"], 2)
+        self.assertEqual(result["firstXRayValueCount"], 128)
+        self.assertEqual(result["firstXRayIdentityCount"], 1)
+        self.assertEqual(result["xRayAttemptsAcrossTwoRepositories"], 2)
         self.assertEqual(result["failedSuccesses"], 0)
         self.assertEqual(result["failedAttempts"], 1)
         self.assertTrue(result["deviceMatches"])

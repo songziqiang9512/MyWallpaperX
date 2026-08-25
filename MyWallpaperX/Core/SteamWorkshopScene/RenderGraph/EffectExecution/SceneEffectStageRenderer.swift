@@ -35,8 +35,7 @@ enum SceneEffectStageRenderer {
                 standardBlurPipeline: standardBlurPipeline,
                 commandBuffer: commandBuffer
             )
-        case .xRay, .blend, .transform,
-             .pulse:
+        case .xRay, .transform, .pulse:
             return renderSpecializedStage(
                 stage, sourceTexture: sourceTexture, masks: masks,
 targets: targets, dynamicValues: dynamicValues,

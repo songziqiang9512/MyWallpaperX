@@ -2171,6 +2171,11 @@ private struct GenericShaderArtifactHarness {
                 (ProcessInfo.processInfo.environment["MWX_TEST_GRAPH_INPUT_SLOTS"] ?? "")
                     .split(separator: ",").compactMap { Int($0) }
             ),
+            typedStaticDataAuxiliarySlots: Set(
+                (ProcessInfo.processInfo.environment[
+                    "MWX_TEST_TYPED_STATIC_DATA_AUXILIARY_SLOTS"
+                ] ?? "").split(separator: ",").compactMap { Int($0) }
+            ),
             r8TextureSlots: Set(
                 (ProcessInfo.processInfo.environment["MWX_TEST_R8_SLOTS"] ?? "")
                     .split(separator: ",").compactMap { Int($0) }
@@ -2696,6 +2701,30 @@ void main() {
 }
 """
 
+OVERLAY_ALPHA_BLEND_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform float g_Opacity;
+uniform float g_AlphaMultiply;
+varying vec2 v_TexCoord;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return mix(base, blend, opacity);
+}
+void main() {
+    vec4 carrier = texSample2D(g_Texture0, v_TexCoord);
+    vec4 overlay = texSample2D(g_Texture1, v_TexCoord);
+    float weight = g_Opacity * overlay.a;
+    carrier.rgb = ApplyBlending(0, carrier.rgb, overlay.rgb, weight);
+    carrier.a = overlay.a * g_AlphaMultiply;
+    gl_FragColor = carrier;
+}
+"""
+
 PREMULTIPLIED_FRAGMENT = """
 uniform float g_Weight;
 vec3 ApplyBlending(
@@ -2805,6 +2834,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         source_independent_premultiplied_output: bool = False,
         graph_slots: tuple[int, ...] = (),
         graph_input_slots: tuple[int, ...] = (),
+        typed_static_data_auxiliary_slots: tuple[int, ...] = (),
         r8_slots: tuple[int, ...] = (),
         has_defaulted_opacity_mask: bool = False,
         has_typed_opacity_mask: bool = False,
@@ -2868,6 +2898,12 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             )
         else:
             environment.pop("MWX_TEST_GRAPH_INPUT_SLOTS", None)
+        if typed_static_data_auxiliary_slots:
+            environment["MWX_TEST_TYPED_STATIC_DATA_AUXILIARY_SLOTS"] = ",".join(
+                map(str, typed_static_data_auxiliary_slots)
+            )
+        else:
+            environment.pop("MWX_TEST_TYPED_STATIC_DATA_AUXILIARY_SLOTS", None)
         if r8_slots:
             environment["MWX_TEST_R8_SLOTS"] = ",".join(map(str, r8_slots))
         else:
@@ -5065,6 +5101,146 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     "reason=artifact-contract-rejected",
                     rejected_log,
                 )
+
+    def test_overlay_alpha_blend_uses_generic_only_shared_backends(self):
+        profile = "source-proven-graph-input-overlay-alpha-blend"
+        facts = {
+            "graph_input_slots": (0,),
+            "typed_static_data_auxiliary_slots": (1,),
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-generic-artifact-test-"
+        ) as directory:
+            root = Path(directory)
+            observed, _, cache, observed_log = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=OVERLAY_ALPHA_BLEND_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(observed["routeProfile"], profile)
+            self.assertEqual(observed["routeState"], "observe-only")
+            self.assertFalse(observed["permitsBoundedFrontend"])
+            self.assertIn(f"profile={profile} outcome=observed", observed_log)
+
+            artifact = self.artifact(
+                observed["requestKey"],
+                color_transfer="straight-alpha",
+                auxiliary_channel_use="unproven",
+            )
+            artifact_path = cache / f"{observed['requestKey']}.json"
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=OVERLAY_ALPHA_BLEND_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertEqual(accepted["backend"], "genericCompilerArtifact")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+            artifact["program"]["metalSourceSHA256"] = "0" * 64
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            fallback, _, _, fallback_log = self.run_harness(
+                root,
+                route=None,
+                fragment=OVERLAY_ALPHA_BLEND_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(fallback["code"], "artifact-contract-rejected")
+            self.assertTrue(fallback["permitsBoundedFrontend"])
+            self.assertEqual(fallback["fallbackOwner"], "bounded-frontend")
+            self.assertIn(
+                f"profile={profile} outcome=shared-backend-fallback ",
+                fallback_log,
+            )
+
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=f"{profile}=disable-generic",
+                fragment=OVERLAY_ALPHA_BLEND_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertEqual(rolled_back["fallbackOwner"], "bounded-frontend")
+            self.assertIn(
+                f"state=disable-generic profile={profile} outcome=fallback",
+                rollback_log,
+            )
+
+    def test_overlay_alpha_blend_profile_stays_structurally_narrow(self):
+        profile = "source-proven-graph-input-overlay-alpha-blend"
+        cases = [
+            (
+                OVERLAY_ALPHA_BLEND_FRAGMENT.replace(
+                    "carrier.a = overlay.a * g_AlphaMultiply;",
+                    "carrier.a = g_AlphaMultiply;",
+                ),
+                {
+                    "graph_input_slots": (0,),
+                    "typed_static_data_auxiliary_slots": (1,),
+                },
+            ),
+            (
+                OVERLAY_ALPHA_BLEND_FRAGMENT.replace(
+                    "texSample2D(g_Texture1, v_TexCoord)",
+                    "texSample2D(g_Texture0, v_TexCoord)",
+                ),
+                {
+                    "graph_input_slots": (0,),
+                    "typed_static_data_auxiliary_slots": (1,),
+                },
+            ),
+            (
+                OVERLAY_ALPHA_BLEND_FRAGMENT,
+                {
+                    "graph_input_slots": (0, 1),
+                    "typed_static_data_auxiliary_slots": (1,),
+                },
+            ),
+            (
+                OVERLAY_ALPHA_BLEND_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "typed_static_data_auxiliary_slots": (1,),
+                    "has_external_provider": True,
+                },
+            ),
+            (OVERLAY_ALPHA_BLEND_FRAGMENT, {"graph_input_slots": (0,)}),
+            (
+                OVERLAY_ALPHA_BLEND_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "typed_static_data_auxiliary_slots": (2,),
+                },
+            ),
+            (
+                OVERLAY_ALPHA_BLEND_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "typed_static_data_auxiliary_slots": (1, 2),
+                },
+            ),
+        ]
+        for fragment, facts in cases:
+            with self.subTest(facts=facts), tempfile.TemporaryDirectory(
+                prefix="mwx-generic-artifact-test-"
+            ) as directory:
+                result, _, _, log = self.run_harness(
+                    Path(directory),
+                    route=None,
+                    fragment=fragment,
+                    **facts,
+                )
+                self.assertNotEqual(result["routeProfile"], profile)
+                self.assertIn("state=prefer-generic", log)
 
     def test_preferred_graph_input_profiles_accept_generic_then_fallback_locally(
         self,

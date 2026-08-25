@@ -76,6 +76,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-alpha-attenuation"
     case sourceProvenGraphInputColorBlend =
         "source-proven-graph-input-color-blend"
+    case sourceProvenGraphInputOverlayAlphaBlend =
+        "source-proven-graph-input-overlay-alpha-blend"
     case sourceProvenGraphInputConditionalStraightUnion =
         "source-proven-graph-input-conditional-straight-union"
     case sourceProvenGraphInputSingleSamplerAlphaMutation =
@@ -101,6 +103,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         colorTransfer: SceneShaderColorTransfer,
         alphaAttenuationSourceSlot: Int?,
         colorBlendSourceSlot: Int?,
+        overlayAlphaBlendSourceSlot: Int? = nil,
+        overlayAlphaBlendAuxiliarySlot: Int? = nil,
         conditionalStraightUnionSourceSlot: Int?,
         singleSamplerAlphaMutationSourceSlot: Int?,
         sameSlotChannelReconstructionSourceSlot: Int?,
@@ -279,6 +283,16 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots.contains(sourceSlot) {
             self = .sourceProvenGraphInputAlphaAttenuation
         } else if case let .straightAlpha(sourceSlot) = colorTransfer,
+                  overlayAlphaBlendSourceSlot == sourceSlot,
+                  let overlaySlot = overlayAlphaBlendAuxiliarySlot,
+                  overlaySlot != sourceSlot,
+                  typedStaticDataAuxiliarySlots == Set([overlaySlot]),
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]) {
+            self = .sourceProvenGraphInputOverlayAlphaBlend
+        } else if case let .straightAlpha(sourceSlot) = colorTransfer,
                   singleSamplerAlphaMutationSourceSlot == sourceSlot,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
@@ -372,6 +386,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenUnitPreviousBlurredComposite,
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
+             .sourceProvenGraphInputOverlayAlphaBlend,
              .sourceProvenGraphInputConditionalStraightUnion,
              .sourceProvenGraphInputSingleSamplerAlphaMutation,
              .sourceProvenGraphInputSameSlotChannelReconstruction,
@@ -415,6 +430,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         return routeState != .genericOnly
             || self
                 == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
+            || self == .sourceProvenGraphInputOverlayAlphaBlend
     }
 
     func artifactFallbackOutcome(

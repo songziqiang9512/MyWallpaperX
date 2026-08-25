@@ -91,18 +91,24 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         )
     }
 
-    /// Returns the graph-input slot only for a bounded source-plus-auxiliary
-    /// RGB mix whose sampled alpha is carried unchanged to the sole output.
-    static func auxiliaryRGBMixSourceSlot(
+    /// Returns source-proven slots for the two bounded blend dataflows that
+    /// need narrower route authority than their resulting color contract.
+    static func blendSourceSlots(
         fragmentSource source: String
-    ) -> Int? {
+    ) -> (
+        auxiliaryRGB: Int?,
+        overlayAlpha: (source: Int, overlay: Int)?
+    ) {
         guard let (fragment, main, outputUses) = analyzedMain(source) else {
-            return nil
+            return (nil, nil)
         }
-        return SceneAuthoredShaderAuxiliaryRGBMixAnalyzer.analyze(
-            outputUses: outputUses,
-            fragment: fragment,
-            main: main
+        return (
+            SceneAuthoredShaderAuxiliaryRGBMixAnalyzer.analyze(
+                outputUses: outputUses, fragment: fragment, main: main
+            ),
+            SceneAuthoredShaderOverlayAlphaBlendAnalyzer.analyze(
+                outputUses: outputUses, fragment: fragment, main: main
+            )
         )
     }
 

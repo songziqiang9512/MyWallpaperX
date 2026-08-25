@@ -110,8 +110,6 @@ class SceneMetalView: NSView {
                 resolver: resolver,
                 loader: loader,
                 device: metalDevice,
-                userPropertyTextures: userPropertyTextureLoad.textures,
-                userPropertyTextureStates: userPropertyTextureLoad.providerStates,
                 straightAlbedoUserPropertyTextures: userPropertyTextureLoad.straightAlbedoTextures,
                 preservedUserPropertyTextures: userPropertyTextureLoad.preservedTextures
             )

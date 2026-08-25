@@ -148,26 +148,6 @@ extension SceneEffectStageRenderer {
             case .unsupported:
                 return "x-ray-runtime-unsupported"
             }
-        case .blend(let plan):
-            if let providerLayerID = plan.dependencyProviderLayerID {
-                guard let dependency = inputs.dependencyEffect,
-                      dependency.consumerLayerID == plan.layerID,
-                      dependency.providerLayerID == providerLayerID,
-                      dependency.variant == .primary,
-                      dependency.slot.effectID == plan.effectKey.descriptorID,
-                      dependency.slot.passIndex == 0,
-                      dependency.slot.slotIndex == 1,
-                      dependency.blendMode == plan.blendMode else {
-                    return "blend-dependency-mismatch"
-                }
-                return pipelines.blend == nil ? "blend-pipeline-missing" : nil
-            }
-            guard let resources = inputs.masks.blendEffects[
-                plan.effectKey.descriptorID
-            ], resources.resolvedArguments(for: plan) != nil else {
-                return "blend-resource-missing"
-            }
-            return pipelines.blend == nil ? "blend-pipeline-missing" : nil
         case .transform:
             return nil
         case .pulse(let plan):

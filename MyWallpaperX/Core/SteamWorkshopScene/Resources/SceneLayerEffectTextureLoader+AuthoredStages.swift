@@ -8,10 +8,6 @@ extension SceneLayerEffectTextureLoader {
         resolver: SceneTexturePathResolver,
         loader: SceneTextureLoader,
         device: MTLDevice,
-        userPropertyTextures: [String: MTLTexture],
-        userPropertyTextureStates: [
-            SceneUserPropertyTextureIdentity: SceneTextureProviderState
-        ],
         straightAlbedoUserPropertyTextures: [String: MTLTexture],
         preservedUserPropertyTextures: [String: MTLTexture]
     ) -> SceneLayerEffectTextures {
@@ -20,12 +16,9 @@ extension SceneLayerEffectTextureLoader {
             resolver: resolver,
             loader: loader,
             device: device,
-            blendEffectIDs: Set(stages.compactMap { $0.blend?.effectKey.descriptorID }),
             standardBlurEffectIDs: Set(stages.compactMap {
                 $0.standardBlur?.effectDescriptorID
             }),
-            userPropertyTextures: userPropertyTextures,
-            userPropertyTextureStates: userPropertyTextureStates,
             straightAlbedoUserPropertyTextures: straightAlbedoUserPropertyTextures,
             preservedUserPropertyTextures: preservedUserPropertyTextures
         )

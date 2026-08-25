@@ -13,7 +13,7 @@ nonisolated enum SceneAuthoredShaderOverlayAlphaBlendAnalyzer {
         outputUses: [Int],
         fragment: Unit,
         main: Unit.Function
-    ) -> Int? {
+    ) -> (source: Int, overlay: Int)? {
         let tokens = fragment.tokens
         guard outputUses.count == 1,
               let output = outputUses.first,
@@ -124,7 +124,7 @@ nonisolated enum SceneAuthoredShaderOverlayAlphaBlendAnalyzer {
               ) else {
             return nil
         }
-        return baseSlot
+        return (source: baseSlot, overlay: overlaySlot)
     }
 
     private struct Call {

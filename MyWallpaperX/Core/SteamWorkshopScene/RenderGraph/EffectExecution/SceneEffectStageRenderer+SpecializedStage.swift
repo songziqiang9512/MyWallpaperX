@@ -31,16 +31,6 @@ targets: targets, dynamicValues: dynamicValues,
                 pipelines: pipelines, cursorUV: cursorUV,
                 pointerIsInside: pointerIsInside, commandBuffer: commandBuffer
             )
-        case .blend(let blend):
-            guard let blendPipeline = pipelines.blend else { return nil }
-            return renderBlend(
-                blend, sourceTexture: sourceTexture, masks: masks,
-targets: targets,
-                dynamicValues: dynamicValues, sourceUniforms: sourceUniforms,
-                sourcePipeline: pipeline, blendPipeline: blendPipeline,
-                dependencyEffect: dependencyEffect,
-                commandBuffer: commandBuffer
-            )
         case .transform:
             return renderTransform(
                 stage, sourceTexture: sourceTexture, targets: targets,

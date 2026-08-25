@@ -66,11 +66,6 @@ extension SceneEffectProgramCompiler {
                     stage(.xRay($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.blend, {
-                SceneAuthoredBlendPlanner.compile(input).mapAccepted {
-                    stage(.blend($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.transform, {
                 SceneAuthoredTransformPlanner.compile(input).mapAccepted {
                     stage(.transform($0), stageGraph: stageGraph, inputRole: inputRole)
