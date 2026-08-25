@@ -50,6 +50,10 @@ GENERIC_SHADER_CACHE_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift"
 )
+GENERIC_SHADER_CACHE_TELEMETRY_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift"
+)
 DEPENDENCY_OWNERSHIP_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift"
@@ -6951,7 +6955,13 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             SCENE_ROOT
             / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
         ).read_text(encoding="utf-8")
-        generic_cache = GENERIC_SHADER_CACHE_SOURCE.read_text(encoding="utf-8")
+        generic_cache = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (
+                GENERIC_SHADER_CACHE_SOURCE,
+                GENERIC_SHADER_CACHE_TELEMETRY_SOURCE,
+            )
+        )
         for contract in (
             ".conditionalStraightUnionSourceSlot(", "routeDecision",
             "recordExecution(",

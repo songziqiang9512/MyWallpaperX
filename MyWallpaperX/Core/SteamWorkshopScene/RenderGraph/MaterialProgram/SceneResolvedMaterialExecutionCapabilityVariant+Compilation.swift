@@ -98,13 +98,34 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 fragmentSource: compilerSources.fragment,
                 runtimeLoopBounds: runtimeLoopBounds
             ) ?? []
+        guard let resolvedIntegerCombos =
+                SceneAuthoredShaderPreparation.resolvedIntegerCombos(
+                    contract: template.shaderContract,
+                    prepared: prepared,
+                    combos: template.comboValues,
+                    inactiveComboProviders: Set(
+                        template.inheritedInactiveCombos
+                    ),
+                    textureReadiness: readiness,
+                    textureFormats: variantKey.resolvedTextureFormats
+                ) else {
+            throw failure(.shaderPreparationFailed, phase: .preparation)
+        }
+        let normalBlendModeIdentifiers = Set(
+            resolvedIntegerCombos.compactMap { name, value in
+                value == 0 ? name : nil
+            }
+        )
         let sourceActiveSamplers: [
             Int: SceneResolvedMaterialShaderSchema.Sampler
         ]
         do {
             sourceActiveSamplers = try SceneResolvedMaterialShaderSchema.activeSamplers(
                 prepared,
-                activeNames: Set(activeSamplerNames)
+                activeNames: Set(activeSamplerNames),
+                analysisVertexSource: compilerSources.vertex,
+                analysisFragmentSource: compilerSources.fragment,
+                normalBlendModeIdentifiers: normalBlendModeIdentifiers
             )
         } catch {
             throw failure(.authoredSamplerSchemaInvalid)
@@ -122,9 +143,24 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let graphTextureSlots = Set(activeGraphTextureIdentities.compactMap {
             $0.value.kind == .framebuffer ? $0.key : nil
         })
-        let sourceColorTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(
-            fragmentSource: compilerSources.fragment,
-            provenRuntimeLoopBounds: runtimeLoopBounds.fragment
+        let spatialWeightedColorBlendFact =
+            SceneAuthoredShaderSpatialWeightedColorBlendAnalyzer.analyze(
+                fragmentSource: compilerSources.fragment,
+                normalBlendModeIdentifiers: normalBlendModeIdentifiers
+            )
+        let analyzedSourceColorTransfer =
+            SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                fragmentSource: compilerSources.fragment,
+                provenRuntimeLoopBounds: runtimeLoopBounds.fragment
+            )
+        let sourceColorTransfer: SceneShaderColorTransfer =
+            spatialWeightedColorBlendFact.map {
+                .straightAlphaPreserving(textureSlot: $0.sourceSlot)
+            } ?? analyzedSourceColorTransfer
+        let spatialWeightedColorBlendTypedAuxiliarySlots = Set(
+            sourceActiveSamplers.compactMap { slot, sampler in
+                sampler.sourceProvenPurpose == nil ? nil : slot
+            }
         )
         let preservedAlphaRGBColorSlots: Set<Int>
         if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
@@ -232,6 +268,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             graphTextureSlots: graphTextureSlots,
             graphInputTextureSlots: graphInputTextureSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
+            spatialWeightedColorBlendSourceSlot:
+                spatialWeightedColorBlendFact?.sourceSlot,
+            spatialWeightedColorBlendActiveSlots:
+                spatialWeightedColorBlendFact?.activeSlots ?? [],
+            spatialWeightedColorBlendTypedAuxiliarySlots:
+                spatialWeightedColorBlendTypedAuxiliarySlots,
             r8TextureSlots: graphR8TextureSlots,
             hasDefaultedOpacityMaskSampler:
                 SceneResolvedMaterialShaderSchema.hasOnlyDefaultedOpacityMaskAuxiliary(
@@ -290,7 +332,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             let output = SceneAuthoredShaderFrontend.compile(
                 vertexSource: compilerSources.vertex,
                 fragmentSource: compilerSources.fragment,
-                runtimeLoopBounds: runtimeLoopBounds
+                runtimeLoopBounds: runtimeLoopBounds,
+                provenColorTransfer: sourceColorTransfer
             )
             guard output.diagnostics.isEmpty,
                   let bounded = output.program else {

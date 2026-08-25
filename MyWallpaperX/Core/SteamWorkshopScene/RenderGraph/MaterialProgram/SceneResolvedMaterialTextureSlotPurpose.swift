@@ -23,6 +23,15 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
         }
         let candidate = slot.candidates[candidateOrdinal]
         let directPurpose = sampler.purpose(for: candidate.reference)
+        if let sourcePurpose = sampler.sourceProvenPurpose {
+            guard directPurpose == sourcePurpose,
+                  sourcePurposeIsCompatibleWithLowerCandidates(
+                    in: slot,
+                    before: candidateOrdinal,
+                    sampler: sampler,
+                    sourcePurpose: sourcePurpose
+                  ) else { return nil }
+        }
         guard case let .asset(path) = candidate.reference else {
             return directPurpose.map {
                 Fact(
@@ -114,6 +123,27 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
             candidate: candidate,
             purpose: inheritedPurpose
         )
+    }
+
+    private static func sourcePurposeIsCompatibleWithLowerCandidates(
+        in slot: Template.TextureSlot,
+        before ordinal: Int,
+        sampler: Sampler,
+        sourcePurpose: SceneTextureLoadPurpose
+    ) -> Bool {
+        for lowerOrdinal in slot.candidates.indices where lowerOrdinal < ordinal {
+            let lower = slot.candidates[lowerOrdinal]
+            if case let .asset(path) = lower.reference,
+               let registered = SceneStockTextureSemanticRegistry.purpose(for: path),
+               registered != sourcePurpose {
+                return false
+            }
+            if let lowerPurpose = sampler.purpose(for: lower.reference),
+               lowerPurpose != sourcePurpose {
+                return false
+            }
+        }
+        return true
     }
 
     private static func makeFact(

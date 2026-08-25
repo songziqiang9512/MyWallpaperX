@@ -35,6 +35,10 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         /// Source-derived use for one prepared variant. Bootstrap schemas have
         /// no active syntax proof and therefore retain the conservative default.
         let channelUse: ChannelUse
+        /// A role proven from complete active shader dataflow. This may type an
+        /// otherwise ambiguous authored asset/property slot, but it may never
+        /// override a conflicting explicit or registered resource contract.
+        let sourceProvenPurpose: SceneTextureLoadPurpose?
 
         init(
             name: String,
@@ -44,7 +48,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             isHidden: Bool,
             defaultTexture: DefaultTexture?,
             readinessCombo: String?,
-            channelUse: ChannelUse = .unproven
+            channelUse: ChannelUse = .unproven,
+            sourceProvenPurpose: SceneTextureLoadPurpose? = nil
         ) {
             self.name = name
             self.slot = slot
@@ -54,6 +59,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             self.defaultTexture = defaultTexture
             self.readinessCombo = readinessCombo
             self.channelUse = channelUse
+            self.sourceProvenPurpose = sourceProvenPurpose
         }
 
         func withChannelUse(_ value: ChannelUse) -> Self {
@@ -65,7 +71,45 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 isHidden: isHidden,
                 defaultTexture: defaultTexture,
                 readinessCombo: readinessCombo,
-                channelUse: value
+                channelUse: value,
+                sourceProvenPurpose: sourceProvenPurpose
+            )
+        }
+
+        func withSourceProvenPurpose(
+            _ value: SceneTextureLoadPurpose
+        ) -> Self {
+            .init(
+                name: name,
+                slot: slot,
+                mode: mode,
+                materialKey: materialKey,
+                isHidden: isHidden,
+                defaultTexture: defaultTexture,
+                readinessCombo: readinessCombo,
+                channelUse: channelUse,
+                sourceProvenPurpose: value
+            )
+        }
+
+        func mergingVariantFacts(from active: Self) -> Self? {
+            guard name == active.name,
+                  slot == active.slot,
+                  mode == active.mode,
+                  materialKey == active.materialKey,
+                  isHidden == active.isHidden,
+                  defaultTexture == active.defaultTexture,
+                  readinessCombo == active.readinessCombo else { return nil }
+            return .init(
+                name: name,
+                slot: slot,
+                mode: mode,
+                materialKey: materialKey,
+                isHidden: isHidden,
+                defaultTexture: defaultTexture,
+                readinessCombo: readinessCombo,
+                channelUse: active.channelUse,
+                sourceProvenPurpose: active.sourceProvenPurpose
             )
         }
     }
@@ -81,6 +125,65 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         case uniform(String)
     }
 
+    /// Resolves combo-default conditional declarations before texture
+    /// readiness starts the normal fixed-point iteration.
+    nonisolated static func bootstrapSamplers(
+        _ template: Template,
+        textureFormats: [Int: SceneShaderTextureFormat] = [:]
+    ) throws -> [Int: Sampler] {
+        let readiness = Dictionary(uniqueKeysWithValues: (0 ..< 8).map {
+            ($0, false)
+        })
+        switch SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: template.shaderContract,
+            combos: template.comboValues,
+            inactiveComboProviders: Set(template.inheritedInactiveCombos),
+            textureReadiness: readiness,
+            textureFormats: textureFormats
+        ) {
+        case let .accepted(prepared):
+            let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: prepared.vertex.source,
+                fragment: prepared.fragment.source
+            )
+            let loopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
+                template: template,
+                prepared: prepared
+            )
+            guard let names = SceneAuthoredShaderDeadBindingAnalyzer
+                    .activeSamplerNames(
+                        vertexSource: sources.vertex,
+                        fragmentSource: sources.fragment,
+                        runtimeLoopBounds: loopBounds
+                    ), let resolvedCombos =
+                    SceneAuthoredShaderPreparation.resolvedIntegerCombos(
+                        contract: template.shaderContract,
+                        prepared: prepared,
+                        combos: template.comboValues,
+                        inactiveComboProviders: Set(
+                            template.inheritedInactiveCombos
+                        ),
+                        textureReadiness: readiness,
+                        textureFormats: textureFormats
+                    ) else {
+                throw Issue.sampler("bootstrap-frontend")
+            }
+            return try activeSamplers(
+                prepared,
+                activeNames: names,
+                analysisVertexSource: sources.vertex,
+                analysisFragmentSource: sources.fragment,
+                normalBlendModeIdentifiers: Set(
+                    resolvedCombos.compactMap { name, value in
+                        value == 0 ? name : nil
+                    }
+                )
+            )
+        case .rejected, .notApplicable:
+            throw Issue.sampler("bootstrap-variant")
+        }
+    }
+
     static func unconditionalSamplers(
         _ template: Template
     ) throws -> [Int: Sampler] {
@@ -91,7 +194,17 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             contract: template.shaderContract,
             graph: graph
         )
-        return try samplerSchemas(records(sources))
+        var result = try samplerSchemas(records(sources))
+        if let bootstrap = try? bootstrapSamplers(template) {
+            for (slot, active) in bootstrap {
+                guard let seed = result[slot],
+                      let merged = seed.mergingVariantFacts(from: active) else {
+                    continue
+                }
+                result[slot] = merged
+            }
+        }
+        return result
     }
 
     static func activeSamplers(
@@ -111,7 +224,10 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
     /// language frontend to parse the source a second time.
     static func activeSamplers(
         _ prepared: SceneShaderPreparedProgram,
-        activeNames: Set<String>
+        activeNames: Set<String>,
+        analysisVertexSource: String? = nil,
+        analysisFragmentSource: String? = nil,
+        normalBlendModeIdentifiers: Set<String> = []
     ) throws -> [Int: Sampler] {
         guard activeNames.allSatisfy({ name in
             name.hasPrefix("g_Texture") && Int(name.dropFirst(9)) != nil
@@ -121,15 +237,54 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 || !isSampler2D($0.declaration.type)
                 || activeNames.contains($0.declaration.name)
         })
-        return schemas.mapValues { sampler in
+        let vertexSource = analysisVertexSource ?? prepared.vertex.source
+        let fragmentSource = analysisFragmentSource ?? prepared.fragment.source
+        let projected = schemas.mapValues { sampler in
             sampler.withChannelUse(
                 SceneAuthoredShaderTextureChannelAnalyzer.analyze(
                     samplerName: sampler.name,
-                    vertexSource: prepared.vertex.source,
-                    fragmentSource: prepared.fragment.source
+                    vertexSource: vertexSource,
+                    fragmentSource: fragmentSource
                 )
             )
         }
+        return sourceTypedSpatialWeightedColorBlendSamplers(
+            projected,
+            fragmentSource: fragmentSource,
+            normalBlendModeIdentifiers: normalBlendModeIdentifiers
+        )
+    }
+
+    private static func sourceTypedSpatialWeightedColorBlendSamplers(
+        _ samplers: [Int: Sampler],
+        fragmentSource: String,
+        normalBlendModeIdentifiers: Set<String>
+    ) -> [Int: Sampler] {
+        guard let fact = SceneAuthoredShaderSpatialWeightedColorBlendAnalyzer
+                .analyze(
+                    fragmentSource: fragmentSource,
+                    normalBlendModeIdentifiers: normalBlendModeIdentifiers
+                ),
+              Set(samplers.keys) == fact.activeSlots,
+              samplers[fact.sourceSlot]?.mode == .regular,
+              samplers[fact.sourceSlot]?.channelUse == .wholeVector,
+              samplers[fact.straightColorSlot]?.mode == .regular,
+              samplers[fact.straightColorSlot]?.channelUse == .wholeVector,
+              samplers[fact.preservedRedAlphaSlot]?.mode == .regular,
+              fact.optionalMaskSlot.map({
+                  samplers[$0]?.mode == .opacityMask
+                      && samplers[$0]?.channelUse == .redOnly
+              }) ?? true else { return samplers }
+        var result = samplers
+        result[fact.straightColorSlot] = result[fact.straightColorSlot]?
+            .withSourceProvenPurpose(.straightAlbedo)
+        result[fact.preservedRedAlphaSlot] = result[fact.preservedRedAlphaSlot]?
+            .withSourceProvenPurpose(.preservedChannels)
+        if let maskSlot = fact.optionalMaskSlot {
+            result[maskSlot] = result[maskSlot]?
+                .withSourceProvenPurpose(.mask)
+        }
+        return result
     }
 
     static func activeUniforms(

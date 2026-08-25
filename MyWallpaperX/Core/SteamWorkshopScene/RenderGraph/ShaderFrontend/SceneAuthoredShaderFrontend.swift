@@ -13,7 +13,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
     static func compile(
         vertexSource: String,
         fragmentSource: String,
-        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
+        provenColorTransfer: SceneShaderColorTransfer? = nil
     ) -> SceneAuthoredShaderFrontendOutput {
         let vertex = analyze(
             source: vertexSource,
@@ -48,7 +49,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 : validation.diagnostics
             return .init(program: nil, diagnostics: layoutDiagnostic)
         }
-        let colorTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentUnit)
+        let colorTransfer = provenColorTransfer
+            ?? SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentUnit)
         let fragmentOutputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer
             .analyze(fragmentUnit)
         let emission = SceneAuthoredShaderMetalEmitter.emit(

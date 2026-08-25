@@ -174,12 +174,34 @@ private func sampler(
 }
 
 private func purpose(
-    _ template: Template, ordinal: Int
+    _ template: Template,
+    ordinal: Int,
+    samplerOverride: SceneResolvedMaterialShaderSchema.Sampler? = nil
 ) -> SceneTextureLoadPurpose? {
     SceneResolvedMaterialTextureSlotPurpose.fact(
         in: template.textureSlots[2]!, candidateOrdinal: ordinal,
-        sampler: sampler(template)
+        sampler: samplerOverride ?? sampler(template)
     )?.purpose
+}
+
+private func sourceProvenSampler(
+    _ template: Template,
+    defaultPath: SceneVFSAssetPath? = nil
+) -> SceneResolvedMaterialShaderSchema.Sampler {
+    let base = sampler(template)
+    return .init(
+        name: base.name,
+        slot: base.slot,
+        mode: base.mode,
+        materialKey: base.materialKey,
+        isHidden: base.isHidden,
+        defaultTexture: defaultPath.map {
+            SceneResolvedMaterialShaderSchema.DefaultTexture.asset($0)
+        } ?? base.defaultTexture,
+        readinessCombo: base.readinessCombo,
+        channelUse: base.channelUse,
+        sourceProvenPurpose: .straightAlbedo
+    )
 }
 
 private func launchToken(
@@ -379,6 +401,7 @@ private enum Main {
             .init(reference: .asset(instancePath), provenance: .material),
         ])
         let wrongPublication = SceneFrameTextureIdentity.asset(materialIdentity)
+        let provenSampler = sourceProvenSampler(template)
         let results: [String: Any] = [
             "metalAvailable": true,
             "catalog": [
@@ -421,6 +444,39 @@ private enum Main {
                 "wrongOrdinal": SceneResolvedMaterialTextureSlotPurpose.fact(
                     in: template.textureSlots[2]!, candidateOrdinal: 7,
                     sampler: sampler(template)
+                ) == nil,
+                "sourceUnregistered": purpose(
+                    validatedTemplate(from: template, candidates: [unknown]),
+                    ordinal: 0,
+                    samplerOverride: provenSampler
+                )?.reportToken == "straight-albedo",
+                "sourceUser": purpose(
+                    validatedTemplate(from: template, candidates: [userCandidate]),
+                    ordinal: 0,
+                    samplerOverride: provenSampler
+                )?.reportToken == "straight-albedo",
+                "sourceCurrentRegistryConflict": purpose(
+                    validatedTemplate(from: template, candidates: [conflict]),
+                    ordinal: 0,
+                    samplerOverride: provenSampler
+                ) == nil,
+                "sourceLowerRegistryConflict": purpose(
+                    validatedTemplate(from: template, candidates: [phase, unknown]),
+                    ordinal: 1,
+                    samplerOverride: provenSampler
+                ) == nil,
+                "sourceUserLowerRegistryConflict": purpose(
+                    validatedTemplate(from: template, candidates: [phase, userCandidate]),
+                    ordinal: 1,
+                    samplerOverride: provenSampler
+                ) == nil,
+                "sourceDefaultRegistryConflict": purpose(
+                    validatedTemplate(from: template, candidates: [unknown]),
+                    ordinal: 0,
+                    samplerOverride: sourceProvenSampler(
+                        template,
+                        defaultPath: materialPath
+                    )
                 ) == nil,
             ],
             "launch": [

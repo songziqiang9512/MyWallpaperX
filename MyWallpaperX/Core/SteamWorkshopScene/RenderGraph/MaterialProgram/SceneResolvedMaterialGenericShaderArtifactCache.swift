@@ -6,9 +6,9 @@ import Foundation
 /// profile-local rejection after the bounded product owner has been revoked.
 nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     typealias RouteDecision = SceneGenericShaderRouteDecision
-    private typealias RouteState = SceneGenericShaderRouteState
-    private typealias FallbackOwner = SceneGenericShaderFallbackOwner
-    private typealias CapabilityProfile = SceneGenericShaderCapabilityProfile
+    typealias RouteState = SceneGenericShaderRouteState
+    typealias FallbackOwner = SceneGenericShaderFallbackOwner
+    typealias CapabilityProfile = SceneGenericShaderCapabilityProfile
 
     enum Resolution {
         case accepted(
@@ -52,10 +52,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     private static let requestEnvironment = "MWX_SCENE_GENERIC_SHADER_REQUESTS"
     private static let maximumArtifactBytes = 2 * 1_024 * 1_024
     private static let maximumRouteAnalysisSourceBytes = 512 * 1_024
-    private static let routeTelemetry = RouteTelemetry()
+    static let routeTelemetry = RouteTelemetry()
     private static let compilationCoordinator = CompilationCoordinator()
 
-    private final class RouteTelemetry: @unchecked Sendable {
+    final class RouteTelemetry: @unchecked Sendable {
         private let lock = NSLock()
         private var counts: [String: Int] = [:]
         private var executedIdentities = Set<String>()
@@ -218,6 +218,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         graphTextureSlots: Set<Int> = [],
         graphInputTextureSlots: Set<Int> = [],
         typedStaticDataAuxiliarySlots: Set<Int> = [],
+        spatialWeightedColorBlendSourceSlot: Int? = nil,
+        spatialWeightedColorBlendActiveSlots: Set<Int> = [],
+        spatialWeightedColorBlendTypedAuxiliarySlots: Set<Int> = [],
         r8TextureSlots: Set<Int> = [],
         hasDefaultedOpacityMaskSampler: Bool = false,
         hasOnlyTypedOpacityMaskAuxiliary: Bool = false,
@@ -320,6 +323,12 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             typedDataRGBFilterAuxiliarySlots:
                 typedDataRGBFilterFact?.auxiliarySlots ?? [],
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
+            spatialWeightedColorBlendSourceSlot:
+                spatialWeightedColorBlendSourceSlot,
+            spatialWeightedColorBlendActiveSlots:
+                spatialWeightedColorBlendActiveSlots,
+            spatialWeightedColorBlendTypedAuxiliarySlots:
+                spatialWeightedColorBlendTypedAuxiliarySlots,
             unitCompositeBlurredSlot: unitCompositeBlurredSlot,
             unitCompositePreviousSlot: unitCompositePreviousSlot,
             unitCompositeMaskSlot: unitCompositeMaskSlot,
@@ -570,28 +579,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         )
     }
 
-    static func recordExecution(
-        routeDecision: RouteDecision?,
-        backend: SceneAuthoredShaderProgram.Backend,
-        graphInputDiagnostics: [String],
-        layerID: Int,
-        effectIndex: Int,
-        descriptorID: String,
-        nodeIndex: Int,
-        preparedKey: String
-    ) {
-        guard let routeDecision else { return }
-        routeTelemetry.recordExecution(
-            routeDecision: routeDecision,
-            backend: backend,
-            graphInputDiagnostics: graphInputDiagnostics,
-            layerID: layerID,
-            effectIndex: effectIndex,
-            descriptorID: descriptorID,
-            nodeIndex: nodeIndex,
-            preparedKey: preparedKey
-        )
-    }
     private static func makeRouteDecision(
         profile: CapabilityProfile,
         state: String

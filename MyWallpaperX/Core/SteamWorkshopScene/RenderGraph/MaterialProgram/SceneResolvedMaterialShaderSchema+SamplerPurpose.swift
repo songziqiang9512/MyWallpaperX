@@ -135,6 +135,23 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
                 break
             }
         }
+        if let sourceProvenPurpose {
+            if let declaredPurpose, declaredPurpose != sourceProvenPurpose {
+                return nil
+            }
+            if case let .asset(defaultPath)? = defaultTexture,
+               let registeredDefault = SceneStockTextureSemanticRegistry.purpose(
+                   for: defaultPath
+               ), registeredDefault != sourceProvenPurpose {
+                return nil
+            }
+            if case let .asset(path) = reference,
+               let registered = SceneStockTextureSemanticRegistry.purpose(for: path),
+               registered != sourceProvenPurpose {
+                return nil
+            }
+            return sourceProvenPurpose
+        }
         guard case let .asset(path) = reference else {
             return declaredPurpose
         }

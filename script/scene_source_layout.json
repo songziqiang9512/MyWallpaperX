@@ -103,6 +103,7 @@
           "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant.swift",
+          "SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache.swift",
           "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
           "SceneResolvedMaterialGenericShaderRouteProfile.swift",

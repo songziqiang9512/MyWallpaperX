@@ -32,6 +32,8 @@ SWIFT_SOURCES = list(dict.fromkeys([
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema.swift",
     SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
+    SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.swift",
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
@@ -75,6 +77,11 @@ nonisolated enum SceneEffectStageBackendCompileResult<Value> {
 }
 nonisolated struct SceneResolvedMaterialNode {
     enum TextureProvenance: Hashable { case explicitBinding }
+}
+nonisolated enum SceneTextureLoadPurpose: Hashable {
+    case straightAlbedo
+    case preservedChannels
+    case mask
 }
 nonisolated enum SceneDynamicTarget: Hashable {
     case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
@@ -127,6 +134,8 @@ nonisolated struct SceneResolvedMaterialTemplate {
         let value: UniformValue
     }
     let textureSlots: [TextureSlot?]
+    let comboValues: [String: Int]
+    let inheritedInactiveCombos: [String]
     let uniformDeclarations: [UniformDeclaration]
     let unitPreviousBlurredCompositeGenericOwnerEligible: Bool
     let effectContext: EffectContext?
@@ -299,6 +308,8 @@ private func template(
     }
     return .init(
         textureSlots: slots,
+        comboValues: [:],
+        inheritedInactiveCombos: [],
         uniformDeclarations: declarations,
         unitPreviousBlurredCompositeGenericOwnerEligible: ownerEligible,
         effectContext: .init(key: effectKey, input: previous),

@@ -256,6 +256,7 @@
         "RenderGraph/MaterialProgram/SceneResolvedMaterialColorBlendEligibility.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",

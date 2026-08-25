@@ -8,35 +8,6 @@ extension SceneResolvedMaterialShaderSchema {
         let textureFormats: [SceneShaderTextureFormat?]
     }
 
-    /// Resolves combo-default conditional declarations before texture
-    /// readiness starts the normal fixed-point iteration.
-    nonisolated static func bootstrapSamplers(
-        _ template: Template,
-        textureFormats: [Int: SceneShaderTextureFormat] = [:]
-    ) throws -> [Int: Sampler] {
-        let readiness = Dictionary(uniqueKeysWithValues: (0 ..< 8).map {
-            ($0, false)
-        })
-        switch SceneAuthoredShaderPreparation.prepareShaderStages(
-            contract: template.shaderContract,
-            combos: template.comboValues,
-            inactiveComboProviders: Set(template.inheritedInactiveCombos),
-            textureReadiness: readiness,
-            textureFormats: textureFormats
-        ) {
-        case let .accepted(prepared):
-            return try activeSamplers(
-                prepared,
-                runtimeLoopBounds: SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
-                    template: template,
-                    prepared: prepared
-                )
-            )
-        case .rejected, .notApplicable:
-            throw Issue.sampler("bootstrap-variant")
-        }
-    }
-
     /// Enumerates the bounded readiness fixed points that launch admission can
     /// reach. The union is used only to preload typed resources; frame-time
     /// variant selection still resolves one exact immutable Program.

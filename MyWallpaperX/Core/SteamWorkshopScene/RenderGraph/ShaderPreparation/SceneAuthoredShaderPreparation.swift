@@ -135,7 +135,10 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 default: return .notApplicable
                 }
             }
-            let activeSources = activeSchemaSources(pair, graph: graph)
+            let activeSources = activeSchemaSources(
+                [pair.vertex, pair.fragment],
+                graph: graph
+            )
             let signature = SceneShaderStableDigest.hash(PreparationIterationIdentity(
                 vertexPreparedSHA256: pair.vertex.preparedSHA256,
                 fragmentPreparedSHA256: pair.fragment.preparedSHA256,
@@ -196,14 +199,14 @@ nonisolated enum SceneAuthoredShaderPreparation {
     }
 
     private nonisolated static func activeSchemaSources(
-        _ pair: PreparedPair,
+        _ stages: [SceneShaderPreparedSource],
         graph: SceneShaderSourceGraph
     ) -> [SceneShaderVariantSchemaSource] {
         var annotations: [String: [SceneShaderContract.Annotation]] = [:]
         var declarations: [String: [SceneShaderContract.Declaration]] = [:]
         var seenAnnotations: Set<String> = []
         var seenDeclarations: Set<String> = []
-        for stage in [pair.vertex, pair.fragment] {
+        for stage in stages {
             for active in stage.activeAnnotations {
                 let key = SceneShaderMetadataIdentity.annotation(active.annotation, path: active.sourcePath)
                 guard seenAnnotations.insert(key).inserted else { continue }
@@ -223,6 +226,42 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 declarations: declarations[node.virtualPath] ?? []
             )
         }
+    }
+
+    /// Reprojects the exact converged active schema into integer macro facts.
+    /// Prepared source deliberately preserves authored identifiers in ordinary
+    /// expressions, so source analyzers use these facts instead of guessing
+    /// annotation defaults or substituting tokens by name.
+    nonisolated static func resolvedIntegerCombos(
+        contract: SceneShaderContract,
+        prepared: SceneShaderPreparedProgram,
+        combos: [String: Int],
+        inactiveComboProviders: Set<String> = [],
+        textureReadiness: [Int: Bool] = [:],
+        textureFormats: [Int: SceneShaderTextureFormat] = [:]
+    ) -> [String: Int]? {
+        guard let graph = contract.sourceGraph else { return nil }
+        let sources = activeSchemaSources(prepared.all, graph: graph)
+        let environment: SceneShaderVariantEnvironment
+        switch SceneShaderVariantResolver.resolve(
+            stage: .fragment,
+            schemaSources: sources,
+            explicitCombos: combos,
+            inactiveComboProviders: inactiveComboProviders,
+            textureReadiness: textureReadiness,
+            textureFormats: textureFormats
+        ) {
+        case let .success(value): environment = value
+        case .failure: return nil
+        }
+        return Dictionary(uniqueKeysWithValues:
+            environment.comboResolutions.compactMap { resolution in
+                guard case let .defined(.integer(value)) =
+                        resolution.binding.definition,
+                      let exact = Int(exactly: value) else { return nil }
+                return (resolution.binding.name, exact)
+            }
+        )
     }
 
     private nonisolated static func preparedProgram(

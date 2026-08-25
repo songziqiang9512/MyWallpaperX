@@ -28,6 +28,9 @@ CAPABILITY_PROGRAM_FIRST_SOURCE = CAPABILITY_FIXTURE[
     "CAPABILITY_PROGRAM_FIRST_SOURCE"
 ]
 GENERIC_SHADER_CACHE_SOURCE = CAPABILITY_FIXTURE["GENERIC_SHADER_CACHE_SOURCE"]
+GENERIC_SHADER_CACHE_TELEMETRY_SOURCE = CAPABILITY_FIXTURE[
+    "GENERIC_SHADER_CACHE_TELEMETRY_SOURCE"
+]
 ENVELOPE_HARNESS = CAPABILITY_FIXTURE["ENVELOPE_HARNESS"].replace(
     '            "functionFrontendAttribution": attribution(functionFrontendFailure),\n',
     '            "functionFrontendAttribution": attribution(functionFrontendFailure),\n'
@@ -49,7 +52,13 @@ class SceneResolvedMaterialProgramFailureAttributionTests(unittest.TestCase):
         program_first = CAPABILITY_PROGRAM_FIRST_SOURCE.read_text(
             encoding="utf-8"
         )
-        generic_cache = GENERIC_SHADER_CACHE_SOURCE.read_text(encoding="utf-8")
+        generic_cache = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (
+                GENERIC_SHADER_CACHE_SOURCE,
+                GENERIC_SHADER_CACHE_TELEMETRY_SOURCE,
+            )
+        )
 
         self.assertIn(
             "materialFailure.mapsToGenericOwnerRevokedVisualFailure", stages

@@ -2176,6 +2176,20 @@ private struct GenericShaderArtifactHarness {
                     "MWX_TEST_TYPED_STATIC_DATA_AUXILIARY_SLOTS"
                 ] ?? "").split(separator: ",").compactMap { Int($0) }
             ),
+            spatialWeightedColorBlendSourceSlot:
+                ProcessInfo.processInfo.environment[
+                    "MWX_TEST_SPATIAL_WEIGHTED_SOURCE_SLOT"
+                ].flatMap(Int.init),
+            spatialWeightedColorBlendActiveSlots: Set(
+                (ProcessInfo.processInfo.environment[
+                    "MWX_TEST_SPATIAL_WEIGHTED_ACTIVE_SLOTS"
+                ] ?? "").split(separator: ",").compactMap { Int($0) }
+            ),
+            spatialWeightedColorBlendTypedAuxiliarySlots: Set(
+                (ProcessInfo.processInfo.environment[
+                    "MWX_TEST_SPATIAL_WEIGHTED_TYPED_AUXILIARY_SLOTS"
+                ] ?? "").split(separator: ",").compactMap { Int($0) }
+            ),
             r8TextureSlots: Set(
                 (ProcessInfo.processInfo.environment["MWX_TEST_R8_SLOTS"] ?? "")
                     .split(separator: ",").compactMap { Int($0) }
@@ -2725,6 +2739,34 @@ void main() {
 }
 """
 
+SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform sampler2D g_Texture2;
+uniform float g_Opacity;
+varying vec2 v_TexCoord;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return mix(base, blend, opacity);
+}
+void main() {
+    vec4 carrier = texSample2D(g_Texture0, v_TexCoord);
+    vec4 replacement = texSample2D(g_Texture1, v_TexCoord);
+    float weight = replacement.a * g_Opacity;
+    vec2 point = v_TexCoord;
+    vec2 falloff = texSample2D(g_Texture2, point).ra;
+    weight *= falloff.x * falloff.y;
+    carrier.rgb = ApplyBlending(
+        0, carrier.rgb, replacement.rgb, weight
+    );
+    gl_FragColor = carrier;
+}
+"""
+
 PREMULTIPLIED_FRAGMENT = """
 uniform float g_Weight;
 vec3 ApplyBlending(
@@ -2835,6 +2877,9 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         graph_slots: tuple[int, ...] = (),
         graph_input_slots: tuple[int, ...] = (),
         typed_static_data_auxiliary_slots: tuple[int, ...] = (),
+        spatial_weighted_source_slot: int | None = None,
+        spatial_weighted_active_slots: tuple[int, ...] = (),
+        spatial_weighted_typed_auxiliary_slots: tuple[int, ...] = (),
         r8_slots: tuple[int, ...] = (),
         has_defaulted_opacity_mask: bool = False,
         has_typed_opacity_mask: bool = False,
@@ -2904,6 +2949,26 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             )
         else:
             environment.pop("MWX_TEST_TYPED_STATIC_DATA_AUXILIARY_SLOTS", None)
+        if spatial_weighted_source_slot is not None:
+            environment["MWX_TEST_SPATIAL_WEIGHTED_SOURCE_SLOT"] = str(
+                spatial_weighted_source_slot
+            )
+        else:
+            environment.pop("MWX_TEST_SPATIAL_WEIGHTED_SOURCE_SLOT", None)
+        if spatial_weighted_active_slots:
+            environment["MWX_TEST_SPATIAL_WEIGHTED_ACTIVE_SLOTS"] = ",".join(
+                map(str, spatial_weighted_active_slots)
+            )
+        else:
+            environment.pop("MWX_TEST_SPATIAL_WEIGHTED_ACTIVE_SLOTS", None)
+        if spatial_weighted_typed_auxiliary_slots:
+            environment[
+                "MWX_TEST_SPATIAL_WEIGHTED_TYPED_AUXILIARY_SLOTS"
+            ] = ",".join(map(str, spatial_weighted_typed_auxiliary_slots))
+        else:
+            environment.pop(
+                "MWX_TEST_SPATIAL_WEIGHTED_TYPED_AUXILIARY_SLOTS", None
+            )
         if r8_slots:
             environment["MWX_TEST_R8_SLOTS"] = ",".join(map(str, r8_slots))
         else:
@@ -2954,8 +3019,14 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         output_semantics: str = "color",
         output_channel_use: str = "redDefined",
         auxiliary_channel_use: str | None = None,
+        auxiliary_channel_uses: dict[int, str] | None = None,
     ) -> dict:
-        slots = [0] if auxiliary_channel_use is None else [0, 1]
+        if auxiliary_channel_uses is None:
+            auxiliary_channel_uses = (
+                {} if auxiliary_channel_use is None
+                else {1: auxiliary_channel_use}
+            )
+        slots = [0, *sorted(auxiliary_channel_uses)]
         transforms = " ".join(
             f"float4 mwxTexture{slot}Transform{component};"
             for slot in slots for component in range(2)
@@ -2992,7 +3063,8 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 },
                 "textureBindings": [
                     {"name": f"g_Texture{slot}", "slot": slot, "channelUse": (
-                        "unproven" if slot == 0 else auxiliary_channel_use
+                        "unproven" if slot == 0
+                        else auxiliary_channel_uses[slot]
                     )} for slot in slots
                 ],
                 "staticLoopWork": 0,
@@ -4765,6 +4837,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 {"graph_input_slots": (0,)},
                 "source-proven-graph-input-straight-alpha-preserving",
             ),
+            (
+                SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "spatial_weighted_source_slot": 0,
+                    "spatial_weighted_active_slots": (0, 1, 2),
+                    "spatial_weighted_typed_auxiliary_slots": (1, 2),
+                },
+                "source-proven-graph-input-spatial-weighted-color-blend",
+            ),
         ]
         for fragment, facts, profile in preferred_cases:
             with self.subTest(profile=profile), tempfile.TemporaryDirectory(
@@ -5102,6 +5184,40 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     rejected_log,
                 )
 
+    def test_spatial_weighted_profile_requires_exact_typed_auxiliaries(self):
+        profile = "source-proven-graph-input-spatial-weighted-color-blend"
+        complete = {
+            "graph_input_slots": (0,),
+            "spatial_weighted_source_slot": 0,
+            "spatial_weighted_active_slots": (0, 1, 2),
+            "spatial_weighted_typed_auxiliary_slots": (1, 2),
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-spatial-weighted-route-test-"
+        ) as directory:
+            root = Path(directory)
+            accepted, _, _, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
+                **complete,
+            )
+            self.assertEqual(accepted["routeProfile"], profile)
+
+            for facts in (
+                {**complete, "spatial_weighted_typed_auxiliary_slots": (1,)},
+                {**complete, "spatial_weighted_active_slots": (0, 1, 2, 3)},
+                {**complete, "graph_input_slots": (0, 1)},
+            ):
+                with self.subTest(facts=facts):
+                    rejected, _, _, _ = self.run_harness(
+                        root,
+                        route="observe-only",
+                        fragment=SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
+                        **facts,
+                    )
+                    self.assertNotEqual(rejected["routeProfile"], profile)
+
     def test_overlay_alpha_blend_uses_generic_only_shared_backends(self):
         profile = "source-proven-graph-input-overlay-alpha-blend"
         facts = {
@@ -5258,6 +5374,17 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 "straight-alpha-preserving",
                 "source-proven-graph-input-straight-alpha-preserving",
             ),
+            (
+                SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
+                {
+                    "graph_input_slots": (0,),
+                    "spatial_weighted_source_slot": 0,
+                    "spatial_weighted_active_slots": (0, 1, 2),
+                    "spatial_weighted_typed_auxiliary_slots": (1, 2),
+                },
+                "straight-alpha-preserving",
+                "source-proven-graph-input-spatial-weighted-color-blend",
+            ),
         ]
         for fragment, facts, transfer, profile in cases:
             with self.subTest(profile=profile), tempfile.TemporaryDirectory(
@@ -5268,7 +5395,13 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     root, route="observe-only", fragment=fragment, **facts
                 )
                 artifact = self.artifact(
-                    observed["requestKey"], color_transfer=transfer
+                    observed["requestKey"],
+                    color_transfer=transfer,
+                    auxiliary_channel_uses=(
+                        {1: "wholeVector", 2: "wholeVector"}
+                        if profile.endswith("spatial-weighted-color-blend")
+                        else None
+                    ),
                 )
                 artifact_path = cache / f"{observed['requestKey']}.json"
                 artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
