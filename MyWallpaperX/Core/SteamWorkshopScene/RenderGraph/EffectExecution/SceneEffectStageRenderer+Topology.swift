@@ -137,13 +137,6 @@ extension SceneEffectStageRenderer {
                 return "standard-blur-resource-missing"
             }
             return nil
-        case .waterWaves(let plan):
-            guard let resources = inputs.masks.waterWavesEffects[
-                plan.effectKey.descriptorID
-            ], resources.matches(plan) else {
-                return "water-waves-resource-missing"
-            }
-            return pipelines.waterWaves == nil ? "water-waves-pipeline-missing" : nil
         case .xRay(let plan):
             switch SceneXRayRuntimePlanner.resolve(
                 declaration: plan.declaration,

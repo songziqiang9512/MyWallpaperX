@@ -37,7 +37,6 @@ final class SceneImageEffectPipelineRepository {
     private let gaussianBlurSlot: ScenePipelineSlot<SceneGaussianBlurPipeline>
     private let standardBlurSlot: ScenePipelineSlot<SceneStandardBlurPipeline>
     private let spotLightSlot: ScenePipelineSlot<SceneSpotLightPipeline>
-    private let waterWavesSlot: ScenePipelineSlot<SceneWaterWavesPipeline>
     private let xRaySlot: ScenePipelineSlot<SceneXRayPipeline>
     private let blendSlot: ScenePipelineSlot<SceneBlendPipeline>
     private let pulseSlot: ScenePipelineSlot<ScenePulsePipeline>
@@ -47,7 +46,6 @@ final class SceneImageEffectPipelineRepository {
         gaussianBlurSlot = .init { SceneGaussianBlurPipeline(device: device) }
         standardBlurSlot = .init { SceneStandardBlurPipeline(device: device) }
         spotLightSlot = .init { SceneSpotLightPipeline(device: device) }
-        waterWavesSlot = .init { SceneWaterWavesPipeline(device: device) }
         xRaySlot = .init { SceneXRayPipeline(device: device) }
         blendSlot = .init { SceneBlendPipeline(device: device) }
         pulseSlot = .init { ScenePulsePipeline(device: device) }
@@ -56,7 +54,6 @@ final class SceneImageEffectPipelineRepository {
     func gaussianBlur() -> SceneGaussianBlurPipeline? { gaussianBlurSlot.resolve() }
     func standardBlur() -> SceneStandardBlurPipeline? { standardBlurSlot.resolve() }
     func spotLight() -> SceneSpotLightPipeline? { spotLightSlot.resolve() }
-    func waterWaves() -> SceneWaterWavesPipeline? { waterWavesSlot.resolve() }
     func xRay() -> SceneXRayPipeline? { xRaySlot.resolve() }
     func blend() -> SceneBlendPipeline? { blendSlot.resolve() }
     func pulse() -> ScenePulsePipeline? { pulseSlot.resolve() }

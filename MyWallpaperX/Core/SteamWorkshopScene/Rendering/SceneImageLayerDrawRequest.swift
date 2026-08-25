@@ -4,14 +4,12 @@ import simd
 struct SceneImageLayerMasks {
     let blendEffects: [String: SceneBlendEffectTextures]
     let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
-    let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
     let xRay: SceneXRayEffectTextures?
 
     static let empty = SceneImageLayerMasks(
         blendEffects: [:],
         standardBlurEffects: [:],
-        waterWavesEffects: [:],
         pulseEffects: [:],
         xRay: nil
     )
@@ -20,7 +18,6 @@ struct SceneImageLayerMasks {
         SceneImageLayerMasks(
             blendEffects: [:],
             standardBlurEffects: [:],
-            waterWavesEffects: [:],
             pulseEffects: [:],
             xRay: xRay
         )
@@ -50,20 +47,13 @@ struct SceneImageLayerMasks {
                 !Self.pulsePreservesSourceCoverage($0)
             } ?? true
         }
-        let hasWaterWavesOutsideDisplacementContract = visibleEffects.contains { effect in
-            Self.normalized(effect.file) == "effects/waterwaves/effect.json"
-                && !Self.waterWavesUsesOnlyEffectLocalDisplacementInputs(effect)
-        }
-        let hasUnprovenWaterWavesDisplacementResource = effectIDs.contains { id in
-            guard waterWavesEffects[id]?.mask != nil else { return false }
-            return visibleEffects.first(where: { $0.id == id }).map {
-                !Self.waterWavesUsesOnlyEffectLocalDisplacementInputs($0)
-            } ?? true
+        let hasEffectOutsideLocalDisplacementContract = visibleEffects.contains { effect in
+            Self.isAuthoredLocalDisplacementDefinition(effect.file)
+                && !Self.effectUsesOnlyLocalDisplacementInputs(effect)
         }
         return hasCoverageMutatingPulse
             || hasUnprovenPulseResource
-            || hasWaterWavesOutsideDisplacementContract
-            || hasUnprovenWaterWavesDisplacementResource
+            || hasEffectOutsideLocalDisplacementContract
             || hasValue(standardBlurEffects) { $0.maskCandidate != nil }
             || (xRay.map {
                 effectIDs.contains($0.effectID) && $0.opacityMask != nil
@@ -96,11 +86,12 @@ struct SceneImageLayerMasks {
         return true
     }
 
-    private static func waterWavesUsesOnlyEffectLocalDisplacementInputs(
+    private static func effectUsesOnlyLocalDisplacementInputs(
         _ effect: SceneRenderDescriptor.EffectDescriptor
     ) -> Bool {
-        // The optional stock mask is an effect-local displacement input, not an
-        // independent opacity law. Skipping the effect also skips this mask.
+        // A proven local-displacement mask belongs to the skipped effect and
+        // cannot independently change source coverage. Unknown topology,
+        // combos, or resource purpose must still block source passthrough.
         guard normalized(effect.file) == "effects/waterwaves/effect.json",
               effect.passes.count == 1,
               let pass = effect.passes.first,
@@ -111,13 +102,13 @@ struct SceneImageLayerMasks {
               pass.textureSlots.count == 1 || pass.textureSlots[1] != nil,
               pass.texturePaths.map(Self.normalized)
                 == pass.textureSlots.compactMap({ $0 }).map(Self.normalized),
-              normalizedWaterWavesCombos(pass.combos) != nil else {
+              normalizedLocalDisplacementCombos(pass.combos) != nil else {
             return false
         }
         return true
     }
 
-    private static func normalizedWaterWavesCombos(
+    private static func normalizedLocalDisplacementCombos(
         _ authored: [String: Int]
     ) -> [String: Int]? {
         var result: [String: Int] = [:]
@@ -132,6 +123,28 @@ struct SceneImageLayerMasks {
             result[normalizedKey] = value
         }
         return result
+    }
+
+    private static func isAuthoredLocalDisplacementDefinition(
+        _ rawPath: String
+    ) -> Bool {
+        // Preserve the old stock/relocated resource-provenance boundary after
+        // removing its renderer-specific asset family. Relocated definitions
+        // remain unproven for source-coverage passthrough; this predicate never
+        // selects an execution algorithm or output owner.
+        let path = normalized(rawPath)
+        let components = path.split(
+            separator: "/",
+            omittingEmptySubsequences: false
+        )
+        return components.count >= 3
+            && components.joined(separator: "/") == path
+            && components.first == "effects"
+            && components[components.count - 2] == "waterwaves"
+            && components.last == "effect.json"
+            && components.dropFirst().dropLast(2).allSatisfy {
+                !$0.isEmpty && $0 != "." && $0 != ".."
+            }
     }
 
     private static func normalizedPulseCombos(

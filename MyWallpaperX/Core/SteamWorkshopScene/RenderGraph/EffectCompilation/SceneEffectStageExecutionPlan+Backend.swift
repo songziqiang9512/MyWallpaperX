@@ -4,7 +4,6 @@ extension SceneEffectStageExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
-        case waterWaves(SceneWaterWavesExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
         case transform(SceneTransformExecutionPlan)
@@ -12,8 +11,7 @@ extension SceneEffectStageExecutionPlan {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .waterWaves,
-                 .xRay, .blend, .transform, .pulse:
+            case .xRay, .blend, .transform, .pulse:
                 return true
             default:
                 return false
@@ -39,11 +37,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var standardBlur: SceneStandardBlurPlan? {
         guard case .standardBlur(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var waterWaves: SceneWaterWavesExecutionPlan? {
-        guard case .waterWaves(let plan) = backend else { return nil }
         return plan
     }
 

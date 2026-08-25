@@ -70,7 +70,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift",
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+WaterWaves.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
@@ -610,7 +609,6 @@ struct SceneBlendEffectTextures {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
-        case waterWaves(SceneWaterWavesExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case blend(SceneBlendExecutionPlan)
         case transform(SceneTransformExecutionPlan)
@@ -618,7 +616,7 @@ struct SceneBlendEffectTextures {
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .waterWaves, .xRay, .blend, .transform, .pulse:
+            case .xRay, .blend, .transform, .pulse:
                 return true
             default:
                 return false
@@ -629,7 +627,6 @@ struct SceneBlendEffectTextures {
             switch self {
             case .preciseGaussian: "precise-gaussian"
             case .standardBlur: "standard-blur"
-            case .waterWaves: "water-waves"
             case .xRay: "x-ray"
             case .blend: "blend"
             case .transform: "transform"
@@ -680,11 +677,6 @@ struct SceneBlendEffectTextures {
         return plan
     }
 
-    var waterWaves: SceneWaterWavesExecutionPlan? {
-        guard case .waterWaves(let plan) = backend else { return nil }
-        return plan
-    }
-
     var requiresExactInputExtent: Bool {
         if case .preciseGaussian = backend {
             return !supportsUnifiedFullFrameComposeStage
@@ -726,36 +718,6 @@ struct SceneBlendEffectTextures {
 
 struct SceneSpotLightPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-struct SceneWaterWavesExecutionPlan {
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-}
-
-struct SceneWaterWavesEffectTextures {
-    let mask: MTLTexture?
-
-    func matches(_ plan: SceneWaterWavesExecutionPlan) -> Bool { true }
-}
-
-struct SceneWaterWavesPipeline {
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-enum SceneWaterWavesRenderer {
-    static func renderCaptured(
-        plan: SceneWaterWavesExecutionPlan,
-        sourceTexture: MTLTexture,
-        masks: SceneImageLayerMasks,
-        targets: SceneGraphRenderTargetTable,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        sourcePipeline: SceneImageLayerPipeline,
-        waterWavesPipeline: SceneWaterWavesPipeline,
-        time: Float,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        nil
-    }
 }
 
 struct ScenePulseShaderProfile {
@@ -1836,14 +1798,12 @@ enum Harness {
         )
         func masks(
             standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:],
-            waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:],
             pulseEffects: [String: ScenePulseEffectTextures] = [:],
             xRay: SceneXRayEffectTextures? = nil
         ) -> SceneImageLayerMasks {
             SceneImageLayerMasks(
                 blendEffects: [:],
                 standardBlurEffects: standardBlurEffects,
-                waterWavesEffects: waterWavesEffects,
                 pulseEffects: pulseEffects,
                 xRay: xRay
             )
@@ -2024,13 +1984,6 @@ enum Harness {
                 )]
             )
         }
-        func waterWavesMasks(
-            effectID: String = "effects/waterwaves/effect.json"
-        ) -> SceneImageLayerMasks {
-            masks(waterWavesEffects: [
-                effectID: SceneWaterWavesEffectTextures(mask: dependency),
-            ])
-        }
         let exactPulseMasks = pulseMasks()
         let pulseAlphaZeroCombos = [
             "AUDIOPROCESSING": 0,
@@ -2074,14 +2027,12 @@ enum Harness {
         let waterWavesMaskStaticFile = try run(
             publication: exactStaticFile,
             layer: waterWavesLayer(),
-            baseTextureCandidate: staticFileCandidate,
-            masks: waterWavesMasks()
+            baseTextureCandidate: staticFileCandidate
         )
         let waterWavesMaskStaticFileNextFrame = try run(
             publication: exactStaticFile,
             layer: waterWavesLayer(),
-            baseTextureCandidate: staticFileCandidate,
-            masks: waterWavesMasks()
+            baseTextureCandidate: staticFileCandidate
         )
         let accepted: [String: Any] = [
             "staticFilePartial": try run(
@@ -2312,57 +2263,47 @@ enum Harness {
                 masks: exactPulseMasks,
                 blocksStaticLayerSourcePassthrough: true
             ),
-            "waterWavesNonStockDefinition": try run(
+            "waterWavesRelocatedDefinition": try run(
                 publication: exactStaticFile,
                 layer: waterWavesLayer(
                     file: "effects/workshop/9/waterwaves/effect.json"
                 ),
-                baseTextureCandidate: staticFileCandidate,
-                masks: waterWavesMasks(
-                    effectID: "effects/workshop/9/waterwaves/effect.json"
-                )
+                baseTextureCandidate: staticFileCandidate
             ),
             "waterWavesTimeOffset": try run(
                 publication: exactStaticFile,
                 layer: waterWavesLayer(combos: ["TIMEOFFSET": 1]),
-                baseTextureCandidate: staticFileCandidate,
-                masks: waterWavesMasks()
+                baseTextureCandidate: staticFileCandidate
             ),
             "waterWavesPerspective": try run(
                 publication: exactStaticFile,
                 layer: waterWavesLayer(combos: ["PERSPECTIVE": 1]),
-                baseTextureCandidate: staticFileCandidate,
-                masks: waterWavesMasks()
+                baseTextureCandidate: staticFileCandidate
             ),
             "waterWavesDualWaves": try run(
                 publication: exactStaticFile,
                 layer: waterWavesLayer(combos: ["DUALWAVES": 1]),
-                baseTextureCandidate: staticFileCandidate,
-                masks: waterWavesMasks()
+                baseTextureCandidate: staticFileCandidate
             ),
             "waterWavesUnknownCombo": try run(
                 publication: exactStaticFile,
                 layer: waterWavesLayer(combos: ["UNKNOWN": 1]),
-                baseTextureCandidate: staticFileCandidate,
-                masks: waterWavesMasks()
+                baseTextureCandidate: staticFileCandidate
             ),
             "waterWavesMultiplePassesMasked": try run(
                 publication: exactStaticFile,
                 layer: waterWavesLayer(passIndices: [0, 1]),
-                baseTextureCandidate: staticFileCandidate,
-                masks: waterWavesMasks()
+                baseTextureCandidate: staticFileCandidate
             ),
             "waterWavesWrongPassMasked": try run(
                 publication: exactStaticFile,
                 layer: waterWavesLayer(passIndices: [1]),
-                baseTextureCandidate: staticFileCandidate,
-                masks: waterWavesMasks()
+                baseTextureCandidate: staticFileCandidate
             ),
             "waterWavesStaticSourceConsumer": try run(
                 publication: exactStaticFile,
                 layer: waterWavesLayer(),
                 baseTextureCandidate: staticFileCandidate,
-                masks: waterWavesMasks(),
                 blocksStaticLayerSourcePassthrough: true
             ),
         ]
@@ -2372,11 +2313,6 @@ enum Harness {
                 visibleEffectID: SceneStandardBlurEffectTextures(
                     maskCandidate: maskCandidate,
                     maskPath: "fixture/mask"
-                ),
-            ])),
-            ("waterWaves", masks(waterWavesEffects: [
-                visibleEffectID: SceneWaterWavesEffectTextures(
-                    mask: dependency
                 ),
             ])),
             ("xray", masks(xRay: SceneXRayEffectTextures(
@@ -3203,7 +3139,6 @@ enum Harness {
                     maskPath: path
                 ),
             ],
-            waterWavesEffects: [:],
             pulseEffects: [:],
             xRay: nil
         )
@@ -3872,7 +3807,6 @@ enum Harness {
         SceneImageLayerMasks(
             blendEffects: [:],
             standardBlurEffects: [:],
-            waterWavesEffects: [:],
             pulseEffects: [:],
             xRay: nil
         )
@@ -4379,7 +4313,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "pulseMultiplePassesMasked",
                 "pulseWrongDefinitionMasked",
                 "pulseStaticSourceConsumer",
-                "waterWavesNonStockDefinition",
+                "waterWavesRelocatedDefinition",
                 "waterWavesTimeOffset",
                 "waterWavesPerspective",
                 "waterWavesDualWaves",
@@ -4388,7 +4322,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "waterWavesWrongPassMasked",
                 "waterWavesStaticSourceConsumer",
                 "mask-standardBlur",
-                "mask-waterWaves",
                 "mask-xray",
             },
         )

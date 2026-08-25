@@ -659,6 +659,10 @@ fragment float4 mwxGenericFragment(
             ".sourceProvenUnitPreviousBlurredComposite,",
             generic_only_cases,
         )
+        self.assertIn(
+            ".sourceProvenGraphInputStageUniformPassthrough:",
+            generic_only_cases,
+        )
         rollback = route[route.index("var validatedRollbackOwner"):]
         incumbent_cases = rollback.split(".programFirstIncumbent", 1)[0]
         self.assertIn(
@@ -696,9 +700,11 @@ fragment float4 mwxGenericFragment(
         standard_compiler = dedicated_compilers[
             dedicated_compilers.index("extension SceneAuthoredStandardBlurPlanner"):
             dedicated_compilers.index(
-                "extension SceneAuthoredWaterWavesPlanner"
+                "extension SceneAuthoredXRayPlanner"
             )
         ]
+        self.assertNotIn("SceneAuthoredWaterWavesPlanner", dedicated_compilers)
+        self.assertNotIn(".waterWaves", dedicated_compilers)
         self.assertIn(
             "acceptsDedicatedRevocation(",
             standard_compiler,

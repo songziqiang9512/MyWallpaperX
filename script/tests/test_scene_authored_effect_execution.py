@@ -102,19 +102,6 @@ struct SceneGaussianBlurPlan {
     let kernel: SceneGaussianBlurKernel
 }
 
-struct SceneWaterWavesExecutionPlan {}
-
-enum SceneAuthoredWaterWavesPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWaterWavesExecutionPlan? {
-        nil
-    }
-}
-
 struct SceneXRayExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
@@ -294,10 +281,6 @@ extension SceneAuthoredStandardBlurPlanner {
     }
 }
 
-extension SceneAuthoredWaterWavesPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneWaterWavesExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterWaves }
-}
 extension SceneAuthoredXRayPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneXRayExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .xRay }
@@ -1080,7 +1063,6 @@ enum Harness {
             switch stage.backend {
             case .preciseGaussian: backend = "preciseGaussian"
             case .standardBlur: backend = "standardBlur"
-            case .waterWaves: backend = "waterWaves"
             case .xRay: backend = "xRay"
             case .blend: backend = "blend"
             case .transform: backend = "transform"
@@ -1489,8 +1471,8 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertNotIn("waterFlowEffects", topology)
         self.assertNotIn("fisheyeZeroDistortion", leaf_body)
         self.assertNotIn("fisheye-pipeline-missing", topology)
-        for backend_name in (".waterWaves", ".pulse"):
-            self.assertIn(backend_name, leaf_body)
+        self.assertNotIn(".waterWaves", leaf_body)
+        self.assertIn(".pulse", leaf_body)
         self.assertNotIn("proceduralNoise", leaf_body)
         self.assertIn(".xRay", leaf_body)
         self.assertIn("case .xRay(let plan):", topology)
@@ -1662,11 +1644,8 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
     def test_later_authored_stages_retain_required_resources(self) -> None:
         source = DRAW_REQUEST_SOURCE.read_text(encoding="utf-8")
         self.assertNotIn("authoredEffectResourcesOnly", source)
-        for resource in (
-            "waterWavesEffects",
-            "blendEffects",
-            "xRay",
-        ):
+        self.assertNotIn("waterWavesEffects", source)
+        for resource in ("blendEffects", "xRay"):
             self.assertIn(f"let {resource}", source)
 
         layer_loader = EFFECT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")

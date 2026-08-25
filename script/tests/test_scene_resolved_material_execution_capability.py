@@ -6818,11 +6818,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         logical_end = source.index("\n    var gaussianBlur:", logical_start)
         logical_body = source[logical_start:logical_end]
 
-        for backend_name in (
-            ".blend", ".waterWaves",
-            ".xRay", ".pulse",
-        ):
+        for backend_name in (".blend", ".xRay", ".pulse"):
             self.assertIn(backend_name, leaf_body)
+        self.assertNotIn(".waterWaves", leaf_body)
         self.assertNotIn(".waterFlow", source)
         self.assertNotIn("yieldsToResolvedMaterialProgram", source)
         self.assertNotIn(".lightShafts", leaf_body)
@@ -6839,6 +6837,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             / "RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift"
         ).read_text(encoding="utf-8")
         self.assertNotIn("SceneAuthoredGodraysPlanner", dedicated_compilers)
+        self.assertNotIn("SceneAuthoredWaterWavesPlanner", dedicated_compilers)
         self.assertNotIn(
             "stock-radial-owner-revoked-to-material-program",
             dedicated_compilers,

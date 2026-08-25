@@ -121,7 +121,6 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "script/tests/test_scene_blend_planner.py",
             "script/tests/test_scene_pulse_planner.py",
             "script/tests/test_scene_transform_planner.py",
-            "script/tests/test_scene_waterwaves_profile.py",
         ]
         for relative in resolution_consumers:
             text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")

@@ -239,9 +239,8 @@ enum SceneAuthoredXRayPlanner {
     private nonisolated static let supportedContentKinds = Set([
         "image", "solid", "text", "composition", "project", "fullscreen",
     ])
-    // Sorted minimal single-pass stock material with shader identity erased.
-    // Current/legacy X-Ray and Water Waves share this semantic JSON; an author
-    // override or unknown field changes the digest without coupling behavior.
+    // Sorted minimal X-Ray single-pass stock material with shader identity
+    // erased. An author override or unknown field changes this digest.
     private nonisolated static let stockMaterialSemanticSHA256 =
-        SceneWaterWavesAssetFamily.materialSemanticSHA256
+        "f07dfa1b7f21c1c99742c66dfa14ab8c747ebc78a1a7573680329950ad40e121"
 }

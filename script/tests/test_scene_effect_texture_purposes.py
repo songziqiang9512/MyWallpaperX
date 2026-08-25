@@ -38,7 +38,6 @@ EXPECTED_PURPOSES = {
     "pulse noise": "noise",
     "pulse effect mask": "mask",
     "standard blur mask": "mask",
-    "waterwaves mask": "mask",
     "xray blend": "straightAlbedo",
     "xray halo": "preservedChannels",
     "xray opacity": "mask",

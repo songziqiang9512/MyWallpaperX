@@ -112,38 +112,6 @@ extension SceneAuthoredStandardBlurPlanner {
     }
 }
 
-extension SceneAuthoredWaterWavesPlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneWaterWavesExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterWaves }
-
-    nonisolated static func compile(
-        _ input: SceneEffectStageCompileInput
-    ) -> SceneEffectStageBackendCompileResult<DedicatedPlan> {
-        let result = SceneEffectStageDedicatedCompilerAdapter.compile(
-            backend: compilerBackend,
-            candidate: { containsCandidate(graph: input.stageGraph) },
-            plan: {
-                plan(
-                    graph: input.stageGraph,
-                    descriptor: input.descriptor,
-                    shaderContracts: input.shaderContracts,
-                    inputRole: input.inputRole
-                )
-            }
-        )
-        guard case let .accepted(plan) = result,
-              !plan.shaderProfile.retainsDedicatedFallback else {
-            return result
-        }
-        return .rejected(.init(
-            backend: compilerBackend,
-            phase: .compatibility,
-            code: .dedicatedProfileRejected,
-            details: ["owner-revoked-to-material-program"]
-        ))
-    }
-}
-
 extension SceneAuthoredXRayPlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneXRayExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .xRay }
