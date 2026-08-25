@@ -39,12 +39,16 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                   graph: graph,
                   descriptor: descriptor,
                   inputRole: inputRole
-              ), stage.standardBlur != nil,
+              ), let blur = stage.standardBlur,
               let scale = wholeStageScaleCohort(
                   graph: graph,
                   descriptor: descriptor
               ) else { return false }
-        return source != .copyPassthroughCapturedMain || scale == .staticExact
+        if source == .copyPassthroughCapturedMain,
+           case .userPropertyScalarSplat = scale {
+            return blur.maskTexturePath == nil
+        }
+        return true
     }
 
     static func dedicatedRevocationDetail(
@@ -61,7 +65,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         case (.copyPassthroughCapturedMain?, .staticExact?):
             "captured-main-copy-passthrough-static-owner-revoked-to-material-program"
         case (.copyPassthroughCapturedMain?, .userPropertyScalarSplat?):
-            nil
+            "captured-main-copy-passthrough-typed-user-scalar-splat-owner-revoked-to-material-program"
         case (.capturedMain?, .staticExact?):
             "captured-main-static-owner-revoked-to-material-program"
         case (.capturedMain?, .userPropertyScalarSplat?):
@@ -224,9 +228,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                     slot: slots.previous,
                     identity: effect.input
                 ) else { return false }
-        if source == .copyPassthroughCapturedMain {
-            guard scaleCohort == .staticExact else { return false }
-        } else {
+        if source != .copyPassthroughCapturedMain {
             guard template.textureSlots.indices.contains(slots.previous),
                   template.textureSlots[slots.previous]?.candidates.count == 1
             else { return false }
