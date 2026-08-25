@@ -122,7 +122,7 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             }
         )
         guard case let .accepted(plan) = result,
-              staticSaturatingProgramOwnerIsProven(
+              staticRGBProgramOwnerIsProven(
                   plan: plan,
                   input: input
               ) else { return result }
@@ -131,21 +131,24 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             phase: .compatibility,
             code: .dedicatedProfileRejected,
             details: [
-                "static-direct-phase-saturate-owner-revoked-to-material-program",
+                "static-rgb-preserving-owner-revoked-to-material-program",
             ]
         ))
     }
 
-    /// Revokes only the static legacy-saturate cohort after every readiness
-    /// shape proves the same graph-input carrier and typed-data auxiliaries
-    /// used by the generic-only MaterialProgram profile. Other Pulse source
-    /// fingerprints and dynamic/audio/alpha cohorts retain their incumbent.
-    private nonisolated static func staticSaturatingProgramOwnerIsProven(
+    /// Revokes static color-only profiles after every readiness shape proves
+    /// the same graph-input carrier, typed-data auxiliaries, and exact terminal
+    /// RGB/alpha transform. Dynamic, audio, and alpha cohorts retain incumbent.
+    private nonisolated static func staticRGBProgramOwnerIsProven(
         plan: ScenePulseExecutionPlan,
         input: SceneEffectStageCompileInput
     ) -> Bool {
         typealias Graph = SceneAuthoredEffectRenderPlan
-        guard plan.shaderProfile == .directPhaseSaturateV1,
+        let supportedProfiles: [ScenePulseShaderProfile] = [
+            .directPhaseSaturateV1,
+            .directPhaseMaxClampV1,
+        ]
+        guard supportedProfiles.contains(plan.shaderProfile),
               plan.bindings.isEmpty,
               plan.audio == nil,
               plan.pulseColor,

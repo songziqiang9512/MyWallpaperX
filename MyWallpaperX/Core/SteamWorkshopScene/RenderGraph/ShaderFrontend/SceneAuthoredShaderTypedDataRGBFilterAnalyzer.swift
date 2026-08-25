@@ -1,10 +1,20 @@
 import Foundation
 
+nonisolated enum SceneAuthoredShaderTypedDataRGBFilterTerminalTransform:
+    String, Equatable, Sendable
+{
+    case identity
+    case saturateRGBA
+    case nonNegativeRGBPreservedAlpha
+}
+
 /// A source-derived straight-RGB filter with one preserved-alpha color carrier
 /// and only typed data auxiliaries. The fact records every auxiliary sampling
 /// projection so compiler lowering can independently conserve the boundary.
 nonisolated struct SceneAuthoredShaderTypedDataRGBFilterFact: Equatable, Sendable {
     let sourceSlot: Int
+    let terminalTransform:
+        SceneAuthoredShaderTypedDataRGBFilterTerminalTransform
     let fullVectorDataSampleCallCounts: [Int: Int]
     let redDataSampleCallCounts: [Int: Int]
     let redGreenDataSampleCallCounts: [Int: Int]
@@ -40,6 +50,12 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
         let close: Int
         let slot: Int
         let projection: Projection
+    }
+
+    private struct TerminalCarrier {
+        let name: String
+        let transform: SceneAuthoredShaderTypedDataRGBFilterTerminalTransform
+        let useIndices: Set<Int>
     }
 
     static func analyze(fragmentSource source: String) -> Fact? {
@@ -167,6 +183,7 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
               1 + counts.reduce(0, +) <= 32 else { return nil }
         return .init(
             sourceSlot: sourceSlot,
+            terminalTransform: .identity,
             fullVectorDataSampleCallCounts: fullVector,
             redDataSampleCallCounts: red,
             redGreenDataSampleCallCounts: redGreen
@@ -178,7 +195,9 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
     /// therefore preserves that alpha even when the final color is saturated.
     private static func analyzeMaskedSnapshotCarrier(_ fragment: Unit) -> Fact? {
         guard fragment.stage == .fragment,
-              fragment.functions.allSatisfy({ !["mix", "lerp", "saturate"].contains($0.name) }),
+              fragment.functions.allSatisfy({
+                  !["max", "mix", "lerp", "saturate"].contains($0.name)
+              }),
               let main = fragment.functions.first(where: { $0.name == "main" })
         else { return nil }
         let tokens = fragment.tokens
@@ -198,11 +217,12 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
                     body: main.bodyRange
                 ),
               outputExpression.endIndex + 1 == main.bodyRange.upperBound - 1,
-              let carrier = saturatedIdentifier(outputExpression),
+              let terminal = terminalCarrier(outputExpression),
               !main.bodyRange.contains(where: {
                   ["discard", "gl_FragDepth"].contains(tokens[$0].text)
               })
         else { return nil }
+        let carrier = terminal.name
 
         let carrierDefinitions = vectorDefinitions(
             carrier,
@@ -310,11 +330,10 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
             carrierMixUse = carrierUse
             sourceMixUse = sourceUse
         }
-        let outputUse = outputExpression.startIndex + 2
         var rgbWriteCount = 0
         for index in main.bodyRange where tokens[index].text == carrier {
             if index == carrierDefinition || index == mixAssignment
-                || index == outputUse || index == carrierMixUse {
+                || terminal.useIndices.contains(index) || index == carrierMixUse {
                 continue
             }
             guard index + 2 < output,
@@ -370,22 +389,86 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
               1 + counts.reduce(0, +) <= 32 else { return nil }
         return .init(
             sourceSlot: sourceSlot,
+            terminalTransform: terminal.transform,
             fullVectorDataSampleCallCounts: fullVector,
             redDataSampleCallCounts: red,
             redGreenDataSampleCallCounts: redGreen
         )
     }
 
-    private static func saturatedIdentifier(
+    private static func terminalCarrier(
         _ expression: ArraySlice<Token>
-    ) -> String? {
+    ) -> TerminalCarrier? {
         let values = Array(expression)
-        guard values.count == 4,
-              values[0].text == "saturate",
-              values[1].text == "(",
-              values[2].kind == .identifier,
-              values[3].text == ")" else { return nil }
-        return values[2].text
+        if values.count == 4,
+           values[0].text == "saturate",
+           values[1].text == "(",
+           values[2].kind == .identifier,
+           values[3].text == ")" {
+            return .init(
+                name: values[2].text,
+                transform: .saturateRGBA,
+                useIndices: Set(expression.indices.filter {
+                    expression[$0].text == values[2].text
+                })
+            )
+        }
+        guard let outputArguments = callArguments(
+                  values,
+                  names: ["vec4", "float4"]
+              ), outputArguments.count == 2,
+              let maxArguments = callArguments(
+                  outputArguments[0],
+                  names: ["max"]
+              ), maxArguments.count == 2,
+              zeroRGBLowerBound(maxArguments[0]),
+              let rgb = projectedIdentifier(
+                  maxArguments[1],
+                  projections: ["rgb", "xyz"]
+              ), let alpha = projectedIdentifier(
+                  outputArguments[1],
+                  projections: ["a", "w"]
+              ), rgb == alpha
+        else { return nil }
+        let uses = Set(expression.indices.filter {
+            expression[$0].text == rgb
+        })
+        guard uses.count == 2 else { return nil }
+        return .init(
+            name: rgb,
+            transform: .nonNegativeRGBPreservedAlpha,
+            useIndices: uses
+        )
+    }
+
+    private static func zeroRGBLowerBound(_ values: [Token]) -> Bool {
+        if values.count == 1 {
+            return isZero(values[0])
+        }
+        return values.count == 4
+            && ["CAST3", "vec3", "float3"].contains(values[0].text)
+            && values[1].text == "("
+            && isZero(values[2])
+            && values[3].text == ")"
+    }
+
+    private static func isZero(_ token: Token) -> Bool {
+        guard token.kind == .number else { return false }
+        let raw = token.text.trimmingCharacters(
+            in: CharacterSet(charactersIn: "fFuU")
+        )
+        return Double(raw) == 0
+    }
+
+    private static func projectedIdentifier(
+        _ values: [Token],
+        projections: Set<String>
+    ) -> String? {
+        guard values.count == 3,
+              values[0].kind == .identifier,
+              values[1].text == ".",
+              projections.contains(values[2].text) else { return nil }
+        return values[0].text
     }
 
     private static func vectorDefinitions(

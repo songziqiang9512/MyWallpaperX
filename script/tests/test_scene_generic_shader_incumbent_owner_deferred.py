@@ -753,12 +753,15 @@ fragment float4 mwxGenericFragment(
         pulse_compiler = dedicated_compilers[
             dedicated_compilers.index("extension SceneAuthoredPulsePlanner"):
         ]
-        self.assertIn("staticSaturatingProgramOwnerIsProven(", pulse_compiler)
+        self.assertIn("staticRGBProgramOwnerIsProven(", pulse_compiler)
+        for static_profile in (
+            ".directPhaseSaturateV1",
+            ".directPhaseMaxClampV1",
+        ):
+            self.assertIn(static_profile, pulse_compiler)
+        self.assertNotIn(".stock2842", pulse_compiler)
         self.assertIn(
-            "plan.shaderProfile == .directPhaseSaturateV1", pulse_compiler
-        )
-        self.assertNotIn(
-            "plan.shaderProfile == .directPhaseMaxClampV1", pulse_compiler
+            "supportedProfiles.contains(plan.shaderProfile)", pulse_compiler
         )
         for static_guard in (
             "plan.bindings.isEmpty",
@@ -786,7 +789,7 @@ fragment float4 mwxGenericFragment(
         self.assertIn(".defaultRouteState == .genericOnly", pulse_compiler)
         self.assertIn(".validatedRollbackOwner == .none", pulse_compiler)
         self.assertIn(
-            '"static-direct-phase-saturate-owner-revoked-to-material-program"',
+            '"static-rgb-preserving-owner-revoked-to-material-program"',
             pulse_compiler,
         )
 

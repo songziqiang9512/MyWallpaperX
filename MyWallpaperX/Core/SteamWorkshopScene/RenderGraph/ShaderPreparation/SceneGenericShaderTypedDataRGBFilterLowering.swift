@@ -16,6 +16,13 @@ nonisolated enum SceneGenericShaderTypedDataRGBFilterLowering {
         let projection: Projection
     }
 
+    private struct TerminalOutput {
+        let match: NSTextCheckingResult
+        let indent: String
+        let expression: String
+        let carrier: String
+    }
+
     static func lower(
         _ source: String,
         fact: SceneAuthoredShaderTypedDataRGBFilterFact
@@ -42,46 +49,47 @@ nonisolated enum SceneGenericShaderTypedDataRGBFilterLowering {
               fullVector == fact.fullVectorDataSampleCallCounts,
               red == fact.redDataSampleCallCounts,
               redGreen == fact.redGreenDataSampleCallCounts else { return nil }
-        return SceneGenericShaderStraightAlphaPreservingLowering.lowerPreserving(
-            source,
-            expectedSlot: fact.sourceSlot
-        ) ?? lowerSaturatedSnapshotCarrier(
-            source,
-            sourceSlot: fact.sourceSlot,
-            calls: calls
-        )
+        switch fact.terminalTransform {
+        case .identity:
+            return SceneGenericShaderStraightAlphaPreservingLowering
+                .lowerPreserving(source, expectedSlot: fact.sourceSlot)
+        case .saturateRGBA, .nonNegativeRGBPreservedAlpha:
+            return lowerSnapshotCarrier(
+                source,
+                sourceSlot: fact.sourceSlot,
+                calls: calls,
+                terminalTransform: fact.terminalTransform
+            )
+        }
     }
 
-    private static func lowerSaturatedSnapshotCarrier(
+    private static func lowerSnapshotCarrier(
         _ source: String,
         sourceSlot: Int,
-        calls: [SampleCall]
+        calls: [SampleCall],
+        terminalTransform:
+            SceneAuthoredShaderTypedDataRGBFilterTerminalTransform
     ) -> String? {
         guard matches(#"\bmwxGenericUnpremultiply\b"#, in: source).isEmpty,
               matches(#"\bmwxGenericPremultiply\b"#, in: source).isEmpty,
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
         else { return nil }
         let sourceCalls = calls.filter { $0.slot == sourceSlot }
-        let outputs = matches(
-            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*((?:fast::)?clamp\(\s*([A-Za-z_]\w*)\s*,\s*float4\(\s*0(?:\.0+)?f?\s*\)\s*,\s*float4\(\s*1(?:\.0+)?f?\s*\)\s*\))\s*;[ \t]*$"#,
-            in: source
-        )
         guard sourceCalls.count == 1,
               sourceCalls[0].projection == .fullVector,
-              outputs.count == 1,
-              let output = outputs.first,
-              sourceCalls[0].range.location < output.range.location,
+              let terminal = terminalOutput(
+                  in: source,
+                  transform: terminalTransform
+              ),
+              sourceCalls[0].range.location < terminal.match.range.location,
               matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source).count == 1,
-              let outputRange = Range(output.range, in: source),
-              let indent = capture(output, 1, in: source),
-              let expression = capture(output, 2, in: source),
-              let carrier = capture(output, 3, in: source),
-              saturatedCarrierDataflowIsProven(
+              let outputRange = Range(terminal.match.range, in: source),
+              snapshotCarrierDataflowIsProven(
                   in: source,
                   sourceCall: sourceCalls[0],
-                  carrier: carrier,
-                  output: output
+                  carrier: terminal.carrier,
+                  output: terminal.match
               ),
               let sourceRange = Range(sourceCalls[0].range, in: source)
         else { return nil }
@@ -89,7 +97,8 @@ nonisolated enum SceneGenericShaderTypedDataRGBFilterLowering {
         var transformed = source
         transformed.replaceSubrange(
             outputRange,
-            with: "\(indent)out.mwxFragColor = mwxGenericPremultiply(\(expression));"
+            with: "\(terminal.indent)out.mwxFragColor = "
+                + "mwxGenericPremultiply(\(terminal.expression));"
         )
         guard let adjustedSourceRange = Range(sourceCalls[0].range, in: transformed)
         else { return nil }
@@ -101,10 +110,41 @@ nonisolated enum SceneGenericShaderTypedDataRGBFilterLowering {
             .insertingBoundaryHelpers(into: transformed)
     }
 
+    private static func terminalOutput(
+        in source: String,
+        transform: SceneAuthoredShaderTypedDataRGBFilterTerminalTransform
+    ) -> TerminalOutput? {
+        let pattern: String
+        switch transform {
+        case .identity:
+            return nil
+        case .saturateRGBA:
+            pattern = #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*((?:fast::)?clamp\(\s*([A-Za-z_]\w*)\s*,\s*float4\(\s*0(?:\.0+)?f?\s*\)\s*,\s*float4\(\s*1(?:\.0+)?f?\s*\)\s*\))\s*;[ \t]*$"#
+        case .nonNegativeRGBPreservedAlpha:
+            pattern = #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*((?:float4|half4)\(\s*(?:fast::)?max\(\s*(?:float3|half3)\(\s*0(?:\.0+)?f?\s*\)\s*,\s*([A-Za-z_]\w*)\s*\.\s*(?:xyz|rgb)\s*\)\s*,\s*([A-Za-z_]\w*)\s*\.\s*(?:w|a)\s*\))\s*;[ \t]*$"#
+        }
+        let outputs = matches(pattern, in: source)
+        guard outputs.count == 1,
+              let output = outputs.first,
+              let indent = capture(output, 1, in: source),
+              let expression = capture(output, 2, in: source),
+              let carrier = capture(output, 3, in: source)
+        else { return nil }
+        if transform == .nonNegativeRGBPreservedAlpha {
+            guard capture(output, 4, in: source) == carrier else { return nil }
+        }
+        return .init(
+            match: output,
+            indent: indent,
+            expression: expression,
+            carrier: carrier
+        )
+    }
+
     /// Re-proves the compiler artifact's snapshot -> carrier -> RGB write ->
-    /// optional scalar mix -> terminal clamp chain. Sampler census alone cannot
-    /// establish that the clamped value still owns the analyzed source alpha.
-    private static func saturatedCarrierDataflowIsProven(
+    /// optional scalar mix -> exact terminal transform chain. Sampler census
+    /// alone cannot establish that the output still owns the source alpha.
+    private static func snapshotCarrierDataflowIsProven(
         in source: String,
         sourceCall: SampleCall,
         carrier: String,

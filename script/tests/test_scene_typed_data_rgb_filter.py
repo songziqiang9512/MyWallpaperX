@@ -37,6 +37,7 @@ import Foundation
 private struct Output: Codable {
     let transfer: String
     let sourceSlot: Int?
+    let terminalTransform: String?
     let fullVectorCounts: [Int: Int]?
     let redCounts: [Int: Int]?
     let redGreenCounts: [Int: Int]?
@@ -60,6 +61,7 @@ private struct Output: Codable {
     let compilerSampleDriftRejected: Bool
     let maskedTransfer: String
     let maskedSourceSlot: Int?
+    let maskedTerminalTransform: String?
     let maskedAuxiliarySlots: [Int]?
     let maskedLoweringAccepted: Bool
     let maskedSourceUnpremultipliedCount: Int
@@ -73,6 +75,14 @@ private struct Output: Codable {
     let unmaskedTransferAccepted: Bool
     let unmaskedLoweringAccepted: Bool
     let boundaryHelperConflictRejected: Bool
+    let maxCastSourceAccepted: Bool
+    let maxLiteralSourceAccepted: Bool
+    let maxTerminalTransform: String?
+    let maxLoweringAccepted: Bool
+    let maxOutputPremultiplied: Bool
+    let maxSourceAlphaDriftRejected: Bool
+    let maxArtifactAlphaDriftRejected: Bool
+    let maxUpperClampRejected: Bool
     let routeProfile: String
     let routeState: String
     let rollbackOwner: String
@@ -161,6 +171,18 @@ private enum TypedDataRGBFilterHarness {
             "    return out;",
             "}",
         ].joined(separator: "\n")
+        let maxAuthored = maskedAuthored.replacingOccurrences(
+            of: "    gl_FragColor = saturate(carrier);",
+            with: "    gl_FragColor = vec4(max(CAST3(0), carrier.rgb), carrier.a);"
+        )
+        let literalMaxAuthored = maxAuthored.replacingOccurrences(
+            of: "max(CAST3(0), carrier.rgb)",
+            with: "max(0, carrier.rgb)"
+        )
+        let maxMSL = maskedMSL.replacingOccurrences(
+            of: "    out.mwxFragColor = fast::clamp(carrier, float4(0.0), float4(1.0));",
+            with: "    out.mwxFragColor = float4(fast::max(float3(0.0), carrier.xyz), carrier.w);"
+        )
 
         func fact(_ source: String) -> SceneAuthoredShaderTypedDataRGBFilterFact? {
             SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(
@@ -220,6 +242,10 @@ private enum TypedDataRGBFilterHarness {
             authoredSource: maskedAuthored
         )
         let maskedLoweredMSL = maskedLowered?.msl ?? ""
+        let maxAnalyzed = fact(maxAuthored)
+        let maxLowered = try? SceneGenericShaderArtifactBuilder
+            .prepareColorTransfer(msl: maxMSL, authoredSource: maxAuthored)
+        let maxLoweredMSL = maxLowered?.msl ?? ""
         let unmaskedAuthored = maskedAuthored.replacingOccurrences(
             of: "    float mask = texSample2D(g_Texture2, v_TexCoord).r;\n"
                 + "    carrier = mix(snapshot, carrier, mask);\n",
@@ -252,6 +278,7 @@ private enum TypedDataRGBFilterHarness {
                 return "unexpected"
             }(),
             sourceSlot: analyzed?.sourceSlot,
+            terminalTransform: analyzed?.terminalTransform.rawValue,
             fullVectorCounts: analyzed?.fullVectorDataSampleCallCounts,
             redCounts: analyzed?.redDataSampleCallCounts,
             redGreenCounts: analyzed?.redGreenDataSampleCallCounts,
@@ -328,6 +355,8 @@ private enum TypedDataRGBFilterHarness {
                 return "unexpected"
             }(),
             maskedSourceSlot: maskedAnalyzed?.sourceSlot,
+            maskedTerminalTransform:
+                maskedAnalyzed?.terminalTransform.rawValue,
             maskedAuxiliarySlots: maskedAnalyzed?.auxiliarySlots.sorted(),
             maskedLoweringAccepted: maskedLowered != nil,
             maskedSourceUnpremultipliedCount: maskedLoweredMSL.components(
@@ -395,6 +424,30 @@ private enum TypedDataRGBFilterHarness {
                     ),
                     authoredSource: maskedAuthored
                 )) == nil,
+            maxCastSourceAccepted: maxAnalyzed != nil,
+            maxLiteralSourceAccepted: fact(literalMaxAuthored) != nil,
+            maxTerminalTransform: maxAnalyzed?.terminalTransform.rawValue,
+            maxLoweringAccepted: maxLowered != nil,
+            maxOutputPremultiplied: maxLoweredMSL.contains(
+                "out.mwxFragColor = mwxGenericPremultiply("
+                    + "float4(fast::max(float3(0.0), carrier.xyz), carrier.w));"
+            ),
+            maxSourceAlphaDriftRejected: fact(maxAuthored.replacingOccurrences(
+                of: "carrier.a);",
+                with: "snapshot.a);"
+            )) == nil,
+            maxArtifactAlphaDriftRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: maxMSL.replacingOccurrences(
+                        of: "carrier.w);",
+                        with: "snapshot.w);"
+                    ),
+                    authoredSource: maxAuthored
+                )) == nil,
+            maxUpperClampRejected: fact(maxAuthored.replacingOccurrences(
+                of: "max(CAST3(0), carrier.rgb)",
+                with: "min(CAST3(0), carrier.rgb)"
+            )) == nil,
             routeProfile: selected.rawValue,
             routeState: selected.defaultRouteState.rawValue,
             rollbackOwner: selected.validatedRollbackOwner.rawValue,
@@ -466,6 +519,7 @@ class SceneTypedDataRGBFilterTests(unittest.TestCase):
     def test_source_fact_and_compiler_conservation(self) -> None:
         self.assertEqual(self.result["transfer"], "straight-alpha-preserving-0")
         self.assertEqual(self.result["sourceSlot"], 0)
+        self.assertEqual(self.result["terminalTransform"], "identity")
         self.assertEqual(self.result["fullVectorCounts"], {"3": 3, "4": 1})
         self.assertEqual(self.result["redCounts"], {"1": 1, "2": 3, "5": 1})
         self.assertEqual(self.result["redGreenCounts"], {"6": 1})
@@ -498,6 +552,9 @@ class SceneTypedDataRGBFilterTests(unittest.TestCase):
             self.result["maskedTransfer"], "straight-alpha-preserving-0"
         )
         self.assertEqual(self.result["maskedSourceSlot"], 0)
+        self.assertEqual(
+            self.result["maskedTerminalTransform"], "saturateRGBA"
+        )
         self.assertEqual(self.result["maskedAuxiliarySlots"], [1, 2])
         self.assertTrue(self.result["maskedLoweringAccepted"])
         self.assertEqual(self.result["maskedSourceUnpremultipliedCount"], 1)
@@ -511,6 +568,19 @@ class SceneTypedDataRGBFilterTests(unittest.TestCase):
         self.assertTrue(self.result["unmaskedTransferAccepted"])
         self.assertTrue(self.result["unmaskedLoweringAccepted"])
         self.assertTrue(self.result["boundaryHelperConflictRejected"])
+
+    def test_nonnegative_rgb_preserved_alpha_terminal_is_conserved(self) -> None:
+        self.assertTrue(self.result["maxCastSourceAccepted"])
+        self.assertTrue(self.result["maxLiteralSourceAccepted"])
+        self.assertEqual(
+            self.result["maxTerminalTransform"],
+            "nonNegativeRGBPreservedAlpha",
+        )
+        self.assertTrue(self.result["maxLoweringAccepted"])
+        self.assertTrue(self.result["maxOutputPremultiplied"])
+        self.assertTrue(self.result["maxSourceAlphaDriftRejected"])
+        self.assertTrue(self.result["maxArtifactAlphaDriftRejected"])
+        self.assertTrue(self.result["maxUpperClampRejected"])
 
     def test_only_exact_typed_static_auxiliary_set_gets_generic_owner(self) -> None:
         self.assertEqual(
