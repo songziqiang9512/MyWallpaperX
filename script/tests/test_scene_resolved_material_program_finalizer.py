@@ -1429,6 +1429,92 @@ private func samplerReadinessSchemaToken(_ metadata: String) -> String {
     }
 }
 
+private func selfGatedReadinessSeedTokens() -> [String: String] {
+    let annotation =
+        #"{"material":"mask","mode":"opacitymask","combo":"MASK","default":"util/white"}"#
+
+    func token(
+        _ label: String,
+        conditionalSource: String,
+        readiness: Bool
+    ) -> String {
+        let shader = contract(
+            revision: "self-gated-readiness-\(label)",
+            vertexSourceOverride: "void main() { gl_Position = vec4(0.0); }",
+            fragmentSourceOverride: """
+            \(conditionalSource)
+            void main() {
+                vec4 color = vec4(1.0);
+            #if MASK == 1
+                color *= texSample2D(g_Texture1, vec2(0.5));
+            #endif
+                gl_FragColor = color;
+            }
+            """
+        )
+        switch SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: shader,
+            combos: [:],
+            textureReadiness: [1: readiness]
+        ) {
+        case let .accepted(prepared):
+            guard let samplers = try? SceneResolvedMaterialShaderSchema
+                .activeSamplers(prepared) else { return "schema-invalid" }
+            return "accepted:" + samplers.keys.sorted().map(String.init)
+                .joined(separator: ",")
+        case let .rejected(failure):
+            return "\(failure.phase.rawValue)/\(failure.code.rawValue):"
+                + failure.details.joined(separator: ",")
+        case .notApplicable:
+            return "not-applicable"
+        }
+    }
+
+    let exact = """
+    #if MASK == 1
+    uniform sampler2D g_Texture1; // \(annotation)
+    #endif
+    """
+    let nonUnitGuard = """
+    #if MASK > 0
+    uniform sampler2D g_Texture1; // \(annotation)
+    #endif
+    """
+    let branched = """
+    #if MASK == 1
+    uniform sampler2D g_Texture1; // \(annotation)
+    #else
+    float inactiveBranchProbe = 0.0;
+    #endif
+    """
+    let nested = """
+    #if MASK == 1
+    #if MASK == 1
+    uniform sampler2D g_Texture1; // \(annotation)
+    #endif
+    #endif
+    """
+    return [
+        "ready": token("ready", conditionalSource: exact, readiness: true),
+        "unready": token("unready", conditionalSource: exact, readiness: false),
+        "nonUnitGuard": token(
+            "non-unit-guard",
+            conditionalSource: nonUnitGuard,
+            readiness: true
+        ),
+        "elseBranch": token(
+            "else-branch",
+            conditionalSource: branched,
+            readiness: true
+        ),
+        "nestedGuard": token(
+            "nested-guard",
+            conditionalSource: nested,
+            readiness: true
+        ),
+    ]
+}
+
 private func implicitFramebufferProjectionToken(
     defaultAssetPath: String
 ) -> String {
@@ -4562,6 +4648,7 @@ private enum Harness {
             ],
             "shaderPreparationBoundary": [
                 "missingSourceGraph": missingSourceGraphDiagnostic(),
+                "selfGatedReadiness": selfGatedReadinessSeedTokens(),
             ],
             "neutralTextureResolution": neutralTextureResolution,
             "neutralTextureResolutionUnseen": neutralTextureResolutionUnseen,
@@ -4958,6 +5045,24 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             {
                 "unmarkedReadiness": "MASK|asset",
                 "authoredMarker": "none|none",
+            },
+        )
+
+    def test_only_exact_single_branch_sampler_may_seed_its_readiness_combo(
+        self,
+    ) -> None:
+        ambiguous = (
+            "shader-preprocessor/shader-variant-invalid:"
+            "active-schema-ambiguous"
+        )
+        self.assertEqual(
+            self.result["shaderPreparationBoundary"]["selfGatedReadiness"],
+            {
+                "ready": "accepted:1",
+                "unready": "accepted:",
+                "nonUnitGuard": ambiguous,
+                "elseBranch": ambiguous,
+                "nestedGuard": ambiguous,
             },
         )
 

@@ -738,6 +738,46 @@ fragment float4 mwxGenericFragment(
         self.assertNotIn(".accepts(\n", standard_compiler)
         self.assertIn("details: [revocationDetail]", standard_compiler)
 
+        pulse_compiler = dedicated_compilers[
+            dedicated_compilers.index("extension SceneAuthoredPulsePlanner"):
+        ]
+        self.assertIn("staticSaturatingProgramOwnerIsProven(", pulse_compiler)
+        self.assertIn(
+            "plan.shaderProfile == .directPhaseSaturateV1", pulse_compiler
+        )
+        self.assertNotIn(
+            "plan.shaderProfile == .directPhaseMaxClampV1", pulse_compiler
+        )
+        for static_guard in (
+            "plan.bindings.isEmpty",
+            "plan.audio == nil",
+            "plan.pulseColor",
+            "!plan.pulseAlpha",
+        ):
+            self.assertIn(static_guard, pulse_compiler)
+        self.assertIn(
+            "SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(",
+            pulse_compiler,
+        )
+        self.assertIn("typedStaticDataAuxiliarySlots(", pulse_compiler)
+        self.assertIn("typedAuxiliary == fact.auxiliarySlots", pulse_compiler)
+        self.assertIn("exactGenericParametersAreProven(", pulse_compiler)
+        self.assertIn(
+            "material.combos.keys.allSatisfy(comboNames.contains)",
+            pulse_compiler,
+        )
+        self.assertIn(
+            "material.constants.keys.allSatisfy(constantNames.contains)",
+            pulse_compiler,
+        )
+        self.assertIn("template.comboValues == material.combos", pulse_compiler)
+        self.assertIn(".defaultRouteState == .genericOnly", pulse_compiler)
+        self.assertIn(".validatedRollbackOwner == .none", pulse_compiler)
+        self.assertIn(
+            '"static-direct-phase-saturate-owner-revoked-to-material-program"',
+            pulse_compiler,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

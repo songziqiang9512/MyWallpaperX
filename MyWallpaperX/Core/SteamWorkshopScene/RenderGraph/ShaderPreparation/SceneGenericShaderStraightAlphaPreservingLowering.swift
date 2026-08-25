@@ -734,7 +734,7 @@ inline float4 \(premultiply)(float4 color) {
         return result
     }
 
-    private static func insertingBoundaryHelpers(into source: String) -> String? {
+    static func insertingBoundaryHelpers(into source: String) -> String? {
         let helpers = """
 
 inline float4 \(unpremultiply)(float4 color) {

@@ -1,9 +1,10 @@
 import Foundation
 
-/// Conservative bootstrap for the active-schema fixed point. Only metadata
-/// outside conditional regions, plus metadata from unconditional includes, may
-/// influence the first variant. Conditional metadata is discovered by the
-/// normal preprocess/resolve iterations after its provider facts are known.
+/// Conservative bootstrap for the active-schema fixed point. Metadata outside
+/// conditional regions and metadata from unconditional includes form the
+/// normal seed. One conditional exception is source-proven: a sampler may seed
+/// its own texture-readiness combo when its sole guard is that exact combo's
+/// positive branch. The actual slot readiness still selects the branch.
 nonisolated enum SceneShaderVariantSchemaSeed {
     static func unconditional(
         contract: SceneShaderContract,
@@ -102,6 +103,17 @@ nonisolated enum SceneShaderVariantSchemaSeed {
     }
 
     private struct Collector {
+        private struct SelfGatedReadinessCandidate {
+            let annotation: SceneShaderContract.Annotation
+            let declaration: SceneShaderContract.Declaration
+        }
+
+        private struct ConditionalFrame {
+            var selfGatedReadinessCombo: String?
+            var reachedElse = false
+            var candidates: [SelfGatedReadinessCandidate] = []
+        }
+
         let graph: SceneShaderSourceGraph
         var visited: Set<String> = []
         var annotations: [String: [SceneShaderContract.Annotation]] = [:]
@@ -130,7 +142,7 @@ nonisolated enum SceneShaderVariantSchemaSeed {
             var localAnnotations: [SceneShaderContract.Annotation] = []
             var localDeclarations: [SceneShaderContract.Declaration] = []
             var includes: [(line: Int, path: String)] = []
-            var conditionalElse: [Bool] = []
+            var conditionalFrames: [ConditionalFrame] = []
             var inBlockComment = false
             let lines = node.source.split(
                 omittingEmptySubsequences: false,
@@ -145,19 +157,35 @@ nonisolated enum SceneShaderVariantSchemaSeed {
                 )
                 if let directive = SceneShaderDirective.parse(lexical.code) {
                     switch directive {
-                    case .ifExpression, .ifdef:
-                        conditionalElse.append(false)
+                    case .ifExpression(let expression):
+                        conditionalFrames.append(
+                            .init(selfGatedReadinessCombo: Self.positiveUnitCombo(in: expression))
+                        )
+                    case .ifdef(_, _):
+                        conditionalFrames.append(.init(selfGatedReadinessCombo: nil))
                     case .elifExpression:
-                        guard !conditionalElse.isEmpty,
-                              conditionalElse[conditionalElse.count - 1] == false else { return }
+                        guard !conditionalFrames.isEmpty,
+                              !conditionalFrames[conditionalFrames.count - 1].reachedElse else { return }
+                        conditionalFrames[conditionalFrames.count - 1]
+                            .selfGatedReadinessCombo = nil
+                        conditionalFrames[conditionalFrames.count - 1].candidates.removeAll()
                     case .elseDirective:
-                        guard !conditionalElse.isEmpty,
-                              conditionalElse[conditionalElse.count - 1] == false else { return }
-                        conditionalElse[conditionalElse.count - 1] = true
+                        guard !conditionalFrames.isEmpty,
+                              !conditionalFrames[conditionalFrames.count - 1].reachedElse else { return }
+                        conditionalFrames[conditionalFrames.count - 1].reachedElse = true
+                        conditionalFrames[conditionalFrames.count - 1]
+                            .selfGatedReadinessCombo = nil
+                        conditionalFrames[conditionalFrames.count - 1].candidates.removeAll()
                     case .endif:
-                        guard !conditionalElse.isEmpty else { return }
-                        conditionalElse.removeLast()
-                    case .include(let includePath) where conditionalElse.isEmpty:
+                        guard !conditionalFrames.isEmpty else { return }
+                        let frame = conditionalFrames.removeLast()
+                        if conditionalFrames.isEmpty,
+                           frame.selfGatedReadinessCombo != nil,
+                           !frame.reachedElse {
+                            localAnnotations.append(contentsOf: frame.candidates.map(\.annotation))
+                            localDeclarations.append(contentsOf: frame.candidates.map(\.declaration))
+                        }
+                    case .include(let includePath) where conditionalFrames.isEmpty:
                         includes.append((line, includePath))
                     case .define, .defineFunction, .undef, .include, .require:
                         break
@@ -170,11 +198,22 @@ nonisolated enum SceneShaderVariantSchemaSeed {
                 if lexical.code.trimmingCharacters(in: .whitespaces).hasPrefix("#") {
                     return
                 }
-                guard conditionalElse.isEmpty else { continue }
-                localAnnotations.append(contentsOf: annotationsByLine[line] ?? [])
-                localDeclarations.append(contentsOf: declarationsByLine[line] ?? [])
+                if conditionalFrames.isEmpty {
+                    localAnnotations.append(contentsOf: annotationsByLine[line] ?? [])
+                    localDeclarations.append(contentsOf: declarationsByLine[line] ?? [])
+                } else if conditionalFrames.count == 1,
+                          let gate = conditionalFrames[0].selfGatedReadinessCombo,
+                          let candidate = Self.selfGatedReadinessCandidate(
+                              gate: gate,
+                              path: node.virtualPath,
+                              source: node.source,
+                              annotations: annotationsByLine[line] ?? [],
+                              declarations: declarationsByLine[line] ?? []
+                          ) {
+                    conditionalFrames[0].candidates.append(candidate)
+                }
             }
-            guard !inBlockComment, conditionalElse.isEmpty else { return }
+            guard !inBlockComment, conditionalFrames.isEmpty else { return }
             annotations[node.virtualPath] = localAnnotations
             declarations[node.virtualPath] = localDeclarations
             for include in includes {
@@ -186,6 +225,60 @@ nonisolated enum SceneShaderVariantSchemaSeed {
                       case let .resolved(childPath) = edge.outcome else { continue }
                 collect(childPath)
             }
+        }
+
+        private static func positiveUnitCombo(in expression: String) -> String? {
+            guard let tokens = try? SceneShaderPreprocessor.ExpressionLexer
+                .tokenize(expression, limit: 8) else { return nil }
+            if tokens.count == 2,
+               case let .identifier(name) = tokens[0],
+               tokens[1] == .end {
+                return name
+            }
+            if tokens.count == 4,
+               case let .identifier(name) = tokens[0],
+               tokens[1] == .equal,
+               tokens[2] == .number(1),
+               tokens[3] == .end {
+                return name
+            }
+            if tokens.count == 4,
+               tokens[0] == .number(1),
+               tokens[1] == .equal,
+               case let .identifier(name) = tokens[2],
+               tokens[3] == .end {
+                return name
+            }
+            return nil
+        }
+
+        private static func selfGatedReadinessCandidate(
+            gate: String,
+            path: String,
+            source: String,
+            annotations: [SceneShaderContract.Annotation],
+            declarations: [SceneShaderContract.Declaration]
+        ) -> SelfGatedReadinessCandidate? {
+            guard declarations.count == 1, let declaration = declarations.first else {
+                return nil
+            }
+            let matches = annotations.compactMap { annotation -> SceneShaderContract.Annotation? in
+                let candidate = SceneShaderVariantSchemaSource(
+                    relativePath: path,
+                    source: source,
+                    annotations: [annotation],
+                    declarations: [declaration]
+                )
+                guard let schemas = try? SceneShaderVariantResolver.schemas(in: candidate),
+                      schemas.count == 1, let schema = schemas.first,
+                      schema.combo == gate,
+                      schema.requirements.isEmpty,
+                      !schema.requireAny,
+                      case .textureReadiness = schema.origin else { return nil }
+                return annotation
+            }
+            guard matches.count == 1, let annotation = matches.first else { return nil }
+            return .init(annotation: annotation, declaration: declaration)
         }
     }
 }

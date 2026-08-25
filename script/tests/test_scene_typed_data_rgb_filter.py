@@ -58,6 +58,21 @@ private struct Output: Codable {
     let outputPremultiplied: Bool
     let compilerProjectionDriftRejected: Bool
     let compilerSampleDriftRejected: Bool
+    let maskedTransfer: String
+    let maskedSourceSlot: Int?
+    let maskedAuxiliarySlots: [Int]?
+    let maskedLoweringAccepted: Bool
+    let maskedSourceUnpremultipliedCount: Int
+    let maskedDataUnpremultipliedCount: Int
+    let maskedOutputPremultiplied: Bool
+    let maskedAlphaWriteRejected: Bool
+    let maskedWrongSnapshotRejected: Bool
+    let maskedWholeAuxiliaryRejected: Bool
+    let maskedDetachedOutputRejected: Bool
+    let compilerScalarLaneLoweringAccepted: Bool
+    let unmaskedTransferAccepted: Bool
+    let unmaskedLoweringAccepted: Bool
+    let boundaryHelperConflictRejected: Bool
     let routeProfile: String
     let routeState: String
     let rollbackOwner: String
@@ -114,6 +129,38 @@ private enum TypedDataRGBFilterHarness {
             "    return out;",
             "}",
         ].joined(separator: "\n")
+        let maskedAuthored = [
+            "uniform sampler2D g_Texture0;",
+            "uniform sampler2D g_Texture1;",
+            "uniform sampler2D g_Texture2;",
+            "varying vec2 v_TexCoord;",
+            "vec3 ApplyBlending(const int mode, in vec3 base, in vec3 generated, in float opacity) {",
+            "    return mix(base, generated, opacity);",
+            "}",
+            "void main() {",
+            "    vec4 snapshot = texSample2D(g_Texture0, v_TexCoord);",
+            "    vec4 carrier = snapshot;",
+            "    float signal = texSample2D(g_Texture1, v_TexCoord).r;",
+            "    carrier.rgb = ApplyBlending(8, carrier.rgb, carrier.rgb * 0.5, signal);",
+            "    float mask = texSample2D(g_Texture2, v_TexCoord).r;",
+            "    carrier = mix(snapshot, carrier, mask);",
+            "    gl_FragColor = saturate(carrier);",
+            "}",
+        ].joined(separator: "\n")
+        let maskedMSL = [
+            "#include <metal_stdlib>",
+            "using namespace metal;",
+            "fragment void f() {",
+            "    float4 snapshot = g_Texture0.sample(g_Texture0Smplr, in.v_TexCoord);",
+            "    float4 carrier = snapshot;",
+            "    float signal = g_Texture1.sample(g_Texture1Smplr, in.v_TexCoord).x;",
+            "    carrier.xyz = ApplyBlending(8, carrier.xyz, carrier.xyz * 0.5, signal);",
+            "    float mask = g_Texture2.sample(g_Texture2Smplr, in.v_TexCoord).x;",
+            "    carrier = mix(snapshot, carrier, mask);",
+            "    out.mwxFragColor = fast::clamp(carrier, float4(0.0), float4(1.0));",
+            "    return out;",
+            "}",
+        ].joined(separator: "\n")
 
         func fact(_ source: String) -> SceneAuthoredShaderTypedDataRGBFilterFact? {
             SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(
@@ -164,6 +211,25 @@ private enum TypedDataRGBFilterHarness {
             authoredSource: authored
         )
         let loweredMSL = lowered?.msl ?? ""
+        let maskedAnalyzed = fact(maskedAuthored)
+        let maskedTransfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(
+            fragmentSource: maskedAuthored
+        )
+        let maskedLowered = try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+            msl: maskedMSL,
+            authoredSource: maskedAuthored
+        )
+        let maskedLoweredMSL = maskedLowered?.msl ?? ""
+        let unmaskedAuthored = maskedAuthored.replacingOccurrences(
+            of: "    float mask = texSample2D(g_Texture2, v_TexCoord).r;\n"
+                + "    carrier = mix(snapshot, carrier, mask);\n",
+            with: ""
+        )
+        let unmaskedMSL = maskedMSL.replacingOccurrences(
+            of: "    float mask = g_Texture2.sample(g_Texture2Smplr, in.v_TexCoord).x;\n"
+                + "    carrier = mix(snapshot, carrier, mask);\n",
+            with: ""
+        )
         let selected = profile(typed: [1, 2, 3, 4, 5, 6])
         let projectionDrift = msl.replacingOccurrences(
             of: "g_Texture5.sample(g_Texture5Smplr, in.v_TexCoord).x",
@@ -254,6 +320,80 @@ private enum TypedDataRGBFilterHarness {
                 SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: sampleDrift,
                     authoredSource: authored
+                )) == nil,
+            maskedTransfer: {
+                if case .straightAlphaPreserving(textureSlot: 0) = maskedTransfer {
+                    return "straight-alpha-preserving-0"
+                }
+                return "unexpected"
+            }(),
+            maskedSourceSlot: maskedAnalyzed?.sourceSlot,
+            maskedAuxiliarySlots: maskedAnalyzed?.auxiliarySlots.sorted(),
+            maskedLoweringAccepted: maskedLowered != nil,
+            maskedSourceUnpremultipliedCount: maskedLoweredMSL.components(
+                separatedBy: "mwxGenericUnpremultiply(g_Texture0.sample("
+            ).count - 1,
+            maskedDataUnpremultipliedCount: (1 ... 2).reduce(0) { count, slot in
+                count + maskedLoweredMSL.components(
+                    separatedBy: "mwxGenericUnpremultiply(g_Texture\(slot).sample("
+                ).count - 1
+            },
+            maskedOutputPremultiplied: maskedLoweredMSL.contains(
+                "out.mwxFragColor = mwxGenericPremultiply(fast::clamp(carrier"
+            ),
+            maskedAlphaWriteRejected: fact(maskedAuthored.replacingOccurrences(
+                of: "    gl_FragColor = saturate(carrier);",
+                with: "    carrier.a = mask;\n    gl_FragColor = saturate(carrier);"
+            )) == nil,
+            maskedWrongSnapshotRejected: fact(maskedAuthored.replacingOccurrences(
+                of: "carrier = mix(snapshot, carrier, mask);",
+                with: "carrier = mix(vec4(0.0), carrier, mask);"
+            )) == nil,
+            maskedWholeAuxiliaryRejected: fact(maskedAuthored.replacingOccurrences(
+                of: "float mask = texSample2D(g_Texture2, v_TexCoord).r;",
+                with: "vec4 mask = texSample2D(g_Texture2, v_TexCoord);"
+            ).replacingOccurrences(
+                of: "carrier = mix(snapshot, carrier, mask);",
+                with: "carrier = mix(snapshot, carrier, mask.r);"
+            )) == nil,
+            maskedDetachedOutputRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: maskedMSL.replacingOccurrences(
+                        of: "    out.mwxFragColor = fast::clamp(carrier, float4(0.0), float4(1.0));",
+                        with: "    float4 unrelated = float4(0.25);\n"
+                            + "    out.mwxFragColor = fast::clamp(unrelated, float4(0.0), float4(1.0));"
+                    ),
+                    authoredSource: maskedAuthored
+                )) == nil,
+            compilerScalarLaneLoweringAccepted:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: maskedMSL
+                        .replacingOccurrences(
+                            of: "    carrier.xyz = ApplyBlending(8, carrier.xyz, carrier.xyz * 0.5, signal);",
+                            with: "    float3 filtered = ApplyBlending(8, carrier.xyz, carrier.xyz * 0.5, signal);\n"
+                                + "    carrier.x = filtered.x;\n"
+                                + "    carrier.y = filtered.y;\n"
+                                + "    carrier.z = filtered.z;"
+                        )
+                        .replacingOccurrences(
+                            of: "    carrier = mix(snapshot, carrier, mask);",
+                            with: "    carrier = mix(snapshot, carrier, float4(mask));"
+                        ),
+                    authoredSource: maskedAuthored
+                )) != nil,
+            unmaskedTransferAccepted: fact(unmaskedAuthored) != nil,
+            unmaskedLoweringAccepted:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: unmaskedMSL,
+                    authoredSource: unmaskedAuthored
+                )) != nil,
+            boundaryHelperConflictRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: maskedMSL.replacingOccurrences(
+                        of: "fragment void f() {",
+                        with: "float4 mwxGenericPremultiply(float4 value) { return value; }\nfragment void f() {"
+                    ),
+                    authoredSource: maskedAuthored
                 )) == nil,
             routeProfile: selected.rawValue,
             routeState: selected.defaultRouteState.rawValue,
@@ -352,6 +492,25 @@ class SceneTypedDataRGBFilterTests(unittest.TestCase):
             "compilerSampleDriftRejected",
         ):
             self.assertTrue(self.result[key], (key, self.result))
+
+    def test_masked_snapshot_carrier_reuses_the_typed_data_boundary(self) -> None:
+        self.assertEqual(
+            self.result["maskedTransfer"], "straight-alpha-preserving-0"
+        )
+        self.assertEqual(self.result["maskedSourceSlot"], 0)
+        self.assertEqual(self.result["maskedAuxiliarySlots"], [1, 2])
+        self.assertTrue(self.result["maskedLoweringAccepted"])
+        self.assertEqual(self.result["maskedSourceUnpremultipliedCount"], 1)
+        self.assertEqual(self.result["maskedDataUnpremultipliedCount"], 0)
+        self.assertTrue(self.result["maskedOutputPremultiplied"])
+        self.assertTrue(self.result["maskedAlphaWriteRejected"])
+        self.assertTrue(self.result["maskedWrongSnapshotRejected"])
+        self.assertTrue(self.result["maskedWholeAuxiliaryRejected"])
+        self.assertTrue(self.result["maskedDetachedOutputRejected"])
+        self.assertTrue(self.result["compilerScalarLaneLoweringAccepted"])
+        self.assertTrue(self.result["unmaskedTransferAccepted"])
+        self.assertTrue(self.result["unmaskedLoweringAccepted"])
+        self.assertTrue(self.result["boundaryHelperConflictRejected"])
 
     def test_only_exact_typed_static_auxiliary_set_gets_generic_owner(self) -> None:
         self.assertEqual(

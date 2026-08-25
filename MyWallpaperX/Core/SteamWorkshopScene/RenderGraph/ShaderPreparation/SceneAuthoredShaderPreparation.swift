@@ -60,9 +60,9 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 ))
             }
         }
-        // Bootstrap only with lexically unconditional root/include metadata.
-        // Conditional graph nodes remain outside the seed and are discovered
-        // by the bounded active-schema iterations below.
+        // Bootstrap with the conservative root/include metadata seed. Apart
+        // from source-proven self-gated readiness samplers, conditional graph
+        // nodes are discovered by the bounded active-schema iterations below.
         let schemaSources = SceneShaderVariantSchemaSeed.unconditional(
             contract: contract,
             graph: graph
