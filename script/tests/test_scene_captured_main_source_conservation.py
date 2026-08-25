@@ -499,6 +499,9 @@ class SceneCapturedMainSourceConservationTests(unittest.TestCase):
             "identity.effect == effect",
             "Provider candidates are auxiliary resource provenance",
             "sourceBindings.count <= 1",
+            "capturedMainUnitCompositePreviousSlot(",
+            "SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.slots(",
+            ")?.previous",
         ):
             self.assertIn(contract, source)
 

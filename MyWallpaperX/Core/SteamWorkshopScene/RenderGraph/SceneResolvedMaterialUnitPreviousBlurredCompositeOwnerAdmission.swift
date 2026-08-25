@@ -24,7 +24,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
               graph.effects[0].nodeIndices.last == key.nodeIndex,
               let layer = descriptor.layers.first(where: {
                   $0.id == graph.layerID
-              }), case nil = layer.utilityLayer,
+              }), supportedSourceRoute(layer),
               let inputRole = SceneAuthoredEffectInputValidator.role(
                   for: graph.effects[0].input,
                   layerID: graph.layerID
@@ -41,14 +41,47 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         graph: Graph,
         descriptor: SceneRenderDescriptor
     ) -> String? {
-        switch wholeStageScaleCohort(graph: graph, descriptor: descriptor) {
-        case .staticExact?:
+        let capturedMain = descriptor.layers.first(where: {
+            $0.id == graph.layerID
+        })?.utilityLayer != nil
+        return switch (capturedMain, wholeStageScaleCohort(
+            graph: graph,
+            descriptor: descriptor
+        )) {
+        case (true, .staticExact?):
+            "captured-main-static-owner-revoked-to-material-program"
+        case (true, .userPropertyScalarSplat?):
+            "captured-main-typed-user-scalar-splat-owner-revoked-to-material-program"
+        case (false, .staticExact?):
             "static-owner-revoked-to-material-program"
-        case .userPropertyScalarSplat?:
+        case (false, .userPropertyScalarSplat?):
             "typed-user-scalar-splat-owner-revoked-to-material-program"
-        case nil:
+        case (_, nil):
             nil
         }
+    }
+
+    /// Utility layers enter the same resolved-material executor through a
+    /// captured-main source. Limit owner transfer to the exact source route
+    /// already admitted by that executor, excluding copy/passthrough and
+    /// dependency/child lifecycles with different failure boundaries.
+    private static func supportedSourceRoute(
+        _ layer: SceneRenderDescriptor.Layer
+    ) -> Bool {
+        guard let utility = layer.utilityLayer else { return true }
+        let kindMatchesContent = switch (layer.contentKind, utility.kind) {
+        case ("composition", .composition), ("project", .project),
+             ("fullscreen", .fullscreen):
+            true
+        default:
+            false
+        }
+        return kindMatchesContent
+            && !utility.copyBackground
+            && !utility.passthrough
+            && layer.childLayerIDs.isEmpty
+            && layer.dependencyLayerIDs.isEmpty
+            && layer.authoredDependencies.isEmpty
     }
 
     /// Revokes the strict candidate only after the terminal material proves

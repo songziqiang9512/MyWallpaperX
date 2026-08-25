@@ -180,9 +180,45 @@ extension SceneResolvedMaterialVariantCache {
               }).count == 1,
               capturedMainColorSourceSlot(
                   variant.frontendProgram.colorTransfer
-              )
-                == sourceSlot else { return nil }
+              ) == sourceSlot
+                || capturedMainUnitCompositePreviousSlot(
+                    variant: variant,
+                    template: template,
+                    effect: effect,
+                    activeBindings: activeBindings
+                ) == sourceSlot else { return nil }
         return .sourceConsumer(slot: sourceSlot)
+    }
+
+    /// A unit previous/blurred composite deliberately preserves alpha from the
+    /// blurred framebuffer while also consuming the captured-main texture as
+    /// its exact `previous` input. The existing whole-stage eligibility proof
+    /// is the authority for that two-source shape; a general color-transfer
+    /// inference must not broaden captured-main admission.
+    private func capturedMainUnitCompositePreviousSlot(
+        variant: Variant,
+        template: Template,
+        effect: Graph.Effect,
+        activeBindings: [Graph.Binding]
+    ) -> Int? {
+        var identities: [Int: Graph.TextureIdentity] = [:]
+        for binding in activeBindings {
+            guard let slot = binding.slot,
+                  identities.updateValue(binding.texture, forKey: slot) == nil
+            else { return nil }
+        }
+        let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+            vertex: variant.preparedShader.vertex.source,
+            fragment: variant.preparedShader.fragment.source
+        )
+        return SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.slots(
+            fragmentSource: sources.fragment,
+            prepared: variant.preparedShader,
+            samplers: variant.activeSamplers,
+            template: template,
+            implicitFramebufferIdentity: effect.input,
+            activeGraphTextureIdentities: identities
+        )?.previous
     }
 
     private func exactGraphReferences(
