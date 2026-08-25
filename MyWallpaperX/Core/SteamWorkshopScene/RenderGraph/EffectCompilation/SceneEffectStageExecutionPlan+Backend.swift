@@ -4,12 +4,11 @@ extension SceneEffectStageExecutionPlan {
     enum Backend {
         case standardBlur(SceneStandardBlurPlan)
         case xRay(SceneXRayExecutionPlan)
-        case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .xRay, .transform, .pulse:
+            case .xRay, .pulse:
                 return true
             default:
                 return false
@@ -39,11 +38,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var xRay: SceneXRayExecutionPlan? {
         guard case .xRay(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var transform: SceneTransformExecutionPlan? {
-        guard case .transform(let plan) = backend else { return nil }
         return plan
     }
 

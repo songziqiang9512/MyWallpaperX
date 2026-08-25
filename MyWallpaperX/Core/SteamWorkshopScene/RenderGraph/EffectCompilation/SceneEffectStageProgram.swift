@@ -69,7 +69,6 @@ nonisolated struct SceneEffectStageProgram {
         switch (compilerBackend, runtimeBackend) {
         case (.standardBlur, .standardBlur),
              (.xRay, .xRay),
-             (.transform, .transform),
              (.pulse, .pulse):
             return true
         default:

@@ -148,8 +148,6 @@ extension SceneEffectStageRenderer {
             case .unsupported:
                 return "x-ray-runtime-unsupported"
             }
-        case .transform:
-            return nil
         case .pulse(let plan):
             guard let resources = inputs.masks.pulseEffects[
                 plan.effectKey.descriptorID

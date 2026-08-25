@@ -102,11 +102,6 @@ extension SceneAuthoredXRayPlanner: SceneEffectStageGraphCandidatePlanner {
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .xRay }
 }
 
-extension SceneAuthoredTransformPlanner: SceneEffectStageGraphCandidatePlanner {
-    typealias DedicatedPlan = SceneTransformExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .transform }
-}
-
 extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = ScenePulseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .pulse }

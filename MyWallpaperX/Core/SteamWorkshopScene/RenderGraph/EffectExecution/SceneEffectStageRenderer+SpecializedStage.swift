@@ -31,12 +31,6 @@ targets: targets, dynamicValues: dynamicValues,
                 pipelines: pipelines, cursorUV: cursorUV,
                 pointerIsInside: pointerIsInside, commandBuffer: commandBuffer
             )
-        case .transform:
-            return renderTransform(
-                stage, sourceTexture: sourceTexture, targets: targets,
-                sourceUniforms: sourceUniforms, pipeline: pipeline,
-                commandBuffer: commandBuffer
-            )
         case .pulse(let pulse):
             guard let pulsePipeline = pipelines.pulse else { return nil }
             return renderPulse(

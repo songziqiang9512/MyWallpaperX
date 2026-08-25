@@ -38,7 +38,6 @@ nonisolated struct SceneEffectStageCompileInput {
 nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable {
     case standardBlur = "standard-blur"
     case xRay = "x-ray"
-    case transform
     case pulse
 }
 

@@ -66,11 +66,6 @@ extension SceneEffectProgramCompiler {
                     stage(.xRay($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
-            (.transform, {
-                SceneAuthoredTransformPlanner.compile(input).mapAccepted {
-                    stage(.transform($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.pulse, {
                 SceneAuthoredPulsePlanner.compile(input).mapAccepted {
                     stage(.pulse($0), stageGraph: stageGraph, inputRole: inputRole)

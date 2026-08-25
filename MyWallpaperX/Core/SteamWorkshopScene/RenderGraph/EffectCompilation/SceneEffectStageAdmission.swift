@@ -176,7 +176,6 @@ extension SceneEffectStageExecutionPlan.Backend {
         switch self {
         case .standardBlur: "standard-blur"
         case .xRay: "x-ray"
-        case .transform: "transform"
         case .pulse: "pulse"
         }
     }

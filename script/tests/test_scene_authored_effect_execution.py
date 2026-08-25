@@ -103,25 +103,6 @@ enum SceneAuthoredXRayPlanner {
     }
 }
 
-struct SceneTransformStaticFallbackDiagnostic {
-    var reportValue: String { "" }
-}
-
-struct SceneTransformExecutionPlan {
-    var staticFallbackDiagnostics: [SceneTransformStaticFallbackDiagnostic] { [] }
-}
-
-enum SceneAuthoredTransformPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneTransformExecutionPlan? {
-        nil
-    }
-}
-
 struct ScenePulseExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
@@ -235,10 +216,6 @@ extension SceneAuthoredStandardBlurPlanner {
 extension SceneAuthoredXRayPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneXRayExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .xRay }
-}
-extension SceneAuthoredTransformPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneTransformExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .transform }
 }
 extension SceneAuthoredPulsePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = ScenePulseExecutionPlan
@@ -1010,7 +987,6 @@ enum Harness {
             switch stage.backend {
             case .standardBlur: backend = "standardBlur"
             case .xRay: backend = "xRay"
-            case .transform: backend = "transform"
             case .pulse: backend = "pulse"
             }
             return [effectIndex, backend]
@@ -1169,6 +1145,8 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertNotIn("fisheyeZeroDistortion", leaf_body)
         self.assertNotIn("fisheye-pipeline-missing", topology)
         self.assertNotIn(".waterWaves", leaf_body)
+        self.assertNotIn(".transform", leaf_body)
+        self.assertNotIn("case .transform", topology)
         self.assertIn(".pulse", leaf_body)
         self.assertNotIn("proceduralNoise", leaf_body)
         self.assertIn(".xRay", leaf_body)
@@ -1288,8 +1266,16 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             "SceneBlendExecutionPlan",
             "SceneBlendPipeline",
             "SceneBlendEffectTextureLoader",
+            "SceneAuthoredTransformPlanner",
+            "SceneTransformExecutionPlan",
+            "SceneTransformShaderProfile",
+            "renderTransform(",
         ):
             self.assertNotIn(marker, product_sources)
+
+        self.assertFalse((SOURCE_ROOT / (
+            "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift"
+        )).exists())
 
     def test_later_authored_stages_retain_required_resources(self) -> None:
         source = DRAW_REQUEST_SOURCE.read_text(encoding="utf-8")

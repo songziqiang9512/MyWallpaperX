@@ -68,7 +68,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Transform.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+XRay.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift",
     SOURCE_ROOT / "Rendering/SceneImageEffectPipelineRepository.swift",
@@ -546,20 +545,15 @@ struct SceneTexContainerReader {
 
 struct SceneAuthoredShaderFrameInputs: Sendable {}
 
-struct SceneTransformExecutionPlan {
-    let renderGraph: SceneAuthoredEffectRenderPlan
-}
-
     struct SceneEffectStageExecutionPlan {
     enum Backend {
         case standardBlur(SceneStandardBlurPlan)
         case xRay(SceneXRayExecutionPlan)
-        case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .xRay, .transform, .pulse:
+            case .xRay, .pulse:
                 return true
             default:
                 return false
@@ -570,7 +564,6 @@ struct SceneTransformExecutionPlan {
             switch self {
             case .standardBlur: "standard-blur"
             case .xRay: "x-ray"
-            case .transform: "transform"
             case .pulse: "pulse"
             }
         }
