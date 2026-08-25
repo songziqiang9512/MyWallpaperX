@@ -94,7 +94,7 @@ enum Harness {
         )
         let invalidCatalog = compiler.compile(
             report: .init(bindings: [
-                binding("alphaBool", .number(0.5), 33, .layerAlpha(layerID: 33)),
+                binding("alphaBool", .number(0.5), 33, localContrastBindingTarget(layerID: 33, effectIndex: 0)),
                 binding("colorText", .string("1 1 1"), 34, .layerColor(layerID: 34)),
                 binding("alphaString", .number(0.5), 35, .layerAlpha(layerID: 35)),
                 binding("shortDefault", .string("1 1 1"), 36, .layerColor(layerID: 36)),
@@ -676,7 +676,7 @@ enum Harness {
             "nonFiniteCodes": codes(nonFiniteEvaluation.diagnostics),
             "invalidAuthoredCount": invalidAuthored.program.instructions.count,
             "invalidAuthoredCodes": codes(invalidAuthored.diagnostics),
-            "invalidCatalogCount": invalidCatalog.program.instructions.count,
+            "invalidCatalogCounts": [invalidCatalog.program.instructions.count, invalidCatalog.program.definitions.count, invalidCatalog.program.definitions.filter { $0.valueType == .scalar }.count],
             "invalidCatalogCodes": codes(invalidCatalog.diagnostics),
             "conditionalCount": conditional.program.instructions.count,
             "conditionalCodes": codes(conditional.diagnostics),
@@ -974,7 +974,7 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         )
 
     def test_catalog_kind_and_default_values_are_validated(self) -> None:
-        self.assertEqual(self.result["invalidCatalogCount"], 0)
+        self.assertEqual(self.result["invalidCatalogCounts"], [0, 6, 4])
         self.assertEqual(
             self.result["invalidCatalogCodes"],
             [

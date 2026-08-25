@@ -100,13 +100,9 @@ extension ScenePropertyBindingCompiler {
         propertyKind: SceneUserPropertyKind
     )? {
         switch (propertyKind, fallback) {
-        case (.slider, _):
+        case (_, .number), (.slider, _):
             (.scalar, .slider)
-        case (.color, _):
-            (.vector3, .color)
-        case (nil, .number):
-            (.scalar, .slider)
-        case (nil, .string):
+        case (_, .string), (.color, _):
             (.vector3, .color)
         default:
             nil
