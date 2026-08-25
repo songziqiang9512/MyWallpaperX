@@ -134,6 +134,15 @@ enum Harness {
         let mappedTexb3JPEGURL = directory.appendingPathComponent(
             "mapped-texb3-embedded-color-jpeg.tex"
         )
+        let normalizedStraightAlbedoJPEGURL = directory.appendingPathComponent(
+            "normalized-straight-albedo-jpeg.tex"
+        )
+        let paddedStraightAlbedoJPEGURL = directory.appendingPathComponent(
+            "padded-straight-albedo-jpeg.tex"
+        )
+        let mislabeledTexb4StraightAlbedoPNGURL = directory.appendingPathComponent(
+            "mislabeled-texb4-straight-albedo-png.tex"
+        )
         let mappedTexb2MipURL = directory.appendingPathComponent(
             "mapped-texb2-mip-color.tex"
         )
@@ -274,6 +283,40 @@ enum Harness {
                 (2, 2, try jpegData(width: 2, height: 2)),
             ]
         ).write(to: mappedTexb3JPEGURL)
+        try embeddedImageTex(
+            textureWidth: 4097,
+            textureHeight: 2,
+            imageWidth: 4097,
+            imageHeight: 2,
+            payload: try jpegData(width: 4097, height: 2),
+            containerVersion: "TEXB0003",
+            freeImageFormat: 2,
+            mipWidth: 4097,
+            mipHeight: 2
+        ).write(to: normalizedStraightAlbedoJPEGURL)
+        try embeddedImageTex(
+            textureWidth: 8192,
+            textureHeight: 4,
+            imageWidth: 4096,
+            imageHeight: 2,
+            payload: try jpegData(width: 8192, height: 4),
+            containerVersion: "TEXB0003",
+            freeImageFormat: 2,
+            mipWidth: 8192,
+            mipHeight: 4
+        ).write(to: paddedStraightAlbedoJPEGURL)
+        try embeddedImageTex(
+            textureWidth: 4097,
+            textureHeight: 2,
+            imageWidth: 4097,
+            imageHeight: 2,
+            payload: try opaquePNGData(width: 4097, height: 2),
+            containerVersion: "TEXB0004",
+            freeImageFormat: 2,
+            mipMetadataEntryCount: 2,
+            mipWidth: 4097,
+            mipHeight: 2
+        ).write(to: mislabeledTexb4StraightAlbedoPNGURL)
         try embeddedImageTex(
             textureWidth: 8,
             textureHeight: 4,
@@ -432,6 +475,25 @@ enum Harness {
             purpose: .premultipliedColor,
             device: device
         ))
+        let normalizedStraightAlbedoJPEG = try candidate(loader.loadCandidate(
+            from: normalizedStraightAlbedoJPEGURL,
+            purpose: .straightAlbedo,
+            device: device
+        ))
+        let paddedStraightAlbedoJPEGRejected = rejectedDimensions(
+            loader.loadCandidate(
+                from: paddedStraightAlbedoJPEGURL,
+                purpose: .straightAlbedo,
+                device: device
+            )
+        )
+        let mislabeledTexb4StraightAlbedoPNGRejected = rejectedDimensions(
+            loader.loadCandidate(
+                from: mislabeledTexb4StraightAlbedoPNGURL,
+                purpose: .straightAlbedo,
+                device: device
+            )
+        )
         let mappedTexb2MipRejected = rejectedDimensions(
             loader.loadCandidate(
                 from: mappedTexb2MipURL,
@@ -914,6 +976,16 @@ enum Harness {
                 mappedTexb3JPEG.axisAlignedMappedUVScale(
                     expectedPurpose: .premultipliedColor
                 ) == SIMD2(repeating: 1),
+            "normalizedStraightAlbedoJPEGIdentity":
+                normalizedStraightAlbedoJPEG.axisAlignedMappedUVScale(
+                    expectedPurpose: .straightAlbedo
+                ) == SIMD2(repeating: 1)
+                    && normalizedStraightAlbedoJPEG.texture.width == 4096
+                    && normalizedStraightAlbedoJPEG.texture.height == 1,
+            "paddedStraightAlbedoJPEGRejected":
+                paddedStraightAlbedoJPEGRejected,
+            "mislabeledTexb4StraightAlbedoPNGRejected":
+                mislabeledTexb4StraightAlbedoPNGRejected,
             "mappedTexb2MipRejected": mappedTexb2MipRejected,
             "baseDirectCandidate": baseDirect.candidate != nil,
             "baseCroppedCandidate": baseCropped.candidate != nil,
@@ -1249,6 +1321,7 @@ enum Harness {
         payload: Data,
         containerVersion: String = "TEXB0002",
         freeImageFormat: UInt32 = 13,
+        mipMetadataEntryCount: UInt32 = 0,
         mipWidth: UInt32? = nil,
         mipHeight: UInt32? = nil,
         additionalMips: [(UInt32, UInt32, Data)] = []
@@ -1265,12 +1338,21 @@ enum Harness {
         append(1, to: &data)
         if containerVersion == "TEXB0003" {
             append(freeImageFormat, to: &data)
+        } else if containerVersion == "TEXB0004" {
+            append(freeImageFormat, to: &data)
+            append(mipMetadataEntryCount, to: &data)
         }
         let mips = [
             (mipWidth ?? textureWidth, mipHeight ?? textureHeight, payload),
         ] + additionalMips
         append(UInt32(mips.count), to: &data)
         for (width, height, mipPayload) in mips {
+            for entry in 0..<mipMetadataEntryCount {
+                append(0, to: &data)
+                append(0, to: &data)
+                data.append(Data("metadata-\(entry)\0".utf8))
+                append(0, to: &data)
+            }
             append(width, to: &data)
             append(height, to: &data)
             append(0, to: &data)
@@ -1297,6 +1379,29 @@ enum Harness {
         )
     }
 
+    static func opaquePNGData(width: Int, height: Int) throws -> Data {
+        let pixels = Data(repeating: 127, count: width * height * 3)
+        guard let provider = CGDataProvider(data: pixels as CFData),
+              let image = CGImage(
+                  width: width,
+                  height: height,
+                  bitsPerComponent: 8,
+                  bitsPerPixel: 24,
+                  bytesPerRow: width * 3,
+                  space: CGColorSpaceCreateDeviceRGB(),
+                  bitmapInfo: CGBitmapInfo(
+                      rawValue: CGImageAlphaInfo.none.rawValue
+                  ),
+                  provider: provider,
+                  decode: nil,
+                  shouldInterpolate: false,
+                  intent: .defaultIntent
+              ) else {
+            throw HarnessError.imageCreationFailed
+        }
+        return try encodeImage(image, type: "public.png" as CFString)
+    }
+
     static func encodedImageData(
         width: Int,
         height: Int,
@@ -1318,8 +1423,14 @@ enum Harness {
                   decode: nil,
                   shouldInterpolate: false,
                   intent: .defaultIntent
-              ),
-              let data = CFDataCreateMutable(nil, 0),
+              ) else {
+            throw HarnessError.imageCreationFailed
+        }
+        return try encodeImage(image, type: type)
+    }
+
+    static func encodeImage(_ image: CGImage, type: CFString) throws -> Data {
+        guard let data = CFDataCreateMutable(nil, 0),
               let destination = CGImageDestinationCreateWithData(
                   data,
                   type,
@@ -1556,6 +1667,9 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "mappedTexb3EmbeddedColorIdentity": True,
                 "mappedTexb3EmbeddedNormalIdentity": True,
                 "mappedTexb3JPEGIdentity": True,
+                "normalizedStraightAlbedoJPEGIdentity": True,
+                "paddedStraightAlbedoJPEGRejected": True,
+                "mislabeledTexb4StraightAlbedoPNGRejected": True,
                 "normalizedColorMapped": [4096, 1],
                 "normalizedColorPhysical": [4096, 1],
                 "normalizedColorScale": [1, 1],

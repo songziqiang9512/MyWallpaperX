@@ -332,7 +332,14 @@ extension SceneTextureLoader {
         if output == sourcePhysicalSize {
             return (sourcePhysicalSize, sourceMapped)
         }
-        guard purpose == .premultipliedColor else {
+        let sourceProvenOpaqueJPEG = container.format == 0
+            && container.containerVersion == .texb0003
+            && container.freeImageFormat == 2
+            && sourcePhysicalSize == sourceMapped
+            && hasValidTexb3EmbeddedMipChain(container)
+        let mayNormalizeMappedColor = purpose == .premultipliedColor
+            || (purpose == .straightAlbedo && sourceProvenOpaqueJPEG)
+        guard mayNormalizeMappedColor else {
             return nil
         }
         let normalizedMapped = normalizedSize(
@@ -343,8 +350,11 @@ extension SceneTextureLoader {
             return nil
         }
         // Color uploads may crop authored padding or proportionally normalize
-        // the mapped image to the loader budget. In both cases the resulting
-        // texture contains only mapped pixels, so its consumer UV is identity.
+        // the mapped image to the loader budget. A source-proven opaque JPEG
+        // straight-albedo is also safe when it has no authored padding; padded
+        // straight/data roles continue to require the exact physical extent.
+        // In every accepted case the resulting texture contains only mapped
+        // pixels, so its consumer UV is identity.
         return (output, output)
     }
 
