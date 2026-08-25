@@ -51,6 +51,7 @@ STANDARD_BLUR_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanne
 DEDICATED_COMPILERS_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift"
 )
+FINALIZER_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialProgramFinalizer.swift"
 
 
 HARNESS = r'''
@@ -878,12 +879,15 @@ fragment float4 mwxGenericFragment(
             "supportedProfiles.contains(plan.shaderProfile)", pulse_compiler
         )
         for static_guard in (
-            "plan.bindings.isEmpty",
             "plan.audio == nil || plan.shaderProfile == .stock2842",
             "plan.pulseColor",
             "!plan.pulseAlpha",
         ):
             self.assertIn(static_guard, pulse_compiler)
+        self.assertIn("directColorBindingCohortIsProven(plan)", pulse_compiler)
+        self.assertIn("exactUserPropertyBindingsAreProven(", pulse_compiler)
+        self.assertIn("activeUserPropertyConsumersAreProven(", pulse_compiler)
+        self.assertIn("uniform.authoredRange == constant.range", pulse_compiler)
         self.assertIn(
             "SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(",
             pulse_compiler,
@@ -894,6 +898,7 @@ fragment float4 mwxGenericFragment(
         )
         for alpha_guard in (
             "plan.audio == nil || plan.shaderProfile == .stock2842",
+            "plan.bindings.isEmpty",
             "!plan.pulseColor",
             "plan.pulseAlpha",
             "plan.maskTexturePath == nil",
@@ -947,22 +952,17 @@ fragment float4 mwxGenericFragment(
         )
         self.assertIn(".defaultRouteState == .genericOnly", pulse_compiler)
         self.assertIn(".validatedRollbackOwner == .none", pulse_compiler)
-        self.assertIn(
-            '"static-rgb-preserving-owner-revoked-to-material-program"',
-            pulse_compiler,
-        )
-        self.assertIn(
-            '"audio-color-only-rgb-owner-revoked-to-material-program"',
-            pulse_compiler,
-        )
-        self.assertIn(
-            '"static-alpha-only-owner-revoked-to-material-program"',
-            pulse_compiler,
-        )
-        self.assertIn(
-            '"audio-alpha-only-owner-revoked-to-material-program"',
-            pulse_compiler,
-        )
+        for revocation_detail in (
+            "static-rgb-preserving", "audio-color-only-rgb",
+            "typed-user-property-rgb",
+            "static-alpha-only", "audio-alpha-only",
+        ):
+            self.assertIn(
+                f'"{revocation_detail}-owner-revoked-to-material-program"',
+                pulse_compiler,
+            )
+        finalizer = FINALIZER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("directUserPropertyRangedValue(", finalizer)
 
 
 if __name__ == "__main__":

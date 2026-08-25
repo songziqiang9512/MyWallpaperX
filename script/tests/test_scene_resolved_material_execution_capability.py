@@ -7802,13 +7802,12 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         )
         self.assertTrue(payload["sourceAlphaFactorClaim"], payload)
         self.assertEqual(payload["sourceAlphaFactorFailure"], "", payload)
-        self.assertTrue(payload["scalarAlphaAuxiliaryClaim"], payload)
-        self.assertEqual(payload["scalarAlphaAuxiliaryFailure"], "", payload)
-        self.assertEqual(
-            payload["scalarAlphaAuxiliaryCounters"],
-            {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
-            payload,
+        self.assertFalse(payload["scalarAlphaAuxiliaryClaim"], payload)
+        self.assertIn(
+            "material-generic-owner-revoked",
+            payload["scalarAlphaAuxiliaryFailure"], payload,
         )
+        self.assertEqual(payload["scalarAlphaAuxiliaryCounters"], {}, payload)
         self.assertTrue(payload["effectOutputTypedColorDeferredClaim"], payload)
         self.assertEqual(payload["effectOutputTypedColorDeferredFailure"], "", payload)
         self.assertEqual(

@@ -118,6 +118,10 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         let name: String
         let materialKeys: [String]
         let defaultValue: Template.StaticUniformValue?
+        /// Author-declared numeric domain, including the normalized domain of
+        /// a typed color editor. It is not a general clamp policy; owner
+        /// transfers may require it to preserve an incumbent's runtime contract.
+        let authoredRange: ClosedRange<Double>?
     }
 
     enum Issue: Error {
@@ -533,10 +537,17 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                     authoredBindingKeys: []
                 )
             }
+            let authoredRange = try uniformRange(
+                value("range", in: objects),
+                editorType: value("type", in: objects),
+                field: field,
+                name: name
+            )
             return .init(
                 name: field.name,
                 materialKeys: [name] + (material.map { [$0] } ?? []),
-                defaultValue: fallback
+                defaultValue: fallback,
+                authoredRange: authoredRange
             )
         } catch {
             throw Issue.uniform(name)
@@ -678,6 +689,30 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             throw Issue.uniform(name)
         }
         return components
+    }
+
+    private static func uniformRange(
+        _ value: SceneShaderAnnotationValue?,
+        editorType: SceneShaderAnnotationValue?,
+        field: SceneAuthoredShaderUniformLayout.Field,
+        name: String
+    ) throws -> ClosedRange<Double>? {
+        if let value {
+            let components = try defaultComponents(value, name: name)
+            guard components.count == 2,
+                  components[0] <= components[1] else {
+                throw Issue.uniform(name)
+            }
+            return components[0] ... components[1]
+        }
+        guard field.type == .float3,
+              field.arrayCount == nil,
+              let rawType = editorType?.stringValue,
+              rawType == rawType.trimmingCharacters(in: .whitespacesAndNewlines),
+              rawType.caseInsensitiveCompare("color") == .orderedSame else {
+            return nil
+        }
+        return 0 ... 1
     }
 
     private static func textureSlot(_ name: String) -> Int? {

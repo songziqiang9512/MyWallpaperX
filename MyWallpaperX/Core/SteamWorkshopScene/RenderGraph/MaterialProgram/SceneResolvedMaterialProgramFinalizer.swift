@@ -477,14 +477,30 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                           resolved.source,
                           contributor: contributor,
                           fallback: fallback
-                      ),
-                      let encoded = encodeDynamicUniform(
-                          resolved.value,
-                          contributor: contributor,
-                          declaration: dynamic,
-                          schema: schema,
-                          field: field
                       ) else {
+                    throw failure(
+                        .uniform,
+                        .dynamicUniformBindingInvalid,
+                        details: [field.name]
+                    )
+                }
+                let liveEncoded = encodeDynamicUniform(
+                    resolved.value,
+                    contributor: contributor,
+                    declaration: dynamic,
+                    schema: schema,
+                    field: field
+                )
+                guard let encoded = directUserPropertyRangedValue(
+                    liveEncoded,
+                    liveValue: resolved.value,
+                    fallback,
+                    source: resolved.source,
+                    contributor: contributor,
+                    declaration: dynamic,
+                    schema: schema,
+                    field: field
+                ) else {
                     throw failure(
                         .uniform,
                         .dynamicUniformBindingInvalid,
@@ -613,6 +629,61 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
              (.sceneScript, .sceneScript): true
         default: false
         }
+    }
+
+    private static func value(
+        _ value: SceneDynamicValue,
+        isWithin range: ClosedRange<Double>?
+    ) -> Bool {
+        guard let range else { return true }
+        let components: [Double]
+        switch value {
+        case let .scalar(x): components = [x]
+        case let .vector2(x, y): components = [x, y]
+        case let .vector3(x, y, z): components = [x, y, z]
+        case let .vector4(x, y, z, w): components = [x, y, z, w]
+        case .bool, .string: return false
+        }
+        return components.allSatisfy { $0.isFinite && range.contains($0) }
+    }
+
+    private static func directUserPropertyRangedValue(
+        _ liveEncoded: Data?,
+        liveValue: SceneDynamicValue,
+        _ fallback: Template.StaticUniformValue?,
+        source: SceneDynamicSource,
+        contributor: Template.DynamicUniformSource,
+        declaration: Template.DynamicUniform,
+        schema: SceneResolvedMaterialShaderSchema.Uniform,
+        field: SceneAuthoredShaderUniformLayout.Field
+    ) -> Data? {
+        guard source == .userProperty,
+              case .userProperty = contributor,
+              field.type == .float3,
+              field.arrayCount == nil,
+              declaration.scriptAttachments.isEmpty,
+              declaration.authoredBindingKeys == ["user", "value"],
+              let fallback,
+              fallback.valueKind.localizedLowercase == "binding",
+              fallback.authoredBindingKeys == ["user", "value"],
+              let range = schema.authoredRange else {
+            return liveEncoded
+        }
+        if value(liveValue, isWithin: range) { return liveEncoded }
+        let components = fallback.componentBitPatterns.map {
+            Double(bitPattern: $0)
+        }
+        guard components.count == 3,
+              components.allSatisfy({ $0.isFinite && range.contains($0) }) else {
+            return nil
+        }
+        return encodeDynamicFallback(
+            fallback,
+            contributor: contributor,
+            declaration: declaration,
+            schema: schema,
+            field: field
+        )
     }
 
     /// Slider properties are scalar producers. A float2 shader consumer with

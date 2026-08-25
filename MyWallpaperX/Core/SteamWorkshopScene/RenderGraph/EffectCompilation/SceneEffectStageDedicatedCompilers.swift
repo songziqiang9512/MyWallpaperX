@@ -124,9 +124,13 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         guard case let .accepted(plan) = result else { return result }
         let detail: String
         if colorOnlyRGBProgramOwnerIsProven(plan: plan, input: input) {
-            detail = plan.audio == nil
-                ? "static-rgb-preserving-owner-revoked-to-material-program"
-                : "audio-color-only-rgb-owner-revoked-to-material-program"
+            if !plan.bindings.isEmpty {
+                detail = "typed-user-property-rgb-owner-revoked-to-material-program"
+            } else if plan.audio == nil {
+                detail = "static-rgb-preserving-owner-revoked-to-material-program"
+            } else {
+                detail = "audio-color-only-rgb-owner-revoked-to-material-program"
+            }
         } else if staticAlphaOnlyProgramOwnerIsProven(plan: plan, input: input) {
             detail = plan.audio == nil
                 ? "static-alpha-only-owner-revoked-to-material-program"
@@ -145,7 +149,8 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
     /// Revokes color-only profiles after every readiness shape proves the same
     /// graph-input carrier, typed-data auxiliaries, and exact terminal RGB/alpha
     /// transform. Audio is limited to stock's shared typed response admission;
-    /// dynamic bindings and alpha-writing cohorts retain incumbent.
+    /// exact user-property uniforms must prove the existing typed Program
+    /// consumer. SceneScript/Timeline and alpha-writing cohorts retain incumbent.
     private nonisolated static func colorOnlyRGBProgramOwnerIsProven(
         plan: ScenePulseExecutionPlan,
         input: SceneEffectStageCompileInput
@@ -157,7 +162,7 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             .directPhaseMaxClampV1,
         ]
         guard supportedProfiles.contains(plan.shaderProfile),
-              plan.bindings.isEmpty,
+              plan.bindings.isEmpty || directColorBindingCohortIsProven(plan),
               plan.audio == nil || plan.shaderProfile == .stock2842,
               plan.pulseColor,
               !plan.pulseAlpha,
@@ -273,6 +278,10 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                     .sourceProvenGraphInputTypedDataRGBFilter
                     .validatedRollbackOwner == .none
             else { return false }
+            guard activeUserPropertyConsumersAreProven(
+                plan: plan,
+                prepared: prepared
+            ) else { return false }
         }
         return true
     }
@@ -280,8 +289,9 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
     /// Revokes only canonical alpha-only Pulse shapes whose
     /// prepared source proves one graph-input carrier and exact typed scalar
     /// auxiliaries. Audio is limited to the stock profile whose typed response
-    /// parameters are re-derived below; mask, binding, provider, and broader
-    /// alpha forms retain the incumbent owner.
+    /// parameters are re-derived below; exact user-property uniforms must prove
+    /// the existing typed Program consumer. Mask, SceneScript/Timeline,
+    /// provider, and broader alpha forms retain the incumbent owner.
     private nonisolated static func staticAlphaOnlyProgramOwnerIsProven(
         plan: ScenePulseExecutionPlan,
         input: SceneEffectStageCompileInput
@@ -421,6 +431,10 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                     .sourceProvenGraphInputStraightRGBScalarAlpha
                     .validatedRollbackOwner == .none
             else { return false }
+            guard activeUserPropertyConsumersAreProven(
+                plan: plan,
+                prepared: prepared
+            ) else { return false }
         }
         return true
     }
@@ -448,6 +462,10 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
               (material.combos["PULSEALPHA", default: 0] == 1)
                 == plan.pulseAlpha,
               material.userShaderValues.isEmpty,
+              exactUserPropertyBindingsAreProven(
+                  plan: plan,
+                  template: template
+              ),
               let audio = audioParameters(
                   combos: material.combos,
                   constants: material.constants,
@@ -474,5 +492,96 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             else { return false }
         }
         return true
+    }
+
+    /// The old planner accepts only direct `{user,value}` wrappers and keeps
+    /// their exact authored fallback. Revoke it only when the shared Template
+    /// publishes the same target, sole producer, wrapper identity, and value.
+    private nonisolated static func exactUserPropertyBindingsAreProven(
+        plan: ScenePulseExecutionPlan,
+        template: SceneResolvedMaterialTemplate
+    ) -> Bool {
+        let dynamicNames = Set(template.uniformDeclarations.compactMap {
+            declaration -> String? in
+            guard case .dynamic = declaration.value else { return nil }
+            return declaration.name
+        })
+        guard dynamicNames == Set(plan.bindings.keys.map(\.rawValue)) else {
+            return false
+        }
+        return plan.bindings.allSatisfy { constant, binding in
+            let declarations = template.uniformDeclarations.filter {
+                $0.name == constant.rawValue
+            }
+            guard declarations.count == 1,
+                  case let .dynamic(dynamic) = declarations[0].value,
+                  dynamic.target == binding.dynamicTarget,
+                  dynamic.valueContributors == [
+                      .userProperty(binding.propertyKey),
+                  ],
+                  dynamic.scriptAttachments.isEmpty,
+                  dynamic.authoredBindingKeys == ["user", "value"],
+                  let fallback = dynamic.authoredFallback,
+                  fallback.valueKind.localizedLowercase == "binding",
+                  fallback.authoredBindingKeys == ["user", "value"] else {
+                return false
+            }
+            let actual = fallback.componentBitPatterns.map {
+                Double(bitPattern: $0)
+            }
+            guard let expected = plan.staticOrFallbackValues[constant] else {
+                return false
+            }
+            switch constant.valueType {
+            case .scalar:
+                return actual == [expected.x]
+            case .vector2:
+                return actual == [expected.x, expected.y]
+            case .vector3:
+                return actual == [expected.x, expected.y, expected.z]
+            default:
+                return false
+            }
+        }
+    }
+
+    /// A wrapper is not enough to transfer execution authority: every bound
+    /// value must also be the unique active fragment consumer with the exact
+    /// scalar/vector ABI in every prepared readiness variant.
+    private nonisolated static func activeUserPropertyConsumersAreProven(
+        plan: ScenePulseExecutionPlan,
+        prepared: SceneShaderPreparedProgram
+    ) -> Bool {
+        plan.bindings.keys.allSatisfy { constant in
+            let type: SceneAuthoredShaderValueType
+            switch constant.valueType {
+            case .scalar: type = .float
+            case .vector2: type = .float2
+            case .vector3: type = .float3
+            default: return false
+            }
+            guard let uniform = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+                materialKey: constant.rawValue,
+                type: type,
+                stage: .fragment,
+                prepared: prepared
+            ) else { return false }
+            return uniform.authoredRange == constant.range(for: plan.shaderProfile)
+        }
+    }
+
+    /// The currently transferred dynamic Pulse cohort is the exact non-audio
+    /// RGB tint path. Scalar/vector2 and alpha/audio combinations retain the
+    /// incumbent until their producer and fallback domains have their own proof.
+    private nonisolated static func directColorBindingCohortIsProven(
+        _ plan: ScenePulseExecutionPlan
+    ) -> Bool {
+        guard plan.audio == nil,
+              plan.pulseColor,
+              !plan.pulseAlpha,
+              !plan.bindings.isEmpty else { return false }
+        return plan.bindings.keys.allSatisfy {
+            $0 == .tintLow || $0 == .tintHigh
+        }
     }
 }
