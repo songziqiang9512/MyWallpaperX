@@ -101,11 +101,16 @@ import Foundation
 // the standalone probe.
 struct SceneDocument {}
 
+enum SceneShaderUserValueKind: String, Decodable {
+    case null, boolean, number, string, array, object
+}
+
 extension SceneDocument {
     struct ShaderValue: Decodable {
         let rawValue: String
         let valueKind: String
         let userBinding: String?
+        let userValueKind: SceneShaderUserValueKind?
         let components: [Double]?
         let timeline: SceneJSONValue?
         let timelineDiagnostics: [String]

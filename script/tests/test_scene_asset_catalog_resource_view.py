@@ -26,6 +26,7 @@ SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES = scene_swift_sources_by_basename(
 SWIFT_SOURCES = [
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneJSONValue.swift"],
     SCENE_ROOT / "Format/SceneCompatibilityContext.swift",
+    SCENE_ROOT / "Format/SceneDocument+ShaderValue.swift",
     SCENE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SCENE_ROOT / "Format/SceneProject.swift",
     SCENE_ROOT / "Properties/SceneUserProperty.swift",
@@ -67,14 +68,9 @@ enum SceneMdlPuppetAttachmentReader {
     static func read(data: Data) throws -> [SceneMdlPuppetAttachment] { [] }
 }
 
-enum SceneDocument {
-    struct ShaderValue: Codable {
-        let rawValue: String
-        let valueKind: String
-        let userBinding: String?
-        let components: [Double]?
-    }
-}
+enum SceneDocument {}
+
+struct SceneTimelineAnimation: Codable {}
 
 enum SceneDocumentLoader {}
 

@@ -475,7 +475,9 @@ final class SceneDesktopWallpaperHost {
                 )
                 Self.appendTimeOfDayEffectScriptReport(
                     to: launchContext.logURL,
-                    program: launchContext.timeOfDayEffectScriptProgram
+                    program: launchContext.timeOfDayEffectScriptProgram,
+                    admissionDiagnostic:
+                        launchContext.timeOfDayEffectScriptAdmissionDiagnostic
                 )
                 wroteLog = true
             }

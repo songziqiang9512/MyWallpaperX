@@ -244,6 +244,26 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
+    def test_resource_catalog_change_selects_catalog_and_material_contracts(
+        self,
+    ) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/"
+                "SceneAssetCatalog.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("resources", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        for module in (
+            "test_scene_asset_catalog_resource_view",
+            "test_scene_material_render_state",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, focused.command)
+
     def test_scene_script_source_evidence_selects_parser_and_origin_contracts(
         self,
     ) -> None:

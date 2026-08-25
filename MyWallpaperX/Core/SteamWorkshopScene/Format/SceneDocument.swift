@@ -362,6 +362,9 @@ struct SceneDocumentLoader {
                 rawValue: rawValue,
                 valueKind: "binding",
                 userBinding: keyed["user"] as? String,
+                userValueKind: keyed["user"].flatMap(
+                    SceneShaderUserValueKind.init(jsonObject:)
+                ),
                 components: components.isEmpty ? nil : components,
                 timeline: timeline.animation,
                 timelineDiagnostics: timeline.diagnostics.map(\.token),

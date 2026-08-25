@@ -13,6 +13,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let timelineProgram: SceneTimelineProgram
     let textScriptProgram: SceneTextScriptProgram
     let timeOfDayEffectScriptProgram: SceneTimeOfDayEffectScriptProgram
+    let timeOfDayEffectScriptAdmissionDiagnostic: String?
     let mediaPlaybackPlaceholderFadeProgram:
         SceneMediaPlaybackPlaceholderFadeProgram
     let mediaColorTransitionProgram: SceneMediaColorTransitionProgram
@@ -221,9 +222,25 @@ extension SceneDesktopWallpaperHost {
             $0.executionPlan.supportsUnifiedLogicalTargetStage
                 ? $0.effectKey : nil
         })
-        let timeOfDayEffectScriptCandidates = dedicatedStageLeaves.compactMap {
-            $0.executionPlan.blend?.dynamicMultiplyBinding
+        let timeOfDayEffectScriptCandidateProgram: SceneTimeOfDayEffectScriptProgram
+        let timeOfDayEffectScriptAdmissionDiagnostic: String?
+        switch SceneTimeOfDayEffectScriptProgramCompiler.compile(
+            descriptor: runtimeInput.renderDescriptor
+        ) {
+        case let .success(program):
+            timeOfDayEffectScriptCandidateProgram = program
+            timeOfDayEffectScriptAdmissionDiagnostic = nil
+        case let .failure(failure) where failure.isDescriptorIntegrityFailure:
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt(
+                    "time-of-day-candidates-\(failure.code.rawValue)"
+                )
+        case let .failure(failure):
+            timeOfDayEffectScriptCandidateProgram = .empty
+            timeOfDayEffectScriptAdmissionDiagnostic = failure.diagnostic
         }
+        let timeOfDayEffectScriptCandidates =
+            timeOfDayEffectScriptCandidateProgram.bindings
         let timeOfDayEffectScriptCandidateTargets = Set(
             timeOfDayEffectScriptCandidates.map(\.definition.target)
         )
@@ -258,8 +275,6 @@ extension SceneDesktopWallpaperHost {
              model.audioScaledValueProgram.definitions.count),
             ("property-vector", propertyVectorScriptTargets,
              model.propertyVectorScriptProgram.definitions.count),
-            ("time-of-day", timeOfDayEffectScriptCandidateTargets,
-             timeOfDayEffectScriptCandidates.count),
             ("media-placeholder", mediaPlaybackPlaceholderFadeCandidateTargets,
              mediaPlaybackPlaceholderFadeCandidates.bindings.count),
             ("media-color", mediaColorTransitionCandidateTargets,
@@ -377,22 +392,21 @@ extension SceneDesktopWallpaperHost {
         )
         let sceneScriptConsumerTargets =
             resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets
-        let timeOfDayEffectScriptProgram = SceneTimeOfDayEffectScriptProgram(
-            bindings: timeOfDayEffectScriptCandidates.filter {
-                sceneScriptConsumerTargets.contains($0.definition.target)
-            }.sorted { lhs, rhs in
-                guard case let .effectConstant(
-                    lhsLayer, lhsEffect, lhsPass, lhsName
-                ) = lhs.definition.target,
-                    case let .effectConstant(
-                        rhsLayer, rhsEffect, rhsPass, rhsName
-                    ) = rhs.definition.target else { return false }
-                if lhsLayer != rhsLayer { return lhsLayer < rhsLayer }
-                if lhsEffect != rhsEffect { return lhsEffect < rhsEffect }
-                if lhsPass != rhsPass { return lhsPass < rhsPass }
-                return lhsName < rhsName
-            }
-        )
+        let timeOfDayEffectScriptConflictingTargets = propertyBindingTargets
+            .union(timelineTargets)
+            .union(boundedSceneScriptTargets)
+            .union(sceneScriptScalarTargets)
+        guard let timeOfDayEffectScriptProgram =
+                SceneTimeOfDayEffectScriptProgram.validatedConsumers(
+                    candidates: timeOfDayEffectScriptCandidates,
+                    consumerTargets: sceneScriptConsumerTargets,
+                    conflictingTargets: timeOfDayEffectScriptConflictingTargets
+                ) else {
+            throw SceneDesktopWallpaperHostLaunchError
+                .conflictingBoundedSceneScriptTargets(
+                    " phases=time-of-day/consumer-ownership"
+                )
+        }
         guard let mediaPlaybackPlaceholderFadeProgram =
                 SceneMediaPlaybackPlaceholderFadeProgram.validated(
                     bindings: mediaPlaybackPlaceholderFadeCandidates.bindings.filter {
@@ -433,6 +447,8 @@ extension SceneDesktopWallpaperHost {
                 descriptor: runtimeInput.renderDescriptor
             ),
             timeOfDayEffectScriptProgram: timeOfDayEffectScriptProgram,
+            timeOfDayEffectScriptAdmissionDiagnostic:
+                timeOfDayEffectScriptAdmissionDiagnostic,
             mediaPlaybackPlaceholderFadeProgram:
                 mediaPlaybackPlaceholderFadeProgram,
             mediaColorTransitionProgram: mediaColorTransitionProgram,

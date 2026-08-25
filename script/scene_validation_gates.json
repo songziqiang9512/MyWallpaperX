@@ -122,7 +122,8 @@
       "keywords": ["property", "dynamic"],
       "modules": [
         "test_scene_launch_origin_transition",
-        "test_scene_media_color_transition"
+        "test_scene_media_color_transition",
+        "test_scene_time_of_day_effect_script"
       ]
     },
     {
@@ -135,7 +136,9 @@
       "modules": [
         "test_scene_animated_material_asset",
         "test_scene_animated_material_visual_failure",
+        "test_scene_asset_catalog_resource_view",
         "test_scene_frame_texture_registry",
+        "test_scene_material_render_state",
         "test_scene_material_texture_transform",
         "test_scene_sampler_default_purpose",
         "test_scene_stock_material_asset_publication"

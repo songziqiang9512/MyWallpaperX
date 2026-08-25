@@ -24,6 +24,7 @@ SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES = scene_swift_sources_by_basename(
 SWIFT_SOURCES = [
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneJSONValue.swift"],
     SCENE_ROOT / "Format/SceneCompatibilityContext.swift",
+    SCENE_ROOT / "Format/SceneDocument+ShaderValue.swift",
     SCENE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SCENE_ROOT / "Format/SceneProject.swift",
     SCENE_ROOT / "Properties/SceneUserProperty.swift",
@@ -68,14 +69,9 @@ enum SceneMdlPuppetAttachmentReader {
     static func read(data: Data) throws -> [SceneMdlPuppetAttachment] { [] }
 }
 
-enum SceneDocument {
-    struct ShaderValue: Codable {
-        let rawValue: String
-        let valueKind: String
-        let userBinding: String?
-        let components: [Double]?
-    }
-}
+enum SceneDocument {}
+
+struct SceneTimelineAnimation: Codable {}
 
 enum SceneDocumentLoader {}
 
@@ -96,6 +92,7 @@ private struct HashState: Codable {
 private struct CatalogState: Codable {
     let states: [String: [PassState]]
     let hashes: [String: HashState]
+    let constantUserValueKinds: [String: [[String: String]]]
 }
 
 @main
@@ -122,11 +119,21 @@ private enum MaterialRenderStateHarness {
                 shaderPathIndependent: $1.shaderPathIndependentSHA256
             )
         }
+        let constantUserValueKinds = catalog.materials.reduce(
+            into: [String: [[String: String]]]()
+        ) { result, material in
+            result[material.relativePath] = material.passes.map { pass in
+                pass.constantShaderValues.mapValues {
+                    $0.userValueKind?.rawValue ?? "absent"
+                }
+            }
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         FileHandle.standardOutput.write(try encoder.encode(CatalogState(
             states: states,
-            hashes: hashes
+            hashes: hashes,
+            constantUserValueKinds: constantUserValueKinds
         )))
     }
 }
@@ -167,7 +174,12 @@ MATERIALS = {
         "passes": [{
             "blending": "normal",
             "alphawriting": "enabled",
-            "constantshadervalues": {"roughness": 0.5},
+            "constantshadervalues": {
+                "roughness": 0.5,
+                "nullUser": {"script": "return 1", "user": None, "value": 1},
+                "numericUser": {"script": "return 1", "user": 42, "value": 1},
+                "missingUser": {"script": "return 1", "value": 1},
+            },
             "usershadervalues": {"schemecolor": "tint", "bgcolor": "tint2"},
         }]
     },
@@ -275,6 +287,13 @@ class SceneMaterialRenderStateTests(unittest.TestCase):
             "alphaWriting": "enabled",
             "userShaderValues": {"schemecolor": "tint", "bgcolor": "tint2"},
         }])
+
+    def test_constant_user_value_kind_distinguishes_null_nonnull_and_absent(self):
+        kinds = self.result["constantUserValueKinds"]["materials/bindings.json"][0]
+        self.assertEqual(kinds["nullUser"], "null")
+        self.assertEqual(kinds["numericUser"], "number")
+        self.assertEqual(kinds["missingUser"], "absent")
+        self.assertEqual(kinds["roughness"], "absent")
 
     def test_shader_path_independent_hash_preserves_shape_across_relocation(self):
         first = self.result["hashes"]["materials/shader_path_a.json"]

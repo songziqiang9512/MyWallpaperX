@@ -348,11 +348,11 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             "hover-origin",
             "audio-scaled",
             "property-vector",
-            "time-of-day",
             "media-placeholder",
             "media-color",
         ):
             self.assertIn(f'("{producer}"', bounded_ownership)
+        self.assertNotIn('("time-of-day"', bounded_ownership)
         self.assertIn(
             "targets.isDisjoint(with: propertyBindingTargets)",
             bounded_ownership,
@@ -375,6 +375,30 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         )
         self.assertNotIn("propertyBindingProgram", scalar_ownership)
         self.assertNotIn("timelineProgram", scalar_ownership)
+        time_of_day_ownership = launch[
+            launch.index("let sceneScriptConsumerTargets ="):
+            launch.index("guard let mediaPlaybackPlaceholderFadeProgram =")
+        ]
+        self.assertIn(
+            "SceneTimeOfDayEffectScriptProgram.validatedConsumers(",
+            time_of_day_ownership,
+        )
+        self.assertIn(
+            "candidates: timeOfDayEffectScriptCandidates",
+            time_of_day_ownership,
+        )
+        self.assertIn(
+            "consumerTargets: sceneScriptConsumerTargets",
+            time_of_day_ownership,
+        )
+        self.assertIn(
+            "conflictingTargets: timeOfDayEffectScriptConflictingTargets",
+            time_of_day_ownership,
+        )
+        self.assertLess(
+            launch.index("let sceneScriptConsumerTargets ="),
+            launch.index("SceneTimeOfDayEffectScriptProgram.validatedConsumers("),
+        )
         timeline = frame.index("let timelineValues = SceneTimelineRuntime.values")
         preliminary = frame.index("let preliminaryForSceneScript =")
         evaluate = frame.index("let sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate")

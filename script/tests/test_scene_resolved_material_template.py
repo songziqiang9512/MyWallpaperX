@@ -41,11 +41,18 @@ nonisolated enum SceneDynamicTarget: Hashable {
     case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
 }
 
+enum SceneShaderUserValueKind {
+    case null
+    case number
+    case string
+}
+
 enum SceneDocument {
     struct ShaderValue {
         let rawValue: String
         let valueKind: String
         let userBinding: String?
+        let userValueKind: SceneShaderUserValueKind?
         let components: [Double]?
         let timeline: Bool?
         let timelineDiagnostics: [String]
@@ -56,6 +63,7 @@ enum SceneDocument {
             rawValue: String,
             valueKind: String = "number",
             userBinding: String? = nil,
+            userValueKind: SceneShaderUserValueKind? = nil,
             components: [Double]? = nil,
             timeline: Bool? = nil,
             timelineDiagnostics: [String] = [],
@@ -65,6 +73,8 @@ enum SceneDocument {
             self.rawValue = rawValue
             self.valueKind = valueKind
             self.userBinding = userBinding
+            self.userValueKind = userValueKind
+                ?? userBinding.map { _ in .string }
             self.components = components
             self.timeline = timeline
             self.timelineDiagnostics = timelineDiagnostics
@@ -537,6 +547,74 @@ enum Harness {
             material(constants: ["g_Fade": boundedPropertyScriptValue]),
             provenSceneScriptValueTargets: [boundedScriptTarget]
         ))
+        let boundedNullUserScriptValue = SceneDocument.ShaderValue(
+            rawValue: "1",
+            valueKind: "binding",
+            userValueKind: .null,
+            components: [1],
+            scriptSource: "project-owned bounded time-of-day source",
+            bindingKeys: ["script", "user", "value"]
+        )
+        let boundedNullUserScriptUnproven = template(compile(material(constants: [
+            "g_Fade": boundedNullUserScriptValue,
+        ])))
+        let boundedNullUserScriptProven = template(compile(
+            material(constants: ["g_Fade": boundedNullUserScriptValue]),
+            provenSceneScriptValueTargets: [boundedScriptTarget]
+        ))
+        let boundedNamedUserScriptProven = template(compile(
+            material(constants: [
+                "g_Fade": .init(
+                    rawValue: "1",
+                    valueKind: "binding",
+                    userBinding: "mode",
+                    userValueKind: .string,
+                    components: [1],
+                    scriptSource: "project-owned bounded time-of-day source",
+                    bindingKeys: ["script", "user", "value"]
+                ),
+            ]),
+            provenSceneScriptValueTargets: [boundedScriptTarget]
+        ))
+        let boundedNumericUserScriptProven = template(compile(
+            material(constants: [
+                "g_Fade": .init(
+                    rawValue: "1",
+                    valueKind: "binding",
+                    userValueKind: .number,
+                    components: [1],
+                    scriptSource: "project-owned bounded time-of-day source",
+                    bindingKeys: ["script", "user", "value"]
+                ),
+            ]),
+            provenSceneScriptValueTargets: [boundedScriptTarget]
+        ))
+        let boundedMissingUserKindScriptProven = template(compile(
+            material(constants: [
+                "g_Fade": .init(
+                    rawValue: "1",
+                    valueKind: "binding",
+                    components: [1],
+                    scriptSource: "project-owned bounded time-of-day source",
+                    bindingKeys: ["script", "user", "value"]
+                ),
+            ]),
+            provenSceneScriptValueTargets: [boundedScriptTarget]
+        ))
+        let boundedTimelineScriptProven = template(compile(
+            material(constants: [
+                "g_Fade": .init(
+                    rawValue: "1",
+                    valueKind: "binding",
+                    userValueKind: .null,
+                    components: [1],
+                    timeline: true,
+                    scriptSource: "project-owned bounded time-of-day source",
+                    bindingKeys: ["script", "user", "value"]
+                ),
+            ]),
+            provenSceneScriptValueTargets: [boundedScriptTarget]
+        ))
         let boundedScriptWrongTarget = template(compile(
             material(constants: ["g_Fade": boundedScriptValue]),
             provenSceneScriptValueTargets: [.effectConstant(
@@ -831,6 +909,45 @@ enum Harness {
                         && value.valueContributors == [.sceneScript]
                         && value.scriptAttachments.isEmpty
                 } == true,
+            "boundedNullUserScriptNeedsExactProof": boundedNullUserScriptUnproven?
+                .uniformDeclarations.first.map { declaration in
+                    guard case let .dynamic(value) = declaration.value else { return false }
+                    return value.valueContributors.isEmpty
+                        && value.scriptAttachments == [.unproven]
+                } == true,
+            "boundedNullUserScriptExactProofBecomesSoleValue":
+                boundedNullUserScriptProven?.uniformDeclarations.first.map {
+                    declaration in
+                    guard case let .dynamic(value) = declaration.value else { return false }
+                    return value.target == boundedScriptTarget
+                        && value.valueContributors == [.sceneScript]
+                        && value.scriptAttachments.isEmpty
+                } == true,
+            "boundedNullUserProofDoesNotAuthorizeOtherProducers":
+                boundedNamedUserScriptProven?.uniformDeclarations.first.map {
+                    declaration in
+                    guard case let .dynamic(value) = declaration.value else { return false }
+                    return value.valueContributors == [.userProperty("mode")]
+                        && value.scriptAttachments == [.unproven]
+                } == true
+                && boundedTimelineScriptProven?.uniformDeclarations.first.map {
+                    declaration in
+                    guard case let .dynamic(value) = declaration.value else { return false }
+                    return value.valueContributors == [.timeline]
+                        && value.scriptAttachments == [.unproven]
+                } == true
+                && [
+                    boundedNumericUserScriptProven,
+                    boundedMissingUserKindScriptProven,
+                ].allSatisfy { template in
+                    template?.uniformDeclarations.first.map { declaration in
+                        guard case let .dynamic(value) = declaration.value else {
+                            return false
+                        }
+                        return value.valueContributors.isEmpty
+                            && value.scriptAttachments == [.unproven]
+                    } == true
+                } == true,
             "observedPlayShapesRemainUnproven": [
                 playOnlyTimelineScript, directPlayTimelineScript,
                 extendedRestartScript,
@@ -1023,6 +1140,9 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "boundedScriptExactProofBecomesSoleValue",
             "boundedPropertyScriptNeedsExactProof",
             "boundedPropertyScriptExactProofBecomesSoleValue",
+            "boundedNullUserScriptNeedsExactProof",
+            "boundedNullUserScriptExactProofBecomesSoleValue",
+            "boundedNullUserProofDoesNotAuthorizeOtherProducers",
         ])
 
     def test_vfs_and_shader_lexical_boundaries_match_production(self) -> None:

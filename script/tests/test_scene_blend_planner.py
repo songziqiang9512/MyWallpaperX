@@ -51,11 +51,17 @@ SWIFT_SOURCES = [
 HARNESS = r'''
 import Foundation
 
+enum SceneShaderUserValueKind {
+    case null
+    case string
+}
+
 struct SceneDocument {
     struct ShaderValue {
         let rawValue: String
         let valueKind: String
         let userBinding: String?
+        let userValueKind: SceneShaderUserValueKind?
         let components: [Double]?
         let timeline: Int?
         let timelineDiagnostics: [String]
@@ -64,6 +70,7 @@ struct SceneDocument {
 
         init(
             rawValue: String, valueKind: String, userBinding: String?,
+            userValueKind: SceneShaderUserValueKind? = nil,
             components: [Double]?, timeline: Int? = nil,
             timelineDiagnostics: [String] = [], scriptSource: String? = nil,
             bindingKeys: [String] = []
@@ -71,6 +78,8 @@ struct SceneDocument {
             self.rawValue = rawValue
             self.valueKind = valueKind
             self.userBinding = userBinding
+            self.userValueKind = userValueKind
+                ?? userBinding.map { _ in .string }
             self.components = components
             self.timeline = timeline
             self.timelineDiagnostics = timelineDiagnostics
@@ -200,7 +209,9 @@ enum Harness {
         ]
         if options.timeOfDayMultiply {
             result["multiply"] = .init(
-                rawValue: "1", valueKind: "binding", userBinding: nil, components: [1],
+                rawValue: "1", valueKind: "binding", userBinding: nil,
+                userValueKind: .null,
+                components: [1],
                 scriptSource: timeOfDaySource,
                 bindingKeys: ["script", "user", "value"]
             )

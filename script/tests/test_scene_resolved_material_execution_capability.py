@@ -7131,6 +7131,25 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("timelineProgram.bindings", launch)
         self.assertIn("let timeOfDayEffectScriptCandidates =", launch)
         self.assertIn(
+            "SceneTimeOfDayEffectScriptProgramCompiler.compile(",
+            launch,
+        )
+        time_of_day_candidates = launch[
+            launch.index("let timeOfDayEffectScriptCandidateProgram"):
+            launch.index("let timeOfDayEffectScriptCandidateTargets")
+        ]
+        self.assertNotIn("dedicatedStageLeaves", time_of_day_candidates)
+        self.assertIn("failure.code.rawValue", time_of_day_candidates)
+        self.assertIn("failure.isDescriptorIntegrityFailure", time_of_day_candidates)
+        self.assertIn(
+            "timeOfDayEffectScriptCandidateProgram = .empty",
+            time_of_day_candidates,
+        )
+        self.assertIn(
+            "timeOfDayEffectScriptAdmissionDiagnostic = failure.diagnostic",
+            time_of_day_candidates,
+        )
+        self.assertIn(
             "SceneMediaPlaybackPlaceholderFadeProgramCompiler.compile(",
             launch,
         )
@@ -7150,10 +7169,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             launch.index("let boundedProducerTargets:"):
             launch.index("nextSceneScriptGeneration &+= 1")
         ]
-        self.assertIn(
-            '("time-of-day", timeOfDayEffectScriptCandidateTargets,',
-            bounded_ownership,
-        )
+        self.assertNotIn("time-of-day", bounded_ownership)
         self.assertIn(
             "targets.isDisjoint(with: propertyBindingTargets)",
             bounded_ownership,
@@ -7177,6 +7193,20 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertLess(
             launch.index("SceneResolvedMaterialExecutionCapabilityCatalog("),
             launch.index("let timeOfDayEffectScriptProgram ="),
+        )
+        time_of_day_consumers = launch[
+            launch.index("let timeOfDayEffectScriptProgram ="):
+            launch.index("guard let mediaPlaybackPlaceholderFadeProgram")
+        ]
+        self.assertIn(
+            "SceneTimeOfDayEffectScriptProgram.validatedConsumers(",
+            time_of_day_consumers,
+        )
+        self.assertIn("consumerTargets: sceneScriptConsumerTargets", time_of_day_consumers)
+        self.assertIn("timeOfDayEffectScriptConflictingTargets", time_of_day_consumers)
+        self.assertLess(
+            launch.index("let sceneScriptConsumerTargets ="),
+            launch.index("SceneTimeOfDayEffectScriptProgram.validatedConsumers("),
         )
         self.assertIn("model.sceneDocument.scriptBindings", launch)
         self.assertIn("case let .effectVisibility", launch)

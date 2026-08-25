@@ -13,11 +13,15 @@ extension SceneDesktopWallpaperHost {
 
     static func appendTimeOfDayEffectScriptReport(
         to logURL: URL?,
-        program: SceneTimeOfDayEffectScriptProgram
+        program: SceneTimeOfDayEffectScriptProgram,
+        admissionDiagnostic: String?
     ) {
         guard let logURL else { return }
         var lines = [
-            "timeOfDayEffectScriptBindingCount: \(program.bindings.count)"
+            "timeOfDayEffectScriptBindingCount: \(program.bindings.count)",
+            admissionDiagnostic.map {
+                "timeOfDayEffectScriptAdmission: status=budget-rejected reason=\($0)"
+            } ?? "timeOfDayEffectScriptAdmission: status=admitted reason=none",
         ]
 #if DEBUG
         if let wallDate = debugWallDateOverride {

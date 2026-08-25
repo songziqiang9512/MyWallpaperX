@@ -304,7 +304,15 @@ struct SceneAssetCatalogLoader {
         if let keyed = value as? [String: Any] {
             let rawValue = (keyed["value"] as? String) ?? "\(keyed)"
             let components = numericComponents(in: rawValue)
-            return SceneDocument.ShaderValue(rawValue: rawValue, valueKind: "binding", userBinding: keyed["user"] as? String, components: components.isEmpty ? nil : components)
+            return SceneDocument.ShaderValue(
+                rawValue: rawValue,
+                valueKind: "binding",
+                userBinding: keyed["user"] as? String,
+                userValueKind: keyed["user"].flatMap(
+                    SceneShaderUserValueKind.init(jsonObject:)
+                ),
+                components: components.isEmpty ? nil : components
+            )
         }
         return SceneDocument.ShaderValue(rawValue: "\(value)", valueKind: "unknown", userBinding: nil, components: nil)
     }

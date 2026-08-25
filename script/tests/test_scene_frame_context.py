@@ -699,6 +699,24 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertEqual(frame_driver.count("sceneClock.advance("), 1)
         self.assertIn("wallDate: wallDate", frame_driver)
 
+    def test_time_of_day_budget_rejection_is_typed_and_reported(self) -> None:
+        report = HOST_TIME_OF_DAY_REPORT_SOURCE.read_text(encoding="utf-8")
+        launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "timeOfDayEffectScriptAdmission: status=budget-rejected reason=",
+            report,
+        )
+        self.assertIn(
+            "timeOfDayEffectScriptAdmission: status=admitted reason=none",
+            report,
+        )
+        self.assertIn("failure.isDescriptorIntegrityFailure", launch)
+        self.assertIn("timeOfDayEffectScriptCandidateProgram = .empty", launch)
+        self.assertIn(
+            "timeOfDayEffectScriptAdmissionDiagnostic = failure.diagnostic",
+            launch,
+        )
+
     def test_host_pause_state_controls_clock_and_frame_driver(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
         video_providers = HOST_VIDEO_PROVIDERS_SOURCE.read_text(encoding="utf-8")

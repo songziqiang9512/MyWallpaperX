@@ -179,6 +179,8 @@
 
 ## 2. 四条实现通道
 
+> 当前 census 更正（2026-08-25）：下表 generic authored frontend 行的“二十五个”是滞后文字；现役 route registry 为 **26 个缺省 `generic-only` profile**。本更正只修计数，不改变各 profile 的准入、rollback 或证据边界。
+
 | 通道 | 当前含义 | 当前事实 |
 |---|---|---|
 | IR | 读取并保真保存 definition/material/shader source contract，再编译资源身份、节点、slot 和 blocker | [SceneEffectDefinition.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectDefinition.swift)、[SceneAuthoredEffectRenderPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift)、[SceneShaderContract.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContract.swift)、[SceneAuthoredEffectRenderPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlanner.swift) |

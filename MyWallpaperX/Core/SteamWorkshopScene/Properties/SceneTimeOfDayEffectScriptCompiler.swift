@@ -3,6 +3,8 @@ import Foundation
 /// Parses the documented `engine.timeOfDay` + `WEMath.smoothStep` Blend subset.
 /// The complete wrapper and grammar must match; unsupported JavaScript fails closed.
 nonisolated enum SceneTimeOfDayEffectScriptCompiler {
+    nonisolated static let maximumSourceUTF8ByteCount = 16_384
+
     private enum Token: Equatable {
         case identifier(String)
         case number(Double)
@@ -16,6 +18,7 @@ nonisolated enum SceneTimeOfDayEffectScriptCompiler {
     ) -> SceneTimeOfDayEffectScriptBinding? {
         guard value.valueKind.localizedLowercase == "binding",
               value.userBinding == nil,
+              value.userValueKind == .null,
               value.timeline == nil,
               value.timelineDiagnostics.isEmpty,
               value.bindingKeys == ["script", "user", "value"],
@@ -41,9 +44,19 @@ nonisolated enum SceneTimeOfDayEffectScriptCompiler {
     nonisolated static func compile(
         source: String
     ) -> SceneTimeOfDayEffectScriptExpression? {
-        guard let tokens = lex(source), tokens.count <= 1_024 else { return nil }
+        guard boundedSourceUTF8ByteCount(source) != nil,
+              let tokens = lex(source), tokens.count <= 1_024 else { return nil }
         var parser = Parser(tokens: tokens)
         return parser.parseProgram()
+    }
+
+    nonisolated static func boundedSourceUTF8ByteCount(
+        _ source: String
+    ) -> Int? {
+        let observed = source.utf8.prefix(
+            maximumSourceUTF8ByteCount + 1
+        ).count
+        return observed <= maximumSourceUTF8ByteCount ? observed : nil
     }
 
     private struct Parser {

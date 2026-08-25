@@ -120,6 +120,20 @@ SCENE_FIXTURE = {
                                 },
                                 # 用户绑定的 constant 不是 Timeline，必须保持 timeline 为空
                                 "opacity": {"user": "opacity", "value": 0.75},
+                                "nullUser": {
+                                    "script": "export function update(value) { return value; }",
+                                    "user": None,
+                                    "value": 1,
+                                },
+                                "numericUser": {
+                                    "script": "export function update(value) { return value; }",
+                                    "user": 42,
+                                    "value": 1,
+                                },
+                                "missingUser": {
+                                    "script": "export function update(value) { return value; }",
+                                    "value": 1,
+                                },
                             }
                         }
                     ],
@@ -286,12 +300,22 @@ enum Harness {
                         constants[name] = [
                             "valueKind": value.valueKind,
                             "userBinding": value.userBinding ?? "-",
+                            "userValueKind": value.userValueKind?.rawValue ?? "-",
                             "hasTimeline": value.timeline != nil,
                             "mode": value.timeline?.options.mode.rawValue ?? "-",
                             "startsPaused": value.timeline?.options.startsPaused ?? false,
                             "durationSeconds": value.timeline?.options.durationSeconds ?? -1,
                             "diagnostics": value.timelineDiagnostics,
                         ]
+                        if name == "nullUser" {
+                            let encoded = try JSONEncoder().encode(value)
+                            let decoded = try JSONDecoder().decode(
+                                SceneDocument.ShaderValue.self,
+                                from: encoded
+                            )
+                            payload["nullUserRoundTrip"] =
+                                decoded.userValueKind?.rawValue ?? "-"
+                        }
                     }
                 }
             }
@@ -375,6 +399,13 @@ class SceneTimelineDocumentTests(unittest.TestCase):
         self.assertEqual(opacity["userBinding"], "opacity")
         self.assertFalse(opacity["hasTimeline"])
         self.assertEqual(opacity["diagnostics"], [])
+
+    def test_shader_user_value_kind_distinguishes_null_nonnull_and_absent(self) -> None:
+        constants = self.result["30"]["constants"]
+        self.assertEqual(constants["nullUser"]["userValueKind"], "null")
+        self.assertEqual(constants["numericUser"]["userValueKind"], "number")
+        self.assertEqual(constants["missingUser"]["userValueKind"], "-")
+        self.assertEqual(self.result["nullUserRoundTrip"], "null")
 
     def test_plain_scalar_host_produces_no_timeline(self) -> None:
         entry = self.result["40"]
