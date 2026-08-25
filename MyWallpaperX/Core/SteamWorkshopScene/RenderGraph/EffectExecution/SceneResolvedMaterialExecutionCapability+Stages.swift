@@ -23,6 +23,25 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
 }
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
+    static func hasAuthoredUserPropertyFallback(
+        _ contributor: Template.DynamicUniformSource,
+        dynamic: Template.DynamicUniform,
+        producers: DynamicProducerCatalog
+    ) -> Bool {
+        guard case .userProperty = contributor,
+              producers.authoredFallbackTargets.contains(dynamic.target),
+              dynamic.authoredBindingKeys == ["user", "value"],
+              let fallback = dynamic.authoredFallback,
+              fallback.valueKind.localizedLowercase == "binding",
+              fallback.authoredBindingKeys == ["user", "value"],
+              (1 ... 4).contains(fallback.componentBitPatterns.count) else {
+            return false
+        }
+        return fallback.componentBitPatterns.allSatisfy {
+            Double(bitPattern: $0).isFinite
+        }
+    }
+
     struct CompiledStages {
         let stages: [StageCapability]
         let materials: [MaterialKey: MaterialCapability]

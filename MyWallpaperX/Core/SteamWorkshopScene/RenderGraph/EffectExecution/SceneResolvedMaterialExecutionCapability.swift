@@ -9,12 +9,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     typealias ExactEffectSubject = SceneEffectExactRuntimeSubject
 
     struct DynamicProducerCatalog {
-        struct UserProperty: Hashable {
-            let propertyKey: String
-            let target: SceneDynamicTarget
-        }
+        typealias UserProperty = SceneDynamicUserPropertyProducer
 
         let userProperties: Set<UserProperty>
+        private(set) var authoredFallbackTargets: Set<SceneDynamicTarget> = []
         let timelineTargets: Set<SceneDynamicTarget>
         let sceneScriptTargets: Set<SceneDynamicTarget>
 
@@ -679,10 +677,14 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             let hasProducer: (Template.DynamicUniformSource) -> Bool = { contributor in
                 switch contributor {
                 case let .userProperty(propertyKey):
-                    return producers.userProperties.contains(.init(
-                        propertyKey: propertyKey,
-                        target: dynamic.target
-                    ))
+                    return producers.userProperties.contains {
+                        $0.propertyKey == propertyKey
+                            && $0.target == dynamic.target
+                            && userPropertyValueTypeMatches(
+                                $0.valueType,
+                                dynamic: dynamic
+                            )
+                    }
                 case .timeline:
                     return producers.timelineTargets.contains(dynamic.target)
                 case .sceneScript:
@@ -726,6 +728,14 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 return rejection("dynamic-uniform-unavailable")
             }
             if !hasProducer(contributor) {
+                if hasAuthoredUserPropertyFallback(
+                    contributor, dynamic: dynamic, producers: producers
+                ) {
+                    guard dynamic.scriptAttachments.isEmpty else {
+                        return rejection("dynamic-uniform-unavailable")
+                    }
+                    continue
+                }
                 guard dynamic.scriptAttachments.isEmpty,
                       !hasMismatchedProducerIdentity(contributor) else {
                     return rejection("dynamic-uniform-unavailable")
@@ -744,6 +754,31 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 }) else { return rejection("dynamic-uniform-unavailable") }
         }
         return nil
+    }
+
+    /// Exact direct bindings conserve the producer type before Program claims
+    /// product output. Legacy/test catalogs without a type retain the previous
+    /// identity-only behavior; product launch always publishes the real type.
+    private static func userPropertyValueTypeMatches(
+        _ producerType: SceneDynamicValueType?,
+        dynamic: Template.DynamicUniform
+    ) -> Bool {
+        guard let producerType else { return true }
+        guard dynamic.authoredBindingKeys == ["user", "value"],
+              let fallback = dynamic.authoredFallback,
+              fallback.valueKind.localizedLowercase == "binding",
+              fallback.authoredBindingKeys == ["user", "value"] else {
+            return true
+        }
+        let expected: SceneDynamicValueType
+        switch fallback.componentBitPatterns.count {
+        case 1: expected = .scalar
+        case 2: expected = .vector2
+        case 3: expected = .vector3
+        case 4: expected = .vector4
+        default: return true
+        }
+        return producerType == expected
     }
 
     static func rejection(

@@ -44,6 +44,25 @@ nonisolated enum SceneDynamicValue: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+/// Launch-scoped typed publication fact for one direct user-property target.
+/// Compiler owner transfer consumes the same identity and value type that the
+/// runtime binding program will publish; it is not a second property registry.
+nonisolated struct SceneDynamicUserPropertyProducer: Hashable, Sendable {
+    let propertyKey: String
+    let target: SceneDynamicTarget
+    let valueType: SceneDynamicValueType?
+
+    nonisolated init(
+        propertyKey: String,
+        target: SceneDynamicTarget,
+        valueType: SceneDynamicValueType? = nil
+    ) {
+        self.propertyKey = propertyKey
+        self.target = target
+        self.valueType = valueType
+    }
+}
+
 nonisolated enum SceneDynamicCameraField: String, Codable, Equatable, Hashable, Sendable {
     case origin
     case zoom
@@ -184,11 +203,16 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
     let frameIndex: UInt64
     let generation: UInt64
     private let values: [SceneDynamicTarget: SceneDynamicResolvedValue]
+    private let authoredValues: [SceneDynamicTarget: SceneDynamicValue]
 
     nonisolated var count: Int { values.count }
 
     nonisolated subscript(target: SceneDynamicTarget) -> SceneDynamicResolvedValue? {
         values[target]
+    }
+
+    nonisolated func authoredValue(for target: SceneDynamicTarget) -> SceneDynamicValue? {
+        authoredValues[target]
     }
 
     nonisolated func particleControlPoints(layerID: Int) -> [Int: SIMD3<Double>] {
@@ -239,7 +263,8 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         SceneDynamicSnapshot(
             frameIndex: frameIndex,
             generation: generation,
-            values: values
+            values: values,
+            authoredValues: authoredValues
         )
     }
 
@@ -247,17 +272,22 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         frameIndex: UInt64,
         generation: UInt64 = 0
     ) -> SceneDynamicSnapshot {
-        SceneDynamicSnapshot(frameIndex: frameIndex, generation: generation, values: [:])
+        SceneDynamicSnapshot(
+            frameIndex: frameIndex, generation: generation,
+            values: [:], authoredValues: [:]
+        )
     }
 
     fileprivate nonisolated init(
         frameIndex: UInt64,
         generation: UInt64,
-        values: [SceneDynamicTarget: SceneDynamicResolvedValue]
+        values: [SceneDynamicTarget: SceneDynamicResolvedValue],
+        authoredValues: [SceneDynamicTarget: SceneDynamicValue]
     ) {
         self.frameIndex = frameIndex
         self.generation = generation
         self.values = values
+        self.authoredValues = authoredValues
     }
 }
 
@@ -362,7 +392,12 @@ nonisolated struct SceneDynamicSnapshotResolver {
             snapshot: SceneDynamicSnapshot(
                 frameIndex: frameIndex,
                 generation: generation,
-                values: resolved
+                values: resolved,
+                authoredValues: definitionsByTarget.compactMapValues { definition in
+                    !duplicateTargets.contains(definition.target)
+                        && resolved[definition.target] != nil
+                        ? definition.authoredValue : nil
+                }
             ),
             diagnostics: orderedDiagnostics
         )

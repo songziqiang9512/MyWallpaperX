@@ -16,7 +16,8 @@ extension SceneEffectProgramCompiler {
     nonisolated static func compileDedicatedLeaves(
         graph: Graph,
         descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
+        shaderContracts: [SceneShaderContract],
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = []
     ) -> [SceneEffectStageProgram] {
         graph.effects.enumerated().compactMap { ordinal, effect in
             guard let stageGraph = stageGraph(effect: effect, in: graph) else {
@@ -29,7 +30,8 @@ extension SceneEffectProgramCompiler {
                 definitionPath: effect.definitionPath,
                 inputRole: ordinal == 0 ? .layerSource : .priorEffectOutput,
                 descriptor: descriptor,
-                shaderContracts: shaderContracts
+                shaderContracts: shaderContracts,
+                userPropertyProducers: userPropertyProducers
             )
             guard case let .accepted(backend, plan, probes) =
                     resolveDedicatedStage(input) else { return nil }

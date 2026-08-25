@@ -144,6 +144,12 @@ enum Harness {
             ]),
             catalog: catalog
         )
+        let rejectedTarget = SceneDynamicTarget.layer(layerID: 60, field: .alpha)
+        let rejectedAuthored = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 4,
+            generation: 4,
+            definitions: rejected.program.definitions
+        ).snapshot
         let mixed = SceneUserPropertyBindingReport(
             bindings: [alpha, color, conditionalInput(), missingInput(), unsupportedInput()],
             diagnostics: []
@@ -677,6 +683,8 @@ enum Harness {
             "duplicateCount": duplicate.program.instructions.count,
             "duplicateCodes": codes(duplicate.diagnostics),
             "rejectedCount": rejected.program.instructions.count,
+            "rejectedDefinitionCount": rejected.program.definitions.count,
+            "rejectedAuthored": resolved(rejectedAuthored[rejectedTarget]),
             "rejectedCodes": codes(rejected.diagnostics),
             "mixedKeyCount": mixedKey.program.instructions.count,
             "mixedKeyRebuild": mixedKey.program.rebuildRequiredPropertyKeys,
@@ -987,6 +995,10 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
 
     def test_missing_invalid_and_unsupported_inputs_are_diagnostic(self) -> None:
         self.assertEqual(self.result["rejectedCount"], 0)
+        self.assertEqual(self.result["rejectedDefinitionCount"], 1)
+        self.assertEqual(
+            self.result["rejectedAuthored"], ["scalar(0.5)", "authored"]
+        )
         self.assertEqual(
             self.result["rejectedCodes"],
             ["unsupportedTarget", "malformedInputBinding", "missingPropertyDefinition"],

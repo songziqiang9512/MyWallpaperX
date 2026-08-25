@@ -13,6 +13,7 @@ nonisolated struct SceneEffectStageCompileInput {
     let inputRole: SceneAuthoredEffectInputRole
     let descriptor: SceneRenderDescriptor
     let shaderContracts: [SceneShaderContract]
+    let userPropertyProducers: Set<SceneDynamicUserPropertyProducer>
 
     init(
         stageGraph: Graph,
@@ -21,7 +22,8 @@ nonisolated struct SceneEffectStageCompileInput {
         definitionPath: String? = nil,
         inputRole: SceneAuthoredEffectInputRole,
         descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
+        shaderContracts: [SceneShaderContract],
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = []
     ) {
         self.stageGraph = stageGraph
         self.authoredOrdinal = authoredOrdinal
@@ -30,6 +32,7 @@ nonisolated struct SceneEffectStageCompileInput {
         self.inputRole = inputRole
         self.descriptor = descriptor
         self.shaderContracts = shaderContracts
+        self.userPropertyProducers = userPropertyProducers
     }
 }
 

@@ -303,7 +303,7 @@ private func fragmentSource(
         }
     }
     let alphaUniform = maskedAlpha
-        ? "uniform float g_UserAlpha; // {\"material\":\"alpha\",\"default\":1.0}"
+        ? "uniform float g_UserAlpha; // {\"material\":\"alpha\",\"default\":1.0,\"range\":[0,1]}"
         : ""
     let scalarSplatUniform = scalarSplatScale
         ? #"uniform vec2 u_Scale; // {"material":"scale","default":"1 1"}"#
@@ -619,6 +619,30 @@ private func dynamicAlphaDeclaration(
             scriptAttachments: [],
             authoredFallback: staticValue([1]),
             authoredBindingKeys: ["value"]
+        ))
+    )
+}
+
+private func directUserAlphaDeclaration(
+    fallback: Double = 0.75
+) -> Template.UniformDeclaration {
+    .init(
+        name: "alpha",
+        value: .dynamic(.init(
+            target: .effectConstant(
+                layerID: fixtureLayerID,
+                effectIndex: 0,
+                passIndex: 0,
+                name: "alpha"
+            ),
+            valueContributors: [.userProperty("opacity")],
+            scriptAttachments: [],
+            authoredFallback: .init(
+                valueKind: "binding",
+                componentBitPatterns: [fallback.bitPattern],
+                authoredBindingKeys: ["user", "value"]
+            ),
+            authoredBindingKeys: ["user", "value"]
         ))
     )
 }
@@ -950,6 +974,8 @@ private func dynamicSnapshot(
     source: SceneDynamicSource?,
     tintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
     authoredTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
+    alphaValue: SceneDynamicValue = .scalar(0.25),
+    authoredAlphaValue: SceneDynamicValue = .scalar(1),
     scaleValue: SceneDynamicValue = .scalar(0.6),
     authoredScaleValue: SceneDynamicValue = .scalar(1)
 ) -> SceneDynamicSnapshot {
@@ -971,7 +997,6 @@ private func dynamicSnapshot(
         passIndex: 0,
         name: "scale"
     )
-    let alphaValue = SceneDynamicValue.scalar(0.25)
     var user: [SceneDynamicTarget: SceneDynamicValue] = [:]
     var timeline: [SceneDynamicTarget: SceneDynamicValue] = [:]
     var script: [SceneDynamicTarget: SceneDynamicValue] = [:]
@@ -1001,8 +1026,8 @@ private func dynamicSnapshot(
             ),
             .init(
                 target: alphaTarget,
-                valueType: .scalar,
-                authoredValue: .scalar(1)
+                valueType: authoredAlphaValue.valueType,
+                authoredValue: authoredAlphaValue
             ),
             .init(
                 target: scaleTarget,
@@ -1039,6 +1064,8 @@ private func finalize(
     dynamicSource: SceneDynamicSource? = nil,
     dynamicTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
     authoredTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
+    dynamicAlphaValue: SceneDynamicValue = .scalar(0.25),
+    authoredAlphaValue: SceneDynamicValue = .scalar(1),
     dynamicScaleValue: SceneDynamicValue = .scalar(0.6),
     authoredScaleValue: SceneDynamicValue = .scalar(1),
     renderState: SceneMaterialRenderState = state(),
@@ -1065,6 +1092,8 @@ private func finalize(
             source: dynamicSource,
             tintValue: dynamicTintValue,
             authoredTintValue: authoredTintValue,
+            alphaValue: dynamicAlphaValue,
+            authoredAlphaValue: authoredAlphaValue,
             scaleValue: dynamicScaleValue,
             authoredScaleValue: authoredScaleValue
         ),
@@ -3318,6 +3347,98 @@ private enum Harness {
             return float(program.uniformBytes, at: field.offset) == 0.25
                 && contract.fragmentOutput == .premultipliedAlpha
         }()
+        let directScalarWithinRange = finalize(
+            shader: maskedShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                maskedIdentity: readyStatus(
+                    device,
+                    identity: maskedIdentity,
+                    purpose: .mask,
+                    content: .data
+                ),
+            ],
+            uniformDeclarations: [directUserAlphaDeclaration()],
+            dynamicSource: .userProperty,
+            dynamicAlphaValue: .scalar(0.4),
+            authoredAlphaValue: .scalar(0.75),
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let directScalarOutOfRange = finalize(
+            shader: maskedShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                maskedIdentity: readyStatus(
+                    device,
+                    identity: maskedIdentity,
+                    purpose: .mask,
+                    content: .data
+                ),
+            ],
+            uniformDeclarations: [directUserAlphaDeclaration(fallback: 2)],
+            dynamicSource: .userProperty,
+            dynamicAlphaValue: .scalar(2),
+            authoredAlphaValue: .scalar(0.75),
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let directScalarInvalidFallback = finalize(
+            shader: maskedShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                maskedIdentity: readyStatus(
+                    device,
+                    identity: maskedIdentity,
+                    purpose: .mask,
+                    content: .data
+                ),
+            ],
+            uniformDeclarations: [directUserAlphaDeclaration(fallback: 1.5)],
+            dynamicSource: .userProperty,
+            dynamicAlphaValue: .scalar(2),
+            authoredAlphaValue: .scalar(1.5),
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let directScalarTypeMismatch = finalize(
+            shader: maskedShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                maskedIdentity: readyStatus(
+                    device,
+                    identity: maskedIdentity,
+                    purpose: .mask,
+                    content: .data
+                ),
+            ],
+            uniformDeclarations: [directUserAlphaDeclaration()],
+            dynamicSource: .userProperty,
+            dynamicAlphaValue: .vector3(2, 2, 2),
+            authoredAlphaValue: .vector3(1, 1, 1),
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let directUserPropertyScalarRangeFallback: Bool = {
+            guard case let .success(live) = directScalarWithinRange,
+                  case let .success(fallback) = directScalarOutOfRange,
+                  let liveField = live.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "g_UserAlpha" }
+                  ),
+                  let fallbackField = fallback.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "g_UserAlpha" }
+                  ) else { return false }
+            return float(live.uniformBytes, at: liveField.offset) == 0.4
+                && float(fallback.uniformBytes, at: fallbackField.offset) == 0.75
+                && failureToken(directScalarInvalidFallback)
+                    == "uniform/dynamicUniformBindingInvalid"
+                && failureToken(directScalarTypeMismatch)
+                    == "uniform/dynamicUniformBindingInvalid"
+        }()
         let sceneScriptAlphaProgram = finalize(
             shader: maskedShader,
             device: device,
@@ -4408,6 +4529,8 @@ private enum Harness {
                 "userReferenceTyped": failureToken(propertyProgram) == "success",
                 "providerReferenceTyped": failureToken(providerProgram) == "success",
                 "maskedDynamicAlphaEncoded": maskedDynamicAlphaEncoded,
+                "directUserPropertyScalarRangeFallback":
+                    directUserPropertyScalarRangeFallback,
                 "sceneScriptDynamicAlphaEncoded": sceneScriptDynamicAlphaEncoded,
                 "timelineVectorUpdatesProgramWithoutTopologyChange":
                     timelineVectorUpdatesProgramWithoutTopologyChange,

@@ -95,6 +95,10 @@ HARNESS_SOURCE = r'''
 import CryptoKit
 import Foundation
 
+// This census only needs the compile-input collection shape; typed producer
+// identity is exercised by the product/runtime capability tests.
+struct SceneDynamicUserPropertyProducer: Hashable {}
+
 // The production descriptor is intentionally decoded into the smallest exact
 // view consumed by the current planner/resolver. This keeps the census linked
 // to the real implementation without pulling unrelated runtime executors into

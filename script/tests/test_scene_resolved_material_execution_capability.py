@@ -345,6 +345,26 @@ enum SceneDynamicTarget: Hashable {
     )
 }
 
+enum SceneDynamicValueType: Hashable {
+    case bool, scalar, vector2, vector3, vector4, string
+}
+
+struct SceneDynamicUserPropertyProducer: Hashable {
+    let propertyKey: String
+    let target: SceneDynamicTarget
+    let valueType: SceneDynamicValueType?
+
+    init(
+        propertyKey: String,
+        target: SceneDynamicTarget,
+        valueType: SceneDynamicValueType? = nil
+    ) {
+        self.propertyKey = propertyKey
+        self.target = target
+        self.valueType = valueType
+    }
+}
+
 indirect enum SceneShaderAnnotationValue {
     case null
     case bool(Bool)
@@ -423,13 +443,42 @@ struct SceneResolvedMaterialTemplate {
         case unproven
     }
 
-    struct StaticUniformValue {}
+    struct StaticUniformValue {
+        let valueKind: String
+        let componentBitPatterns: [UInt64]
+        let authoredBindingKeys: [String]
+
+        init(
+            valueKind: String = "fixture",
+            componentBitPatterns: [UInt64] = [],
+            authoredBindingKeys: [String] = []
+        ) {
+            self.valueKind = valueKind
+            self.componentBitPatterns = componentBitPatterns
+            self.authoredBindingKeys = authoredBindingKeys
+        }
+    }
 
     struct DynamicUniform {
         let target: SceneDynamicTarget
         let valueContributors: [DynamicUniformSource]
         let scriptAttachments: [DynamicUniformScriptAttachment]
         let authoredFallback: StaticUniformValue?
+        let authoredBindingKeys: [String]
+
+        init(
+            target: SceneDynamicTarget,
+            valueContributors: [DynamicUniformSource],
+            scriptAttachments: [DynamicUniformScriptAttachment],
+            authoredFallback: StaticUniformValue?,
+            authoredBindingKeys: [String] = []
+        ) {
+            self.target = target
+            self.valueContributors = valueContributors
+            self.scriptAttachments = scriptAttachments
+            self.authoredFallback = authoredFallback
+            self.authoredBindingKeys = authoredBindingKeys
+        }
     }
 
     enum UniformValue {
@@ -1906,15 +1955,25 @@ private func dynamicUniform(
     contributors: [Template.DynamicUniformSource],
     attachments: [Template.DynamicUniformScriptAttachment] = [],
     hasAuthoredFallback: Bool = true,
-    passIndex: Int = 0
+    passIndex: Int = 0,
+    directComponentCount: Int? = nil
 ) -> Template.UniformDeclaration {
-    .init(
+    let bindingKeys = directComponentCount == nil ? [] : ["user", "value"]
+    let fallback = hasAuthoredFallback ? Template.StaticUniformValue(
+        valueKind: directComponentCount == nil ? "fixture" : "binding",
+        componentBitPatterns: (0 ..< (directComponentCount ?? 0)).map {
+            Double($0).bitPattern
+        },
+        authoredBindingKeys: bindingKeys
+    ) : nil
+    return .init(
         name: "strength",
         value: .dynamic(.init(
             target: dynamicTarget(passIndex: passIndex),
             valueContributors: contributors,
             scriptAttachments: attachments,
-            authoredFallback: hasAuthoredFallback ? .init() : nil
+            authoredFallback: fallback,
+            authoredBindingKeys: bindingKeys
         ))
     )
 }
@@ -2435,6 +2494,50 @@ private enum Harness {
                 sceneScriptTargets: []
             )
         )
+        let typedUserPropertyCatalog = catalog(
+            descriptor: desc,
+            graphs: [raw],
+            materials: materialCatalog(
+                graph: raw,
+                omitNode: 1,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.userProperty("strength-property")],
+                    directComponentCount: 1
+                )]]
+            ),
+            admissionCandidates: admissionCandidates,
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget(),
+                    valueType: .scalar
+                )],
+                timelineTargets: [],
+                sceneScriptTargets: []
+            )
+        )
+        let mismatchedTypedUserPropertyCatalog = catalog(
+            descriptor: desc,
+            graphs: [raw],
+            materials: materialCatalog(
+                graph: raw,
+                omitNode: 1,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.userProperty("strength-property")],
+                    directComponentCount: 1
+                )]]
+            ),
+            admissionCandidates: admissionCandidates,
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget(),
+                    valueType: .vector3
+                )],
+                timelineTargets: [],
+                sceneScriptTargets: []
+            )
+        )
         let validSceneScriptCatalog = catalog(
             descriptor: desc,
             graphs: [raw],
@@ -2516,6 +2619,25 @@ private enum Harness {
                 )]]
             ),
             admissionCandidates: admissionCandidates
+        )
+        let authoredFallbackTargetCatalog = catalog(
+            descriptor: desc,
+            graphs: [raw],
+            materials: materialCatalog(
+                graph: raw,
+                omitNode: 1,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.userProperty("missing-property")],
+                    directComponentCount: 1
+                )]]
+            ),
+            admissionCandidates: admissionCandidates,
+            dynamicProducers: .init(
+                userProperties: [],
+                authoredFallbackTargets: [dynamicTarget()],
+                timelineTargets: [],
+                sceneScriptTargets: []
+            )
         )
         let unverifiedSceneScriptCatalog = catalog(
             descriptor: desc,
@@ -3312,6 +3434,18 @@ private enum Harness {
                 "validSceneScript": validSceneScriptCatalog.claim(layerID: layerID) != nil
                     && validSceneScriptCatalog.sceneScriptConsumerTargets
                         == Set([dynamicTarget()]),
+                "typedUserPropertyProducerAccepted":
+                    typedUserPropertyCatalog.claim(layerID: layerID) != nil,
+                "authoredUserPropertyFallbackAccepted":
+                    authoredFallbackTargetCatalog.claim(layerID: layerID) != nil,
+                "mismatchedTypedUserPropertyIsEffectLocal":
+                    mismatchedTypedUserPropertyCatalog.claim(layerID: layerID)
+                        .flatMap {
+                            mismatchedTypedUserPropertyCatalog.resolve($0.token)
+                        }?.stages.contains {
+                            $0.visualFailureReasonCode
+                                == "material-dynamic-uniform-producer-unavailable"
+                        } == true,
                 "unknownScriptGraphIsEffectLocal": unknownScriptCatalog
                     .claim(layerID: layerID).flatMap { unknownScriptCatalog.resolve($0.token) }?
                     .stages.contains { $0.visualFailureReasonCode
@@ -7376,6 +7510,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "dynamicVisibility": True,
                 "validTimeline": True,
                 "validSceneScript": True,
+                "typedUserPropertyProducerAccepted": True,
+                "authoredUserPropertyFallbackAccepted": True,
+                "mismatchedTypedUserPropertyIsEffectLocal": True,
                 "unknownScriptGraphIsEffectLocal": True,
                 "multipleProducerGraphIsEffectLocal": True,
                 "multipleProducerNonLeafCanClaim": True,

@@ -494,6 +494,9 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 guard let encoded = directUserPropertyRangedValue(
                     liveEncoded,
                     liveValue: resolved.value,
+                    authoredValue: input.dynamicSnapshot.authoredValue(
+                        for: dynamic.target
+                    ),
                     fallback,
                     source: resolved.source,
                     contributor: contributor,
@@ -650,6 +653,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
     private static func directUserPropertyRangedValue(
         _ liveEncoded: Data?,
         liveValue: SceneDynamicValue,
+        authoredValue: SceneDynamicValue?,
         _ fallback: Template.StaticUniformValue?,
         source: SceneDynamicSource,
         contributor: Template.DynamicUniformSource,
@@ -657,9 +661,10 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         schema: SceneResolvedMaterialShaderSchema.Uniform,
         field: SceneAuthoredShaderUniformLayout.Field
     ) -> Data? {
+        guard let liveEncoded else { return nil }
         guard source == .userProperty,
               case .userProperty = contributor,
-              field.type == .float3,
+              [.float, .float2, .float3].contains(field.type),
               field.arrayCount == nil,
               declaration.scriptAttachments.isEmpty,
               declaration.authoredBindingKeys == ["user", "value"],
@@ -670,15 +675,12 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             return liveEncoded
         }
         if value(liveValue, isWithin: range) { return liveEncoded }
-        let components = fallback.componentBitPatterns.map {
-            Double(bitPattern: $0)
-        }
-        guard components.count == 3,
-              components.allSatisfy({ $0.isFinite && range.contains($0) }) else {
+        guard let authoredValue,
+              value(authoredValue, isWithin: range) else {
             return nil
         }
-        return encodeDynamicFallback(
-            fallback,
+        return encodeDynamicUniform(
+            authoredValue,
             contributor: contributor,
             declaration: declaration,
             schema: schema,

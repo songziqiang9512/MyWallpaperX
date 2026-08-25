@@ -168,6 +168,15 @@ extension SceneDesktopWallpaperHost {
         let propertyBindingTargets = Set(
             runtimeInput.propertyBindingProgram.definitions.map(\.target)
         )
+        let userPropertyProducers = Set(
+            runtimeInput.propertyBindingProgram.instructions.map {
+                SceneDynamicUserPropertyProducer(
+                    propertyKey: $0.propertyKey,
+                    target: $0.target,
+                    valueType: $0.valueType
+                )
+            }
+        )
         let timelineTargets = Set(timelineProgram.bindings.map(\.target))
         typealias VisibilityOwner =
             SceneResolvedMaterialExecutionCapabilityAdmission
@@ -207,7 +216,8 @@ extension SceneDesktopWallpaperHost {
             SceneEffectProgramCompiler.compileDedicatedLeaves(
                 graph: $0,
                 descriptor: runtimeInput.renderDescriptor,
-                shaderContracts: runtimeInput.shaderContracts
+                shaderContracts: runtimeInput.shaderContracts,
+                userPropertyProducers: userPropertyProducers
             )
         }
         let dedicatedStageFamilies = Dictionary(
@@ -360,14 +370,8 @@ extension SceneDesktopWallpaperHost {
                 admissionCandidates: resolvedMaterialAdmissionCandidates,
                 materialCatalog: resolvedMaterialCatalog,
                 dynamicProducers: .init(
-                    userProperties: Set(
-                        runtimeInput.propertyBindingProgram.instructions.map {
-                            .init(
-                                propertyKey: $0.propertyKey,
-                                target: $0.target
-                            )
-                        }
-                    ),
+                    userProperties: userPropertyProducers,
+                    authoredFallbackTargets: propertyBindingTargets,
                     timelineTargets: Set(timelineProgram.bindings.map(\.target)),
                     sceneScriptTargets: provenSceneScriptValueTargets
                 ),

@@ -242,7 +242,20 @@ nonisolated struct ScenePropertyBindingCompiler {
                         message: "属性 kind 与绑定目标不匹配。"
                     ))
                 }
-                guard let defaultValue = property.defaultValue else {
+                if let defaultValue = property.defaultValue {
+                    if case let .failure(error) = ScenePropertyBindingProgram.convert(
+                        defaultValue,
+                        as: mapped.valueType
+                    ) {
+                        isValid = false
+                        diagnostics.append(Self.compileDiagnostic(
+                            code: Self.propertyDefaultCode(error),
+                            binding: binding,
+                            target: mapped.target,
+                            message: Self.propertyDefaultMessage(error)
+                        ))
+                    }
+                } else {
                     isValid = false
                     rebuildRequiredKeys.insert(binding.reference.key)
                     diagnostics.append(Self.compileDiagnostic(
@@ -250,19 +263,6 @@ nonisolated struct ScenePropertyBindingCompiler {
                         binding: binding,
                         target: mapped.target,
                         message: "绑定引用的属性没有默认值。"
-                    ))
-                    continue
-                }
-                if case let .failure(error) = ScenePropertyBindingProgram.convert(
-                    defaultValue,
-                    as: mapped.valueType
-                ) {
-                    isValid = false
-                    diagnostics.append(Self.compileDiagnostic(
-                        code: Self.propertyDefaultCode(error),
-                        binding: binding,
-                        target: mapped.target,
-                        message: Self.propertyDefaultMessage(error)
                     ))
                 }
             }
@@ -294,7 +294,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                 ))
                 continue
             }
-            guard isValid, targetBindings[mapped.target]?.count == 1 else {
+            guard targetBindings[mapped.target]?.count == 1 else {
                 rebuildRequiredKeys.insert(binding.reference.key)
                 continue
             }
@@ -303,6 +303,10 @@ nonisolated struct ScenePropertyBindingCompiler {
                 valueType: mapped.valueType,
                 authoredValue: authoredValue
             ))
+            guard isValid else {
+                rebuildRequiredKeys.insert(binding.reference.key)
+                continue
+            }
             instructions.append(.init(
                 propertyKey: binding.reference.key,
                 path: binding.path,

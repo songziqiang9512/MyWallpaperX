@@ -162,7 +162,12 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             .directPhaseMaxClampV1,
         ]
         guard supportedProfiles.contains(plan.shaderProfile),
-              plan.bindings.isEmpty || directColorBindingCohortIsProven(plan),
+              plan.bindings.isEmpty
+                || (directColorBindingCohortIsProven(plan)
+                    && exactUserPropertyProducersAreProven(
+                        plan: plan,
+                        input: input
+                    )),
               plan.audio == nil || plan.shaderProfile == .stock2842,
               plan.pulseColor,
               !plan.pulseAlpha,
@@ -570,9 +575,9 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         }
     }
 
-    /// The currently transferred dynamic Pulse cohort is the exact non-audio
-    /// RGB tint path. Scalar/vector2 and alpha/audio combinations retain the
-    /// incumbent until their producer and fallback domains have their own proof.
+    /// Transfers only direct, fragment-only Pulse constants whose authored
+    /// numeric domain is expressible by the shared shader schema. Cross-stage
+    /// constants and vector2 bounds retain the incumbent owner.
     private nonisolated static func directColorBindingCohortIsProven(
         _ plan: ScenePulseExecutionPlan
     ) -> Bool {
@@ -580,8 +585,26 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
               plan.pulseColor,
               !plan.pulseAlpha,
               !plan.bindings.isEmpty else { return false }
-        return plan.bindings.keys.allSatisfy {
-            $0 == .tintLow || $0 == .tintHigh
+        let supported: Set<ScenePulseExecutionPlan.Constant> = [
+            .noiseSpeed, .noiseAmount, .power, .tintLow, .tintHigh,
+        ]
+        return plan.bindings.keys.allSatisfy(supported.contains)
+    }
+
+    /// Owner revocation is launch-scoped: the property binding compiler must
+    /// publish the exact key, target, and scalar/vector type consumed by the
+    /// Program. A missing or differently typed producer retains the incumbent,
+    /// which preserves the authored fallback instead of claiming a bad route.
+    private nonisolated static func exactUserPropertyProducersAreProven(
+        plan: ScenePulseExecutionPlan,
+        input: SceneEffectStageCompileInput
+    ) -> Bool {
+        plan.bindings.allSatisfy { constant, binding in
+            input.userPropertyProducers.contains(.init(
+                propertyKey: binding.propertyKey,
+                target: binding.dynamicTarget,
+                valueType: constant.valueType
+            ))
         }
     }
 }

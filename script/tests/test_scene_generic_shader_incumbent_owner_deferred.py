@@ -44,6 +44,9 @@ STAGES_SOURCE = EFFECT_EXECUTION_ROOT / (
 PROGRAM_FIRST_SOURCE = EFFECT_EXECUTION_ROOT / (
     "SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
 )
+CAPABILITY_SOURCE = EFFECT_EXECUTION_ROOT / (
+    "SceneResolvedMaterialExecutionCapability.swift"
+)
 OWNER_ADMISSION_SOURCE = SCENE_ROOT / "RenderGraph" / (
     "SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.swift"
 )
@@ -51,6 +54,13 @@ STANDARD_BLUR_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanne
 DEDICATED_COMPILERS_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift"
 )
+STAGE_COMPILE_MODEL_SOURCE = SCENE_ROOT / (
+    "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
+)
+DEDICATED_STAGES_SOURCE = SCENE_ROOT / (
+    "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
+)
+LAUNCH_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 FINALIZER_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialProgramFinalizer.swift"
 
 
@@ -894,6 +904,14 @@ fragment float4 mwxGenericFragment(
         ):
             self.assertIn(static_guard, pulse_compiler)
         self.assertIn("directColorBindingCohortIsProven(plan)", pulse_compiler)
+        self.assertIn("exactUserPropertyProducersAreProven(", pulse_compiler)
+        for fragment_constant in (
+            ".noiseSpeed", ".noiseAmount", ".power", ".tintLow", ".tintHigh",
+        ):
+            self.assertIn(fragment_constant, pulse_compiler)
+        self.assertIn("propertyKey: binding.propertyKey", pulse_compiler)
+        self.assertIn("target: binding.dynamicTarget", pulse_compiler)
+        self.assertIn("valueType: constant.valueType", pulse_compiler)
         self.assertIn("exactUserPropertyBindingsAreProven(", pulse_compiler)
         self.assertIn("activeUserPropertyConsumersAreProven(", pulse_compiler)
         self.assertIn("uniform.authoredRange == constant.range", pulse_compiler)
@@ -972,6 +990,35 @@ fragment float4 mwxGenericFragment(
             )
         finalizer = FINALIZER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("directUserPropertyRangedValue(", finalizer)
+        self.assertIn("guard let liveEncoded else { return nil }", finalizer)
+        self.assertIn("[.float, .float2, .float3].contains(field.type)", finalizer)
+
+        compile_model = STAGE_COMPILE_MODEL_SOURCE.read_text(encoding="utf-8")
+        dedicated_stages = DEDICATED_STAGES_SOURCE.read_text(encoding="utf-8")
+        launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "userPropertyProducers: Set<SceneDynamicUserPropertyProducer>",
+            compile_model,
+        )
+        self.assertIn(
+            "userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = []",
+            dedicated_stages,
+        )
+        self.assertIn("valueType: $0.valueType", launch)
+        self.assertIn("userPropertyProducers: userPropertyProducers", launch)
+
+        capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("userPropertyValueTypeMatches(", capability)
+        self.assertIn(
+            'dynamic.authoredBindingKeys == ["user", "value"]', capability
+        )
+        for typed_component_count in (
+            "case 1: expected = .scalar",
+            "case 2: expected = .vector2",
+            "case 3: expected = .vector3",
+            "case 4: expected = .vector4",
+        ):
+            self.assertIn(typed_component_count, capability)
 
 
 if __name__ == "__main__":

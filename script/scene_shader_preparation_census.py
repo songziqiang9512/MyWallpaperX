@@ -108,6 +108,10 @@ HARNESS_SOURCE = r'''
 import CryptoKit
 import Foundation
 
+// This census only needs the compile-input collection shape; typed producer
+// identity is exercised by the product/runtime capability tests.
+struct SceneDynamicUserPropertyProducer: Hashable {}
+
 struct SceneDocument {
     struct ShaderValue {
         let userBinding: String?
