@@ -753,7 +753,7 @@ fragment float4 mwxGenericFragment(
         pulse_compiler = dedicated_compilers[
             dedicated_compilers.index("extension SceneAuthoredPulsePlanner"):
         ]
-        self.assertIn("staticRGBProgramOwnerIsProven(", pulse_compiler)
+        self.assertIn("colorOnlyRGBProgramOwnerIsProven(", pulse_compiler)
         for static_profile in (
             ".stock2842",
             ".directPhaseSaturateV1",
@@ -765,7 +765,7 @@ fragment float4 mwxGenericFragment(
         )
         for static_guard in (
             "plan.bindings.isEmpty",
-            "plan.audio == nil",
+            "plan.audio == nil || plan.shaderProfile == .stock2842",
             "plan.pulseColor",
             "!plan.pulseAlpha",
         ):
@@ -786,10 +786,20 @@ fragment float4 mwxGenericFragment(
             pulse_compiler,
         )
         self.assertIn("template.comboValues == material.combos", pulse_compiler)
+        self.assertIn("audioParameters(", pulse_compiler)
+        self.assertIn("audio.parameters == plan.audio", pulse_compiler)
+        self.assertIn(
+            "constantNames.formUnion(SceneAudioResponseAdmission.constantKeys)",
+            pulse_compiler,
+        )
         self.assertIn(".defaultRouteState == .genericOnly", pulse_compiler)
         self.assertIn(".validatedRollbackOwner == .none", pulse_compiler)
         self.assertIn(
             '"static-rgb-preserving-owner-revoked-to-material-program"',
+            pulse_compiler,
+        )
+        self.assertIn(
+            '"audio-color-only-rgb-owner-revoked-to-material-program"',
             pulse_compiler,
         )
 

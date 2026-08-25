@@ -4,8 +4,8 @@
 与 tint/opacity 的关键差异，各有专门断言：
 - shader 源按 ScenePulseShaderProfile 多指纹白名单准入，stock 与 legacy 变体
   绑定不同的 phase 偏移、noise UV 系数、noisespeed 默认/range 与输出 clamp；
-- `AUDIOPROCESSING != 0`（无音频管线）、未知常量键（语料把编辑器 label 当 key）、
-  SceneScript 绑定、bounds x >= y 全部整条拒绝；
+- stock `AUDIOPROCESSING` 由共享 audio-response admission 准入，legacy audio、未知
+  常量键（语料把编辑器 label 当 key）、SceneScript 绑定、bounds x >= y 整条拒绝；
 - slot 1 只接受缺省或显式 `util/noise`，slot 2 遮罩挂在实例上。
 """
 

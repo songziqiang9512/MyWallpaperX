@@ -122,24 +122,26 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             }
         )
         guard case let .accepted(plan) = result,
-              staticRGBProgramOwnerIsProven(
+              colorOnlyRGBProgramOwnerIsProven(
                   plan: plan,
                   input: input
               ) else { return result }
+        let detail = plan.audio == nil
+            ? "static-rgb-preserving-owner-revoked-to-material-program"
+            : "audio-color-only-rgb-owner-revoked-to-material-program"
         return .rejected(.init(
             backend: .pulse,
             phase: .compatibility,
             code: .dedicatedProfileRejected,
-            details: [
-                "static-rgb-preserving-owner-revoked-to-material-program",
-            ]
+            details: [detail]
         ))
     }
 
-    /// Revokes static color-only profiles after every readiness shape proves
-    /// the same graph-input carrier, typed-data auxiliaries, and exact terminal
-    /// RGB/alpha transform. Dynamic, audio, and alpha cohorts retain incumbent.
-    private nonisolated static func staticRGBProgramOwnerIsProven(
+    /// Revokes color-only profiles after every readiness shape proves the same
+    /// graph-input carrier, typed-data auxiliaries, and exact terminal RGB/alpha
+    /// transform. Audio is limited to stock's shared typed response admission;
+    /// dynamic bindings and alpha-writing cohorts retain incumbent.
+    private nonisolated static func colorOnlyRGBProgramOwnerIsProven(
         plan: ScenePulseExecutionPlan,
         input: SceneEffectStageCompileInput
     ) -> Bool {
@@ -151,7 +153,7 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         ]
         guard supportedProfiles.contains(plan.shaderProfile),
               plan.bindings.isEmpty,
-              plan.audio == nil,
+              plan.audio == nil || plan.shaderProfile == .stock2842,
               plan.pulseColor,
               !plan.pulseAlpha,
               input.stageGraph.effects.count == 1,
@@ -284,17 +286,27 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         ])
         guard material.combos.keys.allSatisfy(comboNames.contains),
               template.comboValues == material.combos,
-              material.combos["AUDIOPROCESSING", default: 0] == 0,
+              material.combos["AUDIOPROCESSING", default: 0]
+                == (plan.audio?.channel.rawValue ?? 0),
               material.combos["BLENDMODE", default: defaultBlendMode]
                 == plan.blendMode,
               (material.combos["PULSECOLOR", default: 1] == 1)
                 == plan.pulseColor,
               (material.combos["PULSEALPHA", default: 0] == 1)
                 == plan.pulseAlpha,
-              material.userShaderValues.isEmpty
+              material.userShaderValues.isEmpty,
+              let audio = audioParameters(
+                  combos: material.combos,
+                  constants: material.constants,
+                  profile: plan.shaderProfile
+              ),
+              audio.parameters == plan.audio
         else { return false }
 
-        let constantNames = Set(Constant.allCases.map(\.rawValue))
+        var constantNames = Set(Constant.allCases.map(\.rawValue))
+        if plan.audio != nil {
+            constantNames.formUnion(SceneAudioResponseAdmission.constantKeys)
+        }
         guard material.constants.keys.allSatisfy(constantNames.contains),
               Set(template.uniformDeclarations.map(\.name))
                 == Set(material.constants.keys)
