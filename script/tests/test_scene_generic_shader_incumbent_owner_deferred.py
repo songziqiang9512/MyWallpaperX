@@ -793,10 +793,11 @@ fragment float4 mwxGenericFragment(
         )
         owner_gate = owner_admission[owner_admission.index("static func accepts("):]
         self.assertIn("SceneAuthoredStandardBlurPlanner.plan(", owner_gate)
-        self.assertIn("supportedSourceRoute(layer)", owner_gate)
+        self.assertIn("let source = sourceCohort(layer)", owner_gate)
         for captured_main_boundary in (
-            "!utility.copyBackground",
-            "!utility.passthrough",
+            "case (false, false): .capturedMain",
+            "case (true, true): .copyPassthroughCapturedMain",
+            "case (false, true), (true, false): nil",
             "layer.childLayerIDs.isEmpty",
             "layer.dependencyLayerIDs.isEmpty",
             "layer.authoredDependencies.isEmpty",
@@ -804,7 +805,10 @@ fragment float4 mwxGenericFragment(
             self.assertIn(captured_main_boundary, owner_gate)
         self.assertNotIn("blur.maskTexturePath == nil", owner_gate)
         self.assertIn("SceneAuthoredEffectInputValidator.role(", owner_gate)
-        self.assertIn("wholeStageScaleCohort(", owner_gate)
+        self.assertIn(
+            "source != .copyPassthroughCapturedMain || scale == .staticExact",
+            owner_gate,
+        )
         self.assertIn(".userPropertyScalarSplat", owner_gate)
         self.assertIn('scale.bindingKeys == ["user", "value"]', owner_gate)
         self.assertIn("components.count == 1 || components.count == 2", owner_gate)
@@ -814,7 +818,12 @@ fragment float4 mwxGenericFragment(
             owner_gate,
         )
         self.assertIn(
-            '"captured-main-typed-user-scalar-splat-owner-revoked-to-material-program"',
+            '"captured-main-copy-passthrough-static-owner-revoked-to-material-program"',
+            owner_gate,
+        )
+        self.assertIn(
+            "case (.copyPassthroughCapturedMain?, .userPropertyScalarSplat?):\n"
+            "            nil",
             owner_gate,
         )
         revocation_gate = owner_admission[

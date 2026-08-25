@@ -6033,7 +6033,7 @@ private enum Harness {
             }
             return value
         }()
-        let unplannedVariant = boundedCache.resolve(
+        let absentGraphOverride = boundedCache.resolve(
             absentVariantFrame.finalizationInput(
                 template: cacheTemplate,
                 renderSize: CGSize(width: extent.width, height: extent.height),
@@ -6043,14 +6043,14 @@ private enum Harness {
                 implicitFramebufferIdentity: input
             )
         )
-        let unplannedVariantRejectedWithoutCompilation: Bool = {
+        let absentGraphOverrideRejectedWithoutCompilation: Bool = {
             guard case .success = boundedLaunch,
                   case .success = readyVariant,
-                  case let .failure(failure) = unplannedVariant else {
+                  case let .failure(failure) = absentGraphOverride else {
                 return false
             }
-            return failure.phase == .invariant
-                && failure.code == .variantSelectionKeyInvariant
+            return failure.phase == .texture
+                && failure.code == .resourceSnapshotUnresolved
                 && boundedCache.counters == boundedCountsAfterLaunch
                 && boundedCache.counters.capacityRejectionCount == 0
         }()
@@ -6935,8 +6935,8 @@ private enum Harness {
                         == compilerCountsAfterFirst.shader
                     && compilerCountsAfterSecond.frontend
                         == compilerCountsAfterFirst.frontend,
-            "frameSelectionRejectsUnplannedVariantWithoutCompilation":
-                unplannedVariantRejectedWithoutCompilation,
+            "frameSelectionRejectsAbsentGraphOverrideWithoutCompilation":
+                absentGraphOverrideRejectedWithoutCompilation,
             "independentLaunchVariantRejectionIsCached":
                 failedVariantRejectionIsCached,
             "frontendInvalidUsesWholeEffectPassthrough": {

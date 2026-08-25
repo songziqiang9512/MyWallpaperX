@@ -27,7 +27,9 @@ SWIFT_SOURCES = list(dict.fromkeys([
     *scene_swift_sources("shader_contract_resource_resolution"),
     *scene_swift_sources("authored_shader_frontend_core"),
     *scene_swift_sources("authored_shader_preparation_implementation"),
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneStandardBlurUnitCompositePurposeSupport.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
+    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema.swift",
@@ -76,12 +78,7 @@ nonisolated enum SceneEffectStageBackendCompileResult<Value> {
     case notApplicable, rejected(SceneEffectStageCompilerFailure), accepted(Value)
 }
 nonisolated struct SceneResolvedMaterialNode {
-    enum TextureProvenance: Hashable { case explicitBinding }
-}
-nonisolated enum SceneTextureLoadPurpose: Hashable {
-    case straightAlbedo
-    case preservedChannels
-    case mask
+    enum TextureProvenance: Hashable { case explicitBinding, instance }
 }
 nonisolated enum SceneDynamicTarget: Hashable {
     case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
@@ -95,12 +92,14 @@ nonisolated struct SceneVFSAssetPath: Hashable, Sendable {
 }
 nonisolated struct SceneResolvedMaterialTemplate {
     typealias Graph = SceneAuthoredEffectRenderPlan
+    enum KnownProviderRequest: Hashable { case namedLayerTarget(SceneNamedTextureReference) }
     struct EffectContext: Hashable {
         let key: Graph.EffectKey
         let input: Graph.TextureIdentity
     }
     enum TextureReference: Hashable {
         case asset(SceneVFSAssetPath)
+        case provider(KnownProviderRequest)
         case graph(Graph.TextureIdentity)
     }
     struct TextureCandidate: Hashable {

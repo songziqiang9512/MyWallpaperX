@@ -36,6 +36,21 @@ private enum ConservationShape: Equatable {
     case wrongEffectIdentity
     case internalTargetMismatch
     case effectOutputInput
+    case unitProviderOverride
+    case unitWrongProvider
+    case unitProviderAfterGraph
+    case unitWrongBindingName
+    case unitBlurredProvider
+}
+
+private func isUnitComposite(_ shape: ConservationShape) -> Bool {
+    switch shape {
+    case .unitProviderOverride, .unitWrongProvider, .unitProviderAfterGraph,
+         .unitWrongBindingName, .unitBlurredProvider:
+        true
+    default:
+        false
+    }
 }
 
 private let foreignEffectKey = Graph.EffectKey(
@@ -157,6 +172,17 @@ private func conservationGraph(_ shape: ConservationShape) -> Graph {
         ]
     case .effectOutputInput:
         terminalBindings = [graphBinding(0, "previous", previous)]
+    case .unitProviderOverride, .unitWrongProvider, .unitProviderAfterGraph,
+         .unitBlurredProvider:
+        terminalBindings = [
+            graphBinding(0, "blurred", first),
+            graphBinding(2, "previous", source()),
+        ]
+    case .unitWrongBindingName:
+        terminalBindings = [
+            graphBinding(0, "blurred", first),
+            graphBinding(2, "not-previous", source()),
+        ]
     default:
         terminalBindings = [
             graphBinding(0, "previous", source()),
@@ -209,6 +235,75 @@ private func graphRole(
     }
 }
 
+private func unitCompositeContract() -> SceneShaderContract {
+    let revision = "captured-main-unit-provider-override"
+    let inherited = contract(revision)
+    let fragmentSource = """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    uniform sampler2D g_Texture2;
+    uniform vec3 g_CompositeColor; // {"material":"compositecolor","default":"1 1 1"}
+    vec4 identityComposite(vec4 oldColor, vec4 effectColor) {
+        return effectColor;
+    }
+    vec4 compositeCarrier(vec4 oldColor, vec4 effectColor) {
+        effectColor.rgb *= g_CompositeColor;
+        return identityComposite(oldColor, effectColor);
+    }
+    void main() {
+        vec4 blurred = texSample2D(g_Texture0, v_TexCoord);
+        vec4 previous = texSample2D(g_Texture2, v_TexCoord.xy);
+        float mask = 1.0;
+        float divisor = mix(blurred.a, 1, step(blurred.a, 0));
+        blurred = compositeCarrier(
+            previous, vec4(blurred.rgb / divisor, blurred.a)
+        );
+        blurred = mix(previous, blurred, mask);
+        gl_FragColor = blurred;
+    }
+    """
+    let path = "\(revision)/root.frag"
+    let parsed = SceneShaderContractSourceParser().parse(
+        fragmentSource,
+        stageRelativePath: path
+    )
+    let fragment = SceneShaderContract.Stage(
+        kind: .fragment,
+        relativePath: path,
+        source: fragmentSource,
+        rawSHA256: SceneShaderStableDigest.hash(Data(fragmentSource.utf8)),
+        includes: parsed.includes,
+        annotations: parsed.annotations,
+        declarations: parsed.declarations
+    )
+    let stages = [inherited.stages.first { $0.kind == .vertex }!, fragment]
+    return .init(
+        identity: "fixture/\(revision)",
+        sourceKind: .authoredSource,
+        stages: stages,
+        diagnostics: [],
+        canonicalSHA256: "fixture-contract-\(revision)",
+        sourceGraph: .init(
+            roots: [
+                .init(label: "vertex", virtualPath: stages[0].relativePath),
+                .init(label: "fragment", virtualPath: fragment.relativePath),
+            ],
+            nodes: stages.map {
+                .init(
+                    virtualPath: $0.relativePath,
+                    provenance: .package,
+                    source: $0.source,
+                    rawSHA256: $0.rawSHA256,
+                    byteCount: $0.source.utf8.count
+                )
+            },
+            edges: [],
+            diagnostics: [],
+            dependencySHA256: "fixture-dependency-\(revision)"
+        )
+    )
+}
+
 private func conservationTemplate(
     graph: Graph,
     nodeIndex: Int,
@@ -228,6 +323,29 @@ private func conservationTemplate(
             )]
         )
     }
+    if nodeIndex == 2, isUnitComposite(shape),
+       let sourceSlot = textureSlots[2], shape != .unitBlurredProvider {
+        let provider = namedTargetCandidate(
+            providerLayerID: shape == .unitWrongProvider
+                ? layerID - 1 : layerID
+        )
+        let graph = sourceSlot.candidates[0]
+        textureSlots[2] = .init(
+            index: 2,
+            candidates: shape == .unitProviderAfterGraph
+                ? [graph, provider] : [provider, graph]
+        )
+    }
+    if nodeIndex == 2, shape == .unitBlurredProvider,
+       let blurredSlot = textureSlots[0] {
+        textureSlots[0] = .init(
+            index: 0,
+            candidates: [
+                namedTargetCandidate(providerLayerID: layerID),
+                blurredSlot.candidates[0],
+            ]
+        )
+    }
     if nodeIndex == 2, textureSlots[1] == nil {
         let fog = SceneVFSAssetPath("particle/fog/fog2")!
         textureSlots[1] = .init(
@@ -243,7 +361,9 @@ private func conservationTemplate(
     }
     let hasSecondGraphBinding = node.bindings.contains { $0.slot == 1 }
     let shader: SceneShaderContract
-    if variantDivergence && nodeIndex == 2 {
+    if nodeIndex == 2, isUnitComposite(shape) {
+        shader = unitCompositeContract()
+    } else if variantDivergence && nodeIndex == 2 {
         shader = contract(
             "conservation-variant-divergence",
             secondMetadata: #"{"mode":"flowmask","combo":"EXTRA"}"#,
@@ -294,6 +414,9 @@ private func conservationTemplate(
                 .init(slot: $0.slot!, texture: graphRole($0.texture))
             }
         ),
+        unitPreviousBlurredCompositeGenericOwnerEligible:
+            nodeIndex == 2 && isUnitComposite(shape),
+        effectContext: .init(key: effectKey, input: graph.effects[0].input),
         shaderContract: shader,
         diagnosticProvenance: .init(
             nodeIndex: node.nodeIndex,
@@ -304,6 +427,43 @@ private func conservationTemplate(
             uniformSources: []
         )
     )!
+}
+
+private func unitCompositePreviousSlot(_ shape: ConservationShape) -> Int? {
+    let graph = conservationGraph(shape)
+    let template = conservationTemplate(
+        graph: graph,
+        nodeIndex: 2,
+        shape: shape
+    )
+    let prepared: SceneShaderPreparedProgram
+    switch SceneAuthoredShaderPreparation.prepareShaderStages(
+        contract: template.shaderContract,
+        combos: template.comboValues,
+        inactiveComboProviders: Set(template.inheritedInactiveCombos),
+        textureReadiness: [0: true, 2: true]
+    ) {
+    case let .accepted(value): prepared = value
+    case .notApplicable, .rejected: return nil
+    }
+    let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+        vertex: prepared.vertex.source,
+        fragment: prepared.fragment.source
+    )
+    guard let samplers = try? SceneResolvedMaterialShaderSchema.activeSamplers(
+        prepared
+    ) else { return nil }
+    let identities = Dictionary(uniqueKeysWithValues: graph.nodes[2].bindings.map {
+        ($0.slot!, $0.texture)
+    })
+    return SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.slots(
+        fragmentSource: sources.fragment,
+        prepared: prepared,
+        samplers: samplers,
+        template: template,
+        implicitFramebufferIdentity: graph.effects[0].input,
+        activeGraphTextureIdentities: identities
+    )?.previous
 }
 
 private func conservationCatalog(
@@ -383,6 +543,16 @@ private enum CapturedMainSourceConservationHarness {
             "userPropertyAuxiliaryFailure": rejection(userPropertyAuxiliary),
             "externalProviderAuxiliaryClaim": claim(externalProviderAuxiliary),
             "externalProviderAuxiliaryFailure": rejection(externalProviderAuxiliary),
+            "unitProviderOverrideSourceSlot":
+                unitCompositePreviousSlot(.unitProviderOverride) ?? -1,
+            "unitWrongProviderRejected":
+                unitCompositePreviousSlot(.unitWrongProvider) == nil,
+            "unitProviderAfterGraphRejected":
+                unitCompositePreviousSlot(.unitProviderAfterGraph) == nil,
+            "unitWrongBindingNameRejected":
+                !claim(conservationCatalog(.unitWrongBindingName)),
+            "unitBlurredProviderRejected":
+                unitCompositePreviousSlot(.unitBlurredProvider) == nil,
         ]
         for (name, catalog) in negatives {
             result["\(name)Claim"] = claim(catalog)
@@ -457,6 +627,11 @@ class SceneCapturedMainSourceConservationTests(unittest.TestCase):
             payload["externalProviderAuxiliaryFailure"],
             payload,
         )
+        self.assertEqual(payload["unitProviderOverrideSourceSlot"], 2, payload)
+        self.assertTrue(payload["unitWrongProviderRejected"], payload)
+        self.assertTrue(payload["unitProviderAfterGraphRejected"], payload)
+        self.assertTrue(payload["unitWrongBindingNameRejected"], payload)
+        self.assertTrue(payload["unitBlurredProviderRejected"], payload)
         for name in (
             "noSource",
             "activeNonColorSource",
@@ -504,6 +679,20 @@ class SceneCapturedMainSourceConservationTests(unittest.TestCase):
             ")?.previous",
         ):
             self.assertIn(contract, source)
+
+        selection = (
+            REPOSITORY_ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
+            "SceneResolvedMaterialTextureSelection.swift"
+        ).read_text(encoding="utf-8")
+        dependency = (
+            REPOSITORY_ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/"
+            "SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("preserveAbsentOverride: terminalGraphOverride", selection)
+        self.assertIn("isShadowedInputProvenance", dependency)
+        self.assertIn('matches[0].authoredName == "previous"', dependency)
 
 
 if __name__ == "__main__":

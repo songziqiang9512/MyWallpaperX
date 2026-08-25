@@ -56,9 +56,20 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
         references: [Reference],
         binding: SceneDependencyRenderPlan.Binding?
     ) -> SceneResolvedMaterialDependencyOwnership? {
+        let effectiveReferences: [Reference]
+        if binding == nil,
+           layer.dependencyLayerIDs.isEmpty,
+           layer.authoredDependencies.isEmpty,
+           let graph {
+            effectiveReferences = references.filter {
+                !isShadowedInputProvenance($0, layer: layer, graph: graph)
+            }
+        } else {
+            effectiveReferences = references
+        }
         let hasDependencyMetadata = !layer.dependencyLayerIDs.isEmpty
             || !layer.authoredDependencies.isEmpty
-            || !references.isEmpty
+            || !effectiveReferences.isEmpty
         guard hasDependencyMetadata else {
             return SceneResolvedMaterialDependencyOwnership.none
         }
@@ -80,10 +91,11 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
                   binding.consumerLayerID == layer.id,
                   layer.authoredDependencies.isEmpty,
                   layer.dependencyLayerIDs == [binding.providerLayerID],
-                  (binding.kind == .resolvedMaterial || references.count == 1),
-                  references.first != nil,
-                  binding.referenceSlots == references.map(\.slot),
-                  references.allSatisfy({ candidate in
+                  (binding.kind == .resolvedMaterial
+                    || effectiveReferences.count == 1),
+                  effectiveReferences.first != nil,
+                  binding.referenceSlots == effectiveReferences.map(\.slot),
+                  effectiveReferences.allSatisfy({ candidate in
                       candidate.consumerLayerID == binding.consumerLayerID
                           && candidate.providerLayerID == binding.providerLayerID
                           && candidate.slot.slotIndex == binding.slot.slotIndex
@@ -96,18 +108,53 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
 
         guard layer.authoredDependencies.isEmpty,
               layer.dependencyLayerIDs == [layer.id],
-              !references.isEmpty,
-              Set(references).count == references.count,
-              references.allSatisfy({
+              !effectiveReferences.isEmpty,
+              Set(effectiveReferences).count == effectiveReferences.count,
+              effectiveReferences.allSatisfy({
                   $0.consumerLayerID == layer.id
                       && $0.providerLayerID == layer.id
                       && $0.variant == .primary
               }), let graph,
               graph.layerID == layer.id,
-              references.allSatisfy({ graphOwns($0, graph: graph) }) else {
+              effectiveReferences.allSatisfy({ graphOwns($0, graph: graph) }) else {
             return nil
         }
-        return .graphInternal(referenceCount: references.count)
+        return .graphInternal(referenceCount: effectiveReferences.count)
+    }
+
+    /// A same-layer primary material reference is source provenance when the
+    /// exact effect/pass/slot has an explicit `previous -> effect.input`
+    /// binding. Template compilation preserves the reference below that graph
+    /// override; dependency admission must therefore not invent a second owner.
+    private static func isShadowedInputProvenance(
+        _ reference: Reference,
+        layer: SceneRenderDescriptor.Layer,
+        graph: Graph
+    ) -> Bool {
+        guard reference.consumerLayerID == layer.id,
+              reference.providerLayerID == layer.id,
+              reference.variant == .primary,
+              graph.layerID == layer.id else { return false }
+        let effects = graph.effects.filter {
+            $0.key.descriptorID == reference.slot.effectID
+        }
+        guard effects.count == 1, let effect = effects.first,
+              effect.input.kind == .layerSource,
+              effect.input.layerID == layer.id,
+              effect.input.effect == nil,
+              effect.input.name == nil else { return false }
+        let nodes = graph.nodes.filter {
+            $0.effect == effect.key
+                && $0.instancePassIndex == reference.slot.passIndex
+        }
+        guard nodes.count == 1, let node = nodes.first,
+              node.kind == .material else { return false }
+        let matches = node.bindings.filter {
+            $0.slot == reference.slot.slotIndex
+        }
+        return matches.count == 1
+            && matches[0].authoredName == "previous"
+            && matches[0].texture == effect.input
     }
 
     /// A forward primary provider is not executable in the current frame

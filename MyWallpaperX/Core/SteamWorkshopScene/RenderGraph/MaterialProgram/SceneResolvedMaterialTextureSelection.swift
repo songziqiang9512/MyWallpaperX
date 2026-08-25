@@ -44,6 +44,12 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
             guard sampler != nil || !reachable.isEmpty else { continue }
             for ordinal in slot.candidates.indices.reversed() {
                 let candidate = slot.candidates[ordinal]
+                let terminalGraphOverride = ordinal == slot.candidates.index(
+                    before: slot.candidates.endIndex
+                ) && candidate.provenance == .explicitBinding && {
+                    if case .graph = candidate.reference { return true }
+                    return false
+                }()
                 let purpose = Resolver.selectionPurpose(
                     in: slot,
                     candidateOrdinal: ordinal,
@@ -56,7 +62,8 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                     candidate.reference,
                     purpose: purpose,
                     provenance: .authored(candidate.provenance),
-                    input: input
+                    input: input,
+                    preserveAbsentOverride: terminalGraphOverride
                 ) else {
                     continue
                 }
@@ -157,7 +164,8 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         provenance: Program.TextureSelectionProvenance,
         input: SceneResolvedMaterialFinalizationInput,
         graphInputSourceFact:
-            SceneResolvedMaterialGraphInputSourceSlotFact? = nil
+            SceneResolvedMaterialGraphInputSourceSlotFact? = nil,
+        preserveAbsentOverride: Bool = false
     ) throws -> Entry? {
         guard let purpose else {
             if case let .graph(identity) = reference {
@@ -170,7 +178,12 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                         graphInputSourceFact: graphInputSourceFact
                     )
                 }
-                return nil
+                return preserveAbsentOverride ? .reference(
+                    reference,
+                    purpose: nil,
+                    provenance: provenance,
+                    graphInputSourceFact: graphInputSourceFact
+                ) : nil
             }
             return .reference(
                 reference,
@@ -188,7 +201,12 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                 graphInputSourceFact: graphInputSourceFact
             )
         }
-        return nil
+        return preserveAbsentOverride ? .reference(
+            reference,
+            purpose: purpose,
+            provenance: provenance,
+            graphInputSourceFact: graphInputSourceFact
+        ) : nil
     }
 
     private static func failure(

@@ -4234,7 +4234,7 @@ private enum Harness {
                 variantSelectionKeyMismatch["failure"] ?? "missing",
             "variantSelectionKeyDetails":
                 variantSelectionKeyMismatch["details"] ?? "missing",
-            "textureReadinessIdentityInvariant":
+            "terminalGraphOverrideUnavailable":
                 resolverInvariants["readiness"] ?? "missing",
             "textureVariantKeyIdentityInvariant":
                 resolverInvariants["variantKey"] ?? "missing",
@@ -5157,8 +5157,8 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "invariant/variantSelectionReachabilityIdentityInvariant"
             ),
             "variantSelectionKey": "invariant/variantSelectionKeyInvariant",
-            "textureReadinessIdentityInvariant": (
-                "invariant/textureReadinessIdentityInvariant"
+            "terminalGraphOverrideUnavailable": (
+                "texture/resourceSnapshotUnresolved"
             ),
             "textureVariantKeyIdentityInvariant": (
                 "invariant/textureVariantKeyIdentityInvariant"

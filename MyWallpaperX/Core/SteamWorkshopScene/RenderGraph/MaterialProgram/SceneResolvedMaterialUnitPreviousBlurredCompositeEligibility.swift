@@ -41,14 +41,16 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
               activeGraphTextureIdentities == [
                   fact.blurredSlot: blurredIdentity,
                   fact.previousSlot: previousIdentity,
-              ], exactGraphCandidate(
+              ], exactGraphOverride(
                   slot: fact.blurredSlot,
                   identity: blurredIdentity,
-                  template: template
-              ), exactGraphCandidate(
+                  template: template,
+                  allowsNamedInputProvenance: false
+              ), exactGraphOverride(
                   slot: fact.previousSlot,
                   identity: previousIdentity,
-                  template: template
+                  template: template,
+                  allowsNamedInputProvenance: true
               ), exactMaskCandidate(
                   slot: fact.maskSlot,
                   samplers: samplers,
@@ -81,16 +83,52 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
         }
     }
 
-    private static func exactGraphCandidate(
-        slot: Int, identity: Graph.TextureIdentity, template: Template
+    /// An explicit graph binding is the immutable high-precedence selection.
+    /// The previous-input slot may retain one matching primary named-target
+    /// candidate below it as provenance; internal blurred slots stay graph-only.
+    static func exactGraphOverride(
+        slot: Int,
+        identity: Graph.TextureIdentity,
+        template: Template,
+        allowsNamedInputProvenance: Bool
     ) -> Bool {
         guard template.textureSlots.indices.contains(slot),
               let declaration = template.textureSlots[slot],
-              !declaration.candidates.isEmpty else { return false }
-        return declaration.candidates.allSatisfy {
-            guard case let .graph(candidate) = $0.reference else { return false }
-            return candidate == identity
+              let selected = declaration.candidates.last,
+              selected.provenance == .explicitBinding,
+              case let .graph(candidate) = selected.reference,
+              candidate == identity else { return false }
+        let provenance = declaration.candidates.dropLast()
+        guard provenance.isEmpty || allowsNamedInputProvenance else {
+            return false
         }
+        if !provenance.isEmpty {
+            guard identity.kind == .layerSource,
+                  identity.effect == nil,
+                  identity.name == nil else { return false }
+        }
+        guard provenance.count <= 1 else { return false }
+        return provenance.allSatisfy {
+            guard $0.provenance == .instance,
+                  case let .provider(.namedLayerTarget(reference)) = $0.reference
+            else { return false }
+            return reference.providerLayerID == identity.layerID
+                && reference.variant == .primary
+        }
+    }
+
+    /// The graph binding that shadows named input provenance is intentionally
+    /// identical to the dependency-owner predicate. A different alias, slot,
+    /// or identity must keep the incumbent instead of opening an owner gap.
+    static func exactPreviousInputBinding(
+        bindings: [Graph.Binding],
+        slot: Int,
+        identity: Graph.TextureIdentity
+    ) -> Bool {
+        let matches = bindings.filter { $0.slot == slot }
+        return matches.count == 1
+            && matches[0].authoredName == "previous"
+            && matches[0].texture == identity
     }
 
     private static func exactUnitColor(

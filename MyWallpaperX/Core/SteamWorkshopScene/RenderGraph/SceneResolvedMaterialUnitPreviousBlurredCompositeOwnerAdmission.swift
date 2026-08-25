@@ -13,6 +13,12 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         case userPropertyScalarSplat(String)
     }
 
+    private enum SourceCohort: Equatable {
+        case ordinary
+        case capturedMain
+        case copyPassthroughCapturedMain
+    }
+
     static func accepts(
         key: SceneResolvedMaterialRuntimeCatalog.Key,
         graph: Graph,
@@ -24,7 +30,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
               graph.effects[0].nodeIndices.last == key.nodeIndex,
               let layer = descriptor.layers.first(where: {
                   $0.id == graph.layerID
-              }), supportedSourceRoute(layer),
+              }), let source = sourceCohort(layer),
               let inputRole = SceneAuthoredEffectInputValidator.role(
                   for: graph.effects[0].input,
                   layerID: graph.layerID
@@ -33,42 +39,50 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                   graph: graph,
                   descriptor: descriptor,
                   inputRole: inputRole
-              ), stage.standardBlur != nil else { return false }
-        return wholeStageScaleCohort(graph: graph, descriptor: descriptor) != nil
+              ), stage.standardBlur != nil,
+              let scale = wholeStageScaleCohort(
+                  graph: graph,
+                  descriptor: descriptor
+              ) else { return false }
+        return source != .copyPassthroughCapturedMain || scale == .staticExact
     }
 
     static func dedicatedRevocationDetail(
         graph: Graph,
         descriptor: SceneRenderDescriptor
     ) -> String? {
-        let capturedMain = descriptor.layers.first(where: {
+        let source = descriptor.layers.first(where: {
             $0.id == graph.layerID
-        })?.utilityLayer != nil
-        return switch (capturedMain, wholeStageScaleCohort(
+        }).flatMap(sourceCohort)
+        return switch (source, wholeStageScaleCohort(
             graph: graph,
             descriptor: descriptor
         )) {
-        case (true, .staticExact?):
+        case (.copyPassthroughCapturedMain?, .staticExact?):
+            "captured-main-copy-passthrough-static-owner-revoked-to-material-program"
+        case (.copyPassthroughCapturedMain?, .userPropertyScalarSplat?):
+            nil
+        case (.capturedMain?, .staticExact?):
             "captured-main-static-owner-revoked-to-material-program"
-        case (true, .userPropertyScalarSplat?):
+        case (.capturedMain?, .userPropertyScalarSplat?):
             "captured-main-typed-user-scalar-splat-owner-revoked-to-material-program"
-        case (false, .staticExact?):
+        case (.ordinary?, .staticExact?):
             "static-owner-revoked-to-material-program"
-        case (false, .userPropertyScalarSplat?):
+        case (.ordinary?, .userPropertyScalarSplat?):
             "typed-user-scalar-splat-owner-revoked-to-material-program"
-        case (_, nil):
+        case (nil, _), (_, nil):
             nil
         }
     }
 
     /// Utility layers enter the same resolved-material executor through a
-    /// captured-main source. Limit owner transfer to the exact source route
-    /// already admitted by that executor, excluding copy/passthrough and
-    /// dependency/child lifecycles with different failure boundaries.
-    private static func supportedSourceRoute(
+    /// captured-main source. The two observed flag pairs share that capture;
+    /// mixed copy/passthrough states and dependency/child lifecycles remain
+    /// outside this owner transfer.
+    private static func sourceCohort(
         _ layer: SceneRenderDescriptor.Layer
-    ) -> Bool {
-        guard let utility = layer.utilityLayer else { return true }
+    ) -> SourceCohort? {
+        guard let utility = layer.utilityLayer else { return .ordinary }
         let kindMatchesContent = switch (layer.contentKind, utility.kind) {
         case ("composition", .composition), ("project", .project),
              ("fullscreen", .fullscreen):
@@ -76,12 +90,15 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         default:
             false
         }
-        return kindMatchesContent
-            && !utility.copyBackground
-            && !utility.passthrough
-            && layer.childLayerIDs.isEmpty
-            && layer.dependencyLayerIDs.isEmpty
-            && layer.authoredDependencies.isEmpty
+        guard kindMatchesContent,
+              layer.childLayerIDs.isEmpty,
+              layer.dependencyLayerIDs.isEmpty,
+              layer.authoredDependencies.isEmpty else { return nil }
+        return switch (utility.copyBackground, utility.passthrough) {
+        case (false, false): .capturedMain
+        case (true, true): .copyPassthroughCapturedMain
+        case (false, true), (true, false): nil
+        }
     }
 
     /// Revokes the strict candidate only after the terminal material proves
@@ -100,7 +117,10 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
             graph: graph,
             descriptor: descriptor,
             inputRole: inputRole
-        ), let scaleCohort = wholeStageScaleCohort(
+        ), let layer = descriptor.layers.first(where: {
+            $0.id == graph.layerID
+        }), let source = sourceCohort(layer),
+           let scaleCohort = wholeStageScaleCohort(
             graph: graph,
             descriptor: descriptor
         ), let effect = graph.effects.first,
@@ -198,6 +218,19 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                     implicitFramebufferIdentity: effect.input,
                     activeGraphTextureIdentities: graphIdentities
                 ) else { return false }
+        guard SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility
+                .exactPreviousInputBinding(
+                    bindings: terminalNode.bindings,
+                    slot: slots.previous,
+                    identity: effect.input
+                ) else { return false }
+        if source == .copyPassthroughCapturedMain {
+            guard scaleCohort == .staticExact else { return false }
+        } else {
+            guard template.textureSlots.indices.contains(slots.previous),
+                  template.textureSlots[slots.previous]?.candidates.count == 1
+            else { return false }
+        }
         guard case let .straightAlphaPreserving(sourceSlot) =
                 SceneAuthoredShaderColorTransferAnalyzer.analyze(
                     fragmentSource: compilerSources.fragment

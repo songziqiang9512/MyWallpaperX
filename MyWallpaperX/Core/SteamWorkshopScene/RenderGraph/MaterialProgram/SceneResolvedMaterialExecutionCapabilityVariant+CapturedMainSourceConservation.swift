@@ -161,15 +161,19 @@ extension SceneResolvedMaterialVariantCache {
         if let activeSourceBinding {
             guard activeSourceBinding.slot == sourceSlot,
                   activeSourceBinding.texture == effect.input,
-                  template.textureSlots.indices.contains(sourceSlot),
-                  let declaration = template.textureSlots[sourceSlot],
-                  declaration.candidates.count == 1,
-                  declaration.candidates.contains(where: {
-                      if case let .graph(identity) = $0.reference {
-                          return identity == effect.input
-                      }
-                      return false
-                  }) else { return nil }
+                  SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility
+                    .exactGraphOverride(
+                        slot: sourceSlot,
+                        identity: effect.input,
+                        template: template,
+                        allowsNamedInputProvenance: true
+                    ),
+                  SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility
+                    .exactPreviousInputBinding(
+                        bindings: activeBindings,
+                        slot: sourceSlot,
+                        identity: effect.input
+                    ) else { return nil }
         } else {
             guard node.bindings.isEmpty,
                   template.textureSlots.indices.contains(sourceSlot),
