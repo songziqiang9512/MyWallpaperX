@@ -145,6 +145,7 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
     ) -> Bool {
         typealias Graph = SceneAuthoredEffectRenderPlan
         let supportedProfiles: [ScenePulseShaderProfile] = [
+            .stock2842,
             .directPhaseSaturateV1,
             .directPhaseMaxClampV1,
         ]

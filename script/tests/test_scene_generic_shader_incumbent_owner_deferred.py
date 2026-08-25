@@ -755,11 +755,11 @@ fragment float4 mwxGenericFragment(
         ]
         self.assertIn("staticRGBProgramOwnerIsProven(", pulse_compiler)
         for static_profile in (
+            ".stock2842",
             ".directPhaseSaturateV1",
             ".directPhaseMaxClampV1",
         ):
             self.assertIn(static_profile, pulse_compiler)
-        self.assertNotIn(".stock2842", pulse_compiler)
         self.assertIn(
             "supportedProfiles.contains(plan.shaderProfile)", pulse_compiler
         )
