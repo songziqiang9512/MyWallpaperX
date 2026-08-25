@@ -206,12 +206,12 @@ private enum Main {
                     samplerName: "g_Texture5",
                     body: renamedBody
                 )),
+                "bootstrap": token(bootstrapSampler()),
             ],
             "negative": [
                 "wholeVector": token(activeSampler(body: wholeBody)),
                 "mixedChannel": token(activeSampler(body: mixedBody)),
                 "greenChannel": token(activeSampler(body: greenBody)),
-                "bootstrap": token(bootstrapSampler()),
                 "adjacentPath": token(
                     activeSampler(body: directBody),
                     path: "util/clouds_257"
@@ -281,7 +281,11 @@ class SceneSourceProvenNoisePurposeTests(unittest.TestCase):
     def test_direct_red_stock_noise_is_source_proven(self) -> None:
         self.assertEqual(
             self.result["positive"],
-            {"direct": "redOnly/noise", "renamed": "redOnly/noise"},
+            {
+                "direct": "redOnly/noise",
+                "renamed": "redOnly/noise",
+                "bootstrap": "redOnly/noise",
+            },
             self.result,
         )
 
@@ -292,7 +296,6 @@ class SceneSourceProvenNoisePurposeTests(unittest.TestCase):
                 "wholeVector": "wholeVector/nil",
                 "mixedChannel": "redGreenOnly/nil",
                 "greenChannel": "greenOnly/nil",
-                "bootstrap": "unproven/nil",
                 "adjacentPath": "redOnly/straight-albedo",
                 "otherRegisteredRole": "redOnly/nil",
                 "invalidSource": "unproven",
