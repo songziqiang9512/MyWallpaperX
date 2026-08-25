@@ -171,6 +171,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 && $0.declaration.name == name
         }
         guard matches.count == 1,
+              matches[0].declaration.arraySuffix == nil,
+              matches[0].declaration.arraySize == nil,
               SceneAuthoredShaderValueType(
                   authoredName: matches[0].declaration.type
               ) == type else { return nil }
@@ -181,6 +183,58 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             offset: 0
         )
         return try? uniformSchema(field, records: allRecords)
+    }
+
+    /// Resolves the sole active scalar/vector consumer for one authored
+    /// material key. The declaration name is author-controlled, so owner
+    /// admission must prove the annotation mapping as well as the exact ABI.
+    static func uniqueActiveUniform(
+        materialKey: String,
+        type: SceneAuthoredShaderValueType,
+        stage: SceneShaderContract.StageKind,
+        prepared: SceneShaderPreparedProgram
+    ) -> Uniform? {
+        let allRecords = records(prepared)
+        var identities: [String: (
+            stage: SceneShaderContract.StageKind, name: String
+        )] = [:]
+        for record in allRecords {
+            guard let recordStage = record.stage,
+                  record.declaration.kind == .uniform,
+                  !isSampler2D(record.declaration.type) else { continue }
+            let identity = [
+                recordStage.rawValue, record.declaration.name,
+            ].joined(separator: "\u{1f}")
+            identities[identity] = (recordStage, record.declaration.name)
+        }
+        let matches = identities.values.compactMap { identity -> (
+            stage: SceneShaderContract.StageKind, name: String, schema: Uniform
+        )? in
+            let field = SceneAuthoredShaderUniformLayout.Field(
+                name: identity.name,
+                stage: identity.stage,
+                type: type,
+                offset: 0
+            )
+            guard let schema = try? uniformSchema(field, records: allRecords),
+                  schema.materialKeys.contains(materialKey) else { return nil }
+            return (identity.stage, identity.name, schema)
+        }
+        guard matches.count == 1, let match = matches.first else { return nil }
+        let declarations = allRecords.filter {
+            $0.stage == match.stage
+                && $0.declaration.kind == .uniform
+                && !isSampler2D($0.declaration.type)
+                && $0.declaration.name == match.name
+        }
+        guard match.stage == stage,
+              declarations.count == 1,
+              declarations[0].declaration.arraySuffix == nil,
+              declarations[0].declaration.arraySize == nil,
+              SceneAuthoredShaderValueType(
+                  authoredName: declarations[0].declaration.type
+              ) == type else { return nil }
+        return match.schema
     }
 
     private struct Record {

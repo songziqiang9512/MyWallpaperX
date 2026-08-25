@@ -277,7 +277,11 @@ nonisolated struct ScenePropertyBindingCompiler {
                 continue
             }
             let authoredValue: SceneDynamicValue
-            switch ScenePropertyBindingProgram.convert(fallback, as: mapped.valueType) {
+            switch Self.convertAuthoredFallback(
+                fallback,
+                target: binding.target,
+                as: mapped.valueType
+            ) {
             case let .success(value):
                 authoredValue = value
             case let .failure(error):
@@ -328,6 +332,31 @@ nonisolated struct ScenePropertyBindingCompiler {
             ),
             diagnostics: diagnostics
         )
+    }
+
+    /// A slider remains a scalar producer even when an authored shader
+    /// wrapper records the same fallback in both lanes of a float2. Preserve
+    /// that producer type here; the MaterialProgram consumer owns the exact
+    /// reflected scalar-to-float2 projection.
+    private nonisolated static func convertAuthoredFallback(
+        _ fallback: SceneUserPropertyValue,
+        target: SceneUserPropertyBindingTarget,
+        as valueType: SceneDynamicValueType
+    ) -> Result<SceneDynamicValue, ScenePropertyBindingProgram.ValueError> {
+        if case .shaderValue = target,
+           valueType == .scalar,
+           case let .string(rawValue) = fallback {
+            let components = rawValue.split(whereSeparator: \Character.isWhitespace)
+            if components.count == 2,
+               let first = Double(components[0]),
+               let second = Double(components[1]),
+               first.isFinite,
+               second.isFinite,
+               first == second {
+                return .success(.scalar(first))
+            }
+        }
+        return ScenePropertyBindingProgram.convert(fallback, as: valueType)
     }
     private nonisolated static func bindingOrder(
         _ lhs: SceneUserPropertyBinding,

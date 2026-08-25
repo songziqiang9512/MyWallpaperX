@@ -210,6 +210,7 @@ private func fragmentSource(
     runtimeLoopEditorHints: Bool = false,
     pointerState: Bool = false,
     semanticProbes: Bool = true,
+    scalarSplatScale: Bool = false,
     colorBlend: Bool = false,
     legacyMaskOverride: Bool = false
 ) -> String {
@@ -304,6 +305,9 @@ private func fragmentSource(
     let alphaUniform = maskedAlpha
         ? "uniform float g_UserAlpha; // {\"material\":\"alpha\",\"default\":1.0}"
         : ""
+    let scalarSplatUniform = scalarSplatScale
+        ? #"uniform vec2 u_Scale; // {"material":"scale","default":"1 1"}"#
+        : ""
     let overlayUniforms = overlayAlphaBlend
         ? """
         uniform float g_Multiply; // {"material":"multiply","default":0.5}
@@ -340,6 +344,7 @@ private func fragmentSource(
     let metadataProbes = semanticProbes
         ? "vec3 tintProbe = u_Tint;\nfloat timeProbe = g_Time;"
         : ""
+    let scalarSplatProbe = scalarSplatScale ? "vec2 scaleProbe = u_Scale;" : ""
     let runtimeLoopMetadata = runtimeLoopEditorHints
         ? #"{"material":"Fractals","int":true,"default":5,"range":[1,10]}"#
         : #"{"material":"Fractals"}"#
@@ -369,6 +374,7 @@ private func fragmentSource(
     \(audioUniforms)
     uniform vec3 u_Tint;\(uniformAnnotation)
     \(alphaUniform)
+    \(scalarSplatUniform)
     \(overlayUniforms)
     uniform float g_Time; // {"default":99}
     \(stageLocalUniform)
@@ -380,6 +386,7 @@ private func fragmentSource(
         \(pointerStateProbe)
         \(audioProbe)
         \(metadataProbes)
+        \(scalarSplatProbe)
         \(output)
     }
     """
@@ -404,6 +411,7 @@ private func contract(
     runtimeLoopEditorHints: Bool = false,
     pointerState: Bool = false,
     semanticProbes: Bool = true,
+    scalarSplatScale: Bool = false,
     colorBlend: Bool = false,
     legacyMaskOverride: Bool = false,
     includeSourceGraph: Bool = true,
@@ -458,6 +466,7 @@ private func contract(
                 runtimeLoopEditorHints: runtimeLoopEditorHints,
                 pointerState: pointerState,
                 semanticProbes: semanticProbes,
+                scalarSplatScale: scalarSplatScale,
                 colorBlend: colorBlend,
                 legacyMaskOverride: legacyMaskOverride
             )
@@ -610,6 +619,34 @@ private func dynamicAlphaDeclaration(
             scriptAttachments: [],
             authoredFallback: staticValue([1]),
             authoredBindingKeys: ["value"]
+        ))
+    )
+}
+
+private func dynamicScaleDeclaration(
+    fallback: [Double] = [0.6],
+    contributors: [Template.DynamicUniformSource] = [
+        .userProperty("unseenScaleProperty"),
+    ],
+    bindingKeys: [String] = ["user", "value"]
+) -> Template.UniformDeclaration {
+    .init(
+        name: "scale",
+        value: .dynamic(.init(
+            target: .effectConstant(
+                layerID: fixtureLayerID,
+                effectIndex: 0,
+                passIndex: 0,
+                name: "scale"
+            ),
+            valueContributors: contributors,
+            scriptAttachments: [],
+            authoredFallback: .init(
+                valueKind: "binding",
+                componentBitPatterns: fallback.map(\.bitPattern),
+                authoredBindingKeys: bindingKeys
+            ),
+            authoredBindingKeys: bindingKeys
         ))
     )
 }
@@ -912,7 +949,9 @@ private func dynamicSnapshot(
     frameIndex: UInt64,
     source: SceneDynamicSource?,
     tintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
-    authoredTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25)
+    authoredTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
+    scaleValue: SceneDynamicValue = .scalar(0.6),
+    authoredScaleValue: SceneDynamicValue = .scalar(1)
 ) -> SceneDynamicSnapshot {
     let tintTarget = SceneDynamicTarget.effectConstant(
         layerID: fixtureLayerID,
@@ -926,6 +965,12 @@ private func dynamicSnapshot(
         passIndex: 0,
         name: "alpha"
     )
+    let scaleTarget = SceneDynamicTarget.effectConstant(
+        layerID: fixtureLayerID,
+        effectIndex: 0,
+        passIndex: 0,
+        name: "scale"
+    )
     let alphaValue = SceneDynamicValue.scalar(0.25)
     var user: [SceneDynamicTarget: SceneDynamicValue] = [:]
     var timeline: [SceneDynamicTarget: SceneDynamicValue] = [:]
@@ -934,12 +979,15 @@ private func dynamicSnapshot(
     case .userProperty:
         user[tintTarget] = tintValue
         user[alphaTarget] = alphaValue
+        user[scaleTarget] = scaleValue
     case .timeline:
         timeline[tintTarget] = tintValue
         timeline[alphaTarget] = alphaValue
+        timeline[scaleTarget] = scaleValue
     case .sceneScript:
         script[tintTarget] = tintValue
         script[alphaTarget] = alphaValue
+        script[scaleTarget] = scaleValue
     case .authored, nil: break
     }
     return SceneDynamicSnapshotResolver().resolve(
@@ -955,6 +1003,11 @@ private func dynamicSnapshot(
                 target: alphaTarget,
                 valueType: .scalar,
                 authoredValue: .scalar(1)
+            ),
+            .init(
+                target: scaleTarget,
+                valueType: authoredScaleValue.valueType,
+                authoredValue: authoredScaleValue
             ),
         ],
         userValues: user,
@@ -986,6 +1039,8 @@ private func finalize(
     dynamicSource: SceneDynamicSource? = nil,
     dynamicTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
     authoredTintValue: SceneDynamicValue = .vector3(1, 0.5, 0.25),
+    dynamicScaleValue: SceneDynamicValue = .scalar(0.6),
+    authoredScaleValue: SceneDynamicValue = .scalar(1),
     renderState: SceneMaterialRenderState = state(),
     resolvedLayerModelMatrix: simd_float4x4 = layerModelMatrix,
     implicitFramebufferIdentity: Graph.TextureIdentity? = nil,
@@ -1009,7 +1064,9 @@ private func finalize(
             frameIndex: dynamicFrameIndex,
             source: dynamicSource,
             tintValue: dynamicTintValue,
-            authoredTintValue: authoredTintValue
+            authoredTintValue: authoredTintValue,
+            scaleValue: dynamicScaleValue,
+            authoredScaleValue: authoredScaleValue
         ),
         frameInputs: frameInputs(
             frameIndex: frameInputIndex,
@@ -3240,6 +3297,71 @@ private enum Harness {
                 && first.uniformBytes.subdata(in: range)
                     != second.uniformBytes.subdata(in: range)
         }()
+        let scalarSplatShader = contract(
+            revision: "user-property-scalar-float2-splat",
+            semanticProbes: false,
+            scalarSplatScale: true
+        )
+        let scalarSplatProgram = finalize(
+            shader: scalarSplatShader,
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration()],
+            dynamicSource: .userProperty,
+            dynamicScaleValue: .scalar(0.6)
+        )
+        let scalarSplatAuthoredProgram = finalize(
+            shader: scalarSplatShader,
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration()],
+            dynamicSource: nil,
+            authoredScaleValue: .scalar(0.6)
+        )
+        let userPropertyScalarFloat2SplatEncoded: Bool = {
+            guard case let .success(program) = scalarSplatProgram,
+                  case let .success(authored) = scalarSplatAuthoredProgram,
+                  let field = program.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "u_Scale" }
+                  ) else { return false }
+            return field.type == .float2
+                && float(program.uniformBytes, at: field.offset) == 0.6
+                && float(program.uniformBytes, at: field.offset + 4) == 0.6
+                && float(authored.uniformBytes, at: field.offset) == 0.6
+                && float(authored.uniformBytes, at: field.offset + 4) == 0.6
+        }()
+        let unequalScalarSplatFallback = finalize(
+            shader: contract(
+                revision: "user-property-scalar-float2-unequal",
+                semanticProbes: false,
+                scalarSplatScale: true
+            ),
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration(fallback: [1, 0.5])],
+            dynamicSource: .userProperty
+        )
+        let nonUserScalarSplatContributor = finalize(
+            shader: contract(
+                revision: "timeline-scalar-float2-rejected",
+                semanticProbes: false,
+                scalarSplatScale: true
+            ),
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration(
+                contributors: [.timeline]
+            )],
+            dynamicSource: .timeline
+        )
+        let extraKeyScalarSplat = finalize(
+            shader: contract(
+                revision: "user-property-scalar-float2-extra-key",
+                semanticProbes: false,
+                scalarSplatScale: true
+            ),
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration(
+                bindingKeys: ["extra", "user", "value"]
+            )],
+            dynamicSource: .userProperty
+        )
         let overlayPath = SceneVFSAssetPath("textures/overlay-data.tex")!
         let overlayIdentity = SceneFrameTextureIdentity.asset(.init(
             path: overlayPath,
@@ -4143,6 +4265,13 @@ private enum Harness {
             ),
             "activeDefaultMaskMissing": failureToken(activeDefaultMaskMissing),
             "timelineVectorTypeMismatch": failureToken(timelineVectorTypeMismatch),
+            "unequalScalarSplatFallback": failureToken(
+                unequalScalarSplatFallback
+            ),
+            "nonUserScalarSplatContributor": failureToken(
+                nonUserScalarSplatContributor
+            ),
+            "extraKeyScalarSplat": failureToken(extraKeyScalarSplat),
         ]
 
         let attenuationEligibility = attenuationEligibilityTokens()
@@ -4196,6 +4325,8 @@ private enum Harness {
                 "sceneScriptDynamicAlphaEncoded": sceneScriptDynamicAlphaEncoded,
                 "timelineVectorUpdatesProgramWithoutTopologyChange":
                     timelineVectorUpdatesProgramWithoutTopologyChange,
+                "userPropertyScalarFloat2SplatEncoded":
+                    userPropertyScalarFloat2SplatEncoded,
                 "overlayDataTyped": overlayDataTyped,
                 "optionalMaskWithoutResourceAccepted":
                     optionalMaskWithoutResourceAccepted,
@@ -4865,6 +4996,11 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "authoredDynamicFallback": "success",
             "dynamicSourceMismatch": "uniform/dynamicUniformBindingInvalid",
             "timelineVectorTypeMismatch": "uniform/dynamicUniformBindingInvalid",
+            "unequalScalarSplatFallback":
+                "uniform/dynamicUniformBindingInvalid",
+            "nonUserScalarSplatContributor":
+                "uniform/dynamicUniformBindingInvalid",
+            "extraKeyScalarSplat": "uniform/dynamicUniformBindingInvalid",
             "multipleValueContributors": "uniform/uniformContributorPolicyUnproven",
             "runtimeLoopMetadataOnly": "frontend/shaderFrontendFailed",
             "runtimeLoopDynamicProducer": "frontend/shaderFrontendFailed",

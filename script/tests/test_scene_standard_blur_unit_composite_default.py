@@ -160,6 +160,11 @@ private struct Output: Codable {
     let nonunitDefaultRejected: Bool
     let malformedDefaultRejected: Bool
     let duplicateDeclarationRejected: Bool
+    let stockGaussianScaleConsumer: Bool
+    let wrongGaussianTypeRejected: Bool
+    let gaussianArrayRejected: Bool
+    let missingGaussianDefaultRejected: Bool
+    let unequalGaussianDefaultRejected: Bool
 }
 
 private struct CompilerOutput: Codable {
@@ -196,6 +201,39 @@ private func prepare(_ root: URL, maskReady: Bool = false)
             textureReadiness: [0: true, 1: maskReady, 2: true]
         ) else { return nil }
     return (contract, prepared)
+}
+
+private func prepareGaussian(_ root: URL)
+    -> (SceneShaderContract, SceneShaderPreparedProgram)? {
+    let contracts = SceneShaderContractLoader().load(
+        shaderReferences: ["effects/blur_gaussian"], rootURL: root
+    )
+    guard contracts.count == 1, let contract = contracts.first,
+          contract.diagnostics.isEmpty else { return nil }
+    guard case let .accepted(prepared) =
+        SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: contract,
+            combos: ["KERNEL": 0, "VERTICAL": 0],
+            textureReadiness: [0: true]
+        ) else { return nil }
+    return (contract, prepared)
+}
+
+private func gaussianScaleConsumerEligible(
+    _ value: (SceneShaderContract, SceneShaderPreparedProgram)?
+) -> Bool {
+    guard let (_, prepared) = value,
+          let schema = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+              materialKey: "scale", type: .float2,
+              stage: .vertex, prepared: prepared
+          ), let fallback = schema.defaultValue else { return false }
+    let components = fallback.componentBitPatterns.map {
+        Double(bitPattern: $0)
+    }
+    return schema.materialKeys == ["g_Scale", "scale"]
+        && components.count == 2
+        && components.allSatisfy(\.isFinite)
+        && components[0] == components[1]
 }
 
 private let effectKey = Graph.EffectKey(
@@ -527,7 +565,17 @@ private struct Harness {
             missingDefaultRejected: !eligible(prepare(roots[1])),
             nonunitDefaultRejected: !eligible(prepare(roots[2])),
             malformedDefaultRejected: !eligible(prepare(roots[3])),
-            duplicateDeclarationRejected: !eligible(prepare(roots[4]))
+            duplicateDeclarationRejected: !eligible(prepare(roots[4])),
+            stockGaussianScaleConsumer:
+                gaussianScaleConsumerEligible(prepareGaussian(roots[0])),
+            wrongGaussianTypeRejected:
+                !gaussianScaleConsumerEligible(prepareGaussian(roots[7])),
+            gaussianArrayRejected:
+                !gaussianScaleConsumerEligible(prepareGaussian(roots[8])),
+            missingGaussianDefaultRejected:
+                !gaussianScaleConsumerEligible(prepareGaussian(roots[9])),
+            unequalGaussianDefaultRejected:
+                !gaussianScaleConsumerEligible(prepareGaussian(roots[10]))
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
     }
@@ -566,6 +614,10 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
                 root / "shaders/effects/blur_combine.vert",
             STOCK_ROOT / "effects/blur/shaders/effects/blur_combine.frag":
                 root / "shaders/effects/blur_combine.frag",
+            STOCK_ROOT / "effects/blur/shaders/effects/blur_gaussian.vert":
+                root / "shaders/effects/blur_gaussian.vert",
+            STOCK_ROOT / "effects/blur/shaders/effects/blur_gaussian.frag":
+                root / "shaders/effects/blur_gaussian.frag",
             STOCK_ROOT / "shaders/common_composite.h":
                 root / "shaders/common_composite.h",
             STOCK_ROOT / "shaders/common.h": root / "shaders/common.h",
@@ -576,6 +628,33 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
         if mutation is not None:
+            if mutation.startswith("gaussian-"):
+                vertex = root / "shaders/effects/blur_gaussian.vert"
+                source = vertex.read_text(encoding="utf-8")
+                declaration = "uniform vec2 g_Scale;"
+                self.assertIn(declaration, source)
+                if mutation == "gaussian-type":
+                    source = source.replace(
+                        declaration, "uniform vec3 g_Scale;", 1
+                    )
+                elif mutation == "gaussian-array":
+                    source = source.replace(
+                        declaration, "uniform vec2 g_Scale[2];", 1
+                    )
+                elif mutation == "gaussian-missing-default":
+                    marker = ',"default":"1 1"'
+                    self.assertIn(marker, source)
+                    source = source.replace(marker, "", 1)
+                elif mutation == "gaussian-unequal-default":
+                    marker = '"default":"1 1"'
+                    self.assertIn(marker, source)
+                    source = source.replace(
+                        marker, '"default":"1 0.5"', 1
+                    )
+                else:
+                    raise AssertionError(mutation)
+                vertex.write_text(source, encoding="utf-8")
+                return root
             fragment = root / "shaders/effects/blur_combine.frag"
             if mutation == "wrong-mask-purpose":
                 source = fragment.read_text(encoding="utf-8")
@@ -625,6 +704,14 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
             self.stock_root("duplicate", "duplicate"),
             self.stock_root("wrong-mask-purpose", "wrong-mask-purpose"),
             self.stock_root("mask-green-channel", "mask-green-channel"),
+            self.stock_root("gaussian-type", "gaussian-type"),
+            self.stock_root("gaussian-array", "gaussian-array"),
+            self.stock_root(
+                "gaussian-missing-default", "gaussian-missing-default"
+            ),
+            self.stock_root(
+                "gaussian-unequal-default", "gaussian-unequal-default"
+            ),
         ]
         completed = subprocess.run(
             [str(self.binary), *map(str, roots)], check=True,

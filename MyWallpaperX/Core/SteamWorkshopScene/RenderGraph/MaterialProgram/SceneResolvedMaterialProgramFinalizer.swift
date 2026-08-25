@@ -478,9 +478,12 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                           contributor: contributor,
                           fallback: fallback
                       ),
-                      let encoded = SceneResolvedMaterialUniformEncoder.encode(
+                      let encoded = encodeDynamicUniform(
                           resolved.value,
-                          as: field.type
+                          contributor: contributor,
+                          declaration: dynamic,
+                          schema: schema,
+                          field: field
                       ) else {
                     throw failure(
                         .uniform,
@@ -490,9 +493,12 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 }
                 if resolved.source == .authored {
                     guard let fallback,
-                          SceneResolvedMaterialUniformEncoder.encode(
+                          encodeDynamicFallback(
                               fallback,
-                              as: field.type
+                              contributor: contributor,
+                              declaration: dynamic,
+                              schema: schema,
+                              field: field
                           ) == encoded else {
                         throw failure(
                             .uniform,
@@ -607,6 +613,106 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
              (.sceneScript, .sceneScript): true
         default: false
         }
+    }
+
+    /// Slider properties are scalar producers. A float2 shader consumer with
+    /// an equal-lane typed default may explicitly bind that scalar through the
+    /// direct user/value wrapper. Keep the producer scalar and perform only
+    /// that isotropic consumer projection; all other lane/type/source shapes
+    /// retain the existing exact encoder failure.
+    private static func encodeDynamicUniform(
+        _ value: SceneDynamicValue,
+        contributor: Template.DynamicUniformSource,
+        declaration: Template.DynamicUniform,
+        schema: SceneResolvedMaterialShaderSchema.Uniform,
+        field: SceneAuthoredShaderUniformLayout.Field
+    ) -> Data? {
+        if let exact = SceneResolvedMaterialUniformEncoder.encode(
+            value,
+            as: field.type
+        ) {
+            return exact
+        }
+        guard case let .scalar(component) = value,
+              component.isFinite,
+              scalarSplatEligible(
+                  contributor: contributor,
+                  declaration: declaration,
+                  schema: schema,
+                  field: field
+              ) else {
+            return nil
+        }
+        return SceneResolvedMaterialUniformEncoder.encodeComponents(
+            [component, component],
+            as: field.type
+        )
+    }
+
+    private static func encodeDynamicFallback(
+        _ fallback: Template.StaticUniformValue,
+        contributor: Template.DynamicUniformSource,
+        declaration: Template.DynamicUniform,
+        schema: SceneResolvedMaterialShaderSchema.Uniform,
+        field: SceneAuthoredShaderUniformLayout.Field
+    ) -> Data? {
+        if let exact = SceneResolvedMaterialUniformEncoder.encode(
+            fallback,
+            as: field.type
+        ) {
+            return exact
+        }
+        let components = fallback.componentBitPatterns.map {
+            Double(bitPattern: $0)
+        }
+        guard components.count == 1,
+              let component = components.first,
+              component.isFinite,
+              scalarSplatEligible(
+                  contributor: contributor,
+                  declaration: declaration,
+                  schema: schema,
+                  field: field
+              ) else {
+            return nil
+        }
+        return SceneResolvedMaterialUniformEncoder.encodeComponents(
+            [component, component],
+            as: field.type
+        )
+    }
+
+    private static func scalarSplatEligible(
+        contributor: Template.DynamicUniformSource,
+        declaration: Template.DynamicUniform,
+        schema: SceneResolvedMaterialShaderSchema.Uniform,
+        field: SceneAuthoredShaderUniformLayout.Field
+    ) -> Bool {
+        guard case .userProperty = contributor,
+              field.type == .float2,
+              field.arrayCount == nil,
+              declaration.scriptAttachments.isEmpty,
+              declaration.authoredBindingKeys == ["user", "value"],
+              let fallback = declaration.authoredFallback,
+              fallback.valueKind.localizedLowercase == "binding",
+              fallback.authoredBindingKeys == ["user", "value"],
+              let consumerDefault = schema.defaultValue else {
+            return false
+        }
+        let fallbackComponents = fallback.componentBitPatterns.map {
+            Double(bitPattern: $0)
+        }
+        let fallbackIsScalarOrEqualPair = fallbackComponents.count == 1
+            || (fallbackComponents.count == 2
+                && fallbackComponents[0] == fallbackComponents[1])
+        let defaultComponents = consumerDefault.componentBitPatterns.map {
+            Double(bitPattern: $0)
+        }
+        return fallbackIsScalarOrEqualPair
+            && fallbackComponents.allSatisfy(\.isFinite)
+            && defaultComponents.count == 2
+            && defaultComponents.allSatisfy(\.isFinite)
+            && defaultComponents[0] == defaultComponents[1]
     }
 
     private static func failure(

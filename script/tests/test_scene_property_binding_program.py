@@ -200,6 +200,60 @@ enum Harness {
             definitions: localContrast.program.definitions,
             userValues: localContrastEvaluation.userValues
         ).snapshot
+        let repeatedFloat2Target = SceneDynamicTarget.effectConstant(
+            layerID: 91,
+            effectIndex: 2,
+            passIndex: 1,
+            name: "unseenScale"
+        )
+        let repeatedFloat2 = compiler.compile(
+            report: .init(bindings: [binding(
+                "unseenScaleProperty",
+                .string("0.67 0.67"),
+                91,
+                .shaderValue(
+                    layerID: 91,
+                    effectIndex: 2,
+                    passIndex: 1,
+                    name: "unseenScale",
+                    effectPath: "effects/unseen/effect.json"
+                )
+            )], diagnostics: []),
+            catalog: .init(definitions: [
+                property("unseenScaleProperty", .slider, .number(0.6)),
+            ])
+        )
+        let repeatedFloat2Authored = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 5,
+            generation: 5,
+            definitions: repeatedFloat2.program.definitions
+        ).snapshot
+        let repeatedFloat2Evaluation = repeatedFloat2.program.evaluate(
+            effectiveValues: ["unseenScaleProperty": .number(0.4)]
+        )
+        let repeatedFloat2User = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 6,
+            generation: 6,
+            definitions: repeatedFloat2.program.definitions,
+            userValues: repeatedFloat2Evaluation.userValues
+        ).snapshot
+        let unequalFloat2 = compiler.compile(
+            report: .init(bindings: [binding(
+                "unequalScaleProperty",
+                .string("0.67 0.68"),
+                92,
+                .shaderValue(
+                    layerID: 92,
+                    effectIndex: 2,
+                    passIndex: 1,
+                    name: "unseenScale",
+                    effectPath: "effects/unseen/effect.json"
+                )
+            )], diagnostics: []),
+            catalog: .init(definitions: [
+                property("unequalScaleProperty", .slider, .number(0.6)),
+            ])
+        )
         let audioBarsColorTarget = SceneDynamicTarget.effectConstant(
             layerID: 64,
             effectIndex: 0,
@@ -635,6 +689,16 @@ enum Harness {
             "localContrastAuthored": resolved(localContrastAuthored[localContrastTarget]),
             "localContrastUser": resolved(localContrastUser[localContrastTarget]),
             "localContrastRuntimeCodes": codes(localContrastEvaluation.diagnostics),
+            "repeatedFloat2Count": repeatedFloat2.program.instructions.count,
+            "repeatedFloat2Target":
+                repeatedFloat2.program.instructions.first?.target == repeatedFloat2Target,
+            "repeatedFloat2Codes": codes(repeatedFloat2.diagnostics),
+            "repeatedFloat2Authored":
+                resolved(repeatedFloat2Authored[repeatedFloat2Target]),
+            "repeatedFloat2User": resolved(repeatedFloat2User[repeatedFloat2Target]),
+            "repeatedFloat2RuntimeCodes": codes(repeatedFloat2Evaluation.diagnostics),
+            "unequalFloat2Count": unequalFloat2.program.instructions.count,
+            "unequalFloat2Codes": codes(unequalFloat2.diagnostics),
             "audioBarsColorCount": audioBarsColor.program.instructions.count,
             "audioBarsColorTarget":
                 audioBarsColor.program.instructions.first?.target == audioBarsColorTarget,
@@ -977,6 +1041,25 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
             ["scalar(0.75)", "userProperty"],
         )
         self.assertEqual(self.result["localContrastRuntimeCodes"], [])
+
+    def test_repeated_float2_shader_fallback_preserves_scalar_slider_producer(self) -> None:
+        self.assertEqual(self.result["repeatedFloat2Count"], 1)
+        self.assertTrue(self.result["repeatedFloat2Target"])
+        self.assertEqual(self.result["repeatedFloat2Codes"], [])
+        self.assertEqual(
+            self.result["repeatedFloat2Authored"],
+            ["scalar(0.67)", "authored"],
+        )
+        self.assertEqual(
+            self.result["repeatedFloat2User"],
+            ["scalar(0.4)", "userProperty"],
+        )
+        self.assertEqual(self.result["repeatedFloat2RuntimeCodes"], [])
+        self.assertEqual(self.result["unequalFloat2Count"], 0)
+        self.assertEqual(
+            self.result["unequalFloat2Codes"],
+            ["authoredTypeMismatch"],
+        )
 
     def test_simple_audio_bars_color_compiles_as_live_vector_target(self) -> None:
         self.assertEqual(self.result["audioBarsColorCount"], 1)

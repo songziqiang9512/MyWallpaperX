@@ -68,8 +68,15 @@ extension SceneAuthoredStandardBlurPlanner {
         )
         guard case .accepted = result,
               let effect = input.stageGraph.effects.first,
-              let terminalNodeIndex = effect.nodeIndices.last,
-              SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
+              let terminalNodeIndex = effect.nodeIndices.last else { return result }
+        let revocationDetail =
+            SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
+                .dedicatedRevocationDetail(
+                    graph: input.stageGraph,
+                    descriptor: input.descriptor
+                )
+        let sourceAccepted =
+            SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                 .acceptsDedicatedRevocation(
                     key: .init(
                         effect: effect.key,
@@ -79,12 +86,13 @@ extension SceneAuthoredStandardBlurPlanner {
                     descriptor: input.descriptor,
                     inputRole: input.inputRole,
                     shaderContracts: input.shaderContracts
-                ) else { return result }
+                )
+        guard sourceAccepted, let revocationDetail else { return result }
         return .rejected(.init(
             backend: .standardBlur,
             phase: .compatibility,
             code: .dedicatedProfileRejected,
-            details: ["static-owner-revoked-to-material-program"]
+            details: [revocationDetail]
         ))
     }
 }

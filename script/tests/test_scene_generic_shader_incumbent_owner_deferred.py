@@ -679,16 +679,41 @@ fragment float4 mwxGenericFragment(
         )
         owner_gate = owner_admission[owner_admission.index("static func accepts("):]
         self.assertIn("SceneAuthoredStandardBlurPlanner.plan(", owner_gate)
+        self.assertIn("case nil = layer.utilityLayer", owner_gate)
         self.assertNotIn("blur.maskTexturePath == nil", owner_gate)
         self.assertIn("SceneAuthoredEffectInputValidator.role(", owner_gate)
-        self.assertIn('scale.valueKind.localizedLowercase != "binding"', owner_gate)
-        self.assertIn("scale.userBinding == nil", owner_gate)
+        self.assertIn("wholeStageScaleCohort(", owner_gate)
+        self.assertIn(".userPropertyScalarSplat", owner_gate)
+        self.assertIn('scale.bindingKeys == ["user", "value"]', owner_gate)
+        self.assertIn("components.count == 1 || components.count == 2", owner_gate)
+        self.assertIn("components.count == 1 || components[0] == components[1]", owner_gate)
+        self.assertIn(
+            '"typed-user-scalar-splat-owner-revoked-to-material-program"',
+            owner_gate,
+        )
         revocation_gate = owner_admission[
             owner_admission.index("static func acceptsDedicatedRevocation("):
         ]
         self.assertIn("shaderContracts: [SceneShaderContract]", revocation_gate)
         self.assertIn("SceneResolvedMaterialTemplateCompiler.compile(", revocation_gate)
         self.assertIn("SceneAuthoredShaderPreparation.prepareShaderStages(", revocation_gate)
+        self.assertIn("template.textureSlots.indices.contains(slot)", revocation_gate)
+        self.assertIn("template.textureSlots[slot] != nil", revocation_gate)
+        self.assertNotIn("($0, true)", revocation_gate)
+        self.assertIn("userPropertyScalarSplatConsumersAdmit(", revocation_gate)
+        self.assertIn("[1, 2].allSatisfy", revocation_gate)
+        self.assertIn(
+            "dynamic.valueContributors == [.userProperty(propertyKey)]",
+            revocation_gate,
+        )
+        self.assertIn('dynamic.authoredBindingKeys == ["user", "value"]', revocation_gate)
+        self.assertIn('materialKey: "scale"', revocation_gate)
+        self.assertIn("type: .float2", revocation_gate)
+        self.assertIn("stage: .vertex", revocation_gate)
+        self.assertIn("defaultComponents.count == 2", revocation_gate)
+        self.assertIn(
+            "defaultComponents[0] == defaultComponents[1]", revocation_gate
+        )
         self.assertIn(
             "SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.slots(",
             revocation_gate,
@@ -709,10 +734,9 @@ fragment float4 mwxGenericFragment(
             "acceptsDedicatedRevocation(",
             standard_compiler,
         )
+        self.assertIn("dedicatedRevocationDetail(", standard_compiler)
         self.assertNotIn(".accepts(\n", standard_compiler)
-        self.assertIn(
-            '"static-owner-revoked-to-material-program"', standard_compiler
-        )
+        self.assertIn("details: [revocationDetail]", standard_compiler)
 
 
 if __name__ == "__main__":

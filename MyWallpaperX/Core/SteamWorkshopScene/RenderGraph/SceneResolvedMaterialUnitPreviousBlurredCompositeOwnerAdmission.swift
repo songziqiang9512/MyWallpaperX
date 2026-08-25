@@ -6,6 +6,12 @@ import Foundation
 /// shape are inside the independently verified cohort.
 nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission {
     typealias Graph = SceneAuthoredEffectRenderPlan
+    typealias Template = SceneResolvedMaterialTemplate
+
+    private enum ScaleCohort: Equatable {
+        case staticExact
+        case userPropertyScalarSplat(String)
+    }
 
     static func accepts(
         key: SceneResolvedMaterialRuntimeCatalog.Key,
@@ -16,6 +22,9 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         guard graph.effects.count == 1,
               graph.effects[0].key == key.effect,
               graph.effects[0].nodeIndices.last == key.nodeIndex,
+              let layer = descriptor.layers.first(where: {
+                  $0.id == graph.layerID
+              }), case nil = layer.utilityLayer,
               let inputRole = SceneAuthoredEffectInputValidator.role(
                   for: graph.effects[0].input,
                   layerID: graph.layerID
@@ -25,19 +34,20 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                   descriptor: descriptor,
                   inputRole: inputRole
               ), stage.standardBlur != nil else { return false }
-        return [1, 2].allSatisfy { ordinal in
-            let resolution = SceneAuthoredMaterialResolver.resolve(
-                node: graph.nodes[ordinal], graph: graph, descriptor: descriptor
-            )
-            guard resolution.isResolved,
-                  let material = resolution.node,
-                  material.constants.count == 1,
-                  let scale = material.constants.first?.value else { return false }
-            return scale.valueKind.localizedLowercase != "binding"
-                && scale.userBinding == nil
-                && scale.timeline == nil
-                && scale.timelineDiagnostics.isEmpty
-                && scale.scriptSource == nil
+        return wholeStageScaleCohort(graph: graph, descriptor: descriptor) != nil
+    }
+
+    static func dedicatedRevocationDetail(
+        graph: Graph,
+        descriptor: SceneRenderDescriptor
+    ) -> String? {
+        switch wholeStageScaleCohort(graph: graph, descriptor: descriptor) {
+        case .staticExact?:
+            "static-owner-revoked-to-material-program"
+        case .userPropertyScalarSplat?:
+            "typed-user-scalar-splat-owner-revoked-to-material-program"
+        case nil:
+            nil
         }
     }
 
@@ -57,11 +67,24 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
             graph: graph,
             descriptor: descriptor,
             inputRole: inputRole
+        ), let scaleCohort = wholeStageScaleCohort(
+            graph: graph,
+            descriptor: descriptor
         ), let effect = graph.effects.first,
            let terminalNodeIndex = effect.nodeIndices.last,
            let terminalNode = graph.nodes.first(where: {
                $0.nodeIndex == terminalNodeIndex
            }) else { return false }
+
+        if case let .userPropertyScalarSplat(propertyKey) = scaleCohort {
+            guard userPropertyScalarSplatConsumersAdmit(
+                propertyKey: propertyKey,
+                effect: effect,
+                graph: graph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts
+            ) else { return false }
+        }
 
         let resolution = SceneAuthoredMaterialResolver.resolve(
             node: terminalNode,
@@ -77,18 +100,12 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         guard contracts.count == 1, let contract = contracts.first else {
             return false
         }
-        var inheritedInactiveCombos = Set<String>()
-        for node in graph.nodes where node.effect == effect.key {
-            let nodeResolution = SceneAuthoredMaterialResolver.resolve(
-                node: node,
-                graph: graph,
-                descriptor: descriptor
-            )
-            guard nodeResolution.isResolved,
-                  let resolvedNode = nodeResolution.node else { return false }
-            inheritedInactiveCombos.formUnion(resolvedNode.combos.keys)
-        }
-        inheritedInactiveCombos.subtract(material.combos.keys)
+        guard let inheritedInactiveCombos = inheritedInactiveCombos(
+            effect: effect,
+            material: material,
+            graph: graph,
+            descriptor: descriptor
+        ) else { return false }
         guard case let .success(template) =
                 SceneResolvedMaterialTemplateCompiler.compile(
                     material: material,
@@ -98,9 +115,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                     unitPreviousBlurredCompositeGenericOwnerEligible: true
                 ) else { return false }
 
-        let readiness = Dictionary(uniqueKeysWithValues: (0 ..< 8).map {
-            ($0, true)
-        })
+        let readiness = textureReadiness(template)
         let prepared: SceneShaderPreparedProgram
         switch SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: contract,
@@ -149,14 +164,179 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                     template: template,
                     implicitFramebufferIdentity: effect.input,
                     activeGraphTextureIdentities: graphIdentities
-                ), case let .straightAlphaPreserving(sourceSlot) =
-                    SceneAuthoredShaderColorTransferAnalyzer.analyze(
-                        fragmentSource: compilerSources.fragment
-                    ), sourceSlot == slots.blurred else { return false }
+                ) else { return false }
+        guard case let .straightAlphaPreserving(sourceSlot) =
+                SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                    fragmentSource: compilerSources.fragment
+                ), sourceSlot == slots.blurred else {
+            return false
+        }
         return true
+    }
+
+    /// Dynamic scalar projection may revoke the incumbent only after both
+    /// Gaussian consumers prove the same exact producer wrapper and an active,
+    /// non-array float2 vertex ABI with an isotropic typed default.
+    private static func userPropertyScalarSplatConsumersAdmit(
+        propertyKey: String,
+        effect: Graph.Effect,
+        graph: Graph,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract]
+    ) -> Bool {
+        [1, 2].allSatisfy { ordinal in
+            guard graph.nodes.indices.contains(ordinal) else { return false }
+            let resolution = SceneAuthoredMaterialResolver.resolve(
+                node: graph.nodes[ordinal],
+                graph: graph,
+                descriptor: descriptor
+            )
+            guard resolution.isResolved, let material = resolution.node else {
+                return false
+            }
+            let contracts = shaderContracts.filter {
+                normalized($0.identity) == normalized(material.shaderPath)
+            }
+            guard contracts.count == 1, let contract = contracts.first,
+                  let inheritedInactiveCombos = inheritedInactiveCombos(
+                      effect: effect,
+                      material: material,
+                      graph: graph,
+                      descriptor: descriptor
+                  ), case let .success(template) =
+                    SceneResolvedMaterialTemplateCompiler.compile(
+                        material: material,
+                        graph: graph,
+                        shaderContract: contract,
+                        inheritedInactiveCombos: inheritedInactiveCombos
+                    ) else { return false }
+
+            let scaleDeclarations = template.uniformDeclarations.filter {
+                $0.name == "scale"
+            }
+            guard scaleDeclarations.count == 1,
+                  case let .dynamic(dynamic) = scaleDeclarations[0].value,
+                  dynamic.valueContributors == [.userProperty(propertyKey)],
+                  dynamic.scriptAttachments.isEmpty,
+                  dynamic.authoredBindingKeys == ["user", "value"],
+                  let fallback = dynamic.authoredFallback,
+                  fallback.valueKind.localizedLowercase == "binding",
+                  fallback.authoredBindingKeys == ["user", "value"] else {
+                return false
+            }
+            let fallbackComponents = fallback.componentBitPatterns.map {
+                Double(bitPattern: $0)
+            }
+            guard scalarOrEqualPair(fallbackComponents) else { return false }
+
+            let prepared: SceneShaderPreparedProgram
+            switch SceneAuthoredShaderPreparation.prepareShaderStages(
+                contract: contract,
+                combos: template.comboValues,
+                inactiveComboProviders: Set(template.inheritedInactiveCombos),
+                textureReadiness: textureReadiness(template)
+            ) {
+            case let .accepted(value): prepared = value
+            case .notApplicable, .rejected: return false
+            }
+            guard let schema =
+                    SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+                        materialKey: "scale",
+                        type: .float2,
+                        stage: .vertex,
+                        prepared: prepared
+                    ), let consumerDefault = schema.defaultValue else {
+                return false
+            }
+            let defaultComponents = consumerDefault.componentBitPatterns.map {
+                Double(bitPattern: $0)
+            }
+            return defaultComponents.count == 2
+                && defaultComponents.allSatisfy(\.isFinite)
+                && defaultComponents[0] == defaultComponents[1]
+        }
+    }
+
+    private static func inheritedInactiveCombos(
+        effect: Graph.Effect,
+        material: SceneResolvedMaterialNode,
+        graph: Graph,
+        descriptor: SceneRenderDescriptor
+    ) -> Set<String>? {
+        var values = Set<String>()
+        for node in graph.nodes where node.effect == effect.key {
+            let resolution = SceneAuthoredMaterialResolver.resolve(
+                node: node,
+                graph: graph,
+                descriptor: descriptor
+            )
+            guard resolution.isResolved,
+                  let resolvedNode = resolution.node else { return nil }
+            values.formUnion(resolvedNode.combos.keys)
+        }
+        values.subtract(material.combos.keys)
+        return values
+    }
+
+    private static func textureReadiness(_ template: Template) -> [Int: Bool] {
+        Dictionary(uniqueKeysWithValues: (0 ..< 8).map { slot in
+            (
+                slot,
+                template.textureSlots.indices.contains(slot)
+                    && template.textureSlots[slot] != nil
+            )
+        })
+    }
+
+    private static func scalarOrEqualPair(_ components: [Double]) -> Bool {
+        components.allSatisfy(\.isFinite)
+            && (components.count == 1
+                || (components.count == 2 && components[0] == components[1]))
     }
 
     private static func normalized(_ path: String) -> String {
         path.replacingOccurrences(of: "\\", with: "/").lowercased()
+    }
+
+    private static func wholeStageScaleCohort(
+        graph: Graph,
+        descriptor: SceneRenderDescriptor
+    ) -> ScaleCohort? {
+        let cohorts = [1, 2].compactMap { ordinal -> ScaleCohort? in
+            guard graph.nodes.indices.contains(ordinal) else { return nil }
+            let resolution = SceneAuthoredMaterialResolver.resolve(
+                node: graph.nodes[ordinal], graph: graph, descriptor: descriptor
+            )
+            guard resolution.isResolved,
+                  let material = resolution.node,
+                  material.constants.count == 1,
+                  let scale = material.constants.first?.value else { return nil }
+            return scaleCohort(scale)
+        }
+        guard cohorts.count == 2, cohorts[0] == cohorts[1] else { return nil }
+        return cohorts[0]
+    }
+
+    private static func scaleCohort(
+        _ scale: SceneDocument.ShaderValue
+    ) -> ScaleCohort? {
+        guard scale.timeline == nil,
+              scale.timelineDiagnostics.isEmpty,
+              scale.scriptSource == nil else { return nil }
+        guard scale.valueKind.localizedLowercase == "binding" else {
+            return scale.userBinding == nil ? .staticExact : nil
+        }
+        guard let key = scale.userBinding,
+              !key.isEmpty,
+              key == key.trimmingCharacters(in: .whitespacesAndNewlines),
+              scale.userValueKind == .string,
+              scale.bindingKeys == ["user", "value"],
+              let components = scale.components,
+              components.count == 1 || components.count == 2,
+              components.allSatisfy(\.isFinite),
+              components.count == 1 || components[0] == components[1] else {
+            return nil
+        }
+        return .userPropertyScalarSplat(key)
     }
 }
