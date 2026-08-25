@@ -34,6 +34,12 @@ extension SceneGenericShaderArtifactBuilder {
                         sampleCount: fact.sampleCount
                     )
             }
+            let scalarAlphaLowering: String? = SceneAuthoredShaderColorTransferAnalyzer
+                .straightRGBScalarAlphaFact(fragmentSource: authoredSource)
+                .flatMap { fact in
+                    guard fact.sourceSlot == expectedSlot else { return nil }
+                    return lowerStraightRGBScalarAlpha(source, fact: fact)
+                }
             let requiresStraightColorBoundary =
                 SceneAuthoredShaderColorTransferAnalyzer
                     .singleSamplerAlphaMutationSourceSlot(
@@ -44,6 +50,7 @@ extension SceneGenericShaderArtifactBuilder {
                 requiresStraightColorBoundary: requiresStraightColorBoundary
             )
             let lowered = weightedLowering
+                ?? scalarAlphaLowering
                 ?? (direct?.transfer.slot == expectedSlot ? direct?.msl : nil)
                 ?? SceneGenericShaderStraightAlphaPreservingLowering
                     .lowerConditionalUnion(source, expectedSlot: expectedSlot)
@@ -381,6 +388,111 @@ extension SceneGenericShaderArtifactBuilder {
                 slots: nil
             )
         )
+    }
+
+    /// Conserves the source-proven straight-RGB/scalar-alpha shape through
+    /// SPIRV-Cross without treating auxiliary data textures as color. The
+    /// authored analyzer owns the semantic proof; this only verifies the
+    /// corresponding compiler shape before inserting compositor boundaries.
+    static func lowerStraightRGBScalarAlpha(
+        _ source: String,
+        fact: SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.Fact
+    ) -> String? {
+        guard !containsWord("mwxGenericUnpremultiply", in: source),
+              !containsWord("mwxGenericPremultiply", in: source),
+              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
+        else { return nil }
+
+        let expectedSlots = fact.auxiliarySlots.union([fact.sourceSlot])
+        let sampleCalls = matches(#"\bg_Texture([0-7])\.sample\("#, in: source)
+        let sampledSlots = sampleCalls.compactMap {
+            capture($0, 1, in: source).flatMap(Int.init)
+        }
+        guard sampledSlots.count == sampleCalls.count,
+              sampledSlots.count == expectedSlots.count,
+              Set(sampledSlots) == expectedSlots,
+              Set(sampledSlots).allSatisfy({ slot in
+                  sampledSlots.filter({ $0 == slot }).count == 1
+              }) else { return nil }
+
+        let carrierDeclarations = matches(
+            #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
+                + String(fact.sourceSlot)
+                + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
+            in: source
+        )
+        guard carrierDeclarations.count == 1,
+              let carrierDeclaration = carrierDeclarations.first,
+              let carrier = capture(carrierDeclaration, 2, in: source)
+        else { return nil }
+
+        let aliases = matches(
+            #"(?m)^[ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*"#
+                + escaped(carrier) + #"\s*;[ \t]*$"#,
+            in: source
+        )
+        guard aliases.count == 1,
+              let alias = aliases.first,
+              let color = capture(alias, 1, in: source),
+              color != carrier else { return nil }
+
+        let alphaWrites = matches(
+            #"(?m)^[ \t]*"# + escaped(color)
+                + #"\.w\s*\*=\s*([^;]+)\s*;[ \t]*$"#,
+            in: source
+        )
+        let colorWrites = matches(
+            #"(?m)^[ \t]*"# + escaped(color)
+                + #"(?:\.([xyzwrgba]{1,4}))?\s*(?:[+\-*/]?=)"#,
+            in: source
+        )
+        guard alphaWrites.count == 1,
+              colorWrites.count == 1,
+              capture(colorWrites[0], 1, in: source) == "w",
+              let alphaWrite = alphaWrites.first,
+              let factor = capture(alphaWrite, 1, in: source),
+              !containsWord(color, in: factor) else { return nil }
+
+        let outputPatterns = [
+            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*float3\(\s*0(?:\.0+)?\s*\)\s*,\s*([A-Za-z_]\w*)\.xyz\s*\)\s*,\s*([A-Za-z_]\w*)\.w\s*\))\s*;[ \t]*$"#,
+            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*([A-Za-z_]\w*)\.xyz\s*,\s*float3\(\s*0(?:\.0+)?\s*\)\s*\)\s*,\s*([A-Za-z_]\w*)\.w\s*\))\s*;[ \t]*$"#,
+        ]
+        let outputs = outputPatterns.flatMap { matches($0, in: source) }
+        let returns = matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source)
+        guard outputs.count == 1,
+              returns.count == 1,
+              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              let output = outputs.first,
+              let outputRange = Range(output.range, in: source),
+              let indent = capture(output, 1, in: source),
+              let outputValue = capture(output, 2, in: source),
+              capture(output, 3, in: source) == color,
+              capture(output, 4, in: source) == color,
+              countWord(carrier, in: source) == 2,
+              countWord(color, in: source) == 4,
+              carrierDeclaration.range.location < alias.range.location,
+              alias.range.location < alphaWrite.range.location,
+              alphaWrite.range.location < output.range.location,
+              output.range.location < returns[0].range.location,
+              sampleCalls.allSatisfy({ $0.range.location < output.range.location })
+        else { return nil }
+
+        var transformed = source
+        transformed.replaceSubrange(
+            outputRange,
+            with: "\(indent)out.mwxFragColor = mwxGenericPremultiply(\(outputValue));"
+        )
+        guard let prefix = capture(carrierDeclaration, 1, in: source),
+              let arguments = capture(carrierDeclaration, 3, in: source),
+              let suffix = capture(carrierDeclaration, 4, in: source),
+              let adjustedCarrierRange = Range(carrierDeclaration.range, in: transformed)
+        else { return nil }
+        transformed.replaceSubrange(
+            adjustedCarrierRange,
+            with: "\(prefix)mwxGenericUnpremultiply(g_Texture\(fact.sourceSlot).sample(\(arguments)))\(suffix)"
+        )
+        return SceneGenericShaderStraightAlphaPreservingLowering
+            .insertingBoundaryHelpers(into: transformed)
     }
 
     static func premultipliedAccumulator(_ source: String, assignment: String) -> Bool {

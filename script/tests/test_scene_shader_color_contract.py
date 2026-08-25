@@ -166,6 +166,15 @@ private func fragmentOutputUse(source: String) -> String {
     return SceneAuthoredShaderFragmentOutputAnalyzer.analyze(fragment).rawValue
 }
 
+private func scalarAlphaFact(_ body: String) -> String {
+    guard let fact = SceneAuthoredShaderColorTransferAnalyzer
+        .straightRGBScalarAlphaFact(fragmentSource: fragment(body)) else {
+        return "unresolved"
+    }
+    return "source:\(fact.sourceSlot);aux:" + fact.auxiliarySlots.sorted()
+        .map(String.init).joined(separator: ",")
+}
+
 private func metal(
     _ body: String,
     helpers: String = "",
@@ -346,6 +355,17 @@ enum Harness {
                 "sin(g_ScalarWeight + phase) * 0.5 + 0.5); " +
                 "float noise = texSample2D(g_Texture1, " +
                 "vec2(g_ScalarWeight * 0.08, g_ScalarWeight * 0.03)).r * 0.5; " +
+                "pulse += noise; pulse = pow(pulse, 1.0); " +
+                "color.a *= pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaFact": scalarAlphaFact(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "float phase = texSample2D(g_Texture3, v_TexCoord).r * 6.0; " +
+                "pulse = smoothstep(0.0, 1.0, " +
+                "sin(g_ScalarWeight + phase) * 0.5 + 0.5); " +
+                "float noise = texSample2D(g_Texture1, v_TexCoord).r * 0.5; " +
                 "pulse += noise; pulse = pow(pulse, 1.0); " +
                 "color.a *= pulse; " +
                 "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
@@ -1489,6 +1509,9 @@ class SceneShaderColorContractTests(unittest.TestCase):
 
     def test_scalar_auxiliaries_can_only_modulate_sampled_alpha(self) -> None:
         self.assertEqual(self.result["straightRGBScalarAlpha"], "straight-slot:0")
+        self.assertEqual(
+            self.result["straightRGBScalarAlphaFact"], "source:0;aux:1,3"
+        )
         source = self.result["straightRGBScalarAlphaMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertNotIn("mwxUnpremultiply(mwxTexture1.sample", source)

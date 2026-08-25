@@ -7,11 +7,16 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
 
+    struct Fact: Equatable {
+        let sourceSlot: Int
+        let auxiliarySlots: Set<Int>
+    }
+
     static func analyze(
         outputUses: [Int],
         fragment: Unit,
         main: Unit.Function
-    ) -> Int? {
+    ) -> Fact? {
         let tokens = fragment.tokens
         guard outputUses.count == 1,
               let output = outputUses.first,
@@ -113,7 +118,10 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
         let body = tokens[main.bodyRange]
         return body.filter({ $0.text == sourceName }).count == 2
             && body.filter({ $0.text == colorName }).count == 4
-            ? colorSlot : nil
+            ? Fact(
+                sourceSlot: colorSlot,
+                auxiliarySlots: Set(auxiliarySlots)
+            ) : nil
     }
 
     private static func vectorDeclaration(

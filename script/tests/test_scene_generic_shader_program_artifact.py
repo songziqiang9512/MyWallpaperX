@@ -162,6 +162,19 @@ private struct StraightAttenuationBuilderOutput: Codable {
     let rgbWriteRejected: Bool
 }
 
+private struct StraightRGBScalarAlphaBuilderOutput: Codable {
+    let analyzedTransfer: String
+    let positiveKind: String?
+    let positiveSlot: Int?
+    let sourceSampleUnpremultiplied: Bool
+    let auxiliarySamplePreserved: Bool
+    let outputPremultiplied: Bool
+    let missingAuxiliaryRejected: Bool
+    let duplicateAuxiliaryRejected: Bool
+    let rgbWriteRejected: Bool
+    let outputShapeRejected: Bool
+}
+
 private struct StraightOutputBuilderOutput: Codable {
     let analyzedTransfer: String
     let positiveKind: String?
@@ -1898,6 +1911,129 @@ private struct GenericShaderArtifactHarness {
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
         }
+        if CommandLine.arguments[1] == "--builder-straight-rgb-scalar-alpha" {
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxTexture0Transform0","type":"vec4","offset":0},{"name":"mwxTexture0Transform1","type":"vec4","offset":16},{"name":"mwxTexture1Transform0","type":"vec4","offset":32},{"name":"mwxTexture1Transform1","type":"vec4","offset":48}]}},"ubos":[{"type":"_1","block_size":64,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture1Transform0; float4 mwxTexture1Transform1; };"
+            let fragmentMSL = [
+                "#include <metal_stdlib>",
+                "using namespace metal;",
+                "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture1Transform0; float4 mwxTexture1Transform1; };",
+                "struct Output { float4 mwxFragColor [[color(0)]]; };",
+                "fragment Output f() {",
+                "    Output out;",
+                "    float4 mwx_sample = g_Texture0.sample(sourceSampler, uv);",
+                "    float4 albedo = mwx_sample;",
+                "    float pulse = 0.0;",
+                "    pulse = smoothstep(low, high, sin(time) * 0.5 + 0.5) * amount;",
+                "    float noise = g_Texture1.sample(noiseSampler, noiseUV).x * noiseAmount;",
+                "    pulse += noise;",
+                "    pulse = powr(pulse, power);",
+                "    albedo.w *= pulse;",
+                "    out.mwxFragColor = float4(fast::max(float3(0.0), albedo.xyz), albedo.w);",
+                "    return out;",
+                "}",
+            ].joined(separator: "\n")
+            let authored = [
+                "uniform sampler2D g_Texture0;",
+                "uniform sampler2D g_Texture1;",
+                "uniform float g_Time;",
+                "uniform float g_PulseSpeed;",
+                "uniform float g_PulsePhase;",
+                "uniform float g_PulseAmount;",
+                "uniform vec2 g_PulseThresholds;",
+                "uniform float g_NoiseSpeed;",
+                "uniform float g_NoiseAmount;",
+                "uniform float g_Power;",
+                "varying vec4 v_TexCoord;",
+                "void main() {",
+                "    vec4 sample = texSample2D(g_Texture0, v_TexCoord.xy);",
+                "    vec4 albedo = sample;",
+                "    float pulse = 0.0;",
+                "    pulse = smoothstep(g_PulseThresholds.x, g_PulseThresholds.y, sin(g_Time * g_PulseSpeed + g_PulsePhase) * 0.5 + 0.5) * g_PulseAmount;",
+                "    float noise = texSample2D(g_Texture1, vec2(g_Time, g_Time * 0.333) * g_NoiseSpeed).r * g_NoiseAmount;",
+                "    pulse += noise;",
+                "    pulse = pow(pulse, g_Power);",
+                "    albedo.a *= pulse;",
+                "    gl_FragColor = vec4(max(CAST3(0), albedo.rgb), albedo.a);",
+                "}",
+            ].joined(separator: "\n")
+            func build(_ msl: String) -> Result<
+                SceneGenericShaderProgramArtifact,
+                SceneGenericShaderArtifactBuilder.Failure
+            > {
+                SceneGenericShaderArtifactBuilder.build(
+                    requestKey: String(repeating: "9", count: 64),
+                    backendID: "glslang-spirv-cross-msl-v2",
+                    stages: [
+                        .init(
+                            name: "vertex", source: "void main() {}",
+                            authoredSource: "void main() {}",
+                            msl: vertexMSL, reflection: reflection
+                        ),
+                        .init(
+                            name: "fragment", source: authored,
+                            authoredSource: authored,
+                            msl: msl, reflection: reflection
+                        ),
+                    ],
+                    maximumArtifactBytes: 1_024_000
+                )
+            }
+            let positive: SceneGenericShaderProgramArtifact?
+            switch build(fragmentMSL) {
+            case let .success(artifact): positive = artifact
+            case .failure: positive = nil
+            }
+            let metal = positive?.program.metalSource ?? ""
+            let output = StraightRGBScalarAlphaBuilderOutput(
+                analyzedTransfer: colorTransferName(
+                    SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                        fragmentSource: authored
+                    )
+                ),
+                positiveKind: positive?.program.colorTransfer.kind,
+                positiveSlot: positive?.program.colorTransfer.slot,
+                sourceSampleUnpremultiplied: metal.contains(
+                    "float4 mwx_sample = mwxGenericUnpremultiply("
+                        + "g_Texture0.sample(sourceSampler, uv));"
+                ),
+                auxiliarySamplePreserved: metal.contains(
+                    "float noise = g_Texture1.sample(noiseSampler, noiseUV).x * noiseAmount;"
+                ) && !metal.contains(
+                    "mwxGenericUnpremultiply(g_Texture1.sample"
+                ),
+                outputPremultiplied: metal.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply("
+                        + "float4(fast::max(float3(0.0), albedo.xyz), albedo.w));"
+                ),
+                missingAuxiliaryRejected: failedColorTransfer(build(
+                    fragmentMSL.replacingOccurrences(
+                        of: "    float noise = g_Texture1.sample(noiseSampler, noiseUV).x * noiseAmount;",
+                        with: "    float noise = noiseAmount;"
+                    )
+                )),
+                duplicateAuxiliaryRejected: failedColorTransfer(build(
+                    fragmentMSL.replacingOccurrences(
+                        of: "    pulse += noise;",
+                        with: "    float extra = g_Texture1.sample(noiseSampler, uv).x;\n    pulse += noise + extra;"
+                    )
+                )),
+                rgbWriteRejected: failedColorTransfer(build(
+                    fragmentMSL.replacingOccurrences(
+                        of: "    albedo.w *= pulse;",
+                        with: "    albedo.xyz *= pulse;\n    albedo.w *= pulse;"
+                    )
+                )),
+                outputShapeRejected: failedColorTransfer(build(
+                    fragmentMSL.replacingOccurrences(
+                        of: "float4(fast::max(float3(0.0), albedo.xyz), albedo.w)",
+                        with: "float4(albedo.xyz, albedo.w)"
+                    )
+                ))
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
         if CommandLine.arguments[1] == "--builder-straight-output" {
             let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxRenderSize","type":"vec2","offset":0},{"name":"mwxTexture0Transform0","type":"vec4","offset":16},{"name":"mwxTexture0Transform1","type":"vec4","offset":32}]}},"ubos":[{"type":"_1","block_size":48,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
             let vertexMSL = "struct MWXUniforms { float2 mwxRenderSize; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };"
@@ -2169,6 +2305,10 @@ private struct GenericShaderArtifactHarness {
             ),
             graphInputTextureSlots: Set(
                 (ProcessInfo.processInfo.environment["MWX_TEST_GRAPH_INPUT_SLOTS"] ?? "")
+                    .split(separator: ",").compactMap { Int($0) }
+            ),
+            activeTextureSlots: Set(
+                (ProcessInfo.processInfo.environment["MWX_TEST_ACTIVE_SLOTS"] ?? "")
                     .split(separator: ",").compactMap { Int($0) }
             ),
             typedStaticDataAuxiliarySlots: Set(
@@ -2767,6 +2907,27 @@ void main() {
 }
 """
 
+STRAIGHT_RGB_SCALAR_ALPHA_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform float g_Time;
+uniform float g_NoiseAmount;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 sampled = texSample2D(g_Texture0, v_TexCoord);
+    vec4 color = sampled;
+    float pulse = 0.0;
+    float noise = texSample2D(
+        g_Texture1, vec2(g_Time * 0.08, g_Time * 0.03)
+    ).r * g_NoiseAmount;
+    pulse = smoothstep(0.0, 1.0, sin(g_Time) * 0.5 + 0.5);
+    pulse += noise;
+    pulse = pow(pulse, 1.0);
+    color.a *= pulse;
+    gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);
+}
+"""
+
 PREMULTIPLIED_FRAGMENT = """
 uniform float g_Weight;
 vec3 ApplyBlending(
@@ -2876,6 +3037,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         source_independent_premultiplied_output: bool = False,
         graph_slots: tuple[int, ...] = (),
         graph_input_slots: tuple[int, ...] = (),
+        active_slots: tuple[int, ...] = (),
         typed_static_data_auxiliary_slots: tuple[int, ...] = (),
         spatial_weighted_source_slot: int | None = None,
         spatial_weighted_active_slots: tuple[int, ...] = (),
@@ -2943,6 +3105,12 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             )
         else:
             environment.pop("MWX_TEST_GRAPH_INPUT_SLOTS", None)
+        if active_slots:
+            environment["MWX_TEST_ACTIVE_SLOTS"] = ",".join(
+                map(str, active_slots)
+            )
+        else:
+            environment.pop("MWX_TEST_ACTIVE_SLOTS", None)
         if typed_static_data_auxiliary_slots:
             environment["MWX_TEST_TYPED_STATIC_DATA_AUXILIARY_SLOTS"] = ",".join(
                 map(str, typed_static_data_auxiliary_slots)
@@ -3492,6 +3660,27 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "wrongSlotRejected": True,
             "duplicateOutputRejected": True,
             "helperConflictRejected": True,
+        })
+
+    def test_product_builder_conserves_straight_rgb_scalar_alpha_boundary(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-straight-rgb-scalar-alpha"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "analyzedTransfer": "straightAlpha",
+            "positiveKind": "straight-alpha",
+            "positiveSlot": 0,
+            "sourceSampleUnpremultiplied": True,
+            "auxiliarySamplePreserved": True,
+            "outputPremultiplied": True,
+            "missingAuxiliaryRejected": True,
+            "duplicateAuxiliaryRejected": True,
+            "rgbWriteRejected": True,
+            "outputShapeRejected": True,
         })
 
     def test_product_builder_lowers_source_proven_conditional_straight_union(self):
@@ -5479,6 +5668,120 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 f"state=disable-generic profile={profile} outcome=fallback",
                 rollback_log,
             )
+
+    def test_straight_rgb_scalar_alpha_profile_owns_only_exact_typed_data_shape(
+        self,
+    ):
+        profile = "source-proven-graph-input-straight-rgb-scalar-alpha"
+        facts = {
+            "graph_input_slots": (0,),
+            "active_slots": (0, 1),
+            "typed_static_data_auxiliary_slots": (1,),
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-scalar-alpha-owner-route-test-"
+        ) as directory:
+            root = Path(directory)
+            observed, _, cache, observed_log = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=STRAIGHT_RGB_SCALAR_ALPHA_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(observed["routeProfile"], profile)
+            self.assertEqual(observed["routeState"], "observe-only")
+            self.assertFalse(observed["permitsBoundedFrontend"])
+            self.assertEqual(observed["fallbackOwner"], "none")
+            self.assertIn(f"profile={profile} outcome=observed", observed_log)
+
+            artifact = self.artifact(
+                observed["requestKey"],
+                color_transfer="straight-alpha",
+                auxiliary_channel_use="redOnly",
+            )
+            artifact_path = cache / f"{observed['requestKey']}.json"
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=STRAIGHT_RGB_SCALAR_ALPHA_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertEqual(accepted["routeProfile"], profile)
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+            artifact["program"]["metalSourceSHA256"] = "0" * 64
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            rejected, _, _, rejected_log = self.run_harness(
+                root,
+                route=None,
+                fragment=STRAIGHT_RGB_SCALAR_ALPHA_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+            self.assertEqual(rejected["fallbackOwner"], "none")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=rejected ",
+                rejected_log,
+            )
+
+            disabled, _, _, disabled_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=f"{profile}=disable-generic",
+                fragment=STRAIGHT_RGB_SCALAR_ALPHA_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(disabled["code"], "route-disabled")
+            self.assertFalse(disabled["permitsBoundedFrontend"])
+            self.assertEqual(disabled["fallbackOwner"], "none")
+            self.assertIn(
+                f"state=disable-generic profile={profile} outcome=fallback",
+                disabled_log,
+            )
+
+        for rejected_facts in (
+            {"graph_input_slots": (0,)},
+            {
+                "graph_input_slots": (0,),
+                "active_slots": (0, 1),
+                "typed_static_data_auxiliary_slots": (2,),
+            },
+            {
+                "graph_input_slots": (0,),
+                "active_slots": (0, 1),
+                "typed_static_data_auxiliary_slots": (1,),
+                "has_external_provider": True,
+            },
+            {
+                "graph_slots": (0,),
+                "graph_input_slots": (0,),
+                "active_slots": (0, 1),
+                "typed_static_data_auxiliary_slots": (1,),
+            },
+            {
+                "graph_input_slots": (0,),
+                "active_slots": (0, 1, 2),
+                "typed_static_data_auxiliary_slots": (1,),
+            },
+        ):
+            with self.subTest(facts=rejected_facts), tempfile.TemporaryDirectory(
+                prefix="mwx-scalar-alpha-rejection-test-"
+            ) as directory:
+                result, _, _, log = self.run_harness(
+                    Path(directory),
+                    route="observe-only",
+                    fragment=STRAIGHT_RGB_SCALAR_ALPHA_FRAGMENT,
+                    **rejected_facts,
+                )
+                self.assertNotEqual(result["routeProfile"], profile)
+                self.assertNotIn(f"profile={profile}", log)
 
     def test_auxiliary_rgb_mix_shape_uses_narrow_generic_only_route(
         self,

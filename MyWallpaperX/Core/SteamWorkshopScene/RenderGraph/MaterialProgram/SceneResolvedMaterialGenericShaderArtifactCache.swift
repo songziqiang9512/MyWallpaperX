@@ -217,6 +217,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         isSourceIndependentPremultipliedOutput: Bool = false,
         graphTextureSlots: Set<Int> = [],
         graphInputTextureSlots: Set<Int> = [],
+        activeTextureSlots: Set<Int> = [],
         typedStaticDataAuxiliarySlots: Set<Int> = [],
         spatialWeightedColorBlendSourceSlot: Int? = nil,
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
@@ -265,6 +266,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             )
         let typedDataRGBFilterFact =
             SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(
+                fragmentSource: fragmentSource
+            )
+        let straightRGBScalarAlphaFact =
+            SceneAuthoredShaderColorTransferAnalyzer.straightRGBScalarAlphaFact(
                 fragmentSource: fragmentSource
             )
         let preservedAlphaRGBFilterTextureSlots: Set<Int>
@@ -322,6 +327,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 typedDataRGBFilterFact?.sourceSlot,
             typedDataRGBFilterAuxiliarySlots:
                 typedDataRGBFilterFact?.auxiliarySlots ?? [],
+            straightRGBScalarAlphaSourceSlot:
+                straightRGBScalarAlphaFact?.sourceSlot,
+            straightRGBScalarAlphaAuxiliarySlots:
+                straightRGBScalarAlphaFact?.auxiliarySlots ?? [],
+            straightRGBScalarAlphaActiveSlots: activeTextureSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
             spatialWeightedColorBlendSourceSlot:
                 spatialWeightedColorBlendSourceSlot,

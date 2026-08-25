@@ -267,6 +267,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     && graphInputTextureSlots.isEmpty,
             graphTextureSlots: graphTextureSlots,
             graphInputTextureSlots: graphInputTextureSlots,
+            activeTextureSlots: activeTextureSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
             spatialWeightedColorBlendSourceSlot:
                 spatialWeightedColorBlendFact?.sourceSlot,

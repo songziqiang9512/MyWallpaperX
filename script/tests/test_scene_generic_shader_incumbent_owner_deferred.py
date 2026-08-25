@@ -867,6 +867,7 @@ fragment float4 mwxGenericFragment(
             dedicated_compilers.index("extension SceneAuthoredPulsePlanner"):
         ]
         self.assertIn("colorOnlyRGBProgramOwnerIsProven(", pulse_compiler)
+        self.assertIn("staticAlphaOnlyProgramOwnerIsProven(", pulse_compiler)
         for static_profile in (
             ".stock2842",
             ".directPhaseSaturateV1",
@@ -887,6 +888,20 @@ fragment float4 mwxGenericFragment(
             "SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(",
             pulse_compiler,
         )
+        self.assertIn(
+            ".straightRGBScalarAlphaFact(",
+            pulse_compiler,
+        )
+        for alpha_guard in (
+            "plan.audio == nil",
+            "!plan.pulseColor",
+            "plan.pulseAlpha",
+            "plan.maskTexturePath == nil",
+            "Set(samplers.keys)",
+            "graphTargetSlots.isEmpty",
+            ".sourceProvenGraphInputStraightRGBScalarAlpha",
+        ):
+            self.assertIn(alpha_guard, pulse_compiler)
         self.assertIn("typedStaticDataAuxiliarySlots(", pulse_compiler)
         self.assertIn("typedAuxiliary == fact.auxiliarySlots", pulse_compiler)
         self.assertIn("exactGenericParametersAreProven(", pulse_compiler)
@@ -913,6 +928,10 @@ fragment float4 mwxGenericFragment(
         )
         self.assertIn(
             '"audio-color-only-rgb-owner-revoked-to-material-program"',
+            pulse_compiler,
+        )
+        self.assertIn(
+            '"static-alpha-only-owner-revoked-to-material-program"',
             pulse_compiler,
         )
 
