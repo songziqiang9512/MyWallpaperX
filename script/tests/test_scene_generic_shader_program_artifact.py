@@ -4837,16 +4837,6 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 {"graph_input_slots": (0,)},
                 "source-proven-graph-input-straight-alpha-preserving",
             ),
-            (
-                SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
-                {
-                    "graph_input_slots": (0,),
-                    "spatial_weighted_source_slot": 0,
-                    "spatial_weighted_active_slots": (0, 1, 2),
-                    "spatial_weighted_typed_auxiliary_slots": (1, 2),
-                },
-                "source-proven-graph-input-spatial-weighted-color-blend",
-            ),
         ]
         for fragment, facts, profile in preferred_cases:
             with self.subTest(profile=profile), tempfile.TemporaryDirectory(
@@ -5374,17 +5364,6 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 "straight-alpha-preserving",
                 "source-proven-graph-input-straight-alpha-preserving",
             ),
-            (
-                SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
-                {
-                    "graph_input_slots": (0,),
-                    "spatial_weighted_source_slot": 0,
-                    "spatial_weighted_active_slots": (0, 1, 2),
-                    "spatial_weighted_typed_auxiliary_slots": (1, 2),
-                },
-                "straight-alpha-preserving",
-                "source-proven-graph-input-spatial-weighted-color-blend",
-            ),
         ]
         for fragment, facts, transfer, profile in cases:
             with self.subTest(profile=profile), tempfile.TemporaryDirectory(
@@ -5397,11 +5376,6 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 artifact = self.artifact(
                     observed["requestKey"],
                     color_transfer=transfer,
-                    auxiliary_channel_uses=(
-                        {1: "wholeVector", 2: "wholeVector"}
-                        if profile.endswith("spatial-weighted-color-blend")
-                        else None
-                    ),
                 )
                 artifact_path = cache / f"{observed['requestKey']}.json"
                 artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
@@ -5428,6 +5402,83 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     "reason=artifact-contract-rejected",
                     fallback_log,
                 )
+
+    def test_spatial_weighted_profile_is_generic_only_with_shared_disable_rollback(
+        self,
+    ):
+        profile = "source-proven-graph-input-spatial-weighted-color-blend"
+        facts = {
+            "graph_input_slots": (0,),
+            "spatial_weighted_source_slot": 0,
+            "spatial_weighted_active_slots": (0, 1, 2),
+            "spatial_weighted_typed_auxiliary_slots": (1, 2),
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-spatial-weighted-owner-route-test-"
+        ) as directory:
+            root = Path(directory)
+            observed, _, cache, observed_log = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(observed["routeProfile"], profile)
+            self.assertEqual(observed["routeState"], "observe-only")
+            self.assertFalse(observed["permitsBoundedFrontend"])
+            self.assertIn(f"profile={profile} outcome=observed", observed_log)
+
+            artifact = self.artifact(
+                observed["requestKey"],
+                color_transfer="straight-alpha-preserving",
+                auxiliary_channel_uses={1: "wholeVector", 2: "wholeVector"},
+            )
+            artifact_path = cache / f"{observed['requestKey']}.json"
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertEqual(accepted["backend"], "genericCompilerArtifact")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+            artifact["program"]["metalSourceSHA256"] = "0" * 64
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            rejected, _, _, rejected_log = self.run_harness(
+                root,
+                route=None,
+                fragment=SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+            self.assertEqual(rejected["fallbackOwner"], "bounded-frontend")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=rejected ",
+                rejected_log,
+            )
+
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=f"{profile}=disable-generic",
+                fragment=SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertEqual(rolled_back["fallbackOwner"], "bounded-frontend")
+            self.assertIn(
+                f"state=disable-generic profile={profile} outcome=fallback",
+                rollback_log,
+            )
 
     def test_auxiliary_rgb_mix_shape_uses_narrow_generic_only_route(
         self,

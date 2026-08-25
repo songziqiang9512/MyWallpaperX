@@ -121,6 +121,34 @@ void main() {
 }
 """
 
+private let spatialWeighted = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform sampler2D g_Texture2;
+uniform float g_Opacity;
+varying vec2 v_TexCoord;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return mix(base, blend, opacity);
+}
+void main() {
+    vec4 carrier = texSample2D(g_Texture0, v_TexCoord);
+    vec4 replacement = texSample2D(g_Texture1, v_TexCoord);
+    float weight = replacement.a * g_Opacity;
+    vec2 point = v_TexCoord;
+    vec2 falloff = texSample2D(g_Texture2, point).ra;
+    weight *= falloff.x * falloff.y;
+    carrier.rgb = ApplyBlending(
+        0, carrier.rgb, replacement.rgb, weight
+    );
+    gl_FragColor = carrier;
+}
+"""
+
 private let composite = """
 uniform sampler2D g_Texture3;
 uniform sampler2D g_Texture5;
@@ -186,10 +214,13 @@ private struct Harness {
         let mode = CommandLine.arguments[1]
         let isAlpha = mode == "alpha"
         let isPreserved = mode == "preserved"
+        let isSpatialWeighted = mode == "spatial-weighted"
         let isComposite = mode.hasPrefix("composite")
         let isCompositeOwned = mode == "composite"
-        let fragment = isAlpha
-            ? alpha : isPreserved ? preserved : isComposite ? composite : interpolated
+        let fragment = isAlpha ? alpha
+            : isPreserved ? preserved
+            : isSpatialWeighted ? spatialWeighted
+            : isComposite ? composite : interpolated
         let resolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: vertex,
             fragmentSource: fragment,
@@ -198,7 +229,13 @@ private struct Harness {
             graphTextureSlots: isComposite ? [3] : isPreserved ? [2] : [],
             graphInputTextureSlots:
                 isAlpha ? [0] : isPreserved ? [0, 2]
+                    : isSpatialWeighted ? [0]
                     : isComposite ? [3, 5] : [0, 1],
+            spatialWeightedColorBlendSourceSlot: isSpatialWeighted ? 0 : nil,
+            spatialWeightedColorBlendActiveSlots: isSpatialWeighted
+                ? [0, 1, 2] : [],
+            spatialWeightedColorBlendTypedAuxiliarySlots: isSpatialWeighted
+                ? [1, 2] : [],
             hasOnlyGraphInputSampler: isAlpha
         )
         let alphaProfile = profile(
@@ -329,15 +366,24 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
 
     @staticmethod
     def artifact(
-        key: str, slot: int = 0, transfer: str = "straight-alpha"
+        key: str,
+        slot: int = 0,
+        transfer: str = "straight-alpha",
+        auxiliary_channel_uses: dict[int, str] | None = None,
+        output_channel_use: str = "unproven",
     ) -> dict:
+        auxiliary_channel_uses = auxiliary_channel_uses or {}
+        slots = [slot, *sorted(auxiliary_channel_uses)]
+        transforms = " ".join(
+            f"float4 mwxTexture{texture_slot}Transform{component};"
+            for texture_slot in slots for component in range(2)
+        )
         metal = """
 #include <metal_stdlib>
 using namespace metal;
 struct Uniforms {
     float2 mwxRenderSize;
-    float4 mwxTextureSLOTTransform0;
-    float4 mwxTextureSLOTTransform1;
+    TRANSFORMS
 };
 vertex float4 mwxGenericVertex(
     uint vertexID [[vertex_id]], constant Uniforms& u [[buffer(8)]]) {
@@ -353,7 +399,7 @@ fragment float4 mwxGenericFragment(
             + u.mwxTextureSLOTTransform1.xy * 0.5
     );
 }
-""".replace("SLOT", str(slot)).strip() + "\n"
+""".replace("TRANSFORMS", transforms).replace("SLOT", str(slot)).strip() + "\n"
         return {
             "schemaVersion": 6,
             "kind": "scene-generic-shader-program-artifact",
@@ -374,28 +420,32 @@ fragment float4 mwxGenericFragment(
                             "type": "float2",
                             "offset": 0,
                         },
+                    ] + [
                         {
-                            "name": f"mwxTexture{slot}Transform0",
-                            "authoredName": f"mwxTexture{slot}Transform0",
+                            "name": f"mwxTexture{texture_slot}Transform{component}",
+                            "authoredName":
+                                f"mwxTexture{texture_slot}Transform{component}",
                             "type": "float4",
-                            "offset": 16,
-                        },
-                        {
-                            "name": f"mwxTexture{slot}Transform1",
-                            "authoredName": f"mwxTexture{slot}Transform1",
-                            "type": "float4",
-                            "offset": 32,
-                        },
+                            "offset": 16 + index * 32 + component * 16,
+                        }
+                        for index, texture_slot in enumerate(slots)
+                        for component in range(2)
                     ],
-                    "byteSize": 48,
+                    "byteSize": 16 + len(slots) * 32,
                 },
-                "textureBindings": [{
-                    "name": f"g_Texture{slot}",
-                    "slot": slot,
-                    "channelUse": "unproven",
-                }],
+                "textureBindings": [
+                    {
+                        "name": f"g_Texture{texture_slot}",
+                        "slot": texture_slot,
+                        "channelUse": (
+                            "unproven" if texture_slot == slot
+                            else auxiliary_channel_uses[texture_slot]
+                        ),
+                    }
+                    for texture_slot in slots
+                ],
                 "staticLoopWork": 0,
-                "fragmentOutputChannelUse": "unproven",
+                "fragmentOutputChannelUse": output_channel_use,
                 "colorTransfer": {"kind": transfer, "slot": slot},
             },
         }
@@ -449,6 +499,69 @@ fragment float4 mwxGenericFragment(
             self.assertEqual(disabled["status"], "unavailable")
             self.assertEqual(disabled["code"], "route-disabled")
             self.assertEqual(disabled["fallbackOwner"], "bounded-frontend")
+            self.assertTrue(disabled["boundedFrontendAccepted"])
+            self.assertIn("outcome=fallback reason=route-disabled", disabled_log)
+
+    def test_spatial_weighted_owner_rejects_bad_artifact_and_rolls_back_shared(
+        self,
+    ) -> None:
+        profile = "source-proven-graph-input-spatial-weighted-color-blend"
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-spatial-weighted-owner-"
+        ) as directory:
+            root = Path(directory)
+            missing, missing_log, requests, cache = self.run_route(
+                root, "spatial-weighted"
+            )
+            self.assertEqual(missing["status"], "unavailable")
+            self.assertEqual(missing["profile"], profile)
+            self.assertEqual(missing["state"], "generic-only")
+            self.assertEqual(missing["fallbackOwner"], "bounded-frontend")
+            self.assertFalse(missing["permitsBoundedFrontend"])
+            self.assertFalse(missing["boundedFrontendAccepted"])
+            self.assertEqual(len(list(requests.glob("*.json"))), 1)
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=rejected",
+                missing_log,
+            )
+
+            artifact_path = cache / f"{missing['requestKey']}.json"
+            artifact = self.artifact(
+                missing["requestKey"],
+                transfer="straight-alpha-preserving",
+                auxiliary_channel_uses={1: "wholeVector", 2: "wholeVector"},
+                output_channel_use="redDefined",
+            )
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            accepted, accepted_log, _, _ = self.run_route(
+                root, "spatial-weighted"
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["state"], "generic-only")
+            self.assertIn("outcome=accepted reason=-", accepted_log)
+
+            artifact["program"]["metalSourceSHA256"] = "0" * 64
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            rejected, rejected_log, _, _ = self.run_route(
+                root, "spatial-weighted"
+            )
+            self.assertEqual(rejected["status"], "unavailable")
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+            self.assertFalse(rejected["boundedFrontendAccepted"])
+            self.assertIn(
+                "outcome=rejected reason=artifact-contract-rejected",
+                rejected_log,
+            )
+
+            disabled, disabled_log, _, _ = self.run_route(
+                root,
+                "spatial-weighted",
+                f"{profile}=disable-generic",
+            )
+            self.assertEqual(disabled["status"], "unavailable")
+            self.assertEqual(disabled["code"], "route-disabled")
+            self.assertTrue(disabled["permitsBoundedFrontend"])
             self.assertTrue(disabled["boundedFrontendAccepted"])
             self.assertIn("outcome=fallback reason=route-disabled", disabled_log)
 

@@ -381,8 +381,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         case .ordinaryShader,
              .providerBackedScalarColorInterpolation,
              .sourceProvenGraphInputStraightAlpha,
-             .sourceProvenGraphInputStraightAlphaPreserving,
-             .sourceProvenGraphInputSpatialWeightedColorBlend:
+             .sourceProvenGraphInputStraightAlphaPreserving:
             .preferGeneric
         case .sourceProvenScalarColorInterpolation,
              .sourceProvenOpaqueScalarOutput,
@@ -402,6 +401,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenUnitPreviousBlurredComposite,
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
+             .sourceProvenGraphInputSpatialWeightedColorBlend,
              .sourceProvenGraphInputOverlayAlphaBlend,
              .sourceProvenGraphInputConditionalStraightUnion,
              .sourceProvenGraphInputSingleSamplerAlphaMutation,
