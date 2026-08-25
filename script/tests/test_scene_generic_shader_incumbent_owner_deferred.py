@@ -893,15 +893,40 @@ fragment float4 mwxGenericFragment(
             pulse_compiler,
         )
         for alpha_guard in (
-            "plan.audio == nil",
+            "plan.audio == nil || plan.shaderProfile == .stock2842",
             "!plan.pulseColor",
             "plan.pulseAlpha",
             "plan.maskTexturePath == nil",
+            "auxiliaryShapeIsProven",
+            "plan.shaderProfile == .stock2842",
+            "fact.auxiliarySlots.isEmpty",
             "Set(samplers.keys)",
             "graphTargetSlots.isEmpty",
             ".sourceProvenGraphInputStraightRGBScalarAlpha",
         ):
             self.assertIn(alpha_guard, pulse_compiler)
+        alpha_owner = pulse_compiler[
+            pulse_compiler.index(
+                "private nonisolated static func "
+                "staticAlphaOnlyProgramOwnerIsProven("
+            ):
+        ]
+        self.assertIn(
+            "if plan.audio == nil {\n"
+            "                auxiliaryShapeIsProven = "
+            "!fact.auxiliarySlots.isEmpty",
+            alpha_owner,
+        )
+        self.assertIn(
+            "plan.shaderProfile == .stock2842\n"
+            "                    && fact.auxiliarySlots.isEmpty",
+            alpha_owner,
+        )
+        self.assertNotIn(
+            "graphTargetSlots.isEmpty,\n"
+            "                  !fact.auxiliarySlots.isEmpty,",
+            alpha_owner,
+        )
         self.assertIn("typedStaticDataAuxiliarySlots(", pulse_compiler)
         self.assertIn("typedAuxiliary == fact.auxiliarySlots", pulse_compiler)
         self.assertIn("exactGenericParametersAreProven(", pulse_compiler)
@@ -932,6 +957,10 @@ fragment float4 mwxGenericFragment(
         )
         self.assertIn(
             '"static-alpha-only-owner-revoked-to-material-program"',
+            pulse_compiler,
+        )
+        self.assertIn(
+            '"audio-alpha-only-owner-revoked-to-material-program"',
             pulse_compiler,
         )
 

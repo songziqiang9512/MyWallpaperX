@@ -322,7 +322,6 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             self = .sourceProvenGraphInputSingleSamplerAlphaMutation
         } else if case let .straightAlpha(sourceSlot) = colorTransfer,
                   straightRGBScalarAlphaSourceSlot == sourceSlot,
-                  !straightRGBScalarAlphaAuxiliarySlots.isEmpty,
                   straightRGBScalarAlphaAuxiliarySlots
                     == typedStaticDataAuxiliarySlots,
                   straightRGBScalarAlphaActiveSlots

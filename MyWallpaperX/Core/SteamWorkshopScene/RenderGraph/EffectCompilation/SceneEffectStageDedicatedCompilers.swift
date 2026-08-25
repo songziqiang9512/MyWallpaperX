@@ -128,7 +128,9 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                 ? "static-rgb-preserving-owner-revoked-to-material-program"
                 : "audio-color-only-rgb-owner-revoked-to-material-program"
         } else if staticAlphaOnlyProgramOwnerIsProven(plan: plan, input: input) {
-            detail = "static-alpha-only-owner-revoked-to-material-program"
+            detail = plan.audio == nil
+                ? "static-alpha-only-owner-revoked-to-material-program"
+                : "audio-alpha-only-owner-revoked-to-material-program"
         } else {
             return result
         }
@@ -275,10 +277,11 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         return true
     }
 
-    /// Revokes only canonical, non-audio alpha-only Pulse shapes whose
+    /// Revokes only canonical alpha-only Pulse shapes whose
     /// prepared source proves one graph-input carrier and exact typed scalar
-    /// auxiliaries. Mask, binding, provider, and broader alpha forms retain
-    /// the incumbent owner.
+    /// auxiliaries. Audio is limited to the stock profile whose typed response
+    /// parameters are re-derived below; mask, binding, provider, and broader
+    /// alpha forms retain the incumbent owner.
     private nonisolated static func staticAlphaOnlyProgramOwnerIsProven(
         plan: ScenePulseExecutionPlan,
         input: SceneEffectStageCompileInput
@@ -291,7 +294,7 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         ]
         guard supportedProfiles.contains(plan.shaderProfile),
               plan.bindings.isEmpty,
-              plan.audio == nil,
+              plan.audio == nil || plan.shaderProfile == .stock2842,
               !plan.pulseColor,
               plan.pulseAlpha,
               plan.maskTexturePath == nil,
@@ -394,9 +397,16 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                     samplers: samplers,
                     graphInputSlots: graphInputSlots
                 )
+            let auxiliaryShapeIsProven: Bool
+            if plan.audio == nil {
+                auxiliaryShapeIsProven = !fact.auxiliarySlots.isEmpty
+            } else {
+                auxiliaryShapeIsProven = plan.shaderProfile == .stock2842
+                    && fact.auxiliarySlots.isEmpty
+            }
             guard graphInputSlots == [fact.sourceSlot],
                   graphTargetSlots.isEmpty,
-                  !fact.auxiliarySlots.isEmpty,
+                  auxiliaryShapeIsProven,
                   Set(samplers.keys)
                     == fact.auxiliarySlots.union([fact.sourceSlot]),
                   typedAuxiliary == fact.auxiliarySlots,

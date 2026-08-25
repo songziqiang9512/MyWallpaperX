@@ -2928,6 +2928,20 @@ void main() {
 }
 """
 
+STRAIGHT_RGB_SCALAR_ALPHA_NO_AUX_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform float g_Pulse;
+varying vec2 v_TexCoord;
+void main() {
+    vec4 sampled = texSample2D(g_Texture0, v_TexCoord);
+    vec4 color = sampled;
+    float pulse = 0.0;
+    pulse = g_Pulse;
+    color.a *= pulse;
+    gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);
+}
+"""
+
 PREMULTIPLIED_FRAGMENT = """
 uniform float g_Weight;
 vec3 ApplyBlending(
@@ -5782,6 +5796,54 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 )
                 self.assertNotEqual(result["routeProfile"], profile)
                 self.assertNotIn(f"profile={profile}", log)
+
+    def test_straight_rgb_scalar_alpha_profile_accepts_no_auxiliary_texture(
+        self,
+    ):
+        profile = "source-proven-graph-input-straight-rgb-scalar-alpha"
+        facts = {
+            "graph_input_slots": (0,),
+            "active_slots": (0,),
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-scalar-alpha-no-aux-route-test-"
+        ) as directory:
+            root = Path(directory)
+            observed, _, cache, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=STRAIGHT_RGB_SCALAR_ALPHA_NO_AUX_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(observed["routeProfile"], profile)
+            artifact = self.artifact(
+                observed["requestKey"], color_transfer="straight-alpha"
+            )
+            (cache / f"{observed['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, log = self.run_harness(
+                root,
+                route=None,
+                fragment=STRAIGHT_RGB_SCALAR_ALPHA_NO_AUX_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertEqual(accepted["routeProfile"], profile)
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted", log
+            )
+
+            rejected, _, _, rejected_log = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=STRAIGHT_RGB_SCALAR_ALPHA_NO_AUX_FRAGMENT,
+                graph_input_slots=(0,),
+                active_slots=(0, 1),
+            )
+            self.assertNotEqual(rejected["routeProfile"], profile)
+            self.assertNotIn(f"profile={profile}", rejected_log)
 
     def test_auxiliary_rgb_mix_shape_uses_narrow_generic_only_route(
         self,

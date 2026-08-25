@@ -370,6 +370,24 @@ enum Harness {
                 "color.a *= pulse; " +
                 "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
             ),
+            "straightRGBScalarAlphaNoAux": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "pulse = g_ScalarWeight; color.a *= pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaNoAuxFact": scalarAlphaFact(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "pulse = g_ScalarWeight; color.a *= pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaNoAuxMetal": metal(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "pulse = g_ScalarWeight; color.a *= pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
             "straightRGBScalarAlphaMetal": metal(
                 "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
                 "vec4 color = sampled; float pulse = 0.0; " +
@@ -1525,6 +1543,19 @@ class SceneShaderColorContractTests(unittest.TestCase):
             "straightRGBScalarAlphaUnknownHelper",
         ):
             self.assertEqual(self.result[key], "unresolved", key)
+
+    def test_uniform_or_linked_scalar_can_modulate_alpha_without_auxiliary_texture(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["straightRGBScalarAlphaNoAux"], "straight-slot:0"
+        )
+        self.assertEqual(
+            self.result["straightRGBScalarAlphaNoAuxFact"], "source:0;aux:"
+        )
+        source = self.result["straightRGBScalarAlphaNoAuxMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
 
     def test_overlay_alpha_blend_reuses_the_bounded_straight_boundary(self) -> None:
         self.assertEqual(self.result["overlayAlphaBlend"], "straight-slot:0")

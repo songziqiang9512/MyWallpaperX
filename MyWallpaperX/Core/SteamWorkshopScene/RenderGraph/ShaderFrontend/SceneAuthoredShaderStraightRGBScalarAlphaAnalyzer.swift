@@ -2,7 +2,9 @@ import Foundation
 
 /// Proves a straight-color source whose RGB is preserved (apart from a
 /// non-negative clamp) while its alpha is multiplied by a bounded scalar
-/// graph. Auxiliary texture reads must be direct red-channel scalar reads.
+/// graph. Zero auxiliary textures is valid when the scalar comes entirely
+/// from uniforms or linked varyings; any auxiliary texture reads must be
+/// distinct direct red-channel scalar reads.
 nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
@@ -112,7 +114,7 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
 
         guard let sourceName, let colorName, let colorSlot,
               alphaWritten,
-              (1 ... 3).contains(auxiliarySlots.count),
+              (0 ... 3).contains(auxiliarySlots.count),
               Set(auxiliarySlots).count == auxiliarySlots.count,
               !auxiliarySlots.contains(colorSlot) else { return nil }
         let body = tokens[main.bodyRange]
