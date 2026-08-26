@@ -50,6 +50,9 @@ nonisolated enum SceneAuthoredShaderAuxiliaryRGBMixAnalyzer {
                 tokens[statements[1]], fragment: fragment
               ),
               source.slot != auxiliary.slot,
+              !sourceCarrierEscapesToMutableAuthoredCall(
+                source.name, fragment: fragment, main: main
+              ),
               rgbMixAssignment(
                 tokens[statements[2]],
                 sourceName: source.name,
@@ -76,7 +79,9 @@ nonisolated enum SceneAuthoredShaderAuxiliaryRGBMixAnalyzer {
         main: Unit.Function
     ) -> Int? {
         let tokens = fragment.tokens
-        guard statements.count == 8,
+        let hasMatchedGreyscalePreprocessing = statements.count == 10
+        let preprocessingCount = hasMatchedGreyscalePreprocessing ? 2 : 0
+        guard [8, 10].contains(statements.count),
               let source = colorSampleDeclaration(
                 tokens[statements[0]], fragment: fragment
               ),
@@ -89,26 +94,42 @@ nonisolated enum SceneAuthoredShaderAuxiliaryRGBMixAnalyzer {
               source.slot != first.slot,
               first.slot == second.slot,
               first.name != second.name,
+              !sourceCarrierEscapesToMutableAuthoredCall(
+                source.name, fragment: fragment, main: main
+              ),
+              !hasMatchedGreyscalePreprocessing || (
+                greyscaleAssignment(
+                    tokens[statements[3]], accumulator: first.name
+                )
+                && greyscaleAssignment(
+                    tokens[statements[4]], accumulator: second.name
+                )
+              ),
               productSaturateAssignment(
-                tokens[statements[3]], first: first.name, second: second.name
+                tokens[statements[3 + preprocessingCount]],
+                first: first.name,
+                second: second.name
               ),
               let power = powerAssignment(
-                tokens[statements[4]], accumulator: first.name
+                tokens[statements[4 + preprocessingCount]],
+                accumulator: first.name
               ),
               uniformFloat(power, fragment: fragment),
               let blend = scalarUniformAlias(
-                tokens[statements[5]], fragment: fragment
+                tokens[statements[5 + preprocessingCount]],
+                fragment: fragment
               ),
               processedRGBBlendAssignment(
-                tokens[statements[6]],
+                tokens[statements[6 + preprocessingCount]],
                 sourceName: source.name,
                 auxiliaryName: first.name,
                 blendName: blend
               ),
               terminalOutput(
-                tokens[statements[7]], sourceName: source.name
+                tokens[statements[7 + preprocessingCount]],
+                sourceName: source.name
               ),
-              statements[7].contains(outputUses[0]),
+              statements[7 + preprocessingCount].contains(outputUses[0]),
               sampleCallCount(in: main.bodyRange, tokens: tokens) == 3,
               sampleCallCount(
                 in: fragment.tokens.indices,
@@ -116,6 +137,50 @@ nonisolated enum SceneAuthoredShaderAuxiliaryRGBMixAnalyzer {
               ) == 3
         else { return nil }
         return source.slot
+    }
+
+    /// Mutable authored parameters can hide a carrier write inside an
+    /// otherwise read-only-looking sample coordinate or helper expression.
+    /// Reject only calls to helpers that declare such a parameter and receive
+    /// this carrier; unrelated common-header `inout` helpers remain harmless.
+    private static func sourceCarrierEscapesToMutableAuthoredCall(
+        _ sourceName: String,
+        fragment: Unit,
+        main: Unit.Function
+    ) -> Bool {
+        let tokens = fragment.tokens
+        let mutableFunctionNames = Set(fragment.functions.compactMap {
+            function -> String? in
+            tokens[function.parameterRange].contains(where: {
+                ["out", "inout"].contains($0.text)
+            }) ? function.name : nil
+        })
+        guard !mutableFunctionNames.isEmpty else { return false }
+        return main.bodyRange.contains { index in
+            guard mutableFunctionNames.contains(tokens[index].text),
+                  index + 1 < main.bodyRange.upperBound,
+                  tokens[index + 1].text == "(",
+                  let close = SceneAuthoredShaderVectorConversion
+                    .matchingParenthesis(tokens: tokens, opening: index + 1),
+                  close < main.bodyRange.upperBound else { return false }
+            return tokens[(index + 2)..<close].contains(where: {
+                $0.text == sourceName
+            })
+        }
+    }
+
+    /// Accepts the authored common-helper form only as a matched pair over
+    /// the two local RGB noise values. The helper remains compiler-executed;
+    /// this proof only establishes that preprocessing cannot replace the
+    /// source carrier or mutate its alpha before the bounded RGB blend.
+    private static func greyscaleAssignment(
+        _ slice: ArraySlice<Token>,
+        accumulator: String
+    ) -> Bool {
+        Array(slice).map(\.text) == [
+            accumulator, "=", "CAST3", "(", "greyscale", "(",
+            accumulator, ")", ")",
+        ]
     }
 
     private static func colorSampleDeclaration(

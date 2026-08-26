@@ -2840,6 +2840,15 @@ void main() {
 }
 """
 
+AUXILIARY_RGB_GREYSCALE_PROCESSED_FRAGMENT = (
+    FILM_GRAIN_STOCK_FRAGMENT.replace(
+        "    noise = saturate(noise * noise2);",
+        "    noise = CAST3(greyscale(noise));\n"
+        "    noise2 = CAST3(greyscale(noise2));\n"
+        "    noise = saturate(noise * noise2);",
+    )
+)
+
 AUXILIARY_RGB_MIX_RENAMED_FRAGMENT = """
 uniform sampler2D g_Texture0;
 uniform sampler2D g_Texture3; // {"default":"util/noise"}
@@ -4976,6 +4985,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving",
             ),
             (
+                AUXILIARY_RGB_GREYSCALE_PROCESSED_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving",
+            ),
+            (
                 AUXILIARY_RGB_MIX_RENAMED_FRAGMENT,
                 {"graph_input_slots": (0,)},
                 "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving",
@@ -5472,6 +5486,13 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             ),
             (
                 FILM_GRAIN_STOCK_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "straight-alpha-preserving",
+                "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving",
+                True,
+            ),
+            (
+                AUXILIARY_RGB_GREYSCALE_PROCESSED_FRAGMENT,
                 {"graph_input_slots": (0,)},
                 "straight-alpha-preserving",
                 "source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving",
@@ -6136,6 +6157,35 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 "    return texSample2D(g_Texture3, v_UV);\n"
                 "}\n"
                 "void main() {",
+            ),
+            AUXILIARY_RGB_GREYSCALE_PROCESSED_FRAGMENT.replace(
+                "    noise2 = CAST3(greyscale(noise2));\n", ""
+            ),
+            AUXILIARY_RGB_GREYSCALE_PROCESSED_FRAGMENT.replace(
+                "noise2 = CAST3(greyscale(noise2))",
+                "noise2 = CAST3(greyscale(noise))",
+            ),
+            AUXILIARY_RGB_GREYSCALE_PROCESSED_FRAGMENT.replace(
+                "void main() {",
+                "float mutate(inout float value) {\n"
+                "    value = 0.0;\n"
+                "    return 0.0;\n"
+                "}\n"
+                "void main() {",
+            ).replace(
+                "v_TexCoordNoise.xy",
+                "v_TexCoordNoise.xy + vec2(mutate(albedo.a))",
+            ),
+            AUXILIARY_RGB_MIX_RENAMED_FRAGMENT.replace(
+                "void main() {",
+                "float mutate(inout float value) {\n"
+                "    value = 0.0;\n"
+                "    return 0.0;\n"
+                "}\n"
+                "void main() {",
+            ).replace(
+                "g_Texture3, v_UV",
+                "g_Texture3, v_UV + vec2(mutate(carrier.a))",
             ),
         ]
         for fragment in cases:

@@ -1,4 +1,7 @@
 # Scene Render Graph 与 Shader 覆盖矩阵
+
+> 现役 auxiliary RGB owner 更正：既有 `source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving / generic-only` 不再只覆盖无 greyscale preprocessing 的 processed form；同一 identity-free analyzer 现也只在两份 auxiliary RGB local 分别经过 exact `CAST3(greyscale(local))` 匹配对、其余 sample/power/blend/source-alpha terminal 合同不变且 source carrier 未传入 authored `out/inout` helper 时接管。真实 `3747492842:434#effect#545` 的作者默认 `GREYSCALE=1 / MASK=0` 因而从宽 `straight-alpha-preserving / prefer-generic` 迁入该既有窄 owner；默认 generic artifact、坏 artifact effect-local previous-current 与 profile-local shared bounded rollback 都保持 GPU/publication、Iris suffix compositor 与 next-frame。route profile 数未增加，现役 census 仍为 35/4/1；MASK、mutable carrier alias escape、非匹配/其他 RGB preprocessing、其他 blend/revision 和宽 profile 余量继续未迁移。见 [E-V1-GREYSCALE-AUXILIARY-RGB-OWNER](runtime-evidence-index.md#e-v1-greyscale-auxiliary-rgb-owner)。
+
 > 核验日期：2026-08-27
 >
 > 范围：Effect definition、material、render graph、FBO 与 Wallpaper Engine shader 合同。
