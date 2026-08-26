@@ -27,19 +27,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         product: SceneGraphAdmissionProduct,
         materials: [MaterialKey: MaterialCapability],
         dynamicProducers: DynamicProducerCatalog,
-        dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        pairStep: SceneLayerFullFramePairPlan.EffectStep?
     ) -> SceneResolvedMaterialStageActivationPolicy? {
         guard dependencyOwnership == .none,
               product.graph.effects.count == 1,
               let effect = product.graph.effects.first,
-              product.graph.nodes.count == 1,
-              let node = product.graph.nodes.first,
-              node.kind == .material,
-              node.effect == effect.key,
-              node.target == effect.output,
-              node.compose == nil,
-              node.conditions == nil,
-              product.graph.renderTargets.isEmpty,
               product.clearFunctions.functions.isEmpty else { return nil }
         let visibilityTarget = SceneDynamicTarget.effectVisibility(
             layerID: effect.key.layerID,
@@ -55,7 +48,22 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     visibilityTarget
                 )
             ? visibilityTarget : nil
-        let pointerScalarMinimum = materials.count == 1
+        let pairLeaf = pairLeafActivationTopologyIsSupported(
+            product.graph,
+            effect: effect
+        )
+        // Reuse the already-admitted visual-failure passthrough topology: this
+        // widens typed visibility activation, not graph or product ownership.
+        let framebufferVisibility = resolvedVisibilityTarget != nil
+            && pairStep.map {
+                visualFailureFramebufferTopologyMayPassthrough(
+                    product.graph,
+                    effect: effect,
+                    pairStep: $0
+                )
+            } == true
+        guard pairLeaf || framebufferVisibility else { return nil }
+        let pointerScalarMinimum = pairLeaf && materials.count == 1
             && materials.values.first?.variants
                 .launchEnvelopeProvesSpatialWeightedPointerProvider == true
             ? spatialWeightedPointerScalarMinimum(
@@ -72,6 +80,21 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             requiresPointerPositionProvider: requiresPointer,
             scalarMinimum: pointerScalarMinimum
         )
+    }
+
+    private static func pairLeafActivationTopologyIsSupported(
+        _ graph: Graph,
+        effect: Graph.Effect
+    ) -> Bool {
+        guard graph.nodes.count == 1,
+              let node = graph.nodes.first,
+              node.kind == .material,
+              node.effect == effect.key,
+              node.target == effect.output,
+              node.compose == nil,
+              node.conditions == nil,
+              graph.renderTargets.isEmpty else { return false }
+        return true
     }
 
     private static func spatialWeightedPointerScalarMinimum(
@@ -174,7 +197,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         var stages: [StageCapability] = []
         var allMaterials: [MaterialKey: MaterialCapability] = [:]
         for product in admitted.products {
-            guard product.graph.effects.first != nil else {
+            guard let effect = product.graph.effects.first else {
                 return .failure(rejection("stage-effect-identity-missing"))
             }
 
@@ -193,6 +216,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return .failure(failure)
             case .success(let materials):
                 allMaterials.merge(materials) { _, replacement in replacement }
+                let pairStep = admitted.pairPlan.effects.first {
+                    $0.effect == effect.key
+                }
                 stages.append(.resolved(
                     product: product,
                     materials: materials,
@@ -200,7 +226,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                         product: product,
                         materials: materials,
                         dynamicProducers: dynamicProducers,
-                        dependencyOwnership: admitted.dependencyOwnership
+                        dependencyOwnership: admitted.dependencyOwnership,
+                        pairStep: pairStep
                     )
                 ))
             }
