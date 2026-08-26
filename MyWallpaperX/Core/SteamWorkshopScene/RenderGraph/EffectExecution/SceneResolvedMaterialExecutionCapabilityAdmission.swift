@@ -106,7 +106,9 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         let activeLayerIDs = Set(descriptor.layers.compactMap { layer in
             layer.effects.contains(where: { $0.visible != false }) ? layer.id : nil
         })
-        let dynamicLayerIDs = Set(dynamicEffectVisibilityOwners.map(\.layerID))
+        let dynamicLayerIDs = Set(dynamicEffectVisibilityOwners.map {
+            $0.layerID
+        })
         let candidateLayerIDs = activeLayerIDs.union(rawGroups.keys).union(dynamicLayerIDs)
         return candidateLayerIDs.sorted().map { layerID in
             let layers = descriptorGroups[layerID] ?? []

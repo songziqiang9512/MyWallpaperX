@@ -17,7 +17,9 @@ extension SceneEffectProgramCompiler {
         graph: Graph,
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
-        userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = []
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = [],
+        frameDrivenEffectVisibilityOwners:
+            Set<SceneEffectStageCompileInput.DynamicEffectVisibilityOwner> = []
     ) -> [SceneEffectStageProgram] {
         graph.effects.enumerated().compactMap { ordinal, effect in
             guard let stageGraph = stageGraph(effect: effect, in: graph) else {
@@ -31,7 +33,9 @@ extension SceneEffectProgramCompiler {
                 inputRole: ordinal == 0 ? .layerSource : .priorEffectOutput,
                 descriptor: descriptor,
                 shaderContracts: shaderContracts,
-                userPropertyProducers: userPropertyProducers
+                userPropertyProducers: userPropertyProducers,
+                frameDrivenEffectVisibilityOwners:
+                    frameDrivenEffectVisibilityOwners
             )
             guard case let .accepted(backend, plan, probes) =
                     resolveDedicatedStage(input) else { return nil }

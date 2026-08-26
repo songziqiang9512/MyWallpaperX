@@ -100,6 +100,37 @@ extension SceneAuthoredStandardBlurPlanner {
 extension SceneAuthoredXRayPlanner: SceneEffectStageGraphCandidatePlanner {
     typealias DedicatedPlan = SceneXRayExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .xRay }
+
+    nonisolated static func compile(
+        _ input: SceneEffectStageCompileInput
+    ) -> SceneEffectStageBackendCompileResult<SceneXRayExecutionPlan> {
+        let result = SceneEffectStageDedicatedCompilerAdapter.compile(
+            backend: .xRay,
+            candidate: { containsCandidate(graph: input.stageGraph) },
+            plan: {
+                plan(
+                    graph: input.stageGraph,
+                    descriptor: input.descriptor,
+                    shaderContracts: input.shaderContracts,
+                    inputRole: input.inputRole
+                )
+            }
+        )
+        guard case let .accepted(plan) = result,
+              SceneEffectStageXRayScalarOwnerAdmission
+                .acceptsDedicatedRevocation(
+                    effectKey: plan.effectKey,
+                    input: input
+                ) else { return result }
+        return .rejected(.init(
+            backend: .xRay,
+            phase: .compatibility,
+            code: .dedicatedProfileRejected,
+            details: [
+                "typed-user-scalar-owner-revoked-to-material-program",
+            ]
+        ))
+    }
 }
 
 extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {

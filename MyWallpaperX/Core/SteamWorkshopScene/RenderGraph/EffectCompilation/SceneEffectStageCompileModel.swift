@@ -6,6 +6,11 @@ import Foundation
 nonisolated struct SceneEffectStageCompileInput {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
+    struct DynamicEffectVisibilityOwner: Hashable {
+        let layerID: Int
+        let effectIndex: Int
+    }
+
     let stageGraph: Graph
     let authoredOrdinal: Int?
     let effectKey: Graph.EffectKey?
@@ -14,6 +19,8 @@ nonisolated struct SceneEffectStageCompileInput {
     let descriptor: SceneRenderDescriptor
     let shaderContracts: [SceneShaderContract]
     let userPropertyProducers: Set<SceneDynamicUserPropertyProducer>
+    let frameDrivenEffectVisibilityOwners:
+        Set<DynamicEffectVisibilityOwner>
 
     init(
         stageGraph: Graph,
@@ -23,7 +30,9 @@ nonisolated struct SceneEffectStageCompileInput {
         inputRole: SceneAuthoredEffectInputRole,
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
-        userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = []
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = [],
+        frameDrivenEffectVisibilityOwners:
+            Set<DynamicEffectVisibilityOwner> = []
     ) {
         self.stageGraph = stageGraph
         self.authoredOrdinal = authoredOrdinal
@@ -33,6 +42,8 @@ nonisolated struct SceneEffectStageCompileInput {
         self.descriptor = descriptor
         self.shaderContracts = shaderContracts
         self.userPropertyProducers = userPropertyProducers
+        self.frameDrivenEffectVisibilityOwners =
+            frameDrivenEffectVisibilityOwners
     }
 }
 

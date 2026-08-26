@@ -224,6 +224,7 @@
       "modules": [
         "test_scene_authored_effect_execution",
         "test_scene_effect_execution_telemetry",
+        "test_scene_xray_scalar_owner_admission",
         "test_scene_effect_render_graph",
         "test_scene_framebuffer_capture",
         "test_scene_graph_admission_compiler",

@@ -212,12 +212,22 @@ extension SceneDesktopWallpaperHost {
                 effectIndex: effectIndex
             ))
         }
+        let stageCompileEffectVisibilityOwners = Set(
+            frameDrivenEffectVisibilityOwners.map {
+                SceneEffectStageCompileInput.DynamicEffectVisibilityOwner(
+                    layerID: $0.layerID,
+                    effectIndex: $0.effectIndex
+                )
+            }
+        )
         let dedicatedStageLeaves = runtimeInput.authoredEffectRenderPlans.flatMap {
             SceneEffectProgramCompiler.compileDedicatedLeaves(
                 graph: $0,
                 descriptor: runtimeInput.renderDescriptor,
                 shaderContracts: runtimeInput.shaderContracts,
-                userPropertyProducers: userPropertyProducers
+                userPropertyProducers: userPropertyProducers,
+                frameDrivenEffectVisibilityOwners:
+                    stageCompileEffectVisibilityOwners
             )
         }
         let dedicatedStageFamilies = Dictionary(
