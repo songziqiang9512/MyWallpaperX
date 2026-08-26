@@ -604,8 +604,15 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             }
             let stages: [SceneShaderContract.StageKind]
             switch constant {
-            case .speed, .phase, .amount:
+            case .speed, .amount:
                 stages = [.vertex, .fragment]
+            case .phase:
+                switch plan.shaderProfile {
+                case .stock2842:
+                    stages = [.vertex, .fragment]
+                case .directPhaseSaturateV1, .directPhaseMaxClampV1:
+                    stages = [.fragment]
+                }
             case .noiseSpeed, .noiseAmount, .power, .tintLow, .tintHigh:
                 stages = [.fragment]
             case .bounds:

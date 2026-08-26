@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -487,7 +488,16 @@ enum Harness {
             rootURL: root
         )
         precondition(contracts.count == 1)
+        let legacyContracts = CommandLine.arguments.dropFirst(2).map {
+            SceneShaderContractLoader().load(
+                shaderReferences: [shaderIdentity],
+                rootURL: URL(fileURLWithPath: $0, isDirectory: true)
+            )
+        }
+        precondition(legacyContracts.count == 3)
+        precondition(legacyContracts.allSatisfy { $0.count == 1 })
         let stock = prepared(contracts[0])
+        let legacyPrepared = legacyContracts.map { prepared($0[0]) }
         let speedPlan = plan(
             contracts: contracts,
             bindings: [.speed: "pulseSpeed"]
@@ -504,6 +514,9 @@ enum Harness {
             contracts: contracts,
             bindings: [.bounds: "pulseBounds"]
         )
+        let legacyPhasePlans = legacyContracts.map {
+            plan(contracts: $0, bindings: [.phase: "pulsePhase"])
+        }
 
         let missingVertexSpeed = copy(
             stock.vertex,
@@ -583,11 +596,56 @@ enum Harness {
         let wrongPhaseFragment = replacingRange(
             stock.fragment, name: "g_PulsePhase", range: 0 ... 1
         )
+        let legacyPhaseTemplate = legacyPrepared[0].fragment.activeDeclarations.first {
+            $0.declaration.name == "g_PulsePhase"
+        }!
+        let legacyExtraVertexLine = 9_993
+        let legacyExtraVertexPhase = SceneShaderActiveDeclaration(
+            sourcePath: legacyPrepared[0].vertex.rootRelativePath,
+            declaration: .init(
+                kind: .uniform,
+                type: "float",
+                name: "g_PulsePhase",
+                arraySuffix: nil,
+                arraySize: nil,
+                raw: legacyPhaseTemplate.declaration.raw,
+                line: legacyExtraVertexLine
+            )
+        )
+        let legacyExtraVertex = copy(
+            legacyPrepared[0].vertex,
+            declarations: legacyPrepared[0].vertex.activeDeclarations
+                + [legacyExtraVertexPhase],
+            annotations: legacyPrepared[0].vertex.activeAnnotations
+                + [materialAnnotation(
+                    materialKey: "phase",
+                    range: 0 ... 6.282,
+                    line: legacyExtraVertexLine,
+                    sourcePath: legacyPrepared[0].vertex.rootRelativePath
+                )]
+        )
+        let legacyMissingFragment = copy(
+            legacyPrepared[0].fragment,
+            declarations: legacyPrepared[0].fragment.activeDeclarations.filter {
+                $0.declaration.name != "g_PulsePhase"
+            }
+        )
+        let legacyWrongRange = replacingRange(
+            legacyPrepared[0].fragment,
+            name: "g_PulsePhase",
+            range: 0 ... 1
+        )
 
         let result: [String: Any] = [
             "phaseRanges": SceneResolvedMaterialShaderSchema.exactActiveUniforms(
                 materialKey: "phase", type: .float,
                 stages: [.vertex, .fragment], prepared: stock
+            )?.map {
+                [$0.authoredRange?.lowerBound ?? -1, $0.authoredRange?.upperBound ?? -1]
+            } ?? [],
+            "legacyPhaseRanges": SceneResolvedMaterialShaderSchema.exactActiveUniforms(
+                materialKey: "phase", type: .float,
+                stages: [.fragment], prepared: legacyPrepared[0]
             )?.map {
                 [$0.authoredRange?.lowerBound ?? -1, $0.authoredRange?.upperBound ?? -1]
             } ?? [],
@@ -615,6 +673,22 @@ enum Harness {
             "productPhaseUnsafeFallback": outcome(compileInput(
                 contracts: contracts, bindings: [.phase: "pulsePhase"],
                 fallbackOverrides: [.phase: [2]]
+            )),
+            "legacyProductPhase": legacyContracts.map {
+                outcome(compileInput(
+                    contracts: $0,
+                    bindings: [.phase: "pulsePhase"]
+                ))
+            },
+            "legacyProductPhaseUnsafeFallback": outcome(compileInput(
+                contracts: legacyContracts[0],
+                bindings: [.phase: "pulsePhase"],
+                fallbackOverrides: [.phase: [7]]
+            )),
+            "legacyProductPhaseMissingProducer": outcome(compileInput(
+                contracts: legacyContracts[0],
+                bindings: [.phase: "pulsePhase"],
+                producers: []
             )),
             "productBounds": outcome(compileInput(
                 contracts: contracts,
@@ -668,6 +742,27 @@ enum Harness {
             "phaseFragmentRangeDrift": ownerDisposition(
                 phasePlan, [stock, copy(stock, fragment: wrongPhaseFragment)]
             ),
+            "legacyPhaseDispositions": zip(
+                legacyPhasePlans, legacyPrepared
+            ).map { plan, prepared in
+                ownerDisposition(plan, [prepared, prepared])
+            },
+            "legacyPhaseExtraStage": ownerDisposition(
+                legacyPhasePlans[0],
+                [legacyPrepared[0], copy(legacyPrepared[0], vertex: legacyExtraVertex)]
+            ),
+            "legacyPhaseMissingStage": ownerDisposition(
+                legacyPhasePlans[0],
+                [legacyPrepared[0], copy(
+                    legacyPrepared[0], fragment: legacyMissingFragment
+                )]
+            ),
+            "legacyPhaseRangeDrift": ownerDisposition(
+                legacyPhasePlans[0],
+                [legacyPrepared[0], copy(
+                    legacyPrepared[0], fragment: legacyWrongRange
+                )]
+            ),
             "boundsDisposition": ownerDisposition(
                 boundsPlan,
                 [stock, stock]
@@ -715,6 +810,28 @@ class ScenePulseDirectUserPropertyOwnerAdmissionTests(unittest.TestCase):
             STOCK_ROOT / "shaders/common_blending.h",
             cls.stock / "shaders/common_blending.h",
         )
+        cls.legacy_roots = []
+        legacy_fragments = (
+            PULSE_FIXTURE["LEGACY_FRAG_SATURATE_BASE64"],
+            PULSE_FIXTURE["LEGACY_FRAG_CAST3_BASE64"],
+            PULSE_FIXTURE["LEGACY_FRAG_LITERAL_BASE64"],
+        )
+        for index, fragment in enumerate(legacy_fragments):
+            legacy_root = root / f"legacy-{index}"
+            legacy_shader_dir = legacy_root / "shaders/effects"
+            legacy_shader_dir.mkdir(parents=True)
+            (legacy_shader_dir / "pulse.vert").write_bytes(
+                base64.b64decode(PULSE_FIXTURE["LEGACY_VERT_BASE64"])
+            )
+            (legacy_shader_dir / "pulse.frag").write_bytes(
+                base64.b64decode(fragment)
+            )
+            (legacy_root / "shaders").mkdir(exist_ok=True)
+            shutil.copy2(
+                STOCK_ROOT / "shaders/common_blending.h",
+                legacy_root / "shaders/common_blending.h",
+            )
+            cls.legacy_roots.append(legacy_root)
 
         binary = root / "pulse-owner-admission"
         environment = os.environ.copy()
@@ -742,7 +859,7 @@ class ScenePulseDirectUserPropertyOwnerAdmissionTests(unittest.TestCase):
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
         completed = subprocess.run(
-            [str(binary), str(cls.stock)],
+            [str(binary), str(cls.stock), *(str(path) for path in cls.legacy_roots)],
             cwd=REPOSITORY_ROOT,
             env=environment,
             capture_output=True,
@@ -779,6 +896,33 @@ class ScenePulseDirectUserPropertyOwnerAdmissionTests(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertEqual(self.result[key], "incumbent")
         self.assertEqual(self.result["boundsDisposition"], "retain-incumbent")
+
+    def test_historical_fragment_only_phase_revokes_the_incumbent(self) -> None:
+        expected = "revoked:typed-user-property-rgb-owner-revoked-to-material-program"
+        self.assertEqual(self.result["legacyProductPhase"], [expected] * 3)
+        self.assertEqual(
+            self.result["legacyPhaseDispositions"],
+            ["revoke-dedicated-owner"] * 3,
+        )
+        self.assertEqual(self.result["legacyPhaseRanges"][0][0], 0)
+        self.assertAlmostEqual(self.result["legacyPhaseRanges"][0][1], 6.282)
+
+    def test_historical_phase_unsafe_shapes_retain_the_incumbent(self) -> None:
+        self.assertEqual(
+            self.result["legacyProductPhaseUnsafeFallback"],
+            "revoked:",
+        )
+        self.assertEqual(
+            self.result["legacyProductPhaseMissingProducer"],
+            "incumbent",
+        )
+        for key in (
+            "legacyPhaseExtraStage",
+            "legacyPhaseMissingStage",
+            "legacyPhaseRangeDrift",
+        ):
+            with self.subTest(key=key):
+                self.assertEqual(self.result[key], "retain-incumbent")
 
     def test_shader_schema_drift_retains_the_incumbent(self) -> None:
         for key in (

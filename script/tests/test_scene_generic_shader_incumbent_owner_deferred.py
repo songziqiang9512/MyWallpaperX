@@ -949,8 +949,15 @@ fragment float4 mwxGenericFragment(
         direct_cohort = pulse_compiler[cohort_start:cohort_end]
         self.assertIn(".phase", direct_cohort)
         self.assertNotIn(".bounds", direct_cohort)
-        self.assertIn("case .speed, .phase, .amount:", pulse_compiler)
+        self.assertIn("case .speed, .amount:", pulse_compiler)
+        self.assertIn("case .phase:", pulse_compiler)
+        self.assertIn("case .stock2842:", pulse_compiler)
+        self.assertIn(
+            "case .directPhaseSaturateV1, .directPhaseMaxClampV1:",
+            pulse_compiler,
+        )
         self.assertIn("stages = [.vertex, .fragment]", pulse_compiler)
+        self.assertIn("stages = [.fragment]", pulse_compiler)
         self.assertIn("case .bounds:", pulse_compiler)
         self.assertIn("exactActiveUniforms(", pulse_compiler)
         self.assertIn("constant.authoredRange(", pulse_compiler)
