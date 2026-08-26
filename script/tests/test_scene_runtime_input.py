@@ -95,8 +95,8 @@ enum SceneAuthoredEffectRenderPlanner {
     }
 }
 
-enum SceneInitiallyInactiveEffectRouteAdmission {
-    static func targets(
+enum SceneDirectBoolEffectVisibilityRouteAdmission {
+    static func startupInactiveTargets(
         in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>
     ) -> Set<SceneDynamicTarget> {

@@ -81,6 +81,40 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         })
     }
 
+    /// Exact direct-bool effect targets that may transfer an already-active
+    /// stage candidate to the shared Program route. One property may fan out
+    /// to multiple visibility targets, but it may not mix target kinds or
+    /// value types; launch route admission further limits lifecycle ownership.
+    nonisolated var effectLocalDirectBoolEffectVisibilityTargets:
+        Set<SceneDynamicTarget> {
+        let validation = ScenePropertyBindingProgramValidator().validate(self)
+        guard validation.diagnostics.isEmpty else { return [] }
+        let definitions = Dictionary(
+            uniqueKeysWithValues: validation.definitions.map { ($0.target, $0) }
+        )
+        let instructionsByPropertyKey = Dictionary(
+            grouping: validation.instructions,
+            by: \.propertyKey
+        )
+        let rebuildRequired = Set(rebuildRequiredPropertyKeys)
+        return Set(validation.instructions.compactMap { instruction in
+            let siblings = instructionsByPropertyKey[instruction.propertyKey] ?? []
+            guard !siblings.isEmpty,
+                  siblings.allSatisfy({ sibling in
+                      guard sibling.valueType == .bool,
+                            case .effectVisibility = sibling.target else {
+                          return false
+                      }
+                      return true
+                  }),
+                  !rebuildRequired.contains(instruction.propertyKey),
+                  let definition = definitions[instruction.target],
+                  definition.valueType == .bool,
+                  case .bool = definition.authoredValue else { return nil }
+            return instruction.target
+        })
+    }
+
     private enum CodingKeys: String, CodingKey {
         case definitions
         case instructions

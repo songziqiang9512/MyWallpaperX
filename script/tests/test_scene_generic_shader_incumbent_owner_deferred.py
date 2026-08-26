@@ -717,6 +717,9 @@ fragment float4 mwxGenericFragment(
         owner_admission = OWNER_ADMISSION_SOURCE.read_text(encoding="utf-8")
         standard_blur = STANDARD_BLUR_SOURCE.read_text(encoding="utf-8")
         dedicated_compilers = DEDICATED_COMPILERS_SOURCE.read_text(encoding="utf-8")
+        stage_compile_model = STAGE_COMPILE_MODEL_SOURCE.read_text(encoding="utf-8")
+        dedicated_stages = DEDICATED_STAGES_SOURCE.read_text(encoding="utf-8")
+        launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
 
         self.assertIn("case ownerDeferred(", cache)
         self.assertIn("case genericProductOwnerDeferred", failure)
@@ -880,8 +883,33 @@ fragment float4 mwxGenericFragment(
             standard_compiler,
         )
         self.assertIn("dedicatedRevocationDetail(", standard_compiler)
-        self.assertIn("!input.hasDynamicEffectVisibilityOwner(for: effect.key)", standard_compiler)
+        self.assertIn(
+            "!input.hasFrameDrivenEffectVisibilityOwner(for: effect.key)",
+            standard_compiler,
+        )
+        self.assertIn(
+            "input.supportsEffectLocalUserPropertyVisibility(for: effect.key)",
+            standard_compiler,
+        )
         self.assertIn("details: [revocationDetail]", standard_compiler)
+        self.assertNotIn("func hasDynamicEffectVisibilityOwner(", stage_compile_model)
+        self.assertIn(
+            "activeEffectLocalDirectBoolVisibilityTargets.contains(target)",
+            stage_compile_model,
+        )
+        self.assertIn(
+            "activeEffectLocalDirectBoolVisibilityTargets:",
+            dedicated_stages,
+        )
+        self.assertIn(
+            ".effectLocalDirectBoolEffectVisibilityTargets",
+            launch,
+        )
+        self.assertIn(
+            "SceneDirectBoolEffectVisibilityRouteAdmission",
+            launch,
+        )
+        self.assertIn(".activeOrdinaryRootTargets(", launch)
 
         pulse_compiler = dedicated_compilers[
             dedicated_compilers.index("extension SceneAuthoredPulsePlanner"):

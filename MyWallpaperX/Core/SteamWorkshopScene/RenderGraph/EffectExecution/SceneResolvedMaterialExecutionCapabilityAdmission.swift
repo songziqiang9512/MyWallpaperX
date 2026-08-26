@@ -45,11 +45,48 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     }
 }
 
-/// Narrows validated direct-bool bindings to ordinary, visible root layers.
-/// Cross-layer providers/consumers and utility or hierarchy-owned output keep
-/// their existing route; startup-inactive admission must not extend it.
-nonisolated enum SceneInitiallyInactiveEffectRouteAdmission {
-    static func targets(
+/// Narrows validated direct-bool effect visibility to ordinary, visible root
+/// layers. Cross-layer providers/consumers and utility or hierarchy-owned
+/// output keep their existing route for both active and startup-inactive work.
+nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
+    static func startupInactiveTargets(
+        in descriptor: SceneRenderDescriptor,
+        candidates: Set<SceneDynamicTarget>
+    ) -> Set<SceneDynamicTarget> {
+        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        let structuralUtilityConsumerLayerIDs =
+            SceneResolvedMaterialDependencyOwnershipCompiler
+                .structuralUtilityConsumerLayerIDs(in: descriptor)
+        let dependencyPlan = SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: visibleLayerIDs,
+            executableUtilityConsumerLayerIDs:
+                structuralUtilityConsumerLayerIDs
+        )
+        return startupInactiveTargets(
+            in: descriptor,
+            candidates: candidates,
+            visibleLayerIDs: visibleLayerIDs,
+            dependencyPlan: dependencyPlan
+        )
+    }
+
+    static func startupInactiveTargets(
+        in descriptor: SceneRenderDescriptor,
+        candidates: Set<SceneDynamicTarget>,
+        visibleLayerIDs: Set<Int>,
+        dependencyPlan: SceneDependencyRenderPlan
+    ) -> Set<SceneDynamicTarget> {
+        targets(
+            in: descriptor,
+            candidates: candidates,
+            visibleLayerIDs: visibleLayerIDs,
+            dependencyPlan: dependencyPlan,
+            requiresInitiallyInactiveEffect: true
+        )
+    }
+
+    static func activeOrdinaryRootTargets(
         in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>
     ) -> Set<SceneDynamicTarget> {
@@ -67,15 +104,17 @@ nonisolated enum SceneInitiallyInactiveEffectRouteAdmission {
             in: descriptor,
             candidates: candidates,
             visibleLayerIDs: visibleLayerIDs,
-            dependencyPlan: dependencyPlan
+            dependencyPlan: dependencyPlan,
+            requiresInitiallyInactiveEffect: false
         )
     }
 
-    static func targets(
+    private static func targets(
         in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>,
         visibleLayerIDs: Set<Int>,
-        dependencyPlan: SceneDependencyRenderPlan
+        dependencyPlan: SceneDependencyRenderPlan,
+        requiresInitiallyInactiveEffect: Bool
     ) -> Set<SceneDynamicTarget> {
         let layersByID = Dictionary(
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
@@ -92,7 +131,8 @@ nonisolated enum SceneInitiallyInactiveEffectRouteAdmission {
             guard case let .effectVisibility(layerID, effectIndex) = target,
                   let layer = layersByID[layerID],
                   layer.effects.indices.contains(effectIndex),
-                  layer.effects[effectIndex].visible == false,
+                  (layer.effects[effectIndex].visible == false)
+                    == requiresInitiallyInactiveEffect,
                   visibleLayerIDs.contains(layerID),
                   layer.parentID == nil,
                   layer.childLayerIDs.isEmpty,
@@ -172,7 +212,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         let graphOutputProviderLayerIDs =
             dependencyPlan.requiredGraphOutputProviderLayerIDs
         let safeStartupInactiveTargets =
-            SceneInitiallyInactiveEffectRouteAdmission.targets(
+            SceneDirectBoolEffectVisibilityRouteAdmission.startupInactiveTargets(
                 in: descriptor,
                 candidates: startupInactiveEffectVisibilityTargets,
                 visibleLayerIDs: visibleLayerIDs,

@@ -19,6 +19,7 @@ nonisolated struct SceneEffectStageCompileInput {
     let descriptor: SceneRenderDescriptor
     let shaderContracts: [SceneShaderContract]
     let userPropertyProducers: Set<SceneDynamicUserPropertyProducer>
+    let activeEffectLocalDirectBoolVisibilityTargets: Set<SceneDynamicTarget>
     let frameDrivenEffectVisibilityOwners:
         Set<DynamicEffectVisibilityOwner>
 
@@ -31,6 +32,7 @@ nonisolated struct SceneEffectStageCompileInput {
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
         userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = [],
+        activeEffectLocalDirectBoolVisibilityTargets: Set<SceneDynamicTarget> = [],
         frameDrivenEffectVisibilityOwners:
             Set<DynamicEffectVisibilityOwner> = []
     ) {
@@ -42,15 +44,10 @@ nonisolated struct SceneEffectStageCompileInput {
         self.descriptor = descriptor
         self.shaderContracts = shaderContracts
         self.userPropertyProducers = userPropertyProducers
+        self.activeEffectLocalDirectBoolVisibilityTargets =
+            activeEffectLocalDirectBoolVisibilityTargets
         self.frameDrivenEffectVisibilityOwners =
             frameDrivenEffectVisibilityOwners
-    }
-
-    func hasDynamicEffectVisibilityOwner(
-        for effectKey: Graph.EffectKey
-    ) -> Bool {
-        hasFrameDrivenEffectVisibilityOwner(for: effectKey)
-            || !userPropertyEffectVisibilityProducers(for: effectKey).isEmpty
     }
 
     func hasFrameDrivenEffectVisibilityOwner(
@@ -64,9 +61,15 @@ nonisolated struct SceneEffectStageCompileInput {
     func supportsEffectLocalUserPropertyVisibility(
         for effectKey: Graph.EffectKey
     ) -> Bool {
+        let target = SceneDynamicTarget.effectVisibility(
+            layerID: effectKey.layerID,
+            effectIndex: effectKey.effectIndex
+        )
         let producers = userPropertyEffectVisibilityProducers(for: effectKey)
         return producers.isEmpty
-            || (producers.count == 1 && producers.first?.valueType == .bool)
+            || (producers.count == 1
+                && producers.first?.valueType == .bool
+                && activeEffectLocalDirectBoolVisibilityTargets.contains(target))
     }
 
     private func userPropertyEffectVisibilityProducers(

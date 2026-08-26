@@ -68,7 +68,8 @@ extension SceneAuthoredStandardBlurPlanner {
         )
         guard case .accepted = result,
               let effect = input.stageGraph.effects.first,
-              !input.hasDynamicEffectVisibilityOwner(for: effect.key),
+              !input.hasFrameDrivenEffectVisibilityOwner(for: effect.key),
+              input.supportsEffectLocalUserPropertyVisibility(for: effect.key),
               let terminalNodeIndex = effect.nodeIndices.last else { return result }
         let revocationDetail =
             SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission

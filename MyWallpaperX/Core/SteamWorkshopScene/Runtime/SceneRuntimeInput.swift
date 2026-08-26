@@ -19,7 +19,7 @@ struct SceneRuntimeInput: Codable {
         directBoolEffectVisibilityTargets =
             propertyBindingProgram.directBoolEffectVisibilityTargets
         startupInactiveEffectVisibilityTargets =
-            SceneInitiallyInactiveEffectRouteAdmission.targets(
+            SceneDirectBoolEffectVisibilityRouteAdmission.startupInactiveTargets(
                 in: renderDescriptor,
                 candidates: directBoolEffectVisibilityTargets
             )

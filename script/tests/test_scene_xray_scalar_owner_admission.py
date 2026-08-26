@@ -258,6 +258,7 @@ private func admits(
     sizeProperty: String? = nil,
     multiplyProperty: String? = nil,
     producers: Set<SceneDynamicUserPropertyProducer> = [],
+    activeEffectLocalDirectBoolVisibilityTargets: Set<SceneDynamicTarget> = [],
     frameDrivenVisibilityEffectIndex: Int? = nil,
     extraSizeBindingKey: Bool = false,
     sizeScript: String? = nil
@@ -275,6 +276,8 @@ private func admits(
         ),
         shaderContracts: [contract(root)],
         userPropertyProducers: producers,
+        activeEffectLocalDirectBoolVisibilityTargets:
+            activeEffectLocalDirectBoolVisibilityTargets,
         frameDrivenEffectVisibilityOwners: frameDrivenVisibilityEffectIndex
             .map { [.init(layerID: layerID, effectIndex: $0)] }
             ?? []
@@ -330,6 +333,12 @@ enum Harness {
                 producers: [producer("xraySize", name: "size", type: .vector2)]
             ),
             "dynamicVisibility": admits(
+                root: stock,
+                sizeProperty: "xraySize",
+                producers: [size, visibility],
+                activeEffectLocalDirectBoolVisibilityTargets: [visibility.target]
+            ),
+            "unvalidatedVisibility": admits(
                 root: stock,
                 sizeProperty: "xraySize",
                 producers: [size, visibility]
@@ -496,6 +505,7 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
             "missingProducer",
             "wrongProducerType",
             "wrongVisibilityType",
+            "unvalidatedVisibility",
             "frameDrivenVisibility",
             "siblingFrameDrivenVisibility",
             "extraWrapperField",
@@ -522,6 +532,11 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
         self.assertIn(
             "frameDrivenEffectVisibilityOwners:"
             "stageCompileEffectVisibilityOwners",
+            normalized,
+        )
+        self.assertIn(
+            "activeEffectLocalDirectBoolVisibilityTargets:"
+            "activeEffectLocalDirectBoolVisibilityTargets",
             normalized,
         )
 

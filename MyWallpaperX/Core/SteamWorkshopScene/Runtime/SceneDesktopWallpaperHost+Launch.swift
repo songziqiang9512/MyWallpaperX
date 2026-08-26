@@ -220,12 +220,21 @@ extension SceneDesktopWallpaperHost {
                 )
             }
         )
+        let activeEffectLocalDirectBoolVisibilityTargets =
+            SceneDirectBoolEffectVisibilityRouteAdmission
+                .activeOrdinaryRootTargets(
+                    in: runtimeInput.renderDescriptor,
+                    candidates: runtimeInput.propertyBindingProgram
+                        .effectLocalDirectBoolEffectVisibilityTargets
+                )
         let dedicatedStageLeaves = runtimeInput.authoredEffectRenderPlans.flatMap {
             SceneEffectProgramCompiler.compileDedicatedLeaves(
                 graph: $0,
                 descriptor: runtimeInput.renderDescriptor,
                 shaderContracts: runtimeInput.shaderContracts,
                 userPropertyProducers: userPropertyProducers,
+                activeEffectLocalDirectBoolVisibilityTargets:
+                    activeEffectLocalDirectBoolVisibilityTargets,
                 frameDrivenEffectVisibilityOwners:
                     stageCompileEffectVisibilityOwners
             )

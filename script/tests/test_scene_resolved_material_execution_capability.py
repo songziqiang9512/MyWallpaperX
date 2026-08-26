@@ -1461,15 +1461,37 @@ private func startupInactiveChecks() -> [String: Bool] {
     func admittedTargets(
         _ candidateDescriptor: SceneRenderDescriptor
     ) -> Set<SceneDynamicTarget> {
-        SceneInitiallyInactiveEffectRouteAdmission.targets(
+        SceneDirectBoolEffectVisibilityRouteAdmission.startupInactiveTargets(
             in: candidateDescriptor,
             candidates: [visibilityTarget]
         )
     }
+    func admittedActiveTargets(
+        _ candidateDescriptor: SceneRenderDescriptor
+    ) -> Set<SceneDynamicTarget> {
+        SceneDirectBoolEffectVisibilityRouteAdmission.activeOrdinaryRootTargets(
+            in: candidateDescriptor,
+            candidates: [visibilityTarget]
+        )
+    }
+    let activeLayer = SceneRenderDescriptor.Layer(
+        id: layerID,
+        effects: descriptor.layers[0].effects.enumerated().map { index, effect in
+            .init(
+                id: effect.id,
+                file: effect.file,
+                visible: index == 1 ? true : effect.visible,
+                passes: effect.passes
+            )
+        }
+    )
+    let activeDescriptor = replacingLayers([activeLayer])
     var utilityLayer = descriptor.layers[0]
     utilityLayer.utilityLayer = .init(kind: .composition)
     var childLayer = descriptor.layers[0]
     childLayer.childLayerIDs = [layerID + 10]
+    var authoredDependencyLayer = descriptor.layers[0]
+    authoredDependencyLayer.authoredDependencies = [layerID + 12]
     let parentID = layerID + 11
     var parentOwnedLayer = descriptor.layers[0]
     parentOwnedLayer.parentID = parentID
@@ -1594,8 +1616,15 @@ private func startupInactiveChecks() -> [String: Bool] {
             && !passthroughCatalog.liveConsumerTargets.contains(visibilityTarget),
         "ordinaryRootAdmitted": admittedTargets(descriptor)
             == Set([visibilityTarget]),
+        "activeOrdinaryRootAdmitted": admittedActiveTargets(activeDescriptor)
+            == Set([visibilityTarget]),
+        "inactiveExcludedFromActive": admittedActiveTargets(descriptor).isEmpty,
+        "activeExcludedFromStartup": admittedTargets(activeDescriptor).isEmpty,
         "utilityExcluded": admittedTargets(replacingLayers([utilityLayer])).isEmpty,
         "childExcluded": admittedTargets(replacingLayers([childLayer])).isEmpty,
+        "authoredDependencyExcluded": admittedTargets(
+            replacingLayers([authoredDependencyLayer])
+        ).isEmpty,
         "parentExcluded": admittedTargets(replacingLayers([
             parentOwnedLayer, parentLayer,
         ])).isEmpty,
@@ -4182,10 +4211,18 @@ private enum Harness {
                     startupInactive["passthrough"] ?? false,
                 "startupInactiveOrdinaryRootAdmitted":
                     startupInactive["ordinaryRootAdmitted"] ?? false,
+                "activeDirectBoolOrdinaryRootAdmitted":
+                    startupInactive["activeOrdinaryRootAdmitted"] ?? false,
+                "inactiveDirectBoolExcludedFromActive":
+                    startupInactive["inactiveExcludedFromActive"] ?? false,
+                "activeDirectBoolExcludedFromStartup":
+                    startupInactive["activeExcludedFromStartup"] ?? false,
                 "startupInactiveUtilityExcluded":
                     startupInactive["utilityExcluded"] ?? false,
                 "startupInactiveChildExcluded":
                     startupInactive["childExcluded"] ?? false,
+                "startupInactiveAuthoredDependencyExcluded":
+                    startupInactive["authoredDependencyExcluded"] ?? false,
                 "startupInactiveParentExcluded":
                     startupInactive["parentExcluded"] ?? false,
                 "startupInactiveUnsupportedSourceExcluded":
@@ -8222,8 +8259,12 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "startupInactiveProgramActivation": True,
                 "startupInactivePassthroughKeepsSiblings": True,
                 "startupInactiveOrdinaryRootAdmitted": True,
+                "activeDirectBoolOrdinaryRootAdmitted": True,
+                "inactiveDirectBoolExcludedFromActive": True,
+                "activeDirectBoolExcludedFromStartup": True,
                 "startupInactiveUtilityExcluded": True,
                 "startupInactiveChildExcluded": True,
+                "startupInactiveAuthoredDependencyExcluded": True,
                 "startupInactiveParentExcluded": True,
                 "startupInactiveUnsupportedSourceExcluded": True,
                 "startupInactiveDependencyConsumerExcluded": True,

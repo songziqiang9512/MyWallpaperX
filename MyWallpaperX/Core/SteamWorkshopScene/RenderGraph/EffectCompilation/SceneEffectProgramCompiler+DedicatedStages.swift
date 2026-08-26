@@ -18,6 +18,8 @@ extension SceneEffectProgramCompiler {
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
         userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = [],
+        activeEffectLocalDirectBoolVisibilityTargets:
+            Set<SceneDynamicTarget> = [],
         frameDrivenEffectVisibilityOwners:
             Set<SceneEffectStageCompileInput.DynamicEffectVisibilityOwner> = []
     ) -> [SceneEffectStageProgram] {
@@ -34,6 +36,8 @@ extension SceneEffectProgramCompiler {
                 descriptor: descriptor,
                 shaderContracts: shaderContracts,
                 userPropertyProducers: userPropertyProducers,
+                activeEffectLocalDirectBoolVisibilityTargets:
+                    activeEffectLocalDirectBoolVisibilityTargets,
                 frameDrivenEffectVisibilityOwners:
                     frameDrivenEffectVisibilityOwners
             )
