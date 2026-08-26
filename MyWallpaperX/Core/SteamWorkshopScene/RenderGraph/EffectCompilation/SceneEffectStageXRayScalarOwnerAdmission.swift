@@ -38,12 +38,8 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
               layer.effects.indices.contains(effectKey.effectIndex),
               layer.effects[effectKey.effectIndex].id == effectKey.descriptorID,
               layer.effects[effectKey.effectIndex].visible != false,
-              !hasDynamicVisibilityProducer(
-                  effectKey: effectKey,
-                  producers: input.userPropertyProducers,
-                  frameDrivenOwners:
-                      input.frameDrivenEffectVisibilityOwners
-              ) else { return false }
+              !input.hasDynamicEffectVisibilityOwner(for: effectKey)
+        else { return false }
 
         let resolution = SceneAuthoredMaterialResolver.resolve(
             node: node,
@@ -301,24 +297,6 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
             && SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputSpatialWeightedColorBlend
                 .validatedRollbackOwner == .boundedFrontend
-    }
-
-    private static func hasDynamicVisibilityProducer(
-        effectKey: Graph.EffectKey,
-        producers: Set<SceneDynamicUserPropertyProducer>,
-        frameDrivenOwners:
-            Set<SceneEffectStageCompileInput.DynamicEffectVisibilityOwner>
-    ) -> Bool {
-        let target = SceneDynamicTarget.effectVisibility(
-            layerID: effectKey.layerID,
-            effectIndex: effectKey.effectIndex
-        )
-        let owner = SceneEffectStageCompileInput.DynamicEffectVisibilityOwner(
-            layerID: effectKey.layerID,
-            effectIndex: effectKey.effectIndex
-        )
-        return frameDrivenOwners.contains(owner)
-            || producers.contains { $0.target == target }
     }
 
     private static func normalized(_ value: String) -> String {

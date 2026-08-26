@@ -30,7 +30,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
               graph.effects[0].nodeIndices.last == key.nodeIndex,
               let layer = descriptor.layers.first(where: {
                   $0.id == graph.layerID
-              }), let source = sourceCohort(layer),
+              }), sourceCohort(layer) != nil,
               let inputRole = SceneAuthoredEffectInputValidator.role(
                   for: graph.effects[0].input,
                   layerID: graph.layerID
@@ -39,15 +39,11 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                   graph: graph,
                   descriptor: descriptor,
                   inputRole: inputRole
-              ), let blur = stage.standardBlur,
-              let scale = wholeStageScaleCohort(
+              ), stage.standardBlur != nil,
+              wholeStageScaleCohort(
                   graph: graph,
                   descriptor: descriptor
-              ) else { return false }
-        if source == .copyPassthroughCapturedMain,
-           case .userPropertyScalarSplat = scale {
-            return blur.maskTexturePath == nil
-        }
+              ) != nil else { return false }
         return true
     }
 

@@ -45,6 +45,19 @@ nonisolated struct SceneEffectStageCompileInput {
         self.frameDrivenEffectVisibilityOwners =
             frameDrivenEffectVisibilityOwners
     }
+
+    func hasDynamicEffectVisibilityOwner(
+        for effectKey: Graph.EffectKey
+    ) -> Bool {
+        let target = SceneDynamicTarget.effectVisibility(
+            layerID: effectKey.layerID,
+            effectIndex: effectKey.effectIndex
+        )
+        return frameDrivenEffectVisibilityOwners.contains {
+            $0.layerID == effectKey.layerID
+        }
+            || userPropertyProducers.contains { $0.target == target }
+    }
 }
 
 /// Compiler identity is separate from the runtime backend because two ordered

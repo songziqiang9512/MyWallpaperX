@@ -813,10 +813,10 @@ fragment float4 mwxGenericFragment(
             "layer.authoredDependencies.isEmpty",
         ):
             self.assertIn(captured_main_boundary, owner_gate)
-        self.assertIn("blur.maskTexturePath == nil", owner_gate)
+        self.assertNotIn("blur.maskTexturePath == nil", owner_gate)
         self.assertIn("SceneAuthoredEffectInputValidator.role(", owner_gate)
         self.assertIn(
-            "source == .copyPassthroughCapturedMain",
+            "sourceCohort(layer) != nil",
             owner_gate,
         )
         self.assertIn(".userPropertyScalarSplat", owner_gate)
@@ -880,7 +880,7 @@ fragment float4 mwxGenericFragment(
             standard_compiler,
         )
         self.assertIn("dedicatedRevocationDetail(", standard_compiler)
-        self.assertNotIn(".accepts(\n", standard_compiler)
+        self.assertIn("!input.hasDynamicEffectVisibilityOwner(for: effect.key)", standard_compiler)
         self.assertIn("details: [revocationDetail]", standard_compiler)
 
         pulse_compiler = dedicated_compilers[

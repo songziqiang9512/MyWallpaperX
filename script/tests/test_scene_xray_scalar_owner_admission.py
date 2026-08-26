@@ -258,7 +258,7 @@ private func admits(
     sizeProperty: String? = nil,
     multiplyProperty: String? = nil,
     producers: Set<SceneDynamicUserPropertyProducer> = [],
-    frameDrivenVisibility: Bool = false,
+    frameDrivenVisibilityEffectIndex: Int? = nil,
     extraSizeBindingKey: Bool = false,
     sizeScript: String? = nil
 ) -> Bool {
@@ -275,9 +275,9 @@ private func admits(
         ),
         shaderContracts: [contract(root)],
         userPropertyProducers: producers,
-        frameDrivenEffectVisibilityOwners: frameDrivenVisibility
-            ? [.init(layerID: layerID, effectIndex: 0)]
-            : []
+        frameDrivenEffectVisibilityOwners: frameDrivenVisibilityEffectIndex
+            .map { [.init(layerID: layerID, effectIndex: $0)] }
+            ?? []
     )
     return SceneEffectStageXRayScalarOwnerAdmission
         .acceptsDedicatedRevocation(effectKey: effectKey, input: input)
@@ -338,7 +338,13 @@ enum Harness {
                 root: stock,
                 sizeProperty: "xraySize",
                 producers: [size],
-                frameDrivenVisibility: true
+                frameDrivenVisibilityEffectIndex: 0
+            ),
+            "siblingFrameDrivenVisibility": admits(
+                root: stock,
+                sizeProperty: "xraySize",
+                producers: [size],
+                frameDrivenVisibilityEffectIndex: 1
             ),
             "extraWrapperField": admits(
                 root: stock,
@@ -475,6 +481,7 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
             "wrongProducerType",
             "dynamicVisibility",
             "frameDrivenVisibility",
+            "siblingFrameDrivenVisibility",
             "extraWrapperField",
             "scriptAttachment",
             "wrongRange",
