@@ -1780,6 +1780,15 @@ def resolved_material_graph_observation_metrics(
             if target_descriptor_counts == "-"
             else bool(re.fullmatch(r"[0-9a-f]{64}", target_descriptors_sha256))
         )
+        program_identity = unquote(fields.get("program", ""))
+        activation_passthrough = (
+            program_identity.startswith("activation-passthrough:")
+            and counts["rejected_nodes"] == counts["authored_nodes"]
+            and counts["material_nodes"] == 0
+            and counts["copy_nodes"] == 0
+            and counts["swap_nodes"] == 0
+            and counts["compose_nodes"] == 0
+        )
         terminal_failures = [
             message for valid, message in (
                 (
@@ -1799,12 +1808,13 @@ def resolved_material_graph_observation_metrics(
                     "resolved material graph effect identity invalid",
                 ),
                 (
-                    counts["rejected_nodes"] == 0,
+                    counts["rejected_nodes"] == 0 or activation_passthrough,
                     "resolved material graph observation rejected nodes are nonzero",
                 ),
                 (
                     counts["authored_nodes"] == counts["material_nodes"]
-                    + counts["copy_nodes"] + counts["swap_nodes"],
+                    + counts["copy_nodes"] + counts["swap_nodes"]
+                    or activation_passthrough,
                     "resolved material graph observation node conservation failed",
                 ),
                 (
@@ -1877,6 +1887,8 @@ def resolved_material_graph_observation_metrics(
             "descriptor_id": descriptor_id,
             "trigger": trigger.split("+"),
             "transaction": fields["transaction"],
+            "program_identity": program_identity,
+            "activation_passthrough": activation_passthrough,
             **counts,
             "final_output": outputs[0],
             "final_physical": outputs[1],
@@ -1911,6 +1923,14 @@ def resolved_material_graph_observation_metrics(
         validation_failures.append(
             "resolved material graph observation GPU failure reported"
         )
+    program_terminal_successes = [
+        observation for observation in terminal_successes
+        if not observation["activation_passthrough"]
+    ]
+    activation_terminal_successes = [
+        observation for observation in terminal_successes
+        if observation["activation_passthrough"]
+    ]
     successful_transactions = sorted({
         observation["transaction"]
             if observation["runtime_instance_identity"] == "legacy"
@@ -1920,12 +1940,24 @@ def resolved_material_graph_observation_metrics(
             )
         for observation in terminal_successes
     })
+    program_successful_transactions = sorted({
+        observation["transaction"]
+            if observation["runtime_instance_identity"] == "legacy"
+            else (
+                observation["runtime_instance_identity"]
+                + ":" + observation["transaction"]
+            )
+        for observation in program_terminal_successes
+    })
     runtime_instance_identities = sorted({
         observation["runtime_instance_identity"]
         for observation in terminal_successes
     })
     successful_layer_ids = sorted({
         observation["layer_id"] for observation in terminal_successes
+    })
+    program_successful_layer_ids = sorted({
+        observation["layer_id"] for observation in program_terminal_successes
     })
     compositor_consumed_layer_ids = sorted({
         observation["layer_id"]
@@ -1935,6 +1967,16 @@ def resolved_material_graph_observation_metrics(
     next_frame_layer_ids = sorted({
         observation["layer_id"]
         for observation in terminal_successes
+        if "next-frame" in observation["trigger"]
+    })
+    program_compositor_consumed_layer_ids = sorted({
+        observation["layer_id"]
+        for observation in program_terminal_successes
+        if observation["compositor_consumed"]
+    })
+    program_next_frame_layer_ids = sorted({
+        observation["layer_id"]
+        for observation in program_terminal_successes
         if "next-frame" in observation["trigger"]
     })
     target_descriptor_counts = sorted({
@@ -2048,15 +2090,37 @@ def resolved_material_graph_observation_metrics(
         "terminal_success_count": len(terminal_successes),
         "successful_transaction_count": len(successful_transactions),
         "successful_transactions": successful_transactions,
+        "program_terminal_success_count": len(program_terminal_successes),
+        "program_successful_transaction_count": len(
+            program_successful_transactions
+        ),
+        "program_successful_transactions": program_successful_transactions,
         "runtime_instance_identities": runtime_instance_identities,
         "runtime_instance_identity_count": len(runtime_instance_identities),
         "successful_gpu_completed_layer_ids": successful_layer_ids,
+        "program_successful_gpu_completed_layer_ids": (
+            program_successful_layer_ids
+        ),
         "compositor_consumed_layer_ids": compositor_consumed_layer_ids,
+        "program_compositor_consumed_layer_ids": (
+            program_compositor_consumed_layer_ids
+        ),
         "next_frame_layer_ids": next_frame_layer_ids,
+        "program_next_frame_layer_ids": program_next_frame_layer_ids,
         "next_frame_observed": bool(next_frame_layer_ids),
         "target_descriptor_counts": target_descriptor_counts,
         "lifecycle_transitions": lifecycle_transitions,
         "history_copy_on_write_count": history_copy_on_write_count,
+        "activation_passthrough_count": sum(
+            observation["activation_passthrough"]
+            for observation in terminal_successes
+        ),
+        "activation_passthrough_reason_codes": sorted({
+            observation["program_identity"].removeprefix(
+                "activation-passthrough:"
+            )
+            for observation in activation_terminal_successes
+        }),
         "terminal_compositor_consume_observed": any(
             observation["compositor_consumed"] for observation in terminal_successes
         ),
@@ -2329,10 +2393,19 @@ def resolved_material_graph_execution_metrics(
     observed_layer_ids = graph_observations[
         "successful_gpu_completed_layer_ids"
     ]
+    program_observed_layer_ids = graph_observations[
+        "program_successful_gpu_completed_layer_ids"
+    ]
     compositor_consumed_layer_ids = graph_observations[
         "compositor_consumed_layer_ids"
     ]
     next_frame_layer_ids = graph_observations["next_frame_layer_ids"]
+    program_compositor_consumed_layer_ids = graph_observations[
+        "program_compositor_consumed_layer_ids"
+    ]
+    program_next_frame_layer_ids = graph_observations[
+        "program_next_frame_layer_ids"
+    ]
     accepted_layer_set = set(accepted_layer_ids)
     named_capture = named_target_capture_execution_metrics(log_text)
     clean_named_capture_layer_ids = set(
@@ -2343,9 +2416,9 @@ def resolved_material_graph_execution_metrics(
         .intersection(clean_named_capture_layer_ids)
         .difference(compositor_consumed_layer_ids)
     )
-    output_consumed_layer_set = set(compositor_consumed_layer_ids).union(
-        named_published_layer_ids
-    )
+    program_output_consumed_layer_set = set(
+        program_compositor_consumed_layer_ids
+    ).union(named_published_layer_ids)
     named_compositor_overlap_layer_ids = sorted(
         accepted_layer_set
         .intersection(clean_named_capture_layer_ids)
@@ -2508,9 +2581,9 @@ def resolved_material_graph_execution_metrics(
     validation_failures = list(dict.fromkeys(validation_failures))
     succeeded_layer_ids = sorted(
         accepted_layer_set
-        .intersection(observed_layer_ids)
-        .intersection(output_consumed_layer_set)
-        .intersection(next_frame_layer_ids)
+        .intersection(program_observed_layer_ids)
+        .intersection(program_output_consumed_layer_set)
+        .intersection(program_next_frame_layer_ids)
         .intersection(exact_backend["complete_layer_ids"])
     )
     execution_succeeded = bool(
@@ -2522,7 +2595,7 @@ def resolved_material_graph_execution_metrics(
         and encoded_count > 0
         and gpu_encoded_count > 0
         and failure_count == 0
-        and graph_observations["successful_transaction_count"] >= 2
+        and graph_observations["program_successful_transaction_count"] >= 2
         and succeeded_layer_ids == accepted_layer_ids
         and not missing_layer_ids
         and not unexpected_layer_ids
@@ -2727,8 +2800,61 @@ def resolved_material_graph_execution_failures(
         "resolved material graph executor encoded count is zero",
         "resolved material graph executor GPU encoded count is zero",
         "resolved material graph successful transaction count below two",
+        "resolved material graph Program transaction count below two",
     }
     failures = list(metrics["validation_failures"])
+    expected_activation_reason_codes = sample.get(
+        "required_activation_passthrough_reason_codes"
+    )
+    minimum_activation_passthrough_count = sample.get(
+        "minimum_activation_passthrough_count"
+    )
+    expects_activation_evidence = (
+        expected_activation_reason_codes is not None
+        or minimum_activation_passthrough_count is not None
+    )
+    activation_expectation_valid = True
+    if expected_activation_reason_codes is not None:
+        activation_expectation_valid = (
+            isinstance(expected_activation_reason_codes, list)
+            and bool(expected_activation_reason_codes)
+            and all(
+                isinstance(reason, str)
+                and re.fullmatch(r"[A-Za-z0-9._-]+", reason) is not None
+                for reason in expected_activation_reason_codes
+            )
+            and expected_activation_reason_codes
+                == sorted(set(expected_activation_reason_codes))
+        )
+    if minimum_activation_passthrough_count is not None:
+        activation_expectation_valid = activation_expectation_valid and (
+            isinstance(minimum_activation_passthrough_count, int)
+            and not isinstance(minimum_activation_passthrough_count, bool)
+            and minimum_activation_passthrough_count > 0
+        )
+    if expects_activation_evidence and not activation_expectation_valid:
+        failures.append(
+            "resolved material graph activation passthrough expectation invalid"
+        )
+    elif expects_activation_evidence:
+        actual_reason_codes = set(
+            metrics["graph_observations"][
+                "activation_passthrough_reason_codes"
+            ]
+        )
+        if (
+            expected_activation_reason_codes is not None
+            and not set(expected_activation_reason_codes).issubset(
+                actual_reason_codes
+            )
+        ) or (
+            minimum_activation_passthrough_count is not None
+            and metrics["graph_observations"]["activation_passthrough_count"]
+                < minimum_activation_passthrough_count
+        ):
+            failures.append(
+                "resolved material graph activation passthrough evidence mismatch"
+            )
     fallback_evidence_satisfied = False
     if fallback_contract_valid and fallback_layers:
         missing_layers = set(metrics["layer_routes"]["missing_layer_ids"])
@@ -2780,7 +2906,11 @@ def resolved_material_graph_execution_failures(
         )
     expectation = RESOLVED_MATERIAL_GRAPH_EXPECTATIONS[0]
     expects_evidence = expectation.matrix_key in sample
-    if not require_evidence and not expects_evidence:
+    if (
+        not require_evidence
+        and not expects_evidence
+        and not expects_activation_evidence
+    ):
         return list(dict.fromkeys(failures))
 
     capability = metrics["capability"]
@@ -2937,7 +3067,16 @@ def resolved_material_graph_execution_failures(
         failures.append("resolved material graph executor reported failures")
     if not graph_observations["has_evidence"]:
         failures.append("resolved material graph terminal evidence missing")
-    elif graph_observations["successful_transaction_count"] < 2:
+    elif (
+        require_evidence or expects_evidence
+    ) and graph_observations["program_successful_transaction_count"] < 2:
+        failures.append(
+            "resolved material graph Program transaction count below two"
+        )
+    elif (
+        expects_activation_evidence
+        and graph_observations["successful_transaction_count"] < 2
+    ):
         failures.append(
             "resolved material graph successful transaction count below two"
         )
@@ -2946,6 +3085,12 @@ def resolved_material_graph_execution_failures(
             failure for failure in failures
             if failure not in allowlisted_local_failures
         ]
+    elif (require_evidence or expects_evidence) and not metrics[
+        "execution_succeeded"
+    ]:
+        failures.append(
+            "resolved material graph execution contract not satisfied"
+        )
     return list(dict.fromkeys(failures))
 
 

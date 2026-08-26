@@ -98,7 +98,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                   ])
             else { return false }
             guard value.discardedPersistentTargetState else { return true }
-            return value.effectLocalFailureReasonCode != nil
+            return (value.effectLocalFailureReasonCode != nil
+                    || value.effectLocalActivationBypassReasonCode != nil)
                 && !value.graph.renderTargets.isEmpty
                 && value.transition.transaction.intents.isEmpty
                 && value.transition.transaction.mappingBefore.isEmpty

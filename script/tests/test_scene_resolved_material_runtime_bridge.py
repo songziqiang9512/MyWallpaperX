@@ -1055,6 +1055,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let effectOutputResource: SceneFrameTextureResource
         let programCacheKeys: [String]
         let effectLocalFailureReasonCode: String?
+        let effectLocalActivationBypassReasonCode: String?
         let discardedPersistentTargetState: Bool
     }
     struct PreparedGraph {
@@ -1307,6 +1308,7 @@ private func makeObservationTransition(
         effectOutputResource: resource,
         programCacheKeys: ["fixture-program"],
         effectLocalFailureReasonCode: nil,
+        effectLocalActivationBypassReasonCode: nil,
         discardedPersistentTargetState: false
     )
 }
@@ -1406,6 +1408,7 @@ private func makeAtomicPrepared(
         effectLocalFailureReasonCode: discardedPersistentTargetState
             ? "fixture-effect-local-visual-failure"
             : nil,
+        effectLocalActivationBypassReasonCode: nil,
         discardedPersistentTargetState: discardedPersistentTargetState
     )
     return .init(

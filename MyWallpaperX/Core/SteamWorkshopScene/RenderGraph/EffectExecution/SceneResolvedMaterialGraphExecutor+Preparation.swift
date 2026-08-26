@@ -19,7 +19,8 @@ extension SceneResolvedMaterialGraphExecutor {
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
         programKeys: inout [String],
-        effectLocalFailureReasonCode: inout String?
+        effectLocalFailureReasonCode: inout String?,
+        effectLocalActivationBypassReasonCode: inout String?
     ) -> Failure? {
         let visualFailureSnapshot = VisualFailureSnapshot(
             pair: pair,
@@ -27,6 +28,47 @@ extension SceneResolvedMaterialGraphExecutor {
             commandCount: commands.count,
             programKeyCount: programKeys.count
         )
+        if let activation = stageCapability.activationPolicy {
+            switch activation.evaluate(
+                dynamicValues: dedicatedInputs.dynamicValues,
+                pointerIsInside: dedicatedInputs.pointerIsInside
+            ) {
+            case .active:
+                break
+            case let .inactive(reasonCode):
+                return prepareActivationPassthrough(
+                    reasonCode: reasonCode,
+                    dependencyOwnership: capability.dependencyOwnership,
+                    transition: transition,
+                    graph: graph,
+                    pairStep: pairStep,
+                    lease: lease,
+                    snapshot: visualFailureSnapshot,
+                    pair: &pair,
+                    publications: &publications,
+                    commands: &commands,
+                    programKeys: &programKeys,
+                    effectLocalActivationBypassReasonCode:
+                        &effectLocalActivationBypassReasonCode
+                )
+            case let .rejected(reasonCode):
+                return prepareVisualFailurePassthrough(
+                    reasonCode: reasonCode,
+                    dependencyOwnership: capability.dependencyOwnership,
+                    transition: transition,
+                    graph: graph,
+                    pairStep: pairStep,
+                    lease: lease,
+                    snapshot: visualFailureSnapshot,
+                    pair: &pair,
+                    publications: &publications,
+                    commands: &commands,
+                    programKeys: &programKeys,
+                    effectLocalFailureReasonCode:
+                        &effectLocalFailureReasonCode
+                )
+            }
+        }
         if case let .visualFailurePassthrough(_, reasonCode) = stageCapability {
             return prepareVisualFailurePassthrough(
                 reasonCode: reasonCode,

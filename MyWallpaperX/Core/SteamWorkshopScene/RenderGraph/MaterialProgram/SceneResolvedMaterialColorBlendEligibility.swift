@@ -149,6 +149,30 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
 }
 
 nonisolated extension SceneResolvedMaterialVariantCache {
+    /// Pointer position is an optional frame provider. Only an envelope whose
+    /// every compiled variant actively consumes the spatial-weighted profile's
+    /// pointer host value may gate the complete effect as one activation unit.
+    var launchEnvelopeProvesSpatialWeightedPointerProvider: Bool {
+        let snapshot = launchEnvelopeCapabilitySnapshot()
+        guard snapshot.allEntriesReady, !snapshot.variants.isEmpty else {
+            return false
+        }
+        let profile = SceneGenericShaderCapabilityProfile
+            .sourceProvenGraphInputSpatialWeightedColorBlend.rawValue
+        return snapshot.variants.allSatisfy { variant in
+            let activeSlots = Set(
+                variant.frontendProgram.textureBindings.map(\.slot)
+            )
+            return variant.routeDecision.profile == profile
+                && variant.frontendProgram.uniformLayout.fields.contains {
+                SceneResolvedMaterialUniformEncoder.hostUniform(
+                    $0,
+                    activeTextureSlots: activeSlots
+                ) == .pointerPosition
+            }
+        }
+    }
+
     /// A finalizer hint may become an effect-local passthrough only when the
     /// complete launch envelope proves the new shared color-blend profile and
     /// the failed slot is a readiness-driven, non-graph opacity mask.

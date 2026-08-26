@@ -3,7 +3,7 @@ import Foundation
 extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability {
     var requiresInvertibleEffectTextureProjection: Bool {
         switch self {
-        case .resolved(_, let materials):
+        case .resolved(_, let materials, _):
             return materials.values.contains {
                 $0.variants.requiresInvertibleEffectTextureProjection
             }
@@ -23,6 +23,116 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
 }
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
+    static func stageActivationPolicy(
+        product: SceneGraphAdmissionProduct,
+        materials: [MaterialKey: MaterialCapability],
+        dynamicProducers: DynamicProducerCatalog,
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+    ) -> SceneResolvedMaterialStageActivationPolicy? {
+        guard dependencyOwnership == .none,
+              product.graph.effects.count == 1,
+              let effect = product.graph.effects.first,
+              product.graph.nodes.count == 1,
+              let node = product.graph.nodes.first,
+              node.kind == .material,
+              node.effect == effect.key,
+              node.target == effect.output,
+              node.compose == nil,
+              node.conditions == nil,
+              product.graph.renderTargets.isEmpty,
+              product.clearFunctions.functions.isEmpty else { return nil }
+        let visibilityTarget = SceneDynamicTarget.effectVisibility(
+            layerID: effect.key.layerID,
+            effectIndex: effect.key.effectIndex
+        )
+        let visibilityProducers = dynamicProducers.userProperties.filter {
+            $0.target == visibilityTarget
+        }
+        let resolvedVisibilityTarget: SceneDynamicTarget? =
+            visibilityProducers.count == 1
+                && visibilityProducers.first?.valueType == .bool
+                && dynamicProducers.authoredFallbackTargets.contains(
+                    visibilityTarget
+                )
+            ? visibilityTarget : nil
+        let pointerScalarMinimum = materials.count == 1
+            && materials.values.first?.variants
+                .launchEnvelopeProvesSpatialWeightedPointerProvider == true
+            ? spatialWeightedPointerScalarMinimum(
+                effect: effect.key,
+                material: materials.values.first,
+                dynamicProducers: dynamicProducers
+            ) : nil
+        let requiresPointer = pointerScalarMinimum != nil
+        guard resolvedVisibilityTarget != nil || requiresPointer else {
+            return nil
+        }
+        return .init(
+            effectVisibilityTarget: resolvedVisibilityTarget,
+            requiresPointerPositionProvider: requiresPointer,
+            scalarMinimum: pointerScalarMinimum
+        )
+    }
+
+    private static func spatialWeightedPointerScalarMinimum(
+        effect: Graph.EffectKey,
+        material: MaterialCapability?,
+        dynamicProducers: DynamicProducerCatalog
+    ) -> SceneResolvedMaterialStageActivationPolicy.ScalarMinimum? {
+        guard let material else { return nil }
+        let declarations = material.template.uniformDeclarations.filter {
+            $0.name == "size"
+        }
+        guard declarations.count == 1,
+              let declaration = declarations.first else { return nil }
+        let target: SceneDynamicTarget?
+        let fallback: Template.StaticUniformValue
+        switch declaration.value {
+        case let .staticExact(value):
+            guard value.valueKind.localizedLowercase == "number",
+                  value.authoredBindingKeys.isEmpty else { return nil }
+            target = nil
+            fallback = value
+        case let .dynamic(dynamic):
+            let expected = SceneDynamicTarget.effectConstant(
+                layerID: effect.layerID,
+                effectIndex: effect.effectIndex,
+                passIndex: 0,
+                name: "size"
+            )
+            let producers = dynamicProducers.userProperties.filter {
+                $0.target == expected
+            }
+            guard dynamic.target == expected,
+                  dynamic.valueContributors.count == 1,
+                  case let .userProperty(propertyKey) =
+                    dynamic.valueContributors[0],
+                  dynamic.scriptAttachments.isEmpty,
+                  dynamic.authoredBindingKeys == ["user", "value"],
+                  producers == [.init(
+                      propertyKey: propertyKey,
+                      target: expected,
+                      valueType: .scalar
+                  )],
+                  let authored = dynamic.authoredFallback,
+                  authored.valueKind.localizedLowercase == "binding",
+                  authored.authoredBindingKeys == ["user", "value"]
+            else { return nil }
+            target = expected
+            fallback = authored
+        }
+        guard fallback.componentBitPatterns.count == 1,
+              let bits = fallback.componentBitPatterns.first else { return nil }
+        let value = Double(bitPattern: bits)
+        guard value.isFinite, (0 ... 1).contains(value) else { return nil }
+        return .init(
+            target: target,
+            authoredFallback: value,
+            authoredRange: 0 ... 1,
+            minimum: 0.001
+        )
+    }
+
     static func hasAuthoredUserPropertyFallback(
         _ contributor: Template.DynamicUniformSource,
         dynamic: Template.DynamicUniform,
@@ -83,7 +193,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return .failure(failure)
             case .success(let materials):
                 allMaterials.merge(materials) { _, replacement in replacement }
-                stages.append(.resolved(product: product, materials: materials))
+                stages.append(.resolved(
+                    product: product,
+                    materials: materials,
+                    activation: stageActivationPolicy(
+                        product: product,
+                        materials: materials,
+                        dynamicProducers: dynamicProducers,
+                        dependencyOwnership: admitted.dependencyOwnership
+                    )
+                ))
             }
         }
 

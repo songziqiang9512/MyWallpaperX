@@ -184,7 +184,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     enum StageCapability {
         case resolved(
             product: SceneGraphAdmissionProduct,
-            materials: [MaterialKey: MaterialCapability]
+            materials: [MaterialKey: MaterialCapability],
+            activation: SceneResolvedMaterialStageActivationPolicy?
         )
         case dedicated(
             product: SceneGraphAdmissionProduct,
@@ -198,9 +199,14 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
         var product: SceneGraphAdmissionProduct {
             switch self {
-            case .resolved(let product, _), .dedicated(let product, _, _): product
+            case .resolved(let product, _, _), .dedicated(let product, _, _): product
             case .visualFailurePassthrough(let product, _): product
             }
+        }
+
+        var activationPolicy: SceneResolvedMaterialStageActivationPolicy? {
+            guard case let .resolved(_, _, activation) = self else { return nil }
+            return activation
         }
 
         var subject: ExactEffectSubject? {
@@ -269,7 +275,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             ] = [:]
             var hasIdentityConflict = false
             for stage in stages {
-                guard case let .resolved(product, materials) = stage else {
+                guard case let .resolved(product, materials, _) = stage else {
                     continue
                 }
                 for (identity, representation) in
@@ -549,7 +555,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             targets, capability in
             for stage in capability.stages {
                 switch stage {
-                case .resolved(_, let materials):
+                case .resolved(_, let materials, let activation):
+                    targets.formUnion(activation?.liveConsumerTargets ?? [])
                     for material in materials.values {
                         for declaration in material.template.uniformDeclarations {
                             guard case let .dynamic(dynamic) = declaration.value,
@@ -575,7 +582,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             targets, capability in
             for stage in capability.stages {
                 switch stage {
-                case .resolved(_, let materials):
+                case .resolved(_, let materials, _):
                     for material in materials.values {
                         for declaration in material.template.uniformDeclarations {
                             guard case let .dynamic(dynamic) = declaration.value,
@@ -599,7 +606,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         capabilitiesByLayerID.values.contains { capability in
             capability.stages.contains { stage in
                 switch stage {
-                case .resolved(_, let materials):
+                case .resolved(_, let materials, _):
                     return materials.values.contains { $0.variants.hasAudioSpectrumConsumer }
                 case .dedicated(_, let program, _):
                     return program.executionPlan.pulse?.audio != nil

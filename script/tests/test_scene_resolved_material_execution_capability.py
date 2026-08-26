@@ -30,6 +30,10 @@ CAPABILITY_STAGES_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
 )
+STAGE_ACTIVATION_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialStageActivation.swift"
+)
 CAPABILITY_PROGRAM_FIRST_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
@@ -122,6 +126,7 @@ ENVELOPE_SWIFT_SOURCES = [
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+PreservedChannels.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
+    STAGE_ACTIVATION_SOURCE,
     CAPABILITY_PROGRAM_FIRST_SOURCE,
     VISUAL_FAILURE_TOPOLOGY_SOURCE,
     SCENE_ROOT
@@ -337,12 +342,30 @@ enum SceneGraphExecutionState {
 }
 
 enum SceneDynamicTarget: Hashable {
+    case effectVisibility(layerID: Int, effectIndex: Int)
     case effectConstant(
         layerID: Int,
         effectIndex: Int,
         passIndex: Int,
         name: String
     )
+}
+
+struct SceneResolvedMaterialStageActivationPolicy {
+    struct ScalarMinimum {
+        let target: SceneDynamicTarget?
+        let authoredFallback: Double
+        let authoredRange: ClosedRange<Double>?
+        let minimum: Double
+    }
+
+    let effectVisibilityTarget: SceneDynamicTarget?
+    let requiresPointerPositionProvider: Bool
+    let scalarMinimum: ScalarMinimum?
+
+    var liveConsumerTargets: Set<SceneDynamicTarget> {
+        effectVisibilityTarget.map { [$0] } ?? []
+    }
 }
 
 enum SceneDynamicValueType: Hashable {
@@ -482,7 +505,7 @@ struct SceneResolvedMaterialTemplate {
     }
 
     enum UniformValue {
-        case staticExact
+        case staticExact(StaticUniformValue)
         case dynamic(DynamicUniform)
     }
 
@@ -671,6 +694,7 @@ final class SceneResolvedMaterialVariantCache {
 
     var supportsTransparentDirectDraw: Bool { true }
     var launchEnvelopeActiveTextureSlots: Set<Int>? { [0] }
+    var launchEnvelopeProvesSpatialWeightedPointerProvider: Bool { false }
     var hasAudioSpectrumConsumer: Bool { audioSpectrumConsumer }
     func capturedMainTargetSourceSlot(node: SceneAuthoredEffectRenderPlan.Node, effect: SceneAuthoredEffectRenderPlan.Effect) -> Int? { _ = (node, effect); return capturedMainTargetTextureSupport ? 0 : nil }
     func supportsCapturedMainTargetInternalProgram(node: SceneAuthoredEffectRenderPlan.Node, effect: SceneAuthoredEffectRenderPlan.Effect) -> Bool { _ = (node, effect); return false }
@@ -6989,6 +7013,24 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn(
             "dynamicTargetsExecutable,\n                      sourceRouteExecutable else",
             program_first[captured_route_end:],
+        )
+
+    def test_stage_activation_excludes_dependency_owned_stages(self) -> None:
+        stages = CAPABILITY_STAGES_SOURCE.read_text(encoding="utf-8")
+        activation_start = stages.index("    static func stageActivationPolicy(")
+        activation_end = stages.index(
+            "    private static func spatialWeightedPointerScalarMinimum(",
+            activation_start,
+        )
+        activation = "".join(stages[activation_start:activation_end].split())
+        self.assertIn(
+            "dependencyOwnership:SceneResolvedMaterialDependencyOwnership",
+            activation,
+        )
+        self.assertIn("guarddependencyOwnership==.none,", activation)
+        self.assertIn(
+            "dependencyOwnership:admitted.dependencyOwnership",
+            "".join(stages.split()),
         )
 
     def test_frame_variant_resolution_consumes_only_the_launch_envelope(

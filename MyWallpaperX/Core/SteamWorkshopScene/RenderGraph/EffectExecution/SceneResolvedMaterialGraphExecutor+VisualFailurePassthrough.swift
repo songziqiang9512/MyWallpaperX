@@ -54,6 +54,8 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-finalizer-optional-texture-purpose-mismatch",
             "material-finalizer-optional-texture-content-mismatch",
             "material-finalizer-optional-texture-sampling-unresolved",
+            "effect-activation-visibility-type-invalid",
+            "effect-activation-scalar-type-invalid",
             "dependency-stage-reference-unavailable",
             "dependency-stage-secondary-reference-unavailable",
         ].contains(reasonCode),
@@ -63,8 +65,92 @@ extension SceneResolvedMaterialGraphExecutor {
                   graph: graph,
                   pairStep: pairStep,
                   snapshot: snapshot
-              ),
-              commands.count >= snapshot.commandCount,
+              ) else {
+            return rejection
+        }
+        let failure = prepareStagePassthrough(
+            programIdentity: "visual-failure-passthrough:\(reasonCode)",
+            pairStep: pairStep,
+            lease: lease,
+            snapshot: snapshot,
+            pair: &pair,
+            publications: &publications,
+            commands: &commands,
+            programKeys: &programKeys,
+            rejection: rejection
+        )
+        guard failure == nil else { return failure }
+        effectLocalFailureReasonCode = reasonCode
+        if reasonCode.hasPrefix("material-pass-preparation-")
+            || reasonCode.hasPrefix("material-finalizer-") {
+            recordEffectLocalFramePreparationFallback(
+                reasonCode: reasonCode,
+                effect: pairStep.effect,
+                boundedDetail: boundedDetail
+            )
+        }
+        return nil
+    }
+
+    /// Expected author/provider inactivity is observable but is not a visual
+    /// failure or a fallback to an old renderer. The same atomic pair copy
+    /// preserves effect-entry current and discards uncommitted target history.
+    func prepareActivationPassthrough(
+        reasonCode: String,
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        transition: State.Transition,
+        graph: Graph,
+        pairStep: Pair.EffectStep,
+        lease: SceneGraphRenderTargetLease,
+        snapshot: VisualFailureSnapshot,
+        pair: inout PairAtom,
+        publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
+        commands: inout [Command],
+        programKeys: inout [String],
+        effectLocalActivationBypassReasonCode: inout String?,
+        rejection: Failure = .graphStructureRejected
+    ) -> Failure? {
+        guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil,
+              [
+                "effect-activation-visibility-disabled",
+                "effect-activation-pointer-provider-unavailable",
+                "effect-activation-scalar-below-minimum",
+              ].contains(reasonCode),
+              visualFailureTopologyIsSupported(
+                  reasonCode: reasonCode,
+                  transition: transition,
+                  graph: graph,
+                  pairStep: pairStep,
+                  snapshot: snapshot
+              ) else { return rejection }
+        let failure = prepareStagePassthrough(
+            programIdentity: "activation-passthrough:\(reasonCode)",
+            pairStep: pairStep,
+            lease: lease,
+            snapshot: snapshot,
+            pair: &pair,
+            publications: &publications,
+            commands: &commands,
+            programKeys: &programKeys,
+            rejection: rejection
+        )
+        guard failure == nil else { return failure }
+        effectLocalActivationBypassReasonCode = reasonCode
+        return nil
+    }
+
+    private func prepareStagePassthrough(
+        programIdentity: String,
+        pairStep: Pair.EffectStep,
+        lease: SceneGraphRenderTargetLease,
+        snapshot: VisualFailureSnapshot,
+        pair: inout PairAtom,
+        publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
+        commands: inout [Command],
+        programKeys: inout [String],
+        rejection: Failure
+    ) -> Failure? {
+        guard commands.count >= snapshot.commandCount,
               programKeys.count >= snapshot.programKeyCount else {
             return rejection
         }
@@ -104,16 +190,7 @@ extension SceneResolvedMaterialGraphExecutor {
             resource: publication,
             representation: pair.representation
         )
-        programKeys.append("visual-failure-passthrough:\(reasonCode)")
-        effectLocalFailureReasonCode = reasonCode
-        if reasonCode.hasPrefix("material-pass-preparation-")
-            || reasonCode.hasPrefix("material-finalizer-") {
-            recordEffectLocalFramePreparationFallback(
-                reasonCode: reasonCode,
-                effect: pairStep.effect,
-                boundedDetail: boundedDetail
-            )
-        }
+        programKeys.append(programIdentity)
         return nil
     }
 

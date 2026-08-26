@@ -108,9 +108,21 @@ HARNESS_SOURCE = r'''
 import CryptoKit
 import Foundation
 
-// This census only needs the compile-input collection shape; typed producer
-// identity is exercised by the product/runtime capability tests.
-struct SceneDynamicUserPropertyProducer: Hashable {}
+// This census only needs the compile-input collection shape; value resolution
+// remains exercised by the product/runtime capability tests.
+enum SceneDynamicTarget: Hashable {
+    case effectVisibility(layerID: Int, effectIndex: Int)
+}
+
+enum SceneDynamicValueType: Hashable {
+    case bool, scalar, vector2, vector3, vector4, string
+}
+
+struct SceneDynamicUserPropertyProducer: Hashable {
+    let propertyKey: String
+    let target: SceneDynamicTarget
+    let valueType: SceneDynamicValueType?
+}
 
 struct SceneDocument {
     struct ShaderValue {

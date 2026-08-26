@@ -199,7 +199,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     ) -> Result<SceneBackgroundRequirement?, Rejection> {
         var candidates: [SceneBackgroundCandidate] = []
         for stage in stages {
-            guard case let .resolved(product, materials) = stage else { continue }
+            guard case let .resolved(product, materials, _) = stage else { continue }
             for material in materials.values {
                 for slot in material.template.textureSlots.compactMap({ $0 }) {
                     for (index, candidate) in slot.candidates.enumerated() {
@@ -450,7 +450,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     private static func resolvedExternalDependencies(
         in stage: StageCapability
     ) -> [ResolvedExternalDependency] {
-        guard case let .resolved(product, materials) = stage else { return [] }
+        guard case let .resolved(product, materials, _) = stage else { return [] }
         var namedCandidates: [ResolvedNamedCandidate] = []
         for material in materials.values {
             for slot in material.template.textureSlots.compactMap({ $0 }) {

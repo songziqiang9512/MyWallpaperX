@@ -49,14 +49,34 @@ nonisolated struct SceneEffectStageCompileInput {
     func hasDynamicEffectVisibilityOwner(
         for effectKey: Graph.EffectKey
     ) -> Bool {
+        hasFrameDrivenEffectVisibilityOwner(for: effectKey)
+            || !userPropertyEffectVisibilityProducers(for: effectKey).isEmpty
+    }
+
+    func hasFrameDrivenEffectVisibilityOwner(
+        for effectKey: Graph.EffectKey
+    ) -> Bool {
+        frameDrivenEffectVisibilityOwners.contains {
+            $0.layerID == effectKey.layerID
+        }
+    }
+
+    func supportsEffectLocalUserPropertyVisibility(
+        for effectKey: Graph.EffectKey
+    ) -> Bool {
+        let producers = userPropertyEffectVisibilityProducers(for: effectKey)
+        return producers.isEmpty
+            || (producers.count == 1 && producers.first?.valueType == .bool)
+    }
+
+    private func userPropertyEffectVisibilityProducers(
+        for effectKey: Graph.EffectKey
+    ) -> Set<SceneDynamicUserPropertyProducer> {
         let target = SceneDynamicTarget.effectVisibility(
             layerID: effectKey.layerID,
             effectIndex: effectKey.effectIndex
         )
-        return frameDrivenEffectVisibilityOwners.contains {
-            $0.layerID == effectKey.layerID
-        }
-            || userPropertyProducers.contains { $0.target == target }
+        return userPropertyProducers.filter { $0.target == target }
     }
 }
 

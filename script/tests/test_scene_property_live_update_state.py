@@ -428,16 +428,16 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         self.assertTrue(self.result["mixedVisibilityRejected"])
         self.assertTrue(self.result["mixedVisibilityWasAtomic"])
 
-    def test_xray_mapping_is_exact_and_live_rejection_requests_relaunch(self) -> None:
+    def test_effect_visibility_mapping_is_generic_and_live_rejection_requests_relaunch(
+        self,
+    ) -> None:
         mapping = TARGET_MAPPING_SOURCE.read_text(encoding="utf-8")
         visibility_mapping = mapping[
             mapping.index("case let .effectVisibility") :
             mapping.index("default:", mapping.index("case let .effectVisibility"))
         ]
-        self.assertIn(
-            'normalized(effectPath) == "effects/xray/effect.json"',
-            visibility_mapping,
-        )
+        self.assertIn("where layerID >= 0 && effectIndex >= 0", visibility_mapping)
+        self.assertNotIn("effects/xray/effect.json", visibility_mapping)
 
         service = SERVICE_SOURCE.read_text(encoding="utf-8")
         update = service[

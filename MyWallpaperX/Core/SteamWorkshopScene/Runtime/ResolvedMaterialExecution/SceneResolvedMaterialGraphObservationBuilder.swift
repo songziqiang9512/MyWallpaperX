@@ -48,6 +48,7 @@ enum SceneResolvedMaterialGraphObservationBuilder {
             value,
             rejectedReason: failedReason
                 ?? value.effectLocalFailureReasonCode
+                ?? value.effectLocalActivationBypassReasonCode
         )
         guard nodes.count == value.graph.nodes.count,
               !value.programCacheKeys.isEmpty else {

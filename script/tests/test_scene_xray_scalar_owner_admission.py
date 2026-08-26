@@ -334,6 +334,21 @@ enum Harness {
                 sizeProperty: "xraySize",
                 producers: [size, visibility]
             ),
+            "wrongVisibilityType": admits(
+                root: stock,
+                sizeProperty: "xraySize",
+                producers: [
+                    size,
+                    SceneDynamicUserPropertyProducer(
+                        propertyKey: "xrayVisible",
+                        target: .effectVisibility(
+                            layerID: layerID,
+                            effectIndex: 0
+                        ),
+                        valueType: .vector2
+                    ),
+                ]
+            ),
             "frameDrivenVisibility": admits(
                 root: stock,
                 sizeProperty: "xraySize",
@@ -473,13 +488,14 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
         self.assertTrue(self.result["size"])
         self.assertTrue(self.result["multiply"])
         self.assertTrue(self.result["both"])
+        self.assertTrue(self.result["dynamicVisibility"])
 
     def test_non_cohort_shapes_retain_the_incumbent(self) -> None:
         for key in (
             "staticOnly",
             "missingProducer",
             "wrongProducerType",
-            "dynamicVisibility",
+            "wrongVisibilityType",
             "frameDrivenVisibility",
             "siblingFrameDrivenVisibility",
             "extraWrapperField",

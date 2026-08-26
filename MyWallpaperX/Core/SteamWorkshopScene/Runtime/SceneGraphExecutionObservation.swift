@@ -211,16 +211,17 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
 
         switch outcome {
         case .succeeded:
-            let visualFailurePassthrough =
+            let effectPassthrough =
                 expectedNodeCounts.authored > 0
                 && expectedNodeCounts.rejected == expectedNodeCounts.authored
                 && expectedNodeCounts.material == 0
                 && expectedNodeCounts.copy == 0
                 && expectedNodeCounts.swap == 0
                 && expectedNodeCounts.compose == 0
-                && programIdentity.hasPrefix("visual-failure-passthrough:")
+                && (programIdentity.hasPrefix("visual-failure-passthrough:")
+                    || programIdentity.hasPrefix("activation-passthrough:"))
             guard (expectedNodeCounts.rejected == 0
-                    || visualFailurePassthrough),
+                    || effectPassthrough),
                   finalOutput != nil,
                   gpuCompletionStatus == .completed else {
                 throw SceneGraphExecutionObservationError.invalidOutcome

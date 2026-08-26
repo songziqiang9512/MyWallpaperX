@@ -192,12 +192,20 @@ struct AdmittedLayerGraph {
 final class SceneResolvedMaterialRuntimeBridge {
     struct DedicatedFrameInputs {
         let time: Float
+        let dynamicValues: SceneDynamicSnapshot
+        let pointerIsInside: Bool
         let layerModelMatrix: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let dependencyEffect: SceneDependencyEffectInput?
 
-        init(dependencyEffect: SceneDependencyEffectInput? = nil) {
+        init(
+            dependencyEffect: SceneDependencyEffectInput? = nil,
+            dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+            pointerIsInside: Bool = true
+        ) {
             time = 0
+            self.dynamicValues = dynamicValues
+            self.pointerIsInside = pointerIsInside
             layerModelMatrix = matrix_identity_float4x4
             effectTextureProjectionMatrixInverse = matrix_identity_float4x4
             self.dependencyEffect = dependencyEffect
@@ -2924,6 +2932,139 @@ private enum Harness {
         }
         let source = makeSource(device)
         let sourcePipeline = makeSourcePipeline(device)
+        let activationGraph = graph(
+            targets: [],
+            nodes: [material(0, ordinal: 0, target: output, read: input)]
+        )
+        let activationChain = admittedGraph(activationGraph)
+        let activationTarget = SceneDynamicTarget.effectVisibility(
+            layerID: effect.layerID,
+            effectIndex: effect.effectIndex
+        )
+        let activationCapabilities = capabilities(
+            activationChain,
+            catalog: catalog(for: activationGraph),
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "fixture-visible",
+                    target: activationTarget,
+                    valueType: .bool
+                )],
+                authoredFallbackTargets: [activationTarget],
+                timelineTargets: [],
+                sceneScriptTargets: []
+            )
+        )
+        let activationClaim = activationCapabilities.claim(activationChain)
+        let activationCapability = activationClaim.flatMap {
+            activationCapabilities.resolve($0.token, for: activationChain)
+        }
+        let activationPolicyAttached = activationCapability?.stages.first?
+            .activationPolicy?.effectVisibilityTarget == activationTarget
+            && activationCapabilities.liveConsumerTargets.contains(
+                activationTarget
+            )
+
+        func executeActivation(
+            visible: Bool,
+            generation: UInt64
+        ) -> (
+            prepared: Bool,
+            encoded: Bool,
+            gpu: Bool,
+            pixelsPreserved: Bool,
+            fallbackFree: Bool
+        ) {
+            guard let claim = activationClaim,
+                  let capability = activationCapability,
+                  let leases = makeChainedLeases(
+                      capability,
+                      device: device,
+                      generation: generation
+                  ), let executor = Executor(
+                      device: device,
+                      capabilities: activationCapabilities
+                  ), let command = queue.makeCommandBuffer() else {
+                return (false, false, false, false, false)
+            }
+            let dynamic = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: generation,
+                generation: generation,
+                definitions: [.init(
+                    target: activationTarget,
+                    valueType: .bool,
+                    authoredValue: .bool(true)
+                )],
+                userValues: [activationTarget: .bool(visible)]
+            ).snapshot
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(generation),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                dedicatedInputs: .init(dynamicValues: dynamic),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: generation,
+                resetGeneration: generation
+            )
+            let reason = "effect-activation-visibility-disabled"
+            guard case let .success(preparedGraph) = preparation,
+                  let stage = preparedGraph.stages.first else {
+                return (false, false, false, false, false)
+            }
+            let prepared = visible
+                ? stage.effectLocalActivationBypassReasonCode == nil
+                    && stage.effectLocalFailureReasonCode == nil
+                    && stage.programCacheKeys.allSatisfy {
+                        !$0.hasPrefix("activation-passthrough:")
+                    }
+                : stage.effectLocalActivationBypassReasonCode == reason
+                    && stage.effectLocalFailureReasonCode == nil
+                    && stage.programCacheKeys == [
+                        "activation-passthrough:" + reason
+                    ]
+            let encoded = executor.encode(
+                preparedGraph,
+                commandBuffer: command
+            )
+            guard encoded,
+                  let readback = appendReadback(
+                      preparedGraph.finalTexture,
+                      commandBuffer: command
+                  ) else {
+                return (
+                    prepared,
+                    encoded,
+                    false,
+                    false,
+                    executor.effectLocalFallbackCounts.isEmpty
+                )
+            }
+            command.commit()
+            command.waitUntilCompleted()
+            let gpu = command.status == .completed && command.error == nil
+            return (
+                prepared,
+                encoded,
+                gpu,
+                gpu && matches(readback.firstPixel, [0, 0, 255, 255])
+                    && matches(readback.lastPixel, [0, 0, 255, 255]),
+                executor.effectLocalFallbackCounts.isEmpty
+            )
+        }
+        let inactiveActivation = executeActivation(
+            visible: false,
+            generation: 50
+        )
+        let activeActivation = executeActivation(
+            visible: true,
+            generation: 51
+        )
         let materialFunction = runMaterialFunctionScenario(
             device: device,
             queue: queue,
@@ -6402,6 +6543,21 @@ private enum Harness {
         )
 
         let results: [String: Bool] = [
+            "activationPolicyAttachedToResolvedStage":
+                activationPolicyAttached,
+            "inactiveActivationPublishesPreviousCurrent":
+                inactiveActivation.prepared
+                    && inactiveActivation.encoded
+                    && inactiveActivation.gpu
+                    && inactiveActivation.pixelsPreserved,
+            "inactiveActivationIsNotVisualFallback":
+                inactiveActivation.fallbackFree,
+            "activeActivationContinuesThroughProgram":
+                activeActivation.prepared
+                    && activeActivation.encoded
+                    && activeActivation.gpu
+                    && activeActivation.pixelsPreserved
+                    && activeActivation.fallbackFree,
             "crossLayerExactOwnershipClaimed": {
                 guard let capability = crossLayerCapability,
                       case let .externalPrimary(binding) =

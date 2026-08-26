@@ -153,7 +153,7 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
     def test_unified_dedicated_audio_consumer_source_contract(self) -> None:
         source = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
         body = swift_body(source, "var hasAudioSpectrumConsumer: Bool")
-        self.assertIn("case .resolved(_, let materials):", body)
+        self.assertIn("case .resolved(_, let materials, _):", body)
         self.assertIn("$0.variants.hasAudioSpectrumConsumer", body)
         self.assertIn("case .dedicated(_, let program, _):", body)
         self.assertIn("program.executionPlan.pulse?.audio != nil", body)
@@ -188,7 +188,7 @@ struct MaterialCapability {
 }
 
 enum StageCapability {
-    case resolved(Int, [String: MaterialCapability])
+    case resolved(Int, [String: MaterialCapability], Int?)
     case dedicated(Int, Program, Int)
     case visualFailurePassthrough
 }
@@ -226,7 +226,8 @@ enum AudioDemandHarness {
                         variants: VariantCapabilities(
                             hasAudioSpectrumConsumer: true
                         )
-                    )]
+                    )],
+                    nil
                 )),
                 true
             ),
@@ -238,7 +239,8 @@ enum AudioDemandHarness {
                         variants: VariantCapabilities(
                             hasAudioSpectrumConsumer: false
                         )
-                    )]
+                    )],
+                    nil
                 )),
                 false
             ),

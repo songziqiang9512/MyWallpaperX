@@ -231,6 +231,7 @@ def graph_execution_observation(
     runtime_instance_identity: str | None = None,
     effect: int | None = None,
     descriptor_id: str | None = None,
+    program: str | None = None,
 ) -> str:
     final_output = f"output-{transaction}" if publish else "-"
     final_physical = f"physical-{transaction}" if publish else "-"
@@ -248,11 +249,13 @@ def graph_execution_observation(
     descriptor_field = (
         f"descriptor={descriptor_id} " if descriptor_id is not None else ""
     )
+    program_field = f"program={program} " if program is not None else ""
     return (
         "MWX DEBUG SCENE: schema=1 axis=graph-execution "
         f"{runtime_field}frame={frame} layer={layer} "
         f"{effect_field}{descriptor_field}"
         f"trigger={trigger} transaction={transaction} "
+        f"{program_field}"
         f"authoredNodes={authored} materialNodes={material} "
         f"copyNodes={copy} swapNodes={swap} composeNodes={compose} "
         f"rejectedNodes={rejected} "
@@ -4591,6 +4594,112 @@ utility layer 763: skippedHidden kind=composition
         ):
             self.assertIn(failure, invalid_terminal["validation_failures"])
         self.assertEqual(invalid_terminal["successful_transaction_count"], 0)
+
+        activation_passthrough = (
+            benchmark.resolved_material_graph_observation_metrics(
+                graph_execution_observation(
+                    frame=13,
+                    transaction="tx-activation",
+                    trigger="next-frame+compositor-consume+gpu-completed",
+                    authored=1,
+                    material=0,
+                    copy=0,
+                    swap=0,
+                    compose=0,
+                    rejected=1,
+                    consumed=True,
+                    program=(
+                        "activation-passthrough:"
+                        "effect-activation-visibility-disabled"
+                    ),
+                )
+            )
+        )
+        self.assertEqual(activation_passthrough["validation_failures"], [])
+        self.assertEqual(
+            activation_passthrough["activation_passthrough_count"],
+            1,
+        )
+        self.assertEqual(
+            activation_passthrough["activation_passthrough_reason_codes"],
+            ["effect-activation-visibility-disabled"],
+        )
+        self.assertEqual(
+            activation_passthrough["program_terminal_success_count"],
+            0,
+        )
+        self.assertTrue(
+            activation_passthrough["terminal_success_observations"][0][
+                "activation_passthrough"
+            ]
+        )
+
+        disposition, exact_execution = resolved_graph_exact_evidence([68])
+        activation_only = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            "\n".join([
+                "resolved material runtime audit: "
+                "schema=scene-graph-executor-v1 claimed=2 encoded=2 "
+                "failures=0 deferred=0 pending=0 gpuEncoded=2",
+                graph_execution_observation(
+                    frame=13,
+                    transaction="tx-activation-13",
+                    trigger=(
+                        "first-frame+compositor-consume+gpu-completed"
+                    ),
+                    authored=1,
+                    material=0,
+                    copy=0,
+                    swap=0,
+                    compose=0,
+                    rejected=1,
+                    consumed=True,
+                    program=(
+                        "activation-passthrough:"
+                        "effect-activation-scalar-below-minimum"
+                    ),
+                ),
+                graph_execution_observation(
+                    frame=14,
+                    transaction="tx-activation-14",
+                    trigger="next-frame+compositor-consume+gpu-completed",
+                    authored=1,
+                    material=0,
+                    copy=0,
+                    swap=0,
+                    compose=0,
+                    rejected=1,
+                    consumed=True,
+                    program=(
+                        "activation-passthrough:"
+                        "effect-activation-scalar-below-minimum"
+                    ),
+                ),
+            ]),
+            effect_execution=exact_execution,
+            static_disposition=disposition,
+        )
+        self.assertFalse(activation_only["execution_succeeded"])
+        self.assertEqual(activation_only["succeeded_layer_ids"], [])
+        self.assertIn(
+            "resolved material graph Program transaction count below two",
+            benchmark.resolved_material_graph_execution_failures(
+                activation_only,
+                require_evidence=True,
+            ),
+        )
+        self.assertEqual(
+            benchmark.resolved_material_graph_execution_failures(
+                activation_only,
+                sample={
+                    "required_activation_passthrough_reason_codes": [
+                        "effect-activation-scalar-below-minimum"
+                    ],
+                    "minimum_activation_passthrough_count": 2,
+                },
+            ),
+            [],
+        )
 
         malformed_layer = benchmark.resolved_material_graph_observation_metrics(
             graph_execution_observation(

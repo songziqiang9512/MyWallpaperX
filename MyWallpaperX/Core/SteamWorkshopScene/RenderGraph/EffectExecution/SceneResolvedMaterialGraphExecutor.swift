@@ -53,6 +53,7 @@ final class SceneResolvedMaterialGraphExecutor {
         let transition: State.Transition
         let programCacheKeys: [String]
         let effectLocalFailureReasonCode: String?
+        let effectLocalActivationBypassReasonCode: String?
         /// The effect-local fallback discarded a planned persistent target
         /// candidate instead of publishing it as readable history.
         let discardedPersistentTargetState: Bool
@@ -310,6 +311,7 @@ final class SceneResolvedMaterialGraphExecutor {
 
             var programKeys: [String] = []
             var effectLocalFailureReasonCode: String?
+            var effectLocalActivationBypassReasonCode: String?
             if let failure = prepare(
                 stageIndex: index,
                 transition: transition,
@@ -326,13 +328,16 @@ final class SceneResolvedMaterialGraphExecutor {
                 publications: &publications,
                 commands: &stageCommands,
                 programKeys: &programKeys,
-                effectLocalFailureReasonCode: &effectLocalFailureReasonCode
+                effectLocalFailureReasonCode: &effectLocalFailureReasonCode,
+                effectLocalActivationBypassReasonCode:
+                    &effectLocalActivationBypassReasonCode
             ) {
                 return .failure(failure)
             }
             let committedTransition: State.Transition
             var discardedPersistentTargetState = false
-            if effectLocalFailureReasonCode != nil,
+            if effectLocalFailureReasonCode != nil
+                || effectLocalActivationBypassReasonCode != nil,
                !graph.renderTargets.isEmpty {
                 guard let discarded = State.discardingUncommittedVisualFailure(
                     transition,
@@ -345,7 +350,9 @@ final class SceneResolvedMaterialGraphExecutor {
             } else {
                 committedTransition = transition
             }
-            guard !stageCommands.isEmpty || effectLocalFailureReasonCode != nil,
+            guard !stageCommands.isEmpty
+                    || effectLocalFailureReasonCode != nil
+                    || effectLocalActivationBypassReasonCode != nil,
                   pair.member == pairStep.outputMember,
                   let final = publications[pairStep.outputIdentity],
                   final.publication.texture === pair.resource.publication.texture,
@@ -365,6 +372,8 @@ final class SceneResolvedMaterialGraphExecutor {
                 transition: committedTransition,
                 programCacheKeys: programKeys,
                 effectLocalFailureReasonCode: effectLocalFailureReasonCode,
+                effectLocalActivationBypassReasonCode:
+                    effectLocalActivationBypassReasonCode,
                 discardedPersistentTargetState: discardedPersistentTargetState,
                 inputWidth: lease.table.plan.inputExtent.width,
                 inputHeight: lease.table.plan.inputExtent.height,

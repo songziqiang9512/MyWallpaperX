@@ -76,8 +76,8 @@ extension ScenePropertyBindingCompiler {
                 (.particle(layerID: layerID, field: .normalizedColor), .vector3, .color)
             case .color: nil
             }
-        case let .effectVisibility(layerID, effectIndex, effectPath)
-            where normalized(effectPath) == "effects/xray/effect.json":
+        case let .effectVisibility(layerID, effectIndex, _)
+            where layerID >= 0 && effectIndex >= 0:
             (
                 .effectVisibility(layerID: layerID, effectIndex: effectIndex),
                 .bool,
@@ -86,10 +86,6 @@ extension ScenePropertyBindingCompiler {
         default:
             nil
         }
-    }
-
-    private nonisolated static func normalized(_ path: String?) -> String? {
-        path?.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 
     private nonisolated static func shaderValueShape(
