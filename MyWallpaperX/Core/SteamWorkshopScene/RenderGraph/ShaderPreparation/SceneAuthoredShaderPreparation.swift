@@ -13,6 +13,260 @@ nonisolated enum SceneAuthoredShaderPreparationResult<Value> {
 }
 
 nonisolated enum SceneAuthoredShaderPreparation {
+    private struct PreparationCacheKey: Codable, Hashable {
+        struct Combo: Codable, Hashable {
+            let name: String
+            let value: Int
+        }
+
+        struct Readiness: Codable, Hashable {
+            let slot: Int
+            let isReady: Bool
+        }
+
+        struct TextureFormat: Codable, Hashable {
+            let slot: Int
+            let format: SceneShaderTextureFormat
+        }
+
+        let frontendSchemaVersion: Int
+        let contractCanonicalSHA256: String
+        let sourceGraphSHA256: String
+        let combos: [Combo]
+        let inactiveComboProviders: [String]
+        let textureReadiness: [Readiness]
+        let textureFormats: [TextureFormat]
+
+        init(
+            contract: SceneShaderContract,
+            graph: SceneShaderSourceGraph,
+            combos: [String: Int],
+            inactiveComboProviders: Set<String>,
+            textureReadiness: [Int: Bool],
+            textureFormats: [Int: SceneShaderTextureFormat]
+        ) {
+            frontendSchemaVersion = SceneShaderVariantEnvironment
+                .frontendSchemaVersion
+            contractCanonicalSHA256 = contract.canonicalSHA256
+            // The contract digest deliberately tracks root stages. Cache
+            // identity additionally hashes the complete immutable VFS graph,
+            // including actual include source, so reuse cannot hide a changed
+            // include behind a stale dependency marker.
+            sourceGraphSHA256 = SceneShaderStableDigest.hash(graph)
+            self.combos = combos.map {
+                Combo(name: $0.key, value: $0.value)
+            }.sorted { $0.name < $1.name }
+            self.inactiveComboProviders = inactiveComboProviders.sorted()
+            self.textureReadiness = textureReadiness.map {
+                Readiness(slot: $0.key, isReady: $0.value)
+            }.sorted { $0.slot < $1.slot }
+            self.textureFormats = textureFormats.map {
+                TextureFormat(slot: $0.key, format: $0.value)
+            }.sorted { $0.slot < $1.slot }
+        }
+    }
+
+    /// Process-lifetime, bounded single-flight cache for immutable authored
+    /// preparation. Both successful and rejected results are cached so a bad
+    /// variant cannot repeatedly consume launch CPU. The complete key carries
+    /// every preparation input and the current frontend schema version.
+    private final class PreparationCache: @unchecked Sendable {
+        typealias Result = SceneAuthoredShaderPreparationResult<
+            SceneShaderPreparedProgram
+        >
+
+        private struct Entry {
+            let result: Result
+            var lastAccess: UInt64
+        }
+
+        private let capacity: Int
+        private let condition = NSCondition()
+        private var entries: [PreparationCacheKey: Entry] = [:]
+        private var inFlight: Set<PreparationCacheKey> = []
+        private var accessClock: UInt64 = 0
+
+        init(capacity: Int) {
+            precondition(capacity > 0)
+            self.capacity = capacity
+        }
+
+        func result(
+            for key: PreparationCacheKey,
+            prepare: () -> Result
+        ) -> Result {
+            condition.lock()
+            while true {
+                if var entry = entries[key] {
+                    accessClock &+= 1
+                    entry.lastAccess = accessClock
+                    entries[key] = entry
+                    condition.unlock()
+                    return entry.result
+                }
+                if inFlight.insert(key).inserted { break }
+                condition.wait()
+            }
+            condition.unlock()
+
+            let result = prepare()
+
+            condition.lock()
+            accessClock &+= 1
+            if entries.count >= capacity,
+               let oldest = entries.min(by: {
+                   $0.value.lastAccess < $1.value.lastAccess
+               })?.key {
+                entries.removeValue(forKey: oldest)
+            }
+            entries[key] = Entry(result: result, lastAccess: accessClock)
+            inFlight.remove(key)
+            condition.broadcast()
+            condition.unlock()
+            return result
+        }
+    }
+
+    private static let preparationCache = PreparationCache(capacity: 256)
+
+    /// Process restarts must not turn immutable authored source into repeated
+    /// preprocessing work. The disk tier stores only accepted prepared source;
+    /// failures remain process-local so a repaired cache/input is never held by
+    /// a stale negative entry. Full source-graph, combo, readiness, format and
+    /// frontend-schema identity lives in the filename digest.
+    private final class PersistentPreparationCache: @unchecked Sendable {
+        private struct Envelope: Codable {
+            let schemaVersion: Int
+            let key: PreparationCacheKey
+            let keySHA256: String
+            let programSHA256: String
+            let program: SceneShaderPreparedProgram
+        }
+
+        private let schemaVersion = 1
+        private let retainedEntryLimit = 2_048
+        private let lock = NSLock()
+        private var pruned = false
+
+        func load(
+            key: PreparationCacheKey,
+            contract: SceneShaderContract
+        ) -> SceneShaderPreparedProgram? {
+            guard let directory = directoryURL() else { return nil }
+            let keySHA256 = SceneShaderStableDigest.hash(key)
+            let url = directory.appendingPathComponent(
+                "\(keySHA256).json",
+                isDirectory: false
+            )
+            guard let data = try? Data(contentsOf: url),
+                  let envelope = try? JSONDecoder().decode(Envelope.self, from: data),
+                  envelope.schemaVersion == schemaVersion,
+                  envelope.key == key,
+                  envelope.keySHA256 == keySHA256,
+                  envelope.keySHA256 == SceneShaderStableDigest.hash(envelope.key),
+                  envelope.programSHA256 == SceneShaderStableDigest.hash(envelope.program),
+                  valid(envelope.program, key: key, contract: contract) else {
+                return nil
+            }
+            return envelope.program
+        }
+
+        func store(
+            _ program: SceneShaderPreparedProgram,
+            key: PreparationCacheKey,
+            contract: SceneShaderContract
+        ) {
+            guard valid(program, key: key, contract: contract),
+                  let directory = directoryURL() else { return }
+            let keySHA256 = SceneShaderStableDigest.hash(key)
+            let envelope = Envelope(
+                schemaVersion: schemaVersion,
+                key: key,
+                keySHA256: keySHA256,
+                programSHA256: SceneShaderStableDigest.hash(program),
+                program: program
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+            guard let data = try? encoder.encode(envelope) else {
+                return
+            }
+            lock.withLock {
+                do {
+                    try FileManager.default.createDirectory(
+                        at: directory,
+                        withIntermediateDirectories: true
+                    )
+                    if !pruned {
+                        prune(directory)
+                        pruned = true
+                    }
+                    try data.write(
+                        to: directory.appendingPathComponent("\(keySHA256).json"),
+                        options: .atomic
+                    )
+                } catch {
+                    // Cache publication is optional; launch keeps the freshly
+                    // prepared in-memory result when disk is unavailable.
+                }
+            }
+        }
+
+        private func directoryURL() -> URL? {
+            guard Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX",
+                  let root = FileManager.default.urls(
+                      for: .cachesDirectory,
+                      in: .userDomainMask
+                  ).first else { return nil }
+            return root
+                .appendingPathComponent("MyWallpaperX", isDirectory: true)
+                .appendingPathComponent(
+                    "SceneShaderPreparation-v\(schemaVersion)",
+                    isDirectory: true
+                )
+        }
+
+        private func valid(
+            _ program: SceneShaderPreparedProgram,
+            key: PreparationCacheKey,
+            contract: SceneShaderContract
+        ) -> Bool {
+            guard program.vertex.frontendSchemaVersion == key.frontendSchemaVersion,
+                  program.fragment.frontendSchemaVersion == key.frontendSchemaVersion,
+                  program.vertex.stage == .vertex,
+                  program.fragment.stage == .fragment else { return false }
+            let identity = PreparedProgramIdentity(
+                frontendSchemaVersion: key.frontendSchemaVersion,
+                contractCanonicalSHA256: contract.canonicalSHA256,
+                vertexPreparedSHA256: program.vertex.preparedSHA256,
+                fragmentPreparedSHA256: program.fragment.preparedSHA256,
+                colorContract: program.colorContract
+            )
+            return program.cacheKey == SceneShaderStableDigest.hash(identity)
+        }
+
+        private func prune(_ directory: URL) {
+            let keys: Set<URLResourceKey> = [.contentModificationDateKey]
+            guard let files = try? FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: Array(keys),
+                options: [.skipsHiddenFiles]
+            ), files.count > retainedEntryLimit else { return }
+            let sorted = files.sorted {
+                let lhs = try? $0.resourceValues(forKeys: keys)
+                    .contentModificationDate
+                let rhs = try? $1.resourceValues(forKeys: keys)
+                    .contentModificationDate
+                return (lhs ?? .distantPast) > (rhs ?? .distantPast)
+            }
+            for url in sorted.dropFirst(retainedEntryLimit) {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+    }
+
+    private static let persistentPreparationCache = PersistentPreparationCache()
+
     private nonisolated struct PreparedPair {
         let vertex: SceneShaderPreparedSource
         let fragment: SceneShaderPreparedSource
@@ -60,6 +314,48 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 ))
             }
         }
+        let cacheKey = PreparationCacheKey(
+            contract: contract,
+            graph: graph,
+            combos: combos,
+            inactiveComboProviders: inactiveComboProviders,
+            textureReadiness: textureReadiness,
+            textureFormats: textureFormats
+        )
+        return preparationCache.result(for: cacheKey) {
+            if let cached = persistentPreparationCache.load(
+                key: cacheKey,
+                contract: contract
+            ) {
+                return .accepted(cached)
+            }
+            let result = prepareShaderStagesUncached(
+                contract: contract,
+                graph: graph,
+                combos: combos,
+                inactiveComboProviders: inactiveComboProviders,
+                textureReadiness: textureReadiness,
+                textureFormats: textureFormats
+            )
+            if case let .accepted(program) = result {
+                persistentPreparationCache.store(
+                    program,
+                    key: cacheKey,
+                    contract: contract
+                )
+            }
+            return result
+        }
+    }
+
+    private static func prepareShaderStagesUncached(
+        contract: SceneShaderContract,
+        graph: SceneShaderSourceGraph,
+        combos: [String: Int],
+        inactiveComboProviders: Set<String>,
+        textureReadiness: [Int: Bool],
+        textureFormats: [Int: SceneShaderTextureFormat]
+    ) -> SceneAuthoredShaderPreparationResult<SceneShaderPreparedProgram> {
         // Bootstrap with the conservative root/include metadata seed. Apart
         // from source-proven self-gated readiness samplers, conditional graph
         // nodes are discovered by the bounded active-schema iterations below.

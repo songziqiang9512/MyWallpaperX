@@ -316,7 +316,30 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         var programFailures: [Rejection.ProgramFailureAttribution] = []
         var visualFailurePassthroughs: [String: Int] = [:]
         var initiallyInactivePassthroughs: [String: Int] = [:]
-        for candidate in admissionCandidates {
+        let preparationLock = NSLock()
+        var preparations = Array<Result<CompiledStages, Rejection>?>(
+            repeating: nil,
+            count: admissionCandidates.count
+        )
+        DispatchQueue.concurrentPerform(iterations: admissionCandidates.count) { index in
+            let candidate = admissionCandidates[index]
+            guard case let .success(admitted) = candidate.result else { return }
+            let result = Self.compileProgramFirstStages(
+                admitted,
+                materialCatalog: materialCatalog,
+                demandIssues: demandIssues,
+                dynamicProducers: dynamicProducers,
+                assetFormatFacts: assetFormatFacts,
+                assetStates: assetStates,
+                dedicatedStagePrograms: candidate.dedicatedStagePrograms,
+                dedicatedStageFamilies: dedicatedStageFamilies,
+                dedicatedLeafKeys: dedicatedLeafKeys,
+                dedicatedGraphStageKeys: dedicatedGraphStageKeys,
+                maximumVariantsPerMaterial: maximumVariantsPerMaterial
+            )
+            preparationLock.withLock { preparations[index] = result }
+        }
+        for (index, candidate) in admissionCandidates.enumerated() {
             switch candidate.result {
             case let .failure(failure):
                 rejected[failure.code, default: 0] += 1
@@ -324,19 +347,11 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     productAuthorityRejectedByLayerID[candidate.layerID] = failure.code
                 }
             case let .success(admitted):
-                switch Self.compileProgramFirstStages(
-                    admitted,
-                    materialCatalog: materialCatalog,
-                    demandIssues: demandIssues,
-                    dynamicProducers: dynamicProducers,
-                    assetFormatFacts: assetFormatFacts,
-                    assetStates: assetStates,
-                    dedicatedStagePrograms: candidate.dedicatedStagePrograms,
-                    dedicatedStageFamilies: dedicatedStageFamilies,
-                    dedicatedLeafKeys: dedicatedLeafKeys,
-                    dedicatedGraphStageKeys: dedicatedGraphStageKeys,
-                    maximumVariantsPerMaterial: maximumVariantsPerMaterial
-                ) {
+                guard let preparation = preparations[index] else {
+                    rejected["parallel-preparation-missing", default: 0] += 1
+                    continue
+                }
+                switch preparation {
                 case let .failure(failure):
                     rejected[failure.code, default: 0] += 1
                     if let attribution = failure.programFailureAttribution {

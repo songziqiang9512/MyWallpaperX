@@ -159,6 +159,16 @@ continue
 
 不得为了“统一”把所有对象压进一个 draw call、一个巨型类型或一个先建完才可运行的平台，也不得让专用子系统重新拥有第二套资源、属性、图、帧时序或最终输出。新增专用子系统时，先声明它生产哪种共享运行对象、如何接入现有 graph/output、局部失败如何回到安全的 previous current。
 
+### 3.5 启动是候选事务，不是全量兼容门
+
+用户设置 Scene 后，主线程只接受请求、发布真实阶段并最终提交 AppKit surface；package、model、Program、作者 shader、资源和 pipeline preparation 在可取消的后台执行器完成。新请求采用 newer-wins，候选失败、取消或过期不能撤销当前 active，也不能提前改变持久化的当前壁纸。
+
+首帧准备只覆盖当前内容和属性快照实际需要的 Program、shader variant、资源与 surface。未来可能出现的 optional provider、program variant 或未使用 catalog 不能倒灌成首帧的无界 eager compile；它们必须按第 5.5 节的最小失效域，在真正需要前异步准备并通过 generation 复核后原子发布。项目固定 MSL 必须构建期编译，不能在 surface 创建或 draw/pass encode 时首次 `makeLibrary(source:)`。
+
+准备产物按 `PreparedContent -> PreparedLaunchPlan -> PreparedDeviceResources` 分层复用，分别以 content/package generation、属性与 runtime/compiler schema、OS/Metal/compiler/device identity 失效。作者 shader 的持久化缓存只允许保存 accepted Program/Preparation；key 必须覆盖完整 source/source-graph digest、combo、optional provider/readiness、格式与 frontend/compiler schema，value 必须带自身 digest 并在读取后复核 stage、backend、Program identity 和 cache key。拒绝、超时、诊断、损坏或字段失配不得成为可复用成功，统一安全 miss 后在 preparation executor 重建。
+
+`MTLTexture`、`MTLLibrary`、`MTLRenderPipelineState`、surface、publication 和其他进程内对象不能直接跨进程序列化。后续 `PreparedDeviceResources` 若使用 Metal binary archive 或等价设备缓存，必须额外绑定 OS、Metal compiler、device registry/family、attachment format/sample count 和 Program identity；在这些门闭合前，磁盘命中只代表 CPU Program/preparation 可复用，不得声明 device 资源或首帧已经 ready。缓存只能复用已经通过安全校验的不可变产物，不能绕过 path/range/ABI、generation、target/publication 或失败合同。具体状态机、进度、候选首帧和回滚要求见[Scene 启动响应与按需诊断合同](scene-launch-responsiveness-contract.md)。
+
 ## 4. 目标执行单元
 
 | 单元 | 长期职责 | 当前迁移策略 |

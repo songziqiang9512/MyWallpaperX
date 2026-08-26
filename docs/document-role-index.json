@@ -7,6 +7,7 @@
       "docs/architecture/technology-stack-boundaries.md",
       "docs/scene/runtime-architecture.md",
       "docs/scene/scene-compatibility-roadmap.md",
+      "docs/scene/scene-launch-responsiveness-contract.md",
       "docs/scene/semantics/official-client-behavior-research-workflow.md",
       "docs/web/wallpaper-engine-web-rules.md",
       "docs/web/web-project-json-localization.md",
@@ -202,6 +203,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "V0-V5 的产品目标均由现役能力台账和运行证据证明，所有待办均有完成、明确不支持或平台策略结论，旧专用产品 owner 已删除或隔离，并由稳定架构合同和能力台账接管终态后，将本文转为 historical-evidence。"
+    },
+    {
+      "path": "docs/scene/scene-launch-responsiveness-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
     },
     {
       "path": "docs/scene/semantics/official-client-behavior-research-workflow.md",

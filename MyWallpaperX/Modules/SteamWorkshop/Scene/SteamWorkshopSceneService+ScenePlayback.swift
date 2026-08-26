@@ -26,6 +26,6 @@ extension SteamWorkshopService {
                 ]
             )
         }
-        statusMessage = "已将 \(record.title) 发送到 Scene 壁纸宿主"
+        statusMessage = "正在后台准备 \(record.title)，当前壁纸会继续播放"
     }
 }

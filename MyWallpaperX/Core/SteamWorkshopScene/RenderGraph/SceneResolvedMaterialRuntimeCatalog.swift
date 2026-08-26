@@ -63,6 +63,111 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let purpose: SceneTextureLoadPurpose
     }
 
+    /// Resource-demand reachability is a shader/template property, not a
+    /// material-node identity property. Authored graphs commonly instantiate
+    /// the same material many times; analyzing every node separately turns
+    /// launch into repeated preprocessing of identical shader variants.
+    private enum ResourceDemandReferenceKind: Hashable {
+        case asset
+        case userProperty
+        case provider
+        case graph
+    }
+
+    private struct ResourceDemandTextureSlotShape: Hashable {
+        let index: Int
+        let references: [ResourceDemandReferenceKind]
+    }
+
+    private struct ResourceDemandAnalysisKey: Hashable {
+        let shaderIdentity: String
+        let shaderCanonicalSHA256: String
+        let textureSlots: [ResourceDemandTextureSlotShape?]
+        let combos: [Template.Combo]
+        let inheritedInactiveCombos: [String]
+        let uniformDeclarations: [Template.UniformDeclaration]
+        let hasImplicitFramebuffer: Bool
+
+        init(
+            template: Template,
+            implicitFramebufferIdentity: Graph.TextureIdentity?
+        ) {
+            shaderIdentity = template.shaderContract.identity
+            shaderCanonicalSHA256 = template.shaderContract.canonicalSHA256
+            textureSlots = template.textureSlots.map { slot in
+                slot.map {
+                    ResourceDemandTextureSlotShape(
+                        index: $0.index,
+                        references: $0.candidates.map { candidate in
+                            switch candidate.reference {
+                            case .asset: .asset
+                            case .userProperty: .userProperty
+                            case .provider: .provider
+                            case .graph: .graph
+                            }
+                        }
+                    )
+                }
+            }
+            combos = template.combos
+            inheritedInactiveCombos = template.inheritedInactiveCombos
+            uniformDeclarations = template.uniformDeclarations
+            hasImplicitFramebuffer = implicitFramebufferIdentity != nil
+        }
+    }
+
+    private enum ResourceDemandAnalysis {
+        case ready(
+            textureFormatSlots: Set<Int>,
+            samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+        )
+        case failed(String)
+    }
+
+    private final class ResourceDemandAnalysisCache: @unchecked Sendable {
+        private enum Entry {
+            case preparing
+            case ready(ResourceDemandAnalysis)
+        }
+
+        private let condition = NSCondition()
+        private var entries: [ResourceDemandAnalysisKey: Entry] = [:]
+
+        func result(
+            for key: ResourceDemandAnalysisKey,
+            prepare: () -> ResourceDemandAnalysis
+        ) -> ResourceDemandAnalysis {
+            condition.lock()
+            while true {
+                switch entries[key] {
+                case let .ready(result):
+                    condition.unlock()
+                    return result
+                case .preparing:
+                    condition.wait()
+                case nil:
+                    entries[key] = .preparing
+                    condition.unlock()
+                    let result = prepare()
+                    condition.lock()
+                    entries[key] = .ready(result)
+                    condition.broadcast()
+                    condition.unlock()
+                    return result
+                }
+            }
+        }
+    }
+
+    private struct CompilationOutcome {
+        let key: Key
+        let entry: Entry
+        let assetDemands: Set<SceneAssetTextureIdentity>
+        let userPropertyDemands: Set<SceneUserPropertyTextureIdentity>
+        let systemProviderDemands: Set<SystemProviderDemand>
+        let issues: Set<ResourceDemandIssue>
+    }
+
     let entries: [Key: Entry]
     let assetDemands: Set<SceneAssetTextureIdentity>
     let userPropertyDemands: Set<SceneUserPropertyTextureIdentity>
@@ -133,20 +238,38 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             }
             resolvedRecords[key] = (record.graph, material)
         }
-        for key in records.keys.sorted(by: Self.less) {
-            guard compiled[key] == nil,
-                  let record = resolvedRecords[key] else { continue }
+        let pendingKeys = records.keys.sorted(by: Self.less).filter {
+            compiled[$0] == nil && resolvedRecords[$0] != nil
+        }
+        let outcomesLock = NSLock()
+        var outcomes = Array<CompilationOutcome?>(
+            repeating: nil,
+            count: pendingKeys.count
+        )
+        let resourceDemandAnalyses = ResourceDemandAnalysisCache()
+        DispatchQueue.concurrentPerform(iterations: pendingKeys.count) { index in
+            let key = pendingKeys[index]
+            guard let record = resolvedRecords[key] else { return }
             let material = record.material
             let contracts = shaderContracts.filter {
                 Self.normalized($0.identity) == Self.normalized(material.shaderPath)
             }
+            let outcome: CompilationOutcome
             guard contracts.count == 1, let contract = contracts.first else {
-                compiled[key] = .failure(Failure(
-                    phase: .shaderContract,
-                    code: .shaderIdentityMismatch,
-                    details: ["matching-contract-count=\(contracts.count)"]
-                ))
-                continue
+                outcome = .init(
+                    key: key,
+                    entry: .failure(Failure(
+                        phase: .shaderContract,
+                        code: .shaderIdentityMismatch,
+                        details: ["matching-contract-count=\(contracts.count)"]
+                    )),
+                    assetDemands: [],
+                    userPropertyDemands: [],
+                    systemProviderDemands: [],
+                    issues: []
+                )
+                outcomesLock.withLock { outcomes[index] = outcome }
+                return
             }
             switch SceneResolvedMaterialTemplateCompiler.compile(
                 material: material,
@@ -164,21 +287,48 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 provenSceneScriptValueTargets: provenSceneScriptValueTargets
             ) {
             case let .failure(failure):
-                compiled[key] = .failure(failure)
+                outcome = .init(
+                    key: key,
+                    entry: .failure(failure),
+                    assetDemands: [],
+                    userPropertyDemands: [],
+                    systemProviderDemands: [],
+                    issues: []
+                )
             case let .success(template):
-                compiled[key] = .template(template)
+                var localDemands: Set<SceneAssetTextureIdentity> = []
+                var localUserDemands: Set<SceneUserPropertyTextureIdentity> = []
+                var localSystemDemands: Set<SystemProviderDemand> = []
+                var localIssues: Set<ResourceDemandIssue> = []
                 Self.collectResourceDemands(
                     template,
                     key: key,
                     implicitFramebufferIdentity: record.graph.effects.first {
                         $0.key == key.effect
                     }?.input,
-                    demands: &demands,
-                    userDemands: &userDemands,
-                    systemDemands: &systemDemands,
-                    issues: &demandIssues
+                    demands: &localDemands,
+                    userDemands: &localUserDemands,
+                    systemDemands: &localSystemDemands,
+                    issues: &localIssues,
+                    analyses: resourceDemandAnalyses
+                )
+                outcome = .init(
+                    key: key,
+                    entry: .template(template),
+                    assetDemands: localDemands,
+                    userPropertyDemands: localUserDemands,
+                    systemProviderDemands: localSystemDemands,
+                    issues: localIssues
                 )
             }
+            outcomesLock.withLock { outcomes[index] = outcome }
+        }
+        for outcome in outcomes.compactMap({ $0 }) {
+            compiled[outcome.key] = outcome.entry
+            demands.formUnion(outcome.assetDemands)
+            userDemands.formUnion(outcome.userPropertyDemands)
+            systemDemands.formUnion(outcome.systemProviderDemands)
+            demandIssues.formUnion(outcome.issues)
         }
         entries = compiled
         assetDemands = demands
@@ -198,31 +348,49 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         demands: inout Set<SceneAssetTextureIdentity>,
         userDemands: inout Set<SceneUserPropertyTextureIdentity>,
         systemDemands: inout Set<SystemProviderDemand>,
-        issues: inout Set<ResourceDemandIssue>
+        issues: inout Set<ResourceDemandIssue>,
+        analyses: ResourceDemandAnalysisCache
     ) {
-        var samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
-        let textureFormatSlots: Set<Int>
-        do {
-            textureFormatSlots = try SceneResolvedMaterialTextureResolver
-                .launchTextureFormatSlots(template: template)
-            samplers = try SceneResolvedMaterialShaderSchema.reachableSamplers(
-                template,
-                implicitFramebufferIdentity: implicitFramebufferIdentity
-            )
-            // Non-presence defaults participate before the fixed point. A
-            // combo-bearing default is demanded only when a stable prepared
-            // variant actually retains that sampler.
-            for (slot, sampler) in try SceneResolvedMaterialShaderSchema
-                .unconditionalSamplers(template)
-                where sampler.readinessCombo == nil && samplers[slot] == nil {
-                samplers[slot, default: []].insert(sampler)
+        let analysisKey = ResourceDemandAnalysisKey(
+            template: template,
+            implicitFramebufferIdentity: implicitFramebufferIdentity
+        )
+        let analysis = analyses.result(for: analysisKey) {
+            do {
+                let textureFormatSlots = try SceneResolvedMaterialTextureResolver
+                    .launchTextureFormatSlots(template: template)
+                var samplers = try SceneResolvedMaterialShaderSchema.reachableSamplers(
+                    template,
+                    implicitFramebufferIdentity: implicitFramebufferIdentity
+                )
+                // Non-presence defaults participate before the fixed point. A
+                // combo-bearing default is demanded only when a stable prepared
+                // variant actually retains that sampler.
+                for (slot, sampler) in try SceneResolvedMaterialShaderSchema
+                    .unconditionalSamplers(template)
+                    where sampler.readinessCombo == nil && samplers[slot] == nil {
+                    samplers[slot, default: []].insert(sampler)
+                }
+                return .ready(
+                    textureFormatSlots: textureFormatSlots,
+                    samplers: samplers
+                )
+            } catch {
+                return .failed(String(describing: error))
             }
-        } catch {
+        }
+        let textureFormatSlots: Set<Int>
+        let samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+        switch analysis {
+        case let .ready(formatSlots, reachable):
+            textureFormatSlots = formatSlots
+            samplers = reachable
+        case let .failed(errorDescription):
 #if DEBUG
             print(
                 "MWX resolved material sampler reachability rejection:"
                     + " effect=\(key.effect.effectIndex) node=\(key.nodeIndex)"
-                    + " error=\(String(describing: error))"
+                    + " error=\(errorDescription)"
             )
 #endif
             for slot in template.textureSlots.compactMap({ $0 }) {

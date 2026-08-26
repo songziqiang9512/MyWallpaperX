@@ -191,6 +191,40 @@ enum DebugScenePlaybackRunner {
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
             publishRequestedMediaThumbnail(rootURL: rootURL)
+            if ProcessInfo.processInfo.arguments.contains(
+                "--mwx-debug-scene-async-launch-smoke"
+            ) {
+                SceneDesktopWallpaperHost.shared.requestLaunch(
+                    rootURL: rootURL,
+                    propertyOverrides: requestedPropertyOverrides,
+                    userPropertyTextureURLs: userPropertyTextureURLs,
+                    logURL: previewLogURL,
+                    recordID: debugRecordID
+                ) { result in
+                    switch result {
+                    case let .success(model):
+                        WallpaperEngine.shared.resumeAllPlayers()
+                        let snapshot = SceneDesktopWallpaperHost.shared.debugSnapshot()
+                        NSLog(
+                            "MWX DEBUG SCENE: phase=async-launch-ready root=%@ layers=%d surfaces=%d",
+                            rootURL.path,
+                            model.renderDescriptor.layers.count,
+                            snapshot.surfaceCount
+                        )
+                        terminate(after: 0.5)
+                    case let .failure(error):
+                        NSLog(
+                            "MWX DEBUG SCENE: phase=async-launch-failed error=%@",
+                            error.localizedDescription
+                        )
+                        terminate(after: 0.1)
+                    }
+                }
+                DispatchQueue.main.async {
+                    NSLog("MWX DEBUG SCENE: phase=async-launch-request-returned mainResponsive=true")
+                }
+                return
+            }
             let model = try SceneDesktopWallpaperHost.shared.launch(
                 rootURL: rootURL,
                 propertyOverrides: requestedPropertyOverrides,

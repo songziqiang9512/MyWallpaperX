@@ -83,6 +83,13 @@ final class SceneDesktopWallpaperHost {
     var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
     var nextVideoProviderEpoch: UInt64 = 0
     var nextSceneScriptGeneration: UInt64 = 0
+    let launchPreparationQueue = DispatchQueue(
+        label: "com.mywallpaperx.scene-launch-preparation",
+        qos: .userInitiated
+    )
+    var launchCancellation: SceneWallpaperLaunchCancellation?
+    var nextLaunchRequestGeneration: UInt64 = 0
+    var launchState: SceneWallpaperLaunchState?
 #if DEBUG
     var debugPointerOverride: SceneSurfacePointerState?
     var debugSurfaceReferenceFrames: [CGDirectDisplayID: NSRect] = [:]
@@ -186,6 +193,7 @@ final class SceneDesktopWallpaperHost {
     }
 
     func stop() {
+        cancelPendingLaunch()
         teardownSurfaces(clearContext: true, reason: .surfaceStop)
     }
 

@@ -1,6 +1,148 @@
 import Foundation
 
 nonisolated enum SceneAuthoredShaderFrontend {
+    private struct ProgramCacheKey: Codable, Hashable {
+        let cacheSchemaVersion: Int
+        let frontendSchemaVersion: Int
+        let vertexSourceSHA256: String
+        let fragmentSourceSHA256: String
+        let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
+        let provenColorTransfer: SceneShaderColorTransfer?
+
+        init(
+            vertexSource: String,
+            fragmentSource: String,
+            runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
+            provenColorTransfer: SceneShaderColorTransfer?
+        ) {
+            cacheSchemaVersion = 1
+            frontendSchemaVersion = SceneShaderVariantEnvironment
+                .frontendSchemaVersion
+            vertexSourceSHA256 = SceneShaderStableDigest.hash(Data(vertexSource.utf8))
+            fragmentSourceSHA256 = SceneShaderStableDigest.hash(Data(fragmentSource.utf8))
+            self.runtimeLoopBounds = runtimeLoopBounds
+            self.provenColorTransfer = provenColorTransfer
+        }
+    }
+
+    private final class ProgramCache: @unchecked Sendable {
+        private struct Envelope: Codable {
+            let schemaVersion: Int
+            let key: ProgramCacheKey
+            let keySHA256: String
+            let programSHA256: String
+            let program: SceneAuthoredShaderProgram
+        }
+
+        private let schemaVersion = 1
+        private let retainedEntryLimit = 1_024
+        private let lock = NSLock()
+        private var memory: [ProgramCacheKey: SceneAuthoredShaderProgram] = [:]
+        private var pruned = false
+
+        func load(_ key: ProgramCacheKey) -> SceneAuthoredShaderProgram? {
+            lock.withLock {
+                if let program = memory[key] { return program }
+                guard let directory = directoryURL() else { return nil }
+                let keySHA256 = SceneShaderStableDigest.hash(key)
+                let url = directory.appendingPathComponent("\(keySHA256).json")
+                guard let data = try? Data(contentsOf: url),
+                      let envelope = try? JSONDecoder().decode(
+                          Envelope.self,
+                          from: data
+                      ), envelope.schemaVersion == schemaVersion,
+                      envelope.key == key,
+                      envelope.keySHA256 == keySHA256,
+                      envelope.keySHA256
+                        == SceneShaderStableDigest.hash(envelope.key),
+                      envelope.programSHA256
+                        == SceneShaderStableDigest.hash(envelope.program),
+                      valid(envelope.program) else { return nil }
+                memory[key] = envelope.program
+                return envelope.program
+            }
+        }
+
+        func store(_ program: SceneAuthoredShaderProgram, for key: ProgramCacheKey) {
+            guard valid(program) else { return }
+            lock.withLock {
+                memory[key] = program
+                guard let directory = directoryURL() else { return }
+                let keySHA256 = SceneShaderStableDigest.hash(key)
+                let envelope = Envelope(
+                    schemaVersion: schemaVersion,
+                    key: key,
+                    keySHA256: keySHA256,
+                    programSHA256: SceneShaderStableDigest.hash(program),
+                    program: program
+                )
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+                guard let data = try? encoder.encode(envelope) else { return }
+                do {
+                    try FileManager.default.createDirectory(
+                        at: directory,
+                        withIntermediateDirectories: true
+                    )
+                    if !pruned {
+                        prune(directory)
+                        pruned = true
+                    }
+                    try data.write(
+                        to: directory.appendingPathComponent("\(keySHA256).json"),
+                        options: .atomic
+                    )
+                } catch {
+                    // The freshly compiled Program remains valid in memory.
+                }
+            }
+        }
+
+        private func valid(_ program: SceneAuthoredShaderProgram) -> Bool {
+            program.backend == .boundedSwift
+                && !program.metalSource.isEmpty
+                && program.vertexFunctionName == "sceneAuthoredVertex"
+                && program.fragmentFunctionName == "sceneAuthoredFragment"
+                && program.uniformBufferIndex >= 0
+                && program.uniformLayout.byteSize >= 0
+        }
+
+        private func directoryURL() -> URL? {
+            guard Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX",
+                  let root = FileManager.default.urls(
+                      for: .cachesDirectory,
+                      in: .userDomainMask
+                  ).first else { return nil }
+            return root
+                .appendingPathComponent("MyWallpaperX", isDirectory: true)
+                .appendingPathComponent(
+                    "SceneShaderFrontend-v\(schemaVersion)",
+                    isDirectory: true
+                )
+        }
+
+        private func prune(_ directory: URL) {
+            let keys: Set<URLResourceKey> = [.contentModificationDateKey]
+            guard let files = try? FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: Array(keys),
+                options: [.skipsHiddenFiles]
+            ), files.count > retainedEntryLimit else { return }
+            let sorted = files.sorted {
+                let lhs = try? $0.resourceValues(forKeys: keys)
+                    .contentModificationDate
+                let rhs = try? $1.resourceValues(forKeys: keys)
+                    .contentModificationDate
+                return (lhs ?? .distantPast) > (rhs ?? .distantPast)
+            }
+            for url in sorted.dropFirst(retainedEntryLimit) {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+    }
+
+    private static let programCache = ProgramCache()
+
     private struct Validation {
         let uniforms: [SceneAuthoredShaderUniformDeclaration]
         let textures: [SceneAuthoredShaderProgram.TextureBinding]
@@ -16,6 +158,15 @@ nonisolated enum SceneAuthoredShaderFrontend {
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
         provenColorTransfer: SceneShaderColorTransfer? = nil
     ) -> SceneAuthoredShaderFrontendOutput {
+        let cacheKey = ProgramCacheKey(
+            vertexSource: vertexSource,
+            fragmentSource: fragmentSource,
+            runtimeLoopBounds: runtimeLoopBounds,
+            provenColorTransfer: provenColorTransfer
+        )
+        if let program = programCache.load(cacheKey) {
+            return .init(program: program, diagnostics: [])
+        }
         let vertex = analyze(
             source: vertexSource,
             stage: .vertex,
@@ -67,8 +218,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
         guard let metalSource = emission.source, emission.diagnostics.isEmpty else {
             return .init(program: nil, diagnostics: emission.diagnostics)
         }
-        return .init(
-            program: .init(
+        let program = SceneAuthoredShaderProgram(
                 metalSource: metalSource,
                 vertexFunctionName: "sceneAuthoredVertex",
                 fragmentFunctionName: "sceneAuthoredFragment",
@@ -77,9 +227,9 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 staticLoopWork: max(vertexUnit.staticLoopWork, fragmentUnit.staticLoopWork),
                 colorTransfer: colorTransfer,
                 fragmentOutputChannelUse: fragmentOutputChannelUse
-            ),
-            diagnostics: []
         )
+        programCache.store(program, for: cacheKey)
+        return .init(program: program, diagnostics: [])
     }
 
     private static func analyze(

@@ -416,6 +416,7 @@ enum MainWindowCoordinator {
         ))
         observeSteamWorkshopWebWallpaperReadyToPlay()
         observeSteamWorkshopSceneReadyToRender()
+        observeSceneWallpaperLaunchState()
         observeStaticImageWallpaperReadyToApply()
         observeSteamWorkshopModeChanges()
     }
@@ -459,21 +460,54 @@ enum MainWindowCoordinator {
             queue: .main
         ) { notification in
             guard let request = notification.userInfo?["request"] as? SteamWorkshopScenePlaybackRequest else { return }
-            do {
-                try SceneDesktopWallpaperHost.shared.launch(
-                    rootURL: request.rootURL,
-                    propertyOverrides: request.propertyOverrides,
-                    userPropertyTextureURLs: request.userPropertyTextureURLs,
-                    recordID: request.recordID
-                )
+            SceneDesktopWallpaperHost.shared.requestLaunch(
+                rootURL: request.rootURL,
+                propertyOverrides: request.propertyOverrides,
+                userPropertyTextureURLs: request.userPropertyTextureURLs,
+                recordID: request.recordID
+            ) { result in
+                guard case .success = result else {
+                    if case let .failure(error) = result,
+                       !SceneDesktopWallpaperHost.isLaunchCancellation(error) {
+                        SteamWorkshopService.shared.downloadError = error.localizedDescription
+                    }
+                    return
+                }
                 postWallpaperRuntimeWillSwitch(to: .scene)
                 wallpaperManager.clearCurrentWallpaperReference()
                 wallpaperManager.activeWallpaperRuntime = .scene
                 wallpaperManager.stopAutoSwitchTimer()
                 WallpaperEngine.shared.stopPlayback()
                 wallpaperManager.isPlaying = WallpaperEngine.shared.isPlaying()
-            } catch {
-                MainActor.assumeIsolated { SteamWorkshopService.shared.downloadError = error.localizedDescription }
+            }
+        }
+        observerTokens.append(observer)
+    }
+
+    /// 将 Scene host 的中心启动状态投影到 Steam 模块，详情关闭后仍可观察。
+    private static func observeSceneWallpaperLaunchState() {
+        let observer = NotificationCenter.default.addObserver(
+            forName: .sceneWallpaperLaunchStateDidChange,
+            object: nil,
+            queue: .main
+        ) { notification in
+            MainActor.assumeIsolated {
+                guard let state = notification.object as? SceneWallpaperLaunchState else {
+                    return
+                }
+                let message: String
+                switch state.phase {
+                case .accepted, .preparingModel, .preparingPrograms,
+                     .preparingResources, .preparingSurfaces:
+                    message = "\(state.message)，当前壁纸会继续播放"
+                case .launched:
+                    message = "Scene 表面已启动，正在等待首帧显示"
+                case .cancelled:
+                    message = "已取消 Scene 壁纸准备，当前壁纸保持不变"
+                case .failed:
+                    message = "Scene 壁纸准备失败，当前壁纸保持不变"
+                }
+                SteamWorkshopService.shared.statusMessage = message
             }
         }
         observerTokens.append(observer)

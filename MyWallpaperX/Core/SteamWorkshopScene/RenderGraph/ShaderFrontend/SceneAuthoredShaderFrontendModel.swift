@@ -50,7 +50,7 @@ nonisolated struct SceneAuthoredShaderFrontendDiagnostic: Equatable {
 /// One stage-qualified immutable scalar producer. The executable integer and
 /// Float32 bits are both retained: admission consumes the integer while cache
 /// and diagnostic owners can distinguish values whose authored encodings differ.
-nonisolated struct SceneAuthoredShaderExactScalarFact: Hashable, Sendable {
+nonisolated struct SceneAuthoredShaderExactScalarFact: Codable, Hashable, Sendable {
     let stage: SceneShaderContract.StageKind
     let uniformName: String
     let producerName: String
@@ -66,7 +66,7 @@ nonisolated struct SceneAuthoredShaderExactScalarFact: Hashable, Sendable {
 /// Exact scalar facts proven from the resolved runtime producer domain. These
 /// facts admit bounded control flow only; the Metal emitter never rewrites or
 /// clamps the authored uniform from this projection.
-nonisolated struct SceneAuthoredShaderRuntimeLoopBounds: Hashable, Sendable {
+nonisolated struct SceneAuthoredShaderRuntimeLoopBounds: Codable, Hashable, Sendable {
     let vertex: [String: SceneAuthoredShaderExactScalarFact]
     let fragment: [String: SceneAuthoredShaderExactScalarFact]
 
@@ -138,7 +138,7 @@ nonisolated struct SceneAuthoredShaderRuntimeLoopBounds: Hashable, Sendable {
     }
 }
 
-nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable, Hashable, Sendable {
+nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable, Codable, Hashable, Sendable {
     case bool
     case int
     case uint
@@ -214,8 +214,8 @@ nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable, Hashable, S
     }
 }
 
-nonisolated struct SceneAuthoredShaderUniformLayout: Equatable, Hashable, Sendable {
-    struct Field: Equatable, Hashable, Sendable {
+nonisolated struct SceneAuthoredShaderUniformLayout: Codable, Equatable, Hashable, Sendable {
+    struct Field: Codable, Equatable, Hashable, Sendable {
         /// Metal ABI name. It is stage-qualified only when the authored name
         /// is declared by both stages and therefore denotes two stage-local
         /// constant bindings.
@@ -270,7 +270,7 @@ nonisolated struct SceneAuthoredShaderUniformDeclaration {
     }
 }
 
-nonisolated enum SceneShaderColorTransfer: Equatable, Hashable, Sendable {
+nonisolated enum SceneShaderColorTransfer: Codable, Equatable, Hashable, Sendable {
     case passthrough(textureSlot: Int)
     /// Scalar interpolation of two or more sampled colors. Finalization proves
     /// that every listed slot carries one common resolved representation.
@@ -288,14 +288,14 @@ nonisolated enum SceneShaderColorTransfer: Equatable, Hashable, Sendable {
     case unresolved
 }
 
-nonisolated struct SceneAuthoredShaderProgram {
-    enum Backend: String, Equatable, Hashable, Sendable {
+nonisolated struct SceneAuthoredShaderProgram: Codable {
+    enum Backend: String, Codable, Equatable, Hashable, Sendable {
         case boundedSwift
         case genericCompilerArtifact
     }
 
-    struct TextureBinding: Equatable, Hashable, Sendable {
-        enum ChannelUse: String, Equatable, Hashable, Sendable {
+    struct TextureBinding: Codable, Equatable, Hashable, Sendable {
+        enum ChannelUse: String, Codable, Equatable, Hashable, Sendable {
             /// Every active sample result observes only red (`.r` / `.x`).
             case redOnly
             /// Every active sample result observes only green (`.g` / `.y`).
@@ -316,7 +316,7 @@ nonisolated struct SceneAuthoredShaderProgram {
         let channelUse: ChannelUse
     }
 
-    enum FragmentOutputChannelUse: String, Equatable, Hashable, Sendable {
+    enum FragmentOutputChannelUse: String, Codable, Equatable, Hashable, Sendable {
         /// Every reachable fragment exit defines the attachment channels through
         /// one root-level, unconditional whole-output write. The historical case
         /// name is retained because it participates in stable shader identities.

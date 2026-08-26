@@ -4,7 +4,7 @@
 
 > 状态：现役迁移目标与剩余工作入口
 >
-> 最近核对：2026-08-11。下文各阶段的“当前进展”保留 2026-05-17 批次记录；当前残留以本节清单和代码扫描为准。
+> 最近核对：2026-08-26。下文各阶段的“当前进展”保留 2026-05-17 批次记录；当前残留以本节清单和代码扫描为准。
 >
 > 长期权威：本计划与[技术栈与架构路线边界](technology-stack-boundaries.md)共同确定最终 UI 为 Swift + AppKit。迁移完成前只维护下列 SwiftUI 残留，不新增 SwiftUI 产品面、设置页、桌面宿主或 hosting bridge；若要改变 0 SwiftUI 目标，必须先修改长期技术路线，而不是在功能批次中隐式扩张。
 
@@ -12,17 +12,15 @@
 
 ## 当前判断
 
-截至 2026-07-31，App 生命周期、主窗口 Shell、主菜单和主要网格均已由 AppKit 承担，但 SwiftUI 尚未清零。当前 `import SwiftUI` 只剩 7 个文件：
+截至 2026-08-26，App 生命周期、主窗口 Shell、主菜单和主要网格均已由 AppKit 承担，但 SwiftUI 尚未清零。当前 `import SwiftUI` 只剩 5 个文件：
 
 - `App/ScenePropertyWindowController.swift`
 - `Shared/UI/InspectorHostBridge.swift`
-- `Modules/SteamWorkshop/Scene/SteamWorkshopSceneDetailSection.swift`
 - `Modules/SteamWorkshop/Scene/SteamWorkshopScenePropertyEditorView.swift`
 - `Modules/SteamWorkshop/UI/SteamWorkshopItemDetailPreviewSupport.swift`
-- `Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift`
 - `Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSupportViews.swift`
 
-剩余工作已经集中在 Scene 属性窗口、共享 inspector bridge 和 Steam Workshop 详情/属性 UI；迁移仍应按这些边界逐项替换并验证，不需要重写已完成的 AppKit Shell 或网格。
+剩余工作已经集中在 Scene 属性窗口、共享 inspector bridge 和 Steam Workshop 详情辅助/属性 UI；Scene 诊断详情已迁为 AppKit。迁移仍应按这些边界逐项替换并验证，不需要重写已完成的 AppKit Shell 或网格。
 
 ## 最终结构
 

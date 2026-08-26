@@ -18,6 +18,7 @@ V0 的首个 ordinary authored material/shader 可见门已经闭合；当前主
 
 - [Scene 兼容运行时架构](runtime-architecture.md)：官方公开合同、固定客户端静态观察、Mirage clean-room 结构和项目独立方案；规定 identity、失败粒度、compiler/VM/particle/executor 的职责。
 - [Scene 兼容执行路线](scene-compatibility-roadmap.md)：唯一现役计划；V0 ordinary shader/material、V1 graph、V2 VM、V3 particle、V4 inputs/providers、V5 advanced/release。
+- [Scene 启动响应与按需诊断合同](scene-launch-responsiveness-contract.md)：详情默认不诊断、异步 preparation、候选首帧提交、回滚、进度和缓存边界；进入时机仍由唯一现役路线决定。
 - [长期技术边界](../architecture/technology-stack-boundaries.md)：Swift/AppKit/Metal、QuickJS-NG、glslang/SPIRV-Cross、跨语言和发布边界。
 
 ## 当前事实

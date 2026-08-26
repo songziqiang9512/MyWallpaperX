@@ -1,6 +1,60 @@
 import Foundation
 import Metal
 
+nonisolated struct SceneWallpaperLaunchState: Equatable, Sendable {
+    enum Phase: String, Equatable, Sendable {
+        case accepted
+        case preparingModel
+        case preparingPrograms
+        case preparingResources
+        case preparingSurfaces
+        case launched
+        case cancelled
+        case failed
+    }
+
+    let requestID: UUID
+    let recordID: String?
+    let phase: Phase
+    let message: String
+
+    var isInProgress: Bool {
+        switch phase {
+        case .accepted, .preparingModel, .preparingPrograms,
+             .preparingResources, .preparingSurfaces:
+            true
+        case .launched, .cancelled, .failed:
+            false
+        }
+    }
+}
+
+extension Notification.Name {
+    static let sceneWallpaperLaunchStateDidChange = Notification.Name(
+        "SceneWallpaperLaunchStateDidChange"
+    )
+}
+
+nonisolated final class SceneWallpaperLaunchCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
+
+    func check() throws {
+        lock.lock()
+        let isCancelled = cancelled
+        lock.unlock()
+        if isCancelled {
+            throw SceneDesktopWallpaperHostLaunchError.cancelled
+        }
+    }
+}
+
 struct SceneDesktopWallpaperLaunchContext {
     let runtimeInput: SceneRuntimeInput
     let effectAdmissionCatalog: SceneEffectAdmissionCatalog
@@ -102,6 +156,7 @@ struct SceneDesktopWallpaperLaunchContext {
 }
 
 enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
+    case cancelled
     case missingPackageCache
     case conflictingBoundedSceneScriptTargets(String)
     case invalidBoundedSceneScriptProgramAt(String)
@@ -109,6 +164,8 @@ enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
+        case .cancelled:
+            "Scene 启动请求已取消。"
         case .missingPackageCache:
             "Scene 资源缓存不可用。"
         case .conflictingBoundedSceneScriptTargets(let details):
@@ -122,6 +179,134 @@ enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
 }
 
 extension SceneDesktopWallpaperHost {
+    struct PreparedLaunch {
+        let model: SceneRuntimeModel
+        let context: SceneDesktopWallpaperLaunchContext
+    }
+
+    func requestLaunch(
+        rootURL: URL,
+        propertyOverrides: [String: SceneUserPropertyValue] = [:],
+        userPropertyTextureURLs: [String: URL] = [:],
+        logURL: URL? = nil,
+        recordID: String? = nil,
+        completion: @escaping @MainActor (Result<SceneRuntimeModel, Error>) -> Void
+    ) {
+        launchCancellation?.cancel()
+        nextLaunchRequestGeneration &+= 1
+        nextSceneScriptGeneration &+= 1
+        let requestGeneration = nextLaunchRequestGeneration
+        let scriptGeneration = nextSceneScriptGeneration
+        let requestID = UUID()
+        let cancellation = SceneWallpaperLaunchCancellation()
+        launchCancellation = cancellation
+        publishLaunchState(.init(
+            requestID: requestID,
+            recordID: recordID,
+            phase: .accepted,
+            message: "已接受 Scene 壁纸请求"
+        ))
+
+        launchPreparationQueue.async { [weak self] in
+            guard let self else { return }
+            do {
+                let prepared = try Self.prepareLaunch(
+                    rootURL: rootURL,
+                    propertyOverrides: propertyOverrides,
+                    userPropertyTextureURLs: userPropertyTextureURLs,
+                    logURL: logURL,
+                    recordID: recordID,
+                    sceneScriptGeneration: scriptGeneration,
+                    cancellation: cancellation
+                ) { [weak self] phase, message in
+                    DispatchQueue.main.async {
+                        guard let self,
+                              self.nextLaunchRequestGeneration == requestGeneration else {
+                            return
+                        }
+                        self.publishLaunchState(.init(
+                            requestID: requestID,
+                            recordID: recordID,
+                            phase: phase,
+                            message: message
+                        ))
+                    }
+                }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self,
+                          self.nextLaunchRequestGeneration == requestGeneration else {
+                        return
+                    }
+                    do {
+                        try cancellation.check()
+                        self.publishLaunchState(.init(
+                            requestID: requestID,
+                            recordID: recordID,
+                            phase: .preparingSurfaces,
+                            message: "正在准备显示器与 Scene 表面"
+                        ))
+                        try self.activate(prepared.context)
+                        self.launchCancellation = nil
+                        self.publishLaunchState(.init(
+                            requestID: requestID,
+                            recordID: recordID,
+                            phase: .launched,
+                            message: "Scene 已开始渲染"
+                        ))
+                        completion(.success(prepared.model))
+                    } catch {
+                        self.finishLaunchFailure(
+                            error,
+                            requestID: requestID,
+                            recordID: recordID,
+                            completion: completion
+                        )
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self,
+                          self.nextLaunchRequestGeneration == requestGeneration else {
+                        return
+                    }
+                    self.finishLaunchFailure(
+                        error,
+                        requestID: requestID,
+                        recordID: recordID,
+                        completion: completion
+                    )
+                }
+            }
+        }
+    }
+
+    func cancelPendingLaunch(recordID: String? = nil) {
+        guard let state = launchState,
+              state.isInProgress,
+              recordID == nil || state.recordID == recordID else {
+            return
+        }
+        launchCancellation?.cancel()
+        launchCancellation = nil
+        nextLaunchRequestGeneration &+= 1
+        publishLaunchState(.init(
+            requestID: state.requestID,
+            recordID: state.recordID,
+            phase: .cancelled,
+            message: "已取消 Scene 壁纸准备"
+        ))
+    }
+
+    static func isLaunchCancellation(_ error: Error) -> Bool {
+        guard let launchError = error as? SceneDesktopWallpaperHostLaunchError else {
+            return false
+        }
+        if case .cancelled = launchError {
+            return true
+        }
+        return false
+    }
+
     @discardableResult
     func launch(
         rootURL: URL,
@@ -130,10 +315,39 @@ extension SceneDesktopWallpaperHost {
         logURL: URL? = nil,
         recordID: String? = nil
     ) throws -> SceneRuntimeModel {
+        nextSceneScriptGeneration &+= 1
+        let prepared = try Self.prepareLaunch(
+            rootURL: rootURL,
+            propertyOverrides: propertyOverrides,
+            userPropertyTextureURLs: userPropertyTextureURLs,
+            logURL: logURL,
+            recordID: recordID,
+            sceneScriptGeneration: nextSceneScriptGeneration,
+            cancellation: nil,
+            progress: nil
+        )
+        try activate(prepared.context)
+        return prepared.model
+    }
+
+    private static func prepareLaunch(
+        rootURL: URL,
+        propertyOverrides: [String: SceneUserPropertyValue],
+        userPropertyTextureURLs: [String: URL],
+        logURL: URL?,
+        recordID: String?,
+        sceneScriptGeneration: UInt64,
+        cancellation: SceneWallpaperLaunchCancellation?,
+        progress: ((SceneWallpaperLaunchState.Phase, String) -> Void)?
+    ) throws -> PreparedLaunch {
+        try cancellation?.check()
+        progress?(.preparingModel, "正在验证资源包并解析场景")
         let model = try SceneRuntimeModelBuilder().build(
             rootURL: rootURL,
             propertyOverrides: propertyOverrides
         )
+        try cancellation?.check()
+        progress?(.preparingPrograms, "正在准备材质、脚本与渲染计划")
         guard let cacheDirectory = model.diagnostics.packageReport?.outputURL else {
             throw SceneDesktopWallpaperHostLaunchError.missingPackageCache
         }
@@ -332,12 +546,11 @@ extension SceneDesktopWallpaperHost {
                     " phases=\(boundedProducerConflicts.joined(separator: ","))"
                 )
         }
-        nextSceneScriptGeneration &+= 1
         let sceneScriptScalarProgram = SceneScriptScalarProgram.compile(
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings,
             excludedTargets: boundedSceneScriptTargets,
-            generation: nextSceneScriptGeneration
+            generation: sceneScriptGeneration
         )
         let sceneScriptScalarTargets = Set(
             sceneScriptScalarProgram.definitions.map(\.target)
@@ -380,6 +593,8 @@ extension SceneDesktopWallpaperHost {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
+        try cancellation?.check()
+        progress?(.preparingResources, "正在加载纹理并预检 Metal 资源")
         let materialAssetCatalog = SceneMaterialAssetTextureCatalog(
             demands: resolvedMaterialCatalog.assetDemands,
             resourceView: model.diagnostics.resourceView,
@@ -460,7 +675,7 @@ extension SceneDesktopWallpaperHost {
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings
         )
-        try activate(SceneDesktopWallpaperLaunchContext(
+        let context = SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,
             effectAdmissionCatalog: effectAdmissionCatalog,
             resolvedMaterialCatalog: resolvedMaterialCatalog,
@@ -500,8 +715,41 @@ extension SceneDesktopWallpaperHost {
             resourceView: model.diagnostics.resourceView,
             logURL: logURL,
             recordID: recordID
+        )
+        try cancellation?.check()
+        return PreparedLaunch(model: model, context: context)
+    }
+
+    private func publishLaunchState(_ state: SceneWallpaperLaunchState) {
+        launchState = state
+        NSLog(
+            "MWX SCENE STARTUP: request=%@ record=%@ phase=%@ message=%@",
+            state.requestID.uuidString,
+            state.recordID ?? "-",
+            state.phase.rawValue,
+            state.message
+        )
+        NotificationCenter.default.post(
+            name: .sceneWallpaperLaunchStateDidChange,
+            object: state
+        )
+    }
+
+    private func finishLaunchFailure(
+        _ error: Error,
+        requestID: UUID,
+        recordID: String?,
+        completion: @MainActor (Result<SceneRuntimeModel, Error>) -> Void
+    ) {
+        launchCancellation = nil
+        let cancelled = Self.isLaunchCancellation(error)
+        publishLaunchState(.init(
+            requestID: requestID,
+            recordID: recordID,
+            phase: cancelled ? .cancelled : .failed,
+            message: cancelled ? "已取消 Scene 壁纸准备" : "Scene 壁纸准备失败"
         ))
-        return model
+        completion(.failure(error))
     }
 
 }

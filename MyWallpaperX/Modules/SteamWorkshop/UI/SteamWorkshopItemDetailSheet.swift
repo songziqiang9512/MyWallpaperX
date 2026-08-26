@@ -1,7 +1,6 @@
 import AppKit
 import Combine
 import ObjectiveC
-import SwiftUI
 import UniformTypeIdentifiers
 
 final class AppKitSteamWorkshopItemDetailView: NSView {
@@ -20,6 +19,9 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private var webPropertiesExpanded = false
     private var webAdvancedPropertiesExpanded = false
     private var webDiagnosticsExpanded = false
+    private lazy var sceneInspectionController = SteamWorkshopSceneInspectionController { [weak self] in
+        self?.rebuild(preservingScrollPosition: true)
+    }
 
     private let rootStack = NSStackView()
     private let scrollView = InspectorFadingScrollView()
@@ -49,6 +51,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             webPropertiesExpanded = false
             webAdvancedPropertiesExpanded = false
             webDiagnosticsExpanded = false
+            sceneInspectionController.reset()
         }
         currentItem = resolvedCurrentItem(fallback: item)
         rebuild(preservingScrollPosition: isSameItem)
@@ -79,6 +82,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
                 self.rebuild(preservingScrollPosition: true)
             }
             .store(in: &cancellables)
+
     }
 
     private func resolvedCurrentItem(fallback: SteamWorkshopBrowserItem) -> SteamWorkshopBrowserItem {
@@ -397,10 +401,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             ))
         }
 
-        if let record = sceneDownloadRecord {
-            stack.addArrangedSubview(notice(icon: "square.stack.3d.up", text: service.sceneDiagnosticsSummary(for: record)))
-        }
-
         if !currentItem.dependencyIDs.isEmpty {
             stack.addArrangedSubview(notice(
                 icon: "link.badge.plus",
@@ -607,23 +607,11 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             }
         }
     }
-
     private func buildSceneDiagnosticsSection() {
-        guard let record = sceneDownloadRecord,
-              let report = service.sceneDiagnosticsReport(for: record) else { return }
-
-        let propertyContext = service.scenePropertyContext(for: record, report: report)
-        let section = SteamWorkshopSceneDetailSection(
-            record: record,
-            report: report,
-            propertyContext: propertyContext
-        ) {
-            guard let propertyContext else { return }
-            ScenePropertyWindowController.shared.show(record: record, context: propertyContext)
-        }
-        let hostingView = NSHostingView(rootView: section)
-        hostingView.translatesAutoresizingMaskIntoConstraints = false
-        contentStack.addArrangedSubview(hostingView)
+        guard let record = sceneDownloadRecord else { return }
+        contentStack.addArrangedSubview(
+            sceneInspectionController.makeSection(for: record)
+        )
     }
 
     private func buildFooterActions() {

@@ -64,8 +64,7 @@ extension SceneResolvedMaterialShaderSchema {
 
         let bootstrap = try unconditionalSamplers(template)
         var reachable: [Int: Set<Sampler>] = [:]
-        for rawAvailability in UInt16(0) ... UInt16(UInt8.max) {
-            let availability = UInt8(rawAvailability)
+        for availability in launchAvailabilityMasks(template) {
             var active = bootstrap
             var seen: Set<UInt8> = []
             var stable = false
@@ -106,6 +105,56 @@ extension SceneResolvedMaterialShaderSchema {
             guard stable else { throw Issue.sampler("readiness-budget") }
         }
         return reachable
+    }
+
+    /// Texture availability can only change preprocessing for sampler slots
+    /// that actually provide a texture-readiness schema. Enumerating the other
+    /// bits repeats the same prepared program under a different dictionary
+    /// identity (up to 256 times) without adding a reachable sampler fact.
+    ///
+    /// Fall back to the historical exhaustive envelope when metadata cannot be
+    /// projected cleanly so malformed/unsupported contracts keep their prior
+    /// rejection behavior.
+    private nonisolated static func launchAvailabilityMasks(
+        _ template: Template
+    ) -> [UInt8] {
+        guard let graph = template.shaderContract.sourceGraph else {
+            return Array(UInt8.min ... UInt8.max)
+        }
+        var readinessSlots: UInt8 = 0
+        for node in graph.nodes {
+            let parsed = SceneShaderContractSourceParser().parse(
+                node.source,
+                stageRelativePath: node.virtualPath
+            )
+            let source = SceneShaderVariantSchemaSource(
+                relativePath: node.virtualPath,
+                source: node.source,
+                annotations: parsed.annotations,
+                declarations: parsed.declarations
+            )
+            guard let schemas = try? SceneShaderVariantResolver.schemas(in: source)
+            else { return Array(UInt8.min ... UInt8.max) }
+            for slot in schemas.compactMap(\.samplerSlot) {
+                guard (0 ..< 8).contains(slot) else {
+                    return Array(UInt8.min ... UInt8.max)
+                }
+                readinessSlots |= UInt8(1) << UInt8(slot)
+            }
+        }
+        var optionalCandidateSlots: UInt8 = 0
+        for slot in template.textureSlots.compactMap({ $0 })
+            where !slot.candidates.isEmpty {
+            guard (0 ..< 8).contains(slot.index) else {
+                return Array(UInt8.min ... UInt8.max)
+            }
+            optionalCandidateSlots |= UInt8(1) << UInt8(slot.index)
+        }
+        let relevantSlots = readinessSlots & optionalCandidateSlots
+        return (UInt16(UInt8.min) ... UInt16(UInt8.max)).compactMap {
+            let availability = UInt8($0)
+            return availability & ~relevantSlots == 0 ? availability : nil
+        }
     }
 
     private nonisolated static func readinessMask(

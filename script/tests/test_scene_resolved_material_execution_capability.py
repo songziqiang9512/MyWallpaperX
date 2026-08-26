@@ -750,18 +750,23 @@ final class SceneResolvedMaterialVariantCache {
         graphTextureFormatFacts: [
             SceneAuthoredEffectRenderPlan.TextureIdentity: SceneShaderTextureFormat
         ] = [:],
+        graphTextureContentFacts: [
+            SceneAuthoredEffectRenderPlan.TextureIdentity: SceneTextureContent
+        ] = [:],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
     ) -> Result<[UInt8], LaunchEnvelopeFailure> {
         _ = implicitFramebufferIdentity
         _ = outputStorage
         _ = outputIsRGBA8Unorm
         _ = graphTextureFormatFacts
+        _ = graphTextureContentFacts
         _ = assetStates
         return .success([1])
     }
 
     var supportsTransparentDirectDraw: Bool { true }
     var launchEnvelopeActiveTextureSlots: Set<Int>? { [0] }
+    var launchEnvelopeProvesOpaqueColorOutput: Bool { false }
     var launchEnvelopeProvesSpatialWeightedPointerProvider: Bool { false }
     var hasAudioSpectrumConsumer: Bool { audioSpectrumConsumer }
     func capturedMainTargetSourceSlot(node: SceneAuthoredEffectRenderPlan.Node, effect: SceneAuthoredEffectRenderPlan.Effect) -> Int? { _ = (node, effect); return capturedMainTargetTextureSupport ? 0 : nil }
@@ -7947,7 +7952,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         )
         bounded_ownership = launch[
             launch.index("let boundedProducerTargets:"):
-            launch.index("nextSceneScriptGeneration &+= 1")
+            launch.index("let sceneScriptScalarProgram =")
         ]
         self.assertNotIn("time-of-day", bounded_ownership)
         self.assertIn(
