@@ -19,6 +19,21 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
                 ]
             )
         }
+        guard SceneResolvedMaterialProgramDerivation
+            .hasResolvedOpaqueColorSampleContract(
+                colorSlots: variant.sourceProvenOpaqueColorSlots,
+                textureSlots: textureSlots
+            ) else {
+            return failure(
+                .color,
+                .colorContractUnproven,
+                details: [
+                    "source-proven-opaque-color-slots",
+                    variant.sourceProvenOpaqueColorSlots.sorted()
+                        .map(String.init).joined(separator: ","),
+                ]
+            )
+        }
         if let contract = variant.conditionalGeneratedRGBInputContract,
            !SceneResolvedMaterialProgramDerivation
             .hasResolvedConditionalGeneratedRGBInputContract(

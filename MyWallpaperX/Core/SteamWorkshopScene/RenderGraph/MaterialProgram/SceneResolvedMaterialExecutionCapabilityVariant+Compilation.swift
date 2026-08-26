@@ -17,6 +17,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         Int: SceneResolvedMaterialGraphInputSourceSlotFact
     ]
     let preservedAlphaRGBColorSlots: Set<Int>
+    let sourceProvenOpaqueColorSlots: Set<Int>
     let conditionalGeneratedRGBInputContract:
         SceneResolvedMaterialProgramDerivation
             .ConditionalGeneratedRGBInputContract?
@@ -27,7 +28,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     let neutralTextureResolution:
         SceneAuthoredShaderNeutralTextureResolutionFact?
 
-    fileprivate init(
+    init(
         readinessMask: UInt8,
         textureFormats: [SceneShaderTextureFormat?],
         preparedShader: SceneShaderPreparedProgram,
@@ -39,6 +40,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ],
         preservedAlphaRGBColorSlots: Set<Int>,
+        sourceProvenOpaqueColorSlots: Set<Int>,
         conditionalGeneratedRGBInputContract:
             SceneResolvedMaterialProgramDerivation
                 .ConditionalGeneratedRGBInputContract?,
@@ -58,6 +60,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.activeSamplers = activeSamplers
         self.graphInputSourceSlotFacts = graphInputSourceSlotFacts
         self.preservedAlphaRGBColorSlots = preservedAlphaRGBColorSlots
+        self.sourceProvenOpaqueColorSlots = sourceProvenOpaqueColorSlots
         self.conditionalGeneratedRGBInputContract =
             conditionalGeneratedRGBInputContract
         self.sameAlphaReconstructedRGBInputContract =
@@ -410,6 +413,23 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             boundedOutput = output
             artifactFailure = ["generic-artifact", code, requestKey]
         }
+        let sourceProvenOpaqueColorSlots: Set<Int>
+        if routeDecision.profile
+            == SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphTargetOpaqueAlphaWeightedLoopAverage.rawValue {
+            guard let fact =
+                    SceneAuthoredShaderOpaqueAlphaWeightedLoopAverageAnalyzer
+                        .analyze(fragmentSource: compilerSources.fragment) else {
+                throw failure(
+                    .identityInvariant,
+                    phase: .invariant,
+                    details: ["opaque-color-source-contract-missing"]
+                )
+            }
+            sourceProvenOpaqueColorSlots = [fact.sourceSlot]
+        } else {
+            sourceProvenOpaqueColorSlots = []
+        }
         let genericOwnerFailure = genericOwnerFailure(routeDecision)
         guard
               SceneResolvedMaterialProgramDerivation.validPreparedStages(prepared),
@@ -507,6 +527,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             activeSamplers: samplers,
             graphInputSourceSlotFacts: graphInputFacts,
             preservedAlphaRGBColorSlots: preservedAlphaRGBColorSlots,
+            sourceProvenOpaqueColorSlots: sourceProvenOpaqueColorSlots,
             conditionalGeneratedRGBInputContract:
                 conditionalGeneratedRGBInputContract,
             sameAlphaReconstructedRGBInputContract:

@@ -315,10 +315,17 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         }
         let preservedRGBADataTargets = preservedRGBADataTargets(in: product.graph)
         var materials: [MaterialKey: MaterialCapability] = [:]
+        var graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent] = [:]
         var capturedMainSourceConsumerCount = 0
         var firstCapturedMainMaterial: (node: Graph.Node, template: Template)?
         for node in product.graph.nodes {
-            guard case .material = node.kind else { continue }
+            guard case .material = node.kind else {
+                // Copy/swap semantics may change which version owns an
+                // identity. Keep launch typing conservative until command
+                // lowering can publish an equally typed transfer fact.
+                graphTextureContentFacts.removeAll()
+                continue
+            }
             let key = MaterialKey(effect: node.effect, nodeIndex: node.nodeIndex)
             guard let template =
                     SceneResolvedMaterialExecutionCapabilityTemplateAdmission.resolve(
@@ -361,6 +368,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     attachment.storage == .color
                         && attachment.format == .rgba8888,
                 graphTextureFormatFacts: graphTextureFormatFacts,
+                graphTextureContentFacts: graphTextureContentFacts,
                 assetStates: assetStates
             ) {
                 SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
@@ -442,6 +450,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 producers: dynamicProducers
             ) {
                 return .failure(failure)
+            }
+            if let target = node.target,
+               node.conditions == nil,
+               node.compose == nil {
+                if variants.launchEnvelopeProvesOpaqueColorOutput {
+                    graphTextureContentFacts[target] =
+                        .color(.resolved(.opaque))
+                } else {
+                    graphTextureContentFacts.removeValue(forKey: target)
+                }
+            } else if let target = node.target {
+                graphTextureContentFacts.removeValue(forKey: target)
             }
             materials[key] = .init(
                 key: key,

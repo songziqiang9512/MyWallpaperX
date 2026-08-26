@@ -90,6 +90,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderNormalizedSampleSumAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderOpaqueLoopSampleAverageAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderOpaqueStaticSampleAverageAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderOpaqueAlphaWeightedLoopAverageAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.swift",

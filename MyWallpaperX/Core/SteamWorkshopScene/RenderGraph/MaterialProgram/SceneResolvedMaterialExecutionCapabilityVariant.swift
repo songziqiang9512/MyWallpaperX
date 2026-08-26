@@ -41,6 +41,9 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     private var cachedGraphTextureFormatFacts: [
         Graph.TextureIdentity: SceneShaderTextureFormat
     ]?
+    private var cachedGraphTextureContentFacts: [
+        Graph.TextureIdentity: SceneTextureContent
+    ]?
 
     private init(
         template: Template,
@@ -144,6 +147,21 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         })
     }
 
+    /// Publishes only the one launch-time graph content fact that can be
+    /// derived without a frame resource: every admitted variant writes opaque
+    /// color. Graph author order remains owned by capability compilation, and
+    /// frame finalization still validates the actual publication.
+    var launchEnvelopeProvesOpaqueColorOutput: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard cachedOutputStorage == .color,
+              !cachedLaunchEnvelopeKeys.isEmpty else { return false }
+        return cachedLaunchEnvelopeKeys.allSatisfy { key in
+            guard case let .ready(variant)? = entries[key] else { return false }
+            return variant.frontendProgram.colorTransfer == .opaque
+        }
+    }
+
     /// A source-less object route is executable only when the authored
     /// variant explicitly selects DIRECTDRAW and the complete launch envelope
     /// proves that no active sampler can consume the graph input.
@@ -185,6 +203,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         outputStorage: SceneResolvedMaterialProgram.OutputStorage = .color,
         outputIsRGBA8Unorm: Bool = false,
         graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat] = [:],
+        graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent] = [:],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
     ) -> Result<[UInt8], LaunchEnvelopeFailure> {
         lock.lock()
@@ -204,6 +223,14 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 details: ["launch-graph-texture-formats-changed"]
             )))
         }
+        if let cachedGraphTextureContentFacts,
+           cachedGraphTextureContentFacts != graphTextureContentFacts {
+            return .failure(.material(Self.failure(
+                .identityInvariant,
+                phase: .invariant,
+                details: ["launch-graph-texture-content-changed"]
+            )))
+        }
         if let cachedOutputIsRGBA8Unorm,
            cachedOutputIsRGBA8Unorm != outputIsRGBA8Unorm {
             return .failure(.material(Self.failure(
@@ -215,6 +242,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         cachedOutputStorage = outputStorage
         cachedOutputIsRGBA8Unorm = outputIsRGBA8Unorm
         cachedGraphTextureFormatFacts = graphTextureFormatFacts
+        cachedGraphTextureContentFacts = graphTextureContentFacts
         var reached = Set<UInt8>()
         var admittedKeys = Set<SceneResolvedMaterialVariantKey>()
         var reachableSamplers: [
@@ -338,6 +366,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                             formatSlots: textureFormatSlots,
                             outputStorage: outputStorage,
                             implicitFramebufferIdentity: implicitFramebufferIdentity,
+                            graphTextureContentFacts: graphTextureContentFacts,
                             assetStates: assetStates
                         ) {
                         return .failure(.material(failure))

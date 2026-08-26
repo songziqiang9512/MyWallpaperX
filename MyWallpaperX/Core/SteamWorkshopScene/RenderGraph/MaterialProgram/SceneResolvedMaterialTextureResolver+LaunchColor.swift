@@ -13,6 +13,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         formatSlots: Set<Int>,
         outputStorage: SceneResolvedMaterialProgram.OutputStorage,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
+        graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent] = [:],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> Failure? {
         for variant in variants {
@@ -44,6 +45,43 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     details: ["shader-color-transfer-unresolved"]
                 )
             }
+            var sourceProvenOpaqueProfiles: [[LaunchColorFact?]]?
+            if !preservedChannelOutput,
+               !variant.sourceProvenOpaqueColorSlots.isEmpty {
+                switch launchColorProfiles(
+                    template: template,
+                    variant: variant,
+                    readinessMask: readinessMask,
+                    implicitFramebufferIdentity: implicitFramebufferIdentity,
+                    graphTextureContentFacts: graphTextureContentFacts,
+                    assetStates: assetStates
+                ) {
+                case .unknownInternalGraph:
+                    return failure(
+                        .colorContractUnproven,
+                        phase: .color,
+                        details: ["source-proven-opaque-color-slots"]
+                    )
+                case .invalid:
+                    return failure(.textureBindingInvalid)
+                case .profiles(let profiles):
+                    guard profiles.allSatisfy({
+                        SceneResolvedMaterialProgramDerivation
+                            .hasResolvedOpaqueColorSampleContract(
+                                colorSlots:
+                                    variant.sourceProvenOpaqueColorSlots,
+                                textureFacts: $0
+                            )
+                    }) else {
+                        return failure(
+                            .colorContractUnproven,
+                            phase: .color,
+                            details: ["source-proven-opaque-color-slots"]
+                        )
+                    }
+                    sourceProvenOpaqueProfiles = profiles
+                }
+            }
             if !preservedChannelOutput, case let .straightAlphaUNorm(slot) =
                 variant.frontendProgram.colorTransfer {
                 guard implicitFramebufferIdentity?.kind == .layerSource,
@@ -62,27 +100,32 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 continue
             }
             let profiles: [[LaunchColorFact?]]
-            switch launchColorProfiles(
-                template: template,
-                variant: variant,
-                readinessMask: readinessMask,
-                implicitFramebufferIdentity: implicitFramebufferIdentity,
-                assetStates: assetStates
-            ) {
-            case .unknownInternalGraph:
-                if !preservedChannelOutput, case .straightAlphaUNorm =
-                    variant.frontendProgram.colorTransfer {
-                    return failure(
-                        .colorContractUnproven,
-                        phase: .color,
-                        details: ["straight-alpha-unorm-internal-graph"]
-                    )
+            if let sourceProvenOpaqueProfiles {
+                profiles = sourceProvenOpaqueProfiles
+            } else {
+                switch launchColorProfiles(
+                    template: template,
+                    variant: variant,
+                    readinessMask: readinessMask,
+                    implicitFramebufferIdentity: implicitFramebufferIdentity,
+                    graphTextureContentFacts: graphTextureContentFacts,
+                    assetStates: assetStates
+                ) {
+                case .unknownInternalGraph:
+                    if !preservedChannelOutput, case .straightAlphaUNorm =
+                        variant.frontendProgram.colorTransfer {
+                        return failure(
+                            .colorContractUnproven,
+                            phase: .color,
+                            details: ["straight-alpha-unorm-internal-graph"]
+                        )
+                    }
+                    continue
+                case .invalid:
+                    return failure(.textureBindingInvalid)
+                case .profiles(let value):
+                    profiles = value
                 }
-                continue
-            case .invalid:
-                return failure(.textureBindingInvalid)
-            case .profiles(let value):
-                profiles = value
             }
             if preservedChannelOutput { continue }
             if let contract = variant.conditionalGeneratedRGBInputContract {
@@ -165,6 +208,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         variant: SceneResolvedMaterialCompiledVariant,
         readinessMask: UInt8,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
+        graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> LaunchColorProfiles {
         var profiles = [Array<LaunchColorFact?>(repeating: nil, count: 8)]
@@ -203,7 +247,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 return .unknownInternalGraph
             }
             if case let .graph(identity) = reference,
-               identity != implicitFramebufferIdentity {
+               identity != implicitFramebufferIdentity,
+               graphTextureContentFacts[identity] == nil {
                 return .unknownInternalGraph
             }
             guard let fact = launchFact(
@@ -211,6 +256,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 resolvedPurpose: resolvedPurpose,
                 sampler: sampler,
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
+                graphTextureContentFacts: graphTextureContentFacts,
                 assetStates: assetStates
             ) else { return .invalid }
             for profile in profiles {
@@ -306,10 +352,20 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         resolvedPurpose: SceneTextureLoadPurpose?,
         sampler: SceneResolvedMaterialShaderSchema.Sampler,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
+        graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> LaunchColorFact? {
         if case let .graph(identity) = reference {
-            guard identity == implicitFramebufferIdentity else { return nil }
+            if identity != implicitFramebufferIdentity {
+                guard let content = graphTextureContentFacts[identity] else {
+                    return nil
+                }
+                return .init(
+                    isGraphReference: true,
+                    isFramebufferInput: true,
+                    content: content
+                )
+            }
             return .init(
                 isGraphReference: true,
                 isFramebufferInput: true,
