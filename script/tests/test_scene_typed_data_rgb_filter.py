@@ -89,6 +89,30 @@ private struct Output: Codable {
     let missingTypedPurposeProfile: String
     let providerProfile: String
     let secondGraphInputProfile: String
+    let reconstructedTransfer: String
+    let reconstructedSourceSlot: Int?
+    let reconstructedAuxiliarySlots: [Int]?
+    let reconstructedTotalSamples: Int?
+    let reconstructedLoweringAccepted: Bool
+    let reconstructedSourceUnpremultipliedCount: Int
+    let reconstructedDataUnpremultipliedCount: Int
+    let reconstructedOutputPremultiplied: Bool
+    let reconstructedAlphaDriftRejected: Bool
+    let reconstructedEndpointDriftRejected: Bool
+    let reconstructedShadowedTerminalRejected: Bool
+    let reconstructedTernaryRejected: Bool
+    let reconstructedHiddenSourceRejected: Bool
+    let reconstructedHelperSampleRejected: Bool
+    let reconstructedWholeDataRejected: Bool
+    let reconstructedCompilerAlphaDriftRejected: Bool
+    let reconstructedCompilerShadowedTerminalRejected: Bool
+    let reconstructedCompilerSampleDriftRejected: Bool
+    let reconstructedCompilerAliasSampleRejected: Bool
+    let reconstructedCompilerProjectionDriftRejected: Bool
+    let reconstructedRouteProfile: String
+    let reconstructedRouteState: String
+    let reconstructedRollbackOwner: String
+    let reconstructedMissingTypedProfile: String
 }
 
 @main
@@ -183,9 +207,62 @@ private enum TypedDataRGBFilterHarness {
             of: "    out.mwxFragColor = fast::clamp(carrier, float4(0.0), float4(1.0));",
             with: "    out.mwxFragColor = float4(fast::max(float3(0.0), carrier.xyz), carrier.w);"
         )
+        let reconstructedAuthored = [
+            "uniform sampler2D g_Texture0;",
+            "uniform sampler2D g_Texture1;",
+            "varying vec2 v_TexCoord;",
+            "vec3 ApplyBlending(const int mode, in vec3 base, in vec3 generated, in float opacity) {",
+            "    return mix(base, generated, opacity);",
+            "}",
+            "void main() {",
+            "    vec4 carrier;",
+            "    vec2 flow = texSample2D(g_Texture1, v_TexCoord).rg;",
+            "    float line = texSample2D(g_Texture1, v_TexCoord * 2.0).r;",
+            "    vec4 snapshot = texSample2D(g_Texture0, v_TexCoord);",
+            "    carrier.ra = snapshot.ra;",
+            "    carrier.g = texSample2D(g_Texture0, v_TexCoord + flow).g;",
+            "    carrier.b = texSample2D(g_Texture0, v_TexCoord - flow).b;",
+            "    vec3 noise = texSample2D(g_Texture1, v_TexCoord * 3.0).gbr;",
+            "    carrier.rgb = ApplyBlending(12, carrier.rgb, noise, line);",
+            "    carrier.rgb = mix(carrier.rgb, CAST3(1.0 - carrier.rgb), flow.x);",
+            "    gl_FragColor = mix(snapshot, carrier, line);",
+            "}",
+        ].joined(separator: "\n")
+        let reconstructedMSL = [
+            "#include <metal_stdlib>",
+            "using namespace metal;",
+            "fragment void f() {",
+            "    float2 flow = g_Texture1.sample(g_Texture1Smplr, in.v_TexCoord).xy;",
+            "    float line = g_Texture1.sample(g_Texture1Smplr, in.v_TexCoord * 2.0).x;",
+            "    float4 snapshot = g_Texture0.sample(g_Texture0Smplr, in.v_TexCoord);",
+            "    float4 carrier;",
+            "    carrier.x = snapshot.xw.x;",
+            "    carrier.w = snapshot.xw.y;",
+            "    carrier.y = g_Texture0.sample(g_Texture0Smplr, in.v_TexCoord + flow).y;",
+            "    carrier.z = g_Texture0.sample(g_Texture0Smplr, in.v_TexCoord - flow).z;",
+            "    float3 noise = g_Texture1.sample(g_Texture1Smplr, in.v_TexCoord * 3.0).yzx;",
+            "    float3 filtered = ApplyBlending(12, carrier.xyz, noise, line);",
+            "    carrier.x = filtered.x;",
+            "    carrier.y = filtered.y;",
+            "    carrier.z = filtered.z;",
+            "    float3 mixed = mix(carrier.xyz, float3(1.0) - carrier.xyz, float3(flow.x));",
+            "    carrier.x = mixed.x;",
+            "    carrier.y = mixed.y;",
+            "    carrier.z = mixed.z;",
+            "    out.mwxFragColor = mix(snapshot, carrier, float4(line));",
+            "    return out;",
+            "}",
+        ].joined(separator: "\n")
 
         func fact(_ source: String) -> SceneAuthoredShaderTypedDataRGBFilterFact? {
             SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(
+                fragmentSource: source
+            )
+        }
+        func reconstructedFact(
+            _ source: String
+        ) -> SceneAuthoredShaderSameAlphaReconstructedRGBFilterFact? {
+            SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.analyze(
                 fragmentSource: source
             )
         }
@@ -216,6 +293,39 @@ private enum TypedDataRGBFilterHarness {
                 isSourceIndependentPremultipliedOutput: false,
                 graphTextureSlots: graphInputs.subtracting([0]),
                 graphInputTextureSlots: graphInputs,
+                r8TextureSlots: [],
+                hasDefaultedOpacityMaskSampler: false,
+                hasStageScopedUniformBindings: false,
+                hasStereoAudioSpectrumArrays: false,
+                hasLocalizedMutableFragmentVarying: false
+            )
+        }
+        func reconstructedProfile(
+            typed: Set<Int>,
+            provider: Bool = false
+        ) -> SceneGenericShaderCapabilityProfile {
+            SceneGenericShaderCapabilityProfile(
+                colorTransfer: .straightAlphaPreserving(textureSlot: 0),
+                alphaAttenuationSourceSlot: nil,
+                colorBlendSourceSlot: nil,
+                conditionalStraightUnionSourceSlot: nil,
+                singleSamplerAlphaMutationSourceSlot: nil,
+                sameSlotChannelReconstructionSourceSlot: nil,
+                auxiliaryRGBMixSourceSlot: nil,
+                normalizedSampleSumSourceSlot: nil,
+                alphaWeightedSampleAverageSourceSlot: nil,
+                preservedAlphaRGBFilterSourceSlot: nil,
+                preservedAlphaRGBFilterTextureSlots: [],
+                sameAlphaReconstructedRGBFilterSourceSlot: 0,
+                sameAlphaReconstructedRGBFilterAuxiliarySlots: [1],
+                typedStaticDataAuxiliarySlots: typed,
+                unitCompositeBlurredSlot: nil,
+                unitCompositePreviousSlot: nil,
+                hasExternalProviderTexture: provider,
+                producesScalarRedOutput: false,
+                isSourceIndependentPremultipliedOutput: false,
+                graphTextureSlots: [],
+                graphInputTextureSlots: [0],
                 r8TextureSlots: [],
                 hasDefaultedOpacityMaskSampler: false,
                 hasStageScopedUniformBindings: false,
@@ -257,6 +367,16 @@ private enum TypedDataRGBFilterHarness {
             with: ""
         )
         let selected = profile(typed: [1, 2, 3, 4, 5, 6])
+        let reconstructedAnalyzed = reconstructedFact(reconstructedAuthored)
+        let reconstructedTransfer = SceneAuthoredShaderColorTransferAnalyzer
+            .analyze(fragmentSource: reconstructedAuthored)
+        let reconstructedLowered = try?
+            SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                msl: reconstructedMSL,
+                authoredSource: reconstructedAuthored
+            )
+        let reconstructedLoweredMSL = reconstructedLowered?.msl ?? ""
+        let reconstructedSelected = reconstructedProfile(typed: [1])
         let projectionDrift = msl.replacingOccurrences(
             of: "g_Texture5.sample(g_Texture5Smplr, in.v_TexCoord).x",
             with: "g_Texture5.sample(g_Texture5Smplr, in.v_TexCoord).xy"
@@ -461,7 +581,134 @@ private enum TypedDataRGBFilterHarness {
             secondGraphInputProfile: profile(
                 typed: [1, 2, 3, 4, 5, 6],
                 graphInputs: [0, 6]
-            ).rawValue
+            ).rawValue,
+            reconstructedTransfer: {
+                if case .straightAlphaPreserving(textureSlot: 0) =
+                    reconstructedTransfer {
+                    return "straight-alpha-preserving-0"
+                }
+                return "unexpected"
+            }(),
+            reconstructedSourceSlot: reconstructedAnalyzed?.sourceSlot,
+            reconstructedAuxiliarySlots:
+                reconstructedAnalyzed?.auxiliarySlots.sorted(),
+            reconstructedTotalSamples:
+                reconstructedAnalyzed?.totalSampleCallCount,
+            reconstructedLoweringAccepted: reconstructedLowered != nil,
+            reconstructedSourceUnpremultipliedCount:
+                reconstructedLoweredMSL.components(
+                    separatedBy:
+                        "mwxGenericUnpremultiply(g_Texture0.sample("
+                ).count - 1,
+            reconstructedDataUnpremultipliedCount:
+                reconstructedLoweredMSL.components(
+                    separatedBy:
+                        "mwxGenericUnpremultiply(g_Texture1.sample("
+                ).count - 1,
+            reconstructedOutputPremultiplied:
+                reconstructedLoweredMSL.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply("
+                        + "mix(snapshot, carrier, float4(line)));"
+                ),
+            reconstructedAlphaDriftRejected:
+                reconstructedFact(reconstructedAuthored.replacingOccurrences(
+                    of: "    gl_FragColor = mix(snapshot, carrier, line);",
+                    with: "    carrier.a = line;\n"
+                        + "    gl_FragColor = mix(snapshot, carrier, line);"
+                )) == nil,
+            reconstructedEndpointDriftRejected:
+                reconstructedFact(reconstructedAuthored.replacingOccurrences(
+                    of: "mix(snapshot, carrier, line)",
+                    with: "mix(snapshot, vec4(carrier.rgb, line), line)"
+                )) == nil,
+            reconstructedShadowedTerminalRejected:
+                reconstructedFact(reconstructedAuthored
+                    .replacingOccurrences(
+                        of: "void main() {",
+                        with: "vec4 lerp(vec4 a, vec4 b, float t) {\n"
+                            + "    return vec4(b.rgb, 0.0);\n}\n"
+                            + "void main() {"
+                    )
+                    .replacingOccurrences(
+                        of: "gl_FragColor = mix(snapshot, carrier, line);",
+                        with: "gl_FragColor = lerp(snapshot, carrier, line);"
+                    )) == nil,
+            reconstructedTernaryRejected:
+                reconstructedFact(reconstructedAuthored.replacingOccurrences(
+                    of: "    carrier.rgb = mix(carrier.rgb, CAST3(1.0 - carrier.rgb), flow.x);",
+                    with: "    carrier.rgb = line > 0.5 ? carrier.rgb : noise;"
+                )) == nil,
+            reconstructedHiddenSourceRejected:
+                reconstructedFact(reconstructedAuthored.replacingOccurrences(
+                    of: "    gl_FragColor = mix(snapshot, carrier, line);",
+                    with: "    float hidden = texSample2D(g_Texture0, v_TexCoord).r;\n"
+                        + "    gl_FragColor = mix(snapshot, carrier, line);"
+                )) == nil,
+            reconstructedHelperSampleRejected:
+                reconstructedFact(reconstructedAuthored.replacingOccurrences(
+                    of: "    return mix(base, generated, opacity);",
+                    with: "    return mix(base, generated, opacity)"
+                        + " + texSample2D(g_Texture1, vec2(0.0)).rgb;"
+                )) == nil,
+            reconstructedWholeDataRejected:
+                reconstructedFact(reconstructedAuthored.replacingOccurrences(
+                    of: "vec3 noise = texSample2D(g_Texture1, v_TexCoord * 3.0).gbr;",
+                    with: "vec4 noise = texSample2D(g_Texture1, v_TexCoord * 3.0);"
+                )) == nil,
+            reconstructedCompilerAlphaDriftRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: reconstructedMSL.replacingOccurrences(
+                        of: "carrier.w = snapshot.xw.y;",
+                        with: "carrier.w = snapshot.xw.x;"
+                    ),
+                    authoredSource: reconstructedAuthored
+                )) == nil,
+            reconstructedCompilerShadowedTerminalRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: reconstructedMSL.replacingOccurrences(
+                        of: "fragment void f() {",
+                        with: "float4 mix(float4 a, float4 b, float4 t) {\n"
+                            + "    return float4(b.xyz, 0.0);\n}\n"
+                            + "fragment void f() {"
+                    ),
+                    authoredSource: reconstructedAuthored
+                )) == nil,
+            reconstructedCompilerSampleDriftRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: reconstructedMSL.replacingOccurrences(
+                        of: "    out.mwxFragColor = mix(snapshot, carrier, float4(line));",
+                        with: "    float hidden = g_Texture0.sample("
+                            + "g_Texture0Smplr, in.v_TexCoord).x;\n"
+                            + "    out.mwxFragColor = mix(snapshot, carrier, float4(line));"
+                    ),
+                    authoredSource: reconstructedAuthored
+                )) == nil,
+            reconstructedCompilerAliasSampleRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: reconstructedMSL.replacingOccurrences(
+                        of: "    out.mwxFragColor = mix(snapshot, carrier, float4(line));",
+                        with: "    texture2d<float> hiddenAlias = g_Texture0;\n"
+                            + "    carrier.x += hiddenAlias.sample("
+                            + "g_Texture0Smplr, in.v_TexCoord).x;\n"
+                            + "    out.mwxFragColor = mix(snapshot, carrier, float4(line));"
+                    ),
+                    authoredSource: reconstructedAuthored
+                )) == nil,
+            reconstructedCompilerProjectionDriftRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: reconstructedMSL.replacingOccurrences(
+                        of: ").yzx;",
+                        with: ").xy;"
+                    ),
+                    authoredSource: reconstructedAuthored
+                )) == nil,
+            reconstructedRouteProfile: reconstructedSelected.rawValue,
+            reconstructedRouteState:
+                reconstructedSelected.defaultRouteState.rawValue,
+            reconstructedRollbackOwner:
+                reconstructedSelected.validatedRollbackOwner.rawValue,
+            reconstructedMissingTypedProfile:
+                reconstructedProfile(typed: []).rawValue
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
     }
@@ -601,6 +848,54 @@ class SceneTypedDataRGBFilterTests(unittest.TestCase):
             self.result["secondGraphInputProfile"],
             "source-proven-graph-input-straight-alpha-preserving",
         )
+
+    def test_same_alpha_reconstruction_is_a_separate_prefer_generic_profile(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["reconstructedTransfer"],
+            "straight-alpha-preserving-0",
+        )
+        self.assertEqual(self.result["reconstructedSourceSlot"], 0)
+        self.assertEqual(self.result["reconstructedAuxiliarySlots"], [1])
+        self.assertEqual(self.result["reconstructedTotalSamples"], 6)
+        self.assertTrue(self.result["reconstructedLoweringAccepted"])
+        self.assertEqual(
+            self.result["reconstructedSourceUnpremultipliedCount"], 3
+        )
+        self.assertEqual(
+            self.result["reconstructedDataUnpremultipliedCount"], 0
+        )
+        self.assertTrue(self.result["reconstructedOutputPremultiplied"])
+        self.assertEqual(
+            self.result["reconstructedRouteProfile"],
+            "source-proven-graph-input-same-alpha-reconstructed-rgb-data-filter",
+        )
+        self.assertEqual(self.result["reconstructedRouteState"], "prefer-generic")
+        self.assertEqual(
+            self.result["reconstructedRollbackOwner"], "bounded-frontend"
+        )
+        self.assertEqual(
+            self.result["reconstructedMissingTypedProfile"],
+            "source-proven-graph-input-straight-alpha-preserving",
+        )
+
+    def test_same_alpha_reconstruction_drift_fails_closed(self) -> None:
+        for key in (
+            "reconstructedAlphaDriftRejected",
+            "reconstructedEndpointDriftRejected",
+            "reconstructedShadowedTerminalRejected",
+            "reconstructedTernaryRejected",
+            "reconstructedHiddenSourceRejected",
+            "reconstructedHelperSampleRejected",
+            "reconstructedWholeDataRejected",
+            "reconstructedCompilerAlphaDriftRejected",
+            "reconstructedCompilerShadowedTerminalRejected",
+            "reconstructedCompilerSampleDriftRejected",
+            "reconstructedCompilerAliasSampleRejected",
+            "reconstructedCompilerProjectionDriftRejected",
+        ):
+            self.assertTrue(self.result[key], (key, self.result))
 
 
 if __name__ == "__main__":

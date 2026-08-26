@@ -27,6 +27,14 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         let scalarAlphaSlots: Set<Int>
     }
 
+    /// Source-proven roles for a same-alpha color reconstruction. Auxiliary
+    /// slots are byte-semantic authored data and must never be interpreted as
+    /// premultiplied color merely because their texture format is RGBA.
+    struct SameAlphaReconstructedRGBInputContract: Hashable {
+        let sourceSlot: Int
+        let dataSlots: Set<Int>
+    }
+
     static func hasResolvedColorContract(
         transfer: SceneShaderColorTransfer,
         textureSlots: [Program.TextureSlot?],
@@ -169,6 +177,38 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   )
               }) else { return false }
         return true
+    }
+
+    static func hasResolvedSameAlphaReconstructedRGBInputContract(
+        _ contract: SameAlphaReconstructedRGBInputContract,
+        textureSlots: [Program.TextureSlot?]
+    ) -> Bool {
+        hasResolvedSameAlphaReconstructedRGBInputContract(
+            contract,
+            textureFacts: textureSlots.map(colorTextureFact)
+        )
+    }
+
+    static func hasResolvedSameAlphaReconstructedRGBInputContract(
+        _ contract: SameAlphaReconstructedRGBInputContract,
+        textureFacts: [ColorTextureFact?]
+    ) -> Bool {
+        guard textureFacts.count == 8,
+              (0 ..< 8).contains(contract.sourceSlot),
+              !contract.dataSlots.isEmpty,
+              !contract.dataSlots.contains(contract.sourceSlot),
+              let source = representation(
+                  slot: contract.sourceSlot,
+                  textureFacts: textureFacts
+              ),
+              source == .opaque || source == .premultipliedAlpha else {
+            return false
+        }
+        return contract.dataSlots.allSatisfy { slot in
+            guard textureFacts.indices.contains(slot),
+                  let fact = textureFacts[slot] else { return false }
+            return fact.content == .data
+        }
     }
 
     static func resolveColor(

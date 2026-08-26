@@ -66,6 +66,10 @@ EXTRA_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderTypedDataRGBFilterLowering.swift",
     SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderConditionalGeneratedRGBLowering.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderSameAlphaReconstructedRGBFilterLowering.swift",
+    SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderUnitPreviousBlurredCompositeLowering.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
@@ -450,7 +454,8 @@ private enum Main {
                     profile: "ordinary-shader",
                     state: "prefer-generic",
                     fallbackOwner: "bounded-frontend"
-                )
+                ),
+                conditionalGeneratedRGBInputContract: nil
             ) : Program.assemble(input)
         }
 

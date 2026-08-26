@@ -268,18 +268,16 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(
                 fragmentSource: fragmentSource
             )
+        let sameAlphaReconstructedRGBFilterFact =
+            SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.analyze(
+                fragmentSource: fragmentSource
+            )
         let straightRGBScalarAlphaFact =
             SceneAuthoredShaderColorTransferAnalyzer.straightRGBScalarAlphaFact(
                 fragmentSource: fragmentSource
             )
-        let preservedAlphaRGBFilterTextureSlots: Set<Int>
-        if let preservedAlphaRGBFilterFact {
-            preservedAlphaRGBFilterTextureSlots = Set(
-                preservedAlphaRGBFilterFact.colorSampleCallCounts.keys
-            ).union(preservedAlphaRGBFilterFact.dataSampleCallCounts.keys)
-        } else {
-            preservedAlphaRGBFilterTextureSlots = []
-        }
+        let preservedAlphaRGBFilterTextureSlots =
+            preservedAlphaRGBFilterFact?.sampledTextureSlots ?? []
         let unitCompositeSourceFact =
             SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
                 fragmentSource: fragmentSource
@@ -327,6 +325,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 typedDataRGBFilterFact?.sourceSlot,
             typedDataRGBFilterAuxiliarySlots:
                 typedDataRGBFilterFact?.auxiliarySlots ?? [],
+            sameAlphaReconstructedRGBFilterSourceSlot:
+                sameAlphaReconstructedRGBFilterFact?.sourceSlot,
+            sameAlphaReconstructedRGBFilterAuxiliarySlots:
+                sameAlphaReconstructedRGBFilterFact?.auxiliarySlots ?? [],
             straightRGBScalarAlphaSourceSlot:
                 straightRGBScalarAlphaFact?.sourceSlot,
             straightRGBScalarAlphaAuxiliarySlots:

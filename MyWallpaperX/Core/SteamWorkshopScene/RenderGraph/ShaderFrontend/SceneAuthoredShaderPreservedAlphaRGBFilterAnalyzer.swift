@@ -15,6 +15,10 @@ nonisolated struct SceneAuthoredShaderPreservedAlphaRGBFilterFact: Equatable, Se
             uniquingKeysWith: +
         )
     }
+
+    var sampledTextureSlots: Set<Int> {
+        Set(colorSampleCallCounts.keys).union(dataSampleCallCounts.keys)
+    }
 }
 
 nonisolated enum SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer {

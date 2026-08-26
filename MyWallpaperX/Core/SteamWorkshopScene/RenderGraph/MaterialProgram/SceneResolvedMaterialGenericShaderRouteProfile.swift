@@ -68,6 +68,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-preserved-alpha-rgb-filter"
     case sourceProvenGraphInputTypedDataRGBFilter =
         "source-proven-graph-input-typed-data-rgb-filter"
+    case sourceProvenGraphInputSameAlphaReconstructedRGBDataFilter =
+        "source-proven-graph-input-same-alpha-reconstructed-rgb-data-filter"
     case sourceProvenUnitPreviousBlurredComposite =
         "source-proven-unit-previous-blurred-composite"
     case sourceProvenUnitPreviousBlurredCompositeUnowned =
@@ -121,6 +123,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         preservedAlphaRGBFilterTextureSlots: Set<Int>,
         typedDataRGBFilterSourceSlot: Int? = nil,
         typedDataRGBFilterAuxiliarySlots: Set<Int> = [],
+        sameAlphaReconstructedRGBFilterSourceSlot: Int? = nil,
+        sameAlphaReconstructedRGBFilterAuxiliarySlots: Set<Int> = [],
         straightRGBScalarAlphaSourceSlot: Int? = nil,
         straightRGBScalarAlphaAuxiliarySlots: Set<Int> = [],
         straightRGBScalarAlphaActiveSlots: Set<Int> = [],
@@ -259,6 +263,16 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([sourceSlot]) {
             self = .sourceProvenGraphInputSpatialWeightedColorBlend
         } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
+                  sameAlphaReconstructedRGBFilterSourceSlot == sourceSlot,
+                  !sameAlphaReconstructedRGBFilterAuxiliarySlots.isEmpty,
+                  sameAlphaReconstructedRGBFilterAuxiliarySlots
+                    == typedStaticDataAuxiliarySlots,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isSubset(of: Set([sourceSlot])),
+                  graphInputTextureSlots == Set([sourceSlot]) {
+            self = .sourceProvenGraphInputSameAlphaReconstructedRGBDataFilter
+        } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
                   typedDataRGBFilterSourceSlot == sourceSlot,
                   !typedDataRGBFilterAuxiliarySlots.isEmpty,
                   typedDataRGBFilterAuxiliarySlots
@@ -396,6 +410,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         switch self {
         case .ordinaryShader,
              .providerBackedScalarColorInterpolation,
+             .sourceProvenGraphInputSameAlphaReconstructedRGBDataFilter,
              .sourceProvenGraphInputStraightAlpha,
              .sourceProvenGraphInputStraightAlphaPreserving:
             .preferGeneric

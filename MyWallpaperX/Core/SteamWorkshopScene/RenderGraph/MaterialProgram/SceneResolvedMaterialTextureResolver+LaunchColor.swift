@@ -100,6 +100,23 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     )
                 }
             }
+            if let contract = variant.sameAlphaReconstructedRGBInputContract {
+                guard profiles.allSatisfy({
+                    SceneResolvedMaterialProgramDerivation
+                        .hasResolvedSameAlphaReconstructedRGBInputContract(
+                            contract,
+                            textureFacts: $0
+                        )
+                }) else {
+                    return failure(
+                        .colorContractUnproven,
+                        phase: .color,
+                        details: [
+                            "same-alpha-reconstructed-rgb-input-contract",
+                        ]
+                    )
+                }
+            }
             if case let .straightAlphaUNorm(slot) =
                 variant.frontendProgram.colorTransfer {
                 guard profiles.allSatisfy({ profile in

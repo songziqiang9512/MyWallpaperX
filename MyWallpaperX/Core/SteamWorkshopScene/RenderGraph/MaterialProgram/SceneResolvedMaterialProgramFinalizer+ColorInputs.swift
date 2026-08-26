@@ -35,6 +35,22 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
                 ]
             )
         }
+        if let contract = variant.sameAlphaReconstructedRGBInputContract,
+           !SceneResolvedMaterialProgramDerivation
+            .hasResolvedSameAlphaReconstructedRGBInputContract(
+                contract,
+                textureSlots: textureSlots
+            ) {
+            return failure(
+                .color,
+                .colorContractUnproven,
+                details: [
+                    "same-alpha-reconstructed-rgb-input-contract",
+                    contract.dataSlots.sorted()
+                        .map(String.init).joined(separator: ","),
+                ]
+            )
+        }
         return nil
     }
 }

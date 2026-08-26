@@ -122,6 +122,11 @@ private enum Harness {
                 scalarBlueSlots: [],
                 scalarAlphaSlots: []
             )
+        let reconstructedContract =
+            Derivation.SameAlphaReconstructedRGBInputContract(
+                sourceSlot: 0,
+                dataSlots: [1]
+            )
 
         let result: [String: Bool] = [
             "twoPremultipliedAccepted":
@@ -311,6 +316,44 @@ private enum Harness {
                         scalarAlphaSlots: [1]
                     ),
                     textureFacts: facts([1: .scalarRedUnorm])
+                ),
+            "reconstructedAcceptsPremultipliedSourceAndData":
+                Derivation.hasResolvedSameAlphaReconstructedRGBInputContract(
+                    reconstructedContract,
+                    textureFacts: facts([0: premultiplied, 1: .data])
+                ),
+            "reconstructedAcceptsOpaqueSourceAndData":
+                Derivation.hasResolvedSameAlphaReconstructedRGBInputContract(
+                    reconstructedContract,
+                    textureFacts: facts([0: opaque, 1: .data])
+                ),
+            "reconstructedRejectsColorAuxiliary":
+                !Derivation.hasResolvedSameAlphaReconstructedRGBInputContract(
+                    reconstructedContract,
+                    textureFacts: facts([0: premultiplied, 1: opaque])
+                ),
+            "reconstructedRejectsScalarAuxiliary":
+                !Derivation.hasResolvedSameAlphaReconstructedRGBInputContract(
+                    reconstructedContract,
+                    textureFacts: facts([
+                        0: premultiplied,
+                        1: .redGreenUnorm,
+                    ])
+                ),
+            "reconstructedRejectsMissingAuxiliary":
+                !Derivation.hasResolvedSameAlphaReconstructedRGBInputContract(
+                    reconstructedContract,
+                    textureFacts: facts([0: premultiplied])
+                ),
+            "reconstructedRejectsUnresolvedSource":
+                !Derivation.hasResolvedSameAlphaReconstructedRGBInputContract(
+                    reconstructedContract,
+                    textureFacts: facts([0: unresolved, 1: .data])
+                ),
+            "reconstructedRejectsOverlappingRoles":
+                !Derivation.hasResolvedSameAlphaReconstructedRGBInputContract(
+                    .init(sourceSlot: 0, dataSlots: [0]),
+                    textureFacts: facts([0: premultiplied])
                 ),
         ]
         FileHandle.standardOutput.write(try JSONEncoder().encode(result))
