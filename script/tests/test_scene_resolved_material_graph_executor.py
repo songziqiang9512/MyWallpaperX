@@ -92,6 +92,23 @@ struct SceneRenderDescriptor {
     }
 }
 
+// Utility source routing has its own production gate. This executor harness
+// has no utility layers, so retain only the admission dependency shape here.
+enum SceneUtilityLayerSourceRoute {
+    enum Failure: String, Error { case utilityShape = "utility-shape" }
+
+    struct Resolution {
+        let capturesCompositionSubtree: Bool
+    }
+
+    static func resolve(
+        layer: SceneRenderDescriptor.Layer,
+        descriptor: SceneRenderDescriptor
+    ) -> Result<Resolution, Failure> {
+        .failure(.utilityShape)
+    }
+}
+
 enum SceneLayerVisibility {
     static func visibleLayerIDs(in descriptor: SceneRenderDescriptor) -> Set<Int> {
         Set(descriptor.layers.map(\.id))
