@@ -346,7 +346,7 @@ private func fragmentSource(
         : ""
     let stageLocalUniform: String
     if sharedStageLocalBinding {
-        stageLocalUniform = #"uniform float g_Gain; // {"material":"alpha","default":0.75,"range":[0,1]}"#
+        stageLocalUniform = #"uniform float g_Gain; // {"material":"alpha","default":0.75,"range":[0,2]}"#
     } else if stageLocalUniforms {
         stageLocalUniform = #"uniform float g_Gain; // {"material":"fragmentGain","default":3}"#
     } else {
@@ -2938,7 +2938,7 @@ private enum Harness {
             device: device,
             uniformDeclarations: [directUserAlphaDeclaration()],
             dynamicSource: .userProperty,
-            dynamicAlphaValue: .scalar(0.4),
+            dynamicAlphaValue: .scalar(1.5),
             authoredAlphaValue: .scalar(0.75)
         )
         let sharedStageLocalDynamicUniformsEncoded: Bool = {
@@ -2953,8 +2953,8 @@ private enum Harness {
             }
             return vertex.authoredName == "g_Gain"
                 && fragment.authoredName == "g_Gain"
-                && float(program.uniformBytes, at: vertex.offset) == 0.4
-                && float(program.uniformBytes, at: fragment.offset) == 0.4
+                && float(program.uniformBytes, at: vertex.offset) == 0.75
+                && float(program.uniformBytes, at: fragment.offset) == 1.5
         }()
         let exactCrossStageUniformCases: [String: Bool] = {
             let exactDeclaration = #"uniform float g_Gain; // {"material":"alpha","default":0.75,"range":[0,1]}"#

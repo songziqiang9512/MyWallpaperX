@@ -32,12 +32,27 @@ nonisolated struct ScenePulseExecutionPlan {
         nonisolated func range(for profile: ScenePulseShaderProfile) -> ClosedRange<Double> {
             switch self {
             case .speed: 0 ... 10
-            case .phase: 0 ... 6.282
+            // Match ShaderContract's Decimal -> NSDecimalNumber decoding of
+            // the authored annotation instead of widening around a binary
+            // literal at owner-admission time.
+            case .phase: 0 ... NSDecimalNumber(string: "6.282").doubleValue
             case .amount, .noiseAmount: 0 ... 2
             case .bounds, .tintLow, .tintHigh: 0 ... 1
             case .noiseSpeed: profile.noiseSpeedRange
             case .power: 0 ... 4
             }
+        }
+
+        /// Exact author-declared consumer domain for each prepared shader
+        /// stage. The stock phase control is intentionally broader in the
+        /// fragment stage than in the vertex stage; MaterialProgram keeps the
+        /// producer scalar and applies each consumer's own fallback boundary.
+        nonisolated func authoredRange(
+            for profile: ScenePulseShaderProfile,
+            stage: SceneShaderContract.StageKind
+        ) -> ClosedRange<Double> {
+            if self == .phase, stage == .vertex { return 0 ... 1 }
+            return range(for: profile)
         }
 
         /// shader 注解的 default；`noisespeed` 的默认值随 profile 变。

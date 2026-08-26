@@ -181,11 +181,13 @@ private func definition() -> SceneEffectDefinition {
 }
 
 private func descriptor(
-    bindings: [Constant: String]
+    bindings: [Constant: String],
+    fallbackOverrides: [Constant: [Double]] = [:]
 ) -> SceneRenderDescriptor {
     let constants = Dictionary(uniqueKeysWithValues: bindings.map {
         constant, propertyKey in
-        let components = constant.defaultComponents(for: .stock2842)
+        let components = fallbackOverrides[constant]
+            ?? constant.defaultComponents(for: .stock2842)
         return (constant.rawValue, value(components, propertyKey: propertyKey))
     })
     let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
@@ -291,6 +293,7 @@ private func producer(
 private func compileInput(
     contracts: [SceneShaderContract],
     bindings: [Constant: String],
+    fallbackOverrides: [Constant: [Double]] = [:],
     producers: Set<SceneDynamicUserPropertyProducer>? = nil
 ) -> SceneEffectStageCompileInput {
     let actualProducers = producers ?? Set(bindings.map {
@@ -301,7 +304,9 @@ private func compileInput(
         effectKey: effectKey,
         definitionPath: definitionPath,
         inputRole: .layerSource,
-        descriptor: descriptor(bindings: bindings),
+        descriptor: descriptor(
+            bindings: bindings, fallbackOverrides: fallbackOverrides
+        ),
         shaderContracts: contracts,
         userPropertyProducers: actualProducers
     )
@@ -571,8 +576,21 @@ enum Harness {
             name: "g_PulseSpeed",
             range: 0 ... 9
         )
+        let wrongPhaseVertex = replacingRange(
+            stock.vertex, name: "g_PulsePhase",
+            range: 0 ... Double(1).nextDown.nextDown
+        )
+        let wrongPhaseFragment = replacingRange(
+            stock.fragment, name: "g_PulsePhase", range: 0 ... 1
+        )
 
         let result: [String: Any] = [
+            "phaseRanges": SceneResolvedMaterialShaderSchema.exactActiveUniforms(
+                materialKey: "phase", type: .float,
+                stages: [.vertex, .fragment], prepared: stock
+            )?.map {
+                [$0.authoredRange?.lowerBound ?? -1, $0.authoredRange?.upperBound ?? -1]
+            } ?? [],
             "productSpeed": outcome(compileInput(
                 contracts: contracts,
                 bindings: [.speed: "pulseSpeed"]
@@ -585,6 +603,7 @@ enum Harness {
                 contracts: contracts,
                 bindings: [
                     .speed: "pulseValue",
+                    .phase: "pulseValue",
                     .amount: "pulseValue",
                     .noiseAmount: "pulseValue",
                 ]
@@ -592,6 +611,10 @@ enum Harness {
             "productPhase": outcome(compileInput(
                 contracts: contracts,
                 bindings: [.phase: "pulsePhase"]
+            )),
+            "productPhaseUnsafeFallback": outcome(compileInput(
+                contracts: contracts, bindings: [.phase: "pulsePhase"],
+                fallbackOverrides: [.phase: [2]]
             )),
             "productBounds": outcome(compileInput(
                 contracts: contracts,
@@ -639,9 +662,11 @@ enum Harness {
                 speedPlan,
                 [stock, copy(stock, vertex: wrongRangeVertex)]
             ),
-            "phaseDisposition": ownerDisposition(
-                phasePlan,
-                [stock, stock]
+            "phaseVertexRangeDrift": ownerDisposition(
+                phasePlan, [stock, copy(stock, vertex: wrongPhaseVertex)]
+            ),
+            "phaseFragmentRangeDrift": ownerDisposition(
+                phasePlan, [stock, copy(stock, fragment: wrongPhaseFragment)]
             ),
             "boundsDisposition": ownerDisposition(
                 boundsPlan,
@@ -733,24 +758,26 @@ class ScenePulseDirectUserPropertyOwnerAdmissionTests(unittest.TestCase):
 
     def test_stock_direct_binding_cohort_revokes_the_incumbent(self) -> None:
         expected = "revoked:typed-user-property-rgb-owner-revoked-to-material-program"
-        for key in ("productSpeed", "productAmount", "productCombined"):
+        for key in ("productSpeed", "productPhase", "productAmount", "productCombined"):
             with self.subTest(key=key):
                 self.assertEqual(self.result[key], expected)
         self.assertEqual(
             self.result["stockSpeedDisposition"],
             "revoke-dedicated-owner",
         )
+        self.assertEqual(self.result["phaseRanges"][0], [0, 1])
+        self.assertEqual(self.result["phaseRanges"][1][0], 0)
+        self.assertAlmostEqual(self.result["phaseRanges"][1][1], 6.282)
 
     def test_non_cohort_bindings_retain_the_incumbent(self) -> None:
         for key in (
-            "productPhase",
             "productBounds",
+            "productPhaseUnsafeFallback",
             "productMissingProducer",
             "productWrongProducerType",
         ):
             with self.subTest(key=key):
                 self.assertEqual(self.result[key], "incumbent")
-        self.assertEqual(self.result["phaseDisposition"], "retain-incumbent")
         self.assertEqual(self.result["boundsDisposition"], "retain-incumbent")
 
     def test_shader_schema_drift_retains_the_incumbent(self) -> None:
@@ -761,6 +788,8 @@ class ScenePulseDirectUserPropertyOwnerAdmissionTests(unittest.TestCase):
             "arrayDrift",
             "typeDrift",
             "rangeDrift",
+            "phaseVertexRangeDrift",
+            "phaseFragmentRangeDrift",
         ):
             with self.subTest(key=key):
                 self.assertEqual(self.result[key], "retain-incumbent")

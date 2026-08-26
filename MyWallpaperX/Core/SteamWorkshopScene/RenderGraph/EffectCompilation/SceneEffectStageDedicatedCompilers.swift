@@ -604,11 +604,11 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             }
             let stages: [SceneShaderContract.StageKind]
             switch constant {
-            case .speed, .amount:
+            case .speed, .phase, .amount:
                 stages = [.vertex, .fragment]
             case .noiseSpeed, .noiseAmount, .power, .tintLow, .tintHigh:
                 stages = [.fragment]
-            case .phase, .bounds:
+            case .bounds:
                 return false
             }
             guard let uniforms = SceneResolvedMaterialShaderSchema.exactActiveUniforms(
@@ -616,9 +616,24 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                 type: type,
                 stages: stages,
                 prepared: prepared
-            ) else { return false }
-            return uniforms.allSatisfy {
-                $0.authoredRange == constant.range(for: plan.shaderProfile)
+            ), let fallback = plan.staticOrFallbackValues[constant]
+            else { return false }
+            let fallbackComponents: [Double]
+            switch constant.valueType {
+            case .scalar: fallbackComponents = [fallback.x]
+            case .vector2: fallbackComponents = [fallback.x, fallback.y]
+            case .vector3: fallbackComponents = [fallback.x, fallback.y, fallback.z]
+            default: return false
+            }
+            return zip(stages, uniforms).allSatisfy { stage, uniform in
+                let expectedRange = constant.authoredRange(
+                    for: plan.shaderProfile,
+                    stage: stage
+                )
+                return uniform.authoredRange == expectedRange
+                    && fallbackComponents.allSatisfy {
+                        $0.isFinite && expectedRange.contains($0)
+                    }
             }
         }
     }
@@ -648,9 +663,9 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         return .revokeDedicatedOwner
     }
 
-    /// Transfers direct Pulse constants whose exact active stages share one
-    /// authored numeric domain expressible by the shared shader schema. Phase
-    /// and relational vector2 bounds retain the incumbent owner.
+    /// Transfers direct Pulse constants whose exact active stage-indexed
+    /// domains are expressible by the shared shader schema. Relational vector2
+    /// bounds retain the incumbent owner.
     private nonisolated static func directColorBindingCohortIsProven(
         _ plan: ScenePulseExecutionPlan
     ) -> Bool {
@@ -659,7 +674,7 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
               !plan.pulseAlpha,
               !plan.bindings.isEmpty else { return false }
         let supported: Set<ScenePulseExecutionPlan.Constant> = [
-            .speed, .amount,
+            .speed, .phase, .amount,
             .noiseSpeed, .noiseAmount, .power, .tintLow, .tintHigh,
         ]
         return plan.bindings.keys.allSatisfy(supported.contains)

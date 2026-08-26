@@ -935,7 +935,7 @@ fragment float4 mwxGenericFragment(
         self.assertIn("directColorBindingCohortIsProven(plan)", pulse_compiler)
         self.assertIn("exactUserPropertyProducersAreProven(", pulse_compiler)
         for direct_constant in (
-            ".speed", ".amount",
+            ".speed", ".phase", ".amount",
             ".noiseSpeed", ".noiseAmount", ".power", ".tintLow", ".tintHigh",
         ):
             self.assertIn(direct_constant, pulse_compiler)
@@ -947,12 +947,15 @@ fragment float4 mwxGenericFragment(
             cohort_start,
         )
         direct_cohort = pulse_compiler[cohort_start:cohort_end]
-        self.assertNotIn(".phase", direct_cohort)
+        self.assertIn(".phase", direct_cohort)
         self.assertNotIn(".bounds", direct_cohort)
-        self.assertIn("case .speed, .amount:", pulse_compiler)
+        self.assertIn("case .speed, .phase, .amount:", pulse_compiler)
         self.assertIn("stages = [.vertex, .fragment]", pulse_compiler)
-        self.assertIn("case .phase, .bounds:", pulse_compiler)
+        self.assertIn("case .bounds:", pulse_compiler)
         self.assertIn("exactActiveUniforms(", pulse_compiler)
+        self.assertIn("constant.authoredRange(", pulse_compiler)
+        self.assertIn("uniform.authoredRange == expectedRange", pulse_compiler)
+        self.assertIn("expectedRange.contains($0)", pulse_compiler)
         shader_schema = SHADER_SCHEMA_SOURCE.read_text(encoding="utf-8")
         self.assertIn("static func exactActiveUniforms(", shader_schema)
         self.assertIn("matches.count == stages.count", shader_schema)
@@ -961,7 +964,6 @@ fragment float4 mwxGenericFragment(
         self.assertIn("valueType: constant.valueType", pulse_compiler)
         self.assertIn("exactUserPropertyBindingsAreProven(", pulse_compiler)
         self.assertIn("activeUserPropertyConsumersAreProven(", pulse_compiler)
-        self.assertIn("$0.authoredRange == constant.range", pulse_compiler)
         self.assertIn(
             "SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(",
             pulse_compiler,
